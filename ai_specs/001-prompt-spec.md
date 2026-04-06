@@ -79,12 +79,12 @@ Navigation flow:
 - "/settings" → Settings screen
 
 **Icon Mapping:**
-| Menu Item | Icon | Tooltip Text |
-|-----------|------|--------------|
-| Dashboard | `Icons.dashboard` | "Dashboard" |
-| Map | `Icons.map` | "Map" |
-| Peak Lists | `Icons.landscape` | "Peak Lists" |
-| Settings | `Icons.settings` | "Settings" |
+| Menu Item | Icon |
+|-----------|------|
+| Dashboard | `Icons.dashboard` |
+| Map | `Icons.map` |
+| Peak Lists | `Icons.landscape` |
+| Settings | `Icons.settings` |
 
 **Persistence:**
 - Key: "theme_mode" (value: "dark", "light", or "system")

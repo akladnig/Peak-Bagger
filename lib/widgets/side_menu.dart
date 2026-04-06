@@ -33,7 +33,7 @@ class SideMenu extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           _MenuItem(
-            icon: Icons.list_alt,
+            icon: Icons.landscape,
             isSelected: navigationShell.currentIndex == 2,
             onTap: () => navigationShell.goBranch(2),
           ),
