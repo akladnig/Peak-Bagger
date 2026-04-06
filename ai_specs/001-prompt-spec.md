@@ -56,7 +56,8 @@ Navigation flow:
 2. Application icon showing a mountain peak (macOS dock/window icon)
 3. macOS window title displays "Peak Bagger"
 4. Side menu: 64px wide, left side, icons only, no text labels, no tooltips
-5. Four menu items in order (top to bottom): Dashboard, Map, Peak Lists, Settings
+5. App icon (mountain peak) at top of side menu
+6. Four menu items below icon: Dashboard, Map, Peak Lists, Settings
 6. Each menu item displays icon for navigation
 7. Theme toggle at bottom of side menu
 8. No headers on screens (clean, full-width content area)

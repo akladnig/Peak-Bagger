@@ -20,6 +20,17 @@ class SideMenu extends ConsumerWidget {
       child: Column(
         children: [
           const SizedBox(height: 16),
+          Container(
+            width: 48,
+            height: 48,
+            alignment: Alignment.center,
+            child: Icon(
+              Icons.terrain,
+              size: 32,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 8),
           _MenuItem(
             icon: Icons.dashboard,
             isSelected: navigationShell.currentIndex == 0,
