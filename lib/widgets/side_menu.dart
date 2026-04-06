@@ -18,28 +18,24 @@ class SideMenu extends StatelessWidget {
           const SizedBox(height: 16),
           _MenuItem(
             icon: Icons.dashboard,
-            label: 'Dashboard',
             isSelected: navigationShell.currentIndex == 0,
             onTap: () => navigationShell.goBranch(0),
           ),
           const SizedBox(height: 8),
           _MenuItem(
             icon: Icons.map,
-            label: 'Map',
             isSelected: navigationShell.currentIndex == 1,
             onTap: () => navigationShell.goBranch(1),
           ),
           const SizedBox(height: 8),
           _MenuItem(
             icon: Icons.list_alt,
-            label: 'Peak Lists',
             isSelected: navigationShell.currentIndex == 2,
             onTap: () => navigationShell.goBranch(2),
           ),
           const SizedBox(height: 8),
           _MenuItem(
             icon: Icons.settings,
-            label: 'Settings',
             isSelected: navigationShell.currentIndex == 3,
             onTap: () => navigationShell.goBranch(3),
           ),
@@ -51,13 +47,11 @@ class SideMenu extends StatelessWidget {
 
 class _MenuItem extends StatelessWidget {
   final IconData icon;
-  final String label;
   final bool isSelected;
   final VoidCallback onTap;
 
   const _MenuItem({
     required this.icon,
-    required this.label,
     required this.isSelected,
     required this.onTap,
   });
@@ -67,25 +61,20 @@ class _MenuItem extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Tooltip(
-      message: label,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: isSelected
-                ? (isDark ? const Color(0xFF45475A) : const Color(0xFFBCC0CC))
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            icon,
-            color: isSelected
-                ? theme.colorScheme.primary
-                : theme.iconTheme.color,
-          ),
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? const Color(0xFF45475A) : const Color(0xFFBCC0CC))
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(
+          icon,
+          color: isSelected ? theme.colorScheme.primary : theme.iconTheme.color,
         ),
       ),
     );

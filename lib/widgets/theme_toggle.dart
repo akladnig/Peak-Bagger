@@ -15,7 +15,6 @@ class ThemeToggle extends ConsumerWidget {
       onPressed: () {
         ref.read(themeModeProvider.notifier).toggleTheme();
       },
-      tooltip: isDark ? 'Switch to light mode' : 'Switch to dark mode',
     );
   }
 }

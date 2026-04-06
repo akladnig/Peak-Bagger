@@ -55,7 +55,7 @@ Navigation flow:
 1. App launches in full-screen mode on MacOS
 2. Application icon showing a mountain peak (macOS dock/window icon)
 3. macOS window title displays "Peak Bagger"
-4. Side menu: 64px wide, left side, icons only, no text labels
+4. Side menu: 64px wide, left side, icons only, no text labels, no tooltips
 5. Four menu items in order (top to bottom): Dashboard, Map, Peak Lists, Settings
 6. Each menu item displays icon for navigation
 7. Dark/Light mode toggle icon in top-right of each screen (in header bar)
@@ -150,7 +150,7 @@ lib/
 - App runs on MacOS simulator in full-screen mode
 - Window title displays "Peak Bagger"
 - macOS dock shows mountain peak application icon
-- Left menu shows 4 icon-only items (Dashboard, Map, Peak Lists, Settings)
+- Left menu shows 4 icon-only items (Dashboard, Map, Peak Lists, Settings) - no text, no tooltips
 - Clicking menu item navigates to corresponding screen
 - Each screen displays "Dashboard", "Map", "Peak Lists", or "Settings" placeholder
 - Top-right icon toggles between moon (light mode) and sun (dark mode)
