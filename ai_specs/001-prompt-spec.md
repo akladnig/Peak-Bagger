@@ -60,7 +60,7 @@ Navigation flow:
 6. Each menu item displays icon for navigation
 7. Theme toggle at bottom of side menu
 8. No headers on screens (clean, full-width content area)
-8. Dark mode uses Catppuccin Mocha palette
+9. Dark mode uses Catppuccin Mocha palette
 9. Light mode uses Catppuccin Latte palette
 10. Theme defaults to system preference on first launch
 11. Theme preference persists via shared_preferences
@@ -77,6 +77,14 @@ Navigation flow:
 - "/map" → Map screen
 - "/peaks" → Peak Lists screen
 - "/settings" → Settings screen
+
+**Icon Mapping:**
+| Menu Item | Icon | Tooltip Text |
+|-----------|------|--------------|
+| Dashboard | `Icons.dashboard` | "Dashboard" |
+| Map | `Icons.map` | "Map" |
+| Peak Lists | `Icons.landscape` | "Peak Lists" |
+| Settings | `Icons.settings` | "Settings" |
 
 **Persistence:**
 - Key: "theme_mode" (value: "dark", "light", or "system")
