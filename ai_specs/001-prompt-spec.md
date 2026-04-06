@@ -58,7 +58,8 @@ Navigation flow:
 4. Side menu: 64px wide, left side, icons only, no text labels, no tooltips
 5. Four menu items in order (top to bottom): Dashboard, Map, Peak Lists, Settings
 6. Each menu item displays icon for navigation
-7. Dark/Light mode toggle icon in top-right of each screen (in header bar)
+7. Theme toggle at bottom of side menu
+8. No headers on screens (clean, full-width content area)
 8. Dark mode uses Catppuccin Mocha palette
 9. Light mode uses Catppuccin Latte palette
 10. Theme defaults to system preference on first launch
@@ -153,7 +154,7 @@ lib/
 - Left menu shows 4 icon-only items (Dashboard, Map, Peak Lists, Settings) - no text, no tooltips
 - Clicking menu item navigates to corresponding screen
 - Each screen displays "Dashboard", "Map", "Peak Lists", or "Settings" placeholder
-- Top-right icon toggles between moon (light mode) and sun (dark mode)
+- Top-right icon toggles between moon (light mode) and sun (dark mode) - now at bottom of side menu
 - Theme persists across app restarts
 - All tests pass
 </done_when>
