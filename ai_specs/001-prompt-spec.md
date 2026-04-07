@@ -119,17 +119,17 @@ Error scenarios:
 lib/
 ├── main.dart           # Entry point with ProviderScope
 ├── app.dart            # MaterialApp with theme and router
-├── router.dart         # GoRouter configuration
+├── router.dart         # GoRouter with floating theme toggle
 ├── theme.dart          # Catppuccin color constants and themes
 ├── providers/
-│   └── theme_provider.dart  # ThemeMode state management
+│   └── theme_provider.dart  # ThemeMode state management (Notifier)
 ├── screens/
 │   ├── dashboard_screen.dart
 │   ├── map_screen.dart
 │   ├── peak_lists_screen.dart
 │   └── settings_screen.dart
 └── widgets/
-    └── side_menu.dart  # Vertical navigation menu
+    └── side_menu.dart  # Vertical navigation menu with app icon
 ```
 </implementation>
 
