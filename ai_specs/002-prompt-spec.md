@@ -99,8 +99,8 @@ Error flows:
 31. Pan left: h or Left arrow
 32. Pan right: l or Right arrow
 33. Open Layers (basemap selector): b key
-33. Show My Location: s key
-34. Go to Location: g key
+34. Show My Location: s key
+35. Go to Location: g key
 
 **Touch Controls:**
 35. Pinch-to-zoom
