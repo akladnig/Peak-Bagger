@@ -12,6 +12,7 @@ MacOS-only for this phase (iOS to follow).
 - go_router ^17.2.0 for navigation
 - shared_preferences ^2.5.0 for persistent settings
 - flutter_riverpod ^3.2.1 for state management
+- font_awesome_flutter ^10.8.0 for icons
 - flutter_lints ^6.0.0 for linting
 
 **Existing Code:**
@@ -81,7 +82,7 @@ Navigation flow:
 **Icon Mapping:**
 | Menu Item | Icon |
 |-----------|------|
-| App Icon | `Icons.terrain` |
+| App Icon | `FontAwesomeIcons.mountain` |
 | Dashboard | `Icons.dashboard` |
 | Map | `Icons.map` |
 | Peak Lists | `Icons.landscape` |

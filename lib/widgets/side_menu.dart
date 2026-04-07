@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 
 class SideMenu extends StatelessWidget {
@@ -20,8 +21,8 @@ class SideMenu extends StatelessWidget {
             width: 48,
             height: 48,
             alignment: Alignment.center,
-            child: Icon(
-              Icons.terrain,
+            child: FaIcon(
+              FontAwesomeIcons.mountain,
               size: 32,
               color: theme.colorScheme.primary,
             ),
