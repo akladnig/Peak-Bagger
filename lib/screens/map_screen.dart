@@ -74,11 +74,23 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   _mapController.camera.center,
                   _mapController.camera.zoom + 1,
                 );
+                ref
+                    .read(mapProvider.notifier)
+                    .updatePosition(
+                      _mapController.camera.center,
+                      _mapController.camera.zoom + 1,
+                    );
               } else {
                 _mapController.move(
                   _mapController.camera.center,
                   _mapController.camera.zoom - 1,
                 );
+                ref
+                    .read(mapProvider.notifier)
+                    .updatePosition(
+                      _mapController.camera.center,
+                      _mapController.camera.zoom - 1,
+                    );
               }
               return KeyEventResult.handled;
             } else if (key == LogicalKeyboardKey.keyK ||
@@ -280,10 +292,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   void _moveMap(double dx, double dy) {
     final center = _mapController.camera.center;
-    _mapController.move(
-      LatLng(center.latitude + dy, center.longitude + dx),
-      _mapController.camera.zoom,
-    );
+    final newCenter = LatLng(center.latitude + dy, center.longitude + dx);
+    _mapController.move(newCenter, _mapController.camera.zoom);
+    ref
+        .read(mapProvider.notifier)
+        .updatePosition(newCenter, _mapController.camera.zoom);
   }
 
   void _goToCurrentLocation() {
