@@ -8,7 +8,7 @@ MacOS-only for this phase (iOS to follow).
 
 <background>
 **Tech Stack:**
-- Flutter with Dart SDK ^3.8.0
+- Flutter with Dart SDK ^3.11.4
 - go_router ^17.2.0 for navigation
 - shared_preferences ^2.5.0 for persistent settings
 - flutter_riverpod ^3.2.1 for state management
@@ -21,18 +21,17 @@ MacOS-only for this phase (iOS to follow).
 - Dark mode: Catppuccin Mocha (https://catppuccin.com/palette/)
 - Light mode: Catppuccin Latte
 
-**Files to create:**
-- @lib/main.dart - Entry point with Riverpod setup
+**Files (created):**
+- @lib/main.dart - Entry point with ProviderScope
 - @lib/app.dart - App configuration with theme and router
-- @lib/router.dart - GoRouter configuration
+- @lib/router.dart - GoRouter configuration with theme toggle in floating position
 - @lib/theme.dart - Catppuccin theme definitions
-- @lib/providers/theme_provider.dart - Theme state management
+- @lib/providers/theme_provider.dart - Theme state management (Notifier pattern)
 - @lib/screens/dashboard_screen.dart
 - @lib/screens/map_screen.dart
 - @lib/screens/peak_lists_screen.dart
 - @lib/screens/settings_screen.dart
-- @lib/widgets/side_menu.dart - Vertical navigation menu
-- @macos/Runner/Assets.xcassets/AppIcon.appiconset/ - Application icon (mountain peak)
+- @lib/widgets/side_menu.dart - Vertical navigation menu with app icon
 </background>
 
 <user_flows>
@@ -41,7 +40,7 @@ Primary flow:
 2. Left vertical menu displays with 4 icon-only items
 3. User clicks menu icon to navigate to that screen
 4. Screen displays placeholder text with screen name
-5. User clicks moon/sun icon in top-right to toggle dark/light mode
+5. User clicks moon/sun icon in top-right floating position to toggle dark/light mode
 
 Navigation flow:
 - Dashboard (home) ↔ Map
@@ -58,15 +57,15 @@ Navigation flow:
 4. Side menu: 64px wide, left side, icons only, no text labels, no tooltips
 5. App icon (mountain peak) at top of side menu
 6. Four menu items below icon: Dashboard, Map, Peak Lists, Settings
-6. Each menu item displays icon for navigation
-7. Theme toggle at bottom of side menu
-8. No headers on screens (clean, full-width content area)
-9. Dark mode uses Catppuccin Mocha palette
-9. Light mode uses Catppuccin Latte palette
-10. Theme defaults to system preference on first launch
-11. Theme preference persists via shared_preferences
-12. GoRouter handles navigation between screens
-13. Each screen displays placeholder text showing screen name
+7. Each menu item displays icon for navigation
+8. Theme toggle as floating icon in top-right of screen
+9. No headers on screens (clean, full-width content area)
+10. Dark mode uses Catppuccin Mocha palette
+11. Light mode uses Catppuccin Latte palette
+12. Theme defaults to system preference on first launch
+13. Theme preference persists via shared_preferences
+14. GoRouter handles navigation between screens
+15. Each screen displays placeholder text showing screen name
 
 **Theme Configuration:**
 - Moon icon (Icons.dark_mode or similar) shown in light mode
@@ -82,6 +81,7 @@ Navigation flow:
 **Icon Mapping:**
 | Menu Item | Icon |
 |-----------|------|
+| App Icon | `Icons.terrain` |
 | Dashboard | `Icons.dashboard` |
 | Map | `Icons.map` |
 | Peak Lists | `Icons.landscape` |
@@ -107,7 +107,7 @@ Error scenarios:
 <implementation>
 **Patterns:**
 - Use ProviderScope at root for Riverpod
-- ThemeNotifier extends StateNotifier<ThemeMode>
+- ThemeModeNotifier extends Notifier<ThemeMode>
 - GoRouter with StatefulShellRoute.indexedStack for persistent side menu
 
 **Avoid:**
@@ -142,7 +142,7 @@ lib/
 **Widget tests:**
 - SideMenu: Renders 4 icons, navigates on tap, has correct theme background
 - Each screen: Displays correct placeholder text
-- ThemeToggle: Shows correct icon for current mode, toggles on tap, displays in header
+- ThemeToggle: Shows correct icon for current mode, toggles on tap, displays in top-right floating position
 
 **Integration tests:**
 - App launches to Dashboard
@@ -163,7 +163,7 @@ lib/
 - Left menu shows 4 icon-only items (Dashboard, Map, Peak Lists, Settings) - no text, no tooltips
 - Clicking menu item navigates to corresponding screen
 - Each screen displays "Dashboard", "Map", "Peak Lists", or "Settings" placeholder
-- Top-right icon toggles between moon (light mode) and sun (dark mode) - now at bottom of side menu
+- Floating Theme toggle at top right switches between moon (light) and sun (dark)
 - Theme persists across app restarts
 - All tests pass
 </done_when>

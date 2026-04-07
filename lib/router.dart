@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:peak_bagger/screens/dashboard_screen.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/screens/peak_lists_screen.dart';
 import 'package:peak_bagger/screens/settings_screen.dart';
 import 'package:peak_bagger/widgets/side_menu.dart';
+import 'package:peak_bagger/providers/theme_provider.dart';
 
 final router = GoRouter(
   initialLocation: '/',
@@ -12,10 +14,30 @@ final router = GoRouter(
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) {
         return Scaffold(
-          body: Row(
+          body: Stack(
             children: [
-              SideMenu(navigationShell: navigationShell),
-              Expanded(child: navigationShell),
+              Row(
+                children: [
+                  SideMenu(navigationShell: navigationShell),
+                  Expanded(child: navigationShell),
+                ],
+              ),
+              Positioned(
+                top: 16,
+                right: 16,
+                child: Consumer(
+                  builder: (context, ref, _) {
+                    final themeMode = ref.watch(themeModeProvider);
+                    final isDark = themeMode == ThemeMode.dark;
+                    return IconButton(
+                      icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
+                      onPressed: () {
+                        ref.read(themeModeProvider.notifier).toggleTheme();
+                      },
+                    );
+                  },
+                ),
+              ),
             ],
           ),
         );

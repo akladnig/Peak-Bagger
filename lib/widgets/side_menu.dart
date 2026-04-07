@@ -1,18 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:peak_bagger/providers/theme_provider.dart';
 
-class SideMenu extends ConsumerWidget {
+class SideMenu extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
 
   const SideMenu({super.key, required this.navigationShell});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final themeMode = ref.watch(themeModeProvider);
-    final isDark = themeMode == ThemeMode.dark;
 
     return Container(
       width: 64,
@@ -54,14 +50,6 @@ class SideMenu extends ConsumerWidget {
             isSelected: navigationShell.currentIndex == 3,
             onTap: () => navigationShell.goBranch(3),
           ),
-          const Spacer(),
-          IconButton(
-            icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
-            onPressed: () {
-              ref.read(themeModeProvider.notifier).toggleTheme();
-            },
-          ),
-          const SizedBox(height: 16),
         ],
       ),
     );
