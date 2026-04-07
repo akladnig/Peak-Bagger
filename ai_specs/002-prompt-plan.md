@@ -21,15 +21,15 @@ Implement Phase 2 - Interactive map of Tasmania with multiple basemaps, location
 
 ### Phase 2: Map Screen UI
 
-- [ ] Replace placeholder in `lib/screens/map_screen.dart` with flutter_map
-- [ ] Set default center: Tasmania (-41.5°S, 146.5°E), zoom ~11
-- [ ] Implement Tracestrack topo as default basemap
-- [ ] Implement OpenStreetMap as alternative basemap
+- [x] Replace placeholder in `lib/screens/map_screen.dart` with flutter_map
+- [x] Set default center: Tasmania (-41.5°S, 146.5°E), zoom ~11
+- [x] Implement Tracestrack topo as default basemap
+- [x] Implement OpenStreetMap as alternative basemap
 
 ### Phase 3: Floating Controls
 
-- [ ] Add floating Layers icon - opens sliding panel with radio buttons for basemap selection
-- [ ] Add floating Show My Location icon (Icons.near_me)
+- [x] Add floating Layers icon - opens sliding panel with radio buttons for basemap selection
+- [x] Add floating Show My Location icon (Icons.near_me)
 - [ ] Add floating Go to Location icon (Icons.moved_location) - opens floating text input field
 
 ### Phase 4: MGRS Display
