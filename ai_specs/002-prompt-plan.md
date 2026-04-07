@@ -15,9 +15,9 @@ Implement Phase 2 - Interactive map of Tasmania with multiple basemaps, location
 
 ### Phase 1: Map Provider & State
 
-- [ ] Create `lib/providers/map_provider.dart` with Notifier for map state (position, zoom, basemap)
-- [ ] Add SharedPreferences keys: `map_position_lat`, `map_position_lng`, `map_zoom`
-- [ ] Implement position save/load on app launch
+- [x] Create `lib/providers/map_provider.dart` with Notifier for map state (position, zoom, basemap)
+- [x] Add SharedPreferences keys: `map_position_lat`, `map_position_lng`, `map_zoom`
+- [x] Implement position save/load on app launch
 
 ### Phase 2: Map Screen UI
 
