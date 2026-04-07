@@ -62,7 +62,7 @@ Error flows:
 4. Subsequent launches: restore last viewed position and zoom
 5. Default basemap: Tracestrack topo (https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp?key=8bd67b17be9041b60f241c2aa45ecf0d)
 6. Alternative basemap: OpenStreetMap (https://tile.openstreetmap.org/{z}/{x}/{y}.png)
-7. Floating Layers icon to switch between basemaps - opens Drawer widget sliding from right side of screen
+7. Floating Layers icon to switch between basemaps - opens Drawer widget sliding from right side of screen. Icon background color matches current theme (light/dark).
 8. Current MGRS location displayed as overlay text at top-left of map using standard MGRS format:
    - Format: [Grid Zone][100km Square]\n[Easting] [Northing]
    - Example: "55G FN\n00000 00000" for 1m precision
