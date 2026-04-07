@@ -153,32 +153,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 ),
               ),
             ),
-            Positioned(
-              right: 16,
-              top: 16,
-              child: Column(
-                children: [
-                  FloatingActionButton.small(
-                    heroTag: 'layers',
-                    onPressed: () => _showBasemapPanel(context),
-                    child: const Icon(Icons.layers),
-                  ),
-                  const SizedBox(height: 8),
-                  FloatingActionButton.small(
-                    heroTag: 'mylocation',
-                    onPressed: _goToCurrentLocation,
-                    child: const Icon(Icons.near_me),
-                  ),
-                  const SizedBox(height: 8),
-                  FloatingActionButton.small(
-                    heroTag: 'goto',
-                    onPressed: () =>
-                        setState(() => _showGotoInput = !_showGotoInput),
-                    child: const Icon(Icons.directions),
-                  ),
-                ],
-              ),
-            ),
             if (_showGotoInput)
               Positioned(
                 left: 16,
@@ -270,7 +244,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     // TODO: Implement GPS location
   }
 
-  void _showBasemapPanel(BuildContext context) {
+  // Public method for external callers
+  void showBasemapPanel(BuildContext context) {
     showModalBottomSheet(
       context: context,
       builder: (context) => Consumer(

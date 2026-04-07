@@ -7,6 +7,7 @@ import 'package:peak_bagger/screens/peak_lists_screen.dart';
 import 'package:peak_bagger/screens/settings_screen.dart';
 import 'package:peak_bagger/widgets/side_menu.dart';
 import 'package:peak_bagger/providers/theme_provider.dart';
+import 'package:peak_bagger/providers/map_provider.dart';
 
 final router = GoRouter(
   initialLocation: '/',
@@ -29,11 +30,88 @@ final router = GoRouter(
                   builder: (context, ref, _) {
                     final themeMode = ref.watch(themeModeProvider);
                     final isDark = themeMode == ThemeMode.dark;
-                    return IconButton(
-                      icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
-                      onPressed: () {
-                        ref.read(themeModeProvider.notifier).toggleTheme();
-                      },
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            isDark ? Icons.light_mode : Icons.dark_mode,
+                          ),
+                          onPressed: () {
+                            ref.read(themeModeProvider.notifier).toggleTheme();
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        if (navigationShell.currentIndex == 1) ...[
+                          FloatingActionButton.small(
+                            heroTag: 'layers',
+                            onPressed: () {
+                              showModalBottomSheet(
+                                context: context,
+                                builder: (ctx) => Consumer(
+                                  builder: (ctx, ref, _) {
+                                    final mapState = ref.watch(mapProvider);
+                                    return Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        ListTile(
+                                          leading: const Icon(Icons.map),
+                                          title: const Text('Tracestrack Topo'),
+                                          trailing:
+                                              mapState.basemap ==
+                                                  Basemap.tracestrack
+                                              ? const Icon(Icons.check)
+                                              : null,
+                                          onTap: () {
+                                            ref
+                                                .read(mapProvider.notifier)
+                                                .setBasemap(
+                                                  Basemap.tracestrack,
+                                                );
+                                            Navigator.pop(ctx);
+                                          },
+                                        ),
+                                        ListTile(
+                                          leading: const Icon(
+                                            Icons.map_outlined,
+                                          ),
+                                          title: const Text('OpenStreetMap'),
+                                          trailing:
+                                              mapState.basemap ==
+                                                  Basemap.openstreetmap
+                                              ? const Icon(Icons.check)
+                                              : null,
+                                          onTap: () {
+                                            ref
+                                                .read(mapProvider.notifier)
+                                                .setBasemap(
+                                                  Basemap.openstreetmap,
+                                                );
+                                            Navigator.pop(ctx);
+                                          },
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              );
+                            },
+                            child: const Icon(Icons.layers),
+                          ),
+                          const SizedBox(height: 8),
+                          FloatingActionButton.small(
+                            heroTag: 'mylocation',
+                            onPressed: () {},
+                            child: const Icon(Icons.near_me),
+                          ),
+                          const SizedBox(height: 8),
+                          FloatingActionButton.small(
+                            heroTag: 'goto',
+                            onPressed: () {},
+                            child: const Icon(Icons.directions),
+                          ),
+                        ],
+                      ],
                     );
                   },
                 ),
