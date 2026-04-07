@@ -90,8 +90,8 @@ Error flows:
 22. Map does not need focus. When any keyboard shortcut key is pressed, automatically give focus to map and perform the action.
 23. Zoom in: + key
 24. Zoom out: - key
-25. Zoom in: , key
-26. Zoom out: . key
+25. Zoom out: , key
+26. Zoom in: . key
 27. Zoom in: < key
 28. Zoom out: > key
 29. Pan up: k or Up arrow

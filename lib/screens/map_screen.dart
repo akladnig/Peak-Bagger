@@ -75,7 +75,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 key == LogicalKeyboardKey.minus ||
                 key == LogicalKeyboardKey.greater) {
               if (key == LogicalKeyboardKey.equal ||
-                  key == LogicalKeyboardKey.comma ||
+                  key == LogicalKeyboardKey.period ||
                   key == LogicalKeyboardKey.less ||
                   key == LogicalKeyboardKey.add) {
                 _mapController.move(
