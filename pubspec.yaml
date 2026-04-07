@@ -15,7 +15,6 @@ dependencies:
   font_awesome_flutter: ^10.8.0
   flutter_map: ^8.2.2
   latlong2: ^0.9.1
-  geolocator: ^14.0.2
   mgrs_dart: ^2.0.0
 
 dev_dependencies:

@@ -10,7 +10,7 @@ MacOS-only (continuing from Phase 1).
 **Tech Stack:**
 - Flutter with Dart SDK ^3.11.4
 - flutter_map ^8.2.2 for map display
-- geolocator ^14.0.2 for GPS location
+- IP-based location service for current location
 - mgrs_dart ^2.0.0 for MGRS coordinate conversion
 - Existing: go_router, shared_preferences, flutter_riverpod, font_awesome_flutter
 
@@ -26,7 +26,7 @@ MacOS-only (continuing from Phase 1).
 
 **Files to modify:**
 - @lib/screens/map_screen.dart - Implement map with all controls
-- @pubspec.yaml - Add flutter_map, geolocator, mgrs_dart dependencies
+- @pubspec.yaml - Add flutter_map, mgrs_dart dependencies
 
 **Assets to create:**
 - @assets/OSM_standard/ - Cached OpenStreetMap tiles
@@ -69,12 +69,12 @@ Error flows:
 9. MGRS display updates in three scenarios:
    a. User taps/clicks on map: show MGRS of tapped location, center map on that location
    b. User enters grid reference via Go to Location: show converted MGRS of destination
-   c. User taps Show My Location: show current GPS location as MGRS
+   c. User taps Show My Location: show current IP-based location as MGRS
 10. On mouse/trackpad drag: show cursor arrow at finger position, display MGRS at cursor position in real-time
 11. Save tiles to assets folder for full offline mode (do not use built-in caching)
 12. Separate folder under assets for each distinct tile set
 13. Future: tiles will be saved in database
-14. Floating Show My Location icon (Icons.near_me) - goes to current GPS location
+14. Floating Show My Location icon (Icons.near_me) - goes to current IP-based location
 15. Floating Go to Location icon (Icons.moved_location) - opens floating text input field
 16. Floating input field UI: TextField with "Go to location" placeholder, "Go" button to navigate, "X" button to close
 17. Clicking "X" closes input field and stays at current map position (no navigation)
@@ -127,10 +127,6 @@ Edge cases:
 - Invalid grid reference: Display error, maintain current map position
 - Location services unavailable: Fall back to saved position or default location
 - Network unavailable: Use cached tiles, show offline indicator
-- First launch: Tile download in progress - show progress indicator, allow limited interaction with map
-
-Error scenarios:
-- No GPS permission: Prompt user, allow grid reference entry instead
 - Malformed grid reference: "Invalid grid reference" message
 - Tile loading failure: Show error tile or fallback to cached version
 
@@ -141,14 +137,14 @@ Limits:
 <implementation>
 **Patterns:**
 - Use flutter_map for display (not Google Maps due to licensing)
-- Use geolocator package for GPS location
+- Use IP-based location service for current location
 - Use mgrs_dart for MGRS to lat/long conversion
 - Use Notifier/NotifierProvider for map state (position, zoom, basemap)
 - Load tiles from assets folder for full offline mode
 - Each tile set in separate folder under assets
 
 **Files to modify:**
-- @pubspec.yaml - add flutter_map ^8.2.2, geolocator ^14.0.2, mgrs_dart ^3.0.0, declare assets
+- @pubspec.yaml - add flutter_map ^8.2.2, mgrs_dart ^2.0.0, declare assets
 - @lib/screens/map_screen.dart - full map implementation
 - @lib/providers/map_provider.dart - new state management
 
