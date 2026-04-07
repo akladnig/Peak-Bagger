@@ -21,7 +21,7 @@ MacOS-only (continuing from Phase 1).
 
 **Map Configuration:**
 - Default center: Tasmania (approx -41.5°S, 146.5°E)
-- Default zoom: ~8km wide x 5km high (roughly zoom level 10-11)
+- Default zoom: ~8km wide x 5km high (roughly zoom level 15)
 - Basemaps: Tracestrack topo (default), OpenStreetMap (alternative)
 
 **Files to modify:**
@@ -57,7 +57,7 @@ Error flows:
 <requirements>
 **Functional:**
 1. Display interactive map using flutter_map
-2. Default zoom level showing ~8km wide x 5km high (zoom ~11)
+2. Default zoom level showing ~8km wide x 5km high (zoom ~15)
 3. On first launch of app AND first time visiting map screen: zoom to current location, default zoom level
 4. Subsequent launches: restore last viewed position and zoom
 5. Default basemap: Tracestrack topo (https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp?key=8bd67b17be9041b60f241c2aa45ecf0d)
@@ -104,7 +104,7 @@ Error flows:
 **Touch Controls:**
 35. Pinch-to-zoom
 36. Drag-to-pan
-37. Zoom level indicator at bottom-left of map (e.g., "zoom: 11" or scale bar)
+37. Zoom level indicator at bottom-left of map (e.g., "zoom: 15" or scale bar)
 
 **Persistence:**
 38. Save last viewed position to shared_preferences using keys: `map_position_lat`, `map_position_lng`, `map_zoom`

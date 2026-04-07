@@ -8,7 +8,7 @@ const _lngKey = 'map_position_lng';
 const _zoomKey = 'map_zoom';
 
 const _defaultCenter = LatLng(-41.5, 146.5);
-const _defaultZoom = 11.0;
+const _defaultZoom = 15.0;
 
 enum Basemap { tracestrack, openstreetmap }
 
