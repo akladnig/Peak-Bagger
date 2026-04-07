@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/providers/map_provider.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
@@ -17,6 +18,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   bool _showGotoInput = false;
   final _gotoController = TextEditingController();
   String? _gotoError;
+  String _cursorMgrs = '';
 
   @override
   void initState() {
@@ -29,6 +31,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     _mapController.dispose();
     _gotoController.dispose();
     super.dispose();
+  }
+
+  String _convertToMgrs(LatLng location) {
+    try {
+      return mgrs.Mgrs.forward([location.longitude, location.latitude], 5);
+    } catch (e) {
+      return 'Invalid';
+    }
   }
 
   @override
@@ -102,7 +112,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ref
                         .read(mapProvider.notifier)
                         .updatePosition(position.center, position.zoom);
+                    setState(() {
+                      _cursorMgrs = _convertToMgrs(position.center);
+                    });
                   }
+                },
+                onTap: (tapPosition, point) {
+                  ref.read(mapProvider.notifier).centerOnLocation(point);
                 },
               ),
               children: [
@@ -153,6 +169,29 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 ),
               ),
             ),
+            if (_cursorMgrs.isNotEmpty && _cursorMgrs != mapState.currentMgrs)
+              Positioned(
+                left: 16,
+                bottom: 50,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    _cursorMgrs,
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                ),
+              ),
             if (_showGotoInput)
               Positioned(
                 left: 16,
@@ -242,48 +281,5 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   void _goToCurrentLocation() {
     // TODO: Implement GPS location
-  }
-
-  // Public method for external callers
-  void showBasemapPanel(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Consumer(
-        builder: (context, ref, _) {
-          final mapState = ref.watch(mapProvider);
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.map),
-                title: const Text('Tracestrack Topo'),
-                trailing: mapState.basemap == Basemap.tracestrack
-                    ? const Icon(Icons.check)
-                    : null,
-                onTap: () {
-                  ref
-                      .read(mapProvider.notifier)
-                      .setBasemap(Basemap.tracestrack);
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.map_outlined),
-                title: const Text('OpenStreetMap'),
-                trailing: mapState.basemap == Basemap.openstreetmap
-                    ? const Icon(Icons.check)
-                    : null,
-                onTap: () {
-                  ref
-                      .read(mapProvider.notifier)
-                      .setBasemap(Basemap.openstreetmap);
-                  Navigator.pop(context);
-                },
-              ),
-            ],
-          );
-        },
-      ),
-    );
   }
 }
