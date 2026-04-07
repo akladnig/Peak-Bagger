@@ -8,6 +8,9 @@ import 'package:peak_bagger/screens/settings_screen.dart';
 import 'package:peak_bagger/widgets/side_menu.dart';
 import 'package:peak_bagger/providers/theme_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'dart:convert';
+import 'package:latlong2/latlong.dart';
+import 'package:http/http.dart' as http;
 
 final router = GoRouter(
   initialLocation: '/',
@@ -103,7 +106,30 @@ final router = GoRouter(
                           const SizedBox(height: 8),
                           FloatingActionButton.small(
                             heroTag: 'mylocation',
-                            onPressed: () {},
+                            onPressed: () async {
+                              try {
+                                final response = await http.get(
+                                  Uri.parse('https://ipapi.co/json/'),
+                                );
+                                if (response.statusCode == 200) {
+                                  final data = json.decode(response.body);
+                                  final lat = data['latitude'];
+                                  final lng = data['longitude'];
+                                  if (lat != null && lng != null) {
+                                    ref
+                                        .read(mapProvider.notifier)
+                                        .centerOnLocation(
+                                          LatLng(
+                                            lat.toDouble(),
+                                            lng.toDouble(),
+                                          ),
+                                        );
+                                  }
+                                }
+                              } catch (e) {
+                                // Handle error silently
+                              }
+                            },
                             child: const Icon(Icons.near_me),
                           ),
                           const SizedBox(height: 8),

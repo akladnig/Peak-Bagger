@@ -170,7 +170,6 @@ flutter:
 
 **Patterns to research:**
 - flutter_map keyboard interaction handling
-- Geolocator permission handling on macOS
 - Loading tiles from assets folder with flutter_map
 </discovery>
 
