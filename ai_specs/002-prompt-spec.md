@@ -11,7 +11,7 @@ MacOS-only (continuing from Phase 1).
 - Flutter with Dart SDK ^3.11.4
 - flutter_map ^8.2.2 for map display
 - geolocator ^14.0.2 for GPS location
-- mgrs_dart ^3.0.0 for MGRS coordinate conversion
+- mgrs_dart ^2.0.0 for MGRS coordinate conversion
 - Existing: go_router, shared_preferences, flutter_riverpod, font_awesome_flutter
 
 **Existing Code:**
