@@ -160,6 +160,7 @@ lib/
 - App runs on MacOS simulator in full-screen mode
 - Window title displays "Peak Bagger"
 - macOS dock shows mountain peak application icon
+- App icon (terrain) visible at top of side menu
 - Left menu shows 4 icon-only items (Dashboard, Map, Peak Lists, Settings) - no text, no tooltips
 - Clicking menu item navigates to corresponding screen
 - Each screen displays "Dashboard", "Map", "Peak Lists", or "Settings" placeholder
