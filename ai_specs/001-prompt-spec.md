@@ -36,7 +36,7 @@ MacOS-only for this phase (iOS to follow).
 
 <user_flows>
 Primary flow:
-1. App launches in maximized mode (occupies full screen, not true full-screen)
+1. App launches in maximized mode
 2. Left vertical menu displays with 4 icon-only items
 3. User clicks menu icon to navigate to that screen
 4. Screen displays placeholder text with screen name
