@@ -9,7 +9,7 @@ Implement Phase 2 - Interactive map of Tasmania with multiple basemaps, location
 - **Structure**: Layer-first (screens, widgets, providers)
 - **State management**: Riverpod 3.x Notifier pattern
 - **Reference implementations**: `lib/providers/theme_provider.dart` shows Notifier pattern
-- **Dependencies**: Already added in pubspec.yaml (flutter_map, geolocator, mgrs_dart)
+- **Dependencies**: Already added in pubspec.yaml (flutter_map, mgrs_dart, http)
 
 ## Implementation Plan
 
@@ -22,21 +22,21 @@ Implement Phase 2 - Interactive map of Tasmania with multiple basemaps, location
 ### Phase 2: Map Screen UI
 
 - [x] Replace placeholder in `lib/screens/map_screen.dart` with flutter_map
-- [x] Set default center: Tasmania (-41.5°S, 146.5°E), zoom ~11
+- [x] Set default center: Tasmania (-41.5°S, 146.5°E), zoom ~15
 - [x] Implement Tracestrack topo as default basemap
 - [x] Implement OpenStreetMap as alternative basemap
 
 ### Phase 3: Floating Controls
 
-- [x] Add floating Layers icon - opens sliding panel with radio buttons for basemap selection
-- [x] Add floating Show My Location icon (Icons.near_me)
-- [x] Add floating Go to Location icon (Icons.moved_location) - opens floating text input field
+- [x] Add floating Layers icon - opens Drawer from right with basemap selection
+- [x] Add floating Show My Location icon (Icons.near_me) - IP-based location
+- [x] Add floating Go to Location icon - opens floating text input field
 
 ### Phase 4: MGRS Display
 
-- [x] Display MGRS at top-left of map in standard format (e.g., "55G FN00000 00000")
+- [x] Display MGRS at top-left of map in standard format (e.g., "55G FN\n00000 00000")
 - [x] Update MGRS on: map tap/click, Go to Location input, Show My Location
-- [ ] Show cursor arrow during trackpad drag with real-time MGRS at cursor
+- [x] Real-time MGRS during pan/zoom at lower-left
 
 ### Phase 5: Grid Reference Input
 
@@ -52,6 +52,7 @@ Implement Phase 2 - Interactive map of Tasmania with multiple basemaps, location
 - [x] Zoom in: +, ,, <
 - [x] Zoom out: -, ., >
 - [x] Pan: k/j/h/l or arrow keys
+- [x] Open Layers: b key
 - [x] Show My Location: s key
 - [x] Go to Location: g key
 
@@ -59,7 +60,7 @@ Implement Phase 2 - Interactive map of Tasmania with multiple basemaps, location
 
 - [x] Pinch-to-zoom
 - [x] Drag-to-pan
-- [x] Zoom level indicator at bottom-left
+- [x] Zoom level indicator at lower-left
 
 ### Phase 8: Tile Management
 
@@ -70,8 +71,8 @@ Implement Phase 2 - Interactive map of Tasmania with multiple basemaps, location
 
 ### Phase 9: Location Services
 
-- [ ] Request permission on first tap of Show My Location or map screen
-- [ ] Handle permission denied gracefully - allow manual grid reference entry
+- [x] IP-based location using ipapi.co
+- [ ] (Not needed - using IP instead of GPS)
 
 ## Risks / Out of scope
 
