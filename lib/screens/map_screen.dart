@@ -157,7 +157,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
             ),
             Positioned(
-              right: 16,
+              left: 16,
               bottom: 16,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

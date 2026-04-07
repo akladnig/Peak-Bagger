@@ -104,7 +104,7 @@ Error flows:
 **Touch Controls:**
 35. Pinch-to-zoom
 36. Drag-to-pan
-37. Zoom level indicator at bottom-left of map (e.g., "zoom: 15" or scale bar)
+37. Zoom level indicator at lower-left of map (e.g., "zoom: 15" or scale bar)
 
 **Persistence:**
 38. Save last viewed position to shared_preferences using keys: `map_position_lat`, `map_position_lng`, `map_zoom`
