@@ -35,7 +35,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   String _convertToMgrs(LatLng location) {
     try {
-      return mgrs.Mgrs.forward([location.longitude, location.latitude], 5);
+      final mgrsString = mgrs.Mgrs.forward([
+        location.longitude,
+        location.latitude,
+      ], 5);
+      if (mgrsString.length >= 5) {
+        return '${mgrsString.substring(0, 5)}\n${mgrsString.substring(5)}';
+      }
+      return mgrsString;
     } catch (e) {
       return 'Invalid';
     }

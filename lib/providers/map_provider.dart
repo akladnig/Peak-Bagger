@@ -29,7 +29,7 @@ class MapState {
     this.isFirstLaunch = true,
     this.isLoading = false,
     this.error,
-    this.currentMgrs = '55G FN00000 00000',
+    this.currentMgrs = '55G FN\n00000 00000',
     this.gotoMgrs,
   });
 
@@ -93,7 +93,14 @@ class MapNotifier extends Notifier<MapState> {
 
   String _convertToMgrs(LatLng location) {
     try {
-      return mgrs.Mgrs.forward([location.longitude, location.latitude], 5);
+      final mgrsString = mgrs.Mgrs.forward([
+        location.longitude,
+        location.latitude,
+      ], 5);
+      if (mgrsString.length >= 5) {
+        return '${mgrsString.substring(0, 5)}\n${mgrsString.substring(5)}';
+      }
+      return mgrsString;
     } catch (e) {
       return 'Invalid';
     }
@@ -178,7 +185,10 @@ class MapNotifier extends Notifier<MapState> {
     try {
       final coords = mgrs.Mgrs.toPoint(fullMgrs);
       final location = LatLng(coords[1], coords[0]);
-      final mgrsOutput = mgrs.Mgrs.forward([coords[0], coords[1]], 5);
+      final mgrsOutputRaw = mgrs.Mgrs.forward([coords[0], coords[1]], 5);
+      final mgrsOutput = mgrsOutputRaw.length >= 5
+          ? '${mgrsOutputRaw.substring(0, 5)}\n${mgrsOutputRaw.substring(5)}'
+          : mgrsOutputRaw;
       state = state.copyWith(gotoMgrs: mgrsOutput);
       return (location, null);
     } catch (e) {

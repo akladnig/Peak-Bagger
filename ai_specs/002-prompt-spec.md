@@ -64,10 +64,8 @@ Error flows:
 6. Alternative basemap: OpenStreetMap (https://tile.openstreetmap.org/{z}/{x}/{y}.png)
 7. Floating Layers icon to switch between basemaps - opens sliding panel from left showing list of basemaps with radio buttons to select
 8. Current MGRS location displayed as overlay text at top-left of map using standard MGRS format:
-   - Format: [Grid Zone][100km Square] [Easting] [Northing]
-   - Example: "55G FN 1234 5678" for 10m precision
-   - Display 1m precision (5+5 digits) by default
-   - Adjust precision based on zoom level if desired
+   - Format: [Grid Zone][100km Square]\n[Easting] [Northing]
+   - Example: "55G FN\n00000 00000" for 1m precision
 9. MGRS display updates in three scenarios:
    a. User taps/clicks on map: show MGRS of tapped location, center map on that location
    b. User enters grid reference via Go to Location: show converted MGRS of destination
