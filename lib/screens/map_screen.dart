@@ -15,7 +15,6 @@ class MapScreen extends ConsumerStatefulWidget {
 
 class _MapScreenState extends ConsumerState<MapScreen> {
   late final MapController _mapController;
-  bool _showGotoInput = false;
   final _gotoController = TextEditingController();
   String? _gotoError;
   String _cursorMgrs = '';
@@ -113,7 +112,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               _goToCurrentLocation();
               return KeyEventResult.handled;
             } else if (key == LogicalKeyboardKey.keyG) {
-              setState(() => _showGotoInput = !_showGotoInput);
+              ref.read(mapProvider.notifier).toggleGotoInput();
               return KeyEventResult.handled;
             } else if (key == LogicalKeyboardKey.keyB) {
               Scaffold.of(context).openEndDrawer();
@@ -214,7 +213,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   ),
                 ),
               ),
-            if (_showGotoInput)
+            if (mapState.showGotoInput)
               Positioned(
                 left: 16,
                 right: 72,
@@ -245,11 +244,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                           icon: const Icon(Icons.close),
                           onPressed: () {
                             ref.read(mapProvider.notifier).clearGotoMgrs();
+                            ref
+                                .read(mapProvider.notifier)
+                                .setGotoInputVisible(false);
                             _gotoController.clear();
-                            setState(() {
-                              _showGotoInput = false;
-                              _gotoError = null;
-                            });
                           },
                         ),
                         IconButton(
@@ -289,7 +287,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     } else if (location != null) {
       _mapController.move(location, 15);
       ref.read(mapProvider.notifier).centerOnLocation(location);
-      setState(() => _showGotoInput = false);
+      ref.read(mapProvider.notifier).setGotoInputVisible(false);
     }
   }
 

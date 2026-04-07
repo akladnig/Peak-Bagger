@@ -109,7 +109,9 @@ final router = GoRouter(
                           const SizedBox(height: 8),
                           FloatingActionButton.small(
                             heroTag: 'goto',
-                            onPressed: () {},
+                            onPressed: () {
+                              ref.read(mapProvider.notifier).toggleGotoInput();
+                            },
                             child: const Icon(Icons.directions),
                           ),
                         ],

@@ -21,6 +21,7 @@ class MapState {
   final String? error;
   final String currentMgrs;
   final String? gotoMgrs;
+  final bool showGotoInput;
 
   const MapState({
     required this.center,
@@ -31,6 +32,7 @@ class MapState {
     this.error,
     this.currentMgrs = '55G FN\n00000 00000',
     this.gotoMgrs,
+    this.showGotoInput = false,
   });
 
   MapState copyWith({
@@ -42,6 +44,7 @@ class MapState {
     String? error,
     String? currentMgrs,
     String? gotoMgrs,
+    bool? showGotoInput,
   }) {
     return MapState(
       center: center ?? this.center,
@@ -52,6 +55,7 @@ class MapState {
       error: error,
       currentMgrs: currentMgrs ?? this.currentMgrs,
       gotoMgrs: gotoMgrs,
+      showGotoInput: showGotoInput ?? this.showGotoInput,
     );
   }
 }
@@ -206,5 +210,13 @@ class MapNotifier extends Notifier<MapState> {
 
   void setError(String? error) {
     state = state.copyWith(error: error);
+  }
+
+  void toggleGotoInput() {
+    state = state.copyWith(showGotoInput: !state.showGotoInput);
+  }
+
+  void setGotoInputVisible(bool visible) {
+    state = state.copyWith(showGotoInput: visible);
   }
 }
