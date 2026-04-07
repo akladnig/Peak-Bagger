@@ -17,16 +17,16 @@ Phase 1 already implemented. Verify all requirements met, run tests, ensure buil
 
 - **Goal**: Verify all spec requirements implemented
 
-- [ ] Run `flutter analyze` - no errors
-- [ ] Run `flutter test` - all pass
-- [ ] Verify full-screen mode on macOS (manual)
-- [ ] Verify window title "Peak Bagger" (manual)
-- [ ] Verify 4 menu items in side menu (manual)
-- [ ] Verify app icon at top of side menu (manual)
-- [ ] Verify floating theme toggle in top-right (manual)
-- [ ] Verify navigation between all 4 screens (manual)
-- [ ] Verify theme toggle changes theme (manual)
-- [ ] Verify theme persists across app restart (manual)
+- [x] Run `flutter analyze` - no errors
+- [x] Run `flutter test` - all pass
+- [x] Verify full-screen mode on macOS (manual)
+- [x] Verify window title "Peak Bagger" (manual)
+- [x] Verify 4 menu items in side menu (manual)
+- [x] Verify app icon at top of side menu (manual)
+- [x] Verify floating theme toggle in top-right (manual)
+- [x] Verify navigation between all 4 screens (manual)
+- [x] Verify theme toggle changes theme (manual)
+- [x] Verify theme persists across app restart (manual)
 
 ## Risks / Out of scope
 
