@@ -115,6 +115,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             } else if (key == LogicalKeyboardKey.keyG) {
               setState(() => _showGotoInput = !_showGotoInput);
               return KeyEventResult.handled;
+            } else if (key == LogicalKeyboardKey.keyB) {
+              Scaffold.of(context).openEndDrawer();
+              return KeyEventResult.handled;
             }
           }
           return KeyEventResult.ignored;

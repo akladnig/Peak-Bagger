@@ -15,6 +15,56 @@ final router = GoRouter(
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) {
         return Scaffold(
+          endDrawer: navigationShell.currentIndex == 1
+              ? Consumer(
+                  builder: (context, ref, _) {
+                    final mapState = ref.watch(mapProvider);
+                    return Drawer(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Text(
+                              'Basemaps',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          ListTile(
+                            leading: const Icon(Icons.map),
+                            title: const Text('Tracestrack Topo'),
+                            trailing: mapState.basemap == Basemap.tracestrack
+                                ? const Icon(Icons.check)
+                                : null,
+                            onTap: () {
+                              ref
+                                  .read(mapProvider.notifier)
+                                  .setBasemap(Basemap.tracestrack);
+                              Navigator.pop(context);
+                            },
+                          ),
+                          ListTile(
+                            leading: const Icon(Icons.map_outlined),
+                            title: const Text('OpenStreetMap'),
+                            trailing: mapState.basemap == Basemap.openstreetmap
+                                ? const Icon(Icons.check)
+                                : null,
+                            onTap: () {
+                              ref
+                                  .read(mapProvider.notifier)
+                                  .setBasemap(Basemap.openstreetmap);
+                              Navigator.pop(context);
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                )
+              : null,
           body: Stack(
             children: [
               Row(
@@ -46,55 +96,7 @@ final router = GoRouter(
                           FloatingActionButton.small(
                             heroTag: 'layers',
                             onPressed: () {
-                              showModalBottomSheet(
-                                context: context,
-                                builder: (ctx) => Consumer(
-                                  builder: (ctx, ref, _) {
-                                    final mapState = ref.watch(mapProvider);
-                                    return Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        ListTile(
-                                          leading: const Icon(Icons.map),
-                                          title: const Text('Tracestrack Topo'),
-                                          trailing:
-                                              mapState.basemap ==
-                                                  Basemap.tracestrack
-                                              ? const Icon(Icons.check)
-                                              : null,
-                                          onTap: () {
-                                            ref
-                                                .read(mapProvider.notifier)
-                                                .setBasemap(
-                                                  Basemap.tracestrack,
-                                                );
-                                            Navigator.pop(ctx);
-                                          },
-                                        ),
-                                        ListTile(
-                                          leading: const Icon(
-                                            Icons.map_outlined,
-                                          ),
-                                          title: const Text('OpenStreetMap'),
-                                          trailing:
-                                              mapState.basemap ==
-                                                  Basemap.openstreetmap
-                                              ? const Icon(Icons.check)
-                                              : null,
-                                          onTap: () {
-                                            ref
-                                                .read(mapProvider.notifier)
-                                                .setBasemap(
-                                                  Basemap.openstreetmap,
-                                                );
-                                            Navigator.pop(ctx);
-                                          },
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                ),
-                              );
+                              Scaffold.of(context).openEndDrawer();
                             },
                             child: const Icon(Icons.layers),
                           ),
