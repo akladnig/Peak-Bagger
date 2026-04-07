@@ -12,6 +12,9 @@ class MapScreen extends ConsumerStatefulWidget {
 
 class _MapScreenState extends ConsumerState<MapScreen> {
   late final MapController _mapController;
+  bool _showGotoInput = false;
+  final _gotoController = TextEditingController();
+  String? _gotoError;
 
   @override
   void initState() {
@@ -22,12 +25,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   @override
   void dispose() {
     _mapController.dispose();
+    _gotoController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final mapState = ref.watch(mapProvider);
+    final displayMgrs = mapState.gotoMgrs ?? mapState.currentMgrs;
 
     return Scaffold(
       body: Stack(
@@ -64,7 +69,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
-                '55G FN 00000 00000',
+                displayMgrs,
                 style: TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 12,
@@ -106,18 +111,66 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 const SizedBox(height: 8),
                 FloatingActionButton.small(
                   heroTag: 'mylocation',
-                  onPressed: () {},
+                  onPressed: _goToCurrentLocation,
                   child: const Icon(Icons.near_me),
                 ),
                 const SizedBox(height: 8),
                 FloatingActionButton.small(
                   heroTag: 'goto',
-                  onPressed: () {},
+                  onPressed: () =>
+                      setState(() => _showGotoInput = !_showGotoInput),
                   child: const Icon(Icons.directions),
                 ),
               ],
             ),
           ),
+          if (_showGotoInput)
+            Positioned(
+              left: 16,
+              right: 72,
+              top: 16,
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _gotoController,
+                          decoration: InputDecoration(
+                            hintText: 'Go to location',
+                            isDense: true,
+                            border: const OutlineInputBorder(),
+                            errorText: _gotoError,
+                          ),
+                          onChanged: (_) {
+                            if (_gotoError != null) {
+                              setState(() => _gotoError = null);
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () {
+                          ref.read(mapProvider.notifier).clearGotoMgrs();
+                          _gotoController.clear();
+                          setState(() {
+                            _showGotoInput = false;
+                            _gotoError = null;
+                          });
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.arrow_forward),
+                        onPressed: _navigateToGridReference,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -130,6 +183,27 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       case Basemap.openstreetmap:
         return 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
     }
+  }
+
+  void _navigateToGridReference() {
+    final input = _gotoController.text.trim();
+    if (input.isEmpty) return;
+
+    final (location, error) = ref
+        .read(mapProvider.notifier)
+        .parseGridReference(input);
+
+    if (error != null) {
+      setState(() => _gotoError = error);
+    } else if (location != null) {
+      _mapController.move(location, 15);
+      ref.read(mapProvider.notifier).centerOnLocation(location);
+      setState(() => _showGotoInput = false);
+    }
+  }
+
+  void _goToCurrentLocation() {
+    // TODO: Implement GPS location
   }
 
   void _showBasemapPanel(BuildContext context) {

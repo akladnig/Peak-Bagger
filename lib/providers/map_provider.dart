@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 
 const _latKey = 'map_position_lat';
 const _lngKey = 'map_position_lng';
@@ -18,6 +19,8 @@ class MapState {
   final bool isFirstLaunch;
   final bool isLoading;
   final String? error;
+  final String currentMgrs;
+  final String? gotoMgrs;
 
   const MapState({
     required this.center,
@@ -26,6 +29,8 @@ class MapState {
     this.isFirstLaunch = true,
     this.isLoading = false,
     this.error,
+    this.currentMgrs = '55G FN00000 00000',
+    this.gotoMgrs,
   });
 
   MapState copyWith({
@@ -35,6 +40,8 @@ class MapState {
     bool? isFirstLaunch,
     bool? isLoading,
     String? error,
+    String? currentMgrs,
+    String? gotoMgrs,
   }) {
     return MapState(
       center: center ?? this.center,
@@ -43,6 +50,8 @@ class MapState {
       isFirstLaunch: isFirstLaunch ?? this.isFirstLaunch,
       isLoading: isLoading ?? this.isLoading,
       error: error,
+      currentMgrs: currentMgrs ?? this.currentMgrs,
+      gotoMgrs: gotoMgrs,
     );
   }
 }
@@ -69,14 +78,24 @@ class MapNotifier extends Notifier<MapState> {
       final zoom = prefs.getDouble(_zoomKey);
 
       if (lat != null && lng != null && zoom != null) {
+        final location = LatLng(lat, lng);
         state = state.copyWith(
-          center: LatLng(lat, lng),
+          center: location,
           zoom: zoom,
           isFirstLaunch: false,
+          currentMgrs: _convertToMgrs(location),
         );
       }
     } catch (e) {
       // Keep default position on error
+    }
+  }
+
+  String _convertToMgrs(LatLng location) {
+    try {
+      return mgrs.Mgrs.forward([location.longitude, location.latitude], 5);
+    } catch (e) {
+      return 'Invalid';
     }
   }
 
@@ -93,7 +112,11 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void updatePosition(LatLng center, double zoom) {
-    state = state.copyWith(center: center, zoom: zoom);
+    state = state.copyWith(
+      center: center,
+      zoom: zoom,
+      currentMgrs: _convertToMgrs(center),
+    );
     savePosition();
   }
 
@@ -102,8 +125,69 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void centerOnLocation(LatLng location) {
-    state = state.copyWith(center: location);
+    state = state.copyWith(
+      center: location,
+      currentMgrs: _convertToMgrs(location),
+      gotoMgrs: null,
+    );
     savePosition();
+  }
+
+  (LatLng?, String?) parseGridReference(String input) {
+    final cleaned = input.trim().toUpperCase().replaceAll(' ', '');
+
+    String gridZone = '55G';
+    String coords;
+
+    if (RegExp(r'^[0-9]{1,2}[A-Z]\s*[A-Z]{2}\s*[0-9]+$').hasMatch(input) ||
+        RegExp(r'^[0-9]{1,2}[A-Z][A-Z][0-9]+$').hasMatch(cleaned)) {
+      final parts = input.trim().split(RegExp(r'\s+'));
+      if (parts.length >= 3) {
+        gridZone = parts[0];
+        coords = parts.sublist(1).join();
+      } else if (parts.length == 2 && parts[1].length >= 4) {
+        gridZone = parts[0];
+        coords = parts[1];
+      } else {
+        coords = input.replaceAll(
+          RegExp(r'^[0-9]{1,2}[A-Z]\s*', caseSensitive: false),
+          '',
+        );
+      }
+    } else {
+      coords = cleaned;
+    }
+
+    final digitCount = coords.replaceAll(RegExp(r'[^0-9]'), '').length;
+    if (digitCount != 6 && digitCount != 8) {
+      return (null, 'Invalid grid reference');
+    }
+
+    final easting = digitCount == 6
+        ? coords.substring(0, 3)
+        : coords.substring(0, 4);
+    final northing = digitCount == 6
+        ? coords.substring(3)
+        : coords.substring(4);
+
+    final paddedEasting = easting.padLeft(5, '0');
+    final paddedNorthing = northing.padLeft(5, '0');
+
+    final fullMgrs = '$gridZone $paddedEasting $paddedNorthing';
+
+    try {
+      final coords = mgrs.Mgrs.toPoint(fullMgrs);
+      final location = LatLng(coords[1], coords[0]);
+      final mgrsOutput = mgrs.Mgrs.forward([coords[0], coords[1]], 5);
+      state = state.copyWith(gotoMgrs: mgrsOutput);
+      return (location, null);
+    } catch (e) {
+      return (null, 'Invalid grid reference');
+    }
+  }
+
+  void clearGotoMgrs() {
+    state = state.copyWith(gotoMgrs: null);
   }
 
   void setLoading(bool isLoading) {

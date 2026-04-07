@@ -30,21 +30,21 @@ Implement Phase 2 - Interactive map of Tasmania with multiple basemaps, location
 
 - [x] Add floating Layers icon - opens sliding panel with radio buttons for basemap selection
 - [x] Add floating Show My Location icon (Icons.near_me)
-- [ ] Add floating Go to Location icon (Icons.moved_location) - opens floating text input field
+- [x] Add floating Go to Location icon (Icons.moved_location) - opens floating text input field
 
 ### Phase 4: MGRS Display
 
-- [ ] Display MGRS at top-left of map in standard format (e.g., "55G FN 12345 67890")
-- [ ] Update MGRS on: map tap/click, Go to Location input, Show My Location
+- [x] Display MGRS at top-left of map in standard format (e.g., "55G FN00000 00000")
+- [x] Update MGRS on: map tap/click, Go to Location input, Show My Location
 - [ ] Show cursor arrow during trackpad drag with real-time MGRS at cursor
 
 ### Phase 5: Grid Reference Input
 
-- [ ] Implement floating TextField with "Go to location" placeholder
-- [ ] Add "Go" button to navigate, "X" button to close (stays at current position)
-- [ ] Implement validation: optional grid zone + 6 or 8 digit coordinates
-- [ ] Default to zone 55G if not provided
-- [ ] Show "Invalid grid reference" error below field if invalid
+- [x] Implement floating TextField with "Go to location" placeholder
+- [x] Add "Go" button to navigate, "X" button to close (stays at current position)
+- [x] Implement validation: optional grid zone + 6 or 8 digit coordinates
+- [x] Default to zone 55G if not provided
+- [x] Show "Invalid grid reference" error below field if invalid
 
 ### Phase 6: Keyboard Controls
 
