@@ -18,6 +18,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   final _gotoController = TextEditingController();
   String? _gotoError;
   String _cursorMgrs = '';
+  bool _isInternalMove = false;
 
   @override
   void initState() {
@@ -51,6 +52,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Widget build(BuildContext context) {
     final mapState = ref.watch(mapProvider);
     final displayMgrs = mapState.gotoMgrs ?? mapState.currentMgrs;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_mapController.camera.center != mapState.center) {
+        _isInternalMove = true;
+        _mapController.move(mapState.center, mapState.zoom);
+        _isInternalMove = false;
+      }
+    });
 
     return Scaffold(
       body: Focus(
@@ -129,7 +138,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 initialCenter: mapState.center,
                 initialZoom: mapState.zoom,
                 onPositionChanged: (position, hasGesture) {
-                  if (hasGesture) {
+                  if (hasGesture && !_isInternalMove) {
                     ref
                         .read(mapProvider.notifier)
                         .updatePosition(position.center, position.zoom);
