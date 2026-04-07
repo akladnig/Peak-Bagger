@@ -101,8 +101,11 @@ class MapNotifier extends Notifier<MapState> {
         location.longitude,
         location.latitude,
       ], 5);
-      if (mgrsString.length >= 5) {
-        return '${mgrsString.substring(0, 5)}\n${mgrsString.substring(5)}';
+      if (mgrsString.length >= 10) {
+        final firstLine = mgrsString.substring(0, 5);
+        final easting = mgrsString.substring(5, 10);
+        final northing = mgrsString.substring(10);
+        return '$firstLine\n$easting $northing';
       }
       return mgrsString;
     } catch (e) {
@@ -190,9 +193,15 @@ class MapNotifier extends Notifier<MapState> {
       final coords = mgrs.Mgrs.toPoint(fullMgrs);
       final location = LatLng(coords[1], coords[0]);
       final mgrsOutputRaw = mgrs.Mgrs.forward([coords[0], coords[1]], 5);
-      final mgrsOutput = mgrsOutputRaw.length >= 5
-          ? '${mgrsOutputRaw.substring(0, 5)}\n${mgrsOutputRaw.substring(5)}'
-          : mgrsOutputRaw;
+      String mgrsOutput;
+      if (mgrsOutputRaw.length >= 10) {
+        final firstLine = mgrsOutputRaw.substring(0, 5);
+        final easting = mgrsOutputRaw.substring(5, 10);
+        final northing = mgrsOutputRaw.substring(10);
+        mgrsOutput = '$firstLine\n$easting $northing';
+      } else {
+        mgrsOutput = mgrsOutputRaw;
+      }
       state = state.copyWith(gotoMgrs: mgrsOutput);
       return (location, null);
     } catch (e) {

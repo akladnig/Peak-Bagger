@@ -39,8 +39,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         location.longitude,
         location.latitude,
       ], 5);
-      if (mgrsString.length >= 5) {
-        return '${mgrsString.substring(0, 5)}\n${mgrsString.substring(5)}';
+      if (mgrsString.length >= 10) {
+        final firstLine = mgrsString.substring(0, 5);
+        final easting = mgrsString.substring(5, 10);
+        final northing = mgrsString.substring(10);
+        return '$firstLine\n$easting $northing';
       }
       return mgrsString;
     } catch (e) {
