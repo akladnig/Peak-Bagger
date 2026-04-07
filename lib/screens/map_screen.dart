@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
@@ -35,143 +37,197 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final displayMgrs = mapState.gotoMgrs ?? mapState.currentMgrs;
 
     return Scaffold(
-      body: Stack(
-        children: [
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: mapState.center,
-              initialZoom: mapState.zoom,
-              onPositionChanged: (position, hasGesture) {
-                if (hasGesture) {
-                  ref
-                      .read(mapProvider.notifier)
-                      .updatePosition(position.center, position.zoom);
-                }
-              },
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: _getTileUrl(mapState.basemap),
-                userAgentPackageName: 'com.peak_bagger.app',
+      body: Focus(
+        autofocus: true,
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent) {
+            final key = event.logicalKey;
+            if (key == LogicalKeyboardKey.equal ||
+                key == LogicalKeyboardKey.comma ||
+                key == LogicalKeyboardKey.period ||
+                key == LogicalKeyboardKey.less ||
+                key == LogicalKeyboardKey.add ||
+                key == LogicalKeyboardKey.minus ||
+                key == LogicalKeyboardKey.greater) {
+              if (key == LogicalKeyboardKey.equal ||
+                  key == LogicalKeyboardKey.comma ||
+                  key == LogicalKeyboardKey.less ||
+                  key == LogicalKeyboardKey.add) {
+                _mapController.move(
+                  _mapController.camera.center,
+                  _mapController.camera.zoom + 1,
+                );
+              } else {
+                _mapController.move(
+                  _mapController.camera.center,
+                  _mapController.camera.zoom - 1,
+                );
+              }
+              return KeyEventResult.handled;
+            } else if (key == LogicalKeyboardKey.keyK ||
+                key == LogicalKeyboardKey.arrowUp) {
+              _moveMap(0, -0.1);
+              return KeyEventResult.handled;
+            } else if (key == LogicalKeyboardKey.keyJ ||
+                key == LogicalKeyboardKey.arrowDown) {
+              _moveMap(0, 0.1);
+              return KeyEventResult.handled;
+            } else if (key == LogicalKeyboardKey.keyH ||
+                key == LogicalKeyboardKey.arrowLeft) {
+              _moveMap(-0.1, 0);
+              return KeyEventResult.handled;
+            } else if (key == LogicalKeyboardKey.keyL ||
+                key == LogicalKeyboardKey.arrowRight) {
+              _moveMap(0.1, 0);
+              return KeyEventResult.handled;
+            } else if (key == LogicalKeyboardKey.keyS) {
+              _goToCurrentLocation();
+              return KeyEventResult.handled;
+            } else if (key == LogicalKeyboardKey.keyG) {
+              setState(() => _showGotoInput = !_showGotoInput);
+              return KeyEventResult.handled;
+            }
+          }
+          return KeyEventResult.ignored;
+        },
+        child: Stack(
+          children: [
+            FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: mapState.center,
+                initialZoom: mapState.zoom,
+                onPositionChanged: (position, hasGesture) {
+                  if (hasGesture) {
+                    ref
+                        .read(mapProvider.notifier)
+                        .updatePosition(position.center, position.zoom);
+                  }
+                },
               ),
-            ],
-          ),
-          Positioned(
-            left: 16,
-            top: 16,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Theme.of(
-                  context,
-                ).colorScheme.surface.withValues(alpha: 0.8),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                displayMgrs,
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Theme.of(
-                  context,
-                ).colorScheme.surface.withValues(alpha: 0.8),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                'zoom: ${mapState.zoom.toStringAsFixed(0)}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: 16,
-            top: 16,
-            child: Column(
               children: [
-                FloatingActionButton.small(
-                  heroTag: 'layers',
-                  onPressed: () => _showBasemapPanel(context),
-                  child: const Icon(Icons.layers),
-                ),
-                const SizedBox(height: 8),
-                FloatingActionButton.small(
-                  heroTag: 'mylocation',
-                  onPressed: _goToCurrentLocation,
-                  child: const Icon(Icons.near_me),
-                ),
-                const SizedBox(height: 8),
-                FloatingActionButton.small(
-                  heroTag: 'goto',
-                  onPressed: () =>
-                      setState(() => _showGotoInput = !_showGotoInput),
-                  child: const Icon(Icons.directions),
+                TileLayer(
+                  urlTemplate: _getTileUrl(mapState.basemap),
+                  userAgentPackageName: 'com.peak_bagger.app',
                 ),
               ],
             ),
-          ),
-          if (_showGotoInput)
             Positioned(
               left: 16,
-              right: 72,
               top: 16,
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _gotoController,
-                          decoration: InputDecoration(
-                            hintText: 'Go to location',
-                            isDense: true,
-                            border: const OutlineInputBorder(),
-                            errorText: _gotoError,
-                          ),
-                          onChanged: (_) {
-                            if (_gotoError != null) {
-                              setState(() => _gotoError = null);
-                            }
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () {
-                          ref.read(mapProvider.notifier).clearGotoMgrs();
-                          _gotoController.clear();
-                          setState(() {
-                            _showGotoInput = false;
-                            _gotoError = null;
-                          });
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.arrow_forward),
-                        onPressed: _navigateToGridReference,
-                      ),
-                    ],
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.surface.withValues(alpha: 0.8),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  displayMgrs,
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ),
             ),
-        ],
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.surface.withValues(alpha: 0.8),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'zoom: ${mapState.zoom.toStringAsFixed(0)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              right: 16,
+              top: 16,
+              child: Column(
+                children: [
+                  FloatingActionButton.small(
+                    heroTag: 'layers',
+                    onPressed: () => _showBasemapPanel(context),
+                    child: const Icon(Icons.layers),
+                  ),
+                  const SizedBox(height: 8),
+                  FloatingActionButton.small(
+                    heroTag: 'mylocation',
+                    onPressed: _goToCurrentLocation,
+                    child: const Icon(Icons.near_me),
+                  ),
+                  const SizedBox(height: 8),
+                  FloatingActionButton.small(
+                    heroTag: 'goto',
+                    onPressed: () =>
+                        setState(() => _showGotoInput = !_showGotoInput),
+                    child: const Icon(Icons.directions),
+                  ),
+                ],
+              ),
+            ),
+            if (_showGotoInput)
+              Positioned(
+                left: 16,
+                right: 72,
+                top: 16,
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _gotoController,
+                            decoration: InputDecoration(
+                              hintText: 'Go to location',
+                              isDense: true,
+                              border: const OutlineInputBorder(),
+                              errorText: _gotoError,
+                            ),
+                            onChanged: (_) {
+                              if (_gotoError != null) {
+                                setState(() => _gotoError = null);
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () {
+                            ref.read(mapProvider.notifier).clearGotoMgrs();
+                            _gotoController.clear();
+                            setState(() {
+                              _showGotoInput = false;
+                              _gotoError = null;
+                            });
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.arrow_forward),
+                          onPressed: _navigateToGridReference,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -200,6 +256,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       ref.read(mapProvider.notifier).centerOnLocation(location);
       setState(() => _showGotoInput = false);
     }
+  }
+
+  void _moveMap(double dx, double dy) {
+    final center = _mapController.camera.center;
+    _mapController.move(
+      LatLng(center.latitude + dy, center.longitude + dx),
+      _mapController.camera.zoom,
+    );
   }
 
   void _goToCurrentLocation() {

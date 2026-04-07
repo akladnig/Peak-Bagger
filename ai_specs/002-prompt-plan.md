@@ -48,18 +48,18 @@ Implement Phase 2 - Interactive map of Tasmania with multiple basemaps, location
 
 ### Phase 6: Keyboard Controls
 
-- [ ] Implement auto-focus on any keyboard shortcut
-- [ ] Zoom in: +, ,, <
-- [ ] Zoom out: -, ., >
-- [ ] Pan: k/j/h/l or arrow keys
-- [ ] Show My Location: s key
-- [ ] Go to Location: g key
+- [x] Implement auto-focus on any keyboard shortcut
+- [x] Zoom in: +, ,, <
+- [x] Zoom out: -, ., >
+- [x] Pan: k/j/h/l or arrow keys
+- [x] Show My Location: s key
+- [x] Go to Location: g key
 
 ### Phase 7: Touch Controls
 
-- [ ] Pinch-to-zoom
-- [ ] Drag-to-pan
-- [ ] Zoom level indicator at bottom-left
+- [x] Pinch-to-zoom
+- [x] Drag-to-pan
+- [x] Zoom level indicator at bottom-left
 
 ### Phase 8: Tile Management
 
