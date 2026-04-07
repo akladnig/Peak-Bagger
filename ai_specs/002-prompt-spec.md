@@ -37,14 +37,14 @@ MacOS-only (continuing from Phase 1).
 Primary flow:
 1. User taps Map in side menu
 2. Map loads with default basemap (Tracestrack)
-3. On first launch: center on current location (or Tasmania default if unavailable)
+3. On first launch of app AND first time visiting map screen: center on current location (or Tasmania default if unavailable)
 4. User can pan/zoom using touch or keyboard
 5. User can switch basemaps via Layers icon
 6. User can go to current location via My Location icon
 7. User can enter grid reference to go to specific location
 
 Alternative flows:
-- First launch: No location permission → use default Tasmania view
+- First launch of app AND first time visiting map screen: No location permission → use default Tasmania view
 - Offline mode: Use cached tiles if network unavailable
 - Invalid grid reference: Show error, keep current position
 
@@ -58,54 +58,78 @@ Error flows:
 **Functional:**
 1. Display interactive map using flutter_map
 2. Default zoom level showing ~8km wide x 5km high (zoom ~11)
-3. On first launch: zoom to current location, default zoom level
+3. On first launch of app AND first time visiting map screen: zoom to current location, default zoom level
 4. Subsequent launches: restore last viewed position and zoom
 5. Default basemap: Tracestrack topo (https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp?key=8bd67b17be9041b60f241c2aa45ecf0d)
 6. Alternative basemap: OpenStreetMap (https://tile.openstreetmap.org/{z}/{x}/{y}.png)
-7. Floating Layers icon to switch between basemaps
-8. Current MGRS location displayed as overlay text at top-left of map
-9. Save tiles to assets folder for full offline mode (do not use built-in caching)
-10. Separate folder under assets for each distinct tile set
-11. Future: tiles will be saved in database
-12. Floating Show My Location icon (Icons.near_me) - goes to current GPS location
-13. Floating Go to Location icon (Icons.moved_location) - accepts 6 or 8 digit grid reference
-14. Grid reference may have space in middle (e.g., "123 456" or "1234 5678")
-15. Convert grid reference to lat/long for map positioning
+7. Floating Layers icon to switch between basemaps - opens sliding panel from left showing list of basemaps with radio buttons to select
+8. Current MGRS location displayed as overlay text at top-left of map using standard MGRS format:
+   - Format: [Grid Zone][100km Square] [Easting] [Northing]
+   - Example: "55G FN 1234 5678" for 10m precision
+   - Display 1m precision (5+5 digits) by default
+   - Adjust precision based on zoom level if desired
+9. MGRS display updates in three scenarios:
+   a. User taps/clicks on map: show MGRS of tapped location, center map on that location
+   b. User enters grid reference via Go to Location: show converted MGRS of destination
+   c. User taps Show My Location: show current GPS location as MGRS
+10. On mouse/trackpad drag: show cursor arrow at finger position, display MGRS at cursor position in real-time
+11. Save tiles to assets folder for full offline mode (do not use built-in caching)
+12. Separate folder under assets for each distinct tile set
+13. Future: tiles will be saved in database
+14. Floating Show My Location icon (Icons.near_me) - goes to current GPS location
+15. Floating Go to Location icon (Icons.moved_location) - opens floating text input field
+16. Floating input field UI: TextField with "Go to location" placeholder, "Go" button to navigate, "X" button to close
+17. Clicking "X" closes input field and stays at current map position (no navigation)
+18. Input validation:
+    - Show "Invalid grid reference" error below field if format invalid
+    - Keep input field open while validation fails
+    - Clear error message when user starts typing again
+19. Grid reference format: optional grid zone + 6 or 8 digit coordinates with optional space (e.g., "55G 123 456", "55G 12345678", "123456", "1234 5678")
+20. If grid zone not provided, default to zone 55G (Tasmania)
+21. Convert grid reference to lat/long for map positioning
 
 **Keyboard Controls:**
-16. Zoom in: + key
-17. Zoom out: - key
-18. Zoom in: , key
-19. Zoom out: . key
-20. Zoom in: < key
-21. Zoom out: > key
-22. Pan up: k or Up arrow
-23. Pan down: j or Down arrow
-24. Pan left: h or Left arrow
-25. Pan right: l or Right arrow
-26. Show My Location: s key
-27. Go to Location: g key
+22. Map does not need focus. When any keyboard shortcut key is pressed, automatically give focus to map and perform the action.
+23. Zoom in: + key
+24. Zoom out: - key
+25. Zoom in: , key
+26. Zoom out: . key
+27. Zoom in: < key
+28. Zoom out: > key
+29. Pan up: k or Up arrow
+30. Pan down: j or Down arrow
+31. Pan left: h or Left arrow
+32. Pan right: l or Right arrow
+33. Show My Location: s key
+34. Go to Location: g key
 
 **Touch Controls:**
-28. Pinch-to-zoom
-29. Drag-to-pan
+35. Pinch-to-zoom
+36. Drag-to-pan
+37. Zoom level indicator at bottom-left of map (e.g., "zoom: 11" or scale bar)
 
 **Persistence:**
-30. Save last viewed position (lat, lng, zoom) to shared_preferences
-31. Load saved position on app launch
+38. Save last viewed position to shared_preferences using keys: `map_position_lat`, `map_position_lng`, `map_zoom`
+39. Load saved position on app launch
+40. On first launch: Download tile sets for both basemaps (Tracestrack, OpenStreetMap) for zoom levels 6-14 covering Tasmania region, save to respective assets folders
+41. Future: Tile set updates - compare local tile version with remote and download updates if available
 
 **Error Handling:**
-32. Invalid grid reference: Show error message, keep current position
-33. Location permission denied: Show message, allow manual grid reference entry
-34. No internet: Use cached tiles or show error
+42. Invalid grid reference: Show error message, keep current position
+43. Location permission denied: Show message, allow manual grid reference entry
+44. Location permission: Request on first tap of Show My Location icon or first tap on map screen
+45. No internet: Use cached tiles or show error
+46. Tile loading: Show spinner overlay while tiles load
+47. Tile loading failure: Show error message with "Retry" button, allow fallback to cached tiles
 </requirements>
 
 <boundaries>
 Edge cases:
-- First launch with no saved position: Use current location or default to Tasmania center
+- First launch of app AND first time visiting map screen with no saved position: Use current location or default to Tasmania center
 - Invalid grid reference: Display error, maintain current map position
 - Location services unavailable: Fall back to saved position or default location
 - Network unavailable: Use cached tiles, show offline indicator
+- First launch: Tile download in progress - show progress indicator, allow limited interaction with map
 
 Error scenarios:
 - No GPS permission: Prompt user, allow grid reference entry instead
@@ -113,7 +137,7 @@ Error scenarios:
 - Tile loading failure: Show error tile or fallback to cached version
 
 Limits:
-- Grid reference must be 6 or 8 digits (with optional space)
+- Grid reference: optional grid zone (e.g., "55G") + 6 or 8 digits + optional space (e.g., "55G 123 456", "123456", "1234 5678"). If no zone provided, default to 55G.
 </boundaries>
 
 <implementation>
@@ -121,7 +145,7 @@ Limits:
 - Use flutter_map for display (not Google Maps due to licensing)
 - Use geolocator package for GPS location
 - Use mgrs_dart for MGRS to lat/long conversion
-- StateNotifier for map state (position, zoom, basemap)
+- Use Notifier/NotifierProvider for map state (position, zoom, basemap)
 - Load tiles from assets folder for full offline mode
 - Each tile set in separate folder under assets
 

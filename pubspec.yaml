@@ -13,6 +13,9 @@ dependencies:
   shared_preferences: ^2.5.0
   flutter_riverpod: ^3.2.1
   font_awesome_flutter: ^10.8.0
+  flutter_map: ^8.2.2
+  geolocator: ^14.0.2
+  mgrs_dart: ^3.0.0
 
 dev_dependencies:
   flutter_test:
@@ -21,3 +24,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/OSM_standard/
+    - assets/OSM_tracestrack/
