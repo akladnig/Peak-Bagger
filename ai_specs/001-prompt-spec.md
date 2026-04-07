@@ -36,7 +36,7 @@ MacOS-only for this phase (iOS to follow).
 
 <user_flows>
 Primary flow:
-1. App launches in full-screen mode
+1. App launches in maximized mode (occupies full screen, not true full-screen)
 2. Left vertical menu displays with 4 icon-only items
 3. User clicks menu icon to navigate to that screen
 4. Screen displays placeholder text with screen name
@@ -51,7 +51,7 @@ Navigation flow:
 
 <requirements>
 **Functional:**
-1. App launches in full-screen mode on MacOS
+1. App launches in maximized mode on MacOS (occupies full screen, not true full-screen)
 2. Application icon showing a mountain peak (macOS dock/window icon)
 3. macOS window title displays "Peak Bagger"
 4. Side menu: 64px wide, left side, icons only, no text labels, no tooltips
@@ -157,7 +157,7 @@ lib/
 </validation>
 
 <done_when>
-- App runs on MacOS simulator in full-screen mode
+- App runs on MacOS simulator in maximized mode
 - Window title displays "Peak Bagger"
 - macOS dock shows mountain peak application icon
 - App icon (terrain) visible at top of side menu
