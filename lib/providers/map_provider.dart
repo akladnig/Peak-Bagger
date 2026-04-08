@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
+import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/services/overpass_service.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/main.dart';
 
 const _latKey = 'map_position_lat';
 const _lngKey = 'map_position_lng';
@@ -27,6 +31,10 @@ class MapState {
   final bool showPeakSearch;
   final LatLng? selectedLocation;
   final bool syncEnabled;
+  final List<Peak> peaks;
+  final bool isLoadingPeaks;
+  final List<Peak> searchResults;
+  final String searchQuery;
 
   const MapState({
     required this.center,
@@ -42,6 +50,10 @@ class MapState {
     this.showPeakSearch = false,
     this.selectedLocation,
     this.syncEnabled = true,
+    this.peaks = const [],
+    this.isLoadingPeaks = false,
+    this.searchResults = const [],
+    this.searchQuery = '',
   });
 
   MapState copyWith({
@@ -59,6 +71,10 @@ class MapState {
     LatLng? selectedLocation,
     bool clearSelectedLocation = false,
     bool? syncEnabled,
+    List<Peak>? peaks,
+    bool? isLoadingPeaks,
+    List<Peak>? searchResults,
+    String? searchQuery,
   }) {
     return MapState(
       center: center ?? this.center,
@@ -76,6 +92,10 @@ class MapState {
           ? null
           : (selectedLocation ?? this.selectedLocation),
       syncEnabled: syncEnabled ?? this.syncEnabled,
+      peaks: peaks ?? this.peaks,
+      isLoadingPeaks: isLoadingPeaks ?? this.isLoadingPeaks,
+      searchResults: searchResults ?? this.searchResults,
+      searchQuery: searchQuery ?? this.searchQuery,
     );
   }
 }
@@ -83,9 +103,14 @@ class MapState {
 final mapProvider = NotifierProvider<MapNotifier, MapState>(MapNotifier.new);
 
 class MapNotifier extends Notifier<MapState> {
+  late final PeakRepository _peakRepository;
+  final OverpassService _overpassService = OverpassService();
+
   @override
   MapState build() {
+    _peakRepository = PeakRepository(objectboxStore);
     _loadPosition();
+    _loadPeaks();
     return MapState(
       center: _defaultCenter,
       zoom: _defaultZoom,
@@ -93,6 +118,29 @@ class MapNotifier extends Notifier<MapState> {
       isFirstLaunch: true,
       selectedLocation: _defaultCenter,
     );
+  }
+
+  Future<void> _loadPeaks() async {
+    if (_peakRepository.isEmpty()) {
+      state = state.copyWith(isLoadingPeaks: true);
+      try {
+        final peaks = await _overpassService.fetchTasmaniaPeaks();
+        if (peaks.isNotEmpty) {
+          await _peakRepository.addPeaks(peaks);
+        }
+        state = state.copyWith(
+          peaks: _peakRepository.getAllPeaks(),
+          isLoadingPeaks: false,
+        );
+      } catch (e) {
+        state = state.copyWith(
+          isLoadingPeaks: false,
+          error: 'Failed to load peaks: $e',
+        );
+      }
+    } else {
+      state = state.copyWith(peaks: _peakRepository.getAllPeaks());
+    }
   }
 
   Future<void> _loadPosition() async {
@@ -292,5 +340,44 @@ class MapNotifier extends Notifier<MapState> {
 
   void setPeakSearchVisible(bool visible) {
     state = state.copyWith(showPeakSearch: visible);
+  }
+
+  void searchPeaks(String query) {
+    state = state.copyWith(
+      searchQuery: query,
+      searchResults: _peakRepository.searchPeaks(query).take(20).toList(),
+    );
+  }
+
+  void clearSearch() {
+    state = state.copyWith(searchQuery: '', searchResults: []);
+  }
+
+  void centerOnPeak(Peak peak) {
+    state = state.copyWith(
+      center: LatLng(peak.latitude, peak.longitude),
+      zoom: 15.0,
+      syncEnabled: true,
+    );
+  }
+
+  Future<void> refreshPeaks() async {
+    state = state.copyWith(isLoadingPeaks: true);
+    try {
+      await _peakRepository.clearAll();
+      final peaks = await _overpassService.fetchTasmaniaPeaks();
+      if (peaks.isNotEmpty) {
+        await _peakRepository.addPeaks(peaks);
+      }
+      state = state.copyWith(
+        peaks: _peakRepository.getAllPeaks(),
+        isLoadingPeaks: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoadingPeaks: false,
+        error: 'Failed to refresh peaks: $e',
+      );
+    }
   }
 }

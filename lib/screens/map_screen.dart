@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/models/peak.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
@@ -223,6 +224,21 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         ),
                       ],
                     ),
+                  if (mapState.peaks.isNotEmpty && mapState.zoom >= 12)
+                    MarkerLayer(
+                      markers: mapState.peaks.map((peak) {
+                        return Marker(
+                          point: LatLng(peak.latitude, peak.longitude),
+                          width: 20,
+                          height: 20,
+                          child: Icon(
+                            Icons.change_history,
+                            color: const Color(0xFFB22222),
+                            size: 16,
+                          ),
+                        );
+                      }).toList(),
+                    ),
                 ],
               ),
             ),
@@ -266,31 +282,77 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 right: 72,
                 top: 16,
                 child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            decoration: const InputDecoration(
-                              hintText: 'Search peaks',
-                              isDense: true,
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.search, size: 20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                autofocus: true,
+                                decoration: const InputDecoration(
+                                  hintText: 'Search peaks',
+                                  isDense: true,
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.search, size: 20),
+                                ),
+                                onChanged: (value) {
+                                  ref
+                                      .read(mapProvider.notifier)
+                                      .searchPeaks(value);
+                                },
+                              ),
                             ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () {
+                                ref
+                                    .read(mapProvider.notifier)
+                                    .setPeakSearchVisible(false);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (mapState.searchResults.isNotEmpty)
+                        Container(
+                          constraints: const BoxConstraints(maxHeight: 200),
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: mapState.searchResults.length,
+                            itemBuilder: (context, index) {
+                              final peak = mapState.searchResults[index];
+                              return ListTile(
+                                dense: true,
+                                title: Text(peak.name),
+                                subtitle: Text(
+                                  peak.elevation != null
+                                      ? '${peak.elevation!.toStringAsFixed(0)}m'
+                                      : 'Unknown',
+                                ),
+                                onTap: () {
+                                  ref
+                                      .read(mapProvider.notifier)
+                                      .centerOnPeak(peak);
+                                  ref
+                                      .read(mapProvider.notifier)
+                                      .setPeakSearchVisible(false);
+                                  ref.read(mapProvider.notifier).clearSearch();
+                                },
+                              );
+                            },
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () {
-                            ref
-                                .read(mapProvider.notifier)
-                                .setPeakSearchVisible(false);
-                          },
+                      if (mapState.searchQuery.isNotEmpty &&
+                          mapState.searchResults.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.all(8),
+                          child: Text('No peaks found'),
                         ),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
               ),
