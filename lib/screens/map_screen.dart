@@ -17,8 +17,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   late final MapController _mapController;
   final _gotoController = TextEditingController();
   String? _gotoError;
-  String _cursorMgrs = '';
-  bool _isInternalMove = false;
+  Offset? _pointerDownPosition;
+  bool _isDragging = false;
 
   @override
   void initState() {
@@ -27,40 +27,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   @override
-  void dispose() {
-    _mapController.dispose();
-    _gotoController.dispose();
-    super.dispose();
-  }
-
-  String _convertToMgrs(LatLng location) {
-    try {
-      final mgrsString = mgrs.Mgrs.forward([
-        location.longitude,
-        location.latitude,
-      ], 5);
-      if (mgrsString.length >= 10) {
-        final firstLine = mgrsString.substring(0, 5);
-        final easting = mgrsString.substring(5, 10);
-        final northing = mgrsString.substring(10);
-        return '$firstLine\n$easting $northing';
-      }
-      return mgrsString;
-    } catch (e) {
-      return 'Invalid';
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
     final mapState = ref.watch(mapProvider);
-    final displayMgrs = mapState.gotoMgrs ?? mapState.currentMgrs;
+    final displayMgrs =
+        mapState.cursorMgrs ?? mapState.gotoMgrs ?? mapState.currentMgrs;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_mapController.camera.center != mapState.center) {
-        _isInternalMove = true;
+      if (mapState.syncEnabled &&
+          _mapController.camera.center != mapState.center) {
         _mapController.move(mapState.center, mapState.zoom);
-        _isInternalMove = false;
       }
     });
 
@@ -129,6 +104,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             } else if (key == LogicalKeyboardKey.keyB) {
               Scaffold.of(context).openEndDrawer();
               return KeyEventResult.handled;
+            } else if (key == LogicalKeyboardKey.keyC) {
+              ref.read(mapProvider.notifier).centerOnSelectedLocation();
+              return KeyEventResult.handled;
             }
           }
           return KeyEventResult.ignored;
@@ -140,25 +118,54 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               options: MapOptions(
                 initialCenter: mapState.center,
                 initialZoom: mapState.zoom,
-                onPositionChanged: (position, hasGesture) {
-                  if (hasGesture && !_isInternalMove) {
-                    ref
-                        .read(mapProvider.notifier)
-                        .updatePosition(position.center, position.zoom);
-                    setState(() {
-                      _cursorMgrs = _convertToMgrs(position.center);
-                    });
+                onSecondaryTap: (tapPosition, point) {
+                  ref.read(mapProvider.notifier).centerOnSelectedLocation();
+                },
+                onPointerDown: (event, point) {
+                  _pointerDownPosition = event.localPosition;
+                  _isDragging = false;
+                },
+                onPointerUp: (event, point) {
+                  final moved =
+                      _pointerDownPosition != null &&
+                      (event.localPosition - _pointerDownPosition!).distance >
+                          5;
+                  _isDragging = moved;
+                  _pointerDownPosition = null;
+                  if (!moved) {
+                    ref.read(mapProvider.notifier).setSelectedLocation(point);
                   }
                 },
-                onTap: (tapPosition, point) {
-                  ref.read(mapProvider.notifier).centerOnLocation(point);
+                onPointerHover: (event, point) {
+                  if (_pointerDownPosition != null) {
+                    _isDragging = true;
+                  }
+                  if (!_isDragging) {
+                    ref.read(mapProvider.notifier).setCursorMgrs(point);
+                  }
                 },
               ),
               children: [
                 TileLayer(
                   urlTemplate: _getTileUrl(mapState.basemap),
                   userAgentPackageName: 'com.peak_bagger.app',
+                  tileProvider: NetworkTileProvider(),
                 ),
+                if (mapState.selectedLocation != null)
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: mapState.selectedLocation!,
+                        width: 40,
+                        height: 40,
+                        child: Icon(
+                          Icons.my_location,
+                          color: Colors.amber,
+                          size: 32,
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
             Positioned(
@@ -202,29 +209,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 ),
               ),
             ),
-            if (_cursorMgrs.isNotEmpty && _cursorMgrs != mapState.currentMgrs)
-              Positioned(
-                left: 16,
-                bottom: 50,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    _cursorMgrs,
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
-                    ),
-                  ),
-                ),
-              ),
             if (mapState.showGotoInput)
               Positioned(
                 left: 16,

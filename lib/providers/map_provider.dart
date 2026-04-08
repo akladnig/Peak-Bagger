@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latlong2/latlong.dart';
@@ -20,8 +21,11 @@ class MapState {
   final bool isLoading;
   final String? error;
   final String currentMgrs;
+  final String? cursorMgrs;
   final String? gotoMgrs;
   final bool showGotoInput;
+  final LatLng? selectedLocation;
+  final bool syncEnabled;
 
   const MapState({
     required this.center,
@@ -31,8 +35,11 @@ class MapState {
     this.isLoading = false,
     this.error,
     this.currentMgrs = '55G FN\n00000 00000',
+    this.cursorMgrs,
     this.gotoMgrs,
     this.showGotoInput = false,
+    this.selectedLocation,
+    this.syncEnabled = true,
   });
 
   MapState copyWith({
@@ -43,8 +50,12 @@ class MapState {
     bool? isLoading,
     String? error,
     String? currentMgrs,
+    String? cursorMgrs,
     String? gotoMgrs,
     bool? showGotoInput,
+    LatLng? selectedLocation,
+    bool clearSelectedLocation = false,
+    bool? syncEnabled,
   }) {
     return MapState(
       center: center ?? this.center,
@@ -54,8 +65,13 @@ class MapState {
       isLoading: isLoading ?? this.isLoading,
       error: error,
       currentMgrs: currentMgrs ?? this.currentMgrs,
+      cursorMgrs: cursorMgrs,
       gotoMgrs: gotoMgrs,
       showGotoInput: showGotoInput ?? this.showGotoInput,
+      selectedLocation: clearSelectedLocation
+          ? null
+          : (selectedLocation ?? this.selectedLocation),
+      syncEnabled: syncEnabled ?? this.syncEnabled,
     );
   }
 }
@@ -71,6 +87,7 @@ class MapNotifier extends Notifier<MapState> {
       zoom: _defaultZoom,
       basemap: Basemap.tracestrack,
       isFirstLaunch: true,
+      selectedLocation: _defaultCenter,
     );
   }
 
@@ -88,6 +105,7 @@ class MapNotifier extends Notifier<MapState> {
           zoom: zoom,
           isFirstLaunch: false,
           currentMgrs: _convertToMgrs(location),
+          selectedLocation: location,
         );
       }
     } catch (e) {
@@ -130,6 +148,7 @@ class MapNotifier extends Notifier<MapState> {
       center: center,
       zoom: zoom,
       currentMgrs: _convertToMgrs(center),
+      cursorMgrs: null,
     );
     savePosition();
   }
@@ -143,8 +162,42 @@ class MapNotifier extends Notifier<MapState> {
       center: location,
       currentMgrs: _convertToMgrs(location),
       gotoMgrs: null,
+      selectedLocation: location,
+      syncEnabled: true,
     );
     savePosition();
+  }
+
+  void setCursorMgrs(LatLng location) {
+    state = state.copyWith(cursorMgrs: _convertToMgrs(location));
+  }
+
+  void setSelectedLocation(LatLng location) {
+    state = state.copyWith(
+      cursorMgrs: _convertToMgrs(location),
+      selectedLocation: location,
+      syncEnabled: false,
+    );
+  }
+
+  void enableSync() {
+    state = state.copyWith(syncEnabled: true);
+  }
+
+  void centerOnSelectedLocation() {
+    final selected = state.selectedLocation;
+    if (selected != null) {
+      state = state.copyWith(
+        center: selected,
+        currentMgrs: _convertToMgrs(selected),
+        syncEnabled: true,
+      );
+      savePosition();
+    }
+  }
+
+  void clearCursorMgrs() {
+    state = state.copyWith(cursorMgrs: null, clearSelectedLocation: true);
   }
 
   (LatLng?, String?) parseGridReference(String input) {

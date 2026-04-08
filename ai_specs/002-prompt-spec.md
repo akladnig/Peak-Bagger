@@ -10,9 +10,13 @@ MacOS-only (continuing from Phase 1).
 **Tech Stack:**
 - Flutter with Dart SDK ^3.11.4
 - flutter_map ^8.2.2 for map display
-- IP-based location service for current location
+- geolocator ^14.0.0 for GPS location service
 - mgrs_dart ^2.0.0 for MGRS coordinate conversion
 - Existing: go_router, shared_preferences, flutter_riverpod, font_awesome_flutter
+
+**macOS Location Configuration:**
+- Entitlements: Add `com.apple.security.personal-information.location` to both DebugProfile.entitlements and Release.entitlements
+- Info.plist: Add NSLocationUsageDescription to explain why app needs location
 
 **Existing Code:**
 - @lib/screens/map_screen.dart - Current placeholder
@@ -23,6 +27,7 @@ MacOS-only (continuing from Phase 1).
 - Default center: Tasmania (approx -41.5°S, 146.5°E)
 - Default zoom: ~8km wide x 5km high (roughly zoom level 15)
 - Basemaps: Tracestrack topo (default), OpenStreetMap (alternative)
+- Tiles: Currently loaded from network. Tile download service exists at lib/services/tile_downloader.dart for offline use.
 
 **Files to modify:**
 - @lib/screens/map_screen.dart - Implement map with all controls
@@ -66,16 +71,18 @@ Error flows:
 8. Current MGRS location displayed as overlay text at top-left of map using standard MGRS format:
    - Format: [Grid Zone][100km Square]\n[Easting] [Northing]
    - Example: "55G FN\n00000 00000" for 1m precision
-9. MGRS display updates in three scenarios:
-   a. User taps/clicks on map: show MGRS of tapped location, center map on that location
-   b. User enters grid reference via Go to Location: show converted MGRS of destination
-   c. User taps Show My Location: show current IP-based location as MGRS
-10. On mouse/trackpad drag: show cursor arrow at finger position, display MGRS at cursor position in real-time
+ 9. MGRS display updates in three scenarios:
+    a. User taps/clicks on map: show MGRS of tapped location (do not center map), set selected location
+    b. User enters grid reference via Go to Location: show converted MGRS of destination, set selected location
+    c. User taps Show My Location: show current GPS location as MGRS, set selected location
+10. On finger movement: show MGRS at finger position in real-time. Drag does not update MGRS.
+11. Selected location shown on map with Icons.my_location marker, colored gold. Selected location is set when user taps/clicks on map (9a), enters grid reference (9b), or taps Show My Location (9c). On first view of map, marker displayed at default center location.
 11. Save tiles to assets folder for full offline mode (do not use built-in caching)
 12. Separate folder under assets for each distinct tile set
 13. Future: tiles will be saved in database
-14. Floating Show My Location icon (Icons.near_me) - goes to current IP-based location
-15. Floating Go to Location icon (Icons.moved_location) - opens floating text input field
+14. Floating Show My Location icon (Icons.near_me) - goes to current GPS location
+15. Floating Center on Marker icon (Icons.my_location) - centers map on selected location (gold marker)
+16. Floating Go to Location icon (Icons.moved_location) - opens floating text input field
 16. Floating input field UI: TextField with "Go to location" placeholder, "Go" button to navigate, "X" button to close
 17. Clicking "X" closes input field and stays at current map position (no navigation)
 18. Input validation:
@@ -101,10 +108,12 @@ Error flows:
 33. Open Layers (basemap selector): b key
 34. Show My Location: s key
 35. Go to Location: g key
+36. Center on Marker: c key
 
 **Touch Controls:**
 35. Pinch-to-zoom
-36. Drag-to-pan
+36. Drag-to-p
+37. Right click: Center on selected location (gold marker) [two-finger click on trackpad]
 37. Zoom level indicator at lower-left of map (e.g., "zoom: 15" or scale bar)
 
 **Persistence:**
