@@ -1,5 +1,4 @@
 - tiles not being saved
-- icon backgrounds are not correct
 - update spec - check assets folder first only download if required.
 - Setup private OSM tileserver - use versatiler?
 - change zoom level display to actual distance

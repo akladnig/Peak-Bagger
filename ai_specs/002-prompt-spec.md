@@ -75,7 +75,7 @@ Error flows:
     a. User taps/clicks on map: show MGRS of tapped location (do not center map), set selected location
     b. User enters grid reference via Go to Location: show converted MGRS of destination, set selected location
     c. User taps Show My Location: show current GPS location as MGRS, set selected location
-10. On finger movement: show MGRS at finger position in real-time. Drag does not update MGRS.
+10. On finger movement: show MGRS at finger position in real-time. Drag does not update MGRS. Cursor icon: grab (open hand) normally within map region, hand-back-fist (grabbing) during drag. Normal arrow cursor on all other screens and UI elements (buttons, navigation bars, FABs, etc.).
 11. Selected location shown on map with Icons.my_location marker, colored gold. Selected location is set when user taps/clicks on map (9a), enters grid reference (9b), or taps Show My Location (9c). On first view of map, marker displayed at default center location.
 11. Save tiles to assets folder for full offline mode (do not use built-in caching)
 12. Separate folder under assets for each distinct tile set

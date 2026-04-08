@@ -17,8 +17,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   late final MapController _mapController;
   final _gotoController = TextEditingController();
   String? _gotoError;
+  bool _isPointerDown = false;
   Offset? _pointerDownPosition;
-  bool _isDragging = false;
 
   @override
   void initState() {
@@ -167,60 +167,64 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         },
         child: Stack(
           children: [
-            FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(
-                initialCenter: mapState.center,
-                initialZoom: mapState.zoom,
-                onSecondaryTap: (tapPosition, point) {
-                  ref.read(mapProvider.notifier).centerOnSelectedLocation();
-                },
-                onPointerDown: (event, point) {
-                  _pointerDownPosition = event.localPosition;
-                  _isDragging = false;
-                },
-                onPointerUp: (event, point) {
-                  final moved =
-                      _pointerDownPosition != null &&
-                      (event.localPosition - _pointerDownPosition!).distance >
-                          5;
-                  _isDragging = moved;
-                  _pointerDownPosition = null;
-                  if (!moved) {
-                    ref.read(mapProvider.notifier).setSelectedLocation(point);
-                  }
-                },
-                onPointerHover: (event, point) {
-                  if (_pointerDownPosition != null) {
-                    _isDragging = true;
-                  }
-                  if (!_isDragging) {
+            MouseRegion(
+              cursor: _isPointerDown
+                  ? SystemMouseCursors.grabbing
+                  : SystemMouseCursors.grab,
+              child: FlutterMap(
+                mapController: _mapController,
+                options: MapOptions(
+                  initialCenter: mapState.center,
+                  initialZoom: mapState.zoom,
+                  onSecondaryTap: (tapPosition, point) {
+                    ref.read(mapProvider.notifier).centerOnSelectedLocation();
+                  },
+                  onPointerDown: (event, point) {
+                    setState(() {
+                      _isPointerDown = true;
+                      _pointerDownPosition = event.localPosition;
+                    });
+                  },
+                  onPointerUp: (event, point) {
+                    final moved =
+                        _pointerDownPosition != null &&
+                        (event.localPosition - _pointerDownPosition!).distance >
+                            5;
+                    setState(() {
+                      _isPointerDown = false;
+                      _pointerDownPosition = null;
+                    });
+                    if (!moved) {
+                      ref.read(mapProvider.notifier).setSelectedLocation(point);
+                    }
+                  },
+                  onPointerHover: (event, point) {
                     ref.read(mapProvider.notifier).setCursorMgrs(point);
-                  }
-                },
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate: _getTileUrl(mapState.basemap),
-                  userAgentPackageName: 'com.peak_bagger.app',
-                  tileProvider: NetworkTileProvider(),
+                  },
                 ),
-                if (mapState.selectedLocation != null)
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: mapState.selectedLocation!,
-                        width: 40,
-                        height: 40,
-                        child: Icon(
-                          Icons.my_location,
-                          color: Colors.amber,
-                          size: 32,
-                        ),
-                      ),
-                    ],
+                children: [
+                  TileLayer(
+                    urlTemplate: _getTileUrl(mapState.basemap),
+                    userAgentPackageName: 'com.peak_bagger.app',
+                    tileProvider: NetworkTileProvider(),
                   ),
-              ],
+                  if (mapState.selectedLocation != null)
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: mapState.selectedLocation!,
+                          width: 40,
+                          height: 40,
+                          child: Icon(
+                            Icons.my_location,
+                            color: Colors.amber,
+                            size: 32,
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
             ),
             Positioned(
               left: 16,
