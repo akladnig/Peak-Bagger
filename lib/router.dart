@@ -101,6 +101,20 @@ final router = GoRouter(
                         const SizedBox(height: 8),
                         if (navigationShell.currentIndex == 1) ...[
                           FloatingActionButton.small(
+                            heroTag: 'search',
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.surface,
+                            onPressed: () {
+                              ref.read(mapProvider.notifier).togglePeakSearch();
+                            },
+                            child: Icon(
+                              Icons.search,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          FloatingActionButton.small(
                             heroTag: 'layers',
                             backgroundColor: Theme.of(
                               context,
@@ -110,6 +124,20 @@ final router = GoRouter(
                             },
                             child: Icon(
                               Icons.layers,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          FloatingActionButton.small(
+                            heroTag: 'search',
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.surface,
+                            onPressed: () {
+                              ref.read(mapProvider.notifier).togglePeakSearch();
+                            },
+                            child: Icon(
+                              Icons.search,
                               color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),

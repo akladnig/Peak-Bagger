@@ -1,0 +1,57 @@
+{
+  "_note1": "KEEP THIS FILE! Check it into a version control system (VCS) like git.",
+  "_note2": "ObjectBox manages crucial IDs for your object model. See docs for details.",
+  "_note3": "If you have VCS merge conflicts, you must resolve them according to ObjectBox docs.",
+  "entities": [
+    {
+      "id": "1:6887978098338940139",
+      "lastPropertyId": "6:8968330069070174548",
+      "name": "Peak",
+      "properties": [
+        {
+          "id": "1:8477524303206664798",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:2823209193653409857",
+          "name": "name",
+          "type": 9
+        },
+        {
+          "id": "3:2345462672031361859",
+          "name": "elevation",
+          "type": 8
+        },
+        {
+          "id": "4:3823448150973689218",
+          "name": "latitude",
+          "type": 8
+        },
+        {
+          "id": "5:2864945409495793627",
+          "name": "longitude",
+          "type": 8
+        },
+        {
+          "id": "6:8968330069070174548",
+          "name": "area",
+          "type": 9
+        }
+      ],
+      "relations": []
+    }
+  ],
+  "lastEntityId": "1:6887978098338940139",
+  "lastIndexId": "0:0",
+  "lastRelationId": "0:0",
+  "lastSequenceId": "0:0",
+  "modelVersion": 5,
+  "modelVersionParserMinimum": 5,
+  "retiredEntityUids": [],
+  "retiredIndexUids": [],
+  "retiredPropertyUids": [],
+  "retiredRelationUids": [],
+  "version": 1
+}

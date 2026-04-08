@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/app.dart';
+import 'package:peak_bagger/objectbox.g.dart';
 
-void main() {
+late final Store objectboxStore;
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  runApp(const ProviderScope(child: App()));
+  objectboxStore = openStore();
+
+  runApp(ProviderScope(child: App()));
 }

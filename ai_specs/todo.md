@@ -4,4 +4,8 @@
 - change zoom level display to actual distance
 - goto location should use map name or mgrs two-letter pair
 - use hand icon (font awesome hand) for normal cursor movement, closed hand (hand-back-fist) for grab and drag
-
+- investigate use of maplibre
+- investigate use of listmaps
+- update search results to show map/area
+- update search for advanced search: peaks between/below/above a certain height, within a certain area etc.
+- update search results so that blue circles are dynamically drawn around matching peaks as search criteria is entered, zoom out to view all peaks as required.

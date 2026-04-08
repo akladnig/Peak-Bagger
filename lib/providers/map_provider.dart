@@ -24,6 +24,7 @@ class MapState {
   final String? cursorMgrs;
   final String? gotoMgrs;
   final bool showGotoInput;
+  final bool showPeakSearch;
   final LatLng? selectedLocation;
   final bool syncEnabled;
 
@@ -38,6 +39,7 @@ class MapState {
     this.cursorMgrs,
     this.gotoMgrs,
     this.showGotoInput = false,
+    this.showPeakSearch = false,
     this.selectedLocation,
     this.syncEnabled = true,
   });
@@ -53,6 +55,7 @@ class MapState {
     String? cursorMgrs,
     String? gotoMgrs,
     bool? showGotoInput,
+    bool? showPeakSearch,
     LatLng? selectedLocation,
     bool clearSelectedLocation = false,
     bool? syncEnabled,
@@ -68,6 +71,7 @@ class MapState {
       cursorMgrs: cursorMgrs,
       gotoMgrs: gotoMgrs,
       showGotoInput: showGotoInput ?? this.showGotoInput,
+      showPeakSearch: showPeakSearch ?? this.showPeakSearch,
       selectedLocation: clearSelectedLocation
           ? null
           : (selectedLocation ?? this.selectedLocation),
@@ -280,5 +284,13 @@ class MapNotifier extends Notifier<MapState> {
 
   void setGotoInputVisible(bool visible) {
     state = state.copyWith(showGotoInput: visible);
+  }
+
+  void togglePeakSearch() {
+    state = state.copyWith(showPeakSearch: !state.showPeakSearch);
+  }
+
+  void setPeakSearchVisible(bool visible) {
+    state = state.copyWith(showPeakSearch: visible);
   }
 }

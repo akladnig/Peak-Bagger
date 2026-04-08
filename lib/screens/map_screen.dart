@@ -260,6 +260,40 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 ),
               ),
             ),
+            if (mapState.showPeakSearch)
+              Positioned(
+                left: 16,
+                right: 72,
+                top: 16,
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            decoration: const InputDecoration(
+                              hintText: 'Search peaks',
+                              isDense: true,
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.search, size: 20),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () {
+                            ref
+                                .read(mapProvider.notifier)
+                                .setPeakSearchVisible(false);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             if (mapState.showGotoInput)
               Positioned(
                 left: 16,

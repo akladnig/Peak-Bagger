@@ -6,10 +6,10 @@ Add objectBox ^5.3.1 database. This database will store a list of all Tasmanian 
 
 ## Requirements
 ### ObjectBox Database
-- create an objectbox database which will contain multiple tables.
-- initial table will be a Peaks Table
+- create an objectbox database which will contain multiple Stores.
+- initial Store will be a Peaks Store
  
-Peak table schema:
+Peak Store schema:
 - PeakId
 - PeakName
 - PeakElevation
@@ -18,7 +18,7 @@ Peak table schema:
 - PeakMapId
 - PeakArea
 
-- Intial database setup will only contains data for PeakName and PeakElevation
+- Intial objectBoxsetup will only contain data for PeakName and PeakElevation
 
 ### Initial data ingestion
 - on first launch Run a query on Overpass Turbo to get a list of Tasmanian peaks with a name and elevation and location.
