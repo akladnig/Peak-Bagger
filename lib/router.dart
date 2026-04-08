@@ -85,13 +85,18 @@ final router = GoRouter(
                     return Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        IconButton(
-                          icon: Icon(
-                            isDark ? Icons.light_mode : Icons.dark_mode,
-                          ),
+                        FloatingActionButton.small(
+                          heroTag: 'theme',
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.surface,
                           onPressed: () {
                             ref.read(themeModeProvider.notifier).toggleTheme();
                           },
+                          child: Icon(
+                            isDark ? Icons.light_mode : Icons.dark_mode,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         if (navigationShell.currentIndex == 1) ...[
@@ -99,15 +104,13 @@ final router = GoRouter(
                             heroTag: 'layers',
                             backgroundColor: Theme.of(
                               context,
-                            ).colorScheme.primaryContainer,
+                            ).colorScheme.surface,
                             onPressed: () {
                               Scaffold.of(context).openEndDrawer();
                             },
                             child: Icon(
                               Icons.layers,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onPrimaryContainer,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -115,7 +118,7 @@ final router = GoRouter(
                             heroTag: 'mylocation',
                             backgroundColor: Theme.of(
                               context,
-                            ).colorScheme.primaryContainer,
+                            ).colorScheme.surface,
                             onPressed: () async {
                               try {
                                 bool serviceEnabled =
@@ -198,9 +201,7 @@ final router = GoRouter(
                             },
                             child: Icon(
                               Icons.near_me,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onPrimaryContainer,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -208,7 +209,7 @@ final router = GoRouter(
                             heroTag: 'centermarker',
                             backgroundColor: Theme.of(
                               context,
-                            ).colorScheme.primaryContainer,
+                            ).colorScheme.surface,
                             onPressed: () {
                               ref
                                   .read(mapProvider.notifier)
@@ -221,15 +222,13 @@ final router = GoRouter(
                             heroTag: 'goto',
                             backgroundColor: Theme.of(
                               context,
-                            ).colorScheme.primaryContainer,
+                            ).colorScheme.surface,
                             onPressed: () {
                               ref.read(mapProvider.notifier).toggleGotoInput();
                             },
                             child: Icon(
                               Icons.directions,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onPrimaryContainer,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                         ],

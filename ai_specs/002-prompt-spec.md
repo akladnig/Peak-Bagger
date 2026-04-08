@@ -67,10 +67,10 @@ Error flows:
 4. Subsequent launches: restore last viewed position and zoom
 5. Default basemap: Tracestrack topo (https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp?key=8bd67b17be9041b60f241c2aa45ecf0d)
 6. Alternative basemap: OpenStreetMap (https://tile.openstreetmap.org/{z}/{x}/{y}.png)
-7. Floating Layers icon to switch between basemaps - opens Drawer widget sliding from right side of screen. Icon background color matches current theme (light/dark).
+7. Floating Layers icon to switch between basemaps - opens Drawer widget sliding from right side of screen. Floating action buttons use background color: surface, icon color: onSurface.
 8. Current MGRS location displayed as overlay text at top-left of map using standard MGRS format:
-   - Format: [Grid Zone][100km Square]\n[Easting] [Northing]
-   - Example: "55G FN\n00000 00000" for 1m precision
+   - Format: [Grid Zone][100km Square]\n[Easting] [Northing] with first 3 digits of easting/northing bolded
+   - Example: "55G FN\n00000 00000" where 000 and 000 are bold
  9. MGRS display updates in three scenarios:
     a. User taps/clicks on map: show MGRS of tapped location (do not center map), set selected location
     b. User enters grid reference via Go to Location: show converted MGRS of destination, set selected location
@@ -81,8 +81,9 @@ Error flows:
 12. Separate folder under assets for each distinct tile set
 13. Future: tiles will be saved in database
 14. Floating Show My Location icon (Icons.near_me) - goes to current GPS location
-15. Floating Center on Marker icon (Icons.my_location) - centers map on selected location (gold marker)
-16. Floating Go to Location icon (Icons.moved_location) - opens floating text input field
+15. Floating Center on Marker icon (Icons.my_location, colored gold) - centers map on selected location
+16. Floating Go to Location icon (Icons.directions) - opens floating text input field
+17. All floating action buttons use background color: surface, icon color: onSurface (except Center on Marker which uses gold icon)
 16. Floating input field UI: TextField with "Go to location" placeholder, "Go" button to navigate, "X" button to close
 17. Clicking "X" closes input field and stays at current map position (no navigation)
 18. Input validation:

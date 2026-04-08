@@ -59,7 +59,7 @@ Navigation flow:
 5. App icon (mountain peak) at top of side menu
 6. Four menu items below icon: Dashboard, Map, Peak Lists, Settings
 7. Each menu item displays icon for navigation
-8. Theme toggle as floating icon in top-right of screen
+8. Theme toggle as floating action button in top-right of screen (background: surface, icon: onSurface)
 9. No headers on screens (clean, full-width content area)
 10. Dark mode uses Catppuccin Mocha palette
 11. Light mode uses Catppuccin Latte palette

@@ -26,6 +26,60 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     _mapController = MapController();
   }
 
+  Widget _buildMgrsDisplay(String mgrs) {
+    final lines = mgrs.split('\n');
+    if (lines.length < 2) {
+      return Text(
+        mgrs,
+        style: TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 12,
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
+      );
+    }
+
+    final firstLine = lines[0];
+    final secondLine = lines[1];
+    final parts = secondLine.split(' ');
+    if (parts.length < 2) {
+      return Text(
+        mgrs,
+        style: TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 12,
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
+      );
+    }
+
+    final easting = parts[0];
+    final northing = parts[1];
+
+    return RichText(
+      text: TextSpan(
+        style: TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 12,
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
+        children: [
+          TextSpan(text: '$firstLine\n'),
+          TextSpan(
+            text: easting.substring(0, 3),
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          TextSpan(text: '${easting.substring(3)} '),
+          TextSpan(
+            text: northing.substring(0, 3),
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          TextSpan(text: northing.substring(3)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final mapState = ref.watch(mapProvider);
@@ -179,14 +233,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   ).colorScheme.surface.withValues(alpha: 0.8),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Text(
-                  displayMgrs,
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
+                child: _buildMgrsDisplay(displayMgrs),
               ),
             ),
             Positioned(
