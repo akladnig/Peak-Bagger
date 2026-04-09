@@ -4,8 +4,13 @@ import 'package:go_router/go_router.dart';
 
 class SideMenu extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
+  final VoidCallback? onBeforeNavigation;
 
-  const SideMenu({super.key, required this.navigationShell});
+  const SideMenu({
+    super.key,
+    required this.navigationShell,
+    this.onBeforeNavigation,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -31,25 +36,37 @@ class SideMenu extends StatelessWidget {
           _MenuItem(
             icon: Icons.dashboard,
             isSelected: navigationShell.currentIndex == 0,
-            onTap: () => navigationShell.goBranch(0),
+            onTap: () {
+              onBeforeNavigation?.call();
+              navigationShell.goBranch(0);
+            },
           ),
           const SizedBox(height: 8),
           _MenuItem(
             icon: Icons.map,
             isSelected: navigationShell.currentIndex == 1,
-            onTap: () => navigationShell.goBranch(1),
+            onTap: () {
+              onBeforeNavigation?.call();
+              navigationShell.goBranch(1);
+            },
           ),
           const SizedBox(height: 8),
           _MenuItem(
             icon: Icons.landscape,
             isSelected: navigationShell.currentIndex == 2,
-            onTap: () => navigationShell.goBranch(2),
+            onTap: () {
+              onBeforeNavigation?.call();
+              navigationShell.goBranch(2);
+            },
           ),
           const SizedBox(height: 8),
           _MenuItem(
             icon: Icons.settings,
             isSelected: navigationShell.currentIndex == 3,
-            onTap: () => navigationShell.goBranch(3),
+            onTap: () {
+              onBeforeNavigation?.call();
+              navigationShell.goBranch(3);
+            },
           ),
         ],
       ),

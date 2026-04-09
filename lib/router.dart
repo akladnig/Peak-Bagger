@@ -71,7 +71,23 @@ final router = GoRouter(
             children: [
               Row(
                 children: [
-                  SideMenu(navigationShell: navigationShell),
+                  Consumer(
+                    builder: (context, ref, _) => SideMenu(
+                      navigationShell: navigationShell,
+                      onBeforeNavigation: () {
+                        if (ref.read(mapProvider).showPeakSearch) {
+                          ref
+                              .read(mapProvider.notifier)
+                              .setPeakSearchVisible(false);
+                        }
+                        if (ref.read(mapProvider).showGotoInput) {
+                          ref
+                              .read(mapProvider.notifier)
+                              .setGotoInputVisible(false);
+                        }
+                      },
+                    ),
+                  ),
                   Expanded(child: navigationShell),
                 ],
               ),
@@ -106,7 +122,24 @@ final router = GoRouter(
                               context,
                             ).colorScheme.surface,
                             onPressed: () {
-                              ref.read(mapProvider.notifier).togglePeakSearch();
+                              final mapNotifier = ref.read(
+                                mapProvider.notifier,
+                              );
+                              final isSearchVisible = ref
+                                  .read(mapProvider)
+                                  .showPeakSearch;
+                              final isGotoVisible = ref
+                                  .read(mapProvider)
+                                  .showGotoInput;
+                              if (isSearchVisible) {
+                                mapNotifier.setPeakSearchVisible(false);
+                              }
+                              if (isGotoVisible) {
+                                mapNotifier.setGotoInputVisible(false);
+                              }
+                              if (!isSearchVisible) {
+                                mapNotifier.setPeakSearchVisible(true);
+                              }
                             },
                             child: Icon(
                               Icons.search,
@@ -120,24 +153,20 @@ final router = GoRouter(
                               context,
                             ).colorScheme.surface,
                             onPressed: () {
+                              if (ref.read(mapProvider).showPeakSearch) {
+                                ref
+                                    .read(mapProvider.notifier)
+                                    .setPeakSearchVisible(false);
+                              }
+                              if (ref.read(mapProvider).showGotoInput) {
+                                ref
+                                    .read(mapProvider.notifier)
+                                    .setGotoInputVisible(false);
+                              }
                               Scaffold.of(context).openEndDrawer();
                             },
                             child: Icon(
                               Icons.layers,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          FloatingActionButton.small(
-                            heroTag: 'search',
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.surface,
-                            onPressed: () {
-                              ref.read(mapProvider.notifier).togglePeakSearch();
-                            },
-                            child: Icon(
-                              Icons.search,
                               color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
@@ -148,6 +177,16 @@ final router = GoRouter(
                               context,
                             ).colorScheme.surface,
                             onPressed: () async {
+                              if (ref.read(mapProvider).showPeakSearch) {
+                                ref
+                                    .read(mapProvider.notifier)
+                                    .setPeakSearchVisible(false);
+                              }
+                              if (ref.read(mapProvider).showGotoInput) {
+                                ref
+                                    .read(mapProvider.notifier)
+                                    .setGotoInputVisible(false);
+                              }
                               try {
                                 bool serviceEnabled =
                                     await Geolocator.isLocationServiceEnabled();
@@ -239,6 +278,16 @@ final router = GoRouter(
                               context,
                             ).colorScheme.surface,
                             onPressed: () {
+                              if (ref.read(mapProvider).showPeakSearch) {
+                                ref
+                                    .read(mapProvider.notifier)
+                                    .setPeakSearchVisible(false);
+                              }
+                              if (ref.read(mapProvider).showGotoInput) {
+                                ref
+                                    .read(mapProvider.notifier)
+                                    .setGotoInputVisible(false);
+                              }
                               ref
                                   .read(mapProvider.notifier)
                                   .centerOnSelectedLocation();
@@ -252,6 +301,16 @@ final router = GoRouter(
                               context,
                             ).colorScheme.surface,
                             onPressed: () {
+                              if (ref.read(mapProvider).showPeakSearch) {
+                                ref
+                                    .read(mapProvider.notifier)
+                                    .setPeakSearchVisible(false);
+                              }
+                              if (ref.read(mapProvider).showGotoInput) {
+                                ref
+                                    .read(mapProvider.notifier)
+                                    .setGotoInputVisible(false);
+                              }
                               ref.read(mapProvider.notifier).toggleGotoInput();
                             },
                             child: Icon(

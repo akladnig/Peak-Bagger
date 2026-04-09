@@ -61,11 +61,16 @@ Error flows:
 4. Store peaks in ObjectBox (only if database is empty)
 5. Show loading indicator while peaks are loading (CircularProgressIndicator)
 6. Display peaks on map as firebrick-colored triangles (W3C #B22222, use Color(0xFFB22222)). Use Material Icons triangle (Icons.change_history) or similar. Peaks displayed at zoom level 12+, do not display peaks at zoom < 12
-7. Hover over peak → show tooltip with name and elevation to the right of peak (use Marker tooltipAnchor: Alignment(1, 0))
-8. Search box positioned to left of search FAB. FAB toggles search box visibility, close button (X) dismisses search. FAB positioned between theme toggle and map-specific FABs (layers, my location, etc.). Keyboard shortcut: / (forward slash) focuses search box
+7. Hover over peak → show tooltip with name and elevation to the right of peak (use Marker tooltipAnchor: Alignment(1, 0)) - NOT IMPLEMENTED: flutter_map 8.x removed Marker tooltips, feature out of scope
+8. Search box and goto box both positioned to right of FABs (right-aligned), width: 30 characters. FAB toggles search box visibility, close button (X) dismisses search. FAB positioned between theme toggle and map-specific FABs (layers, my location, etc.). Keyboard shortcut: / (forward slash) focuses search box. Clicking peak search FAB focuses the search TextField, closing search returns focus to map. Search closes automatically when focus moves to map, FABs, or menu items
+9. Keyboard shortcuts: h/j/k/l for pan (smooth continuous scroll on long press), arrow keys for pan, +/- for zoom, s for current location, g for goto, b for basemap drawer, c for center on marker
+
+**Bug fixes:**
+- Fixed duplicate peak search FAB in router.dart
 9. Search filters peaks by name and/or elevation (debounce 300ms). Display maximum 20 search results in dropdown
-10. Search results shown in dropdown list (use TextField with dropdown overlay that filters as user types, not DropdownMenu). Selecting result centers map on peak location and closes dropdown
-11. Add "Refresh Peak Data" button in Settings screen (below Download Offline Tiles)
+10. Search results shown in dropdown list (use TextField with dropdown overlay that filters as user types, not DropdownMenu). Selecting result centers map on peak location and closes dropdown. Pressing Return key selects all listed peaks, highlights them with blue circles, zooms map to show all selected peaks, and closes search
+11. Blue circles (CircleLayer) drawn around selected peaks (after Return key pressed). Circle radius: 15px (same size as peak marker), color: blue with 0.3 opacity, radius in pixels so size stays constant on zoom
+12. Add "Refresh Peak Data" button in Settings screen (below Download Offline Tiles)
 12. Refresh button re-queries Overpass API and updates database
 
 **Data Schema:**

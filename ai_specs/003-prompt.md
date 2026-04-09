@@ -1,5 +1,4 @@
-# Phase 3
-## Goal
+# Phase 3# Goal
 Add objectBox ^5.3.1 database. This database will store a list of all Tasmanian Peaks, which will be gathered from OpenStreetMap. It will also store a list of Tasmanian maps references. A search box will be added to allow navigation to the peak.
 
 - Before implementing this Phase 3 confirm Phases 1&2 are complete.

@@ -35,6 +35,7 @@ class MapState {
   final bool isLoadingPeaks;
   final List<Peak> searchResults;
   final String searchQuery;
+  final List<Peak> selectedPeaks;
 
   const MapState({
     required this.center,
@@ -54,6 +55,7 @@ class MapState {
     this.isLoadingPeaks = false,
     this.searchResults = const [],
     this.searchQuery = '',
+    this.selectedPeaks = const [],
   });
 
   MapState copyWith({
@@ -75,6 +77,7 @@ class MapState {
     bool? isLoadingPeaks,
     List<Peak>? searchResults,
     String? searchQuery,
+    List<Peak>? selectedPeaks,
   }) {
     return MapState(
       center: center ?? this.center,
@@ -96,6 +99,7 @@ class MapState {
       isLoadingPeaks: isLoadingPeaks ?? this.isLoadingPeaks,
       searchResults: searchResults ?? this.searchResults,
       searchQuery: searchQuery ?? this.searchQuery,
+      selectedPeaks: selectedPeaks ?? this.selectedPeaks,
     );
   }
 }
@@ -110,7 +114,7 @@ class MapNotifier extends Notifier<MapState> {
   MapState build() {
     _peakRepository = PeakRepository(objectboxStore);
     _loadPosition();
-    _loadPeaks();
+    Future.microtask(() => _loadPeaks());
     return MapState(
       center: _defaultCenter,
       zoom: _defaultZoom,
@@ -343,14 +347,55 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void searchPeaks(String query) {
-    state = state.copyWith(
-      searchQuery: query,
-      searchResults: _peakRepository.searchPeaks(query).take(20).toList(),
-    );
+    final results = _peakRepository.searchPeaks(query).take(20).toList();
+    state = state.copyWith(searchQuery: query, searchResults: results);
   }
 
   void clearSearch() {
     state = state.copyWith(searchQuery: '', searchResults: []);
+  }
+
+  void selectAllSearchResults() {
+    if (state.searchResults.isNotEmpty) {
+      final peaks = state.searchResults;
+      double minLat = peaks.first.latitude;
+      double maxLat = peaks.first.latitude;
+      double minLng = peaks.first.longitude;
+      double maxLng = peaks.first.longitude;
+
+      for (final peak in peaks) {
+        if (peak.latitude < minLat) minLat = peak.latitude;
+        if (peak.latitude > maxLat) maxLat = peak.latitude;
+        if (peak.longitude < minLng) minLng = peak.longitude;
+        if (peak.longitude > maxLng) maxLng = peak.longitude;
+      }
+
+      final centerLat = (minLat + maxLat) / 2;
+      final centerLng = (minLng + maxLng) / 2;
+
+      final latDiff = maxLat - minLat;
+      final lngDiff = maxLng - minLng;
+      final maxDiff = latDiff > lngDiff ? latDiff : lngDiff;
+
+      double zoom = 12;
+      if (maxDiff > 0) {
+        zoom = 10 - (maxDiff / 10).clamp(0, 3);
+      }
+
+      state = state.copyWith(
+        selectedPeaks: List.from(peaks),
+        showPeakSearch: false,
+        searchQuery: '',
+        searchResults: [],
+        center: LatLng(centerLat, centerLng),
+        zoom: zoom,
+        currentMgrs: _convertToMgrs(LatLng(centerLat, centerLng)),
+      );
+    }
+  }
+
+  void clearSelectedPeaks() {
+    state = state.copyWith(selectedPeaks: []);
   }
 
   void centerOnPeak(Peak peak) {
@@ -358,6 +403,7 @@ class MapNotifier extends Notifier<MapState> {
       center: LatLng(peak.latitude, peak.longitude),
       zoom: 15.0,
       syncEnabled: true,
+      selectedPeaks: [peak],
     );
   }
 

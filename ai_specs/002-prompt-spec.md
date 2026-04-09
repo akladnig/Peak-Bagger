@@ -113,7 +113,7 @@ Error flows:
 
 **Touch Controls:**
 35. Pinch-to-zoom
-36. Drag-to-p
+36. Drag-to-pan
 37. Right click: Center on selected location (gold marker) [two-finger click on trackpad]
 37. Zoom level indicator at lower-left of map (e.g., "zoom: 15" or scale bar)
 

@@ -8,7 +8,7 @@ class OverpassService {
   static const String _query = '''
 [out:json][timeout:60];
 (
-  node["natural"="peak"]["name"]["ele"](area:360000);
+  node["natural"="peak"]["name"](-43.5,144.0,-40.5,149.0);
 );
 out center;
 ''';

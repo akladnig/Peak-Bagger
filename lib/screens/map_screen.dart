@@ -3,9 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
+import 'dart:async';
 import 'package:peak_bagger/providers/map_provider.dart';
-import 'package:peak_bagger/models/peak.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
@@ -17,14 +16,63 @@ class MapScreen extends ConsumerStatefulWidget {
 class _MapScreenState extends ConsumerState<MapScreen> {
   late final MapController _mapController;
   final _gotoController = TextEditingController();
+  final _gotoFocusNode = FocusNode();
+  final _searchFocusNode = FocusNode();
+  final _mapFocusNode = FocusNode();
   String? _gotoError;
   bool _isPointerDown = false;
   Offset? _pointerDownPosition;
+  Timer? _scrollTimer;
+  double _scrollDx = 0;
+  double _scrollDy = 0;
+  static const _scrollSpeed = 0.001;
+  static const _scrollInterval = Duration(milliseconds: 16);
 
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
+    _searchFocusNode.addListener(_onSearchFocusChange);
+    _gotoFocusNode.addListener(_onGotoFocusChange);
+  }
+
+  void _onSearchFocusChange() {
+    if (!_searchFocusNode.hasFocus && mounted) {
+      _mapFocusNode.requestFocus();
+    }
+  }
+
+  void _onGotoFocusChange() {
+    if (!_gotoFocusNode.hasFocus && mounted) {
+      _mapFocusNode.requestFocus();
+    }
+  }
+
+  void _startScrolling(double dx, double dy) {
+    _scrollDx = dx * _scrollSpeed;
+    _scrollDy = dy * _scrollSpeed;
+    _scrollTimer?.cancel();
+    _scrollTimer = Timer.periodic(_scrollInterval, (_) {
+      if (_scrollDx != 0 || _scrollDy != 0) {
+        _moveMap(_scrollDx, _scrollDy);
+      }
+    });
+  }
+
+  void _stopScrolling() {
+    _scrollTimer?.cancel();
+    _scrollTimer = null;
+    _scrollDx = 0;
+    _scrollDy = 0;
+  }
+
+  @override
+  void dispose() {
+    _scrollTimer?.cancel();
+    _gotoFocusNode.dispose();
+    _searchFocusNode.dispose();
+    _mapFocusNode.dispose();
+    super.dispose();
   }
 
   Widget _buildMgrsDisplay(String mgrs) {
@@ -92,77 +140,89 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           _mapController.camera.center != mapState.center) {
         _mapController.move(mapState.center, mapState.zoom);
       }
+      if (mapState.showPeakSearch && !_searchFocusNode.hasFocus) {
+        _searchFocusNode.requestFocus();
+      }
+      if (mapState.showGotoInput && !_gotoFocusNode.hasFocus) {
+        _gotoFocusNode.requestFocus();
+      }
     });
 
     return Scaffold(
       body: Focus(
+        focusNode: _mapFocusNode,
         autofocus: true,
         onKeyEvent: (node, event) {
-          if (event is KeyDownEvent) {
-            final key = event.logicalKey;
-            if (key == LogicalKeyboardKey.equal ||
-                key == LogicalKeyboardKey.comma ||
-                key == LogicalKeyboardKey.period ||
-                key == LogicalKeyboardKey.less ||
-                key == LogicalKeyboardKey.add ||
-                key == LogicalKeyboardKey.minus ||
-                key == LogicalKeyboardKey.greater) {
-              if (key == LogicalKeyboardKey.equal ||
-                  key == LogicalKeyboardKey.period ||
-                  key == LogicalKeyboardKey.less ||
-                  key == LogicalKeyboardKey.add) {
-                _mapController.move(
-                  _mapController.camera.center,
-                  _mapController.camera.zoom + 1,
-                );
-                ref
-                    .read(mapProvider.notifier)
-                    .updatePosition(
-                      _mapController.camera.center,
-                      _mapController.camera.zoom + 1,
-                    );
-              } else {
-                _mapController.move(
-                  _mapController.camera.center,
-                  _mapController.camera.zoom - 1,
-                );
-                ref
-                    .read(mapProvider.notifier)
-                    .updatePosition(
-                      _mapController.camera.center,
-                      _mapController.camera.zoom - 1,
-                    );
-              }
-              return KeyEventResult.handled;
-            } else if (key == LogicalKeyboardKey.keyK ||
-                key == LogicalKeyboardKey.arrowUp) {
-              _moveMap(0, -0.1);
-              return KeyEventResult.handled;
-            } else if (key == LogicalKeyboardKey.keyJ ||
-                key == LogicalKeyboardKey.arrowDown) {
-              _moveMap(0, 0.1);
-              return KeyEventResult.handled;
-            } else if (key == LogicalKeyboardKey.keyH ||
-                key == LogicalKeyboardKey.arrowLeft) {
-              _moveMap(-0.1, 0);
-              return KeyEventResult.handled;
-            } else if (key == LogicalKeyboardKey.keyL ||
-                key == LogicalKeyboardKey.arrowRight) {
-              _moveMap(0.1, 0);
-              return KeyEventResult.handled;
-            } else if (key == LogicalKeyboardKey.keyS) {
-              _goToCurrentLocation();
-              return KeyEventResult.handled;
-            } else if (key == LogicalKeyboardKey.keyG) {
-              ref.read(mapProvider.notifier).toggleGotoInput();
-              return KeyEventResult.handled;
-            } else if (key == LogicalKeyboardKey.keyB) {
-              Scaffold.of(context).openEndDrawer();
-              return KeyEventResult.handled;
-            } else if (key == LogicalKeyboardKey.keyC) {
-              ref.read(mapProvider.notifier).centerOnSelectedLocation();
-              return KeyEventResult.handled;
+          if (_searchFocusNode.hasFocus) {
+            return KeyEventResult.ignored;
+          }
+          final key = event.logicalKey;
+          if (key == LogicalKeyboardKey.equal ||
+              key == LogicalKeyboardKey.comma ||
+              key == LogicalKeyboardKey.period ||
+              key == LogicalKeyboardKey.less ||
+              key == LogicalKeyboardKey.add ||
+              key == LogicalKeyboardKey.minus ||
+              key == LogicalKeyboardKey.greater) {
+            if (event is KeyDownEvent) {
+              final currentZoom = _mapController.camera.zoom;
+              final newZoom =
+                  (key == LogicalKeyboardKey.equal ||
+                      key == LogicalKeyboardKey.period ||
+                      key == LogicalKeyboardKey.less ||
+                      key == LogicalKeyboardKey.add)
+                  ? currentZoom + 1
+                  : currentZoom - 1;
+              _mapController.move(_mapController.camera.center, newZoom);
+              ref
+                  .read(mapProvider.notifier)
+                  .updatePosition(_mapController.camera.center, newZoom);
             }
+            return KeyEventResult.handled;
+          } else if (key == LogicalKeyboardKey.keyK ||
+              key == LogicalKeyboardKey.arrowUp) {
+            if (event is KeyDownEvent) {
+              _startScrolling(0, -1);
+            } else if (event is KeyUpEvent) {
+              _stopScrolling();
+            }
+            return KeyEventResult.handled;
+          } else if (key == LogicalKeyboardKey.keyJ ||
+              key == LogicalKeyboardKey.arrowDown) {
+            if (event is KeyDownEvent) {
+              _startScrolling(0, 1);
+            } else if (event is KeyUpEvent) {
+              _stopScrolling();
+            }
+            return KeyEventResult.handled;
+          } else if (key == LogicalKeyboardKey.keyH ||
+              key == LogicalKeyboardKey.arrowLeft) {
+            if (event is KeyDownEvent) {
+              _startScrolling(-1, 0);
+            } else if (event is KeyUpEvent) {
+              _stopScrolling();
+            }
+            return KeyEventResult.handled;
+          } else if (key == LogicalKeyboardKey.keyL ||
+              key == LogicalKeyboardKey.arrowRight) {
+            if (event is KeyDownEvent) {
+              _startScrolling(1, 0);
+            } else if (event is KeyUpEvent) {
+              _stopScrolling();
+            }
+            return KeyEventResult.handled;
+          } else if (key == LogicalKeyboardKey.keyS) {
+            _goToCurrentLocation();
+            return KeyEventResult.handled;
+          } else if (key == LogicalKeyboardKey.keyG) {
+            ref.read(mapProvider.notifier).toggleGotoInput();
+            return KeyEventResult.handled;
+          } else if (key == LogicalKeyboardKey.keyB) {
+            Scaffold.of(context).openEndDrawer();
+            return KeyEventResult.handled;
+          } else if (key == LogicalKeyboardKey.keyC) {
+            ref.read(mapProvider.notifier).centerOnSelectedLocation();
+            return KeyEventResult.handled;
           }
           return KeyEventResult.ignored;
         },
@@ -202,6 +262,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   onPointerHover: (event, point) {
                     ref.read(mapProvider.notifier).setCursorMgrs(point);
                   },
+                  onPositionChanged: (position, hasGesture) {
+                    if (hasGesture) {
+                      ref
+                          .read(mapProvider.notifier)
+                          .updatePosition(position.center, position.zoom);
+                    }
+                  },
                 ),
                 children: [
                   TileLayer(
@@ -236,6 +303,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                             color: const Color(0xFFB22222),
                             size: 16,
                           ),
+                        );
+                      }).toList(),
+                    ),
+                  if (mapState.selectedPeaks.isNotEmpty)
+                    CircleLayer(
+                      circles: mapState.selectedPeaks.map((peak) {
+                        return CircleMarker(
+                          point: LatLng(peak.latitude, peak.longitude),
+                          radius: 15,
+                          color: Colors.blue.withValues(alpha: 0.3),
+                          borderColor: Colors.blue,
+                          borderStrokeWidth: 2,
                         );
                       }).toList(),
                     ),
@@ -278,7 +357,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             ),
             if (mapState.showPeakSearch)
               Positioned(
-                left: 16,
                 right: 72,
                 top: 16,
                 child: Card(
@@ -289,8 +367,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         padding: const EdgeInsets.all(8),
                         child: Row(
                           children: [
-                            Expanded(
+                            SizedBox(
+                              width: 30 * 8.0,
                               child: TextField(
+                                focusNode: _searchFocusNode,
                                 autofocus: true,
                                 decoration: const InputDecoration(
                                   hintText: 'Search peaks',
@@ -303,12 +383,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                                       .read(mapProvider.notifier)
                                       .searchPeaks(value);
                                 },
+                                onSubmitted: (_) {
+                                  ref
+                                      .read(mapProvider.notifier)
+                                      .selectAllSearchResults();
+                                  _searchFocusNode.unfocus();
+                                },
                               ),
                             ),
                             const SizedBox(width: 8),
                             IconButton(
                               icon: const Icon(Icons.close),
                               onPressed: () {
+                                _searchFocusNode.unfocus();
                                 ref
                                     .read(mapProvider.notifier)
                                     .setPeakSearchVisible(false);
@@ -318,8 +405,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         ),
                       ),
                       if (mapState.searchResults.isNotEmpty)
-                        Container(
-                          constraints: const BoxConstraints(maxHeight: 200),
+                        SizedBox(
+                          width: 30 * 8.0,
                           child: ListView.builder(
                             shrinkWrap: true,
                             itemCount: mapState.searchResults.length,
@@ -358,7 +445,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
             if (mapState.showGotoInput)
               Positioned(
-                left: 16,
                 right: 72,
                 top: 16,
                 child: Card(
@@ -366,8 +452,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     padding: const EdgeInsets.all(8),
                     child: Row(
                       children: [
-                        Expanded(
+                        SizedBox(
+                          width: 30 * 8.0,
                           child: TextField(
+                            focusNode: _gotoFocusNode,
                             controller: _gotoController,
                             decoration: InputDecoration(
                               hintText: 'Go to location',
