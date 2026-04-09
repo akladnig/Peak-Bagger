@@ -4,7 +4,7 @@
 - [ ] Setup private OSM tileserver - use versatiler?
 - [ ] change zoom level display to actual distance
 - [ ] goto location should use map name or mgrs two-letter pair
-- [ ] use hand icon (font awesome hand) for normal cursor movement, closed hand (hand-back-fist) for grab and drag
+- [x] use hand icon (font awesome hand) for normal cursor movement, closed hand (hand-back-fist) for grab and drag
 - [ ] investigate use of maplibre
 - [ ] investigate use of listmaps
 - [ ] update search results to show map/area
@@ -18,6 +18,6 @@
 
 # Errors
 - [x] Zoom display not updating
-- [ ] keyboard keys should change focus to search boxes
+- [x] keyboard keys should change focus to search boxes
 - [x] duplicate peak search
 - [x] peaks not showing
