@@ -519,7 +519,8 @@ class MapNotifier extends Notifier<MapState> {
 
   void toggleInfoPopup() {
     if (state.showInfoPopup) {
-      state = state.copyWith(clearInfoPopup: true);
+      // Just close the popup
+      state = state.copyWith(showInfoPopup: false);
     } else {
       final mgrs = _convertToMgrs(state.center);
       // Look up the map name for the current center
