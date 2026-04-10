@@ -218,7 +218,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             ref.read(mapProvider.notifier).toggleGotoInput();
             return KeyEventResult.handled;
           } else if (key == LogicalKeyboardKey.keyI) {
-            ref.read(mapProvider.notifier).toggleInfoPopup();
+            if (event is KeyDownEvent) {
+              ref.read(mapProvider.notifier).toggleInfoPopup();
+            }
             return KeyEventResult.handled;
           } else if (key == LogicalKeyboardKey.keyB) {
             Scaffold.of(context).openEndDrawer();
