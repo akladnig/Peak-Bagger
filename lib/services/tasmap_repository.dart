@@ -1,3 +1,5 @@
+import 'package:latlong2/latlong.dart';
+import 'package:mgrs_dart/mgrs_dart.dart' as mgrs_dart;
 import 'package:peak_bagger/models/tasmap50k.dart';
 import '../objectbox.g.dart';
 
@@ -19,6 +21,36 @@ class TasmapRepository {
     final results = query.find();
     query.close();
     return results;
+  }
+
+  List<Tasmap50k> searchMaps(String prefix) {
+    if (prefix.isEmpty) return [];
+    final allMaps = _box.getAll();
+    final lower = prefix.toLowerCase();
+    return allMaps
+        .where((map) => map.name.toLowerCase().startsWith(lower))
+        .take(10)
+        .toList();
+  }
+
+  LatLng? getMapCenter(Tasmap50k map) {
+    final mgrsCodes = map.mgrs100kIdList;
+    if (mgrsCodes.isEmpty) return null;
+
+    final mgrsCode = mgrsCodes.first;
+    final centerEasting = (map.eastingMin + map.eastingMax) ~/ 2;
+    final centerNorthing = (map.northingMin + map.northingMax) ~/ 2;
+    final paddedEasting = centerEasting.toString().padLeft(5, '0');
+    final paddedNorthing = centerNorthing.toString().padLeft(5, '0');
+    final fullMgrs =
+        '55G${mgrsCode.substring(0, 2)} $paddedEasting $paddedNorthing';
+
+    try {
+      final coords = mgrs_dart.Mgrs.toPoint(fullMgrs);
+      return LatLng(coords[1], coords[0]);
+    } catch (e) {
+      return null;
+    }
   }
 
   List<Tasmap50k> findByMgrs100kId(String mgrsCode) {

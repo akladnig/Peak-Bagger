@@ -45,6 +45,10 @@ class MapState {
   final List<Peak> searchResults;
   final String searchQuery;
   final List<Peak> selectedPeaks;
+  final Tasmap50k? selectedMap;
+  final bool showMapOverlay;
+  final List<Tasmap50k> mapSuggestions;
+  final String mapSearchQuery;
 
   const MapState({
     required this.center,
@@ -70,6 +74,10 @@ class MapState {
     this.searchResults = const [],
     this.searchQuery = '',
     this.selectedPeaks = const [],
+    this.selectedMap,
+    this.showMapOverlay = false,
+    this.mapSuggestions = const [],
+    this.mapSearchQuery = '',
   });
 
   MapState copyWith({
@@ -98,6 +106,10 @@ class MapState {
     List<Peak>? searchResults,
     String? searchQuery,
     List<Peak>? selectedPeaks,
+    Tasmap50k? selectedMap,
+    bool? showMapOverlay,
+    List<Tasmap50k>? mapSuggestions,
+    String? mapSearchQuery,
   }) {
     return MapState(
       center: center ?? this.center,
@@ -129,6 +141,10 @@ class MapState {
       searchResults: searchResults ?? this.searchResults,
       searchQuery: searchQuery ?? this.searchQuery,
       selectedPeaks: selectedPeaks ?? this.selectedPeaks,
+      selectedMap: selectedMap ?? this.selectedMap,
+      showMapOverlay: showMapOverlay ?? this.showMapOverlay,
+      mapSuggestions: mapSuggestions ?? this.mapSuggestions,
+      mapSearchQuery: mapSearchQuery ?? this.mapSearchQuery,
     );
   }
 }
@@ -289,7 +305,38 @@ class MapNotifier extends Notifier<MapState> {
 
   (LatLng?, String?) parseGridReference(String input) {
     final trimmed = input.trim();
-    final upper = trimmed.toUpperCase();
+    if (trimmed.isEmpty) return (null, null);
+
+    // Check for map name only (no digits = no coordinates)
+    if (!RegExp(r'[0-9]').hasMatch(trimmed)) {
+      final maps = _tasmapRepository.searchMaps(trimmed);
+      state = state.copyWith(mapSuggestions: maps, mapSearchQuery: trimmed);
+
+      if (maps.isEmpty) {
+        return (null, "No maps found matching '$trimmed'");
+      }
+
+      final exactMatch = maps
+          .where((m) => m.name.toLowerCase() == trimmed.toLowerCase())
+          .toList();
+
+      if (exactMatch.length == 1) {
+        final map = exactMatch.first;
+        final center = _tasmapRepository.getMapCenter(map);
+        if (center != null) {
+          state = state.copyWith(
+            selectedMap: map,
+            showMapOverlay: true,
+            mapSuggestions: [],
+            mapSearchQuery: '',
+          );
+          return (center, null);
+        }
+        return (null, 'Cannot calculate center for ${map.name}');
+      }
+
+      return (null, null);
+    }
 
     // Check for map name format: "MapName easting northing" or "MapName easting" or "MapName easting northing" (space separated)
     final parts = trimmed.split(RegExp(r'\s+'));
@@ -341,11 +388,13 @@ class MapNotifier extends Notifier<MapState> {
           String northing5digit;
 
           if (digitCount == 2) {
-            // Just easting, use northingMin
-            easting5digit = (int.tryParse(potentialCoords) ?? 0 * 1000)
+            // Just easting, use northing range (handle wrap-around)
+            easting5digit = ((int.tryParse(potentialCoords) ?? 0) * 1000)
                 .toString()
                 .padLeft(5, '0');
-            northing5digit = (map.northingMin).toString().padLeft(5, '0');
+            // Use middle of northing range
+            final northingMid = _rangeMiddle(map.northingMin, map.northingMax);
+            northing5digit = northingMid.toString().padLeft(5, '0');
           } else if (digitCount == 3) {
             // 3-digit: multiply by 100 to get 5-digit
             easting5digit =
@@ -452,7 +501,119 @@ class MapNotifier extends Notifier<MapState> {
       }
     }
 
+    // Check for MGRS 100k square only format: "EN 194507" or "EN194507"
+    final mgrs100kMatch = RegExp(
+      r'^([A-Z]{2})\s*([0-9]+)$',
+      caseSensitive: false,
+    ).firstMatch(trimmed);
+    if (mgrs100kMatch != null) {
+      final mgrsCode = mgrs100kMatch.group(1)!.toUpperCase();
+      final coords = mgrs100kMatch.group(2)!;
+      final maps = _tasmapRepository.findByMgrs100kId(mgrsCode);
+      if (maps.isEmpty) {
+        return (null, 'Unknown MGRS square: $mgrsCode');
+      }
+      final map = maps.first;
+
+      // Handle different coordinate lengths
+      final digitCount = coords.length;
+      String easting5digit;
+      String northing5digit;
+
+      if (digitCount == 2 || digitCount == 3) {
+        // Just easting, use middle of northing range
+        easting5digit = ((int.tryParse(coords) ?? 0) * 1000).toString().padLeft(
+          5,
+          '0',
+        );
+        final northingMid = _rangeMiddle(map.northingMin, map.northingMax);
+        northing5digit = northingMid.toString().padLeft(5, '0');
+      } else if (digitCount == 4) {
+        // Compact: first 2 easting (multiply by 1000), last 2 northing (multiply by 1000)
+        easting5digit = ((int.tryParse(coords.substring(0, 2)) ?? 0) * 1000)
+            .toString()
+            .padLeft(5, '0');
+        northing5digit = ((int.tryParse(coords.substring(2, 4)) ?? 0) * 1000)
+            .toString()
+            .padLeft(5, '0');
+      } else if (digitCount == 5) {
+        // 3 easting + 2 northing
+        easting5digit = ((int.tryParse(coords.substring(0, 3)) ?? 0) * 100)
+            .toString()
+            .padLeft(5, '0');
+        northing5digit = ((int.tryParse(coords.substring(3, 5)) ?? 0) * 1000)
+            .toString()
+            .padLeft(5, '0');
+      } else {
+        // 6 digits
+        easting5digit = ((int.tryParse(coords.substring(0, 3)) ?? 0) * 100)
+            .toString()
+            .padLeft(5, '0');
+        northing5digit = ((int.tryParse(coords.substring(3, 6)) ?? 0) * 100)
+            .toString()
+            .padLeft(5, '0');
+      }
+
+      // Validate range
+      final eastingVal = int.tryParse(easting5digit) ?? 0;
+      final northingVal = int.tryParse(northing5digit) ?? 0;
+
+      bool validEasting = _inRange(eastingVal, map.eastingMin, map.eastingMax);
+      bool validNorthing = _inRange(
+        northingVal,
+        map.northingMin,
+        map.northingMax,
+      );
+
+      if (!validEasting) {
+        final displayMin = map.eastingMin;
+        final displayMax = map.eastingMax;
+        final rangeDisplay = map.eastingMin > map.eastingMax
+            ? '$displayMin-99999 OR 0-$displayMax'
+            : '$displayMin-$displayMax';
+        return (
+          null,
+          'Easting $eastingVal out of range for ${map.name}. Valid range: $rangeDisplay',
+        );
+      }
+
+      if (!validNorthing) {
+        final displayMin = map.northingMin;
+        final displayMax = map.northingMax;
+        final rangeDisplay = map.northingMin > map.northingMax
+            ? '$displayMin-99999 OR 0-$displayMax'
+            : '$displayMin-$displayMax';
+        return (
+          null,
+          'Northing $northingVal out of range for ${map.name}. Valid range: $rangeDisplay',
+        );
+      }
+
+      final fullMgrs =
+          '55G${mgrsCode.substring(0, 2)} $easting5digit $northing5digit';
+
+      try {
+        final coords = mgrs.Mgrs.toPoint(fullMgrs);
+        final location = LatLng(coords[1], coords[0]);
+        final mgrsOutputRaw = mgrs.Mgrs.forward([coords[0], coords[1]], 5);
+        String mgrsOutput;
+        if (mgrsOutputRaw.length >= 10) {
+          final firstLine = mgrsOutputRaw.substring(0, 5);
+          final easting = mgrsOutputRaw.substring(5, 10);
+          final northing = mgrsOutputRaw.substring(10);
+          mgrsOutput = '$firstLine\n$easting $northing';
+        } else {
+          mgrsOutput = mgrsOutputRaw;
+        }
+        state = state.copyWith(gotoMgrs: mgrsOutput);
+        return (location, null);
+      } catch (e) {
+        return (null, 'Invalid grid reference');
+      }
+    }
+
     // Original MGRS format parsing
+    final upper = trimmed.toUpperCase();
     final cleaned = upper.replaceAll(' ', '');
 
     String gridZone = '55G';
@@ -514,8 +675,33 @@ class MapNotifier extends Notifier<MapState> {
     }
   }
 
+  void searchMapSuggestions(String query) {
+    if (query.isEmpty) {
+      state = state.copyWith(mapSuggestions: [], mapSearchQuery: '');
+      return;
+    }
+    final maps = _tasmapRepository.searchMaps(query);
+    state = state.copyWith(mapSuggestions: maps, mapSearchQuery: query);
+  }
+
+  void selectMap(Tasmap50k map) {
+    final center = _tasmapRepository.getMapCenter(map);
+    if (center != null) {
+      state = state.copyWith(
+        selectedMap: map,
+        showMapOverlay: true,
+        mapSuggestions: [],
+        mapSearchQuery: '',
+      );
+    }
+  }
+
   void clearGotoMgrs() {
-    state = state.copyWith(gotoMgrs: null);
+    state = state.copyWith(
+      gotoMgrs: null,
+      mapSuggestions: [],
+      mapSearchQuery: '',
+    );
   }
 
   void setLoading(bool isLoading) {
@@ -675,6 +861,23 @@ class MapNotifier extends Notifier<MapState> {
       return value >= min && value <= max;
     } else {
       return value >= min || value <= max;
+    }
+  }
+
+  int _rangeMiddle(int min, int max) {
+    if (min <= max) {
+      return (min + max) ~/ 2;
+    } else {
+      // Wrap-around range: find middle of combined range
+      final range1 = 99999 - min + 1;
+      final range2 = max + 1;
+      final totalRange = range1 + range2;
+      final middle = totalRange ~/ 2;
+      if (middle < range1) {
+        return min + middle;
+      } else {
+        return middle - range1;
+      }
     }
   }
 }

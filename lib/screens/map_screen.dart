@@ -476,50 +476,80 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 right: 72,
                 top: 16,
                 child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Row(
-                      children: [
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 30 * 8.0,
+                              child: TextField(
+                                focusNode: _gotoFocusNode,
+                                controller: _gotoController,
+                                decoration: InputDecoration(
+                                  hintText: 'Go to location',
+                                  isDense: true,
+                                  border: const OutlineInputBorder(),
+                                  errorText: _gotoError,
+                                ),
+                                onChanged: (value) {
+                                  if (_gotoError != null) {
+                                    setState(() => _gotoError = null);
+                                  }
+                                  ref
+                                      .read(mapProvider.notifier)
+                                      .parseGridReference(value);
+                                },
+                                onSubmitted: (_) {
+                                  if (_gotoError == null) {
+                                    _navigateToGridReference();
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () {
+                                ref.read(mapProvider.notifier).clearGotoMgrs();
+                                ref
+                                    .read(mapProvider.notifier)
+                                    .setGotoInputVisible(false);
+                                _gotoController.clear();
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.arrow_forward),
+                              onPressed: _navigateToGridReference,
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (mapState.mapSuggestions.isNotEmpty)
                         SizedBox(
                           width: 30 * 8.0,
-                          child: TextField(
-                            focusNode: _gotoFocusNode,
-                            controller: _gotoController,
-                            decoration: InputDecoration(
-                              hintText: 'Go to location',
-                              isDense: true,
-                              border: const OutlineInputBorder(),
-                              errorText: _gotoError,
-                            ),
-                            onChanged: (_) {
-                              if (_gotoError != null) {
-                                setState(() => _gotoError = null);
-                              }
-                            },
-                            onSubmitted: (_) {
-                              if (_gotoError == null) {
-                                _navigateToGridReference();
-                              }
+                          height: 150,
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: mapState.mapSuggestions.length,
+                            itemBuilder: (context, index) {
+                              final map = mapState.mapSuggestions[index];
+                              return ListTile(
+                                dense: true,
+                                title: Text(map.name),
+                                subtitle: Text(map.series),
+                                onTap: () {
+                                  _gotoController.text = map.name;
+                                  ref.read(mapProvider.notifier).selectMap(map);
+                                  _navigateToGridReference();
+                                },
+                              );
                             },
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () {
-                            ref.read(mapProvider.notifier).clearGotoMgrs();
-                            ref
-                                .read(mapProvider.notifier)
-                                .setGotoInputVisible(false);
-                            _gotoController.clear();
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.arrow_forward),
-                          onPressed: _navigateToGridReference,
-                        ),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
               ),
