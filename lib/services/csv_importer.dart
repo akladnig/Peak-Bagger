@@ -43,10 +43,14 @@ class CsvImporter {
       name: name,
       parentSeries: data['Parent']?.toString().trim() ?? '',
       mgrs100kIds: data['MGRS']?.toString().trim() ?? '',
-      eastingMin: int.tryParse(data['Xmin']?.toString().trim() ?? '') ?? 0,
-      eastingMax: int.tryParse(data['Xmax']?.toString().trim() ?? '') ?? 0,
-      northingMin: int.tryParse(data['Ymin']?.toString().trim() ?? '') ?? 0,
-      northingMax: int.tryParse(data['Ymax']?.toString().trim() ?? '') ?? 0,
+      eastingMin:
+          (int.tryParse(data['Xmin']?.toString().trim() ?? '') ?? 0) * 1000,
+      eastingMax:
+          (int.tryParse(data['Xmax']?.toString().trim() ?? '') ?? 0) * 1000,
+      northingMin:
+          (int.tryParse(data['Ymin']?.toString().trim() ?? '') ?? 0) * 1000,
+      northingMax:
+          (int.tryParse(data['Ymax']?.toString().trim() ?? '') ?? 0) * 1000,
     );
   }
 }

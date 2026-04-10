@@ -290,38 +290,61 @@ class MapNotifier extends Notifier<MapState> {
             return (null, 'Invalid format. Use: MapName easting northing');
           }
 
-          // Handle different input formats
-          String coords;
+          // Handle different input formats - convert to 5-digit coordinates
+          String easting5digit;
+          String northing5digit;
+
           if (digitCount == 2) {
             // Just easting, use northingMin
-            coords =
-                '${potentialCoords.padLeft(3, '0').substring(0, 3)}${map.northingMin.toString().padLeft(3, '0').substring(0, 3)}';
+            easting5digit = (int.tryParse(potentialCoords) ?? 0 * 1000)
+                .toString()
+                .padLeft(5, '0');
+            northing5digit = (map.northingMin).toString().padLeft(5, '0');
           } else if (digitCount == 3) {
-            // Just easting, use northingMin
-            coords =
-                '${potentialCoords.padLeft(3, '0').substring(0, 3)}${map.northingMin.toString().padLeft(3, '0').substring(0, 3)}';
+            // 3-digit: multiply by 100 to get 5-digit
+            easting5digit =
+                ((int.tryParse(potentialCoords.substring(0, 3)) ?? 0) * 100)
+                    .toString()
+                    .padLeft(5, '0');
+            northing5digit = (map.northingMin).toString().padLeft(5, '0');
           } else if (digitCount == 4) {
-            // Compact: first 2 easting, last 2 northing
-            final eastingPart = potentialCoords.substring(0, 2);
-            final northingPart = potentialCoords.substring(2, 4);
-            coords =
-                '${eastingPart.padLeft(3, '0').substring(0, 3)}${northingPart.padLeft(3, '0').substring(0, 3)}';
+            // Compact: first 2 easting (multiply by 1000), last 2 northing (multiply by 1000)
+            easting5digit =
+                ((int.tryParse(potentialCoords.substring(0, 2)) ?? 0) * 1000)
+                    .toString()
+                    .padLeft(5, '0');
+            northing5digit =
+                ((int.tryParse(potentialCoords.substring(2, 4)) ?? 0) * 1000)
+                    .toString()
+                    .padLeft(5, '0');
           } else if (digitCount == 5) {
-            // 3 easting + 2 northing
-            coords =
-                '${potentialCoords.substring(0, 3).padLeft(3, '0')}${potentialCoords.substring(3, 5).padLeft(3, '0').substring(0, 3)}';
+            // 3 easting + 2 northing: first 3 * 100, last 2 * 1000
+            easting5digit =
+                ((int.tryParse(potentialCoords.substring(0, 3)) ?? 0) * 100)
+                    .toString()
+                    .padLeft(5, '0');
+            northing5digit =
+                ((int.tryParse(potentialCoords.substring(3, 5)) ?? 0) * 1000)
+                    .toString()
+                    .padLeft(5, '0');
           } else {
-            // Full 6 digits: 3 easting + 3 northing
-            coords =
-                '${potentialCoords.substring(0, 3).padLeft(3, '0')}${potentialCoords.substring(3, 6).padLeft(3, '0').substring(0, 3)}';
+            // Full 6 digits: 3 easting + 3 northing (both * 100)
+            easting5digit =
+                ((int.tryParse(potentialCoords.substring(0, 3)) ?? 0) * 100)
+                    .toString()
+                    .padLeft(5, '0');
+            northing5digit =
+                ((int.tryParse(potentialCoords.substring(3, 6)) ?? 0) * 100)
+                    .toString()
+                    .padLeft(5, '0');
           }
 
-          final paddedEasting = coords.substring(0, 3).padLeft(5, '0');
-          final paddedNorthing = coords.substring(3, 6).padLeft(5, '0');
+          final paddedEasting = easting5digit;
+          final paddedNorthing = northing5digit;
 
           // Validate range (handle wrap-around)
-          final eastingVal = int.tryParse(paddedEasting.substring(0, 3)) ?? 0;
-          final northingVal = int.tryParse(paddedNorthing.substring(0, 3)) ?? 0;
+          final eastingVal = int.tryParse(paddedEasting) ?? 0;
+          final northingVal = int.tryParse(paddedNorthing) ?? 0;
 
           bool validEasting = _inRange(
             eastingVal,
@@ -335,9 +358,11 @@ class MapNotifier extends Notifier<MapState> {
           );
 
           if (!validEasting) {
+            final displayMin = (map.eastingMin / 1000).round();
+            final displayMax = (map.eastingMax / 1000).round();
             final rangeDisplay = map.eastingMin > map.eastingMax
-                ? '${map.eastingMin}-99 OR 0-${map.eastingMax}'
-                : '${map.eastingMin}-${map.eastingMax}';
+                ? '$displayMin-99 OR 0-$displayMax'
+                : '$displayMin-$displayMax';
             return (
               null,
               'Easting $eastingVal out of range for ${map.name}. Valid range: $rangeDisplay',
@@ -345,9 +370,11 @@ class MapNotifier extends Notifier<MapState> {
           }
 
           if (!validNorthing) {
+            final displayMin = (map.northingMin / 1000).round();
+            final displayMax = (map.northingMax / 1000).round();
             final rangeDisplay = map.northingMin > map.northingMax
-                ? '${map.northingMin}-99 OR 0-${map.northingMax}'
-                : '${map.northingMin}-${map.northingMax}';
+                ? '$displayMin-99 OR 0-$displayMax'
+                : '$displayMin-$displayMax';
             return (
               null,
               'Northing $northingVal out of range for ${map.name}. Valid range: $rangeDisplay',
