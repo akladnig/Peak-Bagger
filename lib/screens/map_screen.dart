@@ -473,6 +473,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                                 setState(() => _gotoError = null);
                               }
                             },
+                            onSubmitted: (_) {
+                              if (_gotoError == null) {
+                                _navigateToGridReference();
+                              }
+                            },
                           ),
                         ),
                         const SizedBox(width: 8),
