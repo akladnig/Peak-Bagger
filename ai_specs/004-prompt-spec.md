@@ -40,7 +40,9 @@ Adds a database of Tasmanian 1:50,000 topographic maps to support goto location 
 4. Popup dialog appears showing:
    - Map name (e.g., "Wellington")
    - If peak exists at location: peak name + elevation
-5. User dismisses by pressing Escape or close button
+   - Positioned to the right of the selected marker (or current center if no marker)
+   - If marker is too close to right edge (would go off-screen), center the map on the marker before showing popup
+5. User dismisses by pressing Escape, close button, clicking elsewhere, or any other key
 
 **Alternative Flow - Full MGRS Input:**
 1. User enters "55GEN1940050700" or "55G EN 19400 50700"
@@ -150,7 +152,7 @@ Adds a database of Tasmanian 1:50,000 topographic maps to support goto location 
 
 **Limits:**
 - Max 100 peaks shown in search results (existing)
-- Map popup dismiss triggers: tap outside popup, pan map, zoom, press any key, or press close button
+- Map popup dismiss triggers: tap outside popup, pan map, zoom, press any key, press close button, click any FAB (except theme toggle), click any menu item
 </boundaries>
 
 <implementation>
