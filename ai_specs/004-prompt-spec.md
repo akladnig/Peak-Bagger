@@ -22,11 +22,13 @@ Adds a database of Tasmanian 1:50,000 topographic maps to support goto location 
 **Primary Flow - Goto by Map Name:**
 1. User presses 'G' key or taps goto button
 2. Goto input field appears with placeholder "Go to location (e.g., Wellington 194507)"
-3. User enters "Wellington 194507"
-4. System parses map name "Wellington" + easting 194 + northing 507
-5. System looks up map in database to get MGRS 100k square ID
-6. System constructs full MGRS: 55G + 100kSquare + easting + northing
-7. System converts to LatLng and centers map
+3. User enters "Wellington 194507" 
+4. User presses Enter
+5. System parses map name "Wellington" + easting 194 + northing 507
+6. System looks up map in database to get MGRS 100k square ID
+7. System constructs full MGRS: 55G + 100kSquare + easting + northing
+8. System converts to LatLng and centers map
+9. Goto input field closes
 
 **Primary Flow - Map Click Popup:**
 1. User presses 'I' key to toggle info popup at current map center
