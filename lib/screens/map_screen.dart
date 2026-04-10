@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:latlong2/latlong.dart' show LatLng;
+import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
+import 'package:peak_bagger/models/tasmap50k.dart';
+import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'dart:async';
 import 'package:peak_bagger/providers/map_provider.dart';
 
@@ -346,6 +349,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         );
                       }).toList(),
                     ),
+                  if (mapState.selectedMap != null)
+                    _buildMapRectangle(mapState.selectedMap!),
                 ],
               ),
             ),
@@ -638,6 +643,48 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         return 'https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp?key=8bd67b17be9041b60f241c2aa45ecf0d';
       case Basemap.openstreetmap:
         return 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+    }
+  }
+
+  PolygonLayer _buildMapRectangle(Tasmap50k map) {
+    final center = ref.read(tasmapRepositoryProvider).getMapCenter(map);
+    if (center == null) return const PolygonLayer(polygons: []);
+
+    final easting = (map.eastingMin + map.eastingMax) ~/ 2;
+    final northing = (map.northingMin + map.northingMax) ~/ 2;
+    final paddedEasting = easting.toString().padLeft(5, '0');
+    final paddedNorthing = northing.toString().padLeft(5, '0');
+
+    final mgrsCodes = map.mgrs100kIdList;
+    if (mgrsCodes.isEmpty) return const PolygonLayer(polygons: []);
+
+    final mgrsCode = mgrsCodes.first;
+    final fullMgrs =
+        '55G${mgrsCode.substring(0, 2)} $paddedEasting $paddedNorthing';
+
+    try {
+      final centerPt = mgrs.Mgrs.toPoint(fullMgrs);
+      final centerLatLng = LatLng(centerPt[1], centerPt[0]);
+
+      final points = <LatLng>[
+        LatLng(centerLatLng.latitude - 0.01, centerLatLng.longitude - 0.01),
+        LatLng(centerLatLng.latitude - 0.01, centerLatLng.longitude + 0.01),
+        LatLng(centerLatLng.latitude + 0.01, centerLatLng.longitude + 0.01),
+        LatLng(centerLatLng.latitude + 0.01, centerLatLng.longitude - 0.01),
+      ];
+
+      return PolygonLayer(
+        polygons: [
+          Polygon(
+            points: points,
+            color: Colors.blue.withValues(alpha: 0.1),
+            borderColor: Colors.blue,
+            borderStrokeWidth: 2,
+          ),
+        ],
+      );
+    } catch (e) {
+      return const PolygonLayer(polygons: []);
     }
   }
 
