@@ -517,8 +517,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
             if (mapState.showInfoPopup)
               Positioned(
-                left: 16,
-                top: 60,
+                right: 80,
+                top: 100,
                 child: Card(
                   child: Padding(
                     padding: const EdgeInsets.all(12),

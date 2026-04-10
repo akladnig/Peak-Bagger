@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import '../objectbox.g.dart';
 
@@ -40,24 +39,11 @@ class TasmapRepository {
     final easting = int.tryParse(cleaned.substring(5, 10)) ?? 0;
     final northing = int.tryParse(cleaned.substring(10)) ?? 0;
 
-    debugPrint(
-      'findByMgrsCodeAndCoordinates: code=$code, easting=$easting, northing=$northing',
-    );
-
     final maps = findByMgrs100kId(code);
-    debugPrint(
-      'findByMgrsCodeAndCoordinates: found ${maps.length} maps with code $code',
-    );
 
     for (final map in maps) {
-      debugPrint(
-        'findByMgrsCodeAndCoordinates: checking ${map.name}, eMin=${map.eastingMin}, eMax=${map.eastingMax}, nMin=${map.northingMin}, nMax=${map.northingMax}',
-      );
       bool validEasting = _inRange(easting, map.eastingMin, map.eastingMax);
       bool validNorthing = _inRange(northing, map.northingMin, map.northingMax);
-      debugPrint(
-        'findByMgrsCodeAndCoordinates: ${map.name} validEasting=$validEasting, validNorthing=$validNorthing',
-      );
       if (validEasting && validNorthing) {
         return map;
       }
