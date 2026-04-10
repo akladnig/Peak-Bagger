@@ -696,6 +696,10 @@ class MapNotifier extends Notifier<MapState> {
     }
   }
 
+  void toggleMapOverlay() {
+    state = state.copyWith(showMapOverlay: !state.showMapOverlay);
+  }
+
   void clearGotoMgrs() {
     state = state.copyWith(
       gotoMgrs: null,

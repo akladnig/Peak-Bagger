@@ -249,6 +249,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           } else if (key == LogicalKeyboardKey.keyC) {
             ref.read(mapProvider.notifier).centerOnSelectedLocation();
             return KeyEventResult.handled;
+          } else if (key == LogicalKeyboardKey.keyM) {
+            ref.read(mapProvider.notifier).toggleMapOverlay();
+            return KeyEventResult.handled;
           }
           return KeyEventResult.ignored;
         },
@@ -351,6 +354,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ),
                   if (mapState.selectedMap != null)
                     _buildMapRectangle(mapState.selectedMap!),
+                  if (mapState.showMapOverlay)
+                    PolygonLayer(polygons: _buildAllMapRectangles()),
                 ],
               ),
             ),
@@ -686,6 +691,63 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     } catch (e) {
       return const PolygonLayer(polygons: []);
     }
+  }
+
+  List<Polygon> _buildAllMapRectangles() {
+    final repo = ref.read(tasmapRepositoryProvider);
+    final maps = repo.getAllMaps();
+    final polygons = <Polygon>[];
+
+    for (final map in maps.take(65)) {
+      final center = repo.getMapCenter(map);
+      if (center == null) continue;
+
+      try {
+        final easting = (map.eastingMin + map.eastingMax) ~/ 2;
+        final northing = (map.northingMin + map.northingMax) ~/ 2;
+        final paddedEasting = easting.toString().padLeft(5, '0');
+        final paddedNorthing = northing.toString().padLeft(5, '0');
+
+        final mgrsCodes = map.mgrs100kIdList;
+        if (mgrsCodes.isEmpty) continue;
+
+        final mgrsCode = mgrsCodes.first;
+        final fullMgrs =
+            '55G${mgrsCode.substring(0, 2)} $paddedEasting $paddedNorthing';
+        final centerPt = mgrs.Mgrs.toPoint(fullMgrs);
+        final centerLatLng = LatLng(centerPt[1], centerPt[0]);
+
+        polygons.add(
+          Polygon(
+            points: [
+              LatLng(
+                centerLatLng.latitude - 0.01,
+                centerLatLng.longitude - 0.01,
+              ),
+              LatLng(
+                centerLatLng.latitude - 0.01,
+                centerLatLng.longitude + 0.01,
+              ),
+              LatLng(
+                centerLatLng.latitude + 0.01,
+                centerLatLng.longitude + 0.01,
+              ),
+              LatLng(
+                centerLatLng.latitude + 0.01,
+                centerLatLng.longitude - 0.01,
+              ),
+            ],
+            color: Colors.blue.withValues(alpha: 0.1),
+            borderColor: Colors.blue,
+            borderStrokeWidth: 2,
+          ),
+        );
+      } catch (e) {
+        continue;
+      }
+    }
+
+    return polygons;
   }
 
   void _navigateToGridReference() {

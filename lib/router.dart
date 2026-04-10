@@ -360,6 +360,67 @@ final router = GoRouter(
                                       ).colorScheme.onSurface,
                                     ),
                                   ),
+                                  const SizedBox(height: 8),
+                                  FloatingActionButton.small(
+                                    heroTag: 'grid',
+                                    backgroundColor: Theme.of(
+                                      context,
+                                    ).colorScheme.surface,
+                                    onPressed: () {
+                                      if (ref
+                                          .read(mapProvider)
+                                          .showMapOverlay) {
+                                        ref
+                                            .read(mapProvider.notifier)
+                                            .toggleMapOverlay();
+                                      } else {
+                                        ref
+                                            .read(mapProvider.notifier)
+                                            .toggleMapOverlay();
+                                      }
+                                    },
+                                    child: Icon(
+                                      Icons.grid_on,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  FloatingActionButton.small(
+                                    heroTag: 'info',
+                                    backgroundColor: Theme.of(
+                                      context,
+                                    ).colorScheme.surface,
+                                    onPressed: () {
+                                      if (ref.read(mapProvider).showInfoPopup) {
+                                        ref
+                                            .read(mapProvider.notifier)
+                                            .toggleInfoPopup();
+                                      }
+                                      if (ref
+                                          .read(mapProvider)
+                                          .showPeakSearch) {
+                                        ref
+                                            .read(mapProvider.notifier)
+                                            .setPeakSearchVisible(false);
+                                      }
+                                      if (ref.read(mapProvider).showGotoInput) {
+                                        ref
+                                            .read(mapProvider.notifier)
+                                            .setGotoInputVisible(false);
+                                      }
+                                      ref
+                                          .read(mapProvider.notifier)
+                                          .toggleInfoPopup();
+                                    },
+                                    child: Icon(
+                                      Icons.info,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                    ),
+                                  ),
                                 ],
                               );
                             },
