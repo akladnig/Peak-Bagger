@@ -47,7 +47,7 @@ Add tasmap 50k database and goto search by map name. Users can search "Wellingto
 
 ### Phase 3: Map Click Popup
 
-- **Goal**: Show popup with map name on 'I' key press
+- **Goal**: Show popup with map name on 'I' key toggle
 - [ ] `lib/providers/map_provider.dart` - Add popup state: showPopup, popupMapName, popupPeakName, popupPeakElevation, popupMgrs
 - [ ] `lib/screens/map_screen.dart` - Add 'I' key handler:
   - Convert current map center to MGRS

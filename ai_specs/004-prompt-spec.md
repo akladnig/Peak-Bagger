@@ -29,7 +29,7 @@ Adds a database of Tasmanian 1:50,000 topographic maps to support goto location 
 7. System converts to LatLng and centers map
 
 **Primary Flow - Map Click Popup:**
-1. User presses 'I' key to show popup at current map center
+1. User presses 'I' key to toggle info popup at current map center
 2. System converts current center position to MGRS coordinate
 3. System looks up which 50k map covers that MGRS using X/Y range validation logic
    - Extract easting/northing from MGRS coordinates
