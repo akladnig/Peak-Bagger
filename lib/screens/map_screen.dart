@@ -493,6 +493,58 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   ),
                 ),
               ),
+            if (mapState.showInfoPopup)
+              Positioned(
+                left: 16,
+                top: 60,
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.map, size: 18),
+                            const SizedBox(width: 8),
+                            Text(
+                              mapState.infoMapName ?? 'Unknown',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 16),
+                              onPressed: () {
+                                ref
+                                    .read(mapProvider.notifier)
+                                    .toggleInfoPopup();
+                              },
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
+                        ),
+                        if (mapState.infoMgrs != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            mapState.infoMgrs!,
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 12,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
