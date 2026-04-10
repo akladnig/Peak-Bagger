@@ -529,104 +529,77 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 ),
               ),
             if (mapState.showInfoPopup)
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  // Since we center on the marker when showing popup,
-                  // position relative to center
-                  const popupWidth = 200.0;
-                  const popupHeight = 100.0;
-
-                  // Position popup to the right of center
-                  final centerX = constraints.maxWidth / 2;
-                  final centerY = constraints.maxHeight / 2;
-
-                  double left = centerX + 20;
-                  double top = centerY - popupHeight / 2;
-
-                  // If popup would go off right edge, position to the left
-                  if (left + popupWidth > constraints.maxWidth) {
-                    left = centerX - popupWidth - 20;
-                  }
-
-                  // Ensure within bounds
-                  if (left < 16) left = 16;
-                  if (top < 60) top = 60;
-
-                  return Positioned(
-                    left: left,
-                    top: top,
-                    child: Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
+              Positioned(
+                right: 16,
+                top: 60,
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.map, size: 18),
-                                const SizedBox(width: 8),
-                                Text(
-                                  mapState.infoMapName ?? 'Unknown',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                IconButton(
-                                  icon: const Icon(Icons.close, size: 16),
-                                  onPressed: () {
-                                    ref
-                                        .read(mapProvider.notifier)
-                                        .toggleInfoPopup();
-                                  },
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                ),
-                              ],
+                            const Icon(Icons.map, size: 18),
+                            const SizedBox(width: 8),
+                            Text(
+                              mapState.infoMapName ?? 'Unknown',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
                             ),
-                            if (mapState.infoMgrs != null) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                mapState.infoMgrs!,
-                                style: TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 12,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface,
-                                ),
-                              ),
-                            ],
-                            if (mapState.infoPeakName != null) ...[
-                              const SizedBox(height: 8),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.terrain, size: 16),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    mapState.infoPeakName!,
-                                    style: const TextStyle(fontSize: 13),
-                                  ),
-                                  if (mapState.infoPeakElevation != null) ...[
-                                    const Text(' '),
-                                    Text(
-                                      '${mapState.infoPeakElevation!.toStringAsFixed(0)}m',
-                                      style: const TextStyle(fontSize: 13),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ],
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 16),
+                              onPressed: () {
+                                ref
+                                    .read(mapProvider.notifier)
+                                    .toggleInfoPopup();
+                              },
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
                           ],
                         ),
-                      ),
+                        if (mapState.infoMgrs != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            mapState.infoMgrs!,
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 12,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        ],
+                        if (mapState.infoPeakName != null) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.terrain, size: 16),
+                              const SizedBox(width: 4),
+                              Text(
+                                mapState.infoPeakName!,
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              if (mapState.infoPeakElevation != null) ...[
+                                const Text(' '),
+                                Text(
+                                  '${mapState.infoPeakElevation!.toStringAsFixed(0)}m',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ],
                     ),
-                  );
-                },
+                  ),
+                ),
               ),
           ],
         ),

@@ -16,6 +16,7 @@
 
 ## 1 Application Skeleton
 ## 2  Display map of Tasmania with zoom, pan and search function
+- [ ] Change two finger from pan to zoom
 - [ ] change zoom level display to actual distance
 ## 3 Tasmanian Peaks and search
 ## 4 Add Maps and location search
