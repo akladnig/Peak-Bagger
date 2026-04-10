@@ -94,8 +94,9 @@ dependencies: objectbox ^5.3.1
 
 ### Phase 5
 Import GPX tracks from a selected folder, save to an objectBox database and display on the map.
-- Import folder is  ~/Documents/Bushwalking/Tracks (tracks folder) and all sub folders.
-- On first application launch examinbe each gpx track in ~/Documents/Bushwalking/Tracks/Tasmania and in the tracks folder  but no other child folder. Examine the first track point and determine the country and state in which the gpx track resides.
+- Parent import folder is  ~/Documents/Bushwalking/Tracks (tracks folder).
+- Tracks are also stored in subfolders of tracks folder.
+- On first application launch examine each gpx track in ~/Documents/Bushwalking/Tracks/Tasmania and in the tracks folder  but no other child folder. Examine the first track point and determine the country and state in which the gpx track resides.
 - If the gpx track is for Tasmania, import the track into objectBox.
 - If the Tasmanian gpx track is NOT in the Tasmania folder, then move it to the Tasmania folder, otherwise leave it in place.
 - If the track is in the Tasmania folder but is not a Tasmanian track move it to the tracks folder.

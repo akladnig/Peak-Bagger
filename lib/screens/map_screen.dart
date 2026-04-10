@@ -231,16 +231,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             if (event is KeyDownEvent) {
               final selectedLocation = mapState.selectedLocation;
               if (selectedLocation != null) {
-                // Check if popup would go off right edge - if so, center on marker
-                final currentCenter = _mapController.camera.center;
-                // Simple check: if selected location is significantly east of center
-                if (selectedLocation.longitude >
-                    currentCenter.longitude + 0.01) {
-                  _mapController.move(selectedLocation, mapState.zoom);
-                  ref
-                      .read(mapProvider.notifier)
-                      .updatePosition(selectedLocation, mapState.zoom);
-                }
+                // Center on the marker so popup appears to the right of marker
+                _mapController.move(selectedLocation, mapState.zoom);
+                ref
+                    .read(mapProvider.notifier)
+                    .updatePosition(selectedLocation, mapState.zoom);
               }
               ref.read(mapProvider.notifier).toggleInfoPopup();
             }
@@ -530,8 +525,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
             if (mapState.showInfoPopup)
               Positioned(
-                right: 16,
-                top: 60,
+                left: MediaQuery.of(context).size.width / 2 + 16,
+                top: MediaQuery.of(context).size.height / 2 - 50,
                 child: Card(
                   child: Padding(
                     padding: const EdgeInsets.all(12),

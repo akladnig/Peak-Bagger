@@ -532,18 +532,28 @@ class MapNotifier extends Notifier<MapState> {
 
   void toggleInfoPopup() {
     if (state.showInfoPopup) {
-      state = state.copyWith(showInfoPopup: false);
+      state = state.copyWith(clearInfoPopup: true);
     } else {
-      final mgrs = _convertToMgrs(state.center);
-      final map = _findMapByMgrsWithCoordinates(mgrs);
-      final (peakName, peakElevation) = _findNearbyPeak(state.center);
-      state = state.copyWith(
-        showInfoPopup: true,
-        infoMapName: map?.name ?? 'Outside Tasmania 50k coverage',
-        infoMgrs: mgrs,
-        infoPeakName: peakName,
-        infoPeakElevation: peakElevation,
-      );
+      _showInfoPopup();
+    }
+  }
+
+  void _showInfoPopup() {
+    final mgrs = _convertToMgrs(state.center);
+    final map = _findMapByMgrsWithCoordinates(mgrs);
+    final (peakName, peakElevation) = _findNearbyPeak(state.center);
+    state = state.copyWith(
+      showInfoPopup: true,
+      infoMapName: map?.name ?? 'Outside Tasmania 50k coverage',
+      infoMgrs: mgrs,
+      infoPeakName: peakName,
+      infoPeakElevation: peakElevation,
+    );
+  }
+
+  void closeInfoPopup() {
+    if (state.showInfoPopup) {
+      state = state.copyWith(clearInfoPopup: true);
     }
   }
 
