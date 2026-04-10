@@ -1,0 +1,268 @@
+﻿Series,Name,Parent
+3047,Cameron,TH03
+3239,Interview,TK03
+3240,Lagoon,TK03
+3241,Lily,TK03
+3242,Balfour,TJ03
+3436,Heemskirk,TL04
+3438,Livingstone,TL04
+3439,Meredith,TK04
+3440,Savage River,TK04
+3442,Bertha,TJ04
+3631,Philips,TN04
+3632,Teepookana,TN04
+3635,Oceana,TM04
+3636,Dundas,TL04
+3638,Parsons,TL04
+3639,Ramsay,TK04
+3640,Luina,TK04
+3641,Waratah,TK04
+3642,Baretop,TJ04
+3644,Folly,TJ04
+3645,Milabena,TH05
+3646,Mawbanna,TH05
+3825,Osmund,TQ05
+3826,Moores,TQ05
+3827,Innes,TP05
+3828,D'Aguilar,TP05
+3829,Limekiln,TP05
+3830,McCall,TN05
+3831,Engineer,TN05
+3832,Darwin,TN05
+3833,Owen,TM05
+3834,Gormanston,TM05
+3835,Tyndall,TM05
+3836,Selina,TL05
+3837,Tullah,TL05
+3838,Block,TL05
+3839,Charter,TK05
+3840,Pearse,TK05
+3842,Parrawe,TJ05
+3843,Tewkesbury,TJ05
+4022,Davey,TS05
+4023,Propsting,TS05
+4024,Rookery,TQ05
+4025,View,TQ05
+4026,Serpentine,TQ05
+4027,Olegas,TP05
+4028,Lancelot,TP05
+4029,Abel,TP05
+4030,Warnes,TN05
+4031,Vera,TN05
+4032,Loddon,TN05
+4033,Collingwood,TM05
+4034,Goulds,TM05
+4035,Dome,TM05
+4036,Achilles,TL05
+4037,Will,TL05
+4038,Cradle,TL05
+4039,Pencil Pine,TK05
+4040,Lea,TK05
+4041,Loongana,TK05
+4042,Loyetea,TJ05
+4043,Riana,TJ05
+4044,Stowport,TJ05
+4217,Telopea,TT06
+4218,Cox,TS06
+4219,Melaleuca,TS06
+4220,Rugby,TS06
+4221,Legge,TR06
+4222,Crossing,TR06
+4223,Maconochie,TR06
+4224,Solitary,TQ06
+4225,McPartlan,TQ06
+4226,Strathgordon,TQ06
+4228,Pokana,TP06
+4229,Spires,TP06
+4230,Algonkian,TN06
+4231,Majors,TN06
+4232,Arrowsmith,TN06
+4233,Rufus,TM06
+4234,Olympus,TM06
+4235,Ducane,TM06
+4236,Cathedral,TL06
+4237,Rowallan,TL06
+4238,Borradaile,TL06
+4240,Cethana,TK06
+4242,Castra,TJ06
+4244,Ulverstone,TJ06
+4417,De Witt,TT06
+4418,Louisa,TS06
+4419,Ray,TS06
+4420,Federation,TS06
+4421,Glovers,TR06
+4422,Razorback,TR06
+4423,Scotts,TR06
+4424,Anne,TQ06
+4425,Bowes,TQ06
+4426,Adamsfield,TQ06
+4427,Tiger,TP06
+4428,Gordonvale,TP06
+4429,Wylds,TP06
+4430,Wayatinah,TN06
+4431,Tarraleah,TN06
+4432,D'Arcys,TN06
+4433,Bronte,TM06
+4435,Olive,TM06
+4436,Ada,TL06
+4437,Pillans,TL06
+4438,Lake MacKenzie,TL06
+4439,Mole Creek,TK06
+4440,Gog,TK06
+4442,Railton,TJ06
+4617,Prion,TT06
+4618,Precipitous,TS07
+4619,Bisdee,TS07
+4620,Bobs,TS07
+4621,Burgess,TR07
+4622,Picton,TR07
+4623,Weld,TR07
+4624,Nevada,TQ07
+4625,Skeleton,TQ07
+4626,Maydena,TQ07
+4627,Dobson,TP07
+4628,Ellendale,TP07
+4629,Ouse,TP07
+4632,Echo,TN07
+4633,Waddamana,TM07
+4634,Monpeelyata,TM07
+4635,Miena,TM07
+4636,Split Rock,TL07
+4637,Breona,TL07
+4638,Quamby Bluff,TL07
+4639,Montana,TK07
+4641,Parkham,TK07
+4643,Harford,TJ07
+4644,Port Sorell,TJ07
+4818,Leprena,TS07
+4819,Hastings,TS07
+4820,Raminea,TS07
+4821,Waterloo,TR07
+4824,Lonnavale,TQ07
+4825,Lloyd,TQ07
+4827,Bushy Park,TP07
+4828,Hamilton,TP07
+4829,Montacute,TP07
+4831,Cluny,TN07
+4833,Steppes,TM07
+4834,Wihareja,TM07
+4835,Arthurs Lake,TM07
+4836,Bradys Lookout,TL07
+4837,Poatina,TL07
+4838,Liffey,TL07
+4841,Bridgenorth,TK07
+4842,Exeter,TJ07
+5020,Dover,TS08
+5021,Lymington,TR08
+5022,Cygnet,TR08
+5023,Huonville,TR08
+5024,Longley,TQ08
+5025,Collinsvale,TQ08
+5026,New Norfolk,TQ08
+5027,Broadmarsh,TP08
+5028,Elderslie,TP08
+5029,Kempton,TP08
+5030,Bothwell,TN08
+5031,Dennistoun,TN08
+5032,Table,TN08
+5033,Interlaken,TM08
+5034,Penny,TM08
+5035,Millers,TM08
+5036,O'Connors,TL08
+5040,Prospect,TK08
+5043,Lilydale,TJ08
+5118,Cloudy,TS08
+5219,Fluted Cape,TS08
+5220,Adventure Bay,TS08
+5224,Taroona,TQ08
+5225,Hobart,TQ08
+5226,Richmond,TQ08
+5227,Tea Tree,TP08
+5228,Bains,TP08
+5229,Colebrook,TP08
+5230,Stonor,TN08
+5231,Oatlands,TN08
+5232,Vincents,TN08
+5233,Tunbridge,TM08
+5234,Ellinthorp,TM08
+5238,Nile,TL08
+5239,Evandale,TK08
+5240,Blessington,TK08
+5241,Nunamara,TK08
+5243,Lisle,TJ08
+5244,Nawbowla,TJ08
+5423,Communication,TR09
+5426,Sorell,TQ09
+5427,Runnymede,TP09
+5428,Buckland,TP09
+5429,Woodsdale,TP09
+5430,Whiteford,TN09
+5431,Lamont,TN09
+5432,Faddens,TN09
+5433,Morriston,TM09
+5435,Campbell Town,TM09
+5436,Diamond,TL09
+5437,Hanleth,TL09
+5438,Stanhope,TL09
+5439,Stacks,TK09
+5440,Giblin,TK09
+5441,Ben Nevis,TK09
+5442,Maurice,TJ09
+5443,Springfield,TJ09
+5444,Scottsdale,TJ09
+5521,Raoul,TR09
+5522,Port Arthur,TR09
+5623,Tarrana,TR09
+5624,Murdunna,TQ09
+5626,Kellevie,TQ09
+5627,Sandspit,TP09
+5628,Orford,TP09
+5632,Tooms,TN09
+5633,Colonels,TM09
+5634,Leake,TM09
+5635,Snow,TM09
+5636,Roys,TL09
+5637,St Pauls Dome,TL09
+5638,Rossarden,TL09
+5639,Mangana,TK09
+5640,Mathinna,TK09
+5641,Saddleback,TK09
+5642,Victoria,TJ09
+5643,Ringarooma,TJ09
+5645,Pioneer,TH09
+5646,Monarch,TH09
+5658,Tanner,TC09
+5659,Palana,TC09
+5721,Tasman,TR09
+5722,Hippolyte,TR09
+5754,Loccota,TD09
+5755,Whitemark,TD09
+5827,Riedle,TP10
+5828,Darlington,TP10
+5829,Bouganville,TP10
+5835,Apslawn,TM10
+5836,Henry,TL10
+5837,St John,TL10
+5838,Fingal,TL10
+5839,St Marys,TK10
+5840,Dublin Town,TK10
+5842,Pyengana,TJ10
+5843,Blue Tier,TJ10
+5844,Spurrs Rivulet,TJ10
+5846,Gladstone,TH10
+5852,Barretts,TF10
+5853,Anderson,TF10
+5856,Leventhorpe,TD10
+5954,Fisher,TD10
+5955,Loagan,TD10
+6031,Schouten,TN10
+6032,Graham,TN10
+6033,Coles Bay,TM10
+6034,Friendly,TM10
+6035,Lodi,TM10
+6037,Seymour,TL10
+6039,Ironhouse,TK10
+6040,Falmouth,TK10
+6041,Beamaris (Scamander),TK10
+6043,Binalong,TJ10
+6052,Kerferd,TF10

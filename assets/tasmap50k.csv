@@ -1,0 +1,66 @@
+Series,Name,Parent,MGRS,Xmin,Xmax,Ymin,Ymax
+TH03,Montagu River,7916,CQ   ,0,40,50,80
+TJ03,Rebecca,8514,CQ   ,0,40,20,50
+TK03,Norfolk Range,7915,CP  CQ ,0,40,90,20
+TJ04,Rapid River,8113,CQ   ,40,80,20,50
+TK04,White River,7915,CP  CQ ,40,80,90,20
+TL04,Lake Pieman,7914,CP   ,40,80,60,90
+TM04,Tully,7912,CP   ,40,80,30,60
+TN04,Macquarie Harbour,7913,CP   ,40,80,0,30
+TH05,Table Cape,7916,CQ DQ  ,80,20,50,80
+TJ05,Emu River,8114,CQ DQ  ,80,20,20,50
+TK05,Black Bluff,7914,CP DP CQ DQ,80,20,90,20
+TL05,Murchison,8113,CP DP  ,80,20,60,90
+TM05,Eldon,8113,CP DP  ,80,20,30,60
+TN05,Frenchmans,8212,CP DP  ,80,20,0,30
+TP05,Princess Range,8112,CN DN  ,80,20,70,0
+TQ05,Dohertys,8112,CN DN  ,80,20,40,70
+TS05,Port Davey,8011,CN DN CM DM,80,20,80,10
+TJ06,Paloona,8114,DQ   ,20,60,20,50
+TK06,Fossey Mountains,8113,DP  DQ ,20,60,90,20
+TL06,Jerusalem,8114,DP   ,20,60,60,90
+TM06,St Clair,8212,DP   ,20,60,30,60
+TN06,King William,8212,DP   ,20,60,0,30
+TP06,Denison Range,8313,DN   ,20,60,70,0
+TQ06,Lake Pedder,8112,DN   ,20,60,40,70
+TR06,Western Arthur,8210,DN   ,20,60,10,40
+TS06,Bathurst,8011,DN  DM ,20,60,80,10
+TT06,South Coast,7912,DM   ,20,60,50,80
+TJ07,Dazzler,8114,DQ   ,60,0,20,50
+TK07,Meander Valley,8114,DP  DQ ,60,0,90,20
+TL07,Breton,8213,DP   ,60,0,60,90
+TM07,Penstock,8212,DP   ,60,0,30,60
+TN07,Victoria Valley,8212,DP   ,60,0,0,30
+TP07,Meadowbank,8212,DN   ,60,0,70,0
+TQ07,Snowy Range,8112,DN   ,60,0,40,70
+TR07,Hartz,8211,DN   ,60,0,10,40
+TS07,Adamsons,8211,DN  DM ,60,0,80,10
+TJ08,Sideling,8214,EQ   ,0,40,20,50
+TK08,Perth,8114,EP  EQ ,0,40,90,20
+TL08,Hummocky,8213,EP   ,0,40,60,90
+TM08,Dogs Head Tier,8311,EP   ,0,40,30,60
+TN08,Tiberias,8212,EP   ,0,40,0,30
+TP08,Green Ponds,8312,EN   ,0,40,70,0
+TQ08,Wellington,8312,EN   ,0,40,40,70
+TR08,Channel,8311,EN   ,0,40,10,40
+TS08,South Bruny,8211,EN  EM ,0,40,80,10
+TC09,Blyth,7816,ES   ,40,80,0,30
+TD09,Prime Seal,8517,ER   ,40,80,70,0
+TH09,Boobyalla,8517,EQ   ,40,80,50,80
+TJ09,Legerwood,8416,EQ   ,40,80,20,50
+TK09,Ben Lomond,8414,EP  EQ ,40,80,90,20
+TL09,Avoca,8214,EP   ,40,80,60,90
+TM09,Lake Leake,8213,EP   ,40,80,30,60
+TN09,Swanston,7912,EP   ,40,80,0,30
+TP09,Prosser,8411,EN   ,40,80,70,0
+TQ09,Frederick Henry,8311,EN   ,40,80,40,70
+TR09,Tasman Peninsula,8311,EN   ,40,80,10,40
+TD10,Babel,8517,ER FR  ,80,20,70,0
+TF10,Armstrong,7916,ER FR  ,80,20,10,40
+TH10,Mount William,8517,EQ FQ  ,80,20,50,80
+TJ10,Bay of Fires,8514,EQ FQ  ,80,20,20,50
+TK10,Nicholas,8416,EP FP EQ FQ,80,20,90,20
+TL10,Douglas River,8411,EP FP  ,80,20,60,90
+TM10,Moulting Lagoon,8514,EP FP  ,80,20,30,60
+TN10,Great Oyster,7913,EP FP  ,80,20,0,30
+TP10,Maria,8313,EN FN  ,80,20,70,0
