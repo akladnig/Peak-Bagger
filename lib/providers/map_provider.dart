@@ -10,6 +10,8 @@ import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/main.dart';
 
+const _distance = Distance();
+
 const _latKey = 'map_position_lat';
 const _lngKey = 'map_position_lng';
 const _zoomKey = 'map_zoom';
@@ -34,6 +36,8 @@ class MapState {
   final bool showInfoPopup;
   final String? infoMapName;
   final String? infoMgrs;
+  final String? infoPeakName;
+  final double? infoPeakElevation;
   final LatLng? selectedLocation;
   final bool syncEnabled;
   final List<Peak> peaks;
@@ -57,6 +61,8 @@ class MapState {
     this.showInfoPopup = false,
     this.infoMapName,
     this.infoMgrs,
+    this.infoPeakName,
+    this.infoPeakElevation,
     this.selectedLocation,
     this.syncEnabled = true,
     this.peaks = const [],
@@ -81,6 +87,8 @@ class MapState {
     bool? showInfoPopup,
     String? infoMapName,
     String? infoMgrs,
+    String? infoPeakName,
+    double? infoPeakElevation,
     bool clearInfoPopup = false,
     LatLng? selectedLocation,
     bool clearSelectedLocation = false,
@@ -108,6 +116,10 @@ class MapState {
           : (showInfoPopup ?? this.showInfoPopup),
       infoMapName: clearInfoPopup ? null : (infoMapName ?? this.infoMapName),
       infoMgrs: clearInfoPopup ? null : (infoMgrs ?? this.infoMgrs),
+      infoPeakName: clearInfoPopup ? null : (infoPeakName ?? this.infoPeakName),
+      infoPeakElevation: clearInfoPopup
+          ? null
+          : (infoPeakElevation ?? this.infoPeakElevation),
       selectedLocation: clearSelectedLocation
           ? null
           : (selectedLocation ?? this.selectedLocation),
@@ -524,12 +536,30 @@ class MapNotifier extends Notifier<MapState> {
     } else {
       final mgrs = _convertToMgrs(state.center);
       final map = _findMapByMgrsWithCoordinates(mgrs);
+      final (peakName, peakElevation) = _findNearbyPeak(state.center);
       state = state.copyWith(
         showInfoPopup: true,
         infoMapName: map?.name ?? 'Outside Tasmania 50k coverage',
         infoMgrs: mgrs,
+        infoPeakName: peakName,
+        infoPeakElevation: peakElevation,
       );
     }
+  }
+
+  (String?, double?) _findNearbyPeak(LatLng location) {
+    const searchRadiusMeters = 100.0;
+    for (final peak in state.peaks) {
+      final distance = _distance.as(
+        LengthUnit.Meter,
+        location,
+        LatLng(peak.latitude, peak.longitude),
+      );
+      if (distance <= searchRadiusMeters) {
+        return (peak.name, peak.elevation);
+      }
+    }
+    return (null, null);
   }
 
   Tasmap50k? _findMapByMgrsWithCoordinates(String mgrsString) {

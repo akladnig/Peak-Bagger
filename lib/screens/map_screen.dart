@@ -547,6 +547,27 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                             ),
                           ),
                         ],
+                        if (mapState.infoPeakName != null) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.terrain, size: 16),
+                              const SizedBox(width: 4),
+                              Text(
+                                mapState.infoPeakName!,
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              if (mapState.infoPeakElevation != null) ...[
+                                const Text(' '),
+                                Text(
+                                  '${mapState.infoPeakElevation!.toStringAsFixed(0)}m',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
