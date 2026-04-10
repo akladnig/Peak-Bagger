@@ -61,6 +61,7 @@ Add tasmap 50k database and goto search by map name. Users can search "Wellingto
 - [x] Add popup UI widget in map screen Stack
 - [x] Handle dismiss: Escape key or close button
 - [x] Handle dismiss: Click anywhere or press any other key
+- [x] Handle dismiss: Click on any FAB or menu bar item (except theme toggle)
 - [x] Popup displays correct map name for current center (manual test passed)
 - [x] Popup shows peak name + elevation within 100m
 - [x] "Outside Tasmania 50k coverage" when no map found (test exists)

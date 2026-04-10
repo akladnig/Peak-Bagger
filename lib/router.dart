@@ -75,6 +75,9 @@ final router = GoRouter(
                     builder: (context, ref, _) => SideMenu(
                       navigationShell: navigationShell,
                       onBeforeNavigation: () {
+                        if (ref.read(mapProvider).showInfoPopup) {
+                          ref.read(mapProvider.notifier).toggleInfoPopup();
+                        }
                         if (ref.read(mapProvider).showPeakSearch) {
                           ref
                               .read(mapProvider.notifier)
@@ -128,6 +131,11 @@ final router = GoRouter(
                                     ).colorScheme.surface,
                                     onPressed: () {
                                       debugPrint('Search FAB tapped');
+                                      if (ref.read(mapProvider).showInfoPopup) {
+                                        ref
+                                            .read(mapProvider.notifier)
+                                            .toggleInfoPopup();
+                                      }
                                       ref
                                           .read(mapProvider.notifier)
                                           .togglePeakSearch();
@@ -146,6 +154,11 @@ final router = GoRouter(
                                       context,
                                     ).colorScheme.surface,
                                     onPressed: () {
+                                      if (ref.read(mapProvider).showInfoPopup) {
+                                        ref
+                                            .read(mapProvider.notifier)
+                                            .toggleInfoPopup();
+                                      }
                                       if (ref
                                           .read(mapProvider)
                                           .showPeakSearch) {
@@ -174,6 +187,11 @@ final router = GoRouter(
                                       context,
                                     ).colorScheme.surface,
                                     onPressed: () async {
+                                      if (ref.read(mapProvider).showInfoPopup) {
+                                        ref
+                                            .read(mapProvider.notifier)
+                                            .toggleInfoPopup();
+                                      }
                                       if (ref
                                           .read(mapProvider)
                                           .showPeakSearch) {
@@ -291,6 +309,11 @@ final router = GoRouter(
                                       context,
                                     ).colorScheme.surface,
                                     onPressed: () {
+                                      if (ref.read(mapProvider).showInfoPopup) {
+                                        ref
+                                            .read(mapProvider.notifier)
+                                            .toggleInfoPopup();
+                                      }
                                       if (ref
                                           .read(mapProvider)
                                           .showPeakSearch) {
@@ -319,6 +342,11 @@ final router = GoRouter(
                                       context,
                                     ).colorScheme.surface,
                                     onPressed: () {
+                                      if (ref.read(mapProvider).showInfoPopup) {
+                                        ref
+                                            .read(mapProvider.notifier)
+                                            .toggleInfoPopup();
+                                      }
                                       if (ref
                                           .read(mapProvider)
                                           .showPeakSearch) {
