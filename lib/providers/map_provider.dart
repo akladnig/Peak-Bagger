@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
@@ -29,6 +30,9 @@ class MapState {
   final String? gotoMgrs;
   final bool showGotoInput;
   final bool showPeakSearch;
+  final bool showInfoPopup;
+  final String? infoMapName;
+  final String? infoMgrs;
   final LatLng? selectedLocation;
   final bool syncEnabled;
   final List<Peak> peaks;
@@ -49,6 +53,9 @@ class MapState {
     this.gotoMgrs,
     this.showGotoInput = false,
     this.showPeakSearch = false,
+    this.showInfoPopup = false,
+    this.infoMapName,
+    this.infoMgrs,
     this.selectedLocation,
     this.syncEnabled = true,
     this.peaks = const [],
@@ -70,6 +77,10 @@ class MapState {
     String? gotoMgrs,
     bool? showGotoInput,
     bool? showPeakSearch,
+    bool? showInfoPopup,
+    String? infoMapName,
+    String? infoMgrs,
+    bool clearInfoPopup = false,
     LatLng? selectedLocation,
     bool clearSelectedLocation = false,
     bool? syncEnabled,
@@ -91,6 +102,11 @@ class MapState {
       gotoMgrs: gotoMgrs,
       showGotoInput: showGotoInput ?? this.showGotoInput,
       showPeakSearch: showPeakSearch ?? this.showPeakSearch,
+      showInfoPopup: clearInfoPopup
+          ? false
+          : (showInfoPopup ?? this.showInfoPopup),
+      infoMapName: clearInfoPopup ? null : (infoMapName ?? this.infoMapName),
+      infoMgrs: clearInfoPopup ? null : (infoMgrs ?? this.infoMgrs),
       selectedLocation: clearSelectedLocation
           ? null
           : (selectedLocation ?? this.selectedLocation),
@@ -499,6 +515,31 @@ class MapNotifier extends Notifier<MapState> {
 
   void toggleGotoInput() {
     state = state.copyWith(showGotoInput: !state.showGotoInput);
+  }
+
+  void toggleInfoPopup() {
+    if (state.showInfoPopup) {
+      state = state.copyWith(clearInfoPopup: true);
+    } else {
+      final mgrs = _convertToMgrs(state.center);
+      // Look up the map name for the current center
+      final maps = _findMapByMgrs(mgrs);
+      state = state.copyWith(
+        showInfoPopup: true,
+        infoMapName: maps.isNotEmpty
+            ? maps.first.name
+            : 'Outside Tasmania 50k coverage',
+        infoMgrs: mgrs,
+      );
+    }
+  }
+
+  List<Tasmap50k> _findMapByMgrs(String mgrsString) {
+    if (mgrsString.length < 5) return [];
+    final code = mgrsString.substring(0, 5).replaceAll(' ', '');
+    if (code.length < 2) return [];
+    final twoLetter = code.substring(code.length - 2);
+    return _tasmapRepository.findByMgrs100kId(twoLetter);
   }
 
   void setGotoInputVisible(bool visible) {
