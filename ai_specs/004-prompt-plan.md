@@ -14,6 +14,10 @@ Add tasmap 50k database and goto search by map name. Users can search "Wellingto
   - `@lib/providers/map_provider.dart` - MapNotifier with parseGridReference logic
 - **Assumptions**: None - spec is complete
 
+## Manual Updates
+
+- 2026-04-10: CSV now contains full 5-digit values for Xmin, Xmax, Ymin, Ymax (not *1000). Updated csv_importer.dart and map_provider.dart range display accordingly.
+
 ## Plan
 
 ### Phase 1: Data Layer
@@ -72,6 +76,7 @@ Add tasmap 50k database and goto search by map name. Users can search "Wellingto
 - [ ] Integration test: Enter "Wellington 194507" → navigates to correct location
 - [ ] Integration test: Enter "Wellington 194 507" (space between) → navigates to correct location
 - [ ] Integration test: Click on map → shows popup with correct map name
+- [ ] Integration test: Goto "Wellington 194 507" + press I → popup shows "Wellington" (not "Green Ponds")
 - [ ] Final verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
