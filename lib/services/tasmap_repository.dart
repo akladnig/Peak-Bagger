@@ -28,6 +28,33 @@ class TasmapRepository {
         .toList();
   }
 
+  Tasmap50k? findByMgrsCodeAndCoordinates(String mgrsString) {
+    if (mgrsString.length < 10) return null;
+
+    final code = mgrsString.substring(3, 5);
+    final easting = int.tryParse(mgrsString.substring(5, 10)) ?? 0;
+    final northing = int.tryParse(mgrsString.substring(10)) ?? 0;
+
+    final maps = findByMgrs100kId(code);
+
+    for (final map in maps) {
+      bool validEasting = _inRange(easting, map.eastingMin, map.eastingMax);
+      bool validNorthing = _inRange(northing, map.northingMin, map.northingMax);
+      if (validEasting && validNorthing) {
+        return map;
+      }
+    }
+    return null;
+  }
+
+  bool _inRange(int value, int min, int max) {
+    if (min <= max) {
+      return value >= min && value <= max;
+    } else {
+      return value >= min || value <= max;
+    }
+  }
+
   List<Tasmap50k> findBySeries(String series) {
     final query = _box.query(Tasmap50k_.series.equals(series)).build();
     final results = query.find();

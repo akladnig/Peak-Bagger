@@ -41,9 +41,63 @@
         }
       ],
       "relations": []
+    },
+    {
+      "id": "2:1328676866860602429",
+      "lastPropertyId": "9:7244678684225968530",
+      "name": "Tasmap50k",
+      "properties": [
+        {
+          "id": "1:1561892639929499429",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:2660682564703842058",
+          "name": "series",
+          "type": 9
+        },
+        {
+          "id": "3:7309767395043469174",
+          "name": "name",
+          "type": 9
+        },
+        {
+          "id": "4:223135285092675213",
+          "name": "parentSeries",
+          "type": 9
+        },
+        {
+          "id": "5:1357329744860573277",
+          "name": "mgrs100kIds",
+          "type": 9
+        },
+        {
+          "id": "6:2617068777301457671",
+          "name": "eastingMin",
+          "type": 6
+        },
+        {
+          "id": "7:2093783745225202890",
+          "name": "eastingMax",
+          "type": 6
+        },
+        {
+          "id": "8:5090738047943149597",
+          "name": "northingMin",
+          "type": 6
+        },
+        {
+          "id": "9:7244678684225968530",
+          "name": "northingMax",
+          "type": 6
+        }
+      ],
+      "relations": []
     }
   ],
-  "lastEntityId": "1:6887978098338940139",
+  "lastEntityId": "2:1328676866860602429",
   "lastIndexId": "0:0",
   "lastRelationId": "0:0",
   "lastSequenceId": "0:0",

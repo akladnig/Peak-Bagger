@@ -12,8 +12,10 @@ import 'package:flat_buffers/flat_buffers.dart' as fb;
 import 'package:objectbox/internal.dart'
     as obx_int; // generated code can access "internal" functionality
 import 'package:objectbox/objectbox.dart' as obx;
+import 'package:objectbox_flutter_libs/objectbox_flutter_libs.dart';
 
 import 'models/peak.dart';
+import 'models/tasmap50k.dart';
 
 export 'package:objectbox/objectbox.dart'; // so that callers only have to import this file
 
@@ -64,6 +66,70 @@ final _entities = <obx_int.ModelEntity>[
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
   ),
+  obx_int.ModelEntity(
+    id: const obx_int.IdUid(2, 1328676866860602429),
+    name: 'Tasmap50k',
+    lastPropertyId: const obx_int.IdUid(9, 7244678684225968530),
+    flags: 0,
+    properties: <obx_int.ModelProperty>[
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(1, 1561892639929499429),
+        name: 'id',
+        type: 6,
+        flags: 1,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(2, 2660682564703842058),
+        name: 'series',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(3, 7309767395043469174),
+        name: 'name',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(4, 223135285092675213),
+        name: 'parentSeries',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(5, 1357329744860573277),
+        name: 'mgrs100kIds',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(6, 2617068777301457671),
+        name: 'eastingMin',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(7, 2093783745225202890),
+        name: 'eastingMax',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(8, 5090738047943149597),
+        name: 'northingMin',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(9, 7244678684225968530),
+        name: 'northingMax',
+        type: 6,
+        flags: 0,
+      ),
+    ],
+    relations: <obx_int.ModelRelation>[],
+    backlinks: <obx_int.ModelBacklink>[],
+  ),
 ];
 
 /// Shortcut for [obx.Store.new] that passes [getObjectBoxModel] and for Flutter
@@ -77,7 +143,7 @@ final _entities = <obx_int.ModelEntity>[
 /// For Flutter apps, also calls `loadObjectBoxLibraryAndroidCompat()` from
 /// the ObjectBox Flutter library to fix loading the native ObjectBox library
 /// on Android 6 and older.
-obx.Store openStore({
+Future<obx.Store> openStore({
   String? directory,
   int? maxDBSizeInKB,
   int? maxDataSizeInKB,
@@ -85,10 +151,11 @@ obx.Store openStore({
   int? maxReaders,
   bool queriesCaseSensitiveDefault = true,
   String? macosApplicationGroup,
-}) {
+}) async {
+  await loadObjectBoxLibraryAndroidCompat();
   return obx.Store(
     getObjectBoxModel(),
-    directory: directory,
+    directory: directory ?? (await defaultStoreDirectory()).path,
     maxDBSizeInKB: maxDBSizeInKB,
     maxDataSizeInKB: maxDataSizeInKB,
     fileMode: fileMode,
@@ -108,7 +175,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
     // Typically, this is done with `dart run build_runner build`.
     generatorVersion: obx_int.GeneratorVersion.v2025_12_16,
     entities: _entities,
-    lastEntityId: const obx_int.IdUid(1, 6887978098338940139),
+    lastEntityId: const obx_int.IdUid(2, 1328676866860602429),
     lastIndexId: const obx_int.IdUid(0, 0),
     lastRelationId: const obx_int.IdUid(0, 0),
     lastSequenceId: const obx_int.IdUid(0, 0),
@@ -189,6 +256,92 @@ obx_int.ModelDefinition getObjectBoxModel() {
         return object;
       },
     ),
+    Tasmap50k: obx_int.EntityDefinition<Tasmap50k>(
+      model: _entities[1],
+      toOneRelations: (Tasmap50k object) => [],
+      toManyRelations: (Tasmap50k object) => {},
+      getId: (Tasmap50k object) => object.id,
+      setId: (Tasmap50k object, int id) {
+        object.id = id;
+      },
+      objectToFB: (Tasmap50k object, fb.Builder fbb) {
+        final seriesOffset = fbb.writeString(object.series);
+        final nameOffset = fbb.writeString(object.name);
+        final parentSeriesOffset = fbb.writeString(object.parentSeries);
+        final mgrs100kIdsOffset = fbb.writeString(object.mgrs100kIds);
+        fbb.startTable(10);
+        fbb.addInt64(0, object.id);
+        fbb.addOffset(1, seriesOffset);
+        fbb.addOffset(2, nameOffset);
+        fbb.addOffset(3, parentSeriesOffset);
+        fbb.addOffset(4, mgrs100kIdsOffset);
+        fbb.addInt64(5, object.eastingMin);
+        fbb.addInt64(6, object.eastingMax);
+        fbb.addInt64(7, object.northingMin);
+        fbb.addInt64(8, object.northingMax);
+        fbb.finish(fbb.endTable());
+        return object.id;
+      },
+      objectFromFB: (obx.Store store, ByteData fbData) {
+        final buffer = fb.BufferContext(fbData);
+        final rootOffset = buffer.derefObject(0);
+        final idParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          4,
+          0,
+        );
+        final seriesParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 6, '');
+        final nameParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 8, '');
+        final parentSeriesParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 10, '');
+        final mgrs100kIdsParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 12, '');
+        final eastingMinParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          14,
+          0,
+        );
+        final eastingMaxParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          16,
+          0,
+        );
+        final northingMinParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          18,
+          0,
+        );
+        final northingMaxParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          20,
+          0,
+        );
+        final object = Tasmap50k(
+          id: idParam,
+          series: seriesParam,
+          name: nameParam,
+          parentSeries: parentSeriesParam,
+          mgrs100kIds: mgrs100kIdsParam,
+          eastingMin: eastingMinParam,
+          eastingMax: eastingMaxParam,
+          northingMin: northingMinParam,
+          northingMax: northingMaxParam,
+        );
+
+        return object;
+      },
+    ),
   };
 
   return obx_int.ModelDefinition(model, bindings);
@@ -219,4 +372,52 @@ class Peak_ {
 
   /// See [Peak.area].
   static final area = obx.QueryStringProperty<Peak>(_entities[0].properties[5]);
+}
+
+/// [Tasmap50k] entity fields to define ObjectBox queries.
+class Tasmap50k_ {
+  /// See [Tasmap50k.id].
+  static final id = obx.QueryIntegerProperty<Tasmap50k>(
+    _entities[1].properties[0],
+  );
+
+  /// See [Tasmap50k.series].
+  static final series = obx.QueryStringProperty<Tasmap50k>(
+    _entities[1].properties[1],
+  );
+
+  /// See [Tasmap50k.name].
+  static final name = obx.QueryStringProperty<Tasmap50k>(
+    _entities[1].properties[2],
+  );
+
+  /// See [Tasmap50k.parentSeries].
+  static final parentSeries = obx.QueryStringProperty<Tasmap50k>(
+    _entities[1].properties[3],
+  );
+
+  /// See [Tasmap50k.mgrs100kIds].
+  static final mgrs100kIds = obx.QueryStringProperty<Tasmap50k>(
+    _entities[1].properties[4],
+  );
+
+  /// See [Tasmap50k.eastingMin].
+  static final eastingMin = obx.QueryIntegerProperty<Tasmap50k>(
+    _entities[1].properties[5],
+  );
+
+  /// See [Tasmap50k.eastingMax].
+  static final eastingMax = obx.QueryIntegerProperty<Tasmap50k>(
+    _entities[1].properties[6],
+  );
+
+  /// See [Tasmap50k.northingMin].
+  static final northingMin = obx.QueryIntegerProperty<Tasmap50k>(
+    _entities[1].properties[7],
+  );
+
+  /// See [Tasmap50k.northingMax].
+  static final northingMax = obx.QueryIntegerProperty<Tasmap50k>(
+    _entities[1].properties[8],
+  );
 }

@@ -4,6 +4,7 @@ import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/services/csv_importer.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
+import 'package:peak_bagger/providers/tasmap_provider.dart';
 
 late final Store objectboxStore;
 
@@ -12,8 +13,8 @@ void main() async {
 
   objectboxStore = await openStore();
 
-  // Import tasmap data - clear and re-import to handle schema changes
   final tasmapRepo = TasmapRepository(objectboxStore);
+
   try {
     await tasmapRepo.clearAll();
     final maps = await CsvImporter.importFromCsv('assets/tasmap50k.csv');
@@ -24,5 +25,10 @@ void main() async {
     // Continue with empty database if import fails
   }
 
-  runApp(ProviderScope(child: App()));
+  runApp(
+    ProviderScope(
+      overrides: [tasmapRepositoryProvider.overrideWithValue(tasmapRepo)],
+      child: const App(),
+    ),
+  );
 }

@@ -76,7 +76,7 @@ Adds a database of Tasmanian 1:50,000 topographic maps to support goto location 
 8. Support MGRS 100k square only input: "EN 194507" looks up maps covering that 100k square area
 9. Validate easting/northing against map's range (eastingMin/eastingMax, northingMin/northingMax)
    - If outside range, show error with valid range for that map
-   - Handle wrap-around ranges (e.g., 80-20 means valid ranges 80-99 AND 0-20)
+   - Handle wrap-around ranges (e.g., 80000-20000 means valid ranges 80000-99999 AND 0-20000)
 
 **Popup State (MapState additions):**
 - showPopup (bool): Whether popup is currently displayed
@@ -88,32 +88,32 @@ Adds a database of Tasmanian 1:50,000 topographic maps to support goto location 
 **MGRS 100k Square ID Structure:**
 - Each map may have 1-4 MGRS 100k square IDs in the mgrs100kId list
 - First letter = easting grid ID, second letter = northing grid ID (if present)
-- When Xmax < Xmin, the easting range wraps (valid: Xmin-99 AND 0-Xmax)
-- When Ymax < Ymin, the northing range wraps (valid: Ymin-99 AND 0-Ymax)
+- When Xmax < Xmin, the easting range wraps (valid: Xmin-99999 AND 0-Xmax)
+- When Ymax < Ymin, the northing range wraps (valid: Ymin-99999 AND 0-Ymax)
 
 **Example: TK05 Black Bluff**
 - MGRS: "CP DP CQ DQ"
-- Xmin=80, Xmax=20 (easting wraps: 80-99 OR 0-20)
-- Ymin=90, Ymax=20 (northing wraps: 90-99 OR 0-20)
+- Xmin=80000, Xmax=20000 (easting wraps: 80000-99999 OR 0-20000)
+- Ymin=90000, Ymax=20000 (northing wraps: 90000-99999 OR 0-20000)
 - 100k ID mapping:
-  - CP = easting 80-99, northing 0-30
-  - DP = easting 0-20, northing 0-30
-  - CQ = easting 80-99, northing 90-99 OR 0-20
-  - DQ = easting 0-20, northing 90-99 OR 0-20
+  - CP = easting 80000-99999 , northing 0-30000
+  - DP = easting 0-20000, northing 0-30000
+  - CQ = easting 80000-99999 , northing 90000-99999  OR 0-20000
+  - DQ = easting 0-20000, northing 90000-99999  OR 0-20000
 
 **Validation Logic:**
-- User enters easting=50, northing=10
-- 50 falls in 0-20 range for easting → use DP or DQ for easting
-- 10 falls in 0-30 range for northing → use DP for northing
+- User enters 3 digit grid reference easting=500, northing=100
+- 500 falls in 0-20000 range for easting → use DP or DQ for easting
+- 100 falls in 0-30000 range for northing → use DP for northing
 - Combined 100k ID = DP matches valid for TK05
-- If entered easting=50, northing=50:
-  - 50 NOT in range (80-99 OR 0-20) → Error: "Easting 50 out of range for Black Bluff. Valid range: 80-99 OR 0-20"
+- If entered easting=500, northing=500:
+  - 500 NOT in range (80000-99999  OR 0-20000) → Error: "Easting 500 out of range for Black Bluff. Valid range: 80000-99999  OR 0-20000"
 
 **Error Handling:**
 8. Invalid map name: Show error "Map not found: [name]"
 9. Invalid coordinate format: Show error "Invalid format. Use: MapName easting northing"
 10. Invalid MGRS 100k square: Show error "Unknown MGRS square: [code]"
-11. Coordinate outside map range: Show error "Easting [X] out of range for [MapName]. Valid range: [min]-[max] OR [min2]-[max2]" (for wrap-around, display as "Valid range: 80-99 OR 0-20")
+11. Coordinate outside map range: Show error "Easting [X] out of range for [MapName]. Valid range: [min]-[max] OR [min2]-[max2]" (for wrap-around, display as "Valid range: 80000-99999  OR 0-20000")
 12. Click outside all 50k map coverage: Show "Outside Tasmania 50k coverage"
 13. CSV import failure: Log error, continue with empty map database
 
@@ -123,15 +123,15 @@ Adds a database of Tasmanian 1:50,000 topographic maps to support goto location 
 14. Ambiguous map names: Return first match (unique in Tasmania)
 15. Overlapping map coverage: Use first/primary map for 100k area
 16. Coordinate-to-100k-ID mapping: Use Xmin/Xmax and Ymin/Ymax ranges to determine which 100k ID applies
-    - When Xmax < Xmin, easting wraps (valid: Xmin-99 AND 0-Xmax)
-    - When Ymax < Ymin, northing wraps (valid: Ymin-99 AND 0-Ymax)
+    - When Xmax < Xmin, easting wraps (valid: Xmin-99999  AND 0-Xmax)
+    - When Ymax < Ymin, northing wraps (valid: Ymin-99999  AND 0-Ymax)
 17. Input coordinate outside valid ranges: Show range error as per error handling #11
 
 **Validation:**
 16. Map name must be non-empty string from database
 17. Easting/northing must be 1-3 digits each (0-999)
 18. MGRS 100k square must be valid 2-letter code from tasmap database
-19. Easting must fall within map's eastingMin-eastingMax range (accounting for wrap-around 80-20)
+19. Easting must fall within map's eastingMin-eastingMax range (accounting for wrap-around 80000-20000)
 20. Northing must fall within map's northingMin-northingMax range (accounting for wrap-around)
 </requirements>
 

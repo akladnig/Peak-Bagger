@@ -88,9 +88,34 @@ Add a search box at the top to allow search by name and elevation.
 dependencies: objectbox ^5.3.1
 
 ### Phase 4
-Import GPX tracks from a selected folder, save to an objectBox database and display on the map.
+- Add 50K maps to new ObjectBox Entity.
+- Add ability to go to a grid ref using a map name rather than the 100k Square Id
+- Add a popup to show current map and peak name.
 
 ### Phase 5
+Import GPX tracks from a selected folder, save to an objectBox database and display on the map.
+- Import folder is  ~/Documents/Bushwalking/Tracks (tracks folder) and all sub folders.
+- On first application launch examinbe each gpx track in ~/Documents/Bushwalking/Tracks/Tasmania and in the tracks folder  but no other child folder. Examine the first track point and determine the country and state in which the gpx track resides.
+- If the gpx track is for Tasmania, import the track into objectBox.
+- If the Tasmanian gpx track is NOT in the Tasmania folder, then move it to the Tasmania folder, otherwise leave it in place.
+- If the track is in the Tasmania folder but is not a Tasmanian track move it to the tracks folder.
+- Add a fab named show tracks, with a material icon.route. This icon toggles the display of tracks. When tracks are not displayed, the icon should be show as disabled.
+- Add a keyboard shortcut 't' to toggle the display.
+- Displayed tracks will initally be displayed as the colour a726bc. Future enhancement will allow colours to be chosen for each individual track.
+- the objectBox entity for this should have the following schema:
+  - gpxTrackId
+  - fileLocation
+  - trackName
+  - startDateTime
+  - distance
+  - ascent
+  - totalTime
+  - trackColour
+- Only the fileLocation, trackName and colour are to be populated. All other fields will be populated in the future.
+- Future: add move to folder.
+- Future: show direction arrows on track
+
+### Phase 6
 Add database of Tasmanian Peak Lists.
 - [ ] Abels
 - [ ] Poimenas
@@ -101,32 +126,14 @@ Add database of Tasmanian Peak Lists.
 - [ ] Add Checkboxes for peak lists.
 
 
-Peak List Schema:
-- ListId
-- ListName
-- List of PeakId
-
-
-Map Database Schema:
-- MapId
-- 25kName
-- 25kSeries
-
-- 50kParentSeries
-- 50kName
-- 50kSeries
-- 100kParent Series
-- 100k Name
-- 100k Series
-
-### Phase 6
+### Phase 7
 Add a settings screen
 - [ ] dark/light/system mode
 - [ ] units display - UTM MGRS, degrees decimal, degrees minutes seconds,
 - [ ] Datum - WGS84, GDA94, GDA2020
 - [ ] default gpx folder.
 
-### Phase 7
+### Phase 8
 - Add a layers button on the bottom right to allow selection of the basemap to be shown.
 
 ## Notes

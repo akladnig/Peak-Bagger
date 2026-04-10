@@ -7,6 +7,7 @@ import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
+import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/main.dart';
 
 const _latKey = 'map_position_lat';
@@ -130,7 +131,7 @@ class MapNotifier extends Notifier<MapState> {
   @override
   MapState build() {
     _peakRepository = PeakRepository(objectboxStore);
-    _tasmapRepository = TasmapRepository(objectboxStore);
+    _tasmapRepository = ref.read(tasmapRepositoryProvider);
     _loadPosition();
     Future.microtask(() => _loadPeaks());
     return MapState(
@@ -391,10 +392,10 @@ class MapNotifier extends Notifier<MapState> {
           );
 
           if (!validEasting) {
-            final displayMin = (map.eastingMin / 1000).round();
-            final displayMax = (map.eastingMax / 1000).round();
+            final displayMin = map.eastingMin;
+            final displayMax = map.eastingMax;
             final rangeDisplay = map.eastingMin > map.eastingMax
-                ? '$displayMin-99 OR 0-$displayMax'
+                ? '$displayMin-99999 OR 0-$displayMax'
                 : '$displayMin-$displayMax';
             return (
               null,
@@ -403,10 +404,10 @@ class MapNotifier extends Notifier<MapState> {
           }
 
           if (!validNorthing) {
-            final displayMin = (map.northingMin / 1000).round();
-            final displayMax = (map.northingMax / 1000).round();
+            final displayMin = map.northingMin;
+            final displayMax = map.northingMax;
             final rangeDisplay = map.northingMin > map.northingMax
-                ? '$displayMin-99 OR 0-$displayMax'
+                ? '$displayMin-99999 OR 0-$displayMax'
                 : '$displayMin-$displayMax';
             return (
               null,
@@ -519,28 +520,21 @@ class MapNotifier extends Notifier<MapState> {
 
   void toggleInfoPopup() {
     if (state.showInfoPopup) {
-      // Just close the popup
       state = state.copyWith(showInfoPopup: false);
     } else {
       final mgrs = _convertToMgrs(state.center);
-      // Look up the map name for the current center
-      final maps = _findMapByMgrs(mgrs);
+      final map = _findMapByMgrsWithCoordinates(mgrs);
       state = state.copyWith(
         showInfoPopup: true,
-        infoMapName: maps.isNotEmpty
-            ? maps.first.name
-            : 'Outside Tasmania 50k coverage',
+        infoMapName: map?.name ?? 'Outside Tasmania 50k coverage',
         infoMgrs: mgrs,
       );
     }
   }
 
-  List<Tasmap50k> _findMapByMgrs(String mgrsString) {
-    if (mgrsString.length < 5) return [];
-    final code = mgrsString.substring(0, 5).replaceAll(' ', '');
-    if (code.length < 2) return [];
-    final twoLetter = code.substring(code.length - 2);
-    return _tasmapRepository.findByMgrs100kId(twoLetter);
+  Tasmap50k? _findMapByMgrsWithCoordinates(String mgrsString) {
+    if (mgrsString.length < 10) return null;
+    return _tasmapRepository.findByMgrsCodeAndCoordinates(mgrsString);
   }
 
   void setGotoInputVisible(bool visible) {

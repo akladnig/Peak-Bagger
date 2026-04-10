@@ -115,210 +115,237 @@ final router = GoRouter(
                           ),
                         ),
                         const SizedBox(height: 8),
-                        if (navigationShell.currentIndex == 1) ...[
-                          FloatingActionButton.small(
-                            heroTag: 'search',
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.surface,
-                            onPressed: () {
-                              final mapNotifier = ref.read(
-                                mapProvider.notifier,
-                              );
-                              final isSearchVisible = ref
-                                  .read(mapProvider)
-                                  .showPeakSearch;
-                              final isGotoVisible = ref
-                                  .read(mapProvider)
-                                  .showGotoInput;
-                              if (isSearchVisible) {
-                                mapNotifier.setPeakSearchVisible(false);
-                              }
-                              if (isGotoVisible) {
-                                mapNotifier.setGotoInputVisible(false);
-                              }
-                              if (!isSearchVisible) {
-                                mapNotifier.setPeakSearchVisible(true);
-                              }
-                            },
-                            child: Icon(
-                              Icons.search,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          FloatingActionButton.small(
-                            heroTag: 'layers',
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.surface,
-                            onPressed: () {
-                              if (ref.read(mapProvider).showPeakSearch) {
-                                ref
-                                    .read(mapProvider.notifier)
-                                    .setPeakSearchVisible(false);
-                              }
-                              if (ref.read(mapProvider).showGotoInput) {
-                                ref
-                                    .read(mapProvider.notifier)
-                                    .setGotoInputVisible(false);
-                              }
-                              Scaffold.of(context).openEndDrawer();
-                            },
-                            child: Icon(
-                              Icons.layers,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          FloatingActionButton.small(
-                            heroTag: 'mylocation',
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.surface,
-                            onPressed: () async {
-                              if (ref.read(mapProvider).showPeakSearch) {
-                                ref
-                                    .read(mapProvider.notifier)
-                                    .setPeakSearchVisible(false);
-                              }
-                              if (ref.read(mapProvider).showGotoInput) {
-                                ref
-                                    .read(mapProvider.notifier)
-                                    .setGotoInputVisible(false);
-                              }
-                              try {
-                                bool serviceEnabled =
-                                    await Geolocator.isLocationServiceEnabled();
-                                if (!serviceEnabled) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Location services are disabled',
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                  return;
-                                }
-
-                                LocationPermission permission =
-                                    await Geolocator.checkPermission();
-                                if (permission == LocationPermission.denied) {
-                                  permission =
-                                      await Geolocator.requestPermission();
-                                  if (permission == LocationPermission.denied) {
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(
+                        if (navigationShell.currentIndex == 1)
+                          Consumer(
+                            builder: (context, ref, _) {
+                              return Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  FloatingActionButton.small(
+                                    heroTag: 'search',
+                                    backgroundColor: Theme.of(
+                                      context,
+                                    ).colorScheme.surface,
+                                    onPressed: () {
+                                      debugPrint('Search FAB tapped');
+                                      ref
+                                          .read(mapProvider.notifier)
+                                          .togglePeakSearch();
+                                    },
+                                    child: Icon(
+                                      Icons.search,
+                                      color: Theme.of(
                                         context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Location permission denied',
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                    return;
-                                  }
-                                }
-
-                                if (permission ==
-                                    LocationPermission.deniedForever) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Location permissions are permanently denied',
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                  return;
-                                }
-
-                                final position =
-                                    await Geolocator.getCurrentPosition(
-                                      locationSettings: const LocationSettings(
-                                        accuracy: LocationAccuracy.high,
-                                      ),
-                                    );
-                                debugPrint(
-                                  'GPS: lat=${position.latitude}, lon=${position.longitude}',
-                                );
-                                ref
-                                    .read(mapProvider.notifier)
-                                    .centerOnLocation(
-                                      LatLng(
-                                        position.latitude,
-                                        position.longitude,
-                                      ),
-                                    );
-                              } catch (e) {
-                                debugPrint('Location error: $e');
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Location error: $e'),
+                                      ).colorScheme.onSurface,
                                     ),
-                                  );
-                                }
-                              }
+                                  ),
+                                  const SizedBox(height: 8),
+                                  FloatingActionButton.small(
+                                    heroTag: 'layers',
+                                    backgroundColor: Theme.of(
+                                      context,
+                                    ).colorScheme.surface,
+                                    onPressed: () {
+                                      if (ref
+                                          .read(mapProvider)
+                                          .showPeakSearch) {
+                                        ref
+                                            .read(mapProvider.notifier)
+                                            .setPeakSearchVisible(false);
+                                      }
+                                      if (ref.read(mapProvider).showGotoInput) {
+                                        ref
+                                            .read(mapProvider.notifier)
+                                            .setGotoInputVisible(false);
+                                      }
+                                      Scaffold.of(context).openEndDrawer();
+                                    },
+                                    child: Icon(
+                                      Icons.layers,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  FloatingActionButton.small(
+                                    heroTag: 'mylocation',
+                                    backgroundColor: Theme.of(
+                                      context,
+                                    ).colorScheme.surface,
+                                    onPressed: () async {
+                                      if (ref
+                                          .read(mapProvider)
+                                          .showPeakSearch) {
+                                        ref
+                                            .read(mapProvider.notifier)
+                                            .setPeakSearchVisible(false);
+                                      }
+                                      if (ref.read(mapProvider).showGotoInput) {
+                                        ref
+                                            .read(mapProvider.notifier)
+                                            .setGotoInputVisible(false);
+                                      }
+                                      try {
+                                        bool serviceEnabled =
+                                            await Geolocator.isLocationServiceEnabled();
+                                        if (!serviceEnabled) {
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Location services are disabled',
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                          return;
+                                        }
+
+                                        LocationPermission permission =
+                                            await Geolocator.checkPermission();
+                                        if (permission ==
+                                            LocationPermission.denied) {
+                                          permission =
+                                              await Geolocator.requestPermission();
+                                          if (permission ==
+                                              LocationPermission.denied) {
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    'Location permission denied',
+                                                  ),
+                                                ),
+                                              );
+                                            }
+                                            return;
+                                          }
+                                        }
+
+                                        if (permission ==
+                                            LocationPermission.deniedForever) {
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Location permissions are permanently denied',
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                          return;
+                                        }
+
+                                        final position =
+                                            await Geolocator.getCurrentPosition(
+                                              locationSettings:
+                                                  const LocationSettings(
+                                                    accuracy:
+                                                        LocationAccuracy.high,
+                                                  ),
+                                            );
+                                        debugPrint(
+                                          'GPS: lat=${position.latitude}, lon=${position.longitude}',
+                                        );
+                                        ref
+                                            .read(mapProvider.notifier)
+                                            .centerOnLocation(
+                                              LatLng(
+                                                position.latitude,
+                                                position.longitude,
+                                              ),
+                                            );
+                                      } catch (e) {
+                                        debugPrint('Location error: $e');
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Location error: $e',
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    },
+                                    child: Icon(
+                                      Icons.near_me,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  FloatingActionButton.small(
+                                    heroTag: 'centermarker',
+                                    backgroundColor: Theme.of(
+                                      context,
+                                    ).colorScheme.surface,
+                                    onPressed: () {
+                                      if (ref
+                                          .read(mapProvider)
+                                          .showPeakSearch) {
+                                        ref
+                                            .read(mapProvider.notifier)
+                                            .setPeakSearchVisible(false);
+                                      }
+                                      if (ref.read(mapProvider).showGotoInput) {
+                                        ref
+                                            .read(mapProvider.notifier)
+                                            .setGotoInputVisible(false);
+                                      }
+                                      ref
+                                          .read(mapProvider.notifier)
+                                          .centerOnSelectedLocation();
+                                    },
+                                    child: Icon(
+                                      Icons.my_location,
+                                      color: Colors.amber,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  FloatingActionButton.small(
+                                    heroTag: 'goto',
+                                    backgroundColor: Theme.of(
+                                      context,
+                                    ).colorScheme.surface,
+                                    onPressed: () {
+                                      if (ref
+                                          .read(mapProvider)
+                                          .showPeakSearch) {
+                                        ref
+                                            .read(mapProvider.notifier)
+                                            .setPeakSearchVisible(false);
+                                      }
+                                      if (ref.read(mapProvider).showGotoInput) {
+                                        ref
+                                            .read(mapProvider.notifier)
+                                            .setGotoInputVisible(false);
+                                      }
+                                      ref
+                                          .read(mapProvider.notifier)
+                                          .toggleGotoInput();
+                                    },
+                                    child: Icon(
+                                      Icons.directions,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ],
+                              );
                             },
-                            child: Icon(
-                              Icons.near_me,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
                           ),
-                          const SizedBox(height: 8),
-                          FloatingActionButton.small(
-                            heroTag: 'centermarker',
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.surface,
-                            onPressed: () {
-                              if (ref.read(mapProvider).showPeakSearch) {
-                                ref
-                                    .read(mapProvider.notifier)
-                                    .setPeakSearchVisible(false);
-                              }
-                              if (ref.read(mapProvider).showGotoInput) {
-                                ref
-                                    .read(mapProvider.notifier)
-                                    .setGotoInputVisible(false);
-                              }
-                              ref
-                                  .read(mapProvider.notifier)
-                                  .centerOnSelectedLocation();
-                            },
-                            child: Icon(Icons.my_location, color: Colors.amber),
-                          ),
-                          const SizedBox(height: 8),
-                          FloatingActionButton.small(
-                            heroTag: 'goto',
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.surface,
-                            onPressed: () {
-                              if (ref.read(mapProvider).showPeakSearch) {
-                                ref
-                                    .read(mapProvider.notifier)
-                                    .setPeakSearchVisible(false);
-                              }
-                              if (ref.read(mapProvider).showGotoInput) {
-                                ref
-                                    .read(mapProvider.notifier)
-                                    .setGotoInputVisible(false);
-                              }
-                              ref.read(mapProvider.notifier).toggleGotoInput();
-                            },
-                            child: Icon(
-                              Icons.directions,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                        ],
                       ],
                     );
                   },

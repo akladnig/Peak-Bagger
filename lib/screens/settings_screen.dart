@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/services/tile_downloader.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/tasmap_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -13,6 +14,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _isDownloading = false;
   bool _isRefreshingPeaks = false;
+  bool _isResettingMaps = false;
   String _status = '';
 
   @override
@@ -48,6 +50,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   )
                 : null,
             onTap: _isRefreshingPeaks ? null : _refreshPeaks,
+          ),
+          ListTile(
+            leading: const Icon(Icons.map),
+            title: const Text('Reset Map Data'),
+            subtitle: const Text('Clear and re-import map data'),
+            trailing: _isResettingMaps
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : null,
+            onTap: _isResettingMaps ? null : _resetMapData,
           ),
           if (_status.isNotEmpty)
             Padding(padding: const EdgeInsets.all(16), child: Text(_status)),
@@ -96,6 +111,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     } finally {
       setState(() {
         _isRefreshingPeaks = false;
+      });
+    }
+  }
+
+  Future<void> _resetMapData() async {
+    setState(() {
+      _isResettingMaps = true;
+      _status = 'Clearing map data...';
+    });
+
+    try {
+      await ref.read(tasmapStateProvider.notifier).resetAndReimport();
+      setState(() {
+        _status = 'Map data cleared. Restart app to re-import.';
+      });
+    } catch (e) {
+      setState(() {
+        _status = 'Error resetting map data: $e';
+      });
+    } finally {
+      setState(() {
+        _isResettingMaps = false;
       });
     }
   }
