@@ -285,23 +285,35 @@ class MapNotifier extends Notifier<MapState> {
           final mgrsCode = mgrsCodes.first;
           final digitCount = potentialCoords.length;
 
-          // Validate coordinate count
-          if (digitCount < 2 || digitCount > 4) {
+          // Validate coordinate count (2=easting only, 3=easting+placeholder, 4=compact, 5=3+2, 6=full)
+          if (digitCount < 2 || digitCount > 6) {
             return (null, 'Invalid format. Use: MapName easting northing');
           }
 
-          // Pad to 6 digits (3 easting + 3 northing)
-          String coords = potentialCoords.padLeft(6, '0');
-
-          // Handle 2-digit input (just easting, use northingMin)
+          // Handle different input formats
+          String coords;
           if (digitCount == 2) {
+            // Just easting, use northingMin
             coords =
-                '${coords.substring(0, 2)}${map.northingMin.toString().padLeft(3, '0').substring(0, 3)}';
+                '${potentialCoords.padLeft(3, '0').substring(0, 3)}${map.northingMin.toString().padLeft(3, '0').substring(0, 3)}';
           } else if (digitCount == 3) {
+            // Just easting, use northingMin
             coords =
-                '${coords.substring(0, 3)}${map.northingMin.toString().padLeft(3, '0').substring(0, 3)}';
+                '${potentialCoords.padLeft(3, '0').substring(0, 3)}${map.northingMin.toString().padLeft(3, '0').substring(0, 3)}';
           } else if (digitCount == 4) {
-            coords = '${coords.substring(0, 2)}${coords.substring(2, 4)}';
+            // Compact: first 2 easting, last 2 northing
+            final eastingPart = potentialCoords.substring(0, 2);
+            final northingPart = potentialCoords.substring(2, 4);
+            coords =
+                '${eastingPart.padLeft(3, '0').substring(0, 3)}${northingPart.padLeft(3, '0').substring(0, 3)}';
+          } else if (digitCount == 5) {
+            // 3 easting + 2 northing
+            coords =
+                '${potentialCoords.substring(0, 3).padLeft(3, '0')}${potentialCoords.substring(3, 5).padLeft(3, '0').substring(0, 3)}';
+          } else {
+            // Full 6 digits: 3 easting + 3 northing
+            coords =
+                '${potentialCoords.substring(0, 3).padLeft(3, '0')}${potentialCoords.substring(3, 6).padLeft(3, '0').substring(0, 3)}';
           }
 
           final paddedEasting = coords.substring(0, 3).padLeft(5, '0');
