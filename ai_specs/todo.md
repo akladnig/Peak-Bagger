@@ -23,7 +23,8 @@
 - [ ] add go to map only, centre on map and zoom top map extents, and draw a blue rectangle around the map extents so that the map can be seen when zooming out.
 - [ ] add info fab
 - [ ] Wrong map shown on info
-- [ ] Peak info not being displayed
+- [x] Peak info not being displayed
+- [ ] Add show maps - a blue grid of all maps. Map name and series to be shown at bottom right of each map.
 
 # Errors
 - [x] Zoom display not updating

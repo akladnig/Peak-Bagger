@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import '../objectbox.g.dart';
 
@@ -29,17 +30,34 @@ class TasmapRepository {
   }
 
   Tasmap50k? findByMgrsCodeAndCoordinates(String mgrsString) {
-    if (mgrsString.length < 10) return null;
+    // MGRS format: "55GEN\n19400 50699" or "55GEN1940050699"
+    // Remove newlines and spaces to get continuous format
+    final cleaned = mgrsString.replaceAll(RegExp(r'[\n\s]'), '');
 
-    final code = mgrsString.substring(3, 5);
-    final easting = int.tryParse(mgrsString.substring(5, 10)) ?? 0;
-    final northing = int.tryParse(mgrsString.substring(10)) ?? 0;
+    if (cleaned.length < 10) return null;
+
+    final code = cleaned.substring(3, 5);
+    final easting = int.tryParse(cleaned.substring(5, 10)) ?? 0;
+    final northing = int.tryParse(cleaned.substring(10)) ?? 0;
+
+    debugPrint(
+      'findByMgrsCodeAndCoordinates: code=$code, easting=$easting, northing=$northing',
+    );
 
     final maps = findByMgrs100kId(code);
+    debugPrint(
+      'findByMgrsCodeAndCoordinates: found ${maps.length} maps with code $code',
+    );
 
     for (final map in maps) {
+      debugPrint(
+        'findByMgrsCodeAndCoordinates: checking ${map.name}, eMin=${map.eastingMin}, eMax=${map.eastingMax}, nMin=${map.northingMin}, nMax=${map.northingMax}',
+      );
       bool validEasting = _inRange(easting, map.eastingMin, map.eastingMax);
       bool validNorthing = _inRange(northing, map.northingMin, map.northingMax);
+      debugPrint(
+        'findByMgrsCodeAndCoordinates: ${map.name} validEasting=$validEasting, validNorthing=$validNorthing',
+      );
       if (validEasting && validNorthing) {
         return map;
       }
@@ -51,7 +69,9 @@ class TasmapRepository {
     if (min <= max) {
       return value >= min && value <= max;
     } else {
-      return value >= min || value <= max;
+      // Wrap-around range: valid if in [min, 99999] OR [0, max]
+      // For example: min=80000, max=9999 means valid if 80000-99999 OR 0-9999
+      return (value >= min && value <= 99999) || (value >= 0 && value <= max);
     }
   }
 

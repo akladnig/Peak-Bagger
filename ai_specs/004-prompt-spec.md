@@ -210,11 +210,11 @@ Adds a database of Tasmanian 1:50,000 topographic maps to support goto location 
 </validation>
 
 <done_when>
-- [ ] Tasmap50k entity created and ObjectBox code generated
-- [ ] CSV import runs on first launch, populates database
-- [ ] Goto search accepts "MapName easting northing" format
-- [ ] Map click shows popup with map name
-- [ ] Popup shows peak name + elevation when click is near peak
-- [ ] All tests pass
-- [ ] App builds successfully
+- [x] Tasmap50k entity created and ObjectBox code generated
+- [x] CSV import runs on first launch, populates database
+- [x] Goto search accepts "MapName easting northing" format
+- [x] Map click shows popup with map name
+- [x] Popup shows peak name + elevation when click is near peak
+- [x] All tests pass
+- [x] App builds successfully
 </done_when>

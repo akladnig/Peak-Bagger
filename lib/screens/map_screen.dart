@@ -156,7 +156,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           if (_searchFocusNode.hasFocus || _gotoFocusNode.hasFocus) {
             return KeyEventResult.ignored;
           }
+          final mapState = ref.read(mapProvider);
           final key = event.logicalKey;
+
+          // Close popup on any key press (except I which toggles it)
+          if (mapState.showInfoPopup && key != LogicalKeyboardKey.keyI) {
+            if (event is KeyDownEvent) {
+              ref.read(mapProvider.notifier).toggleInfoPopup();
+            }
+            return KeyEventResult.handled;
+          }
+
           if (key == LogicalKeyboardKey.equal ||
               key == LogicalKeyboardKey.comma ||
               key == LogicalKeyboardKey.period ||
@@ -260,7 +270,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       _isPointerDown = false;
                       _pointerDownPosition = null;
                     });
-                    if (!moved) {
+                    if (ref.read(mapProvider).showInfoPopup) {
+                      ref.read(mapProvider.notifier).toggleInfoPopup();
+                    } else if (!moved) {
                       ref.read(mapProvider.notifier).setSelectedLocation(point);
                     }
                   },
@@ -269,6 +281,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   },
                   onPositionChanged: (position, hasGesture) {
                     if (hasGesture) {
+                      if (ref.read(mapProvider).showInfoPopup) {
+                        ref.read(mapProvider.notifier).toggleInfoPopup();
+                      }
                       ref
                           .read(mapProvider.notifier)
                           .updatePosition(position.center, position.zoom);
