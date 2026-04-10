@@ -67,7 +67,7 @@ Adds a database of Tasmanian 1:50,000 topographic maps to support goto location 
    - MGRS column contains space-separated 2-letter codes (e.g., "CQ   ", "CP  CQ ", "CP DP CQ DQ")
      - Parse by splitting on whitespace, filtering empty strings, to get List<String> of 100k square IDs
 3. Store imported data in ObjectBox, querying by MGRS 100k square ID
-4. Update goto search to parse format: "[MapName] [easting3digit] [northing3digit]"
+4. Update goto search to parse format: "[MapName] [easting3digit] [northing3digit]" or with spaces: "[MapName] [easting3digit] [northing3digit]"
 5. Lookup map by name, construct full MGRS from 100k square + provided coordinates
 6. Handle click on map location to show popup with map name (using existing left-tap onPointerUp)
 7. If clicked location has nearby peak (within 100m), show peak name + elevation in popup
@@ -183,15 +183,22 @@ Adds a database of Tasmanian 1:50,000 topographic maps to support goto location 
 3. Unit test parseGridReference with "MapName easting northing" format
 4. Unit test CSV import parses "CP DP CQ DQ" to 4 elements (List<String>)
 5. Unit test partial coordinate "MapName easting" uses northingMin-northingMax range
-6. Widget test popup displays correct map name
-7. Widget test popup shows peak info when near click location
-8. Integration test: enter "Wellington 194507" navigates to correct location
-9. Integration test: click on map shows popup with correct map name
+6. Unit test parseGridReference handles space-separated: "Wellington 194 507"
+7. Unit test parseGridReference handles compact: "Wellington 1950" → 55GEN1900050000
+8. Unit test parseGridReference handles space: "Wellington 19 50" → 55GEN1900050000
+9. Widget test popup displays correct map name
+10. Widget test popup shows peak info when near click location
+11. Integration test: enter "Wellington 194507" navigates to correct location
+12. Integration test: enter "Wellington 194 507" (space between) navigates to correct location
+13. Integration test: click on map shows popup with correct map name
 
 **Validation Steps:**
 - Verify Tasmap50k entity saves and queries correctly
 - Verify CSV import populates all 65 map records
 - Verify "Wellington 194507" parses to MGRS 55GEN1940050700 (or close)
+- Verify "Wellington 194 507" (space between) parses to MGRS 55GEN1940050700 (or close)
+- Verify "Wellington 1950" (compact) parses to MGRS 55GEN1900050000 (or close)
+- Verify "Wellington 19 50" (space) parses to MGRS 55GEN1900050000 (or close)
 - Verify click popup shows map name for any point in Wellington coverage
 - Verify click on peak shows name + elevation
 - Verify easting out of range shows error with valid range
