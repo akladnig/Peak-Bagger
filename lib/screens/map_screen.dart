@@ -669,31 +669,55 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final mgrsCodes = map.mgrs100kIdList;
     if (mgrsCodes.isEmpty) return const PolygonLayer(polygons: []);
 
-    final mgrsCode = mgrsCodes.first;
-
     try {
-      final eMinPad = map.eastingMin.toString().padLeft(5, '0');
-      final nMinPad = map.northingMin.toString().padLeft(5, '0');
-      final eMaxPad = map.eastingMax.toString().padLeft(5, '0');
-      final nMaxPad = map.northingMax.toString().padLeft(5, '0');
+      final allPoints = <LatLng>[];
 
-      final mgrsMin = '55G${mgrsCode.substring(0, 2)} $eMinPad $nMinPad';
-      final mgrsMax = '55G${mgrsCode.substring(0, 2)} $eMaxPad $nMaxPad';
+      for (final mgrsCode in mgrsCodes) {
+        final eMinPad = map.eastingMin.toString().padLeft(5, '0');
+        final nMinPad = map.northingMin.toString().padLeft(5, '0');
+        final eMaxPad = map.eastingMax.toString().padLeft(5, '0');
+        final nMaxPad = map.northingMax.toString().padLeft(5, '0');
 
-      final p1 = mgrs.Mgrs.toPoint(mgrsMin);
-      final p3 = mgrs.Mgrs.toPoint(mgrsMax);
+        final mgrsMin = '55G${mgrsCode.substring(0, 2)} $eMinPad $nMinPad';
+        final mgrsMax = '55G${mgrsCode.substring(0, 2)} $eMaxPad $nMaxPad';
 
-      final sw = LatLng(p1[1], p1[0]);
-      final ne = LatLng(p3[1], p3[0]);
+        final p1 = mgrs.Mgrs.toPoint(mgrsMin);
+        final p3 = mgrs.Mgrs.toPoint(mgrsMax);
 
-      final swLat = (sw.latitude.abs() < 90 ? sw.latitude : -90).toDouble();
-      final neLat = (ne.latitude.abs() < 90 ? ne.latitude : 90).toDouble();
+        final sw = LatLng(p1[1], p1[0]);
+        final ne = LatLng(p3[1], p3[0]);
+
+        final swLat = (sw.latitude.abs() < 90 ? sw.latitude : -90).toDouble();
+        final neLat = (ne.latitude.abs() < 90 ? ne.latitude : 90).toDouble();
+
+        allPoints.addAll([
+          LatLng(swLat, sw.longitude),
+          LatLng(swLat, ne.longitude),
+          LatLng(neLat, ne.longitude),
+          LatLng(neLat, sw.longitude),
+        ]);
+      }
+
+      if (allPoints.isEmpty) return const PolygonLayer(polygons: []);
+
+      final minLat = allPoints
+          .map((p) => p.latitude)
+          .reduce((a, b) => a < b ? a : b);
+      final maxLat = allPoints
+          .map((p) => p.latitude)
+          .reduce((a, b) => a > b ? a : b);
+      final minLng = allPoints
+          .map((p) => p.longitude)
+          .reduce((a, b) => a < b ? a : b);
+      final maxLng = allPoints
+          .map((p) => p.longitude)
+          .reduce((a, b) => a > b ? a : b);
 
       final points = <LatLng>[
-        LatLng(swLat, sw.longitude),
-        LatLng(swLat, ne.longitude),
-        LatLng(neLat, ne.longitude),
-        LatLng(neLat, sw.longitude),
+        LatLng(minLat, minLng),
+        LatLng(minLat, maxLng),
+        LatLng(maxLat, maxLng),
+        LatLng(maxLat, minLng),
       ];
 
       return PolygonLayer(
@@ -720,33 +744,57 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       final mgrsCodes = map.mgrs100kIdList;
       if (mgrsCodes.isEmpty) continue;
 
-      final mgrsCode = mgrsCodes.first;
-
       try {
-        final eMinPad = map.eastingMin.toString().padLeft(5, '0');
-        final nMinPad = map.northingMin.toString().padLeft(5, '0');
-        final eMaxPad = map.eastingMax.toString().padLeft(5, '0');
-        final nMaxPad = map.northingMax.toString().padLeft(5, '0');
+        final allPoints = <LatLng>[];
 
-        final mgrsMin = '55G${mgrsCode.substring(0, 2)} $eMinPad $nMinPad';
-        final mgrsMax = '55G${mgrsCode.substring(0, 2)} $eMaxPad $nMaxPad';
+        for (final mgrsCode in mgrsCodes) {
+          final eMinPad = map.eastingMin.toString().padLeft(5, '0');
+          final nMinPad = map.northingMin.toString().padLeft(5, '0');
+          final eMaxPad = map.eastingMax.toString().padLeft(5, '0');
+          final nMaxPad = map.northingMax.toString().padLeft(5, '0');
 
-        final p1 = mgrs.Mgrs.toPoint(mgrsMin);
-        final p3 = mgrs.Mgrs.toPoint(mgrsMax);
+          final mgrsMin = '55G${mgrsCode.substring(0, 2)} $eMinPad $nMinPad';
+          final mgrsMax = '55G${mgrsCode.substring(0, 2)} $eMaxPad $nMaxPad';
 
-        final sw = LatLng(p1[1], p1[0]);
-        final ne = LatLng(p3[1], p3[0]);
+          final p1 = mgrs.Mgrs.toPoint(mgrsMin);
+          final p3 = mgrs.Mgrs.toPoint(mgrsMax);
 
-        final swLat = (sw.latitude.abs() < 90 ? sw.latitude : -90).toDouble();
-        final neLat = (ne.latitude.abs() < 90 ? ne.latitude : 90).toDouble();
+          final sw = LatLng(p1[1], p1[0]);
+          final ne = LatLng(p3[1], p3[0]);
+
+          final swLat = (sw.latitude.abs() < 90 ? sw.latitude : -90).toDouble();
+          final neLat = (ne.latitude.abs() < 90 ? ne.latitude : 90).toDouble();
+
+          allPoints.addAll([
+            LatLng(swLat, sw.longitude),
+            LatLng(swLat, ne.longitude),
+            LatLng(neLat, ne.longitude),
+            LatLng(neLat, sw.longitude),
+          ]);
+        }
+
+        if (allPoints.isEmpty) continue;
+
+        final minLat = allPoints
+            .map((p) => p.latitude)
+            .reduce((a, b) => a < b ? a : b);
+        final maxLat = allPoints
+            .map((p) => p.latitude)
+            .reduce((a, b) => a > b ? a : b);
+        final minLng = allPoints
+            .map((p) => p.longitude)
+            .reduce((a, b) => a < b ? a : b);
+        final maxLng = allPoints
+            .map((p) => p.longitude)
+            .reduce((a, b) => a > b ? a : b);
 
         polygons.add(
           Polygon(
             points: [
-              LatLng(swLat, sw.longitude),
-              LatLng(swLat, ne.longitude),
-              LatLng(neLat, ne.longitude),
-              LatLng(neLat, sw.longitude),
+              LatLng(minLat, minLng),
+              LatLng(minLat, maxLng),
+              LatLng(maxLat, maxLng),
+              LatLng(maxLat, minLng),
             ],
             color: Colors.blue.withValues(alpha: 0.1),
             borderColor: Colors.blue,
@@ -790,21 +838,47 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       return;
     }
 
-    final mgrsCode = mgrsCodes.first;
     try {
-      final eMinPad = map.eastingMin.toString().padLeft(5, '0');
-      final nMinPad = map.northingMin.toString().padLeft(5, '0');
-      final eMaxPad = map.eastingMax.toString().padLeft(5, '0');
-      final nMaxPad = map.northingMax.toString().padLeft(5, '0');
+      final allPoints = <LatLng>[];
 
-      final mgrsSw = '55G${mgrsCode.substring(0, 2)} $eMinPad $nMinPad';
-      final mgrsNe = '55G${mgrsCode.substring(0, 2)} $eMaxPad $nMaxPad';
+      for (final mgrsCode in mgrsCodes) {
+        final eMinPad = map.eastingMin.toString().padLeft(5, '0');
+        final nMinPad = map.northingMin.toString().padLeft(5, '0');
+        final eMaxPad = map.eastingMax.toString().padLeft(5, '0');
+        final nMaxPad = map.northingMax.toString().padLeft(5, '0');
 
-      final pSw = mgrs.Mgrs.toPoint(mgrsSw);
-      final pNe = mgrs.Mgrs.toPoint(mgrsNe);
+        final mgrsSw = '55G${mgrsCode.substring(0, 2)} $eMinPad $nMinPad';
+        final mgrsNe = '55G${mgrsCode.substring(0, 2)} $eMaxPad $nMaxPad';
 
-      final sw = LatLng(pSw[1], pSw[0]);
-      final ne = LatLng(pNe[1], pNe[0]);
+        final pSw = mgrs.Mgrs.toPoint(mgrsSw);
+        final pNe = mgrs.Mgrs.toPoint(mgrsNe);
+
+        final sw = LatLng(pSw[1], pSw[0]);
+        final ne = LatLng(pNe[1], pNe[0]);
+
+        allPoints.addAll([sw, ne]);
+      }
+
+      if (allPoints.isEmpty) {
+        _mapController.move(_mapController.camera.center, 15);
+        return;
+      }
+
+      final minLat = allPoints
+          .map((p) => p.latitude)
+          .reduce((a, b) => a < b ? a : b);
+      final maxLat = allPoints
+          .map((p) => p.latitude)
+          .reduce((a, b) => a > b ? a : b);
+      final minLng = allPoints
+          .map((p) => p.longitude)
+          .reduce((a, b) => a < b ? a : b);
+      final maxLng = allPoints
+          .map((p) => p.longitude)
+          .reduce((a, b) => a > b ? a : b);
+
+      final sw = LatLng(minLat, minLng);
+      final ne = LatLng(maxLat, maxLng);
 
       final bounds = LatLngBounds(sw, ne);
       final cameraFit = CameraFit.bounds(
