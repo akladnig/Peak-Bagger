@@ -511,6 +511,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                                   ref
                                       .read(mapProvider.notifier)
                                       .parseGridReference(value);
+                                  final mapState = ref.read(mapProvider);
+                                  if (mapState.selectedMap != null &&
+                                      mapState.mapSuggestions.isEmpty) {
+                                    _zoomToMapExtent(mapState.selectedMap!);
+                                    ref
+                                        .read(mapProvider.notifier)
+                                        .setGotoInputVisible(false);
+                                  }
                                 },
                                 onSubmitted: (_) {
                                   if (_gotoError == null) {
@@ -553,7 +561,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                                 onTap: () {
                                   _gotoController.text = map.name;
                                   ref.read(mapProvider.notifier).selectMap(map);
-                                  _navigateToGridReference();
+                                  _zoomToMapExtent(map);
+                                  ref
+                                      .read(mapProvider.notifier)
+                                      .setGotoInputVisible(false);
                                 },
                               );
                             },
@@ -655,27 +666,34 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final center = ref.read(tasmapRepositoryProvider).getMapCenter(map);
     if (center == null) return const PolygonLayer(polygons: []);
 
-    final easting = (map.eastingMin + map.eastingMax) ~/ 2;
-    final northing = (map.northingMin + map.northingMax) ~/ 2;
-    final paddedEasting = easting.toString().padLeft(5, '0');
-    final paddedNorthing = northing.toString().padLeft(5, '0');
-
     final mgrsCodes = map.mgrs100kIdList;
     if (mgrsCodes.isEmpty) return const PolygonLayer(polygons: []);
 
     final mgrsCode = mgrsCodes.first;
-    final fullMgrs =
-        '55G${mgrsCode.substring(0, 2)} $paddedEasting $paddedNorthing';
 
     try {
-      final centerPt = mgrs.Mgrs.toPoint(fullMgrs);
-      final centerLatLng = LatLng(centerPt[1], centerPt[0]);
+      final eMinPad = map.eastingMin.toString().padLeft(5, '0');
+      final nMinPad = map.northingMin.toString().padLeft(5, '0');
+      final eMaxPad = map.eastingMax.toString().padLeft(5, '0');
+      final nMaxPad = map.northingMax.toString().padLeft(5, '0');
+
+      final mgrsMin = '55G${mgrsCode.substring(0, 2)} $eMinPad $nMinPad';
+      final mgrsMax = '55G${mgrsCode.substring(0, 2)} $eMaxPad $nMaxPad';
+
+      final p1 = mgrs.Mgrs.toPoint(mgrsMin);
+      final p3 = mgrs.Mgrs.toPoint(mgrsMax);
+
+      final sw = LatLng(p1[1], p1[0]);
+      final ne = LatLng(p3[1], p3[0]);
+
+      final swLat = (sw.latitude.abs() < 90 ? sw.latitude : -90).toDouble();
+      final neLat = (ne.latitude.abs() < 90 ? ne.latitude : 90).toDouble();
 
       final points = <LatLng>[
-        LatLng(centerLatLng.latitude - 0.01, centerLatLng.longitude - 0.01),
-        LatLng(centerLatLng.latitude - 0.01, centerLatLng.longitude + 0.01),
-        LatLng(centerLatLng.latitude + 0.01, centerLatLng.longitude + 0.01),
-        LatLng(centerLatLng.latitude + 0.01, centerLatLng.longitude - 0.01),
+        LatLng(swLat, sw.longitude),
+        LatLng(swLat, ne.longitude),
+        LatLng(neLat, ne.longitude),
+        LatLng(neLat, sw.longitude),
       ];
 
       return PolygonLayer(
@@ -699,43 +717,36 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final polygons = <Polygon>[];
 
     for (final map in maps.take(65)) {
-      final center = repo.getMapCenter(map);
-      if (center == null) continue;
+      final mgrsCodes = map.mgrs100kIdList;
+      if (mgrsCodes.isEmpty) continue;
+
+      final mgrsCode = mgrsCodes.first;
 
       try {
-        final easting = (map.eastingMin + map.eastingMax) ~/ 2;
-        final northing = (map.northingMin + map.northingMax) ~/ 2;
-        final paddedEasting = easting.toString().padLeft(5, '0');
-        final paddedNorthing = northing.toString().padLeft(5, '0');
+        final eMinPad = map.eastingMin.toString().padLeft(5, '0');
+        final nMinPad = map.northingMin.toString().padLeft(5, '0');
+        final eMaxPad = map.eastingMax.toString().padLeft(5, '0');
+        final nMaxPad = map.northingMax.toString().padLeft(5, '0');
 
-        final mgrsCodes = map.mgrs100kIdList;
-        if (mgrsCodes.isEmpty) continue;
+        final mgrsMin = '55G${mgrsCode.substring(0, 2)} $eMinPad $nMinPad';
+        final mgrsMax = '55G${mgrsCode.substring(0, 2)} $eMaxPad $nMaxPad';
 
-        final mgrsCode = mgrsCodes.first;
-        final fullMgrs =
-            '55G${mgrsCode.substring(0, 2)} $paddedEasting $paddedNorthing';
-        final centerPt = mgrs.Mgrs.toPoint(fullMgrs);
-        final centerLatLng = LatLng(centerPt[1], centerPt[0]);
+        final p1 = mgrs.Mgrs.toPoint(mgrsMin);
+        final p3 = mgrs.Mgrs.toPoint(mgrsMax);
+
+        final sw = LatLng(p1[1], p1[0]);
+        final ne = LatLng(p3[1], p3[0]);
+
+        final swLat = (sw.latitude.abs() < 90 ? sw.latitude : -90).toDouble();
+        final neLat = (ne.latitude.abs() < 90 ? ne.latitude : 90).toDouble();
 
         polygons.add(
           Polygon(
             points: [
-              LatLng(
-                centerLatLng.latitude - 0.01,
-                centerLatLng.longitude - 0.01,
-              ),
-              LatLng(
-                centerLatLng.latitude - 0.01,
-                centerLatLng.longitude + 0.01,
-              ),
-              LatLng(
-                centerLatLng.latitude + 0.01,
-                centerLatLng.longitude + 0.01,
-              ),
-              LatLng(
-                centerLatLng.latitude + 0.01,
-                centerLatLng.longitude - 0.01,
-              ),
+              LatLng(swLat, sw.longitude),
+              LatLng(swLat, ne.longitude),
+              LatLng(neLat, ne.longitude),
+              LatLng(neLat, sw.longitude),
             ],
             color: Colors.blue.withValues(alpha: 0.1),
             borderColor: Colors.blue,
@@ -761,9 +772,53 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     if (error != null) {
       setState(() => _gotoError = error);
     } else if (location != null) {
-      _mapController.move(location, 15);
-      ref.read(mapProvider.notifier).centerOnLocation(location);
+      final selectedMap = ref.read(mapProvider).selectedMap;
+      if (selectedMap != null) {
+        _zoomToMapExtent(selectedMap);
+      } else {
+        _mapController.move(location, 15);
+        ref.read(mapProvider.notifier).centerOnLocation(location);
+      }
       ref.read(mapProvider.notifier).setGotoInputVisible(false);
+    }
+  }
+
+  void _zoomToMapExtent(Tasmap50k map) {
+    final mgrsCodes = map.mgrs100kIdList;
+    if (mgrsCodes.isEmpty) {
+      _mapController.move(_mapController.camera.center, 15);
+      return;
+    }
+
+    final mgrsCode = mgrsCodes.first;
+    try {
+      final eMinPad = map.eastingMin.toString().padLeft(5, '0');
+      final nMinPad = map.northingMin.toString().padLeft(5, '0');
+      final eMaxPad = map.eastingMax.toString().padLeft(5, '0');
+      final nMaxPad = map.northingMax.toString().padLeft(5, '0');
+
+      final mgrsSw = '55G${mgrsCode.substring(0, 2)} $eMinPad $nMinPad';
+      final mgrsNe = '55G${mgrsCode.substring(0, 2)} $eMaxPad $nMaxPad';
+
+      final pSw = mgrs.Mgrs.toPoint(mgrsSw);
+      final pNe = mgrs.Mgrs.toPoint(mgrsNe);
+
+      final sw = LatLng(pSw[1], pSw[0]);
+      final ne = LatLng(pNe[1], pNe[0]);
+
+      final bounds = LatLngBounds(sw, ne);
+      final cameraFit = CameraFit.bounds(
+        bounds: bounds,
+        padding: const EdgeInsets.all(50),
+      );
+      _mapController.fitCamera(cameraFit);
+
+      final center = ref.read(tasmapRepositoryProvider).getMapCenter(map);
+      if (center != null) {
+        ref.read(mapProvider.notifier).centerOnLocation(center);
+      }
+    } catch (e) {
+      _mapController.move(_mapController.camera.center, 15);
     }
   }
 
