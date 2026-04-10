@@ -813,10 +813,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       );
       _mapController.fitCamera(cameraFit);
 
-      final center = ref.read(tasmapRepositoryProvider).getMapCenter(map);
-      if (center != null) {
-        ref.read(mapProvider.notifier).centerOnLocation(center);
-      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final newCenter = _mapController.camera.center;
+        final newZoom = _mapController.camera.zoom;
+        ref.read(mapProvider.notifier).updatePosition(newCenter, newZoom);
+      });
     } catch (e) {
       _mapController.move(_mapController.camera.center, 15);
     }
