@@ -262,13 +262,30 @@ class MapNotifier extends Notifier<MapState> {
     final trimmed = input.trim();
     final upper = trimmed.toUpperCase();
 
-    // Check for map name format: "MapName easting northing" or "MapName easting"
+    // Check for map name format: "MapName easting northing" or "MapName easting" or "MapName easting northing" (space separated)
     final parts = trimmed.split(RegExp(r'\s+'));
 
     if (parts.length >= 2) {
-      // Try parsing as map name + coordinates
-      final potentialName = parts.sublist(0, parts.length - 1).join(' ');
-      final potentialCoords = parts.last.replaceAll(RegExp(r'\s'), '');
+      // Determine if last part(s) are coordinates (digits only)
+      String potentialName;
+      String potentialCoords;
+
+      // Check if last part is digits (coordinate)
+      // Also check if second-to-last is digits (for "MapName easting northing")
+      if (parts.length >= 3 &&
+          RegExp(r'^[0-9]+$').hasMatch(parts[parts.length - 1]) &&
+          RegExp(r'^[0-9]+$').hasMatch(parts[parts.length - 2])) {
+        // Format: "MapName easting northing" - last two parts are coordinates
+        potentialName = parts.sublist(0, parts.length - 2).join(' ');
+        potentialCoords = parts[parts.length - 2] + parts[parts.length - 1];
+      } else if (RegExp(r'^[0-9]+$').hasMatch(parts.last)) {
+        // Format: "MapName coordinates" - last part is coordinates
+        potentialName = parts.sublist(0, parts.length - 1).join(' ');
+        potentialCoords = parts.last;
+      } else {
+        potentialName = '';
+        potentialCoords = '';
+      }
 
       // Check if we have a map name and valid-looking coordinates (digits only)
       if (potentialName.isNotEmpty &&
