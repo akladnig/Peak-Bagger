@@ -153,7 +153,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         focusNode: _mapFocusNode,
         autofocus: true,
         onKeyEvent: (node, event) {
-          if (_searchFocusNode.hasFocus) {
+          if (_searchFocusNode.hasFocus || _gotoFocusNode.hasFocus) {
             return KeyEventResult.ignored;
           }
           final key = event.logicalKey;
