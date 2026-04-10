@@ -68,15 +68,8 @@ Add goto by map name (auto-zoom + rectangle) and map grid overlay. Phase 4a: map
 
 - [x] Enter "Wellington" → zoom to fit, rectangle visible
 - [x] Enter "Welling" → dropdown with options
-- [x] Tap grid FAB → all rectangles
+- [x] Tap grid FAB → all 65 rectangles
 - [x] Final verify: `flutter analyze` && `flutter test`
-
-### Phase 6: Integration
-
-- [ ] Enter "Wellington" → zoom to fit, rectangle visible
-- [ ] Enter "Welling" → dropdown with options
-- [ ] Tap grid FAB → all 65 rectangles
-- [ ] Final verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 
