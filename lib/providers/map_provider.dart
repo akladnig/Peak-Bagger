@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latlong2/latlong.dart';
@@ -6,6 +5,7 @@ import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/main.dart';
 
 const _latKey = 'map_position_lat';
@@ -108,11 +108,13 @@ final mapProvider = NotifierProvider<MapNotifier, MapState>(MapNotifier.new);
 
 class MapNotifier extends Notifier<MapState> {
   late final PeakRepository _peakRepository;
+  late final TasmapRepository _tasmapRepository;
   final OverpassService _overpassService = OverpassService();
 
   @override
   MapState build() {
     _peakRepository = PeakRepository(objectboxStore);
+    _tasmapRepository = TasmapRepository(objectboxStore);
     _loadPosition();
     Future.microtask(() => _loadPeaks());
     return MapState(
@@ -257,7 +259,116 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   (LatLng?, String?) parseGridReference(String input) {
-    final cleaned = input.trim().toUpperCase().replaceAll(' ', '');
+    final trimmed = input.trim();
+    final upper = trimmed.toUpperCase();
+
+    // Check for map name format: "MapName easting northing" or "MapName easting"
+    final parts = trimmed.split(RegExp(r'\s+'));
+
+    if (parts.length >= 2) {
+      // Try parsing as map name + coordinates
+      final potentialName = parts.sublist(0, parts.length - 1).join(' ');
+      final potentialCoords = parts.last.replaceAll(RegExp(r'\s'), '');
+
+      // Check if we have a map name and valid-looking coordinates (digits only)
+      if (potentialName.isNotEmpty &&
+          RegExp(r'^[0-9]+$').hasMatch(potentialCoords)) {
+        // Look up the map by name
+        final maps = _tasmapRepository.findByName(potentialName);
+        if (maps.isNotEmpty) {
+          final map = maps.first;
+          final mgrsCodes = map.mgrs100kIdList;
+          if (mgrsCodes.isEmpty) {
+            return (null, 'Map not found: ${potentialName}');
+          }
+
+          final mgrsCode = mgrsCodes.first;
+          final digitCount = potentialCoords.length;
+
+          // Validate coordinate count
+          if (digitCount < 2 || digitCount > 4) {
+            return (null, 'Invalid format. Use: MapName easting northing');
+          }
+
+          // Pad to 6 digits (3 easting + 3 northing)
+          String coords = potentialCoords.padLeft(6, '0');
+
+          // Handle 2-digit input (just easting, use northingMin)
+          if (digitCount == 2) {
+            coords =
+                '${coords.substring(0, 2)}${map.northingMin.toString().padLeft(3, '0').substring(0, 3)}';
+          } else if (digitCount == 3) {
+            coords =
+                '${coords.substring(0, 3)}${map.northingMin.toString().padLeft(3, '0').substring(0, 3)}';
+          } else if (digitCount == 4) {
+            coords = '${coords.substring(0, 2)}${coords.substring(2, 4)}';
+          }
+
+          final paddedEasting = coords.substring(0, 3).padLeft(5, '0');
+          final paddedNorthing = coords.substring(3, 6).padLeft(5, '0');
+
+          // Validate range (handle wrap-around)
+          final eastingVal = int.tryParse(paddedEasting.substring(0, 3)) ?? 0;
+          final northingVal = int.tryParse(paddedNorthing.substring(0, 3)) ?? 0;
+
+          bool validEasting = _inRange(
+            eastingVal,
+            map.eastingMin,
+            map.eastingMax,
+          );
+          bool validNorthing = _inRange(
+            northingVal,
+            map.northingMin,
+            map.northingMax,
+          );
+
+          if (!validEasting) {
+            final rangeDisplay = map.eastingMin > map.eastingMax
+                ? '${map.eastingMin}-99 OR 0-${map.eastingMax}'
+                : '${map.eastingMin}-${map.eastingMax}';
+            return (
+              null,
+              'Easting $eastingVal out of range for ${map.name}. Valid range: $rangeDisplay',
+            );
+          }
+
+          if (!validNorthing) {
+            final rangeDisplay = map.northingMin > map.northingMax
+                ? '${map.northingMin}-99 OR 0-${map.northingMax}'
+                : '${map.northingMin}-${map.northingMax}';
+            return (
+              null,
+              'Northing $northingVal out of range for ${map.name}. Valid range: $rangeDisplay',
+            );
+          }
+
+          final fullMgrs =
+              '55G${mgrsCode.substring(0, 2)} $paddedEasting $paddedNorthing';
+
+          try {
+            final coords = mgrs.Mgrs.toPoint(fullMgrs);
+            final location = LatLng(coords[1], coords[0]);
+            final mgrsOutputRaw = mgrs.Mgrs.forward([coords[0], coords[1]], 5);
+            String mgrsOutput;
+            if (mgrsOutputRaw.length >= 10) {
+              final firstLine = mgrsOutputRaw.substring(0, 5);
+              final easting = mgrsOutputRaw.substring(5, 10);
+              final northing = mgrsOutputRaw.substring(10);
+              mgrsOutput = '$firstLine\n$easting $northing';
+            } else {
+              mgrsOutput = mgrsOutputRaw;
+            }
+            state = state.copyWith(gotoMgrs: mgrsOutput);
+            return (location, null);
+          } catch (e) {
+            return (null, 'Invalid grid reference');
+          }
+        }
+      }
+    }
+
+    // Original MGRS format parsing
+    final cleaned = upper.replaceAll(' ', '');
 
     String gridZone = '55G';
     String coords;
@@ -424,6 +535,14 @@ class MapNotifier extends Notifier<MapState> {
         isLoadingPeaks: false,
         error: 'Failed to refresh peaks: $e',
       );
+    }
+  }
+
+  bool _inRange(int value, int min, int max) {
+    if (min <= max) {
+      return value >= min && value <= max;
+    } else {
+      return value >= min || value <= max;
     }
   }
 }
