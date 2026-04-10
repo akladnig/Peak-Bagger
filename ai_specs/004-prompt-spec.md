@@ -29,8 +29,8 @@ Adds a database of Tasmanian 1:50,000 topographic maps to support goto location 
 7. System converts to LatLng and centers map
 
 **Primary Flow - Map Click Popup:**
-1. User clicks/taps on map location (not drag)
-2. System converts click position to MGRS coordinate
+1. User presses 'I' key to show popup at current map center
+2. System converts current center position to MGRS coordinate
 3. System looks up which 50k map covers that MGRS using X/Y range validation logic
    - Extract easting/northing from MGRS coordinates
    - Check which map's eastingMin-eastingMax and northingMin-northingMax includes the coordinate
@@ -38,7 +38,7 @@ Adds a database of Tasmanian 1:50,000 topographic maps to support goto location 
 4. Popup dialog appears showing:
    - Map name (e.g., "Wellington")
    - If peak exists at location: peak name + elevation
-5. User dismisses by tapping elsewhere or close button
+5. User dismisses by pressing Escape or close button
 
 **Alternative Flow - Full MGRS Input:**
 1. User enters "55GEN1940050700" or "55G EN 19400 50700"

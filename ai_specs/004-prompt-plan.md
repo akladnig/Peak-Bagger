@@ -47,16 +47,16 @@ Add tasmap 50k database and goto search by map name. Users can search "Wellingto
 
 ### Phase 3: Map Click Popup
 
-- **Goal**: Show popup with map name on map tap
+- **Goal**: Show popup with map name on 'I' key press
 - [ ] `lib/providers/map_provider.dart` - Add popup state: showPopup, popupMapName, popupPeakName, popupPeakElevation, popupMgrs
-- [ ] `lib/screens/map_screen.dart` - Modify onPointerUp:
-  - Convert click position to MGRS
+- [ ] `lib/screens/map_screen.dart` - Add 'I' key handler:
+  - Convert current map center to MGRS
   - Find map by X/Y range (easting/northing within map ranges)
   - Find peak within 100m (use latlong2 Distance class)
   - Set popup state
 - [ ] Add popup UI widget in map screen Stack
-- [ ] Handle dismiss: tap outside, pan, zoom, key press
-- [ ] TDD: Popup displays correct map name
+- [ ] Handle dismiss: Escape key or close button
+- [ ] TDD: Popup displays correct map name for current center
 - [ ] TDD: Popup shows peak name + elevation within 100m
 - [ ] TDD: "Outside Tasmania 50k coverage" when no map found
 - [ ] Verify: `flutter analyze` && `flutter test`
