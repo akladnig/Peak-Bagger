@@ -671,12 +671,29 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     try {
       final allPoints = <LatLng>[];
+      final isWrapAround = map.northingMax < map.northingMin;
 
-      for (final mgrsCode in mgrsCodes) {
+      for (int i = 0; i < mgrsCodes.length; i++) {
+        final mgrsCode = mgrsCodes[i];
+        int nMin, nMax;
+
+        if (isWrapAround && mgrsCodes.length == 2) {
+          if (i == 0) {
+            nMin = map.northingMin;
+            nMax = 99999;
+          } else {
+            nMin = 0;
+            nMax = map.northingMax;
+          }
+        } else {
+          nMin = map.northingMin;
+          nMax = map.northingMax;
+        }
+
         final eMinPad = map.eastingMin.toString().padLeft(5, '0');
-        final nMinPad = map.northingMin.toString().padLeft(5, '0');
+        final nMinPad = nMin.toString().padLeft(5, '0');
         final eMaxPad = map.eastingMax.toString().padLeft(5, '0');
-        final nMaxPad = map.northingMax.toString().padLeft(5, '0');
+        final nMaxPad = nMax.toString().padLeft(5, '0');
 
         final mgrsMin = '55G${mgrsCode.substring(0, 2)} $eMinPad $nMinPad';
         final mgrsMax = '55G${mgrsCode.substring(0, 2)} $eMaxPad $nMaxPad';
@@ -746,12 +763,29 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
       try {
         final allPoints = <LatLng>[];
+        final isWrapAround = map.northingMax < map.northingMin;
 
-        for (final mgrsCode in mgrsCodes) {
+        for (int i = 0; i < mgrsCodes.length; i++) {
+          final mgrsCode = mgrsCodes[i];
+          int nMin, nMax;
+
+          if (isWrapAround && mgrsCodes.length == 2) {
+            if (i == 0) {
+              nMin = map.northingMin;
+              nMax = 99999;
+            } else {
+              nMin = 0;
+              nMax = map.northingMax;
+            }
+          } else {
+            nMin = map.northingMin;
+            nMax = map.northingMax;
+          }
+
           final eMinPad = map.eastingMin.toString().padLeft(5, '0');
-          final nMinPad = map.northingMin.toString().padLeft(5, '0');
+          final nMinPad = nMin.toString().padLeft(5, '0');
           final eMaxPad = map.eastingMax.toString().padLeft(5, '0');
-          final nMaxPad = map.northingMax.toString().padLeft(5, '0');
+          final nMaxPad = nMax.toString().padLeft(5, '0');
 
           final mgrsMin = '55G${mgrsCode.substring(0, 2)} $eMinPad $nMinPad';
           final mgrsMax = '55G${mgrsCode.substring(0, 2)} $eMaxPad $nMaxPad';
@@ -840,12 +874,29 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     try {
       final allPoints = <LatLng>[];
+      final isWrapAround = map.northingMax < map.northingMin;
 
-      for (final mgrsCode in mgrsCodes) {
+      for (int i = 0; i < mgrsCodes.length; i++) {
+        final mgrsCode = mgrsCodes[i];
+        int nMin, nMax;
+
+        if (isWrapAround && mgrsCodes.length == 2) {
+          if (i == 0) {
+            nMin = map.northingMin;
+            nMax = 99999;
+          } else {
+            nMin = 0;
+            nMax = map.northingMax;
+          }
+        } else {
+          nMin = map.northingMin;
+          nMax = map.northingMax;
+        }
+
         final eMinPad = map.eastingMin.toString().padLeft(5, '0');
-        final nMinPad = map.northingMin.toString().padLeft(5, '0');
+        final nMinPad = nMin.toString().padLeft(5, '0');
         final eMaxPad = map.eastingMax.toString().padLeft(5, '0');
-        final nMaxPad = map.northingMax.toString().padLeft(5, '0');
+        final nMaxPad = nMax.toString().padLeft(5, '0');
 
         final mgrsSw = '55G${mgrsCode.substring(0, 2)} $eMinPad $nMinPad';
         final mgrsNe = '55G${mgrsCode.substring(0, 2)} $eMaxPad $nMaxPad';
