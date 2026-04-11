@@ -361,7 +361,7 @@ class MapNotifier extends Notifier<MapState> {
             northingPart.length >= 4 &&
             northingPart.length <= 5) {
           potentialCoords =
-              '${eastingPart}x${northingPart}'; // Marker for separate coords
+              '$eastingPart x$northingPart'; // Marker for separate coords
         } else {
           potentialCoords = eastingPart + northingPart;
         }
@@ -386,7 +386,7 @@ class MapNotifier extends Notifier<MapState> {
             final map = maps.first;
             final mgrsCodes = map.mgrs100kIdList;
             if (mgrsCodes.isEmpty) {
-              return (null, 'Map not found: ${potentialName}');
+              return (null, 'Map not found: $potentialName');
             }
 
             // Handle different input formats - convert to 5-digit coordinates

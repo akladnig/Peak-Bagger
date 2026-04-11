@@ -1,4 +1,3 @@
-import 'package:objectbox/objectbox.dart';
 import 'package:peak_bagger/models/peak.dart';
 import '../objectbox.g.dart';
 

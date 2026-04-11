@@ -16,18 +16,18 @@ Refactor `parseGridReference` to standardize coordinate interpretation. Extract 
 ### Phase 1: Extract coordinate parsing logic
 
 - **Goal**: Create testable helper function for coordinate digit interpretation
-- [ ] `lib/services/grid_reference_parser.dart` - Create `GridReferenceParser` class with static methods:
+- [x] `lib/services/grid_reference_parser.dart` - Create `GridReferenceParser` class with static methods:
   - `parseCoordinates(String coords, {int? digitCount})` → `({String easting, String northing})?`
   - `interpretDigit(String digit, int position)` → `String` (multiply by appropriate power of 10)
   - `validateEvenDigitCount(String coords)` → `String?` (error message or null)
-- [ ] TDD: 1-digit "1" → "10000" for both easting and northing
-- [ ] TDD: 2-digit "19" → "19000" for both
-- [ ] TDD: 3-digit "194" → "19400" for both
-- [ ] TDD: 4-digit "1943" → "19430" for both (BREAKING: was split 2+2)
-- [ ] TDD: 5-digit "19432" → "19432" for both
-- [ ] TDD: Odd digit count "194" → returns error "Coordinate digits must be even count"
-- [ ] TDD: Space-separated mismatched "19 4507" → returns error
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] TDD: 1-digit "1" → "10000" for both easting and northing
+- [x] TDD: 2-digit "19" → "19000" for both
+- [x] TDD: 3-digit "194" → "19400" for both
+- [x] TDD: 4-digit "1943" → "19430" for both (BREAKING: was split 2+2)
+- [x] TDD: 5-digit "19432" → "19432" for both
+- [x] TDD: Odd digit count "194" → returns error "Coordinate digits must be even count"
+- [x] TDD: Space-separated mismatched "19 4507" → returns error
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 2: Update parseGridReference
 
