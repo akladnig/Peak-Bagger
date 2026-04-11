@@ -523,7 +523,6 @@ class MapNotifier extends Notifier<MapState> {
       if (maps.isEmpty) {
         return (null, 'Unknown MGRS square: $mgrsCode');
       }
-      final map = maps.first;
 
       // Handle different coordinate lengths
       final digitCount = coords.length;
@@ -531,18 +530,14 @@ class MapNotifier extends Notifier<MapState> {
       String northing5digit;
 
       if (digitCount < 2) {
-        // Need at least 2 digits
         return (null, null);
       } else if (digitCount == 2 || digitCount == 3) {
-        // Just easting, use middle of northing range
         easting5digit = ((int.tryParse(coords) ?? 0) * 1000).toString().padLeft(
           5,
           '0',
         );
-        final northingMid = _rangeMiddle(map.northingMin, map.northingMax);
-        northing5digit = northingMid.toString().padLeft(5, '0');
+        northing5digit = '00000';
       } else if (digitCount == 4) {
-        // Compact: first 2 easting (multiply by 1000), last 2 northing (multiply by 1000)
         easting5digit = ((int.tryParse(coords.substring(0, 2)) ?? 0) * 1000)
             .toString()
             .padLeft(5, '0');
@@ -550,7 +545,6 @@ class MapNotifier extends Notifier<MapState> {
             .toString()
             .padLeft(5, '0');
       } else if (digitCount == 5) {
-        // 3 easting + 2 northing
         easting5digit = ((int.tryParse(coords.substring(0, 3)) ?? 0) * 100)
             .toString()
             .padLeft(5, '0');
@@ -558,7 +552,6 @@ class MapNotifier extends Notifier<MapState> {
             .toString()
             .padLeft(5, '0');
       } else {
-        // 6 digits
         easting5digit = ((int.tryParse(coords.substring(0, 3)) ?? 0) * 100)
             .toString()
             .padLeft(5, '0');
@@ -567,43 +560,24 @@ class MapNotifier extends Notifier<MapState> {
             .padLeft(5, '0');
       }
 
-      // Validate range
       final eastingVal = int.tryParse(easting5digit) ?? 0;
       final northingVal = int.tryParse(northing5digit) ?? 0;
 
-      bool validEasting = _inRange(eastingVal, map.eastingMin, map.eastingMax);
-      bool validNorthing = _inRange(
-        northingVal,
-        map.northingMin,
-        map.northingMax,
-      );
-
-      if (!validEasting) {
-        final displayMin = map.eastingMin;
-        final displayMax = map.eastingMax;
-        final rangeDisplay = map.eastingMin > map.eastingMax
-            ? '$displayMin-99999 OR 0-$displayMax'
-            : '$displayMin-$displayMax';
-        return (
-          null,
-          'Easting $eastingVal out of range for ${map.name}. Valid range: $rangeDisplay',
-        );
+      // Find the correct map by checking which one contains the coordinates
+      Tasmap50k? correctMap;
+      for (final map in maps) {
+        if (_inRange(eastingVal, map.eastingMin, map.eastingMax) &&
+            _inRange(northingVal, map.northingMin, map.northingMax)) {
+          correctMap = map;
+          break;
+        }
       }
 
-      if (!validNorthing) {
-        final displayMin = map.northingMin;
-        final displayMax = map.northingMax;
-        final rangeDisplay = map.northingMin > map.northingMax
-            ? '$displayMin-99999 OR 0-$displayMax'
-            : '$displayMin-$displayMax';
-        return (
-          null,
-          'Northing $northingVal out of range for ${map.name}. Valid range: $rangeDisplay',
-        );
+      if (correctMap == null) {
+        return (null, 'Coordinates out of range for MGRS square $mgrsCode');
       }
 
-      final fullMgrs =
-          '55G${mgrsCode.substring(0, 2)} $easting5digit $northing5digit';
+      final fullMgrs = '55G$mgrsCode $easting5digit $northing5digit';
 
       try {
         final coords = mgrs.Mgrs.toPoint(fullMgrs);
