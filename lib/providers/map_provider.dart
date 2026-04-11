@@ -7,6 +7,7 @@ import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
+import 'package:peak_bagger/services/grid_reference_parser.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/main.dart';
 
@@ -355,6 +356,15 @@ class MapNotifier extends Notifier<MapState> {
         potentialName = parts.sublist(0, parts.length - 2).join(' ');
         final eastingPart = parts[parts.length - 2];
         final northingPart = parts[parts.length - 1];
+        // Validate matching digit counts for space-separated
+        final validationError =
+            GridReferenceParser.validateSpaceSeparatedDigits(
+              eastingPart,
+              northingPart,
+            );
+        if (validationError != null) {
+          return (null, validationError);
+        }
         // If both parts are 4-5 digits, treat as separate easting/northing
         if (eastingPart.length >= 4 &&
             eastingPart.length <= 5 &&
@@ -399,80 +409,35 @@ class MapNotifier extends Notifier<MapState> {
               if (sepParts.length == 2) {
                 final eastingPart = sepParts[0];
                 final northingPart = sepParts[1];
-                // Convert to 5-digit: 4-digit * 10, 5-digit as-is
-                easting5digit = eastingPart.length == 5
-                    ? eastingPart
-                    : ((int.tryParse(eastingPart) ?? 0) * 10)
-                          .toString()
-                          .padLeft(5, '0');
-                northing5digit = northingPart.length == 5
-                    ? northingPart
-                    : ((int.tryParse(northingPart) ?? 0) * 10)
-                          .toString()
-                          .padLeft(5, '0');
+                // Use GridReferenceParser for interpretation
+                easting5digit = GridReferenceParser.interpretDigit(
+                  eastingPart,
+                  eastingPart.length,
+                );
+                northing5digit = GridReferenceParser.interpretDigit(
+                  northingPart,
+                  northingPart.length,
+                );
               } else {
                 return (null, 'Invalid format. Use: MapName easting northing');
               }
             } else {
               final digitCount = potentialCoords.length;
 
-              // Validate coordinate count (2=easting only, 3=easting+placeholder, 4=compact, 5=3+2, 6=full)
-              if (digitCount < 2 || digitCount > 6) {
-                return (null, 'Invalid format. Use: MapName easting northing');
+              // Validate even digit count
+              if (digitCount % 2 != 0) {
+                return (null, 'Coordinate digits must be even count');
               }
 
-              if (digitCount == 2) {
-                // Just easting, use northing range (handle wrap-around)
-                easting5digit = ((int.tryParse(potentialCoords) ?? 0) * 1000)
-                    .toString()
-                    .padLeft(5, '0');
-                // Use middle of northing range
-                final northingMid = _rangeMiddle(
-                  map.northingMin,
-                  map.northingMax,
-                );
-                northing5digit = northingMid.toString().padLeft(5, '0');
-              } else if (digitCount == 3) {
-                // 3-digit: multiply by 100 to get 5-digit
-                easting5digit =
-                    ((int.tryParse(potentialCoords.substring(0, 3)) ?? 0) * 100)
-                        .toString()
-                        .padLeft(5, '0');
-                northing5digit = (map.northingMin).toString().padLeft(5, '0');
-              } else if (digitCount == 4) {
-                // Compact: first 2 easting (multiply by 1000), last 2 northing (multiply by 1000)
-                easting5digit =
-                    ((int.tryParse(potentialCoords.substring(0, 2)) ?? 0) *
-                            1000)
-                        .toString()
-                        .padLeft(5, '0');
-                northing5digit =
-                    ((int.tryParse(potentialCoords.substring(2, 4)) ?? 0) *
-                            1000)
-                        .toString()
-                        .padLeft(5, '0');
-              } else if (digitCount == 5) {
-                // 3 easting + 2 northing: first 3 * 100, last 2 * 1000
-                easting5digit =
-                    ((int.tryParse(potentialCoords.substring(0, 3)) ?? 0) * 100)
-                        .toString()
-                        .padLeft(5, '0');
-                northing5digit =
-                    ((int.tryParse(potentialCoords.substring(3, 5)) ?? 0) *
-                            1000)
-                        .toString()
-                        .padLeft(5, '0');
-              } else {
-                // Full 6 digits: 3 easting + 3 northing (both * 100)
-                easting5digit =
-                    ((int.tryParse(potentialCoords.substring(0, 3)) ?? 0) * 100)
-                        .toString()
-                        .padLeft(5, '0');
-                northing5digit =
-                    ((int.tryParse(potentialCoords.substring(3, 6)) ?? 0) * 100)
-                        .toString()
-                        .padLeft(5, '0');
+              // Use GridReferenceParser for coordinate interpretation
+              final parsed = GridReferenceParser.parseCoordinates(
+                potentialCoords,
+              );
+              if (parsed == null) {
+                return (null, 'Invalid coordinate format');
               }
+              easting5digit = parsed.easting;
+              northing5digit = parsed.northing;
             }
 
             final paddedEasting = easting5digit;
@@ -1005,23 +970,6 @@ class MapNotifier extends Notifier<MapState> {
       return value >= min && value <= max;
     } else {
       return value >= min || value <= max;
-    }
-  }
-
-  int _rangeMiddle(int min, int max) {
-    if (min <= max) {
-      return (min + max) ~/ 2;
-    } else {
-      // Wrap-around range: find middle of combined range
-      final range1 = 99999 - min + 1;
-      final range2 = max + 1;
-      final totalRange = range1 + range2;
-      final middle = totalRange ~/ 2;
-      if (middle < range1) {
-        return min + middle;
-      } else {
-        return middle - range1;
-      }
     }
   }
 }

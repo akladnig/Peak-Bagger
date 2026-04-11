@@ -32,14 +32,14 @@ Refactor `parseGridReference` to standardize coordinate interpretation. Extract 
 ### Phase 2: Update parseGridReference
 
 - **Goal**: Refactor parseGridReference to use GridReferenceParser
-- [ ] `lib/providers/map_provider.dart` - Import GridReferenceParser
-- [ ] `lib/providers/map_provider.dart:416-476` - Replace coordinate interpretation logic with GridReferenceParser calls
-- [ ] `lib/providers/map_provider.dart:435-441` - Remove 3-digit special case (now rejected as invalid)
-- [ ] `lib/providers/map_provider.dart:442-453` - Fix 4-digit handling (use GridReferenceParser instead of split 2+2)
-- [ ] `lib/providers/map_provider.dart:351-367` - Add validation for mismatched space-separated digit counts
-- [ ] TDD: "Wellington 194" → error "Coordinate digits must be even count"
-- [ ] TDD: "Wellington 19 4507" → error "Easting and northing must have same digit count when space-separated"
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/providers/map_provider.dart` - Import GridReferenceParser
+- [x] `lib/providers/map_provider.dart:416-476` - Replace coordinate interpretation logic with GridReferenceParser calls
+- [x] `lib/providers/map_provider.dart:435-441` - Remove 3-digit special case (now rejected as invalid)
+- [x] `lib/providers/map_provider.dart:442-453` - Fix 4-digit handling (use GridReferenceParser instead of split 2+2)
+- [x] `lib/providers/map_provider.dart:351-367` - Add validation for mismatched space-separated digit counts
+- [x] TDD: "Wellington 194" → error "Coordinate digits must be even count"
+- [x] TDD: "Wellington 19 4507" → error "Easting and northing must have same digit count when space-separated"
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Comprehensive test coverage
 
