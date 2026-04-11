@@ -18,14 +18,15 @@
 ## 2  Display map of Tasmania with zoom, pan and search function
 - [ ] Change two finger from pan to zoom
 - [ ] change zoom level display to actual distance
+- [ ] Automaically ask for permissions
 ## 3 Tasmanian Peaks and search
 ## 4 Add Maps and location search
-- [ ] place info popup to right of marker
-- [ ] add go to map only, centre on map and zoom top map extents, and draw a blue rectangle around the map extents so that the map can be seen when zooming out.
-- [ ] add info fab
+- [x] place info popup to right of marker
+- [x] add info fab
 - [x] Wrong map shown on info
 - [x] Peak info not being displayed
 ## 4a
+- [ ] add go to map only, centre on map and zoom top map extents, and draw a blue rectangle around the map extents so that the map can be seen when zooming out.
 - [ ] Add show maps - a blue grid of all maps. Map name and series to be shown at bottom right of each map.
 
 # Errors

@@ -29,19 +29,22 @@ Users benefit by being able to navigate to any 50k map directly and visualize ma
 Primary flow:
 1. User taps goto FAB or presses 'G' key
 2. Goto input field appears
-3. User enters map name only (e.g., "Wellington")
-4. User presses Enter
-5. System looks up map in database by name
-6. System constructs MGRS center from map's easting/northing ranges
-7. Map centers on the map's center location
-8. Map zooms to fit map extents with padding
-9. Blue rectangle drawn around map boundary
+3. User enters map name only (e.g., "Wellington") - no coordinates
+4. System looks up maps starting with "Wellington" (case-insensitive)
+5. If 1 exact match: center map, zoom to fit, show rectangle
+6. If multiple matches: show dropdown below input
+7. User selects from dropdown (tap or arrow+Enter)
+8. Map centers on map's calculated center (from MGRS)
+9. Map zooms to fit map extents with 10% padding
+10. Blue rectangle drawn around map boundary
 
 Alternative flows:
-- Map name with spaces: "Mount Field" → same as "MountField"
-- Case insensitive: "WELLINGTON" → "Wellington"
-- Partial name: "Wellington" matches starts-with
-- Partial match: Show dropdown with matching maps, user selects one
+- Map name-only (no coords): "Wellington" → lookup by name
+- Map name with spaces: "Mount Field" → parses as one string
+- Case insensitive: "WELLINGTON" → matches "Wellington"
+- Partial name with spaces: "Mount Field" → matches starts-with
+- Exact match auto-selects: If single exact match, show rectangle immediately
+- Partial matches: Show dropdown with up to 10 matching maps
 
 Error flows:
 - Map name not found: Show error "Map not found: [name]" below input
@@ -89,15 +92,19 @@ Error flows:
 
 **Phase 4b - Functional:**
 1. Add new "show maps" FAB (Icons.grid_on) between goto and info FABs
-2. 'M' key toggles map overlay
+2. 'M' key (shift+M) toggles map overlay
 3. All maps displayed with blue rectangles
 4. Map name + series shown at bottom-right of each rectangle
 5. Overlay closes when any other FAB is tapped
 
 **Error Handling:**
-9. Map not found: "Map not found: [name]" error below goto input
+9. Map not found: "No maps found matching '[input]'" error below input
 10. No maps in database: Show info message, continue without overlay
 11. Invalid coordinates in map data: Skip invalid maps, log warning
+
+**Repository methods needed:**
+- searchMaps(prefix): Find maps where name starts with prefix (case-insensitive)
+- getMapCenter(map): Calculate center LatLng from map's MGRS ranges
 
 **Edge Cases:**
 12. Map with wrap-around ranges (eastingMax < eastingMin): Use full MGRS grid for center calculation
@@ -128,9 +135,9 @@ Error flows:
 
 <implementation>
 **Files to modify:**
-- @lib/providers/map_provider.dart - Add map selection state, parse map name goto, add mapOverlayMode state
-- @lib/services/tasmap_repository.dart - Add getAllMaps() if not exists, method to get map center
-- @lib/screens/map_screen.dart - Add PolygonLayer for map rectangles, update on map name goto
+- @lib/providers/map_provider.dart - Add map selection state, parse map name (no coords), add mapOverlayMode state
+- @lib/services/tasmap_repository.dart - Add getMapCenter() method, add searchMaps(prefix) method
+- @lib/screens/map_screen.dart - Add ListView dropdown below goto TextField, add PolygonLayer for rectangles
 - @lib/router.dart - Add grid FAB between goto and info FABs
 
 **Patterns to follow:**
@@ -139,10 +146,11 @@ Error flows:
 - Use existing FAB toggle pattern in router.dart
 
 **Phase 4a approach:**
-1. Add map name parsing in parseGridReference when input has no coordinates
-2. Calculate map center: (eastingMin + eastingMax) / 2, (northingMin + northingMax) / 2
-3. Use CameraFit to zoom to map extents with padding
-4. Use PolygonLayer to draw blue rectangle around map boundary
+1. Add map name parsing in parseGridReference when input has no coordinates (single word, no digits)
+2. Use mgrs_dart to convert: 55G + mgrs100kId + centerEasting + centerNorthing → LatLng center
+3. Calculate center easting: (eastingMin + eastingMax) / 2, northing: (northingMin + northingMax) / 2
+4. Use mapController.camera.fit() with LatLngBounds to zoom to extents with 10% padding
+5. Use PolygonLayer to draw blue rectangle around map boundary
 
 **Phase 4b approach:**
 1. Add FAB with Icons.grid_on

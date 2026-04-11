@@ -63,11 +63,11 @@ Error flows:
 6. Display peaks on map as firebrick-colored triangles (W3C #B22222, use Color(0xFFB22222)). Use Material Icons triangle (Icons.change_history) or similar. Peaks displayed at zoom level 12+, do not display peaks at zoom < 12
 7. Hover over peak → show tooltip with name and elevation to the right of peak (use Marker tooltipAnchor: Alignment(1, 0)) - NOT IMPLEMENTED: flutter_map 8.x removed Marker tooltips, feature out of scope
 8. Search box and goto box both positioned to right of FABs (right-aligned), width: 30 characters. FAB toggles search box visibility, close button (X) dismisses search. FAB positioned between theme toggle and map-specific FABs (layers, my location, etc.). Keyboard shortcut: / (forward slash) focuses search box. Clicking peak search FAB focuses the search TextField, closing search returns focus to map. Search closes automatically when focus moves to map, FABs, or menu items
-9. Keyboard shortcuts: h/j/k/l for pan (smooth continuous scroll on long press), arrow keys for pan, +/- for zoom, s for current location, g for goto, b for basemap drawer, c for center on marker
+8. Keyboard shortcuts: h/j/k/l for pan (smooth continuous scroll on long press), arrow keys for pan, +/- for zoom, s for current location, g for goto, b for basemap drawer, c for center on marker, S (shift+s) for peak search box
 
 **Bug fixes:**
 - Fixed duplicate peak search FAB in router.dart
-9. Search filters peaks by name and/or elevation (debounce 300ms). Display maximum 20 search results in dropdown
+9. Search filters peaks by name and/or elevation. No debounce needed (dataset ~1000 peaks is small). Display maximum 20 search results in dropdown
 10. Search results shown in dropdown list (use TextField with dropdown overlay that filters as user types, not DropdownMenu). Selecting result centers map on peak location and closes dropdown. Pressing Return key selects all listed peaks, highlights them with blue circles, zooms map to show all selected peaks, and closes search
 11. Blue circles (CircleLayer) drawn around selected peaks (after Return key pressed). Circle radius: 15px (same size as peak marker), color: blue with 0.3 opacity, radius in pixels so size stays constant on zoom
 12. Add "Refresh Peak Data" button in Settings screen (below Download Offline Tiles)
@@ -192,10 +192,10 @@ Limits:
 <done_when>
 - ObjectBox database stores peak data
 - Map displays firebrick-colored triangles for peaks (W3C #B22222)
-- Hovering shows tooltip with name and elevation
 - Search box filters peaks and shows results in dropdown
 - Selecting search result centers map on peak
 - Refresh Peak Data button in Settings re-fetches from Overpass
 - First launch loads peaks from API, subsequent launches load from ObjectBox database
 - All tests pass including 1029 peak load verification and Mount Arthur search test
-</done_when>
+
+Note: Marker tooltips are OUT OF SCOPE - flutter_map 8.x removed tooltip support</done_when>

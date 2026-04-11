@@ -326,7 +326,7 @@ class MapNotifier extends Notifier<MapState> {
         if (center != null) {
           state = state.copyWith(
             selectedMap: map,
-            showMapOverlay: true,
+            showMapOverlay: false,
             mapSuggestions: [],
             mapSearchQuery: '',
           );
@@ -689,11 +689,16 @@ class MapNotifier extends Notifier<MapState> {
     if (center != null) {
       state = state.copyWith(
         selectedMap: map,
-        showMapOverlay: true,
+        showMapOverlay: false,
         mapSuggestions: [],
         mapSearchQuery: '',
       );
     }
+  }
+
+  void centerOnLocationWithZoom(LatLng location, Tasmap50k map) {
+    state = state.copyWith(center: location);
+    savePosition();
   }
 
   void toggleMapOverlay() {

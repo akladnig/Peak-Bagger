@@ -27,15 +27,13 @@ MacOS-only (continuing from Phase 1).
 - Default center: Tasmania (approx -41.5°S, 146.5°E)
 - Default zoom: ~8km wide x 5km high (roughly zoom level 15)
 - Basemaps: Tracestrack topo (default), OpenStreetMap (alternative)
-- Tiles: Currently loaded from network. Tile download service exists at lib/services/tile_downloader.dart for offline use.
+- Tiles: Loaded from network only. Tile download service exists at lib/services/tile_downloader.dart for future offline capability (out of scope for Phase 2).
 
 **Files to modify:**
 - @lib/screens/map_screen.dart - Implement map with all controls
 - @pubspec.yaml - Add flutter_map, mgrs_dart dependencies
 
-**Assets to create:**
-- @assets/OSM_standard/ - Cached OpenStreetMap tiles
-- @assets/OSM_tracestrack/ - Cached Tracestrack tiles
+**Note:** Asset folders declared in pubspec.yaml are unused in Phase 2 (reserved for future offline capability).
 </background>
 
 <user_flows>
@@ -50,11 +48,10 @@ Primary flow:
 
 Alternative flows:
 - First launch of app AND first time visiting map screen: No location permission → use default Tasmania view
-- Offline mode: Use cached tiles if network unavailable
 - Invalid grid reference: Show error, keep current position
 
 Error flows:
-- No internet: Show cached tiles or error message
+- No internet: Show error message (offline tiles out of scope for Phase 2)
 - Location permission denied: Show message, allow manual entry
 - Invalid grid reference: Show "Invalid grid reference" message
 </user_flows>
@@ -77,10 +74,8 @@ Error flows:
     c. User taps Show My Location: show current GPS location as MGRS, set selected location
 10. On finger movement: show MGRS at finger position in real-time. Drag does not update MGRS. Cursor icon: grab (open hand) normally within map region, hand-back-fist (grabbing) during drag. Normal arrow cursor on all other screens and UI elements (buttons, navigation bars, FABs, etc.).
 11. Selected location shown on map with Icons.my_location marker, colored gold. Selected location is set when user taps/clicks on map (9a), enters grid reference (9b), or taps Show My Location (9c). On first view of map, marker displayed at default center location.
-11. Save tiles to assets folder for full offline mode (do not use built-in caching)
-12. Separate folder under assets for each distinct tile set
-13. Future: tiles will be saved in database
-14. Floating Show My Location icon (Icons.near_me) - goes to current GPS location
+12. Future: offline tile caching (out of scope for Phase 2)
+13. Floating Show My Location icon (Icons.near_me) - goes to current GPS location
 15. Floating Center on Marker icon (Icons.my_location, colored gold) - centers map on selected location
 16. Floating Go to Location icon (Icons.directions) - opens floating text input field
 17. All floating action buttons use background color: surface, icon color: onSurface (except Center on Marker which uses gold icon)
@@ -119,9 +114,9 @@ Error flows:
 
 **Persistence:**
 38. Save last viewed position to shared_preferences using keys: `map_position_lat`, `map_position_lng`, `map_zoom`
-39. Load saved position on app launch
-40. On first launch: Download tile sets for both basemaps (Tracestrack, OpenStreetMap) for zoom levels 6-14 covering Tasmania region, save to respective assets folders
-41. Future: Tile set updates - compare local tile version with remote and download updates if available
+39. Save basemap selection to shared_preferences: `basemap_selection` key (values: 'tracestrack', 'openstreetmap')
+40. Load saved position and basemap on app launch
+41. Future: Tile caching and offline download (out of scope for Phase 2)
 
 **Error Handling:**
 42. Invalid grid reference: Show error message, keep current position
@@ -151,26 +146,17 @@ Limits:
 - Use IP-based location service for current location
 - Use mgrs_dart for MGRS to lat/long conversion
 - Use Notifier/NotifierProvider for map state (position, zoom, basemap)
-- Load tiles from assets folder for full offline mode
-- Each tile set in separate folder under assets
+- Load tiles from network only (no offline caching in Phase 2)
 
 **Files to modify:**
-- @pubspec.yaml - add flutter_map ^8.2.2, mgrs_dart ^2.0.0, declare assets
+- @pubspec.yaml - add flutter_map ^8.2.2, mgrs_dart ^2.0.0
 - @lib/screens/map_screen.dart - full map implementation
 - @lib/providers/map_provider.dart - new state management
 
 **To avoid:**
 - Don't use Google Maps (requires API key, licensing issues)
 - Don't use built-in flutter_map tile caching
-
-**Note**: Assets must be declared in pubspec.yaml:
-```yaml
-flutter:
-  uses-material-design: true
-  assets:
-    - assets/OSM_standard/
-    - assets/OSM_tracestrack/
-```
+- Don't use asset-based tiles for Phase 2 (future offline capability only)
 </implementation>
 
 <discovery>
@@ -213,7 +199,7 @@ flutter:
 - Floating icons visible: Show My Location, Go to Location, Layers
 - Can switch between Tracestrack and OpenStreetMap basemaps
 - Grid reference entry works for 6 and 8 digit references
-- Tiles load from assets folder for offline use
+- Basemap selection persists across app restarts
 - Last viewed position persists across app restarts
 - All tests pass
 </done_when>
