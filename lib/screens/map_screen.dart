@@ -698,37 +698,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         return const PolygonLayer(polygons: []);
       }
 
-      final minLat = [
-        tl,
-        tr,
-        bl,
-        br,
-      ].map((p) => p.latitude).reduce((a, b) => a < b ? a : b);
-      final maxLat = [
-        tl,
-        tr,
-        bl,
-        br,
-      ].map((p) => p.latitude).reduce((a, b) => a > b ? a : b);
-      final minLng = [
-        tl,
-        tr,
-        bl,
-        br,
-      ].map((p) => p.longitude).reduce((a, b) => a < b ? a : b);
-      final maxLng = [
-        tl,
-        tr,
-        bl,
-        br,
-      ].map((p) => p.longitude).reduce((a, b) => a > b ? a : b);
-
-      final points = <LatLng>[
-        LatLng(minLat, minLng),
-        LatLng(minLat, maxLng),
-        LatLng(maxLat, maxLng),
-        LatLng(maxLat, minLng),
-      ];
+      // Use actual corners in order, not min/max bounds
+      // This handles wrap-around maps correctly
+      final points = <LatLng>[bl, br, tr, tl];
 
       return PolygonLayer(
         polygons: [
@@ -777,39 +749,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
         if (tl == null || tr == null || bl == null || br == null) continue;
 
-        final minLat = [
-          tl,
-          tr,
-          bl,
-          br,
-        ].map((p) => p.latitude).reduce((a, b) => a < b ? a : b);
-        final maxLat = [
-          tl,
-          tr,
-          bl,
-          br,
-        ].map((p) => p.latitude).reduce((a, b) => a > b ? a : b);
-        final minLng = [
-          tl,
-          tr,
-          bl,
-          br,
-        ].map((p) => p.longitude).reduce((a, b) => a < b ? a : b);
-        final maxLng = [
-          tl,
-          tr,
-          bl,
-          br,
-        ].map((p) => p.longitude).reduce((a, b) => a > b ? a : b);
+        // Use actual corners in order, not min/max bounds
+        final points = <LatLng>[bl, br, tr, tl];
 
         polygons.add(
           Polygon(
-            points: [
-              LatLng(minLat, minLng),
-              LatLng(minLat, maxLng),
-              LatLng(maxLat, maxLng),
-              LatLng(maxLat, minLng),
-            ],
+            points: points,
             color: Colors.blue.withValues(alpha: 0.1),
             borderColor: Colors.blue,
             borderStrokeWidth: 2,

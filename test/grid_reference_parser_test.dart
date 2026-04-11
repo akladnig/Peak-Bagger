@@ -115,6 +115,73 @@ void main() {
         expect(location.latitude, closeTo(-42.89606, 0.00001));
         expect(location.longitude, closeTo(147.23761, 0.00001));
       });
+
+      test('Maria corners - TL: EN8000099999', () {
+        final mgrsString = '55GEN8000099999';
+        final coords = mgrs.Mgrs.toPoint(mgrsString);
+        final location = LatLng(coords[1], coords[0]);
+        expect(location.latitude, closeTo(-42.44821, 0.001));
+        expect(location.longitude, closeTo(147.97283, 0.001));
+      });
+
+      test('Maria corners - TR: FN1999999999', () {
+        final mgrsString = '55GFN1999999999';
+        final coords = mgrs.Mgrs.toPoint(mgrsString);
+        final location = LatLng(coords[1], coords[0]);
+        expect(location.latitude, closeTo(-42.44305, 0.001));
+        expect(location.longitude, closeTo(148.45911, 0.001));
+      });
+
+      test('Maria corners - BL: EN8000070000', () {
+        final mgrsString = '55GEN8000070000';
+        final coords = mgrs.Mgrs.toPoint(mgrsString);
+        final location = LatLng(coords[1], coords[0]);
+        expect(location.latitude, closeTo(-42.71834, 0.001));
+        expect(location.longitude, closeTo(147.97704, 0.001));
+      });
+
+      test('Maria corners - BR: FN1999970000', () {
+        final mgrsString = '55GFN1999970000';
+        final coords = mgrs.Mgrs.toPoint(mgrsString);
+        final location = LatLng(coords[1], coords[0]);
+        expect(location.latitude, closeTo(-42.71313, 0.001));
+        expect(location.longitude, closeTo(148.46542, 0.001));
+      });
+
+      test('Maria corners - verify easting/northing from MGRS output', () {
+        final tl = mgrs.Mgrs.toPoint('55GEN8000099999');
+        final tr = mgrs.Mgrs.toPoint('55GFN1999999999');
+        final bl = mgrs.Mgrs.toPoint('55GEN8000070000');
+        final br = mgrs.Mgrs.toPoint('55GFN1999970000');
+
+        final tlMgrs = mgrs.Mgrs.forward([tl[0], tl[1]], 5);
+        final trMgrs = mgrs.Mgrs.forward([tr[0], tr[1]], 5);
+        final blMgrs = mgrs.Mgrs.forward([bl[0], bl[1]], 5);
+        final brMgrs = mgrs.Mgrs.forward([br[0], br[1]], 5);
+
+        expect(tlMgrs, contains('EN80000'));
+        expect(trMgrs, contains('FN19999'));
+        expect(blMgrs, contains('EN80000'));
+        expect(brMgrs, contains('FN19999'));
+      });
+
+      test('Maria - verify rectangle bounds', () {
+        final tl = mgrs.Mgrs.toPoint('55GEN8000099999');
+        final tr = mgrs.Mgrs.toPoint('55GFN1999999999');
+        final bl = mgrs.Mgrs.toPoint('55GEN8000070000');
+        final br = mgrs.Mgrs.toPoint('55GFN1999970000');
+
+        final tlLatLng = LatLng(tl[1], tl[0]);
+        final trLatLng = LatLng(tr[1], tr[0]);
+        final blLatLng = LatLng(bl[1], bl[0]);
+        final brLatLng = LatLng(br[1], br[0]);
+
+        // Verify corners form a proper quadrilateral
+        expect(tlLatLng.latitude, greaterThan(blLatLng.latitude));
+        expect(trLatLng.latitude, greaterThan(brLatLng.latitude));
+        expect(tlLatLng.longitude, lessThan(trLatLng.longitude));
+        expect(blLatLng.longitude, lessThan(brLatLng.longitude));
+      });
     });
   });
 }
