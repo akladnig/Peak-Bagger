@@ -39,6 +39,30 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     _gotoFocusNode.addListener(_onGotoFocusChange);
   }
 
+  void _handleGotoSubmit(MapState mapState) {
+    if (mapState.mapSuggestions.isNotEmpty) {
+      final firstMap = mapState.mapSuggestions.first;
+      _gotoController.text = firstMap.name;
+      ref.read(mapProvider.notifier).selectMap(firstMap);
+      _zoomToMapExtent(firstMap);
+      ref.read(mapProvider.notifier).setGotoInputVisible(false);
+    } else if (_gotoError == null) {
+      _navigateToGridReference();
+    }
+  }
+
+  void _handleGotoTab() {
+    final mapState = ref.read(mapProvider);
+    if (mapState.mapSuggestions.isNotEmpty) {
+      final firstMap = mapState.mapSuggestions.first;
+      _gotoController.text = '${firstMap.name} ';
+      _gotoController.selection = TextSelection.collapsed(
+        offset: _gotoController.text.length,
+      );
+      ref.read(mapProvider.notifier).parseGridReference(_gotoController.text);
+    }
+  }
+
   void _onSearchFocusChange() {
     if (!_searchFocusNode.hasFocus && mounted) {
       _mapFocusNode.requestFocus();
@@ -495,28 +519,36 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                           children: [
                             SizedBox(
                               width: 30 * 8.0,
-                              child: TextField(
-                                focusNode: _gotoFocusNode,
-                                controller: _gotoController,
-                                decoration: InputDecoration(
-                                  hintText: 'Go to location',
-                                  isDense: true,
-                                  border: const OutlineInputBorder(),
-                                  errorText: _gotoError,
+                              child: KeyboardListener(
+                                focusNode: FocusNode(),
+                                onKeyEvent: (event) {
+                                  if (event is KeyDownEvent &&
+                                      event.logicalKey ==
+                                          LogicalKeyboardKey.tab) {
+                                    _handleGotoTab();
+                                  }
+                                },
+                                child: TextField(
+                                  focusNode: _gotoFocusNode,
+                                  controller: _gotoController,
+                                  decoration: InputDecoration(
+                                    hintText: 'Go to location',
+                                    isDense: true,
+                                    border: const OutlineInputBorder(),
+                                    errorText: _gotoError,
+                                  ),
+                                  onChanged: (value) {
+                                    if (_gotoError != null) {
+                                      setState(() => _gotoError = null);
+                                    }
+                                    ref
+                                        .read(mapProvider.notifier)
+                                        .parseGridReference(value);
+                                  },
+                                  onSubmitted: (_) {
+                                    _handleGotoSubmit(ref.read(mapProvider));
+                                  },
                                 ),
-                                onChanged: (value) {
-                                  if (_gotoError != null) {
-                                    setState(() => _gotoError = null);
-                                  }
-                                  ref
-                                      .read(mapProvider.notifier)
-                                      .parseGridReference(value);
-                                },
-                                onSubmitted: (_) {
-                                  if (_gotoError == null) {
-                                    _navigateToGridReference();
-                                  }
-                                },
                               ),
                             ),
                             const SizedBox(width: 8),
