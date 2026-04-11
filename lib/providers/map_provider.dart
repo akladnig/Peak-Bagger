@@ -589,6 +589,89 @@ class MapNotifier extends Notifier<MapState> {
       }
     }
 
+    // Check for space-separated coordinates only (no map name, no MGRS square): "194 507"
+    // Use current MGRS100k square from the display
+    final spaceOnlyMatch = RegExp(r'^([0-9]+)\s+([0-9]+)$').firstMatch(trimmed);
+    if (spaceOnlyMatch != null) {
+      final eastingPart = spaceOnlyMatch.group(1)!;
+      final northingPart = spaceOnlyMatch.group(2)!;
+
+      // Validate matching digit counts
+      final validationError = GridReferenceParser.validateSpaceSeparatedDigits(
+        eastingPart,
+        northingPart,
+      );
+      if (validationError != null) {
+        return (null, validationError);
+      }
+
+      // Extract current MGRS100k square from state.currentMgrs
+      final currentMgrsParts = state.currentMgrs.split('\n');
+      if (currentMgrsParts.isEmpty || currentMgrsParts[0].length < 5) {
+        return (null, 'Cannot determine current MGRS square');
+      }
+      final mgrsCode = currentMgrsParts[0].substring(3, 5);
+
+      final maps = _tasmapRepository.findByMgrs100kId(mgrsCode);
+      if (maps.isEmpty) {
+        return (null, 'Unknown MGRS square: $mgrsCode');
+      }
+
+      // Use GridReferenceParser for coordinate interpretation
+      final easting5digit = GridReferenceParser.interpretDigit(
+        eastingPart,
+        eastingPart.length,
+      );
+      final northing5digit = GridReferenceParser.interpretDigit(
+        northingPart,
+        northingPart.length,
+      );
+
+      final eastingVal = int.tryParse(easting5digit) ?? 0;
+      final northingVal = int.tryParse(northing5digit) ?? 0;
+
+      // Find the correct map
+      Tasmap50k? correctMap;
+      for (final map in maps) {
+        if (_inRange(eastingVal, map.eastingMin, map.eastingMax) &&
+            _inRange(northingVal, map.northingMin, map.northingMax)) {
+          correctMap = map;
+          break;
+        }
+      }
+
+      if (correctMap == null) {
+        return (
+          null,
+          'Coordinates out of range for current MGRS square $mgrsCode',
+        );
+      }
+
+      final fullMgrs = '55G$mgrsCode$easting5digit$northing5digit';
+
+      try {
+        final coordsResult = mgrs.Mgrs.toPoint(fullMgrs);
+        final location = LatLng(coordsResult[1], coordsResult[0]);
+        final mgrsOutputRaw = mgrs.Mgrs.forward([
+          coordsResult[0],
+          coordsResult[1],
+        ], 5);
+        String mgrsOutput;
+        if (mgrsOutputRaw.length >= 10) {
+          final firstLine = mgrsOutputRaw.substring(0, 5);
+          final easting = mgrsOutputRaw.substring(5, 10);
+          final northing = mgrsOutputRaw.substring(10);
+          mgrsOutput = '$firstLine\n$easting $northing';
+        } else {
+          mgrsOutput = mgrsOutputRaw;
+        }
+        state = state.copyWith(gotoMgrs: mgrsOutput);
+        return (location, null);
+      } catch (e) {
+        return (null, 'Invalid grid reference');
+      }
+    }
+
     // Check for coordinates only (no map name, no MGRS square): "194507"
     // Use current MGRS100k square from the display
     if (RegExp(r'^[0-9]+$').hasMatch(trimmed)) {

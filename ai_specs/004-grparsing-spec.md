@@ -74,36 +74,42 @@ This spec refactors existing code in `parseGridReference` to match the standardi
 16. When current MGRS display shows Wellington area (EN), "194507" → 55GEN1940050700
 17. All coordinate formats from requirements 4-14 apply
 18. If no current MGRS100k square available, show error
+19. Space-separated coordinates with current MGRS context: "1 1" → 55GEN1000050000
+20. Space-separated coordinates with current MGRS context: "12 12" → 55GEN1200012000
+21. Space-separated coordinates with current MGRS context: "123 456" → 55GEN1230045600
+22. Space-separated coordinates with current MGRS context: "1234 5678" → 55GEN1234056780
+23. Space-separated coordinates with current MGRS context: "12345 67890" → 55GEN1234567890
+24. Space-separated coordinates with different digit counts are invalid: "12 1234" → error "Easting and northing must have same digit count when space-separated"
 
 **Functional - MGRS100k Prefix:**
-19. "EN0123456789" → 55GEN0123456789 (10-digit continuous: 5-digit easting + 5-digit northing)
-20. "EN 01234 56789" → 55GEN0123456789 (space-separated 5-digit each)
-21. "EN 194507" → 55GEN1940050700 (space-separated 3-digit each)
-22. MGRS100k prefix must be valid 2-letter code from database
-23. MGRS100k prefix + continuous digits: split evenly if even digit count, otherwise error "Coordinate digits must be even count for MGRS100k prefix"
+25. "EN0123456789" → 55GEN0123456789 (10-digit continuous: 5-digit easting + 5-digit northing)
+26. "EN 01234 56789" → 55GEN0123456789 (space-separated 5-digit each)
+27. "EN 194 507" → 55GEN1940050700 (space-separated 3-digit each)
+28. MGRS100k prefix must be valid 2-letter code from database
+29. MGRS100k prefix + continuous digits: split evenly if even digit count, otherwise error "Coordinate digits must be even count for MGRS100k prefix"
 
-**Coordinate Digit Interpretation (applies to requirements 4-14, 15-17, 19-21):**
-24. 1-digit: multiply by 10000 (e.g., "1" → "10000")
-25. 2-digit: multiply by 1000 (e.g., "19" → "19000")
-26. 3-digit: multiply by 100 (e.g., "194" → "19400")
-27. 4-digit: multiply by 10 (e.g., "1943" → "19430")
-28. 5-digit: use as-is (e.g., "19432" → "19432")
+**Coordinate Digit Interpretation (applies to requirements 4-14, 15-24, 26-28):**
+29. 1-digit: multiply by 10000 (e.g., "1" → "10000")
+30. 2-digit: multiply by 1000 (e.g., "19" → "19000")
+31. 3-digit: multiply by 100 (e.g., "194" → "19400")
+32. 4-digit: multiply by 10 (e.g., "1943" → "19430")
+33. 5-digit: use as-is (e.g., "19432" → "19432")
 
 **Error Handling:**
-29. Invalid map name: "Map not found: [name]"
-30. Invalid MGRS100k square: "Unknown MGRS square: [code]"
-31. Coordinates out of range: "Coordinates out of range for [map name]"
-32. No current MGRS context: "Cannot determine current location"
-33. Invalid format: "Invalid format. Use: MapName coordinates or EN coordinates"
-34. Mismatched digit counts: "Easting and northing must have same digit count when space-separated"
-35. Odd digit count: "Coordinate digits must be even count"
+34. Invalid map name: "Map not found: [name]"
+35. Invalid MGRS100k square: "Unknown MGRS square: [code]"
+36. Coordinates out of range: "Coordinates out of range for [map name]"
+37. No current MGRS context: "Cannot determine current location"
+38. Invalid format: "Invalid format. Use: MapName coordinates or EN coordinates"
+39. Mismatched digit counts: "Easting and northing must have same digit count when space-separated"
+40. Odd digit count: "Coordinate digits must be even count"
 
 **Edge Cases:**
-36. Map name with spaces: "Port Davey 194507" → parse "Port Davey" as map name
-37. Wrap-around ranges: Validate easting/northing against map ranges
-38. Multiple MGRS100k squares: Select correct square based on easting value
-39. Partial coordinate (odd digit count): "Wellington 194" → invalid, error "Coordinate digits must be even count" (BREAKING CHANGE from existing behavior)
-40. Single coordinate value: "Wellington 19" → invalid, need both easting and northing
+41. Map name with spaces: "Port Davey 194507" → parse "Port Davey" as map name
+42. Wrap-around ranges: Validate easting/northing against map ranges
+43. Multiple MGRS100k squares: Select correct square based on easting value
+44. Partial coordinate (odd digit count): "Wellington 194" → invalid, error "Coordinate digits must be even count" (BREAKING CHANGE from existing behavior)
+45. Single coordinate value: "Wellington 19" → invalid, need both easting and northing
 </requirements>
 
 <boundaries>
