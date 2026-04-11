@@ -847,67 +847,52 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   void _zoomToMapExtent(Tasmap50k map) {
-    final mgrsCodes = map.mgrs100kIdList;
-    if (mgrsCodes.isEmpty) {
-      _mapController.move(_mapController.camera.center, 15);
+    if (map.tl.isEmpty || map.tr.isEmpty || map.bl.isEmpty || map.br.isEmpty) {
+      final center = ref.read(tasmapRepositoryProvider).getMapCenter(map);
+      if (center != null) {
+        _mapController.move(center, 12);
+      }
       return;
     }
 
     try {
-      final allPoints = <LatLng>[];
-      final isWrapAround = map.northingMax < map.northingMin;
+      final tl = _cornerToLatLng(map.tl);
+      final tr = _cornerToLatLng(map.tr);
+      final bl = _cornerToLatLng(map.bl);
+      final br = _cornerToLatLng(map.br);
 
-      for (int i = 0; i < mgrsCodes.length; i++) {
-        final mgrsCode = mgrsCodes[i];
-        int nMin, nMax;
-
-        if (isWrapAround && mgrsCodes.length == 2) {
-          if (i == 0) {
-            nMin = map.northingMin;
-            nMax = 99999;
-          } else {
-            nMin = 0;
-            nMax = map.northingMax;
-          }
-        } else {
-          nMin = map.northingMin;
-          nMax = map.northingMax;
+      if (tl == null || tr == null || bl == null || br == null) {
+        final center = ref.read(tasmapRepositoryProvider).getMapCenter(map);
+        if (center != null) {
+          _mapController.move(center, 12);
         }
-
-        final eMinPad = map.eastingMin.toString().padLeft(5, '0');
-        final nMinPad = nMin.toString().padLeft(5, '0');
-        final eMaxPad = map.eastingMax.toString().padLeft(5, '0');
-        final nMaxPad = nMax.toString().padLeft(5, '0');
-
-        final mgrsSw = '55G${mgrsCode.substring(0, 2)} $eMinPad $nMinPad';
-        final mgrsNe = '55G${mgrsCode.substring(0, 2)} $eMaxPad $nMaxPad';
-
-        final pSw = mgrs.Mgrs.toPoint(mgrsSw);
-        final pNe = mgrs.Mgrs.toPoint(mgrsNe);
-
-        final sw = LatLng(pSw[1], pSw[0]);
-        final ne = LatLng(pNe[1], pNe[0]);
-
-        allPoints.addAll([sw, ne]);
-      }
-
-      if (allPoints.isEmpty) {
-        _mapController.move(_mapController.camera.center, 15);
         return;
       }
 
-      final minLat = allPoints
-          .map((p) => p.latitude)
-          .reduce((a, b) => a < b ? a : b);
-      final maxLat = allPoints
-          .map((p) => p.latitude)
-          .reduce((a, b) => a > b ? a : b);
-      final minLng = allPoints
-          .map((p) => p.longitude)
-          .reduce((a, b) => a < b ? a : b);
-      final maxLng = allPoints
-          .map((p) => p.longitude)
-          .reduce((a, b) => a > b ? a : b);
+      final minLat = [
+        tl,
+        tr,
+        bl,
+        br,
+      ].map((p) => p.latitude).reduce((a, b) => a < b ? a : b);
+      final maxLat = [
+        tl,
+        tr,
+        bl,
+        br,
+      ].map((p) => p.latitude).reduce((a, b) => a > b ? a : b);
+      final minLng = [
+        tl,
+        tr,
+        bl,
+        br,
+      ].map((p) => p.longitude).reduce((a, b) => a < b ? a : b);
+      final maxLng = [
+        tl,
+        tr,
+        bl,
+        br,
+      ].map((p) => p.longitude).reduce((a, b) => a > b ? a : b);
 
       final sw = LatLng(minLat, minLng);
       final ne = LatLng(maxLat, maxLng);
@@ -925,7 +910,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         ref.read(mapProvider.notifier).updatePosition(newCenter, newZoom);
       });
     } catch (e) {
-      _mapController.move(_mapController.camera.center, 15);
+      final center = ref.read(tasmapRepositoryProvider).getMapCenter(map);
+      if (center != null) {
+        _mapController.move(center, 12);
+      }
     }
   }
 
