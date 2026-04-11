@@ -389,8 +389,6 @@ class MapNotifier extends Notifier<MapState> {
               return (null, 'Map not found: ${potentialName}');
             }
 
-            final mgrsCode = mgrsCodes.first;
-
             // Handle different input formats - convert to 5-digit coordinates
             String easting5digit;
             String northing5digit;
@@ -512,6 +510,19 @@ class MapNotifier extends Notifier<MapState> {
                 null,
                 'Northing $northingVal out of range for ${map.name}. Valid range: $rangeDisplay',
               );
+            }
+
+            // Determine correct MGRS100k square based on easting
+            String mgrsCode;
+            if (mgrsCodes.length == 2 && map.eastingMin > map.eastingMax) {
+              // Wrap-around: first code for high eastings, second for low
+              if (eastingVal >= map.eastingMin) {
+                mgrsCode = mgrsCodes[0];
+              } else {
+                mgrsCode = mgrsCodes[1];
+              }
+            } else {
+              mgrsCode = mgrsCodes.first;
             }
 
             final fullMgrs =
