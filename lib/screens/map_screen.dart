@@ -808,6 +808,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       final selectedMap = ref.read(mapProvider).selectedMap;
       if (selectedMap != null) {
         _zoomToMapExtent(selectedMap);
+        ref.read(mapProvider.notifier).centerOnLocation(location);
       } else {
         _mapController.move(location, 15);
         ref.read(mapProvider.notifier).centerOnLocation(location);
