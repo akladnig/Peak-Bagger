@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latlong2/latlong.dart';
@@ -366,7 +365,6 @@ class MapNotifier extends Notifier<MapState> {
         } else {
           potentialCoords = eastingPart + northingPart;
         }
-        debugPrint('potentialCoords: $potentialCoords');
       } else if (RegExp(r'^[0-9]+$').hasMatch(parts.last)) {
         // Format: "MapName coordinates" - last part is coordinates
         potentialName = parts.sublist(0, parts.length - 1).join(' ');
