@@ -353,7 +353,18 @@ class MapNotifier extends Notifier<MapState> {
           RegExp(r'^[0-9]+$').hasMatch(parts[parts.length - 2])) {
         // Format: "MapName easting northing" - last two parts are coordinates
         potentialName = parts.sublist(0, parts.length - 2).join(' ');
-        potentialCoords = parts[parts.length - 2] + parts[parts.length - 1];
+        final eastingPart = parts[parts.length - 2];
+        final northingPart = parts[parts.length - 1];
+        // If both parts are 4-5 digits, treat as separate easting/northing
+        if (eastingPart.length >= 4 &&
+            eastingPart.length <= 5 &&
+            northingPart.length >= 4 &&
+            northingPart.length <= 5) {
+          potentialCoords =
+              '${eastingPart}x${northingPart}'; // Marker for separate coords
+        } else {
+          potentialCoords = eastingPart + northingPart;
+        }
       } else if (RegExp(r'^[0-9]+$').hasMatch(parts.last)) {
         // Format: "MapName coordinates" - last part is coordinates
         potentialName = parts.sublist(0, parts.length - 1).join(' ');
@@ -379,65 +390,86 @@ class MapNotifier extends Notifier<MapState> {
             }
 
             final mgrsCode = mgrsCodes.first;
-            final digitCount = potentialCoords.length;
-
-            // Validate coordinate count (2=easting only, 3=easting+placeholder, 4=compact, 5=3+2, 6=full)
-            if (digitCount < 2 || digitCount > 6) {
-              return (null, 'Invalid format. Use: MapName easting northing');
-            }
 
             // Handle different input formats - convert to 5-digit coordinates
             String easting5digit;
             String northing5digit;
 
-            if (digitCount == 2) {
-              // Just easting, use northing range (handle wrap-around)
-              easting5digit = ((int.tryParse(potentialCoords) ?? 0) * 1000)
-                  .toString()
-                  .padLeft(5, '0');
-              // Use middle of northing range
-              final northingMid = _rangeMiddle(
-                map.northingMin,
-                map.northingMax,
-              );
-              northing5digit = northingMid.toString().padLeft(5, '0');
-            } else if (digitCount == 3) {
-              // 3-digit: multiply by 100 to get 5-digit
-              easting5digit =
-                  ((int.tryParse(potentialCoords.substring(0, 3)) ?? 0) * 100)
-                      .toString()
-                      .padLeft(5, '0');
-              northing5digit = (map.northingMin).toString().padLeft(5, '0');
-            } else if (digitCount == 4) {
-              // Compact: first 2 easting (multiply by 1000), last 2 northing (multiply by 1000)
-              easting5digit =
-                  ((int.tryParse(potentialCoords.substring(0, 2)) ?? 0) * 1000)
-                      .toString()
-                      .padLeft(5, '0');
-              northing5digit =
-                  ((int.tryParse(potentialCoords.substring(2, 4)) ?? 0) * 1000)
-                      .toString()
-                      .padLeft(5, '0');
-            } else if (digitCount == 5) {
-              // 3 easting + 2 northing: first 3 * 100, last 2 * 1000
-              easting5digit =
-                  ((int.tryParse(potentialCoords.substring(0, 3)) ?? 0) * 100)
-                      .toString()
-                      .padLeft(5, '0');
-              northing5digit =
-                  ((int.tryParse(potentialCoords.substring(3, 5)) ?? 0) * 1000)
-                      .toString()
-                      .padLeft(5, '0');
+            // Check if separate easting/northing format (marked with 'x')
+            if (potentialCoords.contains('x')) {
+              final sepParts = potentialCoords.split('x');
+              if (sepParts.length == 2) {
+                final eastingPart = sepParts[0];
+                final northingPart = sepParts[1];
+                easting5digit = eastingPart.length == 5
+                    ? eastingPart
+                    : eastingPart.padLeft(5, '0');
+                northing5digit = northingPart.length == 5
+                    ? northingPart
+                    : northingPart.padLeft(5, '0');
+              } else {
+                return (null, 'Invalid format. Use: MapName easting northing');
+              }
             } else {
-              // Full 6 digits: 3 easting + 3 northing (both * 100)
-              easting5digit =
-                  ((int.tryParse(potentialCoords.substring(0, 3)) ?? 0) * 100)
-                      .toString()
-                      .padLeft(5, '0');
-              northing5digit =
-                  ((int.tryParse(potentialCoords.substring(3, 6)) ?? 0) * 100)
-                      .toString()
-                      .padLeft(5, '0');
+              final digitCount = potentialCoords.length;
+
+              // Validate coordinate count (2=easting only, 3=easting+placeholder, 4=compact, 5=3+2, 6=full)
+              if (digitCount < 2 || digitCount > 6) {
+                return (null, 'Invalid format. Use: MapName easting northing');
+              }
+
+              if (digitCount == 2) {
+                // Just easting, use northing range (handle wrap-around)
+                easting5digit = ((int.tryParse(potentialCoords) ?? 0) * 1000)
+                    .toString()
+                    .padLeft(5, '0');
+                // Use middle of northing range
+                final northingMid = _rangeMiddle(
+                  map.northingMin,
+                  map.northingMax,
+                );
+                northing5digit = northingMid.toString().padLeft(5, '0');
+              } else if (digitCount == 3) {
+                // 3-digit: multiply by 100 to get 5-digit
+                easting5digit =
+                    ((int.tryParse(potentialCoords.substring(0, 3)) ?? 0) * 100)
+                        .toString()
+                        .padLeft(5, '0');
+                northing5digit = (map.northingMin).toString().padLeft(5, '0');
+              } else if (digitCount == 4) {
+                // Compact: first 2 easting (multiply by 1000), last 2 northing (multiply by 1000)
+                easting5digit =
+                    ((int.tryParse(potentialCoords.substring(0, 2)) ?? 0) *
+                            1000)
+                        .toString()
+                        .padLeft(5, '0');
+                northing5digit =
+                    ((int.tryParse(potentialCoords.substring(2, 4)) ?? 0) *
+                            1000)
+                        .toString()
+                        .padLeft(5, '0');
+              } else if (digitCount == 5) {
+                // 3 easting + 2 northing: first 3 * 100, last 2 * 1000
+                easting5digit =
+                    ((int.tryParse(potentialCoords.substring(0, 3)) ?? 0) * 100)
+                        .toString()
+                        .padLeft(5, '0');
+                northing5digit =
+                    ((int.tryParse(potentialCoords.substring(3, 5)) ?? 0) *
+                            1000)
+                        .toString()
+                        .padLeft(5, '0');
+              } else {
+                // Full 6 digits: 3 easting + 3 northing (both * 100)
+                easting5digit =
+                    ((int.tryParse(potentialCoords.substring(0, 3)) ?? 0) * 100)
+                        .toString()
+                        .padLeft(5, '0');
+                northing5digit =
+                    ((int.tryParse(potentialCoords.substring(3, 6)) ?? 0) * 100)
+                        .toString()
+                        .padLeft(5, '0');
+              }
             }
 
             final paddedEasting = easting5digit;
