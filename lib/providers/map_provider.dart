@@ -496,7 +496,7 @@ class MapNotifier extends Notifier<MapState> {
             }
 
             final fullMgrs =
-                '55G ${mgrsCode.substring(0, 2)} $paddedEasting $paddedNorthing';
+                '55G${mgrsCode.substring(0, 2)}$paddedEasting$paddedNorthing';
 
             try {
               final coords = mgrs.Mgrs.toPoint(fullMgrs);
@@ -537,41 +537,18 @@ class MapNotifier extends Notifier<MapState> {
         return (null, 'Unknown MGRS square: $mgrsCode');
       }
 
-      // Handle different coordinate lengths
-      final digitCount = coords.length;
-      String easting5digit;
-      String northing5digit;
-
-      if (digitCount < 2) {
-        return (null, null);
-      } else if (digitCount == 2 || digitCount == 3) {
-        easting5digit = ((int.tryParse(coords) ?? 0) * 1000).toString().padLeft(
-          5,
-          '0',
-        );
-        northing5digit = '00000';
-      } else if (digitCount == 4) {
-        easting5digit = ((int.tryParse(coords.substring(0, 2)) ?? 0) * 1000)
-            .toString()
-            .padLeft(5, '0');
-        northing5digit = ((int.tryParse(coords.substring(2, 4)) ?? 0) * 1000)
-            .toString()
-            .padLeft(5, '0');
-      } else if (digitCount == 5) {
-        easting5digit = ((int.tryParse(coords.substring(0, 3)) ?? 0) * 100)
-            .toString()
-            .padLeft(5, '0');
-        northing5digit = ((int.tryParse(coords.substring(3, 5)) ?? 0) * 1000)
-            .toString()
-            .padLeft(5, '0');
-      } else {
-        easting5digit = ((int.tryParse(coords.substring(0, 3)) ?? 0) * 100)
-            .toString()
-            .padLeft(5, '0');
-        northing5digit = ((int.tryParse(coords.substring(3, 6)) ?? 0) * 100)
-            .toString()
-            .padLeft(5, '0');
+      // Validate even digit count
+      if (coords.length % 2 != 0) {
+        return (null, 'Coordinate digits must be even count');
       }
+
+      // Use GridReferenceParser for coordinate interpretation
+      final parsed = GridReferenceParser.parseCoordinates(coords);
+      if (parsed == null) {
+        return (null, 'Invalid coordinate format');
+      }
+      final easting5digit = parsed.easting;
+      final northing5digit = parsed.northing;
 
       final eastingVal = int.tryParse(easting5digit) ?? 0;
       final northingVal = int.tryParse(northing5digit) ?? 0;
@@ -590,7 +567,7 @@ class MapNotifier extends Notifier<MapState> {
         return (null, 'Coordinates out of range for MGRS square $mgrsCode');
       }
 
-      final fullMgrs = '55G$mgrsCode $easting5digit $northing5digit';
+      final fullMgrs = '55G$mgrsCode$easting5digit$northing5digit';
 
       try {
         final coords = mgrs.Mgrs.toPoint(fullMgrs);
@@ -616,9 +593,10 @@ class MapNotifier extends Notifier<MapState> {
     // Use current MGRS100k square from the display
     if (RegExp(r'^[0-9]+$').hasMatch(trimmed)) {
       final coords = trimmed;
-      final digitCount = coords.length;
-      if (digitCount < 2 || digitCount > 6) {
-        return (null, 'Invalid coordinate format. Use 2-6 digits.');
+
+      // Validate even digit count
+      if (coords.length % 2 != 0) {
+        return (null, 'Coordinate digits must be even count');
       }
 
       // Extract current MGRS100k square from state.currentMgrs
@@ -634,38 +612,13 @@ class MapNotifier extends Notifier<MapState> {
         return (null, 'Unknown MGRS square: $mgrsCode');
       }
 
-      // Parse coordinates
-      String easting5digit;
-      String northing5digit;
-
-      if (digitCount == 2 || digitCount == 3) {
-        easting5digit = ((int.tryParse(coords) ?? 0) * 1000).toString().padLeft(
-          5,
-          '0',
-        );
-        northing5digit = '00000';
-      } else if (digitCount == 4) {
-        easting5digit = ((int.tryParse(coords.substring(0, 2)) ?? 0) * 1000)
-            .toString()
-            .padLeft(5, '0');
-        northing5digit = ((int.tryParse(coords.substring(2, 4)) ?? 0) * 1000)
-            .toString()
-            .padLeft(5, '0');
-      } else if (digitCount == 5) {
-        easting5digit = ((int.tryParse(coords.substring(0, 3)) ?? 0) * 100)
-            .toString()
-            .padLeft(5, '0');
-        northing5digit = ((int.tryParse(coords.substring(3, 5)) ?? 0) * 1000)
-            .toString()
-            .padLeft(5, '0');
-      } else {
-        easting5digit = ((int.tryParse(coords.substring(0, 3)) ?? 0) * 100)
-            .toString()
-            .padLeft(5, '0');
-        northing5digit = ((int.tryParse(coords.substring(3, 6)) ?? 0) * 100)
-            .toString()
-            .padLeft(5, '0');
+      // Use GridReferenceParser for coordinate interpretation
+      final parsed = GridReferenceParser.parseCoordinates(coords);
+      if (parsed == null) {
+        return (null, 'Invalid coordinate format');
       }
+      final easting5digit = parsed.easting;
+      final northing5digit = parsed.northing;
 
       final eastingVal = int.tryParse(easting5digit) ?? 0;
       final northingVal = int.tryParse(northing5digit) ?? 0;
@@ -687,7 +640,7 @@ class MapNotifier extends Notifier<MapState> {
         );
       }
 
-      final fullMgrs = '55G$mgrsCode $easting5digit $northing5digit';
+      final fullMgrs = '55G$mgrsCode$easting5digit$northing5digit';
 
       try {
         final coordsResult = mgrs.Mgrs.toPoint(fullMgrs);
