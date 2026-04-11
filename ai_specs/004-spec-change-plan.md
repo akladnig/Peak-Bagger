@@ -36,12 +36,12 @@ Update Tasmap50k to use pre-calculated map centers and corners from CSV. Fix bro
 ### Phase 3: Database Migration + Integration
 
 - **Goal**: Clear old data, re-import with new schema
-- [ ] `lib/main.dart` - Add clearAll() before import check (one-time migration)
+- [x] `lib/main.dart` - Add clearAll() before import check (one-time migration)
 - [ ] Manual: Delete app data or run clearAll, verify re-import populates new fields
 - [ ] Manual: "Wellington 194507" navigates to correct location
 - [ ] Manual: Map overlay shows correct extents for all 75 maps
 - [ ] Manual: Info popup shows correct map name at clicked location
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

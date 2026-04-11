@@ -16,11 +16,11 @@ void main() async {
   final tasmapRepo = TasmapRepository(objectboxStore);
 
   try {
-    if (tasmapRepo.isEmpty()) {
-      final maps = await CsvImporter.importFromCsv('assets/tasmap50k.csv');
-      if (maps.isNotEmpty) {
-        await tasmapRepo.addMaps(maps);
-      }
+    // Clear and re-import to ensure new schema fields are populated
+    await tasmapRepo.clearAll();
+    final maps = await CsvImporter.importFromCsv('assets/tasmap50k.csv');
+    if (maps.isNotEmpty) {
+      await tasmapRepo.addMaps(maps);
     }
   } catch (e) {
     // Continue with empty database if import fails
