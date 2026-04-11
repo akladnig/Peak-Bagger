@@ -511,14 +511,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                                   ref
                                       .read(mapProvider.notifier)
                                       .parseGridReference(value);
-                                  final mapState = ref.read(mapProvider);
-                                  if (mapState.selectedMap != null &&
-                                      mapState.mapSuggestions.isEmpty) {
-                                    _zoomToMapExtent(mapState.selectedMap!);
-                                    ref
-                                        .read(mapProvider.notifier)
-                                        .setGotoInputVisible(false);
-                                  }
                                 },
                                 onSubmitted: (_) {
                                   if (_gotoError == null) {
