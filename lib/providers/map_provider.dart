@@ -401,12 +401,17 @@ class MapNotifier extends Notifier<MapState> {
               if (sepParts.length == 2) {
                 final eastingPart = sepParts[0];
                 final northingPart = sepParts[1];
+                // Convert to 5-digit: 4-digit * 10, 5-digit as-is
                 easting5digit = eastingPart.length == 5
                     ? eastingPart
-                    : eastingPart.padLeft(5, '0');
+                    : ((int.tryParse(eastingPart) ?? 0) * 10)
+                          .toString()
+                          .padLeft(5, '0');
                 northing5digit = northingPart.length == 5
                     ? northingPart
-                    : northingPart.padLeft(5, '0');
+                    : ((int.tryParse(northingPart) ?? 0) * 10)
+                          .toString()
+                          .padLeft(5, '0');
               } else {
                 return (null, 'Invalid format. Use: MapName easting northing');
               }
