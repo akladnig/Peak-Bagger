@@ -366,136 +366,146 @@ class MapNotifier extends Notifier<MapState> {
       // Check if we have a map name and valid-looking coordinates (digits only)
       if (potentialName.isNotEmpty &&
           RegExp(r'^[0-9]+$').hasMatch(potentialCoords)) {
-        // Look up the map by name
-        final maps = _tasmapRepository.findByName(potentialName);
-        if (maps.isNotEmpty) {
-          final map = maps.first;
-          final mgrsCodes = map.mgrs100kIdList;
-          if (mgrsCodes.isEmpty) {
-            return (null, 'Map not found: ${potentialName}');
-          }
-
-          final mgrsCode = mgrsCodes.first;
-          final digitCount = potentialCoords.length;
-
-          // Validate coordinate count (2=easting only, 3=easting+placeholder, 4=compact, 5=3+2, 6=full)
-          if (digitCount < 2 || digitCount > 6) {
-            return (null, 'Invalid format. Use: MapName easting northing');
-          }
-
-          // Handle different input formats - convert to 5-digit coordinates
-          String easting5digit;
-          String northing5digit;
-
-          if (digitCount == 2) {
-            // Just easting, use northing range (handle wrap-around)
-            easting5digit = ((int.tryParse(potentialCoords) ?? 0) * 1000)
-                .toString()
-                .padLeft(5, '0');
-            // Use middle of northing range
-            final northingMid = _rangeMiddle(map.northingMin, map.northingMax);
-            northing5digit = northingMid.toString().padLeft(5, '0');
-          } else if (digitCount == 3) {
-            // 3-digit: multiply by 100 to get 5-digit
-            easting5digit =
-                ((int.tryParse(potentialCoords.substring(0, 3)) ?? 0) * 100)
-                    .toString()
-                    .padLeft(5, '0');
-            northing5digit = (map.northingMin).toString().padLeft(5, '0');
-          } else if (digitCount == 4) {
-            // Compact: first 2 easting (multiply by 1000), last 2 northing (multiply by 1000)
-            easting5digit =
-                ((int.tryParse(potentialCoords.substring(0, 2)) ?? 0) * 1000)
-                    .toString()
-                    .padLeft(5, '0');
-            northing5digit =
-                ((int.tryParse(potentialCoords.substring(2, 4)) ?? 0) * 1000)
-                    .toString()
-                    .padLeft(5, '0');
-          } else if (digitCount == 5) {
-            // 3 easting + 2 northing: first 3 * 100, last 2 * 1000
-            easting5digit =
-                ((int.tryParse(potentialCoords.substring(0, 3)) ?? 0) * 100)
-                    .toString()
-                    .padLeft(5, '0');
-            northing5digit =
-                ((int.tryParse(potentialCoords.substring(3, 5)) ?? 0) * 1000)
-                    .toString()
-                    .padLeft(5, '0');
-          } else {
-            // Full 6 digits: 3 easting + 3 northing (both * 100)
-            easting5digit =
-                ((int.tryParse(potentialCoords.substring(0, 3)) ?? 0) * 100)
-                    .toString()
-                    .padLeft(5, '0');
-            northing5digit =
-                ((int.tryParse(potentialCoords.substring(3, 6)) ?? 0) * 100)
-                    .toString()
-                    .padLeft(5, '0');
-          }
-
-          final paddedEasting = easting5digit;
-          final paddedNorthing = northing5digit;
-
-          // Validate range (handle wrap-around)
-          final eastingVal = int.tryParse(paddedEasting) ?? 0;
-          final northingVal = int.tryParse(paddedNorthing) ?? 0;
-
-          bool validEasting = _inRange(
-            eastingVal,
-            map.eastingMin,
-            map.eastingMax,
-          );
-          bool validNorthing = _inRange(
-            northingVal,
-            map.northingMin,
-            map.northingMax,
-          );
-
-          if (!validEasting) {
-            final displayMin = map.eastingMin;
-            final displayMax = map.eastingMax;
-            final rangeDisplay = map.eastingMin > map.eastingMax
-                ? '$displayMin-99999 OR 0-$displayMax'
-                : '$displayMin-$displayMax';
-            return (
-              null,
-              'Easting $eastingVal out of range for ${map.name}. Valid range: $rangeDisplay',
-            );
-          }
-
-          if (!validNorthing) {
-            final displayMin = map.northingMin;
-            final displayMax = map.northingMax;
-            final rangeDisplay = map.northingMin > map.northingMax
-                ? '$displayMin-99999 OR 0-$displayMax'
-                : '$displayMin-$displayMax';
-            return (
-              null,
-              'Northing $northingVal out of range for ${map.name}. Valid range: $rangeDisplay',
-            );
-          }
-
-          final fullMgrs =
-              '55G${mgrsCode.substring(0, 2)} $paddedEasting $paddedNorthing';
-
-          try {
-            final coords = mgrs.Mgrs.toPoint(fullMgrs);
-            final location = LatLng(coords[1], coords[0]);
-            final mgrsOutputRaw = mgrs.Mgrs.forward([coords[0], coords[1]], 5);
-            String mgrsOutput;
-            if (mgrsOutputRaw.length >= 10) {
-              final firstLine = mgrsOutputRaw.substring(0, 5);
-              final easting = mgrsOutputRaw.substring(5, 10);
-              final northing = mgrsOutputRaw.substring(10);
-              mgrsOutput = '$firstLine\n$easting $northing';
-            } else {
-              mgrsOutput = mgrsOutputRaw;
+        // Check if potentialName is a 2-letter MGRS100k square (skip map lookup)
+        final isMgrs100k = RegExp(r'^[A-Za-z]{2}$').hasMatch(potentialName);
+        if (!isMgrs100k) {
+          // Look up the map by name
+          final maps = _tasmapRepository.findByName(potentialName);
+          if (maps.isNotEmpty) {
+            final map = maps.first;
+            final mgrsCodes = map.mgrs100kIdList;
+            if (mgrsCodes.isEmpty) {
+              return (null, 'Map not found: ${potentialName}');
             }
-            state = state.copyWith(gotoMgrs: mgrsOutput);
-            return (location, null);
-          } catch (e) {
-            return (null, 'Invalid grid reference');
+
+            final mgrsCode = mgrsCodes.first;
+            final digitCount = potentialCoords.length;
+
+            // Validate coordinate count (2=easting only, 3=easting+placeholder, 4=compact, 5=3+2, 6=full)
+            if (digitCount < 2 || digitCount > 6) {
+              return (null, 'Invalid format. Use: MapName easting northing');
+            }
+
+            // Handle different input formats - convert to 5-digit coordinates
+            String easting5digit;
+            String northing5digit;
+
+            if (digitCount == 2) {
+              // Just easting, use northing range (handle wrap-around)
+              easting5digit = ((int.tryParse(potentialCoords) ?? 0) * 1000)
+                  .toString()
+                  .padLeft(5, '0');
+              // Use middle of northing range
+              final northingMid = _rangeMiddle(
+                map.northingMin,
+                map.northingMax,
+              );
+              northing5digit = northingMid.toString().padLeft(5, '0');
+            } else if (digitCount == 3) {
+              // 3-digit: multiply by 100 to get 5-digit
+              easting5digit =
+                  ((int.tryParse(potentialCoords.substring(0, 3)) ?? 0) * 100)
+                      .toString()
+                      .padLeft(5, '0');
+              northing5digit = (map.northingMin).toString().padLeft(5, '0');
+            } else if (digitCount == 4) {
+              // Compact: first 2 easting (multiply by 1000), last 2 northing (multiply by 1000)
+              easting5digit =
+                  ((int.tryParse(potentialCoords.substring(0, 2)) ?? 0) * 1000)
+                      .toString()
+                      .padLeft(5, '0');
+              northing5digit =
+                  ((int.tryParse(potentialCoords.substring(2, 4)) ?? 0) * 1000)
+                      .toString()
+                      .padLeft(5, '0');
+            } else if (digitCount == 5) {
+              // 3 easting + 2 northing: first 3 * 100, last 2 * 1000
+              easting5digit =
+                  ((int.tryParse(potentialCoords.substring(0, 3)) ?? 0) * 100)
+                      .toString()
+                      .padLeft(5, '0');
+              northing5digit =
+                  ((int.tryParse(potentialCoords.substring(3, 5)) ?? 0) * 1000)
+                      .toString()
+                      .padLeft(5, '0');
+            } else {
+              // Full 6 digits: 3 easting + 3 northing (both * 100)
+              easting5digit =
+                  ((int.tryParse(potentialCoords.substring(0, 3)) ?? 0) * 100)
+                      .toString()
+                      .padLeft(5, '0');
+              northing5digit =
+                  ((int.tryParse(potentialCoords.substring(3, 6)) ?? 0) * 100)
+                      .toString()
+                      .padLeft(5, '0');
+            }
+
+            final paddedEasting = easting5digit;
+            final paddedNorthing = northing5digit;
+
+            // Validate range (handle wrap-around)
+            final eastingVal = int.tryParse(paddedEasting) ?? 0;
+            final northingVal = int.tryParse(paddedNorthing) ?? 0;
+
+            bool validEasting = _inRange(
+              eastingVal,
+              map.eastingMin,
+              map.eastingMax,
+            );
+            bool validNorthing = _inRange(
+              northingVal,
+              map.northingMin,
+              map.northingMax,
+            );
+
+            if (!validEasting) {
+              final displayMin = map.eastingMin;
+              final displayMax = map.eastingMax;
+              final rangeDisplay = map.eastingMin > map.eastingMax
+                  ? '$displayMin-99999 OR 0-$displayMax'
+                  : '$displayMin-$displayMax';
+              return (
+                null,
+                'Easting $eastingVal out of range for ${map.name}. Valid range: $rangeDisplay',
+              );
+            }
+
+            if (!validNorthing) {
+              final displayMin = map.northingMin;
+              final displayMax = map.northingMax;
+              final rangeDisplay = map.northingMin > map.northingMax
+                  ? '$displayMin-99999 OR 0-$displayMax'
+                  : '$displayMin-$displayMax';
+              return (
+                null,
+                'Northing $northingVal out of range for ${map.name}. Valid range: $rangeDisplay',
+              );
+            }
+
+            final fullMgrs =
+                '55G${mgrsCode.substring(0, 2)} $paddedEasting $paddedNorthing';
+
+            try {
+              final coords = mgrs.Mgrs.toPoint(fullMgrs);
+              final location = LatLng(coords[1], coords[0]);
+              final mgrsOutputRaw = mgrs.Mgrs.forward([
+                coords[0],
+                coords[1],
+              ], 5);
+              String mgrsOutput;
+              if (mgrsOutputRaw.length >= 10) {
+                final firstLine = mgrsOutputRaw.substring(0, 5);
+                final easting = mgrsOutputRaw.substring(5, 10);
+                final northing = mgrsOutputRaw.substring(10);
+                mgrsOutput = '$firstLine\n$easting $northing';
+              } else {
+                mgrsOutput = mgrsOutputRaw;
+              }
+              state = state.copyWith(gotoMgrs: mgrsOutput);
+              return (location, null);
+            } catch (e) {
+              return (null, 'Invalid grid reference');
+            }
           }
         }
       }
