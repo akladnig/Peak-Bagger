@@ -28,6 +28,24 @@ Update the Tasmap50k feature to use the new CSV format with pre-calculated map c
 7. System converts to LatLng and centers map
 8. Goto input field closes
 
+**Primary Flow - Map Name Autocomplete (Tab):**
+1. User presses 'G' key or taps goto button
+2. Goto input field appears
+3. User types partial map name (e.g., "wel")
+4. Dropdown shows matching maps (e.g., "Wellington")
+5. User presses Tab key
+6. Text box autocompletes with first map name from dropdown
+7. User can then type grid reference (e.g., " 194507")
+8. User presses Enter to navigate to location
+
+**Primary Flow - Partial Match Navigation (Enter):**
+1. User presses 'G' key or taps goto button
+2. Goto input field appears
+3. User types partial map name (e.g., "wel")
+4. Dropdown shows matching maps
+5. User presses Enter key
+6. System navigates to first map in dropdown list (centers on map)
+
 **Primary Flow - Map Click Popup:**
 1. User presses 'I' key to toggle info popup at current map center
 2. System converts current center position to MGRS coordinate
@@ -43,6 +61,11 @@ Update the Tasmap50k feature to use the new CSV format with pre-calculated map c
 1. User enters "EN 194507" (2-letter MGRS 100k square + coordinates)
 2. System looks up maps covering that 100k square area
 3. System constructs full MGRS and centers map
+
+**Alternative Flow - Coordinates Only:**
+1. User enters "194507" (coordinates without map name or MGRS square)
+2. System extracts current MGRS 100k square from MGRS display
+3. System finds correct map and centers on location
 </user_flows>
 
 <requirements>
@@ -104,6 +127,12 @@ Update the Tasmap50k feature to use the new CSV format with pre-calculated map c
 20. MGRS 100k square must be valid 2-letter code from tasmap database
 21. Easting must fall within map's eastingMin-eastingMax range (accounting for wrap-around)
 22. Northing must fall within map's northingMin-northingMax range (accounting for wrap-around)
+
+**Goto Input Keyboard Behavior:**
+23. Tab key: Autocomplete with first map name from dropdown list, append space for grid reference entry
+24. Enter key with partial match: Navigate to first map in dropdown list (center on map)
+25. Enter key with full input: Navigate to parsed location (existing behavior)
+26. Dropdown shows up to 10 matching maps as user types
 </requirements>
 
 <boundaries>
@@ -174,6 +203,8 @@ Update the Tasmap50k feature to use the new CSV format with pre-calculated map c
 - [ ] Map extent calculation updated to use corner coordinates
 - [ ] Database cleared and re-imported after entity changes
 - [ ] ObjectBox code regenerated
+- [ ] Tab key autocompletes map name from dropdown
+- [ ] Enter key with partial match navigates to first map in dropdown
 - [ ] All tests pass
 - [ ] App builds successfully
 </done_when>
