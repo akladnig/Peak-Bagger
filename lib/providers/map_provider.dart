@@ -526,7 +526,7 @@ class MapNotifier extends Notifier<MapState> {
             }
 
             final fullMgrs =
-                '55G${mgrsCode.substring(0, 2)} $paddedEasting $paddedNorthing';
+                '55G ${mgrsCode.substring(0, 2)} $paddedEasting $paddedNorthing';
 
             try {
               final coords = mgrs.Mgrs.toPoint(fullMgrs);
