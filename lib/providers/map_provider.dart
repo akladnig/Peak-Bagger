@@ -530,7 +530,10 @@ class MapNotifier extends Notifier<MapState> {
       String easting5digit;
       String northing5digit;
 
-      if (digitCount == 2 || digitCount == 3) {
+      if (digitCount < 2) {
+        // Need at least 2 digits
+        return (null, null);
+      } else if (digitCount == 2 || digitCount == 3) {
         // Just easting, use middle of northing range
         easting5digit = ((int.tryParse(coords) ?? 0) * 1000).toString().padLeft(
           5,
