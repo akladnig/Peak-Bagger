@@ -76,7 +76,7 @@ Clarify and standardize grid reference parsing rules for the goto input field. E
 20. "EN 01234 56789" → 55GEN0123456789 (space-separated 5-digit each)
 21. "EN 194507" → 55GEN1940050700 (space-separated 3-digit each)
 22. MGRS100k prefix must be valid 2-letter code from database
-23. MGRS100k prefix + digits: split evenly if even digit count, or use first half as easting
+23. MGRS100k prefix + continuous digits: split evenly if even digit count, otherwise error "Coordinate digits must be even count for MGRS100k prefix"
 
 **Coordinate Digit Interpretation:**
 22. 1-digit: multiply by 10000 (e.g., "1" → "10000")
@@ -92,12 +92,14 @@ Clarify and standardize grid reference parsing rules for the goto input field. E
 31. No current MGRS context: "Cannot determine current location"
 32. Invalid format: "Invalid format. Use: MapName coordinates or EN coordinates"
 33. Mismatched digit counts: "Easting and northing must have same digit count when space-separated"
+34. Odd digit count: "Coordinate digits must be even count"
 
 **Edge Cases:**
 34. Map name with spaces: "Port Davey 194507" → parse "Port Davey" as map name
 35. Wrap-around ranges: Validate easting/northing against map ranges
 36. Multiple MGRS100k squares: Select correct square based on easting value
-37. Partial coordinate: "Wellington 194" → invalid, need both easting and northing
+37. Partial coordinate (odd digit count): "Wellington 194" → invalid, error "Coordinate digits must be even count"
+38. Single coordinate value: "Wellington 19" → invalid, need both easting and northing
 </requirements>
 
 <boundaries>
