@@ -55,11 +55,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final mapState = ref.read(mapProvider);
     if (mapState.mapSuggestions.isNotEmpty) {
       final firstMap = mapState.mapSuggestions.first;
-      _gotoController.text = '${firstMap.name} ';
+      final newText = '${firstMap.name} ';
+      _gotoController.text = newText;
       _gotoController.selection = TextSelection.collapsed(
-        offset: _gotoController.text.length,
+        offset: newText.length,
       );
-      ref.read(mapProvider.notifier).parseGridReference(_gotoController.text);
+      ref.read(mapProvider.notifier).parseGridReference(newText);
     }
   }
 
@@ -519,14 +520,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                           children: [
                             SizedBox(
                               width: 30 * 8.0,
-                              child: KeyboardListener(
-                                focusNode: FocusNode(),
-                                onKeyEvent: (event) {
-                                  if (event is KeyDownEvent &&
-                                      event.logicalKey ==
-                                          LogicalKeyboardKey.tab) {
-                                    _handleGotoTab();
-                                  }
+                              child: CallbackShortcuts(
+                                bindings: {
+                                  const SingleActivator(LogicalKeyboardKey.tab):
+                                      _handleGotoTab,
                                 },
                                 child: TextField(
                                   focusNode: _gotoFocusNode,
