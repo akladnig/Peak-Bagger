@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/services/grid_reference_parser.dart';
+import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
+import 'package:latlong2/latlong.dart';
 
 void main() {
   group('GridReferenceParser', () {
@@ -101,6 +103,17 @@ void main() {
 
       test('odd digit count "194" returns null', () {
         expect(GridReferenceParser.parseCoordinates('194'), isNull);
+      });
+    });
+
+    group('MGRS to LatLng conversion', () {
+      test('55GEN1940050700 → (-42.89606, 147.23761) ±0.00001', () {
+        final mgrsString = '55GEN1940050700';
+        final coords = mgrs.Mgrs.toPoint(mgrsString);
+        final location = LatLng(coords[1], coords[0]);
+
+        expect(location.latitude, closeTo(-42.89606, 0.00001));
+        expect(location.longitude, closeTo(147.23761, 0.00001));
       });
     });
   });

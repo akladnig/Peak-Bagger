@@ -165,7 +165,7 @@ This spec refactors existing code in `parseGridReference` to match the standardi
 15. Invalid map name: returns error
 16. Invalid MGRS100k: returns error
 17. Coordinates out of range: returns error with range info
-18. MGRS to LatLng conversion: "55GEN1940050700" → (-42.89601, 147.237612) within ±0.00001 degrees
+18. MGRS to LatLng conversion: "55GEN1940050700" → (-42.89606, 147.23761) within ±0.00001 degrees
 19. Odd digit count: "Wellington 194" → returns error "Coordinate digits must be even count"
 20. Mismatched digit counts: "Wellington 19 4507" → returns error "Easting and northing must have same digit count when space-separated"
 

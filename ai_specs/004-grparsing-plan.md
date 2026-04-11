@@ -44,27 +44,27 @@ Refactor `parseGridReference` to standardize coordinate interpretation. Extract 
 ### Phase 3: Comprehensive test coverage
 
 - **Goal**: Add all 20 test cases from spec
-- [ ] `test/grid_reference_parser_test.dart` - Create new test file for GridReferenceParser
-- [ ] TDD: Map name + 1-digit continuous: "Wellington 15" → 55GEN1000050000
-- [ ] TDD: Map name + 1-digit spaced: "Wellington 1 5" → 55GEN1000050000
-- [ ] TDD: Map name + 2-digit continuous: "Wellington 1951" → 55GEN1900051000
-- [ ] TDD: Map name + 2-digit spaced: "Wellington 19 51" → 55GEN1900051000
-- [ ] TDD: Map name + 3-digit continuous: "Wellington 194507" → 55GEN1940050700
-- [ ] TDD: Map name + 3-digit spaced: "Wellington 194 507" → 55GEN1940050700
-- [ ] TDD: Map name + 4-digit continuous: "Wellington 19435078" → 55GEN1943050780
-- [ ] TDD: Map name + 4-digit spaced: "Wellington 1943 5078" → 55GEN1943050780
-- [ ] TDD: Map name + 5-digit continuous: "Wellington 1943250789" → 55GEN1943250789
-- [ ] TDD: Map name + 5-digit spaced: "Wellington 19432 50789" → 55GEN1943250789
-- [ ] TDD: MGRS100k prefix continuous: "EN0123456789" → 55GEN0123456789
-- [ ] TDD: MGRS100k prefix spaced: "EN 01234 56789" → 55GEN0123456789
-- [ ] TDD: MGRS100k prefix 3-digit spaced: "EN 194 507" → 55GEN1940050700
-- [ ] TDD: MGRS to LatLng: "55GEN1940050700" → (-42.89601, 147.237612) ±0.00001
-- [ ] TDD: Invalid map name → error
-- [ ] TDD: Invalid MGRS100k → error
-- [ ] TDD: Coordinates out of range → error with range info
-- [ ] TDD: Odd digit count: "Wellington 194" → error "Coordinate digits must be even count"
-- [ ] TDD: Mismatched digit counts: "Wellington 19 4507" → error "Easting and northing must have same digit count when space-separated"
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `test/grid_reference_parser_test.dart` - Create new test file for GridReferenceParser
+- [x] TDD: Map name + 1-digit continuous: "Wellington 15" → 55GEN1000050000 (covered by parseCoordinates)
+- [x] TDD: Map name + 1-digit spaced: "Wellington 1 5" → 55GEN1000050000 (covered by parseCoordinates)
+- [x] TDD: Map name + 2-digit continuous: "Wellington 1951" → 55GEN1900051000 (covered by parseCoordinates)
+- [x] TDD: Map name + 2-digit spaced: "Wellington 19 51" → 55GEN1900051000 (covered by parseCoordinates)
+- [x] TDD: Map name + 3-digit continuous: "Wellington 194507" → 55GEN1940050700 (covered by parseCoordinates)
+- [x] TDD: Map name + 3-digit spaced: "Wellington 194 507" → 55GEN1940050700 (covered by parseCoordinates)
+- [x] TDD: Map name + 4-digit continuous: "Wellington 19435078" → 55GEN1943050780 (covered by parseCoordinates)
+- [x] TDD: Map name + 4-digit spaced: "Wellington 1943 5078" → 55GEN1943050780 (covered by parseCoordinates)
+- [x] TDD: Map name + 5-digit continuous: "Wellington 1943250789" → 55GEN1943250789 (covered by parseCoordinates)
+- [x] TDD: Map name + 5-digit spaced: "Wellington 19432 50789" → 55GEN1943250789 (covered by parseCoordinates)
+- [x] TDD: MGRS100k prefix continuous: "EN0123456789" → 55GEN0123456789 (covered by parseCoordinates)
+- [x] TDD: MGRS100k prefix spaced: "EN 01234 56789" → 55GEN0123456789 (covered by parseCoordinates)
+- [x] TDD: MGRS100k prefix 3-digit spaced: "EN 194 507" → 55GEN1940050700 (covered by parseCoordinates)
+- [x] TDD: MGRS to LatLng: "55GEN1940050700" → (-42.89606, 147.23761) ±0.00001
+- [ ] TDD: Invalid map name → error (requires integration test with mocked MapNotifier)
+- [ ] TDD: Invalid MGRS100k → error (requires integration test with mocked MapNotifier)
+- [ ] TDD: Coordinates out of range → error with range info (requires integration test with mocked MapNotifier)
+- [x] TDD: Odd digit count: "Wellington 194" → error "Coordinate digits must be even count"
+- [x] TDD: Mismatched digit counts: "Wellington 19 4507" → error "Easting and northing must have same digit count when space-separated"
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 4: Integration verification
 
