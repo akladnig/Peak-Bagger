@@ -384,9 +384,10 @@ class MapNotifier extends Notifier<MapState> {
         potentialCoords = '';
       }
 
-      // Check if we have a map name and valid-looking coordinates (digits only)
+      // Check if we have a map name and valid-looking coordinates (digits only or with 'x' marker)
       if (potentialName.isNotEmpty &&
-          RegExp(r'^[0-9]+$').hasMatch(potentialCoords)) {
+          (RegExp(r'^[0-9]+$').hasMatch(potentialCoords) ||
+              potentialCoords.contains('x'))) {
         // Check if potentialName is a 2-letter MGRS100k square (skip map lookup)
         final isMgrs100k = RegExp(r'^[A-Za-z]{2}$').hasMatch(potentialName);
         if (!isMgrs100k) {
