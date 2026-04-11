@@ -599,6 +599,106 @@ class MapNotifier extends Notifier<MapState> {
       }
     }
 
+    // Check for coordinates only (no map name, no MGRS square): "194507"
+    // Use current MGRS100k square from the display
+    if (RegExp(r'^[0-9]+$').hasMatch(trimmed)) {
+      final coords = trimmed;
+      final digitCount = coords.length;
+      if (digitCount < 2 || digitCount > 6) {
+        return (null, 'Invalid coordinate format. Use 2-6 digits.');
+      }
+
+      // Extract current MGRS100k square from state.currentMgrs
+      // Format: "55G XX\nYYYYY YYYYY"
+      final currentMgrsParts = state.currentMgrs.split('\n');
+      if (currentMgrsParts.isEmpty || currentMgrsParts[0].length < 5) {
+        return (null, 'Cannot determine current MGRS square');
+      }
+      final mgrsCode = currentMgrsParts[0].substring(3, 5);
+
+      final maps = _tasmapRepository.findByMgrs100kId(mgrsCode);
+      if (maps.isEmpty) {
+        return (null, 'Unknown MGRS square: $mgrsCode');
+      }
+
+      // Parse coordinates
+      String easting5digit;
+      String northing5digit;
+
+      if (digitCount == 2 || digitCount == 3) {
+        easting5digit = ((int.tryParse(coords) ?? 0) * 1000).toString().padLeft(
+          5,
+          '0',
+        );
+        northing5digit = '00000';
+      } else if (digitCount == 4) {
+        easting5digit = ((int.tryParse(coords.substring(0, 2)) ?? 0) * 1000)
+            .toString()
+            .padLeft(5, '0');
+        northing5digit = ((int.tryParse(coords.substring(2, 4)) ?? 0) * 1000)
+            .toString()
+            .padLeft(5, '0');
+      } else if (digitCount == 5) {
+        easting5digit = ((int.tryParse(coords.substring(0, 3)) ?? 0) * 100)
+            .toString()
+            .padLeft(5, '0');
+        northing5digit = ((int.tryParse(coords.substring(3, 5)) ?? 0) * 1000)
+            .toString()
+            .padLeft(5, '0');
+      } else {
+        easting5digit = ((int.tryParse(coords.substring(0, 3)) ?? 0) * 100)
+            .toString()
+            .padLeft(5, '0');
+        northing5digit = ((int.tryParse(coords.substring(3, 6)) ?? 0) * 100)
+            .toString()
+            .padLeft(5, '0');
+      }
+
+      final eastingVal = int.tryParse(easting5digit) ?? 0;
+      final northingVal = int.tryParse(northing5digit) ?? 0;
+
+      // Find the correct map
+      Tasmap50k? correctMap;
+      for (final map in maps) {
+        if (_inRange(eastingVal, map.eastingMin, map.eastingMax) &&
+            _inRange(northingVal, map.northingMin, map.northingMax)) {
+          correctMap = map;
+          break;
+        }
+      }
+
+      if (correctMap == null) {
+        return (
+          null,
+          'Coordinates out of range for current MGRS square $mgrsCode',
+        );
+      }
+
+      final fullMgrs = '55G$mgrsCode $easting5digit $northing5digit';
+
+      try {
+        final coordsResult = mgrs.Mgrs.toPoint(fullMgrs);
+        final location = LatLng(coordsResult[1], coordsResult[0]);
+        final mgrsOutputRaw = mgrs.Mgrs.forward([
+          coordsResult[0],
+          coordsResult[1],
+        ], 5);
+        String mgrsOutput;
+        if (mgrsOutputRaw.length >= 10) {
+          final firstLine = mgrsOutputRaw.substring(0, 5);
+          final easting = mgrsOutputRaw.substring(5, 10);
+          final northing = mgrsOutputRaw.substring(10);
+          mgrsOutput = '$firstLine\n$easting $northing';
+        } else {
+          mgrsOutput = mgrsOutputRaw;
+        }
+        state = state.copyWith(gotoMgrs: mgrsOutput);
+        return (location, null);
+      } catch (e) {
+        return (null, 'Invalid grid reference');
+      }
+    }
+
     // Original MGRS format parsing
     final upper = trimmed.toUpperCase();
     final cleaned = upper.replaceAll(' ', '');
