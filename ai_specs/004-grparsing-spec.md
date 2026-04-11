@@ -2,6 +2,10 @@
 Clarify and standardize grid reference parsing rules for the goto input field. Ensure consistent, predictable behavior across all input formats so users can navigate to any location using map names, coordinates, or MGRS references.
 </goal>
 
+<spec_intent>
+This spec refactors existing code in `parseGridReference` to match the standardized behavior described herein. The existing implementation has inconsistent coordinate interpretation rules that need to be corrected. This is a **breaking change** for some input formats (notably 3-digit and 4-digit coordinates).
+</spec_intent>
+
 <background>
 **Tech Stack:** Flutter with Riverpod, mgrs_dart for coordinate conversion
 **Project:** peak_bagger - Tasmanian peak bagging app
@@ -11,7 +15,7 @@ Clarify and standardize grid reference parsing rules for the goto input field. E
 
 **Existing Patterns:**
 - parseGridReference returns (LatLng?, String?) tuple
-- MGRS format: 55G + 2-letter 100k square + 5-digit easting + 5-digit northing
+- MGRS format: "55GEN1940050700" (no spaces - mgrs_dart expects continuous string)
 - Wellington map center: 55GEN2000055000
 </background>
 
@@ -78,33 +82,32 @@ Clarify and standardize grid reference parsing rules for the goto input field. E
 22. MGRS100k prefix must be valid 2-letter code from database
 23. MGRS100k prefix + continuous digits: split evenly if even digit count, otherwise error "Coordinate digits must be even count for MGRS100k prefix"
 
-**Coordinate Digit Interpretation:**
-22. 1-digit: multiply by 10000 (e.g., "1" → "10000")
-23. 2-digit: multiply by 1000 (e.g., "19" → "19000")
-24. 3-digit: multiply by 100 (e.g., "194" → "19400")
-25. 4-digit: multiply by 10 (e.g., "1943" → "19430")
-26. 5-digit: use as-is (e.g., "19432" → "19432")
+**Coordinate Digit Interpretation (applies to requirements 4-14, 15-17, 19-21):**
+24. 1-digit: multiply by 10000 (e.g., "1" → "10000")
+25. 2-digit: multiply by 1000 (e.g., "19" → "19000")
+26. 3-digit: multiply by 100 (e.g., "194" → "19400")
+27. 4-digit: multiply by 10 (e.g., "1943" → "19430")
+28. 5-digit: use as-is (e.g., "19432" → "19432")
 
 **Error Handling:**
-28. Invalid map name: "Map not found: [name]"
-29. Invalid MGRS100k square: "Unknown MGRS square: [code]"
-30. Coordinates out of range: "Coordinates out of range for [map name]"
-31. No current MGRS context: "Cannot determine current location"
-32. Invalid format: "Invalid format. Use: MapName coordinates or EN coordinates"
-33. Mismatched digit counts: "Easting and northing must have same digit count when space-separated"
-34. Odd digit count: "Coordinate digits must be even count"
+29. Invalid map name: "Map not found: [name]"
+30. Invalid MGRS100k square: "Unknown MGRS square: [code]"
+31. Coordinates out of range: "Coordinates out of range for [map name]"
+32. No current MGRS context: "Cannot determine current location"
+33. Invalid format: "Invalid format. Use: MapName coordinates or EN coordinates"
+34. Mismatched digit counts: "Easting and northing must have same digit count when space-separated"
+35. Odd digit count: "Coordinate digits must be even count"
 
 **Edge Cases:**
-34. Map name with spaces: "Port Davey 194507" → parse "Port Davey" as map name
-35. Wrap-around ranges: Validate easting/northing against map ranges
-36. Multiple MGRS100k squares: Select correct square based on easting value
-37. Partial coordinate (odd digit count): "Wellington 194" → invalid, error "Coordinate digits must be even count"
-38. Single coordinate value: "Wellington 19" → invalid, need both easting and northing
+36. Map name with spaces: "Port Davey 194507" → parse "Port Davey" as map name
+37. Wrap-around ranges: Validate easting/northing against map ranges
+38. Multiple MGRS100k squares: Select correct square based on easting value
+39. Partial coordinate (odd digit count): "Wellington 194" → invalid, error "Coordinate digits must be even count" (BREAKING CHANGE from existing behavior)
+40. Single coordinate value: "Wellington 19" → invalid, need both easting and northing
 </requirements>
 
 <boundaries>
 **Edge Cases:**
-- Partial coordinate: "Wellington 194" → use map's northing range midpoint
 - Extra spaces: "Wellington  194  507" → normalize and parse
 - Leading zeros: "Wellington 019405" → treat as 6-digit, parse correctly
 
@@ -122,6 +125,11 @@ Clarify and standardize grid reference parsing rules for the goto input field. E
 **Files to modify:**
 - @lib/providers/map_provider.dart - Update parseGridReference function
 
+**Breaking Changes:**
+- 3-digit coordinates: Previously accepted with northingMin, now rejected as invalid
+- 4-digit coordinates: Previously split 2+2 and multiplied by 1000, now multiplied by 10
+- Space-separated coordinates with different digit counts: Now rejected as invalid
+
 **Parsing Logic:**
 1. Check for MGRS100k prefix (2 letters + digits)
 2. Check for map name + coordinates (space-separated)
@@ -129,13 +137,13 @@ Clarify and standardize grid reference parsing rules for the goto input field. E
 4. Check for map name only (navigate to center)
 
 **Coordinate Conversion:**
-- Use existing digit interpretation rules (multiply by power of 10)
-- Construct MGRS: "55G" + MGRS100k + easting5digit + northing5digit
+- Apply digit interpretation rules (requirements 24-28)
+- Construct MGRS: "55G" + MGRS100k + easting5digit + northing5digit (no spaces)
 - Convert to LatLng using mgrs_dart
 
 **What to avoid:**
-- Don't change existing MGRS conversion logic
-- Don't break existing "Wellington 194507" format support
+- Don't change MGRS conversion logic in tasmap_repository.dart
+- Don't break existing "Wellington 194507" format support (6-digit continuous)
 </implementation>
 
 <validation>
@@ -157,24 +165,28 @@ Clarify and standardize grid reference parsing rules for the goto input field. E
 15. Invalid map name: returns error
 16. Invalid MGRS100k: returns error
 17. Coordinates out of range: returns error with range info
+18. MGRS to LatLng conversion: "55GEN1940050700" → (-42.89601, 147.237612) within ±0.00001 degrees
+19. Odd digit count: "Wellington 194" → returns error "Coordinate digits must be even count"
+20. Mismatched digit counts: "Wellington 19 4507" → returns error "Easting and northing must have same digit count when space-separated"
 
 **Test File:**
-- test/grid_reference_parsing_test.dart
+- Add tests to existing file: test/tasmap_repository_test.dart
 
 **Test Setup for Coordinates-Only Tests:**
 - Set `state.currentMgrs` to `'55G EN\n20000 55000'` before testing coordinates-only input
 - This simulates user being in Wellington map area
 
 **Validation Steps:**
-- Run all unit tests: `flutter test test/grid_reference_parsing_test.dart`
+- Run all unit tests: `flutter test test/tasmap_repository_test.dart`
 - Manual test each input format in goto input field
 - Verify error messages display correctly
 </validation>
 
 <done_when>
 - [ ] parseGridReference handles all input formats correctly
-- [ ] Unit tests pass for all 17+ test cases
+- [ ] Unit tests pass for all 20 test cases
 - [ ] Manual testing confirms correct behavior
 - [ ] Error messages are clear and helpful
 - [ ] No regression in existing functionality
+- [ ] Breaking changes documented and tested
 </done_when>
