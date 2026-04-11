@@ -16,12 +16,12 @@ Update Tasmap50k to use pre-calculated map centers and corners from CSV. Fix bro
 ### Phase 1: Entity + CSV Importer Fix
 
 - **Goal**: Add new fields, fix broken CSV import
-- [ ] `lib/models/tasmap50k.dart` - Add fields: mgrsMid (String), eastingMid (int), northingMid (int), tl (String), tr (String), bl (String), br (String)
-- [ ] `lib/services/csv_importer.dart` - Replace `File()` with `rootBundle.loadString()`, fix column names (eastingMin not Xmin), add new field imports
-- [ ] `dart run build_runner build` - Regenerate ObjectBox code
-- [ ] TDD: CSV import returns 75 maps with correct field values
-- [ ] TDD: CSV import handles missing columns gracefully
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/models/tasmap50k.dart` - Add fields: mgrsMid (String), eastingMid (int), northingMid (int), tl (String), tr (String), bl (String), br (String)
+- [x] `lib/services/csv_importer.dart` - Replace `File()` with `rootBundle.loadString()`, fix column names (eastingMin not Xmin), add new field imports
+- [x] `dart run build_runner build` - Regenerate ObjectBox code
+- [x] TDD: CSV import returns 75 maps with correct field values
+- [x] TDD: CSV import handles missing columns gracefully
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 2: Repository + Map Screen
 

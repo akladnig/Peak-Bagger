@@ -1,11 +1,10 @@
-import 'dart:io';
 import 'package:csv/csv.dart';
+import 'package:flutter/services.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 
 class CsvImporter {
   static Future<List<Tasmap50k>> importFromCsv(String csvPath) async {
-    final file = File(csvPath);
-    final contents = await file.readAsString();
+    final contents = await rootBundle.loadString(csvPath);
 
     final rows = const CsvToListConverter().convert(contents);
     if (rows.isEmpty) return [];
@@ -43,10 +42,23 @@ class CsvImporter {
       name: name,
       parentSeries: data['Parent']?.toString().trim() ?? '',
       mgrs100kIds: data['MGRS']?.toString().trim() ?? '',
-      eastingMin: int.tryParse(data['Xmin']?.toString().trim() ?? '') ?? 0,
-      eastingMax: int.tryParse(data['Xmax']?.toString().trim() ?? '') ?? 0,
-      northingMin: int.tryParse(data['Ymin']?.toString().trim() ?? '') ?? 0,
-      northingMax: int.tryParse(data['Ymax']?.toString().trim() ?? '') ?? 0,
+      eastingMin:
+          int.tryParse(data['eastingMin']?.toString().trim() ?? '') ?? 0,
+      eastingMax:
+          int.tryParse(data['eastingMax']?.toString().trim() ?? '') ?? 0,
+      northingMin:
+          int.tryParse(data['northingMin']?.toString().trim() ?? '') ?? 0,
+      northingMax:
+          int.tryParse(data['northingMax']?.toString().trim() ?? '') ?? 0,
+      mgrsMid: data['mgrsMid']?.toString().trim() ?? '',
+      eastingMid:
+          int.tryParse(data['eastingMid']?.toString().trim() ?? '') ?? 0,
+      northingMid:
+          int.tryParse(data['northingMid']?.toString().trim() ?? '') ?? 0,
+      tl: data['TL']?.toString().trim() ?? '',
+      tr: data['TR']?.toString().trim() ?? '',
+      bl: data['BL']?.toString().trim() ?? '',
+      br: data['BR']?.toString().trim() ?? '',
     );
   }
 }

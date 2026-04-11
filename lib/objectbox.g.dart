@@ -69,7 +69,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(2, 1328676866860602429),
     name: 'Tasmap50k',
-    lastPropertyId: const obx_int.IdUid(9, 7244678684225968530),
+    lastPropertyId: const obx_int.IdUid(16, 6317855365936723768),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -124,6 +124,48 @@ final _entities = <obx_int.ModelEntity>[
         id: const obx_int.IdUid(9, 7244678684225968530),
         name: 'northingMax',
         type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(10, 1016025314984462614),
+        name: 'mgrsMid',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(11, 5528747832735759740),
+        name: 'eastingMid',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(12, 5455427650142993126),
+        name: 'northingMid',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(13, 7214738622216751167),
+        name: 'tl',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(14, 3206417400481328273),
+        name: 'tr',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(15, 5789058894498647677),
+        name: 'bl',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(16, 6317855365936723768),
+        name: 'br',
+        type: 9,
         flags: 0,
       ),
     ],
@@ -269,7 +311,12 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final nameOffset = fbb.writeString(object.name);
         final parentSeriesOffset = fbb.writeString(object.parentSeries);
         final mgrs100kIdsOffset = fbb.writeString(object.mgrs100kIds);
-        fbb.startTable(10);
+        final mgrsMidOffset = fbb.writeString(object.mgrsMid);
+        final tlOffset = fbb.writeString(object.tl);
+        final trOffset = fbb.writeString(object.tr);
+        final blOffset = fbb.writeString(object.bl);
+        final brOffset = fbb.writeString(object.br);
+        fbb.startTable(17);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, seriesOffset);
         fbb.addOffset(2, nameOffset);
@@ -279,6 +326,13 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addInt64(6, object.eastingMax);
         fbb.addInt64(7, object.northingMin);
         fbb.addInt64(8, object.northingMax);
+        fbb.addOffset(9, mgrsMidOffset);
+        fbb.addInt64(10, object.eastingMid);
+        fbb.addInt64(11, object.northingMid);
+        fbb.addOffset(12, tlOffset);
+        fbb.addOffset(13, trOffset);
+        fbb.addOffset(14, blOffset);
+        fbb.addOffset(15, brOffset);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -327,6 +381,33 @@ obx_int.ModelDefinition getObjectBoxModel() {
           20,
           0,
         );
+        final mgrsMidParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 22, '');
+        final eastingMidParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          24,
+          0,
+        );
+        final northingMidParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          26,
+          0,
+        );
+        final tlParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 28, '');
+        final trParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 30, '');
+        final blParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 32, '');
+        final brParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 34, '');
         final object = Tasmap50k(
           id: idParam,
           series: seriesParam,
@@ -337,6 +418,13 @@ obx_int.ModelDefinition getObjectBoxModel() {
           eastingMax: eastingMaxParam,
           northingMin: northingMinParam,
           northingMax: northingMaxParam,
+          mgrsMid: mgrsMidParam,
+          eastingMid: eastingMidParam,
+          northingMid: northingMidParam,
+          tl: tlParam,
+          tr: trParam,
+          bl: blParam,
+          br: brParam,
         );
 
         return object;
@@ -419,5 +507,40 @@ class Tasmap50k_ {
   /// See [Tasmap50k.northingMax].
   static final northingMax = obx.QueryIntegerProperty<Tasmap50k>(
     _entities[1].properties[8],
+  );
+
+  /// See [Tasmap50k.mgrsMid].
+  static final mgrsMid = obx.QueryStringProperty<Tasmap50k>(
+    _entities[1].properties[9],
+  );
+
+  /// See [Tasmap50k.eastingMid].
+  static final eastingMid = obx.QueryIntegerProperty<Tasmap50k>(
+    _entities[1].properties[10],
+  );
+
+  /// See [Tasmap50k.northingMid].
+  static final northingMid = obx.QueryIntegerProperty<Tasmap50k>(
+    _entities[1].properties[11],
+  );
+
+  /// See [Tasmap50k.tl].
+  static final tl = obx.QueryStringProperty<Tasmap50k>(
+    _entities[1].properties[12],
+  );
+
+  /// See [Tasmap50k.tr].
+  static final tr = obx.QueryStringProperty<Tasmap50k>(
+    _entities[1].properties[13],
+  );
+
+  /// See [Tasmap50k.bl].
+  static final bl = obx.QueryStringProperty<Tasmap50k>(
+    _entities[1].properties[14],
+  );
+
+  /// See [Tasmap50k.br].
+  static final br = obx.QueryStringProperty<Tasmap50k>(
+    _entities[1].properties[15],
   );
 }

@@ -13,6 +13,13 @@ class Tasmap50k {
   int eastingMax;
   int northingMin;
   int northingMax;
+  String mgrsMid;
+  int eastingMid;
+  int northingMid;
+  String tl;
+  String tr;
+  String bl;
+  String br;
 
   Tasmap50k({
     this.id = 0,
@@ -24,6 +31,13 @@ class Tasmap50k {
     this.eastingMax = 0,
     this.northingMin = 0,
     this.northingMax = 0,
+    this.mgrsMid = '',
+    this.eastingMid = 0,
+    this.northingMid = 0,
+    this.tl = '',
+    this.tr = '',
+    this.bl = '',
+    this.br = '',
   });
 
   List<String> get mgrs100kIdList =>
