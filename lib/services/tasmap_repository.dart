@@ -34,16 +34,11 @@ class TasmapRepository {
   }
 
   LatLng? getMapCenter(Tasmap50k map) {
-    final mgrsCodes = map.mgrs100kIdList;
-    if (mgrsCodes.isEmpty) return null;
+    if (map.mgrsMid.isEmpty) return null;
 
-    final mgrsCode = mgrsCodes.first;
-    final centerEasting = (map.eastingMin + map.eastingMax) ~/ 2;
-    final centerNorthing = (map.northingMin + map.northingMax) ~/ 2;
-    final paddedEasting = centerEasting.toString().padLeft(5, '0');
-    final paddedNorthing = centerNorthing.toString().padLeft(5, '0');
-    final fullMgrs =
-        '55G${mgrsCode.substring(0, 2)} $paddedEasting $paddedNorthing';
+    final paddedEasting = map.eastingMid.toString().padLeft(5, '0');
+    final paddedNorthing = map.northingMid.toString().padLeft(5, '0');
+    final fullMgrs = '55G${map.mgrsMid} $paddedEasting $paddedNorthing';
 
     try {
       final coords = mgrs_dart.Mgrs.toPoint(fullMgrs);

@@ -26,12 +26,12 @@ Update Tasmap50k to use pre-calculated map centers and corners from CSV. Fix bro
 ### Phase 2: Repository + Map Screen
 
 - **Goal**: Use pre-calculated values, simplify map extent logic
-- [ ] `lib/services/tasmap_repository.dart` - Update getMapCenter(): use mgrsMid/eastingMid/northingMid, remove range averaging
-- [ ] `lib/screens/map_screen.dart` - Update _buildMapRectangle() and _buildAllMapRectangles(): parse corners (substring 0-2, 2-7, 7-12), convert via `55G{corner}`
-- [ ] TDD: getMapCenter() returns correct LatLng for Wellington using pre-calculated values
-- [ ] TDD: Corner parsing extracts correct MGRS100k, easting, northing from "BR2000069999"
-- [ ] TDD: Map extent polygon uses corner coordinates
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/services/tasmap_repository.dart` - Update getMapCenter(): use mgrsMid/eastingMid/northingMid, remove range averaging
+- [x] `lib/screens/map_screen.dart` - Update _buildMapRectangle() and _buildAllMapRectangles(): parse corners (substring 0-2, 2-7, 7-12), convert via `55G{corner}`
+- [x] TDD: getMapCenter() returns correct LatLng for Wellington using pre-calculated values
+- [x] TDD: Corner parsing extracts correct MGRS100k, easting, northing from "BR2000069999"
+- [x] TDD: Map extent polygon uses corner coordinates
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Database Migration + Integration
 

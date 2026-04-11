@@ -663,72 +663,44 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   PolygonLayer _buildMapRectangle(Tasmap50k map) {
-    final center = ref.read(tasmapRepositoryProvider).getMapCenter(map);
-    if (center == null) return const PolygonLayer(polygons: []);
-
-    final mgrsCodes = map.mgrs100kIdList;
-    if (mgrsCodes.isEmpty) return const PolygonLayer(polygons: []);
+    if (map.tl.isEmpty || map.tr.isEmpty || map.bl.isEmpty || map.br.isEmpty) {
+      return const PolygonLayer(polygons: []);
+    }
 
     try {
-      final allPoints = <LatLng>[];
-      final isWrapAround = map.northingMax < map.northingMin;
+      final tl = _cornerToLatLng(map.tl);
+      final tr = _cornerToLatLng(map.tr);
+      final bl = _cornerToLatLng(map.bl);
+      final br = _cornerToLatLng(map.br);
 
-      for (int i = 0; i < mgrsCodes.length; i++) {
-        final mgrsCode = mgrsCodes[i];
-        int nMin, nMax;
-
-        if (isWrapAround && mgrsCodes.length == 2) {
-          if (i == 0) {
-            nMin = map.northingMin;
-            nMax = 99999;
-          } else {
-            nMin = 0;
-            nMax = map.northingMax;
-          }
-        } else {
-          nMin = map.northingMin;
-          nMax = map.northingMax;
-        }
-
-        final eMinPad = map.eastingMin.toString().padLeft(5, '0');
-        final nMinPad = nMin.toString().padLeft(5, '0');
-        final eMaxPad = map.eastingMax.toString().padLeft(5, '0');
-        final nMaxPad = nMax.toString().padLeft(5, '0');
-
-        final mgrsMin = '55G${mgrsCode.substring(0, 2)} $eMinPad $nMinPad';
-        final mgrsMax = '55G${mgrsCode.substring(0, 2)} $eMaxPad $nMaxPad';
-
-        final p1 = mgrs.Mgrs.toPoint(mgrsMin);
-        final p3 = mgrs.Mgrs.toPoint(mgrsMax);
-
-        final sw = LatLng(p1[1], p1[0]);
-        final ne = LatLng(p3[1], p3[0]);
-
-        final swLat = (sw.latitude.abs() < 90 ? sw.latitude : -90).toDouble();
-        final neLat = (ne.latitude.abs() < 90 ? ne.latitude : 90).toDouble();
-
-        allPoints.addAll([
-          LatLng(swLat, sw.longitude),
-          LatLng(swLat, ne.longitude),
-          LatLng(neLat, ne.longitude),
-          LatLng(neLat, sw.longitude),
-        ]);
+      if (tl == null || tr == null || bl == null || br == null) {
+        return const PolygonLayer(polygons: []);
       }
 
-      if (allPoints.isEmpty) return const PolygonLayer(polygons: []);
-
-      final minLat = allPoints
-          .map((p) => p.latitude)
-          .reduce((a, b) => a < b ? a : b);
-      final maxLat = allPoints
-          .map((p) => p.latitude)
-          .reduce((a, b) => a > b ? a : b);
-      final minLng = allPoints
-          .map((p) => p.longitude)
-          .reduce((a, b) => a < b ? a : b);
-      final maxLng = allPoints
-          .map((p) => p.longitude)
-          .reduce((a, b) => a > b ? a : b);
+      final minLat = [
+        tl,
+        tr,
+        bl,
+        br,
+      ].map((p) => p.latitude).reduce((a, b) => a < b ? a : b);
+      final maxLat = [
+        tl,
+        tr,
+        bl,
+        br,
+      ].map((p) => p.latitude).reduce((a, b) => a > b ? a : b);
+      final minLng = [
+        tl,
+        tr,
+        bl,
+        br,
+      ].map((p) => p.longitude).reduce((a, b) => a < b ? a : b);
+      final maxLng = [
+        tl,
+        tr,
+        bl,
+        br,
+      ].map((p) => p.longitude).reduce((a, b) => a > b ? a : b);
 
       final points = <LatLng>[
         LatLng(minLat, minLng),
@@ -752,75 +724,62 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
   }
 
+  LatLng? _cornerToLatLng(String corner) {
+    if (corner.length != 12) return null;
+    final fullMgrs = '55G$corner';
+    try {
+      final coords = mgrs.Mgrs.toPoint(fullMgrs);
+      return LatLng(coords[1], coords[0]);
+    } catch (e) {
+      return null;
+    }
+  }
+
   List<Polygon> _buildAllMapRectangles() {
     final repo = ref.read(tasmapRepositoryProvider);
     final maps = repo.getAllMaps();
     final polygons = <Polygon>[];
 
-    for (final map in maps.take(65)) {
-      final mgrsCodes = map.mgrs100kIdList;
-      if (mgrsCodes.isEmpty) continue;
+    for (final map in maps) {
+      if (map.tl.isEmpty ||
+          map.tr.isEmpty ||
+          map.bl.isEmpty ||
+          map.br.isEmpty) {
+        continue;
+      }
 
       try {
-        final allPoints = <LatLng>[];
-        final isWrapAround = map.northingMax < map.northingMin;
+        final tl = _cornerToLatLng(map.tl);
+        final tr = _cornerToLatLng(map.tr);
+        final bl = _cornerToLatLng(map.bl);
+        final br = _cornerToLatLng(map.br);
 
-        for (int i = 0; i < mgrsCodes.length; i++) {
-          final mgrsCode = mgrsCodes[i];
-          int nMin, nMax;
+        if (tl == null || tr == null || bl == null || br == null) continue;
 
-          if (isWrapAround && mgrsCodes.length == 2) {
-            if (i == 0) {
-              nMin = map.northingMin;
-              nMax = 99999;
-            } else {
-              nMin = 0;
-              nMax = map.northingMax;
-            }
-          } else {
-            nMin = map.northingMin;
-            nMax = map.northingMax;
-          }
-
-          final eMinPad = map.eastingMin.toString().padLeft(5, '0');
-          final nMinPad = nMin.toString().padLeft(5, '0');
-          final eMaxPad = map.eastingMax.toString().padLeft(5, '0');
-          final nMaxPad = nMax.toString().padLeft(5, '0');
-
-          final mgrsMin = '55G${mgrsCode.substring(0, 2)} $eMinPad $nMinPad';
-          final mgrsMax = '55G${mgrsCode.substring(0, 2)} $eMaxPad $nMaxPad';
-
-          final p1 = mgrs.Mgrs.toPoint(mgrsMin);
-          final p3 = mgrs.Mgrs.toPoint(mgrsMax);
-
-          final sw = LatLng(p1[1], p1[0]);
-          final ne = LatLng(p3[1], p3[0]);
-
-          final swLat = (sw.latitude.abs() < 90 ? sw.latitude : -90).toDouble();
-          final neLat = (ne.latitude.abs() < 90 ? ne.latitude : 90).toDouble();
-
-          allPoints.addAll([
-            LatLng(swLat, sw.longitude),
-            LatLng(swLat, ne.longitude),
-            LatLng(neLat, ne.longitude),
-            LatLng(neLat, sw.longitude),
-          ]);
-        }
-
-        if (allPoints.isEmpty) continue;
-
-        final minLat = allPoints
-            .map((p) => p.latitude)
-            .reduce((a, b) => a < b ? a : b);
-        final maxLat = allPoints
-            .map((p) => p.latitude)
-            .reduce((a, b) => a > b ? a : b);
-        final minLng = allPoints
-            .map((p) => p.longitude)
-            .reduce((a, b) => a < b ? a : b);
-        final maxLng = allPoints
-            .map((p) => p.longitude)
-            .reduce((a, b) => a > b ? a : b);
+        final minLat = [
+          tl,
+          tr,
+          bl,
+          br,
+        ].map((p) => p.latitude).reduce((a, b) => a < b ? a : b);
+        final maxLat = [
+          tl,
+          tr,
+          bl,
+          br,
+        ].map((p) => p.latitude).reduce((a, b) => a > b ? a : b);
+        final minLng = [
+          tl,
+          tr,
+          bl,
+          br,
+        ].map((p) => p.longitude).reduce((a, b) => a < b ? a : b);
+        final maxLng = [
+          tl,
+          tr,
+          bl,
+          br,
+        ].map((p) => p.longitude).reduce((a, b) => a > b ? a : b);
 
         polygons.add(
           Polygon(
