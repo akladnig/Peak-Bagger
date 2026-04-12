@@ -209,6 +209,7 @@ class GpxImporter {
   Future<TrackImportResult> importTracks({
     bool includeTasmaniaFolder = true,
     List<GpxTrack> existingTracks = const [],
+    bool surfaceWarnings = true,
   }) async {
     final tracks = <GpxTrack>[];
     final seenContentHashes = <String>{};
@@ -309,7 +310,7 @@ class GpxImporter {
       unchangedCount: unchangedCount,
       nonTasmanianCount: nonTasmanianCount,
       errorSkippedCount: errorSkippedCount,
-      warning: errorSkippedCount > 0
+      warning: errorSkippedCount > 0 && surfaceWarnings
           ? (logWriteFailed
                 ? 'Some files need manual review. import.log could not be updated.'
                 : 'Some files need manual review. See import.log.')

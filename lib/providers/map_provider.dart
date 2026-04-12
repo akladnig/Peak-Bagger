@@ -292,6 +292,7 @@ class MapNotifier extends Notifier<MapState> {
         existingTracks: resetExisting
             ? const []
             : _gpxTrackRepository.getAllTracks(),
+        surfaceWarnings: resetExisting || state.tracks.isNotEmpty,
       );
 
       if (resetExisting || state.tracks.isEmpty) {

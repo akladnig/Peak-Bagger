@@ -288,6 +288,38 @@ void main() {
         expect(result.warning, contains('import.log'));
       },
     );
+
+    test('startup import keeps manual-review warnings silent', () async {
+      final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
+      final tasDir = Directory('${tempDir.path}/Tracks/Tasmania')..createSync();
+      await File(
+        '${tracksDir.path}/a-first.gpx',
+      ).writeAsString(_tasmanianGpx('Tas Track'));
+      await File(
+        '${tracksDir.path}/z-second.gpx',
+      ).writeAsString(_tasmanianGpxShifted('Tas Track'));
+
+      final importer = GpxImporter(
+        tracksFolder: tracksDir.path,
+        tasmaniaFolder: tasDir.path,
+      );
+      final existing = GpxTrack(
+        gpxTrackId: 12,
+        contentHash: 'old-hash',
+        trackName: 'Tas Track',
+        trackDate: DateTime(2024, 1, 15),
+        startDateTime: DateTime(2024, 1, 15, 8),
+      );
+
+      final result = await importer.importTracks(
+        includeTasmaniaFolder: false,
+        existingTracks: [existing],
+        surfaceWarnings: false,
+      );
+
+      expect(result.errorSkippedCount, 1);
+      expect(result.warning, isNull);
+    });
   });
 }
 
