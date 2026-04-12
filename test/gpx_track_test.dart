@@ -192,6 +192,64 @@ void main() {
         expect(result.tracks, hasLength(1));
       },
     );
+
+    test('metadata-date track replaces existing logical match', () async {
+      final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
+      final tasDir = Directory('${tempDir.path}/Tracks/Tasmania')..createSync();
+      await File(
+        '${tracksDir.path}/tas.gpx',
+      ).writeAsString(_tasmanianGpx('Tas Track'));
+
+      final importer = GpxImporter(
+        tracksFolder: tracksDir.path,
+        tasmaniaFolder: tasDir.path,
+      );
+      final existing = GpxTrack(
+        gpxTrackId: 7,
+        contentHash: 'old-hash',
+        trackName: 'Tas Track',
+        trackDate: DateTime(2024, 1, 15),
+        startDateTime: DateTime(2024, 1, 15, 8),
+      );
+
+      final result = await importer.importTracks(
+        includeTasmaniaFolder: false,
+        existingTracks: [existing],
+      );
+
+      expect(result.importedCount, 0);
+      expect(result.replacedCount, 1);
+      expect(result.tracks.single.gpxTrackId, 7);
+    });
+
+    test('no-date changed track does not replace logical match', () async {
+      final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
+      final tasDir = Directory('${tempDir.path}/Tracks/Tasmania')..createSync();
+      final file = File('${tracksDir.path}/tas-no-date.gpx');
+      await file.writeAsString(_tasmanianGpxNoDate('Tas Track'));
+      await file.setLastModified(DateTime(2024, 2, 1, 12));
+
+      final importer = GpxImporter(
+        tracksFolder: tracksDir.path,
+        tasmaniaFolder: tasDir.path,
+      );
+      final existing = GpxTrack(
+        gpxTrackId: 8,
+        contentHash: 'old-hash',
+        trackName: 'Tas Track',
+        trackDate: DateTime(2024, 2, 1),
+      );
+
+      final result = await importer.importTracks(
+        includeTasmaniaFolder: false,
+        existingTracks: [existing],
+      );
+
+      expect(result.importedCount, 1);
+      expect(result.replacedCount, 0);
+      expect(result.tracks.single.gpxTrackId, isZero);
+      expect(result.tracks.single.hasMetadataTrackDate, isFalse);
+    });
   });
 }
 
@@ -228,6 +286,20 @@ String _mainlandGpx(String name) =>
       <trkpt lat="-37.8136" lon="144.9631">
         <time>2024-01-15T08:00:00Z</time>
       </trkpt>
+    </trkseg>
+  </trk>
+</gpx>
+''';
+
+String _tasmanianGpxNoDate(String name) =>
+    '''
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <trk>
+    <name>$name</name>
+    <trkseg>
+      <trkpt lat="-42.1234" lon="146.1234" />
+      <trkpt lat="-42.2234" lon="146.2234" />
     </trkseg>
   </trk>
 </gpx>

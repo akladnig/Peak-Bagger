@@ -208,9 +208,16 @@ class GpxImporter {
 
   Future<TrackImportResult> importTracks({
     bool includeTasmaniaFolder = true,
+    List<GpxTrack> existingTracks = const [],
   }) async {
     final tracks = <GpxTrack>[];
     final seenContentHashes = <String>{};
+    final existingContentHashes = existingTracks
+        .map((track) => track.contentHash)
+        .where((hash) => hash.isNotEmpty)
+        .toSet();
+    var importedCount = 0;
+    var replacedCount = 0;
     var unchangedCount = 0;
     var nonTasmanianCount = 0;
     var errorSkippedCount = 0;
@@ -255,22 +262,56 @@ class GpxImporter {
         continue;
       }
 
-      if (!seenContentHashes.add(track.contentHash)) {
+      if (!seenContentHashes.add(track.contentHash) ||
+          existingContentHashes.contains(track.contentHash)) {
         unchangedCount += 1;
         continue;
       }
 
+      if (track.hasMetadataTrackDate && track.trackDate != null) {
+        final existing = _findExistingLogicalMatch(existingTracks, track);
+        if (existing != null && existing.contentHash != track.contentHash) {
+          track.gpxTrackId = existing.gpxTrackId;
+          replacedCount += 1;
+          tracks.add(track);
+          continue;
+        }
+      }
+
+      importedCount += 1;
       tracks.add(track);
     }
 
     return TrackImportResult(
       tracks: tracks,
-      importedCount: tracks.length,
-      replacedCount: 0,
+      importedCount: importedCount,
+      replacedCount: replacedCount,
       unchangedCount: unchangedCount,
       nonTasmanianCount: nonTasmanianCount,
       errorSkippedCount: errorSkippedCount,
+      warning: errorSkippedCount > 0
+          ? 'Some files need manual review. See import.log.'
+          : null,
     );
+  }
+
+  GpxTrack? _findExistingLogicalMatch(
+    List<GpxTrack> existingTracks,
+    GpxTrack incoming,
+  ) {
+    final matches = existingTracks
+        .where(
+          (track) =>
+              track.hasMetadataTrackDate &&
+              track.trackDate == incoming.trackDate &&
+              track.trackName == incoming.trackName,
+        )
+        .toList();
+    if (matches.isEmpty) {
+      return null;
+    }
+    matches.sort((a, b) => b.gpxTrackId.compareTo(a.gpxTrackId));
+    return matches.first;
   }
 
   List<File> _snapshotDirectory(Directory dir) {

@@ -37,7 +37,7 @@ Thin slice first; deterministic import semantics + recovery/reset UX next.
 - **Goal**: duplicate/replacement/counting correctness
 - [ ] `lib/services/gpx_importer.dart` - identical-content grouping, canonical name/date, non-Tasmanian counting, unchanged collision/manual-review rules, import log writes
 - [ ] `lib/services/gpx_track_repository.dart` - metadata-date-only replacement; same-operation conflict handling; persisted logical-match winner rule per clarified assumption
-- [ ] `lib/providers/map_provider.dart` - surface result summary + warning state from importer
+- [x] `lib/providers/map_provider.dart` - surface result summary + warning state from importer
 - [ ] `test/gpx_track_test.dart` - extend importer/repository slices for duplicate groups, no-date rules, manual-review warnings, mixed counters
 - [ ] TDD: identical-content duplicates collapse deterministically; non-Tasmanian files affect only `nonTasmanianCount`; no-date changed tracks do not replace; same-operation logical-match conflict losers stay at source path and count as `errorSkippedCount`
 - [ ] `test/widget/gpx_tracks_summary_test.dart` - widget coverage for mixed-result summary text

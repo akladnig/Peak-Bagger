@@ -285,6 +285,9 @@ class MapNotifier extends Notifier<MapState> {
       final importer = GpxImporter();
       final result = await importer.importTracks(
         includeTasmaniaFolder: includeTasmaniaFolder,
+        existingTracks: resetExisting
+            ? const []
+            : _gpxTrackRepository.getAllTracks(),
       );
 
       if (resetExisting || state.tracks.isEmpty) {

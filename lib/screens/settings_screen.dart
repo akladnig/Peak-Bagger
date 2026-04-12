@@ -19,6 +19,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final mapState = ref.watch(mapProvider);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
@@ -64,6 +66,43 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 : null,
             onTap: _isResettingMaps ? null : _resetMapData,
           ),
+          ListTile(
+            leading: const Icon(Icons.route),
+            title: const Text('Reset Track Data'),
+            subtitle: const Text(
+              'Wipe track data and rebuild from Tracks and Tracks/Tasmania',
+            ),
+            trailing: mapState.isLoadingTracks
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : null,
+            onTap: mapState.isLoadingTracks ? null : _confirmResetTrackData,
+          ),
+          if (mapState.hasTrackRecoveryIssue)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text('Some tracks need to be rebuilt.'),
+            ),
+          if (mapState.trackOperationStatus != null ||
+              mapState.trackOperationWarning != null)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (mapState.trackOperationStatus != null)
+                    Text(mapState.trackOperationStatus!),
+                  if (mapState.trackOperationWarning != null) ...[
+                    const SizedBox(height: 8),
+                    Text(mapState.trackOperationWarning!),
+                  ],
+                ],
+              ),
+            ),
           if (_status.isNotEmpty)
             Padding(padding: const EdgeInsets.all(16), child: Text(_status)),
         ],
@@ -134,6 +173,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       setState(() {
         _isResettingMaps = false;
       });
+    }
+  }
+
+  Future<void> _confirmResetTrackData() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Reset Track Data?'),
+          content: const Text(
+            'This will wipe all track data and re-import tracks from disk. If source files are missing or unreadable, you may end up with fewer imported tracks than before. Do you wish to proceed?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Reset'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      await ref.read(mapProvider.notifier).resetTrackData();
     }
   }
 }
