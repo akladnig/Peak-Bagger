@@ -55,6 +55,11 @@ class MapState {
   final String mapSearchQuery;
   final List<GpxTrack> tracks;
   final bool showTracks;
+  final bool isLoadingTracks;
+  final String? trackImportError;
+  final bool hasTrackRecoveryIssue;
+  final String? trackOperationStatus;
+  final String? trackOperationWarning;
 
   const MapState({
     required this.center,
@@ -86,6 +91,11 @@ class MapState {
     this.mapSearchQuery = '',
     this.tracks = const [],
     this.showTracks = false,
+    this.isLoadingTracks = false,
+    this.trackImportError,
+    this.hasTrackRecoveryIssue = false,
+    this.trackOperationStatus,
+    this.trackOperationWarning,
   });
 
   MapState copyWith({
@@ -120,6 +130,14 @@ class MapState {
     String? mapSearchQuery,
     List<GpxTrack>? tracks,
     bool? showTracks,
+    bool? isLoadingTracks,
+    String? trackImportError,
+    bool clearTrackImportError = false,
+    bool? hasTrackRecoveryIssue,
+    String? trackOperationStatus,
+    bool clearTrackOperationStatus = false,
+    String? trackOperationWarning,
+    bool clearTrackOperationWarning = false,
   }) {
     return MapState(
       center: center ?? this.center,
@@ -157,6 +175,18 @@ class MapState {
       mapSearchQuery: mapSearchQuery ?? this.mapSearchQuery,
       tracks: tracks ?? this.tracks,
       showTracks: showTracks ?? this.showTracks,
+      isLoadingTracks: isLoadingTracks ?? this.isLoadingTracks,
+      trackImportError: clearTrackImportError
+          ? null
+          : (trackImportError ?? this.trackImportError),
+      hasTrackRecoveryIssue:
+          hasTrackRecoveryIssue ?? this.hasTrackRecoveryIssue,
+      trackOperationStatus: clearTrackOperationStatus
+          ? null
+          : (trackOperationStatus ?? this.trackOperationStatus),
+      trackOperationWarning: clearTrackOperationWarning
+          ? null
+          : (trackOperationWarning ?? this.trackOperationWarning),
     );
   }
 }
@@ -211,31 +241,95 @@ class MapNotifier extends Notifier<MapState> {
 
   void _loadTracks() {
     final tracks = _gpxTrackRepository.getAllTracks();
-    final hasTrackPoints = tracks.any(
-      (t) => t.trackPoints.isNotEmpty && t.trackPoints != '[]',
-    );
-    if (tracks.isEmpty || !hasTrackPoints) {
-      _gpxTrackRepository.deleteAll();
-      Future.microtask(() => _importTracks());
-    } else {
-      state = state.copyWith(tracks: tracks, showTracks: true);
+    if (tracks.isEmpty) {
+      Future.microtask(() => _importTracks(includeTasmaniaFolder: true));
+      return;
     }
+
+    final hasRecoveryIssue = _hasTrackRecoveryIssue(tracks);
+    state = state.copyWith(
+      tracks: tracks,
+      showTracks: hasRecoveryIssue ? false : true,
+      hasTrackRecoveryIssue: hasRecoveryIssue,
+    );
   }
 
-  Future<void> _importTracks() async {
+  bool _hasTrackRecoveryIssue(List<GpxTrack> tracks) {
+    for (final track in tracks) {
+      if (track.trackPoints.isEmpty || track.trackPoints == '[]') {
+        return true;
+      }
+      if (track.contentHash.isEmpty || track.trackDate == null) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Future<TrackImportResult?> _importTracks({
+    required bool includeTasmaniaFolder,
+    bool resetExisting = false,
+  }) async {
+    if (state.isLoadingTracks) {
+      return null;
+    }
+
+    state = state.copyWith(
+      isLoadingTracks: true,
+      clearTrackImportError: true,
+      clearTrackOperationStatus: true,
+      clearTrackOperationWarning: true,
+    );
+
     try {
       final importer = GpxImporter();
-      final tracks = await importer.importTracks();
+      final result = await importer.importTracks(
+        includeTasmaniaFolder: includeTasmaniaFolder,
+      );
 
-      for (final track in tracks) {
+      if (resetExisting || state.tracks.isEmpty) {
+        _gpxTrackRepository.deleteAll();
+      }
+
+      for (final track in result.tracks) {
         _gpxTrackRepository.addTrack(track);
       }
 
       final allTracks = _gpxTrackRepository.getAllTracks();
-      state = state.copyWith(tracks: allTracks, showTracks: true);
+      final hasRecoveryIssue = _hasTrackRecoveryIssue(allTracks);
+      state = state.copyWith(
+        tracks: allTracks,
+        showTracks: hasRecoveryIssue
+            ? false
+            : (resetExisting
+                  ? false
+                  : state.showTracks || allTracks.isNotEmpty),
+        isLoadingTracks: false,
+        hasTrackRecoveryIssue: hasRecoveryIssue,
+        trackOperationStatus:
+            'Imported ${result.importedCount}, replaced ${result.replacedCount}, unchanged ${result.unchangedCount}, non-Tasmanian ${result.nonTasmanianCount}, errors ${result.errorSkippedCount}',
+        trackOperationWarning: result.warning,
+      );
+      return result;
     } catch (e) {
-      // Import failed, keep empty state
+      state = state.copyWith(
+        isLoadingTracks: false,
+        trackImportError: 'Failed to import tracks: $e',
+      );
+      return null;
     }
+  }
+
+  Future<void> rescanTracks() async {
+    if (state.hasTrackRecoveryIssue) {
+      return;
+    }
+    await _importTracks(includeTasmaniaFolder: false);
+  }
+
+  Future<void> resetTrackData() async {
+    await _importTracks(includeTasmaniaFolder: true, resetExisting: true);
+    state = state.copyWith(hasTrackRecoveryIssue: false, showTracks: false);
   }
 
   Future<void> _loadPosition() async {
@@ -961,6 +1055,11 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void toggleTracks() {
+    if (state.tracks.isEmpty ||
+        state.isLoadingTracks ||
+        state.hasTrackRecoveryIssue) {
+      return;
+    }
     state = state.copyWith(showTracks: !state.showTracks);
   }
 

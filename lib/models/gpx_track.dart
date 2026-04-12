@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:latlong2/latlong.dart';
 import 'package:objectbox/objectbox.dart';
 
 @Entity()
@@ -5,10 +8,12 @@ class GpxTrack {
   @Id()
   int gpxTrackId = 0;
 
-  String fileLocation;
+  String contentHash;
   String trackName;
+  DateTime? trackDate;
   String trackPoints;
   DateTime? startDateTime;
+  DateTime? endDateTime;
   double? distance;
   double? ascent;
   int? totalTimeMillis;
@@ -16,10 +21,12 @@ class GpxTrack {
 
   GpxTrack({
     this.gpxTrackId = 0,
-    required this.fileLocation,
+    required this.contentHash,
     required this.trackName,
+    this.trackDate,
     this.trackPoints = '[]',
     this.startDateTime,
+    this.endDateTime,
     this.distance,
     this.ascent,
     this.totalTimeMillis,
@@ -29,11 +36,17 @@ class GpxTrack {
   static GpxTrack fromMap(Map<String, dynamic> map) {
     return GpxTrack(
       gpxTrackId: map['gpxTrackId'] as int? ?? 0,
-      fileLocation: map['fileLocation'] as String? ?? '',
+      contentHash: map['contentHash'] as String? ?? '',
       trackName: map['trackName'] as String? ?? '',
+      trackDate: map['trackDate'] != null
+          ? DateTime.tryParse(map['trackDate'] as String)
+          : null,
       trackPoints: map['trackPoints'] as String? ?? '[]',
       startDateTime: map['startDateTime'] != null
           ? DateTime.tryParse(map['startDateTime'] as String)
+          : null,
+      endDateTime: map['endDateTime'] != null
+          ? DateTime.tryParse(map['endDateTime'] as String)
           : null,
       distance: map['distance'] as double?,
       ascent: map['ascent'] as double?,
@@ -45,10 +58,12 @@ class GpxTrack {
   Map<String, dynamic> toMap() {
     return {
       'gpxTrackId': gpxTrackId,
-      'fileLocation': fileLocation,
+      'contentHash': contentHash,
       'trackName': trackName,
+      'trackDate': trackDate?.toIso8601String(),
       'trackPoints': trackPoints,
       'startDateTime': startDateTime?.toIso8601String(),
+      'endDateTime': endDateTime?.toIso8601String(),
       'distance': distance,
       'ascent': ascent,
       'totalTimeMillis': totalTimeMillis,
@@ -56,40 +71,47 @@ class GpxTrack {
     };
   }
 
-  List<({double lat, double lng})> getPoints() {
+  bool get hasMetadataTrackDate => startDateTime != null;
+
+  List<List<LatLng>> getSegments() {
     try {
-      final decoded = _decodePoints(trackPoints);
-      return decoded;
+      return _decodeSegments(trackPoints);
     } catch (e) {
-      return [];
+      return const [];
     }
   }
 
-  static List<({double lat, double lng})> _decodePoints(String json) {
-    if (json.isEmpty || json == '[]') return [];
+  List<LatLng> getPoints() {
+    return getSegments().expand((segment) => segment).toList(growable: false);
+  }
 
-    final List<({double lat, double lng})> points = [];
-    final trimmed = json.trim();
-    if (!trimmed.startsWith('[') || !trimmed.endsWith(']')) return [];
+  static List<List<LatLng>> _decodeSegments(String jsonString) {
+    if (jsonString.isEmpty || jsonString == '[]') {
+      return const [];
+    }
 
-    var content = trimmed.substring(1, trimmed.length - 1);
-    content = content.trim();
-    if (content.isEmpty) return [];
+    final dynamic decoded = json.decode(jsonString);
+    if (decoded is! List) {
+      return const [];
+    }
 
-    final pairs = content.split('],[');
-    for (final pair in pairs) {
-      var part = pair.replaceAll('[', '').replaceAll(']', '').trim();
-      if (part.isEmpty) continue;
-
-      final coords = part.split(',');
-      if (coords.length != 2) continue;
-
-      final lat = double.tryParse(coords[0].trim());
-      final lng = double.tryParse(coords[1].trim());
-      if (lat != null && lng != null) {
-        points.add((lat: lat, lng: lng));
+    final segments = <List<LatLng>>[];
+    for (final segment in decoded) {
+      if (segment is! List) continue;
+      final latLngs = <LatLng>[];
+      for (final point in segment) {
+        if (point is! List || point.length != 2) continue;
+        final lat = (point[0] as num?)?.toDouble();
+        final lng = (point[1] as num?)?.toDouble();
+        if (lat != null && lng != null) {
+          latLngs.add(LatLng(lat, lng));
+        }
+      }
+      if (latLngs.isNotEmpty) {
+        segments.add(latLngs);
       }
     }
-    return points;
+
+    return segments;
   }
 }

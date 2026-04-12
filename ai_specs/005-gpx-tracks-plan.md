@@ -17,20 +17,20 @@ Thin slice first; deterministic import semantics + recovery/reset UX next.
 ### Phase 1: Vertical Slice
 
 - **Goal**: one Tasmanian GPX imports, persists, renders, toggles
-- [ ] `pubspec.yaml` - add `crypto`; keep existing `xml`/ObjectBox stack
-- [ ] `lib/models/gpx_track.dart` - retrofit schema; add `contentHash`, `trackDate`, `endDateTime`, nullable markers, segmented decode API
-- [ ] `lib/services/gpx_track_repository.dart` - content-hash lookup; metadata-date logical lookup; baseline add/get/deleteAll
-- [ ] `lib/services/gpx_importer.dart` - parse GPX metadata, filename fallback, Tasmania classify, fixed pre-move scan snapshot, minimal `TrackImportResult`
-- [ ] `lib/providers/map_provider.dart` - add track state/import state/toggle path; empty-db auto-import; startup load behavior
-- [ ] `lib/router.dart` - wire import/show FABs, tooltip/semantics, progress/disable states, stable keys
-- [ ] `lib/screens/map_screen.dart` - render segmented polylines; info popup track row; `t` shortcut obeying FAB rules
-- [ ] `lib/objectbox-model.json` - regenerate schema
-- [ ] `lib/objectbox.g.dart` - regenerate bindings
-- [ ] `test/gpx_track_test.dart` - unit/domain slices for entity, repository, one-file import happy path
-- [ ] TDD: one Tasmanian GPX with metadata imports, persists, auto-shows on first load, toggles off/on, and survives analyze/test
-- [ ] `test/robot/gpx_tracks/gpx_tracks_robot.dart` - add key-first selectors for import/show/info controls
-- [ ] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - Robot journey: import happy path -> tracks visible -> toggle hides/shows
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `pubspec.yaml` - add `crypto`; keep existing `xml`/ObjectBox stack
+- [x] `lib/models/gpx_track.dart` - retrofit schema; add `contentHash`, `trackDate`, `endDateTime`, nullable markers, segmented decode API
+- [x] `lib/services/gpx_track_repository.dart` - content-hash lookup; metadata-date logical lookup; baseline add/get/deleteAll
+- [x] `lib/services/gpx_importer.dart` - parse GPX metadata, filename fallback, Tasmania classify, fixed pre-move scan snapshot, minimal `TrackImportResult`
+- [x] `lib/providers/map_provider.dart` - add track state/import state/toggle path; empty-db auto-import; startup load behavior
+- [x] `lib/router.dart` - wire import/show FABs, tooltip/semantics, progress/disable states, stable keys
+- [x] `lib/screens/map_screen.dart` - render segmented polylines; info popup track row; `t` shortcut obeying FAB rules
+- [x] `lib/objectbox-model.json` - regenerate schema
+- [x] `lib/objectbox.g.dart` - regenerate bindings
+- [x] `test/gpx_track_test.dart` - unit/domain slices for entity, repository, one-file import happy path
+- [x] TDD: one Tasmanian GPX with metadata imports, persists, auto-shows on first load, toggles off/on, and survives analyze/test
+- [x] `test/robot/gpx_tracks/gpx_tracks_robot.dart` - add key-first selectors for import/show/info controls
+- [x] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - Robot journey: import happy path -> tracks visible -> toggle hides/shows
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 2: Deterministic Import Semantics
 

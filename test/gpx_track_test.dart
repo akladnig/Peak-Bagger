@@ -1,52 +1,234 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/objectbox.g.dart';
+import 'package:peak_bagger/services/gpx_importer.dart';
+import 'package:peak_bagger/services/gpx_track_repository.dart';
 
 void main() {
   group('GpxTrack', () {
-    test('empty constructor creates with default values', () {
+    test('newly imported rows populate identity fields', () {
       final track = GpxTrack(
-        fileLocation: '/path/to/track.gpx',
-        trackName: '2024-01-15-test-track',
+        contentHash: 'abc123',
+        trackName: 'Mt Anne',
+        trackDate: DateTime(2024, 1, 15),
       );
 
-      expect(track.fileLocation, '/path/to/track.gpx');
-      expect(track.trackName, '2024-01-15-test-track');
+      expect(track.contentHash, 'abc123');
+      expect(track.trackName, 'Mt Anne');
+      expect(track.trackDate, DateTime(2024, 1, 15));
       expect(track.trackColour, 0xFFa726bc);
+      expect(track.trackPoints, '[]');
+      expect(track.hasMetadataTrackDate, isFalse);
     });
 
-    test('fromMap creates track from map', () {
+    test('getSegments decodes segmented geometry', () {
+      final track = GpxTrack(
+        contentHash: 'abc123',
+        trackName: 'Seg Track',
+        trackDate: DateTime(2024, 1, 15),
+        trackPoints: '[[[-42.1,146.1],[-42.2,146.2]],[[-42.3,146.3]]]',
+      );
+
+      final segments = track.getSegments();
+
+      expect(segments, hasLength(2));
+      expect(segments.first, hasLength(2));
+      expect(segments.first.first.latitude, -42.1);
+      expect(segments.first.first.longitude, 146.1);
+      expect(segments.last.single.latitude, -42.3);
+    });
+
+    test('fromMap and toMap round-trip new fields', () {
       final map = {
         'gpxTrackId': 1,
-        'fileLocation': '/test/path.gpx',
-        'trackName': '2024-01-15-mountain',
-        'startDateTime': '2024-01-15T10:00:00.000',
-        'distance': 5.5,
-        'ascent': 300.0,
+        'contentHash': 'hash',
+        'trackName': 'Frenchmans Cap',
+        'trackDate': '2024-01-15T00:00:00.000',
+        'trackPoints': '[[[-42.0,146.0]]]',
+        'startDateTime': '2024-01-15T08:00:00.000',
+        'endDateTime': '2024-01-15T17:00:00.000',
+        'distance': 10.5,
+        'ascent': 900.0,
         'totalTimeMillis': 3600000,
         'trackColour': 0xFFa726bc,
       };
 
       final track = GpxTrack.fromMap(map);
+      final encoded = track.toMap();
 
       expect(track.gpxTrackId, 1);
-      expect(track.fileLocation, '/test/path.gpx');
-      expect(track.trackName, '2024-01-15-mountain');
-      expect(track.distance, 5.5);
-    });
-
-    test('toMap returns correct map', () {
-      final track = GpxTrack(
-        fileLocation: '/test/path.gpx',
-        trackName: '2024-01-15-test',
-        distance: 5.5,
-        trackColour: 0xFFa726bc,
-      );
-
-      final map = track.toMap();
-
-      expect(map['fileLocation'], '/test/path.gpx');
-      expect(map['trackName'], '2024-01-15-test');
-      expect(map['distance'], 5.5);
+      expect(track.contentHash, 'hash');
+      expect(track.trackName, 'Frenchmans Cap');
+      expect(track.startDateTime, isNotNull);
+      expect(track.endDateTime, isNotNull);
+      expect(encoded['contentHash'], 'hash');
+      expect(encoded['trackName'], 'Frenchmans Cap');
+      expect(encoded['trackDate'], isNotNull);
+      expect(encoded['endDateTime'], isNotNull);
     });
   });
+
+  group(
+    'GpxTrackRepository',
+    () {
+      late Directory tempDir;
+      late Store store;
+      late GpxTrackRepository repository;
+
+      setUp(() async {
+        tempDir = await Directory.systemTemp.createTemp('gpx-track-test');
+        store = await openStore(directory: tempDir.path);
+        repository = GpxTrackRepository(store);
+      });
+
+      tearDown(() async {
+        store.close();
+        if (tempDir.existsSync()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      test('findByContentHash finds stored track', () {
+        final track = GpxTrack(
+          contentHash: 'hash-1',
+          trackName: 'Track 1',
+          trackDate: DateTime(2024, 1, 15),
+        );
+        repository.addTrack(track);
+
+        final found = repository.findByContentHash('hash-1');
+
+        expect(found, isNotNull);
+        expect(found!.trackName, 'Track 1');
+      });
+
+      test('findByTrackNameAndTrackDate uses metadata-date rows only', () {
+        repository.addTrack(
+          GpxTrack(
+            contentHash: 'no-meta',
+            trackName: 'Track A',
+            trackDate: DateTime(2024, 1, 15),
+          ),
+        );
+        repository.addTrack(
+          GpxTrack(
+            contentHash: 'meta',
+            trackName: 'Track A',
+            trackDate: DateTime(2024, 1, 15),
+            startDateTime: DateTime(2024, 1, 15, 8),
+          ),
+        );
+
+        final found = repository.findByTrackNameAndTrackDate(
+          'Track A',
+          DateTime(2024, 1, 15),
+        );
+
+        expect(found, isNotNull);
+        expect(found!.contentHash, 'meta');
+      });
+    },
+    skip: 'ObjectBox native library unavailable in flutter test environment',
+  );
+
+  group('GpxImporter', () {
+    late Directory tempDir;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('gpx-importer-test');
+    });
+
+    tearDown(() async {
+      if (tempDir.existsSync()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    test('parseGpxFile uses metadata name/date when available', () async {
+      final file = File('${tempDir.path}/track.gpx');
+      await file.writeAsString(_tasmanianGpx('Mt Anne'));
+
+      final importer = GpxImporter();
+      final track = importer.parseGpxFile(file.path);
+
+      expect(track, isNotNull);
+      expect(track!.trackName, 'Mt Anne');
+      expect(track.trackDate, DateTime(2024, 1, 15));
+      expect(track.startDateTime, isNotNull);
+      expect(track.endDateTime, isNotNull);
+      expect(track.contentHash, isNotEmpty);
+      expect(track.getSegments(), isNotEmpty);
+    });
+
+    test(
+      'importTracks reports non-Tasmanian files only in nonTasmanianCount',
+      () async {
+        final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
+        final tasDir = Directory('${tempDir.path}/Tracks/Tasmania')
+          ..createSync();
+        await File(
+          '${tracksDir.path}/tas.gpx',
+        ).writeAsString(_tasmanianGpx('Tas Track'));
+        await File(
+          '${tracksDir.path}/mainland.gpx',
+        ).writeAsString(_mainlandGpx('Mainland Track'));
+
+        final importer = GpxImporter(
+          tracksFolder: tracksDir.path,
+          tasmaniaFolder: tasDir.path,
+        );
+
+        final result = await importer.importTracks(
+          includeTasmaniaFolder: false,
+        );
+
+        expect(result.importedCount, 1);
+        expect(result.replacedCount, 0);
+        expect(result.unchangedCount, 0);
+        expect(result.errorSkippedCount, 0);
+        expect(result.nonTasmanianCount, 1);
+        expect(result.tracks, hasLength(1));
+      },
+    );
+  });
 }
+
+String _tasmanianGpx(String name) =>
+    '''
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <trk>
+    <name>$name</name>
+    <trkseg>
+      <trkpt lat="-42.1234" lon="146.1234">
+        <time>2024-01-15T08:00:00Z</time>
+      </trkpt>
+      <trkpt lat="-42.2234" lon="146.2234">
+        <time>2024-01-15T09:00:00Z</time>
+      </trkpt>
+    </trkseg>
+    <trkseg>
+      <trkpt lat="-42.3234" lon="146.3234">
+        <time>2024-01-15T10:00:00Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>
+''';
+
+String _mainlandGpx(String name) =>
+    '''
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <trk>
+    <name>$name</name>
+    <trkseg>
+      <trkpt lat="-37.8136" lon="144.9631">
+        <time>2024-01-15T08:00:00Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>
+''';

@@ -383,6 +383,7 @@ final router = GoRouter(
                                   ),
                                   const SizedBox(height: 8),
                                   FloatingActionButton.small(
+                                    key: const Key('map-info-fab'),
                                     heroTag: 'info',
                                     backgroundColor: Theme.of(
                                       context,
@@ -420,13 +421,18 @@ final router = GoRouter(
                                   Consumer(
                                     builder: (context, ref, _) {
                                       final mapState = ref.watch(mapProvider);
-                                      final isEmpty = mapState.tracks.isEmpty;
+                                      final isDisabled =
+                                          mapState.tracks.isEmpty ||
+                                          mapState.isLoadingTracks ||
+                                          mapState.hasTrackRecoveryIssue;
                                       return FloatingActionButton.small(
+                                        key: const Key('show-tracks-fab'),
                                         heroTag: 'tracks',
                                         backgroundColor: Theme.of(
                                           context,
                                         ).colorScheme.surface,
-                                        onPressed: isEmpty
+                                        tooltip: 'Show tracks',
+                                        onPressed: isDisabled
                                             ? null
                                             : () {
                                                 ref
@@ -435,7 +441,7 @@ final router = GoRouter(
                                               },
                                         child: Icon(
                                           Icons.route,
-                                          color: isEmpty
+                                          color: isDisabled
                                               ? Colors.red
                                               : Theme.of(
                                                   context,
@@ -446,17 +452,48 @@ final router = GoRouter(
                                   ),
                                   const SizedBox(height: 8),
                                   FloatingActionButton.small(
+                                    key: const Key('import-tracks-fab'),
                                     heroTag: 'import',
                                     backgroundColor: Theme.of(
                                       context,
                                     ).colorScheme.surface,
-                                    onPressed: null,
-                                    child: Icon(
-                                      Icons.input,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurface.withOpacity(0.38),
-                                    ),
+                                    tooltip: 'Import track',
+                                    onPressed:
+                                        ref
+                                                .watch(mapProvider)
+                                                .isLoadingTracks ||
+                                            ref
+                                                .watch(mapProvider)
+                                                .hasTrackRecoveryIssue
+                                        ? null
+                                        : () {
+                                            ref
+                                                .read(mapProvider.notifier)
+                                                .rescanTracks();
+                                          },
+                                    child:
+                                        ref.watch(mapProvider).isLoadingTracks
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Icon(
+                                            Icons.input,
+                                            color:
+                                                ref
+                                                    .watch(mapProvider)
+                                                    .hasTrackRecoveryIssue
+                                                ? Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurface
+                                                      .withValues(alpha: 0.38)
+                                                : Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface,
+                                          ),
                                   ),
                                 ],
                               );
@@ -467,6 +504,51 @@ final router = GoRouter(
                   },
                 ),
               ),
+              if (navigationShell.currentIndex == 1)
+                Consumer(
+                  builder: (context, ref, _) {
+                    final mapState = ref.watch(mapProvider);
+                    if (!mapState.hasTrackRecoveryIssue) {
+                      return const SizedBox.shrink();
+                    }
+                    return Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 24,
+                      child: Center(
+                        child: Material(
+                          color: Theme.of(context).colorScheme.surface,
+                          elevation: 3,
+                          borderRadius: BorderRadius.circular(20),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.warning_amber_rounded),
+                                const SizedBox(width: 8),
+                                const Text('Some tracks need to be rebuilt.'),
+                                const SizedBox(width: 12),
+                                TextButton(
+                                  key: const Key(
+                                    'open-track-recovery-settings',
+                                  ),
+                                  onPressed: () {
+                                    navigationShell.goBranch(3);
+                                  },
+                                  child: const Text('Open Settings'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
             ],
           ),
         );

@@ -279,7 +279,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             ref.read(mapProvider.notifier).toggleMapOverlay();
             return KeyEventResult.handled;
           } else if (key == LogicalKeyboardKey.keyT) {
-            ref.read(mapProvider.notifier).toggleTracks();
+            if (event is KeyDownEvent) {
+              ref.read(mapProvider.notifier).toggleTracks();
+            }
             return KeyEventResult.handled;
           }
           return KeyEventResult.ignored;
@@ -669,7 +671,20 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                             ],
                           ),
                         ],
-                        if (mapState.tracks.isNotEmpty) ...[
+                        if (mapState.hasTrackRecoveryIssue) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.warning_amber_rounded, size: 16),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Some tracks need to be rebuilt.',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ] else if (mapState.tracks.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           Row(
                             mainAxisSize: MainAxisSize.min,
@@ -900,31 +915,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     for (final track in tracks) {
       try {
-        final rawPoints = track.trackPoints;
-        if (rawPoints.isEmpty || rawPoints == '[]') continue;
-
-        final points = <LatLng>[];
-        final cleaned = rawPoints.substring(1, rawPoints.length - 1);
-        final pairs = cleaned.split('],[');
-
-        for (final pair in pairs) {
-          final coords = pair
-              .replaceAll('[', '')
-              .replaceAll(']', '')
-              .split(',');
-          if (coords.length == 2) {
-            final lat = double.tryParse(coords[0]);
-            final lng = double.tryParse(coords[1]);
-            if (lat != null && lng != null) {
-              points.add(LatLng(lat, lng));
-            }
-          }
-        }
-
-        if (points.isNotEmpty) {
+        for (final segment in track.getSegments()) {
+          if (segment.isEmpty) continue;
           polylines.add(
             Polyline(
-              points: points,
+              points: segment,
               color: Color(track.trackColour),
               strokeWidth: 3.0,
             ),

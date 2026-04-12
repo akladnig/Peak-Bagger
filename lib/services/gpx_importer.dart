@@ -1,12 +1,37 @@
+import 'dart:convert';
 import 'dart:io';
+
+import 'package:crypto/crypto.dart';
 import 'package:xml/xml.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+
+class TrackImportResult {
+  const TrackImportResult({
+    required this.tracks,
+    required this.importedCount,
+    required this.replacedCount,
+    required this.unchangedCount,
+    required this.nonTasmanianCount,
+    required this.errorSkippedCount,
+    this.warning,
+  });
+
+  final List<GpxTrack> tracks;
+  final int importedCount;
+  final int replacedCount;
+  final int unchangedCount;
+  final int nonTasmanianCount;
+  final int errorSkippedCount;
+  final String? warning;
+}
 
 class GpxImporter {
   static const _tasmaniaLatMin = -44.0;
   static const _tasmaniaLatMax = -39.0;
   static const _tasmaniaLngMin = 143.0;
   static const _tasmaniaLngMax = 148.0;
+  static String? debugTracksFolderOverride;
+  static String? debugTasmaniaFolderOverride;
 
   String tracksFolder;
   String tasmaniaFolder;
@@ -16,11 +41,17 @@ class GpxImporter {
       tasmaniaFolder = tasmaniaFolder ?? _defaultTasmaniaFolder();
 
   static String _defaultTracksFolder() {
+    if (debugTracksFolderOverride != null) {
+      return debugTracksFolderOverride!;
+    }
     final home = Platform.environment['HOME'] ?? '';
     return '$home/Documents/Bushwalking/Tracks';
   }
 
   static String _defaultTasmaniaFolder() {
+    if (debugTasmaniaFolderOverride != null) {
+      return debugTasmaniaFolderOverride!;
+    }
     final home = Platform.environment['HOME'] ?? '';
     return '$home/Documents/Bushwalking/Tracks/Tasmania';
   }
@@ -42,24 +73,31 @@ class GpxImporter {
         return null;
       }
 
-      final content = file.readAsStringSync();
+      final bytes = file.readAsBytesSync();
+      final content = utf8.decode(bytes);
       final doc = XmlDocument.parse(content);
 
-      final trackName = _extractTrackName(doc);
+      final trackName = _extractTrackName(doc, filePath);
       final firstPoint = _extractFirstPoint(doc);
 
       if (firstPoint == null) {
         return null;
       }
 
-      final dateStr = _extractDate(doc);
-      final formattedName = _formatTrackName(trackName, dateStr);
+      final startDateTime = _extractStartDateTime(doc);
+      final endDateTime = _extractEndDateTime(doc);
+      final modified = file.lastModifiedSync();
+      final trackDate = _normalizeTrackDate(startDateTime ?? modified);
       final trackPoints = _extractAllPointsAsJson(doc);
+      final contentHash = sha256.convert(bytes).toString();
 
       return GpxTrack(
-        fileLocation: filePath,
-        trackName: formattedName,
+        contentHash: contentHash,
+        trackName: trackName,
+        trackDate: trackDate,
         trackPoints: trackPoints,
+        startDateTime: startDateTime,
+        endDateTime: endDateTime,
       );
     } catch (e) {
       return null;
@@ -67,10 +105,10 @@ class GpxImporter {
   }
 
   String _extractAllPointsAsJson(XmlDocument doc) {
-    final buffer = StringBuffer('[');
-    var first = true;
+    final segments = <List<List<double>>>[];
 
     for (final trkseg in doc.findAllElements('trkseg')) {
+      final segment = <List<double>>[];
       for (final trkpt in trkseg.findElements('trkpt')) {
         final latStr = trkpt.getAttribute('lat');
         final lonStr = trkpt.getAttribute('lon');
@@ -79,30 +117,30 @@ class GpxImporter {
           final lat = double.tryParse(latStr);
           final lon = double.tryParse(lonStr);
           if (lat != null && lon != null) {
-            if (!first)
-              buffer.write(',[');
-            else
-              buffer.write('[');
-            buffer.write('$lat,$lon]');
-            first = false;
+            segment.add([lat, lon]);
           }
         }
       }
+      if (segment.isNotEmpty) {
+        segments.add(segment);
+      }
     }
 
-    buffer.write(']');
-    return buffer.toString();
+    return jsonEncode(segments);
   }
 
-  String? _extractTrackName(XmlDocument doc) {
+  String _extractTrackName(XmlDocument doc, String filePath) {
     final nameElement = doc.findAllElements('name').firstOrNull;
     if (nameElement != null) {
-      return nameElement.innerText;
+      final text = nameElement.innerText.trim();
+      if (text.isNotEmpty) {
+        return text;
+      }
     }
-    return null;
+    return _basenameWithoutExtension(filePath);
   }
 
-  String? _extractDate(XmlDocument doc) {
+  DateTime? _extractStartDateTime(XmlDocument doc) {
     final trkseg = doc.findAllElements('trkseg').firstOrNull;
     if (trkseg == null) return null;
 
@@ -113,19 +151,39 @@ class GpxImporter {
     if (time == null) return null;
 
     try {
-      final dt = DateTime.parse(time.innerText);
-      return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+      return DateTime.parse(time.innerText).toLocal();
     } catch (e) {
       return null;
     }
   }
 
-  String _formatTrackName(String? name, String? date) {
-    final baseName = name ?? 'unknown';
-    if (date != null) {
-      return '$date-$baseName';
+  DateTime? _extractEndDateTime(XmlDocument doc) {
+    DateTime? latest;
+    for (final trkpt in doc.findAllElements('trkpt')) {
+      final time = trkpt.findElements('time').firstOrNull;
+      if (time == null) continue;
+      try {
+        latest = DateTime.parse(time.innerText).toLocal();
+      } catch (_) {
+        continue;
+      }
     }
-    return baseName;
+    return latest;
+  }
+
+  DateTime _normalizeTrackDate(DateTime value) {
+    final local = value.toLocal();
+    return DateTime(local.year, local.month, local.day);
+  }
+
+  String _basenameWithoutExtension(String filePath) {
+    final separator = Platform.pathSeparator;
+    final filename = filePath.split(separator).last;
+    final dotIndex = filename.lastIndexOf('.');
+    if (dotIndex <= 0) {
+      return filename;
+    }
+    return filename.substring(0, dotIndex);
   }
 
   ({double lat, double lng})? _extractFirstPoint(XmlDocument doc) {
@@ -148,8 +206,14 @@ class GpxImporter {
     return (lat: lat, lng: lng);
   }
 
-  Future<List<GpxTrack>> importTracks() async {
+  Future<TrackImportResult> importTracks({
+    bool includeTasmaniaFolder = true,
+  }) async {
     final tracks = <GpxTrack>[];
+    final seenContentHashes = <String>{};
+    var unchangedCount = 0;
+    var nonTasmanianCount = 0;
+    var errorSkippedCount = 0;
 
     final tracksDir = Directory(tracksFolder);
     final tasmaniaDir = Directory(tasmaniaFolder);
@@ -162,34 +226,62 @@ class GpxImporter {
       await tasmaniaDir.create(recursive: true);
     }
 
+    final snapshot = <File>[];
     if (tracksDir.existsSync()) {
-      await _scanDirectory(tracksDir, tracks);
+      snapshot.addAll(_snapshotDirectory(tracksDir));
     }
 
-    if (tasmaniaDir.existsSync()) {
-      await _scanDirectory(tasmaniaDir, tracks);
+    if (includeTasmaniaFolder && tasmaniaDir.existsSync()) {
+      snapshot.addAll(_snapshotDirectory(tasmaniaDir));
     }
 
-    return tracks;
+    snapshot.sort((a, b) => a.path.compareTo(b.path));
+
+    for (final file in snapshot) {
+      final track = parseGpxFile(file.path);
+      if (track == null) {
+        errorSkippedCount += 1;
+        continue;
+      }
+
+      final firstPoint = _getFirstPointFromFile(file.path);
+      if (firstPoint == null) {
+        errorSkippedCount += 1;
+        continue;
+      }
+
+      if (!isTasmanian(firstPoint.lat, firstPoint.lng)) {
+        nonTasmanianCount += 1;
+        continue;
+      }
+
+      if (!seenContentHashes.add(track.contentHash)) {
+        unchangedCount += 1;
+        continue;
+      }
+
+      tracks.add(track);
+    }
+
+    return TrackImportResult(
+      tracks: tracks,
+      importedCount: tracks.length,
+      replacedCount: 0,
+      unchangedCount: unchangedCount,
+      nonTasmanianCount: nonTasmanianCount,
+      errorSkippedCount: errorSkippedCount,
+    );
   }
 
-  Future<void> _scanDirectory(Directory dir, List<GpxTrack> tracks) async {
+  List<File> _snapshotDirectory(Directory dir) {
     try {
-      final files = dir.listSync();
-      for (final entity in files) {
-        if (entity is File && entity.path.toLowerCase().endsWith('.gpx')) {
-          final track = parseGpxFile(entity.path);
-          if (track != null) {
-            final firstPoint = _getFirstPointFromFile(entity.path);
-            if (firstPoint != null &&
-                isTasmanian(firstPoint.lat, firstPoint.lng)) {
-              tracks.add(track);
-            }
-          }
-        }
-      }
+      return dir
+          .listSync()
+          .whereType<File>()
+          .where((file) => file.path.toLowerCase().endsWith('.gpx'))
+          .toList(growable: false);
     } catch (e) {
-      // Skip directories we can't read
+      return const [];
     }
   }
 
