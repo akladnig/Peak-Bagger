@@ -250,6 +250,44 @@ void main() {
       expect(result.tracks.single.gpxTrackId, isZero);
       expect(result.tracks.single.hasMetadataTrackDate, isFalse);
     });
+
+    test(
+      'same-operation logical-match conflict keeps first candidate and skips later one',
+      () async {
+        final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
+        final tasDir = Directory('${tempDir.path}/Tracks/Tasmania')
+          ..createSync();
+        await File(
+          '${tracksDir.path}/a-first.gpx',
+        ).writeAsString(_tasmanianGpx('Tas Track'));
+        await File(
+          '${tracksDir.path}/z-second.gpx',
+        ).writeAsString(_tasmanianGpxShifted('Tas Track'));
+
+        final importer = GpxImporter(
+          tracksFolder: tracksDir.path,
+          tasmaniaFolder: tasDir.path,
+        );
+        final existing = GpxTrack(
+          gpxTrackId: 12,
+          contentHash: 'old-hash',
+          trackName: 'Tas Track',
+          trackDate: DateTime(2024, 1, 15),
+          startDateTime: DateTime(2024, 1, 15, 8),
+        );
+
+        final result = await importer.importTracks(
+          includeTasmaniaFolder: false,
+          existingTracks: [existing],
+        );
+
+        expect(result.replacedCount, 1);
+        expect(result.errorSkippedCount, 1);
+        expect(result.tracks, hasLength(1));
+        expect(result.tracks.single.trackPoints, contains('-42.1234'));
+        expect(result.warning, contains('import.log'));
+      },
+    );
   });
 }
 
@@ -300,6 +338,24 @@ String _tasmanianGpxNoDate(String name) =>
     <trkseg>
       <trkpt lat="-42.1234" lon="146.1234" />
       <trkpt lat="-42.2234" lon="146.2234" />
+    </trkseg>
+  </trk>
+</gpx>
+''';
+
+String _tasmanianGpxShifted(String name) =>
+    '''
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <trk>
+    <name>$name</name>
+    <trkseg>
+      <trkpt lat="-42.5234" lon="146.5234">
+        <time>2024-01-15T08:00:00Z</time>
+      </trkpt>
+      <trkpt lat="-42.6234" lon="146.6234">
+        <time>2024-01-15T09:00:00Z</time>
+      </trkpt>
     </trkseg>
   </trk>
 </gpx>

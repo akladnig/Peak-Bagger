@@ -35,13 +35,13 @@ Thin slice first; deterministic import semantics + recovery/reset UX next.
 ### Phase 2: Deterministic Import Semantics
 
 - **Goal**: duplicate/replacement/counting correctness
-- [ ] `lib/services/gpx_importer.dart` - identical-content grouping, canonical name/date, non-Tasmanian counting, unchanged collision/manual-review rules, import log writes
-- [ ] `lib/services/gpx_track_repository.dart` - metadata-date-only replacement; same-operation conflict handling; persisted logical-match winner rule per clarified assumption
+- [x] `lib/services/gpx_importer.dart` - identical-content grouping, canonical name/date, non-Tasmanian counting, unchanged collision/manual-review rules, import log writes
+- [x] `lib/services/gpx_track_repository.dart` - metadata-date-only replacement; same-operation conflict handling; persisted logical-match winner rule per clarified assumption
 - [x] `lib/providers/map_provider.dart` - surface result summary + warning state from importer
-- [ ] `test/gpx_track_test.dart` - extend importer/repository slices for duplicate groups, no-date rules, manual-review warnings, mixed counters
-- [ ] TDD: identical-content duplicates collapse deterministically; non-Tasmanian files affect only `nonTasmanianCount`; no-date changed tracks do not replace; same-operation logical-match conflict losers stay at source path and count as `errorSkippedCount`
-- [ ] `test/widget/gpx_tracks_summary_test.dart` - widget coverage for mixed-result summary text
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `test/gpx_track_test.dart` - extend importer/repository slices for duplicate groups, no-date rules, manual-review warnings, mixed counters
+- [x] TDD: identical-content duplicates collapse deterministically; non-Tasmanian files affect only `nonTasmanianCount`; no-date changed tracks do not replace; same-operation logical-match conflict losers stay at source path and count as `errorSkippedCount`
+- [x] `test/widget/gpx_tracks_summary_test.dart` - widget coverage for mixed-result summary text
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Recovery And Reset UX
 
@@ -50,10 +50,10 @@ Thin slice first; deterministic import semantics + recovery/reset UX next.
 - [x] `lib/router.dart` - route-shell snackbar + persistent banner, Settings navigation action, recovery selectors
 - [x] `lib/screens/settings_screen.dart` - `Reset Track Data` tile, confirmation dialog, dedicated Tracks status/warning area, busy/disable states
 - [x] `lib/screens/map_screen.dart` - recovery-mode info popup swap; hide track rendering while recovery active
-- [ ] TDD: persisted invalid rows trigger recovery; reset rebuild clears recovery; import/show controls restore; `showTracks` resets to false after reset
-- [ ] `test/robot/gpx_tracks/recovery_robot.dart` - selectors for banner, snackbar action, reset tile/dialog, status area
-- [ ] `test/robot/gpx_tracks/recovery_journey_test.dart` - Robot journey: recovery snackbar/banner -> Settings -> Reset Track Data -> back to map -> controls restored
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] TDD: persisted invalid rows trigger recovery; reset rebuild clears recovery; import/show controls restore; `showTracks` resets to false after reset
+- [x] `test/robot/gpx_tracks/recovery_robot.dart` - selectors for banner, snackbar action, reset tile/dialog, status area
+- [x] `test/robot/gpx_tracks/recovery_journey_test.dart` - Robot journey: recovery snackbar/banner -> Settings -> Reset Track Data -> back to map -> controls restored
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 4: Platform And Hardening
 

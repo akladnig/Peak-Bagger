@@ -212,6 +212,7 @@ class GpxImporter {
   }) async {
     final tracks = <GpxTrack>[];
     final seenContentHashes = <String>{};
+    final seenLogicalMatches = <String>{};
     final existingContentHashes = existingTracks
         .map((track) => track.contentHash)
         .where((hash) => hash.isNotEmpty)
@@ -221,6 +222,7 @@ class GpxImporter {
     var unchangedCount = 0;
     var nonTasmanianCount = 0;
     var errorSkippedCount = 0;
+    var logWriteFailed = false;
 
     final tracksDir = Directory(tracksFolder);
     final tasmaniaDir = Directory(tasmaniaFolder);
@@ -248,12 +250,20 @@ class GpxImporter {
       final track = parseGpxFile(file.path);
       if (track == null) {
         errorSkippedCount += 1;
+        logWriteFailed = !await _appendImportLog(
+          file.path,
+          'Invalid or unreadable GPX',
+        );
         continue;
       }
 
       final firstPoint = _getFirstPointFromFile(file.path);
       if (firstPoint == null) {
         errorSkippedCount += 1;
+        logWriteFailed = !await _appendImportLog(
+          file.path,
+          'First track point unreadable',
+        );
         continue;
       }
 
@@ -269,6 +279,16 @@ class GpxImporter {
       }
 
       if (track.hasMetadataTrackDate && track.trackDate != null) {
+        final logicalKey =
+            '${track.trackName}|${track.trackDate!.toIso8601String()}';
+        if (!seenLogicalMatches.add(logicalKey)) {
+          errorSkippedCount += 1;
+          logWriteFailed = !await _appendImportLog(
+            file.path,
+            'Same-operation logical-match conflict',
+          );
+          continue;
+        }
         final existing = _findExistingLogicalMatch(existingTracks, track);
         if (existing != null && existing.contentHash != track.contentHash) {
           track.gpxTrackId = existing.gpxTrackId;
@@ -290,9 +310,27 @@ class GpxImporter {
       nonTasmanianCount: nonTasmanianCount,
       errorSkippedCount: errorSkippedCount,
       warning: errorSkippedCount > 0
-          ? 'Some files need manual review. See import.log.'
+          ? (logWriteFailed
+                ? 'Some files need manual review. import.log could not be updated.'
+                : 'Some files need manual review. See import.log.')
           : null,
     );
+  }
+
+  Future<bool> _appendImportLog(String filePath, String reason) async {
+    try {
+      final logFile = File(
+        '$tasmaniaFolder${Platform.pathSeparator}import.log',
+      );
+      await logFile.writeAsString(
+        '${DateTime.now().toIso8601String()} | $filePath | $reason\n',
+        mode: FileMode.append,
+        flush: true,
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   GpxTrack? _findExistingLogicalMatch(
