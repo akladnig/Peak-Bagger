@@ -22,7 +22,7 @@ Thin slice first; deterministic import semantics + recovery/reset UX next.
 - [x] `lib/services/gpx_track_repository.dart` - content-hash lookup; metadata-date logical lookup; baseline add/get/deleteAll
 - [x] `lib/services/gpx_importer.dart` - parse GPX metadata, filename fallback, Tasmania classify, fixed pre-move scan snapshot, minimal `TrackImportResult`
 - [x] `lib/providers/map_provider.dart` - add track state/import state/toggle path; empty-db auto-import; startup load behavior
-- [x] `lib/router.dart` - wire import/show FABs, tooltip/semantics, progress/disable states, stable keys
+- [x] `lib/router.dart` - wire import/show FABs, left-positioned tooltip/semantics wrapper, progress/disable states, stable keys
 - [x] `lib/screens/map_screen.dart` - render segmented polylines; info popup track row; `t` shortcut obeying FAB rules
 - [x] `lib/objectbox-model.json` - regenerate schema
 - [x] `lib/objectbox.g.dart` - regenerate bindings

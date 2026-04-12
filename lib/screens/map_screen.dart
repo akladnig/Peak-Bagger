@@ -175,6 +175,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       if (mapState.showGotoInput && !_gotoFocusNode.hasFocus) {
         _gotoFocusNode.requestFocus();
       }
+      if (!mapState.showPeakSearch &&
+          !mapState.showGotoInput &&
+          !_mapFocusNode.hasFocus &&
+          mounted) {
+        _mapFocusNode.requestFocus();
+      }
     });
 
     return Scaffold(
@@ -301,6 +307,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ref.read(mapProvider.notifier).centerOnSelectedLocation();
                   },
                   onPointerDown: (event, point) {
+                    _mapFocusNode.requestFocus();
                     setState(() {
                       _isPointerDown = true;
                       _pointerDownPosition = event.localPosition;

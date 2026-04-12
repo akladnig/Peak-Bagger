@@ -55,7 +55,7 @@ Add goto by map name (auto-zoom + rectangle) and map grid overlay. Phase 4a: map
 ### Phase 5: Grid FAB (Phase 4b)
 
 - **Goal**: Show maps grid overlay
-- [x] `lib/router.dart` - add grid FAB (Icons.grid_on) between goto and info
+- [x] `lib/router.dart` - add grid FAB (Icons.grid_on) between goto and info using the shared left-positioned tooltip/semantics wrapper pattern
 - [x] Add 'M' key handler for toggle
 - [x] `lib/screens/map_screen.dart` - draw all map rectangles (PolygonLayer)
 - [x] Show name + series labels (Annotations or text)

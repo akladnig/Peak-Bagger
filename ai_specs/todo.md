@@ -26,9 +26,18 @@
 - [x] Wrong map shown on info
 - [x] Peak info not being displayed
 - [ ] Do not re-import Tasmap on every launch.
+- [ ] disable 2 finger map rotation
+- [ ] get filename from gpx track name
+- [ ] fix "&amp;"
+- [ ] update tooltips - Goto Location, Show Map Grid 
 ## 4a
 - [x] add go to map only, centre on map and zoom to map extents, and draw a blue rectangle around the map extents so that the map can be seen when zooming out.
 - [ ] Add show maps - a blue grid of all maps. Map name and series to be shown at bottom right of each map.
+## 5
+- [ ] implement gpx track import - multiple file import or just scan default folder.
+- [ ] distance (double?) - future, null for now
+- [ ] ascent (double?) - future, null for now
+- [ ] totalTimeMillis (int?) - future, null for now (Duration stored as milliseconds)
 
 # Keyboard Mapping
 ## Menu

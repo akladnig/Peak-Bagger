@@ -162,6 +162,78 @@ void main() {
       expect(track.getSegments(), isNotEmpty);
     });
 
+    test('isTasmanian includes eastern Tasmania longitudes', () {
+      final importer = GpxImporter();
+
+      expect(importer.isTasmanian(-42.14166, 148.299456), isTrue);
+      expect(importer.isTasmanian(-40.908926, 148.207244), isTrue);
+    });
+
+    test('parseGpxFile supports route GPX files', () async {
+      final file = File('${tempDir.path}/route.gpx');
+      await file.writeAsString(_tasmanianRouteGpx('Mt Dial & Gnomon'));
+
+      final importer = GpxImporter();
+      final track = importer.parseGpxFile(file.path);
+
+      expect(track, isNotNull);
+      expect(track!.trackName, 'Mt Dial & Gnomon');
+      expect(track.getSegments(), isNotEmpty);
+      expect(track.getSegments().single.length, greaterThan(1));
+    });
+
+    test(
+      'route GPX files are moved to Routes and excluded from counts',
+      () async {
+        final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
+        final tasDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+        final routesDir = Directory('${tempDir.path}/Routes')..createSync();
+        final source = File('${tracksDir.path}/route.gpx');
+        await source.writeAsString(_tasmanianRouteGpx('Mt Dial & Gnomon'));
+
+        final importer = GpxImporter(
+          tracksFolder: tracksDir.path,
+          tasmaniaFolder: tasDir.path,
+          routesFolder: routesDir.path,
+        );
+
+        final result = await importer.importTracks(
+          includeTasmaniaFolder: false,
+        );
+
+        expect(result.importedCount, 0);
+        expect(result.replacedCount, 0);
+        expect(result.unchangedCount, 0);
+        expect(result.nonTasmanianCount, 0);
+        expect(result.errorSkippedCount, 0);
+        expect(result.tracks, isEmpty);
+        expect(source.existsSync(), isFalse);
+        expect(
+          File('${routesDir.path}/route_(29-06-2025).gpx').existsSync(),
+          isTrue,
+        );
+      },
+    );
+
+    test('no-point GPX logs no track points found', () async {
+      final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
+      final tasDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+      await File(
+        '${tracksDir.path}/empty-track.gpx',
+      ).writeAsString(_noPointGpx('Lunch Activity'));
+
+      final importer = GpxImporter(
+        tracksFolder: tracksDir.path,
+        tasmaniaFolder: tasDir.path,
+      );
+
+      final result = await importer.importTracks(includeTasmaniaFolder: false);
+      final importLog = File(importer.getImportLogPath()).readAsStringSync();
+
+      expect(result.errorSkippedCount, 1);
+      expect(importLog, contains('No track points found'));
+    });
+
     test(
       'importTracks reports non-Tasmanian files only in nonTasmanianCount',
       () async {
@@ -221,6 +293,55 @@ void main() {
       expect(result.replacedCount, 1);
       expect(result.tracks.single.gpxTrackId, 7);
     });
+
+    test('tasmanian imported file is moved into Tasmania folder', () async {
+      final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
+      final tasDir = Directory('${tracksDir.path}/Tracks/Tasmania')
+        ..createSync(recursive: true);
+      final source = File('${tracksDir.path}/lake-skinner.gpx');
+      await source.writeAsString(_tasmanianGpx('Lake Skinner'));
+
+      final importer = GpxImporter(
+        tracksFolder: tracksDir.path,
+        tasmaniaFolder: tasDir.path,
+      );
+
+      final result = await importer.importTracks(includeTasmaniaFolder: false);
+
+      expect(result.importedCount, 1);
+      expect(source.existsSync(), isFalse);
+      expect(
+        File('${tasDir.path}/lake-skinner_(15-01-2024).gpx').existsSync(),
+        isTrue,
+      );
+    });
+
+    test(
+      'moved filename is canonicalized using filename date override',
+      () async {
+        final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
+        final tasDir = Directory('${tracksDir.path}/Tracks/Tasmania')
+          ..createSync(recursive: true);
+        final source = File(
+          '${tracksDir.path}/Mt. William & Dove, Ridge (2024-02-03 13-30).gpx',
+        );
+        await source.writeAsString(_tasmanianGpx('Mt William'));
+
+        final importer = GpxImporter(
+          tracksFolder: tracksDir.path,
+          tasmaniaFolder: tasDir.path,
+        );
+
+        await importer.importTracks(includeTasmaniaFolder: false);
+
+        expect(
+          File(
+            '${tasDir.path}/mt-william-dove-ridge_(03-02-2024).gpx',
+          ).existsSync(),
+          isTrue,
+        );
+      },
+    );
 
     test('no-date changed track does not replace logical match', () async {
       final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
@@ -327,7 +448,7 @@ void main() {
         final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
         final tasDir = Directory('${tracksDir.path}/Tasmania')..createSync();
         final source = File('${tracksDir.path}/track.gpx');
-        final destination = File('${tasDir.path}/track.gpx');
+        final destination = File('${tasDir.path}/track_(15-01-2024).gpx');
         await source.writeAsString(_tasmanianGpx('Tas Track'));
         await destination.writeAsString(_tasmanianGpx('Tas Track'));
 
@@ -357,7 +478,7 @@ void main() {
         final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
         final tasDir = Directory('${tracksDir.path}/Tasmania')..createSync();
         final source = File('${tracksDir.path}/track.gpx');
-        final destination = File('${tasDir.path}/track.gpx');
+        final destination = File('${tasDir.path}/track_(15-01-2024).gpx');
         await source.writeAsString(_tasmanianGpx('Tas Track'));
         await destination.writeAsString(_tasmanianGpx('Other Track'));
 
@@ -376,6 +497,40 @@ void main() {
         expect(moved, isFalse);
         expect(source.existsSync(), isTrue);
         expect(destination.existsSync(), isTrue);
+      },
+    );
+
+    test(
+      'moveReplacementFile preserves existing organized filename for logical match',
+      () async {
+        final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
+        final tasDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+        final source = File('${tracksDir.path}/Mt. William Alternate.gpx');
+        final destination = File('${tasDir.path}/mt-william_(15-01-2024).gpx');
+        await source.writeAsString(_tasmanianGpx('Mt William'));
+        await destination.writeAsString(_tasmanianGpx('Mt William'));
+
+        final importer = GpxImporter(
+          tracksFolder: tracksDir.path,
+          tasmaniaFolder: tasDir.path,
+        );
+        final replacementTrack = importer.parseGpxFile(source.path)!;
+
+        final moved = await importer.moveReplacementFile(
+          sourcePath: source.path,
+          replacementTrack: replacementTrack,
+          applyDatabaseReplacement: () async {},
+        );
+
+        expect(moved, isTrue);
+        expect(destination.existsSync(), isTrue);
+        expect(source.existsSync(), isFalse);
+        expect(
+          File(
+            '${tasDir.path}/mt-william-alternate_(15-01-2024).gpx',
+          ).existsSync(),
+          isFalse,
+        );
       },
     );
   });
@@ -429,6 +584,32 @@ String _tasmanianGpxNoDate(String name) =>
       <trkpt lat="-42.1234" lon="146.1234" />
       <trkpt lat="-42.2234" lon="146.2234" />
     </trkseg>
+  </trk>
+</gpx>
+''';
+
+String _tasmanianRouteGpx(String name) =>
+    '''
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <rte>
+    <name>$name</name>
+    <rtept lat="-41.177239" lon="146.027882">
+      <time>2025-06-28T23:05:54Z</time>
+    </rtept>
+    <rtept lat="-41.177389" lon="146.027849">
+      <time>2025-06-28T23:06:54Z</time>
+    </rtept>
+  </rte>
+</gpx>
+''';
+
+String _noPointGpx(String name) =>
+    '''
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <trk>
+    <name>$name</name>
   </trk>
 </gpx>
 ''';

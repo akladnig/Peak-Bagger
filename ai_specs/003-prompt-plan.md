@@ -40,7 +40,7 @@ Add ObjectBox database for storing Tasmanian peaks from Overpass API with search
 
 - [x] lib/screens/map_screen.dart - Add TextField search box with dropdown overlay
 - [x] lib/screens/map_screen.dart - Add Marker tooltips with name + elevation (not supported in flutter_map 8.x - feature not implemented)
-- [x] lib/router.dart - Ensure search FAB toggles showPeakSearch
+- [x] lib/router.dart - Ensure search FAB toggles showPeakSearch and follows the shared left-positioned tooltip/semantics wrapper pattern
 - [x] TDD: Mount Arthur search returns 3 results
 - [x] Verify: flutter analyze && flutter test
 

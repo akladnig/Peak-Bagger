@@ -21,6 +21,7 @@ Users benefit by being able to navigate to any 50k map directly and visualize ma
 - CircleLayer for selected peaks (map_screen.dart:338-348)
 - goto input field (map_screen.dart:474-525)
 - Toggle FAB pattern in router.dart
+- Map route-shell FABs should follow the same left-positioned tooltip/semantics wrapper pattern used by the import and show tracks FABs
 </background>
 
 <user_flows>
@@ -92,10 +93,11 @@ Error flows:
 
 **Phase 4b - Functional:**
 1. Add new "show maps" FAB (Icons.grid_on) between goto and info FABs
-2. 'M' key (shift+M) toggles map overlay
-3. All maps displayed with blue rectangles
-4. Map name + series shown at bottom-right of each rectangle
-5. Overlay closes when any other FAB is tapped
+2. The grid FAB uses the same left-positioned tooltip/semantics wrapper pattern as the import and show tracks FABs
+3. 'M' key (shift+M) toggles map overlay
+4. All maps displayed with blue rectangles
+5. Map name + series shown at bottom-right of each rectangle
+6. Overlay closes when any other FAB is tapped
 
 **Error Handling:**
 9. Map not found: "No maps found matching '[input]'" error below input
@@ -139,6 +141,7 @@ Error flows:
 - @lib/services/tasmap_repository.dart - Add getMapCenter() method, add searchMaps(prefix) method
 - @lib/screens/map_screen.dart - Add ListView dropdown below goto TextField, add PolygonLayer for rectangles
 - @lib/router.dart - Add grid FAB between goto and info FABs
+  - make the grid FAB use the same left-positioned tooltip/semantics wrapper pattern as the import and show tracks FABs
 
 **Patterns to follow:**
 - Use existing CircleLayer pattern for rectangles (PolygonLayer)
