@@ -1,123 +1,72 @@
 ## Overview
 
-Implement GPX tracks display feature: import Tasmanian GPX tracks, save to ObjectBox, display on map with toggle.
+GPX track import/render rewrite for macOS map flow.
+Thin slice first; deterministic import semantics + recovery/reset UX next.
 
-**Spec**: `ai_specs/005-gpx-tracks-spec.md`
+**Spec**: `ai_specs/005-gpx-tracks-spec.md` (read this file for full requirements)
 
 ## Context
 
-- **Structure**: Layer-first (lib/providers, lib/services, lib/models)
-- **State management**: Riverpod
-- **Reference implementations**: 
-  - `lib/models/peak.dart` - ObjectBox entity pattern
-  - `lib/services/peak_repository.dart` - CRUD pattern
-  - `lib/providers/map_provider.dart` - MapNotifier pattern
+- **Structure**: Layer-first: `lib/models`, `lib/services`, `lib/providers`, `lib/screens`, `lib/router.dart`
+- **State management**: Riverpod `NotifierProvider`; keep track ownership in `MapNotifier`
+- **Reference implementations**: `lib/providers/map_provider.dart`, `lib/router.dart`, `lib/screens/settings_screen.dart`, `lib/models/peak.dart`
+- **Assumptions/Gaps**: Release build must drop App Sandbox; debug already aligns. Gap: persisted multi-row logical-match winner still unspecified in spec; assume highest `gpxTrackId` unless clarified before execution.
 
-## Implementation order (TDD slices)
+## Plan
 
-### Phase 1: GPXTrack entity (TDD)
+### Phase 1: Vertical Slice
 
-- [ ] `lib/models/gpx_track.dart` - Create entity following Peak pattern:
-  - @Entity() class GPXTrack
-  - @Id() int gpxTrackId
-  - String fileLocation
-  - String trackName
-  - DateTime? startDateTime (nullable)
-  - double? distance (nullable)
-  - double? ascent (nullable)  
-  - int? totalTimeMillis (nullable)
-  - int trackColour (default 0xFFa726bc)
-- [ ] Run `dart run build_runner build` to generate ObjectBox bindings
+- **Goal**: one Tasmanian GPX imports, persists, renders, toggles
+- [ ] `pubspec.yaml` - add `crypto`; keep existing `xml`/ObjectBox stack
+- [ ] `lib/models/gpx_track.dart` - retrofit schema; add `contentHash`, `trackDate`, `endDateTime`, nullable markers, segmented decode API
+- [ ] `lib/services/gpx_track_repository.dart` - content-hash lookup; metadata-date logical lookup; baseline add/get/deleteAll
+- [ ] `lib/services/gpx_importer.dart` - parse GPX metadata, filename fallback, Tasmania classify, fixed pre-move scan snapshot, minimal `TrackImportResult`
+- [ ] `lib/providers/map_provider.dart` - add track state/import state/toggle path; empty-db auto-import; startup load behavior
+- [ ] `lib/router.dart` - wire import/show FABs, tooltip/semantics, progress/disable states, stable keys
+- [ ] `lib/screens/map_screen.dart` - render segmented polylines; info popup track row; `t` shortcut obeying FAB rules
+- [ ] `lib/objectbox-model.json` - regenerate schema
+- [ ] `lib/objectbox.g.dart` - regenerate bindings
+- [ ] `test/gpx_track_test.dart` - unit/domain slices for entity, repository, one-file import happy path
+- [ ] TDD: one Tasmanian GPX with metadata imports, persists, auto-shows on first load, toggles off/on, and survives analyze/test
+- [ ] `test/robot/gpx_tracks/gpx_tracks_robot.dart` - add key-first selectors for import/show/info controls
+- [ ] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - Robot journey: import happy path -> tracks visible -> toggle hides/shows
 - [ ] Verify: `flutter analyze` && `flutter test`
 
-### Phase 2: Repository (TDD)
+### Phase 2: Deterministic Import Semantics
 
-- [ ] `lib/services/gpx_track_repository.dart` - Create repository:
-  - Constructor takes Store (ObjectBox)
-  - addTrack(GPXTrack) → int (returns id)
-  - getAllTracks() → List<GPXTrack>
-  - getTrackCount() → int (for isEmpty check)
-  - findById(int) → GPXTrack?
-  - findByFileLocation(String) → GPXTrack?
-  - deleteTrack(int) → bool
-- [ ] `test/gpx_track_test.dart` - TDD test slices:
-  - Slice 1 (RED): GPXTrack entity - empty constructor
-  - Slice 2 (GREEN): Add fromMap/fromJson constructor
-  - Slice 3 (RED): Repository.addTrack() persists to ObjectBox
-  - Slice 4 (GREEN): Repository.getAllTracks() returns all tracks
-  - Slice 5 (RED): Repository.findByFileLocation() finds track
-  - Slice 6 (GREEN): Repository.getTrackCount() returns 0 when empty
+- **Goal**: duplicate/replacement/counting correctness
+- [ ] `lib/services/gpx_importer.dart` - identical-content grouping, canonical name/date, non-Tasmanian counting, unchanged collision/manual-review rules, import log writes
+- [ ] `lib/services/gpx_track_repository.dart` - metadata-date-only replacement; same-operation conflict handling; persisted logical-match winner rule per clarified assumption
+- [ ] `lib/providers/map_provider.dart` - surface result summary + warning state from importer
+- [ ] `test/gpx_track_test.dart` - extend importer/repository slices for duplicate groups, no-date rules, manual-review warnings, mixed counters
+- [ ] TDD: identical-content duplicates collapse deterministically; non-Tasmanian files affect only `nonTasmanianCount`; no-date changed tracks do not replace; same-operation logical-match conflict losers stay at source path and count as `errorSkippedCount`
+- [ ] `test/widget/gpx_tracks_summary_test.dart` - widget coverage for mixed-result summary text
 - [ ] Verify: `flutter analyze` && `flutter test`
 
-### Phase 3: GPXImporter service
+### Phase 3: Recovery And Reset UX
 
-- [ ] `lib/services/gpx_importer.dart` - Create import logic:
-  - parseGpxFile(String path) → GPXTrack? - parses XML, extracts trackName, first point lat/lng
-  - isTasmanian(double lat, double lng) → bool - checks coords within Tasmania bounds (-39 to -44 lat, 143 to 148 lng)
-  - getTracksFolder() → String - configurable path for ~/Documents/Bushwalking/Tracks
-  - getTasmaniaFolder() → String - configurable path for Tasmania subfolder
-- [ ] Note: For initial implementation, extract only fileLocation and trackName from GPX
-- [ ] Verify: `flutter analyze`
-
-### Phase 4: Provider setup
-
-- [ ] `lib/providers/gpx_track_provider.dart` - Provider setup:
-  - Provider for GpxTrackRepository (requires objectboxStore)
-- [ ] Verify: `flutter analyze`
-
-### Phase 5: MapProvider state
-
-- [ ] `lib/providers/map_provider.dart` - Add state:
-  - import 'package:peak_bagger/models/gpx_track.dart'
-  - import 'package:peak_bagger/providers/gpx_track_provider.dart'
-  - Add to MapState: tracks (List<GPXTrack>), showTracks (bool)
-  - Add toggleTracks() method to MapNotifier
-  - Load tracks in build() using repository
+- **Goal**: legacy detection, banner/snackbar, reset recovery path
+- [ ] `lib/providers/map_provider.dart` - recovery detection from persisted rows; one-shot snackbar gate; reset clears recovery; track visibility lock during recovery
+- [ ] `lib/router.dart` - route-shell snackbar + persistent banner, Settings navigation action, recovery selectors
+- [ ] `lib/screens/settings_screen.dart` - `Reset Track Data` tile, confirmation dialog, dedicated Tracks status/warning area, busy/disable states
+- [ ] `lib/screens/map_screen.dart` - recovery-mode info popup swap; hide track rendering while recovery active
+- [ ] TDD: persisted invalid rows trigger recovery; reset rebuild clears recovery; import/show controls restore; `showTracks` resets to false after reset
+- [ ] `test/robot/gpx_tracks/recovery_robot.dart` - selectors for banner, snackbar action, reset tile/dialog, status area
+- [ ] `test/robot/gpx_tracks/recovery_journey_test.dart` - Robot journey: recovery snackbar/banner -> Settings -> Reset Track Data -> back to map -> controls restored
 - [ ] Verify: `flutter analyze` && `flutter test`
 
-### Phase 6: UI - FABs
+### Phase 4: Platform And Hardening
 
-- [ ] `lib/router.dart` - Add FABs (order: info, show tracks, import placeholder, grid):
-  - Show tracks FAB with Icons.route
-  - Import FAB placeholder with Icons.input (for future)
-  - Handle disabled state: onPressed: null, color: red (when tracks.isEmpty)
-- [ ] Verify: `flutter analyze`
-
-### Phase 7: UI - Map track rendering
-
-- [ ] `lib/screens/map_screen.dart` - Add track rendering:
-  - Import GpxTrackRepository via provider
-  - Load tracks on build
-  - Render polylines using flutter_map when showTracks is true
-  - Use colour from trackColour field (#a726bc)
-- [ ] Verify: `flutter analyze`
-
-### Phase 8: Keyboard shortcut
-
-- [ ] `lib/screens/map_screen.dart` - Add Shortcuts widget:
-  - Wrap map with Shortcuts mapping 't' to toggleTracks intent
-  - Wrap in Focus widget (same scope as other shortcuts)
-  - Use Actions to handle intent
-- [ ] Verify: `flutter analyze`
-
-### Phase 9: First launch import
-
-- [ ] `lib/providers/map_provider.dart` - Add import check:
-  - In build(), check if repository.getTrackCount() == 0
-  - If empty, call GPXImporter to scan folders
-  - Set flag after successful import (via repository)
-- [ ] Verify: `flutter analyze` && manual test
-
-## Dependencies to add
-
-- xml: ^6.0.0 (for GPX parsing)
-- Platform permissions: Handle file access appropriately
+- **Goal**: release build path + failure/rollback coverage
+- [ ] `macos/Runner/Release.entitlements` - remove App Sandbox for unsandboxed direct-distribution release path
+- [ ] `macos/Runner/DebugProfile.entitlements` - verify unchanged unsandboxed debug assumptions
+- [ ] `lib/services/gpx_importer.dart` - finalize overwrite rollback, fatal folder access handling, startup-vs-manual log warning split
+- [ ] `test/gpx_track_test.dart` - add rollback, overwrite verification, recurring manual-review duplicate, startup/manual log-write slices
+- [ ] `test/widget/gpx_tracks_shell_test.dart` - shell coverage for no-GPX snackbar precedence, persistent banner, mixed warnings
+- [ ] TDD: overwrite rollback restores files; startup log-write failure stays silent; manual log-write failure warns; release-path prerequisite documented by tests/checks where practical
+- [ ] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 
-- **Risks**: GPX parsing library needs to be added to pubspec.yaml
-- **Out of scope**: 
-  - Move to folder logic (Phase 1 - leave in place)
-  - Direction arrows on track
-  - Track statistics (distance, ascent, time)
-  - Colour selection per track
+- **Risks**: release distribution model change; ObjectBox schema regeneration + legacy recovery semantics; deterministic file-system behavior under duplicate/collision cases
+- **Out of scope**: sandboxed/App-Store-style macOS distribution; stable source-file provenance/history; file renaming/manual GPX metadata reconciliation
