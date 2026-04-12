@@ -320,6 +320,64 @@ void main() {
       expect(result.errorSkippedCount, 1);
       expect(result.warning, isNull);
     });
+
+    test(
+      'moveReplacementFile restores files when database replacement fails',
+      () async {
+        final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
+        final tasDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+        final source = File('${tracksDir.path}/track.gpx');
+        final destination = File('${tasDir.path}/track.gpx');
+        await source.writeAsString(_tasmanianGpx('Tas Track'));
+        await destination.writeAsString(_tasmanianGpx('Tas Track'));
+
+        final importer = GpxImporter(
+          tracksFolder: tracksDir.path,
+          tasmaniaFolder: tasDir.path,
+        );
+        final replacementTrack = importer.parseGpxFile(source.path)!;
+
+        final moved = await importer.moveReplacementFile(
+          sourcePath: source.path,
+          replacementTrack: replacementTrack,
+          applyDatabaseReplacement: () async {
+            throw Exception('db failure');
+          },
+        );
+
+        expect(moved, isFalse);
+        expect(source.existsSync(), isTrue);
+        expect(destination.existsSync(), isTrue);
+      },
+    );
+
+    test(
+      'moveReplacementFile blocks overwrite when destination is different logical match',
+      () async {
+        final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
+        final tasDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+        final source = File('${tracksDir.path}/track.gpx');
+        final destination = File('${tasDir.path}/track.gpx');
+        await source.writeAsString(_tasmanianGpx('Tas Track'));
+        await destination.writeAsString(_tasmanianGpx('Other Track'));
+
+        final importer = GpxImporter(
+          tracksFolder: tracksDir.path,
+          tasmaniaFolder: tasDir.path,
+        );
+        final replacementTrack = importer.parseGpxFile(source.path)!;
+
+        final moved = await importer.moveReplacementFile(
+          sourcePath: source.path,
+          replacementTrack: replacementTrack,
+          applyDatabaseReplacement: () async {},
+        );
+
+        expect(moved, isFalse);
+        expect(source.existsSync(), isTrue);
+        expect(destination.existsSync(), isTrue);
+      },
+    );
   });
 }
 

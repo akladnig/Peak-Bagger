@@ -60,11 +60,11 @@ Thin slice first; deterministic import semantics + recovery/reset UX next.
 - **Goal**: release build path + failure/rollback coverage
 - [x] `macos/Runner/Release.entitlements` - remove App Sandbox for unsandboxed direct-distribution release path
 - [x] `macos/Runner/DebugProfile.entitlements` - verify unchanged unsandboxed debug assumptions
-- [ ] `lib/services/gpx_importer.dart` - finalize overwrite rollback, fatal folder access handling, startup-vs-manual log warning split
-- [ ] `test/gpx_track_test.dart` - add rollback, overwrite verification, recurring manual-review duplicate, startup/manual log-write slices
-- [ ] `test/widget/gpx_tracks_shell_test.dart` - shell coverage for no-GPX snackbar precedence, persistent banner, mixed warnings
-- [ ] TDD: overwrite rollback restores files; startup log-write failure stays silent; manual log-write failure warns; release-path prerequisite documented by tests/checks where practical
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/services/gpx_importer.dart` - finalize overwrite rollback, fatal folder access handling, startup-vs-manual log warning split
+- [x] `test/gpx_track_test.dart` - add rollback, overwrite verification, recurring manual-review duplicate, startup/manual log-write slices
+- [x] `test/widget/gpx_tracks_shell_test.dart` - shell coverage for no-GPX snackbar precedence, persistent banner, mixed warnings
+- [x] TDD: overwrite rollback restores files; startup log-write failure stays silent; manual log-write failure warns; release-path prerequisite documented by tests/checks where practical
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

@@ -199,6 +199,7 @@ class MapNotifier extends Notifier<MapState> {
   late final GpxTrackRepository _gpxTrackRepository;
   final OverpassService _overpassService = OverpassService();
   bool _recoverySnackbarShown = false;
+  String? _pendingTrackSnackbarMessage;
 
   @override
   MapState build() {
@@ -286,13 +287,14 @@ class MapNotifier extends Notifier<MapState> {
     );
 
     try {
+      final surfaceNotifications = resetExisting || state.tracks.isNotEmpty;
       final importer = GpxImporter();
       final result = await importer.importTracks(
         includeTasmaniaFolder: includeTasmaniaFolder,
         existingTracks: resetExisting
             ? const []
             : _gpxTrackRepository.getAllTracks(),
-        surfaceWarnings: resetExisting || state.tracks.isNotEmpty,
+        surfaceWarnings: surfaceNotifications,
       );
 
       if (resetExisting || state.tracks.isEmpty) {
@@ -308,6 +310,12 @@ class MapNotifier extends Notifier<MapState> {
       if (hasRecoveryIssue && !state.hasTrackRecoveryIssue) {
         _recoverySnackbarShown = false;
       }
+      final statusMessage = result.noGpxFilesFound
+          ? 'No GPX files found in watched folder'
+          : 'Imported ${result.importedCount}, replaced ${result.replacedCount}, unchanged ${result.unchangedCount}, non-Tasmanian ${result.nonTasmanianCount}, errors ${result.errorSkippedCount}';
+      if (surfaceNotifications) {
+        _pendingTrackSnackbarMessage = statusMessage;
+      }
       state = state.copyWith(
         tracks: allTracks,
         showTracks: hasRecoveryIssue
@@ -317,8 +325,7 @@ class MapNotifier extends Notifier<MapState> {
                   : state.showTracks || allTracks.isNotEmpty),
         isLoadingTracks: false,
         hasTrackRecoveryIssue: hasRecoveryIssue,
-        trackOperationStatus:
-            'Imported ${result.importedCount}, replaced ${result.replacedCount}, unchanged ${result.unchangedCount}, non-Tasmanian ${result.nonTasmanianCount}, errors ${result.errorSkippedCount}',
+        trackOperationStatus: statusMessage,
         trackOperationWarning: result.warning,
       );
       return result;
@@ -350,6 +357,12 @@ class MapNotifier extends Notifier<MapState> {
     }
     _recoverySnackbarShown = true;
     return true;
+  }
+
+  String? consumeTrackSnackbarMessage() {
+    final message = _pendingTrackSnackbarMessage;
+    _pendingTrackSnackbarMessage = null;
+    return message;
   }
 
   Future<void> _loadPosition() async {

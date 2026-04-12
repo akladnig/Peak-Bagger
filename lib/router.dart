@@ -508,6 +508,17 @@ final router = GoRouter(
                 Consumer(
                   builder: (context, ref, _) {
                     final mapState = ref.watch(mapProvider);
+                    final trackSnackbar = ref
+                        .read(mapProvider.notifier)
+                        .consumeTrackSnackbarMessage();
+                    if (trackSnackbar != null) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text(trackSnackbar)));
+                      });
+                    }
                     if (!mapState.hasTrackRecoveryIssue) {
                       return const SizedBox.shrink();
                     }

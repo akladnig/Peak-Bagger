@@ -13,6 +13,7 @@ class TrackImportResult {
     required this.unchangedCount,
     required this.nonTasmanianCount,
     required this.errorSkippedCount,
+    this.noGpxFilesFound = false,
     this.warning,
   });
 
@@ -22,6 +23,7 @@ class TrackImportResult {
   final int unchangedCount;
   final int nonTasmanianCount;
   final int errorSkippedCount;
+  final bool noGpxFilesFound;
   final String? warning;
 }
 
@@ -58,6 +60,65 @@ class GpxImporter {
 
   String getTracksFolder() => tracksFolder;
   String getTasmaniaFolder() => tasmaniaFolder;
+
+  Future<bool> moveReplacementFile({
+    required String sourcePath,
+    required GpxTrack replacementTrack,
+    required Future<void> Function() applyDatabaseReplacement,
+  }) async {
+    final sourceFile = File(sourcePath);
+    final destinationPath =
+        '$tasmaniaFolder${Platform.pathSeparator}${_basename(sourcePath)}';
+    final destinationFile = File(destinationPath);
+
+    if (sourcePath != destinationPath && destinationFile.existsSync()) {
+      final destinationTrack = parseGpxFile(destinationPath);
+      if (destinationTrack == null ||
+          !_isSameLogicalMatch(destinationTrack, replacementTrack)) {
+        await _appendImportLog(sourcePath, 'Overwrite verification failed');
+        return false;
+      }
+    }
+
+    final backupPath = '$destinationPath.__bak';
+    final backupFile = File(backupPath);
+    var moved = false;
+
+    try {
+      if (sourcePath != destinationPath) {
+        if (destinationFile.existsSync()) {
+          await destinationFile.copy(backupPath);
+          await destinationFile.delete();
+        }
+        await sourceFile.rename(destinationPath);
+        moved = true;
+      }
+
+      await applyDatabaseReplacement();
+      if (backupFile.existsSync()) {
+        await backupFile.delete();
+      }
+      return true;
+    } catch (_) {
+      if (moved) {
+        final movedFile = File(destinationPath);
+        if (movedFile.existsSync()) {
+          await movedFile.rename(sourcePath);
+        }
+      }
+      if (backupFile.existsSync()) {
+        if (destinationFile.existsSync()) {
+          await destinationFile.delete();
+        }
+        await backupFile.rename(destinationPath);
+      }
+      await _appendImportLog(
+        sourcePath,
+        'Replacement rollback after database failure',
+      );
+      return false;
+    }
+  }
 
   bool isTasmanian(double lat, double lng) {
     return lat >= _tasmaniaLatMin &&
@@ -186,6 +247,10 @@ class GpxImporter {
     return filename.substring(0, dotIndex);
   }
 
+  String _basename(String filePath) {
+    return filePath.split(Platform.pathSeparator).last;
+  }
+
   ({double lat, double lng})? _extractFirstPoint(XmlDocument doc) {
     final trkseg = doc.findAllElements('trkseg').firstOrNull;
     if (trkseg == null) return null;
@@ -246,6 +311,18 @@ class GpxImporter {
     }
 
     snapshot.sort((a, b) => a.path.compareTo(b.path));
+
+    if (snapshot.isEmpty) {
+      return const TrackImportResult(
+        tracks: [],
+        importedCount: 0,
+        replacedCount: 0,
+        unchangedCount: 0,
+        nonTasmanianCount: 0,
+        errorSkippedCount: 0,
+        noGpxFilesFound: true,
+      );
+    }
 
     for (final file in snapshot) {
       final track = parseGpxFile(file.path);
@@ -310,6 +387,7 @@ class GpxImporter {
       unchangedCount: unchangedCount,
       nonTasmanianCount: nonTasmanianCount,
       errorSkippedCount: errorSkippedCount,
+      noGpxFilesFound: false,
       warning: errorSkippedCount > 0 && surfaceWarnings
           ? (logWriteFailed
                 ? 'Some files need manual review. import.log could not be updated.'
@@ -332,6 +410,13 @@ class GpxImporter {
     } catch (_) {
       return false;
     }
+  }
+
+  bool _isSameLogicalMatch(GpxTrack a, GpxTrack b) {
+    return a.hasMetadataTrackDate &&
+        b.hasMetadataTrackDate &&
+        a.trackName == b.trackName &&
+        a.trackDate == b.trackDate;
   }
 
   GpxTrack? _findExistingLogicalMatch(
