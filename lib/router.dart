@@ -511,6 +511,26 @@ final router = GoRouter(
                     if (!mapState.hasTrackRecoveryIssue) {
                       return const SizedBox.shrink();
                     }
+                    if (ref
+                        .read(mapProvider.notifier)
+                        .consumeRecoverySnackbarSignal()) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text(
+                              'Some tracks need to be rebuilt.',
+                            ),
+                            action: SnackBarAction(
+                              label: 'Open Settings',
+                              onPressed: () {
+                                navigationShell.goBranch(3);
+                              },
+                            ),
+                          ),
+                        );
+                      });
+                    }
                     return Positioned(
                       left: 0,
                       right: 0,

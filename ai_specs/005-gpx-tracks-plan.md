@@ -46,10 +46,10 @@ Thin slice first; deterministic import semantics + recovery/reset UX next.
 ### Phase 3: Recovery And Reset UX
 
 - **Goal**: legacy detection, banner/snackbar, reset recovery path
-- [ ] `lib/providers/map_provider.dart` - recovery detection from persisted rows; one-shot snackbar gate; reset clears recovery; track visibility lock during recovery
-- [ ] `lib/router.dart` - route-shell snackbar + persistent banner, Settings navigation action, recovery selectors
-- [ ] `lib/screens/settings_screen.dart` - `Reset Track Data` tile, confirmation dialog, dedicated Tracks status/warning area, busy/disable states
-- [ ] `lib/screens/map_screen.dart` - recovery-mode info popup swap; hide track rendering while recovery active
+- [x] `lib/providers/map_provider.dart` - recovery detection from persisted rows; one-shot snackbar gate; reset clears recovery; track visibility lock during recovery
+- [x] `lib/router.dart` - route-shell snackbar + persistent banner, Settings navigation action, recovery selectors
+- [x] `lib/screens/settings_screen.dart` - `Reset Track Data` tile, confirmation dialog, dedicated Tracks status/warning area, busy/disable states
+- [x] `lib/screens/map_screen.dart` - recovery-mode info popup swap; hide track rendering while recovery active
 - [ ] TDD: persisted invalid rows trigger recovery; reset rebuild clears recovery; import/show controls restore; `showTracks` resets to false after reset
 - [ ] `test/robot/gpx_tracks/recovery_robot.dart` - selectors for banner, snackbar action, reset tile/dialog, status area
 - [ ] `test/robot/gpx_tracks/recovery_journey_test.dart` - Robot journey: recovery snackbar/banner -> Settings -> Reset Track Data -> back to map -> controls restored

@@ -198,6 +198,7 @@ class MapNotifier extends Notifier<MapState> {
   late final TasmapRepository _tasmapRepository;
   late final GpxTrackRepository _gpxTrackRepository;
   final OverpassService _overpassService = OverpassService();
+  bool _recoverySnackbarShown = false;
 
   @override
   MapState build() {
@@ -247,6 +248,9 @@ class MapNotifier extends Notifier<MapState> {
     }
 
     final hasRecoveryIssue = _hasTrackRecoveryIssue(tracks);
+    if (hasRecoveryIssue && !state.hasTrackRecoveryIssue) {
+      _recoverySnackbarShown = false;
+    }
     state = state.copyWith(
       tracks: tracks,
       showTracks: hasRecoveryIssue ? false : true,
@@ -300,6 +304,9 @@ class MapNotifier extends Notifier<MapState> {
 
       final allTracks = _gpxTrackRepository.getAllTracks();
       final hasRecoveryIssue = _hasTrackRecoveryIssue(allTracks);
+      if (hasRecoveryIssue && !state.hasTrackRecoveryIssue) {
+        _recoverySnackbarShown = false;
+      }
       state = state.copyWith(
         tracks: allTracks,
         showTracks: hasRecoveryIssue
@@ -333,6 +340,15 @@ class MapNotifier extends Notifier<MapState> {
   Future<void> resetTrackData() async {
     await _importTracks(includeTasmaniaFolder: true, resetExisting: true);
     state = state.copyWith(hasTrackRecoveryIssue: false, showTracks: false);
+    _recoverySnackbarShown = false;
+  }
+
+  bool consumeRecoverySnackbarSignal() {
+    if (!state.hasTrackRecoveryIssue || _recoverySnackbarShown) {
+      return false;
+    }
+    _recoverySnackbarShown = true;
+    return true;
   }
 
   Future<void> _loadPosition() async {
