@@ -14,6 +14,7 @@ import 'package:objectbox/internal.dart'
 import 'package:objectbox/objectbox.dart' as obx;
 import 'package:objectbox_flutter_libs/objectbox_flutter_libs.dart';
 
+import 'models/gpx_track.dart';
 import 'models/peak.dart';
 import 'models/tasmap50k.dart';
 
@@ -172,6 +173,70 @@ final _entities = <obx_int.ModelEntity>[
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
   ),
+  obx_int.ModelEntity(
+    id: const obx_int.IdUid(3, 8449374379554926112),
+    name: 'GpxTrack',
+    lastPropertyId: const obx_int.IdUid(9, 3580443233466692573),
+    flags: 0,
+    properties: <obx_int.ModelProperty>[
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(1, 2055590878041962616),
+        name: 'gpxTrackId',
+        type: 6,
+        flags: 1,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(2, 3390857021483670935),
+        name: 'fileLocation',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(3, 6692349517233010448),
+        name: 'trackName',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(4, 8088153468164546543),
+        name: 'startDateTime',
+        type: 10,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(5, 3658721134433213764),
+        name: 'distance',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(6, 4876941213384233127),
+        name: 'ascent',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(7, 2097315354030142327),
+        name: 'totalTimeMillis',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(8, 2827267495073081727),
+        name: 'trackColour',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(9, 3580443233466692573),
+        name: 'trackPoints',
+        type: 9,
+        flags: 0,
+      ),
+    ],
+    relations: <obx_int.ModelRelation>[],
+    backlinks: <obx_int.ModelBacklink>[],
+  ),
 ];
 
 /// Shortcut for [obx.Store.new] that passes [getObjectBoxModel] and for Flutter
@@ -217,7 +282,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
     // Typically, this is done with `dart run build_runner build`.
     generatorVersion: obx_int.GeneratorVersion.v2025_12_16,
     entities: _entities,
-    lastEntityId: const obx_int.IdUid(2, 1328676866860602429),
+    lastEntityId: const obx_int.IdUid(3, 8449374379554926112),
     lastIndexId: const obx_int.IdUid(0, 0),
     lastRelationId: const obx_int.IdUid(0, 0),
     lastSequenceId: const obx_int.IdUid(0, 0),
@@ -430,6 +495,93 @@ obx_int.ModelDefinition getObjectBoxModel() {
         return object;
       },
     ),
+    GpxTrack: obx_int.EntityDefinition<GpxTrack>(
+      model: _entities[2],
+      toOneRelations: (GpxTrack object) => [],
+      toManyRelations: (GpxTrack object) => {},
+      getId: (GpxTrack object) => object.gpxTrackId,
+      setId: (GpxTrack object, int id) {
+        object.gpxTrackId = id;
+      },
+      objectToFB: (GpxTrack object, fb.Builder fbb) {
+        final fileLocationOffset = fbb.writeString(object.fileLocation);
+        final trackNameOffset = fbb.writeString(object.trackName);
+        final trackPointsOffset = fbb.writeString(object.trackPoints);
+        fbb.startTable(10);
+        fbb.addInt64(0, object.gpxTrackId);
+        fbb.addOffset(1, fileLocationOffset);
+        fbb.addOffset(2, trackNameOffset);
+        fbb.addInt64(3, object.startDateTime?.millisecondsSinceEpoch);
+        fbb.addFloat64(4, object.distance);
+        fbb.addFloat64(5, object.ascent);
+        fbb.addInt64(6, object.totalTimeMillis);
+        fbb.addInt64(7, object.trackColour);
+        fbb.addOffset(8, trackPointsOffset);
+        fbb.finish(fbb.endTable());
+        return object.gpxTrackId;
+      },
+      objectFromFB: (obx.Store store, ByteData fbData) {
+        final buffer = fb.BufferContext(fbData);
+        final rootOffset = buffer.derefObject(0);
+        final startDateTimeValue = const fb.Int64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          10,
+        );
+        final gpxTrackIdParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          4,
+          0,
+        );
+        final fileLocationParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 6, '');
+        final trackNameParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 8, '');
+        final trackPointsParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 20, '');
+        final startDateTimeParam = startDateTimeValue == null
+            ? null
+            : DateTime.fromMillisecondsSinceEpoch(startDateTimeValue);
+        final distanceParam = const fb.Float64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          12,
+        );
+        final ascentParam = const fb.Float64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          14,
+        );
+        final totalTimeMillisParam = const fb.Int64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          16,
+        );
+        final trackColourParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          18,
+          0,
+        );
+        final object = GpxTrack(
+          gpxTrackId: gpxTrackIdParam,
+          fileLocation: fileLocationParam,
+          trackName: trackNameParam,
+          trackPoints: trackPointsParam,
+          startDateTime: startDateTimeParam,
+          distance: distanceParam,
+          ascent: ascentParam,
+          totalTimeMillis: totalTimeMillisParam,
+          trackColour: trackColourParam,
+        );
+
+        return object;
+      },
+    ),
   };
 
   return obx_int.ModelDefinition(model, bindings);
@@ -542,5 +694,53 @@ class Tasmap50k_ {
   /// See [Tasmap50k.br].
   static final br = obx.QueryStringProperty<Tasmap50k>(
     _entities[1].properties[15],
+  );
+}
+
+/// [GpxTrack] entity fields to define ObjectBox queries.
+class GpxTrack_ {
+  /// See [GpxTrack.gpxTrackId].
+  static final gpxTrackId = obx.QueryIntegerProperty<GpxTrack>(
+    _entities[2].properties[0],
+  );
+
+  /// See [GpxTrack.fileLocation].
+  static final fileLocation = obx.QueryStringProperty<GpxTrack>(
+    _entities[2].properties[1],
+  );
+
+  /// See [GpxTrack.trackName].
+  static final trackName = obx.QueryStringProperty<GpxTrack>(
+    _entities[2].properties[2],
+  );
+
+  /// See [GpxTrack.startDateTime].
+  static final startDateTime = obx.QueryDateProperty<GpxTrack>(
+    _entities[2].properties[3],
+  );
+
+  /// See [GpxTrack.distance].
+  static final distance = obx.QueryDoubleProperty<GpxTrack>(
+    _entities[2].properties[4],
+  );
+
+  /// See [GpxTrack.ascent].
+  static final ascent = obx.QueryDoubleProperty<GpxTrack>(
+    _entities[2].properties[5],
+  );
+
+  /// See [GpxTrack.totalTimeMillis].
+  static final totalTimeMillis = obx.QueryIntegerProperty<GpxTrack>(
+    _entities[2].properties[6],
+  );
+
+  /// See [GpxTrack.trackColour].
+  static final trackColour = obx.QueryIntegerProperty<GpxTrack>(
+    _entities[2].properties[7],
+  );
+
+  /// See [GpxTrack.trackPoints].
+  static final trackPoints = obx.QueryStringProperty<GpxTrack>(
+    _entities[2].properties[8],
   );
 }

@@ -4,6 +4,9 @@ import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
+import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/services/gpx_track_repository.dart';
+import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
@@ -50,6 +53,8 @@ class MapState {
   final bool showMapOverlay;
   final List<Tasmap50k> mapSuggestions;
   final String mapSearchQuery;
+  final List<GpxTrack> tracks;
+  final bool showTracks;
 
   const MapState({
     required this.center,
@@ -79,6 +84,8 @@ class MapState {
     this.showMapOverlay = false,
     this.mapSuggestions = const [],
     this.mapSearchQuery = '',
+    this.tracks = const [],
+    this.showTracks = false,
   });
 
   MapState copyWith({
@@ -111,6 +118,8 @@ class MapState {
     bool? showMapOverlay,
     List<Tasmap50k>? mapSuggestions,
     String? mapSearchQuery,
+    List<GpxTrack>? tracks,
+    bool? showTracks,
   }) {
     return MapState(
       center: center ?? this.center,
@@ -146,6 +155,8 @@ class MapState {
       showMapOverlay: showMapOverlay ?? this.showMapOverlay,
       mapSuggestions: mapSuggestions ?? this.mapSuggestions,
       mapSearchQuery: mapSearchQuery ?? this.mapSearchQuery,
+      tracks: tracks ?? this.tracks,
+      showTracks: showTracks ?? this.showTracks,
     );
   }
 }
@@ -155,14 +166,17 @@ final mapProvider = NotifierProvider<MapNotifier, MapState>(MapNotifier.new);
 class MapNotifier extends Notifier<MapState> {
   late final PeakRepository _peakRepository;
   late final TasmapRepository _tasmapRepository;
+  late final GpxTrackRepository _gpxTrackRepository;
   final OverpassService _overpassService = OverpassService();
 
   @override
   MapState build() {
     _peakRepository = PeakRepository(objectboxStore);
     _tasmapRepository = ref.read(tasmapRepositoryProvider);
+    _gpxTrackRepository = GpxTrackRepository(objectboxStore);
     _loadPosition();
     Future.microtask(() => _loadPeaks());
+    Future.microtask(() => _loadTracks());
     return MapState(
       center: _defaultCenter,
       zoom: _defaultZoom,
@@ -192,6 +206,35 @@ class MapNotifier extends Notifier<MapState> {
       }
     } else {
       state = state.copyWith(peaks: _peakRepository.getAllPeaks());
+    }
+  }
+
+  void _loadTracks() {
+    final tracks = _gpxTrackRepository.getAllTracks();
+    final hasTrackPoints = tracks.any(
+      (t) => t.trackPoints.isNotEmpty && t.trackPoints != '[]',
+    );
+    if (tracks.isEmpty || !hasTrackPoints) {
+      _gpxTrackRepository.deleteAll();
+      Future.microtask(() => _importTracks());
+    } else {
+      state = state.copyWith(tracks: tracks, showTracks: true);
+    }
+  }
+
+  Future<void> _importTracks() async {
+    try {
+      final importer = GpxImporter();
+      final tracks = await importer.importTracks();
+
+      for (final track in tracks) {
+        _gpxTrackRepository.addTrack(track);
+      }
+
+      final allTracks = _gpxTrackRepository.getAllTracks();
+      state = state.copyWith(tracks: allTracks, showTracks: true);
+    } catch (e) {
+      // Import failed, keep empty state
     }
   }
 
@@ -915,6 +958,10 @@ class MapNotifier extends Notifier<MapState> {
 
   void togglePeakSearch() {
     state = state.copyWith(showPeakSearch: !state.showPeakSearch);
+  }
+
+  void toggleTracks() {
+    state = state.copyWith(showTracks: !state.showTracks);
   }
 
   void setPeakSearchVisible(bool visible) {

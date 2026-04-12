@@ -18,16 +18,39 @@
 ## 2  Display map of Tasmania with zoom, pan and search function
 - [ ] Change two finger from pan to zoom
 - [ ] change zoom level display to actual distance
-- [ ] Automaically ask for permissions
+- [ ] Automatically ask for permissions
 ## 3 Tasmanian Peaks and search
 ## 4 Add Maps and location search
 - [x] place info popup to right of marker
 - [x] add info fab
 - [x] Wrong map shown on info
 - [x] Peak info not being displayed
+- [ ] Do not re-import Tasmap on every launch.
 ## 4a
-- [ ] add go to map only, centre on map and zoom top map extents, and draw a blue rectangle around the map extents so that the map can be seen when zooming out.
+- [x] add go to map only, centre on map and zoom to map extents, and draw a blue rectangle around the map extents so that the map can be seen when zooming out.
 - [ ] Add show maps - a blue grid of all maps. Map name and series to be shown at bottom right of each map.
+
+# Keyboard Mapping
+## Menu
+d - dashboard
+m - map
+p - peak
+tba - settings
+
+## Global
+h,j,k,l - vim motion
+t - theme toggle
+i - info
+
+## Map Screen
+-,+, _, = - zoom
+s - feature search
+tba - layers
+tba - show my position
+g - go to marker
+m - enable map grid
+i - info
+
 
 # Errors
 - [x] Zoom display not updating

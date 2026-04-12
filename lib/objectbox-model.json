@@ -130,9 +130,63 @@
         }
       ],
       "relations": []
+    },
+    {
+      "id": "3:8449374379554926112",
+      "lastPropertyId": "9:3580443233466692573",
+      "name": "GpxTrack",
+      "properties": [
+        {
+          "id": "1:2055590878041962616",
+          "name": "gpxTrackId",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:3390857021483670935",
+          "name": "fileLocation",
+          "type": 9
+        },
+        {
+          "id": "3:6692349517233010448",
+          "name": "trackName",
+          "type": 9
+        },
+        {
+          "id": "4:8088153468164546543",
+          "name": "startDateTime",
+          "type": 10
+        },
+        {
+          "id": "5:3658721134433213764",
+          "name": "distance",
+          "type": 8
+        },
+        {
+          "id": "6:4876941213384233127",
+          "name": "ascent",
+          "type": 8
+        },
+        {
+          "id": "7:2097315354030142327",
+          "name": "totalTimeMillis",
+          "type": 6
+        },
+        {
+          "id": "8:2827267495073081727",
+          "name": "trackColour",
+          "type": 6
+        },
+        {
+          "id": "9:3580443233466692573",
+          "name": "trackPoints",
+          "type": 9
+        }
+      ],
+      "relations": []
     }
   ],
-  "lastEntityId": "2:1328676866860602429",
+  "lastEntityId": "3:8449374379554926112",
   "lastIndexId": "0:0",
   "lastRelationId": "0:0",
   "lastSequenceId": "0:0",

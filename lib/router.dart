@@ -130,7 +130,6 @@ final router = GoRouter(
                                       context,
                                     ).colorScheme.surface,
                                     onPressed: () {
-                                      debugPrint('Search FAB tapped');
                                       if (ref.read(mapProvider).showInfoPopup) {
                                         ref
                                             .read(mapProvider.notifier)
@@ -259,9 +258,6 @@ final router = GoRouter(
                                                         LocationAccuracy.high,
                                                   ),
                                             );
-                                        debugPrint(
-                                          'GPS: lat=${position.latitude}, lon=${position.longitude}',
-                                        );
                                         ref
                                             .read(mapProvider.notifier)
                                             .centerOnLocation(
@@ -271,7 +267,6 @@ final router = GoRouter(
                                               ),
                                             );
                                       } catch (e) {
-                                        debugPrint('Location error: $e');
                                         if (context.mounted) {
                                           ScaffoldMessenger.of(
                                             context,
@@ -419,6 +414,48 @@ final router = GoRouter(
                                       color: Theme.of(
                                         context,
                                       ).colorScheme.onSurface,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Consumer(
+                                    builder: (context, ref, _) {
+                                      final mapState = ref.watch(mapProvider);
+                                      final isEmpty = mapState.tracks.isEmpty;
+                                      return FloatingActionButton.small(
+                                        heroTag: 'tracks',
+                                        backgroundColor: Theme.of(
+                                          context,
+                                        ).colorScheme.surface,
+                                        onPressed: isEmpty
+                                            ? null
+                                            : () {
+                                                ref
+                                                    .read(mapProvider.notifier)
+                                                    .toggleTracks();
+                                              },
+                                        child: Icon(
+                                          Icons.route,
+                                          color: isEmpty
+                                              ? Colors.red
+                                              : Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurface,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(height: 8),
+                                  FloatingActionButton.small(
+                                    heroTag: 'import',
+                                    backgroundColor: Theme.of(
+                                      context,
+                                    ).colorScheme.surface,
+                                    onPressed: null,
+                                    child: Icon(
+                                      Icons.input,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface.withOpacity(0.38),
                                     ),
                                   ),
                                 ],

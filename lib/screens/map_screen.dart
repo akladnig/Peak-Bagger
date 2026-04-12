@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/tasmap50k.dart';
+import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'dart:async';
 import 'package:peak_bagger/providers/map_provider.dart';
@@ -277,6 +278,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           } else if (key == LogicalKeyboardKey.keyM) {
             ref.read(mapProvider.notifier).toggleMapOverlay();
             return KeyEventResult.handled;
+          } else if (key == LogicalKeyboardKey.keyT) {
+            ref.read(mapProvider.notifier).toggleTracks();
+            return KeyEventResult.handled;
           }
           return KeyEventResult.ignored;
         },
@@ -381,6 +385,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     _buildMapRectangle(mapState.selectedMap!),
                   if (mapState.showMapOverlay)
                     PolygonLayer(polygons: _buildAllMapRectangles()),
+                  if (mapState.showTracks)
+                    _buildTrackPolylines(mapState.tracks),
                 ],
               ),
             ),
@@ -663,6 +669,20 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                             ],
                           ),
                         ],
+                        if (mapState.tracks.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.route, size: 16),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${mapState.tracks.length} tracks available',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -873,5 +893,48 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   void _goToCurrentLocation() {
     // TODO: Implement GPS location
+  }
+
+  PolylineLayer _buildTrackPolylines(List<GpxTrack> tracks) {
+    final polylines = <Polyline>[];
+
+    for (final track in tracks) {
+      try {
+        final rawPoints = track.trackPoints;
+        if (rawPoints.isEmpty || rawPoints == '[]') continue;
+
+        final points = <LatLng>[];
+        final cleaned = rawPoints.substring(1, rawPoints.length - 1);
+        final pairs = cleaned.split('],[');
+
+        for (final pair in pairs) {
+          final coords = pair
+              .replaceAll('[', '')
+              .replaceAll(']', '')
+              .split(',');
+          if (coords.length == 2) {
+            final lat = double.tryParse(coords[0]);
+            final lng = double.tryParse(coords[1]);
+            if (lat != null && lng != null) {
+              points.add(LatLng(lat, lng));
+            }
+          }
+        }
+
+        if (points.isNotEmpty) {
+          polylines.add(
+            Polyline(
+              points: points,
+              color: Color(track.trackColour),
+              strokeWidth: 3.0,
+            ),
+          );
+        }
+      } catch (e) {
+        // Skip malformed track
+      }
+    }
+
+    return PolylineLayer(polylines: polylines);
   }
 }

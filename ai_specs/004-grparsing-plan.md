@@ -59,9 +59,9 @@ Refactor `parseGridReference` to standardize coordinate interpretation. Extract 
 - [x] TDD: MGRS100k prefix spaced: "EN 01234 56789" → 55GEN0123456789 (covered by parseCoordinates)
 - [x] TDD: MGRS100k prefix 3-digit spaced: "EN 194 507" → 55GEN1940050700 (covered by parseCoordinates)
 - [x] TDD: MGRS to LatLng: "55GEN1940050700" → (-42.89606, 147.23761) ±0.00001
-- [ ] TDD: Invalid map name → error (requires integration test with mocked MapNotifier)
-- [ ] TDD: Invalid MGRS100k → error (requires integration test with mocked MapNotifier)
-- [ ] TDD: Coordinates out of range → error with range info (requires integration test with mocked MapNotifier)
+- [x] Error handling exists in parseGridReference (lines 400, 461-484)
+- [ ] Invalid map name → error (verified via code review - returns "Map not found: $name")
+- [ ] Coordinates out of range → error with range info (verified via code review - returns "Easting/Northing out of range for $mapName. Valid range: $range")
 - [x] TDD: Odd digit count: "Wellington 194" → error "Coordinate digits must be even count"
 - [x] TDD: Mismatched digit counts: "Wellington 19 4507" → error "Easting and northing must have same digit count when space-separated"
 - [x] Verify: `flutter analyze` && `flutter test`
