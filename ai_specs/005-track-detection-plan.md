@@ -26,12 +26,12 @@ Thin slice first: pure detector + map wiring; then harden clearing paths and jou
 ### Phase 2: Map Wiring
 
 - **Goal**: hover events drive cursor + state
-- [ ] `lib/screens/map_screen.dart` - share existing `onPointerHover` with MGRS updates; project active zoom geometry to screen space; update hover state; add stable map-region key if missing
-- [ ] `lib/models/gpx_track.dart` - add only tiny helper(s) if needed for safe zoom-segment access during hover projection
-- [ ] `test/widget/gpx_tracks_recovery_test.dart` - add/extend widget coverage for recovery-mode clearing or keep same file pattern if it is the closest map-track widget lane
-- [ ] `test/harness/test_map_notifier.dart` - extend deterministic seam for hovered-track state if widget/robot tests need it
-- [ ] TDD: hover sets `hoveredTrackId` without changing `selectedLocation`; pointer exit clears; drag suppresses hover; hidden tracks/recovery disable hover; camera change clears stale hover
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/screens/map_screen.dart` - share existing `onPointerHover` with MGRS updates; project active zoom geometry to screen space; update hover state; add stable map-region key
+- [x] `lib/models/gpx_track.dart` - no extra helper needed; existing `getSegmentsForZoom()` already fits hover projection safely
+- [x] `test/widget/gpx_tracks_recovery_test.dart` - extend widget coverage for visible hover, pointer exit, drag suppression, hidden tracks, recovery mode, and camera-change clearing
+- [x] `test/harness/test_map_notifier.dart` - extend deterministic seam for hovered-track state and camera-change clearing
+- [x] TDD: hover sets `hoveredTrackId` without changing `selectedLocation`; pointer exit clears; drag suppresses hover; hidden tracks/recovery disable hover; camera change clears stale hover
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Journey Hardening
 

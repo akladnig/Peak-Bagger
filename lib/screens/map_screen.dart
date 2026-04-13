@@ -9,6 +9,7 @@ import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'dart:async';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/services/track_hover_detector.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
@@ -75,6 +76,85 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     if (!_gotoFocusNode.hasFocus && mounted) {
       _mapFocusNode.requestFocus();
     }
+  }
+
+  MouseCursor _mouseCursor(MapState mapState) {
+    if (_isPointerDown) {
+      return SystemMouseCursors.grabbing;
+    }
+    if (mapState.hoveredTrackId != null) {
+      return SystemMouseCursors.click;
+    }
+    return SystemMouseCursors.grab;
+  }
+
+  void _handleTrackHover(
+    PointerHoverEvent event,
+    LatLng location,
+    MapState mapState,
+  ) {
+    final notifier = ref.read(mapProvider.notifier);
+    notifier.setCursorMgrs(location);
+
+    if (_isPointerDown ||
+        !mapState.showTracks ||
+        mapState.hasTrackRecoveryIssue) {
+      notifier.clearHoveredTrack();
+      return;
+    }
+
+    final camera = _mapController.camera;
+    if (camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      notifier.clearHoveredTrack();
+      return;
+    }
+
+    final candidates = _buildTrackHoverCandidates(mapState, camera);
+    if (candidates.isEmpty) {
+      notifier.clearHoveredTrack();
+      return;
+    }
+
+    final result = TrackHoverDetector.findHoveredTrack(
+      pointerPosition: event.localPosition,
+      candidates: candidates,
+    );
+    notifier.setHoveredTrackId(result.hoveredTrackId);
+  }
+
+  List<TrackHoverCandidate> _buildTrackHoverCandidates(
+    MapState mapState,
+    MapCamera camera,
+  ) {
+    final displayZoom = mapState.zoom.round().clamp(6, 18);
+    final candidates = <TrackHoverCandidate>[];
+
+    for (final track in mapState.tracks) {
+      try {
+        final projectedSegments = <List<Offset>>[];
+        for (final segment in track.getSegmentsForZoom(displayZoom)) {
+          if (segment.length < 2) {
+            continue;
+          }
+          projectedSegments.add(
+            segment.map(camera.latLngToScreenOffset).toList(growable: false),
+          );
+        }
+        if (projectedSegments.isEmpty) {
+          continue;
+        }
+        candidates.add(
+          TrackHoverCandidate(
+            trackId: track.gpxTrackId,
+            segments: projectedSegments,
+          ),
+        );
+      } catch (e) {
+        continue;
+      }
+    }
+
+    return candidates;
   }
 
   void _startScrolling(double dx, double dy) {
@@ -294,9 +374,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         child: Stack(
           children: [
             MouseRegion(
-              cursor: _isPointerDown
-                  ? SystemMouseCursors.grabbing
-                  : SystemMouseCursors.grab,
+              key: const Key('map-interaction-region'),
+              cursor: _mouseCursor(mapState),
+              onExit: (_) => ref.read(mapProvider.notifier).clearHoveredTrack(),
               child: FlutterMap(
                 mapController: _mapController,
                 options: MapOptions(
@@ -307,6 +387,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   },
                   onPointerDown: (event, point) {
                     _mapFocusNode.requestFocus();
+                    ref.read(mapProvider.notifier).clearHoveredTrack();
                     setState(() {
                       _isPointerDown = true;
                       _pointerDownPosition = event.localPosition;
@@ -328,7 +409,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     }
                   },
                   onPointerHover: (event, point) {
-                    ref.read(mapProvider.notifier).setCursorMgrs(point);
+                    _handleTrackHover(event, point, mapState);
                   },
                   onPositionChanged: (position, hasGesture) {
                     if (hasGesture) {

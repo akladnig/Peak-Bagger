@@ -272,6 +272,7 @@ class MapNotifier extends Notifier<MapState> {
           tracks: const [],
           showTracks: false,
           hasTrackRecoveryIssue: false,
+          clearHoveredTrackId: true,
         );
         await _importTracks(includeTasmaniaFolder: true);
         return;
@@ -286,6 +287,7 @@ class MapNotifier extends Notifier<MapState> {
           tracks: tracks,
           showTracks: false,
           hasTrackRecoveryIssue: true,
+          clearHoveredTrackId: true,
         );
         return;
       case TrackStartupAction.loadTracks:
@@ -293,6 +295,7 @@ class MapNotifier extends Notifier<MapState> {
           tracks: tracks,
           showTracks: true,
           hasTrackRecoveryIssue: false,
+          clearHoveredTrackId: true,
         );
         return;
     }
@@ -323,6 +326,7 @@ class MapNotifier extends Notifier<MapState> {
       clearTrackImportError: true,
       clearTrackOperationStatus: true,
       clearTrackOperationWarning: true,
+      clearHoveredTrackId: true,
     );
 
     try {
@@ -366,12 +370,14 @@ class MapNotifier extends Notifier<MapState> {
         hasTrackRecoveryIssue: hasRecoveryIssue,
         trackOperationStatus: statusMessage,
         trackOperationWarning: result.warning,
+        clearHoveredTrackId: true,
       );
       return result;
     } catch (e) {
       state = state.copyWith(
         isLoadingTracks: false,
         trackImportError: 'Failed to import tracks: $e',
+        clearHoveredTrackId: true,
       );
       return null;
     }
@@ -393,7 +399,7 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
-    state = state.copyWith(showTracks: false);
+    state = state.copyWith(showTracks: false, clearHoveredTrackId: true);
     if (!state.hasTrackRecoveryIssue) {
       _recoverySnackbarShown = false;
     }
@@ -471,6 +477,7 @@ class MapNotifier extends Notifier<MapState> {
       zoom: zoom,
       currentMgrs: _convertToMgrs(center),
       cursorMgrs: null,
+      clearHoveredTrackId: true,
     );
     savePosition();
   }
@@ -486,6 +493,7 @@ class MapNotifier extends Notifier<MapState> {
       gotoMgrs: null,
       selectedLocation: location,
       syncEnabled: true,
+      clearHoveredTrackId: true,
     );
     savePosition();
   }
@@ -513,6 +521,7 @@ class MapNotifier extends Notifier<MapState> {
         center: selected,
         currentMgrs: _convertToMgrs(selected),
         syncEnabled: true,
+        clearHoveredTrackId: true,
       );
       savePosition();
     }
@@ -1060,7 +1069,7 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void centerOnLocationWithZoom(LatLng location, Tasmap50k map) {
-    state = state.copyWith(center: location);
+    state = state.copyWith(center: location, clearHoveredTrackId: true);
     savePosition();
   }
 
@@ -1149,7 +1158,10 @@ class MapNotifier extends Notifier<MapState> {
         state.hasTrackRecoveryIssue) {
       return;
     }
-    state = state.copyWith(showTracks: !state.showTracks);
+    state = state.copyWith(
+      showTracks: !state.showTracks,
+      clearHoveredTrackId: true,
+    );
   }
 
   void setPeakSearchVisible(bool visible) {
@@ -1200,6 +1212,7 @@ class MapNotifier extends Notifier<MapState> {
         center: LatLng(centerLat, centerLng),
         zoom: zoom,
         currentMgrs: _convertToMgrs(LatLng(centerLat, centerLng)),
+        clearHoveredTrackId: true,
       );
     }
   }
@@ -1214,6 +1227,7 @@ class MapNotifier extends Notifier<MapState> {
       zoom: 15.0,
       syncEnabled: true,
       selectedPeaks: [peak],
+      clearHoveredTrackId: true,
     );
   }
 

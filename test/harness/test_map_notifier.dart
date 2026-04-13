@@ -1,3 +1,4 @@
+import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 
 class TestMapNotifier extends MapNotifier {
@@ -26,7 +27,19 @@ class TestMapNotifier extends MapNotifier {
         state.hasTrackRecoveryIssue) {
       return;
     }
-    state = state.copyWith(showTracks: !state.showTracks);
+    state = state.copyWith(
+      showTracks: !state.showTracks,
+      clearHoveredTrackId: true,
+    );
+  }
+
+  @override
+  void updatePosition(LatLng center, double zoom) {
+    state = state.copyWith(
+      center: center,
+      zoom: zoom,
+      clearHoveredTrackId: true,
+    );
   }
 
   @override
@@ -47,6 +60,7 @@ class TestMapNotifier extends MapNotifier {
       trackOperationStatus:
           'Imported 1, replaced 0, unchanged 0, non-Tasmanian 0, errors 0',
       trackOperationWarning: null,
+      clearHoveredTrackId: true,
     );
     _snackbarConsumed = false;
   }
