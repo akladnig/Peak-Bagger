@@ -167,9 +167,14 @@ final router = GoRouter(
                                               .read(mapProvider.notifier)
                                               .toggleInfoPopup();
                                         }
-                                        ref
-                                            .read(mapProvider.notifier)
-                                            .togglePeakSearch();
+                                        if (ref
+                                            .read(mapProvider)
+                                            .showPeakSearch) {
+                                          ref
+                                              .read(mapProvider.notifier)
+                                              .setPeakSearchVisible(false);
+                                        }
+                                        Scaffold.of(context).openEndDrawer();
                                       },
                                       child: Icon(
                                         Icons.layers,

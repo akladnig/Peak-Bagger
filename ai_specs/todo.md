@@ -36,9 +36,28 @@
 ## 5
 - [ ] implement gpx track import - multiple file import or just scan default folder.
 - [ ] distance (double?) - future, null for now
+### Elevation 
 - [ ] ascent (double?) - future, null for now
+- [ ] descent
+- [ ] elevationProfile
+- [ ] startElevation
+- [ ] lowestElevation
+- [ ] highestElevation
+### Speed
+- [ ] averageSpeed
+- [ ] movingSpeed
+- [ ] maxSpeed30s
+- [ ] maxSpeed1m
+- [ ] maxSpeed3m
+- [ ] maxSpeed5m
+- [ ] ascentSpeed
+- [ ] descentSpeed
+### Time
 - [ ] totalTimeMillis (int?) - future, null for now (Duration stored as milliseconds)
-
+- [ ] movingTime
+- [ ] restingTime
+### Climbs
+- [ ] climbs
 # Keyboard Mapping
 ## Menu
 d - dashboard
