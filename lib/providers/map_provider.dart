@@ -61,6 +61,7 @@ class MapState {
   final bool hasTrackRecoveryIssue;
   final String? trackOperationStatus;
   final String? trackOperationWarning;
+  final int? hoveredTrackId;
 
   const MapState({
     required this.center,
@@ -97,6 +98,7 @@ class MapState {
     this.hasTrackRecoveryIssue = false,
     this.trackOperationStatus,
     this.trackOperationWarning,
+    this.hoveredTrackId,
   });
 
   MapState copyWith({
@@ -139,6 +141,8 @@ class MapState {
     bool clearTrackOperationStatus = false,
     String? trackOperationWarning,
     bool clearTrackOperationWarning = false,
+    int? hoveredTrackId,
+    bool clearHoveredTrackId = false,
   }) {
     return MapState(
       center: center ?? this.center,
@@ -188,6 +192,9 @@ class MapState {
       trackOperationWarning: clearTrackOperationWarning
           ? null
           : (trackOperationWarning ?? this.trackOperationWarning),
+      hoveredTrackId: clearHoveredTrackId
+          ? null
+          : (hoveredTrackId ?? this.hoveredTrackId),
     );
   }
 }
@@ -513,6 +520,14 @@ class MapNotifier extends Notifier<MapState> {
 
   void clearCursorMgrs() {
     state = state.copyWith(cursorMgrs: null, clearSelectedLocation: true);
+  }
+
+  void setHoveredTrackId(int? trackId) {
+    state = state.copyWith(hoveredTrackId: trackId);
+  }
+
+  void clearHoveredTrack() {
+    state = state.copyWith(clearHoveredTrackId: true);
   }
 
   (LatLng?, String?) parseGridReference(String input) {

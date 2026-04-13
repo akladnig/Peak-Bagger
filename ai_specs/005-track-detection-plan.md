@@ -17,11 +17,11 @@ Thin slice first: pure detector + map wiring; then harden clearing paths and jou
 ### Phase 1: Detector Slice
 
 - **Goal**: pure hit-test + minimal state path
-- [ ] `lib/services/track_hover_detector.dart` - add pure screen-space nearest-segment detector; threshold `8.0`; ignore one-point segments
-- [ ] `lib/providers/map_provider.dart` - add `hoveredTrackId`; add set/clear methods; keep selection/popup untouched
-- [ ] `test/gpx_track_test.dart` - add pure detector + hover-state slices if this remains the main track-focused unit file
-- [ ] TDD: outside-threshold -> no match; inside-threshold -> hovered track id; one-point ignored; nearest visible segment wins deterministically
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/services/track_hover_detector.dart` - add pure screen-space nearest-segment detector; threshold `8.0`; ignore one-point segments
+- [x] `lib/providers/map_provider.dart` - add `hoveredTrackId`; add set/clear methods; keep selection/popup untouched
+- [x] `test/gpx_track_test.dart` - add pure detector + hover-state slices if this remains the main track-focused unit file
+- [x] TDD: outside-threshold -> no match; inside-threshold -> hovered track id; one-point ignored; nearest visible segment wins deterministically
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 2: Map Wiring
 

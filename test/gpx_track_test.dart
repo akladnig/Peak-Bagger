@@ -1,16 +1,123 @@
 import 'dart:io';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/objectbox.g.dart';
+import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
+import 'package:peak_bagger/services/track_hover_detector.dart';
 import 'package:peak_bagger/services/track_migration_marker_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'harness/test_map_notifier.dart';
+
 void main() {
+  group('TrackHoverDetector', () {
+    test('returns no match when all segments are outside threshold', () {
+      final result = TrackHoverDetector.findHoveredTrack(
+        pointerPosition: const Offset(50, 50),
+        candidates: const [
+          TrackHoverCandidate(
+            trackId: 1,
+            segments: [
+              [Offset(0, 0), Offset(0, 10)],
+            ],
+          ),
+        ],
+      );
+
+      expect(result.hoveredTrackId, isNull);
+      expect(result.distance, isNull);
+    });
+
+    test('returns hovered track when a segment is inside threshold', () {
+      final result = TrackHoverDetector.findHoveredTrack(
+        pointerPosition: const Offset(5, 6),
+        candidates: const [
+          TrackHoverCandidate(
+            trackId: 7,
+            segments: [
+              [Offset(0, 0), Offset(10, 0)],
+            ],
+          ),
+        ],
+      );
+
+      expect(result.hoveredTrackId, 7);
+      expect(result.distance, closeTo(6, 0.001));
+    });
+
+    test('ignores one-point segments', () {
+      final result = TrackHoverDetector.findHoveredTrack(
+        pointerPosition: const Offset(5, 5),
+        candidates: const [
+          TrackHoverCandidate(
+            trackId: 1,
+            segments: [
+              [Offset(5, 5)],
+            ],
+          ),
+          TrackHoverCandidate(
+            trackId: 2,
+            segments: [
+              [Offset(0, 0), Offset(10, 0)],
+            ],
+          ),
+        ],
+      );
+
+      expect(result.hoveredTrackId, 2);
+      expect(result.distance, closeTo(5, 0.001));
+    });
+
+    test('chooses nearest track and keeps first match on ties', () {
+      final nearer = TrackHoverDetector.findHoveredTrack(
+        pointerPosition: const Offset(10, 10),
+        candidates: const [
+          TrackHoverCandidate(
+            trackId: 1,
+            segments: [
+              [Offset(0, 0), Offset(20, 0)],
+            ],
+          ),
+          TrackHoverCandidate(
+            trackId: 2,
+            segments: [
+              [Offset(0, 8), Offset(20, 8)],
+            ],
+          ),
+        ],
+      );
+
+      final tie = TrackHoverDetector.findHoveredTrack(
+        pointerPosition: const Offset(10, 10),
+        candidates: const [
+          TrackHoverCandidate(
+            trackId: 3,
+            segments: [
+              [Offset(0, 6), Offset(20, 6)],
+            ],
+          ),
+          TrackHoverCandidate(
+            trackId: 4,
+            segments: [
+              [Offset(0, 14), Offset(20, 14)],
+            ],
+          ),
+        ],
+      );
+
+      expect(nearer.hoveredTrackId, 2);
+      expect(nearer.distance, closeTo(2, 0.001));
+      expect(tie.hoveredTrackId, 3);
+      expect(tie.distance, closeTo(4, 0.001));
+    });
+  });
+
   group('TrackDisplayCacheBuilder', () {
     test('builds caches for zooms 6 through 18 preserving segments', () {
       final json = TrackDisplayCacheBuilder.buildJson([
@@ -117,6 +224,42 @@ void main() {
 
       expect(decision.action, TrackStartupAction.showRecovery);
       expect(decision.markMigrationComplete, isFalse);
+    });
+  });
+
+  group('MapNotifier hover state', () {
+    test('stores and clears hoveredTrackId without changing selection', () {
+      final initialState = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        selectedLocation: const LatLng(-42.0, 146.0),
+        showInfoPopup: true,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(() => TestMapNotifier(initialState)),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(mapProvider.notifier);
+
+      notifier.setHoveredTrackId(7);
+      expect(container.read(mapProvider).hoveredTrackId, 7);
+      expect(
+        container.read(mapProvider).selectedLocation,
+        const LatLng(-42.0, 146.0),
+      );
+      expect(container.read(mapProvider).showInfoPopup, isTrue);
+
+      notifier.clearHoveredTrack();
+      expect(container.read(mapProvider).hoveredTrackId, isNull);
+      expect(
+        container.read(mapProvider).selectedLocation,
+        const LatLng(-42.0, 146.0),
+      );
+      expect(container.read(mapProvider).showInfoPopup, isTrue);
     });
   });
 
