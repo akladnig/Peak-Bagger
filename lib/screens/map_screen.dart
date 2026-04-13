@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,9 +9,10 @@ import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
-import 'dart:async';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/track_hover_detector.dart';
+import 'package:peak_bagger/widgets/map_action_rail.dart';
+import 'package:peak_bagger/widgets/map_basemaps_drawer.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
@@ -89,7 +92,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   void _handleTrackHover(
-    PointerHoverEvent event,
+    Offset localPosition,
     LatLng location,
     MapState mapState,
   ) {
@@ -116,7 +119,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
 
     final result = TrackHoverDetector.findHoveredTrack(
-      pointerPosition: event.localPosition,
+      pointerPosition: localPosition,
       candidates: candidates,
     );
     notifier.setHoveredTrackId(result.hoveredTrackId);
@@ -263,6 +266,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     });
 
     return Scaffold(
+      endDrawer: const MapBasemapsDrawer(),
       body: Focus(
         focusNode: _mapFocusNode,
         autofocus: true,
@@ -373,112 +377,173 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         },
         child: Stack(
           children: [
-            MouseRegion(
-              key: const Key('map-interaction-region'),
-              cursor: _mouseCursor(mapState),
-              onExit: (_) => ref.read(mapProvider.notifier).clearHoveredTrack(),
-              child: FlutterMap(
-                mapController: _mapController,
-                options: MapOptions(
-                  initialCenter: mapState.center,
-                  initialZoom: mapState.zoom,
-                  onSecondaryTap: (tapPosition, point) {
-                    ref.read(mapProvider.notifier).centerOnSelectedLocation();
-                  },
-                  onPointerDown: (event, point) {
-                    _mapFocusNode.requestFocus();
-                    ref.read(mapProvider.notifier).clearHoveredTrack();
-                    setState(() {
-                      _isPointerDown = true;
-                      _pointerDownPosition = event.localPosition;
-                    });
-                  },
-                  onPointerUp: (event, point) {
-                    final moved =
-                        _pointerDownPosition != null &&
-                        (event.localPosition - _pointerDownPosition!).distance >
-                            5;
-                    setState(() {
-                      _isPointerDown = false;
-                      _pointerDownPosition = null;
-                    });
+            FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: mapState.center,
+                initialZoom: mapState.zoom,
+                onSecondaryTap: (tapPosition, point) {
+                  ref.read(mapProvider.notifier).centerOnSelectedLocation();
+                },
+                onPointerDown: (event, point) {
+                  _mapFocusNode.requestFocus();
+                  ref.read(mapProvider.notifier).clearHoveredTrack();
+                  setState(() {
+                    _isPointerDown = true;
+                    _pointerDownPosition = event.localPosition;
+                  });
+                },
+                onPointerUp: (event, point) {
+                  final moved =
+                      _pointerDownPosition != null &&
+                      (event.localPosition - _pointerDownPosition!).distance >
+                          5;
+                  setState(() {
+                    _isPointerDown = false;
+                    _pointerDownPosition = null;
+                  });
+                  _handleTrackHover(
+                    event.localPosition,
+                    _mapController.camera.screenOffsetToLatLng(
+                      event.localPosition,
+                    ),
+                    mapState,
+                  );
+                  if (ref.read(mapProvider).showInfoPopup) {
+                    ref.read(mapProvider.notifier).toggleInfoPopup();
+                  } else if (!moved) {
+                    ref.read(mapProvider.notifier).setSelectedLocation(point);
+                  }
+                },
+                onPointerHover: (event, point) {
+                  ref.read(mapProvider.notifier).setCursorMgrs(point);
+                },
+                onPositionChanged: (position, hasGesture) {
+                  if (hasGesture) {
                     if (ref.read(mapProvider).showInfoPopup) {
                       ref.read(mapProvider.notifier).toggleInfoPopup();
-                    } else if (!moved) {
-                      ref.read(mapProvider.notifier).setSelectedLocation(point);
                     }
-                  },
-                  onPointerHover: (event, point) {
-                    _handleTrackHover(event, point, mapState);
-                  },
-                  onPositionChanged: (position, hasGesture) {
-                    if (hasGesture) {
-                      if (ref.read(mapProvider).showInfoPopup) {
-                        ref.read(mapProvider.notifier).toggleInfoPopup();
-                      }
-                      ref
-                          .read(mapProvider.notifier)
-                          .updatePosition(position.center, position.zoom);
-                    }
-                  },
+                    ref
+                        .read(mapProvider.notifier)
+                        .updatePosition(position.center, position.zoom);
+                  }
+                },
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: _getTileUrl(mapState.basemap),
+                  userAgentPackageName: 'com.peak_bagger.app',
+                  tileProvider: NetworkTileProvider(),
                 ),
-                children: [
-                  TileLayer(
-                    urlTemplate: _getTileUrl(mapState.basemap),
-                    userAgentPackageName: 'com.peak_bagger.app',
-                    tileProvider: NetworkTileProvider(),
-                  ),
-                  if (mapState.selectedLocation != null)
-                    MarkerLayer(
-                      markers: [
-                        Marker(
-                          point: mapState.selectedLocation!,
-                          width: 40,
-                          height: 40,
-                          child: Icon(
-                            Icons.my_location,
-                            color: Colors.amber,
-                            size: 32,
-                          ),
+                if (mapState.selectedLocation != null)
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: mapState.selectedLocation!,
+                        width: 40,
+                        height: 40,
+                        child: Icon(
+                          Icons.my_location,
+                          color: Colors.amber,
+                          size: 32,
                         ),
-                      ],
+                      ),
+                    ],
+                  ),
+                if (mapState.peaks.isNotEmpty && mapState.zoom >= 12)
+                  MarkerLayer(
+                    markers: mapState.peaks.map((peak) {
+                      return Marker(
+                        point: LatLng(peak.latitude, peak.longitude),
+                        width: 20,
+                        height: 20,
+                        child: Icon(
+                          Icons.change_history,
+                          color: const Color(0xFFB22222),
+                          size: 16,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                if (mapState.selectedPeaks.isNotEmpty)
+                  CircleLayer(
+                    circles: mapState.selectedPeaks.map((peak) {
+                      return CircleMarker(
+                        point: LatLng(peak.latitude, peak.longitude),
+                        radius: 15,
+                        color: Colors.blue.withValues(alpha: 0.3),
+                        borderColor: Colors.blue,
+                        borderStrokeWidth: 2,
+                      );
+                    }).toList(),
+                  ),
+                if (mapState.selectedMap != null)
+                  _buildMapRectangle(mapState.selectedMap!),
+                if (mapState.showMapOverlay)
+                  PolygonLayer(polygons: _buildAllMapRectangles()),
+                if (mapState.showTracks)
+                  _buildTrackPolylines(mapState.tracks, mapState.zoom),
+              ],
+            ),
+            Positioned.fill(
+              child: Listener(
+                behavior: HitTestBehavior.translucent,
+                onPointerDown: (event) {
+                  _mapFocusNode.requestFocus();
+                  ref.read(mapProvider.notifier).clearHoveredTrack();
+                  setState(() {
+                    _isPointerDown = true;
+                    _pointerDownPosition = event.localPosition;
+                  });
+                },
+                onPointerUp: (event) {
+                  setState(() {
+                    _isPointerDown = false;
+                    _pointerDownPosition = null;
+                  });
+                  _handleTrackHover(
+                    event.localPosition,
+                    _mapController.camera.screenOffsetToLatLng(
+                      event.localPosition,
                     ),
-                  if (mapState.peaks.isNotEmpty && mapState.zoom >= 12)
-                    MarkerLayer(
-                      markers: mapState.peaks.map((peak) {
-                        return Marker(
-                          point: LatLng(peak.latitude, peak.longitude),
-                          width: 20,
-                          height: 20,
-                          child: Icon(
-                            Icons.change_history,
-                            color: const Color(0xFFB22222),
-                            size: 16,
-                          ),
-                        );
-                      }).toList(),
+                    mapState,
+                  );
+                },
+                onPointerCancel: (event) {
+                  setState(() {
+                    _isPointerDown = false;
+                    _pointerDownPosition = null;
+                  });
+                  ref.read(mapProvider.notifier).clearHoveredTrack();
+                },
+                onPointerHover: (event) {
+                  _handleTrackHover(
+                    event.localPosition,
+                    _mapController.camera.screenOffsetToLatLng(
+                      event.localPosition,
                     ),
-                  if (mapState.selectedPeaks.isNotEmpty)
-                    CircleLayer(
-                      circles: mapState.selectedPeaks.map((peak) {
-                        return CircleMarker(
-                          point: LatLng(peak.latitude, peak.longitude),
-                          radius: 15,
-                          color: Colors.blue.withValues(alpha: 0.3),
-                          borderColor: Colors.blue,
-                          borderStrokeWidth: 2,
-                        );
-                      }).toList(),
+                    mapState,
+                  );
+                },
+                onPointerMove: (event) {
+                  _handleTrackHover(
+                    event.localPosition,
+                    _mapController.camera.screenOffsetToLatLng(
+                      event.localPosition,
                     ),
-                  if (mapState.selectedMap != null)
-                    _buildMapRectangle(mapState.selectedMap!),
-                  if (mapState.showMapOverlay)
-                    PolygonLayer(polygons: _buildAllMapRectangles()),
-                  if (mapState.showTracks)
-                    _buildTrackPolylines(mapState.tracks, mapState.zoom),
-                ],
+                    mapState,
+                  );
+                },
+                child: MouseRegion(
+                  key: const Key('map-interaction-region'),
+                  cursor: _mouseCursor(mapState),
+                  onExit: (_) =>
+                      ref.read(mapProvider.notifier).clearHoveredTrack(),
+                  child: const SizedBox.expand(),
+                ),
               ),
             ),
+            const MapActionRail(),
             Positioned(
               left: 16,
               top: 16,

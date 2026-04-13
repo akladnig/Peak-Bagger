@@ -76,6 +76,36 @@ void main() {
     expect(_mapRegion(tester).cursor, SystemMouseCursors.grab);
   });
 
+  testWidgets('hovering away from a track clears hover inside map', (
+    tester,
+  ) async {
+    await _pumpMapApp(tester, _mapStateWithVisibleTrack());
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final container = ProviderScope.containerOf(tester.element(region));
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(() async {
+      try {
+        await gesture.removePointer();
+      } catch (_) {}
+    });
+
+    final center = tester.getCenter(region);
+    await gesture.addPointer(location: center);
+    await tester.pump();
+    await gesture.moveTo(center);
+    await tester.pump();
+
+    expect(container.read(mapProvider).hoveredTrackId, 7);
+    expect(_mapRegion(tester).cursor, SystemMouseCursors.click);
+
+    await gesture.moveTo(tester.getTopLeft(region) + const Offset(20, 20));
+    await tester.pump();
+
+    expect(container.read(mapProvider).hoveredTrackId, isNull);
+    expect(_mapRegion(tester).cursor, SystemMouseCursors.grab);
+  });
+
   testWidgets('dragging clears hover and keeps grabbing cursor', (
     tester,
   ) async {
@@ -105,6 +135,12 @@ void main() {
 
     expect(container.read(mapProvider).hoveredTrackId, isNull);
     expect(_mapRegion(tester).cursor, SystemMouseCursors.grabbing);
+
+    await gesture.up();
+    await tester.pump();
+
+    expect(container.read(mapProvider).hoveredTrackId, isNull);
+    expect(_mapRegion(tester).cursor, SystemMouseCursors.grab);
   });
 
   testWidgets('hidden tracks and recovery mode disable hover detection', (

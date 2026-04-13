@@ -14,12 +14,18 @@ class ObjectBoxAdminScreen extends ConsumerStatefulWidget {
 class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _verticalController = ScrollController();
-  final ScrollController _horizontalController = ScrollController();
+  final ScrollController _headerHorizontalController = ScrollController();
+  final Map<String, ScrollController> _rowHorizontalControllers = {};
+  double _horizontalOffset = 0;
+  bool _syncingHorizontal = false;
 
   @override
   void initState() {
     super.initState();
     _verticalController.addListener(_maybeLoadMore);
+    _headerHorizontalController.addListener(
+      () => _syncHorizontalScroll(_headerHorizontalController),
+    );
   }
 
   @override
@@ -27,9 +33,62 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     _verticalController
       ..removeListener(_maybeLoadMore)
       ..dispose();
-    _horizontalController.dispose();
+    _headerHorizontalController.dispose();
+    for (final controller in _rowHorizontalControllers.values) {
+      controller.dispose();
+    }
     _searchController.dispose();
     super.dispose();
+  }
+
+  ScrollController _rowHorizontalControllerFor(
+    ObjectBoxAdminEntityDescriptor entity,
+    ObjectBoxAdminRow row,
+  ) {
+    final key = '${entity.name}:${row.primaryKeyValue}';
+    return _rowHorizontalControllers.putIfAbsent(key, () {
+      final controller = ScrollController(
+        initialScrollOffset: _horizontalOffset,
+      );
+      controller.addListener(() => _syncHorizontalScroll(controller));
+      return controller;
+    });
+  }
+
+  void _syncHorizontalScroll(ScrollController source) {
+    if (_syncingHorizontal || !source.hasClients) {
+      return;
+    }
+
+    final offset = source.offset;
+    if ((offset - _horizontalOffset).abs() < 0.1) {
+      return;
+    }
+
+    _horizontalOffset = offset;
+    _syncingHorizontal = true;
+    try {
+      void syncController(ScrollController controller) {
+        if (!controller.hasClients || identical(controller, source)) {
+          return;
+        }
+
+        final targetOffset = offset.clamp(
+          0.0,
+          controller.position.maxScrollExtent,
+        );
+        if ((controller.offset - targetOffset).abs() > 0.1) {
+          controller.jumpTo(targetOffset);
+        }
+      }
+
+      syncController(_headerHorizontalController);
+      for (final controller in _rowHorizontalControllers.values) {
+        syncController(controller);
+      }
+    } finally {
+      _syncingHorizontal = false;
+    }
   }
 
   void _maybeLoadMore() {
@@ -153,10 +212,11 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
             rows: state.visibleRows,
             sortAscending: state.sortAscending,
             selectedRow: state.selectedRow,
-            horizontalController: _horizontalController,
+            headerHorizontalController: _headerHorizontalController,
+            rowHorizontalControllerFor: (row) =>
+                _rowHorizontalControllerFor(entity, row),
             verticalController: _verticalController,
             canLoadMore: state.visibleRowCount < state.rows.length,
-            onLoadMore: notifier.loadMoreRows,
             onSortPressed: notifier.toggleSort,
             onRowTap: notifier.selectRow,
           ),
@@ -379,10 +439,10 @@ class _DataGrid extends StatelessWidget {
     required this.rows,
     required this.sortAscending,
     required this.selectedRow,
-    required this.horizontalController,
+    required this.headerHorizontalController,
+    required this.rowHorizontalControllerFor,
     required this.verticalController,
     required this.canLoadMore,
-    required this.onLoadMore,
     required this.onSortPressed,
     required this.onRowTap,
   });
@@ -391,10 +451,11 @@ class _DataGrid extends StatelessWidget {
   final List<ObjectBoxAdminRow> rows;
   final bool sortAscending;
   final ObjectBoxAdminRow? selectedRow;
-  final ScrollController horizontalController;
+  final ScrollController headerHorizontalController;
+  final ScrollController Function(ObjectBoxAdminRow row)
+  rowHorizontalControllerFor;
   final ScrollController verticalController;
   final bool canLoadMore;
-  final VoidCallback onLoadMore;
   final VoidCallback onSortPressed;
   final ValueChanged<ObjectBoxAdminRow> onRowTap;
 
@@ -406,16 +467,15 @@ class _DataGrid extends StatelessWidget {
     final primaryField = entity.fields.firstWhere(
       (field) => field.isPrimaryName,
     );
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _DataHeaderRow(
-          entity: entity,
+          key: const Key('objectbox-admin-header-row'),
           primaryField: primaryField,
           otherFields: otherFields,
           sortAscending: sortAscending,
-          horizontalController: horizontalController,
+          horizontalController: headerHorizontalController,
           onSortPressed: onSortPressed,
         ),
         const Divider(height: 1),
@@ -428,7 +488,6 @@ class _DataGrid extends StatelessWidget {
               itemCount: rows.length + (canLoadMore ? 1 : 0),
               itemBuilder: (context, index) {
                 if (index == rows.length && canLoadMore) {
-                  onLoadMore();
                   return const Padding(
                     padding: EdgeInsets.all(16),
                     child: Center(child: CircularProgressIndicator()),
@@ -439,12 +498,11 @@ class _DataGrid extends StatelessWidget {
                 final isSelected =
                     selectedRow?.primaryKeyValue == row.primaryKeyValue;
                 return _DataRowTile(
-                  entity: entity,
                   row: row,
                   primaryField: primaryField,
                   otherFields: otherFields,
                   selected: isSelected,
-                  horizontalController: horizontalController,
+                  horizontalController: rowHorizontalControllerFor(row),
                   onTap: () => onRowTap(row),
                 );
               },
@@ -458,7 +516,7 @@ class _DataGrid extends StatelessWidget {
 
 class _DataHeaderRow extends StatelessWidget {
   const _DataHeaderRow({
-    required this.entity,
+    super.key,
     required this.primaryField,
     required this.otherFields,
     required this.sortAscending,
@@ -466,7 +524,6 @@ class _DataHeaderRow extends StatelessWidget {
     required this.onSortPressed,
   });
 
-  final ObjectBoxAdminEntityDescriptor entity;
   final ObjectBoxAdminFieldDescriptor primaryField;
   final List<ObjectBoxAdminFieldDescriptor> otherFields;
   final bool sortAscending;
@@ -523,7 +580,6 @@ class _DataHeaderRow extends StatelessWidget {
 
 class _DataRowTile extends StatelessWidget {
   const _DataRowTile({
-    required this.entity,
     required this.row,
     required this.primaryField,
     required this.otherFields,
@@ -532,7 +588,6 @@ class _DataRowTile extends StatelessWidget {
     required this.onTap,
   });
 
-  final ObjectBoxAdminEntityDescriptor entity;
   final ObjectBoxAdminRow row;
   final ObjectBoxAdminFieldDescriptor primaryField;
   final List<ObjectBoxAdminFieldDescriptor> otherFields;
@@ -555,10 +610,15 @@ class _DataRowTile extends StatelessWidget {
           children: [
             _Cell(
               width: 160,
-              child: Text(
-                objectBoxAdminPreviewValue(row.values[primaryField.name]),
-                maxLines: null,
-                softWrap: true,
+              child: ColoredBox(
+                color: selected
+                    ? Theme.of(context).colorScheme.primaryContainer
+                    : Theme.of(context).colorScheme.surface,
+                child: Text(
+                  objectBoxAdminPreviewValue(row.values[primaryField.name]),
+                  maxLines: null,
+                  softWrap: true,
+                ),
               ),
             ),
             Expanded(

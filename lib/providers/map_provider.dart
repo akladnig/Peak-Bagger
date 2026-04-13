@@ -532,6 +532,10 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void setHoveredTrackId(int? trackId) {
+    if (trackId == null) {
+      clearHoveredTrack();
+      return;
+    }
     state = state.copyWith(hoveredTrackId: trackId);
   }
 
