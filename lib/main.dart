@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/services/csv_importer.dart';
+import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
+import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 
 late final Store objectboxStore;
 
@@ -28,7 +30,12 @@ void main() async {
 
   runApp(
     ProviderScope(
-      overrides: [tasmapRepositoryProvider.overrideWithValue(tasmapRepo)],
+      overrides: [
+        tasmapRepositoryProvider.overrideWithValue(tasmapRepo),
+        objectboxAdminRepositoryProvider.overrideWithValue(
+          ObjectBoxAdminRepositoryImpl(store: objectboxStore),
+        ),
+      ],
       child: const App(),
     ),
   );

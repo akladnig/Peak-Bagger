@@ -61,11 +61,21 @@ class SideMenu extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _MenuItem(
-            icon: Icons.settings,
+            key: const Key('side-menu-objectbox-admin'),
+            icon: FontAwesomeIcons.database,
             isSelected: navigationShell.currentIndex == 3,
             onTap: () {
               onBeforeNavigation?.call();
               navigationShell.goBranch(3);
+            },
+          ),
+          const SizedBox(height: 8),
+          _MenuItem(
+            icon: Icons.settings,
+            isSelected: navigationShell.currentIndex == 4,
+            onTap: () {
+              onBeforeNavigation?.call();
+              navigationShell.goBranch(4);
             },
           ),
         ],
@@ -80,6 +90,7 @@ class _MenuItem extends StatelessWidget {
   final VoidCallback onTap;
 
   const _MenuItem({
+    super.key,
     required this.icon,
     required this.isSelected,
     required this.onTap,
