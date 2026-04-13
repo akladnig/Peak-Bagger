@@ -36,12 +36,12 @@ Thin slice first: pure detector + map wiring; then harden clearing paths and jou
 ### Phase 3: Journey Hardening
 
 - **Goal**: stable desktop hover journey coverage
-- [ ] `test/robot/gpx_tracks/gpx_tracks_robot.dart` - add key-first helpers for map interaction region hover assertions
-- [ ] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - robot journey: visible track -> hover enters -> state/cursor lane asserts -> move away -> hover clears
-- [ ] `lib/screens/map_screen.dart` - add only selectors/seams needed for deterministic pointer tests
-- [ ] TDD: happy-path visible-track hover journey stays stable with deterministic notifier seam; no filesystem import dependency in robot setup
-- [ ] Robot journey tests + selectors/seams for critical flows
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `test/robot/gpx_tracks/gpx_tracks_robot.dart` - add key-first helpers for map interaction region hover assertions
+- [x] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - robot journey: visible track -> hover enters -> state/cursor lane asserts -> move away -> hover clears
+- [x] `lib/screens/map_screen.dart` - no extra seam beyond `map-interaction-region` key needed for deterministic pointer tests
+- [x] TDD: happy-path visible-track hover journey stays stable with deterministic notifier seam; no filesystem import dependency in robot setup
+- [x] Robot journey tests + selectors/seams for critical flows
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

@@ -33,6 +33,7 @@ void main() {
         ],
       ),
     );
+    addTearDown(robot.dispose);
     await robot.pumpApp();
 
     robot.expectTracksImportedAndVisible();
@@ -42,5 +43,39 @@ void main() {
 
     await robot.toggleTracks();
     robot.expectTracksShown();
+  });
+
+  testWidgets('hovering visible track updates hover state then clears', (
+    tester,
+  ) async {
+    final robot = GpxTracksRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showTracks: true,
+        tracks: [
+          GpxTrack(
+            gpxTrackId: 7,
+            contentHash: 'hash',
+            trackName: 'Hover Track',
+            trackDate: DateTime(2024, 1, 15),
+            gpxFile: '<gpx></gpx>',
+            displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
+              [const LatLng(-41.5, 146.49), const LatLng(-41.5, 146.51)],
+            ]),
+          ),
+        ],
+      ),
+    );
+    addTearDown(robot.dispose);
+    await robot.pumpApp();
+
+    await robot.hoverTrack();
+    robot.expectHoveredTrack(7);
+
+    await robot.moveMouseAway();
+    robot.expectNoHoveredTrack();
   });
 }
