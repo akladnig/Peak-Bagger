@@ -133,7 +133,7 @@
     },
     {
       "id": "3:8449374379554926112",
-      "lastPropertyId": "12:6504873653632491140",
+      "lastPropertyId": "14:9193806285716622041",
       "name": "GpxTrack",
       "properties": [
         {
@@ -173,11 +173,6 @@
           "type": 6
         },
         {
-          "id": "9:3580443233466692573",
-          "name": "trackPoints",
-          "type": 9
-        },
-        {
           "id": "10:5063544268903792566",
           "name": "contentHash",
           "type": 9
@@ -191,6 +186,16 @@
           "id": "12:6504873653632491140",
           "name": "endDateTime",
           "type": 10
+        },
+        {
+          "id": "13:8803569488989977927",
+          "name": "gpxFile",
+          "type": 9
+        },
+        {
+          "id": "14:9193806285716622041",
+          "name": "displayTrackPointsByZoom",
+          "type": 9
         }
       ],
       "relations": []
@@ -205,7 +210,8 @@
   "retiredEntityUids": [],
   "retiredIndexUids": [],
   "retiredPropertyUids": [
-    3390857021483670935
+    3390857021483670935,
+    3580443233466692573
   ],
   "retiredRelationUids": [],
   "version": 1

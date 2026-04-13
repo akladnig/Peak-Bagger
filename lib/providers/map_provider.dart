@@ -11,6 +11,7 @@ import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/grid_reference_parser.dart';
+import 'package:peak_bagger/services/track_migration_marker_store.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/main.dart';
 
@@ -197,6 +198,7 @@ class MapNotifier extends Notifier<MapState> {
   late final PeakRepository _peakRepository;
   late final TasmapRepository _tasmapRepository;
   late final GpxTrackRepository _gpxTrackRepository;
+  late final TrackMigrationMarkerStore _trackMigrationMarkerStore;
   final OverpassService _overpassService = OverpassService();
   bool _recoverySnackbarShown = false;
   String? _pendingTrackSnackbarMessage;
@@ -206,6 +208,7 @@ class MapNotifier extends Notifier<MapState> {
     _peakRepository = PeakRepository(objectboxStore);
     _tasmapRepository = ref.read(tasmapRepositoryProvider);
     _gpxTrackRepository = GpxTrackRepository(objectboxStore);
+    _trackMigrationMarkerStore = const TrackMigrationMarkerStore();
     _loadPosition();
     Future.microtask(() => _loadPeaks());
     Future.microtask(() => _loadTracks());
@@ -241,27 +244,56 @@ class MapNotifier extends Notifier<MapState> {
     }
   }
 
-  void _loadTracks() {
+  Future<void> _loadTracks() async {
     final tracks = _gpxTrackRepository.getAllTracks();
-    if (tracks.isEmpty) {
-      Future.microtask(() => _importTracks(includeTasmaniaFolder: true));
-      return;
+    final migrationMarked = await _trackMigrationMarkerStore.isMarked();
+    final hasRecoveryIssue = _hasTrackRecoveryIssue(tracks);
+    final decision = TrackMigrationMarkerStore.decideStartupAction(
+      migrationMarked: migrationMarked,
+      hasPersistedTracks: tracks.isNotEmpty,
+      hasRecoveryIssue: hasRecoveryIssue,
+    );
+
+    if (decision.markMigrationComplete) {
+      await _trackMigrationMarkerStore.markComplete();
     }
 
-    final hasRecoveryIssue = _hasTrackRecoveryIssue(tracks);
-    if (hasRecoveryIssue && !state.hasTrackRecoveryIssue) {
-      _recoverySnackbarShown = false;
+    switch (decision.action) {
+      case TrackStartupAction.wipeAndImport:
+        _gpxTrackRepository.deleteAll();
+        state = state.copyWith(
+          tracks: const [],
+          showTracks: false,
+          hasTrackRecoveryIssue: false,
+        );
+        await _importTracks(includeTasmaniaFolder: true);
+        return;
+      case TrackStartupAction.importTracks:
+        await _importTracks(includeTasmaniaFolder: true);
+        return;
+      case TrackStartupAction.showRecovery:
+        if (!state.hasTrackRecoveryIssue) {
+          _recoverySnackbarShown = false;
+        }
+        state = state.copyWith(
+          tracks: tracks,
+          showTracks: false,
+          hasTrackRecoveryIssue: true,
+        );
+        return;
+      case TrackStartupAction.loadTracks:
+        state = state.copyWith(
+          tracks: tracks,
+          showTracks: true,
+          hasTrackRecoveryIssue: false,
+        );
+        return;
     }
-    state = state.copyWith(
-      tracks: tracks,
-      showTracks: hasRecoveryIssue ? false : true,
-      hasTrackRecoveryIssue: hasRecoveryIssue,
-    );
   }
 
   bool _hasTrackRecoveryIssue(List<GpxTrack> tracks) {
     for (final track in tracks) {
-      if (track.trackPoints.isEmpty || track.trackPoints == '[]') {
+      if (!track.hasValidOptimizedDisplayData()) {
         return true;
       }
       if (track.contentHash.isEmpty || track.trackDate == null) {
@@ -346,9 +378,18 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   Future<void> resetTrackData() async {
-    await _importTracks(includeTasmaniaFolder: true, resetExisting: true);
-    state = state.copyWith(hasTrackRecoveryIssue: false, showTracks: false);
-    _recoverySnackbarShown = false;
+    final result = await _importTracks(
+      includeTasmaniaFolder: true,
+      resetExisting: true,
+    );
+    if (result == null) {
+      return;
+    }
+
+    state = state.copyWith(showTracks: false);
+    if (!state.hasTrackRecoveryIssue) {
+      _recoverySnackbarShown = false;
+    }
   }
 
   bool consumeRecoverySnackbarSignal() {

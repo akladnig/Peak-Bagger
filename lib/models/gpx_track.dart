@@ -5,13 +5,17 @@ import 'package:objectbox/objectbox.dart';
 
 @Entity()
 class GpxTrack {
+  static const minDisplayZoom = 6;
+  static const maxDisplayZoom = 18;
+
   @Id()
   int gpxTrackId = 0;
 
   String contentHash;
   String trackName;
   DateTime? trackDate;
-  String trackPoints;
+  String gpxFile;
+  String displayTrackPointsByZoom;
   DateTime? startDateTime;
   DateTime? endDateTime;
   double? distance;
@@ -24,7 +28,8 @@ class GpxTrack {
     required this.contentHash,
     required this.trackName,
     this.trackDate,
-    this.trackPoints = '[]',
+    this.gpxFile = '',
+    this.displayTrackPointsByZoom = '{}',
     this.startDateTime,
     this.endDateTime,
     this.distance,
@@ -41,7 +46,9 @@ class GpxTrack {
       trackDate: map['trackDate'] != null
           ? DateTime.tryParse(map['trackDate'] as String)
           : null,
-      trackPoints: map['trackPoints'] as String? ?? '[]',
+      gpxFile: map['gpxFile'] as String? ?? '',
+      displayTrackPointsByZoom:
+          map['displayTrackPointsByZoom'] as String? ?? '{}',
       startDateTime: map['startDateTime'] != null
           ? DateTime.tryParse(map['startDateTime'] as String)
           : null,
@@ -61,7 +68,8 @@ class GpxTrack {
       'contentHash': contentHash,
       'trackName': trackName,
       'trackDate': trackDate?.toIso8601String(),
-      'trackPoints': trackPoints,
+      'gpxFile': gpxFile,
+      'displayTrackPointsByZoom': displayTrackPointsByZoom,
       'startDateTime': startDateTime?.toIso8601String(),
       'endDateTime': endDateTime?.toIso8601String(),
       'distance': distance,
@@ -74,15 +82,62 @@ class GpxTrack {
   bool get hasMetadataTrackDate => startDateTime != null;
 
   List<List<LatLng>> getSegments() {
-    try {
-      return _decodeSegments(trackPoints);
-    } catch (e) {
+    return getSegmentsForZoom(15);
+  }
+
+  List<List<LatLng>> getSegmentsForZoom(int zoom) {
+    final caches = decodeDisplayTrackPointsByZoom(displayTrackPointsByZoom);
+    if (caches.isEmpty) {
       return const [];
     }
+    final clampedZoom = zoom.clamp(6, 18);
+    return caches[clampedZoom] ?? const [];
   }
 
   List<LatLng> getPoints() {
     return getSegments().expand((segment) => segment).toList(growable: false);
+  }
+
+  bool hasValidOptimizedDisplayData() {
+    if (gpxFile.isEmpty) {
+      return false;
+    }
+
+    final caches = decodeDisplayTrackPointsByZoom(displayTrackPointsByZoom);
+    if (caches.isEmpty) {
+      return false;
+    }
+
+    for (var zoom = minDisplayZoom; zoom <= maxDisplayZoom; zoom++) {
+      if (!caches.containsKey(zoom)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  static Map<int, List<List<LatLng>>> decodeDisplayTrackPointsByZoom(
+    String jsonString,
+  ) {
+    if (jsonString.isEmpty || jsonString == '{}') {
+      return const {};
+    }
+
+    final decoded = json.decode(jsonString);
+    if (decoded is! Map<String, dynamic>) {
+      return const {};
+    }
+
+    final caches = <int, List<List<LatLng>>>{};
+    for (final entry in decoded.entries) {
+      final zoom = int.tryParse(entry.key);
+      if (zoom == null || entry.value is! List) {
+        continue;
+      }
+      caches[zoom] = _decodeSegments(json.encode(entry.value));
+    }
+    return caches;
   }
 
   static List<List<LatLng>> _decodeSegments(String jsonString) {

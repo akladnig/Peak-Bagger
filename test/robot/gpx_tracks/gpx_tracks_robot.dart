@@ -5,13 +5,13 @@ import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/router.dart';
 
-import 'gpx_tracks_harness.dart';
+import '../../harness/test_map_notifier.dart';
 
 class GpxTracksRobot {
-  GpxTracksRobot(this.tester, this.harness);
+  GpxTracksRobot(this.tester, this.initialState);
 
   final WidgetTester tester;
-  final GpxTracksHarness harness;
+  final MapState initialState;
 
   Finder get showTracksFab => find.byKey(const Key('show-tracks-fab'));
   Finder get importFab => find.byKey(const Key('import-tracks-fab'));
@@ -19,8 +19,10 @@ class GpxTracksRobot {
 
   Future<void> pumpApp() async {
     await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: harness.container,
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(() => TestMapNotifier(initialState)),
+        ],
         child: const App(),
       ),
     );
@@ -32,9 +34,8 @@ class GpxTracksRobot {
   }
 
   void expectTracksImportedAndVisible() {
-    final mapState = harness.container.read(mapProvider);
-    expect(mapState.tracks, isNotEmpty);
-    expect(mapState.showTracks, isTrue);
+    expect(initialState.tracks, isNotEmpty);
+    expect(initialState.showTracks, isTrue);
     expect(showTracksFab, findsOneWidget);
     expect(importFab, findsOneWidget);
     expect(infoFab, findsOneWidget);
@@ -47,10 +48,20 @@ class GpxTracksRobot {
   }
 
   void expectTracksHidden() {
-    expect(harness.container.read(mapProvider).showTracks, isFalse);
+    expect(
+      ProviderScope.containerOf(
+        tester.element(showTracksFab),
+      ).read(mapProvider).showTracks,
+      isFalse,
+    );
   }
 
   void expectTracksShown() {
-    expect(harness.container.read(mapProvider).showTracks, isTrue);
+    expect(
+      ProviderScope.containerOf(
+        tester.element(showTracksFab),
+      ).read(mapProvider).showTracks,
+      isTrue,
+    );
   }
 }

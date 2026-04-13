@@ -67,6 +67,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onTap: _isResettingMaps ? null : _resetMapData,
           ),
           ListTile(
+            key: const Key('reset-track-data-tile'),
             leading: const Icon(Icons.route),
             title: const Text('Reset Track Data'),
             subtitle: const Text(
@@ -188,10 +189,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           actions: [
             TextButton(
+              key: const Key('reset-track-data-cancel'),
               onPressed: () => Navigator.of(context).pop(false),
               child: const Text('Cancel'),
             ),
             FilledButton(
+              key: const Key('reset-track-data-confirm'),
               onPressed: () => Navigator.of(context).pop(true),
               child: const Text('Reset'),
             ),

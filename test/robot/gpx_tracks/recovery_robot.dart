@@ -16,8 +16,8 @@ class RecoveryRobot {
   Finder get banner => find.text('Some tracks need to be rebuilt.');
   Finder get bannerAction =>
       find.byKey(const Key('open-track-recovery-settings'));
-  Finder get resetTrackTile => find.text('Reset Track Data');
-  Finder get resetButton => find.text('Reset');
+  Finder get resetTrackTile => find.byKey(const Key('reset-track-data-tile'));
+  Finder get resetButton => find.byKey(const Key('reset-track-data-confirm'));
   Finder get importFab => find.byKey(const Key('import-tracks-fab'));
   Finder get showTracksFab => find.byKey(const Key('show-tracks-fab'));
 

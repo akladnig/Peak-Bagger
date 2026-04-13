@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:xml/xml.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/services/track_display_cache_builder.dart';
 
 class TrackImportResult {
   const TrackImportResult({
@@ -183,14 +185,15 @@ class GpxImporter {
       final endDateTime = _extractEndDateTime(doc);
       final modified = file.lastModifiedSync();
       final trackDate = _normalizeTrackDate(startDateTime ?? modified);
-      final trackPoints = _extractAllPointsAsJson(doc);
+      final segments = _extractAllSegments(doc);
       final contentHash = sha256.convert(bytes).toString();
 
       return GpxTrack(
         contentHash: contentHash,
         trackName: trackName,
         trackDate: trackDate,
-        trackPoints: trackPoints,
+        gpxFile: content,
+        displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson(segments),
         startDateTime: startDateTime,
         endDateTime: endDateTime,
       );
@@ -199,13 +202,13 @@ class GpxImporter {
     }
   }
 
-  String _extractAllPointsAsJson(XmlDocument doc) {
-    final segments = <List<List<double>>>[];
+  List<List<LatLng>> _extractAllSegments(XmlDocument doc) {
+    final segments = <List<LatLng>>[];
 
     final trackSegments = doc.findAllElements('trkseg').toList(growable: false);
     if (trackSegments.isNotEmpty) {
       for (final trkseg in trackSegments) {
-        final segment = <List<double>>[];
+        final segment = <LatLng>[];
         for (final trkpt in trkseg.findElements('trkpt')) {
           final latStr = trkpt.getAttribute('lat');
           final lonStr = trkpt.getAttribute('lon');
@@ -214,7 +217,7 @@ class GpxImporter {
             final lat = double.tryParse(latStr);
             final lon = double.tryParse(lonStr);
             if (lat != null && lon != null) {
-              segment.add([lat, lon]);
+              segment.add(LatLng(lat, lon));
             }
           }
         }
@@ -223,7 +226,7 @@ class GpxImporter {
         }
       }
     } else {
-      final routeSegment = <List<double>>[];
+      final routeSegment = <LatLng>[];
       for (final rtept in doc.findAllElements('rtept')) {
         final latStr = rtept.getAttribute('lat');
         final lonStr = rtept.getAttribute('lon');
@@ -232,7 +235,7 @@ class GpxImporter {
           final lat = double.tryParse(latStr);
           final lon = double.tryParse(lonStr);
           if (lat != null && lon != null) {
-            routeSegment.add([lat, lon]);
+            routeSegment.add(LatLng(lat, lon));
           }
         }
       }
@@ -241,7 +244,7 @@ class GpxImporter {
       }
     }
 
-    return jsonEncode(segments);
+    return segments;
   }
 
   String _extractTrackName(XmlDocument doc, String filePath) {

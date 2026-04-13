@@ -1,37 +1,156 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
+import 'package:peak_bagger/services/track_display_cache_builder.dart';
+import 'package:peak_bagger/services/track_migration_marker_store.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  group('TrackDisplayCacheBuilder', () {
+    test('builds caches for zooms 6 through 18 preserving segments', () {
+      final json = TrackDisplayCacheBuilder.buildJson([
+        [
+          const LatLng(-42.10, 146.10),
+          const LatLng(-42.15, 146.15),
+          const LatLng(-42.20, 146.20),
+        ],
+        [const LatLng(-42.30, 146.30)],
+      ]);
+
+      final decoded = GpxTrack.decodeDisplayTrackPointsByZoom(json);
+
+      expect(decoded.keys.first, 6);
+      expect(decoded.keys.last, 18);
+      expect(decoded[6], hasLength(2));
+      expect(decoded[18], hasLength(2));
+      expect(decoded[6]!.first.first.latitude, -42.10);
+      expect(decoded[18]!.first.last.longitude, 146.20);
+      expect(decoded[6]!.last.single.latitude, -42.30);
+    });
+
+    test('simplifies dense straight segment to endpoints', () {
+      final json = TrackDisplayCacheBuilder.buildJson([
+        [
+          const LatLng(-42.1000, 146.1000),
+          const LatLng(-42.1005, 146.1005),
+          const LatLng(-42.1010, 146.1010),
+          const LatLng(-42.1015, 146.1015),
+          const LatLng(-42.1020, 146.1020),
+        ],
+      ]);
+
+      final decoded = GpxTrack.decodeDisplayTrackPointsByZoom(json);
+      final segment = decoded[15]!.single;
+
+      expect(segment, hasLength(2));
+      expect(segment.first.latitude, -42.1000);
+      expect(segment.last.longitude, 146.1020);
+    });
+
+    test('retains more switchback detail at higher zooms', () {
+      final json = TrackDisplayCacheBuilder.buildJson([
+        [
+          const LatLng(-42.1000, 146.1000),
+          const LatLng(-42.1006, 146.1002),
+          const LatLng(-42.1001, 146.1008),
+          const LatLng(-42.1009, 146.1010),
+          const LatLng(-42.1002, 146.1016),
+          const LatLng(-42.1010, 146.1018),
+        ],
+      ]);
+
+      final decoded = GpxTrack.decodeDisplayTrackPointsByZoom(json);
+
+      expect(decoded[18]!.single.length, greaterThan(2));
+      expect(
+        decoded[18]!.single.length,
+        greaterThan(decoded[6]!.single.length),
+      );
+    });
+  });
+
+  group('TrackMigrationMarkerStore', () {
+    test('marks migration as complete', () async {
+      SharedPreferences.setMockInitialValues({});
+      const store = TrackMigrationMarkerStore();
+
+      expect(await store.isMarked(), isFalse);
+
+      await store.markComplete();
+
+      expect(await store.isMarked(), isTrue);
+    });
+
+    test('decides first startup with legacy rows should wipe then import', () {
+      final decision = TrackMigrationMarkerStore.decideStartupAction(
+        migrationMarked: false,
+        hasPersistedTracks: true,
+        hasRecoveryIssue: true,
+      );
+
+      expect(decision.action, TrackStartupAction.wipeAndImport);
+      expect(decision.markMigrationComplete, isTrue);
+    });
+
+    test('decides empty first startup should mark then import', () {
+      final decision = TrackMigrationMarkerStore.decideStartupAction(
+        migrationMarked: false,
+        hasPersistedTracks: false,
+        hasRecoveryIssue: false,
+      );
+
+      expect(decision.action, TrackStartupAction.importTracks);
+      expect(decision.markMigrationComplete, isTrue);
+    });
+
+    test('decides later corrupt optimized rows should show recovery', () {
+      final decision = TrackMigrationMarkerStore.decideStartupAction(
+        migrationMarked: true,
+        hasPersistedTracks: true,
+        hasRecoveryIssue: true,
+      );
+
+      expect(decision.action, TrackStartupAction.showRecovery);
+      expect(decision.markMigrationComplete, isFalse);
+    });
+  });
+
   group('GpxTrack', () {
     test('newly imported rows populate identity fields', () {
       final track = GpxTrack(
         contentHash: 'abc123',
         trackName: 'Mt Anne',
         trackDate: DateTime(2024, 1, 15),
+        gpxFile: '<gpx></gpx>',
       );
 
       expect(track.contentHash, 'abc123');
       expect(track.trackName, 'Mt Anne');
       expect(track.trackDate, DateTime(2024, 1, 15));
       expect(track.trackColour, 0xFFa726bc);
-      expect(track.trackPoints, '[]');
+      expect(track.gpxFile, '<gpx></gpx>');
+      expect(track.displayTrackPointsByZoom, '{}');
       expect(track.hasMetadataTrackDate, isFalse);
     });
 
-    test('getSegments decodes segmented geometry', () {
+    test('getSegmentsForZoom decodes segmented geometry', () {
       final track = GpxTrack(
         contentHash: 'abc123',
         trackName: 'Seg Track',
         trackDate: DateTime(2024, 1, 15),
-        trackPoints: '[[[-42.1,146.1],[-42.2,146.2]],[[-42.3,146.3]]]',
+        gpxFile: '<gpx></gpx>',
+        displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
+          [const LatLng(-42.1, 146.1), const LatLng(-42.2, 146.2)],
+          [const LatLng(-42.3, 146.3)],
+        ]),
       );
 
-      final segments = track.getSegments();
+      final segments = track.getSegmentsForZoom(15);
 
       expect(segments, hasLength(2));
       expect(segments.first, hasLength(2));
@@ -46,7 +165,8 @@ void main() {
         'contentHash': 'hash',
         'trackName': 'Frenchmans Cap',
         'trackDate': '2024-01-15T00:00:00.000',
-        'trackPoints': '[[[-42.0,146.0]]]',
+        'gpxFile': '<gpx></gpx>',
+        'displayTrackPointsByZoom': '{"15":[[[-42.0,146.0]]]}',
         'startDateTime': '2024-01-15T08:00:00.000',
         'endDateTime': '2024-01-15T17:00:00.000',
         'distance': 10.5,
@@ -63,10 +183,34 @@ void main() {
       expect(track.trackName, 'Frenchmans Cap');
       expect(track.startDateTime, isNotNull);
       expect(track.endDateTime, isNotNull);
+      expect(track.gpxFile, '<gpx></gpx>');
       expect(encoded['contentHash'], 'hash');
       expect(encoded['trackName'], 'Frenchmans Cap');
       expect(encoded['trackDate'], isNotNull);
       expect(encoded['endDateTime'], isNotNull);
+      expect(encoded['gpxFile'], '<gpx></gpx>');
+    });
+
+    test('hasValidOptimizedDisplayData requires gpx and full zoom range', () {
+      final validTrack = GpxTrack(
+        contentHash: 'abc123',
+        trackName: 'Valid Track',
+        trackDate: DateTime(2024, 1, 15),
+        gpxFile: '<gpx></gpx>',
+        displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
+          [const LatLng(-42.1, 146.1), const LatLng(-42.2, 146.2)],
+        ]),
+      );
+      final invalidTrack = GpxTrack(
+        contentHash: 'abc123',
+        trackName: 'Invalid Track',
+        trackDate: DateTime(2024, 1, 15),
+        gpxFile: '<gpx></gpx>',
+        displayTrackPointsByZoom: '{"15":[[[-42.1,146.1],[-42.2,146.2]]]}',
+      );
+
+      expect(validTrack.hasValidOptimizedDisplayData(), isTrue);
+      expect(invalidTrack.hasValidOptimizedDisplayData(), isFalse);
     });
   });
 
@@ -148,7 +292,8 @@ void main() {
 
     test('parseGpxFile uses metadata name/date when available', () async {
       final file = File('${tempDir.path}/track.gpx');
-      await file.writeAsString(_tasmanianGpx('Mt Anne'));
+      final gpx = _tasmanianGpx('Mt Anne');
+      await file.writeAsString(gpx);
 
       final importer = GpxImporter();
       final track = importer.parseGpxFile(file.path);
@@ -159,7 +304,9 @@ void main() {
       expect(track.startDateTime, isNotNull);
       expect(track.endDateTime, isNotNull);
       expect(track.contentHash, isNotEmpty);
-      expect(track.getSegments(), isNotEmpty);
+      expect(track.gpxFile, gpx);
+      expect(track.displayTrackPointsByZoom, isNot('{}'));
+      expect(track.getSegmentsForZoom(15), isNotEmpty);
     });
 
     test('isTasmanian includes eastern Tasmania longitudes', () {
@@ -405,7 +552,10 @@ void main() {
         expect(result.replacedCount, 1);
         expect(result.errorSkippedCount, 1);
         expect(result.tracks, hasLength(1));
-        expect(result.tracks.single.trackPoints, contains('-42.1234'));
+        expect(
+          result.tracks.single.getSegmentsForZoom(18).first.first.latitude,
+          -42.1234,
+        );
         expect(result.warning, contains('import.log'));
       },
     );

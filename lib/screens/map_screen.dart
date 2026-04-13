@@ -165,8 +165,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         mapState.cursorMgrs ?? mapState.gotoMgrs ?? mapState.currentMgrs;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mapState.syncEnabled &&
-          _mapController.camera.center != mapState.center) {
+      if (mapState.syncEnabled) {
         _mapController.move(mapState.center, mapState.zoom);
       }
       if (mapState.showPeakSearch && !_searchFocusNode.hasFocus) {
@@ -395,7 +394,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   if (mapState.showMapOverlay)
                     PolygonLayer(polygons: _buildAllMapRectangles()),
                   if (mapState.showTracks)
-                    _buildTrackPolylines(mapState.tracks),
+                    _buildTrackPolylines(mapState.tracks, mapState.zoom),
                 ],
               ),
             ),
@@ -917,12 +916,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     // TODO: Implement GPS location
   }
 
-  PolylineLayer _buildTrackPolylines(List<GpxTrack> tracks) {
+  PolylineLayer _buildTrackPolylines(List<GpxTrack> tracks, double zoom) {
     final polylines = <Polyline>[];
+    final displayZoom = zoom.round().clamp(6, 18);
 
     for (final track in tracks) {
       try {
-        for (final segment in track.getSegments()) {
+        for (final segment in track.getSegmentsForZoom(displayZoom)) {
           if (segment.isEmpty) continue;
           polylines.add(
             Polyline(
