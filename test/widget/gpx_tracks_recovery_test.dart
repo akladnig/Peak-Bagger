@@ -225,6 +225,32 @@ void main() {
     expect(container.read(mapProvider).hoveredTrackId, isNull);
     expect(_mapRegion(tester).cursor, SystemMouseCursors.grab);
   });
+
+  testWidgets('trackpad pan moves the map camera', (tester) async {
+    await _pumpMapApp(tester, _mapStateWithVisibleTrack());
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final container = ProviderScope.containerOf(tester.element(region));
+    final initialCenter = container.read(mapProvider).center;
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(region),
+      kind: PointerDeviceKind.trackpad,
+    );
+    addTearDown(() async {
+      try {
+        await gesture.up();
+      } catch (_) {}
+    });
+
+    await gesture.panZoomUpdate(
+      tester.getCenter(region),
+      pan: const Offset(0, 120),
+    );
+    await tester.pump();
+
+    expect(container.read(mapProvider).center, isNot(initialCenter));
+  });
 }
 
 Future<void> _pumpMapApp(WidgetTester tester, MapState state) async {
