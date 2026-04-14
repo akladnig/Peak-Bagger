@@ -226,6 +226,74 @@ void main() {
     expect(tester.getTopLeft(rowOneCell).dx, isNot(closeTo(rowOneBefore, 0.1)));
     expect(tester.getTopLeft(rowTwoCell).dx, isNot(closeTo(rowTwoBefore, 0.1)));
   });
+
+  testWidgets('gpx track export appears only for gpx rows', (tester) async {
+    final entity = ObjectBoxAdminEntityDescriptor(
+      name: 'GpxTrack',
+      displayName: 'GpxTrack',
+      primaryKeyField: 'gpxTrackId',
+      primaryNameField: 'trackName',
+      fields: const [
+        ObjectBoxAdminFieldDescriptor(
+          name: 'gpxTrackId',
+          typeLabel: 'int',
+          nullable: false,
+          isPrimaryKey: true,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'trackName',
+          typeLabel: 'String',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: true,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'gpxFile',
+          typeLabel: 'String',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+      ],
+    );
+
+    final repository = TestObjectBoxAdminRepository(
+      entities: [entity],
+      rowsByEntity: {
+        'GpxTrack': [
+          ObjectBoxAdminRow(
+            primaryKeyValue: 7,
+            values: {
+              'gpxTrackId': 7,
+              'trackName': 'Mt Anne',
+              'gpxFile': '<gpx><trk></trk></gpx>',
+            },
+          ),
+        ],
+      },
+    );
+
+    await _pumpApp(tester, repository);
+
+    await tester.tap(find.byKey(const Key('side-menu-objectbox-admin')));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('objectbox-admin-export-gpx')), findsOneWidget);
+    expect(find.text('No gpxFile selected'), findsOneWidget);
+
+    await tester.tap(find.text('Mt Anne'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No gpxFile selected'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-export-gpx')));
+    await tester.pumpAndSettle();
+
+    expect(repository.exportCallCount, 1);
+    expect(repository.exportedRow!.values['gpxFile'], '<gpx><trk></trk></gpx>');
+  });
 }
 
 Future<void> _pumpApp(

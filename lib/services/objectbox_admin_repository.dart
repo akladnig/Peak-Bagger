@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'dart:developer' as developer;
 
+import 'package:path_provider/path_provider.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
@@ -14,14 +16,19 @@ abstract class ObjectBoxAdminRepository {
     required String searchQuery,
     required bool ascending,
   });
+
+  Future<String> exportGpxFile(ObjectBoxAdminRow row);
 }
 
 class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
   ObjectBoxAdminRepositoryImpl({
     Store? store,
     obx_int.ModelDefinition? modelDefinition,
+    this.downloadsDirectoryPath,
   }) : _store = store,
        _modelDefinition = modelDefinition ?? getObjectBoxModel();
+
+  final String? downloadsDirectoryPath;
 
   final Store? _store;
   final obx_int.ModelDefinition _modelDefinition;
@@ -56,6 +63,24 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
     };
 
     return rows;
+  }
+
+  @override
+  Future<String> exportGpxFile(ObjectBoxAdminRow row) async {
+    final gpxFile = row.values['gpxFile'];
+    if (gpxFile is! String || gpxFile.isEmpty) {
+      throw StateError('No gpxFile selected');
+    }
+
+    final downloadsDirectory = await _resolveDownloadsDirectory();
+    if (!downloadsDirectory.existsSync()) {
+      await downloadsDirectory.create(recursive: true);
+    }
+
+    final fileName = _buildExportFileName(row);
+    final outputFile = File('${downloadsDirectory.path}/$fileName');
+    await outputFile.writeAsString(gpxFile);
+    return outputFile.path;
   }
 
   ObjectBoxAdminEntityDescriptor _toEntityDescriptor(
@@ -97,6 +122,52 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
       'GpxTrack' => 'trackName',
       _ => 'name',
     };
+  }
+
+  Future<Directory> _resolveDownloadsDirectory() async {
+    if (downloadsDirectoryPath != null) {
+      return Directory(downloadsDirectoryPath!);
+    }
+
+    final downloadsDirectory = await getDownloadsDirectory();
+    if (downloadsDirectory != null) {
+      return downloadsDirectory;
+    }
+
+    final home = Platform.environment['HOME'];
+    if (home != null && home.isNotEmpty) {
+      return Directory('$home/Downloads');
+    }
+
+    return Directory.current;
+  }
+
+  String _buildExportFileName(ObjectBoxAdminRow row) {
+    final rawName = row.values['trackName']?.toString().trim();
+    final trackDate = row.values['trackDate'];
+
+    final safeStem = _sanitizeFileStem(
+      rawName?.isNotEmpty == true ? rawName! : 'gpx-track',
+    );
+    if (trackDate is DateTime) {
+      return '$safeStem-${_formatDate(trackDate)}.gpx';
+    }
+
+    return '$safeStem.gpx';
+  }
+
+  String _sanitizeFileStem(String value) {
+    final lowered = value.toLowerCase();
+    final replaced = lowered.replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+    return replaced.replaceAll(RegExp(r'^-+|-+$'), '');
+  }
+
+  String _formatDate(DateTime date) {
+    final local = date.toLocal();
+    final day = local.day.toString().padLeft(2, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    final year = local.year.toString().padLeft(4, '0');
+    return '$day-$month-$year';
   }
 
   List<ObjectBoxAdminRow> _loadPeakRows(

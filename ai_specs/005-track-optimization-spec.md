@@ -65,7 +65,7 @@ Primary flow:
 Alternative flows:
 - Startup with valid optimized rows: load tracks normally, show them using cached display geometry, and do not rebuild.
 - Manual rescan keeps the existing watched-folder behavior: scan `Tracks` only, reuse the existing import path, and build caches for any newly imported or replacement rows.
-- Reset Track Data keeps the existing confirmed destructive rebuild flow and rebuilds optimized rows from both `Tracks` and `Tracks/Tasmania`.
+- Reset Track Data keeps the existing confirmed destructive rebuild flow and rebuilds optimized rows from both `Tracks` and `Tracks/Tasmania`, assigning fresh ObjectBox IDs from `1` upward after the wipe.
 - If no GPX files are available after a destructive reset, the app finishes with an empty database and keeps the existing import/reset affordances available.
 
 Error flows:
@@ -116,7 +116,7 @@ Error flows:
 **Corrupt optimized rows:**
 31. A row created under the new schema is corrupt optimized data if its optimized fields are present but unusable, including cases where `displayTrackPointsByZoom` is invalid JSON, missing required zoom keys, cannot decode into segmented geometry, or `gpxFile` is unexpectedly empty.
 32. Corrupt optimized rows must trigger the existing `hasTrackRecoveryIssue` behavior and recovery messaging rather than an automatic wipe.
-33. Reset Track Data remains the manual rebuild path for corrupt optimized rows.
+33. Reset Track Data remains the manual rebuild path for corrupt optimized rows and reassigns fresh IDs on the rebuilt rows.
 
 **Error handling:**
 34. If a GPX file cannot be read or parsed, skip it, continue the operation, and report it through the existing per-file logging and operation summary behavior.

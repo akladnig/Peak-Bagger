@@ -423,6 +423,7 @@ class GpxImporter {
     bool includeTasmaniaFolder = true,
     List<GpxTrack> existingTracks = const [],
     bool surfaceWarnings = true,
+    bool resetIds = false,
   }) async {
     final tracks = <GpxTrack>[];
     final seenContentHashes = <String>{};
@@ -565,6 +566,12 @@ class GpxImporter {
 
       importedCount += 1;
       tracks.add(track);
+    }
+
+    if (resetIds) {
+      for (var i = 0; i < tracks.length; i++) {
+        tracks[i].gpxTrackId = i + 1;
+      }
     }
 
     return TrackImportResult(

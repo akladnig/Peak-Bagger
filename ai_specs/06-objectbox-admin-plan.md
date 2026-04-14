@@ -31,9 +31,9 @@ Read-only ObjectBox browser. Thin shell slice first; schema/data grid, search/so
 - **Goal**: all entities render; rows searchable/sortable; details pane works
 - [ ] `lib/services/objectbox_admin_repository.dart` - typed row/schema adapters per entity; unsupported-field fallback values
 - [ ] `lib/providers/objectbox_admin_provider.dart` - default primary-key sort; case-insensitive substring search; 50-row chunking; row selection; details pane state
-- [ ] `lib/screens/objectbox_admin_screen.dart` - scrollable grid; pinned name column; sticky header; 80-char wrap/auto-expand; right-side details pane; no-matches state
-- [ ] TDD: Peak/Tasmap50k/GpxTrack schema fields; default primary-key sort; search matches substring anywhere in name; row chunks load 50 at a time; selecting a row opens details pane; `X` closes; search refresh/loading state shared with initial load
-- [ ] Widget tests: pinned-name columns, sticky headers, no-matches state, details-pane close/reset, selection behavior, search refresh spinner
+- [ ] `lib/screens/objectbox_admin_screen.dart` - scrollable grid; pinned name column; sticky header; 80-char wrap/auto-expand; right-side details pane; GpxTrack-only export button and inline error state; no-matches state
+- [ ] TDD: Peak/Tasmap50k/GpxTrack schema fields; default primary-key sort; search matches substring anywhere in name; row chunks load 50 at a time; selecting a row opens details pane; `X` closes; GpxTrack-only export button uses selected row's `gpxFile` and shows a no-selection error; search refresh/loading state shared with initial load
+- [ ] Widget tests: pinned-name columns, sticky headers, no-matches state, details-pane close/reset, selection behavior, export button/error, search refresh spinner
 - [ ] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Hardening + regressions
@@ -42,7 +42,7 @@ Read-only ObjectBox browser. Thin shell slice first; schema/data grid, search/so
 - [ ] `lib/providers/objectbox_admin_provider.dart` / `lib/services/objectbox_admin_repository.dart` - init failure; query failure; empty/no-selectable-entities handling; fallback display for unsupported field types
 - [ ] `test/harness/test_objectbox_admin_repository.dart` - deterministic fake repo/model fixtures
 - [ ] `test/widget/objectbox_admin_screen_test.dart` - error-state, empty-state, no-matches, selection, branch regression coverage
-- [ ] `test/robot/objectbox_admin/objectbox_admin_robot.dart` + `test/robot/objectbox_admin/objectbox_admin_journey_test.dart` - side menu -> browse entity -> switch back to Settings; selectors for menu item, schema/data toggle, entity dropdown, table, empty/error states, details close
+- [ ] `test/robot/objectbox_admin/objectbox_admin_robot.dart` + `test/robot/objectbox_admin/objectbox_admin_journey_test.dart` - side menu -> browse entity -> switch back to Settings; selectors for menu item, schema/data toggle, entity dropdown, export button/error, table, empty/error states, details close
 - [ ] TDD: store init failure surfaces error; query failure stays inline; unsupported fields fall back; Settings index regression still routes correctly after 3 -> 4 shift
 - [ ] Verify: `flutter analyze` && `flutter test`
 

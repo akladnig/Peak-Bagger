@@ -19,6 +19,7 @@
 - [ ] Change two finger from pan to zoom
 - [ ] change zoom level display to actual distance
 - [ ] Automatically ask for permissions
+- [ ] implement smooth paning and scrolling. When clicking, smooth transition from one level to another.
 ## 3 Tasmanian Peaks and search
 ## 4 Add Maps and location search
 - [x] place info popup to right of marker

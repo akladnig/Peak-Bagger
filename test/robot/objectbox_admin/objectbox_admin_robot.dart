@@ -20,6 +20,10 @@ class ObjectBoxAdminRobot {
       find.byKey(const Key('objectbox-admin-entity-dropdown'));
   Finder get schemaDataToggle =>
       find.byKey(const Key('objectbox-admin-schema-data-toggle'));
+  Finder get exportButton =>
+      find.byKey(const Key('objectbox-admin-export-gpx'));
+  Finder get exportError =>
+      find.byKey(const Key('objectbox-admin-export-error'));
   Finder get table => find.byKey(const Key('objectbox-admin-table'));
 
   Future<void> pumpApp() async {

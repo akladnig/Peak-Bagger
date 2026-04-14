@@ -136,7 +136,7 @@ F-20. Reset Track Data must show a confirmation dialog with:
    - actions: "Cancel" and "Reset"
    - destructive styling on the "Reset" action when supported by the app theme
    - barrier dismiss disabled so tapping outside the dialog does not dismiss it
-F-21. On confirmation, Reset Track Data wipes track data and performs the reimport immediately
+F-21. On confirmation, Reset Track Data wipes track data, resets track IDs from 1 on the rebuilt rows, and performs the reimport immediately
 F-22. Reset Track Data performs a full rebuild scan of both ~/Documents/Bushwalking/Tracks and ~/Documents/Bushwalking/Tracks/Tasmania
 F-23. Restart the app only if technically required by the implementation
 F-24. On success, show a quantitative result message including importedCount, replacedCount, unchangedCount, nonTasmanianCount, and errorSkippedCount

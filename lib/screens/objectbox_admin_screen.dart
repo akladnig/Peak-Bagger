@@ -102,6 +102,27 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     }
   }
 
+  Future<void> _exportSelectedGpxFile(ObjectBoxAdminRow row) async {
+    try {
+      final path = await ref
+          .read(objectboxAdminRepositoryProvider)
+          .exportGpxFile(row);
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Exported to $path')));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Export failed: $error')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(objectboxAdminProvider);
@@ -136,6 +157,9 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
               onSearchSubmitted: notifier.runSearch,
               onSearchPressed: notifier.runSearch,
               onSortPressed: notifier.toggleSort,
+              onExportPressed: state.selectedRow == null
+                  ? null
+                  : () => _exportSelectedGpxFile(state.selectedRow!),
             ),
             const SizedBox(height: 16),
             Expanded(
@@ -245,6 +269,7 @@ class _AdminControls extends StatelessWidget {
     required this.onSearchSubmitted,
     required this.onSearchPressed,
     required this.onSortPressed,
+    required this.onExportPressed,
   });
 
   final ObjectBoxAdminState state;
@@ -255,6 +280,7 @@ class _AdminControls extends StatelessWidget {
   final VoidCallback onSearchSubmitted;
   final VoidCallback onSearchPressed;
   final VoidCallback onSortPressed;
+  final Future<void> Function()? onExportPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -311,21 +337,54 @@ class _AdminControls extends StatelessWidget {
           ],
         ),
         if (state.mode == ObjectBoxAdminViewMode.data)
-          SizedBox(
-            width: 360,
-            child: TextField(
-              controller: searchController,
-              decoration: InputDecoration(
-                labelText: 'Search',
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  onPressed: onSearchPressed,
-                  icon: const Icon(Icons.search),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            crossAxisAlignment: WrapCrossAlignment.start,
+            children: [
+              SizedBox(
+                width: 360,
+                child: TextField(
+                  controller: searchController,
+                  decoration: InputDecoration(
+                    labelText: 'Search',
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      onPressed: onSearchPressed,
+                      icon: const Icon(Icons.search),
+                    ),
+                  ),
+                  onChanged: onSearchChanged,
+                  onSubmitted: (_) => onSearchSubmitted(),
                 ),
               ),
-              onChanged: onSearchChanged,
-              onSubmitted: (_) => onSearchSubmitted(),
-            ),
+              if (entity?.name == 'GpxTrack')
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FilledButton.icon(
+                      key: const Key('objectbox-admin-export-gpx'),
+                      onPressed: onExportPressed == null
+                          ? null
+                          : () => onExportPressed!(),
+                      icon: const Icon(Icons.upload_file),
+                      label: const Text('Export GPX'),
+                    ),
+                    if (state.selectedRow == null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6, left: 12),
+                        child: Text(
+                          'No gpxFile selected',
+                          key: const Key('objectbox-admin-export-error'),
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+            ],
           ),
       ],
     );

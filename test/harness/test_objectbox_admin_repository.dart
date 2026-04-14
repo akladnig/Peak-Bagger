@@ -4,11 +4,16 @@ class TestObjectBoxAdminRepository implements ObjectBoxAdminRepository {
   TestObjectBoxAdminRepository({
     List<ObjectBoxAdminEntityDescriptor>? entities,
     Map<String, List<ObjectBoxAdminRow>>? rowsByEntity,
+    this.exportPath = '/tmp/exported.gpx',
   }) : _entities = entities ?? _defaultEntities,
        _rowsByEntity = rowsByEntity ?? _defaultRowsByEntity;
 
   final List<ObjectBoxAdminEntityDescriptor> _entities;
   final Map<String, List<ObjectBoxAdminRow>> _rowsByEntity;
+  final String exportPath;
+
+  ObjectBoxAdminRow? exportedRow;
+  int exportCallCount = 0;
 
   static final _defaultEntities = [
     const ObjectBoxAdminEntityDescriptor(
@@ -110,5 +115,12 @@ class TestObjectBoxAdminRepository implements ObjectBoxAdminRepository {
       searchQuery: searchQuery,
       ascending: ascending,
     );
+  }
+
+  @override
+  Future<String> exportGpxFile(ObjectBoxAdminRow row) async {
+    exportCallCount += 1;
+    exportedRow = row;
+    return exportPath;
   }
 }

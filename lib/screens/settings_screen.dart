@@ -164,7 +164,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       await ref.read(tasmapStateProvider.notifier).resetAndReimport();
       setState(() {
-        _status = 'Map data cleared. Restart app to re-import.';
+        _status = 'Map data reset successfully!';
       });
     } catch (e) {
       setState(() {

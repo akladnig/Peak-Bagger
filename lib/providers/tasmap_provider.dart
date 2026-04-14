@@ -42,8 +42,8 @@ class TasmapNotifier extends Notifier<TasmapState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final repo = ref.read(tasmapRepositoryProvider);
-      await repo.clearAll();
-      state = state.copyWith(mapCount: 0);
+      await repo.clearAndReloadFromCsv('assets/tasmap50k.csv');
+      state = state.copyWith(mapCount: repo.mapCount);
     } catch (e) {
       state = state.copyWith(error: e.toString());
     } finally {

@@ -47,6 +47,7 @@ void main() {
       find.byKey(const Key('objectbox-admin-schema-data-toggle')),
       findsOneWidget,
     );
+    expect(find.byKey(const Key('objectbox-admin-export-gpx')), findsNothing);
     expect(find.byKey(const Key('objectbox-admin-table')), findsOneWidget);
   });
 }

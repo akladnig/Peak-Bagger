@@ -57,8 +57,11 @@ Error flows:
    - Rows should auto-expand as text wraps.
    - Selecting a row opens a right-side details pane that shows the full field values.
    - The details pane follows the selected row, closes with an `X`, and resets when the browsing context changes.
-   - Use a minimum column width of 160 px.
-   - Show a circular progress indicator while the initial load or a search refresh is running.
+    - Use a minimum column width of 160 px.
+    - Show a circular progress indicator while the initial load or a search refresh is running.
+    - For `GpxTrack` only, show an `Export GPX` button at the top-right of the search box.
+    - The export button writes the currently selected row's `gpxFile` to `~/Downloads` by default.
+    - If no row is selected, show the inline error message below the export button: `No gpxFile selected`.
 8. Use the local ObjectBox store as the source of truth; do not add a network dependency.
 
 **Schema contract:**
@@ -155,13 +158,15 @@ Automated coverage:
 - Unit tests: entity discovery, schema mapping, entity-specific search/sort behavior, and fallback handling for unsupported fields.
 - Widget tests: menu item presence, branch routing, empty/error states, no-matches state, entity dropdown selection, schema/data toggle, pinned-name columns, sticky headers, details-pane close/reset behavior, and Settings-index regression.
 - Robot tests: the happy path from side menu entry to browsing entity data and switching back to Settings.
-- Use stable, app-owned `Key` selectors for the admin menu item, schema/data toggle, entity dropdown, table, empty state, and error state.
+- Use stable, app-owned `Key` selectors for the admin menu item, schema/data toggle, entity dropdown, export button, export error, table, empty state, and error state.
 
 Selectors to add:
 - `Key('side-menu-objectbox-admin')`
 - `Key('objectbox-admin-schema')`
 - `Key('objectbox-admin-data')`
 - `Key('objectbox-admin-entity-dropdown')`
+- `Key('objectbox-admin-export-gpx')`
+- `Key('objectbox-admin-export-error')`
 - `Key('objectbox-admin-table')`
 - `Key('objectbox-admin-empty-state')`
 - `Key('objectbox-admin-error-state')`
@@ -170,7 +175,7 @@ Success criteria:
 - The admin viewer opens from the menu.
 - The viewer is read-only.
 - Schema and data browsing work for all current ObjectBox entities.
-- Sorting, entity-specific search, pinned-name columns, and sticky headers are covered by tests.
+- Sorting, entity-specific search, pinned-name columns, sticky headers, and the GpxTrack-only export affordance are covered by tests.
 - Existing Settings navigation still works after the new branch is added, with all settings branch references updated to the new index.
 </validation>
 
@@ -178,6 +183,6 @@ Success criteria:
 - The side menu shows a database icon above Settings.
 - The new admin route opens a read-only ObjectBox viewer.
 - Entity dropdown, schema view, and data view all work for current entities.
-- Search and sorting behave as specified, with no pagination, pinned name columns, sticky headers, and a details pane for full cell values.
+- Search and sorting behave as specified, with no pagination, pinned name columns, sticky headers, a details pane for full cell values, and the GpxTrack export button with its no-selection error.
 - All automated tests pass, including the journey coverage and the Settings-branch regression coverage.
 </done_when>

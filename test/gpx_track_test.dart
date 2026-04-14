@@ -606,6 +606,31 @@ void main() {
       );
     });
 
+    test('reset import reassigns track ids from 1', () async {
+      final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
+      final tasDir = Directory('${tracksDir.path}/Tracks/Tasmania')
+        ..createSync(recursive: true);
+      await File(
+        '${tracksDir.path}/a-first.gpx',
+      ).writeAsString(_tasmanianGpx('Tas Track One'));
+      await File(
+        '${tracksDir.path}/z-second.gpx',
+      ).writeAsString(_tasmanianGpxShifted('Tas Track Two'));
+
+      final importer = GpxImporter(
+        tracksFolder: tracksDir.path,
+        tasmaniaFolder: tasDir.path,
+      );
+
+      final result = await importer.importTracks(
+        includeTasmaniaFolder: false,
+        resetIds: true,
+      );
+
+      expect(result.importedCount, 2);
+      expect(result.tracks.map((track) => track.gpxTrackId), [1, 2]);
+    });
+
     test(
       'moved filename is canonicalized using filename date override',
       () async {

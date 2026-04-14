@@ -8,7 +8,7 @@ class GpxTrack {
   static const minDisplayZoom = 6;
   static const maxDisplayZoom = 18;
 
-  @Id()
+  @Id(assignable: true)
   int gpxTrackId = 0;
 
   String contentHash;

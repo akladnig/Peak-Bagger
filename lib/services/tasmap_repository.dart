@@ -1,6 +1,7 @@
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs_dart;
 import 'package:peak_bagger/models/tasmap50k.dart';
+import 'package:peak_bagger/services/csv_importer.dart';
 import '../objectbox.g.dart';
 
 class TasmapRepository {
@@ -97,6 +98,26 @@ class TasmapRepository {
 
   Future<void> addMaps(List<Tasmap50k> maps) async {
     _box.putMany(maps);
+  }
+
+  Future<void> loadFromCsvIfEmpty(String csvPath) async {
+    if (!_box.isEmpty()) {
+      return;
+    }
+
+    final maps = await CsvImporter.importFromCsv(csvPath);
+    if (maps.isNotEmpty) {
+      _box.putMany(maps);
+    }
+  }
+
+  Future<void> clearAndReloadFromCsv(String csvPath) async {
+    _box.removeAll();
+
+    final maps = await CsvImporter.importFromCsv(csvPath);
+    if (maps.isNotEmpty) {
+      _box.putMany(maps);
+    }
   }
 
   Future<void> clearAll() async {

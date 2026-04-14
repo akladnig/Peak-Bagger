@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
@@ -70,5 +72,35 @@ void main() {
     );
 
     expect(rows.map((row) => row.values['name']), ['Ossa Spur', 'Mt Ossa']);
+  });
+
+  test('exportGpxFile writes the selected track to downloads', () async {
+    final tempDir = await Directory.systemTemp.createTemp('objectbox-admin');
+    addTearDown(() async {
+      if (tempDir.existsSync()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    final repository = ObjectBoxAdminRepositoryImpl(
+      downloadsDirectoryPath: tempDir.path,
+    );
+
+    final exportedPath = await repository.exportGpxFile(
+      ObjectBoxAdminRow(
+        primaryKeyValue: 7,
+        values: {
+          'gpxTrackId': 7,
+          'trackName': 'Mt Ossa',
+          'trackDate': DateTime(2024, 1, 15),
+          'gpxFile': '<gpx><trk></trk></gpx>',
+        },
+      ),
+    );
+
+    final exportedFile = File(exportedPath);
+    expect(exportedFile.existsSync(), isTrue);
+    expect(await exportedFile.readAsString(), '<gpx><trk></trk></gpx>');
+    expect(exportedPath, startsWith(tempDir.path));
   });
 }
