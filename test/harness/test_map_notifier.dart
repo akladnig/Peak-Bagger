@@ -1,5 +1,6 @@
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/services/gpx_importer.dart';
 
 class TestMapNotifier extends MapNotifier {
   TestMapNotifier(
@@ -52,7 +53,7 @@ class TestMapNotifier extends MapNotifier {
   }
 
   @override
-  Future<void> resetTrackData() async {
+  Future<TrackImportResult?> resetTrackData() async {
     state = state.copyWith(
       hasTrackRecoveryIssue: false,
       showTracks: false,
@@ -63,6 +64,14 @@ class TestMapNotifier extends MapNotifier {
       clearHoveredTrackId: true,
     );
     _snackbarConsumed = false;
+    return const TrackImportResult(
+      tracks: [],
+      importedCount: 1,
+      replacedCount: 0,
+      unchangedCount: 0,
+      nonTasmanianCount: 0,
+      errorSkippedCount: 0,
+    );
   }
 
   @override

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -56,6 +57,28 @@ void main() {
 
     expect(
       find.text('Some files need manual review. See import.log.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('reset track data shows result dialog', (tester) async {
+    await _pumpApp(tester, TestMapNotifier(_baseState()));
+
+    router.go('/settings');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.byKey(const Key('reset-track-data-tile')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('reset-track-data-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Track Data Reset'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.textContaining('Imported 1'),
+      ),
       findsOneWidget,
     );
   });

@@ -658,6 +658,30 @@ void main() {
       },
     );
 
+    test('already canonical filename is preserved', () async {
+      final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
+      final tasDir = Directory('${tracksDir.path}/Tracks/Tasmania')
+        ..createSync(recursive: true);
+      final source = File(
+        '${tracksDir.path}/mt-william-dove-ridge_(03-02-2024).gpx',
+      );
+      await source.writeAsString(_tasmanianGpx('Mt William'));
+
+      final importer = GpxImporter(
+        tracksFolder: tracksDir.path,
+        tasmaniaFolder: tasDir.path,
+      );
+
+      await importer.importTracks(includeTasmaniaFolder: false);
+
+      expect(
+        File(
+          '${tasDir.path}/mt-william-dove-ridge_(03-02-2024).gpx',
+        ).existsSync(),
+        isTrue,
+      );
+    });
+
     test('no-date changed track does not replace logical match', () async {
       final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
       final tasDir = Directory('${tempDir.path}/Tracks/Tasmania')..createSync();

@@ -183,7 +183,7 @@ final _entities = <obx_int.ModelEntity>[
         id: const obx_int.IdUid(1, 2055590878041962616),
         name: 'gpxTrackId',
         type: 6,
-        flags: 1,
+        flags: 129,
       ),
       obx_int.ModelProperty(
         id: const obx_int.IdUid(3, 6692349517233010448),

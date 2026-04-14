@@ -391,19 +391,20 @@ class MapNotifier extends Notifier<MapState> {
     await _importTracks(includeTasmaniaFolder: false);
   }
 
-  Future<void> resetTrackData() async {
+  Future<TrackImportResult?> resetTrackData() async {
     final result = await _importTracks(
       includeTasmaniaFolder: true,
       resetExisting: true,
     );
     if (result == null) {
-      return;
+      return null;
     }
 
     state = state.copyWith(showTracks: false, clearHoveredTrackId: true);
     if (!state.hasTrackRecoveryIssue) {
       _recoverySnackbarShown = false;
     }
+    return result;
   }
 
   bool consumeRecoverySnackbarSignal() {

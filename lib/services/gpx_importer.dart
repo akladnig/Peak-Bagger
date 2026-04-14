@@ -306,6 +306,11 @@ class GpxImporter {
   }
 
   String _canonicalFilename(String filePath, DateTime? fallbackDate) {
+    final originalName = _basename(filePath);
+    if (_isCanonicalFilename(originalName)) {
+      return originalName;
+    }
+
     final originalStem = _basenameWithoutExtension(filePath);
     final dateOverride = _extractDateOverrideFromFilename(originalStem);
     final stemWithoutDate = dateOverride.stemWithoutDate.trim().isEmpty
@@ -319,6 +324,12 @@ class GpxImporter {
     final extension = '.${_basename(filePath).split('.').last.toLowerCase()}';
     final safeStem = normalizedStem.isEmpty ? 'track' : normalizedStem;
     return '$safeStem$formattedDate$extension';
+  }
+
+  bool _isCanonicalFilename(String filename) {
+    return RegExp(
+      r'^[a-z0-9]+(?:-[a-z0-9]+)*_\(\d{2}-\d{2}-\d{4}\)\.gpx$',
+    ).hasMatch(filename);
   }
 
   ({DateTime? date, String stemWithoutDate}) _extractDateOverrideFromFilename(

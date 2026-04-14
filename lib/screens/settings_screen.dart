@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/tile_downloader.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
@@ -88,7 +89,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               child: Text('Some tracks need to be rebuilt.'),
             ),
           if (mapState.trackOperationStatus != null ||
-              mapState.trackOperationWarning != null)
+              mapState.trackOperationWarning != null ||
+              mapState.trackImportError != null)
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -100,6 +102,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   if (mapState.trackOperationWarning != null) ...[
                     const SizedBox(height: 8),
                     Text(mapState.trackOperationWarning!),
+                  ],
+                  if (mapState.trackImportError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      mapState.trackImportError!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
                   ],
                 ],
               ),
@@ -204,7 +215,84 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
 
     if (confirmed == true) {
-      await ref.read(mapProvider.notifier).resetTrackData();
+      final result = await ref.read(mapProvider.notifier).resetTrackData();
+      if (!mounted) {
+        return;
+      }
+      if (result == null) {
+        await _showResetTrackDataFailure();
+        return;
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showResetTrackDataResult(result);
+        }
+      });
     }
+  }
+
+  Future<void> _showResetTrackDataResult(TrackImportResult? result) async {
+    if (!mounted || result == null) {
+      return;
+    }
+
+    await showDialog<void>(
+      useRootNavigator: true,
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Track Data Reset'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Imported ${result.importedCount}, replaced ${result.replacedCount}, unchanged ${result.unchangedCount}, non-Tasmanian ${result.nonTasmanianCount}, errors ${result.errorSkippedCount}',
+              ),
+              if (result.warning != null) ...[
+                const SizedBox(height: 12),
+                Text(result.warning!),
+              ],
+            ],
+          ),
+          actions: [
+            FilledButton(
+              key: const Key('track-reset-result-close'),
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showResetTrackDataFailure() async {
+    if (!mounted) {
+      return;
+    }
+
+    final error = ref.read(mapProvider).trackImportError;
+    if (error == null) {
+      return;
+    }
+
+    await showDialog<void>(
+      useRootNavigator: true,
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Track Data Reset Failed'),
+          content: Text(error),
+          actions: [
+            FilledButton(
+              key: const Key('track-reset-error-close'),
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

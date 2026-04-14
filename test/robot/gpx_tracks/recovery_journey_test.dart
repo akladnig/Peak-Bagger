@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
@@ -29,6 +30,13 @@ void main() {
     expect(find.text('Settings'), findsOneWidget);
 
     await robot.resetTrackData();
-    expect(find.textContaining('Imported 1'), findsOneWidget);
+    expect(find.text('Track Data Reset'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.textContaining('Imported 1'),
+      ),
+      findsOneWidget,
+    );
   });
 }
