@@ -5,6 +5,8 @@ import 'package:crypto/crypto.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:xml/xml.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
+import 'package:peak_bagger/services/gpx_track_filter.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 
@@ -40,6 +42,22 @@ class _FileOrganizationResult {
   final String? manualReviewReason;
 
   bool get requiresManualReview => manualReviewReason != null;
+}
+
+class GpxTrackProcessingResult {
+  const GpxTrackProcessingResult({
+    required this.stats,
+    required this.displaySegments,
+    required this.usedRawFallback,
+    this.filteredXml,
+    this.warning,
+  });
+
+  final GpxTrackStatistics stats;
+  final List<List<LatLng>> displaySegments;
+  final bool usedRawFallback;
+  final String? filteredXml;
+  final String? warning;
 }
 
 class GpxImporter {
@@ -448,6 +466,8 @@ class GpxImporter {
     List<GpxTrack> existingTracks = const [],
     bool surfaceWarnings = true,
     bool resetIds = false,
+    bool refreshExistingTracks = false,
+    GpxFilterConfig filterConfig = GpxFilterConfig.defaults,
   }) async {
     final tracks = <GpxTrack>[];
     final seenContentHashes = <String>{};
@@ -456,11 +476,16 @@ class GpxImporter {
         .map((track) => track.contentHash)
         .where((hash) => hash.isNotEmpty)
         .toSet();
+    final existingTracksByHash = <String, GpxTrack>{
+      for (final track in existingTracks)
+        if (track.contentHash.isNotEmpty) track.contentHash: track,
+    };
     var importedCount = 0;
     var replacedCount = 0;
     var unchangedCount = 0;
     var nonTasmanianCount = 0;
     var errorSkippedCount = 0;
+    var filterFallbackCount = 0;
     var logWriteFailed = false;
 
     final tracksDir = Directory(tracksFolder);
@@ -562,8 +587,30 @@ class GpxImporter {
         continue;
       }
 
-      if (!seenContentHashes.add(track.contentHash) ||
-          existingContentHashes.contains(track.contentHash)) {
+      final seenThisOperation = seenContentHashes.add(track.contentHash);
+      if (!seenThisOperation) {
+        unchangedCount += 1;
+        continue;
+      }
+
+      final alreadyExists = existingContentHashes.contains(track.contentHash);
+      if (alreadyExists) {
+        if (refreshExistingTracks) {
+          final existing = existingTracksByHash[track.contentHash];
+          if (existing != null) {
+            track.gpxTrackId = existing.gpxTrackId;
+            final processed = processTrack(
+              track.gpxFile,
+              filterConfig: filterConfig,
+            );
+            _applyProcessingResult(track, processed);
+            filterFallbackCount += processed.usedRawFallback ? 1 : 0;
+            replacedCount += 1;
+            tracks.add(track);
+            continue;
+          }
+        }
+
         unchangedCount += 1;
         continue;
       }
@@ -582,11 +629,21 @@ class GpxImporter {
         final existing = _findExistingLogicalMatch(existingTracks, track);
         if (existing != null && existing.contentHash != track.contentHash) {
           track.gpxTrackId = existing.gpxTrackId;
+          final processed = processTrack(
+            track.gpxFile,
+            filterConfig: filterConfig,
+          );
+          _applyProcessingResult(track, processed);
+          filterFallbackCount += processed.usedRawFallback ? 1 : 0;
           replacedCount += 1;
           tracks.add(track);
           continue;
         }
       }
+
+      final processed = processTrack(track.gpxFile, filterConfig: filterConfig);
+      _applyProcessingResult(track, processed);
+      filterFallbackCount += processed.usedRawFallback ? 1 : 0;
 
       importedCount += 1;
       tracks.add(track);
@@ -606,12 +663,90 @@ class GpxImporter {
       nonTasmanianCount: nonTasmanianCount,
       errorSkippedCount: errorSkippedCount,
       noGpxFilesFound: false,
-      warning: errorSkippedCount > 0 && surfaceWarnings
-          ? (logWriteFailed
-                ? 'Some files need manual review. import.log could not be updated.'
-                : 'Some files need manual review. See import.log.')
+      warning:
+          surfaceWarnings && (errorSkippedCount > 0 || filterFallbackCount > 0)
+          ? _buildImportWarning(
+              errorSkippedCount: errorSkippedCount,
+              filterFallbackCount: filterFallbackCount,
+              logWriteFailed: logWriteFailed,
+            )
           : null,
     );
+  }
+
+  GpxTrackProcessingResult processTrack(
+    String rawGpxXml, {
+    required GpxFilterConfig filterConfig,
+  }) {
+    final filter = const GpxTrackFilter();
+    final filtered = filter.filter(rawGpxXml, config: filterConfig);
+    final statisticsCalculator = GpxTrackStatisticsCalculator();
+
+    try {
+      if (filtered.filteredXml != null) {
+        final filteredDocument = XmlDocument.parse(filtered.filteredXml!);
+        return GpxTrackProcessingResult(
+          stats: statisticsCalculator.calculateDocument(filteredDocument),
+          displaySegments: filtered.displaySegments,
+          usedRawFallback: false,
+          filteredXml: filtered.filteredXml,
+          warning: filtered.warning,
+        );
+      }
+
+      final rawDocument = XmlDocument.parse(rawGpxXml);
+      return GpxTrackProcessingResult(
+        stats: statisticsCalculator.calculateDocument(rawDocument),
+        displaySegments: _extractAllSegments(rawDocument),
+        usedRawFallback: true,
+        warning: filtered.warning,
+      );
+    } catch (_) {
+      final rawDocument = XmlDocument.parse(rawGpxXml);
+      return GpxTrackProcessingResult(
+        stats: statisticsCalculator.calculateDocument(rawDocument),
+        displaySegments: _extractAllSegments(rawDocument),
+        usedRawFallback: true,
+        warning: 'Filtered track could not be generated; using raw GPX data.',
+      );
+    }
+  }
+
+  void _applyProcessingResult(GpxTrack track, GpxTrackProcessingResult result) {
+    track.filteredTrack = result.filteredXml ?? '';
+    track.displayTrackPointsByZoom = TrackDisplayCacheBuilder.buildJson(
+      result.displaySegments,
+    );
+    track.distance2d = result.stats.distance2d;
+    track.distance3d = result.stats.distance3d;
+    track.distanceToPeak = result.stats.distanceToPeak;
+    track.distanceFromPeak = result.stats.distanceFromPeak;
+    track.lowestElevation = result.stats.lowestElevation;
+    track.highestElevation = result.stats.highestElevation;
+    track.ascent = result.stats.ascent;
+    track.descent = result.stats.descent;
+    track.startElevation = result.stats.startElevation;
+    track.endElevation = result.stats.endElevation;
+    track.elevationProfile = result.stats.elevationProfile;
+  }
+
+  String _buildImportWarning({
+    required int errorSkippedCount,
+    required int filterFallbackCount,
+    required bool logWriteFailed,
+  }) {
+    final parts = <String>[];
+    if (errorSkippedCount > 0) {
+      parts.add(
+        logWriteFailed
+            ? 'Some files need manual review. import.log could not be updated.'
+            : 'Some files need manual review. See import.log.',
+      );
+    }
+    if (filterFallbackCount > 0) {
+      parts.add('Some tracks used raw GPX fallback during filtering.');
+    }
+    return parts.join(' ');
   }
 
   Future<bool> _appendImportLog(String filePath, String reason) async {

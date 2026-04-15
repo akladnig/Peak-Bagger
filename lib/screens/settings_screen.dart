@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/tile_downloader.dart';
@@ -22,6 +25,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final mapState = ref.watch(mapProvider);
+    final filterState = ref.watch(gpxFilterSettingsProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -134,6 +138,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ],
               ),
             ),
+          _buildTrackFilterSection(context, filterState),
           if (_status.isNotEmpty)
             Padding(padding: const EdgeInsets.all(16), child: Text(_status)),
         ],
@@ -392,5 +397,168 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         );
       },
     );
+  }
+
+  Widget _buildTrackFilterSection(
+    BuildContext context,
+    AsyncValue<GpxFilterConfig> filterState,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: switch (filterState) {
+        AsyncData<GpxFilterConfig>(:final value) => ExpansionTile(
+          key: const Key('gpx-filter-settings-section'),
+          title: const Text('Track Filter'),
+          subtitle: Text(_describeFilterConfig(value)),
+          childrenPadding: const EdgeInsets.only(bottom: 16),
+          children: [
+            _buildIntegerDropdown(
+              key: const Key('gpx-filter-hampel-window'),
+              label: 'Hampel window',
+              value: value.hampelWindow,
+              options: const [5, 7, 9, 11],
+              onChanged: (selected) {
+                if (selected == null) return;
+                unawaited(
+                  ref
+                      .read(gpxFilterSettingsProvider.notifier)
+                      .setHampelWindow(selected),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildEnumDropdown<GpxTrackElevationSmoother>(
+              key: const Key('gpx-filter-elevation-smoother'),
+              label: 'Elevation smoother',
+              value: value.elevationSmoother,
+              options: GpxTrackElevationSmoother.values,
+              labelBuilder: (entry) => switch (entry) {
+                GpxTrackElevationSmoother.median => 'Median',
+                GpxTrackElevationSmoother.savitzkyGolay => 'Savitzky-Golay',
+              },
+              onChanged: (selected) {
+                if (selected == null) return;
+                unawaited(
+                  ref
+                      .read(gpxFilterSettingsProvider.notifier)
+                      .setElevationSmoother(selected),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildIntegerDropdown(
+              key: const Key('gpx-filter-elevation-window'),
+              label: 'Elevation window',
+              value: value.elevationWindow,
+              options: const [5, 7, 9],
+              onChanged: (selected) {
+                if (selected == null) return;
+                unawaited(
+                  ref
+                      .read(gpxFilterSettingsProvider.notifier)
+                      .setElevationWindow(selected),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildEnumDropdown<GpxTrackPositionSmoother>(
+              key: const Key('gpx-filter-position-smoother'),
+              label: 'Position smoother',
+              value: value.positionSmoother,
+              options: GpxTrackPositionSmoother.values,
+              labelBuilder: (entry) => switch (entry) {
+                GpxTrackPositionSmoother.movingAverage => 'Moving average',
+                GpxTrackPositionSmoother.kalman => 'Kalman',
+              },
+              onChanged: (selected) {
+                if (selected == null) return;
+                unawaited(
+                  ref
+                      .read(gpxFilterSettingsProvider.notifier)
+                      .setPositionSmoother(selected),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildIntegerDropdown(
+              key: const Key('gpx-filter-position-window'),
+              label: 'Position window',
+              value: value.positionWindow,
+              options: const [3, 5, 7],
+              onChanged: (selected) {
+                if (selected == null) return;
+                unawaited(
+                  ref
+                      .read(gpxFilterSettingsProvider.notifier)
+                      .setPositionWindow(selected),
+                );
+              },
+            ),
+          ],
+        ),
+        AsyncLoading<GpxFilterConfig>() => const ListTile(
+          key: Key('gpx-filter-settings-section'),
+          title: Text('Track Filter'),
+          subtitle: Text('Loading filter settings...'),
+          trailing: Text('...'),
+        ),
+        AsyncError<GpxFilterConfig>() => const ListTile(
+          key: Key('gpx-filter-settings-section'),
+          title: Text('Track Filter'),
+          subtitle: Text('Unable to load filter settings.'),
+        ),
+      },
+    );
+  }
+
+  Widget _buildIntegerDropdown({
+    required Key key,
+    required String label,
+    required int value,
+    required List<int> options,
+    required ValueChanged<int?> onChanged,
+  }) {
+    return DropdownButtonFormField<int>(
+      key: key,
+      initialValue: value,
+      decoration: InputDecoration(labelText: label),
+      items: options
+          .map(
+            (option) => DropdownMenuItem<int>(
+              value: option,
+              child: Text(option.toString()),
+            ),
+          )
+          .toList(growable: false),
+      onChanged: onChanged,
+    );
+  }
+
+  Widget _buildEnumDropdown<T extends Enum>({
+    required Key key,
+    required String label,
+    required T value,
+    required List<T> options,
+    required String Function(T value) labelBuilder,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return DropdownButtonFormField<T>(
+      key: key,
+      initialValue: value,
+      decoration: InputDecoration(labelText: label),
+      items: options
+          .map(
+            (option) => DropdownMenuItem<T>(
+              value: option,
+              child: Text(labelBuilder(option)),
+            ),
+          )
+          .toList(growable: false),
+      onChanged: onChanged,
+    );
+  }
+
+  String _describeFilterConfig(GpxFilterConfig config) {
+    return 'Hampel ${config.hampelWindow} • Elevation ${config.elevationWindow} • Position ${config.positionWindow}';
   }
 }

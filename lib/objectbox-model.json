@@ -133,7 +133,7 @@
     },
     {
       "id": "3:8449374379554926112",
-      "lastPropertyId": "24:8336839992000669416",
+      "lastPropertyId": "25:2608880238551491510",
       "name": "GpxTrack",
       "properties": [
         {
@@ -240,6 +240,11 @@
         {
           "id": "24:8336839992000669416",
           "name": "elevationProfile",
+          "type": 9
+        },
+        {
+          "id": "25:2608880238551491510",
+          "name": "filteredTrack",
           "type": 9
         }
       ],

@@ -15,6 +15,7 @@ class GpxTrack {
   String trackName;
   DateTime? trackDate;
   String gpxFile;
+  String filteredTrack;
   String displayTrackPointsByZoom;
   DateTime? startDateTime;
   DateTime? endDateTime;
@@ -38,6 +39,7 @@ class GpxTrack {
     required this.trackName,
     this.trackDate,
     this.gpxFile = '',
+    this.filteredTrack = '',
     this.displayTrackPointsByZoom = '{}',
     this.startDateTime,
     this.endDateTime,
@@ -65,6 +67,7 @@ class GpxTrack {
           ? DateTime.tryParse(map['trackDate'] as String)
           : null,
       gpxFile: map['gpxFile'] as String? ?? '',
+      filteredTrack: map['filteredTrack'] as String? ?? '',
       displayTrackPointsByZoom:
           map['displayTrackPointsByZoom'] as String? ?? '{}',
       startDateTime: map['startDateTime'] != null
@@ -96,6 +99,7 @@ class GpxTrack {
       'trackName': trackName,
       'trackDate': trackDate?.toIso8601String(),
       'gpxFile': gpxFile,
+      'filteredTrack': filteredTrack,
       'displayTrackPointsByZoom': displayTrackPointsByZoom,
       'startDateTime': startDateTime?.toIso8601String(),
       'endDateTime': endDateTime?.toIso8601String(),

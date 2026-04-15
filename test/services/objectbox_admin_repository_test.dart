@@ -37,6 +37,12 @@ void main() {
         'lowestElevation',
         'highestElevation',
         'ascent',
+        'descent',
+        'gpxFile',
+        'filteredTrack',
+        'startElevation',
+        'endElevation',
+        'elevationProfile',
       ]),
     );
   });

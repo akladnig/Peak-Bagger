@@ -10,8 +10,10 @@ import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/grid_reference_parser.dart';
+import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/services/track_migration_marker_store.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/main.dart';
@@ -317,6 +319,7 @@ class MapNotifier extends Notifier<MapState> {
   Future<TrackImportResult?> _importTracks({
     required bool includeTasmaniaFolder,
     bool resetExisting = false,
+    bool refreshExistingTracks = false,
   }) async {
     if (state.isLoadingTracks) {
       return null;
@@ -333,6 +336,7 @@ class MapNotifier extends Notifier<MapState> {
     try {
       final surfaceNotifications = resetExisting || state.tracks.isNotEmpty;
       final importer = GpxImporter();
+      final filterConfig = await ref.read(gpxFilterSettingsProvider.future);
       final result = await importer.importTracks(
         includeTasmaniaFolder: includeTasmaniaFolder,
         existingTracks: resetExisting
@@ -340,6 +344,8 @@ class MapNotifier extends Notifier<MapState> {
             : _gpxTrackRepository.getAllTracks(),
         surfaceWarnings: surfaceNotifications,
         resetIds: resetExisting,
+        refreshExistingTracks: refreshExistingTracks,
+        filterConfig: filterConfig,
       );
 
       if (resetExisting || state.tracks.isEmpty) {
@@ -389,7 +395,10 @@ class MapNotifier extends Notifier<MapState> {
     if (state.hasTrackRecoveryIssue) {
       return;
     }
-    await _importTracks(includeTasmaniaFolder: false);
+    await _importTracks(
+      includeTasmaniaFolder: true,
+      refreshExistingTracks: true,
+    );
   }
 
   Future<TrackImportResult?> resetTrackData() async {
@@ -422,35 +431,41 @@ class MapNotifier extends Notifier<MapState> {
     );
 
     try {
-      final calculator = GpxTrackStatisticsCalculator();
+      final importer = GpxImporter();
+      final filterConfig = await ref.read(gpxFilterSettingsProvider.future);
       final tracks = _gpxTrackRepository.getAllTracks();
+      final updatedTracks = <GpxTrack>[];
       var updatedCount = 0;
       var skippedCount = 0;
+      var filterFallbackCount = 0;
 
       for (final track in tracks) {
         try {
-          final stats = calculator.calculate(track.gpxFile);
-          track.distance2d = stats.distance2d;
-          track.distance3d = stats.distance3d;
-          track.distanceToPeak = stats.distanceToPeak;
-          track.distanceFromPeak = stats.distanceFromPeak;
-          track.lowestElevation = stats.lowestElevation;
-          track.highestElevation = stats.highestElevation;
-          track.ascent = stats.ascent;
-          track.descent = stats.descent;
-          track.startElevation = stats.startElevation;
-          track.endElevation = stats.endElevation;
-          track.elevationProfile = stats.elevationProfile;
-          _gpxTrackRepository.putTrack(track);
+          final processed = importer.processTrack(
+            track.gpxFile,
+            filterConfig: filterConfig,
+          );
+          _applyProcessingResult(track, processed);
+          filterFallbackCount += processed.usedRawFallback ? 1 : 0;
+          updatedTracks.add(track);
           updatedCount += 1;
-        } on FormatException {
+        } catch (_) {
+          updatedTracks.add(track);
           skippedCount += 1;
         }
       }
 
+      _gpxTrackRepository.deleteAll();
+      for (final track in updatedTracks) {
+        _gpxTrackRepository.addTrack(track);
+      }
+
       final refreshedTracks = _gpxTrackRepository.getAllTracks();
       final warning = skippedCount > 0
-          ? 'Some tracks could not be recalculated.'
+          ? _buildRecalcWarning(
+              skippedCount: skippedCount,
+              filterFallbackCount: filterFallbackCount,
+            )
           : null;
       final hasRecoveryIssue = _hasTrackRecoveryIssue(refreshedTracks);
       final statusMessage =
@@ -478,6 +493,38 @@ class MapNotifier extends Notifier<MapState> {
       );
       return null;
     }
+  }
+
+  void _applyProcessingResult(GpxTrack track, GpxTrackProcessingResult result) {
+    track.filteredTrack = result.filteredXml ?? '';
+    track.displayTrackPointsByZoom = TrackDisplayCacheBuilder.buildJson(
+      result.displaySegments,
+    );
+    track.distance2d = result.stats.distance2d;
+    track.distance3d = result.stats.distance3d;
+    track.distanceToPeak = result.stats.distanceToPeak;
+    track.distanceFromPeak = result.stats.distanceFromPeak;
+    track.lowestElevation = result.stats.lowestElevation;
+    track.highestElevation = result.stats.highestElevation;
+    track.ascent = result.stats.ascent;
+    track.descent = result.stats.descent;
+    track.startElevation = result.stats.startElevation;
+    track.endElevation = result.stats.endElevation;
+    track.elevationProfile = result.stats.elevationProfile;
+  }
+
+  String _buildRecalcWarning({
+    required int skippedCount,
+    required int filterFallbackCount,
+  }) {
+    final parts = <String>[];
+    if (skippedCount > 0) {
+      parts.add('Some tracks could not be recalculated.');
+    }
+    if (filterFallbackCount > 0) {
+      parts.add('Some tracks used raw GPX fallback during filtering.');
+    }
+    return parts.join(' ');
   }
 
   bool consumeRecoverySnackbarSignal() {

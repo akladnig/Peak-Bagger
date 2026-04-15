@@ -2,8 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../harness/test_map_notifier.dart';
 import 'gpx_tracks_robot.dart';
@@ -148,6 +150,36 @@ void main() {
         tester.element(robot.recalcStatsTile),
       ).read(mapProvider).showTracks,
       isTrue,
+    );
+  });
+
+  testWidgets('filter settings persist from the settings screen', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+
+    final robot = GpxTracksRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showTracks: true,
+        tracks: const [],
+      ),
+    );
+    addTearDown(robot.dispose);
+    await robot.pumpApp();
+
+    await robot.openSettings();
+    await robot.openFilterSettings();
+    await robot.setHampelWindow(9);
+
+    expect(
+      ProviderScope.containerOf(
+        tester.element(robot.filterSettingsTile),
+      ).read(gpxFilterSettingsProvider).value!.hampelWindow,
+      9,
     );
   });
 }

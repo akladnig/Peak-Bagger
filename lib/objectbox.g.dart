@@ -176,7 +176,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(3, 8449374379554926112),
     name: 'GpxTrack',
-    lastPropertyId: const obx_int.IdUid(24, 8336839992000669416),
+    lastPropertyId: const obx_int.IdUid(25, 2608880238551491510),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -302,6 +302,12 @@ final _entities = <obx_int.ModelEntity>[
       obx_int.ModelProperty(
         id: const obx_int.IdUid(24, 8336839992000669416),
         name: 'elevationProfile',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(25, 2608880238551491510),
+        name: 'filteredTrack',
         type: 9,
         flags: 0,
       ),
@@ -587,7 +593,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
           object.displayTrackPointsByZoom,
         );
         final elevationProfileOffset = fbb.writeString(object.elevationProfile);
-        fbb.startTable(25);
+        final filteredTrackOffset = fbb.writeString(object.filteredTrack);
+        fbb.startTable(26);
         fbb.addInt64(0, object.gpxTrackId);
         fbb.addOffset(2, trackNameOffset);
         fbb.addInt64(3, object.startDateTime?.millisecondsSinceEpoch);
@@ -609,6 +616,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addFloat64(21, object.startElevation);
         fbb.addFloat64(22, object.endElevation);
         fbb.addOffset(23, elevationProfileOffset);
+        fbb.addOffset(24, filteredTrackOffset);
         fbb.finish(fbb.endTable());
         return object.gpxTrackId;
       },
@@ -648,6 +656,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final gpxFileParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 28, '');
+        final filteredTrackParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 52, '');
         final displayTrackPointsByZoomParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 30, '');
@@ -736,6 +747,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
           trackName: trackNameParam,
           trackDate: trackDateParam,
           gpxFile: gpxFileParam,
+          filteredTrack: filteredTrackParam,
           displayTrackPointsByZoom: displayTrackPointsByZoomParam,
           startDateTime: startDateTimeParam,
           endDateTime: endDateTimeParam,
@@ -977,5 +989,10 @@ class GpxTrack_ {
   /// See [GpxTrack.elevationProfile].
   static final elevationProfile = obx.QueryStringProperty<GpxTrack>(
     _entities[2].properties[20],
+  );
+
+  /// See [GpxTrack.filteredTrack].
+  static final filteredTrack = obx.QueryStringProperty<GpxTrack>(
+    _entities[2].properties[21],
   );
 }

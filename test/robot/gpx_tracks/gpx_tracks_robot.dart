@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/app.dart';
+import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/router.dart';
 
@@ -24,6 +25,10 @@ class GpxTracksRobot {
   Finder get infoFab => find.byKey(const Key('map-info-fab'));
   Finder get recalcStatsTile =>
       find.byKey(const Key('recalculate-track-statistics-tile'));
+  Finder get filterSettingsTile =>
+      find.byKey(const Key('gpx-filter-settings-section'));
+  Finder get hampelWindowField =>
+      find.byKey(const Key('gpx-filter-hampel-window'));
   Finder get mapInteractionRegion =>
       find.byKey(const Key('map-interaction-region'));
 
@@ -64,6 +69,24 @@ class GpxTracksRobot {
   Future<void> recalculateTrackStatistics() async {
     await tester.tap(recalcStatsTile);
     await tester.pumpAndSettle();
+  }
+
+  Future<void> openFilterSettings() async {
+    await tester.tap(filterSettingsTile);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> setHampelWindow(int value) async {
+    await tester.tap(hampelWindowField);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('$value').last);
+    await tester.pumpAndSettle();
+  }
+
+  int currentHampelWindow(BuildContext context) {
+    return ProviderScope.containerOf(
+      context,
+    ).read(gpxFilterSettingsProvider).value!.hampelWindow;
   }
 
   void expectTracksHidden() {
