@@ -176,7 +176,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(3, 8449374379554926112),
     name: 'GpxTrack',
-    lastPropertyId: const obx_int.IdUid(20, 3901365715486408203),
+    lastPropertyId: const obx_int.IdUid(24, 8336839992000669416),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -279,6 +279,30 @@ final _entities = <obx_int.ModelEntity>[
         id: const obx_int.IdUid(20, 3901365715486408203),
         name: 'distance3d',
         type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(21, 4581494205528903333),
+        name: 'descent',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(22, 371950216447848570),
+        name: 'startElevation',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(23, 6478259269495091022),
+        name: 'endElevation',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(24, 8336839992000669416),
+        name: 'elevationProfile',
+        type: 9,
         flags: 0,
       ),
     ],
@@ -562,7 +586,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final displayTrackPointsByZoomOffset = fbb.writeString(
           object.displayTrackPointsByZoom,
         );
-        fbb.startTable(21);
+        final elevationProfileOffset = fbb.writeString(object.elevationProfile);
+        fbb.startTable(25);
         fbb.addInt64(0, object.gpxTrackId);
         fbb.addOffset(2, trackNameOffset);
         fbb.addInt64(3, object.startDateTime?.millisecondsSinceEpoch);
@@ -580,6 +605,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addFloat64(17, object.highestElevation);
         fbb.addFloat64(18, object.distance2d);
         fbb.addFloat64(19, object.distance3d);
+        fbb.addFloat64(20, object.descent);
+        fbb.addFloat64(21, object.startElevation);
+        fbb.addFloat64(22, object.endElevation);
+        fbb.addOffset(23, elevationProfileOffset);
         fbb.finish(fbb.endTable());
         return object.gpxTrackId;
       },
@@ -664,6 +693,27 @@ obx_int.ModelDefinition getObjectBoxModel() {
           38,
           0,
         );
+        final descentParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          44,
+          0,
+        );
+        final startElevationParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          46,
+          0,
+        );
+        final endElevationParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          48,
+          0,
+        );
+        final elevationProfileParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 50, '');
         final ascentParam = const fb.Float64Reader().vTableGetNullable(
           buffer,
           rootOffset,
@@ -695,6 +745,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
           distanceFromPeak: distanceFromPeakParam,
           lowestElevation: lowestElevationParam,
           highestElevation: highestElevationParam,
+          descent: descentParam,
+          startElevation: startElevationParam,
+          endElevation: endElevationParam,
+          elevationProfile: elevationProfileParam,
           ascent: ascentParam,
           totalTimeMillis: totalTimeMillisParam,
           trackColour: trackColourParam,
@@ -903,5 +957,25 @@ class GpxTrack_ {
   /// See [GpxTrack.distance3d].
   static final distance3d = obx.QueryDoubleProperty<GpxTrack>(
     _entities[2].properties[16],
+  );
+
+  /// See [GpxTrack.descent].
+  static final descent = obx.QueryDoubleProperty<GpxTrack>(
+    _entities[2].properties[17],
+  );
+
+  /// See [GpxTrack.startElevation].
+  static final startElevation = obx.QueryDoubleProperty<GpxTrack>(
+    _entities[2].properties[18],
+  );
+
+  /// See [GpxTrack.endElevation].
+  static final endElevation = obx.QueryDoubleProperty<GpxTrack>(
+    _entities[2].properties[19],
+  );
+
+  /// See [GpxTrack.elevationProfile].
+  static final elevationProfile = obx.QueryStringProperty<GpxTrack>(
+    _entities[2].properties[20],
   );
 }

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:io';
 
@@ -361,6 +362,32 @@ void main() {
       expect(encoded['gpxFile'], '<gpx></gpx>');
     });
 
+    test('round-trips elevation profile fields', () {
+      final map = {
+        'gpxTrackId': 7,
+        'contentHash': 'hash-7',
+        'trackName': 'Elevation Track',
+        'gpxFile': '<gpx></gpx>',
+        'descent': 55.5,
+        'startElevation': 120.0,
+        'endElevation': 180.0,
+        'elevationProfile':
+            '[{"segmentIndex":0,"pointIndex":0,"distanceMeters":0.0,"elevationMeters":120.0,"timeLocal":null}]',
+      };
+
+      final track = GpxTrack.fromMap(map);
+      final encoded = track.toMap();
+
+      expect(track.descent, 55.5);
+      expect(track.startElevation, 120);
+      expect(track.endElevation, 180);
+      expect(track.elevationProfile, contains('segmentIndex'));
+      expect(encoded['descent'], 55.5);
+      expect(encoded['startElevation'], 120);
+      expect(encoded['endElevation'], 180);
+      expect(encoded['elevationProfile'], contains('pointIndex'));
+    });
+
     test('hasValidOptimizedDisplayData requires gpx and full zoom range', () {
       final validTrack = GpxTrack(
         contentHash: 'abc123',
@@ -481,6 +508,69 @@ void main() {
       expect(stats.distanceFromPeak, closeTo(secondLeg, 0.01));
       expect(stats.lowestElevation, 100);
       expect(stats.highestElevation, 250);
+    });
+
+    test('calculates elevation ascent descent and endpoints', () {
+      final gpx = _statsGpx('Elevation Track', [
+        [
+          _StatsPoint(-42.0, 146.0, 100),
+          _StatsPoint(-42.0, 146.1, 250),
+          _StatsPoint(-42.0, 146.2, 200),
+        ],
+      ]);
+
+      final stats = calculator.calculate(gpx);
+
+      expect(stats.ascent, 100);
+      expect(stats.descent, 0);
+      expect(stats.startElevation, 100);
+      expect(stats.endElevation, 200);
+    });
+
+    test('serializes elevation profile with preserved gaps', () {
+      final gpx = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <trk>
+    <name>Profile Track</name>
+    <trkseg>
+      <trkpt lat="-42.0" lon="146.0">
+        <ele>100</ele>
+        <time>2024-01-15T08:00:00</time>
+      </trkpt>
+      <trkpt lat="-42.0" lon="146.1">
+        <time>2024-01-15T08:10:00</time>
+      </trkpt>
+    </trkseg>
+    <trkseg>
+      <trkpt lat="-42.0" lon="146.2">
+        <ele>120</ele>
+        <time>2024-01-15T08:20:00</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>
+''';
+
+      final stats = calculator.calculate(gpx);
+      final profile = jsonDecode(stats.elevationProfile) as List<dynamic>;
+
+      expect(profile, hasLength(3));
+      expect(profile.first['segmentIndex'], 0);
+      expect(profile.first['pointIndex'], 0);
+      expect(profile.first['distanceMeters'], 0);
+      expect(profile.first['elevationMeters'], 100);
+      expect(profile.first['timeLocal'], '2024-01-15T08:00:00.000');
+      expect(profile[1]['segmentIndex'], 0);
+      expect(profile[1]['pointIndex'], 1);
+      expect(profile[1]['elevationMeters'], isNull);
+      expect(profile[2]['segmentIndex'], 1);
+      expect(profile[2]['pointIndex'], 0);
+      expect(profile[2]['elevationMeters'], 120);
+      expect(profile[2]['timeLocal'], '2024-01-15T08:20:00.000');
+      expect(stats.distanceToPeak, 0);
+      expect(stats.startElevation, 100);
+      expect(stats.endElevation, 120);
     });
 
     test('uses first highest point when peak elevation ties', () {

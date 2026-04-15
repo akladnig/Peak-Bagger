@@ -24,6 +24,10 @@ class GpxTrack {
   double distanceFromPeak;
   double lowestElevation;
   double highestElevation;
+  double descent;
+  double startElevation;
+  double endElevation;
+  String elevationProfile;
   double? ascent;
   int? totalTimeMillis;
   int trackColour;
@@ -43,6 +47,10 @@ class GpxTrack {
     this.distanceFromPeak = 0,
     this.lowestElevation = 0,
     this.highestElevation = 0,
+    this.descent = 0,
+    this.startElevation = 0,
+    this.endElevation = 0,
+    this.elevationProfile = '[]',
     this.ascent,
     this.totalTimeMillis,
     this.trackColour = 0xFFa726bc,
@@ -71,6 +79,10 @@ class GpxTrack {
       distanceFromPeak: _doubleFromMap(map['distanceFromPeak']),
       lowestElevation: _doubleFromMap(map['lowestElevation']),
       highestElevation: _doubleFromMap(map['highestElevation']),
+      descent: _doubleFromMap(map['descent']),
+      startElevation: _doubleFromMap(map['startElevation']),
+      endElevation: _doubleFromMap(map['endElevation']),
+      elevationProfile: map['elevationProfile'] as String? ?? '[]',
       ascent: map['ascent'] as double?,
       totalTimeMillis: map['totalTimeMillis'] as int?,
       trackColour: map['trackColour'] as int? ?? 0xFFa726bc,
@@ -93,6 +105,10 @@ class GpxTrack {
       'distanceFromPeak': distanceFromPeak,
       'lowestElevation': lowestElevation,
       'highestElevation': highestElevation,
+      'descent': descent,
+      'startElevation': startElevation,
+      'endElevation': endElevation,
+      'elevationProfile': elevationProfile,
       'ascent': ascent,
       'totalTimeMillis': totalTimeMillis,
       'trackColour': trackColour,

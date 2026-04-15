@@ -133,7 +133,7 @@
     },
     {
       "id": "3:8449374379554926112",
-      "lastPropertyId": "20:3901365715486408203",
+      "lastPropertyId": "24:8336839992000669416",
       "name": "GpxTrack",
       "properties": [
         {
@@ -221,6 +221,26 @@
           "id": "20:3901365715486408203",
           "name": "distance3d",
           "type": 8
+        },
+        {
+          "id": "21:4581494205528903333",
+          "name": "descent",
+          "type": 8
+        },
+        {
+          "id": "22:371950216447848570",
+          "name": "startElevation",
+          "type": 8
+        },
+        {
+          "id": "23:6478259269495091022",
+          "name": "endElevation",
+          "type": 8
+        },
+        {
+          "id": "24:8336839992000669416",
+          "name": "elevationProfile",
+          "type": 9
         }
       ],
       "relations": []

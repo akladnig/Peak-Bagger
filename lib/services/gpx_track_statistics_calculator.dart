@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:latlong2/latlong.dart';
 import 'package:xml/xml.dart';
+import 'package:peak_bagger/services/geo.dart';
 
 class GpxTrackStatistics {
   const GpxTrackStatistics({
@@ -11,6 +13,11 @@ class GpxTrackStatistics {
     required this.distanceFromPeak,
     required this.lowestElevation,
     required this.highestElevation,
+    required this.ascent,
+    required this.descent,
+    required this.startElevation,
+    required this.endElevation,
+    required this.elevationProfile,
   });
 
   final double distance2d;
@@ -19,19 +26,15 @@ class GpxTrackStatistics {
   final double distanceFromPeak;
   final double lowestElevation;
   final double highestElevation;
+  final double ascent;
+  final double descent;
+  final double startElevation;
+  final double endElevation;
+  final String elevationProfile;
 }
 
 class GpxTrackStatisticsCalculator {
   static const _distance = Distance();
-
-  static const _zero = GpxTrackStatistics(
-    distance2d: 0,
-    distance3d: 0,
-    distanceToPeak: 0,
-    distanceFromPeak: 0,
-    lowestElevation: 0,
-    highestElevation: 0,
-  );
 
   GpxTrackStatistics calculate(String gpxXml) {
     try {
@@ -51,149 +54,155 @@ class GpxTrackStatisticsCalculator {
     final points = segments
         .expand((segment) => segment)
         .toList(growable: false);
-    if (points.length == 1) {
-      return _zero;
-    }
+    final profileEntries = <_ElevationProfileEntry>[];
+    final elevationSamples = <double>[];
+    double distance2d = 0;
+    double distance3d = 0;
+    double? startElevation;
+    double? endElevation;
+    double? lowestElevation;
+    double? highestElevation;
+    var hasMissingElevation = false;
 
-    final distance2d = _calculateDistance(segments);
-    final distance3d = _calculateDistance3d(segments).roundToDouble();
-    final parsedElevations = points
-        .where((point) => point.elevation != null)
-        .map((point) => point.elevation!)
-        .toList(growable: false);
-    if (parsedElevations.isEmpty) {
-      return GpxTrackStatistics(
-        distance2d: distance2d,
-        distance3d: distance3d,
-        distanceToPeak: 0,
-        distanceFromPeak: 0,
-        lowestElevation: 0,
-        highestElevation: 0,
-      );
-    }
-
-    final validElevations = parsedElevations
-        .where((elevation) => elevation >= -100)
-        .toList(growable: false);
-    if (validElevations.isEmpty) {
-      return GpxTrackStatistics(
-        distance2d: distance2d,
-        distance3d: distance3d,
-        distanceToPeak: 0,
-        distanceFromPeak: 0,
-        lowestElevation: 0,
-        highestElevation: 0,
-      );
-    }
-
-    var highestElevation = validElevations.first;
-    var lowestElevation = validElevations.first;
-    for (final elevation in validElevations.skip(1)) {
-      if (elevation > highestElevation) {
-        highestElevation = elevation;
-      }
-      if (elevation < lowestElevation) {
-        lowestElevation = elevation;
-      }
-    }
-
-    if (parsedElevations.any((elevation) => elevation < -100)) {
-      lowestElevation = 0;
-    }
-
-    final hasCompleteElevation = points.every(
-      (point) => point.elevation != null,
-    );
-    if (!hasCompleteElevation) {
-      return GpxTrackStatistics(
-        distance2d: distance2d,
-        distance3d: distance3d,
-        distanceToPeak: 0,
-        distanceFromPeak: 0,
-        lowestElevation: lowestElevation,
-        highestElevation: highestElevation,
-      );
-    }
-
-    var cumulativeDistance = 0.0;
-    var distanceToPeak = 0.0;
-    var peakFound = false;
-    for (final segment in segments) {
-      if (segment.isEmpty) {
-        continue;
-      }
-      for (var i = 0; i < segment.length; i++) {
-        final point = segment[i];
-        if (!peakFound && point.elevation == highestElevation) {
-          distanceToPeak = cumulativeDistance;
-          peakFound = true;
+    for (var segmentIndex = 0; segmentIndex < segments.length; segmentIndex++) {
+      final segment = segments[segmentIndex];
+      for (var pointIndex = 0; pointIndex < segment.length; pointIndex++) {
+        final point = segment[pointIndex];
+        if (point.rawElevation == null) {
+          hasMissingElevation = true;
+        } else if (point.rawElevation! > -100) {
+          startElevation ??= point.rawElevation;
+          endElevation = point.rawElevation;
         }
 
-        if (i < segment.length - 1) {
-          cumulativeDistance += _distance.as(
+        final elevation = point.elevation;
+        if (elevation != null) {
+          elevationSamples.add(elevation);
+          lowestElevation =
+              lowestElevation == null || elevation < lowestElevation
+              ? elevation
+              : lowestElevation;
+          highestElevation =
+              highestElevation == null || elevation > highestElevation
+              ? elevation
+              : highestElevation;
+        }
+
+        profileEntries.add(
+          _ElevationProfileEntry(
+            segmentIndex: segmentIndex,
+            pointIndex: pointIndex,
+            distanceMeters: distance2d,
+            elevationMeters: elevation,
+            timeLocal: point.timeLocal,
+          ),
+        );
+
+        if (pointIndex < segment.length - 1) {
+          final nextPoint = segment[pointIndex + 1];
+          final legDistance2d = _distance.as(
             LengthUnit.Meter,
             point.location,
-            segment[i + 1].location,
+            nextPoint.location,
           );
+          distance2d += legDistance2d;
+
+          if (point.elevation == null ||
+              nextPoint.elevation == null ||
+              point.elevation == nextPoint.elevation) {
+            distance3d += legDistance2d;
+          } else {
+            final elevationDelta = point.elevation! - nextPoint.elevation!;
+            distance3d += math.sqrt(
+              legDistance2d * legDistance2d + elevationDelta * elevationDelta,
+            );
+          }
         }
+      }
+    }
+
+    final elevationProfile = jsonEncode(
+      profileEntries.map((entry) => entry.toJson()).toList(growable: false),
+    );
+
+    if (points.length == 1) {
+      return GpxTrackStatistics(
+        distance2d: 0,
+        distance3d: 0,
+        distanceToPeak: 0,
+        distanceFromPeak: 0,
+        lowestElevation: 0,
+        highestElevation: 0,
+        ascent: 0,
+        descent: 0,
+        startElevation: 0,
+        endElevation: 0,
+        elevationProfile: elevationProfile,
+      );
+    }
+
+    final elevationStats = elevationSamples.isEmpty
+        ? (uphill: 0.0, downhill: 0.0)
+        : calculateUphillDownhill(elevationSamples);
+
+    final lowest = lowestElevation ?? 0;
+    final highest = highestElevation ?? 0;
+    final start = startElevation ?? 0;
+    final end = endElevation ?? 0;
+
+    if (elevationSamples.isEmpty) {
+      return GpxTrackStatistics(
+        distance2d: distance2d,
+        distance3d: distance3d.roundToDouble(),
+        distanceToPeak: 0,
+        distanceFromPeak: 0,
+        lowestElevation: 0,
+        highestElevation: 0,
+        ascent: 0,
+        descent: 0,
+        startElevation: 0,
+        endElevation: 0,
+        elevationProfile: elevationProfile,
+      );
+    }
+
+    if (hasMissingElevation) {
+      return GpxTrackStatistics(
+        distance2d: distance2d,
+        distance3d: distance3d.roundToDouble(),
+        distanceToPeak: 0,
+        distanceFromPeak: 0,
+        lowestElevation: lowest,
+        highestElevation: highest,
+        ascent: elevationStats.uphill,
+        descent: elevationStats.downhill,
+        startElevation: start,
+        endElevation: end,
+        elevationProfile: elevationProfile,
+      );
+    }
+
+    var distanceToPeak = 0.0;
+    for (final entry in profileEntries) {
+      if (entry.elevationMeters == highest) {
+        distanceToPeak = entry.distanceMeters;
+        break;
       }
     }
 
     return GpxTrackStatistics(
       distance2d: distance2d,
-      distance3d: distance3d,
+      distance3d: distance3d.roundToDouble(),
       distanceToPeak: distanceToPeak,
       distanceFromPeak: distance2d - distanceToPeak,
-      lowestElevation: lowestElevation,
-      highestElevation: highestElevation,
+      lowestElevation: lowest,
+      highestElevation: highest,
+      ascent: elevationStats.uphill,
+      descent: elevationStats.downhill,
+      startElevation: start,
+      endElevation: end,
+      elevationProfile: elevationProfile,
     );
-  }
-
-  double _calculateDistance(List<List<_TrackPoint>> segments) {
-    var totalDistance = 0.0;
-    for (final segment in segments) {
-      if (segment.length < 2) {
-        continue;
-      }
-      for (var i = 0; i < segment.length - 1; i++) {
-        totalDistance += _distance.as(
-          LengthUnit.Meter,
-          segment[i].location,
-          segment[i + 1].location,
-        );
-      }
-    }
-    return totalDistance;
-  }
-
-  double _calculateDistance3d(List<List<_TrackPoint>> segments) {
-    var totalDistance = 0.0;
-    for (final segment in segments) {
-      if (segment.length < 2) {
-        continue;
-      }
-      for (var i = 0; i < segment.length - 1; i++) {
-        final start = segment[i];
-        final end = segment[i + 1];
-        final distance2d = _distance.as(
-          LengthUnit.Meter,
-          start.location,
-          end.location,
-        );
-        if (start.elevation == null ||
-            end.elevation == null ||
-            start.elevation == end.elevation) {
-          totalDistance += distance2d;
-          continue;
-        }
-
-        final elevationDelta = start.elevation! - end.elevation!;
-        totalDistance += math.sqrt(
-          distance2d * distance2d + elevationDelta * elevationDelta,
-        );
-      }
-    }
-    return totalDistance;
   }
 
   List<List<_TrackPoint>> _extractSegments(XmlDocument document) {
@@ -234,11 +243,29 @@ class GpxTrackStatisticsCalculator {
       }
 
       final eleText = element.getElement('ele')?.innerText.trim();
-      final elevation = eleText == null || eleText.isEmpty
+      final rawElevation = eleText == null || eleText.isEmpty
           ? null
-          : _normalizeElevation(double.tryParse(eleText));
+          : double.tryParse(eleText);
+      final elevation = _normalizeElevation(rawElevation);
 
-      points.add(_TrackPoint(location: LatLng(lat, lon), elevation: elevation));
+      final timeText = element.getElement('time')?.innerText.trim();
+      DateTime? timeLocal;
+      if (timeText != null && timeText.isNotEmpty) {
+        try {
+          timeLocal = DateTime.parse(timeText).toLocal();
+        } catch (_) {
+          timeLocal = null;
+        }
+      }
+
+      points.add(
+        _TrackPoint(
+          location: LatLng(lat, lon),
+          rawElevation: rawElevation,
+          elevation: elevation,
+          timeLocal: timeLocal,
+        ),
+      );
     }
     return points;
   }
@@ -264,8 +291,41 @@ class TrackStatisticsRecalcResult {
 }
 
 class _TrackPoint {
-  const _TrackPoint({required this.location, required this.elevation});
+  const _TrackPoint({
+    required this.location,
+    required this.rawElevation,
+    required this.elevation,
+    required this.timeLocal,
+  });
 
   final LatLng location;
+  final double? rawElevation;
   final double? elevation;
+  final DateTime? timeLocal;
+}
+
+class _ElevationProfileEntry {
+  const _ElevationProfileEntry({
+    required this.segmentIndex,
+    required this.pointIndex,
+    required this.distanceMeters,
+    required this.elevationMeters,
+    required this.timeLocal,
+  });
+
+  final int segmentIndex;
+  final int pointIndex;
+  final double distanceMeters;
+  final double? elevationMeters;
+  final DateTime? timeLocal;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'segmentIndex': segmentIndex,
+      'pointIndex': pointIndex,
+      'distanceMeters': distanceMeters,
+      'elevationMeters': elevationMeters,
+      'timeLocal': timeLocal?.toIso8601String(),
+    };
+  }
 }
