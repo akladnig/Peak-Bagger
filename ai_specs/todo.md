@@ -28,27 +28,28 @@
 - [x] add info fab
 - [x] Wrong map shown on info
 - [x] Peak info not being displayed
-- [ ] Do not re-import Tasmap on every launch.
+- [x] Do not re-import Tasmap on every launch.
 - [ ] disable 2 finger map rotation
-- [ ] get filename from gpx track name
-- [ ] fix "&amp;"
 - [ ] update tooltips - Goto Location, Show Map Grid 
 ## 4a
 - [x] add go to map only, centre on map and zoom to map extents, and draw a blue rectangle around the map extents so that the map can be seen when zooming out.
 - [ ] Add show maps - a blue grid of all maps. Map name and series to be shown at bottom right of each map.
-## 5
+- [ ] Change map drawing from rectangle to a polygon.
+## 5 Gpx Tracks
 - [ ] implement gpx track import - multiple file import or just scan default folder.
-### Distnace
-- [ ] distance (double?) - future, null for now
-- [ ] Distance to Peak, Distance from Peak
+- [ ] use ramer-douglas-peucker algorithm to draw polylines
+- [ ] use geo.dart, ported from gpxpy.
+### Distance
+- [x] distance (double?) - future, null for now
+- [x] Distance to Peak, Distance from Peak
 
 ### Elevation 
 - [ ] ascent (double?) - future, null for now
 - [ ] descent
 - [ ] elevationProfile
 - [ ] startElevation
-- [ ] lowestElevation
-- [ ] highestElevation
+- [x] lowestElevation
+- [x] highestElevation
 ### Speed
 - [ ] averageSpeed
 - [ ] movingSpeed
@@ -64,6 +65,8 @@
 - [ ] restingTime
 ### Climbs
 - [ ] climbs
+
+- [ ] add to spec and implement distance3d algorthims as per gpxpy: https://github.com/tkrajina/gpxpy/blob/dev/gpxpy/geo.py
 
 ## Object Box Admin
 - [ ] Rescan entity on entry, for the current entity being shown.

@@ -133,7 +133,7 @@
     },
     {
       "id": "3:8449374379554926112",
-      "lastPropertyId": "18:2083444332056874121",
+      "lastPropertyId": "20:3901365715486408203",
       "name": "GpxTrack",
       "properties": [
         {
@@ -151,11 +151,6 @@
           "id": "4:8088153468164546543",
           "name": "startDateTime",
           "type": 10
-        },
-        {
-          "id": "5:3658721134433213764",
-          "name": "distance",
-          "type": 8
         },
         {
           "id": "6:4876941213384233127",
@@ -216,6 +211,16 @@
           "id": "18:2083444332056874121",
           "name": "highestElevation",
           "type": 8
+        },
+        {
+          "id": "19:9126160852790576644",
+          "name": "distance2d",
+          "type": 8
+        },
+        {
+          "id": "20:3901365715486408203",
+          "name": "distance3d",
+          "type": 8
         }
       ],
       "relations": []
@@ -231,7 +236,8 @@
   "retiredIndexUids": [],
   "retiredPropertyUids": [
     3390857021483670935,
-    3580443233466692573
+    3580443233466692573,
+    3658721134433213764
   ],
   "retiredRelationUids": [],
   "version": 1

@@ -317,6 +317,20 @@ void main() {
           isPrimaryName: true,
         ),
         ObjectBoxAdminFieldDescriptor(
+          name: 'distance2d',
+          typeLabel: 'double',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'distance3d',
+          typeLabel: 'double',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
           name: 'distanceToPeak',
           typeLabel: 'double',
           nullable: false,
@@ -356,6 +370,8 @@ void main() {
             values: {
               'gpxTrackId': 7,
               'trackName': 'Mt Anne',
+              'distance2d': 1234,
+              'distance3d': 0,
               'distanceToPeak': 0,
               'distanceFromPeak': 0,
               'lowestElevation': 0,
@@ -375,15 +391,15 @@ void main() {
     await tester.tap(find.text('Mt Anne'));
     await tester.pumpAndSettle();
 
-    final distanceToPeakTile = tester.widget<ListTile>(
-      find.widgetWithText(ListTile, 'distanceToPeak'),
+    final distance2dTile = tester.widget<ListTile>(
+      find.widgetWithText(ListTile, 'distance2d'),
     );
-    final lowestElevationTile = tester.widget<ListTile>(
-      find.widgetWithText(ListTile, 'lowestElevation'),
+    final distance3dTile = tester.widget<ListTile>(
+      find.widgetWithText(ListTile, 'distance3d'),
     );
 
-    expect((distanceToPeakTile.subtitle as SelectableText).data, '0');
-    expect((lowestElevationTile.subtitle as SelectableText).data, '0');
+    expect((distance2dTile.subtitle as SelectableText).data, '1234');
+    expect((distance3dTile.subtitle as SelectableText).data, '0');
   });
 }
 

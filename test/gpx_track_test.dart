@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -279,6 +280,8 @@ void main() {
       expect(track.trackName, 'Mt Anne');
       expect(track.trackDate, DateTime(2024, 1, 15));
       expect(track.trackColour, 0xFFa726bc);
+      expect(track.distance2d, 0);
+      expect(track.distance3d, 0);
       expect(track.distanceToPeak, 0);
       expect(track.distanceFromPeak, 0);
       expect(track.lowestElevation, 0);
@@ -319,11 +322,12 @@ void main() {
         'displayTrackPointsByZoom': '{"15":[[[-42.0,146.0]]]}',
         'startDateTime': '2024-01-15T08:00:00.000',
         'endDateTime': '2024-01-15T17:00:00.000',
+        'distance2d': 10.5,
+        'distance3d': 0,
         'distanceToPeak': 3.5,
         'distanceFromPeak': 4.5,
         'lowestElevation': 100.0,
         'highestElevation': 900.0,
-        'distance': 10.5,
         'ascent': 900.0,
         'totalTimeMillis': 3600000,
         'trackColour': 0xFFa726bc,
@@ -337,6 +341,8 @@ void main() {
       expect(track.trackName, 'Frenchmans Cap');
       expect(track.startDateTime, isNotNull);
       expect(track.endDateTime, isNotNull);
+      expect(track.distance2d, 10.5);
+      expect(track.distance3d, 0);
       expect(track.distanceToPeak, 3.5);
       expect(track.distanceFromPeak, 4.5);
       expect(track.lowestElevation, 100);
@@ -346,6 +352,8 @@ void main() {
       expect(encoded['trackName'], 'Frenchmans Cap');
       expect(encoded['trackDate'], isNotNull);
       expect(encoded['endDateTime'], isNotNull);
+      expect(encoded['distance2d'], 10.5);
+      expect(encoded['distance3d'], 0);
       expect(encoded['distanceToPeak'], 3.5);
       expect(encoded['distanceFromPeak'], 4.5);
       expect(encoded['lowestElevation'], 100);
@@ -462,8 +470,13 @@ void main() {
         const LatLng(-42.0, 146.1),
         const LatLng(-42.0, 146.2),
       );
+      final expected3d =
+          (math.sqrt(firstLeg * firstLeg + 150 * 150) +
+                  math.sqrt(secondLeg * secondLeg + 50 * 50))
+              .roundToDouble();
 
-      expect(stats.distance, closeTo(firstLeg + secondLeg, 0.01));
+      expect(stats.distance2d, closeTo(firstLeg + secondLeg, 0.01));
+      expect(stats.distance3d, expected3d);
       expect(stats.distanceToPeak, closeTo(firstLeg, 0.01));
       expect(stats.distanceFromPeak, closeTo(secondLeg, 0.01));
       expect(stats.lowestElevation, 100);
@@ -496,7 +509,14 @@ void main() {
         const LatLng(-42.0, 146.2),
         const LatLng(-42.0, 146.3),
       );
+      final expected3d =
+          (math.sqrt(firstLeg * firstLeg + 150 * 150) +
+                  math.sqrt(middleLeg * middleLeg) +
+                  math.sqrt(finalLeg * finalLeg + 160 * 160))
+              .roundToDouble();
 
+      expect(stats.distance2d, closeTo(firstLeg + middleLeg + finalLeg, 0.01));
+      expect(stats.distance3d, expected3d);
       expect(stats.distanceToPeak, closeTo(firstLeg, 0.01));
       expect(stats.distanceFromPeak, closeTo(middleLeg + finalLeg, 0.01));
       expect(stats.lowestElevation, 90);
@@ -514,11 +534,69 @@ void main() {
 
       final stats = calculator.calculate(gpx);
 
-      expect(stats.distance, greaterThan(0));
+      expect(stats.distance2d, greaterThan(0));
+      expect(stats.distance3d, stats.distance2d.roundToDouble());
       expect(stats.distanceToPeak, 0);
       expect(stats.distanceFromPeak, 0);
       expect(stats.lowestElevation, 100);
       expect(stats.highestElevation, 200);
+    });
+
+    test('matches 2D distance when elevations are unchanged', () {
+      final gpx = _statsGpx('Flat Track', [
+        [_StatsPoint(-42.0, 146.0, 50), _StatsPoint(-42.0, 146.1, 50)],
+      ]);
+
+      final stats = calculator.calculate(gpx);
+      final expected2d = _distance.as(
+        LengthUnit.Meter,
+        const LatLng(-42.0, 146.0),
+        const LatLng(-42.0, 146.1),
+      );
+
+      expect(stats.distance2d, closeTo(expected2d, 0.01));
+      expect(stats.distance3d, expected2d.roundToDouble());
+    });
+
+    test('allows negative elevations down to -100 meters', () {
+      final gpx = _statsGpx('Below Sea Level', [
+        [_StatsPoint(-42.0, 146.0, -50), _StatsPoint(-42.0, 146.1, 20)],
+      ]);
+
+      final stats = calculator.calculate(gpx);
+
+      expect(stats.lowestElevation, -50);
+      expect(stats.highestElevation, 20);
+    });
+
+    test('treats elevations below -100 meters as zero in distance math', () {
+      final gpx = _statsGpx('Invalid Elevation', [
+        [
+          _StatsPoint(-42.0, 146.0, -120),
+          _StatsPoint(-42.0, 146.1, -50),
+          _StatsPoint(-42.0, 146.2, 10),
+        ],
+      ]);
+
+      final stats = calculator.calculate(gpx);
+      final firstLeg = _distance.as(
+        LengthUnit.Meter,
+        const LatLng(-42.0, 146.0),
+        const LatLng(-42.0, 146.1),
+      );
+      final secondLeg = _distance.as(
+        LengthUnit.Meter,
+        const LatLng(-42.0, 146.1),
+        const LatLng(-42.0, 146.2),
+      );
+      final expected3d =
+          (math.sqrt(firstLeg * firstLeg + 50 * 50) +
+                  math.sqrt(secondLeg * secondLeg + 60 * 60))
+              .roundToDouble();
+
+      expect(stats.distance3d, expected3d);
+      expect(stats.lowestElevation, -50);
+      expect(stats.highestElevation, 10);
     });
 
     test('zeros elevation stats for a single-point track', () {
@@ -528,7 +606,8 @@ void main() {
 
       final stats = calculator.calculate(gpx);
 
-      expect(stats.distance, 0);
+      expect(stats.distance2d, 0);
+      expect(stats.distance3d, 0);
       expect(stats.distanceToPeak, 0);
       expect(stats.distanceFromPeak, 0);
       expect(stats.lowestElevation, 0);

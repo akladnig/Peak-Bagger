@@ -18,11 +18,12 @@ class GpxTrack {
   String displayTrackPointsByZoom;
   DateTime? startDateTime;
   DateTime? endDateTime;
+  double distance2d;
+  double distance3d;
   double distanceToPeak;
   double distanceFromPeak;
   double lowestElevation;
   double highestElevation;
-  double? distance;
   double? ascent;
   int? totalTimeMillis;
   int trackColour;
@@ -36,11 +37,12 @@ class GpxTrack {
     this.displayTrackPointsByZoom = '{}',
     this.startDateTime,
     this.endDateTime,
+    this.distance2d = 0,
+    this.distance3d = 0,
     this.distanceToPeak = 0,
     this.distanceFromPeak = 0,
     this.lowestElevation = 0,
     this.highestElevation = 0,
-    this.distance,
     this.ascent,
     this.totalTimeMillis,
     this.trackColour = 0xFFa726bc,
@@ -63,11 +65,12 @@ class GpxTrack {
       endDateTime: map['endDateTime'] != null
           ? DateTime.tryParse(map['endDateTime'] as String)
           : null,
+      distance2d: _doubleFromMap(map['distance2d']),
+      distance3d: _doubleFromMap(map['distance3d']),
       distanceToPeak: _doubleFromMap(map['distanceToPeak']),
       distanceFromPeak: _doubleFromMap(map['distanceFromPeak']),
       lowestElevation: _doubleFromMap(map['lowestElevation']),
       highestElevation: _doubleFromMap(map['highestElevation']),
-      distance: map['distance'] as double?,
       ascent: map['ascent'] as double?,
       totalTimeMillis: map['totalTimeMillis'] as int?,
       trackColour: map['trackColour'] as int? ?? 0xFFa726bc,
@@ -84,11 +87,12 @@ class GpxTrack {
       'displayTrackPointsByZoom': displayTrackPointsByZoom,
       'startDateTime': startDateTime?.toIso8601String(),
       'endDateTime': endDateTime?.toIso8601String(),
+      'distance2d': distance2d,
+      'distance3d': distance3d,
       'distanceToPeak': distanceToPeak,
       'distanceFromPeak': distanceFromPeak,
       'lowestElevation': lowestElevation,
       'highestElevation': highestElevation,
-      'distance': distance,
       'ascent': ascent,
       'totalTimeMillis': totalTimeMillis,
       'trackColour': trackColour,

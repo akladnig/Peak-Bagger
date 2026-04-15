@@ -52,5 +52,5 @@ Pure stats helper, importer/reset wiring, Settings action, journey coverage.
 - [x] Verify: `flutter analyze && flutter test test/widget/gpx_tracks_summary_test.dart test/widget/gpx_tracks_shell_test.dart test/robot/gpx_tracks/gpx_tracks_journey_test.dart`
 
 ## Risks / Out of scope
-- **Risks**: stale ObjectBox generation; stats math edge cases around peak ties and segment gaps; dialog/state reuse can regress `showTracks`
+- **Risks**: stale ObjectBox generation; stats math edge cases around peak ties, segment gaps, and clamping elevations below `-100m` to `0` for `distance3d`; dialog/state reuse can regress `showTracks`
 - **Out of scope**: new stats beyond the four fields in spec; map rendering changes; filesystem reorganization beyond existing import/reset behavior

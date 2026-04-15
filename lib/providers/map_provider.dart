@@ -430,7 +430,8 @@ class MapNotifier extends Notifier<MapState> {
       for (final track in tracks) {
         try {
           final stats = calculator.calculate(track.gpxFile);
-          track.distance = stats.distance;
+          track.distance2d = stats.distance2d;
+          track.distance3d = stats.distance3d;
           track.distanceToPeak = stats.distanceToPeak;
           track.distanceFromPeak = stats.distanceFromPeak;
           track.lowestElevation = stats.lowestElevation;

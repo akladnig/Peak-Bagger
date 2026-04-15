@@ -48,34 +48,38 @@ Error flows:
 
 <requirements>
 **Functional:**
-1. Retrofit `GpxTrack` with `distanceToPeak` (`double`), `distanceFromPeak` (`double`), `lowestElevation` (`double`), and `highestElevation` (`double`) while keeping existing fields intact.
-2. Keep `distance` as an existing persisted field and populate it from the GPX track geometry during import, reset, and manual recalculation.
-3. Derive all statistics from the GPX XML stored in `GpxTrack.gpxFile`; manual recalculation must not read the filesystem or move files.
-4. Add a `Recalculate Track Statistics` action to `SettingsScreen` directly below `Reset Track Data`.
-5. Recalculate stats for every imported track row during any GPX import/rescan/reset operation, and for every existing persisted row when the Settings action is tapped.
-6. Define track statistics over the parsed trackpoint order across all segments by summing geodesic distance between consecutive valid trackpoints within each segment and not bridging segment gaps.
-7. When multiple points share the highest elevation, use the first occurrence as the peak reference so `distanceToPeak` and `distanceFromPeak` are deterministic.
-8. Reuse the existing `trackOperationStatus` and `trackOperationWarning` pattern for success and non-fatal failures.
-9. The `Recalculate Track Statistics` action must use `isLoadingTracks` as the single busy flag, disable repeat taps while an operation is running, preserve the current `showTracks` state, and refresh `MapState.tracks` from the repository after success.
-10. The recalc flow must use a dedicated `TrackStatisticsRecalcResult` contract with `updatedCount`, `skippedCount`, and `warning` so the success dialog can describe stats recalculation without import-centric counters.
-11. On success, the recalc dialog title must be `Track Statistics Recalculated`, and the body must summarize `Updated X tracks, skipped Y tracks`, appending the warning text below when `warning` is present.
+1. Retrofit `GpxTrack` with `distance2d` (`double`), `distance3d` (`double`), `distanceToPeak` (`double`), `distanceFromPeak` (`double`), `lowestElevation` (`double`), and `highestElevation` (`double`) while keeping existing fields intact.
+2. Keep `distance2d` as the 2D persisted field and populate it from the GPX track geometry during import, reset, and manual recalculation.
+3. Add `distance3d` as a persisted field and calculate it with the same rule as `gpxpy.geo.distance` / `Location.distance_3d`: use 2D distance when either elevation is missing or both elevations are equal; otherwise compute `sqrt(distance2d^2 + elevation_delta^2)` for each consecutive point pair, sum the results, then round the final `distance3d` to the nearest metre.
+4. Derive all statistics from the GPX XML stored in `GpxTrack.gpxFile`; manual recalculation must not read the filesystem or move files.
+5. Add a `Recalculate Track Statistics` action to `SettingsScreen` directly below `Reset Track Data`.
+6. Recalculate stats for every imported track row during any GPX import/rescan/reset operation, and for every existing persisted row when the Settings action is tapped.
+7. Define track statistics over the parsed trackpoint order across all segments by summing geodesic distance between consecutive valid trackpoints within each segment and not bridging segment gaps.
+8. When multiple points share the highest elevation, use the first occurrence as the peak reference so `distanceToPeak` and `distanceFromPeak` are deterministic.
+9. Reuse the existing `trackOperationStatus` and `trackOperationWarning` pattern for success and non-fatal failures.
+10. The `Recalculate Track Statistics` action must use `isLoadingTracks` as the single busy flag, disable repeat taps while an operation is running, preserve the current `showTracks` state, and refresh `MapState.tracks` from the repository after success.
+11. The recalc flow must use a dedicated `TrackStatisticsRecalcResult` contract with `updatedCount`, `skippedCount`, and `warning` so the success dialog can describe stats recalculation without import-centric counters.
+12. On success, the recalc dialog title must be `Track Statistics Recalculated`, and the body must summarize `Updated X tracks, skipped Y tracks`, appending the warning text below when `warning` is present.
 
 **Error Handling:**
 11. If a row's stored GPX XML cannot be parsed, skip that row's stats update, continue processing the remaining rows, and surface a warning rather than failing the whole batch.
-12. If elevation data is missing or partially missing, persist zero defaults for all elevation-derived values instead of failing the track.
-13. If a track operation is already running, ignore repeat presses of the new Settings action.
-14. Preserve current reset/import behavior when a stats recalculation warning occurs; do not lose already-imported rows because one row failed.
+13. If elevation data is missing or partially missing, persist zero defaults for all elevation-derived values instead of failing the track.
+14. If any parsed elevation sample is below `-100` meters, normalize that sample to `0` before calculating distance or elevation stats, and continue using valid samples in the `[-100, 0)` range.
+15. If a track operation is already running, ignore repeat presses of the new Settings action.
+16. Preserve current reset/import behavior when a stats recalculation warning occurs; do not lose already-imported rows because one row failed.
 
 **Edge Cases:**
-15. Single-point tracks must produce zero distance and zero/default elevation stats.
-16. Multi-segment tracks must keep their segment structure in the stored geometry and in any distance accumulation logic.
-17. If all parseable elevation samples are absent, store zero defaults for `lowestElevation` and `highestElevation`.
-18. Manual recalculation must update existing rows in place without changing `gpxTrackId`, `trackName`, or file organization.
+17. Single-point tracks must produce zero `distance2d`, zero `distance3d`, and zero/default elevation stats.
+18. Multi-segment tracks must keep their segment structure in the stored geometry and in any distance accumulation logic.
+19. If all parseable elevation samples are absent, store zero defaults for `lowestElevation` and `highestElevation`.
+20. Manual recalculation must update existing rows in place without changing `gpxTrackId`, `trackName`, or file organization.
 
 **Validation:**
-17. Add explicit numeric assertions for synthetic GPX samples so the stats math is verified with known values, not just null/non-null checks.
-18. Validate that the new Settings action is wired to the same track-operation summary surface used by the existing reset flow.
-19. Validate that batch recalculation continues past one malformed row and still updates the remaining rows.
+21. Add explicit numeric assertions for synthetic GPX samples so the stats math is verified with known values, not just null/non-null checks.
+22. Add a test case that verifies `distance3d` increases when elevation differs, matches `distance2d` when elevation is missing or unchanged, and is rounded to the nearest metre after accumulation.
+23. Add a test case where a GPX sample below `-100` meters is treated as `0` for `distance3d` and elevation stats while values in `[-100, 0)` remain valid.
+24. Validate that the new Settings action is wired to the same track-operation summary surface used by the existing reset flow.
+25. Validate that batch recalculation continues past one malformed row and still updates the remaining rows.
 </requirements>
 
 <boundaries>

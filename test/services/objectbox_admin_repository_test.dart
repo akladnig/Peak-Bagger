@@ -30,11 +30,12 @@ void main() {
       containsAll([
         'gpxTrackId',
         'trackName',
+        'distance2d',
+        'distance3d',
         'distanceToPeak',
         'distanceFromPeak',
         'lowestElevation',
         'highestElevation',
-        'distance',
         'ascent',
       ]),
     );
