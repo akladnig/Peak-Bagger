@@ -436,6 +436,11 @@ class MapNotifier extends Notifier<MapState> {
           track.distanceFromPeak = stats.distanceFromPeak;
           track.lowestElevation = stats.lowestElevation;
           track.highestElevation = stats.highestElevation;
+          track.ascent = stats.ascent;
+          track.descent = stats.descent;
+          track.startElevation = stats.startElevation;
+          track.endElevation = stats.endElevation;
+          track.elevationProfile = stats.elevationProfile;
           _gpxTrackRepository.putTrack(track);
           updatedCount += 1;
         } on FormatException {

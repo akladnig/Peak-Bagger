@@ -24,12 +24,12 @@ Add elevation summary/profile fields to GPX tracks; wire the same XML-derived st
 ### Phase 2: Import/recalc wiring
 
 - **Goal**: one stats path from stored XML through persistence
-- [ ] `lib/services/gpx_importer.dart` - populate new elevation fields from calculator
-- [ ] `lib/providers/map_provider.dart` - write new fields in import/reset/manual recalc; keep `showTracks`; keep warning/status flow
-- [ ] `test/widget/gpx_tracks_shell_test.dart` - recalc dialog/loading regression
-- [ ] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - Settings recalc journey stays green; reuse existing keys (`recalculate-track-statistics-tile`, `reset-track-data-confirm`)
-- [ ] TDD: importer writes new fields from stored XML; recalc updates in place from `gpxFile`; malformed XML skips row and continues
-- [ ] Verify: `flutter analyze && flutter test test/gpx_track_test.dart test/widget/gpx_tracks_shell_test.dart test/robot/gpx_tracks/gpx_tracks_journey_test.dart`
+- [x] `lib/services/gpx_importer.dart` - populate new elevation fields from calculator
+- [x] `lib/providers/map_provider.dart` - write new fields in import/reset/manual recalc; keep `showTracks`; keep warning/status flow
+- [x] `test/widget/gpx_tracks_shell_test.dart` - recalc dialog/loading regression
+- [x] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - Settings recalc journey stays green; reuse existing keys (`recalculate-track-statistics-tile`, `reset-track-data-confirm`)
+- [x] TDD: importer writes new fields from stored XML; recalc updates in place from `gpxFile`; malformed XML skips row and continues
+- [x] Verify: `flutter analyze && flutter test test/gpx_track_test.dart test/widget/gpx_tracks_shell_test.dart test/robot/gpx_tracks/gpx_tracks_journey_test.dart`
 
 ### Phase 3: Admin exposure + coverage
 

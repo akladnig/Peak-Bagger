@@ -81,62 +81,73 @@ void main() {
     robot.expectNoHoveredTrack();
   });
 
-  testWidgets(
-    'recalculate track statistics from settings keeps tracks visible',
-    (tester) async {
-      final notifier = TestMapNotifier(
-        MapState(
-          center: const LatLng(-41.5, 146.5),
-          zoom: 15,
-          basemap: Basemap.tracestrack,
-          showTracks: true,
-          tracks: const [],
+  testWidgets('recalculate track statistics from settings keeps tracks visible', (
+    tester,
+  ) async {
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showTracks: true,
+        tracks: const [],
+      ),
+      recalcTracks: [
+        GpxTrack(
+          contentHash: 'hash',
+          trackName: 'Mt Anne',
+          trackDate: DateTime(2024, 1, 15),
+          gpxFile: '<gpx></gpx>',
+          distance2d: 1234,
+          distance3d: 0,
+          distanceToPeak: 234,
+          distanceFromPeak: 1000,
+          lowestElevation: 100,
+          highestElevation: 250,
+          ascent: 100,
+          descent: 0,
+          startElevation: 100,
+          endElevation: 250,
+          elevationProfile:
+              '[{"segmentIndex":0,"pointIndex":0,"distanceMeters":0.0,"elevationMeters":100.0,"timeLocal":null}]',
         ),
-        recalcTracks: [
-          GpxTrack(
-            contentHash: 'hash',
-            trackName: 'Mt Anne',
-            trackDate: DateTime(2024, 1, 15),
-            gpxFile: '<gpx></gpx>',
-            distance2d: 1234,
-            distance3d: 0,
-            distanceToPeak: 234,
-            distanceFromPeak: 1000,
-            lowestElevation: 100,
-            highestElevation: 250,
-          ),
-        ],
-      );
-      final robot = GpxTracksRobot(
-        tester,
-        MapState(
-          center: const LatLng(-41.5, 146.5),
-          zoom: 15,
-          basemap: Basemap.tracestrack,
-          showTracks: true,
-          tracks: const [],
-        ),
-        notifier: notifier,
-      );
-      addTearDown(robot.dispose);
-      await robot.pumpApp();
+      ],
+    );
+    final robot = GpxTracksRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showTracks: true,
+        tracks: const [],
+      ),
+      notifier: notifier,
+    );
+    addTearDown(robot.dispose);
+    await robot.pumpApp();
 
-      await robot.openSettings();
-      await robot.recalculateTrackStatistics();
+    await robot.openSettings();
+    await robot.recalculateTrackStatistics();
 
-      robot.expectTrackStatisticsDialog(updatedCount: 1, skippedCount: 0);
-      expect(
-        ProviderScope.containerOf(
-          tester.element(robot.recalcStatsTile),
-        ).read(mapProvider).tracks,
-        hasLength(1),
-      );
-      expect(
-        ProviderScope.containerOf(
-          tester.element(robot.recalcStatsTile),
-        ).read(mapProvider).showTracks,
-        isTrue,
-      );
-    },
-  );
+    robot.expectTrackStatisticsDialog(updatedCount: 1, skippedCount: 0);
+    expect(
+      ProviderScope.containerOf(
+        tester.element(robot.recalcStatsTile),
+      ).read(mapProvider).tracks,
+      hasLength(1),
+    );
+    expect(
+      ProviderScope.containerOf(
+        tester.element(robot.recalcStatsTile),
+      ).read(mapProvider).tracks.first.startElevation,
+      100,
+    );
+    expect(
+      ProviderScope.containerOf(
+        tester.element(robot.recalcStatsTile),
+      ).read(mapProvider).showTracks,
+      isTrue,
+    );
+  });
 }

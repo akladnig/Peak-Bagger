@@ -744,6 +744,39 @@ void main() {
       expect(track.getSegmentsForZoom(15), isNotEmpty);
     });
 
+    test('parseGpxFile populates elevation analytics', () async {
+      final file = File('${tempDir.path}/elevation.gpx');
+      await file.writeAsString('''
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <trk>
+    <name>Elevation Import</name>
+    <trkseg>
+      <trkpt lat="-42.0" lon="146.0">
+        <ele>100</ele>
+      </trkpt>
+      <trkpt lat="-42.0" lon="146.1">
+        <ele>250</ele>
+      </trkpt>
+      <trkpt lat="-42.0" lon="146.2">
+        <ele>200</ele>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>
+''');
+
+      final importer = GpxImporter();
+      final track = importer.parseGpxFile(file.path);
+
+      expect(track, isNotNull);
+      expect(track!.ascent, 100);
+      expect(track.descent, 0);
+      expect(track.startElevation, 100);
+      expect(track.endElevation, 200);
+      expect(track.elevationProfile, contains('segmentIndex'));
+    });
+
     test('isTasmanian includes eastern Tasmania longitudes', () {
       final importer = GpxImporter();
 

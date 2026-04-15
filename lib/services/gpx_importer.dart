@@ -204,6 +204,11 @@ class GpxImporter {
         distanceFromPeak: stats.distanceFromPeak,
         lowestElevation: stats.lowestElevation,
         highestElevation: stats.highestElevation,
+        ascent: stats.ascent,
+        descent: stats.descent,
+        startElevation: stats.startElevation,
+        endElevation: stats.endElevation,
+        elevationProfile: stats.elevationProfile,
       );
     } catch (e) {
       return null;
