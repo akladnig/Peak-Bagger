@@ -503,7 +503,7 @@ void main() {
       expect(stats.highestElevation, 250);
     });
 
-    test('zeros elevation stats when elevation is missing', () {
+    test('still calculates extrema when elevation is partially missing', () {
       final gpx = _statsGpx('Missing Elevation', [
         [
           _StatsPoint(-42.0, 146.0, 100),
@@ -517,8 +517,8 @@ void main() {
       expect(stats.distance, greaterThan(0));
       expect(stats.distanceToPeak, 0);
       expect(stats.distanceFromPeak, 0);
-      expect(stats.lowestElevation, 0);
-      expect(stats.highestElevation, 0);
+      expect(stats.lowestElevation, 100);
+      expect(stats.highestElevation, 200);
     });
 
     test('zeros elevation stats for a single-point track', () {

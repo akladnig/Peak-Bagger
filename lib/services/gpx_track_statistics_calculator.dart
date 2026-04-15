@@ -50,11 +50,12 @@ class GpxTrackStatisticsCalculator {
       return _zero;
     }
 
-    final hasCompleteElevation = points.every(
-      (point) => point.elevation != null,
-    );
     final distance = _calculateDistance(segments);
-    if (!hasCompleteElevation) {
+    final elevations = points
+        .where((point) => point.elevation != null)
+        .map((point) => point.elevation!)
+        .toList(growable: false);
+    if (elevations.isEmpty) {
       return GpxTrackStatistics(
         distance: distance,
         distanceToPeak: 0,
@@ -64,9 +65,6 @@ class GpxTrackStatisticsCalculator {
       );
     }
 
-    final elevations = points
-        .map((point) => point.elevation!)
-        .toList(growable: false);
     var highestElevation = elevations.first;
     var lowestElevation = elevations.first;
     for (final elevation in elevations.skip(1)) {
@@ -76,6 +74,19 @@ class GpxTrackStatisticsCalculator {
       if (elevation < lowestElevation) {
         lowestElevation = elevation;
       }
+    }
+
+    final hasCompleteElevation = points.every(
+      (point) => point.elevation != null,
+    );
+    if (!hasCompleteElevation) {
+      return GpxTrackStatistics(
+        distance: distance,
+        distanceToPeak: 0,
+        distanceFromPeak: 0,
+        lowestElevation: lowestElevation,
+        highestElevation: highestElevation,
+      );
     }
 
     var cumulativeDistance = 0.0;
