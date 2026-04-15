@@ -81,6 +81,71 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('recalculate track statistics shows result dialog', (
+    tester,
+  ) async {
+    await _pumpApp(
+      tester,
+      TestMapNotifier(
+        _baseState(),
+        recalcUpdatedCount: 3,
+        recalcSkippedCount: 1,
+        recalcWarning: 'Some tracks could not be recalculated.',
+      ),
+    );
+
+    router.go('/settings');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(
+      find.byKey(const Key('recalculate-track-statistics-tile')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Track Statistics Recalculated'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.textContaining('Updated 3 tracks, skipped 1 tracks'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.textContaining('Some tracks could not be recalculated.'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('recalculate track statistics shows loading state', (
+    tester,
+  ) async {
+    await _pumpApp(
+      tester,
+      TestMapNotifier(_baseState().copyWith(isLoadingTracks: true)),
+    );
+
+    router.go('/settings');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final tile = tester.widget<ListTile>(
+      find.byKey(const Key('recalculate-track-statistics-tile')),
+    );
+
+    expect(tile.onTap, isNull);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('recalculate-track-statistics-tile')),
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsOneWidget,
+    );
+  });
 }
 
 Future<void> _pumpApp(WidgetTester tester, TestMapNotifier notifier) async {

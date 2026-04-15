@@ -1,9 +1,11 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 
+import '../../harness/test_map_notifier.dart';
 import 'gpx_tracks_robot.dart';
 
 void main() {
@@ -78,4 +80,62 @@ void main() {
     await robot.moveMouseAway();
     robot.expectNoHoveredTrack();
   });
+
+  testWidgets(
+    'recalculate track statistics from settings keeps tracks visible',
+    (tester) async {
+      final notifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          showTracks: true,
+          tracks: const [],
+        ),
+        recalcTracks: [
+          GpxTrack(
+            contentHash: 'hash',
+            trackName: 'Mt Anne',
+            trackDate: DateTime(2024, 1, 15),
+            gpxFile: '<gpx></gpx>',
+            distance: 1234,
+            distanceToPeak: 234,
+            distanceFromPeak: 1000,
+            lowestElevation: 100,
+            highestElevation: 250,
+          ),
+        ],
+      );
+      final robot = GpxTracksRobot(
+        tester,
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          showTracks: true,
+          tracks: const [],
+        ),
+        notifier: notifier,
+      );
+      addTearDown(robot.dispose);
+      await robot.pumpApp();
+
+      await robot.openSettings();
+      await robot.recalculateTrackStatistics();
+
+      robot.expectTrackStatisticsDialog(updatedCount: 1, skippedCount: 0);
+      expect(
+        ProviderScope.containerOf(
+          tester.element(robot.recalcStatsTile),
+        ).read(mapProvider).tracks,
+        hasLength(1),
+      );
+      expect(
+        ProviderScope.containerOf(
+          tester.element(robot.recalcStatsTile),
+        ).read(mapProvider).showTracks,
+        isTrue,
+      );
+    },
+  );
 }

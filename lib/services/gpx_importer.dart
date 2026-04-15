@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:xml/xml.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
+import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 
 class TrackImportResult {
   const TrackImportResult({
@@ -186,6 +187,7 @@ class GpxImporter {
       final modified = file.lastModifiedSync();
       final trackDate = _normalizeTrackDate(startDateTime ?? modified);
       final segments = _extractAllSegments(doc);
+      final stats = GpxTrackStatisticsCalculator().calculateDocument(doc);
       final contentHash = sha256.convert(bytes).toString();
 
       return GpxTrack(
@@ -196,6 +198,11 @@ class GpxImporter {
         displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson(segments),
         startDateTime: startDateTime,
         endDateTime: endDateTime,
+        distance: stats.distance,
+        distanceToPeak: stats.distanceToPeak,
+        distanceFromPeak: stats.distanceFromPeak,
+        lowestElevation: stats.lowestElevation,
+        highestElevation: stats.highestElevation,
       );
     } catch (e) {
       return null;

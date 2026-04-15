@@ -176,6 +176,18 @@ class GpxTrackStatisticsCalculator {
   }
 }
 
+class TrackStatisticsRecalcResult {
+  const TrackStatisticsRecalcResult({
+    required this.updatedCount,
+    required this.skippedCount,
+    this.warning,
+  });
+
+  final int updatedCount;
+  final int skippedCount;
+  final String? warning;
+}
+
 class _TrackPoint {
   const _TrackPoint({required this.location, required this.elevation});
 

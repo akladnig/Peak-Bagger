@@ -35,6 +35,34 @@ void main() {
       expect(find.textContaining('errors 0'), findsOneWidget);
     },
   );
+
+  testWidgets('recalc summary reports updated and skipped counts', (
+    tester,
+  ) async {
+    final initialState = MapState(
+      center: _center,
+      zoom: 10,
+      basemap: Basemap.tracestrack,
+      trackOperationStatus: 'Updated 3 tracks, skipped 1 tracks',
+      trackOperationWarning: 'Some tracks could not be recalculated.',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(() => TestMapNotifier(initialState)),
+        ],
+        child: const MaterialApp(home: SettingsScreen()),
+      ),
+    );
+
+    expect(find.textContaining('Updated 3 tracks'), findsOneWidget);
+    expect(find.textContaining('skipped 1 tracks'), findsOneWidget);
+    expect(
+      find.textContaining('Some tracks could not be recalculated.'),
+      findsOneWidget,
+    );
+  });
 }
 
 const _center = LatLng(-41.5, 146.5);

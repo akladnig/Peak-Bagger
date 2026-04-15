@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
+import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/tile_downloader.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
@@ -82,6 +83,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   )
                 : null,
             onTap: mapState.isLoadingTracks ? null : _confirmResetTrackData,
+          ),
+          ListTile(
+            key: const Key('recalculate-track-statistics-tile'),
+            leading: const Icon(Icons.query_stats),
+            title: const Text('Recalculate Track Statistics'),
+            subtitle: const Text(
+              'Rebuild track statistics from stored GPX XML',
+            ),
+            trailing: mapState.isLoadingTracks
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : null,
+            onTap: mapState.isLoadingTracks
+                ? null
+                : _recalculateTrackStatistics,
           ),
           if (mapState.hasTrackRecoveryIssue)
             const Padding(
@@ -231,6 +250,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  Future<void> _recalculateTrackStatistics() async {
+    final result = await ref
+        .read(mapProvider.notifier)
+        .recalculateTrackStatistics();
+    if (!mounted) {
+      return;
+    }
+
+    if (result == null) {
+      await _showRecalculateTrackStatisticsFailure();
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _showRecalculateTrackStatisticsResult(result);
+      }
+    });
+  }
+
   Future<void> _showResetTrackDataResult(TrackImportResult? result) async {
     if (!mounted || result == null) {
       return;
@@ -287,6 +326,65 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           actions: [
             FilledButton(
               key: const Key('track-reset-error-close'),
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showRecalculateTrackStatisticsResult(
+    TrackStatisticsRecalcResult result,
+  ) async {
+    await showDialog<void>(
+      useRootNavigator: true,
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Track Statistics Recalculated'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Updated ${result.updatedCount} tracks, skipped ${result.skippedCount} tracks',
+              ),
+              if (result.warning != null) ...[
+                const SizedBox(height: 12),
+                Text(result.warning!),
+              ],
+            ],
+          ),
+          actions: [
+            FilledButton(
+              key: const Key('track-stats-recalc-result-close'),
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showRecalculateTrackStatisticsFailure() async {
+    final error = ref.read(mapProvider).trackImportError;
+    if (error == null) {
+      return;
+    }
+
+    await showDialog<void>(
+      useRootNavigator: true,
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Track Statistics Recalculation Failed'),
+          content: Text(error),
+          actions: [
+            FilledButton(
+              key: const Key('track-stats-recalc-error-close'),
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('Close'),
             ),

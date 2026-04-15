@@ -7,6 +7,7 @@ import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
+import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
@@ -405,6 +406,72 @@ class MapNotifier extends Notifier<MapState> {
       _recoverySnackbarShown = false;
     }
     return result;
+  }
+
+  Future<TrackStatisticsRecalcResult?> recalculateTrackStatistics() async {
+    if (state.isLoadingTracks) {
+      return null;
+    }
+
+    state = state.copyWith(
+      isLoadingTracks: true,
+      clearTrackImportError: true,
+      clearTrackOperationStatus: true,
+      clearTrackOperationWarning: true,
+      clearHoveredTrackId: true,
+    );
+
+    try {
+      final calculator = GpxTrackStatisticsCalculator();
+      final tracks = _gpxTrackRepository.getAllTracks();
+      var updatedCount = 0;
+      var skippedCount = 0;
+
+      for (final track in tracks) {
+        try {
+          final stats = calculator.calculate(track.gpxFile);
+          track.distance = stats.distance;
+          track.distanceToPeak = stats.distanceToPeak;
+          track.distanceFromPeak = stats.distanceFromPeak;
+          track.lowestElevation = stats.lowestElevation;
+          track.highestElevation = stats.highestElevation;
+          _gpxTrackRepository.putTrack(track);
+          updatedCount += 1;
+        } on FormatException {
+          skippedCount += 1;
+        }
+      }
+
+      final refreshedTracks = _gpxTrackRepository.getAllTracks();
+      final warning = skippedCount > 0
+          ? 'Some tracks could not be recalculated.'
+          : null;
+      final hasRecoveryIssue = _hasTrackRecoveryIssue(refreshedTracks);
+      final statusMessage =
+          'Updated $updatedCount tracks, skipped $skippedCount tracks';
+
+      state = state.copyWith(
+        tracks: refreshedTracks,
+        showTracks: state.showTracks,
+        isLoadingTracks: false,
+        hasTrackRecoveryIssue: hasRecoveryIssue,
+        trackOperationStatus: statusMessage,
+        trackOperationWarning: warning,
+        clearHoveredTrackId: true,
+      );
+      return TrackStatisticsRecalcResult(
+        updatedCount: updatedCount,
+        skippedCount: skippedCount,
+        warning: warning,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoadingTracks: false,
+        trackImportError: 'Failed to recalculate track statistics: $e',
+        clearHoveredTrackId: true,
+      );
+      return null;
+    }
   }
 
   bool consumeRecoverySnackbarSignal() {

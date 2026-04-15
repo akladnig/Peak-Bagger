@@ -34,22 +34,22 @@ Pure stats helper, importer/reset wiring, Settings action, journey coverage.
 ### Phase 2: Import + recalc wiring
 
 - **Goal**: shared calculator across import/reset and batch recalc
-- [ ] `lib/services/gpx_importer.dart` - call calculator when building `GpxTrack`
-- [ ] `lib/services/gpx_track_repository.dart` - minimal update/query support for batch recalc
-- [ ] `lib/providers/map_provider.dart` - add recalc entry point, `TrackStatisticsRecalcResult`, reload `tracks`, preserve `showTracks`
-- [ ] TDD: import/reset persists stats; recalc skips malformed rows and continues; result counts + warning; state reload after success
-- [ ] Verify: `flutter analyze && flutter test test/gpx_track_test.dart test/widget/gpx_tracks_summary_test.dart`
+- [x] `lib/services/gpx_importer.dart` - call calculator when building `GpxTrack`
+- [x] `lib/services/gpx_track_repository.dart` - minimal update/query support for batch recalc (existing methods sufficient)
+- [x] `lib/providers/map_provider.dart` - add recalc entry point, `TrackStatisticsRecalcResult`, reload `tracks`, preserve `showTracks`
+- [x] TDD: import/reset persists stats; recalc skips malformed rows and continues; result counts + warning; state reload after success
+- [x] Verify: `flutter analyze && flutter test test/gpx_track_test.dart test/widget/gpx_tracks_summary_test.dart`
 
 ### Phase 3: Settings UI + journeys
 
 - **Goal**: expose recalc action with reset-style modal shell
-- [ ] `lib/screens/settings_screen.dart` - add `Recalculate Track Statistics` tile, loading/disabled state, result dialog copy
-- [ ] `test/widget/gpx_tracks_summary_test.dart` - verify summary surface for recalc counts/warnings
-- [ ] `test/widget/gpx_tracks_shell_test.dart` - verify tile behavior, dialog copy, spinner/disable state
-- [ ] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - critical journey: open Settings -> recalc -> success/warning
-- [ ] TDD: dialog title/body, warning rendering, disabled tap while busy
-- [ ] Robot selectors/seams: `Key('recalculate-track-statistics-tile')`, recalc dialog close key, fake notifier/recalc result seam
-- [ ] Verify: `flutter analyze && flutter test test/widget/gpx_tracks_summary_test.dart test/widget/gpx_tracks_shell_test.dart test/robot/gpx_tracks/gpx_tracks_journey_test.dart`
+- [x] `lib/screens/settings_screen.dart` - add `Recalculate Track Statistics` tile, loading/disabled state, result dialog copy
+- [x] `test/widget/gpx_tracks_summary_test.dart` - verify summary surface for recalc counts/warnings
+- [x] `test/widget/gpx_tracks_shell_test.dart` - verify tile behavior, dialog copy, spinner/disable state
+- [x] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - critical journey: open Settings -> recalc -> success/warning
+- [x] TDD: dialog title/body, warning rendering, disabled tap while busy
+- [x] Robot selectors/seams: `Key('recalculate-track-statistics-tile')`, recalc dialog close key, fake notifier/recalc result seam
+- [x] Verify: `flutter analyze && flutter test test/widget/gpx_tracks_summary_test.dart test/widget/gpx_tracks_shell_test.dart test/robot/gpx_tracks/gpx_tracks_journey_test.dart`
 
 ## Risks / Out of scope
 - **Risks**: stale ObjectBox generation; stats math edge cases around peak ties and segment gaps; dialog/state reuse can regress `showTracks`

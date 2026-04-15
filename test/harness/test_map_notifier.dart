@@ -1,6 +1,8 @@
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
+import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 
 class TestMapNotifier extends MapNotifier {
   TestMapNotifier(
@@ -9,12 +11,20 @@ class TestMapNotifier extends MapNotifier {
         'Imported 1, replaced 0, unchanged 0, non-Tasmanian 2, errors 0',
     this.rescanWarning,
     this.rescanSnackbarMessage,
+    this.recalcUpdatedCount = 1,
+    this.recalcSkippedCount = 0,
+    this.recalcWarning,
+    this.recalcTracks,
   });
 
   final MapState initialState;
   final String rescanStatus;
   final String? rescanWarning;
   final String? rescanSnackbarMessage;
+  final int recalcUpdatedCount;
+  final int recalcSkippedCount;
+  final String? recalcWarning;
+  final List<GpxTrack>? recalcTracks;
   bool _snackbarConsumed = false;
   String? _trackSnackbarMessage;
 
@@ -71,6 +81,22 @@ class TestMapNotifier extends MapNotifier {
       unchangedCount: 0,
       nonTasmanianCount: 0,
       errorSkippedCount: 0,
+    );
+  }
+
+  @override
+  Future<TrackStatisticsRecalcResult?> recalculateTrackStatistics() async {
+    state = state.copyWith(
+      isLoadingTracks: false,
+      tracks: recalcTracks ?? state.tracks,
+      trackOperationStatus:
+          'Updated $recalcUpdatedCount tracks, skipped $recalcSkippedCount tracks',
+      trackOperationWarning: recalcWarning,
+    );
+    return TrackStatisticsRecalcResult(
+      updatedCount: recalcUpdatedCount,
+      skippedCount: recalcSkippedCount,
+      warning: recalcWarning,
     );
   }
 
