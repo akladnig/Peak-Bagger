@@ -18,6 +18,10 @@ class GpxTrack {
   String displayTrackPointsByZoom;
   DateTime? startDateTime;
   DateTime? endDateTime;
+  double distanceToPeak;
+  double distanceFromPeak;
+  double lowestElevation;
+  double highestElevation;
   double? distance;
   double? ascent;
   int? totalTimeMillis;
@@ -32,6 +36,10 @@ class GpxTrack {
     this.displayTrackPointsByZoom = '{}',
     this.startDateTime,
     this.endDateTime,
+    this.distanceToPeak = 0,
+    this.distanceFromPeak = 0,
+    this.lowestElevation = 0,
+    this.highestElevation = 0,
     this.distance,
     this.ascent,
     this.totalTimeMillis,
@@ -55,6 +63,10 @@ class GpxTrack {
       endDateTime: map['endDateTime'] != null
           ? DateTime.tryParse(map['endDateTime'] as String)
           : null,
+      distanceToPeak: _doubleFromMap(map['distanceToPeak']),
+      distanceFromPeak: _doubleFromMap(map['distanceFromPeak']),
+      lowestElevation: _doubleFromMap(map['lowestElevation']),
+      highestElevation: _doubleFromMap(map['highestElevation']),
       distance: map['distance'] as double?,
       ascent: map['ascent'] as double?,
       totalTimeMillis: map['totalTimeMillis'] as int?,
@@ -72,6 +84,10 @@ class GpxTrack {
       'displayTrackPointsByZoom': displayTrackPointsByZoom,
       'startDateTime': startDateTime?.toIso8601String(),
       'endDateTime': endDateTime?.toIso8601String(),
+      'distanceToPeak': distanceToPeak,
+      'distanceFromPeak': distanceFromPeak,
+      'lowestElevation': lowestElevation,
+      'highestElevation': highestElevation,
       'distance': distance,
       'ascent': ascent,
       'totalTimeMillis': totalTimeMillis,
@@ -168,5 +184,9 @@ class GpxTrack {
     }
 
     return segments;
+  }
+
+  static double _doubleFromMap(dynamic value) {
+    return value is num ? value.toDouble() : 0;
   }
 }

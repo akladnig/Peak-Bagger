@@ -133,7 +133,7 @@
     },
     {
       "id": "3:8449374379554926112",
-      "lastPropertyId": "14:9193806285716622041",
+      "lastPropertyId": "18:2083444332056874121",
       "name": "GpxTrack",
       "properties": [
         {
@@ -196,6 +196,26 @@
           "id": "14:9193806285716622041",
           "name": "displayTrackPointsByZoom",
           "type": 9
+        },
+        {
+          "id": "15:3158897785574741819",
+          "name": "distanceToPeak",
+          "type": 8
+        },
+        {
+          "id": "16:4676893102821713845",
+          "name": "distanceFromPeak",
+          "type": 8
+        },
+        {
+          "id": "17:3002355459907763344",
+          "name": "lowestElevation",
+          "type": 8
+        },
+        {
+          "id": "18:2083444332056874121",
+          "name": "highestElevation",
+          "type": 8
         }
       ],
       "relations": []

@@ -23,13 +23,13 @@ Pure stats helper, importer/reset wiring, Settings action, journey coverage.
 ### Phase 1: Stats engine + schema
 
 - **Goal**: XML -> deterministic stats -> persisted fields
-- [ ] `lib/services/gpx_track_statistics_calculator.dart` - pure stats helper from stored GPX XML
-- [ ] `lib/models/gpx_track.dart` - add stats fields, map/JSON round-trip updates
-- [ ] `lib/objectbox-model.json` - regenerate schema
-- [ ] `lib/objectbox.g.dart` - regenerate bindings
-- [ ] `test/gpx_track_test.dart` - cover stats happy path, first-peak tie, zero defaults, malformed XML
-- [ ] TDD: one failing slice at a time for calculator math, edge cases, model serialization
-- [ ] Verify: `flutter analyze && flutter test test/gpx_track_test.dart`
+- [x] `lib/services/gpx_track_statistics_calculator.dart` - pure stats helper from stored GPX XML
+- [x] `lib/models/gpx_track.dart` - add stats fields, map/JSON round-trip updates
+- [x] `lib/objectbox-model.json` - regenerate schema
+- [x] `lib/objectbox.g.dart` - regenerate bindings
+- [x] `test/gpx_track_test.dart` - cover stats happy path, first-peak tie, zero defaults, malformed XML
+- [x] TDD: one failing slice at a time for calculator math, edge cases, model serialization
+- [x] Verify: `flutter analyze && flutter test test/gpx_track_test.dart`
 
 ### Phase 2: Import + recalc wiring
 

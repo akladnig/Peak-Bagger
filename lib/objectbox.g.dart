@@ -176,7 +176,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(3, 8449374379554926112),
     name: 'GpxTrack',
-    lastPropertyId: const obx_int.IdUid(14, 9193806285716622041),
+    lastPropertyId: const obx_int.IdUid(18, 2083444332056874121),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -249,6 +249,30 @@ final _entities = <obx_int.ModelEntity>[
         id: const obx_int.IdUid(14, 9193806285716622041),
         name: 'displayTrackPointsByZoom',
         type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(15, 3158897785574741819),
+        name: 'distanceToPeak',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(16, 4676893102821713845),
+        name: 'distanceFromPeak',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(17, 3002355459907763344),
+        name: 'lowestElevation',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(18, 2083444332056874121),
+        name: 'highestElevation',
+        type: 8,
         flags: 0,
       ),
     ],
@@ -528,7 +552,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final displayTrackPointsByZoomOffset = fbb.writeString(
           object.displayTrackPointsByZoom,
         );
-        fbb.startTable(15);
+        fbb.startTable(19);
         fbb.addInt64(0, object.gpxTrackId);
         fbb.addOffset(2, trackNameOffset);
         fbb.addInt64(3, object.startDateTime?.millisecondsSinceEpoch);
@@ -541,6 +565,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addInt64(11, object.endDateTime?.millisecondsSinceEpoch);
         fbb.addOffset(12, gpxFileOffset);
         fbb.addOffset(13, displayTrackPointsByZoomOffset);
+        fbb.addFloat64(14, object.distanceToPeak);
+        fbb.addFloat64(15, object.distanceFromPeak);
+        fbb.addFloat64(16, object.lowestElevation);
+        fbb.addFloat64(17, object.highestElevation);
         fbb.finish(fbb.endTable());
         return object.gpxTrackId;
       },
@@ -589,6 +617,30 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final endDateTimeParam = endDateTimeValue == null
             ? null
             : DateTime.fromMillisecondsSinceEpoch(endDateTimeValue);
+        final distanceToPeakParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          32,
+          0,
+        );
+        final distanceFromPeakParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          34,
+          0,
+        );
+        final lowestElevationParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          36,
+          0,
+        );
+        final highestElevationParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          38,
+          0,
+        );
         final distanceParam = const fb.Float64Reader().vTableGetNullable(
           buffer,
           rootOffset,
@@ -619,6 +671,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
           displayTrackPointsByZoom: displayTrackPointsByZoomParam,
           startDateTime: startDateTimeParam,
           endDateTime: endDateTimeParam,
+          distanceToPeak: distanceToPeakParam,
+          distanceFromPeak: distanceFromPeakParam,
+          lowestElevation: lowestElevationParam,
+          highestElevation: highestElevationParam,
           distance: distanceParam,
           ascent: ascentParam,
           totalTimeMillis: totalTimeMillisParam,
@@ -803,5 +859,25 @@ class GpxTrack_ {
   /// See [GpxTrack.displayTrackPointsByZoom].
   static final displayTrackPointsByZoom = obx.QueryStringProperty<GpxTrack>(
     _entities[2].properties[11],
+  );
+
+  /// See [GpxTrack.distanceToPeak].
+  static final distanceToPeak = obx.QueryDoubleProperty<GpxTrack>(
+    _entities[2].properties[12],
+  );
+
+  /// See [GpxTrack.distanceFromPeak].
+  static final distanceFromPeak = obx.QueryDoubleProperty<GpxTrack>(
+    _entities[2].properties[13],
+  );
+
+  /// See [GpxTrack.lowestElevation].
+  static final lowestElevation = obx.QueryDoubleProperty<GpxTrack>(
+    _entities[2].properties[14],
+  );
+
+  /// See [GpxTrack.highestElevation].
+  static final highestElevation = obx.QueryDoubleProperty<GpxTrack>(
+    _entities[2].properties[15],
   );
 }

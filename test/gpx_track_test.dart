@@ -8,12 +8,15 @@ import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
+import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/track_hover_detector.dart';
 import 'package:peak_bagger/services/track_migration_marker_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'harness/test_map_notifier.dart';
+
+const _distance = Distance();
 
 void main() {
   group('TrackHoverDetector', () {
@@ -276,6 +279,10 @@ void main() {
       expect(track.trackName, 'Mt Anne');
       expect(track.trackDate, DateTime(2024, 1, 15));
       expect(track.trackColour, 0xFFa726bc);
+      expect(track.distanceToPeak, 0);
+      expect(track.distanceFromPeak, 0);
+      expect(track.lowestElevation, 0);
+      expect(track.highestElevation, 0);
       expect(track.gpxFile, '<gpx></gpx>');
       expect(track.displayTrackPointsByZoom, '{}');
       expect(track.hasMetadataTrackDate, isFalse);
@@ -312,6 +319,10 @@ void main() {
         'displayTrackPointsByZoom': '{"15":[[[-42.0,146.0]]]}',
         'startDateTime': '2024-01-15T08:00:00.000',
         'endDateTime': '2024-01-15T17:00:00.000',
+        'distanceToPeak': 3.5,
+        'distanceFromPeak': 4.5,
+        'lowestElevation': 100.0,
+        'highestElevation': 900.0,
         'distance': 10.5,
         'ascent': 900.0,
         'totalTimeMillis': 3600000,
@@ -326,11 +337,19 @@ void main() {
       expect(track.trackName, 'Frenchmans Cap');
       expect(track.startDateTime, isNotNull);
       expect(track.endDateTime, isNotNull);
+      expect(track.distanceToPeak, 3.5);
+      expect(track.distanceFromPeak, 4.5);
+      expect(track.lowestElevation, 100);
+      expect(track.highestElevation, 900);
       expect(track.gpxFile, '<gpx></gpx>');
       expect(encoded['contentHash'], 'hash');
       expect(encoded['trackName'], 'Frenchmans Cap');
       expect(encoded['trackDate'], isNotNull);
       expect(encoded['endDateTime'], isNotNull);
+      expect(encoded['distanceToPeak'], 3.5);
+      expect(encoded['distanceFromPeak'], 4.5);
+      expect(encoded['lowestElevation'], 100);
+      expect(encoded['highestElevation'], 900);
       expect(encoded['gpxFile'], '<gpx></gpx>');
     });
 
@@ -419,6 +438,110 @@ void main() {
     },
     skip: 'ObjectBox native library unavailable in flutter test environment',
   );
+
+  group('GpxTrackStatisticsCalculator', () {
+    final calculator = GpxTrackStatisticsCalculator();
+
+    test('calculates distance and peak split for a track', () {
+      final gpx = _statsGpx('Peak Track', [
+        [
+          _StatsPoint(-42.0, 146.0, 100),
+          _StatsPoint(-42.0, 146.1, 250),
+          _StatsPoint(-42.0, 146.2, 200),
+        ],
+      ]);
+
+      final stats = calculator.calculate(gpx);
+      final firstLeg = _distance.as(
+        LengthUnit.Meter,
+        const LatLng(-42.0, 146.0),
+        const LatLng(-42.0, 146.1),
+      );
+      final secondLeg = _distance.as(
+        LengthUnit.Meter,
+        const LatLng(-42.0, 146.1),
+        const LatLng(-42.0, 146.2),
+      );
+
+      expect(stats.distance, closeTo(firstLeg + secondLeg, 0.01));
+      expect(stats.distanceToPeak, closeTo(firstLeg, 0.01));
+      expect(stats.distanceFromPeak, closeTo(secondLeg, 0.01));
+      expect(stats.lowestElevation, 100);
+      expect(stats.highestElevation, 250);
+    });
+
+    test('uses first highest point when peak elevation ties', () {
+      final gpx = _statsGpx('Tie Track', [
+        [
+          _StatsPoint(-42.0, 146.0, 100),
+          _StatsPoint(-42.0, 146.1, 250),
+          _StatsPoint(-42.0, 146.2, 250),
+          _StatsPoint(-42.0, 146.3, 90),
+        ],
+      ]);
+
+      final stats = calculator.calculate(gpx);
+      final firstLeg = _distance.as(
+        LengthUnit.Meter,
+        const LatLng(-42.0, 146.0),
+        const LatLng(-42.0, 146.1),
+      );
+      final middleLeg = _distance.as(
+        LengthUnit.Meter,
+        const LatLng(-42.0, 146.1),
+        const LatLng(-42.0, 146.2),
+      );
+      final finalLeg = _distance.as(
+        LengthUnit.Meter,
+        const LatLng(-42.0, 146.2),
+        const LatLng(-42.0, 146.3),
+      );
+
+      expect(stats.distanceToPeak, closeTo(firstLeg, 0.01));
+      expect(stats.distanceFromPeak, closeTo(middleLeg + finalLeg, 0.01));
+      expect(stats.lowestElevation, 90);
+      expect(stats.highestElevation, 250);
+    });
+
+    test('zeros elevation stats when elevation is missing', () {
+      final gpx = _statsGpx('Missing Elevation', [
+        [
+          _StatsPoint(-42.0, 146.0, 100),
+          _StatsPoint(-42.0, 146.1, null),
+          _StatsPoint(-42.0, 146.2, 200),
+        ],
+      ]);
+
+      final stats = calculator.calculate(gpx);
+
+      expect(stats.distance, greaterThan(0));
+      expect(stats.distanceToPeak, 0);
+      expect(stats.distanceFromPeak, 0);
+      expect(stats.lowestElevation, 0);
+      expect(stats.highestElevation, 0);
+    });
+
+    test('zeros elevation stats for a single-point track', () {
+      final gpx = _statsGpx('Single Point', [
+        [_StatsPoint(-42.0, 146.0, 100)],
+      ]);
+
+      final stats = calculator.calculate(gpx);
+
+      expect(stats.distance, 0);
+      expect(stats.distanceToPeak, 0);
+      expect(stats.distanceFromPeak, 0);
+      expect(stats.lowestElevation, 0);
+      expect(stats.highestElevation, 0);
+    });
+
+    test('throws FormatException for malformed GPX XML', () {
+      expect(
+        () => calculator.calculate('<gpx><trk></gpx>'),
+        throwsFormatException,
+      );
+    });
+  });
 
   group('GpxImporter', () {
     late Directory tempDir;
@@ -973,3 +1096,36 @@ String _tasmanianGpxShifted(String name) =>
   </trk>
 </gpx>
 ''';
+
+class _StatsPoint {
+  const _StatsPoint(this.lat, this.lon, this.elevation);
+
+  final double lat;
+  final double lon;
+  final double? elevation;
+}
+
+String _statsGpx(String name, List<List<_StatsPoint>> segments) {
+  final buffer = StringBuffer()
+    ..writeln('<?xml version="1.0" encoding="UTF-8"?>')
+    ..writeln('<gpx version="1.1" creator="test">')
+    ..writeln('  <trk>')
+    ..writeln('    <name>$name</name>');
+
+  for (final segment in segments) {
+    buffer.writeln('    <trkseg>');
+    for (final point in segment) {
+      buffer.writeln('      <trkpt lat="${point.lat}" lon="${point.lon}">');
+      if (point.elevation != null) {
+        buffer.writeln('        <ele>${point.elevation}</ele>');
+      }
+      buffer.writeln('      </trkpt>');
+    }
+    buffer.writeln('    </trkseg>');
+  }
+
+  buffer
+    ..writeln('  </trk>')
+    ..writeln('</gpx>');
+  return buffer.toString();
+}
