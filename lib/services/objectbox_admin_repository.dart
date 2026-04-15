@@ -277,6 +277,7 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
               'trackName': track.trackName,
               'trackDate': track.trackDate,
               'gpxFile': track.gpxFile,
+              'filteredTrack': track.filteredTrack,
               'displayTrackPointsByZoom': track.displayTrackPointsByZoom,
               'startDateTime': track.startDateTime,
               'endDateTime': track.endDateTime,

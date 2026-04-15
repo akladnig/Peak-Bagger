@@ -255,6 +255,13 @@ void main() {
           isPrimaryKey: false,
           isPrimaryName: false,
         ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'filteredTrack',
+          typeLabel: 'String',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
       ],
     );
 
@@ -268,6 +275,7 @@ void main() {
               'gpxTrackId': 7,
               'trackName': 'Mt Anne',
               'gpxFile': '<gpx><trk></trk></gpx>',
+              'filteredTrack': '<gpx><trk></trk></gpx>',
             },
           ),
         ],
@@ -287,6 +295,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No gpxFile selected'), findsNothing);
+    expect(find.widgetWithText(ListTile, 'filteredTrack'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('objectbox-admin-export-gpx')));
     await tester.pumpAndSettle();
@@ -315,6 +324,13 @@ void main() {
           nullable: false,
           isPrimaryKey: false,
           isPrimaryName: true,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'filteredTrack',
+          typeLabel: 'String',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
         ),
         ObjectBoxAdminFieldDescriptor(
           name: 'distance2d',
@@ -398,6 +414,8 @@ void main() {
             values: {
               'gpxTrackId': 7,
               'trackName': 'Mt Anne',
+              'filteredTrack':
+                  '<gpx><trk><trkseg><trkpt lat="-42.12340000" lon="146.12340000"/></trkseg></trk></gpx>',
               'distance2d': 1234,
               'distance3d': 0,
               'distanceToPeak': 0,
@@ -427,9 +445,6 @@ void main() {
     final distance2dTile = tester.widget<ListTile>(
       find.widgetWithText(ListTile, 'distance2d'),
     );
-    final distance3dTile = tester.widget<ListTile>(
-      find.widgetWithText(ListTile, 'distance3d'),
-    );
     final detailsScrollable = find
         .descendant(
           of: find.byKey(const Key('objectbox-admin-details-list')),
@@ -437,7 +452,36 @@ void main() {
         )
         .first;
     expect((distance2dTile.subtitle as SelectableText).data, '1234');
-    expect((distance3dTile.subtitle as SelectableText).data, '0');
+
+    await tester.scrollUntilVisible(
+      find.widgetWithText(ListTile, 'filteredTrack'),
+      200,
+      scrollable: detailsScrollable,
+    );
+    expect(
+      (tester
+                  .widget<ListTile>(
+                    find.widgetWithText(ListTile, 'filteredTrack'),
+                  )
+                  .subtitle
+              as SelectableText)
+          .data,
+      contains('<gpx><trk>'),
+    );
+
+    await tester.scrollUntilVisible(
+      find.widgetWithText(ListTile, 'distance3d'),
+      200,
+      scrollable: detailsScrollable,
+    );
+    expect(
+      (tester
+                  .widget<ListTile>(find.widgetWithText(ListTile, 'distance3d'))
+                  .subtitle
+              as SelectableText)
+          .data,
+      '0',
+    );
 
     await tester.scrollUntilVisible(
       find.widgetWithText(ListTile, 'descent'),
