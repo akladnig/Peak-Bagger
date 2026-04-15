@@ -25,6 +25,19 @@ void main() {
     );
     expect(entities.last.primaryKeyField, 'gpxTrackId');
     expect(entities.last.primaryNameField, 'trackName');
+    expect(
+      entities.last.fields.map((field) => field.name),
+      containsAll([
+        'gpxTrackId',
+        'trackName',
+        'distanceToPeak',
+        'distanceFromPeak',
+        'lowestElevation',
+        'highestElevation',
+        'distance',
+        'ascent',
+      ]),
+    );
   });
 
   test('filter/sort helper matches entity names case-insensitively', () {

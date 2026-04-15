@@ -294,6 +294,97 @@ void main() {
     expect(repository.exportCallCount, 1);
     expect(repository.exportedRow!.values['gpxFile'], '<gpx><trk></trk></gpx>');
   });
+
+  testWidgets('gpx track rows show elevation stats in details', (tester) async {
+    final entity = ObjectBoxAdminEntityDescriptor(
+      name: 'GpxTrack',
+      displayName: 'GpxTrack',
+      primaryKeyField: 'gpxTrackId',
+      primaryNameField: 'trackName',
+      fields: const [
+        ObjectBoxAdminFieldDescriptor(
+          name: 'gpxTrackId',
+          typeLabel: 'int',
+          nullable: false,
+          isPrimaryKey: true,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'trackName',
+          typeLabel: 'String',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: true,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'distanceToPeak',
+          typeLabel: 'double',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'distanceFromPeak',
+          typeLabel: 'double',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'lowestElevation',
+          typeLabel: 'double',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'highestElevation',
+          typeLabel: 'double',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+      ],
+    );
+
+    final repository = TestObjectBoxAdminRepository(
+      entities: [entity],
+      rowsByEntity: {
+        'GpxTrack': [
+          ObjectBoxAdminRow(
+            primaryKeyValue: 7,
+            values: {
+              'gpxTrackId': 7,
+              'trackName': 'Mt Anne',
+              'distanceToPeak': 0,
+              'distanceFromPeak': 0,
+              'lowestElevation': 0,
+              'highestElevation': 0,
+            },
+          ),
+        ],
+      },
+    );
+
+    await _pumpApp(tester, repository);
+
+    await tester.tap(find.byKey(const Key('side-menu-objectbox-admin')));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Mt Anne'));
+    await tester.pumpAndSettle();
+
+    final distanceToPeakTile = tester.widget<ListTile>(
+      find.widgetWithText(ListTile, 'distanceToPeak'),
+    );
+    final lowestElevationTile = tester.widget<ListTile>(
+      find.widgetWithText(ListTile, 'lowestElevation'),
+    );
+
+    expect((distanceToPeakTile.subtitle as SelectableText).data, '0');
+    expect((lowestElevationTile.subtitle as SelectableText).data, '0');
+  });
 }
 
 Future<void> _pumpApp(

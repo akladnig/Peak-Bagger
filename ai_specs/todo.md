@@ -15,12 +15,14 @@
 - [ ] Add an overlay to display features names on hover - only for blue circles
 
 ## 1 Application Skeleton
+
 ## 2  Display map of Tasmania with zoom, pan and search function
 - [ ] Change two finger from pan to zoom
 - [ ] change zoom level display to actual distance
 - [ ] Automatically ask for permissions
 - [ ] implement smooth paning and scrolling. When clicking, smooth transition from one level to another.
 ## 3 Tasmanian Peaks and search
+
 ## 4 Add Maps and location search
 - [x] place info popup to right of marker
 - [x] add info fab
@@ -36,7 +38,10 @@
 - [ ] Add show maps - a blue grid of all maps. Map name and series to be shown at bottom right of each map.
 ## 5
 - [ ] implement gpx track import - multiple file import or just scan default folder.
+### Distnace
 - [ ] distance (double?) - future, null for now
+- [ ] Distance to Peak, Distance from Peak
+
 ### Elevation 
 - [ ] ascent (double?) - future, null for now
 - [ ] descent
@@ -59,6 +64,13 @@
 - [ ] restingTime
 ### Climbs
 - [ ] climbs
+
+## Object Box Admin
+- [ ] Rescan entity on entry, for the current entity being shown.
+
+## Settings
+- [ ] move settings UI stuff from router.md to settings screen
+
 # Keyboard Mapping
 ## Menu
 d - dashboard
