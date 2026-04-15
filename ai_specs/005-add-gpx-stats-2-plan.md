@@ -15,10 +15,10 @@ Add elevation summary/profile fields to GPX tracks; wire the same XML-derived st
 ### Phase 1: Stats shape + schema
 
 - **Goal**: pure elevation math + persisted model
-- [x] `lib/services/gpx_track_statistics_calculator.dart` - add `ascent`/`descent`/`startElevation`/`endElevation`/`elevationProfile`; preserve gaps; normalize `<ele> < -100` to `0`
+- [x] `lib/services/gpx_track_statistics_calculator.dart` - add `ascent`/`descent`/`startElevation`/`endElevation`/`elevationProfile`; preserve gaps; normalize `<ele> < 0` to `0`
 - [x] `lib/models/gpx_track.dart` - add fields, `fromMap()`/`toMap()` round-trip, defaults
 - [x] `lib/objectbox-model.json` / `lib/objectbox.g.dart` - regenerate schema
-- [x] `test/gpx_track_test.dart` - TDD: first/last `> -100` endpoint rule; gap-preserving profile; no-elevation + single-point defaults; `-100m` normalization; map round-trip
+- [x] `test/gpx_track_test.dart` - TDD: first/last parseable endpoint rule; gap-preserving profile; no-elevation + single-point defaults; `<0m` normalization; map round-trip
 - [x] Verify: `flutter analyze && flutter test test/gpx_track_test.dart`
 
 ### Phase 2: Import/recalc wiring

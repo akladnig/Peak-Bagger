@@ -48,8 +48,7 @@ Primary flow:
 Alternative flows:
 - Track has valid geometry but some missing elevation samples: keep the track import/recalc successful and persist usable defaults plus a partial profile.
 - Track has no parseable elevation samples: persist zero/default elevation stats and an empty elevation profile.
-- Track contains valid sub-sea-level elevations in `[-100, 0)`: keep those values as-is.
-- Track contains samples below `-100m`: normalize those samples to `0` before any elevation math or profile generation.
+- Track contains elevations below `0m`: normalize those samples to `0` before any elevation math or profile generation.
 
 Error flows:
 - Stored GPX XML cannot be parsed: skip that row for stats update, continue the batch, and keep the existing warning behavior from `005-add-gpx-stats-1-spec.md`.
@@ -62,8 +61,8 @@ Error flows:
 2. Keep the existing `ascent` field and continue populating it from the shared calculator.
 3. Populate all elevation analytics from `GpxTrack.gpxFile` during import, reset, and manual recalculation. Manual recalculation must not read the filesystem or move files.
 4. Use `geo.dart`'s `calculateUphillDownhill()` as the source of truth for `ascent` and `descent`.
-5. Feed `calculateUphillDownhill()` the ordered elevation samples after normalizing any parsed elevation below `-100m` to `0` and omitting missing elevations.
-6. Set `startElevation` to the first trackpoint in order with a parseable `<ele>` value greater than `-100`, and `endElevation` to the last trackpoint in order with a parseable `<ele>` value greater than `-100`. If no such point exists, persist `0` for both.
+5. Feed `calculateUphillDownhill()` the ordered elevation samples after normalizing any parsed elevation below `0m` to `0` and omitting missing elevations.
+6. Set `startElevation` to the first trackpoint in order with a parseable `<ele>` value, normalize it to `0` when below `0m`, and round it to the nearest meter. Set `endElevation` the same way for the last parseable trackpoint.
 7. Persist `elevationProfile` as a JSON-encoded ordered array that includes every parsed trackpoint in sequence, grouped by segment so gaps can be reconstructed later.
 8. Each `elevationProfile` sample must include `segmentIndex`, `pointIndex`, `distanceMeters`, `elevationMeters`, and `timeLocal`.
 9. `distanceMeters` in `elevationProfile` must be the cumulative distance from track start, using the same 2D geodesic accumulation rules as the existing distance stats and not bridging segment gaps.
@@ -81,12 +80,12 @@ Error flows:
 **Edge Cases:**
 18. Single-point tracks must produce zero `ascent`, zero `descent`, zero `startElevation`, zero `endElevation`, and at most one profile sample.
 19. Multi-segment tracks must not bridge segment gaps when accumulating profile distance, and the serialized profile must keep segment boundaries explicit.
-20. Valid negative elevations in `[-100, 0)` must remain unchanged.
+20. All parsed elevations below `0m` must be normalized to `0`.
 21. Manual recalculation must update existing rows in place without changing `gpxTrackId`, `trackName`, or file organization.
 
 **Validation:**
 22. Add explicit numeric assertions for synthetic GPX samples covering `ascent`, `descent`, `startElevation`, `endElevation`, and profile distance values.
-23. Add a regression test proving that a sample below `-100m` is treated as `0` for elevation math and profile output.
+23. Add a regression test proving that a sample below `0m` is treated as `0` for elevation math and profile output.
 24. Add serialization tests proving `elevationProfile` round-trips through `GpxTrack.fromMap()` / `toMap()` and preserves segment gaps.
 25. Add importer tests proving newly imported rows populate the new elevation fields from stored XML.
 26. Add recalc tests proving existing rows are updated from `gpxFile` without filesystem reads.

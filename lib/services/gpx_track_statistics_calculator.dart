@@ -70,9 +70,9 @@ class GpxTrackStatisticsCalculator {
         final point = segment[pointIndex];
         if (point.rawElevation == null) {
           hasMissingElevation = true;
-        } else if (point.rawElevation! > -100) {
-          startElevation ??= point.rawElevation;
-          endElevation = point.rawElevation;
+        } else {
+          startElevation ??= point.elevation;
+          endElevation = point.elevation;
         }
 
         final elevation = point.elevation;
@@ -149,6 +149,10 @@ class GpxTrackStatisticsCalculator {
     final highest = highestElevation ?? 0;
     final start = startElevation ?? 0;
     final end = endElevation ?? 0;
+    final roundedAscent = elevationStats.uphill.roundToDouble();
+    final roundedDescent = elevationStats.downhill.roundToDouble();
+    final roundedStart = start.roundToDouble();
+    final roundedEnd = end.roundToDouble();
 
     if (elevationSamples.isEmpty) {
       return GpxTrackStatistics(
@@ -174,10 +178,10 @@ class GpxTrackStatisticsCalculator {
         distanceFromPeak: 0,
         lowestElevation: lowest,
         highestElevation: highest,
-        ascent: elevationStats.uphill,
-        descent: elevationStats.downhill,
-        startElevation: start,
-        endElevation: end,
+        ascent: roundedAscent,
+        descent: roundedDescent,
+        startElevation: roundedStart,
+        endElevation: roundedEnd,
         elevationProfile: elevationProfile,
       );
     }
@@ -197,10 +201,10 @@ class GpxTrackStatisticsCalculator {
       distanceFromPeak: distance2d - distanceToPeak,
       lowestElevation: lowest,
       highestElevation: highest,
-      ascent: elevationStats.uphill,
-      descent: elevationStats.downhill,
-      startElevation: start,
-      endElevation: end,
+      ascent: roundedAscent,
+      descent: roundedDescent,
+      startElevation: roundedStart,
+      endElevation: roundedEnd,
       elevationProfile: elevationProfile,
     );
   }
@@ -274,7 +278,7 @@ class GpxTrackStatisticsCalculator {
     if (elevation == null) {
       return null;
     }
-    return elevation < -100 ? 0 : elevation;
+    return elevation < 0 ? 0 : elevation;
   }
 }
 

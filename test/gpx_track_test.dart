@@ -648,18 +648,39 @@ void main() {
       expect(stats.distance3d, expected2d.roundToDouble());
     });
 
-    test('allows negative elevations down to -100 meters', () {
+    test('clamps negative elevations to zero', () {
       final gpx = _statsGpx('Below Sea Level', [
         [_StatsPoint(-42.0, 146.0, -50), _StatsPoint(-42.0, 146.1, 20)],
       ]);
 
       final stats = calculator.calculate(gpx);
 
-      expect(stats.lowestElevation, -50);
+      expect(stats.ascent, 20);
+      expect(stats.descent, 0);
+      expect(stats.startElevation, 0);
+      expect(stats.endElevation, 20);
+      expect(stats.lowestElevation, 0);
       expect(stats.highestElevation, 20);
     });
 
-    test('treats elevations below -100 meters as zero in distance math', () {
+    test('rounds elevation summary metrics to the nearest meter', () {
+      final gpx = _statsGpx('Rounded Elevation', [
+        [
+          _StatsPoint(-42.0, 146.0, 100.2),
+          _StatsPoint(-42.0, 146.1, 102.2),
+          _StatsPoint(-42.0, 146.2, 100.2),
+        ],
+      ]);
+
+      final stats = calculator.calculate(gpx);
+
+      expect(stats.ascent, 1);
+      expect(stats.descent, 1);
+      expect(stats.startElevation, 100);
+      expect(stats.endElevation, 100);
+    });
+
+    test('treats elevations below zero as zero in distance math', () {
       final gpx = _statsGpx('Invalid Elevation', [
         [
           _StatsPoint(-42.0, 146.0, -120),
@@ -679,13 +700,11 @@ void main() {
         const LatLng(-42.0, 146.1),
         const LatLng(-42.0, 146.2),
       );
-      final expected3d =
-          (math.sqrt(firstLeg * firstLeg + 50 * 50) +
-                  math.sqrt(secondLeg * secondLeg + 60 * 60))
-              .roundToDouble();
+      final expected3d = (firstLeg + math.sqrt(secondLeg * secondLeg + 10 * 10))
+          .roundToDouble();
 
       expect(stats.distance3d, expected3d);
-      expect(stats.lowestElevation, -50);
+      expect(stats.lowestElevation, 0);
       expect(stats.highestElevation, 10);
     });
 

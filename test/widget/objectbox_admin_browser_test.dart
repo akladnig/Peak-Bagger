@@ -358,6 +358,34 @@ void main() {
           isPrimaryKey: false,
           isPrimaryName: false,
         ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'descent',
+          typeLabel: 'double',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'startElevation',
+          typeLabel: 'double',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'endElevation',
+          typeLabel: 'double',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'elevationProfile',
+          typeLabel: 'String',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
       ],
     );
 
@@ -376,6 +404,11 @@ void main() {
               'distanceFromPeak': 0,
               'lowestElevation': 0,
               'highestElevation': 0,
+              'descent': 0,
+              'startElevation': 0,
+              'endElevation': 0,
+              'elevationProfile':
+                  '[{"segmentIndex":0,"pointIndex":0,"distanceMeters":0.0,"elevationMeters":100.0,"timeLocal":null}]',
             },
           ),
         ],
@@ -397,9 +430,76 @@ void main() {
     final distance3dTile = tester.widget<ListTile>(
       find.widgetWithText(ListTile, 'distance3d'),
     );
-
+    final detailsScrollable = find
+        .descendant(
+          of: find.byKey(const Key('objectbox-admin-details-list')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
     expect((distance2dTile.subtitle as SelectableText).data, '1234');
     expect((distance3dTile.subtitle as SelectableText).data, '0');
+
+    await tester.scrollUntilVisible(
+      find.widgetWithText(ListTile, 'descent'),
+      200,
+      scrollable: detailsScrollable,
+    );
+    expect(
+      (tester
+                  .widget<ListTile>(find.widgetWithText(ListTile, 'descent'))
+                  .subtitle
+              as SelectableText)
+          .data,
+      '0',
+    );
+
+    await tester.scrollUntilVisible(
+      find.widgetWithText(ListTile, 'startElevation'),
+      200,
+      scrollable: detailsScrollable,
+    );
+    expect(
+      (tester
+                  .widget<ListTile>(
+                    find.widgetWithText(ListTile, 'startElevation'),
+                  )
+                  .subtitle
+              as SelectableText)
+          .data,
+      '0',
+    );
+
+    await tester.scrollUntilVisible(
+      find.widgetWithText(ListTile, 'endElevation'),
+      200,
+      scrollable: detailsScrollable,
+    );
+    expect(
+      (tester
+                  .widget<ListTile>(
+                    find.widgetWithText(ListTile, 'endElevation'),
+                  )
+                  .subtitle
+              as SelectableText)
+          .data,
+      '0',
+    );
+
+    await tester.scrollUntilVisible(
+      find.widgetWithText(ListTile, 'elevationProfile'),
+      200,
+      scrollable: detailsScrollable,
+    );
+    expect(
+      (tester
+                  .widget<ListTile>(
+                    find.widgetWithText(ListTile, 'elevationProfile'),
+                  )
+                  .subtitle
+              as SelectableText)
+          .data,
+      contains('segmentIndex'),
+    );
   });
 }
 

@@ -38,7 +38,7 @@
 ## 5 Gpx Tracks
 - [ ] implement gpx track import - multiple file import or just scan default folder.
 - [ ] use ramer-douglas-peucker algorithm to draw polylines
-- [ ] use geo.dart, ported from gpxpy.
+- [x] use geo.dart, ported from gpxpy.
 ### Distance
 - [x] distance (double?) - future, null for now
 - [x] Distance to Peak, Distance from Peak
@@ -48,6 +48,7 @@
 - [ ] descent
 - [ ] elevationProfile
 - [ ] startElevation
+- [ ] endElevation
 - [x] lowestElevation
 - [x] highestElevation
 ### Speed
@@ -66,13 +67,13 @@
 ### Climbs
 - [ ] climbs
 
-- [ ] add to spec and implement distance3d algorthims as per gpxpy: https://github.com/tkrajina/gpxpy/blob/dev/gpxpy/geo.py
+- [x] add to spec and implement distance3d algorthims as per gpxpy: https://github.com/tkrajina/gpxpy/blob/dev/gpxpy/geo.py
 
 ## Object Box Admin
 - [ ] Rescan entity on entry, for the current entity being shown.
 
 ## Settings
-- [ ] move settings UI stuff from router.md to settings screen
+- [x] move settings UI stuff from router.md to settings screen
 
 # Keyboard Mapping
 ## Menu

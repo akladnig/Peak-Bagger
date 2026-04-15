@@ -775,6 +775,7 @@ class _DetailsPane extends StatelessWidget {
             else
               Expanded(
                 child: ListView.separated(
+                  key: const Key('objectbox-admin-details-list'),
                   itemCount: entity.fields.length,
                   separatorBuilder: (context, index) =>
                       const Divider(height: 1),
