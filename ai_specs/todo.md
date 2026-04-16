@@ -30,7 +30,8 @@
 - [x] Peak info not being displayed
 - [x] Do not re-import Tasmap on every launch.
 - [ ] disable 2 finger map rotation
-- [ ] update tooltips - Goto Location, Show Map Grid 
+- [x] update tooltips - Goto Location, Show Map Grid
+- [ ] click on I toggles
 ## 4a
 - [x] add go to map only, centre on map and zoom to map extents, and draw a blue rectangle around the map extents so that the map can be seen when zooming out.
 - [ ] Add show maps - a blue grid of all maps. Map name and series to be shown at bottom right of each map.

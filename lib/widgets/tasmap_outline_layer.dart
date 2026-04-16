@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:peak_bagger/widgets/tasmap_polygon_label.dart';
 
 class TasmapOutlineLayer extends StatelessWidget {
   const TasmapOutlineLayer({
@@ -19,8 +18,6 @@ class TasmapOutlineLayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final polygonLabelStyle =
-        labelStyle ?? tasmapPolygonLabelStyle(Colors.blue);
     return KeyedSubtree(
       key: key,
       child: PolygonLayer(
@@ -30,11 +27,6 @@ class TasmapOutlineLayer extends StatelessWidget {
             color: Colors.transparent,
             borderColor: Colors.blue,
             borderStrokeWidth: 2,
-            label: label,
-            labelStyle: polygonLabelStyle,
-            labelPlacementCalculator: label == null
-                ? null
-                : labelPlacementCalculator,
           ),
         ],
       ),

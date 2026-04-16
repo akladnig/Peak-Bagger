@@ -59,7 +59,7 @@ class MapActionRail extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           LeftTooltipFab(
-            message: 'Basemaps',
+            message: 'Select Basemaps',
             child: FloatingActionButton.small(
               heroTag: 'layers',
               backgroundColor: Theme.of(context).colorScheme.surface,
@@ -176,7 +176,7 @@ class MapActionRail extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           LeftTooltipFab(
-            message: 'Goto',
+            message: 'Goto Location',
             child: FloatingActionButton.small(
               key: const Key('goto-map-fab'),
               heroTag: 'goto',
@@ -198,7 +198,7 @@ class MapActionRail extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           LeftTooltipFab(
-            message: 'Grid',
+            message: 'Show Map Grid',
             child: FloatingActionButton.small(
               key: const Key('grid-map-fab'),
               heroTag: 'grid',

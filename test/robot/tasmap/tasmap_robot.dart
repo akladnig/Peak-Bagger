@@ -89,16 +89,18 @@ class TasmapRobot {
   }
 
   void expectSelectedMapLabelVisible(String expectedLabel) {
-    final layerFinder = find.descendant(
-      of: find.byKey(const Key('tasmap-layer')),
-      matching: find.byType(PolygonLayer),
-    );
-
+    final layerFinder = find.byKey(const Key('tasmap-label-layer'));
     expect(layerFinder, findsOneWidget);
 
-    final layer = tester.widget<PolygonLayer>(layerFinder);
-    expect(layer.polygons, hasLength(1));
-    expect(layer.polygons.single.label, expectedLabel);
+    expect(
+      find.descendant(of: layerFinder, matching: find.text(expectedLabel)),
+      findsOneWidget,
+    );
+
+    final text = tester.widget<Text>(
+      find.descendant(of: layerFinder, matching: find.byType(Text)),
+    );
+    expect(text.textAlign, TextAlign.left);
   }
 
   Future<void> pumpApp() async {

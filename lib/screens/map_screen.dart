@@ -299,7 +299,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               final newZoom =
                   (key == LogicalKeyboardKey.equal ||
                       key == LogicalKeyboardKey.period ||
-                      key == LogicalKeyboardKey.less ||
+                      key == LogicalKeyboardKey.greater ||
                       key == LogicalKeyboardKey.add)
                   ? currentZoom + 1
                   : currentZoom - 1;
@@ -496,14 +496,31 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       }).toList(),
                     ),
                   if (mapState.showSelectedMapLayer)
-                    _buildMapRectangle(mapState.selectedMap!, mapState.zoom),
+                    _buildMapRectangle(mapState.selectedMap!),
                   if (mapState.showMapOverlay)
                     PolygonLayer(
                       key: const Key('tasmap-layer'),
-                      polygons: _buildAllMapRectangles(mapState.zoom),
+                      polygons: _buildAllMapRectangles(),
                     ),
                   if (mapState.showTracks)
                     _buildTrackPolylines(mapState.tracks, mapState.zoom),
+                  if (mapState.showSelectedMapLayer)
+                    TasmapPolygonLabelLayer(
+                      key: const Key('tasmap-label-layer'),
+                      insetX: tasmapPolygonLabelDefaultInsetX,
+                      insetY: tasmapPolygonLabelDefaultInsetY,
+                      entries: _buildSelectedMapLabelEntries(
+                        mapState.selectedMap!,
+                        mapState.zoom,
+                      ),
+                    ),
+                  if (mapState.showMapOverlay)
+                    TasmapPolygonLabelLayer(
+                      key: const Key('tasmap-label-layer'),
+                      insetX: tasmapPolygonLabelDefaultInsetX,
+                      insetY: tasmapPolygonLabelDefaultInsetY,
+                      entries: _buildOverlayLabelEntries(mapState.zoom),
+                    ),
                 ],
               ),
             ),
@@ -837,27 +854,41 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
   }
 
-  Widget _buildMapRectangle(Tasmap50k map, double zoom) {
+  Widget _buildMapRectangle(Tasmap50k map) {
     final repo = ref.read(tasmapRepositoryProvider);
     final points = repo.getMapPolygonPoints(map);
     if (points.length < 4) {
       return const SizedBox.shrink();
     }
 
-    final label = zoom >= 10 ? formatTasmapPolygonLabel(map) : null;
-
-    return TasmapOutlineLayer(
-      key: const Key('tasmap-layer'),
-      points: points,
-      label: label,
-      labelPlacementCalculator: label == null
-          ? null
-          : tasmapPolygonLabelPlacementCalculator(points),
-      labelStyle: tasmapPolygonLabelStyle(Colors.blue),
-    );
+    return TasmapOutlineLayer(key: const Key('tasmap-layer'), points: points);
   }
 
-  List<Polygon> _buildAllMapRectangles(double zoom) {
+  List<TasmapPolygonLabelEntry> _buildSelectedMapLabelEntries(
+    Tasmap50k map,
+    double zoom,
+  ) {
+    if (zoom < 10) {
+      return const [];
+    }
+
+    final repo = ref.read(tasmapRepositoryProvider);
+    final points = repo.getMapPolygonPoints(map);
+    if (points.length < 4) {
+      return const [];
+    }
+
+    final label = formatTasmapPolygonLabel(map);
+    if (label == null) {
+      return const [];
+    }
+
+    return [
+      TasmapPolygonLabelEntry(points: points, label: label, color: Theme.of(context).colorScheme.onSurface),
+    ];
+  }
+
+  List<Polygon> _buildAllMapRectangles() {
     final repo = ref.read(tasmapRepositoryProvider);
     final maps = repo.getAllMaps();
     final polygons = <Polygon>[];
@@ -868,24 +899,49 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         continue;
       }
 
-      final label = zoom >= 10 ? formatTasmapPolygonLabel(map) : null;
-
       polygons.add(
         Polygon(
           points: points,
           color: Colors.transparent,
           borderColor: Colors.blue,
           borderStrokeWidth: 2,
-          label: label,
-          labelStyle: tasmapPolygonLabelStyle(Colors.blue),
-          labelPlacementCalculator: label == null
-              ? null
-              : tasmapPolygonLabelPlacementCalculator(points),
         ),
       );
     }
 
     return polygons;
+  }
+
+  List<TasmapPolygonLabelEntry> _buildOverlayLabelEntries(double zoom) {
+    if (zoom < 10) {
+      return const [];
+    }
+
+    final repo = ref.read(tasmapRepositoryProvider);
+    final maps = repo.getAllMaps();
+    final entries = <TasmapPolygonLabelEntry>[];
+
+    for (final map in maps) {
+      final points = repo.getMapPolygonPoints(map);
+      if (points.length < 4) {
+        continue;
+      }
+
+      final label = formatTasmapPolygonLabel(map);
+      if (label == null) {
+        continue;
+      }
+
+      entries.add(
+        TasmapPolygonLabelEntry(
+          points: points,
+          label: label,
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
+      );
+    }
+
+    return entries;
   }
 
   void _navigateToGridReference() {
