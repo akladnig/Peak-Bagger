@@ -1,6 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
 
-import 'package:csv/csv.dart';
 import 'package:flutter/services.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 
@@ -33,7 +33,7 @@ class CsvImporter {
   static Future<TasmapCsvImportResult> importFromCsv(String csvPath) async {
     final contents = await _loadCsvContents(csvPath);
 
-    final rows = const CsvToListConverter().convert(contents);
+    final rows = const LineSplitter().convert(contents);
     if (rows.isEmpty) {
       return const TasmapCsvImportResult(
         maps: [],
@@ -42,14 +42,16 @@ class CsvImporter {
       );
     }
 
-    final headers = rows.first.map((h) => h.toString().trim()).toList();
+    final headers = rows.first.split(',').map((h) => h.trim()).toList();
     final maps = <Tasmap50k>[];
     final logEntries = <String>[];
     var skippedCount = 0;
 
     for (var i = 1; i < rows.length; i++) {
-      final row = rows[i];
-      if (row.isEmpty) continue;
+      final line = rows[i].trim();
+      if (line.isEmpty) continue;
+
+      final row = line.split(',');
 
       final result = parseRow(headers, row, rowNumber: i + 1);
       if (result.map != null) {
