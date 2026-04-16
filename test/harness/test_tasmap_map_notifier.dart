@@ -38,7 +38,7 @@ class TestTasmapMapNotifier extends MapNotifier {
   void selectMap(Tasmap50k map) {
     state = state.copyWith(
       selectedMap: map,
-      showMapOverlay: false,
+      tasmapDisplayMode: TasmapDisplayMode.selectedMap,
       mapSuggestions: [],
       mapSearchQuery: '',
     );

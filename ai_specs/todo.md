@@ -34,7 +34,7 @@
 ## 4a
 - [x] add go to map only, centre on map and zoom to map extents, and draw a blue rectangle around the map extents so that the map can be seen when zooming out.
 - [ ] Add show maps - a blue grid of all maps. Map name and series to be shown at bottom right of each map.
-- [ ] Change map drawing from rectangle to a polygon.
+- [x] Change map drawing from rectangle to a polygon.
 ## 5 Gpx Tracks
 - [ ] implement gpx track import - multiple file import or just scan default folder.
 - [ ] use ramer-douglas-peucker algorithm to draw polylines
@@ -44,11 +44,11 @@
 - [x] Distance to Peak, Distance from Peak
 
 ### Elevation 
-- [ ] ascent (double?) - future, null for now
-- [ ] descent
-- [ ] elevationProfile
-- [ ] startElevation
-- [ ] endElevation
+- [x] ascent (double?) - future, null for now
+- [x] descent
+- [x] elevationProfile
+- [x] startElevation
+- [x] endElevation
 - [x] lowestElevation
 - [x] highestElevation
 ### Speed
@@ -70,7 +70,7 @@
 - [x] add to spec and implement distance3d algorthims as per gpxpy: https://github.com/tkrajina/gpxpy/blob/dev/gpxpy/geo.py
 
 ## Object Box Admin
-- [ ] Rescan entity on entry, for the current entity being shown.
+- [x] Rescan entity on entry, for the current entity being shown.
 
 ## Settings
 - [x] move settings UI stuff from router.md to settings screen

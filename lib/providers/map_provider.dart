@@ -29,6 +29,8 @@ const _defaultZoom = 15.0;
 
 enum Basemap { tracestrack, openstreetmap }
 
+enum TasmapDisplayMode { overlay, none, selectedMap }
+
 class MapState {
   final LatLng center;
   final double zoom;
@@ -54,7 +56,7 @@ class MapState {
   final String searchQuery;
   final List<Peak> selectedPeaks;
   final Tasmap50k? selectedMap;
-  final bool showMapOverlay;
+  final TasmapDisplayMode tasmapDisplayMode;
   final List<Tasmap50k> mapSuggestions;
   final String mapSearchQuery;
   final List<GpxTrack> tracks;
@@ -91,7 +93,7 @@ class MapState {
     this.searchQuery = '',
     this.selectedPeaks = const [],
     this.selectedMap,
-    this.showMapOverlay = false,
+    this.tasmapDisplayMode = TasmapDisplayMode.none,
     this.mapSuggestions = const [],
     this.mapSearchQuery = '',
     this.tracks = const [],
@@ -103,6 +105,11 @@ class MapState {
     this.trackOperationWarning,
     this.hoveredTrackId,
   });
+
+  bool get showMapOverlay => tasmapDisplayMode == TasmapDisplayMode.overlay;
+
+  bool get showSelectedMapLayer =>
+      tasmapDisplayMode == TasmapDisplayMode.selectedMap && selectedMap != null;
 
   MapState copyWith({
     LatLng? center,
@@ -131,7 +138,7 @@ class MapState {
     String? searchQuery,
     List<Peak>? selectedPeaks,
     Tasmap50k? selectedMap,
-    bool? showMapOverlay,
+    TasmapDisplayMode? tasmapDisplayMode,
     List<Tasmap50k>? mapSuggestions,
     String? mapSearchQuery,
     List<GpxTrack>? tracks,
@@ -179,7 +186,7 @@ class MapState {
       searchQuery: searchQuery ?? this.searchQuery,
       selectedPeaks: selectedPeaks ?? this.selectedPeaks,
       selectedMap: selectedMap ?? this.selectedMap,
-      showMapOverlay: showMapOverlay ?? this.showMapOverlay,
+      tasmapDisplayMode: tasmapDisplayMode ?? this.tasmapDisplayMode,
       mapSuggestions: mapSuggestions ?? this.mapSuggestions,
       mapSearchQuery: mapSearchQuery ?? this.mapSearchQuery,
       tracks: tracks ?? this.tracks,
@@ -689,7 +696,7 @@ class MapNotifier extends Notifier<MapState> {
         if (center != null) {
           state = state.copyWith(
             selectedMap: map,
-            showMapOverlay: false,
+            tasmapDisplayMode: TasmapDisplayMode.selectedMap,
             mapSuggestions: [],
             mapSearchQuery: '',
           );
@@ -1188,7 +1195,7 @@ class MapNotifier extends Notifier<MapState> {
     if (center != null) {
       state = state.copyWith(
         selectedMap: map,
-        showMapOverlay: false,
+        tasmapDisplayMode: TasmapDisplayMode.selectedMap,
         mapSuggestions: [],
         mapSearchQuery: '',
       );
@@ -1201,7 +1208,20 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void toggleMapOverlay() {
-    state = state.copyWith(showMapOverlay: !state.showMapOverlay);
+    cycleTasmapDisplayMode();
+  }
+
+  void cycleTasmapDisplayMode() {
+    final nextMode = switch (state.tasmapDisplayMode) {
+      TasmapDisplayMode.overlay => TasmapDisplayMode.none,
+      TasmapDisplayMode.none =>
+        state.selectedMap == null
+            ? TasmapDisplayMode.overlay
+            : TasmapDisplayMode.selectedMap,
+      TasmapDisplayMode.selectedMap => TasmapDisplayMode.overlay,
+    };
+
+    state = state.copyWith(tasmapDisplayMode: nextMode);
   }
 
   void clearGotoMgrs() {

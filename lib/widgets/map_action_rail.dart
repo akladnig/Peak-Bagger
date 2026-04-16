@@ -200,6 +200,7 @@ class MapActionRail extends ConsumerWidget {
           LeftTooltipFab(
             message: 'Grid',
             child: FloatingActionButton.small(
+              key: const Key('grid-map-fab'),
               heroTag: 'grid',
               backgroundColor: Theme.of(context).colorScheme.surface,
               onPressed: () {

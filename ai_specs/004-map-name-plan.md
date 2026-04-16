@@ -16,11 +16,11 @@ Make Grid cycle a single active Tasmap mode; keep label rendering derived from e
 ### Phase 1: Tasmap mode model
 
 - **Goal**: single Tasmap visibility source; label seam
-- [ ] `./lib/providers/map_provider.dart` - add Tasmap display mode state; cycle `showMapOverlay -> none -> selectedMap -> showMapOverlay`; keep selected map data separate
-- [ ] `./lib/widgets/map_action_rail.dart` - add stable key for Grid FAB; call mode cycle, not boolean toggle
-- [ ] `./lib/widgets/tasmap_polygon_label.dart` - dedicated label/helper for `name\nseries`, anchor from polygon points/bounds, translucent backing or text shadow, font size 12
-- [ ] TDD: cycle behavior; label formatting; blank-line handling; label hidden below zoom 10
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `./lib/providers/map_provider.dart` - add Tasmap display mode state; cycle `showMapOverlay -> none -> selectedMap -> showMapOverlay`; keep selected map data separate
+- [x] `./lib/widgets/map_action_rail.dart` - add stable key for Grid FAB; call mode cycle, not boolean toggle
+- [x] `./lib/widgets/tasmap_polygon_label.dart` - dedicated label/helper for `name\nseries`, anchor from polygon points/bounds, translucent backing or text shadow, font size 12
+- [x] TDD: cycle behavior; label formatting; blank-line handling; label hidden below zoom 10
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 2: Map render + journeys
 

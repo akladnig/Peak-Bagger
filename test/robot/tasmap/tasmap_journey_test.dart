@@ -60,7 +60,7 @@ void main() {
       center: const LatLng(-41.5, 146.5),
       zoom: 15,
       basemap: Basemap.tracestrack,
-      showMapOverlay: true,
+      tasmapDisplayMode: TasmapDisplayMode.overlay,
       syncEnabled: false,
     );
 
