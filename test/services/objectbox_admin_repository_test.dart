@@ -41,7 +41,18 @@ void main() {
     );
     expect(
       entities.first.fields.map((field) => field.name),
-      containsAll(['id', 'name', 'elevation', 'latitude', 'longitude', 'area']),
+      containsAll([
+        'id',
+        'name',
+        'elevation',
+        'latitude',
+        'longitude',
+        'area',
+        'gridZoneDesignator',
+        'mgrs100kId',
+        'easting',
+        'northing',
+      ]),
     );
     expect(entities.last.primaryKeyField, 'gpxTrackId');
     expect(entities.last.primaryNameField, 'trackName');

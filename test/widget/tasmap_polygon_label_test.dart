@@ -135,6 +135,7 @@ void main() {
           child: tasmapPolygonLabelWidget(
             label: 'Adamsons\nTS07',
             color: Colors.blue,
+            backgroundColor: Colors.white,
           ),
         ),
       ),

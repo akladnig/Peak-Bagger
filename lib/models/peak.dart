@@ -10,6 +10,10 @@ class Peak {
   double latitude;
   double longitude;
   String? area;
+  String gridZoneDesignator;
+  String mgrs100kId;
+  String easting;
+  String northing;
 
   Peak({
     this.id = 0,
@@ -18,7 +22,36 @@ class Peak {
     required this.latitude,
     required this.longitude,
     this.area,
+    this.gridZoneDesignator = '',
+    this.mgrs100kId = '',
+    this.easting = '',
+    this.northing = '',
   });
+
+  Peak copyWith({
+    String? name,
+    double? elevation,
+    double? latitude,
+    double? longitude,
+    String? area,
+    String? gridZoneDesignator,
+    String? mgrs100kId,
+    String? easting,
+    String? northing,
+  }) {
+    return Peak(
+      id: id,
+      name: name ?? this.name,
+      elevation: elevation ?? this.elevation,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      area: area ?? this.area,
+      gridZoneDesignator: gridZoneDesignator ?? this.gridZoneDesignator,
+      mgrs100kId: mgrs100kId ?? this.mgrs100kId,
+      easting: easting ?? this.easting,
+      northing: northing ?? this.northing,
+    );
+  }
 
   static Peak fromOverpass(Map<String, dynamic> json) {
     final tags = json['tags'] as Map<String, dynamic>?;

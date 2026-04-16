@@ -24,7 +24,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(1, 6887978098338940139),
     name: 'Peak',
-    lastPropertyId: const obx_int.IdUid(6, 8968330069070174548),
+    lastPropertyId: const obx_int.IdUid(10, 8739282244333038063),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -60,6 +60,30 @@ final _entities = <obx_int.ModelEntity>[
       obx_int.ModelProperty(
         id: const obx_int.IdUid(6, 8968330069070174548),
         name: 'area',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(7, 3446234006847826756),
+        name: 'gridZoneDesignator',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(8, 8664681880697364013),
+        name: 'mgrs100kId',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(9, 7732389157431803637),
+        name: 'easting',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(10, 8739282244333038063),
+        name: 'northing',
         type: 9,
         flags: 0,
       ),
@@ -419,13 +443,23 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final areaOffset = object.area == null
             ? null
             : fbb.writeString(object.area!);
-        fbb.startTable(7);
+        final gridZoneDesignatorOffset = fbb.writeString(
+          object.gridZoneDesignator,
+        );
+        final mgrs100kIdOffset = fbb.writeString(object.mgrs100kId);
+        final eastingOffset = fbb.writeString(object.easting);
+        final northingOffset = fbb.writeString(object.northing);
+        fbb.startTable(11);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, nameOffset);
         fbb.addFloat64(2, object.elevation);
         fbb.addFloat64(3, object.latitude);
         fbb.addFloat64(4, object.longitude);
         fbb.addOffset(5, areaOffset);
+        fbb.addOffset(6, gridZoneDesignatorOffset);
+        fbb.addOffset(7, mgrs100kIdOffset);
+        fbb.addOffset(8, eastingOffset);
+        fbb.addOffset(9, northingOffset);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -461,6 +495,18 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final areaParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGetNullable(buffer, rootOffset, 14);
+        final gridZoneDesignatorParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 16, '');
+        final mgrs100kIdParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 18, '');
+        final eastingParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 20, '');
+        final northingParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 22, '');
         final object = Peak(
           id: idParam,
           name: nameParam,
@@ -468,6 +514,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
           latitude: latitudeParam,
           longitude: longitudeParam,
           area: areaParam,
+          gridZoneDesignator: gridZoneDesignatorParam,
+          mgrs100kId: mgrs100kIdParam,
+          easting: eastingParam,
+          northing: northingParam,
         );
 
         return object;
@@ -851,6 +901,26 @@ class Peak_ {
 
   /// See [Peak.area].
   static final area = obx.QueryStringProperty<Peak>(_entities[0].properties[5]);
+
+  /// See [Peak.gridZoneDesignator].
+  static final gridZoneDesignator = obx.QueryStringProperty<Peak>(
+    _entities[0].properties[6],
+  );
+
+  /// See [Peak.mgrs100kId].
+  static final mgrs100kId = obx.QueryStringProperty<Peak>(
+    _entities[0].properties[7],
+  );
+
+  /// See [Peak.easting].
+  static final easting = obx.QueryStringProperty<Peak>(
+    _entities[0].properties[8],
+  );
+
+  /// See [Peak.northing].
+  static final northing = obx.QueryStringProperty<Peak>(
+    _entities[0].properties[9],
+  );
 }
 
 /// [Tasmap50k] entity fields to define ObjectBox queries.

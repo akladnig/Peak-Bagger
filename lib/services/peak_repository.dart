@@ -1,24 +1,141 @@
 import 'package:peak_bagger/models/peak.dart';
+
 import '../objectbox.g.dart';
 
-class PeakRepository {
+abstract class PeakStorage {
+  int get count;
+
+  List<Peak> getAll();
+
+  List<Peak> getByName(String query);
+
+  bool get isEmpty;
+
+  Future<void> addMany(List<Peak> peaks);
+
+  Future<void> replaceAll(
+    List<Peak> peaks, {
+    void Function()? beforePutManyForTest,
+  });
+
+  Future<void> clearAll();
+}
+
+class ObjectBoxPeakStorage implements PeakStorage {
+  ObjectBoxPeakStorage(this._store) : _peakBox = _store.box<Peak>();
+
+  final Store _store;
   final Box<Peak> _peakBox;
 
-  PeakRepository(Store store) : _peakBox = store.box<Peak>();
+  @override
+  int get count => _peakBox.count();
 
-  int get peakCount => _peakBox.count();
+  @override
+  List<Peak> getAll() => _peakBox.getAll();
 
-  List<Peak> getAllPeaks() {
-    return _peakBox.getAll();
-  }
-
-  List<Peak> getPeaksByName(String query) {
+  @override
+  List<Peak> getByName(String query) {
     final queryBuilder = _peakBox
         .query(Peak_.name.contains(query, caseSensitive: false))
         .build();
     final results = queryBuilder.find();
     queryBuilder.close();
     return results;
+  }
+
+  @override
+  bool get isEmpty => _peakBox.isEmpty();
+
+  @override
+  Future<void> addMany(List<Peak> peaks) async {
+    _peakBox.putMany(peaks);
+  }
+
+  @override
+  Future<void> replaceAll(
+    List<Peak> peaks, {
+    void Function()? beforePutManyForTest,
+  }) async {
+    _store.runInTransaction(TxMode.write, () {
+      _peakBox.removeAll();
+      beforePutManyForTest?.call();
+      if (peaks.isNotEmpty) {
+        _peakBox.putMany(peaks);
+      }
+    });
+  }
+
+  @override
+  Future<void> clearAll() async {
+    _peakBox.removeAll();
+  }
+}
+
+class InMemoryPeakStorage implements PeakStorage {
+  InMemoryPeakStorage([List<Peak> peaks = const []])
+    : _peaks = List<Peak>.from(peaks);
+
+  List<Peak> _peaks;
+
+  @override
+  int get count => _peaks.length;
+
+  @override
+  List<Peak> getAll() => List<Peak>.unmodifiable(_peaks);
+
+  @override
+  List<Peak> getByName(String query) {
+    final lowered = query.toLowerCase();
+    return _peaks
+        .where((peak) => peak.name.toLowerCase().contains(lowered))
+        .toList(growable: false);
+  }
+
+  @override
+  bool get isEmpty => _peaks.isEmpty;
+
+  @override
+  Future<void> addMany(List<Peak> peaks) async {
+    _peaks = [..._peaks, ...peaks];
+  }
+
+  @override
+  Future<void> replaceAll(
+    List<Peak> peaks, {
+    void Function()? beforePutManyForTest,
+  }) async {
+    final snapshot = List<Peak>.from(_peaks);
+    try {
+      _peaks = [];
+      beforePutManyForTest?.call();
+      _peaks = List<Peak>.from(peaks);
+    } catch (_) {
+      _peaks = snapshot;
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> clearAll() async {
+    _peaks = [];
+  }
+}
+
+class PeakRepository {
+  PeakRepository(Store store) : _storage = ObjectBoxPeakStorage(store);
+
+  PeakRepository.test(PeakStorage storage) : _storage = storage;
+
+  final PeakStorage _storage;
+
+  int get peakCount => _storage.count;
+
+  List<Peak> getAllPeaks() {
+    return _storage.getAll();
+  }
+
+  List<Peak> getPeaksByName(String query) {
+    return _storage.getByName(query);
   }
 
   List<Peak> searchPeaks(String query) {
@@ -36,14 +153,24 @@ class PeakRepository {
   }
 
   Future<void> addPeaks(List<Peak> peaks) async {
-    _peakBox.putMany(peaks);
+    await _storage.addMany(peaks);
+  }
+
+  Future<void> replaceAll(
+    List<Peak> peaks, {
+    void Function()? beforePutManyForTest,
+  }) async {
+    await _storage.replaceAll(
+      peaks,
+      beforePutManyForTest: beforePutManyForTest,
+    );
   }
 
   Future<void> clearAll() async {
-    _peakBox.removeAll();
+    await _storage.clearAll();
   }
 
   bool isEmpty() {
-    return _peakBox.isEmpty();
+    return _storage.isEmpty;
   }
 }

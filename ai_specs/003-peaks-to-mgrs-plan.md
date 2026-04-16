@@ -14,14 +14,14 @@ Persist MGRS on Peak; refactor refresh through injectable Riverpod seams; mirror
 ### Phase 1: MGRS core + repository
 
 - **Goal**: schema + enrichment primitive
-- [ ] `lib/models/peak.dart` - add 4 string fields; defaults `''`; helper/copy path
-- [ ] `lib/providers/peak_provider.dart` - `overpassServiceProvider`, `peakRepositoryProvider`
-- [ ] `lib/services/peak_mgrs_converter.dart` - split `55GEN1234567890` -> `55G/EN/12345/67890`; skip malformed
-- [ ] `lib/services/peak_refresh_result.dart` - imported/skipped/warning DTO
-- [ ] `lib/services/peak_repository.dart` - rollback-safe replace API; no `clearAll()`-first path
-- [ ] `lib/objectbox.g.dart` - regen schema
-- [ ] TDD: `55GEN1234567890` maps correctly; malformed coords skipped; replace preserves existing peaks on write failure
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/models/peak.dart` - add 4 string fields; defaults `''`; helper/copy path
+- [x] `lib/providers/peak_provider.dart` - `overpassServiceProvider`, `peakRepositoryProvider`
+- [x] `lib/services/peak_mgrs_converter.dart` - split `55GEN1234567890` -> `55G/EN/12345/67890`; skip malformed
+- [x] `lib/services/peak_refresh_result.dart` - imported/skipped/warning DTO
+- [x] `lib/services/peak_repository.dart` - rollback-safe replace API; no `clearAll()`-first path
+- [x] `lib/objectbox.g.dart` - regen schema
+- [x] TDD: `55GEN1234567890` maps correctly; malformed coords skipped; replace preserves existing peaks on write failure
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 2: Notifier + Settings flow
 
