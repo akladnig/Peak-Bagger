@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
+import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/tile_downloader.dart';
@@ -21,6 +22,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _isRefreshingPeaks = false;
   bool _isResettingMaps = false;
   String _status = '';
+  late final VoidCallback _routerListener;
+
+  @override
+  void initState() {
+    super.initState();
+    _routerListener = _clearStatusWhenHidden;
+    router.routerDelegate.addListener(_routerListener);
+  }
+
+  @override
+  void dispose() {
+    router.routerDelegate.removeListener(_routerListener);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,8 +59,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 : null,
             onTap: _isDownloading ? null : _downloadTiles,
           ),
-          if (_status.isNotEmpty)
-            Padding(padding: const EdgeInsets.all(16), child: Text(_status)),
           ListTile(
             leading: const Icon(Icons.refresh),
             title: const Text('Refresh Peak Data'),
@@ -60,6 +73,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onTap: _isRefreshingPeaks ? null : _refreshPeaks,
           ),
           ListTile(
+            key: const Key('reset-map-data-tile'),
             leading: const Icon(Icons.map),
             title: const Text('Reset Map Data'),
             subtitle: const Text('Clear and re-import map data'),
@@ -146,6 +160,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  void _clearStatusWhenHidden() {
+    if (_status.isEmpty) {
+      return;
+    }
+
+    final currentPath = _currentPath();
+    if (currentPath == '/settings') {
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _status = '';
+      });
+    }
+  }
+
+  String? _currentPath() {
+    try {
+      return router.routerDelegate.currentConfiguration.uri.path;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _downloadTiles() async {
     setState(() {
       _isDownloading = true;
@@ -197,9 +236,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     });
 
     try {
-      await ref.read(tasmapStateProvider.notifier).resetAndReimport();
+      final result = await ref
+          .read(tasmapStateProvider.notifier)
+          .resetAndReimport();
       setState(() {
-        _status = 'Map data reset successfully!';
+        _status = result.warning == null
+            ? 'Map data reset successfully!'
+            : 'Map data reset successfully! ${result.warning}';
       });
     } catch (e) {
       setState(() {

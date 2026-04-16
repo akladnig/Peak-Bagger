@@ -1,7 +1,11 @@
+import 'dart:io';
+
+import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs_dart;
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/services/csv_importer.dart';
+import 'package:peak_bagger/services/gpx_importer.dart';
 import '../objectbox.g.dart';
 
 class TasmapRepository {
@@ -13,6 +17,19 @@ class TasmapRepository {
 
   List<Tasmap50k> getAllMaps() {
     return _box.getAll();
+  }
+
+  List<LatLng> getMapPolygonPoints(Tasmap50k map) {
+    final points = <LatLng>[];
+
+    for (final point in map.polygonPoints) {
+      final latLng = _pointToLatLng(point);
+      if (latLng != null) {
+        points.add(latLng);
+      }
+    }
+
+    return points;
   }
 
   List<Tasmap50k> findByName(String name) {
@@ -35,6 +52,24 @@ class TasmapRepository {
   }
 
   LatLng? getMapCenter(Tasmap50k map) {
+    final points = getMapPolygonPoints(map);
+    if (points.isNotEmpty) {
+      final minLat = points
+          .map((p) => p.latitude)
+          .reduce((a, b) => a < b ? a : b);
+      final maxLat = points
+          .map((p) => p.latitude)
+          .reduce((a, b) => a > b ? a : b);
+      final minLng = points
+          .map((p) => p.longitude)
+          .reduce((a, b) => a < b ? a : b);
+      final maxLng = points
+          .map((p) => p.longitude)
+          .reduce((a, b) => a > b ? a : b);
+
+      return LatLng((minLat + maxLat) / 2, (minLng + maxLng) / 2);
+    }
+
     if (map.mgrsMid.isEmpty) return null;
 
     final paddedEasting = map.eastingMid.toString().padLeft(5, '0');
@@ -47,6 +82,28 @@ class TasmapRepository {
     } catch (e) {
       return null;
     }
+  }
+
+  LatLngBounds? getMapBounds(Tasmap50k map) {
+    final points = getMapPolygonPoints(map);
+    if (points.isEmpty) {
+      return null;
+    }
+
+    final minLat = points
+        .map((p) => p.latitude)
+        .reduce((a, b) => a < b ? a : b);
+    final maxLat = points
+        .map((p) => p.latitude)
+        .reduce((a, b) => a > b ? a : b);
+    final minLng = points
+        .map((p) => p.longitude)
+        .reduce((a, b) => a < b ? a : b);
+    final maxLng = points
+        .map((p) => p.longitude)
+        .reduce((a, b) => a > b ? a : b);
+
+    return LatLngBounds(LatLng(minLat, minLng), LatLng(maxLat, maxLng));
   }
 
   List<Tasmap50k> findByMgrs100kId(String mgrsCode) {
@@ -100,24 +157,30 @@ class TasmapRepository {
     _box.putMany(maps);
   }
 
-  Future<void> loadFromCsvIfEmpty(String csvPath) async {
+  Future<TasmapCsvImportResult?> loadFromCsvIfEmpty(String csvPath) async {
     if (!_box.isEmpty()) {
-      return;
+      return null;
     }
 
-    final maps = await CsvImporter.importFromCsv(csvPath);
-    if (maps.isNotEmpty) {
-      _box.putMany(maps);
+    final result = await CsvImporter.importFromCsv(csvPath);
+    if (result.maps.isNotEmpty) {
+      _box.putMany(result.maps);
     }
+
+    await _appendImportLogEntries(result.logEntries);
+    return result;
   }
 
-  Future<void> clearAndReloadFromCsv(String csvPath) async {
+  Future<TasmapCsvImportResult> clearAndReloadFromCsv(String csvPath) async {
     _box.removeAll();
 
-    final maps = await CsvImporter.importFromCsv(csvPath);
-    if (maps.isNotEmpty) {
-      _box.putMany(maps);
+    final result = await CsvImporter.importFromCsv(csvPath);
+    if (result.maps.isNotEmpty) {
+      _box.putMany(result.maps);
     }
+
+    await _appendImportLogEntries(result.logEntries);
+    return result;
   }
 
   Future<void> clearAll() async {
@@ -126,5 +189,29 @@ class TasmapRepository {
 
   bool isEmpty() {
     return _box.isEmpty();
+  }
+
+  Future<void> _appendImportLogEntries(List<String> entries) async {
+    if (entries.isEmpty) {
+      return;
+    }
+
+    final logFile = File(GpxImporter().getImportLogPath());
+    await logFile.parent.create(recursive: true);
+    await logFile.writeAsString(
+      '${entries.join('\n')}\n',
+      mode: FileMode.append,
+    );
+  }
+
+  LatLng? _pointToLatLng(String point) {
+    if (point.length != 12) return null;
+
+    try {
+      final coords = mgrs_dart.Mgrs.toPoint('55G$point');
+      return LatLng(coords[1], coords[0]);
+    } catch (e) {
+      return null;
+    }
   }
 }

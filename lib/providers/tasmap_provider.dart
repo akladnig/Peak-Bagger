@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:peak_bagger/services/csv_importer.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 
 final tasmapRepositoryProvider = Provider<TasmapRepository>((ref) {
@@ -38,14 +39,16 @@ class TasmapNotifier extends Notifier<TasmapState> {
     } catch (_) {}
   }
 
-  Future<void> resetAndReimport() async {
+  Future<TasmapCsvImportResult> resetAndReimport() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final repo = ref.read(tasmapRepositoryProvider);
-      await repo.clearAndReloadFromCsv('assets/tasmap50k.csv');
+      final result = await repo.clearAndReloadFromCsv('assets/tasmap50k.csv');
       state = state.copyWith(mapCount: repo.mapCount);
+      return result;
     } catch (e) {
       state = state.copyWith(error: e.toString());
+      rethrow;
     } finally {
       state = state.copyWith(isLoading: false);
     }

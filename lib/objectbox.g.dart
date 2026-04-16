@@ -70,7 +70,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(2, 1328676866860602429),
     name: 'Tasmap50k',
-    lastPropertyId: const obx_int.IdUid(16, 6317855365936723768),
+    lastPropertyId: const obx_int.IdUid(24, 3816548390083327168),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -146,26 +146,50 @@ final _entities = <obx_int.ModelEntity>[
         flags: 0,
       ),
       obx_int.ModelProperty(
-        id: const obx_int.IdUid(13, 7214738622216751167),
-        name: 'tl',
+        id: const obx_int.IdUid(17, 3630802638893046338),
+        name: 'p1',
         type: 9,
         flags: 0,
       ),
       obx_int.ModelProperty(
-        id: const obx_int.IdUid(14, 3206417400481328273),
-        name: 'tr',
+        id: const obx_int.IdUid(18, 7626547087832084302),
+        name: 'p2',
         type: 9,
         flags: 0,
       ),
       obx_int.ModelProperty(
-        id: const obx_int.IdUid(15, 5789058894498647677),
-        name: 'bl',
+        id: const obx_int.IdUid(19, 3107002462381362263),
+        name: 'p3',
         type: 9,
         flags: 0,
       ),
       obx_int.ModelProperty(
-        id: const obx_int.IdUid(16, 6317855365936723768),
-        name: 'br',
+        id: const obx_int.IdUid(20, 5743465403652482584),
+        name: 'p4',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(21, 6157314611976741618),
+        name: 'p5',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(22, 5268849250419803411),
+        name: 'p6',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(23, 2057491973401598098),
+        name: 'p7',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(24, 3816548390083327168),
+        name: 'p8',
         type: 9,
         flags: 0,
       ),
@@ -370,6 +394,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
       3390857021483670935,
       3580443233466692573,
       3658721134433213764,
+      7214738622216751167,
+      3206417400481328273,
+      5789058894498647677,
+      6317855365936723768,
     ],
     retiredRelationUids: const [],
     modelVersion: 5,
@@ -459,11 +487,15 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final parentSeriesOffset = fbb.writeString(object.parentSeries);
         final mgrs100kIdsOffset = fbb.writeString(object.mgrs100kIds);
         final mgrsMidOffset = fbb.writeString(object.mgrsMid);
-        final tlOffset = fbb.writeString(object.tl);
-        final trOffset = fbb.writeString(object.tr);
-        final blOffset = fbb.writeString(object.bl);
-        final brOffset = fbb.writeString(object.br);
-        fbb.startTable(17);
+        final p1Offset = fbb.writeString(object.p1);
+        final p2Offset = fbb.writeString(object.p2);
+        final p3Offset = fbb.writeString(object.p3);
+        final p4Offset = fbb.writeString(object.p4);
+        final p5Offset = fbb.writeString(object.p5);
+        final p6Offset = fbb.writeString(object.p6);
+        final p7Offset = fbb.writeString(object.p7);
+        final p8Offset = fbb.writeString(object.p8);
+        fbb.startTable(25);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, seriesOffset);
         fbb.addOffset(2, nameOffset);
@@ -476,10 +508,14 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addOffset(9, mgrsMidOffset);
         fbb.addInt64(10, object.eastingMid);
         fbb.addInt64(11, object.northingMid);
-        fbb.addOffset(12, tlOffset);
-        fbb.addOffset(13, trOffset);
-        fbb.addOffset(14, blOffset);
-        fbb.addOffset(15, brOffset);
+        fbb.addOffset(16, p1Offset);
+        fbb.addOffset(17, p2Offset);
+        fbb.addOffset(18, p3Offset);
+        fbb.addOffset(19, p4Offset);
+        fbb.addOffset(20, p5Offset);
+        fbb.addOffset(21, p6Offset);
+        fbb.addOffset(22, p7Offset);
+        fbb.addOffset(23, p8Offset);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -543,18 +579,30 @@ obx_int.ModelDefinition getObjectBoxModel() {
           26,
           0,
         );
-        final tlParam = const fb.StringReader(
+        final p1Param = const fb.StringReader(
           asciiOptimization: true,
-        ).vTableGet(buffer, rootOffset, 28, '');
-        final trParam = const fb.StringReader(
+        ).vTableGet(buffer, rootOffset, 36, '');
+        final p2Param = const fb.StringReader(
           asciiOptimization: true,
-        ).vTableGet(buffer, rootOffset, 30, '');
-        final blParam = const fb.StringReader(
+        ).vTableGet(buffer, rootOffset, 38, '');
+        final p3Param = const fb.StringReader(
           asciiOptimization: true,
-        ).vTableGet(buffer, rootOffset, 32, '');
-        final brParam = const fb.StringReader(
+        ).vTableGet(buffer, rootOffset, 40, '');
+        final p4Param = const fb.StringReader(
           asciiOptimization: true,
-        ).vTableGet(buffer, rootOffset, 34, '');
+        ).vTableGet(buffer, rootOffset, 42, '');
+        final p5Param = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 44, '');
+        final p6Param = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 46, '');
+        final p7Param = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 48, '');
+        final p8Param = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 50, '');
         final object = Tasmap50k(
           id: idParam,
           series: seriesParam,
@@ -568,10 +616,14 @@ obx_int.ModelDefinition getObjectBoxModel() {
           mgrsMid: mgrsMidParam,
           eastingMid: eastingMidParam,
           northingMid: northingMidParam,
-          tl: tlParam,
-          tr: trParam,
-          bl: blParam,
-          br: brParam,
+          p1: p1Param,
+          p2: p2Param,
+          p3: p3Param,
+          p4: p4Param,
+          p5: p5Param,
+          p6: p6Param,
+          p7: p7Param,
+          p8: p8Param,
         );
 
         return object;
@@ -863,24 +915,44 @@ class Tasmap50k_ {
     _entities[1].properties[11],
   );
 
-  /// See [Tasmap50k.tl].
-  static final tl = obx.QueryStringProperty<Tasmap50k>(
+  /// See [Tasmap50k.p1].
+  static final p1 = obx.QueryStringProperty<Tasmap50k>(
     _entities[1].properties[12],
   );
 
-  /// See [Tasmap50k.tr].
-  static final tr = obx.QueryStringProperty<Tasmap50k>(
+  /// See [Tasmap50k.p2].
+  static final p2 = obx.QueryStringProperty<Tasmap50k>(
     _entities[1].properties[13],
   );
 
-  /// See [Tasmap50k.bl].
-  static final bl = obx.QueryStringProperty<Tasmap50k>(
+  /// See [Tasmap50k.p3].
+  static final p3 = obx.QueryStringProperty<Tasmap50k>(
     _entities[1].properties[14],
   );
 
-  /// See [Tasmap50k.br].
-  static final br = obx.QueryStringProperty<Tasmap50k>(
+  /// See [Tasmap50k.p4].
+  static final p4 = obx.QueryStringProperty<Tasmap50k>(
     _entities[1].properties[15],
+  );
+
+  /// See [Tasmap50k.p5].
+  static final p5 = obx.QueryStringProperty<Tasmap50k>(
+    _entities[1].properties[16],
+  );
+
+  /// See [Tasmap50k.p6].
+  static final p6 = obx.QueryStringProperty<Tasmap50k>(
+    _entities[1].properties[17],
+  );
+
+  /// See [Tasmap50k.p7].
+  static final p7 = obx.QueryStringProperty<Tasmap50k>(
+    _entities[1].properties[18],
+  );
+
+  /// See [Tasmap50k.p8].
+  static final p8 = obx.QueryStringProperty<Tasmap50k>(
+    _entities[1].properties[19],
   );
 }
 

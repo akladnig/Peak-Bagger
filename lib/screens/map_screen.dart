@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
-import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
@@ -13,6 +12,7 @@ import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/track_hover_detector.dart';
 import 'package:peak_bagger/widgets/map_action_rail.dart';
 import 'package:peak_bagger/widgets/map_basemaps_drawer.dart';
+import 'package:peak_bagger/widgets/tasmap_outline_layer.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
@@ -492,7 +492,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   if (mapState.selectedMap != null)
                     _buildMapRectangle(mapState.selectedMap!),
                   if (mapState.showMapOverlay)
-                    PolygonLayer(polygons: _buildAllMapRectangles()),
+                    PolygonLayer(
+                      key: const Key('tasmap-overlay-layer'),
+                      polygons: _buildAllMapRectangles(),
+                    ),
                   if (mapState.showTracks)
                     _buildTrackPolylines(mapState.tracks, mapState.zoom),
                 ],
@@ -641,6 +644,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                                       _handleGotoTab,
                                 },
                                 child: TextField(
+                                  key: const Key('goto-map-input'),
                                   focusNode: _gotoFocusNode,
                                   controller: _gotoController,
                                   decoration: InputDecoration(
@@ -665,6 +669,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                             ),
                             const SizedBox(width: 8),
                             IconButton(
+                              key: const Key('goto-map-close'),
                               icon: const Icon(Icons.close),
                               onPressed: () {
                                 ref.read(mapProvider.notifier).clearGotoMgrs();
@@ -675,6 +680,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                               },
                             ),
                             IconButton(
+                              key: const Key('goto-map-submit'),
                               icon: const Icon(Icons.arrow_forward),
                               onPressed: _navigateToGridReference,
                             ),
@@ -825,49 +831,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
   }
 
-  PolygonLayer _buildMapRectangle(Tasmap50k map) {
-    if (map.tl.isEmpty || map.tr.isEmpty || map.bl.isEmpty || map.br.isEmpty) {
-      return const PolygonLayer(polygons: []);
+  Widget _buildMapRectangle(Tasmap50k map) {
+    final repo = ref.read(tasmapRepositoryProvider);
+    final points = repo.getMapPolygonPoints(map);
+    if (points.length < 4) {
+      return const SizedBox.shrink();
     }
 
-    try {
-      final tl = _cornerToLatLng(map.tl);
-      final tr = _cornerToLatLng(map.tr);
-      final bl = _cornerToLatLng(map.bl);
-      final br = _cornerToLatLng(map.br);
-
-      if (tl == null || tr == null || bl == null || br == null) {
-        return const PolygonLayer(polygons: []);
-      }
-
-      // Use actual corners in order, not min/max bounds
-      // This handles wrap-around maps correctly
-      final points = <LatLng>[bl, br, tr, tl];
-
-      return PolygonLayer(
-        polygons: [
-          Polygon(
-            points: points,
-            color: Colors.blue.withValues(alpha: 0.1),
-            borderColor: Colors.blue,
-            borderStrokeWidth: 2,
-          ),
-        ],
-      );
-    } catch (e) {
-      return const PolygonLayer(polygons: []);
-    }
-  }
-
-  LatLng? _cornerToLatLng(String corner) {
-    if (corner.length != 12) return null;
-    final fullMgrs = '55G$corner';
-    try {
-      final coords = mgrs.Mgrs.toPoint(fullMgrs);
-      return LatLng(coords[1], coords[0]);
-    } catch (e) {
-      return null;
-    }
+    return TasmapOutlineLayer(
+      key: const Key('tasmap-outline-layer'),
+      points: points,
+    );
   }
 
   List<Polygon> _buildAllMapRectangles() {
@@ -876,35 +850,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final polygons = <Polygon>[];
 
     for (final map in maps) {
-      if (map.tl.isEmpty ||
-          map.tr.isEmpty ||
-          map.bl.isEmpty ||
-          map.br.isEmpty) {
+      final points = repo.getMapPolygonPoints(map);
+      if (points.length < 4) {
         continue;
       }
 
-      try {
-        final tl = _cornerToLatLng(map.tl);
-        final tr = _cornerToLatLng(map.tr);
-        final bl = _cornerToLatLng(map.bl);
-        final br = _cornerToLatLng(map.br);
-
-        if (tl == null || tr == null || bl == null || br == null) continue;
-
-        // Use actual corners in order, not min/max bounds
-        final points = <LatLng>[bl, br, tr, tl];
-
-        polygons.add(
-          Polygon(
-            points: points,
-            color: Colors.blue.withValues(alpha: 0.1),
-            borderColor: Colors.blue,
-            borderStrokeWidth: 2,
-          ),
-        );
-      } catch (e) {
-        continue;
-      }
+      polygons.add(
+        Polygon(
+          points: points,
+          color: Colors.transparent,
+          borderColor: Colors.blue,
+          borderStrokeWidth: 2,
+        ),
+      );
     }
 
     return polygons;
@@ -934,8 +892,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   void _zoomToMapExtent(Tasmap50k map) {
-    if (map.tl.isEmpty || map.tr.isEmpty || map.bl.isEmpty || map.br.isEmpty) {
-      final center = ref.read(tasmapRepositoryProvider).getMapCenter(map);
+    final repo = ref.read(tasmapRepositoryProvider);
+    final bounds = repo.getMapBounds(map);
+    if (bounds == null) {
+      final center = repo.getMapCenter(map);
       if (center != null) {
         _mapController.move(center, 12);
       }
@@ -943,48 +903,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
 
     try {
-      final tl = _cornerToLatLng(map.tl);
-      final tr = _cornerToLatLng(map.tr);
-      final bl = _cornerToLatLng(map.bl);
-      final br = _cornerToLatLng(map.br);
-
-      if (tl == null || tr == null || bl == null || br == null) {
-        final center = ref.read(tasmapRepositoryProvider).getMapCenter(map);
-        if (center != null) {
-          _mapController.move(center, 12);
-        }
-        return;
-      }
-
-      final minLat = [
-        tl,
-        tr,
-        bl,
-        br,
-      ].map((p) => p.latitude).reduce((a, b) => a < b ? a : b);
-      final maxLat = [
-        tl,
-        tr,
-        bl,
-        br,
-      ].map((p) => p.latitude).reduce((a, b) => a > b ? a : b);
-      final minLng = [
-        tl,
-        tr,
-        bl,
-        br,
-      ].map((p) => p.longitude).reduce((a, b) => a < b ? a : b);
-      final maxLng = [
-        tl,
-        tr,
-        bl,
-        br,
-      ].map((p) => p.longitude).reduce((a, b) => a > b ? a : b);
-
-      final sw = LatLng(minLat, minLng);
-      final ne = LatLng(maxLat, maxLng);
-
-      final bounds = LatLngBounds(sw, ne);
       final cameraFit = CameraFit.bounds(
         bounds: bounds,
         padding: const EdgeInsets.all(50),
@@ -997,7 +915,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         ref.read(mapProvider.notifier).updatePosition(newCenter, newZoom);
       });
     } catch (e) {
-      final center = ref.read(tasmapRepositoryProvider).getMapCenter(map);
+      final center = repo.getMapCenter(map);
       if (center != null) {
         _mapController.move(center, 12);
       }

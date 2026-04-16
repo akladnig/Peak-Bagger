@@ -47,5 +47,25 @@ void main() {
 
       expect(map.mgrs100kIdList.length, 4);
     });
+
+    test('polygonPoints returns sequential non-empty points', () {
+      final map = Tasmap50k(
+        series: 'TS07',
+        name: 'Adamsons',
+        parentSeries: '8211',
+        p1: 'DN6000009999',
+        p2: 'DN9999909999',
+        p3: 'DM6000080000',
+        p4: 'DM9999980000',
+      );
+
+      expect(map.polygonPoints, [
+        'DN6000009999',
+        'DN9999909999',
+        'DM6000080000',
+        'DM9999980000',
+      ]);
+      expect(map.hasValidPolygonPointCount, isTrue);
+    });
   });
 }

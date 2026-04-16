@@ -20,6 +20,26 @@ void main() {
     expect(entities.first.primaryKeyField, 'id');
     expect(entities.first.primaryNameField, 'name');
     expect(
+      entities[1].fields.map((field) => field.name),
+      containsAll([
+        'id',
+        'series',
+        'name',
+        'p1',
+        'p2',
+        'p3',
+        'p4',
+        'p5',
+        'p6',
+        'p7',
+        'p8',
+      ]),
+    );
+    expect(
+      entities[1].fields.map((field) => field.name),
+      isNot(contains('tl')),
+    );
+    expect(
       entities.first.fields.map((field) => field.name),
       containsAll(['id', 'name', 'elevation', 'latitude', 'longitude', 'area']),
     );

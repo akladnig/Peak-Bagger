@@ -178,6 +178,7 @@ class MapActionRail extends ConsumerWidget {
           LeftTooltipFab(
             message: 'Goto',
             child: FloatingActionButton.small(
+              key: const Key('goto-map-fab'),
               heroTag: 'goto',
               backgroundColor: Theme.of(context).colorScheme.surface,
               onPressed: () {

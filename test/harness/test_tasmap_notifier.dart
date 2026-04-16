@@ -1,0 +1,23 @@
+import 'package:peak_bagger/providers/tasmap_provider.dart';
+import 'package:peak_bagger/services/csv_importer.dart';
+
+import 'test_tasmap_repository.dart';
+
+class TestTasmapNotifier extends TasmapNotifier {
+  TestTasmapNotifier(this.repository);
+
+  final TestTasmapRepository repository;
+
+  @override
+  TasmapState build() => const TasmapState();
+
+  @override
+  Future<TasmapCsvImportResult> resetAndReimport() async {
+    state = state.copyWith(mapCount: repository.mapCount);
+    return TasmapCsvImportResult(
+      maps: repository.getAllMaps(),
+      importedCount: repository.mapCount,
+      skippedCount: 0,
+    );
+  }
+}

@@ -16,10 +16,10 @@ void main() {
         mgrsMid: 'EN',
         eastingMid: 20000,
         northingMid: 55000,
-        tl: 'EN0000069999',
-        tr: 'EN3999969999',
-        bl: 'EN0000040000',
-        br: 'EN3999940000',
+        p1: 'EN0000069999',
+        p2: 'EN3999969999',
+        p3: 'EN0000040000',
+        p4: 'EN3999940000',
       );
 
       // We can't test getMapCenter without a real ObjectBox store
@@ -27,6 +27,7 @@ void main() {
       expect(map.mgrsMid, 'EN');
       expect(map.eastingMid, 20000);
       expect(map.northingMid, 55000);
+      expect(map.polygonPoints.length, 4);
     });
 
     test('corner parsing extracts correct MGRS100k, easting, northing', () {
@@ -50,16 +51,13 @@ void main() {
         mgrsMid: 'BR',
         eastingMid: 40000,
         northingMid: 55000,
-        tl: 'BR2000069999',
-        tr: 'BR5999969999',
-        bl: 'BR2000040000',
-        br: 'BR5999940000',
+        p1: 'BR2000069999',
+        p2: 'BR5999969999',
+        p3: 'BR2000040000',
+        p4: 'BR5999940000',
       );
 
-      expect(map.tl.length, 12);
-      expect(map.tr.length, 12);
-      expect(map.bl.length, 12);
-      expect(map.br.length, 12);
+      expect(map.polygonPoints, hasLength(4));
     });
   });
 }
