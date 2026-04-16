@@ -167,7 +167,10 @@ class TasmapRepository {
       _box.putMany(result.maps);
     }
 
-    await _appendImportLogEntries(result.logEntries);
+    await _appendImportLogEntries([
+      _describeImportResult(result),
+      ...result.logEntries,
+    ]);
     return result;
   }
 
@@ -179,7 +182,10 @@ class TasmapRepository {
       _box.putMany(result.maps);
     }
 
-    await _appendImportLogEntries(result.logEntries);
+    await _appendImportLogEntries([
+      _describeImportResult(result),
+      ...result.logEntries,
+    ]);
     return result;
   }
 
@@ -202,6 +208,14 @@ class TasmapRepository {
       '${entries.join('\n')}\n',
       mode: FileMode.append,
     );
+  }
+
+  String _describeImportResult(TasmapCsvImportResult result) {
+    final warningText = result.warning == null
+        ? 'ok'
+        : 'warning: ${result.warning}';
+    final timestamp = DateTime.now().toIso8601String();
+    return '$timestamp Tasmap import: imported ${result.importedCount}, skipped ${result.skippedCount} ($warningText)';
   }
 
   LatLng? _pointToLatLng(String point) {

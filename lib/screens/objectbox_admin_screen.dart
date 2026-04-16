@@ -49,6 +49,10 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   void _handleRouteChange() {
+    _maybeRefreshOnVisibleEntry();
+  }
+
+  void _maybeRefreshOnVisibleEntry() {
     final currentPath = _currentPath();
     if (currentPath == null || currentPath == _lastRoutePath) {
       return;
@@ -56,7 +60,12 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
 
     _lastRoutePath = currentPath;
     if (currentPath == '/objectbox-admin') {
-      ref.read(objectboxAdminProvider.notifier).refresh();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _currentPath() != '/objectbox-admin') {
+          return;
+        }
+        ref.read(objectboxAdminProvider.notifier).refresh();
+      });
     }
   }
 
@@ -152,6 +161,8 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
 
   @override
   Widget build(BuildContext context) {
+    _maybeRefreshOnVisibleEntry();
+
     final state = ref.watch(objectboxAdminProvider);
     final notifier = ref.read(objectboxAdminProvider.notifier);
 
