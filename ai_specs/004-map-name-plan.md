@@ -25,11 +25,11 @@ Make Grid cycle a single active Tasmap mode; keep label rendering derived from e
 ### Phase 2: Map render + journeys
 
 - **Goal**: one visible Tasmap layer; labels in map UI
-- [ ] `./lib/screens/map_screen.dart` - render only active Tasmap layer; attach label helper to selected/overlay paths; suppress labels below zoom 10; preserve zoom/search/Goto behavior
-- [ ] `./test/widget/tasmap_refactor_test.dart` - one-layer cycle, selected-map label, overlay label, zoom-threshold hide, label styling
-- [ ] `./test/robot/tasmap/tasmap_journey_test.dart` - stable Grid selector + label assertion in the existing map-select journey
-- [ ] TDD: widget checks for layer visibility before robot assertion; verify label moves with polygon and inherits outline color
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `./lib/screens/map_screen.dart` - render only active Tasmap layer; attach label helper to selected/overlay paths; suppress labels below zoom 10; preserve zoom/search/Goto behavior
+- [x] `./test/widget/tasmap_refactor_test.dart` - one-layer cycle, selected-map label, overlay label, zoom-threshold hide, label styling
+- [x] `./test/robot/tasmap/tasmap_journey_test.dart` - stable Grid selector + label assertion in the existing map-select journey
+- [x] TDD: widget checks for layer visibility before robot assertion; verify label moves with polygon and inherits outline color
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

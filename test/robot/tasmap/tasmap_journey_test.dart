@@ -48,6 +48,7 @@ void main() {
     await robot.enterGotoQuery('Adamsons');
     await robot.selectGotoSuggestion('Adamsons');
     robot.expectSelectedMapOutlineVisible();
+    robot.expectSelectedMapLabelVisible('Adamsons\nTS07');
   });
 
   testWidgets('reset map data refreshes map screen tasmap reads', (
