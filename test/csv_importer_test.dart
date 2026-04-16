@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/services/csv_importer.dart';
 
@@ -20,8 +22,8 @@ void main() {
       expect(wellington.northingMid, 55000);
       expect(wellington.p1, 'EN0000069999');
       expect(wellington.p2, 'EN3999969999');
-      expect(wellington.p3, 'EN0000040000');
-      expect(wellington.p4, 'EN3999940000');
+      expect(wellington.p3, 'EN3999940000');
+      expect(wellington.p4, 'EN0000040000');
       expect(wellington.p5, isEmpty);
       expect(wellington.p6, isEmpty);
       expect(wellington.p7, isEmpty);
@@ -51,6 +53,28 @@ void main() {
       expect(blackBluff.eastingMax, 19999);
       expect(blackBluff.northingMin, 90000);
       expect(blackBluff.northingMax, 19999);
+    });
+
+    test('importFromCsv prefers a filesystem csv when present', () async {
+      final tempDir = await Directory.systemTemp.createTemp('tasmap-csv-test');
+      addTearDown(() => tempDir.delete(recursive: true));
+
+      final csvFile = File('${tempDir.path}/tasmap50k.csv');
+      final sourceContents = await File('assets/tasmap50k.csv').readAsString();
+      final modifiedContents = sourceContents.replaceFirst(
+        'TQ08,Wellington,8312,EN   ,0,39999,40000,69999,EN,20000,55000,EN0000069999,EN3999969999,EN3999940000,EN0000040000,,,,',
+        'TQ08,Wellington Test,8312,EN   ,0,39999,40000,69999,EN,20000,55000,EN0000069999,EN3999969999,EN3999940000,EN0000040000,,,,',
+      );
+      await csvFile.writeAsString(modifiedContents);
+
+      final result = await CsvImporter.importFromCsv(csvFile.path);
+      final wellington = result.maps.firstWhere(
+        (map) => map.name == 'Wellington Test',
+      );
+
+      expect(result.importedCount, 75);
+      expect(wellington.name, 'Wellington Test');
+      expect(wellington.p4, 'EN0000040000');
     });
 
     test('normalizePointValue removes spaces and uppercases', () {

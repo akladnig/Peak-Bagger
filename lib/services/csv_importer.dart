@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:csv/csv.dart';
 import 'package:flutter/services.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
@@ -29,7 +31,7 @@ class TasmapCsvRowParseResult {
 
 class CsvImporter {
   static Future<TasmapCsvImportResult> importFromCsv(String csvPath) async {
-    final contents = await rootBundle.loadString(csvPath);
+    final contents = await _loadCsvContents(csvPath);
 
     final rows = const CsvToListConverter().convert(contents);
     if (rows.isEmpty) {
@@ -166,5 +168,14 @@ class CsvImporter {
   static String _describeRowIssue(int rowNumber, String reason) {
     final prefix = rowNumber > 0 ? 'Row $rowNumber' : 'Tasmap row';
     return '$prefix: $reason';
+  }
+
+  static Future<String> _loadCsvContents(String csvPath) async {
+    final file = File(csvPath);
+    if (await file.exists()) {
+      return file.readAsString();
+    }
+
+    return rootBundle.loadString(csvPath);
   }
 }
