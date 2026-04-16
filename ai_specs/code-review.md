@@ -1,9 +1,11 @@
-Act as a senior software engineer. Review the following code for logical errors, performance bottlenecks, and duplicate logic.
+Act as a senior software engineer. Review the following code for best practice, logical errors, performance bottlenecks, and duplicate logic.
 
 Context: Language: Flutter, platform: macOs target environment: production, and any known constraints.
 
 Please analyze:
+Best Practices: Identify code that does adhere to best practices
 Correctness: Identify bugs, edge cases (e.g., null handling, empty inputs), or race conditions.
+Consistency: Identify code that 
 Performance: Flag inefficient loops (O(n²)), N+1 database queries, or memory leaks.
 Maintainability: Find duplicate code that could be consolidated and suggest improvements for naming or modularity.
 Security: Check for common vulnerabilities like SQL injection or improper input validation.

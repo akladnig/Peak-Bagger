@@ -146,6 +146,7 @@ class MapState {
     bool clearTrackOperationWarning = false,
     int? hoveredTrackId,
     bool clearHoveredTrackId = false,
+    bool clearCursorMgrs = false,
   }) {
     return MapState(
       center: center ?? this.center,
@@ -155,7 +156,7 @@ class MapState {
       isLoading: isLoading ?? this.isLoading,
       error: error,
       currentMgrs: currentMgrs ?? this.currentMgrs,
-      cursorMgrs: cursorMgrs,
+      cursorMgrs: clearCursorMgrs ? null : (cursorMgrs ?? this.cursorMgrs),
       gotoMgrs: gotoMgrs,
       showGotoInput: showGotoInput ?? this.showGotoInput,
       showPeakSearch: showPeakSearch ?? this.showPeakSearch,
@@ -598,7 +599,7 @@ class MapNotifier extends Notifier<MapState> {
       center: center,
       zoom: zoom,
       currentMgrs: _convertToMgrs(center),
-      cursorMgrs: null,
+      clearCursorMgrs: true,
       clearHoveredTrackId: true,
     );
     savePosition();
@@ -650,7 +651,7 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void clearCursorMgrs() {
-    state = state.copyWith(cursorMgrs: null, clearSelectedLocation: true);
+    state = state.copyWith(clearCursorMgrs: true);
   }
 
   void setHoveredTrackId(int? trackId) {

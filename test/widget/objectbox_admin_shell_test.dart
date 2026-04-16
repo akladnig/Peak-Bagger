@@ -50,4 +50,46 @@ void main() {
     expect(find.byKey(const Key('objectbox-admin-export-gpx')), findsNothing);
     expect(find.byKey(const Key('objectbox-admin-table')), findsOneWidget);
   });
+
+  testWidgets('admin shell reloads rows when re-entered', (tester) async {
+    final repository = TestObjectBoxAdminRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(
+            () => TestMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 10,
+                basemap: Basemap.tracestrack,
+              ),
+            ),
+          ),
+          objectboxAdminRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const App(),
+      ),
+    );
+
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('side-menu-objectbox-admin')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final initialEntityCalls = repository.getEntitiesCallCount;
+    final initialLoadRowsCalls = repository.loadRowsCallCount;
+
+    await tester.tap(find.byIcon(Icons.settings));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.byKey(const Key('side-menu-objectbox-admin')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(repository.getEntitiesCallCount, greaterThan(initialEntityCalls));
+    expect(repository.loadRowsCallCount, greaterThan(initialLoadRowsCalls));
+  });
 }

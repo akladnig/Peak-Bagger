@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 
@@ -18,6 +19,8 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   final Map<String, ScrollController> _rowHorizontalControllers = {};
   double _horizontalOffset = 0;
   bool _syncingHorizontal = false;
+  late final VoidCallback _routerListener;
+  String? _lastRoutePath;
 
   @override
   void initState() {
@@ -26,10 +29,14 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     _headerHorizontalController.addListener(
       () => _syncHorizontalScroll(_headerHorizontalController),
     );
+    _lastRoutePath = _currentPath();
+    _routerListener = _handleRouteChange;
+    router.routerDelegate.addListener(_routerListener);
   }
 
   @override
   void dispose() {
+    router.routerDelegate.removeListener(_routerListener);
     _verticalController
       ..removeListener(_maybeLoadMore)
       ..dispose();
@@ -39,6 +46,26 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     }
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _handleRouteChange() {
+    final currentPath = _currentPath();
+    if (currentPath == null || currentPath == _lastRoutePath) {
+      return;
+    }
+
+    _lastRoutePath = currentPath;
+    if (currentPath == '/objectbox-admin') {
+      ref.read(objectboxAdminProvider.notifier).refresh();
+    }
+  }
+
+  String? _currentPath() {
+    try {
+      return router.routerDelegate.currentConfiguration.uri.path;
+    } catch (_) {
+      return null;
+    }
   }
 
   ScrollController _rowHorizontalControllerFor(

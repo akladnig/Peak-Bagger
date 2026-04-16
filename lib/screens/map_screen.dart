@@ -244,6 +244,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   @override
   Widget build(BuildContext context) {
     final mapState = ref.watch(mapProvider);
+    ref.watch(tasmapStateProvider.select((state) => state.tasmapRevision));
     final displayMgrs =
         mapState.cursorMgrs ?? mapState.gotoMgrs ?? mapState.currentMgrs;
 
@@ -380,7 +381,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             MouseRegion(
               key: const Key('map-interaction-region'),
               cursor: _mouseCursor(mapState),
-              onExit: (_) => ref.read(mapProvider.notifier).clearHoveredTrack(),
+              onExit: (_) {
+                final notifier = ref.read(mapProvider.notifier);
+                notifier.clearCursorMgrs();
+                notifier.clearHoveredTrack();
+              },
               child: FlutterMap(
                 mapController: _mapController,
                 options: MapOptions(

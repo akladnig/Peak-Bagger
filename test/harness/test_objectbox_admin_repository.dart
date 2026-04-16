@@ -14,6 +14,8 @@ class TestObjectBoxAdminRepository implements ObjectBoxAdminRepository {
 
   ObjectBoxAdminRow? exportedRow;
   int exportCallCount = 0;
+  int getEntitiesCallCount = 0;
+  int loadRowsCallCount = 0;
 
   static final _defaultEntities = [
     const ObjectBoxAdminEntityDescriptor(
@@ -156,7 +158,10 @@ class TestObjectBoxAdminRepository implements ObjectBoxAdminRepository {
   };
 
   @override
-  List<ObjectBoxAdminEntityDescriptor> getEntities() => _entities;
+  List<ObjectBoxAdminEntityDescriptor> getEntities() {
+    getEntitiesCallCount += 1;
+    return _entities;
+  }
 
   @override
   Future<List<ObjectBoxAdminRow>> loadRows(
@@ -164,6 +169,7 @@ class TestObjectBoxAdminRepository implements ObjectBoxAdminRepository {
     required String searchQuery,
     required bool ascending,
   }) async {
+    loadRowsCallCount += 1;
     final rows = _rowsByEntity[entity.name] ?? const [];
     return objectBoxAdminFilterAndSortRows(
       entity,

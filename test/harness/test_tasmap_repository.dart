@@ -12,6 +12,7 @@ class TestTasmapRepository implements TasmapRepository {
 
   final List<Tasmap50k> _seedMaps;
   final List<Tasmap50k> _maps;
+  int getAllMapsCallCount = 0;
 
   static Future<TestTasmapRepository> create({List<Tasmap50k>? maps}) async {
     return TestTasmapRepository._(maps ?? [_defaultMap()]);
@@ -21,7 +22,10 @@ class TestTasmapRepository implements TasmapRepository {
   int get mapCount => _maps.length;
 
   @override
-  List<Tasmap50k> getAllMaps() => List.unmodifiable(_maps);
+  List<Tasmap50k> getAllMaps() {
+    getAllMapsCallCount += 1;
+    return List.unmodifiable(_maps);
+  }
 
   @override
   List<Tasmap50k> findByName(String name) {

@@ -94,7 +94,10 @@ class TestTasmapNotifier extends TasmapNotifier {
 
   @override
   Future<TasmapCsvImportResult> resetAndReimport() async {
-    state = state.copyWith(mapCount: 75);
+    state = state.copyWith(
+      mapCount: 75,
+      tasmapRevision: state.tasmapRevision + 1,
+    );
     return const TasmapCsvImportResult(
       maps: [],
       importedCount: 75,

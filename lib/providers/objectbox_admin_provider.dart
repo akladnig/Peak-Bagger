@@ -125,6 +125,38 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
     await _loadSelectedEntity();
   }
 
+  Future<void> refresh() async {
+    final entities = _repository.getEntities();
+    final selectedEntity = _resolveSelectedEntity(entities);
+
+    if (selectedEntity == null) {
+      state = state.copyWith(
+        entities: entities,
+        selectedEntity: null,
+        isLoading: false,
+        clearError: true,
+        clearSelectedRow: true,
+        rows: const [],
+        visibleRowCount: 0,
+        noMatches: false,
+      );
+      return;
+    }
+
+    state = state.copyWith(
+      entities: entities,
+      selectedEntity: selectedEntity,
+      isLoading: true,
+      clearError: true,
+      clearSelectedRow: true,
+      rows: const [],
+      visibleRowCount: 0,
+      noMatches: false,
+    );
+
+    await _loadSelectedEntity();
+  }
+
   void setMode(ObjectBoxAdminViewMode mode) {
     if (state.mode == mode) {
       return;
@@ -222,5 +254,20 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
         clearSelectedRow: true,
       );
     }
+  }
+
+  ObjectBoxAdminEntityDescriptor? _resolveSelectedEntity(
+    List<ObjectBoxAdminEntityDescriptor> entities,
+  ) {
+    final currentName = state.selectedEntity?.name;
+    if (currentName != null) {
+      for (final entity in entities) {
+        if (entity.name == currentName) {
+          return entity;
+        }
+      }
+    }
+
+    return entities.isNotEmpty ? entities.first : null;
   }
 }

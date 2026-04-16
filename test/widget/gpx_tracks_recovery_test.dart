@@ -67,12 +67,14 @@ void main() {
     await tester.pump();
 
     expect(container.read(mapProvider).hoveredTrackId, 7);
+    expect(container.read(mapProvider).cursorMgrs, isNotNull);
     expect(_mapRegion(tester).cursor, SystemMouseCursors.click);
 
     await gesture.moveTo(tester.getBottomRight(region) + const Offset(20, 20));
     await tester.pump();
 
     expect(container.read(mapProvider).hoveredTrackId, isNull);
+    expect(container.read(mapProvider).cursorMgrs, isNull);
     expect(_mapRegion(tester).cursor, SystemMouseCursors.grab);
   });
 

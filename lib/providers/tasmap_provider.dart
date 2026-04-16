@@ -8,14 +8,26 @@ final tasmapRepositoryProvider = Provider<TasmapRepository>((ref) {
 
 class TasmapState {
   final int mapCount;
+  final int tasmapRevision;
   final bool isLoading;
   final String? error;
 
-  const TasmapState({this.mapCount = 0, this.isLoading = false, this.error});
+  const TasmapState({
+    this.mapCount = 0,
+    this.tasmapRevision = 0,
+    this.isLoading = false,
+    this.error,
+  });
 
-  TasmapState copyWith({int? mapCount, bool? isLoading, String? error}) {
+  TasmapState copyWith({
+    int? mapCount,
+    int? tasmapRevision,
+    bool? isLoading,
+    String? error,
+  }) {
     return TasmapState(
       mapCount: mapCount ?? this.mapCount,
+      tasmapRevision: tasmapRevision ?? this.tasmapRevision,
       isLoading: isLoading ?? this.isLoading,
       error: error,
     );
@@ -44,7 +56,10 @@ class TasmapNotifier extends Notifier<TasmapState> {
     try {
       final repo = ref.read(tasmapRepositoryProvider);
       final result = await repo.clearAndReloadFromCsv('assets/tasmap50k.csv');
-      state = state.copyWith(mapCount: repo.mapCount);
+      state = state.copyWith(
+        mapCount: repo.mapCount,
+        tasmapRevision: state.tasmapRevision + 1,
+      );
       return result;
     } catch (e) {
       state = state.copyWith(error: e.toString());
