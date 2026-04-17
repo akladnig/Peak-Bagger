@@ -512,7 +512,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       polygons: _buildAllMapRectangles(),
                     ),
                   if (mapState.showTracks)
-                    _buildTrackPolylines(mapState.tracks, mapState.zoom),
+                    _buildTrackPolylines(
+                      mapState.tracks,
+                      mapState.zoom,
+                      selectedTrackId: mapState.selectedTrackId,
+                    ),
                   if (mapState.showPeaks &&
                       mapState.peaks.isNotEmpty &&
                       mapState.zoom >= 9)
@@ -1057,27 +1061,32 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     // TODO: Implement GPS location
   }
 
-  PolylineLayer _buildTrackPolylines(List<GpxTrack> tracks, double zoom) {
+  PolylineLayer _buildTrackPolylines(
+    List<GpxTrack> tracks,
+    double zoom, {
+    int? selectedTrackId,
+  }) {
     final polylines = <Polyline>[];
+    final selectedPolylines = <Polyline>[];
     final displayZoom = zoom.round().clamp(6, 18);
 
     for (final track in tracks) {
+      final target = track.gpxTrackId == selectedTrackId
+          ? selectedPolylines
+          : polylines;
+      final color = track.gpxTrackId == selectedTrackId
+          ? Colors.green
+          : Color(track.trackColour);
       try {
         for (final segment in track.getSegmentsForZoom(displayZoom)) {
           if (segment.isEmpty) continue;
-          polylines.add(
-            Polyline(
-              points: segment,
-              color: Color(track.trackColour),
-              strokeWidth: 3.0,
-            ),
-          );
+          target.add(Polyline(points: segment, color: color, strokeWidth: 3.0));
         }
       } catch (e) {
         // Skip malformed track
       }
     }
 
-    return PolylineLayer(polylines: polylines);
+    return PolylineLayer(polylines: [...polylines, ...selectedPolylines]);
   }
 }

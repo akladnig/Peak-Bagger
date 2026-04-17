@@ -26,10 +26,10 @@ Keep selection transient; green highlight wins over hover.
 ### Phase 2: Green render + visibility rules
 
 - **Goal**: selected track renders green and stays visible above overlaps
-- [ ] `./lib/screens/map_screen.dart` - render selected polylines last / foreground pass; keep hover cursor behavior; clear selection when tracks are hidden
-- [ ] `./lib/providers/map_provider.dart` - clear selection in `_loadTracks()`, `_importTracks()`, `rescanTracks()`, `resetTrackData()`, `recalculateTrackStatistics()`
-- [ ] `./test/widget/gpx_tracks_selection_test.dart` - TDD: selected track green, selected-over-hover wins, unselected tracks keep stored color
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `./lib/screens/map_screen.dart` - render selected polylines last / foreground pass; keep hover cursor behavior; clear selection when tracks are hidden
+- [x] `./lib/providers/map_provider.dart` - clear selection in `_loadTracks()`, `_importTracks()`, `rescanTracks()`, `resetTrackData()`, `recalculateTrackStatistics()`
+- [x] `./test/widget/gpx_tracks_selection_test.dart` - TDD: selected track green, selected-over-hover wins, unselected tracks keep stored color
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Journey coverage
 
