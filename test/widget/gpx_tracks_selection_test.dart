@@ -13,7 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../harness/test_map_notifier.dart';
 
 void main() {
-  testWidgets('selected track renders green last', (tester) async {
+  testWidgets('selected track renders stacked highlight last', (tester) async {
     final state = MapState(
       center: const LatLng(-41.5, 146.5),
       zoom: 15,
@@ -49,9 +49,14 @@ void main() {
 
     final layer = tester.widget<PolylineLayer>(find.byType(PolylineLayer));
 
-    expect(layer.polylines, hasLength(2));
+    expect(layer.polylines, hasLength(3));
     expect(layer.polylines.first.color, const Color(0xFF112233));
-    expect(layer.polylines.last.color, Colors.green);
+    expect(layer.polylines[1].color, const Color(0xFF445566));
+    expect(layer.polylines[1].strokeWidth, 4.0);
+    expect(layer.polylines[1].borderStrokeWidth, 2.0);
+    expect(layer.polylines[1].borderColor, const Color(0x66000000));
+    expect(layer.polylines.last.color, Colors.white);
+    expect(layer.polylines.last.strokeWidth, 1.5);
   });
 }
 

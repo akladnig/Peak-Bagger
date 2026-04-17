@@ -1,5 +1,5 @@
 <goal>
-Add on-screen GPX track selection to the macOS map UI. A user should be able to click a hovered track, keep that track selected while they pan or zoom the map, and see the selected track highlighted in green.
+Add on-screen GPX track selection to the macOS map UI. A user should be able to click a hovered track, keep that track selected while they pan or zoom the map, and see the selected track rendered with a thicker stacked highlight that keeps its original color.
 
 Who: map users inspecting imported GPX tracks.
 Why: when tracks overlap or the map is busy, the user needs one track to stay visually anchored while they continue working.
@@ -27,7 +27,7 @@ Primary flow:
 1. User moves the mouse over a visible GPX track and the map cursor changes to click, as it does today.
 2. User performs a primary/left click on the hovered track.
 3. App marks that track as selected.
-4. The selected track renders green and stays selected while the user pans, zooms, or moves the pointer away.
+4. The selected track renders with a stacked highlight and stays selected while the user pans, zooms, or moves the pointer away.
 
 Alternative flows:
 - User clicks a different hovered track: the new track replaces the previous selection.
@@ -46,7 +46,7 @@ Error flows:
 1. Add transient selected-track state to `MapState` and `MapNotifier` using track identity, not the track object itself. One track may be selected at a time.
 2. A track can only be selected from the existing hover hit-test result on a primary/left mouse click. Delay hover clearing until after selection resolution so the click can use the track the user clicked, not a cleared or stale hover value.
 3. Selection persists across mouse movement, panning, and zooming.
-4. The selected track renders with a fixed green highlight (`Colors.green`) and the selected styling wins over hover styling if both apply.
+4. The selected track renders with a stacked highlight that keeps the original track color: a wider dark shadow underlay, the thicker original-color track line, and a thin white line overlaid on top. Selected styling wins over hover styling if both apply.
 5. Clicking empty map space clears selection and must not update `selectedLocation`.
 6. Track selection consumes the click and must not call `setSelectedLocation` or otherwise move the amber location marker.
 7. Refresh/import/reset flows that replace the track list clear any stale selection state before the new track list becomes active.
@@ -60,7 +60,7 @@ Error flows:
 13. If track hit-testing fails for a malformed track, skip that track and keep the rest of the map interactive.
 
 **Edge Cases:**
-14. If the selected track is also currently hovered, the track remains green and the cursor still shows click.
+14. If the selected track is also currently hovered, the stacked highlight remains visible and the cursor still shows click.
 15. Selecting a different track replaces the existing selection immediately.
 16. Selection does not survive app restart because it is view state only.
 17. Track visibility changes that rebuild or hide the track overlay should clear stale selection if the selected track is no longer visible.
@@ -102,7 +102,7 @@ Limits:
 <stages>
 Phase 1: Add selection state and unit tests for select, replace, and clear behavior. Verify selection survives pan/zoom state changes and clears when track data is replaced.
 
-Phase 2: Update map click handling and polyline color selection. Verify the selected track renders green and hover still drives the click cursor.
+Phase 2: Update map click handling and stacked polyline selection styling. Verify the selected track renders with the stacked highlight and hover still drives the click cursor.
 
 Phase 3: Add widget and robot coverage for click-to-select, click-empty-to-clear, and refresh/import clearing. Verify existing GPX journeys still pass.
 </stages>
@@ -116,7 +116,7 @@ Phase 3: Add widget and robot coverage for click-to-select, click-empty-to-clear
    - pan/zoom updates do not clear selection
    - refresh/import/reset replacement clears stale selection
 3. Widget tests must cover:
-   - the selected track renders with `Colors.green`
+   - the selected track renders as a stacked highlight using the original color
    - selected styling wins when the selected track is also hovered
    - unselected tracks keep their stored color
 4. Robot tests must cover the primary journey using `Key('map-interaction-region')`:

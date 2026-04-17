@@ -1067,26 +1067,46 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     int? selectedTrackId,
   }) {
     final polylines = <Polyline>[];
-    final selectedPolylines = <Polyline>[];
+    final selectedBasePolylines = <Polyline>[];
+    final selectedOverlayPolylines = <Polyline>[];
     final displayZoom = zoom.round().clamp(6, 18);
 
     for (final track in tracks) {
-      final target = track.gpxTrackId == selectedTrackId
-          ? selectedPolylines
-          : polylines;
-      final color = track.gpxTrackId == selectedTrackId
-          ? Colors.green
-          : Color(track.trackColour);
+      final isSelected = track.gpxTrackId == selectedTrackId;
+      final color = Color(track.trackColour);
       try {
         for (final segment in track.getSegmentsForZoom(displayZoom)) {
           if (segment.isEmpty) continue;
-          target.add(Polyline(points: segment, color: color, strokeWidth: 3.0));
+          if (isSelected) {
+            selectedBasePolylines.add(
+              Polyline(
+                points: segment,
+                color: color,
+                strokeWidth: 4.0,
+                borderStrokeWidth: 2.0,
+                borderColor: const Color(0x66000000),
+              ),
+            );
+            selectedOverlayPolylines.add(
+              Polyline(points: segment, color: Colors.white, strokeWidth: 1.5),
+            );
+          } else {
+            polylines.add(
+              Polyline(points: segment, color: color, strokeWidth: 3.0),
+            );
+          }
         }
       } catch (e) {
         // Skip malformed track
       }
     }
 
-    return PolylineLayer(polylines: [...polylines, ...selectedPolylines]);
+    return PolylineLayer(
+      polylines: [
+        ...polylines,
+        ...selectedBasePolylines,
+        ...selectedOverlayPolylines,
+      ],
+    );
   }
 }
