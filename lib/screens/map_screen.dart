@@ -1074,6 +1074,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     for (final track in tracks) {
       final isSelected = track.gpxTrackId == selectedTrackId;
       final color = Color(track.trackColour);
+      final trackColor = selectedTrackId == null || isSelected
+          ? color
+          : color.withValues(alpha: 0.6);
       try {
         for (final segment in track.getSegmentsForZoom(displayZoom)) {
           if (segment.isEmpty) continue;
@@ -1081,18 +1084,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             selectedBasePolylines.add(
               Polyline(
                 points: segment,
-                color: color,
+                color: trackColor,
                 strokeWidth: 4.0,
                 borderStrokeWidth: 2.0,
                 borderColor: const Color(0x66000000),
               ),
             );
             selectedOverlayPolylines.add(
-              Polyline(points: segment, color: Colors.white, strokeWidth: 1.5),
+              Polyline(points: segment, color: Colors.white, strokeWidth: 0.6),
             );
           } else {
             polylines.add(
-              Polyline(points: segment, color: color, strokeWidth: 3.0),
+              Polyline(points: segment, color: trackColor, strokeWidth: 3.0),
             );
           }
         }

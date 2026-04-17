@@ -47,27 +47,28 @@ Error flows:
 2. A track can only be selected from the existing hover hit-test result on a primary/left mouse click. Delay hover clearing until after selection resolution so the click can use the track the user clicked, not a cleared or stale hover value.
 3. Selection persists across mouse movement, panning, and zooming.
 4. The selected track renders with a stacked highlight that keeps the original track color: a wider dark shadow underlay, the thicker original-color track line, and a thin white line overlaid on top. Selected styling wins over hover styling if both apply.
-5. Clicking empty map space clears selection and must not update `selectedLocation`.
-6. Track selection consumes the click and must not call `setSelectedLocation` or otherwise move the amber location marker.
-7. Refresh/import/reset flows that replace the track list clear any stale selection state before the new track list becomes active.
-8. Toggling track visibility off clears selection because the selected track is no longer visible.
-9. Selection must not be persisted to ObjectBox, SharedPreferences, or any file-backed store.
-10. Multi-segment tracks must highlight all segments for the selected track, not just the clicked segment.
+5. When a track is selected, all non-selected tracks dim to 60% alpha to de-emphasize them.
+6. Clicking empty map space clears selection and must not update `selectedLocation`.
+7. Track selection consumes the click and must not call `setSelectedLocation` or otherwise move the amber location marker.
+8. Refresh/import/reset flows that replace the track list clear any stale selection state before the new track list becomes active.
+9. Toggling track visibility off clears selection because the selected track is no longer visible.
+10. Selection must not be persisted to ObjectBox, SharedPreferences, or any file-backed store.
+11. Multi-segment tracks must highlight all segments for the selected track, not just the clicked segment.
 
 **Error Handling:**
-11. Clicking the map when no track is hovered must be a no-op for selection and must not crash.
-12. Drag gestures that become pans must not create a selection.
-13. If track hit-testing fails for a malformed track, skip that track and keep the rest of the map interactive.
+12. Clicking the map when no track is hovered must be a no-op for selection and must not crash.
+13. Drag gestures that become pans must not create a selection.
+14. If track hit-testing fails for a malformed track, skip that track and keep the rest of the map interactive.
 
 **Edge Cases:**
-14. If the selected track is also currently hovered, the stacked highlight remains visible and the cursor still shows click.
-15. Selecting a different track replaces the existing selection immediately.
-16. Selection does not survive app restart because it is view state only.
-17. Track visibility changes that rebuild or hide the track overlay should clear stale selection if the selected track is no longer visible.
+15. If the selected track is also currently hovered, the stacked highlight remains visible and the cursor still shows click.
+16. Selecting a different track replaces the existing selection immediately.
+17. Selection does not survive app restart because it is view state only.
+18. Track visibility changes that rebuild or hide the track overlay should clear stale selection if the selected track is no longer visible.
 
 **Validation:**
-18. Keep the interaction anchored to stable app-owned keys, especially `Key('map-interaction-region')`.
-19. Add TDD-first coverage for state transitions, rendering color override, and click/clear behavior.
+19. Keep the interaction anchored to stable app-owned keys, especially `Key('map-interaction-region')`.
+20. Add TDD-first coverage for state transitions, rendering color override, and click/clear behavior.
 </requirements>
 
 <boundaries>
@@ -75,11 +76,12 @@ Edge cases:
 - A selected track can remain selected while the user pans or zooms, even if it moves off-screen.
 - Hover and selection are separate states; hover should not clear selection.
 - Selection is single-select only.
+- Non-selected tracks dim to 60% alpha while a selection exists.
 
 Error scenarios:
-- Empty-map click: clear selection, do not show an error.
-- Malformed track geometry: skip the track and leave the rest of the map usable.
-- Track refresh/import/reset: clear stale selection rather than retaining an invalid track id.
+ - Empty-map click: clear selection, do not show an error.
+ - Malformed track geometry: skip the track and leave the rest of the map usable.
+ - Track refresh/import/reset: clear stale selection rather than retaining an invalid track id.
 
 Limits:
 - Mouse/pointer selection only; do not add touch-specific selection behavior in this slice.
@@ -118,7 +120,7 @@ Phase 3: Add widget and robot coverage for click-to-select, click-empty-to-clear
 3. Widget tests must cover:
    - the selected track renders as a stacked highlight using the original color
    - selected styling wins when the selected track is also hovered
-   - unselected tracks keep their stored color
+   - unselected tracks dim to 60% alpha while keeping their original base color
 4. Robot tests must cover the primary journey using `Key('map-interaction-region')`:
    - hover a visible track
    - primary/left click to select it

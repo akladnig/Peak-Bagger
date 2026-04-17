@@ -1,7 +1,7 @@
 ## Overview
 
 Add click-to-select GPX track highlighting on the macOS map.
-Keep selection transient; stacked original-color highlight wins over hover.
+Keep selection transient; stacked original-color highlight wins over hover and non-selected tracks dim to 60% alpha.
 
 **Spec**: `ai_specs/005-track-selection-spec.md` (read this file for full requirements)
 
@@ -25,10 +25,10 @@ Keep selection transient; stacked original-color highlight wins over hover.
 
 ### Phase 2: Stacked render + visibility rules
 
-- **Goal**: selected track renders stacked/original-color and stays visible above overlaps
-- [x] `./lib/screens/map_screen.dart` - render selected polylines last / foreground pass; keep hover cursor behavior; clear selection when tracks are hidden
+- **Goal**: selected track renders stacked/original-color; others dim to 60% alpha
+- [x] `./lib/screens/map_screen.dart` - render selected polylines last / foreground pass; dim unselected tracks to 60% alpha; keep hover cursor behavior; clear selection when tracks are hidden
 - [x] `./lib/providers/map_provider.dart` - clear selection in `_loadTracks()`, `_importTracks()`, `rescanTracks()`, `resetTrackData()`, `recalculateTrackStatistics()`
-- [x] `./test/widget/gpx_tracks_selection_test.dart` - TDD: stacked selected track, selected-over-hover wins, unselected tracks keep stored color
+- [x] `./test/widget/gpx_tracks_selection_test.dart` - TDD: stacked selected track, selected-over-hover wins, unselected tracks dim to 60% alpha
 - [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Journey coverage

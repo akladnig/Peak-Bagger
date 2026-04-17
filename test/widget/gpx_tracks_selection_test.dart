@@ -50,13 +50,13 @@ void main() {
     final layer = tester.widget<PolylineLayer>(find.byType(PolylineLayer));
 
     expect(layer.polylines, hasLength(3));
-    expect(layer.polylines.first.color, const Color(0xFF112233));
+    expect(layer.polylines.first.color, const Color(0x99112233));
     expect(layer.polylines[1].color, const Color(0xFF445566));
     expect(layer.polylines[1].strokeWidth, 4.0);
     expect(layer.polylines[1].borderStrokeWidth, 2.0);
     expect(layer.polylines[1].borderColor, const Color(0x66000000));
     expect(layer.polylines.last.color, Colors.white);
-    expect(layer.polylines.last.strokeWidth, 1.5);
+    expect(layer.polylines.last.strokeWidth, 0.6);
   });
 }
 
