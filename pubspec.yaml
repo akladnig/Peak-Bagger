@@ -39,4 +39,5 @@ flutter:
     - assets/OSM_standard/
     - assets/OSM_tracestrack/
     - assets/peak_marker.svg
+    - assets/peak_marker_ticked.svg
     - assets/tasmap50k.csv
