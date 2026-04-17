@@ -173,6 +173,42 @@ class GpxTracksRobot {
     await tester.pump();
   }
 
+  Future<void> clickHoveredTrack() async {
+    await _mouseGesture!.down(tester.getCenter(mapInteractionRegion));
+    await tester.pump();
+    await _mouseGesture!.up();
+    await tester.pump();
+  }
+
+  Future<void> clickMapBackground() async {
+    final background =
+        tester.getTopLeft(mapInteractionRegion) + const Offset(120, 120);
+    await _ensureMouse(background);
+    await _mouseGesture!.moveTo(background);
+    await tester.pump();
+    await _mouseGesture!.down(background);
+    await tester.pump();
+    await _mouseGesture!.up();
+    await tester.pump();
+  }
+
+  Future<void> panMap() async {
+    final gesture = await tester.startGesture(
+      tester.getCenter(mapInteractionRegion),
+      kind: PointerDeviceKind.trackpad,
+    );
+    addTearDown(() async {
+      try {
+        await gesture.up();
+      } catch (_) {}
+    });
+    await gesture.panZoomUpdate(
+      tester.getCenter(mapInteractionRegion),
+      pan: const Offset(0, 120),
+    );
+    await tester.pump();
+  }
+
   void expectHoveredTrack(int trackId) {
     expect(
       ProviderScope.containerOf(
@@ -191,6 +227,24 @@ class GpxTracksRobot {
       isNull,
     );
     expect(_mapRegion.cursor, SystemMouseCursors.grab);
+  }
+
+  void expectSelectedTrack(int trackId) {
+    expect(
+      ProviderScope.containerOf(
+        tester.element(mapInteractionRegion),
+      ).read(mapProvider).selectedTrackId,
+      trackId,
+    );
+  }
+
+  void expectNoSelectedTrack() {
+    expect(
+      ProviderScope.containerOf(
+        tester.element(mapInteractionRegion),
+      ).read(mapProvider).selectedTrackId,
+      isNull,
+    );
   }
 
   void expectTrackStatisticsDialog({

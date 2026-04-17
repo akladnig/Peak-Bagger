@@ -34,10 +34,10 @@ Keep selection transient; green highlight wins over hover.
 ### Phase 3: Journey coverage
 
 - **Goal**: prove end-to-end selection flow with stable selectors
-- [ ] `./test/robot/gpx_tracks/selection_journey_test.dart` - TDD: hover -> primary click select -> pan/zoom preserve -> empty click clear -> hide tracks clears
-- [ ] `./test/robot/gpx_tracks/gpx_tracks_robot.dart` - add helpers for click-select / clear / selected-state assertions; reuse `Key('map-interaction-region')`
-- [ ] `./test/harness/test_map_notifier.dart` - use as shared deterministic seam for widget + robot coverage
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `./test/robot/gpx_tracks/selection_journey_test.dart` - TDD: hover -> primary click select -> pan/zoom preserve -> empty click clear -> hide tracks clears
+- [x] `./test/robot/gpx_tracks/gpx_tracks_robot.dart` - add helpers for click-select / clear / selected-state assertions; reuse `Key('map-interaction-region')`
+- [x] `./test/harness/test_map_notifier.dart` - use as shared deterministic seam for widget + robot coverage
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 
