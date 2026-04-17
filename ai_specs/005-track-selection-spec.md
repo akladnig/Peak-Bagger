@@ -25,14 +25,14 @@ Files to examine:
 <user_flows>
 Primary flow:
 1. User moves the mouse over a visible GPX track and the map cursor changes to click, as it does today.
-2. User clicks the hovered track.
+2. User performs a primary/left click on the hovered track.
 3. App marks that track as selected.
 4. The selected track renders green and stays selected while the user pans, zooms, or moves the pointer away.
 
 Alternative flows:
 - User clicks a different hovered track: the new track replaces the previous selection.
 - User clicks the same selected track again: selection stays on that track and does not toggle off.
-- User clicks empty map space: selection clears.
+- User clicks empty map space: selection clears and no location marker is created or moved.
 - User refreshes, imports, resets, or otherwise rebuilds the track list: stale selection clears.
 
 Error flows:
@@ -44,28 +44,30 @@ Error flows:
 <requirements>
 **Functional:**
 1. Add transient selected-track state to `MapState` and `MapNotifier` using track identity, not the track object itself. One track may be selected at a time.
-2. A track can only be selected from the existing hover hit-test result on mouse click. The click target is the hovered track at click time.
+2. A track can only be selected from the existing hover hit-test result on a primary/left mouse click. Delay hover clearing until after selection resolution so the click can use the track the user clicked, not a cleared or stale hover value.
 3. Selection persists across mouse movement, panning, and zooming.
 4. The selected track renders with a fixed green highlight (`Colors.green`) and the selected styling wins over hover styling if both apply.
-5. Clicking empty map space clears selection.
-6. Refresh/import/reset flows that replace the track list clear any stale selection state before the new track list becomes active.
-7. Selection must not be persisted to ObjectBox, SharedPreferences, or any file-backed store.
-8. Multi-segment tracks must highlight all segments for the selected track, not just the clicked segment.
+5. Clicking empty map space clears selection and must not update `selectedLocation`.
+6. Track selection consumes the click and must not call `setSelectedLocation` or otherwise move the amber location marker.
+7. Refresh/import/reset flows that replace the track list clear any stale selection state before the new track list becomes active.
+8. Toggling track visibility off clears selection because the selected track is no longer visible.
+9. Selection must not be persisted to ObjectBox, SharedPreferences, or any file-backed store.
+10. Multi-segment tracks must highlight all segments for the selected track, not just the clicked segment.
 
 **Error Handling:**
-9. Clicking the map when no track is hovered must be a no-op for selection and must not crash.
-10. Drag gestures that become pans must not create a selection.
-11. If track hit-testing fails for a malformed track, skip that track and keep the rest of the map interactive.
+11. Clicking the map when no track is hovered must be a no-op for selection and must not crash.
+12. Drag gestures that become pans must not create a selection.
+13. If track hit-testing fails for a malformed track, skip that track and keep the rest of the map interactive.
 
 **Edge Cases:**
-12. If the selected track is also currently hovered, the track remains green and the cursor still shows click.
-13. Selecting a different track replaces the existing selection immediately.
-14. Selection does not survive app restart because it is view state only.
-15. Track visibility changes that rebuild or hide the track overlay should clear stale selection if the selected track is no longer visible.
+14. If the selected track is also currently hovered, the track remains green and the cursor still shows click.
+15. Selecting a different track replaces the existing selection immediately.
+16. Selection does not survive app restart because it is view state only.
+17. Track visibility changes that rebuild or hide the track overlay should clear stale selection if the selected track is no longer visible.
 
 **Validation:**
-16. Keep the interaction anchored to stable app-owned keys, especially `Key('map-interaction-region')`.
-17. Add TDD-first coverage for state transitions, rendering color override, and click/clear behavior.
+18. Keep the interaction anchored to stable app-owned keys, especially `Key('map-interaction-region')`.
+19. Add TDD-first coverage for state transitions, rendering color override, and click/clear behavior.
 </requirements>
 
 <boundaries>
@@ -87,13 +89,14 @@ Limits:
 
 <implementation>
 1. Update `./lib/providers/map_provider.dart` and `MapState` to add `selectedTrackId` plus explicit select/clear methods.
-2. Update `./lib/screens/map_screen.dart` so a click on a hovered track selects it, a click on empty map space clears selection, and pan gestures do not select.
-3. Update track rendering in `./lib/screens/map_screen.dart` so the selected track uses `Colors.green` while unselected tracks keep `trackColour`.
+2. Update `./lib/screens/map_screen.dart` so a primary/left click on a hovered track selects it, a click on empty map space clears selection, and pan gestures do not select. Preserve the hovered track id long enough for click selection even though hover is cleared during pointer down.
+3. Update track rendering in `./lib/screens/map_screen.dart` so the selected track uses `Colors.green` while unselected tracks keep `trackColour`, and selected tracks render in a foreground pass or last in z-order.
 4. Clear selection in the existing track refresh/import/reset/recalculate paths when the track list is replaced.
-5. Add or update unit tests in `./test/gpx_track_test.dart` for selection state transitions and stale-selection clearing.
-6. Add widget coverage in `./test/widget/gpx_tracks_selection_test.dart` or the closest GPX map widget test file for the green highlight and click-clear behavior.
-7. Add robot coverage in `./test/robot/gpx_tracks/selection_journey_test.dart` and extend `./test/robot/gpx_tracks/gpx_tracks_robot.dart` with helpers for click-select and clear flows.
-8. Do not change `./lib/models/gpx_track.dart` unless a later requirement needs selection persistence, which is out of scope here.
+5. Clear selection when track visibility is toggled off.
+6. Add or update unit tests in `./test/gpx_track_test.dart` for selection state transitions and stale-selection clearing.
+7. Add widget coverage in `./test/widget/gpx_tracks_selection_test.dart` or the closest GPX map widget test file for the green highlight and click-clear behavior.
+8. Use `./test/harness/test_map_notifier.dart` as the shared seam for widget and robot coverage, then add robot coverage in `./test/robot/gpx_tracks/selection_journey_test.dart` and extend `./test/robot/gpx_tracks/gpx_tracks_robot.dart` with helpers for click-select and clear flows.
+9. Do not change `./lib/models/gpx_track.dart` unless a later requirement needs selection persistence, which is out of scope here.
 </implementation>
 
 <stages>
@@ -118,13 +121,15 @@ Phase 3: Add widget and robot coverage for click-to-select, click-empty-to-clear
    - unselected tracks keep their stored color
 4. Robot tests must cover the primary journey using `Key('map-interaction-region')`:
    - hover a visible track
-   - click to select it
+   - primary/left click to select it
    - pan or zoom without losing selection
    - click empty map space to clear it
+   - toggle track visibility off and observe selection clear
 5. Stable selectors:
    - reuse `Key('map-interaction-region')`
    - reuse existing track/import/reset controls where needed
    - if a new track-layer key is added, keep it app-owned and stable; do not rely on localized text
+   - use `./test/harness/test_map_notifier.dart` as the shared deterministic state seam for widget and robot tests
 6. Baseline automated coverage outcome:
    - logic/state rules: unit tests
    - UI rendering behavior: widget tests
