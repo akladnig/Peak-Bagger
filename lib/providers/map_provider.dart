@@ -65,6 +65,7 @@ class MapState {
   final String mapSearchQuery;
   final List<GpxTrack> tracks;
   final bool showTracks;
+  final bool showPeaks;
   final bool isLoadingTracks;
   final String? trackImportError;
   final bool hasTrackRecoveryIssue;
@@ -102,6 +103,7 @@ class MapState {
     this.mapSearchQuery = '',
     this.tracks = const [],
     this.showTracks = false,
+    this.showPeaks = true,
     this.isLoadingTracks = false,
     this.trackImportError,
     this.hasTrackRecoveryIssue = false,
@@ -147,6 +149,7 @@ class MapState {
     String? mapSearchQuery,
     List<GpxTrack>? tracks,
     bool? showTracks,
+    bool? showPeaks,
     bool? isLoadingTracks,
     String? trackImportError,
     bool clearTrackImportError = false,
@@ -195,6 +198,7 @@ class MapState {
       mapSearchQuery: mapSearchQuery ?? this.mapSearchQuery,
       tracks: tracks ?? this.tracks,
       showTracks: showTracks ?? this.showTracks,
+      showPeaks: showPeaks ?? this.showPeaks,
       isLoadingTracks: isLoadingTracks ?? this.isLoadingTracks,
       trackImportError: clearTrackImportError
           ? null
@@ -216,6 +220,24 @@ class MapState {
 
 final mapProvider = NotifierProvider<MapNotifier, MapState>(MapNotifier.new);
 
+Set<int> buildCorrelatedPeakIds(Iterable<GpxTrack> tracks) {
+  final ids = <int>{};
+
+  for (final track in tracks) {
+    if (!track.peakCorrelationProcessed) {
+      continue;
+    }
+
+    for (final peak in track.peaks) {
+      if (peak.osmId != 0) {
+        ids.add(peak.osmId);
+      }
+    }
+  }
+
+  return ids;
+}
+
 class MapNotifier extends Notifier<MapState> {
   late final PeakRepository _peakRepository;
   late final PeakRefreshService _peakRefreshService;
@@ -224,6 +246,9 @@ class MapNotifier extends Notifier<MapState> {
   late final TrackMigrationMarkerStore _trackMigrationMarkerStore;
   bool _recoverySnackbarShown = false;
   String? _pendingTrackSnackbarMessage;
+  Set<int> _correlatedPeakIds = const {};
+
+  Set<int> get correlatedPeakIds => _correlatedPeakIds;
 
   @override
   MapState build() {
@@ -301,6 +326,7 @@ class MapNotifier extends Notifier<MapState> {
         if (!state.hasTrackRecoveryIssue) {
           _recoverySnackbarShown = false;
         }
+        _refreshCorrelatedPeakIds(tracks);
         state = state.copyWith(
           tracks: tracks,
           showTracks: false,
@@ -309,6 +335,7 @@ class MapNotifier extends Notifier<MapState> {
         );
         return;
       case TrackStartupAction.loadTracks:
+        _refreshCorrelatedPeakIds(tracks);
         state = state.copyWith(
           tracks: tracks,
           showTracks: true,
@@ -396,6 +423,7 @@ class MapNotifier extends Notifier<MapState> {
       }
 
       final allTracks = _gpxTrackRepository.getAllTracks();
+      _refreshCorrelatedPeakIds(allTracks);
       final hasRecoveryIssue = _hasTrackRecoveryIssue(allTracks);
       if (hasRecoveryIssue && !state.hasTrackRecoveryIssue) {
         _recoverySnackbarShown = false;
@@ -503,6 +531,7 @@ class MapNotifier extends Notifier<MapState> {
       }
 
       final refreshedTracks = _gpxTrackRepository.getAllTracks();
+      _refreshCorrelatedPeakIds(refreshedTracks);
       final warning = skippedCount > 0
           ? _buildRecalcWarning(
               skippedCount: skippedCount,
@@ -1371,6 +1400,10 @@ class MapNotifier extends Notifier<MapState> {
     );
   }
 
+  void togglePeaks() {
+    state = state.copyWith(showPeaks: !state.showPeaks);
+  }
+
   void setPeakSearchVisible(bool visible) {
     state = state.copyWith(showPeakSearch: visible);
   }
@@ -1455,6 +1488,10 @@ class MapNotifier extends Notifier<MapState> {
       );
       rethrow;
     }
+  }
+
+  void _refreshCorrelatedPeakIds(Iterable<GpxTrack> tracks) {
+    _correlatedPeakIds = buildCorrelatedPeakIds(tracks);
   }
 
   bool _inRange(int value, int min, int max) {

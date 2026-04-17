@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
@@ -468,20 +469,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         ),
                       ],
                     ),
-                  if (mapState.peaks.isNotEmpty && mapState.zoom >= 12)
+                  if (mapState.showPeaks &&
+                      mapState.peaks.isNotEmpty &&
+                      mapState.zoom >= 12)
                     MarkerLayer(
-                      markers: mapState.peaks.map((peak) {
-                        return Marker(
-                          point: LatLng(peak.latitude, peak.longitude),
-                          width: 20,
-                          height: 20,
-                          child: Icon(
-                            Icons.change_history,
-                            color: const Color(0xFFB22222),
-                            size: 16,
-                          ),
-                        );
-                      }).toList(),
+                      key: const Key('peak-marker-layer'),
+                      markers: _buildPeakMarkers(mapState),
                     ),
                   if (mapState.selectedPeaks.isNotEmpty)
                     CircleLayer(
@@ -920,6 +913,33 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
 
     return polygons;
+  }
+
+  List<Marker> _buildPeakMarkers(MapState mapState) {
+    if (mapState.zoom < 12) {
+      return const [];
+    }
+
+    final correlatedPeakIds = ref.read(mapProvider.notifier).correlatedPeakIds;
+
+    return mapState.peaks.map((peak) {
+      final isCorrelated = correlatedPeakIds.contains(peak.osmId);
+      final assetName = isCorrelated
+          ? 'assets/peak_marker_ticked.svg'
+          : 'assets/peak_marker.svg';
+
+      return Marker(
+        point: LatLng(peak.latitude, peak.longitude),
+        width: 20,
+        height: 20,
+        child: SvgPicture.asset(
+          assetName,
+          colorFilter: isCorrelated
+              ? null
+              : const ColorFilter.mode(Color(0xFFB22222), BlendMode.srcIn),
+        ),
+      );
+    }).toList();
   }
 
   List<TasmapPolygonLabelEntry> _buildOverlayLabelEntries(double zoom) {

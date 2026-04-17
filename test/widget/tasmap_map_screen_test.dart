@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
@@ -182,6 +185,232 @@ void main() {
       tester.widget<TileLayer>(find.byType(TileLayer)).urlTemplate,
       'https://services.thelist.tas.gov.au/arcgis/rest/services/Basemaps/Topographic/MapServer/tile/{z}/{y}/{x}',
     );
+  });
+
+  testWidgets('peak layer defaults on and toggles off', (tester) async {
+    final map = _adamsons();
+    final repository = await TestTasmapRepository.create(maps: [map]);
+
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 12,
+        basemap: Basemap.tracestrack,
+        peaks: [
+          Peak(
+            osmId: 6406,
+            name: 'Bonnet Hill',
+            latitude: -43.0,
+            longitude: 147.0,
+          ),
+        ],
+      ),
+      correlatedPeakIds: {6406},
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(() => notifier),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
+          tasmapRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(home: MapScreen()),
+      ),
+    );
+
+    await tester.pump();
+
+    expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('show-peaks-fab')));
+    await tester.pump();
+
+    expect(find.byKey(const Key('peak-marker-layer')), findsNothing);
+  });
+
+  test('correlated peak ids dedupe by osmId', () {
+    final tracks = [
+      GpxTrack(
+          contentHash: 'hash-1',
+          trackName: 'Track 1',
+          gpxFile: '<gpx></gpx>',
+          peakCorrelationProcessed: true,
+        )
+        ..peaks.addAll([
+          Peak(
+            osmId: 6406,
+            name: 'Bonnet Hill',
+            latitude: -43.0,
+            longitude: 147.0,
+          ),
+          Peak(
+            osmId: 6406,
+            name: 'Bonnet Hill',
+            latitude: -43.0,
+            longitude: 147.0,
+          ),
+        ]),
+      GpxTrack(
+          contentHash: 'hash-2',
+          trackName: 'Track 2',
+          gpxFile: '<gpx></gpx>',
+          peakCorrelationProcessed: false,
+        )
+        ..peaks.add(
+          Peak(
+            osmId: 9999,
+            name: 'Ignored Peak',
+            latitude: -42.0,
+            longitude: 146.0,
+          ),
+        ),
+    ];
+
+    expect(buildCorrelatedPeakIds(tracks), {6406});
+  });
+
+  testWidgets('peak layer renders ticked and unticked markers', (tester) async {
+    final map = _adamsons();
+    final repository = await TestTasmapRepository.create(maps: [map]);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(
+            () => TestMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 12,
+                basemap: Basemap.tracestrack,
+                peaks: [
+                  Peak(
+                    osmId: 6406,
+                    name: 'Bonnet Hill',
+                    latitude: -43.0,
+                    longitude: 147.0,
+                  ),
+                  Peak(
+                    osmId: 7000,
+                    name: 'Other Peak',
+                    latitude: -42.9,
+                    longitude: 147.1,
+                  ),
+                ],
+              ),
+              correlatedPeakIds: {6406},
+            ),
+          ),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
+          tasmapRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(home: MapScreen()),
+      ),
+    );
+
+    await tester.pump();
+
+    expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
+
+    final markerLayer = tester.widget<MarkerLayer>(
+      find.byKey(const Key('peak-marker-layer')),
+    );
+    final assetNames = markerLayer.markers
+        .map((marker) => (marker.child as SvgPicture).bytesLoader.toString())
+        .toList();
+
+    expect(
+      assetNames,
+      contains('SvgAssetLoader(assets/peak_marker_ticked.svg)'),
+    );
+    expect(assetNames, contains('SvgAssetLoader(assets/peak_marker.svg)'));
+  });
+
+  testWidgets('Show Peaks toggle hides peak layer', (tester) async {
+    final map = _adamsons();
+    final repository = await TestTasmapRepository.create(maps: [map]);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(
+            () => TestMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 12,
+                basemap: Basemap.tracestrack,
+                peaks: [
+                  Peak(
+                    osmId: 6406,
+                    name: 'Bonnet Hill',
+                    latitude: -43.0,
+                    longitude: 147.0,
+                  ),
+                ],
+              ),
+              correlatedPeakIds: {6406},
+            ),
+          ),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
+          tasmapRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(home: MapScreen()),
+      ),
+    );
+
+    await tester.pump();
+
+    expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('show-peaks-fab')));
+    await tester.pump();
+
+    expect(find.byKey(const Key('peak-marker-layer')), findsNothing);
+  });
+
+  testWidgets('peak layer hides below zoom 12', (tester) async {
+    final map = _adamsons();
+    final repository = await TestTasmapRepository.create(maps: [map]);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(
+            () => TestMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 11,
+                basemap: Basemap.tracestrack,
+                peaks: [
+                  Peak(
+                    osmId: 6406,
+                    name: 'Bonnet Hill',
+                    latitude: -43.0,
+                    longitude: 147.0,
+                  ),
+                ],
+              ),
+              correlatedPeakIds: {6406},
+            ),
+          ),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
+          tasmapRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(home: MapScreen()),
+      ),
+    );
+
+    await tester.pump();
+
+    expect(find.byKey(const Key('peak-marker-layer')), findsNothing);
   });
 }
 

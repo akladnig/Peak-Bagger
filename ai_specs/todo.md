@@ -34,7 +34,7 @@
 - [ ] click on I toggles
 ## 4a
 - [x] add go to map only, centre on map and zoom to map extents, and draw a blue rectangle around the map extents so that the map can be seen when zooming out.
-- [ ] Add show maps - a blue grid of all maps. Map name and series to be shown at bottom right of each map.
+- [x] Add show maps - a blue grid of all maps. Map name and series to be shown at bottom right of each map.
 - [x] Change map drawing from rectangle to a polygon.
 ## 5 Gpx Tracks
 - [ ] implement gpx track import - multiple file import or just scan default folder.

@@ -234,6 +234,22 @@ class MapActionRail extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           LeftTooltipFab(
+            message: 'Show peaks',
+            child: FloatingActionButton.small(
+              key: const Key('show-peaks-fab'),
+              heroTag: 'peaks',
+              backgroundColor: Theme.of(context).colorScheme.surface,
+              onPressed: () {
+                ref.read(mapProvider.notifier).togglePeaks();
+              },
+              child: Icon(
+                Icons.landscape,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          LeftTooltipFab(
             message: 'Import track',
             child: FloatingActionButton.small(
               key: const Key('import-tracks-fab'),

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
@@ -211,5 +212,111 @@ void main() {
       ),
       70,
     );
+  });
+
+  testWidgets('peak layer toggles and shows correlated markers', (
+    tester,
+  ) async {
+    final robot = GpxTracksRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 12,
+        basemap: Basemap.tracestrack,
+        showTracks: false,
+        peaks: [
+          Peak(
+            osmId: 6406,
+            name: 'Bonnet Hill',
+            latitude: -43.0,
+            longitude: 147.0,
+          ),
+          Peak(
+            osmId: 7000,
+            name: 'Other Peak',
+            latitude: -42.9,
+            longitude: 147.1,
+          ),
+        ],
+        tracks: [
+          GpxTrack(
+              contentHash: 'hash',
+              trackName: 'Correlated Track',
+              gpxFile: '<gpx></gpx>',
+              displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
+                [const LatLng(-43.0, 147.0), const LatLng(-42.9, 147.1)],
+              ]),
+              peakCorrelationProcessed: true,
+            )
+            ..peaks.add(
+              Peak(
+                osmId: 6406,
+                name: 'Bonnet Hill',
+                latitude: -43.0,
+                longitude: 147.0,
+              ),
+            ),
+        ],
+      ),
+      notifier: TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 12,
+          basemap: Basemap.tracestrack,
+          showTracks: false,
+          peaks: [
+            Peak(
+              osmId: 6406,
+              name: 'Bonnet Hill',
+              latitude: -43.0,
+              longitude: 147.0,
+            ),
+            Peak(
+              osmId: 7000,
+              name: 'Other Peak',
+              latitude: -42.9,
+              longitude: 147.1,
+            ),
+          ],
+          tracks: [
+            GpxTrack(
+                contentHash: 'hash',
+                trackName: 'Correlated Track',
+                gpxFile: '<gpx></gpx>',
+                displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
+                  [const LatLng(-43.0, 147.0), const LatLng(-42.9, 147.1)],
+                ]),
+                peakCorrelationProcessed: true,
+              )
+              ..peaks.add(
+                Peak(
+                  osmId: 6406,
+                  name: 'Bonnet Hill',
+                  latitude: -43.0,
+                  longitude: 147.0,
+                ),
+              ),
+          ],
+        ),
+        correlatedPeakIds: {6406},
+      ),
+    );
+    addTearDown(robot.dispose);
+    await robot.pumpApp();
+
+    robot.expectPeaksShown();
+
+    final assets = robot.peakMarkerAssetNames();
+    expect(assets, contains('SvgAssetLoader(assets/peak_marker_ticked.svg)'));
+    expect(assets, contains('SvgAssetLoader(assets/peak_marker.svg)'));
+
+    await robot.toggleTracks();
+    robot.expectTracksShown();
+
+    await robot.togglePeaks();
+    robot.expectPeaksHidden();
+
+    await robot.togglePeaks();
+    robot.expectPeaksShown();
   });
 }

@@ -15,7 +15,8 @@ class TestMapNotifier extends MapNotifier {
     this.recalcSkippedCount = 0,
     this.recalcWarning,
     this.recalcTracks,
-  });
+    Set<int> correlatedPeakIds = const {},
+  }) : _correlatedPeakIds = correlatedPeakIds;
 
   final MapState initialState;
   final String rescanStatus;
@@ -25,11 +26,15 @@ class TestMapNotifier extends MapNotifier {
   final int recalcSkippedCount;
   final String? recalcWarning;
   final List<GpxTrack>? recalcTracks;
+  final Set<int> _correlatedPeakIds;
   bool _snackbarConsumed = false;
   String? _trackSnackbarMessage;
 
   @override
   MapState build() => initialState;
+
+  @override
+  Set<int> get correlatedPeakIds => _correlatedPeakIds;
 
   @override
   void toggleTracks() {

@@ -2,7 +2,9 @@ import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
@@ -24,6 +26,8 @@ class GpxTracksRobot {
   Finder get showTracksFab => find.byKey(const Key('show-tracks-fab'));
   Finder get importFab => find.byKey(const Key('import-tracks-fab'));
   Finder get infoFab => find.byKey(const Key('map-info-fab'));
+  Finder get showPeaksFab => find.byKey(const Key('show-peaks-fab'));
+  Finder get peakMarkerLayer => find.byKey(const Key('peak-marker-layer'));
   Finder get recalcStatsTile =>
       find.byKey(const Key('recalculate-track-statistics-tile'));
   Finder get filterSettingsTile =>
@@ -61,6 +65,12 @@ class GpxTracksRobot {
 
   Future<void> toggleTracks() async {
     await tester.tap(showTracksFab);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+
+  Future<void> togglePeaks() async {
+    await tester.tap(showPeaksFab);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
   }
@@ -132,6 +142,21 @@ class GpxTracksRobot {
       ).read(mapProvider).showTracks,
       isTrue,
     );
+  }
+
+  void expectPeaksShown() {
+    expect(peakMarkerLayer, findsOneWidget);
+  }
+
+  void expectPeaksHidden() {
+    expect(peakMarkerLayer, findsNothing);
+  }
+
+  List<String> peakMarkerAssetNames() {
+    final markerLayer = tester.widget<MarkerLayer>(peakMarkerLayer);
+    return markerLayer.markers
+        .map((marker) => (marker.child as SvgPicture).bytesLoader.toString())
+        .toList();
   }
 
   Future<void> hoverTrack() async {
