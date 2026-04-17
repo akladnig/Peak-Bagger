@@ -266,6 +266,57 @@ void main() {
       );
       expect(container.read(mapProvider).showInfoPopup, isTrue);
     });
+
+    test('stores, replaces, and clears selectedTrackId', () {
+      final initialState = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(() => TestMapNotifier(initialState)),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(mapProvider.notifier);
+
+      notifier.selectTrack(3);
+      expect(container.read(mapProvider).selectedTrackId, 3);
+
+      notifier.selectTrack(7);
+      expect(container.read(mapProvider).selectedTrackId, 7);
+
+      notifier.clearSelectedTrack();
+      expect(container.read(mapProvider).selectedTrackId, isNull);
+    });
+
+    test('map movement preserves selectedTrackId and hide clears it', () {
+      final initialState = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        selectedTrackId: 3,
+        tracks: [GpxTrack(contentHash: 'hash', trackName: 'Track 1')],
+        showTracks: true,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(() => TestMapNotifier(initialState)),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(mapProvider.notifier);
+
+      notifier.updatePosition(const LatLng(-42.0, 146.0), 14);
+      expect(container.read(mapProvider).selectedTrackId, 3);
+
+      notifier.toggleTracks();
+      expect(container.read(mapProvider).showTracks, isFalse);
+      expect(container.read(mapProvider).selectedTrackId, isNull);
+    });
   });
 
   group('MapState copyWith', () {

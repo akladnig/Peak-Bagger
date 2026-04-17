@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:flutter/gestures.dart' show kPrimaryMouseButton;
+import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -32,6 +34,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   String? _gotoError;
   bool _isPointerDown = false;
   Offset? _pointerDownPosition;
+  bool _primaryClickPending = false;
   Timer? _scrollTimer;
   double _scrollDx = 0;
   double _scrollDy = 0;
@@ -405,13 +408,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   },
                   onPointerDown: (event, point) {
                     _mapFocusNode.requestFocus();
-                    ref.read(mapProvider.notifier).clearHoveredTrack();
                     setState(() {
                       _isPointerDown = true;
                       _pointerDownPosition = event.localPosition;
+                      _primaryClickPending =
+                          event.kind == PointerDeviceKind.mouse &&
+                          event.buttons == kPrimaryMouseButton;
                     });
                   },
                   onPointerUp: (event, point) {
+                    final primaryClickPending = _primaryClickPending;
                     final moved =
                         _pointerDownPosition != null &&
                         (event.localPosition - _pointerDownPosition!).distance >
@@ -419,10 +425,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     setState(() {
                       _isPointerDown = false;
                       _pointerDownPosition = null;
+                      _primaryClickPending = false;
                     });
                     if (ref.read(mapProvider).showInfoPopup) {
                       ref.read(mapProvider.notifier).toggleInfoPopup();
-                    } else if (!moved) {
+                    }
+                    if (!moved) {
                       _handleTrackHover(
                         event.localPosition,
                         _mapController.camera.screenOffsetToLatLng(
@@ -430,7 +438,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         ),
                         mapState,
                       );
-                      ref.read(mapProvider.notifier).setSelectedLocation(point);
+                      final notifier = ref.read(mapProvider.notifier);
+                      final hoveredTrackId = ref
+                          .read(mapProvider)
+                          .hoveredTrackId;
+                      if (primaryClickPending && hoveredTrackId != null) {
+                        notifier.selectTrack(hoveredTrackId);
+                      } else if (primaryClickPending) {
+                        notifier.clearSelectedTrack();
+                      }
                     }
                   },
                   onPointerCancel: (event, point) {

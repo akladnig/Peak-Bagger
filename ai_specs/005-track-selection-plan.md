@@ -17,11 +17,11 @@ Keep selection transient; green highlight wins over hover.
 ### Phase 1: Selection state + click path
 
 - **Goal**: store/clear selected track id; select on primary click
-- [ ] `./lib/providers/map_provider.dart` - add `selectedTrackId`, select/clear methods, clear stale selection on track rebuild/toggle paths
-- [ ] `./lib/screens/map_screen.dart` - delay hover clear until after selection resolution; primary click selects hovered track; empty click clears selection; do not touch `selectedLocation`
-- [ ] `./test/gpx_track_test.dart` - TDD: select hovered track, replace selection, empty click clears, pan/zoom preserves selection
-- [ ] `./test/harness/test_map_notifier.dart` - extend seam only if selection helpers need it for deterministic tests
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `./lib/providers/map_provider.dart` - add `selectedTrackId`, select/clear methods, clear stale selection on track rebuild/toggle paths
+- [x] `./lib/screens/map_screen.dart` - delay hover clear until after selection resolution; primary click selects hovered track; empty click clears selection; do not touch `selectedLocation`
+- [x] `./test/gpx_track_test.dart` - TDD: select hovered track, replace selection, empty click clears, pan/zoom preserves selection
+- [x] `./test/harness/test_map_notifier.dart` - extend seam only if selection helpers need it for deterministic tests
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 2: Green render + visibility rules
 

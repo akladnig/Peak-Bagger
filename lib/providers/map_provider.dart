@@ -72,6 +72,7 @@ class MapState {
   final String? trackOperationStatus;
   final String? trackOperationWarning;
   final int? hoveredTrackId;
+  final int? selectedTrackId;
 
   const MapState({
     required this.center,
@@ -110,6 +111,7 @@ class MapState {
     this.trackOperationStatus,
     this.trackOperationWarning,
     this.hoveredTrackId,
+    this.selectedTrackId,
   });
 
   bool get showMapOverlay => tasmapDisplayMode == TasmapDisplayMode.overlay;
@@ -160,6 +162,8 @@ class MapState {
     bool clearTrackOperationWarning = false,
     int? hoveredTrackId,
     bool clearHoveredTrackId = false,
+    int? selectedTrackId,
+    bool clearSelectedTrackId = false,
     bool clearCursorMgrs = false,
     bool clearError = false,
     bool clearGotoMgrs = false,
@@ -216,6 +220,9 @@ class MapState {
       hoveredTrackId: clearHoveredTrackId
           ? null
           : (hoveredTrackId ?? this.hoveredTrackId),
+      selectedTrackId: clearSelectedTrackId
+          ? null
+          : (selectedTrackId ?? this.selectedTrackId),
     );
   }
 }
@@ -318,6 +325,7 @@ class MapNotifier extends Notifier<MapState> {
           showTracks: false,
           hasTrackRecoveryIssue: false,
           clearHoveredTrackId: true,
+          clearSelectedTrackId: true,
         );
         await _importTracks(includeTasmaniaFolder: true);
         return;
@@ -334,6 +342,7 @@ class MapNotifier extends Notifier<MapState> {
           showTracks: false,
           hasTrackRecoveryIssue: true,
           clearHoveredTrackId: true,
+          clearSelectedTrackId: true,
         );
         return;
       case TrackStartupAction.loadTracks:
@@ -343,6 +352,7 @@ class MapNotifier extends Notifier<MapState> {
           showTracks: true,
           hasTrackRecoveryIssue: false,
           clearHoveredTrackId: true,
+          clearSelectedTrackId: true,
         );
         return;
     }
@@ -375,6 +385,7 @@ class MapNotifier extends Notifier<MapState> {
       clearTrackOperationStatus: true,
       clearTrackOperationWarning: true,
       clearHoveredTrackId: true,
+      clearSelectedTrackId: true,
     );
 
     try {
@@ -448,6 +459,7 @@ class MapNotifier extends Notifier<MapState> {
         trackOperationStatus: statusMessage,
         trackOperationWarning: result.warning,
         clearHoveredTrackId: true,
+        clearSelectedTrackId: true,
       );
       return result;
     } catch (e) {
@@ -455,6 +467,7 @@ class MapNotifier extends Notifier<MapState> {
         isLoadingTracks: false,
         trackImportError: 'Failed to import tracks: $e',
         clearHoveredTrackId: true,
+        clearSelectedTrackId: true,
       );
       return null;
     }
@@ -497,6 +510,7 @@ class MapNotifier extends Notifier<MapState> {
       clearTrackOperationStatus: true,
       clearTrackOperationWarning: true,
       clearHoveredTrackId: true,
+      clearSelectedTrackId: true,
     );
 
     try {
@@ -552,6 +566,7 @@ class MapNotifier extends Notifier<MapState> {
         trackOperationStatus: statusMessage,
         trackOperationWarning: warning,
         clearHoveredTrackId: true,
+        clearSelectedTrackId: true,
       );
       return TrackStatisticsRecalcResult(
         updatedCount: updatedCount,
@@ -563,6 +578,7 @@ class MapNotifier extends Notifier<MapState> {
         isLoadingTracks: false,
         trackImportError: 'Failed to recalculate track statistics: $e',
         clearHoveredTrackId: true,
+        clearSelectedTrackId: true,
       );
       return null;
     }
@@ -769,6 +785,14 @@ class MapNotifier extends Notifier<MapState> {
 
   void clearHoveredTrack() {
     state = state.copyWith(clearHoveredTrackId: true);
+  }
+
+  void selectTrack(int trackId) {
+    state = state.copyWith(selectedTrackId: trackId);
+  }
+
+  void clearSelectedTrack() {
+    state = state.copyWith(clearSelectedTrackId: true);
   }
 
   (LatLng?, String?) parseGridReference(String input) {
@@ -1406,6 +1430,7 @@ class MapNotifier extends Notifier<MapState> {
     state = state.copyWith(
       showTracks: !state.showTracks,
       clearHoveredTrackId: true,
+      clearSelectedTrackId: state.showTracks,
     );
   }
 

@@ -46,6 +46,7 @@ class TestMapNotifier extends MapNotifier {
     state = state.copyWith(
       showTracks: !state.showTracks,
       clearHoveredTrackId: true,
+      clearSelectedTrackId: state.showTracks,
     );
   }
 
@@ -64,6 +65,7 @@ class TestMapNotifier extends MapNotifier {
     state = state.copyWith(
       trackOperationStatus: rescanStatus,
       trackOperationWarning: rescanWarning,
+      clearSelectedTrackId: true,
     );
   }
 
@@ -77,6 +79,7 @@ class TestMapNotifier extends MapNotifier {
           'Imported 1, replaced 0, unchanged 0, non-Tasmanian 0, errors 0',
       trackOperationWarning: null,
       clearHoveredTrackId: true,
+      clearSelectedTrackId: true,
     );
     _snackbarConsumed = false;
     return const TrackImportResult(
@@ -97,6 +100,7 @@ class TestMapNotifier extends MapNotifier {
       trackOperationStatus:
           'Updated $recalcUpdatedCount tracks, refreshed peak correlation, skipped $recalcSkippedCount tracks',
       trackOperationWarning: recalcWarning,
+      clearSelectedTrackId: true,
     );
     return TrackStatisticsRecalcResult(
       updatedCount: recalcUpdatedCount,

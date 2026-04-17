@@ -129,7 +129,7 @@ void main() {
     await gesture.down(center);
     await tester.pump();
 
-    expect(container.read(mapProvider).hoveredTrackId, isNull);
+    expect(container.read(mapProvider).hoveredTrackId, 7);
     expect(_mapRegion(tester).cursor, SystemMouseCursors.grabbing);
 
     await gesture.moveTo(center + const Offset(0, 30));
