@@ -268,6 +268,23 @@ void main() {
     });
   });
 
+  group('MapState copyWith', () {
+    test('preserves error and gotoMgrs on unrelated updates', () {
+      final initialState = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        error: 'boom',
+        gotoMgrs: '55G\n00000 00000',
+      );
+
+      final updated = initialState.copyWith(center: const LatLng(-42.0, 146.0));
+
+      expect(updated.error, 'boom');
+      expect(updated.gotoMgrs, '55G\n00000 00000');
+    });
+  });
+
   group('GpxTrack', () {
     test('newly imported rows populate identity fields', () {
       final track = GpxTrack(
@@ -331,6 +348,9 @@ void main() {
         'highestElevation': 900.0,
         'ascent': 900.0,
         'totalTimeMillis': 3600000,
+        'movingTime': 2700000,
+        'restingTime': 900000,
+        'pausedTime': 600000,
         'trackColour': 0xFFa726bc,
       };
 
@@ -348,6 +368,9 @@ void main() {
       expect(track.distanceFromPeak, 4.5);
       expect(track.lowestElevation, 100);
       expect(track.highestElevation, 900);
+      expect(track.movingTime, 2700000);
+      expect(track.restingTime, 900000);
+      expect(track.pausedTime, 600000);
       expect(track.gpxFile, '<gpx></gpx>');
       expect(encoded['contentHash'], 'hash');
       expect(encoded['trackName'], 'Frenchmans Cap');
@@ -359,6 +382,9 @@ void main() {
       expect(encoded['distanceFromPeak'], 4.5);
       expect(encoded['lowestElevation'], 100);
       expect(encoded['highestElevation'], 900);
+      expect(encoded['movingTime'], 2700000);
+      expect(encoded['restingTime'], 900000);
+      expect(encoded['pausedTime'], 600000);
       expect(encoded['gpxFile'], '<gpx></gpx>');
     });
 
@@ -453,7 +479,7 @@ void main() {
           trackName: 'Track 1',
           trackDate: DateTime(2024, 1, 15),
         );
-        repository.addTrack(track);
+        repository.putTrack(track);
 
         final found = repository.findByContentHash('hash-1');
 
@@ -462,14 +488,14 @@ void main() {
       });
 
       test('findByTrackNameAndTrackDate uses metadata-date rows only', () {
-        repository.addTrack(
+        repository.putTrack(
           GpxTrack(
             contentHash: 'no-meta',
             trackName: 'Track A',
             trackDate: DateTime(2024, 1, 15),
           ),
         );
-        repository.addTrack(
+        repository.putTrack(
           GpxTrack(
             contentHash: 'meta',
             trackName: 'Track A',
@@ -695,6 +721,73 @@ void main() {
       expect(stats.startElevation, 100);
       expect(stats.endElevation, 100);
     });
+
+    test(
+      'calculates time stats from filtered XML with rest and pause gaps',
+      () {
+        final gpx = _statsGpx('Time Track', [
+          [
+            _StatsPoint(-42.0, 146.0, 100, DateTime.utc(2024, 1, 15, 8, 0, 0)),
+            _StatsPoint(
+              -42.0,
+              146.002,
+              120,
+              DateTime.utc(2024, 1, 15, 8, 1, 0),
+            ),
+          ],
+          [
+            _StatsPoint(
+              -42.0,
+              146.002,
+              120,
+              DateTime.utc(2024, 1, 15, 8, 3, 0),
+            ),
+            _StatsPoint(
+              -42.0,
+              146.002,
+              120,
+              DateTime.utc(2024, 1, 15, 8, 4, 0),
+            ),
+          ],
+        ]);
+
+        final stats = calculator.calculate(gpx);
+
+        expect(stats.startDateTime, isNotNull);
+        expect(stats.startDateTime!.isUtc, isTrue);
+        expect(stats.endDateTime, isNotNull);
+        expect(stats.endDateTime!.isUtc, isTrue);
+        expect(stats.totalTimeMillis, 120000);
+        expect(stats.movingTime, 60000);
+        expect(stats.restingTime, 60000);
+        expect(stats.pausedTime, 120000);
+      },
+    );
+
+    test(
+      'skips missing timestamps and keeps remaining parseable intervals',
+      () {
+        final gpx = _statsGpx('Gap Track', [
+          [
+            _StatsPoint(-42.0, 146.0, 100, DateTime.utc(2024, 1, 15, 8, 0, 0)),
+            _StatsPoint(-42.0, 146.001, 110, null),
+            _StatsPoint(
+              -42.0,
+              146.002,
+              120,
+              DateTime.utc(2024, 1, 15, 8, 2, 0),
+            ),
+          ],
+        ]);
+
+        final stats = calculator.calculate(gpx);
+
+        expect(stats.totalTimeMillis, 120000);
+        expect(stats.movingTime, 120000);
+        expect(stats.restingTime, 0);
+        expect(stats.pausedTime, 0);
+      },
+    );
 
     test('treats elevations below zero as zero in distance math', () {
       final gpx = _statsGpx('Invalid Elevation', [
@@ -1335,11 +1428,12 @@ String _tasmanianGpxShifted(String name) =>
 ''';
 
 class _StatsPoint {
-  const _StatsPoint(this.lat, this.lon, this.elevation);
+  const _StatsPoint(this.lat, this.lon, this.elevation, [this.timeUtc]);
 
   final double lat;
   final double lon;
   final double? elevation;
+  final DateTime? timeUtc;
 }
 
 String _statsGpx(String name, List<List<_StatsPoint>> segments) {
@@ -1355,6 +1449,11 @@ String _statsGpx(String name, List<List<_StatsPoint>> segments) {
       buffer.writeln('      <trkpt lat="${point.lat}" lon="${point.lon}">');
       if (point.elevation != null) {
         buffer.writeln('        <ele>${point.elevation}</ele>');
+      }
+      if (point.timeUtc != null) {
+        buffer.writeln(
+          '        <time>${point.timeUtc!.toUtc().toIso8601String()}</time>',
+        );
       }
       buffer.writeln('      </trkpt>');
     }

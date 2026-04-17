@@ -101,6 +101,12 @@ void main() {
           trackName: 'Mt Anne',
           trackDate: DateTime(2024, 1, 15),
           gpxFile: '<gpx></gpx>',
+          startDateTime: DateTime.utc(2024, 1, 15, 8),
+          endDateTime: DateTime.utc(2024, 1, 15, 9),
+          totalTimeMillis: 3600000,
+          movingTime: 3000000,
+          restingTime: 300000,
+          pausedTime: 300000,
           distance2d: 1234,
           distance3d: 0,
           distanceToPeak: 234,
@@ -145,6 +151,18 @@ void main() {
         tester.element(robot.recalcStatsTile),
       ).read(mapProvider).tracks.first.startElevation,
       100,
+    );
+    expect(
+      ProviderScope.containerOf(
+        tester.element(robot.recalcStatsTile),
+      ).read(mapProvider).tracks.first.totalTimeMillis,
+      3600000,
+    );
+    expect(
+      ProviderScope.containerOf(
+        tester.element(robot.recalcStatsTile),
+      ).read(mapProvider).tracks.first.pausedTime,
+      300000,
     );
     expect(
       ProviderScope.containerOf(

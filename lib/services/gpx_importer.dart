@@ -200,10 +200,10 @@ class GpxImporter {
         return null;
       }
 
-      final startDateTime = _extractStartDateTime(doc);
-      final endDateTime = _extractEndDateTime(doc);
       final modified = file.lastModifiedSync();
-      final trackDate = _normalizeTrackDate(startDateTime ?? modified);
+      final trackDate = _normalizeTrackDate(
+        _extractStartDateTime(doc) ?? modified,
+      );
       final segments = _extractAllSegments(doc);
       final stats = GpxTrackStatisticsCalculator().calculateDocument(doc);
       final contentHash = sha256.convert(bytes).toString();
@@ -214,8 +214,8 @@ class GpxImporter {
         trackDate: trackDate,
         gpxFile: content,
         displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson(segments),
-        startDateTime: startDateTime,
-        endDateTime: endDateTime,
+        startDateTime: stats.startDateTime,
+        endDateTime: stats.endDateTime,
         distance2d: stats.distance2d,
         distance3d: stats.distance3d,
         distanceToPeak: stats.distanceToPeak,
@@ -227,6 +227,10 @@ class GpxImporter {
         startElevation: stats.startElevation,
         endElevation: stats.endElevation,
         elevationProfile: stats.elevationProfile,
+        totalTimeMillis: stats.totalTimeMillis,
+        movingTime: stats.movingTime,
+        restingTime: stats.restingTime,
+        pausedTime: stats.pausedTime,
       );
     } catch (e) {
       return null;
@@ -301,20 +305,6 @@ class GpxImporter {
     } catch (e) {
       return null;
     }
-  }
-
-  DateTime? _extractEndDateTime(XmlDocument doc) {
-    DateTime? latest;
-    for (final point in _allPointElements(doc)) {
-      final time = point.findElements('time').firstOrNull;
-      if (time == null) continue;
-      try {
-        latest = DateTime.parse(time.innerText).toLocal();
-      } catch (_) {
-        continue;
-      }
-    }
-    return latest;
   }
 
   DateTime _normalizeTrackDate(DateTime value) {
@@ -450,15 +440,6 @@ class GpxImporter {
       }
     }
     return doc.findAllElements('rtept').firstOrNull;
-  }
-
-  Iterable<XmlElement> _allPointElements(XmlDocument doc) sync* {
-    final trkpts = doc.findAllElements('trkpt');
-    if (trkpts.isNotEmpty) {
-      yield* trkpts;
-      return;
-    }
-    yield* doc.findAllElements('rtept');
   }
 
   Future<TrackImportResult> importTracks({
@@ -599,15 +580,24 @@ class GpxImporter {
           final existing = existingTracksByHash[track.contentHash];
           if (existing != null) {
             track.gpxTrackId = existing.gpxTrackId;
-            final processed = processTrack(
-              track.gpxFile,
-              filterConfig: filterConfig,
-            );
-            _applyProcessingResult(track, processed);
-            filterFallbackCount += processed.usedRawFallback ? 1 : 0;
-            replacedCount += 1;
-            tracks.add(track);
-            continue;
+            try {
+              final processed = processTrack(
+                track.gpxFile,
+                filterConfig: filterConfig,
+              );
+              _applyProcessingResult(track, processed);
+              filterFallbackCount += processed.usedRawFallback ? 1 : 0;
+              replacedCount += 1;
+              tracks.add(track);
+              continue;
+            } catch (_) {
+              errorSkippedCount += 1;
+              logWriteFailed = !await _appendImportLog(
+                file.path,
+                'Time stats could not be rebuilt from filtered or raw GPX',
+              );
+              continue;
+            }
           }
         }
 
@@ -629,24 +619,44 @@ class GpxImporter {
         final existing = _findExistingLogicalMatch(existingTracks, track);
         if (existing != null && existing.contentHash != track.contentHash) {
           track.gpxTrackId = existing.gpxTrackId;
-          final processed = processTrack(
-            track.gpxFile,
-            filterConfig: filterConfig,
-          );
-          _applyProcessingResult(track, processed);
-          filterFallbackCount += processed.usedRawFallback ? 1 : 0;
-          replacedCount += 1;
-          tracks.add(track);
-          continue;
+          try {
+            final processed = processTrack(
+              track.gpxFile,
+              filterConfig: filterConfig,
+            );
+            _applyProcessingResult(track, processed);
+            filterFallbackCount += processed.usedRawFallback ? 1 : 0;
+            replacedCount += 1;
+            tracks.add(track);
+            continue;
+          } catch (_) {
+            errorSkippedCount += 1;
+            logWriteFailed = !await _appendImportLog(
+              file.path,
+              'Time stats could not be rebuilt from filtered or raw GPX',
+            );
+            continue;
+          }
         }
       }
 
-      final processed = processTrack(track.gpxFile, filterConfig: filterConfig);
-      _applyProcessingResult(track, processed);
-      filterFallbackCount += processed.usedRawFallback ? 1 : 0;
+      try {
+        final processed = processTrack(
+          track.gpxFile,
+          filterConfig: filterConfig,
+        );
+        _applyProcessingResult(track, processed);
+        filterFallbackCount += processed.usedRawFallback ? 1 : 0;
 
-      importedCount += 1;
-      tracks.add(track);
+        importedCount += 1;
+        tracks.add(track);
+      } catch (_) {
+        errorSkippedCount += 1;
+        logWriteFailed = !await _appendImportLog(
+          file.path,
+          'Time stats could not be rebuilt from filtered or raw GPX',
+        );
+      }
     }
 
     if (resetIds) {
@@ -717,6 +727,8 @@ class GpxImporter {
     track.displayTrackPointsByZoom = TrackDisplayCacheBuilder.buildJson(
       result.displaySegments,
     );
+    track.startDateTime = result.stats.startDateTime;
+    track.endDateTime = result.stats.endDateTime;
     track.distance2d = result.stats.distance2d;
     track.distance3d = result.stats.distance3d;
     track.distanceToPeak = result.stats.distanceToPeak;
@@ -728,6 +740,10 @@ class GpxImporter {
     track.startElevation = result.stats.startElevation;
     track.endElevation = result.stats.endElevation;
     track.elevationProfile = result.stats.elevationProfile;
+    track.totalTimeMillis = result.stats.totalTimeMillis;
+    track.movingTime = result.stats.movingTime;
+    track.restingTime = result.stats.restingTime;
+    track.pausedTime = result.stats.pausedTime;
   }
 
   String _buildImportWarning({

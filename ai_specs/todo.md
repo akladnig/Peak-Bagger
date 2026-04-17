@@ -21,6 +21,8 @@
 - [ ] change zoom level display to actual distance
 - [ ] Automatically ask for permissions
 - [ ] implement smooth paning and scrolling. When clicking, smooth transition from one level to another.
+- [ ] add go to feature - add to goto location?
+
 ## 3 Tasmanian Peaks and search
 - [ ] Add a tooltip when a peak is hovered over to display info
 
@@ -41,6 +43,9 @@
 - [ ] implement gpx track import - multiple file import or just scan default folder.
 - [ ] use ramer-douglas-peucker algorithm to draw polylines
 - [x] use geo.dart, ported from gpxpy.
+- [ ] Add option to view raw data
+- [ ] Highlight track on click
+
 ### Distance
 - [x] distance (double?) - future, null for now
 - [x] Distance to Peak, Distance from Peak
@@ -63,9 +68,10 @@
 - [ ] ascentSpeed
 - [ ] descentSpeed
 ### Time
-- [ ] totalTimeMillis (int?) - future, null for now (Duration stored as milliseconds)
-- [ ] movingTime
-- [ ] restingTime
+- [x] totalTimeMillis (int?) - future, null for now (Duration stored as milliseconds)
+- [x] movingTime
+- [x] restingTime
+- [ ] Time calculation are not working as expected.
 ### Climbs
 - [ ] climbs
 

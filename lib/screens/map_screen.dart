@@ -37,6 +37,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   double _scrollDy = 0;
   static const _scrollSpeed = 0.001;
   static const _scrollInterval = Duration(milliseconds: 16);
+  static final _tickedPeakMarker = SvgPicture.asset(
+    'assets/peak_marker_ticked.svg',
+  );
+  static final _untickedPeakMarker = SvgPicture.asset(
+    'assets/peak_marker.svg',
+    colorFilter: const ColorFilter.mode(Color(0xFFB22222), BlendMode.srcIn),
+  );
 
   @override
   void initState() {
@@ -924,20 +931,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     return mapState.peaks.map((peak) {
       final isCorrelated = correlatedPeakIds.contains(peak.osmId);
-      final assetName = isCorrelated
-          ? 'assets/peak_marker_ticked.svg'
-          : 'assets/peak_marker.svg';
+      final child = isCorrelated ? _tickedPeakMarker : _untickedPeakMarker;
 
       return Marker(
         point: LatLng(peak.latitude, peak.longitude),
         width: 20,
         height: 20,
-        child: SvgPicture.asset(
-          assetName,
-          colorFilter: isCorrelated
-              ? null
-              : const ColorFilter.mode(Color(0xFFB22222), BlendMode.srcIn),
-        ),
+        child: child,
       );
     }).toList();
   }

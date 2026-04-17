@@ -6,10 +6,6 @@ class GpxTrackRepository {
 
   GpxTrackRepository(Store store) : _box = store.box<GpxTrack>();
 
-  int addTrack(GpxTrack track) {
-    return _box.put(track);
-  }
-
   int putTrack(GpxTrack track) {
     return _box.put(track);
   }

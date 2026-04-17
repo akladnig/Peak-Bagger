@@ -64,6 +64,9 @@ void main() {
       containsAll([
         'gpxTrackId',
         'trackName',
+        'trackDate',
+        'startDateTime',
+        'endDateTime',
         'peakCorrelationProcessed',
         'peaks',
         'distance2d',
@@ -79,6 +82,10 @@ void main() {
         'startElevation',
         'endElevation',
         'elevationProfile',
+        'totalTimeMillis',
+        'movingTime',
+        'restingTime',
+        'pausedTime',
       ]),
     );
     expect(
@@ -165,6 +172,13 @@ void main() {
             gpxTrackId: 7,
             contentHash: 'hash',
             trackName: 'Mt Ossa',
+            trackDate: DateTime.utc(2024, 1, 15),
+            startDateTime: DateTime.utc(2024, 1, 15, 1, 0),
+            endDateTime: DateTime.utc(2024, 1, 15, 2, 30),
+            totalTimeMillis: 5400000,
+            movingTime: 4800000,
+            restingTime: 300000,
+            pausedTime: 90000,
             peakCorrelationProcessed: true,
           )
           ..peaks.addAll([
@@ -174,6 +188,13 @@ void main() {
 
     final row = gpxTrackToAdminRow(track);
 
+    expect(row.values['trackDate'], DateTime.utc(2024, 1, 15));
+    expect(row.values['startDateTime'], DateTime.utc(2024, 1, 15, 1, 0));
+    expect(row.values['endDateTime'], DateTime.utc(2024, 1, 15, 2, 30));
+    expect(row.values['totalTimeMillis'], 5400000);
+    expect(row.values['movingTime'], 4800000);
+    expect(row.values['restingTime'], 300000);
+    expect(row.values['pausedTime'], 90000);
     expect(row.values['peakCorrelationProcessed'], isTrue);
     expect(row.values['peaks'], ['Peak A (11)', 'Peak B (22)']);
   });

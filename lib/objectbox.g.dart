@@ -231,7 +231,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(3, 8449374379554926112),
     name: 'GpxTrack',
-    lastPropertyId: const obx_int.IdUid(26, 3742941563149370755),
+    lastPropertyId: const obx_int.IdUid(29, 3001004799159620060),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -370,6 +370,24 @@ final _entities = <obx_int.ModelEntity>[
         id: const obx_int.IdUid(26, 3742941563149370755),
         name: 'peakCorrelationProcessed',
         type: 1,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(27, 5865563897202447528),
+        name: 'movingTime',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(28, 7278287822454877677),
+        name: 'restingTime',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(29, 3001004799159620060),
+        name: 'pausedTime',
+        type: 6,
         flags: 0,
       ),
     ],
@@ -725,7 +743,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         );
         final elevationProfileOffset = fbb.writeString(object.elevationProfile);
         final filteredTrackOffset = fbb.writeString(object.filteredTrack);
-        fbb.startTable(27);
+        fbb.startTable(30);
         fbb.addInt64(0, object.gpxTrackId);
         fbb.addOffset(2, trackNameOffset);
         fbb.addInt64(3, object.startDateTime?.millisecondsSinceEpoch);
@@ -749,6 +767,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addOffset(23, elevationProfileOffset);
         fbb.addOffset(24, filteredTrackOffset);
         fbb.addBool(25, object.peakCorrelationProcessed);
+        fbb.addInt64(26, object.movingTime);
+        fbb.addInt64(27, object.restingTime);
+        fbb.addInt64(28, object.pausedTime);
         fbb.finish(fbb.endTable());
         return object.gpxTrackId;
       },
@@ -784,7 +805,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         ).vTableGet(buffer, rootOffset, 8, '');
         final trackDateParam = trackDateValue == null
             ? null
-            : DateTime.fromMillisecondsSinceEpoch(trackDateValue);
+            : DateTime.fromMillisecondsSinceEpoch(trackDateValue, isUtc: true);
         final gpxFileParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 28, '');
@@ -796,10 +817,16 @@ obx_int.ModelDefinition getObjectBoxModel() {
         ).vTableGet(buffer, rootOffset, 30, '');
         final startDateTimeParam = startDateTimeValue == null
             ? null
-            : DateTime.fromMillisecondsSinceEpoch(startDateTimeValue);
+            : DateTime.fromMillisecondsSinceEpoch(
+                startDateTimeValue,
+                isUtc: true,
+              );
         final endDateTimeParam = endDateTimeValue == null
             ? null
-            : DateTime.fromMillisecondsSinceEpoch(endDateTimeValue);
+            : DateTime.fromMillisecondsSinceEpoch(
+                endDateTimeValue,
+                isUtc: true,
+              );
         final distance2dParam = const fb.Float64Reader().vTableGet(
           buffer,
           rootOffset,
@@ -867,6 +894,21 @@ obx_int.ModelDefinition getObjectBoxModel() {
           rootOffset,
           16,
         );
+        final movingTimeParam = const fb.Int64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          56,
+        );
+        final restingTimeParam = const fb.Int64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          58,
+        );
+        final pausedTimeParam = const fb.Int64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          60,
+        );
         final trackColourParam = const fb.Int64Reader().vTableGet(
           buffer,
           rootOffset,
@@ -901,6 +943,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
           elevationProfile: elevationProfileParam,
           ascent: ascentParam,
           totalTimeMillis: totalTimeMillisParam,
+          movingTime: movingTimeParam,
+          restingTime: restingTimeParam,
+          pausedTime: pausedTimeParam,
           trackColour: trackColourParam,
           peakCorrelationProcessed: peakCorrelationProcessedParam,
         );
@@ -1187,6 +1232,21 @@ class GpxTrack_ {
   /// See [GpxTrack.peakCorrelationProcessed].
   static final peakCorrelationProcessed = obx.QueryBooleanProperty<GpxTrack>(
     _entities[2].properties[22],
+  );
+
+  /// See [GpxTrack.movingTime].
+  static final movingTime = obx.QueryIntegerProperty<GpxTrack>(
+    _entities[2].properties[23],
+  );
+
+  /// See [GpxTrack.restingTime].
+  static final restingTime = obx.QueryIntegerProperty<GpxTrack>(
+    _entities[2].properties[24],
+  );
+
+  /// See [GpxTrack.pausedTime].
+  static final pausedTime = obx.QueryIntegerProperty<GpxTrack>(
+    _entities[2].properties[25],
   );
 
   /// see [GpxTrack.peaks]

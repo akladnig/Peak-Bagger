@@ -7,6 +7,12 @@ import 'package:peak_bagger/services/geo.dart';
 
 class GpxTrackStatistics {
   const GpxTrackStatistics({
+    required this.startDateTime,
+    required this.endDateTime,
+    required this.totalTimeMillis,
+    required this.movingTime,
+    required this.restingTime,
+    required this.pausedTime,
     required this.distance2d,
     required this.distance3d,
     required this.distanceToPeak,
@@ -20,6 +26,12 @@ class GpxTrackStatistics {
     required this.elevationProfile,
   });
 
+  final DateTime? startDateTime;
+  final DateTime? endDateTime;
+  final int totalTimeMillis;
+  final int movingTime;
+  final int restingTime;
+  final int pausedTime;
   final double distance2d;
   final double distance3d;
   final double distanceToPeak;
@@ -49,6 +61,42 @@ class GpxTrackStatisticsCalculator {
     final segments = _extractSegments(document);
     if (segments.isEmpty) {
       throw FormatException('No trackpoints found');
+    }
+
+    final timeStats = _calculateTimeStats(segments);
+
+    GpxTrackStatistics buildStats({
+      required double distance2d,
+      required double distance3d,
+      required double distanceToPeak,
+      required double distanceFromPeak,
+      required double lowestElevation,
+      required double highestElevation,
+      required double ascent,
+      required double descent,
+      required double startElevation,
+      required double endElevation,
+      required String elevationProfile,
+    }) {
+      return GpxTrackStatistics(
+        startDateTime: timeStats.startDateTime,
+        endDateTime: timeStats.endDateTime,
+        totalTimeMillis: timeStats.totalTimeMillis,
+        movingTime: timeStats.movingTime,
+        restingTime: timeStats.restingTime,
+        pausedTime: timeStats.pausedTime,
+        distance2d: distance2d,
+        distance3d: distance3d,
+        distanceToPeak: distanceToPeak,
+        distanceFromPeak: distanceFromPeak,
+        lowestElevation: lowestElevation,
+        highestElevation: highestElevation,
+        ascent: ascent,
+        descent: descent,
+        startElevation: startElevation,
+        endElevation: endElevation,
+        elevationProfile: elevationProfile,
+      );
     }
 
     final points = segments
@@ -126,7 +174,7 @@ class GpxTrackStatisticsCalculator {
     );
 
     if (points.length == 1) {
-      return GpxTrackStatistics(
+      return buildStats(
         distance2d: 0,
         distance3d: 0,
         distanceToPeak: 0,
@@ -155,7 +203,7 @@ class GpxTrackStatisticsCalculator {
     final roundedEnd = end.roundToDouble();
 
     if (elevationSamples.isEmpty) {
-      return GpxTrackStatistics(
+      return buildStats(
         distance2d: distance2d,
         distance3d: distance3d.roundToDouble(),
         distanceToPeak: 0,
@@ -171,7 +219,7 @@ class GpxTrackStatisticsCalculator {
     }
 
     if (hasMissingElevation) {
-      return GpxTrackStatistics(
+      return buildStats(
         distance2d: distance2d,
         distance3d: distance3d.roundToDouble(),
         distanceToPeak: 0,
@@ -194,7 +242,7 @@ class GpxTrackStatisticsCalculator {
       }
     }
 
-    return GpxTrackStatistics(
+    return buildStats(
       distance2d: distance2d,
       distance3d: distance3d.roundToDouble(),
       distanceToPeak: distanceToPeak,
@@ -206,6 +254,120 @@ class GpxTrackStatisticsCalculator {
       startElevation: roundedStart,
       endElevation: roundedEnd,
       elevationProfile: elevationProfile,
+    );
+  }
+
+  _TimeStats _calculateTimeStats(List<List<_TrackPoint>> segments) {
+    final parseableSegments = <List<_TrackPoint>>[];
+    for (final segment in segments) {
+      final parseablePoints =
+          segment
+              .where((point) => point.timeUtc != null)
+              .toList(growable: false)
+            ..sort((a, b) => a.timeUtc!.compareTo(b.timeUtc!));
+      if (parseablePoints.isNotEmpty) {
+        parseableSegments.add(parseablePoints);
+      }
+    }
+
+    if (parseableSegments.isEmpty) {
+      return const _TimeStats(
+        startDateTime: null,
+        endDateTime: null,
+        totalTimeMillis: 0,
+        movingTime: 0,
+        restingTime: 0,
+        pausedTime: 0,
+      );
+    }
+
+    final firstSegment = parseableSegments.first;
+    final lastSegment = parseableSegments.last;
+    final startDateTime = firstSegment.first.timeUtc;
+    final endDateTime = lastSegment.last.timeUtc;
+
+    var totalDurationSeconds = 0;
+    var restingDurationSeconds = 0;
+    var pausedDurationSeconds = 0;
+
+    for (
+      var segmentIndex = 0;
+      segmentIndex < parseableSegments.length;
+      segmentIndex++
+    ) {
+      final segment = parseableSegments[segmentIndex];
+      if (segment.length >= 2) {
+        var inRestCluster = false;
+        var restClusterSeconds = 0;
+
+        for (
+          var pointIndex = 0;
+          pointIndex < segment.length - 1;
+          pointIndex++
+        ) {
+          final current = segment[pointIndex];
+          final next = segment[pointIndex + 1];
+          final dtSeconds = next.timeUtc!
+              .difference(current.timeUtc!)
+              .inSeconds;
+          if (dtSeconds <= 0) {
+            continue;
+          }
+
+          totalDurationSeconds += dtSeconds;
+
+          final distanceMeters = _distance.as(
+            LengthUnit.Meter,
+            current.location,
+            next.location,
+          );
+          final speedMetersPerSecond = distanceMeters / dtSeconds;
+          final isRestCandidate = inRestCluster
+              ? speedMetersPerSecond <= 0.5 && distanceMeters <= 10
+              : speedMetersPerSecond <= 0.3 && distanceMeters <= 10;
+
+          if (isRestCandidate) {
+            inRestCluster = true;
+            restClusterSeconds += dtSeconds;
+            continue;
+          }
+
+          if (inRestCluster) {
+            if (restClusterSeconds >= 60) {
+              restingDurationSeconds += restClusterSeconds;
+            }
+            restClusterSeconds = 0;
+            inRestCluster = false;
+          }
+        }
+
+        if (inRestCluster && restClusterSeconds >= 60) {
+          restingDurationSeconds += restClusterSeconds;
+        }
+      }
+
+      if (segmentIndex < parseableSegments.length - 1) {
+        final nextSegment = parseableSegments[segmentIndex + 1];
+        final gapSeconds = nextSegment.first.timeUtc!
+            .difference(segment.last.timeUtc!)
+            .inSeconds;
+        if (gapSeconds > 0) {
+          pausedDurationSeconds += gapSeconds;
+        }
+      }
+    }
+
+    final totalTimeMillis = totalDurationSeconds * 1000;
+    final restingTime = restingDurationSeconds * 1000;
+    final pausedTime = pausedDurationSeconds * 1000;
+
+    return _TimeStats(
+      startDateTime: startDateTime,
+      endDateTime: endDateTime,
+      totalTimeMillis: totalTimeMillis,
+      movingTime: totalTimeMillis - restingTime,
+      restingTime: restingTime,
+      pausedTime: pausedTime,
     );
   }
 
@@ -253,11 +415,15 @@ class GpxTrackStatisticsCalculator {
       final elevation = _normalizeElevation(rawElevation);
 
       final timeText = element.getElement('time')?.innerText.trim();
+      DateTime? timeUtc;
       DateTime? timeLocal;
       if (timeText != null && timeText.isNotEmpty) {
         try {
-          timeLocal = DateTime.parse(timeText).toLocal();
+          final parsed = DateTime.parse(timeText);
+          timeUtc = parsed.toUtc();
+          timeLocal = parsed.toLocal();
         } catch (_) {
+          timeUtc = null;
           timeLocal = null;
         }
       }
@@ -267,6 +433,7 @@ class GpxTrackStatisticsCalculator {
           location: LatLng(lat, lon),
           rawElevation: rawElevation,
           elevation: elevation,
+          timeUtc: timeUtc,
           timeLocal: timeLocal,
         ),
       );
@@ -299,13 +466,33 @@ class _TrackPoint {
     required this.location,
     required this.rawElevation,
     required this.elevation,
+    required this.timeUtc,
     required this.timeLocal,
   });
 
   final LatLng location;
   final double? rawElevation;
   final double? elevation;
+  final DateTime? timeUtc;
   final DateTime? timeLocal;
+}
+
+class _TimeStats {
+  const _TimeStats({
+    required this.startDateTime,
+    required this.endDateTime,
+    required this.totalTimeMillis,
+    required this.movingTime,
+    required this.restingTime,
+    required this.pausedTime,
+  });
+
+  final DateTime? startDateTime;
+  final DateTime? endDateTime;
+  final int totalTimeMillis;
+  final int movingTime;
+  final int restingTime;
+  final int pausedTime;
 }
 
 class _ElevationProfileEntry {

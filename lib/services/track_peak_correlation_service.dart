@@ -19,6 +19,9 @@ class TrackPeakCorrelationService {
 
   List<Peak> matchPeaks(String rawGpxXml) {
     final segments = _geometryParser.extractSegments(rawGpxXml);
+    if (segments.every((segment) => segment.isEmpty)) {
+      return const [];
+    }
     final bounds = _boundsFor(segments);
     final candidates = _peaks.where((peak) => _isWithinBounds(peak, bounds));
 
@@ -56,12 +59,16 @@ class TrackPeakCorrelationService {
       }
     }
 
-    final delta = _metersToDegrees(thresholdMeters);
+    final latDelta = _metersToDegrees(thresholdMeters);
+    final lonDelta = _metersToDegrees(
+      thresholdMeters,
+      meanLatitudeRadians: _meanLatitudeRadians(segments),
+    );
     return (
-      minLat: minLat - delta,
-      maxLat: maxLat + delta,
-      minLon: minLon - delta,
-      maxLon: maxLon + delta,
+      minLat: minLat - latDelta,
+      maxLat: maxLat + latDelta,
+      minLon: minLon - lonDelta,
+      maxLon: maxLon + lonDelta,
     );
   }
 
@@ -109,7 +116,31 @@ class TrackPeakCorrelationService {
     return false;
   }
 
-  double _metersToDegrees(int meters) {
-    return meters / 111320.0;
+  double _metersToDegrees(int meters, {double? meanLatitudeRadians}) {
+    final baseDegrees = meters / 111320.0;
+    if (meanLatitudeRadians == null) {
+      return baseDegrees;
+    }
+
+    final scale = math.cos(meanLatitudeRadians).abs().clamp(0.1, 1.0);
+    return baseDegrees / scale;
+  }
+
+  double _meanLatitudeRadians(List<List<LatLng>> segments) {
+    var total = 0.0;
+    var count = 0;
+
+    for (final segment in segments) {
+      for (final point in segment) {
+        total += point.latitude;
+        count += 1;
+      }
+    }
+
+    if (count == 0) {
+      return 0;
+    }
+
+    return (total / count) * math.pi / 180.0;
   }
 }

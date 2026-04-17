@@ -1,4 +1,4 @@
-Act as a senior software engineer. Review the following code for best practice, logical errors, performance bottlenecks, and duplicate logic.
+Act as a senior software engineer. Review the project code for best practice, logical errors, performance bottlenecks, and duplicate logic.
 
 Context: Language: Flutter, platform: macOs target environment: production, and any known constraints.
 

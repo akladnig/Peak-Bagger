@@ -56,10 +56,68 @@ void main() {
     expect(track.filteredTrack, isNotEmpty);
     expect(track.filteredTrack, isNot(rawXml));
     expect(track.filteredTrack, contains('<trkpt'));
+    expect(track.startDateTime, isNotNull);
+    expect(track.startDateTime!.isUtc, isTrue);
+    expect(track.endDateTime, isNotNull);
+    expect(track.endDateTime!.isUtc, isTrue);
+    expect(track.totalTimeMillis, 600000);
+    expect(track.movingTime, 600000);
+    expect(track.restingTime, 0);
+    expect(track.pausedTime, 0);
     expect(track.displayTrackPointsByZoom, isNot('{}'));
     expect(track.getSegmentsForZoom(15), hasLength(1));
     expect(track.getSegmentsForZoom(15).single, hasLength(2));
   });
+
+  test(
+    'importTracks falls back to raw GPX when filtering removes too much',
+    () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'gpx-import-fallback',
+      );
+      addTearDown(() async {
+        if (tempDir.existsSync()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
+      final tasmaniaDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+      final source = File('${tracksDir.path}/fallback-track.gpx');
+      const rawXml = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <trk>
+    <name>Fallback Track</name>
+    <trkseg>
+      <trkpt lat="-42.0000" lon="146.0000">
+        <time>2024-01-15T08:00:00Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>
+''';
+      await source.writeAsString(rawXml);
+
+      final importer = GpxImporter(
+        tracksFolder: tracksDir.path,
+        tasmaniaFolder: tasmaniaDir.path,
+      );
+
+      final result = await importer.importTracks(
+        includeTasmaniaFolder: false,
+        filterConfig: GpxFilterConfig.defaults,
+      );
+
+      expect(result.importedCount, 1);
+      expect(result.warning, contains('raw GPX fallback'));
+      expect(result.tracks.single.filteredTrack, isEmpty);
+      expect(result.tracks.single.totalTimeMillis, 0);
+      expect(result.tracks.single.movingTime, 0);
+      expect(result.tracks.single.restingTime, 0);
+      expect(result.tracks.single.pausedTime, 0);
+    },
+  );
 
   test(
     'refreshExistingTracks replaces existing rows with filtered output',
@@ -117,6 +175,14 @@ void main() {
       expect(secondResult.replacedCount, 1);
       expect(secondResult.unchangedCount, 0);
       expect(secondResult.tracks.single.filteredTrack, isNotEmpty);
+      expect(secondResult.tracks.single.startDateTime, isNotNull);
+      expect(secondResult.tracks.single.startDateTime!.isUtc, isTrue);
+      expect(secondResult.tracks.single.endDateTime, isNotNull);
+      expect(secondResult.tracks.single.endDateTime!.isUtc, isTrue);
+      expect(secondResult.tracks.single.totalTimeMillis, 600000);
+      expect(secondResult.tracks.single.movingTime, 600000);
+      expect(secondResult.tracks.single.restingTime, 0);
+      expect(secondResult.tracks.single.pausedTime, 0);
       expect(
         secondResult.tracks.single.getSegmentsForZoom(15).single,
         hasLength(2),

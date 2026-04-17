@@ -16,11 +16,14 @@ class GpxTrack {
 
   String contentHash;
   String trackName;
+  @Property(type: PropertyType.dateUtc)
   DateTime? trackDate;
   String gpxFile;
   String filteredTrack;
   String displayTrackPointsByZoom;
+  @Property(type: PropertyType.dateUtc)
   DateTime? startDateTime;
+  @Property(type: PropertyType.dateUtc)
   DateTime? endDateTime;
   double distance2d;
   double distance3d;
@@ -34,6 +37,9 @@ class GpxTrack {
   String elevationProfile;
   double? ascent;
   int? totalTimeMillis;
+  int? movingTime;
+  int? restingTime;
+  int? pausedTime;
   int trackColour;
   bool peakCorrelationProcessed;
 
@@ -59,6 +65,9 @@ class GpxTrack {
     this.elevationProfile = '[]',
     this.ascent,
     this.totalTimeMillis,
+    this.movingTime,
+    this.restingTime,
+    this.pausedTime,
     this.trackColour = 0xFFa726bc,
     this.peakCorrelationProcessed = false,
   });
@@ -93,6 +102,9 @@ class GpxTrack {
       elevationProfile: map['elevationProfile'] as String? ?? '[]',
       ascent: map['ascent'] as double?,
       totalTimeMillis: map['totalTimeMillis'] as int?,
+      movingTime: map['movingTime'] as int?,
+      restingTime: map['restingTime'] as int?,
+      pausedTime: map['pausedTime'] as int?,
       trackColour: map['trackColour'] as int? ?? 0xFFa726bc,
       peakCorrelationProcessed:
           map['peakCorrelationProcessed'] as bool? ?? false,
@@ -122,6 +134,9 @@ class GpxTrack {
       'elevationProfile': elevationProfile,
       'ascent': ascent,
       'totalTimeMillis': totalTimeMillis,
+      'movingTime': movingTime,
+      'restingTime': restingTime,
+      'pausedTime': pausedTime,
       'trackColour': trackColour,
       'peakCorrelationProcessed': peakCorrelationProcessed,
     };

@@ -334,6 +334,9 @@ ObjectBoxAdminRow gpxTrackToAdminRow(GpxTrack track) {
       'endElevation': track.endElevation,
       'elevationProfile': track.elevationProfile,
       'totalTimeMillis': track.totalTimeMillis,
+      'movingTime': track.movingTime,
+      'restingTime': track.restingTime,
+      'pausedTime': track.pausedTime,
       'trackColour': track.trackColour,
       'peakCorrelationProcessed': track.peakCorrelationProcessed,
       'peaks': track.peaks

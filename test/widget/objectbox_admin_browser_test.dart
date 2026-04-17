@@ -545,6 +545,119 @@ void main() {
       contains('segmentIndex'),
     );
   });
+
+  testWidgets('gpx track rows show time stats in schema', (tester) async {
+    final entity = ObjectBoxAdminEntityDescriptor(
+      name: 'GpxTrack',
+      displayName: 'GpxTrack',
+      primaryKeyField: 'gpxTrackId',
+      primaryNameField: 'trackName',
+      fields: const [
+        ObjectBoxAdminFieldDescriptor(
+          name: 'gpxTrackId',
+          typeLabel: 'int',
+          nullable: false,
+          isPrimaryKey: true,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'trackName',
+          typeLabel: 'String',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: true,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'filteredTrack',
+          typeLabel: 'String',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'startDateTime',
+          typeLabel: 'DateTime',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'endDateTime',
+          typeLabel: 'DateTime',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'totalTimeMillis',
+          typeLabel: 'int',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'movingTime',
+          typeLabel: 'int',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'restingTime',
+          typeLabel: 'int',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'pausedTime',
+          typeLabel: 'int',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+      ],
+    );
+
+    final repository = TestObjectBoxAdminRepository(
+      entities: [entity],
+      rowsByEntity: {
+        'GpxTrack': [
+          ObjectBoxAdminRow(
+            primaryKeyValue: 7,
+            values: {
+              'gpxTrackId': 7,
+              'trackName': 'Mt Anne',
+              'filteredTrack':
+                  '<gpx><trk><trkseg><trkpt lat="-42.12340000" lon="146.12340000"/></trkseg></trk></gpx>',
+              'startDateTime': DateTime.utc(2024, 1, 15, 1, 0),
+              'endDateTime': DateTime.utc(2024, 1, 15, 2, 30),
+              'totalTimeMillis': 5400000,
+              'movingTime': 4800000,
+              'restingTime': 300000,
+              'pausedTime': 90000,
+            },
+          ),
+        ],
+      },
+    );
+
+    await _pumpApp(tester, repository);
+
+    await tester.tap(find.byKey(const Key('side-menu-objectbox-admin')));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Mt Anne'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('startDateTime'), findsWidgets);
+    expect(find.text('endDateTime'), findsWidgets);
+    expect(find.text('totalTimeMillis'), findsWidgets);
+    expect(find.text('movingTime'), findsWidgets);
+    expect(find.text('restingTime'), findsWidgets);
+    expect(find.text('pausedTime'), findsWidgets);
+  });
 }
 
 Future<void> _pumpApp(

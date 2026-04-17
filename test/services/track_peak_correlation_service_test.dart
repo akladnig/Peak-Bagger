@@ -111,4 +111,23 @@ void main() {
 
     expect(matches, isEmpty);
   });
+
+  test('uses longitude-aware bounding boxes at Tasmania latitudes', () {
+    final service = TrackPeakCorrelationService(
+      peaks: [
+        Peak(osmId: 7, name: 'Edge Peak', latitude: -41.5, longitude: 146.51),
+      ],
+      thresholdMeters: 900,
+    );
+
+    final matches = service.matchPeaks(
+      '<gpx><trk><trkseg>'
+      '<trkpt lat="-41.5" lon="146.5" />'
+      '<trkpt lat="-41.5" lon="146.5001" />'
+      '</trkseg></trk></gpx>',
+    );
+
+    expect(matches, hasLength(1));
+    expect(matches.single.osmId, 7);
+  });
 }

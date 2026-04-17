@@ -161,6 +161,8 @@ class MapState {
     int? hoveredTrackId,
     bool clearHoveredTrackId = false,
     bool clearCursorMgrs = false,
+    bool clearError = false,
+    bool clearGotoMgrs = false,
   }) {
     return MapState(
       center: center ?? this.center,
@@ -168,10 +170,10 @@ class MapState {
       basemap: basemap ?? this.basemap,
       isFirstLaunch: isFirstLaunch ?? this.isFirstLaunch,
       isLoading: isLoading ?? this.isLoading,
-      error: error,
+      error: clearError ? null : (error ?? this.error),
       currentMgrs: currentMgrs ?? this.currentMgrs,
       cursorMgrs: clearCursorMgrs ? null : (cursorMgrs ?? this.cursorMgrs),
-      gotoMgrs: gotoMgrs,
+      gotoMgrs: clearGotoMgrs ? null : (gotoMgrs ?? this.gotoMgrs),
       showGotoInput: showGotoInput ?? this.showGotoInput,
       showPeakSearch: showPeakSearch ?? this.showPeakSearch,
       showInfoPopup: clearInfoPopup
@@ -280,7 +282,7 @@ class MapNotifier extends Notifier<MapState> {
         state = state.copyWith(
           peaks: _peakRepository.getAllPeaks(),
           isLoadingPeaks: false,
-          error: null,
+          clearError: true,
         );
       } catch (e) {
         state = state.copyWith(
@@ -419,7 +421,7 @@ class MapNotifier extends Notifier<MapState> {
       }
 
       for (final track in correlatedTracks) {
-        _gpxTrackRepository.addTrack(track);
+        _gpxTrackRepository.putTrack(track);
       }
 
       final allTracks = _gpxTrackRepository.getAllTracks();
@@ -571,6 +573,8 @@ class MapNotifier extends Notifier<MapState> {
     track.displayTrackPointsByZoom = TrackDisplayCacheBuilder.buildJson(
       result.displaySegments,
     );
+    track.startDateTime = result.stats.startDateTime;
+    track.endDateTime = result.stats.endDateTime;
     track.distance2d = result.stats.distance2d;
     track.distance3d = result.stats.distance3d;
     track.distanceToPeak = result.stats.distanceToPeak;
@@ -582,6 +586,10 @@ class MapNotifier extends Notifier<MapState> {
     track.startElevation = result.stats.startElevation;
     track.endElevation = result.stats.endElevation;
     track.elevationProfile = result.stats.elevationProfile;
+    track.totalTimeMillis = result.stats.totalTimeMillis;
+    track.movingTime = result.stats.movingTime;
+    track.restingTime = result.stats.restingTime;
+    track.pausedTime = result.stats.pausedTime;
   }
 
   void _applyPeakCorrelation(
@@ -709,7 +717,7 @@ class MapNotifier extends Notifier<MapState> {
     state = state.copyWith(
       center: location,
       currentMgrs: _convertToMgrs(location),
-      gotoMgrs: null,
+      clearGotoMgrs: true,
       selectedLocation: location,
       syncEnabled: true,
       clearHoveredTrackId: true,
@@ -741,6 +749,7 @@ class MapNotifier extends Notifier<MapState> {
         currentMgrs: _convertToMgrs(selected),
         syncEnabled: true,
         clearHoveredTrackId: true,
+        clearGotoMgrs: true,
       );
       savePosition();
     }
@@ -1315,7 +1324,7 @@ class MapNotifier extends Notifier<MapState> {
 
   void clearGotoMgrs() {
     state = state.copyWith(
-      gotoMgrs: null,
+      clearGotoMgrs: true,
       mapSuggestions: [],
       mapSearchQuery: '',
     );
@@ -1326,7 +1335,7 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void setError(String? error) {
-    state = state.copyWith(error: error);
+    state = state.copyWith(error: error, clearError: error == null);
   }
 
   void toggleGotoInput() {
@@ -1472,13 +1481,13 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   Future<PeakRefreshResult> refreshPeaks() async {
-    state = state.copyWith(isLoadingPeaks: true, error: null);
+    state = state.copyWith(isLoadingPeaks: true, clearError: true);
     try {
       final result = await _peakRefreshService.refreshPeaks();
       state = state.copyWith(
         peaks: _peakRepository.getAllPeaks(),
         isLoadingPeaks: false,
-        error: null,
+        clearError: true,
       );
       return result;
     } catch (e) {
