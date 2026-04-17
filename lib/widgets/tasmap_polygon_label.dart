@@ -112,14 +112,7 @@ PolygonLabelPlacementCalculator? tasmapPolygonLabelPlacementCalculator(
 }
 
 TextStyle tasmapPolygonLabelStyle(Color color) {
-  return TextStyle(
-    fontSize: 12,
-    color: color,
-    // shadows: const [
-    //   Shadow(color: Colors.black54, blurRadius: 2, offset: Offset(1, 1)),
-    //   Shadow(color: Colors.black26, blurRadius: 3, offset: Offset(-1, -1)),
-    // ],
-  );
+  return TextStyle(fontFamily: 'monospace', fontSize: 12, color: color);
 }
 
 class _TasmapPolygonLabelPlacementCalculator

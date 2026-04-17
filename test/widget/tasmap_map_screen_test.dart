@@ -10,6 +10,7 @@ import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
+import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/widgets/tasmap_outline_layer.dart';
 
 import '../harness/test_map_notifier.dart';
@@ -374,7 +375,7 @@ void main() {
     expect(find.byKey(const Key('peak-marker-layer')), findsNothing);
   });
 
-  testWidgets('peak layer hides below zoom 12', (tester) async {
+  testWidgets('peak layer hides below zoom 9', (tester) async {
     final map = _adamsons();
     final repository = await TestTasmapRepository.create(maps: [map]);
 
@@ -385,7 +386,7 @@ void main() {
             () => TestMapNotifier(
               MapState(
                 center: const LatLng(-41.5, 146.5),
-                zoom: 11,
+                zoom: 8,
                 basemap: Basemap.tracestrack,
                 peaks: [
                   Peak(
@@ -411,6 +412,78 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const Key('peak-marker-layer')), findsNothing);
+  });
+
+  testWidgets('peak layer renders above track polylines', (tester) async {
+    final map = _adamsons();
+    final repository = await TestTasmapRepository.create(maps: [map]);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(
+            () => TestMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 12,
+                basemap: Basemap.tracestrack,
+                peaks: [
+                  Peak(
+                    osmId: 6406,
+                    name: 'Bonnet Hill',
+                    latitude: -43.0,
+                    longitude: 147.0,
+                  ),
+                ],
+                tracks: [
+                  GpxTrack(
+                      contentHash: 'hash',
+                      trackName: 'Track',
+                      gpxFile: '<gpx></gpx>',
+                      displayTrackPointsByZoom:
+                          TrackDisplayCacheBuilder.buildJson([
+                            [
+                              const LatLng(-43.1, 146.9),
+                              const LatLng(-43.0, 147.0),
+                            ],
+                          ]),
+                      peakCorrelationProcessed: true,
+                    )
+                    ..peaks.add(
+                      Peak(
+                        osmId: 6406,
+                        name: 'Bonnet Hill',
+                        latitude: -43.0,
+                        longitude: 147.0,
+                      ),
+                    ),
+                ],
+                showTracks: true,
+              ),
+              correlatedPeakIds: {6406},
+            ),
+          ),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
+          tasmapRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(home: MapScreen()),
+      ),
+    );
+
+    await tester.pump();
+
+    final flutterMap = tester.widget<FlutterMap>(find.byType(FlutterMap));
+    final children = flutterMap.children;
+    final trackIndex = children.indexWhere((child) => child is PolylineLayer);
+    final peakIndex = children.indexWhere(
+      (child) =>
+          child is MarkerLayer && child.key == const Key('peak-marker-layer'),
+    );
+
+    expect(trackIndex, greaterThanOrEqualTo(0));
+    expect(peakIndex, greaterThan(trackIndex));
   });
 }
 

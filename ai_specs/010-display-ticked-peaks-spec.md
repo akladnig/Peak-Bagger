@@ -54,18 +54,19 @@ Error flows:
 3. Render all visible peaks with one combined renderer that chooses the ticked or unticked SVG style per peak based on track correlation.
 4. Use `assets/peak_marker_ticked.svg` for correlated peaks so matched peaks are visually distinct from uncorrelated catalog peaks.
 5. Deduplicate correlated peaks across all visible tracks using persisted peak identity (`osmId`) rather than by list position.
-6. Apply the same `zoom >= 12` visibility threshold used by the current peak marker layer.
+6. Apply the same `zoom >= 9` visibility threshold used by the current peak marker layer.
+7. Place peak markers above track polylines so track lines never obscure the peaks.
 
 **Error Handling:**
-7. If a track’s correlation has not been processed, exclude that track from the correlated peak set.
-8. If a peak cannot be rendered, skip that peak only and continue rendering the rest of the peak layer.
+8. If a track’s correlation has not been processed, exclude that track from the correlated peak set.
+9. If a peak cannot be rendered, skip that peak only and continue rendering the rest of the peak layer.
 
 **Edge Cases:**
-9. Empty track list, hidden peak layer, and empty `peaks` relations must all produce a valid empty result with no ticked peak markers.
-10. If the same peak belongs to multiple visible tracks, display only one marker for that peak.
+10. Empty track list, hidden peak layer, and empty `peaks` relations must all produce a valid empty result with no ticked peak markers.
+11. If the same peak belongs to multiple visible tracks, display only one marker for that peak.
 
 **Validation:**
-11. The peak layer must be driven by persisted data already stored on `GpxTrack`, not by re-running peak correlation during render.
+12. The peak layer must be driven by persisted data already stored on `GpxTrack`, not by re-running peak correlation during render.
 </requirements>
 
 <boundaries>

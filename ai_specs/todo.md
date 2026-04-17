@@ -22,6 +22,7 @@
 - [ ] Automatically ask for permissions
 - [ ] implement smooth paning and scrolling. When clicking, smooth transition from one level to another.
 ## 3 Tasmanian Peaks and search
+- [ ] Add a tooltip when a peak is hovered over to display info
 
 ## 4 Add Maps and location search
 - [x] place info popup to right of marker
@@ -75,6 +76,7 @@
 
 ## Settings
 - [x] move settings UI stuff from router.md to settings screen
+- [ ] Add a help dialogue to explain what the adjustable settings mean.
 
 # Keyboard Mapping
 ## Menu

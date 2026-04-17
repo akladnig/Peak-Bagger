@@ -469,13 +469,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         ),
                       ],
                     ),
-                  if (mapState.showPeaks &&
-                      mapState.peaks.isNotEmpty &&
-                      mapState.zoom >= 12)
-                    MarkerLayer(
-                      key: const Key('peak-marker-layer'),
-                      markers: _buildPeakMarkers(mapState),
-                    ),
                   if (mapState.selectedPeaks.isNotEmpty)
                     CircleLayer(
                       circles: mapState.selectedPeaks.map((peak) {
@@ -497,6 +490,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ),
                   if (mapState.showTracks)
                     _buildTrackPolylines(mapState.tracks, mapState.zoom),
+                  if (mapState.showPeaks &&
+                      mapState.peaks.isNotEmpty &&
+                      mapState.zoom >= 9)
+                    MarkerLayer(
+                      key: const Key('peak-marker-layer'),
+                      markers: _buildPeakMarkers(mapState),
+                    ),
                   if (mapState.showSelectedMapLayer)
                     TasmapPolygonLabelLayer(
                       key: const Key('tasmap-label-layer'),
@@ -916,7 +916,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   List<Marker> _buildPeakMarkers(MapState mapState) {
-    if (mapState.zoom < 12) {
+    if (mapState.zoom < 9) {
       return const [];
     }
 
