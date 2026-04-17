@@ -5,6 +5,9 @@ class Peak {
   @Id()
   int id = 0;
 
+  @Unique()
+  int osmId;
+
   String name;
   double? elevation;
   double latitude;
@@ -17,6 +20,7 @@ class Peak {
 
   Peak({
     this.id = 0,
+    this.osmId = 0,
     required this.name,
     this.elevation,
     required this.latitude,
@@ -29,6 +33,7 @@ class Peak {
   });
 
   Peak copyWith({
+    int? osmId,
     String? name,
     double? elevation,
     double? latitude,
@@ -41,6 +46,7 @@ class Peak {
   }) {
     return Peak(
       id: id,
+      osmId: osmId ?? this.osmId,
       name: name ?? this.name,
       elevation: elevation ?? this.elevation,
       latitude: latitude ?? this.latitude,
@@ -54,6 +60,7 @@ class Peak {
   }
 
   static Peak fromOverpass(Map<String, dynamic> json) {
+    final osmId = json['id'] as int? ?? int.tryParse('${json['id']}') ?? 0;
     final tags = json['tags'] as Map<String, dynamic>?;
     final name = tags?['name'] as String? ?? 'Unknown';
 
@@ -81,6 +88,7 @@ class Peak {
     }
 
     return Peak(
+      osmId: osmId,
       name: name,
       elevation: elevation,
       latitude: lat,

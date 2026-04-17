@@ -90,7 +90,7 @@ class TestMapNotifier extends MapNotifier {
       isLoadingTracks: false,
       tracks: recalcTracks ?? state.tracks,
       trackOperationStatus:
-          'Updated $recalcUpdatedCount tracks, skipped $recalcSkippedCount tracks',
+          'Updated $recalcUpdatedCount tracks, refreshed peak correlation, skipped $recalcSkippedCount tracks',
       trackOperationWarning: recalcWarning,
     );
     return TrackStatisticsRecalcResult(

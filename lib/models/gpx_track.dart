@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:latlong2/latlong.dart';
 import 'package:objectbox/objectbox.dart';
+import 'package:peak_bagger/models/peak.dart';
 
 @Entity()
 class GpxTrack {
@@ -10,6 +11,8 @@ class GpxTrack {
 
   @Id(assignable: true)
   int gpxTrackId = 0;
+
+  final peaks = ToMany<Peak>();
 
   String contentHash;
   String trackName;
@@ -32,6 +35,7 @@ class GpxTrack {
   double? ascent;
   int? totalTimeMillis;
   int trackColour;
+  bool peakCorrelationProcessed;
 
   GpxTrack({
     this.gpxTrackId = 0,
@@ -56,6 +60,7 @@ class GpxTrack {
     this.ascent,
     this.totalTimeMillis,
     this.trackColour = 0xFFa726bc,
+    this.peakCorrelationProcessed = false,
   });
 
   static GpxTrack fromMap(Map<String, dynamic> map) {
@@ -89,6 +94,8 @@ class GpxTrack {
       ascent: map['ascent'] as double?,
       totalTimeMillis: map['totalTimeMillis'] as int?,
       trackColour: map['trackColour'] as int? ?? 0xFFa726bc,
+      peakCorrelationProcessed:
+          map['peakCorrelationProcessed'] as bool? ?? false,
     );
   }
 
@@ -116,6 +123,7 @@ class GpxTrack {
       'ascent': ascent,
       'totalTimeMillis': totalTimeMillis,
       'trackColour': trackColour,
+      'peakCorrelationProcessed': peakCorrelationProcessed,
     };
   }
 

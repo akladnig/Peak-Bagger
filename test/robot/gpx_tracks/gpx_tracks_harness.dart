@@ -18,7 +18,7 @@ class GpxTracksHarness {
   final Directory tracksDir;
   final Directory tasmaniaDir;
 
-  static Future<GpxTracksHarness> create() async {
+  static Future<GpxTracksHarness> create({dynamic overrides = const []}) async {
     final root = await Directory.systemTemp.createTemp('gpx-tracks-harness');
     final storeDir = Directory('${root.path}/store')..createSync();
     final tracksDir = Directory('${root.path}/Tracks')..createSync();
@@ -31,7 +31,7 @@ class GpxTracksHarness {
 
     app_main.objectboxStore = await openStore(directory: storeDir.path);
 
-    final container = ProviderContainer();
+    final container = ProviderContainer(overrides: overrides);
     return GpxTracksHarness(
       container: container,
       storeDir: storeDir,

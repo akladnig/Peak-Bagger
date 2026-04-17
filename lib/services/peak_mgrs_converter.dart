@@ -13,11 +13,14 @@ class PeakMgrsComponents {
   final String mgrs100kId;
   final String easting;
   final String northing;
+
+  @override
+  String toString() {
+    return 'PeakMgrsComponents(gridZoneDesignator: $gridZoneDesignator, mgrs100kId: $mgrs100kId, easting: $easting, northing: $northing)';
+  }
 }
 
 class PeakMgrsConverter {
-  static const String gridZoneDesignator = '55G';
-
   static PeakMgrsComponents fromLatLng(LatLng location) {
     final forward = mgrs.Mgrs.forward([
       location.longitude,
@@ -28,15 +31,18 @@ class PeakMgrsConverter {
 
   static PeakMgrsComponents fromForwardString(String forward) {
     final cleaned = forward.replaceAll(RegExp(r'[\s\n]'), '');
-    if (cleaned.length < 15) {
+    final match = RegExp(
+      r'^(\d{1,2}[A-Z])([A-Z]{2})(\d{5})(\d{5})$',
+    ).firstMatch(cleaned);
+    if (match == null) {
       throw FormatException('Invalid MGRS value');
     }
 
     return PeakMgrsComponents(
-      gridZoneDesignator: gridZoneDesignator,
-      mgrs100kId: cleaned.substring(3, 5),
-      easting: cleaned.substring(5, 10),
-      northing: cleaned.substring(10, 15),
+      gridZoneDesignator: match.group(1)!,
+      mgrs100kId: match.group(2)!,
+      easting: match.group(3)!,
+      northing: match.group(4)!,
     );
   }
 }

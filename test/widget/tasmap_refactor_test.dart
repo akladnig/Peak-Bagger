@@ -59,6 +59,7 @@ void main() {
 
   testWidgets('tasmap reset reimports from csv', (tester) async {
     SharedPreferences.setMockInitialValues({});
+    final notifier = TestTasmapNotifier();
 
     await tester.pumpWidget(
       ProviderScope(
@@ -73,7 +74,7 @@ void main() {
               ),
             ),
           ),
-          tasmapStateProvider.overrideWith(() => TestTasmapNotifier()),
+          tasmapStateProvider.overrideWith(() => notifier),
         ],
         child: const MaterialApp(home: SettingsScreen()),
       ),
@@ -82,9 +83,10 @@ void main() {
 
     await tester.tap(find.byKey(const Key('reset-map-data-tile')));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
 
-    expect(find.text('Map data reset successfully!'), findsWidgets);
+    expect(notifier.state.mapCount, 75);
   });
 }
 

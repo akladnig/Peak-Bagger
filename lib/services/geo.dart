@@ -331,6 +331,47 @@ double? distanceFromLine(
   return null;
 }
 
+/// Distance of point from a finite line segment given with two points.
+double? distanceFromSegment(
+  Location point,
+  Location linePoint1,
+  Location linePoint2,
+) {
+  final latMean = _radians(
+    (point.latitude + linePoint1.latitude + linePoint2.latitude) / 3,
+  );
+
+  double toX(Location location) {
+    return location.longitude * math.cos(latMean) * oneDegree;
+  }
+
+  double toY(Location location) {
+    return location.latitude * oneDegree;
+  }
+
+  final ax = toX(linePoint1);
+  final ay = toY(linePoint1);
+  final bx = toX(linePoint2);
+  final by = toY(linePoint2);
+  final px = toX(point);
+  final py = toY(point);
+
+  final dx = bx - ax;
+  final dy = by - ay;
+  final lengthSquared = dx * dx + dy * dy;
+  if (lengthSquared == 0) {
+    return math.sqrt((px - ax) * (px - ax) + (py - ay) * (py - ay));
+  }
+
+  final projection = ((px - ax) * dx + (py - ay) * dy) / lengthSquared;
+  final t = projection.clamp(0.0, 1.0);
+  final closestX = ax + dx * t;
+  final closestY = ay + dy * t;
+  return math.sqrt(
+    (px - closestX) * (px - closestX) + (py - closestY) * (py - closestY),
+  );
+}
+
 /// Get line equation coefficients for:
 ///
 ///     latitude * a + longitude * b + c = 0

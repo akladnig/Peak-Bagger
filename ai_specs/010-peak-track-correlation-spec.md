@@ -4,7 +4,7 @@ This is storage-only: no peak-correlation display surface is in scope.
 </goal>
 
 <background>
-Flutter app with ObjectBox, Riverpod, SharedPreferences, and existing GPX import/reset/recalculate flows. `GpxTrack` already stores GPX XML, display cache, and track statistics; `Peak` already exists and has persisted MGRS fields. `lib/services/geo.dart` already provides `distanceFromLine(point, linePoint1, linePoint2)`, which is the correct helper because peak correlation is segment-based, not vertex-based. Current track maintenance entry points live in `./lib/providers/map_provider.dart` (`_importTracks()`, `resetTrackData()`, `recalculateTrackStatistics()`), and Settings already uses Riverpod-backed settings providers plus dropdown controls in `./lib/screens/settings_screen.dart`.
+Flutter app with ObjectBox, Riverpod, SharedPreferences, and existing GPX import/reset/recalculate flows. `GpxTrack` already stores GPX XML, display cache, and track statistics; `Peak` already exists and has persisted MGRS fields. `lib/services/geo.dart` provides finite-segment distance helpers for peak correlation, which must be segment-based rather than line-extension-based. Current track maintenance entry points live in `./lib/providers/map_provider.dart` (`_importTracks()`, `resetTrackData()`, `recalculateTrackStatistics()`), and Settings already uses Riverpod-backed settings providers plus dropdown controls in `./lib/screens/settings_screen.dart`.
 Peak refresh must preserve logical identity via a persisted upstream `osmId` on `Peak`.
 
 Files to examine:
@@ -35,7 +35,7 @@ Primary flow:
 Alternative flows:
 - First-time app launch with legacy stored tracks: old tracks remain unprocessed until the user runs Reset Track Data or Recalculate Track Statistics.
 - User changes the peak-distance threshold in Settings: the new value applies to future imports/rebuilds and to any later maintenance rerun.
-- User runs Reset Track Data or Recalculate Track Statistics: the same peak-correlation path is rerun for each track in that batch.
+- User runs Reset Track Data or Recalculate Track Statistics: the same peak-correlation path is rerun for each track in that batch, so recalculation refreshes both stored track statistics and stored peak-correlation state.
 - Peak refresh occurs: preserve peak ids for unchanged peaks so existing track-to-peak links remain valid and do not need an automatic track rebuild.
 
 Error flows:
@@ -49,8 +49,8 @@ Error flows:
 1. Add a persistent track-side peak correlation model to `GpxTrack` with a relation named `peaks` that points to `Peak`, plus an explicit `peakCorrelationProcessed` flag. `peaks.isEmpty` must mean "processed but no matches" only when `peakCorrelationProcessed == true`.
 2. Add a persisted upstream identity field `osmId` to `Peak`, parse the Overpass node id into it, and refresh peaks by upserting on `osmId` rather than treating rows as anonymous records.
 3. Correlate peaks from the stored raw GPX XML, not from rendered display caches or simplified geometry. Scan each `<trkpt>` to compute the track bounding box, expand that box by the selected threshold value, use it to collect candidate peaks, and only then evaluate those candidates with `distanceFromLine()`.
-4. For every candidate peak, compute the minimum distance from the peak to any adjacent track segment using `distanceFromLine()`. A peak is a match when that minimum distance is less than or equal to the configured threshold.
-5. Correlate tracks during every create/refresh path that writes `GpxTrack` rows, including import, Reset Track Data, Recalculate Track Statistics, and any equivalent track refresh path already routed through `MapNotifier`.
+4. For every candidate peak, compute the minimum distance from the peak to any adjacent track segment using a finite-segment distance helper. A peak is a match when that minimum distance is less than or equal to the configured threshold.
+5. Correlate tracks during every create/refresh path that writes `GpxTrack` rows, including import, Reset Track Data, Recalculate Track Statistics, and any equivalent track refresh path already routed through `MapNotifier`. Recalculate Track Statistics must not be statistics-only; it must also refresh `peaks` and `peakCorrelationProcessed` using the current threshold.
 6. Add a dedicated, persisted correlation-threshold setting in `./lib/providers/peak_correlation_settings_provider.dart` or an equivalent provider. Expose it in `./lib/screens/settings_screen.dart` with a stable key and a dropdown of fixed meter values from `10m` to `100m` in `10m` increments. Default to `50m`.
 7. Preserve peak ids across peak refresh so existing track-to-peak links remain valid. Do not clear and repopulate the peak store in a way that changes ids for logically unchanged peaks, except during the first `osmId` migration where rows may be rebuilt.
 8. Keep correlation writes atomic at the track level. When a track is saved, its processed flag and relation contents must be updated together.
@@ -123,7 +123,7 @@ Phase 3: Add the Settings threshold control and finish widget/robot coverage for
 4. Repository and provider tests must verify:
    - track correlation is written atomically with the processed flag
    - failed correlation leaves the existing track untouched
-   - Reset Track Data and Recalculate Track Statistics both rebuild the stored correlation state
+   - Reset Track Data and Recalculate Track Statistics both rebuild the stored correlation state, including `peaks` and `peakCorrelationProcessed`
    - peak refresh preserves ids for unchanged peaks so existing track links remain valid
 5. Widget tests must verify:
    - the new correlation settings section renders with stable keys

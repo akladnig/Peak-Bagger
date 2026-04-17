@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 
@@ -43,6 +45,7 @@ void main() {
       entities.first.fields.map((field) => field.name),
       containsAll([
         'id',
+        'osmId',
         'name',
         'elevation',
         'latitude',
@@ -61,6 +64,8 @@ void main() {
       containsAll([
         'gpxTrackId',
         'trackName',
+        'peakCorrelationProcessed',
+        'peaks',
         'distance2d',
         'distance3d',
         'distanceToPeak',
@@ -75,6 +80,12 @@ void main() {
         'endElevation',
         'elevationProfile',
       ]),
+    );
+    expect(
+      entities.last.fields
+          .singleWhere((field) => field.name == 'peaks')
+          .typeLabel,
+      'relation<Peak>',
     );
   });
 
@@ -123,6 +134,48 @@ void main() {
     );
 
     expect(rows.map((row) => row.values['name']), ['Ossa Spur', 'Mt Ossa']);
+  });
+
+  test('peakToAdminRow includes the MGRS fields', () {
+    final row = peakToAdminRow(
+      Peak(
+        id: 42,
+        osmId: 4242,
+        name: 'Mount Milner',
+        latitude: -41.2,
+        longitude: 146.1,
+        gridZoneDesignator: '55G',
+        mgrs100kId: 'DN',
+        easting: '17710',
+        northing: '03594',
+      ),
+    );
+
+    expect(row.primaryKeyValue, 42);
+    expect(row.values['osmId'], 4242);
+    expect(row.values['gridZoneDesignator'], '55G');
+    expect(row.values['mgrs100kId'], 'DN');
+    expect(row.values['easting'], '17710');
+    expect(row.values['northing'], '03594');
+  });
+
+  test('gpxTrackToAdminRow includes correlation fields', () {
+    final track =
+        GpxTrack(
+            gpxTrackId: 7,
+            contentHash: 'hash',
+            trackName: 'Mt Ossa',
+            peakCorrelationProcessed: true,
+          )
+          ..peaks.addAll([
+            Peak(osmId: 11, name: 'Peak A', latitude: -41.0, longitude: 146.0),
+            Peak(osmId: 22, name: 'Peak B', latitude: -41.1, longitude: 146.1),
+          ]);
+
+    final row = gpxTrackToAdminRow(track);
+
+    expect(row.values['peakCorrelationProcessed'], isTrue);
+    expect(row.values['peaks'], ['Peak A (11)', 'Peak B (22)']);
   });
 
   test('exportGpxFile writes the selected track to downloads', () async {

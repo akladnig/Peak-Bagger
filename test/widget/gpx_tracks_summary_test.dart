@@ -43,8 +43,10 @@ void main() {
       center: _center,
       zoom: 10,
       basemap: Basemap.tracestrack,
-      trackOperationStatus: 'Updated 3 tracks, skipped 1 tracks',
-      trackOperationWarning: 'Some tracks could not be recalculated.',
+      trackOperationStatus:
+          'Updated 3 tracks, refreshed peak correlation, skipped 1 tracks',
+      trackOperationWarning:
+          'Some tracks could not be recalculated, so their previous statistics and peak correlation were kept.',
     );
 
     await tester.pumpWidget(
@@ -57,9 +59,12 @@ void main() {
     );
 
     expect(find.textContaining('Updated 3 tracks'), findsOneWidget);
+    expect(find.textContaining('refreshed peak correlation'), findsOneWidget);
     expect(find.textContaining('skipped 1 tracks'), findsOneWidget);
     expect(
-      find.textContaining('Some tracks could not be recalculated.'),
+      find.textContaining(
+        'Some tracks could not be recalculated, so their previous statistics and peak correlation were kept.',
+      ),
       findsOneWidget,
     );
   });

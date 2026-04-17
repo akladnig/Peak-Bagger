@@ -182,4 +182,34 @@ void main() {
       9,
     );
   });
+
+  testWidgets('peak correlation threshold persists from the settings screen', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+
+    final robot = GpxTracksRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showTracks: true,
+        tracks: const [],
+      ),
+    );
+    addTearDown(robot.dispose);
+    await robot.pumpApp();
+
+    await robot.openSettings();
+    await robot.openPeakCorrelationSettings();
+    await robot.setPeakCorrelationDistance(70);
+
+    expect(
+      robot.currentPeakCorrelationDistance(
+        tester.element(robot.peakCorrelationDistanceField),
+      ),
+      70,
+    );
+  });
 }

@@ -91,13 +91,24 @@ void main() {
         _baseState(),
         recalcUpdatedCount: 3,
         recalcSkippedCount: 1,
-        recalcWarning: 'Some tracks could not be recalculated.',
+        recalcWarning:
+            'Some tracks could not be recalculated, so their previous statistics and peak correlation were kept.',
       ),
     );
 
     router.go('/settings');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
+
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('recalculate-track-statistics-tile')),
+        matching: find.text(
+          'Rebuild track statistics and peak correlation from stored GPX XML',
+        ),
+      ),
+      findsOneWidget,
+    );
 
     await tester.tap(
       find.byKey(const Key('recalculate-track-statistics-tile')),
@@ -108,14 +119,18 @@ void main() {
     expect(
       find.descendant(
         of: find.byType(AlertDialog),
-        matching: find.textContaining('Updated 3 tracks, skipped 1 tracks'),
+        matching: find.textContaining(
+          'Updated 3 tracks, refreshed peak correlation, skipped 1 tracks',
+        ),
       ),
       findsOneWidget,
     );
     expect(
       find.descendant(
         of: find.byType(AlertDialog),
-        matching: find.textContaining('Some tracks could not be recalculated.'),
+        matching: find.textContaining(
+          'Some tracks could not be recalculated, so their previous statistics and peak correlation were kept.',
+        ),
       ),
       findsOneWidget,
     );

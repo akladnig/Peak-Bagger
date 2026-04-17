@@ -388,6 +388,22 @@ void main() {
       expect(encoded['elevationProfile'], contains('pointIndex'));
     });
 
+    test('round-trips peak correlation processed flag', () {
+      final map = {
+        'gpxTrackId': 9,
+        'contentHash': 'hash-9',
+        'trackName': 'Correlation Track',
+        'gpxFile': '<gpx></gpx>',
+        'peakCorrelationProcessed': true,
+      };
+
+      final track = GpxTrack.fromMap(map);
+      final encoded = track.toMap();
+
+      expect(track.peakCorrelationProcessed, isTrue);
+      expect(encoded['peakCorrelationProcessed'], isTrue);
+    });
+
     test('hasValidOptimizedDisplayData requires gpx and full zoom range', () {
       final validTrack = GpxTrack(
         contentHash: 'abc123',

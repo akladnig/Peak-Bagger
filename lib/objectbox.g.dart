@@ -24,7 +24,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(1, 6887978098338940139),
     name: 'Peak',
-    lastPropertyId: const obx_int.IdUid(10, 8739282244333038063),
+    lastPropertyId: const obx_int.IdUid(11, 1046675984660509866),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -86,6 +86,13 @@ final _entities = <obx_int.ModelEntity>[
         name: 'northing',
         type: 9,
         flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(11, 1046675984660509866),
+        name: 'osmId',
+        type: 6,
+        flags: 40,
+        indexId: const obx_int.IdUid(1, 1646709204047143715),
       ),
     ],
     relations: <obx_int.ModelRelation>[],
@@ -224,7 +231,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(3, 8449374379554926112),
     name: 'GpxTrack',
-    lastPropertyId: const obx_int.IdUid(25, 2608880238551491510),
+    lastPropertyId: const obx_int.IdUid(26, 3742941563149370755),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -359,8 +366,20 @@ final _entities = <obx_int.ModelEntity>[
         type: 9,
         flags: 0,
       ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(26, 3742941563149370755),
+        name: 'peakCorrelationProcessed',
+        type: 1,
+        flags: 0,
+      ),
     ],
-    relations: <obx_int.ModelRelation>[],
+    relations: <obx_int.ModelRelation>[
+      obx_int.ModelRelation(
+        id: const obx_int.IdUid(1, 8194382659905112901),
+        name: 'peaks',
+        targetId: const obx_int.IdUid(1, 6887978098338940139),
+      ),
+    ],
     backlinks: <obx_int.ModelBacklink>[],
   ),
 ];
@@ -409,8 +428,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
     generatorVersion: obx_int.GeneratorVersion.v2025_12_16,
     entities: _entities,
     lastEntityId: const obx_int.IdUid(3, 8449374379554926112),
-    lastIndexId: const obx_int.IdUid(0, 0),
-    lastRelationId: const obx_int.IdUid(0, 0),
+    lastIndexId: const obx_int.IdUid(1, 1646709204047143715),
+    lastRelationId: const obx_int.IdUid(1, 8194382659905112901),
     lastSequenceId: const obx_int.IdUid(0, 0),
     retiredEntityUids: const [],
     retiredIndexUids: const [],
@@ -449,7 +468,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final mgrs100kIdOffset = fbb.writeString(object.mgrs100kId);
         final eastingOffset = fbb.writeString(object.easting);
         final northingOffset = fbb.writeString(object.northing);
-        fbb.startTable(11);
+        fbb.startTable(12);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, nameOffset);
         fbb.addFloat64(2, object.elevation);
@@ -460,6 +479,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addOffset(7, mgrs100kIdOffset);
         fbb.addOffset(8, eastingOffset);
         fbb.addOffset(9, northingOffset);
+        fbb.addInt64(10, object.osmId);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -470,6 +490,12 @@ obx_int.ModelDefinition getObjectBoxModel() {
           buffer,
           rootOffset,
           4,
+          0,
+        );
+        final osmIdParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          24,
           0,
         );
         final nameParam = const fb.StringReader(
@@ -509,6 +535,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         ).vTableGet(buffer, rootOffset, 22, '');
         final object = Peak(
           id: idParam,
+          osmId: osmIdParam,
           name: nameParam,
           elevation: elevationParam,
           latitude: latitudeParam,
@@ -682,7 +709,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
     GpxTrack: obx_int.EntityDefinition<GpxTrack>(
       model: _entities[2],
       toOneRelations: (GpxTrack object) => [],
-      toManyRelations: (GpxTrack object) => {},
+      toManyRelations: (GpxTrack object) => {
+        obx_int.RelInfo<GpxTrack>.toMany(1, object.gpxTrackId): object.peaks,
+      },
       getId: (GpxTrack object) => object.gpxTrackId,
       setId: (GpxTrack object, int id) {
         object.gpxTrackId = id;
@@ -696,7 +725,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         );
         final elevationProfileOffset = fbb.writeString(object.elevationProfile);
         final filteredTrackOffset = fbb.writeString(object.filteredTrack);
-        fbb.startTable(26);
+        fbb.startTable(27);
         fbb.addInt64(0, object.gpxTrackId);
         fbb.addOffset(2, trackNameOffset);
         fbb.addInt64(3, object.startDateTime?.millisecondsSinceEpoch);
@@ -719,6 +748,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addFloat64(22, object.endElevation);
         fbb.addOffset(23, elevationProfileOffset);
         fbb.addOffset(24, filteredTrackOffset);
+        fbb.addBool(25, object.peakCorrelationProcessed);
         fbb.finish(fbb.endTable());
         return object.gpxTrackId;
       },
@@ -843,6 +873,12 @@ obx_int.ModelDefinition getObjectBoxModel() {
           18,
           0,
         );
+        final peakCorrelationProcessedParam = const fb.BoolReader().vTableGet(
+          buffer,
+          rootOffset,
+          54,
+          false,
+        );
         final object = GpxTrack(
           gpxTrackId: gpxTrackIdParam,
           contentHash: contentHashParam,
@@ -866,8 +902,13 @@ obx_int.ModelDefinition getObjectBoxModel() {
           ascent: ascentParam,
           totalTimeMillis: totalTimeMillisParam,
           trackColour: trackColourParam,
+          peakCorrelationProcessed: peakCorrelationProcessedParam,
         );
-
+        obx_int.InternalToManyAccess.setRelInfo<GpxTrack>(
+          object.peaks,
+          store,
+          obx_int.RelInfo<GpxTrack>.toMany(1, object.gpxTrackId),
+        );
         return object;
       },
     ),
@@ -920,6 +961,11 @@ class Peak_ {
   /// See [Peak.northing].
   static final northing = obx.QueryStringProperty<Peak>(
     _entities[0].properties[9],
+  );
+
+  /// See [Peak.osmId].
+  static final osmId = obx.QueryIntegerProperty<Peak>(
+    _entities[0].properties[10],
   );
 }
 
@@ -1136,5 +1182,15 @@ class GpxTrack_ {
   /// See [GpxTrack.filteredTrack].
   static final filteredTrack = obx.QueryStringProperty<GpxTrack>(
     _entities[2].properties[21],
+  );
+
+  /// See [GpxTrack.peakCorrelationProcessed].
+  static final peakCorrelationProcessed = obx.QueryBooleanProperty<GpxTrack>(
+    _entities[2].properties[22],
+  );
+
+  /// see [GpxTrack.peaks]
+  static final peaks = obx.QueryRelationToMany<GpxTrack, Peak>(
+    _entities[2].relations[0],
   );
 }

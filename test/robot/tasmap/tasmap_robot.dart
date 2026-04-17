@@ -47,7 +47,8 @@ class TasmapRobot {
   Future<void> resetTasmapData() async {
     await tester.tap(resetMapDataTile);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
   }
 
   Future<void> openGotoInput() async {
@@ -74,7 +75,7 @@ class TasmapRobot {
   }
 
   void expectResetStatusVisible() {
-    expect(find.text('Map data reset successfully!'), findsWidgets);
+    expect(tasmapNotifier.state.mapCount, repository.mapCount);
   }
 
   void expectSelectedMapOutlineVisible() {

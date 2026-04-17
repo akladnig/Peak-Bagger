@@ -8,15 +8,19 @@ import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
-import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/peak_refresh_result.dart';
+import 'package:peak_bagger/services/peak_refresh_service.dart';
+import 'package:peak_bagger/services/track_peak_correlation_service.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/grid_reference_parser.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
+import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/services/track_migration_marker_store.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/main.dart';
+import 'package:peak_bagger/providers/peak_provider.dart';
 
 const _distance = Distance();
 
@@ -27,7 +31,7 @@ const _zoomKey = 'map_zoom';
 const _defaultCenter = LatLng(-41.5, 146.5);
 const _defaultZoom = 15.0;
 
-enum Basemap { tracestrack, openstreetmap }
+enum Basemap { tasmapTopo, tasmap50k, tasmap25k, tracestrack, openstreetmap }
 
 enum TasmapDisplayMode { overlay, none, selectedMap }
 
@@ -214,16 +218,20 @@ final mapProvider = NotifierProvider<MapNotifier, MapState>(MapNotifier.new);
 
 class MapNotifier extends Notifier<MapState> {
   late final PeakRepository _peakRepository;
+  late final PeakRefreshService _peakRefreshService;
   late final TasmapRepository _tasmapRepository;
   late final GpxTrackRepository _gpxTrackRepository;
   late final TrackMigrationMarkerStore _trackMigrationMarkerStore;
-  final OverpassService _overpassService = OverpassService();
   bool _recoverySnackbarShown = false;
   String? _pendingTrackSnackbarMessage;
 
   @override
   MapState build() {
-    _peakRepository = PeakRepository(objectboxStore);
+    _peakRepository = ref.read(peakRepositoryProvider);
+    _peakRefreshService = PeakRefreshService(
+      ref.read(overpassServiceProvider),
+      _peakRepository,
+    );
     _tasmapRepository = ref.read(tasmapRepositoryProvider);
     _gpxTrackRepository = GpxTrackRepository(objectboxStore);
     _trackMigrationMarkerStore = const TrackMigrationMarkerStore();
@@ -243,13 +251,11 @@ class MapNotifier extends Notifier<MapState> {
     if (_peakRepository.isEmpty()) {
       state = state.copyWith(isLoadingPeaks: true);
       try {
-        final peaks = await _overpassService.fetchTasmaniaPeaks();
-        if (peaks.isNotEmpty) {
-          await _peakRepository.addPeaks(peaks);
-        }
+        await _peakRefreshService.refreshPeaks();
         state = state.copyWith(
           peaks: _peakRepository.getAllPeaks(),
           isLoadingPeaks: false,
+          error: null,
         );
       } catch (e) {
         state = state.copyWith(
@@ -258,6 +264,7 @@ class MapNotifier extends Notifier<MapState> {
         );
       }
     } else {
+      await _peakRefreshService.backfillStoredPeaks();
       state = state.copyWith(peaks: _peakRepository.getAllPeaks());
     }
   }
@@ -342,25 +349,49 @@ class MapNotifier extends Notifier<MapState> {
     );
 
     try {
+      final existingTracks = resetExisting
+          ? const <GpxTrack>[]
+          : _gpxTrackRepository.getAllTracks();
+      final existingTracksById = {
+        for (final track in existingTracks)
+          if (track.gpxTrackId != 0) track.gpxTrackId: _cloneTrack(track),
+      };
       final surfaceNotifications = resetExisting || state.tracks.isNotEmpty;
       final importer = GpxImporter();
       final filterConfig = await ref.read(gpxFilterSettingsProvider.future);
       final result = await importer.importTracks(
         includeTasmaniaFolder: includeTasmaniaFolder,
-        existingTracks: resetExisting
-            ? const []
-            : _gpxTrackRepository.getAllTracks(),
+        existingTracks: existingTracks,
         surfaceWarnings: surfaceNotifications,
         resetIds: resetExisting,
         refreshExistingTracks: refreshExistingTracks,
         filterConfig: filterConfig,
       );
 
+      final thresholdMeters = await _peakCorrelationThresholdMeters();
+      final correlatedTracks = <GpxTrack>[];
+      final correlationService = TrackPeakCorrelationService(
+        peaks: _peakRepository.getAllPeaks(),
+        thresholdMeters: thresholdMeters,
+      );
+
+      for (final track in result.tracks) {
+        final originalTrack = existingTracksById[track.gpxTrackId];
+        try {
+          _applyPeakCorrelation(track, correlationService);
+          correlatedTracks.add(track);
+        } catch (_) {
+          if (originalTrack != null) {
+            correlatedTracks.add(originalTrack);
+          }
+        }
+      }
+
       if (resetExisting || state.tracks.isEmpty) {
         _gpxTrackRepository.deleteAll();
       }
 
-      for (final track in result.tracks) {
+      for (final track in correlatedTracks) {
         _gpxTrackRepository.addTrack(track);
       }
 
@@ -439,33 +470,36 @@ class MapNotifier extends Notifier<MapState> {
     );
 
     try {
+      final thresholdMeters = await _peakCorrelationThresholdMeters();
+      final correlationService = TrackPeakCorrelationService(
+        peaks: _peakRepository.getAllPeaks(),
+        thresholdMeters: thresholdMeters,
+      );
       final importer = GpxImporter();
       final filterConfig = await ref.read(gpxFilterSettingsProvider.future);
       final tracks = _gpxTrackRepository.getAllTracks();
-      final updatedTracks = <GpxTrack>[];
       var updatedCount = 0;
       var skippedCount = 0;
       var filterFallbackCount = 0;
 
       for (final track in tracks) {
         try {
+          final replacementTrack = _cloneTrack(track);
           final processed = importer.processTrack(
-            track.gpxFile,
+            replacementTrack.gpxFile,
             filterConfig: filterConfig,
           );
-          _applyProcessingResult(track, processed);
+          _applyProcessingResult(replacementTrack, processed);
           filterFallbackCount += processed.usedRawFallback ? 1 : 0;
-          updatedTracks.add(track);
+          _applyPeakCorrelation(replacementTrack, correlationService);
+          _gpxTrackRepository.replaceTrack(
+            existing: track,
+            replacement: replacementTrack,
+          );
           updatedCount += 1;
         } catch (_) {
-          updatedTracks.add(track);
           skippedCount += 1;
         }
-      }
-
-      _gpxTrackRepository.deleteAll();
-      for (final track in updatedTracks) {
-        _gpxTrackRepository.addTrack(track);
       }
 
       final refreshedTracks = _gpxTrackRepository.getAllTracks();
@@ -477,7 +511,7 @@ class MapNotifier extends Notifier<MapState> {
           : null;
       final hasRecoveryIssue = _hasTrackRecoveryIssue(refreshedTracks);
       final statusMessage =
-          'Updated $updatedCount tracks, skipped $skippedCount tracks';
+          'Updated $updatedCount tracks, refreshed peak correlation, skipped $skippedCount tracks';
 
       state = state.copyWith(
         tracks: refreshedTracks,
@@ -521,13 +555,39 @@ class MapNotifier extends Notifier<MapState> {
     track.elevationProfile = result.stats.elevationProfile;
   }
 
+  void _applyPeakCorrelation(
+    GpxTrack track,
+    TrackPeakCorrelationService correlationService,
+  ) {
+    final matches = correlationService.matchPeaks(track.gpxFile);
+    track.peaks.clear();
+    track.peaks.addAll(matches);
+    track.peakCorrelationProcessed = true;
+  }
+
+  Future<int> _peakCorrelationThresholdMeters() async {
+    try {
+      return await ref.read(peakCorrelationSettingsProvider.future);
+    } catch (_) {
+      return peakCorrelationDefaultDistanceMeters;
+    }
+  }
+
+  GpxTrack _cloneTrack(GpxTrack track) {
+    final clone = GpxTrack.fromMap(track.toMap());
+    clone.peaks.addAll(track.peaks);
+    return clone;
+  }
+
   String _buildRecalcWarning({
     required int skippedCount,
     required int filterFallbackCount,
   }) {
     final parts = <String>[];
     if (skippedCount > 0) {
-      parts.add('Some tracks could not be recalculated.');
+      parts.add(
+        'Some tracks could not be recalculated, so their previous statistics and peak correlation were kept.',
+      );
     }
     if (filterFallbackCount > 0) {
       parts.add('Some tracks used raw GPX fallback during filtering.');
@@ -1378,23 +1438,22 @@ class MapNotifier extends Notifier<MapState> {
     );
   }
 
-  Future<void> refreshPeaks() async {
-    state = state.copyWith(isLoadingPeaks: true);
+  Future<PeakRefreshResult> refreshPeaks() async {
+    state = state.copyWith(isLoadingPeaks: true, error: null);
     try {
-      await _peakRepository.clearAll();
-      final peaks = await _overpassService.fetchTasmaniaPeaks();
-      if (peaks.isNotEmpty) {
-        await _peakRepository.addPeaks(peaks);
-      }
+      final result = await _peakRefreshService.refreshPeaks();
       state = state.copyWith(
         peaks: _peakRepository.getAllPeaks(),
         isLoadingPeaks: false,
+        error: null,
       );
+      return result;
     } catch (e) {
       state = state.copyWith(
         isLoadingPeaks: false,
         error: 'Failed to refresh peaks: $e',
       );
+      rethrow;
     }
   }
 

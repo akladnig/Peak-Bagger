@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 
 import 'recovery_robot.dart';
@@ -16,7 +18,22 @@ void main() {
         zoom: 10,
         basemap: Basemap.tracestrack,
         hasTrackRecoveryIssue: true,
-        tracks: const [],
+        tracks: [
+          GpxTrack(
+              contentHash: 'hash',
+              trackName: 'Recovered Track',
+              gpxFile: '<gpx></gpx>',
+              peakCorrelationProcessed: true,
+            )
+            ..peaks.add(
+              Peak(
+                osmId: 1,
+                name: 'Nearby Peak',
+                latitude: -41.5,
+                longitude: 146.5,
+              ),
+            ),
+        ],
       ),
     );
 

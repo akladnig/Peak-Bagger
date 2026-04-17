@@ -5,7 +5,7 @@
   "entities": [
     {
       "id": "1:6887978098338940139",
-      "lastPropertyId": "10:8739282244333038063",
+      "lastPropertyId": "11:1046675984660509866",
       "name": "Peak",
       "properties": [
         {
@@ -58,6 +58,13 @@
           "id": "10:8739282244333038063",
           "name": "northing",
           "type": 9
+        },
+        {
+          "id": "11:1046675984660509866",
+          "name": "osmId",
+          "indexId": "1:1646709204047143715",
+          "type": 6,
+          "flags": 40
         }
       ],
       "relations": []
@@ -173,7 +180,7 @@
     },
     {
       "id": "3:8449374379554926112",
-      "lastPropertyId": "25:2608880238551491510",
+      "lastPropertyId": "26:3742941563149370755",
       "name": "GpxTrack",
       "properties": [
         {
@@ -286,14 +293,25 @@
           "id": "25:2608880238551491510",
           "name": "filteredTrack",
           "type": 9
+        },
+        {
+          "id": "26:3742941563149370755",
+          "name": "peakCorrelationProcessed",
+          "type": 1
         }
       ],
-      "relations": []
+      "relations": [
+        {
+          "id": "1:8194382659905112901",
+          "name": "peaks",
+          "targetId": "1:6887978098338940139"
+        }
+      ]
     }
   ],
   "lastEntityId": "3:8449374379554926112",
-  "lastIndexId": "0:0",
-  "lastRelationId": "0:0",
+  "lastIndexId": "1:1646709204047143715",
+  "lastRelationId": "1:8194382659905112901",
   "lastSequenceId": "0:0",
   "modelVersion": 5,
   "modelVersionParserMinimum": 5,

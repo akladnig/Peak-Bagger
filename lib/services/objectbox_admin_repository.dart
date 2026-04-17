@@ -90,7 +90,7 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
     final primaryKeyField = entity.idProperty.name;
     final primaryNameField = _primaryNameField(entity.name);
 
-    final fields = entity.properties
+    final propertyFields = entity.properties
         .map((property) {
           return ObjectBoxAdminFieldDescriptor(
             name: property.name,
@@ -101,6 +101,20 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
           );
         })
         .toList(growable: false);
+
+    final relationFields = entity.relations
+        .map((relation) {
+          return ObjectBoxAdminFieldDescriptor(
+            name: relation.name,
+            typeLabel: _describeRelationType(relation),
+            nullable: false,
+            isPrimaryKey: false,
+            isPrimaryName: false,
+          );
+        })
+        .toList(growable: false);
+
+    final fields = [...propertyFields, ...relationFields];
 
     return ObjectBoxAdminEntityDescriptor(
       name: entity.name,
@@ -113,6 +127,21 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
 
   String _describePropertyType(obx_int.ModelProperty property) {
     return 'type${property.type}';
+  }
+
+  String _describeRelationType(obx_int.ModelRelation relation) {
+    final targetName = _modelDefinition.model.entities
+        .where((entity) => entity.id == relation.targetId)
+        .map((entity) => entity.name)
+        .cast<String?>()
+        .firstWhere(
+          (name) => name != null,
+          orElse: () => relation.externalName,
+        );
+    if (targetName == null || targetName.isEmpty) {
+      return 'relation';
+    }
+    return 'relation<$targetName>';
   }
 
   String _primaryNameField(String entityName) {
@@ -187,21 +216,7 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
       (a, b) => ascending ? a.id.compareTo(b.id) : b.id.compareTo(a.id),
     );
 
-    return filtered
-        .map(
-          (peak) => ObjectBoxAdminRow(
-            primaryKeyValue: peak.id,
-            values: {
-              'id': peak.id,
-              'name': peak.name,
-              'elevation': peak.elevation,
-              'latitude': peak.latitude,
-              'longitude': peak.longitude,
-              'area': peak.area,
-            },
-          ),
-        )
-        .toList(growable: false);
+    return filtered.map(peakToAdminRow).toList(growable: false);
   }
 
   List<ObjectBoxAdminRow> _loadTasmapRows(
@@ -271,38 +286,61 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
           : b.gpxTrackId.compareTo(a.gpxTrackId),
     );
 
-    return filtered
-        .map(
-          (track) => ObjectBoxAdminRow(
-            primaryKeyValue: track.gpxTrackId,
-            values: {
-              'gpxTrackId': track.gpxTrackId,
-              'contentHash': track.contentHash,
-              'trackName': track.trackName,
-              'trackDate': track.trackDate,
-              'gpxFile': track.gpxFile,
-              'filteredTrack': track.filteredTrack,
-              'displayTrackPointsByZoom': track.displayTrackPointsByZoom,
-              'startDateTime': track.startDateTime,
-              'endDateTime': track.endDateTime,
-              'distance2d': track.distance2d,
-              'distance3d': track.distance3d,
-              'distanceToPeak': track.distanceToPeak,
-              'distanceFromPeak': track.distanceFromPeak,
-              'lowestElevation': track.lowestElevation,
-              'highestElevation': track.highestElevation,
-              'ascent': track.ascent,
-              'descent': track.descent,
-              'startElevation': track.startElevation,
-              'endElevation': track.endElevation,
-              'elevationProfile': track.elevationProfile,
-              'totalTimeMillis': track.totalTimeMillis,
-              'trackColour': track.trackColour,
-            },
-          ),
-        )
-        .toList(growable: false);
+    return filtered.map(gpxTrackToAdminRow).toList(growable: false);
   }
+}
+
+ObjectBoxAdminRow peakToAdminRow(Peak peak) {
+  return ObjectBoxAdminRow(
+    primaryKeyValue: peak.id,
+    values: {
+      'id': peak.id,
+      'osmId': peak.osmId,
+      'name': peak.name,
+      'elevation': peak.elevation,
+      'latitude': peak.latitude,
+      'longitude': peak.longitude,
+      'area': peak.area,
+      'gridZoneDesignator': peak.gridZoneDesignator,
+      'mgrs100kId': peak.mgrs100kId,
+      'easting': peak.easting,
+      'northing': peak.northing,
+    },
+  );
+}
+
+ObjectBoxAdminRow gpxTrackToAdminRow(GpxTrack track) {
+  return ObjectBoxAdminRow(
+    primaryKeyValue: track.gpxTrackId,
+    values: {
+      'gpxTrackId': track.gpxTrackId,
+      'contentHash': track.contentHash,
+      'trackName': track.trackName,
+      'trackDate': track.trackDate,
+      'gpxFile': track.gpxFile,
+      'filteredTrack': track.filteredTrack,
+      'displayTrackPointsByZoom': track.displayTrackPointsByZoom,
+      'startDateTime': track.startDateTime,
+      'endDateTime': track.endDateTime,
+      'distance2d': track.distance2d,
+      'distance3d': track.distance3d,
+      'distanceToPeak': track.distanceToPeak,
+      'distanceFromPeak': track.distanceFromPeak,
+      'lowestElevation': track.lowestElevation,
+      'highestElevation': track.highestElevation,
+      'ascent': track.ascent,
+      'descent': track.descent,
+      'startElevation': track.startElevation,
+      'endElevation': track.endElevation,
+      'elevationProfile': track.elevationProfile,
+      'totalTimeMillis': track.totalTimeMillis,
+      'trackColour': track.trackColour,
+      'peakCorrelationProcessed': track.peakCorrelationProcessed,
+      'peaks': track.peaks
+          .map((peak) => '${peak.name} (${peak.osmId})')
+          .toList(growable: false),
+    },
+  );
 }
 
 class ObjectBoxAdminEntityDescriptor {

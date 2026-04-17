@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/router.dart';
 
 import '../../harness/test_map_notifier.dart';
@@ -29,6 +30,10 @@ class GpxTracksRobot {
       find.byKey(const Key('gpx-filter-settings-section'));
   Finder get hampelWindowField =>
       find.byKey(const Key('gpx-filter-hampel-window'));
+  Finder get peakCorrelationSettingsTile =>
+      find.byKey(const Key('peak-correlation-settings-section'));
+  Finder get peakCorrelationDistanceField =>
+      find.byKey(const Key('peak-correlation-distance-meters'));
   Finder get mapInteractionRegion =>
       find.byKey(const Key('map-interaction-region'));
 
@@ -76,6 +81,12 @@ class GpxTracksRobot {
     await tester.pumpAndSettle();
   }
 
+  Future<void> openPeakCorrelationSettings() async {
+    await tester.ensureVisible(peakCorrelationSettingsTile);
+    await tester.tap(peakCorrelationSettingsTile, warnIfMissed: false);
+    await tester.pumpAndSettle();
+  }
+
   Future<void> setHampelWindow(int value) async {
     await tester.tap(hampelWindowField);
     await tester.pumpAndSettle();
@@ -83,10 +94,26 @@ class GpxTracksRobot {
     await tester.pumpAndSettle();
   }
 
+  Future<void> setPeakCorrelationDistance(int value) async {
+    final container = ProviderScope.containerOf(
+      tester.element(peakCorrelationDistanceField),
+    );
+    await container
+        .read(peakCorrelationSettingsProvider.notifier)
+        .setDistanceMeters(value);
+    await tester.pumpAndSettle();
+  }
+
   int currentHampelWindow(BuildContext context) {
     return ProviderScope.containerOf(
       context,
     ).read(gpxFilterSettingsProvider).value!.hampelWindow;
+  }
+
+  int currentPeakCorrelationDistance(BuildContext context) {
+    return ProviderScope.containerOf(
+      context,
+    ).read(peakCorrelationSettingsProvider).value!;
   }
 
   void expectTracksHidden() {
@@ -151,7 +178,7 @@ class GpxTracksRobot {
       find.descendant(
         of: find.byType(AlertDialog),
         matching: find.textContaining(
-          'Updated $updatedCount tracks, skipped $skippedCount tracks',
+          'Updated $updatedCount tracks, refreshed peak correlation, skipped $skippedCount tracks',
         ),
       ),
       findsOneWidget,

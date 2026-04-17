@@ -851,6 +851,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         return 'https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp?key=8bd67b17be9041b60f241c2aa45ecf0d';
       case Basemap.openstreetmap:
         return 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+      case Basemap.tasmapTopo:
+        return 'https://services.thelist.tas.gov.au/arcgis/rest/services/Basemaps/Topographic/MapServer/tile/{z}/{y}/{x}';
+      case Basemap.tasmap50k:
+        return 'https://services.thelist.tas.gov.au/arcgis/rest/services/Basemaps/TasmapRaster/MapServer/tile/{z}/{y}/{x}';
+      case Basemap.tasmap25k:
+        return 'https://services.thelist.tas.gov.au/arcgis/rest/services/Basemaps/Tasmap25K/MapServer/tile/{z}/{y}/{x}';
     }
   }
 
@@ -884,7 +890,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
 
     return [
-      TasmapPolygonLabelEntry(points: points, label: label, color: Theme.of(context).colorScheme.onSurface),
+      TasmapPolygonLabelEntry(
+        points: points,
+        label: label,
+        color: Theme.of(context).colorScheme.onSurface,
+      ),
     ];
   }
 

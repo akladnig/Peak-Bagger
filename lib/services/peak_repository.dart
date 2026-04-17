@@ -160,6 +160,26 @@ class PeakRepository {
     List<Peak> peaks, {
     void Function()? beforePutManyForTest,
   }) async {
+    final existingPeaks = _storage.getAll();
+    if (existingPeaks.any((peak) => peak.osmId == 0)) {
+      await _storage.replaceAll(
+        peaks,
+        beforePutManyForTest: beforePutManyForTest,
+      );
+      return;
+    }
+
+    final existingIdsByOsmId = <int, int>{
+      for (final peak in existingPeaks) peak.osmId: peak.id,
+    };
+
+    for (final peak in peaks) {
+      final existingId = existingIdsByOsmId[peak.osmId];
+      if (existingId != null) {
+        peak.id = existingId;
+      }
+    }
+
     await _storage.replaceAll(
       peaks,
       beforePutManyForTest: beforePutManyForTest,

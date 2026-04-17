@@ -42,6 +42,39 @@ class MapBasemapsDrawer extends ConsumerWidget {
               Navigator.pop(context);
             },
           ),
+          ListTile(
+            leading: const Icon(Icons.map_outlined),
+            title: const Text('TasMap Topographic'),
+            trailing: mapState.basemap == Basemap.tasmapTopo
+                ? const Icon(Icons.check)
+                : null,
+            onTap: () {
+              ref.read(mapProvider.notifier).setBasemap(Basemap.tasmapTopo);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.map_outlined),
+            title: const Text('TasMap 50k'),
+            trailing: mapState.basemap == Basemap.tasmap50k
+                ? const Icon(Icons.check)
+                : null,
+            onTap: () {
+              ref.read(mapProvider.notifier).setBasemap(Basemap.tasmap50k);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.map_outlined),
+            title: const Text('TasMap 25k'),
+            trailing: mapState.basemap == Basemap.tasmap25k
+                ? const Icon(Icons.check)
+                : null,
+            onTap: () {
+              ref.read(mapProvider.notifier).setBasemap(Basemap.tasmap25k);
+              Navigator.pop(context);
+            },
+          ),
         ],
       ),
     );

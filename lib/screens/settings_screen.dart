@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
+import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/tile_downloader.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/services/peak_refresh_result.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -41,6 +43,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final mapState = ref.watch(mapProvider);
     final filterState = ref.watch(gpxFilterSettingsProvider);
+    final peakCorrelationState = ref.watch(peakCorrelationSettingsProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -60,6 +63,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onTap: _isDownloading ? null : _downloadTiles,
           ),
           ListTile(
+            key: const Key('refresh-peak-data-tile'),
             leading: const Icon(Icons.refresh),
             title: const Text('Refresh Peak Data'),
             subtitle: const Text('Re-fetch peaks from Overpass API'),
@@ -70,7 +74,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : null,
-            onTap: _isRefreshingPeaks ? null : _refreshPeaks,
+            onTap: _isRefreshingPeaks ? null : _confirmRefreshPeakData,
           ),
           ListTile(
             key: const Key('reset-map-data-tile'),
@@ -107,7 +111,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             leading: const Icon(Icons.query_stats),
             title: const Text('Recalculate Track Statistics'),
             subtitle: const Text(
-              'Rebuild track statistics from stored GPX XML',
+              'Rebuild track statistics and peak correlation from stored GPX XML',
             ),
             trailing: mapState.isLoadingTracks
                 ? const SizedBox(
@@ -153,8 +157,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
           _buildTrackFilterSection(context, filterState),
+          _buildPeakCorrelationSection(context, peakCorrelationState),
           if (_status.isNotEmpty)
-            Padding(padding: const EdgeInsets.all(16), child: Text(_status)),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(_status, key: const Key('peak-refresh-status')),
+            ),
         ],
       ),
     );
@@ -207,25 +215,72 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  Future<void> _refreshPeaks() async {
+  Future<void> _confirmRefreshPeakData() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Refresh Peak Data?'),
+          content: const Text(
+            'This will overwrite the current peak set. Do you want to proceed?',
+          ),
+          actions: [
+            TextButton(
+              key: const Key('peak-refresh-cancel'),
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              key: const Key('peak-refresh-confirm'),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Refresh'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
     setState(() {
       _isRefreshingPeaks = true;
       _status = 'Refreshing peak data...';
     });
 
     try {
-      await ref.read(mapProvider.notifier).refreshPeaks();
+      final result = await ref.read(mapProvider.notifier).refreshPeaks();
+      if (!mounted) {
+        return;
+      }
+
       setState(() {
-        _status = 'Peak data refreshed successfully!';
+        _status = '${result.importedCount} Peaks imported';
+      });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showPeakRefreshResult(result);
+        }
       });
     } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
       setState(() {
         _status = 'Error refreshing peak data: $e';
       });
+
+      await _showPeakRefreshFailure(e.toString());
     } finally {
-      setState(() {
-        _isRefreshingPeaks = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isRefreshingPeaks = false;
+        });
+      }
     }
   }
 
@@ -383,6 +438,64 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  Future<void> _showPeakRefreshResult(PeakRefreshResult result) async {
+    if (!mounted) {
+      return;
+    }
+
+    await showDialog<void>(
+      useRootNavigator: true,
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Peak Data Refreshed'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${result.importedCount} Peaks imported'),
+              if (result.warning != null) ...[
+                const SizedBox(height: 12),
+                Text(result.warning!),
+              ],
+            ],
+          ),
+          actions: [
+            FilledButton(
+              key: const Key('peak-refresh-result-close'),
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showPeakRefreshFailure(String error) async {
+    if (!mounted) {
+      return;
+    }
+
+    await showDialog<void>(
+      useRootNavigator: true,
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Peak Data Refresh Failed'),
+          content: Text(error),
+          actions: [
+            FilledButton(
+              key: const Key('peak-refresh-error-close'),
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _showRecalculateTrackStatisticsResult(
     TrackStatisticsRecalcResult result,
   ) async {
@@ -397,7 +510,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Updated ${result.updatedCount} tracks, skipped ${result.skippedCount} tracks',
+                'Updated ${result.updatedCount} tracks, refreshed peak correlation, skipped ${result.skippedCount} tracks',
               ),
               if (result.warning != null) ...[
                 const SizedBox(height: 12),
@@ -549,6 +662,51 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           key: Key('gpx-filter-settings-section'),
           title: Text('Track Filter'),
           subtitle: Text('Unable to load filter settings.'),
+        ),
+      },
+    );
+  }
+
+  Widget _buildPeakCorrelationSection(
+    BuildContext context,
+    AsyncValue<int> peakCorrelationState,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: switch (peakCorrelationState) {
+        AsyncData<int>(:final value) => ExpansionTile(
+          key: const Key('peak-correlation-settings-section'),
+          initiallyExpanded: true,
+          title: const Text('Peak Correlation'),
+          subtitle: Text('Threshold ${value}m'),
+          childrenPadding: const EdgeInsets.only(bottom: 16),
+          children: [
+            _buildIntegerDropdown(
+              key: const Key('peak-correlation-distance-meters'),
+              label: 'Distance threshold',
+              value: value,
+              options: peakCorrelationDistanceOptions,
+              onChanged: (selected) {
+                if (selected == null) return;
+                unawaited(
+                  ref
+                      .read(peakCorrelationSettingsProvider.notifier)
+                      .setDistanceMeters(selected),
+                );
+              },
+            ),
+          ],
+        ),
+        AsyncLoading<int>() => const ListTile(
+          key: Key('peak-correlation-settings-section'),
+          title: Text('Peak Correlation'),
+          subtitle: Text('Loading correlation settings...'),
+          trailing: Text('...'),
+        ),
+        AsyncError<int>() => const ListTile(
+          key: Key('peak-correlation-settings-section'),
+          title: Text('Peak Correlation'),
+          subtitle: Text('Unable to load correlation settings.'),
         ),
       },
     );
