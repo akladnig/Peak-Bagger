@@ -105,3 +105,5 @@ int addTrack(GpxTrack track) => putTrack(track);
 - Debounce peak search input
 - Consider caching marker widgets/assets if zoom rebuilds become janky
 - Consider a spatial prefilter/index if correlation import becomes slow again
+
+

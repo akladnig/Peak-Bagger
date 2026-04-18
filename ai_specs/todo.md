@@ -98,11 +98,14 @@ i - info
 
 ## Map Screen
 -,+, _, = - zoom
-s - feature search
+s - feature search/goto location
 tba - layers
 tba - show my position
+b - basemaps
+c - centre on selection
 g - go to marker
 m - enable map grid
+t - tracks
 i - info
 
 
