@@ -28,14 +28,14 @@ Root screen keeps orchestration; sibling files take presentational widgets.
 ### Phase 2: Move states and table
 
 - **Goal**: extract body presentation surface
-- [ ] `lib/screens/objectbox_admin_screen_states.dart` - move schema view + shared loading/error/empty presentation widgets
-- [ ] `lib/screens/objectbox_admin_screen_table.dart` - move data grid, header row, row tiles, cells
-- [ ] `lib/screens/objectbox_admin_screen.dart` - keep `_buildBody`, refresh orchestration, load-more trigger, horizontal scroll ownership; swap in exported widgets
-- [ ] TDD: no-entity, no-selection, loading, error, no-match states render same copy/keys; then extract states widgets
-- [ ] TDD: row chunking, fixed first column, header/row scroll sync, selection rendering stay unchanged; then extract table widgets
-- [ ] TDD: schema mode still shows current field rows for selected entity; then extract schema view
-- [ ] Robot journey tests + selectors/seams for critical flows: keep stable keys unchanged; avoid async/controller indirection that makes shell journey flaky
-- [ ] Verify: `flutter analyze` && `flutter test test/widget/objectbox_admin_shell_test.dart` && `flutter test test/widget/objectbox_admin_browser_test.dart` && `flutter test test/robot/objectbox_admin/objectbox_admin_journey_test.dart`
+- [x] `lib/screens/objectbox_admin_screen_states.dart` - move schema view + shared loading/error/empty presentation widgets
+- [x] `lib/screens/objectbox_admin_screen_table.dart` - move data grid, header row, row tiles, cells
+- [x] `lib/screens/objectbox_admin_screen.dart` - keep `_buildBody`, refresh orchestration, load-more trigger, horizontal scroll ownership; swap in exported widgets
+- [x] TDD: no-entity, no-selection, loading, error, no-match states render same copy/keys; then extract states widgets
+- [x] TDD: row chunking, fixed first column, header/row scroll sync, selection rendering stay unchanged; then extract table widgets
+- [x] TDD: schema mode still shows current field rows for selected entity; then extract schema view
+- [x] Robot journey tests + selectors/seams for critical flows: keep stable keys unchanged; avoid async/controller indirection that makes shell journey flaky
+- [x] Verify: `flutter analyze` && `flutter test test/widget/objectbox_admin_shell_test.dart` && `flutter test test/widget/objectbox_admin_browser_test.dart` && `flutter test test/robot/objectbox_admin/objectbox_admin_journey_test.dart`
 
 ### Phase 3: Optional pure helpers, then harden
 

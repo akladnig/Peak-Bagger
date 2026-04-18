@@ -4,6 +4,8 @@ import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen_controls.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen_details.dart';
+import 'package:peak_bagger/screens/objectbox_admin_screen_states.dart';
+import 'package:peak_bagger/screens/objectbox_admin_screen_table.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 
 class ObjectBoxAdminScreen extends ConsumerStatefulWidget {
@@ -220,7 +222,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     ObjectBoxAdminNotifier notifier,
   ) {
     if (state.entities.isEmpty) {
-      return const _EmptyState(
+      return const ObjectBoxAdminEmptyState(
         key: Key('objectbox-admin-empty-state'),
         title: 'No selectable entities',
         message: 'The store has no ObjectBox entities to inspect.',
@@ -228,19 +230,19 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     }
 
     if (state.error != null) {
-      return _ErrorState(
+      return ObjectBoxAdminErrorState(
         key: const Key('objectbox-admin-error-state'),
         message: state.error!,
       );
     }
 
     if (state.isLoading) {
-      return const _LoadingState();
+      return const ObjectBoxAdminLoadingState();
     }
 
     final entity = state.selectedEntity;
     if (entity == null) {
-      return const _EmptyState(
+      return const ObjectBoxAdminEmptyState(
         key: Key('objectbox-admin-empty-state'),
         title: 'No entity selected',
         message: 'Choose an entity to inspect its schema or rows.',
@@ -248,11 +250,11 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     }
 
     if (state.mode == ObjectBoxAdminViewMode.schema) {
-      return _SchemaView(entity: entity);
+      return ObjectBoxAdminSchemaView(entity: entity);
     }
 
     if (state.noMatches) {
-      return const _EmptyState(
+      return const ObjectBoxAdminEmptyState(
         key: Key('objectbox-admin-empty-state'),
         title: 'No matches',
         message: 'The current search returned no rows.',
@@ -260,7 +262,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     }
 
     if (state.rows.isEmpty) {
-      return _EmptyState(
+      return ObjectBoxAdminEmptyState(
         key: const Key('objectbox-admin-empty-state'),
         title: 'No rows',
         message: 'This entity has no stored rows yet.',
@@ -270,7 +272,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     return Row(
       children: [
         Expanded(
-          child: _DataGrid(
+          child: ObjectBoxAdminDataGrid(
             key: const Key('objectbox-admin-table'),
             entity: entity,
             rows: state.visibleRows,
@@ -295,344 +297,6 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _LoadingState extends StatelessWidget {
-  const _LoadingState();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: CircularProgressIndicator());
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message, super.key});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Card(
-        child: Padding(padding: const EdgeInsets.all(16), child: Text(message)),
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.title, required this.message, super.key});
-
-  final String title;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(title, style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              Text(message),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SchemaView extends StatelessWidget {
-  const _SchemaView({required this.entity});
-
-  final ObjectBoxAdminEntityDescriptor entity;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.separated(
-      itemCount: entity.fields.length + 1,
-      separatorBuilder: (context, index) => const Divider(height: 1),
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return _SchemaHeader(entity: entity);
-        }
-
-        final field = entity.fields[index - 1];
-        return ListTile(
-          dense: true,
-          title: Text(field.name),
-          subtitle: Text(field.typeLabel),
-          trailing: Text(
-            [
-              if (field.isPrimaryKey) 'PK',
-              if (field.isPrimaryName) 'Name',
-              if (field.nullable) 'Nullable',
-            ].join(' · '),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _SchemaHeader extends StatelessWidget {
-  const _SchemaHeader({required this.entity});
-
-  final ObjectBoxAdminEntityDescriptor entity;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        '${entity.displayName} schema',
-        style: Theme.of(context).textTheme.titleMedium,
-      ),
-    );
-  }
-}
-
-class _DataGrid extends StatelessWidget {
-  const _DataGrid({
-    super.key,
-    required this.entity,
-    required this.rows,
-    required this.sortAscending,
-    required this.selectedRow,
-    required this.headerHorizontalController,
-    required this.rowHorizontalControllerFor,
-    required this.verticalController,
-    required this.canLoadMore,
-    required this.onSortPressed,
-    required this.onRowTap,
-  });
-
-  final ObjectBoxAdminEntityDescriptor entity;
-  final List<ObjectBoxAdminRow> rows;
-  final bool sortAscending;
-  final ObjectBoxAdminRow? selectedRow;
-  final ScrollController headerHorizontalController;
-  final ScrollController Function(ObjectBoxAdminRow row)
-  rowHorizontalControllerFor;
-  final ScrollController verticalController;
-  final bool canLoadMore;
-  final VoidCallback onSortPressed;
-  final ValueChanged<ObjectBoxAdminRow> onRowTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final otherFields = entity.fields
-        .where((field) => !field.isPrimaryName)
-        .toList(growable: false);
-    final primaryField = entity.fields.firstWhere(
-      (field) => field.isPrimaryName,
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _DataHeaderRow(
-          key: const Key('objectbox-admin-header-row'),
-          primaryField: primaryField,
-          otherFields: otherFields,
-          sortAscending: sortAscending,
-          horizontalController: headerHorizontalController,
-          onSortPressed: onSortPressed,
-        ),
-        const Divider(height: 1),
-        Expanded(
-          child: Scrollbar(
-            controller: verticalController,
-            child: ListView.builder(
-              key: const Key('objectbox-admin-row-list'),
-              controller: verticalController,
-              itemCount: rows.length + (canLoadMore ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index == rows.length && canLoadMore) {
-                  return const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
-
-                final row = rows[index];
-                final isSelected =
-                    selectedRow?.primaryKeyValue == row.primaryKeyValue;
-                return _DataRowTile(
-                  row: row,
-                  primaryField: primaryField,
-                  otherFields: otherFields,
-                  selected: isSelected,
-                  horizontalController: rowHorizontalControllerFor(row),
-                  onTap: () => onRowTap(row),
-                );
-              },
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DataHeaderRow extends StatelessWidget {
-  const _DataHeaderRow({
-    super.key,
-    required this.primaryField,
-    required this.otherFields,
-    required this.sortAscending,
-    required this.horizontalController,
-    required this.onSortPressed,
-  });
-
-  final ObjectBoxAdminFieldDescriptor primaryField;
-  final List<ObjectBoxAdminFieldDescriptor> otherFields;
-  final bool sortAscending;
-  final ScrollController horizontalController;
-  final VoidCallback onSortPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _Cell(
-          width: 160,
-          child: GestureDetector(
-            onTap: onSortPressed,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    primaryField.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                Icon(
-                  sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
-                  size: 14,
-                ),
-              ],
-            ),
-          ),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            controller: horizontalController,
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: otherFields
-                  .map(
-                    (field) => _Cell(
-                      width: 160,
-                      child: Text(
-                        field.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  )
-                  .toList(growable: false),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DataRowTile extends StatelessWidget {
-  const _DataRowTile({
-    required this.row,
-    required this.primaryField,
-    required this.otherFields,
-    required this.selected,
-    required this.horizontalController,
-    required this.onTap,
-  });
-
-  final ObjectBoxAdminRow row;
-  final ObjectBoxAdminFieldDescriptor primaryField;
-  final List<ObjectBoxAdminFieldDescriptor> otherFields;
-  final bool selected;
-  final ScrollController horizontalController;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final highlight = selected
-        ? Theme.of(context).colorScheme.primaryContainer
-        : Colors.transparent;
-
-    return Material(
-      color: highlight,
-      child: InkWell(
-        onTap: onTap,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _Cell(
-              width: 160,
-              child: ColoredBox(
-                color: selected
-                    ? Theme.of(context).colorScheme.primaryContainer
-                    : Theme.of(context).colorScheme.surface,
-                child: Text(
-                  objectBoxAdminPreviewValue(row.values[primaryField.name]),
-                  maxLines: null,
-                  softWrap: true,
-                ),
-              ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                controller: horizontalController,
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: otherFields
-                      .map(
-                        (field) => _Cell(
-                          width: 160,
-                          child: Text(
-                            objectBoxAdminPreviewValue(row.values[field.name]),
-                            maxLines: null,
-                            softWrap: true,
-                          ),
-                        ),
-                      )
-                      .toList(growable: false),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Cell extends StatelessWidget {
-  const _Cell({required this.width, required this.child});
-
-  final double width;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: DefaultTextStyle.merge(
-          style: Theme.of(context).textTheme.bodySmall!,
-          child: child,
-        ),
-      ),
     );
   }
 }
