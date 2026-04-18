@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
+import 'package:peak_bagger/screens/objectbox_admin_screen_controls.dart';
+import 'package:peak_bagger/screens/objectbox_admin_screen_details.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 
 class ObjectBoxAdminScreen extends ConsumerStatefulWidget {
@@ -180,7 +182,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _AdminControls(
+            ObjectBoxAdminControls(
               state: state,
               searchController: _searchController,
               onEntityChanged: (entity) {
@@ -286,144 +288,12 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
         const SizedBox(width: 16),
         SizedBox(
           width: 320,
-          child: _DetailsPane(
+          child: ObjectBoxAdminDetailsPane(
             row: state.selectedRow,
             entity: entity,
             onClose: notifier.clearSelection,
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _AdminControls extends StatelessWidget {
-  const _AdminControls({
-    required this.state,
-    required this.searchController,
-    required this.onEntityChanged,
-    required this.onModeChanged,
-    required this.onSearchChanged,
-    required this.onSearchSubmitted,
-    required this.onSearchPressed,
-    required this.onSortPressed,
-    required this.onExportPressed,
-  });
-
-  final ObjectBoxAdminState state;
-  final TextEditingController searchController;
-  final ValueChanged<ObjectBoxAdminEntityDescriptor?> onEntityChanged;
-  final ValueChanged<ObjectBoxAdminViewMode> onModeChanged;
-  final ValueChanged<String> onSearchChanged;
-  final VoidCallback onSearchSubmitted;
-  final VoidCallback onSearchPressed;
-  final VoidCallback onSortPressed;
-  final Future<void> Function()? onExportPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final entity = state.selectedEntity;
-
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        SizedBox(
-          width: 260,
-          child: DropdownButtonFormField<ObjectBoxAdminEntityDescriptor>(
-            key: const Key('objectbox-admin-entity-dropdown'),
-            initialValue: entity,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Entity',
-              border: OutlineInputBorder(),
-            ),
-            items: state.entities
-                .map(
-                  (descriptor) => DropdownMenuItem(
-                    value: descriptor,
-                    child: Text(descriptor.displayName),
-                  ),
-                )
-                .toList(growable: false),
-            onChanged: onEntityChanged,
-          ),
-        ),
-        ToggleButtons(
-          key: const Key('objectbox-admin-schema-data-toggle'),
-          isSelected: [
-            state.mode == ObjectBoxAdminViewMode.schema,
-            state.mode == ObjectBoxAdminViewMode.data,
-          ],
-          onPressed: (index) {
-            onModeChanged(
-              index == 0
-                  ? ObjectBoxAdminViewMode.schema
-                  : ObjectBoxAdminViewMode.data,
-            );
-          },
-          children: const [
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Text('Schema'),
-            ),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Text('Data'),
-            ),
-          ],
-        ),
-        if (state.mode == ObjectBoxAdminViewMode.data)
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            crossAxisAlignment: WrapCrossAlignment.start,
-            children: [
-              SizedBox(
-                width: 360,
-                child: TextField(
-                  controller: searchController,
-                  decoration: InputDecoration(
-                    labelText: 'Search',
-                    border: const OutlineInputBorder(),
-                    suffixIcon: IconButton(
-                      onPressed: onSearchPressed,
-                      icon: const Icon(Icons.search),
-                    ),
-                  ),
-                  onChanged: onSearchChanged,
-                  onSubmitted: (_) => onSearchSubmitted(),
-                ),
-              ),
-              if (entity?.name == 'GpxTrack')
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    FilledButton.icon(
-                      key: const Key('objectbox-admin-export-gpx'),
-                      onPressed: onExportPressed == null
-                          ? null
-                          : () => onExportPressed!(),
-                      icon: const Icon(Icons.upload_file),
-                      label: const Text('Export GPX'),
-                    ),
-                    if (state.selectedRow == null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6, left: 12),
-                        child: Text(
-                          'No gpxFile selected',
-                          key: const Key('objectbox-admin-export-error'),
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-            ],
-          ),
       ],
     );
   }
@@ -761,78 +631,6 @@ class _Cell extends StatelessWidget {
         child: DefaultTextStyle.merge(
           style: Theme.of(context).textTheme.bodySmall!,
           child: child,
-        ),
-      ),
-    );
-  }
-}
-
-class _DetailsPane extends StatelessWidget {
-  const _DetailsPane({
-    required this.row,
-    required this.entity,
-    required this.onClose,
-  });
-
-  final ObjectBoxAdminRow? row;
-  final ObjectBoxAdminEntityDescriptor entity;
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    row == null
-                        ? 'Details'
-                        : '${entity.displayName} #${objectBoxAdminFormatValue(row!.primaryKeyValue)}',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                IconButton(
-                  key: const Key('objectbox-admin-details-close'),
-                  onPressed: row == null ? null : onClose,
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
-            const Divider(),
-            if (row == null)
-              const Expanded(
-                child: Center(
-                  child: Text('Select a row to inspect full values.'),
-                ),
-              )
-            else
-              Expanded(
-                child: ListView.separated(
-                  key: const Key('objectbox-admin-details-list'),
-                  itemCount: entity.fields.length,
-                  separatorBuilder: (context, index) =>
-                      const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final field = entity.fields[index];
-                    final selectedRow = row!;
-                    return ListTile(
-                      dense: true,
-                      title: Text(field.name),
-                      subtitle: SelectableText(
-                        objectBoxAdminFormatValue(
-                          selectedRow.values[field.name],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-          ],
         ),
       ),
     );
