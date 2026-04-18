@@ -1,5 +1,6 @@
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
@@ -55,6 +56,47 @@ class TestMapNotifier extends MapNotifier {
     state = state.copyWith(
       center: center,
       zoom: zoom,
+      clearHoveredTrackId: true,
+    );
+  }
+
+  @override
+  void searchPeaks(String query) {
+    final lowered = query.toLowerCase();
+    final results = state.peaks
+        .where((peak) {
+          final nameMatch = peak.name.toLowerCase().contains(lowered);
+          final elevMatch =
+              peak.elevation != null &&
+              peak.elevation!.toString().contains(query);
+          return query.isEmpty || nameMatch || elevMatch;
+        })
+        .toList(growable: false);
+
+    state = state.copyWith(searchQuery: query, searchResults: results);
+  }
+
+  @override
+  void clearSearch() {
+    state = state.copyWith(searchQuery: '', searchResults: const []);
+  }
+
+  @override
+  void toggleInfoPopup() {
+    final isVisible = state.showInfoPopup;
+    state = state.copyWith(
+      showInfoPopup: !isVisible,
+      clearInfoPopup: isVisible,
+    );
+  }
+
+  @override
+  void centerOnPeak(Peak peak) {
+    state = state.copyWith(
+      center: LatLng(peak.latitude, peak.longitude),
+      zoom: 15,
+      syncEnabled: true,
+      selectedPeaks: [peak],
       clearHoveredTrackId: true,
     );
   }

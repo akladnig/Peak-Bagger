@@ -9,14 +9,15 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
-import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/track_hover_detector.dart';
 import 'package:peak_bagger/widgets/map_action_rail.dart';
 import 'package:peak_bagger/widgets/map_basemaps_drawer.dart';
-import 'package:peak_bagger/widgets/tasmap_outline_layer.dart';
 import 'package:peak_bagger/widgets/tasmap_polygon_label.dart';
+
+import 'map_screen_layers.dart';
+import 'map_screen_panels.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
@@ -197,60 +198,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     _searchFocusNode.dispose();
     _mapFocusNode.dispose();
     super.dispose();
-  }
-
-  Widget _buildMgrsDisplay(String mgrs) {
-    final lines = mgrs.split('\n');
-    if (lines.length < 2) {
-      return Text(
-        mgrs,
-        style: TextStyle(
-          fontFamily: 'monospace',
-          fontSize: 12,
-          color: Theme.of(context).colorScheme.onSurface,
-        ),
-      );
-    }
-
-    final firstLine = lines[0];
-    final secondLine = lines[1];
-    final parts = secondLine.split(' ');
-    if (parts.length < 2) {
-      return Text(
-        mgrs,
-        style: TextStyle(
-          fontFamily: 'monospace',
-          fontSize: 12,
-          color: Theme.of(context).colorScheme.onSurface,
-        ),
-      );
-    }
-
-    final easting = parts[0];
-    final northing = parts[1];
-
-    return RichText(
-      text: TextSpan(
-        style: TextStyle(
-          fontFamily: 'monospace',
-          fontSize: 12,
-          color: Theme.of(context).colorScheme.onSurface,
-        ),
-        children: [
-          TextSpan(text: '$firstLine\n'),
-          TextSpan(
-            text: easting.substring(0, 3),
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          TextSpan(text: '${easting.substring(3)} '),
-          TextSpan(
-            text: northing.substring(0, 3),
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          TextSpan(text: northing.substring(3)),
-        ],
-      ),
-    );
   }
 
   @override
@@ -473,7 +420,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 ),
                 children: [
                   TileLayer(
-                    urlTemplate: _getTileUrl(mapState.basemap),
+                    urlTemplate: mapTileUrl(mapState.basemap),
                     userAgentPackageName: 'com.peak_bagger.app',
                     tileProvider: NetworkTileProvider(),
                   ),
@@ -505,14 +452,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       }).toList(),
                     ),
                   if (mapState.showSelectedMapLayer)
-                    _buildMapRectangle(mapState.selectedMap!),
+                    buildMapRectangle(
+                      ref.read(tasmapRepositoryProvider),
+                      mapState.selectedMap!,
+                    ),
                   if (mapState.showMapOverlay)
                     PolygonLayer(
                       key: const Key('tasmap-layer'),
-                      polygons: _buildAllMapRectangles(),
+                      polygons: buildAllMapRectangles(
+                        ref.read(tasmapRepositoryProvider),
+                      ),
                     ),
                   if (mapState.showTracks)
-                    _buildTrackPolylines(
+                    buildTrackPolylines(
                       mapState.tracks,
                       mapState.zoom,
                       selectedTrackId: mapState.selectedTrackId,
@@ -522,16 +474,26 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       mapState.zoom >= 9)
                     MarkerLayer(
                       key: const Key('peak-marker-layer'),
-                      markers: _buildPeakMarkers(mapState),
+                      markers: buildPeakMarkers(
+                        peaks: mapState.peaks,
+                        zoom: mapState.zoom,
+                        correlatedPeakIds: ref
+                            .read(mapProvider.notifier)
+                            .correlatedPeakIds,
+                        tickedPeakMarker: _tickedPeakMarker,
+                        untickedPeakMarker: _untickedPeakMarker,
+                      ),
                     ),
                   if (mapState.showSelectedMapLayer)
                     TasmapPolygonLabelLayer(
                       key: const Key('tasmap-label-layer'),
                       insetX: tasmapPolygonLabelDefaultInsetX,
                       insetY: tasmapPolygonLabelDefaultInsetY,
-                      entries: _buildSelectedMapLabelEntries(
+                      entries: buildSelectedMapLabelEntries(
+                        ref.read(tasmapRepositoryProvider),
                         mapState.selectedMap!,
                         mapState.zoom,
+                        Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                   if (mapState.showMapOverlay)
@@ -539,7 +501,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       key: const Key('tasmap-label-layer'),
                       insetX: tasmapPolygonLabelDefaultInsetX,
                       insetY: tasmapPolygonLabelDefaultInsetY,
-                      entries: _buildOverlayLabelEntries(mapState.zoom),
+                      entries: buildOverlayLabelEntries(
+                        ref.read(tasmapRepositoryProvider),
+                        mapState.zoom,
+                        Theme.of(context).colorScheme.onSurface,
+                      ),
                     ),
                 ],
               ),
@@ -548,450 +514,90 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             Positioned(
               left: 16,
               top: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.surface.withValues(alpha: 0.8),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: _buildMgrsDisplay(displayMgrs),
-              ),
+              child: MapMgrsReadout(mgrs: displayMgrs),
             ),
             Positioned(
               left: 16,
               bottom: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.surface.withValues(alpha: 0.8),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  'zoom: ${mapState.zoom.toStringAsFixed(0)}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-              ),
+              child: MapZoomReadout(zoom: mapState.zoom),
             ),
             if (mapState.showPeakSearch)
               Positioned(
                 right: 72,
                 top: 16,
-                child: Card(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: 30 * 8.0,
-                              child: TextField(
-                                focusNode: _searchFocusNode,
-                                autofocus: true,
-                                decoration: const InputDecoration(
-                                  hintText: 'Search peaks',
-                                  isDense: true,
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.search, size: 20),
-                                ),
-                                onChanged: (value) {
-                                  ref
-                                      .read(mapProvider.notifier)
-                                      .searchPeaks(value);
-                                },
-                                onSubmitted: (_) {
-                                  ref
-                                      .read(mapProvider.notifier)
-                                      .selectAllSearchResults();
-                                  _searchFocusNode.unfocus();
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              icon: const Icon(Icons.close),
-                              onPressed: () {
-                                _searchFocusNode.unfocus();
-                                ref
-                                    .read(mapProvider.notifier)
-                                    .setPeakSearchVisible(false);
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (mapState.searchResults.isNotEmpty)
-                        SizedBox(
-                          width: 30 * 8.0,
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: mapState.searchResults.length,
-                            itemBuilder: (context, index) {
-                              final peak = mapState.searchResults[index];
-                              return ListTile(
-                                dense: true,
-                                title: Text(peak.name),
-                                subtitle: Text(
-                                  peak.elevation != null
-                                      ? '${peak.elevation!.toStringAsFixed(0)}m'
-                                      : 'Unknown',
-                                ),
-                                onTap: () {
-                                  ref
-                                      .read(mapProvider.notifier)
-                                      .centerOnPeak(peak);
-                                  ref
-                                      .read(mapProvider.notifier)
-                                      .setPeakSearchVisible(false);
-                                  ref.read(mapProvider.notifier).clearSearch();
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                      if (mapState.searchQuery.isNotEmpty &&
-                          mapState.searchResults.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.all(8),
-                          child: Text('No peaks found'),
-                        ),
-                    ],
-                  ),
+                child: MapPeakSearchPanel(
+                  focusNode: _searchFocusNode,
+                  searchResults: mapState.searchResults,
+                  searchQuery: mapState.searchQuery,
+                  onChanged: (value) {
+                    ref.read(mapProvider.notifier).searchPeaks(value);
+                  },
+                  onSubmitted: (_) {
+                    ref.read(mapProvider.notifier).selectAllSearchResults();
+                    _searchFocusNode.unfocus();
+                  },
+                  onClose: () {
+                    _searchFocusNode.unfocus();
+                    ref.read(mapProvider.notifier).setPeakSearchVisible(false);
+                  },
+                  onSelectPeak: (peak) {
+                    ref.read(mapProvider.notifier).centerOnPeak(peak);
+                    ref.read(mapProvider.notifier).setPeakSearchVisible(false);
+                    ref.read(mapProvider.notifier).clearSearch();
+                  },
                 ),
               ),
             if (mapState.showGotoInput)
               Positioned(
                 right: 72,
                 top: 16,
-                child: Card(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: 30 * 8.0,
-                              child: CallbackShortcuts(
-                                bindings: {
-                                  const SingleActivator(LogicalKeyboardKey.tab):
-                                      _handleGotoTab,
-                                },
-                                child: TextField(
-                                  key: const Key('goto-map-input'),
-                                  focusNode: _gotoFocusNode,
-                                  controller: _gotoController,
-                                  decoration: InputDecoration(
-                                    hintText: 'Go to location',
-                                    isDense: true,
-                                    border: const OutlineInputBorder(),
-                                    errorText: _gotoError,
-                                  ),
-                                  onChanged: (value) {
-                                    if (_gotoError != null) {
-                                      setState(() => _gotoError = null);
-                                    }
-                                    ref
-                                        .read(mapProvider.notifier)
-                                        .parseGridReference(value);
-                                  },
-                                  onSubmitted: (_) {
-                                    _handleGotoSubmit(ref.read(mapProvider));
-                                  },
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              key: const Key('goto-map-close'),
-                              icon: const Icon(Icons.close),
-                              onPressed: () {
-                                ref.read(mapProvider.notifier).clearGotoMgrs();
-                                ref
-                                    .read(mapProvider.notifier)
-                                    .setGotoInputVisible(false);
-                                _gotoController.clear();
-                              },
-                            ),
-                            IconButton(
-                              key: const Key('goto-map-submit'),
-                              icon: const Icon(Icons.arrow_forward),
-                              onPressed: _navigateToGridReference,
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (mapState.mapSuggestions.isNotEmpty)
-                        SizedBox(
-                          width: 30 * 8.0,
-                          height: 150,
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: mapState.mapSuggestions.length,
-                            itemBuilder: (context, index) {
-                              final map = mapState.mapSuggestions[index];
-                              return ListTile(
-                                dense: true,
-                                title: Text(map.name),
-                                subtitle: Text(map.series),
-                                onTap: () {
-                                  _gotoController.text = map.name;
-                                  ref.read(mapProvider.notifier).selectMap(map);
-                                  _zoomToMapExtent(map);
-                                  ref
-                                      .read(mapProvider.notifier)
-                                      .setGotoInputVisible(false);
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                    ],
-                  ),
+                child: MapGotoPanel(
+                  focusNode: _gotoFocusNode,
+                  controller: _gotoController,
+                  errorText: _gotoError,
+                  mapSuggestions: mapState.mapSuggestions,
+                  onChanged: (value) {
+                    if (_gotoError != null) {
+                      setState(() => _gotoError = null);
+                    }
+                    ref.read(mapProvider.notifier).parseGridReference(value);
+                  },
+                  onSubmitted: (_) => _handleGotoSubmit(ref.read(mapProvider)),
+                  onClose: () {
+                    ref.read(mapProvider.notifier).clearGotoMgrs();
+                    ref.read(mapProvider.notifier).setGotoInputVisible(false);
+                    _gotoController.clear();
+                  },
+                  onNavigate: _navigateToGridReference,
+                  onTabShortcut: _handleGotoTab,
+                  onSelectSuggestion: (map) {
+                    _gotoController.text = map.name;
+                    ref.read(mapProvider.notifier).selectMap(map);
+                    _zoomToMapExtent(map);
+                    ref.read(mapProvider.notifier).setGotoInputVisible(false);
+                  },
                 ),
               ),
             if (mapState.showInfoPopup)
               Positioned(
                 left: MediaQuery.of(context).size.width / 2 + 16,
                 top: MediaQuery.of(context).size.height / 2 - 50,
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.map, size: 18),
-                            const SizedBox(width: 8),
-                            Text(
-                              mapState.infoMapName ?? 'Unknown',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              icon: const Icon(Icons.close, size: 16),
-                              onPressed: () {
-                                ref
-                                    .read(mapProvider.notifier)
-                                    .toggleInfoPopup();
-                              },
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                            ),
-                          ],
-                        ),
-                        if (mapState.infoMgrs != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            mapState.infoMgrs!,
-                            style: TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 12,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                        ],
-                        if (mapState.infoPeakName != null) ...[
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.terrain, size: 16),
-                              const SizedBox(width: 4),
-                              Text(
-                                mapState.infoPeakName!,
-                                style: const TextStyle(fontSize: 13),
-                              ),
-                              if (mapState.infoPeakElevation != null) ...[
-                                const Text(' '),
-                                Text(
-                                  '${mapState.infoPeakElevation!.toStringAsFixed(0)}m',
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ],
-                        if (mapState.hasTrackRecoveryIssue) ...[
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.warning_amber_rounded, size: 16),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Some tracks need to be rebuilt.',
-                                style: const TextStyle(fontSize: 13),
-                              ),
-                            ],
-                          ),
-                        ] else if (mapState.tracks.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.route, size: 16),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${mapState.tracks.length} tracks available',
-                                style: const TextStyle(fontSize: 13),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
+                child: MapInfoPopupCard(
+                  infoMapName: mapState.infoMapName,
+                  infoMgrs: mapState.infoMgrs,
+                  infoPeakName: mapState.infoPeakName,
+                  infoPeakElevation: mapState.infoPeakElevation,
+                  hasTrackRecoveryIssue: mapState.hasTrackRecoveryIssue,
+                  trackCount: mapState.tracks.length,
+                  onClose: () {
+                    ref.read(mapProvider.notifier).toggleInfoPopup();
+                  },
                 ),
               ),
           ],
         ),
       ),
     );
-  }
-
-  String _getTileUrl(Basemap basemap) {
-    switch (basemap) {
-      case Basemap.tracestrack:
-        return 'https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp?key=8bd67b17be9041b60f241c2aa45ecf0d';
-      case Basemap.openstreetmap:
-        return 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-      case Basemap.tasmapTopo:
-        return 'https://services.thelist.tas.gov.au/arcgis/rest/services/Basemaps/Topographic/MapServer/tile/{z}/{y}/{x}';
-      case Basemap.tasmap50k:
-        return 'https://services.thelist.tas.gov.au/arcgis/rest/services/Basemaps/TasmapRaster/MapServer/tile/{z}/{y}/{x}';
-      case Basemap.tasmap25k:
-        return 'https://services.thelist.tas.gov.au/arcgis/rest/services/Basemaps/Tasmap25K/MapServer/tile/{z}/{y}/{x}';
-    }
-  }
-
-  Widget _buildMapRectangle(Tasmap50k map) {
-    final repo = ref.read(tasmapRepositoryProvider);
-    final points = repo.getMapPolygonPoints(map);
-    if (points.length < 4) {
-      return const SizedBox.shrink();
-    }
-
-    return TasmapOutlineLayer(key: const Key('tasmap-layer'), points: points);
-  }
-
-  List<TasmapPolygonLabelEntry> _buildSelectedMapLabelEntries(
-    Tasmap50k map,
-    double zoom,
-  ) {
-    if (zoom < 10) {
-      return const [];
-    }
-
-    final repo = ref.read(tasmapRepositoryProvider);
-    final points = repo.getMapPolygonPoints(map);
-    if (points.length < 4) {
-      return const [];
-    }
-
-    final label = formatTasmapPolygonLabel(map);
-    if (label == null) {
-      return const [];
-    }
-
-    return [
-      TasmapPolygonLabelEntry(
-        points: points,
-        label: label,
-        color: Theme.of(context).colorScheme.onSurface,
-      ),
-    ];
-  }
-
-  List<Polygon> _buildAllMapRectangles() {
-    final repo = ref.read(tasmapRepositoryProvider);
-    final maps = repo.getAllMaps();
-    final polygons = <Polygon>[];
-
-    for (final map in maps) {
-      final points = repo.getMapPolygonPoints(map);
-      if (points.length < 4) {
-        continue;
-      }
-
-      polygons.add(
-        Polygon(
-          points: points,
-          color: Colors.transparent,
-          borderColor: Colors.blue,
-          borderStrokeWidth: 2,
-        ),
-      );
-    }
-
-    return polygons;
-  }
-
-  List<Marker> _buildPeakMarkers(MapState mapState) {
-    if (mapState.zoom < 9) {
-      return const [];
-    }
-
-    final correlatedPeakIds = ref.read(mapProvider.notifier).correlatedPeakIds;
-
-    return mapState.peaks.map((peak) {
-      final isCorrelated = correlatedPeakIds.contains(peak.osmId);
-      final child = isCorrelated ? _tickedPeakMarker : _untickedPeakMarker;
-
-      return Marker(
-        point: LatLng(peak.latitude, peak.longitude),
-        width: 20,
-        height: 20,
-        child: child,
-      );
-    }).toList();
-  }
-
-  List<TasmapPolygonLabelEntry> _buildOverlayLabelEntries(double zoom) {
-    if (zoom < 10) {
-      return const [];
-    }
-
-    final repo = ref.read(tasmapRepositoryProvider);
-    final maps = repo.getAllMaps();
-    final entries = <TasmapPolygonLabelEntry>[];
-
-    for (final map in maps) {
-      final points = repo.getMapPolygonPoints(map);
-      if (points.length < 4) {
-        continue;
-      }
-
-      final label = formatTasmapPolygonLabel(map);
-      if (label == null) {
-        continue;
-      }
-
-      entries.add(
-        TasmapPolygonLabelEntry(
-          points: points,
-          label: label,
-          color: Theme.of(context).colorScheme.onSurface,
-        ),
-      );
-    }
-
-    return entries;
   }
 
   void _navigateToGridReference() {
@@ -1059,57 +665,5 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   void _goToCurrentLocation() {
     // TODO: Implement GPS location
-  }
-
-  PolylineLayer _buildTrackPolylines(
-    List<GpxTrack> tracks,
-    double zoom, {
-    int? selectedTrackId,
-  }) {
-    final polylines = <Polyline>[];
-    final selectedBasePolylines = <Polyline>[];
-    final selectedOverlayPolylines = <Polyline>[];
-    final displayZoom = zoom.round().clamp(6, 18);
-
-    for (final track in tracks) {
-      final isSelected = track.gpxTrackId == selectedTrackId;
-      final color = Color(track.trackColour);
-      final trackColor = selectedTrackId == null || isSelected
-          ? color
-          : color.withValues(alpha: 0.6);
-      try {
-        for (final segment in track.getSegmentsForZoom(displayZoom)) {
-          if (segment.isEmpty) continue;
-          if (isSelected) {
-            selectedBasePolylines.add(
-              Polyline(
-                points: segment,
-                color: trackColor,
-                strokeWidth: 4.0,
-                borderStrokeWidth: 2.0,
-                borderColor: const Color(0x66000000),
-              ),
-            );
-            selectedOverlayPolylines.add(
-              Polyline(points: segment, color: Colors.white, strokeWidth: 0.6),
-            );
-          } else {
-            polylines.add(
-              Polyline(points: segment, color: trackColor, strokeWidth: 3.0),
-            );
-          }
-        }
-      } catch (e) {
-        // Skip malformed track
-      }
-    }
-
-    return PolylineLayer(
-      polylines: [
-        ...polylines,
-        ...selectedBasePolylines,
-        ...selectedOverlayPolylines,
-      ],
-    );
   }
 }

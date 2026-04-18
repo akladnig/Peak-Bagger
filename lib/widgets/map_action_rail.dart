@@ -45,6 +45,7 @@ class MapActionRail extends ConsumerWidget {
           LeftTooltipFab(
             message: 'Search peaks',
             child: FloatingActionButton.small(
+              key: const Key('search-peaks-fab'),
               heroTag: 'search',
               backgroundColor: Theme.of(context).colorScheme.surface,
               onPressed: () {
