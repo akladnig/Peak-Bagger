@@ -40,12 +40,12 @@ Root screen keeps orchestration; sibling files take presentational widgets.
 ### Phase 3: Optional pure helpers, then harden
 
 - **Goal**: trim root file; finish safely
-- [ ] `lib/screens/objectbox_admin_screen_helpers.dart` - add only if pure helper extraction removes real noise; no ref/router/controller/snackbar side effects
-- [ ] `lib/screens/objectbox_admin_screen.dart` - keep visible-entry refresh orchestration, load-more triggering, horizontal-scroll coordination, export/snackbar side effects in root; remove dead inline widget code/imports
-- [ ] `test/services/objectbox_admin_repository_test.dart` - keep green; no service contract drift
-- [ ] TDD: visible-entry refresh still fires on path re-entry, not unchanged visibility/rebuild churn; add focused test only if current coverage misses regression after refactor
-- [ ] TDD: export visibility + `No gpxFile selected` behavior + repository export call remain unchanged; add focused widget assertion only if touched path loses coverage
-- [ ] Verify: `flutter analyze` && `flutter test test/services/objectbox_admin_repository_test.dart` && `flutter test`
+- [x] `lib/screens/objectbox_admin_screen_helpers.dart` - not added; no pure helper extraction removed enough root-file noise without crossing ownership boundaries
+- [x] `lib/screens/objectbox_admin_screen.dart` - keep visible-entry refresh orchestration, load-more triggering, horizontal-scroll coordination, export/snackbar side effects in root; remove dead inline widget code/imports
+- [x] `test/services/objectbox_admin_repository_test.dart` - keep green; no service contract drift
+- [x] TDD: visible-entry refresh still fires on path re-entry, not unchanged visibility/rebuild churn; add focused test only if current coverage misses regression after refactor
+- [x] TDD: export visibility + `No gpxFile selected` behavior + repository export call remain unchanged; add focused widget assertion only if touched path loses coverage
+- [x] Verify: `flutter analyze` && `flutter test test/services/objectbox_admin_repository_test.dart` && `flutter test`
 
 ## Risks / Out of scope
 
