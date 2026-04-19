@@ -1,0 +1,268 @@
+import 'package:flutter/material.dart';
+
+import '../services/peak_list_file_picker.dart';
+
+typedef PeakListDuplicateNameChecker = Future<bool> Function(String name);
+
+typedef PeakListImportRunner =
+    Future<PeakListImportPresentationResult> Function({
+      required String listName,
+      required String csvPath,
+    });
+
+class PeakListImportPresentationResult {
+  const PeakListImportPresentationResult({
+    required this.updated,
+    required this.importedCount,
+    required this.skippedCount,
+    this.warningCount = 0,
+    this.warningMessage,
+  });
+
+  final bool updated;
+  final int importedCount;
+  final int skippedCount;
+  final int warningCount;
+  final String? warningMessage;
+
+  String get title => updated ? 'Peak List Updated' : 'Peak List Created';
+}
+
+class PeakListImportDialog extends StatefulWidget {
+  const PeakListImportDialog({
+    required this.filePicker,
+    required this.onImport,
+    required this.duplicateNameChecker,
+    super.key,
+  });
+
+  final PeakListFilePicker filePicker;
+  final PeakListImportRunner onImport;
+  final PeakListDuplicateNameChecker duplicateNameChecker;
+
+  @override
+  State<PeakListImportDialog> createState() => _PeakListImportDialogState();
+}
+
+class _PeakListImportDialogState extends State<PeakListImportDialog> {
+  final _nameController = TextEditingController();
+  String? _selectedFilePath;
+  String? _nameError;
+  bool _isImporting = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      key: const Key('peak-list-import-dialog'),
+      title: const Text('Import Peak List'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          FilledButton.tonal(
+            key: const Key('peak-list-select-file'),
+            onPressed: _isImporting ? null : _selectFile,
+            child: const Text('Select Peak Lists'),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _selectedFilePath ?? 'No file selected',
+            key: const Key('peak-list-selected-file'),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            key: const Key('peak-list-name-field'),
+            controller: _nameController,
+            enabled: !_isImporting,
+            decoration: InputDecoration(
+              labelText: 'List Name',
+              errorText: _nameError,
+            ),
+            onChanged: (_) {
+              if (_nameError != null) {
+                setState(() {
+                  _nameError = null;
+                });
+              }
+            },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          key: const Key('peak-list-import-cancel'),
+          onPressed: _isImporting ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const Key('peak-list-import-button'),
+          onPressed: _selectedFilePath == null || _isImporting ? null : _import,
+          child: _isImporting
+              ? const SizedBox(
+                  key: Key('peak-list-import-progress'),
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Import'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _selectFile() async {
+    final selected = await widget.filePicker.pickCsvFile();
+    if (!mounted || selected == null) {
+      return;
+    }
+
+    setState(() {
+      _selectedFilePath = selected;
+    });
+  }
+
+  Future<void> _import() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      setState(() {
+        _nameError = 'A list name is required';
+      });
+      return;
+    }
+
+    final csvPath = _selectedFilePath;
+    if (csvPath == null) {
+      return;
+    }
+
+    final duplicateName = await widget.duplicateNameChecker(name);
+    if (!mounted) {
+      return;
+    }
+    if (duplicateName) {
+      final confirmed = await _confirmUpdate();
+      if (!mounted || confirmed != true) {
+        return;
+      }
+    }
+
+    setState(() {
+      _isImporting = true;
+    });
+
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    try {
+      final result = await widget.onImport(listName: name, csvPath: csvPath);
+      if (!mounted) {
+        return;
+      }
+      rootNavigator.pop();
+      await _showResultDialog(rootNavigator.context, result);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      rootNavigator.pop();
+      await _showFailureDialog(rootNavigator.context, error.toString());
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isImporting = false;
+        });
+      }
+    }
+  }
+
+  Future<bool?> _confirmUpdate() {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Update Existing Peak List?'),
+          content: const Text(
+            'This list already exists - do you want to update the existing list?',
+          ),
+          actions: [
+            TextButton(
+              key: const Key('peak-list-update-cancel'),
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              key: const Key('peak-list-update-confirm'),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Update'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showResultDialog(
+    BuildContext dialogContext,
+    PeakListImportPresentationResult result,
+  ) {
+    return showDialog<void>(
+      useRootNavigator: true,
+      context: dialogContext,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(result.title),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${result.importedCount} Peaks imported'),
+              Text('${result.skippedCount} peaks skipped'),
+              if (result.warningCount > 0) ...[
+                const SizedBox(height: 12),
+                Text(
+                  '${result.warningCount} warnings. See import.log for details.',
+                ),
+              ],
+              if (result.warningMessage != null) ...[
+                const SizedBox(height: 12),
+                Text(result.warningMessage!),
+              ],
+            ],
+          ),
+          actions: [
+            FilledButton(
+              key: const Key('peak-list-import-result-close'),
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showFailureDialog(BuildContext dialogContext, String error) {
+    return showDialog<void>(
+      useRootNavigator: true,
+      context: dialogContext,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Peak List Import Failed'),
+          content: Text(error),
+          actions: [
+            FilledButton(
+              key: const Key('peak-list-import-error-close'),
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}

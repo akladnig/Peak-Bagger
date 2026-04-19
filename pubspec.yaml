@@ -19,7 +19,9 @@ dependencies:
   mgrs_dart: ^2.0.0
   http: ^1.2.0
   geolocator: ^14.0.0
+  file_picker: ^10.3.10
   path_provider: ^2.1.0
+  path: ^1.9.0
   objectbox: ^5.3.1
   objectbox_flutter_libs: ^5.3.1
   csv: ^6.0.0
