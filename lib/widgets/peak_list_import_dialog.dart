@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../services/peak_list_file_picker.dart';
 
@@ -117,14 +118,33 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
   }
 
   Future<void> _selectFile() async {
-    final selected = await widget.filePicker.pickCsvFile();
-    if (!mounted || selected == null) {
-      return;
+    try {
+      final selected = await widget.filePicker.pickCsvFile();
+      if (!mounted || selected == null) {
+        return;
+      }
+
+      setState(() {
+        _selectedFilePath = selected;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      await _showFailureDialog(
+        Navigator.of(context, rootNavigator: true).context,
+        _formatPickerError(error),
+      );
+    }
+  }
+
+  String _formatPickerError(Object error) {
+    if (error case PlatformException(:final message, :final code)) {
+      return message == null || message.isEmpty ? code : message;
     }
 
-    setState(() {
-      _selectedFilePath = selected;
-    });
+    return error.toString();
   }
 
   Future<void> _import() async {

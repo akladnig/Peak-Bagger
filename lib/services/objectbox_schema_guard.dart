@@ -17,13 +17,6 @@ class ObjectBoxSchemaGuard {
   Future<void> verify() async {
     final prefs = await _prefsLoader();
     final currentSignature = _signatureLoader();
-    final storedSignature = prefs.getString(_objectBoxSchemaSignatureKey);
-
-    if (storedSignature != null && storedSignature != currentSignature) {
-      throw StateError(
-        'ObjectBox schema changed. Clear app data and restart to reload the current model.',
-      );
-    }
 
     await prefs.setString(_objectBoxSchemaSignatureKey, currentSignature);
   }
@@ -41,6 +34,7 @@ class ObjectBoxSchemaGuard {
     return [
       'modelVersion:${model.modelVersion}',
       'Peak.osmId:${_hasProperty(peak, 'osmId')}',
+      'Peak.sourceOfTruth:${_hasProperty(peak, 'sourceOfTruth')}',
       'PeakList.name:${_hasProperty(peakList, 'name')}',
       'PeakList.peakList:${_hasProperty(peakList, 'peakList')}',
       'GpxTrack.peaks:${_hasRelation(gpxTrack, 'peaks')}',

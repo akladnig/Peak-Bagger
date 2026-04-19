@@ -46,6 +46,31 @@ Persist MGRS on Peak; refactor refresh through injectable Riverpod seams; mirror
 - [x] TDD: critical journey assertions one at a time; deterministic success/warning/failure setup
 - [x] Verify: `flutter analyze` && `flutter test`
 
+### Phase 4: Refresh source-of-truth protection [complete]
+
+- **Goal**: preserve CSV-corrected peaks during refresh
+- [x] `lib/services/peak_refresh_service.dart` - refresh only rows whose `sourceOfTruth` is unset/empty or `OSM`; preserve `HWC` rows and still insert new peaks
+- [x] `test/services/peak_refresh_service_test.dart` - protected `HWC` row preservation and empty/`OSM` eligibility coverage
+- [x] TDD: refresh leaves `HWC` rows untouched while replacing eligible `OSM` rows from overpass
+- [x] TDD: empty `sourceOfTruth` is treated the same as `OSM` during refresh
+- [x] Verify: `flutter analyze` && `flutter test`
+
+### Phase 5: Preserve peaks missing from OSM [complete]
+
+- **Goal**: do not delete stored peaks when Overpass omits them
+- [x] `lib/services/peak_refresh_service.dart` - preserve stored peaks that are absent from the current Overpass response regardless of `sourceOfTruth`
+- [x] `test/services/peak_refresh_service_test.dart` - missing-from-OSM preservation coverage
+- [x] TDD: refresh updates fetched peaks but keeps stored peaks that Overpass does not return
+- [x] Verify: `flutter analyze` && `flutter test`
+
+### Phase 6: Renumber refreshed peak ids [complete]
+
+- **Goal**: rebuild refresh datasets with explicit sequential ids, starting with preserved `HWC` rows
+- [x] `lib/services/peak_refresh_service.dart` - assign explicit sequential ids during refresh, with preserved `HWC` rows numbered first
+- [x] `test/services/peak_refresh_service_test.dart` - refreshed and preserved peak id renumbering coverage
+- [x] TDD: refresh keeps `HWC` row data unchanged while renumbering ids and numbering `HWC` rows first
+- [x] Verify: `flutter analyze` && `flutter test`
+
 ## Risks / Out of scope
 - **Risks**: ObjectBox regen/migration; transaction semantics; provider bootstrap wiring
 - **Out of scope**: peak search/filter on new fields; any UI outside Settings refresh

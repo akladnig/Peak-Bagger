@@ -5,10 +5,14 @@ import 'package:peak_bagger/models/peak.dart';
 class OverpassService {
   static const String _baseUrl = 'https://overpass-api.de/api/interpreter';
 
+  // Spatial Extent (Bounding Box):
+  // - Longitude: 143.833° to 148.482° East
+  // - Latitude: -43.643° to -39.579° South
+
   static const String _query = '''
 [out:json][timeout:60];
 (
-  node["natural"="peak"]["name"](-43.5,144.0,-40.5,149.0);
+  node["natural"="peak"]["name"](-43.643,143.833,-39.579,148.482);
 );
 out center;
 ''';

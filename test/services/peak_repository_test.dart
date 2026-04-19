@@ -81,5 +81,39 @@ void main() {
       expect(peak, isNotNull);
       expect(peak?.name, 'Ossa');
     });
+
+    test('save persists corrected peak fields', () async {
+      final original = Peak(
+        id: 7,
+        osmId: 123,
+        name: 'Cradle',
+        latitude: -41,
+        longitude: 146,
+        easting: '10000',
+        northing: '20000',
+      );
+      await repository.addPeaks([original]);
+
+      await repository.save(
+        original.copyWith(
+          latitude: -41.2,
+          longitude: 146.3,
+          elevation: 1545,
+          easting: '10123',
+          northing: '20123',
+          sourceOfTruth: Peak.sourceOfTruthHwc,
+        ),
+      );
+
+      final peak = repository.findByOsmId(123);
+
+      expect(peak, isNotNull);
+      expect(peak?.latitude, -41.2);
+      expect(peak?.longitude, 146.3);
+      expect(peak?.elevation, 1545);
+      expect(peak?.easting, '10123');
+      expect(peak?.northing, '20123');
+      expect(peak?.sourceOfTruth, Peak.sourceOfTruthHwc);
+    });
   });
 }

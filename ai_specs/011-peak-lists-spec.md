@@ -69,53 +69,68 @@ Error flows:
     - Selecting a file does not change the `List Name` field.
     - The import button stays disabled until a file has been selected.
 3. Add `file_picker` and `path` to `./pubspec.yaml`; use `path` for path manipulation, and keep the default browse root at the resolved Bushwalking import root.
-4. Add an ObjectBox entity `PeakList` in `./lib/models/peak_list.dart`.
+4. Extend `./lib/models/peak.dart` with a persisted `sourceOfTruth` field.
+    - Store `HWC` for any `Peak` row that has been successfully matched by the CSV importer, even when the imported match keeps the existing peak location, grid, and height fields unchanged.
+    - Store `HWC` when the import updates any of `latitude`, `longitude`, `elevation`, `easting`, or `northing` from CSV-derived values.
+    - Later `Refresh Peak Data` flows must only overwrite rows whose `sourceOfTruth` is `null`, empty, or `OSM`; rows marked `HWC` are treated as protected CSV-corrected data.
+5. Add an ObjectBox entity `PeakList` in `./lib/models/peak_list.dart`.
     - Fields: `peakListId` primary key, `name`, `peakList`.
     - `name` is unique and must come from user input.
     - `peakList` is a JSON string storing an ordered array of objects `{peakOsmId, points}`.
     - Preserve CSV row order in the stored array.
-5. Add a peak-list import service in `./lib/services/peak_list_import_service.dart`.
+6. Add a peak-list import service in `./lib/services/peak_list_import_service.dart`.
     - Public API accepts a list name and an absolute CSV path selected by the user.
     - Add a path helper that resolves the default browse root to an absolute Bushwalking import root, with fallback to the user's home directory.
     - Return structured counts and warnings: created/updated id, created-vs-updated outcome, imported, skipped, matched, ambiguous, warning entries, and log entries.
     - `warningEntries` are user-facing raw warnings without timestamps.
     - `logEntries` are timestamped lines written to `import.log`.
-6. Parse CSV with the `csv` package, not ad hoc string splitting.
+7. Parse CSV with the `csv` package, not ad hoc string splitting.
     - Support quoted commas, UTF-8, and standard CSV escaping.
     - Require columns: Name, Height, Zone, Easting, Northing, Latitude, Longitude, Points.
     - Treat `Points` as an opaque string copy.
-7. Match each CSV row to at most one `Peak`.
-    - Hard match rules: latitude/longitude within 50m, zone equals `gridZoneDesignator`, normalized `mgrs100kId` equals the `Peak.mgrs100kId` field, height rounded to the nearest metre, and normalized UTM/MGRS components compared numerically against the `Peak` fields.
+8. Match each CSV row to at most one `Peak`.
+    - Hard match rules: zone equals `gridZoneDesignator`, normalized `mgrs100kId` equals the `Peak.mgrs100kId` field, and normalized UTM/MGRS components compared numerically against the `Peak` fields.
     - Use `./lib/services/peak_mgrs_converter.dart` or a helper there to normalize CSV UTM fields into comparable MGRS components.
-    - Converted easting and northing comparisons use absolute numeric difference `<= 10` metres against stored `Peak.easting` and `Peak.northing` values.
-    - Name match is warning-only: normalize case, punctuation, slashes, and `Mt`/`Mount` variants; a name mismatch does not block the import.
-    - If zero or multiple peaks satisfy the hard rules, skip the row and log a warning.
-8. Persist successful imports and warnings.
+    - Matching must search progressively from `50m` up to `2km` in `50m` steps using both lat/lon distance and converted easting/northing absolute numeric differences against stored `Peak` values.
+    - A row may auto-match on spatial rules alone only within the first `50m` band.
+    - For any accepted match above `50m`, a strong normalized or fuzzy name confirmation is required.
+    - Converted easting and northing comparisons use the current threshold at each search step.
+    - If the converted easting or northing difference is greater than 50 metres for an accepted row, log a warning to `import.log` that includes the measured difference.
+    - Rounded height mismatch does not block a unique match; it triggers a `Peak.elevation` update from the CSV value and must also be logged to `import.log`.
+    - Name normalization must at least handle case, punctuation, slashes, leading/trailing `The`, and `Mt`/`Mount` variants before fuzzy comparison.
+    - If multiple spatial candidates exist at a threshold, a unique strong normalized/fuzzy name match may resolve the ambiguity.
+    - If zero candidates are found by `2km`, create a new `Peak` entity from the CSV row, persist it to ObjectBox, and include that new peak in the imported list.
+    - If no unique name-confirmed candidate exists above `50m`, skip the row and log a warning.
+9. Persist successful imports, peak corrections, and warnings.
     - Every successful import creates a new list or updates the existing list in place when the name already exists and the user confirms.
     - Updating an existing list preserves `peakListId` and replaces the stored payload.
     - Duplicate-name updates must be transactional: the existing list remains unchanged if parsing, matching, or persistence fails.
+    - When a uniquely matched row disagrees with the stored `Peak` on latitude, longitude, elevation, easting, or northing, update the stored `Peak` entity from the CSV-derived values before completing the import.
+    - When a row is successfully matched by the CSV importer, set `Peak.sourceOfTruth` to `HWC` and do not revert it to `OSM` on later matching imports.
+    - When no match is found, create a new `Peak` row from the CSV values, persist it before saving the `PeakList`, and set `Peak.sourceOfTruth` to `HWC`.
     - Append timestamped warnings to `import.log` under the resolved Bushwalking import root.
     - If log writing fails, keep the import result and surface the warning in memory.
-9. `PeakList` must be visible in ObjectBox Admin in both schema and data workflows.
+10. `PeakList` must be visible in ObjectBox Admin in both schema and data workflows.
     - The entity must appear in the ObjectBox Admin entity dropdown.
     - Data mode must render at least `peakListId`, `name`, and a readable preview of `peakList` using the existing `objectBoxAdminPreviewValue()` pattern.
 
 **Error Handling:**
-10. If the list name is empty, block the import with `A list name is required`.
-11. If the CSV is missing required columns, cannot be parsed, or the selected file does not exist, fail the import before persistence.
-12. If a row has bad data, skip only that row and continue importing the rest.
-13. If import is in progress, prevent duplicate submissions until the current import completes.
-14. Use inline validation for pre-submit dialog errors and the existing modal failure pattern from `./lib/screens/settings_screen.dart:475-496` for post-submit import failures.
+11. If the list name is empty, block the import with `A list name is required`.
+12. If the CSV is missing required columns, cannot be parsed, or the selected file does not exist, fail the import before persistence.
+13. If a row has bad data, skip only that row and continue importing the rest.
+14. If import is in progress, prevent duplicate submissions until the current import completes.
+15. Use inline validation for pre-submit dialog errors and the existing modal failure pattern from `./lib/screens/settings_screen.dart:475-496` for post-submit import failures.
 
 **Edge Cases:**
-15. Re-importing the same CSV with a different name creates a separate `PeakList` record.
-16. Re-importing the same CSV with the same name triggers the duplicate-name update flow.
-17. `Peak.elevation == null` is a non-match for height-based correlation.
+16. Re-importing the same CSV with a different name creates a separate `PeakList` record.
+17. Re-importing the same CSV with the same name triggers the duplicate-name update flow.
+18. `Peak.elevation == null` must not prevent a unique match when the other hard-match rules succeed; the CSV height should populate the stored peak and set `sourceOfTruth` to `HWC`.
 
 **Validation:**
-18. The implementation must expose deterministic seams for tests: file picker, peak lookup, peak-list storage, clock/time, filesystem root, CSV source, and log writer.
-19. Use behavior-first TDD slices: dialog happy path, duplicate-name warning, parse happy path, matching rules, persistence/logging, then error paths.
-20. Keep transient dialog UI state local to `PeakListsScreen` and/or `peak_list_import_dialog.dart`.
+19. The implementation must expose deterministic seams for tests: file picker, peak lookup, peak-list storage, clock/time, filesystem root, CSV source, and log writer.
+20. Use behavior-first TDD slices: dialog happy path, duplicate-name warning, parse happy path, matching rules, peak correction/source-of-truth updates, persistence/logging, then error paths.
+    - Matching-rule slices must cover progressive threshold search, ambiguous nearby peaks, and name-confirmed acceptance above the initial `50m` band.
+21. Keep transient dialog UI state local to `PeakListsScreen` and/or `peak_list_import_dialog.dart`.
     - Use Riverpod providers for injected services and repositories only.
     - Do not move text-field state, selected-file state, or dialog open/close state into a dedicated feature notifier unless a later requirement needs shared cross-screen state.
 </requirements>
@@ -138,6 +153,7 @@ Create or modify these files:
 - `./lib/screens/peak_lists_screen.dart` - import FAB, import dialog wiring, keys
 - `./lib/widgets/peak_list_import_dialog.dart` - dialog UI and duplicate-name warning flow
 - `./lib/services/peak_list_file_picker.dart` - abstraction over `file_picker`
+- `./lib/models/peak.dart` - add persisted `sourceOfTruth` field and any CSV-driven field update support needed by the importer
 - `./lib/models/peak_list.dart` - ObjectBox entity + JSON item DTO
 - `./lib/services/peak_list_import_service.dart` - CSV parse, match, persist, log
 - `./lib/services/peak_list_repository.dart` - ObjectBox wrapper + in-memory test storage
@@ -221,6 +237,7 @@ Verification:
 <done_when>
 - `PeakListsScreen` imports a single CSV via a dialog and stores a named `PeakList` in ObjectBox.
 - Duplicate names update the existing record in place after confirmation.
+- Unique peak matches update stored `Peak` latitude/longitude/easting/northing/elevation fields from CSV when they differ, and `Peak.sourceOfTruth` reflects `HWC` vs `OSM` accurately.
 - The import button is disabled and shows a spinner while import is running, and success shows imported/skipped counts.
 - Import cannot be submitted until a CSV file has been selected.
 - The result dialog distinguishes list creation from list update.

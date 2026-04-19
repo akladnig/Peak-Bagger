@@ -57,6 +57,7 @@ void main() {
         'mgrs100kId',
         'easting',
         'northing',
+        'sourceOfTruth',
       ]),
     );
     expect(entities[2].primaryKeyField, 'gpxTrackId');
@@ -163,6 +164,7 @@ void main() {
         mgrs100kId: 'DN',
         easting: '17710',
         northing: '03594',
+        sourceOfTruth: Peak.sourceOfTruthHwc,
       ),
     );
 
@@ -172,6 +174,7 @@ void main() {
     expect(row.values['mgrs100kId'], 'DN');
     expect(row.values['easting'], '17710');
     expect(row.values['northing'], '03594');
+    expect(row.values['sourceOfTruth'], Peak.sourceOfTruthHwc);
   });
 
   test('gpxTrackToAdminRow includes correlation fields', () {

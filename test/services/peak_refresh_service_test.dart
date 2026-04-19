@@ -25,20 +25,105 @@ void main() {
 
     final result = await service.refreshPeaks();
 
-    expect(result.importedCount, 2);
+    expect(result.importedCount, 3);
     expect(result.skippedCount, 0);
     expect(result.warning, isNull);
 
     final peaks = repository.getAllPeaks();
-    expect(peaks, hasLength(2));
+    expect(peaks, hasLength(3));
     expect(peaks.first.gridZoneDesignator, '55G');
     expect(peaks.first.mgrs100kId, isNotEmpty);
     expect(peaks.first.easting, hasLength(5));
     expect(peaks.first.northing, hasLength(5));
-    expect(peaks.map((peak) => peak.name), containsAll(['Cradle', 'Ossa']));
+    expect(
+      peaks.map((peak) => peak.name),
+      containsAll(['Old Peak', 'Cradle', 'Ossa']),
+    );
   });
 
-  test('refreshPeaks preserves ids for matching osmId', () async {
+  test(
+    'refreshPeaks assigns sequential ids for refreshed overpass peaks',
+    () async {
+      final repository = PeakRepository.test(
+        InMemoryPeakStorage([
+          Peak(
+            id: 7,
+            osmId: 321,
+            name: 'Old Peak',
+            latitude: -40,
+            longitude: 145,
+          ),
+        ]),
+      );
+      final service = PeakRefreshService(
+        TestPeakOverpassService(
+          peaks: [
+            Peak(osmId: 321, name: 'Old Peak', latitude: -40, longitude: 145),
+          ],
+        ),
+        repository,
+      );
+
+      await service.refreshPeaks();
+
+      final peaks = repository.getAllPeaks();
+      expect(peaks.single.id, 1);
+      expect(peaks.single.osmId, 321);
+    },
+  );
+
+  test(
+    'refreshPeaks preserves HWC peak data, numbers it first, and still inserts new peaks',
+    () async {
+      final protectedPeak = Peak(
+        id: 7,
+        osmId: 321,
+        name: 'CSV Corrected Peak',
+        latitude: -40,
+        longitude: 145,
+        gridZoneDesignator: '55G',
+        mgrs100kId: 'EN',
+        easting: '12345',
+        northing: '67890',
+        sourceOfTruth: Peak.sourceOfTruthHwc,
+      );
+      final repository = PeakRepository.test(
+        InMemoryPeakStorage([protectedPeak]),
+      );
+      final service = PeakRefreshService(
+        TestPeakOverpassService(
+          peaks: [
+            Peak(
+              osmId: 321,
+              name: 'Overpass Peak',
+              latitude: -41.7,
+              longitude: 145.9,
+            ),
+            Peak(
+              osmId: 654,
+              name: 'New Peak',
+              latitude: -41.8,
+              longitude: 145.8,
+            ),
+          ],
+        ),
+        repository,
+      );
+
+      final result = await service.refreshPeaks();
+
+      expect(result.importedCount, 2);
+      final peaks = repository.getAllPeaks();
+      expect(peaks, hasLength(2));
+      final preserved = repository.findByOsmId(321);
+      expect(preserved?.id, 1);
+      expect(preserved?.name, 'CSV Corrected Peak');
+      expect(preserved?.sourceOfTruth, Peak.sourceOfTruthHwc);
+      expect(repository.findByOsmId(654)?.id, 2);
+    },
+  );
+
+  test('refreshPeaks treats empty sourceOfTruth the same as OSM', () async {
     final repository = PeakRepository.test(
       InMemoryPeakStorage([
         Peak(
@@ -47,13 +132,19 @@ void main() {
           name: 'Old Peak',
           latitude: -40,
           longitude: 145,
+          sourceOfTruth: '',
         ),
       ]),
     );
     final service = PeakRefreshService(
       TestPeakOverpassService(
         peaks: [
-          Peak(osmId: 321, name: 'Old Peak', latitude: -40, longitude: 145),
+          Peak(
+            osmId: 321,
+            name: 'Updated Peak',
+            latitude: -41.7,
+            longitude: 145.9,
+          ),
         ],
       ),
       repository,
@@ -61,10 +152,103 @@ void main() {
 
     await service.refreshPeaks();
 
-    final peaks = repository.getAllPeaks();
-    expect(peaks.single.id, 7);
-    expect(peaks.single.osmId, 321);
+    final peak = repository.findByOsmId(321);
+    expect(peak?.name, 'Updated Peak');
+    expect(peak?.sourceOfTruth, Peak.sourceOfTruthOsm);
   });
+
+  test('refreshPeaks preserves stored peaks missing from overpass', () async {
+    final repository = PeakRepository.test(
+      InMemoryPeakStorage([
+        Peak(
+          id: 7,
+          osmId: 321,
+          name: 'Updated Peak',
+          latitude: -40,
+          longitude: 145,
+          sourceOfTruth: Peak.sourceOfTruthOsm,
+        ),
+        Peak(
+          id: 8,
+          osmId: 654,
+          name: 'Missing From OSM',
+          latitude: -42,
+          longitude: 146,
+          sourceOfTruth: Peak.sourceOfTruthOsm,
+        ),
+      ]),
+    );
+    final service = PeakRefreshService(
+      TestPeakOverpassService(
+        peaks: [
+          Peak(
+            osmId: 321,
+            name: 'Updated Peak',
+            latitude: -41.7,
+            longitude: 145.9,
+          ),
+        ],
+      ),
+      repository,
+    );
+
+    final result = await service.refreshPeaks();
+
+    expect(result.importedCount, 2);
+    final peaks = repository.getAllPeaks();
+    expect(peaks, hasLength(2));
+    expect(repository.findByOsmId(321)?.latitude, -41.7);
+    final preservedPeak = repository.findByOsmId(654);
+    expect(preservedPeak, isNotNull);
+    expect(preservedPeak?.name, 'Missing From OSM');
+    expect(preservedPeak?.latitude, -42);
+    expect(preservedPeak?.longitude, 146);
+  });
+
+  test(
+    'refreshPeaks numbers preserved HWC peaks first even when missing from overpass',
+    () async {
+      final repository = PeakRepository.test(
+        InMemoryPeakStorage([
+          Peak(
+            id: 8,
+            osmId: 654,
+            name: 'Protected Missing Peak',
+            latitude: -42,
+            longitude: 146,
+            gridZoneDesignator: '55G',
+            mgrs100kId: 'EN',
+            easting: '12345',
+            northing: '67890',
+            sourceOfTruth: Peak.sourceOfTruthHwc,
+          ),
+        ]),
+      );
+      final service = PeakRefreshService(
+        TestPeakOverpassService(
+          peaks: [
+            Peak(
+              osmId: 321,
+              name: 'Updated Peak',
+              latitude: -41.7,
+              longitude: 145.9,
+            ),
+          ],
+        ),
+        repository,
+      );
+
+      await service.refreshPeaks();
+
+      final refreshedPeak = repository.findByOsmId(321);
+      final preservedPeak = repository.findByOsmId(654);
+      expect(refreshedPeak?.id, 2);
+      expect(preservedPeak, isNotNull);
+      expect(preservedPeak?.id, 1);
+      expect(preservedPeak?.name, 'Protected Missing Peak');
+      expect(preservedPeak?.sourceOfTruth, Peak.sourceOfTruthHwc);
+    },
+  );
 
   test('refreshPeaks skips peaks rejected by converter', () async {
     final repository = PeakRepository.test(InMemoryPeakStorage());

@@ -330,6 +330,7 @@ ObjectBoxAdminRow peakToAdminRow(Peak peak) {
       'mgrs100kId': peak.mgrs100kId,
       'easting': peak.easting,
       'northing': peak.northing,
+      'sourceOfTruth': peak.sourceOfTruth,
     },
   );
 }

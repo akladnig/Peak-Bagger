@@ -46,7 +46,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   );
   static final _untickedPeakMarker = SvgPicture.asset(
     'assets/peak_marker.svg',
-    colorFilter: const ColorFilter.mode(Color(0xFFB22222), BlendMode.srcIn),
+    colorFilter: const ColorFilter.mode(Color(0xFFD66A6D), BlendMode.srcIn),
   );
 
   @override

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:csv/csv.dart';
 import 'package:peak_bagger/models/peak.dart';
@@ -74,12 +75,14 @@ class PeakListImportService {
 
     final existing = _peakListRepository.findByName(trimmedListName);
     final rows = _parseCsv(await _csvLoader(csvPath));
-    final peaks = _peakRepository.getAllPeaks();
+    final peaks = List<Peak>.from(_peakRepository.getAllPeaks());
     final items = <PeakListItem>[];
+    final correctedPeaksByOsmId = <int, Peak>{};
     final warningEntries = <String>[];
     final logEntries = <String>[];
     var ambiguousCount = 0;
     var skippedCount = 0;
+    var nextSyntheticOsmId = _peakRepository.nextSyntheticOsmId(peaks);
 
     for (var rowIndex = 1; rowIndex < rows.length; rowIndex++) {
       final row = rows[rowIndex];
@@ -96,26 +99,48 @@ class PeakListImportService {
       }
 
       final csvRow = parseResult.row!;
-      final matches = _findHardMatches(csvRow, peaks);
-      if (matches.isEmpty) {
-        final warning =
-            'Row ${csvRow.rowNumber}: no matching peak found for ${csvRow.name}';
-        skippedCount += 1;
-        warningEntries.add(warning);
-        logEntries.add(_timestampedLogEntry(csvPath, warning));
-        continue;
-      }
-      if (matches.length > 1) {
-        final warning =
-            'Row ${csvRow.rowNumber}: multiple matching peaks found for ${csvRow.name}';
-        ambiguousCount += 1;
+      final resolution = _resolveMatch(csvRow, peaks);
+      if (resolution.match == null) {
+        if (!resolution.hadSpatialCandidates) {
+          final createdPeak = await _peakRepository.save(
+            _createPeakFromCsv(csvRow, nextSyntheticOsmId),
+          );
+          nextSyntheticOsmId = createdPeak.osmId - 1;
+          peaks.add(createdPeak);
+          items.add(
+            PeakListItem(peakOsmId: createdPeak.osmId, points: csvRow.points),
+          );
+          continue;
+        }
+
+        final warning = resolution.hadSpatialCandidates
+            ? 'Row ${csvRow.rowNumber}: no confident name-confirmed match found for ${csvRow.name}'
+            : 'Row ${csvRow.rowNumber}: no matching peak found for ${csvRow.name}';
+        if (resolution.wasAmbiguous) {
+          ambiguousCount += 1;
+        }
         skippedCount += 1;
         warningEntries.add(warning);
         logEntries.add(_timestampedLogEntry(csvPath, warning));
         continue;
       }
 
-      final peak = matches.single;
+      final match = resolution.match!;
+      final peak = match.peak;
+      final coordinateWarning = _coordinateDriftWarning(csvRow, match);
+      if (coordinateWarning != null) {
+        warningEntries.add(coordinateWarning);
+        logEntries.add(_timestampedLogEntry(csvPath, coordinateWarning));
+      }
+      final heightWarning = _heightCorrectionWarning(csvRow, peak);
+      if (heightWarning != null) {
+        warningEntries.add(heightWarning);
+        logEntries.add(_timestampedLogEntry(csvPath, heightWarning));
+      }
+      final correctedPeak = _correctPeakFromCsv(csvRow, peak);
+      if (_peakNeedsSave(peak, correctedPeak)) {
+        correctedPeaksByOsmId[peak.osmId] = correctedPeak;
+      }
       if (_normalizeName(csvRow.name) != _normalizeName(peak.name)) {
         final warning =
             'Row ${csvRow.rowNumber}: imported ${csvRow.name} as ${peak.name}';
@@ -124,6 +149,10 @@ class PeakListImportService {
       }
 
       items.add(PeakListItem(peakOsmId: peak.osmId, points: csvRow.points));
+    }
+
+    for (final correctedPeak in correctedPeaksByOsmId.values) {
+      await _peakRepository.save(correctedPeak);
     }
 
     final saved = await _peakListRepository.save(
@@ -224,28 +253,65 @@ class PeakListImportService {
     }
   }
 
-  List<Peak> _findHardMatches(_PeakListCsvRow row, List<Peak> peaks) {
+  _PeakMatchResolution _resolveMatch(_PeakListCsvRow row, List<Peak> peaks) {
+    var hadSpatialCandidates = false;
+    var wasAmbiguous = false;
+
+    for (final thresholdMeters in _candidateThresholdsMeters) {
+      final candidates = _findSpatialMatchesWithinThreshold(
+        row,
+        peaks,
+        thresholdMeters,
+      );
+      if (candidates.isEmpty) {
+        continue;
+      }
+
+      hadSpatialCandidates = true;
+      if (candidates.length > 1) {
+        wasAmbiguous = true;
+      }
+
+      final nameConfirmed = candidates
+          .where((candidate) {
+            return _hasStrongNameConfirmation(row.name, candidate.peak.name);
+          })
+          .toList(growable: false);
+
+      if (thresholdMeters <= 50 && candidates.length == 1) {
+        return _PeakMatchResolution(
+          match: candidates.single,
+          hadSpatialCandidates: true,
+          wasAmbiguous: wasAmbiguous,
+        );
+      }
+
+      if (nameConfirmed.length == 1) {
+        return _PeakMatchResolution(
+          match: nameConfirmed.single,
+          hadSpatialCandidates: true,
+          wasAmbiguous: wasAmbiguous,
+        );
+      }
+    }
+
+    return _PeakMatchResolution(
+      hadSpatialCandidates: hadSpatialCandidates,
+      wasAmbiguous: wasAmbiguous,
+    );
+  }
+
+  List<_PeakMatch> _findSpatialMatchesWithinThreshold(
+    _PeakListCsvRow row,
+    List<Peak> peaks,
+    int thresholdMeters,
+  ) {
     return peaks
         .where((peak) {
-          if (peak.elevation == null) {
-            return false;
-          }
           if (peak.gridZoneDesignator.toUpperCase() != row.zone) {
             return false;
           }
           if (peak.mgrs100kId.toUpperCase() != row.mgrs100kId) {
-            return false;
-          }
-          final peakEasting = int.tryParse(peak.easting);
-          final peakNorthing = int.tryParse(peak.northing);
-          if (peakEasting == null || peakNorthing == null) {
-            return false;
-          }
-          if ((peakEasting - row.easting).abs() > 10 ||
-              (peakNorthing - row.northing).abs() > 10) {
-            return false;
-          }
-          if (peak.elevation!.round() != row.height) {
             return false;
           }
 
@@ -255,9 +321,108 @@ class PeakListImportService {
                 peak.latitude,
                 peak.longitude,
               ) <=
-              50;
+              thresholdMeters;
         })
+        .map((peak) {
+          final peakEasting = int.tryParse(peak.easting);
+          final peakNorthing = int.tryParse(peak.northing);
+          if (peakEasting == null || peakNorthing == null) {
+            return null;
+          }
+
+          final eastingDifference = (peakEasting - row.easting).abs();
+          final northingDifference = (peakNorthing - row.northing).abs();
+          if (eastingDifference > thresholdMeters ||
+              northingDifference > thresholdMeters) {
+            return null;
+          }
+
+          return _PeakMatch(
+            peak: peak,
+            eastingDifference: eastingDifference,
+            northingDifference: northingDifference,
+          );
+        })
+        .whereType<_PeakMatch>()
         .toList(growable: false);
+  }
+
+  bool _hasStrongNameConfirmation(String csvName, String peakName) {
+    final normalizedCsvName = _normalizeName(csvName);
+    final normalizedPeakName = _normalizeName(peakName);
+    if (normalizedCsvName.isEmpty || normalizedPeakName.isEmpty) {
+      return false;
+    }
+    if (normalizedCsvName == normalizedPeakName) {
+      return true;
+    }
+
+    final distance = _levenshteinDistance(
+      normalizedCsvName,
+      normalizedPeakName,
+    );
+    final maxLength = math.max(
+      normalizedCsvName.length,
+      normalizedPeakName.length,
+    );
+    return maxLength >= 6 && distance <= 2;
+  }
+
+  String? _coordinateDriftWarning(_PeakListCsvRow row, _PeakMatch match) {
+    if (match.eastingDifference <= 50 && match.northingDifference <= 50) {
+      return null;
+    }
+
+    return 'Row ${row.rowNumber}: coordinate drift for ${row.name} '
+        '(easting ${match.eastingDifference}m, northing ${match.northingDifference}m)';
+  }
+
+  String? _heightCorrectionWarning(_PeakListCsvRow row, Peak peak) {
+    final existingHeight = peak.elevation?.round();
+    if (existingHeight == row.height) {
+      return null;
+    }
+
+    final existingLabel = existingHeight == null
+        ? 'unknown'
+        : '${existingHeight}m';
+    return 'Row ${row.rowNumber}: updated height for ${row.name} '
+        'from $existingLabel to ${row.height}m';
+  }
+
+  Peak _correctPeakFromCsv(_PeakListCsvRow row, Peak peak) {
+    return peak.copyWith(
+      latitude: row.latitude,
+      longitude: row.longitude,
+      elevation: row.height.toDouble(),
+      easting: row.easting.toString().padLeft(5, '0'),
+      northing: row.northing.toString().padLeft(5, '0'),
+      sourceOfTruth: Peak.sourceOfTruthHwc,
+    );
+  }
+
+  Peak _createPeakFromCsv(_PeakListCsvRow row, int syntheticOsmId) {
+    return Peak(
+      osmId: syntheticOsmId,
+      name: row.name,
+      elevation: row.height.toDouble(),
+      latitude: row.latitude,
+      longitude: row.longitude,
+      gridZoneDesignator: row.zone,
+      mgrs100kId: row.mgrs100kId,
+      easting: row.easting.toString().padLeft(5, '0'),
+      northing: row.northing.toString().padLeft(5, '0'),
+      sourceOfTruth: Peak.sourceOfTruthHwc,
+    );
+  }
+
+  bool _peakNeedsSave(Peak original, Peak corrected) {
+    return original.latitude != corrected.latitude ||
+        original.longitude != corrected.longitude ||
+        original.elevation != corrected.elevation ||
+        original.easting != corrected.easting ||
+        original.northing != corrected.northing ||
+        original.sourceOfTruth != corrected.sourceOfTruth;
   }
 
   bool _isRowBlank(List<dynamic> row) {
@@ -286,13 +451,44 @@ class PeakListImportService {
 
   String _normalizeName(String value) {
     var normalized = value.trim().toLowerCase();
-    normalized = normalized.replaceAllMapped(
-      RegExp(r'^(.+),\s*(mt|mount)$'),
-      (match) => '${match.group(2)} ${match.group(1)}',
-    );
     normalized = normalized.replaceAll(RegExp(r'\bmt\b'), 'mount');
     normalized = normalized.replaceAll(RegExp(r'[^a-z0-9]+'), ' ');
-    return normalized.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final tokens =
+        normalized
+            .split(RegExp(r'\s+'))
+            .where((token) => token.isNotEmpty && token != 'the')
+            .toList(growable: false)
+          ..sort();
+    return tokens.join(' ');
+  }
+
+  int _levenshteinDistance(String source, String target) {
+    if (source.isEmpty) {
+      return target.length;
+    }
+    if (target.isEmpty) {
+      return source.length;
+    }
+
+    final previous = List<int>.generate(target.length + 1, (index) => index);
+    final current = List<int>.filled(target.length + 1, 0);
+
+    for (var i = 0; i < source.length; i++) {
+      current[0] = i + 1;
+      for (var j = 0; j < target.length; j++) {
+        final cost = source[i] == target[j] ? 0 : 1;
+        current[j + 1] = math.min(
+          math.min(current[j] + 1, previous[j + 1] + 1),
+          previous[j] + cost,
+        );
+      }
+
+      for (var j = 0; j < current.length; j++) {
+        previous[j] = current[j];
+      }
+    }
+
+    return previous.last;
   }
 
   String _timestampedLogEntry(String csvPath, String warning) {
@@ -358,3 +554,70 @@ class _PeakListCsvRowParseResult {
   final _PeakListCsvRow? row;
   final String? error;
 }
+
+class _PeakMatch {
+  const _PeakMatch({
+    required this.peak,
+    required this.eastingDifference,
+    required this.northingDifference,
+  });
+
+  final Peak peak;
+  final int eastingDifference;
+  final int northingDifference;
+}
+
+class _PeakMatchResolution {
+  const _PeakMatchResolution({
+    this.match,
+    required this.hadSpatialCandidates,
+    required this.wasAmbiguous,
+  });
+
+  final _PeakMatch? match;
+  final bool hadSpatialCandidates;
+  final bool wasAmbiguous;
+}
+
+const _candidateThresholdsMeters = [
+  50,
+  100,
+  150,
+  200,
+  250,
+  300,
+  350,
+  400,
+  450,
+  500,
+  550,
+  600,
+  650,
+  700,
+  750,
+  800,
+  850,
+  900,
+  950,
+  1000,
+  1050,
+  1100,
+  1150,
+  1200,
+  1250,
+  1300,
+  1350,
+  1400,
+  1450,
+  1500,
+  1550,
+  1600,
+  1650,
+  1700,
+  1750,
+  1800,
+  1850,
+  1900,
+  1950,
+  2000,
+];

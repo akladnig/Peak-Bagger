@@ -2,7 +2,10 @@ import 'package:objectbox/objectbox.dart';
 
 @Entity()
 class Peak {
-  @Id()
+  static const sourceOfTruthOsm = 'OSM';
+  static const sourceOfTruthHwc = 'HWC';
+
+  @Id(assignable: true)
   int id = 0;
 
   @Unique()
@@ -17,6 +20,7 @@ class Peak {
   String mgrs100kId;
   String easting;
   String northing;
+  String sourceOfTruth;
 
   Peak({
     this.id = 0,
@@ -30,6 +34,7 @@ class Peak {
     this.mgrs100kId = '',
     this.easting = '',
     this.northing = '',
+    this.sourceOfTruth = sourceOfTruthOsm,
   });
 
   Peak copyWith({
@@ -43,6 +48,7 @@ class Peak {
     String? mgrs100kId,
     String? easting,
     String? northing,
+    String? sourceOfTruth,
   }) {
     return Peak(
       id: id,
@@ -56,6 +62,7 @@ class Peak {
       mgrs100kId: mgrs100kId ?? this.mgrs100kId,
       easting: easting ?? this.easting,
       northing: northing ?? this.northing,
+      sourceOfTruth: sourceOfTruth ?? this.sourceOfTruth,
     );
   }
 

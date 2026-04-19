@@ -50,7 +50,7 @@ Thin slice first: dialog, picker seam, submit/result/failure UX; then schema, ma
 - [x] `./lib/services/gpx_importer.dart` - reuse/align import-log path resolution if shared helper extraction is warranted
 - [x] `./test/services/peak_mgrs_converter_test.dart` - normalization regression
 - [x] `./test/services/peak_list_import_service_test.dart` - parse/match/persist/log slices
-- [x] TDD: quoted-comma row parses; hard match requires zone + `mgrs100kId` + `<=10m` easting/northing + rounded height
+- [x] TDD: quoted-comma row parses; hard match requires zone + `mgrs100kId` + `<=500m` easting/northing + rounded height, with coordinate-drift warnings when easting/northing differ by more than `50m`
 - [x] TDD: name mismatch warns only; zero/multi-match skips row; warningEntries/logEntries differ by timestamping
 - [x] TDD: result distinguishes created vs updated; warning count surfaces when log write fails
 - [x] Verify: `flutter analyze` && `flutter test`
@@ -67,6 +67,43 @@ Thin slice first: dialog, picker seam, submit/result/failure UX; then schema, ma
 - [x] `./lib/objectbox.g.dart` - regenerated bindings
 - [x] TDD: ObjectBox Admin shows `PeakList` entity and row preview fields
 - [x] TDD: robot journey covers create, duplicate update confirm, result dialog, persisted admin-visible row
+- [x] Verify: `flutter analyze` && `flutter test`
+
+### Phase 5: Peak correction source of truth [complete]
+
+- **Goal**: persist CSV-driven peak corrections alongside list imports
+- [x] `./lib/models/peak.dart` - add persisted `sourceOfTruth` field and copy/update support for CSV corrections
+- [x] `./lib/services/peak_repository.dart` - add transactional save/update support for corrected peaks used by the importer
+- [x] `./lib/services/peak_list_import_service.dart` - unique matches update `Peak` latitude/longitude/easting/northing/elevation from CSV and set `sourceOfTruth`
+- [x] `./test/services/peak_model_test.dart` - default/source parsing coverage for `sourceOfTruth`
+- [x] `./test/services/peak_repository_test.dart` - corrected peak update persistence coverage
+- [x] `./test/services/peak_list_import_service_test.dart` - unique-match field correction, `HWC`/`OSM`, and mismatch warning coverage
+- [x] `./lib/objectbox-model.json` - regenerated schema for `Peak.sourceOfTruth`
+- [x] `./lib/objectbox.g.dart` - regenerated bindings for `Peak.sourceOfTruth`
+- [x] `./lib/services/objectbox_schema_guard.dart` - include `Peak.sourceOfTruth` in the signature surface
+- [x] `./lib/services/objectbox_admin_repository.dart` - expose `Peak.sourceOfTruth` in peak admin rows
+- [x] `./test/services/objectbox_schema_guard_test.dart` - schema signature regression for `Peak.sourceOfTruth`
+- [x] `./test/services/objectbox_admin_repository_test.dart` - Peak schema/data coverage for `sourceOfTruth`
+- [x] TDD: unique match updates differing peak coordinates/height from CSV and marks `sourceOfTruth` as `HWC`
+- [x] TDD: unchanged unique match keeps `sourceOfTruth` fixed as `HWC`; correction warnings/logs include drift details
+- [x] Verify: `flutter analyze` && `flutter test`
+
+### Phase 6: Name-aware progressive matching [complete]
+
+- **Goal**: recover bad OSM coordinates without silently attaching rows to the wrong peak
+- [x] `./lib/services/peak_list_import_service.dart` - progressive `50m..2km` spatial search with name-confirmed acceptance above `50m`
+- [x] `./test/services/peak_list_import_service_test.dart` - ambiguity resolution, escalation, and rejected mismatched-name coverage
+- [x] TDD: ambiguous nearby peaks resolve only when exactly one strong normalized/fuzzy name match exists
+- [x] TDD: unmatched rows may escalate beyond `50m` up to `2km`, but accepted matches above `50m` require name confirmation
+- [x] Verify: `flutter analyze` && `flutter test`
+
+### Phase 7: Insert unmatched CSV peaks [complete]
+
+- **Goal**: persist new HWC peaks when no existing peak can be matched
+- [x] `./lib/services/peak_list_import_service.dart` - create and persist new `Peak` entities for unmatched rows before saving the `PeakList`
+- [x] `./lib/services/peak_repository.dart` - support stable synthetic identifiers for CSV-created peaks used by `PeakList.peakOsmId`
+- [x] `./test/services/peak_list_import_service_test.dart` - unmatched-row insertion coverage plus updated warning expectations
+- [x] TDD: unmatched rows create new `Peak` records with `sourceOfTruth == HWC` and list entries reference the new peak ids
 - [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope

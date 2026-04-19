@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/app.dart';
@@ -87,6 +88,32 @@ void main() {
 
     expect(filePicker.pickCallCount, 1);
     expect(find.text('No file selected'), findsOneWidget);
+  });
+
+  testWidgets('file picker failure uses modal pattern', (tester) async {
+    final filePicker = TestPeakListFilePicker(
+      pickError: PlatformException(
+        code: 'ENTITLEMENT_NOT_FOUND',
+        message: 'Read-Only or Read-Write entitlement is required.',
+      ),
+    );
+    await _pumpPeakListsApp(tester, filePicker: filePicker);
+
+    await tester.tap(find.byKey(const Key('peak-lists-import-fab')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('peak-list-select-file')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Peak List Import Failed'), findsOneWidget);
+    expect(
+      find.text('Read-Only or Read-Write entitlement is required.'),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('peak-list-import-error-close')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('duplicate name confirm path updates and shows result dialog', (

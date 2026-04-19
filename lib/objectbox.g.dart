@@ -25,14 +25,14 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(1, 6887978098338940139),
     name: 'Peak',
-    lastPropertyId: const obx_int.IdUid(11, 1046675984660509866),
+    lastPropertyId: const obx_int.IdUid(12, 809639103704790338),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
         id: const obx_int.IdUid(1, 8477524303206664798),
         name: 'id',
         type: 6,
-        flags: 1,
+        flags: 129,
       ),
       obx_int.ModelProperty(
         id: const obx_int.IdUid(2, 2823209193653409857),
@@ -94,6 +94,12 @@ final _entities = <obx_int.ModelEntity>[
         type: 6,
         flags: 40,
         indexId: const obx_int.IdUid(1, 1646709204047143715),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(12, 809639103704790338),
+        name: 'sourceOfTruth',
+        type: 9,
+        flags: 0,
       ),
     ],
     relations: <obx_int.ModelRelation>[],
@@ -516,7 +522,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final mgrs100kIdOffset = fbb.writeString(object.mgrs100kId);
         final eastingOffset = fbb.writeString(object.easting);
         final northingOffset = fbb.writeString(object.northing);
-        fbb.startTable(12);
+        final sourceOfTruthOffset = fbb.writeString(object.sourceOfTruth);
+        fbb.startTable(13);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, nameOffset);
         fbb.addFloat64(2, object.elevation);
@@ -528,6 +535,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addOffset(8, eastingOffset);
         fbb.addOffset(9, northingOffset);
         fbb.addInt64(10, object.osmId);
+        fbb.addOffset(11, sourceOfTruthOffset);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -581,6 +589,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final northingParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 22, '');
+        final sourceOfTruthParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 26, '');
         final object = Peak(
           id: idParam,
           osmId: osmIdParam,
@@ -593,6 +604,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
           mgrs100kId: mgrs100kIdParam,
           easting: eastingParam,
           northing: northingParam,
+          sourceOfTruth: sourceOfTruthParam,
         );
 
         return object;
@@ -1083,6 +1095,11 @@ class Peak_ {
   /// See [Peak.osmId].
   static final osmId = obx.QueryIntegerProperty<Peak>(
     _entities[0].properties[10],
+  );
+
+  /// See [Peak.sourceOfTruth].
+  static final sourceOfTruth = obx.QueryStringProperty<Peak>(
+    _entities[0].properties[11],
   );
 }
 

@@ -25,26 +25,56 @@ class PeakRefreshService {
       throw StateError('No peaks imported');
     }
 
-    final enrichedPeaks = <Peak>[];
+    final existingPeaks = _peakRepository.getAllPeaks();
+    final existingPeaksByOsmId = <int, Peak>{
+      for (final peak in existingPeaks)
+        if (peak.osmId != 0) peak.osmId: peak,
+    };
+    final refreshedPeaks = <Peak>[];
+    final seenOsmIds = <int>{};
     var skippedCount = 0;
 
     for (final peak in peaks) {
-      final enrichedPeak = _enrichPeak(peak);
+      final existingPeak = existingPeaksByOsmId[peak.osmId];
+      if (existingPeak != null && !_isRefreshEligible(existingPeak)) {
+        refreshedPeaks.add(_preparePreservedPeak(existingPeak));
+        seenOsmIds.add(existingPeak.osmId);
+        continue;
+      }
+
+      final enrichedPeak = _enrichPeak(
+        peak.copyWith(sourceOfTruth: Peak.sourceOfTruthOsm),
+      );
       if (enrichedPeak == null) {
         skippedCount += 1;
         continue;
       }
-      enrichedPeaks.add(enrichedPeak);
+      refreshedPeaks.add(enrichedPeak);
+      if (enrichedPeak.osmId != 0) {
+        seenOsmIds.add(enrichedPeak.osmId);
+      }
     }
 
-    if (enrichedPeaks.isEmpty) {
+    for (final peak in existingPeaks) {
+      if (seenOsmIds.contains(peak.osmId)) {
+        continue;
+      }
+      refreshedPeaks.add(_preparePreservedPeak(peak));
+    }
+
+    if (refreshedPeaks.isEmpty) {
       throw StateError('No valid peaks');
     }
 
-    await _peakRepository.replaceAll(enrichedPeaks);
+    final renumberedPeaks = _renumberRefreshPeaks(refreshedPeaks);
+
+    await _peakRepository.replaceAll(
+      renumberedPeaks,
+      preserveExistingIds: false,
+    );
 
     return PeakRefreshResult(
-      importedCount: enrichedPeaks.length,
+      importedCount: renumberedPeaks.length,
       skippedCount: skippedCount,
       warning: skippedCount > 0 ? '$skippedCount peaks skipped' : null,
     );
@@ -105,5 +135,64 @@ class PeakRefreshService {
         peak.mgrs100kId.isNotEmpty &&
         peak.easting.isNotEmpty &&
         peak.northing.isNotEmpty;
+  }
+
+  bool _isRefreshEligible(Peak peak) {
+    return peak.sourceOfTruth.isEmpty ||
+        peak.sourceOfTruth == Peak.sourceOfTruthOsm;
+  }
+
+  Peak _preparePreservedPeak(Peak peak) {
+    return Peak(
+      id: peak.id,
+      osmId: peak.osmId,
+      name: peak.name,
+      elevation: peak.elevation,
+      latitude: peak.latitude,
+      longitude: peak.longitude,
+      area: peak.area,
+      gridZoneDesignator: peak.gridZoneDesignator,
+      mgrs100kId: peak.mgrs100kId,
+      easting: peak.easting,
+      northing: peak.northing,
+      sourceOfTruth: peak.sourceOfTruth,
+    );
+  }
+
+  List<Peak> _renumberRefreshPeaks(List<Peak> peaks) {
+    final idsByOsmId = <int, int>{};
+    var nextId = 1;
+
+    for (final peak in peaks) {
+      if (peak.sourceOfTruth == Peak.sourceOfTruthHwc) {
+        idsByOsmId[peak.osmId] = nextId++;
+      }
+    }
+    for (final peak in peaks) {
+      idsByOsmId.putIfAbsent(peak.osmId, () => nextId++);
+    }
+
+    return peaks
+        .map((peak) {
+          return _clonePeakWithId(peak, idsByOsmId[peak.osmId]!);
+        })
+        .toList(growable: false);
+  }
+
+  Peak _clonePeakWithId(Peak peak, int id) {
+    return Peak(
+      id: id,
+      osmId: peak.osmId,
+      name: peak.name,
+      elevation: peak.elevation,
+      latitude: peak.latitude,
+      longitude: peak.longitude,
+      area: peak.area,
+      gridZoneDesignator: peak.gridZoneDesignator,
+      mgrs100kId: peak.mgrs100kId,
+      easting: peak.easting,
+      northing: peak.northing,
+      sourceOfTruth: peak.sourceOfTruth,
+    );
   }
 }

@@ -31,7 +31,7 @@ Primary flow:
 
 Alternative flows:
 - First launch with an empty peak store: peak loading uses the same enrichment pipeline during startup.
-- Repeated refresh: refresh replaces the existing stored peak set with fresh data.
+- Repeated refresh: refresh updates only rows whose `sourceOfTruth` is `null`, empty, or `OSM`; rows marked `HWC` are preserved.
 - Cancel from the confirmation dialog: no data changes, no loading state, and the user stays on Settings.
 
 Error flows:
@@ -47,14 +47,23 @@ Error flows:
 4. Replace the stored peak set atomically after successful fetch and enrichment. Build the full replacement list first, then replace the stored rows in one rollback-safe repository operation or transaction. Do not clear existing peaks before the replacement write succeeds.
 5. Make `MapNotifier.refreshPeaks()` return a `PeakRefreshResult` that carries imported and skipped counts plus an optional warning message for partial successes.
 6. Make `MapNotifier.refreshPeaks()` throw on hard failure after preserving the existing dataset.
+7. During manual refresh, only update stored peak rows whose `sourceOfTruth` is `null`, empty, or `OSM`.
+    - If a stored peak row has `sourceOfTruth == 'HWC'`, keep that row's data unchanged during refresh.
+    - Before the replacement write, explicitly renumber the rebuilt dataset ids instead of relying on ObjectBox auto ids.
+    - Preserved `HWC` rows must be assigned the first ids in that rebuilt dataset numbering.
+    - Newly fetched peaks that do not already exist in storage may still be inserted.
+    - Any peak row that is refreshed from Overpass must be recreated with a newly assigned id from that rebuilt dataset numbering rather than reusing prior entity ids.
+    - If a stored peak row is absent from the current Overpass response, keep that stored row instead of deleting it, because OSM is not a complete source of truth for peaks.
 
 **Error Handling:**
-7. If fetch, conversion, or storage fails, leave the existing dataset unchanged and surface an error.
-8. If some records are invalid, skip only those records and report the skipped count; if no valid records remain, fail the refresh.
+8. If fetch, conversion, or storage fails, leave the existing dataset unchanged and surface an error.
+9. If some records are invalid, skip only those records and report the skipped count; if no valid records remain, fail the refresh.
 
 **Edge Cases:**
-9. Preserve behavior for peaks already loaded before this change by backfilling them on the next refresh.
-10. Keep current peak search and selection behavior unchanged aside from the new fields being available.
+10. Preserve behavior for peaks already loaded before this change by backfilling them on the next refresh.
+11. `sourceOfTruth == null` or `sourceOfTruth == ''` must be treated the same as `OSM` for refresh eligibility.
+12. Missing peaks in the current Overpass response must remain stored regardless of `sourceOfTruth`.
+13. Keep current peak search and selection behavior unchanged aside from the new fields being available.
 
 **Validation:**
 11. Add stable selectors for the refresh tile, confirmation dialog, confirm button, cancel button, result dialog close button, failure dialog close button, and refresh status so widget and robot tests do not rely on localized text.
@@ -129,6 +138,7 @@ Phase 3: Add widget and robot coverage for the Settings refresh journey, then ve
 <done_when>
 1. Every persisted peak has populated MGRS fields after a successful refresh.
 2. Refresh never destroys existing peak data on network, conversion, or storage failure.
-3. Settings refresh has deterministic loading, success, and error feedback with stable selectors.
-4. Automated tests cover conversion, atomic replacement, and the refresh journey.
+3. Refresh leaves `HWC` peaks untouched while still refreshing peaks whose `sourceOfTruth` is unset or `OSM`.
+4. Settings refresh has deterministic loading, success, and error feedback with stable selectors.
+5. Automated tests cover conversion, atomic replacement, and the refresh journey.
 </done_when>
