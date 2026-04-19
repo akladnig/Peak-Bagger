@@ -42,18 +42,18 @@ Thin slice first: dialog, picker seam, submit/result/failure UX; then schema, ma
 - [x] TDD: repository round-trips ordered `peakList` payload unchanged
 - [x] Verify: `flutter analyze` && `flutter test`
 
-### Phase 3: Import service and matching
+### Phase 3: Import service and matching [complete]
 
 - **Goal**: parse, correlate, log
-- [ ] `./lib/services/peak_mgrs_converter.dart` - CSV UTM/MGRS normalization helper
-- [ ] `./lib/services/peak_list_import_service.dart` - CSV parse, correlation, warning/log result contract, create-vs-update outcome
-- [ ] `./lib/services/gpx_importer.dart` - reuse/align import-log path resolution if shared helper extraction is warranted
-- [ ] `./test/services/peak_mgrs_converter_test.dart` - normalization regression
-- [ ] `./test/services/peak_list_import_service_test.dart` - parse/match/persist/log slices
-- [ ] TDD: quoted-comma row parses; hard match requires zone + `mgrs100kId` + `<=10m` easting/northing + rounded height
-- [ ] TDD: name mismatch warns only; zero/multi-match skips row; warningEntries/logEntries differ by timestamping
-- [ ] TDD: result distinguishes created vs updated; warning count surfaces when log write fails
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `./lib/services/peak_mgrs_converter.dart` - CSV UTM/MGRS normalization helper
+- [x] `./lib/services/peak_list_import_service.dart` - CSV parse, correlation, warning/log result contract, create-vs-update outcome
+- [x] `./lib/services/gpx_importer.dart` - reuse/align import-log path resolution if shared helper extraction is warranted
+- [x] `./test/services/peak_mgrs_converter_test.dart` - normalization regression
+- [x] `./test/services/peak_list_import_service_test.dart` - parse/match/persist/log slices
+- [x] TDD: quoted-comma row parses; hard match requires zone + `mgrs100kId` + `<=10m` easting/northing + rounded height
+- [x] TDD: name mismatch warns only; zero/multi-match skips row; warningEntries/logEntries differ by timestamping
+- [x] TDD: result distinguishes created vs updated; warning count surfaces when log write fails
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 4: Admin and robot completion
 

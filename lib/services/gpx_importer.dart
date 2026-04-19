@@ -111,7 +111,11 @@ class GpxImporter {
 
   String getImportLogPath() {
     final root = Directory(tracksFolder).parent.path;
-    return '$root${Platform.pathSeparator}import.log';
+    return resolveImportLogPath(root);
+  }
+
+  static String resolveImportLogPath(String importRoot) {
+    return '$importRoot${Platform.pathSeparator}import.log';
   }
 
   Future<bool> moveReplacementFile({

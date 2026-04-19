@@ -27,4 +27,20 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test('normalizes CSV UTM fields into comparable MGRS components', () {
+    final fromCsv = PeakMgrsConverter.fromCsvUtm(
+      zone: '55G',
+      easting: '4 15 135',
+      northing: '53 65 355',
+    );
+    final fromLatLng = PeakMgrsConverter.fromLatLng(
+      const LatLng(-41.85916, 145.97754),
+    );
+
+    expect(fromCsv.gridZoneDesignator, fromLatLng.gridZoneDesignator);
+    expect(fromCsv.mgrs100kId, fromLatLng.mgrs100kId);
+    expect(fromCsv.easting, fromLatLng.easting);
+    expect(fromCsv.northing, fromLatLng.northing);
+  });
 }

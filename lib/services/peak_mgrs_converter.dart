@@ -29,6 +29,27 @@ class PeakMgrsConverter {
     return fromForwardString(forward);
   }
 
+  static PeakMgrsComponents fromCsvUtm({
+    required String zone,
+    required String easting,
+    required String northing,
+  }) {
+    final zoneMatch = RegExp(
+      r'^(\d{1,2})([A-Z])$',
+    ).firstMatch(zone.trim().toUpperCase());
+    if (zoneMatch == null) {
+      throw FormatException('Invalid UTM zone value');
+    }
+
+    final utm = mgrs.UTM(
+      easting: _parseUtmComponent(easting).toDouble(),
+      northing: _parseUtmComponent(northing).toDouble(),
+      zoneLetter: zoneMatch.group(2)!,
+      zoneNumber: int.parse(zoneMatch.group(1)!),
+    );
+    return fromForwardString(mgrs.Mgrs.encode(utm, 5));
+  }
+
   static PeakMgrsComponents fromForwardString(String forward) {
     final cleaned = forward.replaceAll(RegExp(r'[\s\n]'), '');
     final match = RegExp(
@@ -44,5 +65,14 @@ class PeakMgrsConverter {
       easting: match.group(3)!,
       northing: match.group(4)!,
     );
+  }
+
+  static int _parseUtmComponent(String value) {
+    final digitsOnly = value.replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.isEmpty) {
+      throw FormatException('Invalid UTM component value');
+    }
+
+    return int.parse(digitsOnly);
   }
 }
