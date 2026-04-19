@@ -152,6 +152,16 @@ class PeakRepository {
     }).toList();
   }
 
+  Peak? findByOsmId(int osmId) {
+    for (final peak in _storage.getAll()) {
+      if (peak.osmId == osmId) {
+        return peak;
+      }
+    }
+
+    return null;
+  }
+
   Future<void> addPeaks(List<Peak> peaks) async {
     await _storage.addMany(peaks);
   }

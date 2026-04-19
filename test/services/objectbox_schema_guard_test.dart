@@ -23,4 +23,11 @@ void main() {
 
     await expectLater(guard.verify(), throwsStateError);
   });
+
+  test('schema signature includes peak list surface markers', () {
+    final signature = ObjectBoxSchemaGuard.debugCurrentSchemaSignature();
+
+    expect(signature, contains('PeakList.name:'));
+    expect(signature, contains('PeakList.peakList:'));
+  });
 }

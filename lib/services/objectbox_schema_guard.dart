@@ -28,14 +28,21 @@ class ObjectBoxSchemaGuard {
     await prefs.setString(_objectBoxSchemaSignatureKey, currentSignature);
   }
 
+  static String debugCurrentSchemaSignature() {
+    return _currentSchemaSignature();
+  }
+
   static String _currentSchemaSignature() {
     final model = getObjectBoxModel().model;
     final peak = model.findEntityByName('Peak');
+    final peakList = model.findEntityByName('PeakList');
     final gpxTrack = model.findEntityByName('GpxTrack');
 
     return [
       'modelVersion:${model.modelVersion}',
       'Peak.osmId:${_hasProperty(peak, 'osmId')}',
+      'PeakList.name:${_hasProperty(peakList, 'name')}',
+      'PeakList.peakList:${_hasProperty(peakList, 'peakList')}',
       'GpxTrack.peaks:${_hasRelation(gpxTrack, 'peaks')}',
       'GpxTrack.peakCorrelationProcessed:${_hasProperty(gpxTrack, 'peakCorrelationProcessed')}',
     ].join('|');

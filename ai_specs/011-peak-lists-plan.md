@@ -14,7 +14,7 @@ Thin slice first: dialog, picker seam, submit/result/failure UX; then schema, ma
 
 ## Plan
 
-### Phase 1: UI vertical slice
+### Phase 1: UI vertical slice [complete]
 
 - **Goal**: prove import journey shell
 - [x] `./pubspec.yaml` - add `file_picker` and `path`
@@ -28,19 +28,19 @@ Thin slice first: dialog, picker seam, submit/result/failure UX; then schema, ma
 - [x] Robot journey tests + selectors/seams for critical flows: add keys for FAB/dialog/buttons/fields; fake picker seam only
 - [x] Verify: `flutter analyze` && `flutter test`
 
-### Phase 2: Schema and repositories
+### Phase 2: Schema and repositories [complete]
 
 - **Goal**: persist lists safely
-- [ ] `./lib/models/peak_list.dart` - `PeakList` entity + JSON item DTO
-- [ ] `./lib/services/peak_list_repository.dart` - ObjectBox wrapper + in-memory storage; transactional replace-by-name path
-- [ ] `./lib/services/peak_repository.dart` - add `findByOsmId`/lookup helpers needed by importer
-- [ ] `./lib/services/objectbox_schema_guard.dart` - include `PeakList` signature surface
-- [ ] `./test/services/peak_list_repository_test.dart` - save/load/update transaction behavior
-- [ ] `./test/services/peak_repository_test.dart` - osmId lookup regression
-- [ ] `./test/services/objectbox_schema_guard_test.dart` - schema signature regression
-- [ ] TDD: duplicate-name update preserves existing data on failure
-- [ ] TDD: repository round-trips ordered `peakList` payload unchanged
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `./lib/models/peak_list.dart` - `PeakList` entity + JSON item DTO
+- [x] `./lib/services/peak_list_repository.dart` - ObjectBox wrapper + in-memory storage; transactional replace-by-name path
+- [x] `./lib/services/peak_repository.dart` - add `findByOsmId`/lookup helpers needed by importer
+- [x] `./lib/services/objectbox_schema_guard.dart` - include `PeakList` signature surface
+- [x] `./test/services/peak_list_repository_test.dart` - save/load/update transaction behavior
+- [x] `./test/services/peak_repository_test.dart` - osmId lookup regression
+- [x] `./test/services/objectbox_schema_guard_test.dart` - schema signature regression
+- [x] TDD: duplicate-name update preserves existing data on failure
+- [x] TDD: repository round-trips ordered `peakList` payload unchanged
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Import service and matching
 

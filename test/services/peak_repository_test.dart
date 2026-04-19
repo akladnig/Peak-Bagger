@@ -69,5 +69,17 @@ void main() {
       expect(peaks, hasLength(1));
       expect(peaks.single.name, 'Old Peak');
     });
+
+    test('findByOsmId returns the matching peak', () async {
+      await repository.addPeaks([
+        Peak(osmId: 123, name: 'Cradle', latitude: -41, longitude: 146),
+        Peak(osmId: 456, name: 'Ossa', latitude: -42, longitude: 147),
+      ]);
+
+      final peak = repository.findByOsmId(456);
+
+      expect(peak, isNotNull);
+      expect(peak?.name, 'Ossa');
+    });
   });
 }
