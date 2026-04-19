@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
+import 'package:peak_bagger/screens/peak_lists_screen.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/objectbox_schema_guard.dart';
+import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
@@ -26,6 +28,7 @@ void main() async {
   }
 
   final peakRepo = PeakRepository(objectboxStore);
+  final peakListRepo = PeakListRepository(objectboxStore);
   final overpassService = OverpassService();
   final tasmapRepo = TasmapRepository(objectboxStore);
   try {
@@ -38,6 +41,7 @@ void main() async {
     ProviderScope(
       overrides: [
         peakRepositoryProvider.overrideWithValue(peakRepo),
+        peakListRepositoryProvider.overrideWithValue(peakListRepo),
         overpassServiceProvider.overrideWithValue(overpassService),
         tasmapRepositoryProvider.overrideWithValue(tasmapRepo),
         objectboxAdminRepositoryProvider.overrideWithValue(

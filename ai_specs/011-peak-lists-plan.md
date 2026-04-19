@@ -55,19 +55,19 @@ Thin slice first: dialog, picker seam, submit/result/failure UX; then schema, ma
 - [x] TDD: result distinguishes created vs updated; warning count surfaces when log write fails
 - [x] Verify: `flutter analyze` && `flutter test`
 
-### Phase 4: Admin and robot completion
+### Phase 4: Admin and robot completion [complete]
 
 - **Goal**: admin visibility + end-to-end confidence
-- [ ] `./lib/services/objectbox_admin_repository.dart` - load `PeakList` rows; use `objectBoxAdminPreviewValue()` for payload preview
-- [ ] `./test/harness/test_objectbox_admin_repository.dart` - add `PeakList` entity/rows
-- [ ] `./test/services/objectbox_admin_repository_test.dart` - schema + row coverage for `PeakList`
-- [ ] `./test/robot/peaks/peak_lists_robot.dart` - journey robot
-- [ ] `./test/robot/peaks/peak_lists_journey_test.dart` - import/create/update/warning journey coverage
-- [ ] `./lib/objectbox-model.json` - regenerated schema
-- [ ] `./lib/objectbox.g.dart` - regenerated bindings
-- [ ] TDD: ObjectBox Admin shows `PeakList` entity and row preview fields
-- [ ] TDD: robot journey covers create, duplicate update confirm, result dialog, persisted admin-visible row
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `./lib/services/objectbox_admin_repository.dart` - load `PeakList` rows; use `objectBoxAdminPreviewValue()` for payload preview
+- [x] `./test/harness/test_objectbox_admin_repository.dart` - add `PeakList` entity/rows
+- [x] `./test/services/objectbox_admin_repository_test.dart` - schema + row coverage for `PeakList`
+- [x] `./test/robot/peaks/peak_lists_robot.dart` - journey robot
+- [x] `./test/robot/peaks/peak_lists_journey_test.dart` - import/create/update/warning journey coverage
+- [x] `./lib/objectbox-model.json` - regenerated schema
+- [x] `./lib/objectbox.g.dart` - regenerated bindings
+- [x] TDD: ObjectBox Admin shows `PeakList` entity and row preview fields
+- [x] TDD: robot journey covers create, duplicate update confirm, result dialog, persisted admin-visible row
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

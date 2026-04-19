@@ -97,6 +97,35 @@ class TestObjectBoxAdminRepository implements ObjectBoxAdminRepository {
       ],
     ),
     const ObjectBoxAdminEntityDescriptor(
+      name: 'PeakList',
+      displayName: 'PeakList',
+      primaryKeyField: 'peakListId',
+      primaryNameField: 'name',
+      fields: [
+        ObjectBoxAdminFieldDescriptor(
+          name: 'peakListId',
+          typeLabel: 'int',
+          nullable: false,
+          isPrimaryKey: true,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'name',
+          typeLabel: 'String',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: true,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'peakList',
+          typeLabel: 'String',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+      ],
+    ),
+    const ObjectBoxAdminEntityDescriptor(
       name: 'Tasmap50k',
       displayName: 'Tasmap50k',
       primaryKeyField: 'id',
@@ -151,6 +180,16 @@ class TestObjectBoxAdminRepository implements ObjectBoxAdminRepository {
       const ObjectBoxAdminRow(
         primaryKeyValue: 1,
         values: {'id': 1, 'name': 'Mt Ossa'},
+      ),
+    ],
+    'PeakList': [
+      const ObjectBoxAdminRow(
+        primaryKeyValue: 1,
+        values: {
+          'peakListId': 1,
+          'name': 'Abels',
+          'peakList': '[{"peakOsmId":101,"points":"3"}]',
+        },
       ),
     ],
     'Tasmap50k': const [],

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 
@@ -18,6 +19,7 @@ void main() {
       'Peak',
       'Tasmap50k',
       'GpxTrack',
+      'PeakList',
     ]);
     expect(entities.first.primaryKeyField, 'id');
     expect(entities.first.primaryNameField, 'name');
@@ -57,10 +59,10 @@ void main() {
         'northing',
       ]),
     );
-    expect(entities.last.primaryKeyField, 'gpxTrackId');
-    expect(entities.last.primaryNameField, 'trackName');
+    expect(entities[2].primaryKeyField, 'gpxTrackId');
+    expect(entities[2].primaryNameField, 'trackName');
     expect(
-      entities.last.fields.map((field) => field.name),
+      entities[2].fields.map((field) => field.name),
       containsAll([
         'gpxTrackId',
         'trackName',
@@ -89,10 +91,16 @@ void main() {
       ]),
     );
     expect(
-      entities.last.fields
+      entities[2].fields
           .singleWhere((field) => field.name == 'peaks')
           .typeLabel,
       'relation<Peak>',
+    );
+    expect(entities[3].primaryKeyField, 'peakListId');
+    expect(entities[3].primaryNameField, 'name');
+    expect(
+      entities[3].fields.map((field) => field.name),
+      containsAll(['peakListId', 'name', 'peakList']),
     );
   });
 
@@ -197,6 +205,25 @@ void main() {
     expect(row.values['pausedTime'], 90000);
     expect(row.values['peakCorrelationProcessed'], isTrue);
     expect(row.values['peaks'], ['Peak A (11)', 'Peak B (22)']);
+  });
+
+  test('peakListToAdminRow includes previewable payload fields', () {
+    final row = peakListToAdminRow(
+      PeakList(
+        peakListId: 9,
+        name: 'Abels',
+        peakList:
+            '[{"peakOsmId":101,"points":"3"},{"peakOsmId":202,"points":"6"}]',
+      ),
+    );
+
+    expect(row.primaryKeyValue, 9);
+    expect(row.values['peakListId'], 9);
+    expect(row.values['name'], 'Abels');
+    expect(
+      objectBoxAdminPreviewValue(row.values['peakList']),
+      contains('peakOsmId'),
+    );
   });
 
   test('exportGpxFile writes the selected track to downloads', () async {

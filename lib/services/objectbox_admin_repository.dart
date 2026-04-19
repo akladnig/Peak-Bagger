@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import 'package:path_provider/path_provider.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:objectbox/internal.dart' as obx_int;
@@ -57,6 +58,7 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
 
     final rows = switch (entity.name) {
       'Peak' => _loadPeakRows(store, trimmedQuery, ascending),
+      'PeakList' => _loadPeakListRows(store, trimmedQuery, ascending),
       'Tasmap50k' => _loadTasmapRows(store, trimmedQuery, ascending),
       'GpxTrack' => _loadTrackRows(store, trimmedQuery, ascending),
       _ => <ObjectBoxAdminRow>[],
@@ -147,6 +149,7 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
   String _primaryNameField(String entityName) {
     return switch (entityName) {
       'Peak' => 'name',
+      'PeakList' => 'name',
       'Tasmap50k' => 'name',
       'GpxTrack' => 'trackName',
       _ => 'name',
@@ -267,6 +270,28 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
         .toList(growable: false);
   }
 
+  List<ObjectBoxAdminRow> _loadPeakListRows(
+    Store store,
+    String query,
+    bool ascending,
+  ) {
+    final box = store.box<PeakList>();
+    final items = box.getAll();
+    final filtered = query.isEmpty
+        ? items
+        : items.where((peakList) {
+            return peakList.name.toLowerCase().contains(query);
+          }).toList();
+
+    filtered.sort(
+      (a, b) => ascending
+          ? a.peakListId.compareTo(b.peakListId)
+          : b.peakListId.compareTo(a.peakListId),
+    );
+
+    return filtered.map(peakListToAdminRow).toList(growable: false);
+  }
+
   List<ObjectBoxAdminRow> _loadTrackRows(
     Store store,
     String query,
@@ -305,6 +330,17 @@ ObjectBoxAdminRow peakToAdminRow(Peak peak) {
       'mgrs100kId': peak.mgrs100kId,
       'easting': peak.easting,
       'northing': peak.northing,
+    },
+  );
+}
+
+ObjectBoxAdminRow peakListToAdminRow(PeakList peakList) {
+  return ObjectBoxAdminRow(
+    primaryKeyValue: peakList.peakListId,
+    values: {
+      'peakListId': peakList.peakListId,
+      'name': peakList.name,
+      'peakList': peakList.peakList,
     },
   );
 }

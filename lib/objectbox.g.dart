@@ -16,6 +16,7 @@ import 'package:objectbox_flutter_libs/objectbox_flutter_libs.dart';
 
 import 'models/gpx_track.dart';
 import 'models/peak.dart';
+import 'models/peak_list.dart';
 import 'models/tasmap50k.dart';
 
 export 'package:objectbox/objectbox.dart'; // so that callers only have to import this file
@@ -400,6 +401,35 @@ final _entities = <obx_int.ModelEntity>[
     ],
     backlinks: <obx_int.ModelBacklink>[],
   ),
+  obx_int.ModelEntity(
+    id: const obx_int.IdUid(4, 5754024077279183606),
+    name: 'PeakList',
+    lastPropertyId: const obx_int.IdUid(3, 6714151057753537882),
+    flags: 0,
+    properties: <obx_int.ModelProperty>[
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(1, 2582678945515018062),
+        name: 'peakListId',
+        type: 6,
+        flags: 129,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(2, 820297320693406618),
+        name: 'name',
+        type: 9,
+        flags: 2080,
+        indexId: const obx_int.IdUid(2, 7211080441040466135),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(3, 6714151057753537882),
+        name: 'peakList',
+        type: 9,
+        flags: 0,
+      ),
+    ],
+    relations: <obx_int.ModelRelation>[],
+    backlinks: <obx_int.ModelBacklink>[],
+  ),
 ];
 
 /// Shortcut for [obx.Store.new] that passes [getObjectBoxModel] and for Flutter
@@ -445,8 +475,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
     // Typically, this is done with `dart run build_runner build`.
     generatorVersion: obx_int.GeneratorVersion.v2025_12_16,
     entities: _entities,
-    lastEntityId: const obx_int.IdUid(3, 8449374379554926112),
-    lastIndexId: const obx_int.IdUid(1, 1646709204047143715),
+    lastEntityId: const obx_int.IdUid(4, 5754024077279183606),
+    lastIndexId: const obx_int.IdUid(2, 7211080441040466135),
     lastRelationId: const obx_int.IdUid(1, 8194382659905112901),
     lastSequenceId: const obx_int.IdUid(0, 0),
     retiredEntityUids: const [],
@@ -957,6 +987,48 @@ obx_int.ModelDefinition getObjectBoxModel() {
         return object;
       },
     ),
+    PeakList: obx_int.EntityDefinition<PeakList>(
+      model: _entities[3],
+      toOneRelations: (PeakList object) => [],
+      toManyRelations: (PeakList object) => {},
+      getId: (PeakList object) => object.peakListId,
+      setId: (PeakList object, int id) {
+        object.peakListId = id;
+      },
+      objectToFB: (PeakList object, fb.Builder fbb) {
+        final nameOffset = fbb.writeString(object.name);
+        final peakListOffset = fbb.writeString(object.peakList);
+        fbb.startTable(4);
+        fbb.addInt64(0, object.peakListId);
+        fbb.addOffset(1, nameOffset);
+        fbb.addOffset(2, peakListOffset);
+        fbb.finish(fbb.endTable());
+        return object.peakListId;
+      },
+      objectFromFB: (obx.Store store, ByteData fbData) {
+        final buffer = fb.BufferContext(fbData);
+        final rootOffset = buffer.derefObject(0);
+        final peakListIdParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          4,
+          0,
+        );
+        final nameParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 6, '');
+        final peakListParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 8, '');
+        final object = PeakList(
+          peakListId: peakListIdParam,
+          name: nameParam,
+          peakList: peakListParam,
+        );
+
+        return object;
+      },
+    ),
   };
 
   return obx_int.ModelDefinition(model, bindings);
@@ -1252,5 +1324,23 @@ class GpxTrack_ {
   /// see [GpxTrack.peaks]
   static final peaks = obx.QueryRelationToMany<GpxTrack, Peak>(
     _entities[2].relations[0],
+  );
+}
+
+/// [PeakList] entity fields to define ObjectBox queries.
+class PeakList_ {
+  /// See [PeakList.peakListId].
+  static final peakListId = obx.QueryIntegerProperty<PeakList>(
+    _entities[3].properties[0],
+  );
+
+  /// See [PeakList.name].
+  static final name = obx.QueryStringProperty<PeakList>(
+    _entities[3].properties[1],
+  );
+
+  /// See [PeakList.peakList].
+  static final peakList = obx.QueryStringProperty<PeakList>(
+    _entities[3].properties[2],
   );
 }
