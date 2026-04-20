@@ -20,6 +20,7 @@ void main() {
       'Tasmap50k',
       'GpxTrack',
       'PeakList',
+      'PeaksBagged',
     ]);
     expect(entities.first.primaryKeyField, 'id');
     expect(entities.first.primaryNameField, 'name');
@@ -102,6 +103,11 @@ void main() {
     expect(
       entities[3].fields.map((field) => field.name),
       containsAll(['peakListId', 'name', 'peakList']),
+    );
+    expect(entities[4].primaryKeyField, 'baggedId');
+    expect(
+      entities[4].fields.map((field) => field.name),
+      containsAll(['baggedId', 'peakId', 'gpxId', 'date']),
     );
   });
 

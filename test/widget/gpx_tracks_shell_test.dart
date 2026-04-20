@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/router.dart';
 
 import '../harness/test_map_notifier.dart';
@@ -54,6 +55,14 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
+    expect(find.byKey(const Key('shared-app-bar')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('app-bar-title')),
+        matching: find.text('Settings'),
+      ),
+      findsOneWidget,
+    );
     expect(
       find.text('Some files need manual review. See import.log.'),
       findsOneWidget,
@@ -77,6 +86,28 @@ void main() {
       find.descendant(
         of: find.byType(AlertDialog),
         matching: find.textContaining('Imported 1'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('reset track data shows failure dialog', (tester) async {
+    await _pumpApp(tester, _ResetFailureMapNotifier(_baseState()));
+
+    router.go('/settings');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.byKey(const Key('reset-track-data-tile')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('reset-track-data-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Track Data Reset Failed'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('Bagged history rebuild failed.'),
       ),
       findsOneWidget,
     );
@@ -161,6 +192,33 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'shell theme action stays in app bar and aligns with map fab lane',
+    (tester) async {
+      await _pumpApp(tester, TestMapNotifier(_baseState()));
+
+      expect(find.byKey(const Key('shared-app-bar')), findsOneWidget);
+      expect(find.byKey(const Key('app-bar-theme-action')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('shared-app-bar')),
+          matching: find.byKey(const Key('app-bar-theme-action')),
+        ),
+        findsOneWidget,
+      );
+
+      final themeAction = tester.getCenter(
+        find.byKey(const Key('app-bar-theme-action')),
+      );
+      final searchFab = tester.getCenter(
+        find.byKey(const Key('search-peaks-fab')),
+      );
+
+      expect(themeAction.dx, searchFab.dx);
+      expect(themeAction.dy, lessThan(searchFab.dy));
+    },
+  );
 }
 
 Future<void> _pumpApp(WidgetTester tester, TestMapNotifier notifier) async {
@@ -182,4 +240,14 @@ MapState _baseState() {
     zoom: 10,
     basemap: Basemap.tracestrack,
   );
+}
+
+class _ResetFailureMapNotifier extends TestMapNotifier {
+  _ResetFailureMapNotifier(super.initialState);
+
+  @override
+  Future<TrackImportResult?> resetTrackData() async {
+    state = state.copyWith(trackImportError: 'Bagged history rebuild failed.');
+    return null;
+  }
 }

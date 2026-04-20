@@ -33,5 +33,8 @@ void main() {
     expect(signature, contains('Peak.sourceOfTruth:'));
     expect(signature, contains('PeakList.name:'));
     expect(signature, contains('PeakList.peakList:'));
+    expect(signature, contains('PeaksBagged.peakId:'));
+    expect(signature, contains('PeaksBagged.gpxId:'));
+    expect(signature, contains('PeaksBagged.date:'));
   });
 }

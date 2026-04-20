@@ -17,6 +17,7 @@ import 'package:objectbox_flutter_libs/objectbox_flutter_libs.dart';
 import 'models/gpx_track.dart';
 import 'models/peak.dart';
 import 'models/peak_list.dart';
+import 'models/peaks_bagged.dart';
 import 'models/tasmap50k.dart';
 
 export 'package:objectbox/objectbox.dart'; // so that callers only have to import this file
@@ -436,6 +437,40 @@ final _entities = <obx_int.ModelEntity>[
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
   ),
+  obx_int.ModelEntity(
+    id: const obx_int.IdUid(5, 9023966399287465849),
+    name: 'PeaksBagged',
+    lastPropertyId: const obx_int.IdUid(4, 1625516356902882927),
+    flags: 0,
+    properties: <obx_int.ModelProperty>[
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(1, 187546268832463095),
+        name: 'baggedId',
+        type: 6,
+        flags: 129,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(2, 6205008261349276758),
+        name: 'peakId',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(3, 5251465697122538351),
+        name: 'gpxId',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(4, 1625516356902882927),
+        name: 'date',
+        type: 10,
+        flags: 0,
+      ),
+    ],
+    relations: <obx_int.ModelRelation>[],
+    backlinks: <obx_int.ModelBacklink>[],
+  ),
 ];
 
 /// Shortcut for [obx.Store.new] that passes [getObjectBoxModel] and for Flutter
@@ -481,7 +516,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
     // Typically, this is done with `dart run build_runner build`.
     generatorVersion: obx_int.GeneratorVersion.v2025_12_16,
     entities: _entities,
-    lastEntityId: const obx_int.IdUid(4, 5754024077279183606),
+    lastEntityId: const obx_int.IdUid(5, 9023966399287465849),
     lastIndexId: const obx_int.IdUid(2, 7211080441040466135),
     lastRelationId: const obx_int.IdUid(1, 8194382659905112901),
     lastSequenceId: const obx_int.IdUid(0, 0),
@@ -1041,6 +1076,62 @@ obx_int.ModelDefinition getObjectBoxModel() {
         return object;
       },
     ),
+    PeaksBagged: obx_int.EntityDefinition<PeaksBagged>(
+      model: _entities[4],
+      toOneRelations: (PeaksBagged object) => [],
+      toManyRelations: (PeaksBagged object) => {},
+      getId: (PeaksBagged object) => object.baggedId,
+      setId: (PeaksBagged object, int id) {
+        object.baggedId = id;
+      },
+      objectToFB: (PeaksBagged object, fb.Builder fbb) {
+        fbb.startTable(5);
+        fbb.addInt64(0, object.baggedId);
+        fbb.addInt64(1, object.peakId);
+        fbb.addInt64(2, object.gpxId);
+        fbb.addInt64(3, object.date?.millisecondsSinceEpoch);
+        fbb.finish(fbb.endTable());
+        return object.baggedId;
+      },
+      objectFromFB: (obx.Store store, ByteData fbData) {
+        final buffer = fb.BufferContext(fbData);
+        final rootOffset = buffer.derefObject(0);
+        final dateValue = const fb.Int64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          10,
+        );
+        final baggedIdParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          4,
+          0,
+        );
+        final peakIdParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          6,
+          0,
+        );
+        final gpxIdParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          8,
+          0,
+        );
+        final dateParam = dateValue == null
+            ? null
+            : DateTime.fromMillisecondsSinceEpoch(dateValue, isUtc: true);
+        final object = PeaksBagged(
+          baggedId: baggedIdParam,
+          peakId: peakIdParam,
+          gpxId: gpxIdParam,
+          date: dateParam,
+        );
+
+        return object;
+      },
+    ),
   };
 
   return obx_int.ModelDefinition(model, bindings);
@@ -1359,5 +1450,28 @@ class PeakList_ {
   /// See [PeakList.peakList].
   static final peakList = obx.QueryStringProperty<PeakList>(
     _entities[3].properties[2],
+  );
+}
+
+/// [PeaksBagged] entity fields to define ObjectBox queries.
+class PeaksBagged_ {
+  /// See [PeaksBagged.baggedId].
+  static final baggedId = obx.QueryIntegerProperty<PeaksBagged>(
+    _entities[4].properties[0],
+  );
+
+  /// See [PeaksBagged.peakId].
+  static final peakId = obx.QueryIntegerProperty<PeaksBagged>(
+    _entities[4].properties[1],
+  );
+
+  /// See [PeaksBagged.gpxId].
+  static final gpxId = obx.QueryIntegerProperty<PeaksBagged>(
+    _entities[4].properties[2],
+  );
+
+  /// See [PeaksBagged.date].
+  static final date = obx.QueryDateProperty<PeaksBagged>(
+    _entities[4].properties[3],
   );
 }

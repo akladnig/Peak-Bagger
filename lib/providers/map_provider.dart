@@ -11,6 +11,7 @@ import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
 import 'package:peak_bagger/services/peak_refresh_service.dart';
+import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/track_peak_correlation_service.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
@@ -252,6 +253,7 @@ class MapNotifier extends Notifier<MapState> {
   late final PeakRefreshService _peakRefreshService;
   late final TasmapRepository _tasmapRepository;
   late final GpxTrackRepository _gpxTrackRepository;
+  late final PeaksBaggedRepository _peaksBaggedRepository;
   late final TrackMigrationMarkerStore _trackMigrationMarkerStore;
   bool _recoverySnackbarShown = false;
   String? _pendingTrackSnackbarMessage;
@@ -268,6 +270,7 @@ class MapNotifier extends Notifier<MapState> {
     );
     _tasmapRepository = ref.read(tasmapRepositoryProvider);
     _gpxTrackRepository = GpxTrackRepository(objectboxStore);
+    _peaksBaggedRepository = PeaksBaggedRepository(objectboxStore);
     _trackMigrationMarkerStore = const TrackMigrationMarkerStore();
     _loadPosition();
     Future.microtask(() => _loadPeaks());
@@ -436,6 +439,9 @@ class MapNotifier extends Notifier<MapState> {
       }
 
       final allTracks = _gpxTrackRepository.getAllTracks();
+      if (resetExisting) {
+        await _peaksBaggedRepository.rebuildFromTracks(allTracks);
+      }
       _refreshCorrelatedPeakIds(allTracks);
       final hasRecoveryIssue = _hasTrackRecoveryIssue(allTracks);
       if (hasRecoveryIssue && !state.hasTrackRecoveryIssue) {
