@@ -32,19 +32,20 @@ Schema + repo + reset/recalc/startup sync + admin + tests.
 ### Phase 2: Startup Migration + Warning Path
 
 - **Goal**: migration marker + startup backfill + shell warning path
-- [ ] `lib/services/track_migration_marker_store.dart` - rename to `lib/services/migration_marker_store.dart`; add dedicated `peaks_bagged_backfill_v1_complete` marker; keep `TrackStartupAction` / `TrackStartupDecision`
-- [ ] `lib/providers/map_provider.dart` - run startup backfill only on `loadTracks` / `showRecovery`; mark marker on successful sync paths; expose `consumeStartupBackfillWarningMessage()`; clear pending startup warning on consume and on successful recovery
-- [ ] `lib/router.dart` - consume startup warning message; show shared-shell snackbar; wire `startup-backfill-warning-open-settings`
-- [ ] `test/services/migration_marker_store_test.dart` - marker persistence semantics only
-- [ ] `test/harness/test_map_notifier.dart` - add startup-warning fixtures + consume API for shell tests
-- [ ] `test/widget/gpx_tracks_shell_test.dart` - startup snackbar visibility + action path
-- [ ] `test/robot/gpx_tracks/gpx_tracks_robot.dart` - helper for startup warning action + mirrored Settings assertion
-- [ ] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - startup warning -> `Open Settings` -> mirrored Settings detail
-- [ ] TDD: startup backfill clear/rebuild semantics; marker gating; `baggedId` restart on retry
+- [x] `lib/services/track_migration_marker_store.dart` - rename to `lib/services/migration_marker_store.dart`; add dedicated `peaks_bagged_backfill_v1_complete` marker; keep `TrackStartupAction` / `TrackStartupDecision`
+- [x] `lib/providers/map_provider.dart` - run startup backfill only on `loadTracks` / `showRecovery`; mark marker on successful sync paths; expose `consumeStartupBackfillWarningMessage()`; clear pending startup warning on consume and on successful recovery
+- [x] `lib/router.dart` - consume startup warning message; show shared-shell snackbar; wire `startup-backfill-warning-open-settings`
+- [x] `test/services/migration_marker_store_test.dart` - marker persistence semantics only
+- [x] `test/harness/test_map_notifier.dart` - add startup-warning fixtures + consume API for shell tests
+- [x] `test/widget/gpx_tracks_shell_test.dart` - startup snackbar visibility + action path
+- [x] `test/robot/gpx_tracks/gpx_tracks_robot.dart` - helper for startup warning action + mirrored Settings assertion
+- [x] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - startup warning -> `Open Settings` -> mirrored Settings detail
+- [x] TDD: startup backfill clear/rebuild semantics; marker gating; `baggedId` restart on retry
 - [ ] TDD: marker completes after successful startup backfill, startup import/wipe-import rebuild, reset rebuild, recalc sync
-- [ ] TDD: startup failure sets `trackImportError`, emits one-shot warning message, clears warning on consume and successful recovery
-- [ ] Robot journey tests + selectors/seams for critical flows: reuse `startup-backfill-warning-open-settings`; keep notifier warning seam deterministic
-- [ ] Verify: `flutter analyze` && `flutter test`
+Blocker: recalc sync is implemented in Phase 3; startup/reset/import marker completion is in place, but the recalc completion branch cannot be truthfully checked until that sync path exists.
+- [x] TDD: startup failure sets `trackImportError`, emits one-shot warning message, clears warning on consume and successful recovery
+- [x] Robot journey tests + selectors/seams for critical flows: reuse `startup-backfill-warning-open-settings`; keep notifier warning seam deterministic
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Recalc Sync + Admin Surface
 

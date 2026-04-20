@@ -17,10 +17,11 @@ class TrackStartupDecision {
   final bool markMigrationComplete;
 }
 
-class TrackMigrationMarkerStore {
+class MigrationMarkerStore {
   static const migrationKey = 'track_optimization_migration_v1_complete';
+  static const peaksBaggedBackfillKey = 'peaks_bagged_backfill_v1_complete';
 
-  const TrackMigrationMarkerStore({
+  const MigrationMarkerStore({
     Future<SharedPreferences> Function()? loadPreferences,
   }) : _loadPreferences = loadPreferences ?? SharedPreferences.getInstance;
 
@@ -34,6 +35,16 @@ class TrackMigrationMarkerStore {
   Future<void> markComplete() async {
     final preferences = await _loadPreferences();
     await preferences.setBool(migrationKey, true);
+  }
+
+  Future<bool> isPeaksBaggedBackfillMarked() async {
+    final preferences = await _loadPreferences();
+    return preferences.getBool(peaksBaggedBackfillKey) ?? false;
+  }
+
+  Future<void> markPeaksBaggedBackfillComplete() async {
+    final preferences = await _loadPreferences();
+    await preferences.setBool(peaksBaggedBackfillKey, true);
   }
 
   static TrackStartupDecision decideStartupAction({

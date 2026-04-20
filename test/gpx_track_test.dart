@@ -6,14 +6,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
+import 'package:peak_bagger/services/migration_marker_store.dart';
+import 'package:peak_bagger/services/overpass_service.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/track_hover_detector.dart';
-import 'package:peak_bagger/services/track_migration_marker_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'harness/test_map_notifier.dart';
@@ -186,10 +192,10 @@ void main() {
     });
   });
 
-  group('TrackMigrationMarkerStore', () {
+  group('MigrationMarkerStore', () {
     test('marks migration as complete', () async {
       SharedPreferences.setMockInitialValues({});
-      const store = TrackMigrationMarkerStore();
+      const store = MigrationMarkerStore();
 
       expect(await store.isMarked(), isFalse);
 
@@ -199,7 +205,7 @@ void main() {
     });
 
     test('decides first startup with legacy rows should wipe then import', () {
-      final decision = TrackMigrationMarkerStore.decideStartupAction(
+      final decision = MigrationMarkerStore.decideStartupAction(
         migrationMarked: false,
         hasPersistedTracks: true,
         hasRecoveryIssue: true,
@@ -210,7 +216,7 @@ void main() {
     });
 
     test('decides empty first startup should mark then import', () {
-      final decision = TrackMigrationMarkerStore.decideStartupAction(
+      final decision = MigrationMarkerStore.decideStartupAction(
         migrationMarked: false,
         hasPersistedTracks: false,
         hasRecoveryIssue: false,
@@ -221,7 +227,7 @@ void main() {
     });
 
     test('decides later corrupt optimized rows should show recovery', () {
-      final decision = TrackMigrationMarkerStore.decideStartupAction(
+      final decision = MigrationMarkerStore.decideStartupAction(
         migrationMarked: true,
         hasPersistedTracks: true,
         hasRecoveryIssue: true,
@@ -230,6 +236,143 @@ void main() {
       expect(decision.action, TrackStartupAction.showRecovery);
       expect(decision.markMigrationComplete, isFalse);
     });
+  });
+
+  group('MapNotifier startup migration', () {
+    test(
+      'loadTracks branch backfills peaks bagged and marks completion',
+      () async {
+        final gpxRepository = _FakeGpxTrackRepository([
+          _trackWithGeometry(
+            id: 7,
+            trackDate: DateTime.utc(2024, 1, 15),
+            peakIds: [11, 22],
+          ),
+        ]);
+        final peaksRepository = _RecordingPeaksBaggedRepository();
+        final markerStore = _FakeMigrationMarkerStore(
+          migrationMarked: true,
+          peaksBaggedBackfillMarked: false,
+        );
+
+        final container = ProviderContainer(
+          overrides: [
+            mapProvider.overrideWith(
+              () => MapNotifier(
+                peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+                overpassService: OverpassService(),
+                tasmapRepository: _NoopTasmapRepository(),
+                gpxTrackRepository: gpxRepository,
+                peaksBaggedRepository: peaksRepository,
+                migrationMarkerStore: markerStore,
+                loadPositionOnBuild: false,
+                loadPeaksOnBuild: false,
+              ),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final notifier = container.read(mapProvider.notifier);
+        await _drainAsync();
+
+        expect(container.read(mapProvider).showTracks, isTrue);
+        expect(container.read(mapProvider).hasTrackRecoveryIssue, isFalse);
+        expect(peaksRepository.rebuildTrackCounts, [1]);
+        expect(await markerStore.isPeaksBaggedBackfillMarked(), isTrue);
+        expect(notifier.consumeStartupBackfillWarningMessage(), isNull);
+        expect(container.read(mapProvider).trackImportError, isNull);
+      },
+    );
+
+    test('showRecovery branch still backfills peaks bagged', () async {
+      final gpxRepository = _FakeGpxTrackRepository([
+        _trackWithGeometry(id: 9, trackDate: null, peakIds: [33]),
+      ]);
+      final peaksRepository = _RecordingPeaksBaggedRepository();
+      final markerStore = _FakeMigrationMarkerStore(
+        migrationMarked: true,
+        peaksBaggedBackfillMarked: false,
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => MapNotifier(
+              peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+              overpassService: OverpassService(),
+              tasmapRepository: _NoopTasmapRepository(),
+              gpxTrackRepository: gpxRepository,
+              peaksBaggedRepository: peaksRepository,
+              migrationMarkerStore: markerStore,
+              loadPositionOnBuild: false,
+              loadPeaksOnBuild: false,
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.read(mapProvider.notifier);
+      await _drainAsync();
+
+      expect(container.read(mapProvider).hasTrackRecoveryIssue, isTrue);
+      expect(container.read(mapProvider).showTracks, isFalse);
+      expect(peaksRepository.rebuildTrackCounts, [1]);
+      expect(await markerStore.isPeaksBaggedBackfillMarked(), isTrue);
+    });
+
+    test(
+      'startup backfill failure emits one-shot warning and mirrored error',
+      () async {
+        final gpxRepository = _FakeGpxTrackRepository([
+          _trackWithGeometry(
+            id: 7,
+            trackDate: DateTime.utc(2024, 1, 15),
+            peakIds: [11],
+          ),
+        ]);
+        final peaksRepository = _RecordingPeaksBaggedRepository(
+          throwOnRebuild: true,
+        );
+        final markerStore = _FakeMigrationMarkerStore(
+          migrationMarked: true,
+          peaksBaggedBackfillMarked: false,
+        );
+
+        final container = ProviderContainer(
+          overrides: [
+            mapProvider.overrideWith(
+              () => MapNotifier(
+                peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+                overpassService: OverpassService(),
+                tasmapRepository: _NoopTasmapRepository(),
+                gpxTrackRepository: gpxRepository,
+                peaksBaggedRepository: peaksRepository,
+                migrationMarkerStore: markerStore,
+                loadPositionOnBuild: false,
+                loadPeaksOnBuild: false,
+              ),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final notifier = container.read(mapProvider.notifier);
+        await _drainAsync();
+
+        expect(
+          container.read(mapProvider).trackImportError,
+          contains('Failed to rebuild bagged peak history from stored tracks'),
+        );
+        expect(await markerStore.isPeaksBaggedBackfillMarked(), isFalse);
+        expect(
+          notifier.consumeStartupBackfillWarningMessage(),
+          'Bagged history is stale. Open Settings to rebuild it.',
+        );
+        expect(notifier.consumeStartupBackfillWarningMessage(), isNull);
+      },
+    );
   });
 
   group('MapNotifier hover state', () {
@@ -1380,6 +1523,143 @@ void main() {
       },
     );
   });
+}
+
+Future<void> _drainAsync() async {
+  await Future<void>.delayed(Duration.zero);
+  await Future<void>.delayed(Duration.zero);
+  await Future<void>.delayed(Duration.zero);
+}
+
+GpxTrack _trackWithGeometry({
+  required int id,
+  required DateTime? trackDate,
+  required List<int> peakIds,
+}) {
+  final track = GpxTrack(
+    gpxTrackId: id,
+    contentHash: 'hash-$id',
+    trackName: 'Track $id',
+    trackDate: trackDate,
+    gpxFile: '<gpx></gpx>',
+    displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
+      [const LatLng(-42.0, 146.0), const LatLng(-42.1, 146.1)],
+    ]),
+  );
+  track.peaks.addAll(
+    peakIds.map(
+      (peakId) => Peak(
+        osmId: peakId,
+        name: 'Peak $peakId',
+        latitude: -42,
+        longitude: 146,
+      ),
+    ),
+  );
+  return track;
+}
+
+class _FakeGpxTrackRepository implements GpxTrackRepository {
+  _FakeGpxTrackRepository(List<GpxTrack> tracks)
+    : _tracks = List<GpxTrack>.from(tracks);
+
+  List<GpxTrack> _tracks;
+
+  @override
+  List<GpxTrack> getAllTracks() => List<GpxTrack>.from(_tracks);
+
+  @override
+  void deleteAll() {
+    _tracks = const [];
+  }
+
+  @override
+  int putTrack(GpxTrack track) {
+    _tracks = [
+      ..._tracks.where((entry) => entry.gpxTrackId != track.gpxTrackId),
+      track,
+    ];
+    return track.gpxTrackId;
+  }
+
+  @override
+  int replaceTrack({
+    required GpxTrack existing,
+    required GpxTrack replacement,
+  }) {
+    replacement.gpxTrackId = existing.gpxTrackId;
+    _tracks = _tracks
+        .map(
+          (entry) =>
+              entry.gpxTrackId == existing.gpxTrackId ? replacement : entry,
+        )
+        .toList(growable: false);
+    return replacement.gpxTrackId;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _RecordingPeaksBaggedRepository implements PeaksBaggedRepository {
+  _RecordingPeaksBaggedRepository({this.throwOnRebuild = false});
+
+  final bool throwOnRebuild;
+  final List<int> rebuildTrackCounts = [];
+
+  @override
+  Future<void> rebuildFromTracks(
+    Iterable<GpxTrack> tracks, {
+    void Function()? beforePutManyForTest,
+  }) async {
+    if (throwOnRebuild) {
+      throw StateError('boom');
+    }
+    rebuildTrackCounts.add(tracks.length);
+  }
+
+  @override
+  List<PeaksBagged> getAll() => const [];
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FakeMigrationMarkerStore implements MigrationMarkerStore {
+  _FakeMigrationMarkerStore({
+    required bool migrationMarked,
+    required bool peaksBaggedBackfillMarked,
+  }) : _migrationMarked = migrationMarked,
+       _peaksBaggedBackfillMarked = peaksBaggedBackfillMarked;
+
+  bool _migrationMarked;
+  bool _peaksBaggedBackfillMarked;
+
+  @override
+  Future<bool> isMarked() async => _migrationMarked;
+
+  @override
+  Future<void> markComplete() async {
+    _migrationMarked = true;
+  }
+
+  @override
+  Future<bool> isPeaksBaggedBackfillMarked() async {
+    return _peaksBaggedBackfillMarked;
+  }
+
+  @override
+  Future<void> markPeaksBaggedBackfillComplete() async {
+    _peaksBaggedBackfillMarked = true;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _NoopTasmapRepository implements TasmapRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 String _tasmanianGpx(String name) =>

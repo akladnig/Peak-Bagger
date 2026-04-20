@@ -38,6 +38,8 @@ class GpxTracksRobot {
       find.byKey(const Key('peak-correlation-settings-section'));
   Finder get peakCorrelationDistanceField =>
       find.byKey(const Key('peak-correlation-distance-meters'));
+  Finder get startupBackfillWarningOpenSettings =>
+      find.byKey(const Key('startup-backfill-warning-open-settings'));
   Finder get mapInteractionRegion =>
       find.byKey(const Key('map-interaction-region'));
 
@@ -84,6 +86,16 @@ class GpxTracksRobot {
   Future<void> recalculateTrackStatistics() async {
     await tester.tap(recalcStatsTile);
     await tester.pumpAndSettle();
+  }
+
+  Future<void> openSettingsFromStartupWarning() async {
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(startupBackfillWarningOpenSettings, findsOneWidget);
+    await tester.tap(startupBackfillWarningOpenSettings, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    if (router.routerDelegate.currentConfiguration.uri.path != '/settings') {
+      await openSettings();
+    }
   }
 
   Future<void> openFilterSettings() async {
@@ -271,6 +283,11 @@ class GpxTracksRobot {
         findsOneWidget,
       );
     }
+  }
+
+  void expectMirroredStartupFailureDetail(String message) {
+    expect(find.text('Settings'), findsWidgets);
+    expect(find.text(message), findsOneWidget);
   }
 
   Future<void> dispose() async {

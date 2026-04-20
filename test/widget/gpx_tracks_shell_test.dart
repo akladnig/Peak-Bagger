@@ -27,6 +27,47 @@ void main() {
     expect(find.text('No GPX files found in watched folder'), findsOneWidget);
   });
 
+  testWidgets('startup backfill warning opens settings and shows detail', (
+    tester,
+  ) async {
+    await _pumpApp(
+      tester,
+      TestMapNotifier(
+        _baseState().copyWith(
+          trackImportError:
+              'Failed to rebuild bagged peak history from stored tracks.',
+        ),
+        startupBackfillWarningMessage:
+            'Bagged history is stale. Open Settings to rebuild it.',
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(
+      find.text('Bagged history is stale. Open Settings to rebuild it.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('startup-backfill-warning-open-settings')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('app-bar-title')),
+        matching: find.text('Settings'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Failed to rebuild bagged peak history from stored tracks.'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('mixed result shows route-shell snackbar and settings warning', (
     tester,
   ) async {

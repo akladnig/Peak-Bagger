@@ -8,6 +8,7 @@ import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
+import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
 import 'package:peak_bagger/services/peak_refresh_service.dart';
@@ -16,9 +17,9 @@ import 'package:peak_bagger/services/track_peak_correlation_service.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/grid_reference_parser.dart';
+import 'package:peak_bagger/services/migration_marker_store.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
-import 'package:peak_bagger/services/track_migration_marker_store.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/main.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
@@ -249,32 +250,74 @@ Set<int> buildCorrelatedPeakIds(Iterable<GpxTrack> tracks) {
 }
 
 class MapNotifier extends Notifier<MapState> {
+  MapNotifier({
+    PeakRepository? peakRepository,
+    OverpassService? overpassService,
+    TasmapRepository? tasmapRepository,
+    GpxTrackRepository? gpxTrackRepository,
+    PeaksBaggedRepository? peaksBaggedRepository,
+    MigrationMarkerStore? migrationMarkerStore,
+    bool loadPositionOnBuild = true,
+    bool loadPeaksOnBuild = true,
+    bool loadTracksOnBuild = true,
+  }) : _injectedPeakRepository = peakRepository,
+       _injectedOverpassService = overpassService,
+       _injectedTasmapRepository = tasmapRepository,
+       _injectedGpxTrackRepository = gpxTrackRepository,
+       _injectedPeaksBaggedRepository = peaksBaggedRepository,
+       _injectedMigrationMarkerStore = migrationMarkerStore,
+       _loadPositionOnBuild = loadPositionOnBuild,
+       _loadPeaksOnBuild = loadPeaksOnBuild,
+       _loadTracksOnBuild = loadTracksOnBuild;
+
+  final PeakRepository? _injectedPeakRepository;
+  final OverpassService? _injectedOverpassService;
+  final TasmapRepository? _injectedTasmapRepository;
+  final GpxTrackRepository? _injectedGpxTrackRepository;
+  final PeaksBaggedRepository? _injectedPeaksBaggedRepository;
+  final MigrationMarkerStore? _injectedMigrationMarkerStore;
+  final bool _loadPositionOnBuild;
+  final bool _loadPeaksOnBuild;
+  final bool _loadTracksOnBuild;
+
   late final PeakRepository _peakRepository;
   late final PeakRefreshService _peakRefreshService;
   late final TasmapRepository _tasmapRepository;
   late final GpxTrackRepository _gpxTrackRepository;
   late final PeaksBaggedRepository _peaksBaggedRepository;
-  late final TrackMigrationMarkerStore _trackMigrationMarkerStore;
+  late final MigrationMarkerStore _migrationMarkerStore;
   bool _recoverySnackbarShown = false;
   String? _pendingTrackSnackbarMessage;
+  String? _pendingStartupBackfillWarningMessage;
   Set<int> _correlatedPeakIds = const {};
 
   Set<int> get correlatedPeakIds => _correlatedPeakIds;
 
   @override
   MapState build() {
-    _peakRepository = ref.read(peakRepositoryProvider);
+    _peakRepository =
+        _injectedPeakRepository ?? ref.read(peakRepositoryProvider);
     _peakRefreshService = PeakRefreshService(
-      ref.read(overpassServiceProvider),
+      _injectedOverpassService ?? ref.read(overpassServiceProvider),
       _peakRepository,
     );
-    _tasmapRepository = ref.read(tasmapRepositoryProvider);
-    _gpxTrackRepository = GpxTrackRepository(objectboxStore);
-    _peaksBaggedRepository = PeaksBaggedRepository(objectboxStore);
-    _trackMigrationMarkerStore = const TrackMigrationMarkerStore();
-    _loadPosition();
-    Future.microtask(() => _loadPeaks());
-    Future.microtask(() => _loadTracks());
+    _tasmapRepository =
+        _injectedTasmapRepository ?? ref.read(tasmapRepositoryProvider);
+    _gpxTrackRepository =
+        _injectedGpxTrackRepository ?? GpxTrackRepository(objectboxStore);
+    _peaksBaggedRepository =
+        _injectedPeaksBaggedRepository ?? PeaksBaggedRepository(objectboxStore);
+    _migrationMarkerStore =
+        _injectedMigrationMarkerStore ?? const MigrationMarkerStore();
+    if (_loadPositionOnBuild) {
+      _loadPosition();
+    }
+    if (_loadPeaksOnBuild) {
+      Future.microtask(() => _loadPeaks());
+    }
+    if (_loadTracksOnBuild) {
+      Future.microtask(() => _loadTracks());
+    }
     return MapState(
       center: _defaultCenter,
       zoom: _defaultZoom,
@@ -308,16 +351,16 @@ class MapNotifier extends Notifier<MapState> {
 
   Future<void> _loadTracks() async {
     final tracks = _gpxTrackRepository.getAllTracks();
-    final migrationMarked = await _trackMigrationMarkerStore.isMarked();
+    final migrationMarked = await _migrationMarkerStore.isMarked();
     final hasRecoveryIssue = _hasTrackRecoveryIssue(tracks);
-    final decision = TrackMigrationMarkerStore.decideStartupAction(
+    final decision = MigrationMarkerStore.decideStartupAction(
       migrationMarked: migrationMarked,
       hasPersistedTracks: tracks.isNotEmpty,
       hasRecoveryIssue: hasRecoveryIssue,
     );
 
     if (decision.markMigrationComplete) {
-      await _trackMigrationMarkerStore.markComplete();
+      await _migrationMarkerStore.markComplete();
     }
 
     switch (decision.action) {
@@ -330,10 +373,18 @@ class MapNotifier extends Notifier<MapState> {
           clearHoveredTrackId: true,
           clearSelectedTrackId: true,
         );
-        await _importTracks(includeTasmaniaFolder: true);
+        await _importTracks(
+          includeTasmaniaFolder: true,
+          syncPeaksBagged: true,
+          markPeaksBaggedBackfillComplete: true,
+        );
         return;
       case TrackStartupAction.importTracks:
-        await _importTracks(includeTasmaniaFolder: true);
+        await _importTracks(
+          includeTasmaniaFolder: true,
+          syncPeaksBagged: true,
+          markPeaksBaggedBackfillComplete: true,
+        );
         return;
       case TrackStartupAction.showRecovery:
         if (!state.hasTrackRecoveryIssue) {
@@ -347,6 +398,7 @@ class MapNotifier extends Notifier<MapState> {
           clearHoveredTrackId: true,
           clearSelectedTrackId: true,
         );
+        await _maybeBackfillPeaksBaggedOnStartup(tracks);
         return;
       case TrackStartupAction.loadTracks:
         _refreshCorrelatedPeakIds(tracks);
@@ -357,7 +409,32 @@ class MapNotifier extends Notifier<MapState> {
           clearHoveredTrackId: true,
           clearSelectedTrackId: true,
         );
+        await _maybeBackfillPeaksBaggedOnStartup(tracks);
         return;
+    }
+  }
+
+  Future<void> _maybeBackfillPeaksBaggedOnStartup(List<GpxTrack> tracks) async {
+    if (tracks.isEmpty) {
+      return;
+    }
+    if (await _migrationMarkerStore.isPeaksBaggedBackfillMarked()) {
+      _pendingStartupBackfillWarningMessage = null;
+      return;
+    }
+
+    try {
+      await _peaksBaggedRepository.rebuildFromTracks(tracks);
+      await _migrationMarkerStore.markPeaksBaggedBackfillComplete();
+      _pendingStartupBackfillWarningMessage = null;
+      state = state.copyWith(clearTrackImportError: true);
+    } catch (e) {
+      _pendingStartupBackfillWarningMessage =
+          'Bagged history is stale. Open Settings to rebuild it.';
+      state = state.copyWith(
+        trackImportError:
+            'Failed to rebuild bagged peak history from stored tracks: $e',
+      );
     }
   }
 
@@ -377,6 +454,8 @@ class MapNotifier extends Notifier<MapState> {
     required bool includeTasmaniaFolder,
     bool resetExisting = false,
     bool refreshExistingTracks = false,
+    bool syncPeaksBagged = false,
+    bool markPeaksBaggedBackfillComplete = false,
   }) async {
     if (state.isLoadingTracks) {
       return null;
@@ -439,8 +518,12 @@ class MapNotifier extends Notifier<MapState> {
       }
 
       final allTracks = _gpxTrackRepository.getAllTracks();
-      if (resetExisting) {
+      if (syncPeaksBagged) {
         await _peaksBaggedRepository.rebuildFromTracks(allTracks);
+        if (markPeaksBaggedBackfillComplete) {
+          await _migrationMarkerStore.markPeaksBaggedBackfillComplete();
+        }
+        _pendingStartupBackfillWarningMessage = null;
       }
       _refreshCorrelatedPeakIds(allTracks);
       final hasRecoveryIssue = _hasTrackRecoveryIssue(allTracks);
@@ -493,6 +576,8 @@ class MapNotifier extends Notifier<MapState> {
     final result = await _importTracks(
       includeTasmaniaFolder: true,
       resetExisting: true,
+      syncPeaksBagged: true,
+      markPeaksBaggedBackfillComplete: true,
     );
     if (result == null) {
       return null;
@@ -665,6 +750,12 @@ class MapNotifier extends Notifier<MapState> {
   String? consumeTrackSnackbarMessage() {
     final message = _pendingTrackSnackbarMessage;
     _pendingTrackSnackbarMessage = null;
+    return message;
+  }
+
+  String? consumeStartupBackfillWarningMessage() {
+    final message = _pendingStartupBackfillWarningMessage;
+    _pendingStartupBackfillWarningMessage = null;
     return message;
   }
 

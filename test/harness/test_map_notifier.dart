@@ -12,17 +12,20 @@ class TestMapNotifier extends MapNotifier {
         'Imported 1, replaced 0, unchanged 0, non-Tasmanian 2, errors 0',
     this.rescanWarning,
     this.rescanSnackbarMessage,
+    this.startupBackfillWarningMessage,
     this.recalcUpdatedCount = 1,
     this.recalcSkippedCount = 0,
     this.recalcWarning,
     this.recalcTracks,
     Set<int> correlatedPeakIds = const {},
-  }) : _correlatedPeakIds = correlatedPeakIds;
+  }) : _correlatedPeakIds = correlatedPeakIds,
+       _startupBackfillWarningMessage = startupBackfillWarningMessage;
 
   final MapState initialState;
   final String rescanStatus;
   final String? rescanWarning;
   final String? rescanSnackbarMessage;
+  final String? startupBackfillWarningMessage;
   final int recalcUpdatedCount;
   final int recalcSkippedCount;
   final String? recalcWarning;
@@ -30,6 +33,7 @@ class TestMapNotifier extends MapNotifier {
   final Set<int> _correlatedPeakIds;
   bool _snackbarConsumed = false;
   String? _trackSnackbarMessage;
+  String? _startupBackfillWarningMessage;
 
   @override
   MapState build() => initialState;
@@ -124,6 +128,7 @@ class TestMapNotifier extends MapNotifier {
       clearSelectedTrackId: true,
     );
     _snackbarConsumed = false;
+    _startupBackfillWarningMessage = null;
     return const TrackImportResult(
       tracks: [],
       importedCount: 1,
@@ -136,6 +141,7 @@ class TestMapNotifier extends MapNotifier {
 
   @override
   Future<TrackStatisticsRecalcResult?> recalculateTrackStatistics() async {
+    _startupBackfillWarningMessage = null;
     state = state.copyWith(
       isLoadingTracks: false,
       tracks: recalcTracks ?? state.tracks,
@@ -164,6 +170,13 @@ class TestMapNotifier extends MapNotifier {
   String? consumeTrackSnackbarMessage() {
     final message = _trackSnackbarMessage;
     _trackSnackbarMessage = null;
+    return message;
+  }
+
+  @override
+  String? consumeStartupBackfillWarningMessage() {
+    final message = _startupBackfillWarningMessage;
+    _startupBackfillWarningMessage = null;
     return message;
   }
 }

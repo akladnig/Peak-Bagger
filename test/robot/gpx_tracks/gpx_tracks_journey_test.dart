@@ -172,6 +172,40 @@ void main() {
     );
   });
 
+  testWidgets('startup warning opens settings and shows mirrored detail', (
+    tester,
+  ) async {
+    final robot = GpxTracksRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        trackImportError:
+            'Failed to rebuild bagged peak history from stored tracks.',
+      ),
+      notifier: TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          trackImportError:
+              'Failed to rebuild bagged peak history from stored tracks.',
+        ),
+        startupBackfillWarningMessage:
+            'Bagged history is stale. Open Settings to rebuild it.',
+      ),
+    );
+    addTearDown(robot.dispose);
+    await robot.pumpApp();
+
+    await robot.openSettingsFromStartupWarning();
+
+    robot.expectMirroredStartupFailureDetail(
+      'Failed to rebuild bagged peak history from stored tracks.',
+    );
+  });
+
   testWidgets('filter settings persist from the settings screen', (
     tester,
   ) async {
