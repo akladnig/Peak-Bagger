@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
+import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 
@@ -105,6 +106,7 @@ void main() {
       containsAll(['peakListId', 'name', 'peakList']),
     );
     expect(entities[4].primaryKeyField, 'baggedId');
+    expect(entities[4].primaryNameField, 'gpxId');
     expect(
       entities[4].fields.map((field) => field.name),
       containsAll(['baggedId', 'peakId', 'gpxId', 'date']),
@@ -233,6 +235,22 @@ void main() {
       objectBoxAdminPreviewValue(row.values['peakList']),
       contains('peakOsmId'),
     );
+  });
+
+  test('peaksBaggedToAdminRow exposes scalar fields', () {
+    final row = peaksBaggedToAdminRow(
+      PeaksBagged(
+        baggedId: 3,
+        peakId: 11,
+        gpxId: 7,
+        date: DateTime.utc(2024, 1, 15),
+      ),
+    );
+
+    expect(row.primaryKeyValue, 3);
+    expect(row.values['peakId'], 11);
+    expect(row.values['gpxId'], 7);
+    expect(row.values['date'], DateTime.utc(2024, 1, 15));
   });
 
   test('exportGpxFile writes the selected track to downloads', () async {

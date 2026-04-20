@@ -169,6 +169,42 @@ class TestObjectBoxAdminRepository implements ObjectBoxAdminRepository {
         ),
       ],
     ),
+    const ObjectBoxAdminEntityDescriptor(
+      name: 'PeaksBagged',
+      displayName: 'PeaksBagged',
+      primaryKeyField: 'baggedId',
+      primaryNameField: 'gpxId',
+      fields: [
+        ObjectBoxAdminFieldDescriptor(
+          name: 'baggedId',
+          typeLabel: 'int',
+          nullable: false,
+          isPrimaryKey: true,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'peakId',
+          typeLabel: 'int',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'gpxId',
+          typeLabel: 'int',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: true,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'date',
+          typeLabel: 'DateTime',
+          nullable: true,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+      ],
+    ),
   ];
 
   static final _defaultRowsByEntity = <String, List<ObjectBoxAdminRow>>{
@@ -194,6 +230,12 @@ class TestObjectBoxAdminRepository implements ObjectBoxAdminRepository {
     ],
     'Tasmap50k': const [],
     'GpxTrack': const [],
+    'PeaksBagged': const [
+      ObjectBoxAdminRow(
+        primaryKeyValue: 1,
+        values: {'baggedId': 1, 'peakId': 11, 'gpxId': 7, 'date': null},
+      ),
+    ],
   };
 
   @override

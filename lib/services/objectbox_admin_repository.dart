@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
+import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:objectbox/internal.dart' as obx_int;
@@ -61,6 +62,7 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
       'PeakList' => _loadPeakListRows(store, trimmedQuery, ascending),
       'Tasmap50k' => _loadTasmapRows(store, trimmedQuery, ascending),
       'GpxTrack' => _loadTrackRows(store, trimmedQuery, ascending),
+      'PeaksBagged' => _loadPeaksBaggedRows(store, trimmedQuery, ascending),
       _ => <ObjectBoxAdminRow>[],
     };
 
@@ -152,6 +154,7 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
       'PeakList' => 'name',
       'Tasmap50k' => 'name',
       'GpxTrack' => 'trackName',
+      'PeaksBagged' => 'gpxId',
       _ => 'name',
     };
   }
@@ -313,6 +316,26 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
 
     return filtered.map(gpxTrackToAdminRow).toList(growable: false);
   }
+
+  List<ObjectBoxAdminRow> _loadPeaksBaggedRows(
+    Store store,
+    String query,
+    bool ascending,
+  ) {
+    final box = store.box<PeaksBagged>();
+    final items = box.getAll();
+    final filtered = query.isEmpty
+        ? items
+        : items.where((row) => row.gpxId.toString().contains(query)).toList();
+
+    filtered.sort(
+      (a, b) => ascending
+          ? a.baggedId.compareTo(b.baggedId)
+          : b.baggedId.compareTo(a.baggedId),
+    );
+
+    return filtered.map(peaksBaggedToAdminRow).toList(growable: false);
+  }
 }
 
 ObjectBoxAdminRow peakToAdminRow(Peak peak) {
@@ -379,6 +402,18 @@ ObjectBoxAdminRow gpxTrackToAdminRow(GpxTrack track) {
       'peaks': track.peaks
           .map((peak) => '${peak.name} (${peak.osmId})')
           .toList(growable: false),
+    },
+  );
+}
+
+ObjectBoxAdminRow peaksBaggedToAdminRow(PeaksBagged row) {
+  return ObjectBoxAdminRow(
+    primaryKeyValue: row.baggedId,
+    values: {
+      'baggedId': row.baggedId,
+      'peakId': row.peakId,
+      'gpxId': row.gpxId,
+      'date': row.date,
     },
   );
 }

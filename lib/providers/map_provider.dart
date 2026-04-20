@@ -638,6 +638,27 @@ class MapNotifier extends Notifier<MapState> {
       }
 
       final refreshedTracks = _gpxTrackRepository.getAllTracks();
+      try {
+        await _peaksBaggedRepository.syncFromTracks(refreshedTracks);
+        await _migrationMarkerStore.markPeaksBaggedBackfillComplete();
+        _pendingStartupBackfillWarningMessage = null;
+      } catch (e) {
+        _refreshCorrelatedPeakIds(refreshedTracks);
+        final hasRecoveryIssue = _hasTrackRecoveryIssue(refreshedTracks);
+        state = state.copyWith(
+          tracks: refreshedTracks,
+          showTracks: state.showTracks,
+          isLoadingTracks: false,
+          hasTrackRecoveryIssue: hasRecoveryIssue,
+          trackImportError:
+              'Track statistics were updated, but bagged history is stale: $e',
+          clearTrackOperationStatus: true,
+          clearTrackOperationWarning: true,
+          clearHoveredTrackId: true,
+          clearSelectedTrackId: true,
+        );
+        return null;
+      }
       _refreshCorrelatedPeakIds(refreshedTracks);
       final warning = skippedCount > 0
           ? _buildRecalcWarning(

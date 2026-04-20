@@ -373,6 +373,117 @@ void main() {
         expect(notifier.consumeStartupBackfillWarningMessage(), isNull);
       },
     );
+
+    test(
+      'successful recalc sync marks completion and clears startup warning',
+      () async {
+        final gpxRepository = _FakeGpxTrackRepository([
+          GpxTrack(
+            gpxTrackId: 7,
+            contentHash: 'hash-7',
+            trackName: 'Track 7',
+            trackDate: DateTime.utc(2024, 1, 15),
+            gpxFile: _validRecalcGpx,
+            displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
+              [const LatLng(-42.0, 146.0), const LatLng(-42.1, 146.1)],
+            ]),
+          ),
+        ]);
+        final peaksRepository = _RecordingPeaksBaggedRepository(
+          throwOnRebuild: true,
+        );
+        final markerStore = _FakeMigrationMarkerStore(
+          migrationMarked: true,
+          peaksBaggedBackfillMarked: false,
+        );
+
+        final container = ProviderContainer(
+          overrides: [
+            mapProvider.overrideWith(
+              () => MapNotifier(
+                peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+                overpassService: OverpassService(),
+                tasmapRepository: _NoopTasmapRepository(),
+                gpxTrackRepository: gpxRepository,
+                peaksBaggedRepository: peaksRepository,
+                migrationMarkerStore: markerStore,
+                loadPositionOnBuild: false,
+                loadPeaksOnBuild: false,
+              ),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final notifier = container.read(mapProvider.notifier);
+        await _drainAsync();
+        expect(notifier.consumeStartupBackfillWarningMessage(), isNotNull);
+
+        peaksRepository.throwOnRebuild = false;
+        final result = await notifier.recalculateTrackStatistics();
+
+        expect(result, isNotNull);
+        expect(await markerStore.isPeaksBaggedBackfillMarked(), isTrue);
+        expect(peaksRepository.syncTrackCounts, [1]);
+        expect(notifier.consumeStartupBackfillWarningMessage(), isNull);
+        expect(container.read(mapProvider).trackImportError, isNull);
+      },
+    );
+
+    test(
+      'recalc sync failure reloads tracks and reports stale bagged history',
+      () async {
+        final gpxRepository = _FakeGpxTrackRepository([
+          GpxTrack(
+            gpxTrackId: 7,
+            contentHash: 'hash-7',
+            trackName: 'Track 7',
+            trackDate: DateTime.utc(2024, 1, 15),
+            gpxFile: _validRecalcGpx,
+            displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
+              [const LatLng(-42.0, 146.0), const LatLng(-42.1, 146.1)],
+            ]),
+          ),
+        ]);
+        final peaksRepository = _RecordingPeaksBaggedRepository(
+          throwOnSync: true,
+        );
+        final markerStore = _FakeMigrationMarkerStore(
+          migrationMarked: true,
+          peaksBaggedBackfillMarked: false,
+        );
+
+        final container = ProviderContainer(
+          overrides: [
+            mapProvider.overrideWith(
+              () => MapNotifier(
+                peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+                overpassService: OverpassService(),
+                tasmapRepository: _NoopTasmapRepository(),
+                gpxTrackRepository: gpxRepository,
+                peaksBaggedRepository: peaksRepository,
+                migrationMarkerStore: markerStore,
+                loadPositionOnBuild: false,
+                loadPeaksOnBuild: false,
+                loadTracksOnBuild: false,
+              ),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final notifier = container.read(mapProvider.notifier);
+        final result = await notifier.recalculateTrackStatistics();
+
+        expect(result, isNull);
+        expect(container.read(mapProvider).tracks, hasLength(1));
+        expect(
+          container.read(mapProvider).trackImportError,
+          contains('bagged history is stale'),
+        );
+        expect(await markerStore.isPeaksBaggedBackfillMarked(), isFalse);
+      },
+    );
   });
 
   group('MapNotifier hover state', () {
@@ -1602,10 +1713,15 @@ class _FakeGpxTrackRepository implements GpxTrackRepository {
 }
 
 class _RecordingPeaksBaggedRepository implements PeaksBaggedRepository {
-  _RecordingPeaksBaggedRepository({this.throwOnRebuild = false});
+  _RecordingPeaksBaggedRepository({
+    this.throwOnRebuild = false,
+    this.throwOnSync = false,
+  });
 
-  final bool throwOnRebuild;
+  bool throwOnRebuild;
+  bool throwOnSync;
   final List<int> rebuildTrackCounts = [];
+  final List<int> syncTrackCounts = [];
 
   @override
   Future<void> rebuildFromTracks(
@@ -1616,6 +1732,17 @@ class _RecordingPeaksBaggedRepository implements PeaksBaggedRepository {
       throw StateError('boom');
     }
     rebuildTrackCounts.add(tracks.length);
+  }
+
+  @override
+  Future<void> syncFromTracks(
+    Iterable<GpxTrack> tracks, {
+    void Function()? beforeWriteForTest,
+  }) async {
+    if (throwOnSync) {
+      throw StateError('boom');
+    }
+    syncTrackCounts.add(tracks.length);
   }
 
   @override
@@ -1661,6 +1788,19 @@ class _NoopTasmapRepository implements TasmapRepository {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
+
+const _validRecalcGpx = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <trk>
+    <name>Track 7</name>
+    <trkseg>
+      <trkpt lat="-42.0" lon="146.0"><time>2024-01-15T08:00:00Z</time></trkpt>
+      <trkpt lat="-42.1" lon="146.1"><time>2024-01-15T09:00:00Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>
+''';
 
 String _tasmanianGpx(String name) =>
     '''

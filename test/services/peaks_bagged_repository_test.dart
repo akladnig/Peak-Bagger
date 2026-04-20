@@ -129,5 +129,71 @@ void main() {
       },
       skip: 'ObjectBox native library unavailable in flutter test environment',
     );
+
+    test(
+      'buildSyncPlan preserves ids, removes stale rows, and collapses duplicates',
+      () {
+        final existingRows = [
+          PeaksBagged(
+            baggedId: 3,
+            peakId: 11,
+            gpxId: 7,
+            date: DateTime.utc(2024, 1, 15),
+          ),
+          PeaksBagged(
+            baggedId: 4,
+            peakId: 22,
+            gpxId: 7,
+            date: DateTime.utc(2024, 1, 15),
+          ),
+          PeaksBagged(
+            baggedId: 5,
+            peakId: 11,
+            gpxId: 8,
+            date: DateTime.utc(2024, 1, 16),
+          ),
+          PeaksBagged(
+            baggedId: 6,
+            peakId: 11,
+            gpxId: 7,
+            date: DateTime.utc(2024, 1, 15),
+          ),
+        ];
+
+        final tracks = [
+          GpxTrack(
+              gpxTrackId: 7,
+              contentHash: 'a',
+              trackName: 'Track 7',
+              trackDate: DateTime.utc(2024, 1, 15),
+            )
+            ..peaks.add(
+              Peak(osmId: 11, name: 'Peak A', latitude: -42, longitude: 146),
+            ),
+          GpxTrack(
+              gpxTrackId: 8,
+              contentHash: 'b',
+              trackName: 'Track 8',
+              trackDate: DateTime.utc(2024, 1, 17),
+            )
+            ..peaks.add(
+              Peak(osmId: 33, name: 'Peak C', latitude: -42, longitude: 146),
+            ),
+        ];
+
+        final plan = PeaksBaggedRepository.buildSyncPlan(tracks, existingRows);
+
+        expect(plan.removeIds, unorderedEquals([4, 5, 6]));
+        expect(
+          plan.rows
+              .map((row) => (row.baggedId, row.gpxId, row.peakId, row.date))
+              .toList(),
+          [
+            (3, 7, 11, DateTime.utc(2024, 1, 15)),
+            (7, 8, 33, DateTime.utc(2024, 1, 17)),
+          ],
+        );
+      },
+    );
   });
 }

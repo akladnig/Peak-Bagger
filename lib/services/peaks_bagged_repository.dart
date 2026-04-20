@@ -29,6 +29,82 @@ class PeaksBaggedRepository {
     });
   }
 
+  Future<void> syncFromTracks(
+    Iterable<GpxTrack> tracks, {
+    void Function()? beforeWriteForTest,
+  }) async {
+    final plan = buildSyncPlan(tracks, _box.getAll());
+
+    _store.runInTransaction(TxMode.write, () {
+      if (plan.removeIds.isNotEmpty) {
+        _box.removeMany(plan.removeIds);
+      }
+      beforeWriteForTest?.call();
+      if (plan.rows.isNotEmpty) {
+        _box.putMany(plan.rows);
+      }
+    });
+  }
+
+  static ({List<PeaksBagged> rows, List<int> removeIds}) buildSyncPlan(
+    Iterable<GpxTrack> tracks,
+    Iterable<PeaksBagged> existingRows,
+  ) {
+    final desiredRows = deriveRows(tracks);
+    final sortedExistingRows = existingRows.toList(growable: false)
+      ..sort((a, b) => a.baggedId.compareTo(b.baggedId));
+
+    final existingByKey = <(int, int), PeaksBagged>{};
+    final duplicateIds = <int>[];
+    var nextBaggedId = 1;
+
+    for (final row in sortedExistingRows) {
+      if (row.baggedId >= nextBaggedId) {
+        nextBaggedId = row.baggedId + 1;
+      }
+      final key = (row.gpxId, row.peakId);
+      if (existingByKey.containsKey(key)) {
+        duplicateIds.add(row.baggedId);
+        continue;
+      }
+      existingByKey[key] = row;
+    }
+
+    final syncedRows = <PeaksBagged>[];
+    for (final desiredRow in desiredRows) {
+      final key = (desiredRow.gpxId, desiredRow.peakId);
+      final existingRow = existingByKey.remove(key);
+      if (existingRow != null) {
+        syncedRows.add(
+          PeaksBagged(
+            baggedId: existingRow.baggedId,
+            peakId: desiredRow.peakId,
+            gpxId: desiredRow.gpxId,
+            date: desiredRow.date,
+          ),
+        );
+        continue;
+      }
+
+      syncedRows.add(
+        PeaksBagged(
+          baggedId: nextBaggedId++,
+          peakId: desiredRow.peakId,
+          gpxId: desiredRow.gpxId,
+          date: desiredRow.date,
+        ),
+      );
+    }
+
+    return (
+      rows: syncedRows,
+      removeIds: [
+        ...duplicateIds,
+        ...existingByKey.values.map((row) => row.baggedId),
+      ],
+    );
+  }
+
   static List<PeaksBagged> deriveRows(Iterable<GpxTrack> tracks) {
     final sortedTracks =
         tracks.where((track) => track.gpxTrackId > 0).toList(growable: false)

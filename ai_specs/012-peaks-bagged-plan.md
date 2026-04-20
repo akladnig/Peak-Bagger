@@ -41,8 +41,7 @@ Schema + repo + reset/recalc/startup sync + admin + tests.
 - [x] `test/robot/gpx_tracks/gpx_tracks_robot.dart` - helper for startup warning action + mirrored Settings assertion
 - [x] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - startup warning -> `Open Settings` -> mirrored Settings detail
 - [x] TDD: startup backfill clear/rebuild semantics; marker gating; `baggedId` restart on retry
-- [ ] TDD: marker completes after successful startup backfill, startup import/wipe-import rebuild, reset rebuild, recalc sync
-Blocker: recalc sync is implemented in Phase 3; startup/reset/import marker completion is in place, but the recalc completion branch cannot be truthfully checked until that sync path exists.
+- [x] TDD: marker completes after successful startup backfill, startup import/wipe-import rebuild, reset rebuild, recalc sync
 - [x] TDD: startup failure sets `trackImportError`, emits one-shot warning message, clears warning on consume and successful recovery
 - [x] Robot journey tests + selectors/seams for critical flows: reuse `startup-backfill-warning-open-settings`; keep notifier warning seam deterministic
 - [x] Verify: `flutter analyze` && `flutter test`
@@ -50,19 +49,19 @@ Blocker: recalc sync is implemented in Phase 3; startup/reset/import marker comp
 ### Phase 3: Recalc Sync + Admin Surface
 
 - **Goal**: recalc preserve/delete/insert + admin entity visibility
-- [ ] `lib/providers/map_provider.dart` - run recalc sync after refreshed stored tracks; partial-commit failure handling; preserve unchanged ids
-- [ ] `lib/services/peaks_bagged_repository.dart` - add recalc sync: preserve/delete/insert; collapse duplicate stored pairs; append ids above current max
-- [ ] `lib/services/objectbox_admin_repository.dart` - add `PeaksBagged` entity rows + `gpxId` primary name field
-- [ ] `test/services/objectbox_admin_repository_test.dart` - schema/admin row mapping for `PeaksBagged`
-- [ ] `test/services/objectbox_schema_guard_test.dart` - schema guard includes new entity
-- [ ] `test/harness/test_objectbox_admin_repository.dart` - add `PeaksBagged` fixture entity/rows
-- [ ] `test/widget/objectbox_admin_shell_test.dart` - keep admin shell fixtures consistent with new entity
-- [ ] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - keep reset/recalc journeys green with new sync behavior
-- [ ] TDD: recalc sync preserves ids for unchanged `(gpxId, peakId)`; deletes removed pairs; appends new ids; leaves skipped-track rows intact
-- [ ] TDD: late bagged-sync failure reloads tracks from store, sets stale-derived-data error, suppresses queued success snackbar
-- [ ] TDD: admin entity metadata + rows expose `PeaksBagged` with `gpxId` primary name field
-- [ ] Robot journey tests + selectors/seams for critical flows: existing reset/recalc keys remain stable; no extra selectors beyond startup warning unless needed
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/providers/map_provider.dart` - run recalc sync after refreshed stored tracks; partial-commit failure handling; preserve unchanged ids
+- [x] `lib/services/peaks_bagged_repository.dart` - add recalc sync: preserve/delete/insert; collapse duplicate stored pairs; append ids above current max
+- [x] `lib/services/objectbox_admin_repository.dart` - add `PeaksBagged` entity rows + `gpxId` primary name field
+- [x] `test/services/objectbox_admin_repository_test.dart` - schema/admin row mapping for `PeaksBagged`
+- [x] `test/services/objectbox_schema_guard_test.dart` - schema guard includes new entity
+- [x] `test/harness/test_objectbox_admin_repository.dart` - add `PeaksBagged` fixture entity/rows
+- [x] `test/widget/objectbox_admin_shell_test.dart` - keep admin shell fixtures consistent with new entity
+- [x] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - keep reset/recalc journeys green with new sync behavior
+- [x] TDD: recalc sync preserves ids for unchanged `(gpxId, peakId)`; deletes removed pairs; appends new ids; leaves skipped-track rows intact
+- [x] TDD: late bagged-sync failure reloads tracks from store, sets stale-derived-data error, suppresses queued success snackbar
+- [x] TDD: admin entity metadata + rows expose `PeaksBagged` with `gpxId` primary name field
+- [x] Robot journey tests + selectors/seams for critical flows: existing reset/recalc keys remain stable; no extra selectors beyond startup warning unless needed
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 
