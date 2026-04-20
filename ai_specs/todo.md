@@ -5,7 +5,7 @@
 - [x] goto location should use map name or mgrs two-letter pair
 - [x] use hand icon (font awesome hand) for normal cursor movement, closed hand (hand-back-fist) for grab and drag
 - [ ] investigate use of maplibre
-- [ ] investigate use of listmaps
+- [x] investigate use of listmaps
 - [ ] update peak search results to show map/area
 - [ ] update search for advanced search: peaks between/below/above a certain height, within a certain area etc.
 - [x] update search results so that blue circles drawn around matching peaks. Zoom out to view all peaks on search completion.
@@ -18,13 +18,19 @@
 
 ## 2  Display map of Tasmania with zoom, pan and search function
 - [ ] Change two finger from pan to zoom
+- [ ] disable 2 finger map rotation
 - [ ] change zoom level display to actual distance
 - [ ] Automatically ask for permissions
 - [ ] implement smooth paning and scrolling. When clicking, smooth transition from one level to another.
+- [ ] On max zoom exceeded for a given map switch to tracestrack
+- [ ] Set min zoom to 4 and max zoom to 24.
 - [ ] add go to feature - add to goto location?
+- [x] bug - click on map no longer sets marker
 
 ## 3 Tasmanian Peaks and search
 - [ ] Add a tooltip when a peak is hovered over to display info
+- [ ] Add an altName to peak entity
+- [ ] Make peak marker a bit smaller
 
 ## 4 Add Maps and location search
 - [x] place info popup to right of marker
@@ -32,19 +38,22 @@
 - [x] Wrong map shown on info
 - [x] Peak info not being displayed
 - [x] Do not re-import Tasmap on every launch.
-- [ ] disable 2 finger map rotation
 - [x] update tooltips - Goto Location, Show Map Grid
-- [ ] click on I toggles
+- [x] click on I toggles
+- [ ] Add min-max zooms to objectBox
+- [ ] Reset the id on Reset Map Data
+
 ## 4a
 - [x] add go to map only, centre on map and zoom to map extents, and draw a blue rectangle around the map extents so that the map can be seen when zooming out.
 - [x] Add show maps - a blue grid of all maps. Map name and series to be shown at bottom right of each map.
 - [x] Change map drawing from rectangle to a polygon.
 ## 5 Gpx Tracks
 - [ ] implement gpx track import - multiple file import or just scan default folder.
+- [ ] change import behaviour to only import from Tracks once application is complete.
 - [ ] use ramer-douglas-peucker algorithm to draw polylines
 - [x] use geo.dart, ported from gpxpy.
 - [ ] Add option to view raw data
-- [ ] Highlight track on click
+- [x] Highlight track on click
 
 ### Distance
 - [x] distance (double?) - future, null for now
@@ -77,6 +86,15 @@
 
 - [x] add to spec and implement distance3d algorthims as per gpxpy: https://github.com/tkrajina/gpxpy/blob/dev/gpxpy/geo.py
 
+## Peak Lists
+- [ ] Add import waypoints
+- [ ] csv import - cater for missing lat/long or UTM
+- [x] On refresh data - if a peak was missing from OSM, the update the osmId if it is added at a later stage.
+- [x] Reset the id to 1.
+- [x] If the sourceOfTruth is HWC, just create the list and do not overwrite data in Peaks 
+- [ ] If csv height is blank, set to 0, do not flag as invalid.
+- [ ] Update dialogue to say import new list or update list
+
 ## Object Box Admin
 - [x] Rescan entity on entry, for the current entity being shown.
 
@@ -98,13 +116,13 @@ i - info
 
 ## Map Screen
 -,+, _, = - zoom
-s - feature search/goto location
 tba - layers
 tba - show my position
 b - basemaps
 c - centre on selection
 g - go to marker
 m - enable map grid
+s - feature search/goto location
 t - tracks
 i - info
 

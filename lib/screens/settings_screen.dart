@@ -11,6 +11,7 @@ import 'package:peak_bagger/services/tile_downloader.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
+import 'package:peak_bagger/widgets/dialog_helpers.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -46,7 +47,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final peakCorrelationState = ref.watch(peakCorrelationSettingsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: [
           ListTile(
@@ -216,29 +216,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _confirmRefreshPeakData() async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showDangerConfirmDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Refresh Peak Data?'),
-          content: const Text(
-            'This will overwrite the current peak set. Do you want to proceed?',
-          ),
-          actions: [
-            TextButton(
-              key: const Key('peak-refresh-cancel'),
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              key: const Key('peak-refresh-confirm'),
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Refresh'),
-            ),
-          ],
-        );
-      },
+      title: 'Refresh Peak Data?',
+      message:
+          'This will overwrite the current peak set. Do you want to proceed?',
+      cancelKey: 'peak-refresh-cancel',
+      cancelLabel: 'Cancel',
+      confirmKey: 'peak-refresh-confirm',
+      confirmLabel: 'Refresh',
     );
 
     if (confirmed != true || !mounted) {
@@ -311,29 +297,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _confirmResetTrackData() async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showDangerConfirmDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Reset Track Data?'),
-          content: const Text(
-            'This will wipe all track data and re-import tracks from disk. If source files are missing or unreadable, you may end up with fewer imported tracks than before. Do you wish to proceed?',
-          ),
-          actions: [
-            TextButton(
-              key: const Key('reset-track-data-cancel'),
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              key: const Key('reset-track-data-confirm'),
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Reset'),
-            ),
-          ],
-        );
-      },
+      title: 'Reset Track Data?',
+      message:
+          'This will wipe all track data and re-import tracks from disk. If source files are missing or unreadable, you may end up with fewer imported tracks than before. Do you wish to proceed?',
+      cancelKey: 'reset-track-data-cancel',
+      cancelLabel: 'Cancel',
+      confirmKey: 'reset-track-data-confirm',
+      confirmLabel: 'Reset',
     );
 
     if (confirmed == true) {
@@ -378,34 +350,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       return;
     }
 
-    await showDialog<void>(
-      useRootNavigator: true,
+    await showSingleActionDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Track Data Reset'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Imported ${result.importedCount}, replaced ${result.replacedCount}, unchanged ${result.unchangedCount}, non-Tasmanian ${result.nonTasmanianCount}, errors ${result.errorSkippedCount}',
-              ),
-              if (result.warning != null) ...[
-                const SizedBox(height: 12),
-                Text(result.warning!),
-              ],
-            ],
+      title: 'Track Data Reset',
+      closeKey: 'track-reset-result-close',
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Imported ${result.importedCount}, replaced ${result.replacedCount}, unchanged ${result.unchangedCount}, non-Tasmanian ${result.nonTasmanianCount}, errors ${result.errorSkippedCount}',
           ),
-          actions: [
-            FilledButton(
-              key: const Key('track-reset-result-close'),
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
+          if (result.warning != null) ...[
+            const SizedBox(height: 12),
+            Text(result.warning!),
           ],
-        );
-      },
+        ],
+      ),
     );
   }
 
@@ -419,22 +380,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       return;
     }
 
-    await showDialog<void>(
-      useRootNavigator: true,
+    await showSingleActionDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Track Data Reset Failed'),
-          content: Text(error),
-          actions: [
-            FilledButton(
-              key: const Key('track-reset-error-close'),
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
+      title: 'Track Data Reset Failed',
+      closeKey: 'track-reset-error-close',
+      content: Text(error),
     );
   }
 
@@ -443,32 +393,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       return;
     }
 
-    await showDialog<void>(
-      useRootNavigator: true,
+    await showSingleActionDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Peak Data Refreshed'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('${result.importedCount} Peaks imported'),
-              if (result.warning != null) ...[
-                const SizedBox(height: 12),
-                Text(result.warning!),
-              ],
-            ],
-          ),
-          actions: [
-            FilledButton(
-              key: const Key('peak-refresh-result-close'),
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
+      title: 'Peak Data Refreshed',
+      closeKey: 'peak-refresh-result-close',
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('${result.importedCount} Peaks imported'),
+          if (result.warning != null) ...[
+            const SizedBox(height: 12),
+            Text(result.warning!),
           ],
-        );
-      },
+        ],
+      ),
     );
   }
 
@@ -477,56 +416,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       return;
     }
 
-    await showDialog<void>(
-      useRootNavigator: true,
+    await showSingleActionDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Peak Data Refresh Failed'),
-          content: Text(error),
-          actions: [
-            FilledButton(
-              key: const Key('peak-refresh-error-close'),
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
+      title: 'Peak Data Refresh Failed',
+      closeKey: 'peak-refresh-error-close',
+      content: Text(error),
     );
   }
 
   Future<void> _showRecalculateTrackStatisticsResult(
     TrackStatisticsRecalcResult result,
   ) async {
-    await showDialog<void>(
-      useRootNavigator: true,
+    await showSingleActionDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Track Statistics Recalculated'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Updated ${result.updatedCount} tracks, refreshed peak correlation, skipped ${result.skippedCount} tracks',
-              ),
-              if (result.warning != null) ...[
-                const SizedBox(height: 12),
-                Text(result.warning!),
-              ],
-            ],
+      title: 'Track Statistics Recalculated',
+      closeKey: 'track-stats-recalc-result-close',
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Updated ${result.updatedCount} tracks, refreshed peak correlation, skipped ${result.skippedCount} tracks',
           ),
-          actions: [
-            FilledButton(
-              key: const Key('track-stats-recalc-result-close'),
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
+          if (result.warning != null) ...[
+            const SizedBox(height: 12),
+            Text(result.warning!),
           ],
-        );
-      },
+        ],
+      ),
     );
   }
 
@@ -536,22 +453,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       return;
     }
 
-    await showDialog<void>(
-      useRootNavigator: true,
+    await showSingleActionDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Track Statistics Recalculation Failed'),
-          content: Text(error),
-          actions: [
-            FilledButton(
-              key: const Key('track-stats-recalc-error-close'),
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
+      title: 'Track Statistics Recalculation Failed',
+      closeKey: 'track-stats-recalc-error-close',
+      content: Text(error),
     );
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/services/geo.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
@@ -9,6 +10,8 @@ import 'package:peak_bagger/services/peak_repository.dart';
 typedef PeakMgrsConverterFn = PeakMgrsComponents Function(LatLng location);
 
 class PeakRefreshService {
+  static const _syntheticOsmMatchDistanceMeters = 2000.0;
+
   PeakRefreshService(
     this._overpassService,
     this._peakRepository, {
@@ -30,15 +33,31 @@ class PeakRefreshService {
       for (final peak in existingPeaks)
         if (peak.osmId != 0) peak.osmId: peak,
     };
+    final syntheticProtectedMatchesByOsmId = _matchSyntheticProtectedPeaks(
+      existingPeaks: existingPeaks,
+      refreshedPeaks: peaks,
+      existingPeaksByOsmId: existingPeaksByOsmId,
+    );
     final refreshedPeaks = <Peak>[];
-    final seenOsmIds = <int>{};
+    final seenExistingOsmIds = <int>{};
     var skippedCount = 0;
 
     for (final peak in peaks) {
       final existingPeak = existingPeaksByOsmId[peak.osmId];
       if (existingPeak != null && !_isRefreshEligible(existingPeak)) {
         refreshedPeaks.add(_preparePreservedPeak(existingPeak));
-        seenOsmIds.add(existingPeak.osmId);
+        seenExistingOsmIds.add(existingPeak.osmId);
+        continue;
+      }
+
+      final matchedSyntheticPeak = syntheticProtectedMatchesByOsmId[peak.osmId];
+      if (matchedSyntheticPeak != null) {
+        refreshedPeaks.add(
+          _preparePreservedPeak(
+            matchedSyntheticPeak,
+          ).copyWith(osmId: peak.osmId),
+        );
+        seenExistingOsmIds.add(matchedSyntheticPeak.osmId);
         continue;
       }
 
@@ -50,13 +69,14 @@ class PeakRefreshService {
         continue;
       }
       refreshedPeaks.add(enrichedPeak);
-      if (enrichedPeak.osmId != 0) {
-        seenOsmIds.add(enrichedPeak.osmId);
+      final matchedExistingPeak = existingPeaksByOsmId[enrichedPeak.osmId];
+      if (matchedExistingPeak != null) {
+        seenExistingOsmIds.add(matchedExistingPeak.osmId);
       }
     }
 
     for (final peak in existingPeaks) {
-      if (seenOsmIds.contains(peak.osmId)) {
+      if (seenExistingOsmIds.contains(peak.osmId)) {
         continue;
       }
       refreshedPeaks.add(_preparePreservedPeak(peak));
@@ -140,6 +160,64 @@ class PeakRefreshService {
   bool _isRefreshEligible(Peak peak) {
     return peak.sourceOfTruth.isEmpty ||
         peak.sourceOfTruth == Peak.sourceOfTruthOsm;
+  }
+
+  Map<int, Peak> _matchSyntheticProtectedPeaks({
+    required List<Peak> existingPeaks,
+    required List<Peak> refreshedPeaks,
+    required Map<int, Peak> existingPeaksByOsmId,
+  }) {
+    final protectedSyntheticPeaks = existingPeaks
+        .where((peak) {
+          return peak.osmId < 0 && peak.sourceOfTruth == Peak.sourceOfTruthHwc;
+        })
+        .toList(growable: false);
+    final matches = <int, Peak>{};
+    final matchedSyntheticOsmIds = <int>{};
+
+    for (final refreshedPeak in refreshedPeaks) {
+      if (refreshedPeak.osmId <= 0 ||
+          existingPeaksByOsmId.containsKey(refreshedPeak.osmId)) {
+        continue;
+      }
+
+      final candidates = protectedSyntheticPeaks
+          .where((peak) {
+            if (matchedSyntheticOsmIds.contains(peak.osmId)) {
+              return false;
+            }
+
+            return _normalizeName(peak.name) ==
+                    _normalizeName(refreshedPeak.name) &&
+                haversineDistance(
+                      peak.latitude,
+                      peak.longitude,
+                      refreshedPeak.latitude,
+                      refreshedPeak.longitude,
+                    ) <=
+                    _syntheticOsmMatchDistanceMeters;
+          })
+          .toList(growable: false);
+
+      if (candidates.length != 1) {
+        continue;
+      }
+
+      final matchedPeak = candidates.single;
+      matches[refreshedPeak.osmId] = matchedPeak;
+      matchedSyntheticOsmIds.add(matchedPeak.osmId);
+    }
+
+    return matches;
+  }
+
+  String _normalizeName(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 
   Peak _preparePreservedPeak(Peak peak) {

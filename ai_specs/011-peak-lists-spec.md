@@ -73,6 +73,7 @@ Error flows:
     - Store `HWC` for any `Peak` row that has been successfully matched by the CSV importer, even when the imported match keeps the existing peak location, grid, and height fields unchanged.
     - Store `HWC` when the import updates any of `latitude`, `longitude`, `elevation`, `easting`, or `northing` from CSV-derived values.
     - Later `Refresh Peak Data` flows must only overwrite rows whose `sourceOfTruth` is `null`, empty, or `OSM`; rows marked `HWC` are treated as protected CSV-corrected data.
+    - During `Refresh Peak Data`, if a protected `HWC` row still uses a synthetic negative `osmId` because the peak was previously missing from OSM, and the refresh data now provides a unique real OSM id for that same peak, update the stored row to use the real non-negative `osmId` without dropping the protected `HWC` data.
 5. Add an ObjectBox entity `PeakList` in `./lib/models/peak_list.dart`.
     - Fields: `peakListId` primary key, `name`, `peakList`.
     - `name` is unique and must come from user input.
@@ -105,8 +106,9 @@ Error flows:
     - Every successful import creates a new list or updates the existing list in place when the name already exists and the user confirms.
     - Updating an existing list preserves `peakListId` and replaces the stored payload.
     - Duplicate-name updates must be transactional: the existing list remains unchanged if parsing, matching, or persistence fails.
-    - When a uniquely matched row disagrees with the stored `Peak` on latitude, longitude, elevation, easting, or northing, update the stored `Peak` entity from the CSV-derived values before completing the import.
-    - When a row is successfully matched by the CSV importer, set `Peak.sourceOfTruth` to `HWC` and do not revert it to `OSM` on later matching imports.
+    - When a uniquely matched row disagrees with the stored `Peak` on latitude, longitude, elevation, easting, or northing, update the stored `Peak` entity from the CSV-derived values before completing the import only when the stored row has `sourceOfTruth` `null`, empty, or `OSM`.
+    - When a uniquely matched row already has `Peak.sourceOfTruth == HWC`, treat the stored `Peak` row as protected CSV-corrected data: create or update the `PeakList` entry, but do not overwrite the stored `Peak` latitude, longitude, elevation, easting, or northing fields.
+    - When a row is successfully matched by the CSV importer and the stored row is not already protected as `HWC`, set `Peak.sourceOfTruth` to `HWC` and do not revert it to `OSM` on later matching imports.
     - When no match is found, create a new `Peak` row from the CSV values, persist it before saving the `PeakList`, and set `Peak.sourceOfTruth` to `HWC`.
     - Append timestamped warnings to `import.log` under the resolved Bushwalking import root.
     - If log writing fails, keep the import result and surface the warning in memory.
@@ -237,7 +239,8 @@ Verification:
 <done_when>
 - `PeakListsScreen` imports a single CSV via a dialog and stores a named `PeakList` in ObjectBox.
 - Duplicate names update the existing record in place after confirmation.
-- Unique peak matches update stored `Peak` latitude/longitude/easting/northing/elevation fields from CSV when they differ, and `Peak.sourceOfTruth` reflects `HWC` vs `OSM` accurately.
+- Unique peak matches update stored `Peak` latitude/longitude/easting/northing/elevation fields from CSV when they differ only if the stored row is not already protected as `HWC`; protected `HWC` rows remain unchanged while the `PeakList` import still succeeds.
+- Refresh data upgrades protected peaks from synthetic negative `osmId` values to real OSM ids when a unique OSM match becomes available, without losing the protected `HWC` fields.
 - The import button is disabled and shows a spinner while import is running, and success shows imported/skipped counts.
 - Import cannot be submitted until a CSV file has been selected.
 - The result dialog distinguishes list creation from list update.

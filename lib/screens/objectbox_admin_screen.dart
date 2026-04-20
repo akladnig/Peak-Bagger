@@ -178,7 +178,6 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('ObjectBox Admin')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

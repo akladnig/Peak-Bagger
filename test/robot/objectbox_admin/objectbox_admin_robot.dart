@@ -14,8 +14,9 @@ class ObjectBoxAdminRobot {
 
   final WidgetTester tester;
 
-  Finder get adminMenuItem =>
-      find.byKey(const Key('side-menu-objectbox-admin'));
+  Finder get adminMenuItem => find.byKey(const Key('nav-objectbox-admin'));
+  Finder get appBarTitle => find.byKey(const Key('app-bar-title'));
+  Finder get homeAction => find.byKey(const Key('app-bar-home'));
   Finder get entityDropdown =>
       find.byKey(const Key('objectbox-admin-entity-dropdown'));
   Finder get schemaDataToggle =>
@@ -56,6 +57,11 @@ class ObjectBoxAdminRobot {
   }
 
   void expectAdminShellVisible() {
+    expect(appBarTitle, findsOneWidget);
+    expect(
+      find.descendant(of: appBarTitle, matching: find.text('ObjectBox Admin')),
+      findsOneWidget,
+    );
     expect(entityDropdown, findsOneWidget);
     expect(schemaDataToggle, findsOneWidget);
     expect(table, findsOneWidget);

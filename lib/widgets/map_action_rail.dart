@@ -8,6 +8,8 @@ import 'package:peak_bagger/widgets/left_tooltip_fab.dart';
 class MapActionRail extends ConsumerWidget {
   const MapActionRail({super.key});
 
+  static const _railSpacing = 8.0;
+
   void _dismissTransientUi(
     WidgetRef ref, {
     bool closeInfoPopup = false,
@@ -42,6 +44,7 @@ class MapActionRail extends ConsumerWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          const SizedBox(height: _railSpacing),
           LeftTooltipFab(
             message: 'Search peaks',
             child: FloatingActionButton.small(
@@ -58,7 +61,7 @@ class MapActionRail extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: _railSpacing),
           LeftTooltipFab(
             message: 'Select Basemaps',
             child: FloatingActionButton.small(
@@ -78,7 +81,7 @@ class MapActionRail extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: _railSpacing),
           LeftTooltipFab(
             message: 'My location',
             child: FloatingActionButton.small(
@@ -157,7 +160,7 @@ class MapActionRail extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: _railSpacing),
           LeftTooltipFab(
             message: 'Center on marker',
             child: FloatingActionButton.small(
@@ -175,7 +178,7 @@ class MapActionRail extends ConsumerWidget {
               child: const Icon(Icons.my_location, color: Colors.amber),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: _railSpacing),
           LeftTooltipFab(
             message: 'Goto Location',
             child: FloatingActionButton.small(
@@ -197,7 +200,7 @@ class MapActionRail extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: _railSpacing),
           LeftTooltipFab(
             message: 'Show Map Grid',
             child: FloatingActionButton.small(
@@ -213,7 +216,7 @@ class MapActionRail extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: _railSpacing),
           LeftTooltipFab(
             message: 'Show tracks',
             child: FloatingActionButton.small(
@@ -233,7 +236,7 @@ class MapActionRail extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: _railSpacing),
           LeftTooltipFab(
             message: 'Show peaks',
             child: FloatingActionButton.small(
@@ -249,7 +252,7 @@ class MapActionRail extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: _railSpacing),
           LeftTooltipFab(
             message: 'Import track',
             child: FloatingActionButton.small(
@@ -278,7 +281,7 @@ class MapActionRail extends ConsumerWidget {
                     ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: _railSpacing),
           LeftTooltipFab(
             message: 'Info',
             child: FloatingActionButton.small(

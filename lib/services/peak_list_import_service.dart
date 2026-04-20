@@ -132,13 +132,18 @@ class PeakListImportService {
         warningEntries.add(coordinateWarning);
         logEntries.add(_timestampedLogEntry(csvPath, coordinateWarning));
       }
-      final heightWarning = _heightCorrectionWarning(csvRow, peak);
+      final shouldProtectPeak = _isProtectedHwcPeak(peak);
+      final heightWarning = _heightCorrectionWarning(
+        csvRow,
+        peak,
+        willUpdate: !shouldProtectPeak,
+      );
       if (heightWarning != null) {
         warningEntries.add(heightWarning);
         logEntries.add(_timestampedLogEntry(csvPath, heightWarning));
       }
       final correctedPeak = _correctPeakFromCsv(csvRow, peak);
-      if (_peakNeedsSave(peak, correctedPeak)) {
+      if (!shouldProtectPeak && _peakNeedsSave(peak, correctedPeak)) {
         correctedPeaksByOsmId[peak.osmId] = correctedPeak;
       }
       if (_normalizeName(csvRow.name) != _normalizeName(peak.name)) {
@@ -377,7 +382,11 @@ class PeakListImportService {
         '(easting ${match.eastingDifference}m, northing ${match.northingDifference}m)';
   }
 
-  String? _heightCorrectionWarning(_PeakListCsvRow row, Peak peak) {
+  String? _heightCorrectionWarning(
+    _PeakListCsvRow row,
+    Peak peak, {
+    required bool willUpdate,
+  }) {
     final existingHeight = peak.elevation?.round();
     if (existingHeight == row.height) {
       return null;
@@ -386,8 +395,13 @@ class PeakListImportService {
     final existingLabel = existingHeight == null
         ? 'unknown'
         : '${existingHeight}m';
-    return 'Row ${row.rowNumber}: updated height for ${row.name} '
-        'from $existingLabel to ${row.height}m';
+    final action = willUpdate ? 'updated' : 'kept';
+    return 'Row ${row.rowNumber}: $action height for ${row.name} '
+        'at $existingLabel instead of ${row.height}m';
+  }
+
+  bool _isProtectedHwcPeak(Peak peak) {
+    return peak.sourceOfTruth == Peak.sourceOfTruthHwc;
   }
 
   Peak _correctPeakFromCsv(_PeakListCsvRow row, Peak peak) {

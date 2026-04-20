@@ -378,14 +378,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       ref.read(mapProvider.notifier).toggleInfoPopup();
                     }
                     if (!moved) {
+                      final tappedLocation = _mapController.camera
+                          .screenOffsetToLatLng(event.localPosition);
                       _handleTrackHover(
                         event.localPosition,
-                        _mapController.camera.screenOffsetToLatLng(
-                          event.localPosition,
-                        ),
+                        tappedLocation,
                         mapState,
                       );
                       final notifier = ref.read(mapProvider.notifier);
+                      if (primaryClickPending ||
+                          event.kind != PointerDeviceKind.mouse) {
+                        notifier.setSelectedLocation(tappedLocation);
+                      }
                       final hoveredTrackId = ref
                           .read(mapProvider)
                           .hoveredTrackId;

@@ -44,7 +44,13 @@ void main() {
     expect(robot.showTracksFab, findsOneWidget);
 
     await robot.openSettingsFromBanner();
-    expect(find.text('Settings'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('app-bar-title')),
+        matching: find.text('Settings'),
+      ),
+      findsOneWidget,
+    );
 
     await robot.resetTrackData();
     expect(find.text('Track Data Reset'), findsOneWidget);

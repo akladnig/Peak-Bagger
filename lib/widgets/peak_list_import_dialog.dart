@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../services/peak_list_file_picker.dart';
+import 'dialog_helpers.dart';
 
 typedef PeakListDuplicateNameChecker = Future<bool> Function(String name);
 
@@ -200,29 +201,15 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
   }
 
   Future<bool?> _confirmUpdate() {
-    return showDialog<bool>(
+    return showDangerConfirmDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Update Existing Peak List?'),
-          content: const Text(
-            'This list already exists - do you want to update the existing list?',
-          ),
-          actions: [
-            TextButton(
-              key: const Key('peak-list-update-cancel'),
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              key: const Key('peak-list-update-confirm'),
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Update'),
-            ),
-          ],
-        );
-      },
+      title: 'Update Existing Peak List?',
+      message:
+          'This list already exists - do you want to update the existing list?',
+      cancelKey: 'peak-list-update-cancel',
+      cancelLabel: 'Cancel',
+      confirmKey: 'peak-list-update-confirm',
+      confirmLabel: 'Update',
     );
   }
 
@@ -230,59 +217,37 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
     BuildContext dialogContext,
     PeakListImportPresentationResult result,
   ) {
-    return showDialog<void>(
-      useRootNavigator: true,
+    return showSingleActionDialog(
       context: dialogContext,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(result.title),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('${result.importedCount} Peaks imported'),
-              Text('${result.skippedCount} peaks skipped'),
-              if (result.warningCount > 0) ...[
-                const SizedBox(height: 12),
-                Text(
-                  '${result.warningCount} warnings. See import.log for details.',
-                ),
-              ],
-              if (result.warningMessage != null) ...[
-                const SizedBox(height: 12),
-                Text(result.warningMessage!),
-              ],
-            ],
-          ),
-          actions: [
-            FilledButton(
-              key: const Key('peak-list-import-result-close'),
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
+      title: result.title,
+      closeKey: 'peak-list-import-result-close',
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('${result.importedCount} Peaks imported'),
+          Text('${result.skippedCount} peaks skipped'),
+          if (result.warningCount > 0) ...[
+            const SizedBox(height: 12),
+            Text(
+              '${result.warningCount} warnings. See import.log for details.',
             ),
           ],
-        );
-      },
+          if (result.warningMessage != null) ...[
+            const SizedBox(height: 12),
+            Text(result.warningMessage!),
+          ],
+        ],
+      ),
     );
   }
 
   Future<void> _showFailureDialog(BuildContext dialogContext, String error) {
-    return showDialog<void>(
-      useRootNavigator: true,
+    return showSingleActionDialog(
       context: dialogContext,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Peak List Import Failed'),
-          content: Text(error),
-          actions: [
-            FilledButton(
-              key: const Key('peak-list-import-error-close'),
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
+      title: 'Peak List Import Failed',
+      closeKey: 'peak-list-import-error-close',
+      content: Text(error),
     );
   }
 }

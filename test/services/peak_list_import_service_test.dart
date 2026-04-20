@@ -336,6 +336,57 @@ void main() {
       );
     });
 
+    test('matched HWC peak keeps stored peak data unchanged', () async {
+      final peak = _buildPeak(
+        osmId: 101,
+        name: 'Mount Achilles',
+        elevation: 1363,
+        latitude: -41.85916,
+        longitude: 145.97754,
+      ).copyWith(sourceOfTruth: Peak.sourceOfTruthHwc);
+      final coords = _csvCoordinatesFromPeak(
+        peak,
+        eastingOffset: 75,
+        northingOffset: -125,
+      );
+      final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+      );
+      final service = PeakListImportService(
+        peakRepository: peakRepository,
+        peakListRepository: peakListRepository,
+        csvLoader: (_) async =>
+            'Name,Height,Zone,Easting,Northing,Latitude,Longitude,Points\nMount Achilles,1401,${peak.gridZoneDesignator},${coords.easting},${coords.northing},-41.85856,145.97814,3\n',
+        importRootLoader: () async => '/tmp/Bushwalking',
+        logWriter: (logPath, entries) async {},
+        clock: () => DateTime.utc(2024, 1, 2, 3, 4, 5),
+      );
+
+      final result = await service.importPeakList(
+        listName: 'Protected HWC',
+        csvPath: '/tmp/protected-hwc.csv',
+      );
+
+      final storedPeak = peakRepository.findByOsmId(101);
+
+      expect(result.importedCount, 1);
+      expect(result.warningEntries, hasLength(2));
+      expect(result.warningEntries.first, contains('coordinate drift'));
+      expect(result.warningEntries.last, contains('kept height'));
+      expect(storedPeak, isNotNull);
+      expect(storedPeak?.latitude, peak.latitude);
+      expect(storedPeak?.longitude, peak.longitude);
+      expect(storedPeak?.elevation, peak.elevation);
+      expect(storedPeak?.easting, peak.easting);
+      expect(storedPeak?.northing, peak.northing);
+      expect(storedPeak?.sourceOfTruth, Peak.sourceOfTruthHwc);
+      expect(
+        peakListRepository.getAllPeakLists().single.peakList,
+        encodePeakListItems([const PeakListItem(peakOsmId: 101, points: '3')]),
+      );
+    });
+
     test(
       'ambiguous nearby peaks resolve when exactly one strong name match exists',
       () async {

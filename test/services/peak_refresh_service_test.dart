@@ -250,6 +250,58 @@ void main() {
     },
   );
 
+  test(
+    'refreshPeaks upgrades protected synthetic HWC peaks to real osm ids',
+    () async {
+      final repository = PeakRepository.test(
+        InMemoryPeakStorage([
+          Peak(
+            id: 8,
+            osmId: -1,
+            name: 'Protected Missing Peak',
+            latitude: -42,
+            longitude: 146,
+            gridZoneDesignator: '55G',
+            mgrs100kId: 'EN',
+            easting: '12345',
+            northing: '67890',
+            sourceOfTruth: Peak.sourceOfTruthHwc,
+          ),
+        ]),
+      );
+      final service = PeakRefreshService(
+        TestPeakOverpassService(
+          peaks: [
+            Peak(
+              osmId: 321,
+              name: 'Protected Missing Peak',
+              latitude: -42.0008,
+              longitude: 146.0008,
+            ),
+          ],
+        ),
+        repository,
+      );
+
+      final result = await service.refreshPeaks();
+
+      expect(result.importedCount, 1);
+      expect(repository.findByOsmId(-1), isNull);
+
+      final upgradedPeak = repository.findByOsmId(321);
+      expect(upgradedPeak, isNotNull);
+      expect(upgradedPeak?.id, 1);
+      expect(upgradedPeak?.name, 'Protected Missing Peak');
+      expect(upgradedPeak?.latitude, -42);
+      expect(upgradedPeak?.longitude, 146);
+      expect(upgradedPeak?.gridZoneDesignator, '55G');
+      expect(upgradedPeak?.mgrs100kId, 'EN');
+      expect(upgradedPeak?.easting, '12345');
+      expect(upgradedPeak?.northing, '67890');
+      expect(upgradedPeak?.sourceOfTruth, Peak.sourceOfTruthHwc);
+    },
+  );
+
   test('refreshPeaks skips peaks rejected by converter', () async {
     final repository = PeakRepository.test(InMemoryPeakStorage());
     final service = PeakRefreshService(

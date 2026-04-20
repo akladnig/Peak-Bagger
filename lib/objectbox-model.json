@@ -353,9 +353,38 @@
         }
       ],
       "relations": []
+    },
+    {
+      "id": "5:9023966399287465849",
+      "lastPropertyId": "4:1625516356902882927",
+      "name": "PeaksBagged",
+      "properties": [
+        {
+          "id": "1:187546268832463095",
+          "name": "baggedId",
+          "type": 6,
+          "flags": 129
+        },
+        {
+          "id": "2:6205008261349276758",
+          "name": "peakId",
+          "type": 6
+        },
+        {
+          "id": "3:5251465697122538351",
+          "name": "gpxId",
+          "type": 6
+        },
+        {
+          "id": "4:1625516356902882927",
+          "name": "date",
+          "type": 10
+        }
+      ],
+      "relations": []
     }
   ],
-  "lastEntityId": "4:5754024077279183606",
+  "lastEntityId": "5:9023966399287465849",
   "lastIndexId": "2:7211080441040466135",
   "lastRelationId": "1:8194382659905112901",
   "lastSequenceId": "0:0",

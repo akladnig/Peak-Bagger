@@ -21,7 +21,9 @@ class CatppuccinColors {
       appBarTheme: const AppBarTheme(
         backgroundColor: Color(0xFF313244),
         foregroundColor: Color(0xFFCDD6F4),
-        elevation: 0,
+        elevation: 2,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Color(0x66000000),
       ),
       iconTheme: const IconThemeData(color: Color(0xFFCDD6F4), size: 24),
       textTheme: const TextTheme(
@@ -58,7 +60,9 @@ class CatppuccinColors {
       appBarTheme: const AppBarTheme(
         backgroundColor: Color(0xFFCCD0DA),
         foregroundColor: Color(0xFF4C4F69),
-        elevation: 0,
+        elevation: 2,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Color(0x33000000),
       ),
       iconTheme: const IconThemeData(color: Color(0xFF4C4F69), size: 24),
       textTheme: const TextTheme(

@@ -53,7 +53,7 @@ class PeakListsScreen extends ConsumerWidget {
     );
 
     return Scaffold(
-      body: const Center(child: Text('Peak Lists')),
+      body: const SizedBox.expand(),
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('peak-lists-import-fab'),
         onPressed: () {

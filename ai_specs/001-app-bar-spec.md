@@ -46,13 +46,13 @@ Verify that the router's existing branch index and route paths can drive one sha
 Primary flow:
 1. User opens the app on any top-level route.
 2. User sees one shared `AppBar` spanning the shell width.
-3. On wide layouts, the `AppBar` shows the mountain home icon in the leading slot, the active page title beside it, and the theme toggle on the right.
+3. On wide layouts, the `AppBar` shows the mountain home icon aligned with the wide navigation icon column, the active page title left-aligned beside it, and the theme toggle on the right.
 4. On wide layouts, the navigation rail starts below the `AppBar` and shows labeled destinations with icon and text, with the text centered under the icon.
 5. User changes routes and the shared `AppBar` stays in place while the title updates.
 
 Alternative flows:
 - Home shortcut: user taps the mountain icon and returns to Dashboard.
-- Theme toggle: user toggles theme from the `AppBar` without losing route state.
+- Theme toggle: user toggles theme from the shared `AppBar` control without losing route state; the control stays in the `AppBar` on every top-level route and uses the same right-side horizontal lane that the Map route FAB column establishes.
 - Compact layout: user opens a narrow-width layout, uses the `AppBar` menu button to open compact navigation, sees labeled destinations rendered as `ListTile`-style rows with icon and text, sees the mountain home icon at the start of the title row, and reaches the same top-level routes.
 - Deep link: user lands directly on Map, Peak Lists, ObjectBox Admin, or Settings and still sees the correct shared header title.
 
@@ -82,46 +82,54 @@ Error flows:
 12. Do not derive display titles or navigation labels from route names as part of this feature.
 13. Show the active route title beside the icon with clear spacing.
 14. Display titles in title case for the user-visible label.
-15. Both wide and compact navigation must show a clear selected state for the current top-level destination.
-16. Tapping the already-selected top-level destination is a no-op in both wide and compact navigation.
-17. If the already-selected destination is tapped from the compact drawer, close the drawer without re-running cleanup or branch navigation.
-18. On compact layouts, keep the menu trigger and theme action visible at all times, give the title area flexible width, and truncate long titles with ellipsis rather than allowing overflow.
+15. On wide layouts, align the mountain home icon to the same horizontal lane as the wide navigation icons.
+16. Left-align the visible screen title within the `AppBar` title area.
+17. Both wide and compact navigation must show a clear selected state for the current top-level destination.
+18. Tapping the already-selected top-level destination is a no-op in both wide and compact navigation.
+19. If the already-selected destination is tapped from the compact drawer, close the drawer without re-running cleanup or branch navigation.
+20. On compact layouts, keep the menu trigger and theme action visible at all times, give the title area flexible width, and truncate long titles with ellipsis rather than allowing overflow.
 19. On wide layouts, widen the navigation surface as needed for the defined destination labels and wrap each destination label to two lines before truncating it.
-20. Move the existing theme toggle into the `AppBar` actions area.
-21. Remove the floating theme button overlay from the shell.
-22. Preserve the current theme toggle runtime behavior: tapping the `AppBar` action switches only between `ThemeMode.dark` and `ThemeMode.light`, and if the current state is `ThemeMode.system`, the first toggle sets `ThemeMode.dark`.
-23. Preserve the current theme icon semantics: show `Icons.light_mode` only when the stored theme mode is `ThemeMode.dark`; otherwise show `Icons.dark_mode`.
-24. Pressing the mountain icon while already on Dashboard is a no-op.
-25. Remove top-level `AppBar` usage from `./lib/screens/settings_screen.dart` and `./lib/screens/objectbox_admin_screen.dart` so the shell owns the top-level header.
-26. Remove the in-body title text from `./lib/screens/dashboard_screen.dart` and `./lib/screens/peak_lists_screen.dart` so the shared shell title is the visible page heading.
-27. Treat the empty body on Dashboard after that title removal as intentional for this feature.
-28. Treat the Peak Lists screen as intentionally showing only the existing FAB plus the shared shell title until future feature work adds page content.
-29. Preserve each route's existing body content, scrolling, dialogs, snackbars, floating action buttons, and internal controls after the shell layout change.
-30. Use `LayoutBuilder` in the shell and treat widths `>= 720` logical pixels as wide layouts and widths `< 720` logical pixels as compact layouts.
-31. Both wide and compact navigation must present destinations in the same order as the shared destination model: Dashboard, Map, Peak Lists, ObjectBox Admin, Settings.
+21. Keep the shared shell theme toggle in the `AppBar` actions area on every top-level route.
+22. Position the `AppBar` theme toggle so its right-side horizontal lane matches the Map route FAB column while keeping the control inside the `AppBar` instead of rendering it as a map FAB.
+23. Preserve the stable theme action key on every route so tests interact with one shared selector contract.
+24. Remove the old floating theme button overlay from the shell.
+25. Preserve the current theme toggle runtime behavior: tapping the shell theme action switches only between `ThemeMode.dark` and `ThemeMode.light`, and if the current state is `ThemeMode.system`, the first toggle sets `ThemeMode.dark`.
+26. Preserve the current theme icon semantics: show `Icons.light_mode` only when the stored theme mode is `ThemeMode.dark`; otherwise show `Icons.dark_mode`.
+27. Pressing the mountain icon while already on Dashboard is a no-op.
+28. Remove top-level `AppBar` usage from `./lib/screens/settings_screen.dart` and `./lib/screens/objectbox_admin_screen.dart` so the shell owns the top-level header.
+29. Remove the in-body title text from `./lib/screens/dashboard_screen.dart` and `./lib/screens/peak_lists_screen.dart` so the shared shell title is the visible page heading.
+30. Treat the empty body on Dashboard after that title removal as intentional for this feature.
+31. Treat the Peak Lists screen as intentionally showing only the existing FAB plus the shared shell title until future feature work adds page content.
+32. Preserve each route's existing body content, scrolling, dialogs, snackbars, floating action buttons, and internal controls after the shell layout change.
+33. Use `LayoutBuilder` in the shell and treat widths `>= 720` logical pixels as wide layouts and widths `< 720` logical pixels as compact layouts.
+34. Both wide and compact navigation must present destinations in the same order as the shared destination model: Dashboard, Map, Peak Lists, ObjectBox Admin, Settings.
 
 **Error Handling:**
-32. If a compact navigation surface is open when navigation occurs, the selected route must resolve and the navigation surface must no longer obstruct the content.
-33. All shell-owned top-level navigation actions, including wide navigation destinations, compact drawer destinations, and the AppBar home action, must invoke the same pre-navigation cleanup currently used before side-menu branch changes, and must do so exactly once per navigation action.
+35. If a compact navigation surface is open when navigation occurs, the selected route must resolve and the navigation surface must no longer obstruct the content.
+36. All shell-owned top-level navigation actions, including wide navigation destinations, compact drawer destinations, and the `AppBar` home action, must invoke the same pre-navigation cleanup rules where navigation cleanup is relevant, and must do so exactly once per navigation action.
 
 **Edge Cases:**
-34. Support deep linking or direct router navigation to any top-level branch while still showing the correct title from the shared destination model.
-35. On narrow layouts, replace the persistent left rail with a drawer or equivalent shell-owned compact navigation container.
-36. On wide layouts, keep the navigation rail permanently visible below the `AppBar`.
-37. The top edge of the wide-layout rail must align to the bottom of the `AppBar`, not the top of the screen.
-38. The `AppBar` must coexist with route-level floating action buttons, end drawers, and shell messages without making core controls inaccessible.
-39. The `AppBar` should retain visible separation from the content below in both light and dark themes.
-40. After closing compact navigation, after using a shell `AppBar` action, or after returning to the Map route, keyboard shortcuts must still work without an extra click unless an in-map text input is intentionally focused.
+37. Support deep linking or direct router navigation to any top-level branch while still showing the correct title from the shared destination model.
+38. On narrow layouts, replace the persistent left rail with a drawer or equivalent shell-owned compact navigation container.
+39. On wide layouts, keep the navigation rail permanently visible below the `AppBar`.
+40. The top edge of the wide-layout rail must align to the bottom of the `AppBar`, not the top of the screen.
+41. The `AppBar` must coexist with route-level floating action buttons, end drawers, and shell messages without making core controls inaccessible.
+42. The `AppBar` should retain visible separation from the content below in both light and dark themes.
+43. The shared `AppBar` theme action must use the same right-side horizontal lane as the Map route FAB column so the control feels consistently placed across screens.
+44. The shared `AppBar` theme action must remain in the `AppBar` on the Map route and must not appear as an additional map FAB.
+45. After closing compact navigation, after using a shell `AppBar` action, or after returning to the Map route, keyboard shortcuts must still work without an extra click unless an in-map text input is intentionally focused.
 
 **Validation:**
-41. Add stable keys for new shell controls that require automated verification.
-42. At minimum, provide stable keys for the shared `AppBar`, home action, title widget, theme action, compact navigation trigger, and every top-level destination.
-43. Attach each shared destination key to the interactive control used to select that destination in both wide and compact navigation.
-44. Use this shared app-owned key contract for top-level destinations across both wide and compact navigation surfaces: `nav-dashboard`, `nav-map`, `nav-peak-lists`, `nav-objectbox-admin`, and `nav-settings`.
-45. Keep the title source in the shared destination model rather than in a separate derived mapping.
-46. Add automated coverage that verifies the selected-state behavior for the active destination in both wide and compact navigation layouts.
-47. Add automated coverage that verifies wide and compact navigation render destinations in the shared destination model order.
-48. Do not leave duplicate dedicated shell actions for theme switching, and do not add extra dedicated home actions beyond the intentional mountain icon and the Dashboard destination in the shared navigation model.
+46. Add stable keys for new shell controls that require automated verification.
+47. At minimum, provide stable keys for the shared `AppBar`, home action, title widget, theme action, compact navigation trigger, and every top-level destination.
+48. Attach each shared destination key to the interactive control used to select that destination in both wide and compact navigation.
+49. Use this shared app-owned key contract for top-level destinations across both wide and compact navigation surfaces: `nav-dashboard`, `nav-map`, `nav-peak-lists`, `nav-objectbox-admin`, and `nav-settings`.
+50. Keep the title source in the shared destination model rather than in a separate derived mapping.
+51. Add automated coverage that verifies the selected-state behavior for the active destination in both wide and compact navigation layouts.
+52. Add automated coverage that verifies wide and compact navigation render destinations in the shared destination model order.
+53. Add automated coverage that verifies the wide AppBar home icon aligns with the wide navigation icon lane and that the wide AppBar title remains left-aligned.
+54. Add automated coverage that verifies the shared `AppBar` theme action stays in the `AppBar` on every top-level route and uses the same right-side horizontal lane as the Map route FAB column.
+55. Do not leave duplicate dedicated shell actions for theme switching, and do not add extra dedicated home actions beyond the intentional mountain icon and the Dashboard destination in the shared navigation model.
 </requirements>
 
 <boundaries>
@@ -158,6 +166,8 @@ Implementation expectations:
 - Do not add fallback title generation or route-name-to-title transformation for this feature.
 - Use `LayoutBuilder` at the shell layer with a `720` logical pixel breakpoint for wide vs compact behavior.
 - On wide layouts, use the mountain icon as the `AppBar` leading action.
+- On wide layouts, size and position the AppBar leading region so the mountain icon aligns with the wide navigation icon column.
+- Keep the wide AppBar title left-aligned within the title area.
 - On compact layouts, use the menu trigger as `AppBar.leading` and render the mountain home action at the start of the title row.
 - Update the shared navigation presentation so both wide and compact layouts use labeled destinations rather than the current icon-only rail.
 - Use one shared destination model that carries branch index, route path, navigation label, `AppBar` title, icon, and stable key for each top-level destination.
@@ -169,6 +179,8 @@ Implementation expectations:
 - On compact layouts, make long titles truncate with ellipsis before they can push shell actions off-screen.
 - Reuse the same destination definitions for wide and compact navigation where practical, and present them in the same shared-model order.
 - Keep `side-menu-objectbox-admin` as a temporary migration alias if needed while `nav-objectbox-admin` becomes the long-term selector contract.
+- Keep the shared theme action in the `AppBar` on every route, including Map.
+- Position the shared theme action so its right-side horizontal lane matches the Map FAB column without turning the theme action into a FAB.
 - Update theme styling in `./lib/theme.dart` only as needed so the `AppBar` elevation, shadow, and colors remain coherent in both themes.
 - Preserve the current two-state `themeModeProvider` toggle behavior and current icon semantics unless this spec is explicitly changed later.
 - Reuse the same pre-navigation cleanup path for every shell-owned branch-switching action.
@@ -204,7 +216,7 @@ Phase 4: Automated coverage
 <validation>
 Baseline automated coverage outcomes:
 - Logic: unit tests for the shared destination model's explicit branch/route/title/label/key definitions, including a guard against reintroducing route-name-derived display text.
-- UI behavior: widget tests for shared `AppBar` rendering, title updates across route changes, theme action placement, removal of duplicate local app bars and in-body titles, wide-layout rail positioning, compact navigation trigger behavior at widths above and below `720`, destination order rendering, selected-state rendering, wide-label wrapping behavior, and compact-title truncation behavior.
+- UI behavior: widget tests for shared `AppBar` rendering, title updates across route changes, theme action placement, home-icon alignment on wide layout, left-aligned wide-title rendering, removal of duplicate local app bars and in-body titles, wide-layout rail positioning, compact navigation trigger behavior at widths above and below `720`, destination order rendering, selected-state rendering, wide-label wrapping behavior, and compact-title truncation behavior.
 - Critical journeys: robot coverage for shared-shell navigation, title changes, and home navigation back to Dashboard.
 
 TDD expectations:
@@ -237,6 +249,8 @@ Minimum behavior checks:
 - Tapping the already-selected destination is a no-op in both wide and compact navigation.
 - Tapping the already-selected destination from the compact drawer closes the drawer without retriggering navigation or cleanup.
 - Wide navigation widens as needed and wraps destination labels to two lines.
+- The wide AppBar home icon aligns with the wide navigation icon lane.
+- The wide AppBar title is left-aligned.
 - Pressing the mountain icon navigates to Dashboard.
 - Pressing the mountain icon while already on Dashboard is a no-op.
 - Pressing the theme action toggles theme mode from the `AppBar` using the current two-state runtime behavior and current icon semantics.
@@ -245,6 +259,7 @@ Minimum behavior checks:
 - Dashboard is intentionally empty after the in-body title is removed.
 - Peak Lists intentionally shows only the existing FAB plus the shared shell title until future page content is added.
 - The shared destination model remains the single explicit source of destination titles and labels rather than generating them from route names.
+- The shared theme action stays in the `AppBar` on the Map route and uses the same right-side horizontal lane as the map FAB column.
 - After closing compact navigation, after shell `AppBar` interactions, or after returning to Map, the existing map keyboard shortcuts still respond without an extra click unless an in-map text field is focused.
 - On compact layouts, long titles truncate with ellipsis before shell actions overflow or disappear.
 - Existing shell snackbars and route-level floating actions remain usable after the layout change.
@@ -258,13 +273,14 @@ Known risk to report if unresolved:
 - The `AppBar` spans the shell width and visually separates the header from content below.
 - The mountain icon appears in the `AppBar`, no longer appears in the side rail, and navigates to Dashboard.
 - The active route title appears beside the icon and is title-cased for display.
-- The theme toggle appears in the `AppBar` actions, preserves the current two-state toggle behavior and current icon semantics, and the old floating theme overlay is removed.
+- The theme toggle appears in the `AppBar` on every top-level route, preserves the current two-state toggle behavior and current icon semantics, uses the same right-side horizontal lane as the Map route FAB column, and the old floating theme overlay is removed.
 - Wide layouts at widths `>= 720` show the navigation rail below the `AppBar`.
 - Narrow layouts at widths `< 720` use a compact drawer or equivalent shell-owned navigation pattern.
 - Both wide and compact navigation use labeled destinations backed by one shared destination model and one shared destination key contract.
 - Both wide and compact navigation present destinations in Dashboard, Map, Peak Lists, ObjectBox Admin, Settings order.
 - Both wide and compact navigation show a clear selected state for the active destination, and selecting the active destination is a no-op.
 - Wide navigation is wide enough for the defined labels and wraps labels to two lines.
+- The wide AppBar home icon aligns with the wide navigation icon lane and the wide AppBar title stays left-aligned.
 - Settings and ObjectBox Admin rely on the shared shell `AppBar` rather than local top-level app bars.
 - Dashboard and Peak Lists no longer show their in-body title text.
 - Dashboard remains intentionally empty after the in-body title is removed.
