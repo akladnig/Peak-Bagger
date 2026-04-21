@@ -85,8 +85,9 @@ List<Marker> buildPeakMarkers({
   required Set<int> correlatedPeakIds,
   required SvgPicture tickedPeakMarker,
   required SvgPicture untickedPeakMarker,
+  bool suppressBelowZoom = true,
 }) {
-  if (zoom < 9) {
+  if (suppressBelowZoom && zoom < 9) {
     return const [];
   }
 

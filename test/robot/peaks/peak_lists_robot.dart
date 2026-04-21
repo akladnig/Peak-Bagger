@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/screens/peak_lists_screen.dart';
 import 'package:peak_bagger/services/peak_list_file_picker.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/widgets/peak_list_import_dialog.dart';
 
 class PeakListsRobot {
@@ -29,14 +32,23 @@ class PeakListsRobot {
   Future<void> pumpApp({
     required PeakListFilePicker filePicker,
     PeakListRepository? repository,
+    PeakRepository? peakRepository,
+    PeaksBaggedRepository? peaksBaggedRepository,
     PeakListImportRunner? importRunner,
     PeakListDuplicateNameChecker? duplicateNameChecker,
   }) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          peakRepositoryProvider.overrideWithValue(
+            peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
+          ),
           peakListRepositoryProvider.overrideWithValue(
             repository ?? PeakListRepository.test(InMemoryPeakListStorage()),
+          ),
+          peaksBaggedRepositoryProvider.overrideWithValue(
+            peaksBaggedRepository ??
+                PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
           ),
           peakListFilePickerProvider.overrideWithValue(filePicker),
           peakListImportRunnerProvider.overrideWithValue(

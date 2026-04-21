@@ -43,15 +43,15 @@ Approach: layer-first; thin shell first; then import/model contract; then detail
 ### Phase 3: Metrics And Map
 
 - **Goal**: climbed metrics; details table; mini-map; legacy row fallback
-- [ ] `lib/screens/peak_lists_screen.dart` - add `PeaksBaggedRepository` provider; compute summary metrics; unsupported legacy row fallback (`-` metrics, unsupported-state details, deletable row); deterministic sorts incl unsupported rows after supported for derived metrics
-- [ ] `lib/services/peaks_bagged_repository.dart` - expose read pattern needed for per-peak latest-date aggregation if helper warranted
-- [ ] `lib/screens/map_screen_layers.dart` - reuse marker sizing/SVG conventions without zoom<9 suppression for mini-map helper if extracted
-- [ ] `test/widget/peak_lists_screen_test.dart` - summary metrics; most-recent sentence; wrapped text; unsupported legacy row visible by name with `-` metrics and delete; sort indicator behavior; legacy rows sort after supported rows
-- [ ] TDD: climbed/unclimbed/percentage derive from unique peak IDs and latest ascent dates
-- [ ] TDD: most-recent sentence lists all peaks on latest date ordered by peak ID ascending; wraps without overflow
-- [ ] TDD: legacy unsupported row stays visible, selectable, deletable; details fall back to unsupported-state message
-- [ ] TDD: mini-map shows list peaks with ticked/unticked markers; empty/unsupported paths use Tasmania bounds
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/screens/peak_lists_screen.dart` - add `PeaksBaggedRepository` provider; compute summary metrics; unsupported legacy row fallback (`-` metrics, unsupported-state details, deletable row); deterministic sorts incl unsupported rows after supported for derived metrics
+- [x] `lib/services/peaks_bagged_repository.dart` - expose read pattern needed for per-peak latest-date aggregation if helper warranted
+- [x] `lib/screens/map_screen_layers.dart` - reuse marker sizing/SVG conventions without zoom<9 suppression for mini-map helper if extracted
+- [x] `test/widget/peak_lists_screen_test.dart` - summary metrics; most-recent sentence; wrapped text; unsupported legacy row visible by name with `-` metrics and delete; sort indicator behavior; legacy rows sort after supported rows
+- [x] TDD: climbed/unclimbed/percentage derive from unique peak IDs and latest ascent dates
+- [x] TDD: most-recent sentence lists all peaks on latest date ordered by peak ID ascending; wraps without overflow
+- [x] TDD: legacy unsupported row stays visible, selectable, deletable; details fall back to unsupported-state message
+- [x] TDD: mini-map shows list peaks with ticked/unticked markers; empty/unsupported paths use Tasmania bounds
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 4: Delete And Journeys
 
