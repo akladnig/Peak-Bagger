@@ -56,5 +56,33 @@ void main() {
       expect(stored.name, 'Abels');
       expect(stored.peakList, originalPayload);
     });
+
+    test('getById returns stored row', () async {
+      final repository = PeakListRepository.test(InMemoryPeakListStorage());
+
+      final saved = await repository.save(
+        PeakList(name: 'Abels', peakList: '[]'),
+      );
+
+      final stored = repository.findById(saved.peakListId);
+
+      expect(stored, isNotNull);
+      expect(stored?.name, 'Abels');
+    });
+
+    test('delete removes only the targeted row', () async {
+      final repository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(name: 'Abels', peakList: '[]')..peakListId = 1,
+          PeakList(name: 'Connoisseurs', peakList: '[]')..peakListId = 2,
+        ]),
+      );
+
+      await repository.delete(1);
+
+      expect(repository.findById(1), isNull);
+      expect(repository.findById(2)?.name, 'Connoisseurs');
+      expect(repository.getAllPeakLists(), hasLength(1));
+    });
   });
 }

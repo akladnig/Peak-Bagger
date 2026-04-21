@@ -56,15 +56,15 @@ Approach: layer-first; thin shell first; then import/model contract; then detail
 ### Phase 4: Delete And Journeys
 
 - **Goal**: destructive flow; full journeys; regression pass
-- [ ] `lib/screens/peak_lists_screen.dart` - wire row delete action; confirm dialog; targeted-row deletion; post-delete selection rules
-- [ ] `test/services/peak_list_repository_test.dart` - `getById`; `delete`; no accidental cross-row effects
-- [ ] `test/robot/peaks/peak_lists_robot.dart` - key-first robot helpers for open/select/delete/import/result-close assertions
-- [ ] `test/robot/peaks/peak_lists_journey_test.dart` - critical journeys: open/select/delete; open/import/repair/select imported list
-- [ ] `test/widget/peak_lists_screen_test.dart` - delete confirm/cancel; non-selected row delete preserves selection; last-row/next-row selection rules
-- [ ] TDD: delete acts on invoked row, not current selection; cancel leaves data unchanged
-- [ ] TDD: after delete, selection moves next/previous/empty per edge rules
-- [ ] Robot journey tests + selectors/seams for critical flows: stable keys for rows, delete action, confirm/cancel, result close; fake repositories/file picker/log writer/clock
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/screens/peak_lists_screen.dart` - wire row delete action; confirm dialog; targeted-row deletion; post-delete selection rules
+- [x] `test/services/peak_list_repository_test.dart` - `getById`; `delete`; no accidental cross-row effects
+- [x] `test/robot/peaks/peak_lists_robot.dart` - key-first robot helpers for open/select/delete/import/result-close assertions
+- [x] `test/robot/peaks/peak_lists_journey_test.dart` - critical journeys: open/select/delete; open/import/repair/select imported list
+- [x] `test/widget/peak_lists_screen_test.dart` - delete confirm/cancel; non-selected row delete preserves selection; last-row/next-row selection rules
+- [x] TDD: delete acts on invoked row, not current selection; cancel leaves data unchanged
+- [x] TDD: after delete, selection moves next/previous/empty per edge rules
+- [x] Robot journey tests + selectors/seams for critical flows: stable keys for rows, delete action, confirm/cancel, result close; fake repositories/file picker/log writer/clock
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

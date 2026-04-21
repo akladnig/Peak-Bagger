@@ -13,6 +13,7 @@ import '../services/peak_list_file_picker.dart';
 import '../services/peak_list_import_service.dart';
 import '../services/peak_list_repository.dart';
 import '../services/peaks_bagged_repository.dart';
+import '../widgets/dialog_helpers.dart';
 import '../widgets/peak_list_import_dialog.dart';
 import 'map_screen_layers.dart';
 
@@ -115,6 +116,9 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
               });
             },
             onSortSelected: _handleSortSelected,
+            onDeleteRequested: (peakListId) {
+              _deletePeakList(peakListId, sortedSummaryRows);
+            },
           );
           final detailsPane = _DetailsPane(
             selectedSummaryRow: selectedSummaryRow,
@@ -239,6 +243,50 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
     });
   }
 
+  Future<void> _deletePeakList(
+    int peakListId,
+    List<_PeakListSummaryRow> visibleRows,
+  ) async {
+    final row = visibleRows.firstWhere(
+      (candidate) => candidate.peakList.peakListId == peakListId,
+    );
+    final confirmed = await showDangerConfirmDialog(
+      context: context,
+      title: 'Delete Peak List?',
+      message:
+          'This will permanently delete the ${row.peakList.name}. Do you want to proceed',
+      cancelKey: 'cancel-delete',
+      cancelLabel: 'Cancel',
+      confirmKey: 'confirm-delete',
+      confirmLabel: 'Delete',
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    int? nextSelectedPeakListId = _selectedPeakListId;
+    if (_selectedPeakListId == peakListId) {
+      final index = visibleRows.indexWhere(
+        (candidate) => candidate.peakList.peakListId == peakListId,
+      );
+      if (visibleRows.length == 1) {
+        nextSelectedPeakListId = null;
+      } else if (index < visibleRows.length - 1) {
+        nextSelectedPeakListId = visibleRows[index + 1].peakList.peakListId;
+      } else {
+        nextSelectedPeakListId = visibleRows[index - 1].peakList.peakListId;
+      }
+    }
+
+    await ref.read(peakListRepositoryProvider).delete(peakListId);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _selectedPeakListId = nextSelectedPeakListId;
+    });
+  }
+
   List<_PeakListSummaryRow> _sortSummaryRows(List<_PeakListSummaryRow> rows) {
     final sorted = List<_PeakListSummaryRow>.from(rows);
     sorted.sort((left, right) {
@@ -314,6 +362,7 @@ class _SummaryPane extends StatelessWidget {
     required this.sortAscending,
     required this.onSelected,
     required this.onSortSelected,
+    required this.onDeleteRequested,
   });
 
   final List<_PeakListSummaryRow> rows;
@@ -322,6 +371,7 @@ class _SummaryPane extends StatelessWidget {
   final bool sortAscending;
   final ValueChanged<int> onSelected;
   final ValueChanged<_PeakListSortColumn> onSortSelected;
+  final ValueChanged<int> onDeleteRequested;
 
   @override
   Widget build(BuildContext context) {
@@ -404,12 +454,12 @@ class _SummaryPane extends StatelessWidget {
                             SizedBox(
                               width: 48,
                               child: IconButton(
-                                key: Key('peak-lists-delete-$peakListId'),
-                                icon: const Icon(Icons.delete_forever),
-                                tooltip: 'Delete ${row.peakList.name}',
-                                onPressed: () {},
-                              ),
-                            ),
+                                 key: Key('peak-lists-delete-$peakListId'),
+                                 icon: const Icon(Icons.delete_forever),
+                                 tooltip: 'Delete ${row.peakList.name}',
+                                 onPressed: () => onDeleteRequested(peakListId),
+                               ),
+                             ),
                           ],
                         ),
                       ),

@@ -24,6 +24,10 @@ class PeakListsRobot {
   Finder get nameField => find.byKey(const Key('peak-list-name-field'));
   Finder get importButton => find.byKey(const Key('peak-list-import-button'));
   Finder get updateConfirm => find.byKey(const Key('peak-list-update-confirm'));
+  Finder deleteButtonFor(int peakListId) =>
+      find.byKey(Key('peak-lists-delete-$peakListId'));
+  Finder get deleteConfirm => find.byKey(const Key('confirm-delete'));
+  Finder get deleteCancel => find.byKey(const Key('cancel-delete'));
   Finder get resultClose =>
       find.byKey(const Key('peak-list-import-result-close'));
   Finder get errorClose =>
@@ -98,6 +102,12 @@ class PeakListsRobot {
 
   Future<void> closeResultDialog() async {
     await tester.tap(resultClose);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  Future<void> deleteRow(int peakListId) async {
+    tester.widget<IconButton>(deleteButtonFor(peakListId)).onPressed!();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
   }

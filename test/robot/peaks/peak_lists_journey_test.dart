@@ -1,6 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 import 'package:peak_bagger/services/peak_list_import_service.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
@@ -61,11 +63,15 @@ void main() {
         skippedCount: result.skippedCount,
         warningCount: result.warningEntries.length,
         warningMessage: result.warningMessage,
+        peakListId: result.peakListId,
+        listName: listName,
       );
     }
 
     await robot.pumpApp(
       filePicker: TestPeakListFilePicker(selectedFilePath: '/tmp/peaks.csv'),
+      repository: peakListRepository,
+      peakRepository: peakRepository,
       duplicateNameChecker: (name) async {
         return peakListRepository.findByName(name) != null;
       },
@@ -85,6 +91,11 @@ void main() {
     final createdId = peakListRepository.getAllPeakLists().single.peakListId;
 
     await robot.closeResultDialog();
+
+    expect(
+      tester.widget<Text>(robot.selectedTitle).data,
+      'Journey List',
+    );
 
     await robot.openImportDialog();
     await robot.chooseFile();
@@ -110,6 +121,34 @@ void main() {
     expect(peakListRows, hasLength(1));
     expect(peakListRows.single.values['name'], 'Journey List');
     expect(peakListRows.single.values['peakList'], contains('peakOsmId'));
+  });
+
+  testWidgets('peak lists journey selects and deletes targeted row', (
+    tester,
+  ) async {
+    final robot = PeakListsRobot(tester);
+    final repository = PeakListRepository.test(
+      InMemoryPeakListStorage([
+        PeakList(name: 'Abels', peakList: '[]')..peakListId = 1,
+        PeakList(name: 'Connoisseurs', peakList: '[]')..peakListId = 2,
+      ]),
+    );
+
+    await robot.pumpApp(
+      filePicker: TestPeakListFilePicker(),
+      repository: repository,
+    );
+
+    tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-2'))).onTap!();
+    await tester.pumpAndSettle();
+    expect(tester.widget<Text>(robot.selectedTitle).data, 'Connoisseurs');
+
+    await robot.deleteRow(2);
+    await tester.tap(robot.deleteConfirm);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-lists-row-2')), findsNothing);
+    expect(tester.widget<Text>(robot.selectedTitle).data, 'Abels');
   });
 }
 

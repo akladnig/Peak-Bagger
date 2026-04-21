@@ -338,6 +338,95 @@ void main() {
     );
   });
 
+  testWidgets(
+    'delete cancel keeps row and confirmed non-selected delete preserves selection',
+    (tester) async {
+      final repository = PeakListRepository.test(
+        InMemoryPeakListStorage(_buildLists(['Abels', 'Connoisseurs'])),
+      );
+
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: repository,
+      );
+
+      tester.widget<IconButton>(find.byKey(const Key('peak-lists-delete-2')))
+          .onPressed!();
+      await tester.pumpAndSettle();
+      expect(find.text('Delete Peak List?'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('cancel-delete')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('peak-lists-row-2')), findsOneWidget);
+
+      tester.widget<IconButton>(find.byKey(const Key('peak-lists-delete-2')))
+          .onPressed!();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('confirm-delete')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('peak-lists-row-2')), findsNothing);
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+            .data,
+        'Abels',
+      );
+    },
+  );
+
+  testWidgets('deleting selected rows moves next, previous, then empty', (
+    tester,
+  ) async {
+    final repository = PeakListRepository.test(
+      InMemoryPeakListStorage(_buildLists(['Abels', 'Bravo', 'Charlie'])),
+    );
+
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: repository,
+    );
+
+    tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-2'))).onTap!();
+    await tester.pumpAndSettle();
+    tester.widget<IconButton>(find.byKey(const Key('peak-lists-delete-2')))
+        .onPressed!();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-delete')));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+          .data,
+      'Charlie',
+    );
+
+    tester.widget<IconButton>(find.byKey(const Key('peak-lists-delete-3')))
+        .onPressed!();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-delete')));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+          .data,
+      'Abels',
+    );
+
+    tester.widget<IconButton>(find.byKey(const Key('peak-lists-delete-1')))
+        .onPressed!();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-delete')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-lists-empty-message')), findsOneWidget);
+  });
+
   testWidgets('import fab opens dialog and cancel closes it', (tester) async {
     await _pumpPeakListsApp(
       tester,
