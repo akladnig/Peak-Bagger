@@ -5,18 +5,125 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/app.dart';
+import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/screens/peak_lists_screen.dart';
-import 'package:peak_bagger/widgets/peak_list_import_dialog.dart';
 import 'package:peak_bagger/services/peak_list_file_picker.dart';
+import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/widgets/peak_list_import_dialog.dart';
 
 import '../harness/test_peak_list_file_picker.dart';
 
 void main() {
+  testWidgets('empty state renders copy and shell panes', (tester) async {
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(InMemoryPeakListStorage()),
+    );
+
+    expect(find.byKey(const Key('peak-lists-summary-pane')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-details-pane')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-empty-message')), findsOneWidget);
+    expect(
+      find.text('No peak lists exist. Import a CSV to get started.'),
+      findsNWidgets(2),
+    );
+  });
+
+  testWidgets('first list auto-selects and row tap updates details title', (
+    tester,
+  ) async {
+    final repository = PeakListRepository.test(
+      InMemoryPeakListStorage(_buildLists(['Abels', 'Connoisseurs'])),
+    );
+
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: repository,
+    );
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('peak-lists-selected-title'))).data,
+      'Abels',
+    );
+
+    await tester.tap(find.byKey(const Key('peak-lists-row-2')));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('peak-lists-selected-title'))).data,
+      'Connoisseurs',
+    );
+  });
+
+  testWidgets('narrow layout stacks panes vertically', (tester) async {
+    tester.view.physicalSize = const Size(600, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(InMemoryPeakListStorage()),
+    );
+
+    final summaryTopLeft =
+        tester.getTopLeft(find.byKey(const Key('peak-lists-summary-pane')));
+    final detailsTopLeft =
+        tester.getTopLeft(find.byKey(const Key('peak-lists-details-pane')));
+    expect(detailsTopLeft.dy, greaterThan(summaryTopLeft.dy));
+  });
+
+  testWidgets('import completion selects returned list identity', (tester) async {
+    final repository = PeakListRepository.test(InMemoryPeakListStorage());
+
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(selectedFilePath: '/tmp/test.csv'),
+      repository: repository,
+      importRunner:
+          ({required String listName, required String csvPath}) async {
+            final saved = await repository.save(
+              PeakList(name: listName, peakList: '[]'),
+            );
+            return PeakListImportPresentationResult(
+              updated: false,
+              importedCount: 1,
+              skippedCount: 0,
+              peakListId: saved.peakListId,
+              listName: saved.name,
+            );
+          },
+    );
+
+    await tester.tap(find.byKey(const Key('peak-lists-import-fab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('peak-list-select-file')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('peak-list-name-field')),
+      'Abels',
+    );
+    await tester.tap(find.byKey(const Key('peak-list-import-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('peak-list-import-result-close')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-lists-row-1')), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.byKey(const Key('peak-lists-selected-title'))).data,
+      'Abels',
+    );
+  });
+
   testWidgets('import fab opens dialog and cancel closes it', (tester) async {
     await _pumpPeakListsApp(
       tester,
       filePicker: TestPeakListFilePicker(selectedFilePath: '/tmp/test.csv'),
+      repository: PeakListRepository.test(InMemoryPeakListStorage()),
     );
 
     await tester.tap(find.byKey(const Key('peak-lists-import-fab')));
@@ -31,7 +138,11 @@ void main() {
   });
 
   testWidgets('import stays disabled until a file is selected', (tester) async {
-    await _pumpPeakListsApp(tester, filePicker: TestPeakListFilePicker());
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(InMemoryPeakListStorage()),
+    );
 
     await tester.tap(find.byKey(const Key('peak-lists-import-fab')));
     await tester.pumpAndSettle();
@@ -56,6 +167,7 @@ void main() {
       await _pumpPeakListsApp(
         tester,
         filePicker: TestPeakListFilePicker(selectedFilePath: '/tmp/test.csv'),
+        repository: PeakListRepository.test(InMemoryPeakListStorage()),
       );
 
       await tester.tap(find.byKey(const Key('peak-lists-import-fab')));
@@ -78,7 +190,11 @@ void main() {
 
   testWidgets('file picker cancel is a no-op', (tester) async {
     final filePicker = TestPeakListFilePicker(selectedFilePath: null);
-    await _pumpPeakListsApp(tester, filePicker: filePicker);
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: filePicker,
+      repository: PeakListRepository.test(InMemoryPeakListStorage()),
+    );
 
     await tester.tap(find.byKey(const Key('peak-lists-import-fab')));
     await tester.pumpAndSettle();
@@ -97,7 +213,11 @@ void main() {
         message: 'Read-Only or Read-Write entitlement is required.',
       ),
     );
-    await _pumpPeakListsApp(tester, filePicker: filePicker);
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: filePicker,
+      repository: PeakListRepository.test(InMemoryPeakListStorage()),
+    );
 
     await tester.tap(find.byKey(const Key('peak-lists-import-fab')));
     await tester.pumpAndSettle();
@@ -123,6 +243,7 @@ void main() {
     await _pumpPeakListsApp(
       tester,
       filePicker: TestPeakListFilePicker(selectedFilePath: '/tmp/test.csv'),
+      repository: PeakListRepository.test(InMemoryPeakListStorage()),
       duplicateNameChecker: (name) async => true,
       importRunner:
           ({required String listName, required String csvPath}) async {
@@ -169,6 +290,7 @@ void main() {
     await _pumpPeakListsApp(
       tester,
       filePicker: TestPeakListFilePicker(selectedFilePath: '/tmp/test.csv'),
+      repository: PeakListRepository.test(InMemoryPeakListStorage()),
       importRunner: ({required String listName, required String csvPath}) {
         return completer.future;
       },
@@ -207,12 +329,14 @@ void main() {
 Future<void> _pumpPeakListsApp(
   WidgetTester tester, {
   required PeakListFilePicker filePicker,
+  required PeakListRepository repository,
   PeakListImportRunner? importRunner,
   PeakListDuplicateNameChecker? duplicateNameChecker,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        peakListRepositoryProvider.overrideWithValue(repository),
         peakListFilePickerProvider.overrideWithValue(filePicker),
         peakListImportRunnerProvider.overrideWithValue(
           importRunner ??
@@ -236,4 +360,11 @@ Future<void> _pumpPeakListsApp(
   router.go('/peaks');
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
+}
+
+List<PeakList> _buildLists(List<String> names) {
+  return [
+    for (var index = 0; index < names.length; index++)
+      PeakList(name: names[index], peakList: '[]')..peakListId = index + 1,
+  ];
 }

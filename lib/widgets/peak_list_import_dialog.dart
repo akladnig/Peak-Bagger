@@ -19,6 +19,8 @@ class PeakListImportPresentationResult {
     required this.skippedCount,
     this.warningCount = 0,
     this.warningMessage,
+    this.peakListId,
+    this.listName,
   });
 
   final bool updated;
@@ -26,6 +28,8 @@ class PeakListImportPresentationResult {
   final int skippedCount;
   final int warningCount;
   final String? warningMessage;
+  final int? peakListId;
+  final String? listName;
 
   String get title => updated ? 'Peak List Updated' : 'Peak List Created';
 }
@@ -183,8 +187,14 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
       if (!mounted) {
         return;
       }
-      rootNavigator.pop();
+      setState(() {
+        _isImporting = false;
+      });
       await _showResultDialog(rootNavigator.context, result);
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop(result);
     } catch (error) {
       if (!mounted) {
         return;
@@ -192,7 +202,7 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
       rootNavigator.pop();
       await _showFailureDialog(rootNavigator.context, error.toString());
     } finally {
-      if (mounted) {
+      if (mounted && _isImporting) {
         setState(() {
           _isImporting = false;
         });

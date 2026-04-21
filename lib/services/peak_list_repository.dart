@@ -7,7 +7,11 @@ abstract class PeakListStorage {
 
   List<PeakList> getAll();
 
+  PeakList? getById(int peakListId);
+
   PeakList? getByName(String name);
+
+  Future<void> delete(int peakListId);
 
   Future<PeakList> put(PeakList peakList);
 
@@ -30,6 +34,9 @@ class ObjectBoxPeakListStorage implements PeakListStorage {
   List<PeakList> getAll() => _peakListBox.getAll();
 
   @override
+  PeakList? getById(int peakListId) => _peakListBox.get(peakListId);
+
+  @override
   PeakList? getByName(String name) {
     for (final peakList in _peakListBox.getAll()) {
       if (peakList.name == name) {
@@ -38,6 +45,11 @@ class ObjectBoxPeakListStorage implements PeakListStorage {
     }
 
     return null;
+  }
+
+  @override
+  Future<void> delete(int peakListId) async {
+    _peakListBox.remove(peakListId);
   }
 
   @override
@@ -85,6 +97,17 @@ class InMemoryPeakListStorage implements PeakListStorage {
   List<PeakList> getAll() => List<PeakList>.unmodifiable(_peakLists);
 
   @override
+  PeakList? getById(int peakListId) {
+    for (final peakList in _peakLists) {
+      if (peakList.peakListId == peakListId) {
+        return peakList;
+      }
+    }
+
+    return null;
+  }
+
+  @override
   PeakList? getByName(String name) {
     for (final peakList in _peakLists) {
       if (peakList.name == name) {
@@ -93,6 +116,13 @@ class InMemoryPeakListStorage implements PeakListStorage {
     }
 
     return null;
+  }
+
+  @override
+  Future<void> delete(int peakListId) async {
+    _peakLists = _peakLists
+        .where((entry) => entry.peakListId != peakListId)
+        .toList(growable: false);
   }
 
   @override
@@ -146,6 +176,14 @@ class PeakListRepository {
 
   PeakList? findByName(String name) {
     return _storage.getByName(name);
+  }
+
+  PeakList? findById(int peakListId) {
+    return _storage.getById(peakListId);
+  }
+
+  Future<void> delete(int peakListId) {
+    return _storage.delete(peakListId);
   }
 
   Future<PeakList> save(

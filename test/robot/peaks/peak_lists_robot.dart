@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/screens/peak_lists_screen.dart';
 import 'package:peak_bagger/services/peak_list_file_picker.dart';
+import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/widgets/peak_list_import_dialog.dart';
 
 class PeakListsRobot {
@@ -12,6 +13,10 @@ class PeakListsRobot {
 
   Finder get importFab => find.byKey(const Key('peak-lists-import-fab'));
   Finder get importDialog => find.byKey(const Key('peak-list-import-dialog'));
+  Finder get summaryPane => find.byKey(const Key('peak-lists-summary-pane'));
+  Finder get detailsPane => find.byKey(const Key('peak-lists-details-pane'));
+  Finder get selectedTitle =>
+      find.byKey(const Key('peak-lists-selected-title'));
   Finder get selectFileButton => find.byKey(const Key('peak-list-select-file'));
   Finder get nameField => find.byKey(const Key('peak-list-name-field'));
   Finder get importButton => find.byKey(const Key('peak-list-import-button'));
@@ -23,12 +28,16 @@ class PeakListsRobot {
 
   Future<void> pumpApp({
     required PeakListFilePicker filePicker,
+    PeakListRepository? repository,
     PeakListImportRunner? importRunner,
     PeakListDuplicateNameChecker? duplicateNameChecker,
   }) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          peakListRepositoryProvider.overrideWithValue(
+            repository ?? PeakListRepository.test(InMemoryPeakListStorage()),
+          ),
           peakListFilePickerProvider.overrideWithValue(filePicker),
           peakListImportRunnerProvider.overrideWithValue(
             importRunner ??
