@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:csv/csv.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/geo.dart';
@@ -80,6 +81,7 @@ class PeakListImportService {
     final correctedPeaksByOsmId = <int, Peak>{};
     final warningEntries = <String>[];
     final logEntries = <String>[];
+    final seenPeakOsmIds = <int>{};
     var ambiguousCount = 0;
     var skippedCount = 0;
     var nextSyntheticOsmId = _peakRepository.nextSyntheticOsmId(peaks);
@@ -99,6 +101,10 @@ class PeakListImportService {
       }
 
       final csvRow = parseResult.row!;
+      for (final warning in parseResult.warnings) {
+        warningEntries.add(warning);
+        logEntries.add(_timestampedLogEntry(csvPath, warning));
+      }
       final resolution = _resolveMatch(csvRow, peaks);
       if (resolution.match == null) {
         if (!resolution.hadSpatialCandidates) {
@@ -107,9 +113,11 @@ class PeakListImportService {
           );
           nextSyntheticOsmId = createdPeak.osmId - 1;
           peaks.add(createdPeak);
-          items.add(
-            PeakListItem(peakOsmId: createdPeak.osmId, points: csvRow.points),
-          );
+          if (seenPeakOsmIds.add(createdPeak.osmId)) {
+            items.add(
+              PeakListItem(peakOsmId: createdPeak.osmId, points: csvRow.points),
+            );
+          }
           continue;
         }
 
@@ -153,7 +161,9 @@ class PeakListImportService {
         logEntries.add(_timestampedLogEntry(csvPath, warning));
       }
 
-      items.add(PeakListItem(peakOsmId: peak.osmId, points: csvRow.points));
+      if (seenPeakOsmIds.add(peak.osmId)) {
+        items.add(PeakListItem(peakOsmId: peak.osmId, points: csvRow.points));
+      }
     }
 
     for (final correctedPeak in correctedPeaksByOsmId.values) {
@@ -231,25 +241,74 @@ class PeakListImportService {
             : '';
       }
 
-      final zone = data['Zone']!.trim().toUpperCase();
-      final mgrs = PeakMgrsConverter.fromCsvUtm(
-        zone: zone,
-        easting: data['Easting']!,
-        northing: data['Northing']!,
+      final warnings = <String>[];
+      final rawName = data['Name']!.trim();
+      final name = rawName.isEmpty ? 'Unknown' : rawName;
+      final rawPoints = data['Points']!.trim();
+      final points = _parsePointsValue(
+        rawPoints,
+        rowNumber: rowNumber,
+        name: name,
+        warnings: warnings,
       );
+      final rawHeight = _preferHeightValue(data).trim();
+      final height = _parseHeightValue(
+        rawHeight,
+        rowNumber: rowNumber,
+        name: name,
+        warnings: warnings,
+      );
+
+      final zone = data['Zone']!.trim().toUpperCase();
+      final eastingValue = data['Easting']!.trim();
+      final northingValue = data['Northing']!.trim();
+      final latitudeValue = data['Latitude']!.trim();
+      final longitudeValue = data['Longitude']!.trim();
+      final hasLatLng = latitudeValue.isNotEmpty && longitudeValue.isNotEmpty;
+      final hasUtm =
+          zone.isNotEmpty && eastingValue.isNotEmpty && northingValue.isNotEmpty;
+      if (!hasLatLng && !hasUtm) {
+        return _PeakListCsvRowParseResult(
+          error: 'Row $rowNumber: incomplete coordinate data for $name',
+          warnings: warnings,
+        );
+      }
+
+      final latitude = hasLatLng
+          ? double.parse(latitudeValue)
+          : PeakMgrsConverter.latLngFromCsvUtm(
+              zone: zone,
+              easting: eastingValue,
+              northing: northingValue,
+            ).latitude;
+      final longitude = hasLatLng
+          ? double.parse(longitudeValue)
+          : PeakMgrsConverter.latLngFromCsvUtm(
+              zone: zone,
+              easting: eastingValue,
+              northing: northingValue,
+            ).longitude;
+      final mgrs = hasUtm
+          ? PeakMgrsConverter.fromCsvUtm(
+              zone: zone,
+              easting: eastingValue,
+              northing: northingValue,
+            )
+          : PeakMgrsConverter.fromLatLng(LatLng(latitude, longitude));
       return _PeakListCsvRowParseResult(
         row: _PeakListCsvRow(
           rowNumber: rowNumber,
-          name: data['Name']!.trim(),
-          height: double.parse(_preferHeightValue(data)).round(),
-          zone: zone,
+          name: name,
+          height: height,
+          zone: mgrs.gridZoneDesignator,
           mgrs100kId: mgrs.mgrs100kId,
           easting: int.parse(mgrs.easting),
           northing: int.parse(mgrs.northing),
-          latitude: double.parse(data['Latitude']!.trim()),
-          longitude: double.parse(data['Longitude']!.trim()),
-          points: data['Points']!.trim(),
+          latitude: latitude,
+          longitude: longitude,
+          points: points,
         ),
+        warnings: warnings,
       );
     } catch (_) {
       return _PeakListCsvRowParseResult(
@@ -463,6 +522,39 @@ class PeakListImportService {
     return data['Height']?.trim() ?? data['Ht']?.trim() ?? '';
   }
 
+  int _parsePointsValue(
+    String rawPoints, {
+    required int rowNumber,
+    required String name,
+    required List<String> warnings,
+  }) {
+    if (rawPoints.isEmpty) {
+      return 0;
+    }
+
+    final parsed = int.tryParse(rawPoints);
+    if (parsed != null) {
+      return parsed;
+    }
+
+    warnings.add('Row $rowNumber: normalized invalid points for $name to 0');
+    return 0;
+  }
+
+  int _parseHeightValue(
+    String rawHeight, {
+    required int rowNumber,
+    required String name,
+    required List<String> warnings,
+  }) {
+    if (rawHeight.isEmpty) {
+      warnings.add('Row $rowNumber: missing height for $name defaulted to 0');
+      return 0;
+    }
+
+    return double.parse(rawHeight).round();
+  }
+
   String _normalizeName(String value) {
     var normalized = value.trim().toLowerCase();
     normalized = normalized.replaceAll(RegExp(r'\bmt\b'), 'mount');
@@ -559,14 +651,19 @@ class _PeakListCsvRow {
   final int northing;
   final double latitude;
   final double longitude;
-  final String points;
+  final int points;
 }
 
 class _PeakListCsvRowParseResult {
-  const _PeakListCsvRowParseResult({this.row, this.error});
+  const _PeakListCsvRowParseResult({
+    this.row,
+    this.error,
+    this.warnings = const [],
+  });
 
   final _PeakListCsvRow? row;
   final String? error;
+  final List<String> warnings;
 }
 
 class _PeakMatch {

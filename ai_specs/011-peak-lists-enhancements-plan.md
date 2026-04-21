@@ -30,15 +30,15 @@ Approach: layer-first; thin shell first; then import/model contract; then detail
 ### Phase 2: Import Contract
 
 - **Goal**: CSV/model contract; repair rules; persistence
-- [ ] `lib/models/peak_list.dart` - change `PeakListItem.points` `String -> int`; update encode/decode
-- [ ] `lib/services/peak_mgrs_converter.dart` - add direct raw-UTM-to-`LatLng` helper
-- [ ] `lib/services/peak_list_import_service.dart` - required headers incl `Ht` alias; blank/default handling; invalid `Points` warn/log -> `0`; partial-coordinate repair; dedupe by resolved `peakOsmId`; unsupported legacy policy; file-level failures throw
-- [ ] `test/services/peak_list_import_service_test.dart` - cover points int parsing/defaults, `Ht` alias, partial-coordinate repair, dedupe, file-level failures, warning/log behavior
-- [ ] TDD: parse valid row with one coordinate system missing -> derive other system -> persist normalized item
-- [ ] TDD: blank `Name`/`Points`/`Height` normalize to `Unknown`/`0`/`0`; invalid non-blank `Points` warns/logs and becomes `0`
-- [ ] TDD: duplicate resolved peaks keep first occurrence only
-- [ ] TDD: empty CSV/missing headers throw and hit failure path, not success dialog path
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/models/peak_list.dart` - change `PeakListItem.points` `String -> int`; update encode/decode
+- [x] `lib/services/peak_mgrs_converter.dart` - add direct raw-UTM-to-`LatLng` helper
+- [x] `lib/services/peak_list_import_service.dart` - required headers incl `Ht` alias; blank/default handling; invalid `Points` warn/log -> `0`; partial-coordinate repair; dedupe by resolved `peakOsmId`; unsupported legacy policy; file-level failures throw
+- [x] `test/services/peak_list_import_service_test.dart` - cover points int parsing/defaults, `Ht` alias, partial-coordinate repair, dedupe, file-level failures, warning/log behavior
+- [x] TDD: parse valid row with one coordinate system missing -> derive other system -> persist normalized item
+- [x] TDD: blank `Name`/`Points`/`Height` normalize to `Unknown`/`0`/`0`; invalid non-blank `Points` warns/logs and becomes `0`
+- [x] TDD: duplicate resolved peaks keep first occurrence only
+- [x] TDD: empty CSV/missing headers throw and hit failure path, not success dialog path
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Metrics And Map
 

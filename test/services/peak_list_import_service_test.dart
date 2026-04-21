@@ -50,7 +50,7 @@ void main() {
         expect(
           peakListRepository.getAllPeakLists().single.peakList,
           encodePeakListItems([
-            const PeakListItem(peakOsmId: 101, points: '3'),
+            const PeakListItem(peakOsmId: 101, points: 3),
           ]),
         );
       },
@@ -116,12 +116,12 @@ void main() {
       expect(createdPeak.osmId, lessThan(0));
       expect(createdPeak.name, 'Missing Peak');
       expect(createdPeak.sourceOfTruth, Peak.sourceOfTruthHwc);
-      expect(
-        peakListRepository.getAllPeakLists().single.peakList,
-        encodePeakListItems([
-          PeakListItem(peakOsmId: createdPeak.osmId, points: '1'),
-        ]),
-      );
+        expect(
+          peakListRepository.getAllPeakLists().single.peakList,
+          encodePeakListItems([
+            PeakListItem(peakOsmId: createdPeak.osmId, points: 1),
+          ]),
+        );
     });
 
     test(
@@ -383,7 +383,7 @@ void main() {
       expect(storedPeak?.sourceOfTruth, Peak.sourceOfTruthHwc);
       expect(
         peakListRepository.getAllPeakLists().single.peakList,
-        encodePeakListItems([const PeakListItem(peakOsmId: 101, points: '3')]),
+        encodePeakListItems([const PeakListItem(peakOsmId: 101, points: 3)]),
       );
     });
 
@@ -436,7 +436,7 @@ void main() {
         expect(
           peakListRepository.getAllPeakLists().single.peakList,
           encodePeakListItems([
-            const PeakListItem(peakOsmId: 201, points: '6'),
+            const PeakListItem(peakOsmId: 201, points: 6),
           ]),
         );
       },
@@ -509,8 +509,8 @@ void main() {
         expect(
           peakListRepository.getAllPeakLists().single.peakList,
           encodePeakListItems([
-            const PeakListItem(peakOsmId: 101, points: '3'),
-            PeakListItem(peakOsmId: createdPeak.osmId, points: '1'),
+            const PeakListItem(peakOsmId: 101, points: 3),
+            PeakListItem(peakOsmId: createdPeak.osmId, points: 1),
           ]),
         );
       },
@@ -571,11 +571,188 @@ void main() {
         expect(
           peakListRepository.getAllPeakLists().single.peakList,
           encodePeakListItems([
-            const PeakListItem(peakOsmId: 101, points: '6'),
+            const PeakListItem(peakOsmId: 101, points: 6),
           ]),
         );
       },
     );
+
+    test('Ht header alias is accepted', () async {
+      final peak = _buildPeak(
+        osmId: 101,
+        name: 'Mount Achilles',
+        elevation: 1363,
+        latitude: -41.85916,
+        longitude: 145.97754,
+      );
+      final coords = _csvCoordinatesFromPeak(peak);
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+      );
+      final service = PeakListImportService(
+        peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+        peakListRepository: peakListRepository,
+        csvLoader: (_) async =>
+            'Name,Ht,Zone,Easting,Northing,Latitude,Longitude,Points\nMount Achilles,1363,${peak.gridZoneDesignator},${coords.easting},${coords.northing},-41.85916,145.97754,3\n',
+        importRootLoader: () async => '/tmp/Bushwalking',
+        logWriter: (logPath, entries) async {},
+      );
+
+      final result = await service.importPeakList(
+        listName: 'Alias Import',
+        csvPath: '/tmp/alias.csv',
+      );
+
+      expect(result.importedCount, 1);
+      expect(result.warningEntries, isEmpty);
+    });
+
+    test('latlng-only row derives UTM fields', () async {
+      final peak = _buildPeak(
+        osmId: 101,
+        name: 'Mount Achilles',
+        elevation: 1363,
+        latitude: -41.85916,
+        longitude: 145.97754,
+      );
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+      );
+      final service = PeakListImportService(
+        peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+        peakListRepository: peakListRepository,
+        csvLoader: (_) async =>
+            'Name,Height,Zone,Easting,Northing,Latitude,Longitude,Points\nMount Achilles,1363,,,,-41.85916,145.97754,3\n',
+        importRootLoader: () async => '/tmp/Bushwalking',
+        logWriter: (logPath, entries) async {},
+      );
+
+      final result = await service.importPeakList(
+        listName: 'LatLng Only',
+        csvPath: '/tmp/latlng-only.csv',
+      );
+
+      expect(result.importedCount, 1);
+      expect(peakListRepository.getAllPeakLists().single.peakList, isNotEmpty);
+    });
+
+    test('utm-only row derives latlng fields', () async {
+      final peak = _buildPeak(
+        osmId: 101,
+        name: 'Mount Achilles',
+        elevation: 1363,
+        latitude: -41.85916,
+        longitude: 145.97754,
+      );
+      final coords = _csvCoordinatesFromPeak(peak);
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+      );
+      final service = PeakListImportService(
+        peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+        peakListRepository: peakListRepository,
+        csvLoader: (_) async =>
+            'Name,Height,Zone,Easting,Northing,Latitude,Longitude,Points\nMount Achilles,1363,${peak.gridZoneDesignator},${coords.easting},${coords.northing},,,3\n',
+        importRootLoader: () async => '/tmp/Bushwalking',
+        logWriter: (logPath, entries) async {},
+      );
+
+      final result = await service.importPeakList(
+        listName: 'UTM Only',
+        csvPath: '/tmp/utm-only.csv',
+      );
+
+      expect(result.importedCount, 1);
+      expect(result.warningEntries, isEmpty);
+    });
+
+    test('blank and invalid values normalize to defaults with warnings', () async {
+      final peak = _buildPeak(
+        osmId: 101,
+        name: 'Unknown',
+        elevation: 0,
+        latitude: -41.85916,
+        longitude: 145.97754,
+      );
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+      );
+      final service = PeakListImportService(
+        peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+        peakListRepository: peakListRepository,
+        csvLoader: (_) async =>
+            'Name,Height,Zone,Easting,Northing,Latitude,Longitude,Points\n,,,,,-41.85916,145.97754,abc\n',
+        importRootLoader: () async => '/tmp/Bushwalking',
+        logWriter: (logPath, entries) async {},
+        clock: () => DateTime.utc(2024, 1, 2, 3, 4, 5),
+      );
+
+      final result = await service.importPeakList(
+        listName: 'Defaults',
+        csvPath: '/tmp/defaults.csv',
+      );
+
+      expect(result.importedCount, 1);
+      expect(result.warningEntries, hasLength(2));
+      expect(result.warningEntries.first, contains('normalized invalid points'));
+      expect(result.warningEntries.last, contains('missing height'));
+      expect(
+        peakListRepository.getAllPeakLists().single.peakList,
+        encodePeakListItems([const PeakListItem(peakOsmId: 101, points: 0)]),
+      );
+    });
+
+    test('duplicate resolved peaks keep first occurrence only', () async {
+      final peak = _buildPeak(
+        osmId: 101,
+        name: 'Mount Achilles',
+        elevation: 1363,
+        latitude: -41.85916,
+        longitude: 145.97754,
+      );
+      final coords = _csvCoordinatesFromPeak(peak);
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+      );
+      final service = PeakListImportService(
+        peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+        peakListRepository: peakListRepository,
+        csvLoader: (_) async =>
+            'Name,Height,Zone,Easting,Northing,Latitude,Longitude,Points\nMount Achilles,1363,${peak.gridZoneDesignator},${coords.easting},${coords.northing},-41.85916,145.97754,3\nMount Achilles,1363,${peak.gridZoneDesignator},${coords.easting},${coords.northing},-41.85916,145.97754,6\n',
+        importRootLoader: () async => '/tmp/Bushwalking',
+        logWriter: (logPath, entries) async {},
+      );
+
+      final result = await service.importPeakList(
+        listName: 'Dedupe',
+        csvPath: '/tmp/dedupe.csv',
+      );
+
+      expect(result.importedCount, 1);
+      expect(
+        peakListRepository.getAllPeakLists().single.peakList,
+        encodePeakListItems([const PeakListItem(peakOsmId: 101, points: 3)]),
+      );
+    });
+
+    test('missing headers throw before row import succeeds', () async {
+      final service = PeakListImportService(
+        peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+        peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
+        csvLoader: (_) async =>
+            'Name,Height,Zone,Easting,Northing,Latitude,Longitude\nMissing Points,1000,55G,4 15 135,53 65 355,-41.0,145.0\n',
+        importRootLoader: () async => '/tmp/Bushwalking',
+        logWriter: (logPath, entries) async {},
+      );
+
+      await expectLater(
+        service.importPeakList(
+          listName: 'Missing Header',
+          csvPath: '/tmp/missing-header.csv',
+        ),
+        throwsFormatException,
+      );
+    });
   });
 }
 

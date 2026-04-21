@@ -27,7 +27,7 @@ class PeakListItem {
   const PeakListItem({required this.peakOsmId, required this.points});
 
   final int peakOsmId;
-  final String points;
+  final int points;
 
   Map<String, Object> toJson() {
     return {'peakOsmId': peakOsmId, 'points': points};
@@ -36,7 +36,7 @@ class PeakListItem {
   factory PeakListItem.fromJson(Map<String, dynamic> json) {
     return PeakListItem(
       peakOsmId: json['peakOsmId'] as int,
-      points: json['points'] as String,
+      points: json['points'] as int,
     );
   }
 }

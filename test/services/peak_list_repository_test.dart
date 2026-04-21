@@ -7,8 +7,8 @@ void main() {
     test('round-trips ordered peakList payload unchanged', () async {
       final repository = PeakListRepository.test(InMemoryPeakListStorage());
       final payload = encodePeakListItems([
-        const PeakListItem(peakOsmId: 11, points: '2'),
-        const PeakListItem(peakOsmId: 22, points: '10'),
+        const PeakListItem(peakOsmId: 11, points: 2),
+        const PeakListItem(peakOsmId: 22, points: 10),
       ]);
 
       await repository.save(PeakList(name: 'Abels', peakList: payload));
@@ -21,14 +21,14 @@ void main() {
         decodePeakListItems(
           stored.peakList,
         ).map((item) => (item.peakOsmId, item.points)).toList(),
-        [(11, '2'), (22, '10')],
+        [(11, 2), (22, 10)],
       );
     });
 
     test('duplicate-name update preserves existing data on failure', () async {
       final repository = PeakListRepository.test(InMemoryPeakListStorage());
       final originalPayload = encodePeakListItems([
-        const PeakListItem(peakOsmId: 11, points: '2'),
+        const PeakListItem(peakOsmId: 11, points: 2),
       ]);
 
       final saved = await repository.save(
@@ -40,7 +40,7 @@ void main() {
           PeakList(
             name: 'Abels',
             peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 22, points: '10'),
+              const PeakListItem(peakOsmId: 22, points: 10),
             ]),
           ),
           beforePutForTest: () {

@@ -50,6 +50,28 @@ class PeakMgrsConverter {
     return fromForwardString(mgrs.Mgrs.encode(utm, 5));
   }
 
+  static LatLng latLngFromCsvUtm({
+    required String zone,
+    required String easting,
+    required String northing,
+  }) {
+    final zoneMatch = RegExp(
+      r'^(\d{1,2})([A-Z])$',
+    ).firstMatch(zone.trim().toUpperCase());
+    if (zoneMatch == null) {
+      throw FormatException('Invalid UTM zone value');
+    }
+
+    final utm = mgrs.UTM(
+      easting: _parseUtmComponent(easting).toDouble(),
+      northing: _parseUtmComponent(northing).toDouble(),
+      zoneLetter: zoneMatch.group(2)!,
+      zoneNumber: int.parse(zoneMatch.group(1)!),
+    );
+    final coords = mgrs.Mgrs.toPoint(mgrs.Mgrs.encode(utm, 5));
+    return LatLng(coords[1], coords[0]);
+  }
+
   static PeakMgrsComponents fromForwardString(String forward) {
     final cleaned = forward.replaceAll(RegExp(r'[\s\n]'), '');
     final match = RegExp(
