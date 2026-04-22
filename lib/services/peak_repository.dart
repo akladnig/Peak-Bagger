@@ -1,9 +1,13 @@
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peak_list.dart';
+import 'package:peak_bagger/models/peaks_bagged.dart';
 
 import '../objectbox.g.dart';
 
 abstract class PeakStorage {
   int get count;
+
+  Peak? getById(int peakId);
 
   List<Peak> getAll();
 
@@ -13,7 +17,9 @@ abstract class PeakStorage {
 
   Future<void> addMany(List<Peak> peaks);
 
-  Future<Peak> put(Peak peak);
+  Peak put(Peak peak);
+
+  Future<void> delete(int peakId);
 
   Future<void> replaceAll(
     List<Peak> peaks, {
@@ -21,6 +27,111 @@ abstract class PeakStorage {
   });
 
   Future<void> clearAll();
+}
+
+class PeakListRewriteResult {
+  const PeakListRewriteResult({
+    required this.rewrittenCount,
+    required this.skippedMalformedCount,
+  });
+
+  final int rewrittenCount;
+  final int skippedMalformedCount;
+
+  String? get warningMessage {
+    return switch (skippedMalformedCount) {
+      0 => null,
+      1 => '1 PeakList has been skipped as it\'s malformed.',
+      _ => '$skippedMalformedCount PeakLists have been skipped as they\'re malformed.',
+    };
+  }
+}
+
+class PeakSaveResult {
+  const PeakSaveResult({
+    required this.peak,
+    this.peakListRewriteResult,
+  });
+
+  final Peak peak;
+  final PeakListRewriteResult? peakListRewriteResult;
+
+  String? get warningMessage => peakListRewriteResult?.warningMessage;
+}
+
+abstract class PeakListRewritePort {
+  PeakListRewriteResult rewriteOsmIdReferences({
+    required int oldOsmId,
+    required int newOsmId,
+  });
+}
+
+class ObjectBoxPeakListRewritePort implements PeakListRewritePort {
+  ObjectBoxPeakListRewritePort(Store store)
+    : _peakListBox = store.box<PeakList>(),
+      _peaksBaggedBox = store.box<PeaksBagged>();
+
+  final Box<PeakList> _peakListBox;
+  final Box<PeaksBagged> _peaksBaggedBox;
+
+  @override
+  PeakListRewriteResult rewriteOsmIdReferences({
+    required int oldOsmId,
+    required int newOsmId,
+  }) {
+    var rewrittenCount = 0;
+    var skippedMalformedCount = 0;
+
+    final peakLists = _peakListBox.getAll().toList(growable: false)
+      ..sort((a, b) {
+        final nameCompare = a.name.compareTo(b.name);
+        return nameCompare != 0 ? nameCompare : a.peakListId.compareTo(b.peakListId);
+      });
+
+    for (final peakList in peakLists) {
+      try {
+        final items = decodePeakListItems(peakList.peakList);
+        var changed = false;
+        final updatedItems = <PeakListItem>[];
+        for (final item in items) {
+          if (item.peakOsmId == oldOsmId) {
+            updatedItems.add(PeakListItem(peakOsmId: newOsmId, points: item.points));
+            changed = true;
+          } else {
+            updatedItems.add(item);
+          }
+        }
+
+        if (changed) {
+          rewrittenCount += 1;
+          peakList.peakList = encodePeakListItems(updatedItems);
+          _peakListBox.put(peakList);
+        }
+      } catch (_) {
+        skippedMalformedCount += 1;
+      }
+    }
+
+    final baggedRows = _peaksBaggedBox.getAll().toList(growable: false);
+    var baggedChanged = false;
+    for (final row in baggedRows) {
+      if (row.peakId != oldOsmId) {
+        continue;
+      }
+      row.peakId = newOsmId;
+      baggedChanged = true;
+    }
+    if (baggedChanged) {
+      _peaksBaggedBox.putMany(
+        baggedRows.where((row) => row.peakId == newOsmId).toList(growable: false),
+      );
+    }
+
+    return PeakListRewriteResult(
+      rewrittenCount: rewrittenCount,
+      skippedMalformedCount: skippedMalformedCount,
+    );
+  }
 }
 
 class ObjectBoxPeakStorage implements PeakStorage {
@@ -31,6 +142,9 @@ class ObjectBoxPeakStorage implements PeakStorage {
 
   @override
   int get count => _peakBox.count();
+
+  @override
+  Peak? getById(int peakId) => _peakBox.get(peakId);
 
   @override
   List<Peak> getAll() => _peakBox.getAll();
@@ -54,10 +168,15 @@ class ObjectBoxPeakStorage implements PeakStorage {
   }
 
   @override
-  Future<Peak> put(Peak peak) async {
+  Peak put(Peak peak) {
     final id = _peakBox.put(peak);
     peak.id = id;
     return peak;
+  }
+
+  @override
+  Future<void> delete(int peakId) async {
+    _peakBox.remove(peakId);
   }
 
   @override
@@ -95,6 +214,17 @@ class InMemoryPeakStorage implements PeakStorage {
   int get count => _peaks.length;
 
   @override
+  Peak? getById(int peakId) {
+    for (final peak in _peaks) {
+      if (peak.id == peakId) {
+        return peak;
+      }
+    }
+
+    return null;
+  }
+
+  @override
   List<Peak> getAll() => List<Peak>.unmodifiable(_peaks);
 
   @override
@@ -114,7 +244,7 @@ class InMemoryPeakStorage implements PeakStorage {
   }
 
   @override
-  Future<Peak> put(Peak peak) async {
+  Peak put(Peak peak) {
     final index = _peaks.indexWhere(
       (existing) =>
           (peak.id != 0 && existing.id == peak.id) ||
@@ -131,6 +261,13 @@ class InMemoryPeakStorage implements PeakStorage {
     nextPeaks[index] = peak;
     _peaks = nextPeaks;
     return peak;
+  }
+
+  @override
+  Future<void> delete(int peakId) async {
+    _peaks = _peaks
+        .where((peak) => peak.id != peakId)
+        .toList(growable: false);
   }
 
   @override
@@ -156,11 +293,23 @@ class InMemoryPeakStorage implements PeakStorage {
 }
 
 class PeakRepository {
-  PeakRepository(Store store) : _storage = ObjectBoxPeakStorage(store);
+  PeakRepository(
+    Store store, {
+    required PeakListRewritePort peakListRewritePort,
+  }) : _storage = ObjectBoxPeakStorage(store),
+      _store = store,
+      _peakListRewritePort = peakListRewritePort;
 
-  PeakRepository.test(PeakStorage storage) : _storage = storage;
+  PeakRepository.test(
+    PeakStorage storage, {
+    PeakListRewritePort? peakListRewritePort,
+  }) : _storage = storage,
+      _store = null,
+      _peakListRewritePort = peakListRewritePort ?? _NoopPeakListRewritePort();
 
   final PeakStorage _storage;
+  final Store? _store;
+  final PeakListRewritePort _peakListRewritePort;
 
   int get peakCount => _storage.count;
 
@@ -196,6 +345,10 @@ class PeakRepository {
     return null;
   }
 
+  Peak? findById(int peakId) {
+    return _storage.getById(peakId);
+  }
+
   int nextSyntheticOsmId([Iterable<Peak>? peaks]) {
     final source = peaks ?? _storage.getAll();
     var nextSyntheticOsmId = -1;
@@ -212,7 +365,41 @@ class PeakRepository {
   }
 
   Future<Peak> save(Peak peak) async {
-    return _storage.put(peak);
+    return (await saveDetailed(peak)).peak;
+  }
+
+  Future<PeakSaveResult> saveDetailed(Peak peak) async {
+    final previous = peak.id != 0 ? _storage.getById(peak.id) : findByOsmId(peak.osmId);
+    Peak savedPeak = peak;
+    PeakListRewriteResult? rewriteResult;
+    final store = _store;
+
+    if (store == null) {
+      savedPeak = _storage.put(peak);
+      if (previous != null && previous.osmId != savedPeak.osmId) {
+        rewriteResult = _peakListRewritePort.rewriteOsmIdReferences(
+          oldOsmId: previous.osmId,
+          newOsmId: savedPeak.osmId,
+        );
+      }
+      return PeakSaveResult(peak: savedPeak, peakListRewriteResult: rewriteResult);
+    }
+
+    store.runInTransaction(TxMode.write, () {
+      savedPeak = _storage.put(peak);
+      if (previous != null && previous.osmId != savedPeak.osmId) {
+        rewriteResult = _peakListRewritePort.rewriteOsmIdReferences(
+          oldOsmId: previous.osmId,
+          newOsmId: savedPeak.osmId,
+        );
+      }
+    });
+
+    return PeakSaveResult(peak: savedPeak, peakListRewriteResult: rewriteResult);
+  }
+
+  Future<void> delete(int peakId) async {
+    await _storage.delete(peakId);
   }
 
   Future<void> replaceAll(
@@ -260,5 +447,18 @@ class PeakRepository {
 
   bool isEmpty() {
     return _storage.isEmpty;
+  }
+}
+
+class _NoopPeakListRewritePort implements PeakListRewritePort {
+  @override
+  PeakListRewriteResult rewriteOsmIdReferences({
+    required int oldOsmId,
+    required int newOsmId,
+  }) {
+    return const PeakListRewriteResult(
+      rewrittenCount: 0,
+      skippedMalformedCount: 0,
+    );
   }
 }

@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peak_list.dart';
+import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 
 void main() {
@@ -9,7 +11,10 @@ void main() {
 
     setUp(() {
       storage = InMemoryPeakStorage();
-      repository = PeakRepository.test(storage);
+      repository = PeakRepository.test(
+        storage,
+        peakListRewritePort: _NoopPeakListRewritePort(),
+      );
     });
 
     test('replaceAll swaps stored peaks', () async {
@@ -115,5 +120,142 @@ void main() {
       expect(peak?.northing, '20123');
       expect(peak?.sourceOfTruth, Peak.sourceOfTruthHwc);
     });
+
+    test('delete removes the targeted peak', () async {
+      await repository.addPeaks([
+        Peak(id: 7, osmId: 123, name: 'Cradle', latitude: -41, longitude: 146),
+        Peak(id: 8, osmId: 456, name: 'Ossa', latitude: -42, longitude: 147),
+      ]);
+
+      await repository.delete(7);
+
+      expect(repository.findById(7), isNull);
+      expect(repository.findById(8)?.name, 'Ossa');
+    });
+
+    test('saveDetailed rewrites dependent PeakList and PeaksBagged rows', () async {
+      final peakLists = [
+        PeakList(
+          name: 'Abels',
+          peakList: encodePeakListItems([
+            const PeakListItem(peakOsmId: 123, points: 2),
+            const PeakListItem(peakOsmId: 999, points: 4),
+          ]),
+        ),
+        PeakList(name: 'Broken', peakList: '{not json'),
+      ];
+      final peaksBagged = [
+        PeaksBagged(baggedId: 1, peakId: 123, gpxId: 7),
+        PeaksBagged(baggedId: 2, peakId: 999, gpxId: 8),
+      ];
+      final rewritePort = _RecordingPeakListRewritePort(
+        peakLists: peakLists,
+        peaksBagged: peaksBagged,
+      );
+      final detailedRepository = PeakRepository.test(
+        InMemoryPeakStorage([
+          Peak(
+            id: 7,
+            osmId: 123,
+            name: 'Cradle',
+            latitude: -41,
+            longitude: 146,
+          ),
+        ]),
+        peakListRewritePort: rewritePort,
+      );
+
+      final result = await detailedRepository.saveDetailed(
+        Peak(
+          id: 7,
+          osmId: 456,
+          name: 'Cradle',
+          latitude: -41.2,
+          longitude: 146.3,
+        ),
+      );
+
+      expect(result.peak.osmId, 456);
+      expect(result.peak.latitude, -41.2);
+      expect(result.peakListRewriteResult?.rewrittenCount, 1);
+      expect(result.peakListRewriteResult?.skippedMalformedCount, 1);
+      expect(
+        result.peakListRewriteResult?.warningMessage,
+        "1 PeakList has been skipped as it's malformed.",
+      );
+      expect(
+        decodePeakListItems(peakLists.first.peakList)
+            .map((item) => item.peakOsmId)
+            .toList(),
+        [456, 999],
+      );
+      expect(peaksBagged.first.peakId, 456);
+      expect(peaksBagged.last.peakId, 999);
+    });
   });
+}
+
+class _NoopPeakListRewritePort implements PeakListRewritePort {
+  @override
+  PeakListRewriteResult rewriteOsmIdReferences({
+    required int oldOsmId,
+    required int newOsmId,
+  }) {
+    return const PeakListRewriteResult(
+      rewrittenCount: 0,
+      skippedMalformedCount: 0,
+    );
+  }
+}
+
+class _RecordingPeakListRewritePort implements PeakListRewritePort {
+  _RecordingPeakListRewritePort({
+    required this.peakLists,
+    required this.peaksBagged,
+  });
+
+  final List<PeakList> peakLists;
+  final List<PeaksBagged> peaksBagged;
+
+  @override
+  PeakListRewriteResult rewriteOsmIdReferences({
+    required int oldOsmId,
+    required int newOsmId,
+  }) {
+    var rewrittenCount = 0;
+    var skippedMalformedCount = 0;
+
+    for (final peakList in peakLists) {
+      try {
+        final items = decodePeakListItems(peakList.peakList);
+        var changed = false;
+        final updatedItems = <PeakListItem>[];
+        for (final item in items) {
+          if (item.peakOsmId == oldOsmId) {
+            updatedItems.add(PeakListItem(peakOsmId: newOsmId, points: item.points));
+            changed = true;
+          } else {
+            updatedItems.add(item);
+          }
+        }
+        if (changed) {
+          rewrittenCount += 1;
+          peakList.peakList = encodePeakListItems(updatedItems);
+        }
+      } catch (_) {
+        skippedMalformedCount += 1;
+      }
+    }
+
+    for (final row in peaksBagged) {
+      if (row.peakId == oldOsmId) {
+        row.peakId = newOsmId;
+      }
+    }
+
+    return PeakListRewriteResult(
+      rewrittenCount: rewrittenCount,
+      skippedMalformedCount: skippedMalformedCount,
+    );
+  }
 }
