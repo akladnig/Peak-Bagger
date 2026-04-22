@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -65,10 +67,13 @@ class PeakListsScreen extends ConsumerStatefulWidget {
 }
 
 class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
-  static const _wideBreakpoint = 900.0;
   static const _dividerWidth = 12.0;
-  static const _minPaneWidth = 280.0;
-  double _summaryFraction = 0.4;
+  static const _detailsDividerWidth = 1.0;
+  static const _detailsHorizontalPadding = 32.0;
+  static const _outerMinSummaryWidth = 280.0;
+  static const _outerMinDetailsWidth = 600.0;
+  static const _innerMinTableWidth = 240.0;
+  static const _innerMinMiniMapWidth = 360.0;
   int? _selectedPeakListId;
   _PeakListSortColumn _sortColumn = _PeakListSortColumn.percentage;
   bool _sortAscending = false;
@@ -104,7 +109,18 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
     return Scaffold(
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final isWide = constraints.maxWidth >= _wideBreakpoint;
+          final availableOuterWidth = math.max(
+            0.0,
+            constraints.maxWidth - _dividerWidth,
+          );
+          final summaryWidth = _resolveOuterSummaryWidth(availableOuterWidth);
+          final detailsWidth = math.max(0.0, availableOuterWidth - summaryWidth);
+          final availableInnerWidth = math.max(
+            0.0,
+            detailsWidth - _detailsHorizontalPadding - _detailsDividerWidth,
+          );
+          final tableWidth = _resolveDetailsTableWidth(availableInnerWidth);
+          final miniMapWidth = math.max(0.0, availableInnerWidth - tableWidth);
           final summaryPane = _SummaryPane(
             rows: sortedSummaryRows,
             selectedPeakListId: selectedSummaryRow?.peakList.peakListId,
@@ -122,39 +138,9 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
           );
           final detailsPane = _DetailsPane(
             selectedSummaryRow: selectedSummaryRow,
+            tableWidth: tableWidth,
+            miniMapWidth: miniMapWidth,
           );
-
-          if (!isWide) {
-            return Column(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    key: const Key('peak-lists-summary-pane'),
-                    width: double.infinity,
-                    child: summaryPane,
-                  ),
-                ),
-                const Divider(height: 1),
-                Expanded(
-                  child: SizedBox(
-                    key: const Key('peak-lists-details-pane'),
-                    width: double.infinity,
-                    child: detailsPane,
-                  ),
-                ),
-              ],
-            );
-          }
-
-          final availableWidth = constraints.maxWidth - _dividerWidth;
-          final minFraction = (_minPaneWidth / availableWidth).clamp(0.0, 0.5);
-          final maxFraction = 1 - minFraction;
-          final clampedFraction = _summaryFraction.clamp(
-            minFraction,
-            maxFraction,
-          );
-          final summaryWidth = availableWidth * clampedFraction;
-          final detailsWidth = availableWidth - summaryWidth;
 
           return Row(
             children: [
@@ -163,27 +149,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
                 width: summaryWidth,
                 child: summaryPane,
               ),
-              MouseRegion(
-                cursor: SystemMouseCursors.resizeLeftRight,
-                child: GestureDetector(
-                  key: const Key('peak-lists-divider'),
-                  behavior: HitTestBehavior.opaque,
-                  onHorizontalDragUpdate: (details) {
-                    final nextFraction =
-                        (summaryWidth + details.delta.dx) / availableWidth;
-                    setState(() {
-                      _summaryFraction = nextFraction.clamp(
-                        minFraction,
-                        maxFraction,
-                      );
-                    });
-                  },
-                  child: const SizedBox(
-                    width: _dividerWidth,
-                    child: VerticalDivider(width: _dividerWidth),
-                  ),
-                ),
-              ),
+              const VerticalDivider(width: _dividerWidth),
               SizedBox(
                 key: const Key('peak-lists-details-pane'),
                 width: detailsWidth,
@@ -230,6 +196,36 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
         icon: const Icon(Icons.upload_file),
       ),
     );
+  }
+
+  double _resolveOuterSummaryWidth(double availableWidth) {
+    final idealWidth = availableWidth * 0.4;
+    final maxWidth = availableWidth - _outerMinDetailsWidth;
+    if (maxWidth < _outerMinSummaryWidth) {
+      return idealWidth;
+    }
+    if (idealWidth < _outerMinSummaryWidth) {
+      return _outerMinSummaryWidth;
+    }
+    if (idealWidth > maxWidth) {
+      return maxWidth;
+    }
+    return idealWidth;
+  }
+
+  double _resolveDetailsTableWidth(double availableWidth) {
+    final idealWidth = availableWidth * 0.3;
+    final maxWidth = availableWidth - _innerMinMiniMapWidth;
+    if (maxWidth < _innerMinTableWidth) {
+      return idealWidth;
+    }
+    if (idealWidth < _innerMinTableWidth) {
+      return _innerMinTableWidth;
+    }
+    if (idealWidth > maxWidth) {
+      return maxWidth;
+    }
+    return idealWidth;
   }
 
   void _handleSortSelected(_PeakListSortColumn column) {
@@ -420,6 +416,7 @@ class _SummaryPane extends StatelessWidget {
                               flex: 3,
                               child: Text(
                                 row.peakList.name,
+                                softWrap: true,
                                 style: peakListId == selectedPeakListId
                                     ? const TextStyle(
                                         fontWeight: FontWeight.w600,
@@ -592,9 +589,15 @@ class _SortHeaderCell extends StatelessWidget {
 }
 
 class _DetailsPane extends StatelessWidget {
-  const _DetailsPane({required this.selectedSummaryRow});
+  const _DetailsPane({
+    required this.selectedSummaryRow,
+    required this.tableWidth,
+    required this.miniMapWidth,
+  });
 
   final _PeakListSummaryRow? selectedSummaryRow;
+  final double tableWidth;
+  final double miniMapWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -621,34 +624,20 @@ class _DetailsPane extends StatelessWidget {
             const SizedBox(height: 12),
           ],
           Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final stackDetails = constraints.maxWidth < 720;
-                final peakTable = _PeakDetailsTable(
-                  selectedSummaryRow: selectedSummaryRow,
-                );
-                final miniMap = _MiniPeakMap(
-                  selectedSummaryRow: selectedSummaryRow,
-                );
-
-                if (stackDetails) {
-                  return Column(
-                    children: [
-                      Expanded(child: peakTable),
-                      const Divider(height: 1),
-                      Expanded(child: miniMap),
-                    ],
-                  );
-                }
-
-                return Row(
-                  children: [
-                    Expanded(flex: 3, child: peakTable),
-                    const VerticalDivider(width: 1),
-                    Expanded(flex: 7, child: miniMap),
-                  ],
-                );
-              },
+            child: Row(
+              children: [
+                SizedBox(
+                  width: tableWidth,
+                  child: _PeakDetailsTable(
+                    selectedSummaryRow: selectedSummaryRow,
+                  ),
+                ),
+                const VerticalDivider(width: 1),
+                SizedBox(
+                  width: miniMapWidth,
+                  child: _MiniPeakMap(selectedSummaryRow: selectedSummaryRow),
+                ),
+              ],
             ),
           ),
         ],
@@ -697,9 +686,13 @@ class _PeakDetailsTable extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Row(
                   children: [
-                    Expanded(flex: 3, child: Text(row.name)),
-                    Expanded(child: Text(row.elevationLabel)),
-                    Expanded(child: Text(row.ascentDateLabel)),
+                    Expanded(flex: 3, child: Text(row.name, softWrap: true)),
+                    Expanded(
+                      child: Text(row.elevationLabel, softWrap: true),
+                    ),
+                    Expanded(
+                      child: Text(row.ascentDateLabel, softWrap: true),
+                    ),
                   ],
                 ),
               ),

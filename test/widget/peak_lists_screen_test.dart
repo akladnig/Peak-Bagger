@@ -162,10 +162,13 @@ void main() {
       expect(find.byKey(const Key('peak-lists-delete-1')), findsOneWidget);
       expect(find.byKey(const Key('peak-lists-total-1')), findsOneWidget);
       expect(find.text('-'), findsNWidgets(4));
-      expect(find.textContaining('unsupported legacy format'), findsWidgets);
+      final unsupportedMessage = find.byKey(
+        const Key('peak-lists-unsupported-message'),
+      );
+      expect(unsupportedMessage, findsOneWidget);
       expect(
-        find.textContaining('Delete it and re-import the CSV'),
-        findsOneWidget,
+        tester.widget<Text>(unsupportedMessage).data,
+        contains('Delete it and re-import the CSV'),
       );
     },
   );
@@ -271,25 +274,68 @@ void main() {
     );
   });
 
-  testWidgets('narrow layout stacks panes vertically', (tester) async {
-    tester.view.physicalSize = const Size(600, 1200);
+  testWidgets('supported floor render stays desktop-only and wraps rows', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1024, 1200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await _pumpPeakListsApp(
-      tester,
-      filePicker: TestPeakListFilePicker(),
-      repository: PeakListRepository.test(InMemoryPeakListStorage()),
+    final repository = PeakListRepository.test(
+      InMemoryPeakListStorage([
+        _buildPeakList(
+          1,
+          'This is a very long peak list name that should wrap on the summary pane',
+          [101],
+        ),
+      ]),
+    );
+    final peakRepository = PeakRepository.test(
+      InMemoryPeakStorage([
+        _buildPeak(
+          101,
+          'This is a very long peak name that should wrap on the details pane',
+          -42.0,
+          146.0,
+        ),
+      ]),
+    );
+    final peaksBaggedRepository = PeaksBaggedRepository.test(
+      InMemoryPeaksBaggedStorage([
+        PeaksBagged(
+          baggedId: 1,
+          peakId: 101,
+          gpxId: 10,
+          date: DateTime.utc(2024, 1, 12),
+        ),
+      ]),
     );
 
-    final summaryTopLeft = tester.getTopLeft(
-      find.byKey(const Key('peak-lists-summary-pane')),
+    await _pumpPeakListsScreen(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: repository,
+      peakRepository: peakRepository,
+      peaksBaggedRepository: peaksBaggedRepository,
     );
-    final detailsTopLeft = tester.getTopLeft(
-      find.byKey(const Key('peak-lists-details-pane')),
+
+    expect(find.byKey(const Key('peak-lists-summary-pane')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-details-pane')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-mini-map')), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.byKey(const Key('peak-lists-selected-title'))).data,
+      'This is a very long peak list name that should wrap on the summary pane',
     );
-    expect(detailsTopLeft.dy, greaterThan(summaryTopLeft.dy));
+    expect(
+      tester.getSize(find.byKey(const Key('peak-lists-row-1'))).height,
+      greaterThan(48),
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('peak-lists-details-row-101')))
+          .height,
+      greaterThan(48),
+    );
   });
 
   testWidgets('import completion selects returned list identity', (
@@ -675,6 +721,48 @@ Future<void> _pumpPeakListsApp(
   await tester.pump();
 
   router.go('/peaks');
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 100));
+}
+
+Future<void> _pumpPeakListsScreen(
+  WidgetTester tester, {
+  required PeakListFilePicker filePicker,
+  required PeakListRepository repository,
+  PeakRepository? peakRepository,
+  PeaksBaggedRepository? peaksBaggedRepository,
+  PeakListImportRunner? importRunner,
+  PeakListDuplicateNameChecker? duplicateNameChecker,
+}) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        peakListRepositoryProvider.overrideWithValue(repository),
+        peakRepositoryProvider.overrideWithValue(
+          peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
+        ),
+        peaksBaggedRepositoryProvider.overrideWithValue(
+          peaksBaggedRepository ??
+              PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
+        ),
+        peakListFilePickerProvider.overrideWithValue(filePicker),
+        peakListImportRunnerProvider.overrideWithValue(
+          importRunner ??
+              ({required String listName, required String csvPath}) async {
+                return const PeakListImportPresentationResult(
+                  updated: false,
+                  importedCount: 1,
+                  skippedCount: 0,
+                );
+              },
+        ),
+        peakListDuplicateNameCheckerProvider.overrideWithValue(
+          duplicateNameChecker ?? ((name) async => false),
+        ),
+      ],
+      child: const MaterialApp(home: PeakListsScreen()),
+    ),
+  );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
 }
