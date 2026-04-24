@@ -50,8 +50,9 @@ Error flows:
 2. Create a new GPX file picker class mirroring `PeakListFilePicker` pattern but for `.gpx` files
 3. Allow selection of multiple GPX files in a single picker session
 4. Default the file picker to ~/Documents/Bushwalking/Tracks
-5. Show an import confirmation dialog for each selected GPX file allowing the user to edit the track name (prefilled from GPX metadata or filename)
-6. The date field must be displayed but read-only: GPX metadata track date takes precedence; if missing, use file modification time
+5. Show an import list dialog allowing the user to edit the track name for each selected file
+   - NOTE: Do NOT show a date field at all (date is derived internally, user doesn't need to see it)
+   - Use GpxImporter._extractStartDateTime() for GPX date, fall back to modification time, apply _normalizeTrackDate() to get midnight
 7. Import selected GPX files as new tracks using the renamed track name
 8. Existing tracks must NOT be deleted; the import is additive only
 9. Use existing contentHash deduplication: skip files that already exist with the same contentHash and count as unchanged
@@ -125,14 +126,14 @@ Limits:
 3. Create @lib/widgets/gpx_track_import_dialog.dart - mirror peak_list_import_dialog.dart for multi-file list-based UX
    - Accept GpxFilePicker (allowMultiple: true)
    - Show all selected files in a scrollable list with editable name field for each
-   - Date field read-only with lock icon per file
+   - NOTE: No date field - date is derived internally
    - Add loading state UX: show circular progress, disable buttons during import
    - Match existing dialog patterns for keys, state, and error handling
    - Reuse presentation result class GpxTrackImportResult (rename PeakListImportPresentationResult pattern)
 
 4. Update @lib/widgets/map_action_rail.dart
    - Replace current `rescanTracks()` call with dialog-based import flow
-   - Pass loading state from MapNotifier to dialog
+   - Use dialog-local state (setState), not provider state for dialog loading
 
 5. Update @lib/providers/map_provider.dart
    - Add new method `importGpxFile()` to MapNotifier that returns GpxTrackImportResult:
@@ -143,11 +144,20 @@ Limits:
      })
      ```
    - This method:
-     - Parses the GPX file using GpxImporter logic (same as folder import)
-     - Checks contentHash via GpxTrackRepository.findByContentHash()
-     - Reuses existing contentHash deduplication
-     - Creates new track record with overrideName if provided
-     - AFTER inserting track, calls _applyPeakCorrelation() for the new track (REQUIRED)
+     - First: compute contentHash for the GPX file
+     - Check contentHash via GpxTrackRepository.findByContentHash()
+       - If contentHash matches existing: skip, return unchangedCount=1, show dialog "This track has already been imported"
+       - If not found: proceed to create new track
+     - Parse and create new track record using GpxImporter.parseGpxFile() logic
+     - Assign new gpxTrackId using next available ID from repository (auto-increment)
+     - AFTER inserting track, initialize TrackPeakCorrelationService and call _applyPeakCorrelation():
+       ```
+       final thresholdMeters = await _peakCorrelationThresholdMeters();
+       final correlationService = TrackPeakCorrelationService(
+         peaks: _peakRepository.getAllPeaks(),
+         thresholdMeters: thresholdMeters,
+       );
+       ```
      - Updates track list state
      - Sets showTracks = true so new tracks are immediately visible
      - Returns GpxTrackImportResult with addedCount, unchangedCount, errorCount
