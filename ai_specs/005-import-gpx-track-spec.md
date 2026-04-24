@@ -1,0 +1,215 @@
+<goal>
+Add a GPX file picker dialog to the import track FAB on the map screen. When tapped, users can select one or more GPX files from the default track folder and import them as new tracks without deleting existing data.
+
+Who: Users wanting to add individual GPX tracks from specific files without triggering a full folder rescan
+Why: Provides fine-grained control over which tracks get imported, supporting selective track addition workflows
+</goal>
+
+<background>
+Flutter app with Riverpod, flutter_map, ObjectBox, and existing GPX track functionality. The import track FAB currently triggers a folder rescan via `rescanTracks()` in MapNotifier.
+
+The UI pattern comes from `peak_list_import_dialog.dart` which uses `PeakListFilePicker` for CSV file selection. A parallel picker needs to be created for GPX files.
+
+Files to examine:
+- @lib/widgets/peak_list_import_dialog.dart - UI pattern for import dialog
+- @lib/widgets/map_action_rail.dart - current import FAB at line 256-283
+- @lib/providers/map_provider.dart - track state management (lines 471-600)
+- @lib/services/gpx_importer.dart - track import logic
+- @lib/models/gpx_track.dart - GPX track entity
+- @lib/services/peak_list_file_picker.dart - existing file picker to mirror
+- @test/widget/peak_lists_screen_test.dart - existing import dialog tests
+</background>
+
+<user_flows>
+Primary flow:
+1. User taps the import track FAB on the map screen
+2. A GPX file picker dialog opens, showing ~/Documents/Bushwalking/Tracks as the default folder
+3. User selects one or more GPX files from the file picker (or cancels)
+4. If files selected, a confirmation dialog shows for each file allowing the user to rename the track name (but not the date)
+5. On confirmation, the selected GPX files are imported as new tracks
+6. Existing tracks remain unchanged; no tracks are deleted
+7. Success message shows the number of tracks added
+
+Alternative flows:
+- User taps Cancel or outside the dialog: dialog closes, no action taken
+- User selects a single GPX file: single-file import flow with one confirmation step
+- User selects multiple GPX files: batch import flow with rename options for each
+- User selects a file that already exists (same contentHash): skip and count as unchanged
+- User selects a file that has the same track name + date but different content: add as a new track (duplicates allowed)
+
+Error flows:
+- File picker fails (permission denied): show error dialog, close gracefully
+- Invalid GPX file selected: skip the file, show error in summary, continue with other files
+- No GPX files found in selection: show "No valid GPX files selected" message
+</user_flows>
+
+<requirements>
+**Functional:**
+1. Replace the current import FAB tap action (which calls `rescanTracks()`) with a file picker dialog
+2. Create a new GPX file picker class mirroring `PeakListFilePicker` pattern but for `.gpx` files
+3. Allow selection of multiple GPX files in a single picker session
+4. Default the file picker to ~/Documents/Bushwalking/Tracks
+5. Show an import confirmation dialog for each selected GPX file allowing the user to edit the track name (prefilled from GPX metadata or filename)
+6. The date field must be displayed but read-only (derived from GPX metadata or file modification time)
+7. Import selected GPX files as new tracks using the renamed track name
+8. Existing tracks must NOT be deleted; the import is additive only
+9. Use existing contentHash deduplication: skip files that already exist with the same contentHash and count as unchanged
+10. Allow duplicate track names in the database (existing behavior)
+11. Show a success summary after import: X tracks added, Y unchanged (skipped), Z errors
+12. On success, refresh the track display if tracks are currently shown
+
+**Error Handling:**
+13. File picker permission failure: show error dialog with dismiss action
+14. Invalid GPX selected: skip file, continue processing others
+15. Import partially fails: show what succeeded and what failed
+16. No files selected: close dialog silently
+
+**Edge Cases:**
+17. User renames track to empty string: show validation error, require non-empty name
+18. User selects a file already imported (same contentHash): skip silently, count in unchanged
+19. User selects multiple files where some are invalid: process valid ones, report errors for invalid
+20. Track name conflict (same name + date, different content): allow as separate tracks (duplicates permitted per existing behavior)
+
+**Validation:**
+21. Reuse stable keys from existing import dialogs, especially `Key('peak-list-import-*')` patterns
+22. Add `Key('gpx-file-picker')` for the file picker trigger
+23. Add `Key('gpx-track-import-dialog')` for the main dialog container
+24. Add `Key('gpx-track-name-field')` for the track name text field
+25. Add keys for each import action button in the dialog flow
+</requirements>
+
+<boundaries>
+Edge cases:
+- Empty track name: require at least 1 character, show inline validation error
+- No GPX files in default folder: file picker opens but shows empty folder (user can navigate)
+- GPX with no metadata: use filename as track name, derive date from file mtime
+- Non-Tasmanian GPX file selected: skip and report in error count (consistent with existing import rules)
+
+Error scenarios:
+- File picker cancelled: no state change
+- All selected files invalid: show "No valid GPX files found" error dialog
+- Partial failure with some valid files: show mixed result summary
+
+Limits:
+- File picker must only allow `.gpx` extension
+- Default folder: ~/Documents/Bushwalking/Tracks (same as existing import folder)
+- No limit on number of files selected, but warn on very large selections (> 50 files)
+- Do not change existing track database or rescan behavior
+</boundaries>
+
+<implementation>
+1. Create @lib/services/gpx_file_picker.dart - based on PeakListFilePicker pattern but with multiple selection support
+   - Add `pickGpxFiles()` method allowing multiple selection (allowMultiple: true)
+   - Add `resolveImportRoot()` returning ~/Documents/Bushwalking/Tracks folder
+   - Use FilePicker.platform with allowedExtensions: ['gpx']
+   - NOTE: This default path differs from PeakListFilePicker (~/Documents/Bushwalking) because GPX files are organized under Tracks subfolder, consistent with GpxImporter.getTracksFolder()
+
+2. Create @lib/widgets/gpx_track_import_dialog.dart - mirror peak_list_import_dialog.dart
+   - Accept a `GpxFilePicker` instance
+   - Accept an import callback that follows PeakListImportPresentationResult pattern but adapts for tracks:
+     `Future<PeakListImportPresentationResult> Function({required String trackName, required String gpxPath})`
+   - Show file picker button, selected files list, name field for each
+   - Date field read-only with lock icon
+   - Match existing dialog patterns for keys, state, and error handling
+
+3. Update @lib/widgets/map_action_rail.dart
+   - Replace current `rescanTracks()` call with dialog-based import flow
+   - Create dialog via Riverpod or direct instantiation
+
+4. Update @lib/providers/map_provider.dart
+   - Add new method `importGpxFile(String gpxPath, {String? overrideName})` for single-file import
+   - This method parses the GPX, creates a new track record, and updates track list
+   - Reuse existing GPXImporter logic for parsing/deduplication
+
+5. Add tests in @test/widget/gpx_track_import_dialog_test.dart
+   - Test file picker opens with correct defaults
+   - Test single file selection and rename
+   - Test multiple file selection with per-file rename
+   - Test empty name validation
+   - Test import success and error flows
+
+6. Add unit tests in @test/gpx_track_test.dart
+   - Test GpxFilePicker resolves correct default folder
+   - Test importGpxFile creates new track record
+   - Test contentHash deduplication works for file-based imports
+   - Test non-Tasmanian files rejected appropriately
+</implementation>
+
+<stages>
+Phase 1: Create GPX file picker service
+- Create @lib/services/gpx_file_picker.dart with pickGpxFiles method
+- Test picker resolves correct folder
+- Verify: flutter analyze
+
+Phase 2: Create GPX import dialog UI
+- Create @lib/widgets/gpx_track_import_dialog.dart mirroring import dialog pattern
+- Add stable keys for testing
+- Verify: flutter analyze
+
+Phase 3: Wire FAB to dialog
+- Update @lib/widgets/map_action_rail.dart to show dialog on FAB tap
+- Update @lib/providers/map_provider.dart with importGpxFile method
+- Verify: flutter analyze && flutter test
+
+Phase 4: Integration tests
+- Add widget tests for dialog flow
+- Add unit tests for single-file import logic
+- Verify: flutter test
+</stages>
+
+<validation>
+1. TDD-first for the new import dialog and picker:
+   - Test slice 1 (RED): File picker button opens dialog and shows default folder
+   - Test slice 2 (GREEN): Selected files appear in list view
+   - Test slice 3 (RED): Name field is editable, date field is read-only
+   - Test slice 4 (GREEN): Import button creates new track
+
+2. Unit tests must cover:
+   - GpxFilePicker picks .gpx files from correct default folder
+   - GpxFilePicker resolves to ~/Documents/Bushwalking/Tracks
+   - importGpxFile creates new track record with correct fields
+   - Duplicate contentHash is detected and skipped
+   - Non-Tasmanian files are rejected
+   - Invalid GPX is caught and reported
+
+3. Widget tests must cover:
+   - Import FAB shows dialog on tap
+   - File picker opens with GPX filter
+   - Selected files list updates correctly
+   - Name field validation for empty input
+   - Date field is read-only
+   - Success dialog shows correct counts
+   - Error dialog shows for invalid GPX
+
+4. Robot tests must cover the primary journey using stable keys:
+   - Tap import FAB
+   - Select GPX file(s) from picker
+   - Verify dialog shows selected files
+   - Edit track name, verify date unchanged
+   - Confirm import
+   - Verify success message
+
+5. Stable selectors:
+   - `Key('gpx-file-picker')` for file picker trigger button
+   - `Key('gpx-track-import-dialog')` for main dialog container
+   - `Key('gpx-track-name-field')` for track name text field
+   - `Key('gpx-track-date-field')` for read-only date display
+   - Reuse pattern keys from peak_list_import_dialog where applicable
+
+6. Baseline automated coverage outcome:
+   - logic/rules: unit tests
+   - UI rendering: widget tests
+   - critical journey: robot test
+</validation>
+
+<done_when>
+1. Tapping the import track FAB opens a GPX file picker dialog
+2. User can select one or more GPX files from ~/Documents/Bushwalking/Tracks
+3. Dialog allows editing track name but shows date as read-only
+4. Import adds new tracks without deleting existing tracks
+5. Success summary shows count of added tracks
+6. Existing tracks remain unchanged after import
+7. Tests cover the import dialog, file picker, and single-file import logic
+8. flutter analyze passes
+9. flutter test passes
+</done_when>
