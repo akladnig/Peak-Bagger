@@ -27,7 +27,7 @@ Persist MGRS on Peak; refactor refresh through injectable Riverpod seams; mirror
 
 - **Goal**: shared refresh path + modal dialogs
 - [x] `lib/services/peak_refresh_service.dart` - shared fetch/enrich/replace path
-- [x] `lib/providers/map_provider.dart` - inject peak providers; one shared load/refresh path; `refreshPeaks()` returns `PeakRefreshResult`, throws hard failure
+- [x] `lib/providers/map_provider.dart` - inject peak providers; `refreshPeaks()` stays reserved for Settings refresh while `reloadPeakMarkers()` handles screen-entry marker reloads
 - [x] `lib/main.dart` - override peak providers at bootstrap
 - [x] `lib/screens/settings_screen.dart` - confirm/result/failure dialogs; keys; loading state; `X Peaks imported`
 - [x] `test/services/peak_refresh_service_test.dart` - success; partial warning; hard failure

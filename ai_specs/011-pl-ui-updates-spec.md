@@ -59,9 +59,9 @@ Error flows:
     - treat the hover bubble as desktop-pointer only; touch discoverability comes from the icon-only control's semantics rather than a required touch-visible tooltip
     - preserve an accessible semantic label for assistive technologies even when the control is icon-only
 8. The summary-list container must sit directly below the section toolbar, use the app's existing card or outlined-surface styling, and keep the current summary-table content and row actions.
-9. The mini-map container must sit below the summary-list container in the left column, use the app's existing card or outlined-surface styling, and preserve the current peak-marker, selection, and Tasmania-fallback behavior. The visible mini-map content must respect a `4:3` aspect ratio.
+9. The mini-map container must sit below the summary-list container in the left column, use the app's existing card or outlined-surface styling, and preserve the current peak-marker, selection, and Tasmania-fallback behavior. Climbed peak markers must render above unclimbed peak markers in the marker stack. When a peak row is selected in the details table, the mini-map must draw the same blue selection circle used by `map_screen` around that peak. When `PeakListsScreen` is entered, its peak-marker data must be refreshed via `reloadPeakMarkers()` rather than `refreshPeaks()`. The visible mini-map content must respect a `4:3` aspect ratio.
 10. The right column must contain the selected list title and summary sentence above the peak table. Keep these in the right-hand details area rather than moving or removing them.
-11. The peak table must be positioned on the right-hand side inside its own bordered container and preserve the current selected-list row content and unsupported-state messaging.
+11. The peak table must be positioned on the right-hand side inside its own bordered container and preserve the current selected-list row content and unsupported-state messaging. The visible peak columns are `Peak Name`, `Elevation`, `Ascent Date`, and `Points`.
 12. Do not change the current logical behaviors for selection, sorting, delete confirmation, import completion, unsupported legacy rows, or empty-state messaging except where layout and selector updates are needed to support this spec.
 
 **Error Handling:**
@@ -89,7 +89,7 @@ Error flows:
 **Validation:**
 25. Summary-list headers and cells must not line-wrap. Each summary column width must be driven by the widest intrinsic content in that column across the full table dataset, including header text, with the action column fixed to `max(header width, delete icon width)`. If the total intrinsic width exceeds the available container width, the summary table region must support horizontal scrolling inside its container.
 26. The summary header row and each summary data row must use the same shared column-sizing contract so headers and cells remain aligned while horizontally scrolling.
-27. Peak-table headers and cells must not line-wrap. Each peak column width must be driven by the widest intrinsic content in that column across the full table dataset, including header text. If the total intrinsic width exceeds the available container width, the peak-table region must support horizontal scrolling inside its container.
+27. Peak-table headers and cells must not line-wrap. Each peak column width must be driven by the widest intrinsic content in that column across the full table dataset, including header text. Keep a `12px` gap between peak-table columns. Right-align the `Elevation`, `Ascent Date`, and `Points` columns in both headers and cells. If the total intrinsic width exceeds the available container width, the peak-table region must support horizontal scrolling inside its container.
 28. The peak-table header row and each peak-table data row must use the same shared column-sizing contract so headers and cells remain aligned while horizontally scrolling.
 29. Preserve the existing stable app-owned `Key` selectors used by widget and robot tests, including `peak-lists-summary-pane`, `peak-lists-details-pane`, `peak-lists-import-fab`, `peak-lists-selected-title`, `peak-lists-mini-map`, summary rows, delete actions, and existing import-dialog actions.
 30. Add stable keys for the summary-table scroll viewport, the peak-table scroll viewport, and the right-column content viewport if it is distinct from the details pane.
@@ -177,7 +177,7 @@ Phase 3: regression and journey coverage
 <validation>
 Baseline automated coverage outcomes:
 - Logic and state behavior: cover selection persistence, post-delete selection resolution, short-viewport overflow ownership, and import-selection refresh through widget tests. If any pure layout helper is extracted, add focused unit tests for clamp and fallback rules.
-- UI behavior: widget tests for wide layout region placement, removed divider, `My Peak Lists` section-toolbar rendering, in-container import action widget type, desktop-pointer hover bubble behavior, mini-map `4:3` presentation, preserved map minimum height in short wide layouts, right-column content scrolling, right-hand title and summary placement, horizontal scrolling for both tables, aligned shared column sizing, empty state, and unsupported legacy rows.
+- UI behavior: widget tests for wide layout region placement, removed divider, `My Peak Lists` section-toolbar rendering, in-container import action widget type, desktop-pointer hover bubble behavior, mini-map `4:3` presentation, selected-peak blue circle overlay, preserved map minimum height in short wide layouts, right-column content scrolling, right-hand title and summary placement, horizontal scrolling for both tables, aligned shared column sizing, empty state, and unsupported legacy rows.
 - Critical journeys: robot-driven tests for opening Peak Lists, selecting a list, deleting a targeted row, and importing through the moved in-container action.
 
 TDD expectations:
@@ -211,7 +211,9 @@ Verification:
 - The import action lives inside the Peak Lists body, uses `FloatingActionButton.small` with `LeftTooltipFab` for this screen, shows tooltip text `Import Peak List (csv)`, uses the map rail FAB surface/onSurface color treatment, and keeps its visible hover bubble desktop-pointer only.
 - Preferred `40% / 60%` and `30% / 70%` ratios are implemented as tuneable defaults with minimum-size and aspect-ratio guards rather than rigid percentages.
 - Short wide layouts keep the two-column frame, preserve the mini-map minimum height, and assign vertical overflow to the summary-list container and the right-column content region rather than the whole page.
-- Both summary and details tables keep headers and cell text on one line by using internal horizontal scrolling with shared column sizing.
+- Both summary and details tables keep headers and cell text on one line by using internal horizontal scrolling with shared column sizing, fixed inter-column gaps, and right-aligned numeric/date columns where needed. The selected-list summary sentence also reports peak points earned out of total points.
+- Selecting a peak row in the details table draws a blue circle around the matching peak in the mini-map, matching the `map_screen` selection treatment.
+- Climbed peak markers render above unclimbed peak markers in the shared marker stack.
 - No draggable divider or manual pane resizing remains anywhere on the screen.
 - Existing selection, delete, import, empty-state, Tasmania fallback, and unsupported legacy-row behaviors still work in the new layout.
 - Widget and robot coverage pass for the updated structure and critical journeys.

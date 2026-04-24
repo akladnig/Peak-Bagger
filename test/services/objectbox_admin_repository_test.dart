@@ -83,6 +83,7 @@ void main() {
         'ascent',
         'descent',
         'gpxFile',
+        'gpxFileRepaired',
         'filteredTrack',
         'startElevation',
         'endElevation',
@@ -198,6 +199,7 @@ void main() {
             movingTime: 4800000,
             restingTime: 300000,
             pausedTime: 90000,
+            gpxFileRepaired: '<gpx><trkseg /></gpx>',
             peakCorrelationProcessed: true,
           )
           ..peaks.addAll([
@@ -214,6 +216,7 @@ void main() {
     expect(row.values['movingTime'], 4800000);
     expect(row.values['restingTime'], 300000);
     expect(row.values['pausedTime'], 90000);
+    expect(row.values['gpxFileRepaired'], '<gpx><trkseg /></gpx>');
     expect(row.values['peakCorrelationProcessed'], isTrue);
     expect(row.values['peaks'], ['Peak A (11)', 'Peak B (22)']);
   });

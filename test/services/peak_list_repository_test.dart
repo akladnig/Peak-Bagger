@@ -84,5 +84,59 @@ void main() {
       expect(repository.findById(2)?.name, 'Connoisseurs');
       expect(repository.getAllPeakLists(), hasLength(1));
     });
+
+    test('add update and remove peak items preserve list metadata', () async {
+      final repository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(name: 'Abels', peakList: '[]')..peakListId = 1,
+        ]),
+      );
+
+      await repository.addPeakItem(
+        peakListId: 1,
+        item: const PeakListItem(peakOsmId: 11, points: 2),
+      );
+      await repository.addPeakItem(
+        peakListId: 1,
+        item: const PeakListItem(peakOsmId: 22, points: 4),
+      );
+      await repository.updatePeakItemPoints(
+        peakListId: 1,
+        peakOsmId: 11,
+        points: 7,
+      );
+      await repository.removePeakItem(peakListId: 1, peakOsmId: 22);
+
+      final stored = repository.findById(1);
+
+      expect(stored?.name, 'Abels');
+      expect(
+        decodePeakListItems(stored!.peakList)
+            .map((item) => (item.peakOsmId, item.points))
+            .toList(),
+        [(11, 7)],
+      );
+    });
+
+    test('duplicate add is rejected', () async {
+      final repository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(
+            name: 'Abels',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 11, points: 2),
+            ]),
+          )..peakListId = 1,
+        ]),
+      );
+
+      await expectLater(
+        repository.addPeakItem(
+          peakListId: 1,
+          item: const PeakListItem(peakOsmId: 11, points: 9),
+        ),
+        throwsStateError,
+      );
+    });
   });
 }

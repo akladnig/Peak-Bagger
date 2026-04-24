@@ -239,7 +239,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(3, 8449374379554926112),
     name: 'GpxTrack',
-    lastPropertyId: const obx_int.IdUid(29, 3001004799159620060),
+    lastPropertyId: const obx_int.IdUid(30, 7984434964772208297),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -396,6 +396,12 @@ final _entities = <obx_int.ModelEntity>[
         id: const obx_int.IdUid(29, 3001004799159620060),
         name: 'pausedTime',
         type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(30, 7984434964772208297),
+        name: 'gpxFileRepaired',
+        type: 9,
         flags: 0,
       ),
     ],
@@ -820,7 +826,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
         );
         final elevationProfileOffset = fbb.writeString(object.elevationProfile);
         final filteredTrackOffset = fbb.writeString(object.filteredTrack);
-        fbb.startTable(30);
+        final gpxFileRepairedOffset = fbb.writeString(object.gpxFileRepaired);
+        fbb.startTable(31);
         fbb.addInt64(0, object.gpxTrackId);
         fbb.addOffset(2, trackNameOffset);
         fbb.addInt64(3, object.startDateTime?.millisecondsSinceEpoch);
@@ -847,6 +854,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addInt64(26, object.movingTime);
         fbb.addInt64(27, object.restingTime);
         fbb.addInt64(28, object.pausedTime);
+        fbb.addOffset(29, gpxFileRepairedOffset);
         fbb.finish(fbb.endTable());
         return object.gpxTrackId;
       },
@@ -886,6 +894,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final gpxFileParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 28, '');
+        final gpxFileRepairedParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 62, '');
         final filteredTrackParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 52, '');
@@ -1004,6 +1015,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
           trackName: trackNameParam,
           trackDate: trackDateParam,
           gpxFile: gpxFileParam,
+          gpxFileRepaired: gpxFileRepairedParam,
           filteredTrack: filteredTrackParam,
           displayTrackPointsByZoom: displayTrackPointsByZoomParam,
           startDateTime: startDateTimeParam,
@@ -1427,6 +1439,11 @@ class GpxTrack_ {
   /// See [GpxTrack.pausedTime].
   static final pausedTime = obx.QueryIntegerProperty<GpxTrack>(
     _entities[2].properties[25],
+  );
+
+  /// See [GpxTrack.gpxFileRepaired].
+  static final gpxFileRepaired = obx.QueryStringProperty<GpxTrack>(
+    _entities[2].properties[26],
   );
 
   /// see [GpxTrack.peaks]

@@ -1,5 +1,5 @@
 <goal>
-Add Peak-only edit and delete capability to ObjectBox Admin so maintainers can correct Peak metadata in place without leaving the admin browser.
+Add Peak-only create, edit, and delete capability to ObjectBox Admin so maintainers can correct Peak metadata in place without leaving the admin browser.
 
 This matters because the admin surface is already the in-app maintenance tool for local ObjectBox data, and Peak rows carry coordinate data that needs careful correction without changing the read-only behavior for other entities.
 </goal>
@@ -46,8 +46,15 @@ Primary flow:
 2. User taps the edit FAB in the details pane.
 3. User edits the Peak fields, with `id` and `gridZoneDesignator` remaining read-only.
 4. User submits the form.
-5. If validation passes, the Peak is saved, the success dialog appears, and the refreshed details remain on the edited Peak.
+5. If validation passes, the Peak is saved, the success dialog appears, the refreshed details remain on the edited Peak, and the Peak markers on `MapScreen` refresh via `reloadPeakMarkers()` so the updated Peak is reflected there too.
 6. User closes the success dialog and sees the updated Peak data.
+
+Create flow:
+1. User opens ObjectBox Admin.
+2. User taps `Add Peak` to the right of the search box.
+3. The existing Peak details pane opens in create mode using the same inline form controls, and pre-fills `osmId` with the next available negative number while keeping it editable.
+4. User enters Peak data and submits the form.
+5. If validation passes, the new Peak is saved, the success dialog appears, the newly created Peak is automatically selected, and the Peak markers on `MapScreen` refresh via `reloadPeakMarkers()` so the new Peak is visible there too.
 
 Alternative flows:
 - Non-Peak entity flow: the admin browser stays read-only for all other entities and shows no edit/delete controls.
@@ -64,18 +71,19 @@ Error flows:
 
 <requirements>
 **Functional:**
-1. Add a Peak-only edit affordance to the right-side details pane in `./lib/screens/objectbox_admin_screen_details.dart`, with an edit FAB placed to the left of the close icon.
-2. Render Peak fields in edit mode as inline form controls, not a modal dialog, and keep `id` and `gridZoneDesignator` read-only while allowing the remaining Peak fields to be edited inline.
-3. Render `sourceOfTruth` as read-only text with a one-way `mark as HWC` control that saves as `HWC` on edit save.
-4. Treat `gridZoneDesignator` as fixed to `55G` for Peak editing, keep it read-only in the form, and persist `55G` on save.
-5. Keep all other ObjectBox entities browse-only and unchanged.
-6. Add a Peak-only actions column in `./lib/screens/objectbox_admin_screen_table.dart` with a per-row delete icon, pinned for Peak data rows only, and use the same confirm-dialog pattern used by Peak Lists, including stable cancel/confirm dialog keys.
+1. Add a Peak-only details-pane action row to the right-side details pane in `./lib/screens/objectbox_admin_screen_details.dart`, with a `visibilityOutlined` icon button titled `View Peak on Main Map` placed to the left of the edit FAB, and the edit FAB placed to the left of the close icon. Clicking the map icon opens the main `MapScreen` and centers it on the Peak location at zoom level `15`.
+2. Add a Peak-only `Add Peak` FAB to the right of the search box, and reuse the existing Peak details pane in create mode for new rows, pre-filling `osmId` with the next available negative number while keeping it editable.
+3. Render Peak fields in edit mode as inline form controls, not a modal dialog, and keep `id` and `gridZoneDesignator` read-only while allowing the remaining Peak fields to be edited inline.
+4. Render `sourceOfTruth` as read-only text with a one-way `mark as HWC` control that saves as `HWC` on edit save.
+5. Treat `gridZoneDesignator` as fixed to `55G` for Peak editing, keep it read-only in the form, and persist `55G` on save.
+6. Keep all other ObjectBox entities browse-only and unchanged.
+7. Add a Peak-only actions column in `./lib/screens/objectbox_admin_screen_table.dart` with a per-row delete icon, pinned for Peak data rows only, and use the same confirm-dialog pattern used by Peak Lists, including stable cancel/confirm dialog keys.
    The delete confirmation dialog must use title `Delete Peak?` and message `This will permanently delete the <peak name>. Do you want to proceed?`.
-7. Wire Peak save and delete through `PeakRepository` via `./lib/providers/peak_provider.dart`, while keeping `ObjectBoxAdminRepository` read-only for browsing.
-8. Preserve current browse/search/sort/detail-pane behavior for existing read-only admin flows.
-9. After a successful Peak save, show `showSingleActionDialog` with title `Update Successful` and content text `<name> updated.` using the saved Peak name.
-10. If saving an `osmId` change would conflict with another Peak, show `showSingleActionDialog` with title `Error: cannot change osmId` and content `This osmId is already tied to NameOfPeak, so cannot be over written.` where `NameOfPeak` is the name of the conflicting Peak, and do not count the Peak currently being edited as a conflict.
-11. If an `osmId` change succeeds, update `PeaksBagged.peakId` from the old `osmId` to the new `osmId` and update any Peak List `peakOsmId` references from the old `osmId` to the new `osmId` in the same transaction so dependent records stay in sync.
+8. Wire Peak save and delete through `PeakRepository` via `./lib/providers/peak_provider.dart`, while keeping `ObjectBoxAdminRepository` read-only for browsing.
+9. Preserve current browse/search/sort/detail-pane behavior for existing read-only admin flows.
+10. After a successful Peak save, show `showSingleActionDialog` with title `Update Successful` and content text `<name> updated.` using the saved Peak name.
+11. If saving an `osmId` change would conflict with another Peak, show `showSingleActionDialog` with title `Error: cannot change osmId` and content `This osmId is already tied to NameOfPeak, so cannot be over written.` where `NameOfPeak` is the name of the conflicting Peak, and do not count the Peak currently being edited as a conflict.
+12. If an `osmId` change succeeds, update `PeaksBagged.peakId` from the old `osmId` to the new `osmId` and update any Peak List `peakOsmId` references from the old `osmId` to the new `osmId` in the same transaction so dependent records stay in sync.
     `PeakRepository` may access the ObjectBox `Store` directly to read and rewrite `PeakList` rows for this cascade.
      Add a `PeakListRewritePort` interface and inject it into `PeakRepository` so repository tests can exercise the cascade path without a live ObjectBox store.
     `PeakRepository` must accept the port in its constructor, production must provide the Store-backed implementation, and tests must be able to inject a fake port alongside `PeakStorage`.
@@ -83,28 +91,29 @@ Error flows:
      Use `PeakRepository(Store store, {required PeakListRewritePort peakListRewritePort})` in production and `PeakRepository.test(PeakStorage storage, {required PeakListRewritePort peakListRewritePort})` in tests.
      The port must expose `rewriteOsmIdReferences({required int oldOsmId, required int newOsmId})` and return a result containing `rewrittenCount` and `skippedMalformedCount`.
      For Peak List updates, parse each `PeakList.peakList` JSON payload, rewrite only the matching `peakOsmId` values, preserve item order and `points`, skip malformed payloads unchanged, and append a warning section below the success message in the same success dialog after the save completes.
-12. Preserve row selection by Peak primary key across save refreshes, and after delete keep the current selection if the selected Peak still exists or clear it only when the deleted Peak was the selected row.
+13. Preserve row selection by Peak primary key across save refreshes, and after delete keep the current selection if the selected Peak still exists or clear it only when the deleted Peak was the selected row.
+14. When saving a Peak, keep the saved Peak selected after save and refresh the Peak markers on `MapScreen` via `reloadPeakMarkers()`.
 
 **Error Handling:**
-13. Validate `latitude` as a number between `-90.0` and `90.0` and show the exact error message `Latitude must be a number between -90.0 and 90.0`.
-14. Validate `longitude` as a number between `-180.0` and `180.0` and show the exact error message `Longitude must be a number between -180.0 and 180.0`.
-15. Validate `easting` as a 1 to 5 digit number and show the exact warning `easting must be a 1-5 digit number`.
-16. Validate `northing` as a 1 to 5 digit number and show the exact warning `northing must be a 1-5 digit number`.
-17. Validate `mgrs100kId` as exactly two letters and show the exact warning `The MGRS 100km identifier must be exactly two letter`.
-18. Validate the resulting Peak location against `GeoAreas.tasmaniaBounds` after coordinate normalization, and block submit if the location is outside Tasmania.
-19. Show validation errors inline beside the affected field or coordinate section, and recompute them live as the user types.
-20. Keep the edit form open on any save or delete failure, surface the error in the same screen context, and disable the in-flight Peak mutation controls until the request completes.
-21. Block delete when the Peak is still referenced by any `GpxTrack.peaks` relation, any Peak List `peakOsmId` entry, or any `PeaksBagged.peakId` row, and surface a dependency error that names the dependent record types.
-22. Use a dedicated `PeakDeleteGuard` service for delete dependency checks before calling `PeakRepository.delete`.
-23. `PeakDeleteGuard` returns a structured result containing blocker descriptors with a dependency type and display name, ordered deterministically as `GpxTrack` blockers first, `PeakList` blockers second, and `PeaksBagged` blockers third, so the UI can compose the delete-blocked dialog copy without guessing.
+15. Validate `latitude` as a number between `-90.0` and `90.0` and show the exact error message `Latitude must be a number between -90.0 and 90.0`.
+16. Validate `longitude` as a number between `-180.0` and `180.0` and show the exact error message `Longitude must be a number between -180.0 and 180.0`.
+17. Validate `easting` as a 1 to 5 digit number and show the exact warning `easting must be a 1-5 digit number`.
+18. Validate `northing` as a 1 to 5 digit number and show the exact warning `northing must be a 1-5 digit number`.
+19. Validate `mgrs100kId` as exactly two letters and show the exact warning `The MGRS 100km identifier must be exactly two letter`.
+20. Validate the resulting Peak location against `GeoAreas.tasmaniaBounds` after coordinate normalization, and block submit if the location is outside Tasmania.
+21. Show validation errors inline beside the affected field or coordinate section, and recompute them live as the user types.
+22. Keep the edit form open on any save or delete failure, surface the error in the same screen context, and disable the in-flight Peak mutation controls until the request completes.
+23. Block delete when the Peak is still referenced by any `GpxTrack.peaks` relation, any Peak List `peakOsmId` entry, or any `PeaksBagged.peakId` row, and surface a dependency error that names the dependent record types.
+24. Use a dedicated `PeakDeleteGuard` service for delete dependency checks before calling `PeakRepository.delete`.
+25. `PeakDeleteGuard` returns a structured result containing blocker descriptors with a dependency type and display name, ordered deterministically as `GpxTrack` blockers first, `PeakList` blockers second, and `PeaksBagged` blockers third, so the UI can compose the delete-blocked dialog copy without guessing.
     Use `trackName` for `GpxTrack`, `name` for `PeakList`, and a fixed human label such as `bagged record` for `PeaksBagged`.
-24. In widget tests, override `peakDeleteGuardProvider` with a fake guard so dependency-blocked delete remains deterministic without a live ObjectBox store.
-25. Ignore malformed `PeakList.peakList` JSON payloads when computing delete blockers.
-26. Validate `name` as required with the exact error message `A peak name is required`.
-27. Validate `osmId` as an integer.
-28. Treat `elevation` as optional; if blank, keep it `null`, and if provided it must parse as an integer.
-29. Allow `area` to be blank or any string.
-30. If any Peak List rewrites are skipped because their payloads are malformed, append the exact warning `1 PeakList has been skipped as it's malformed.` when one PeakList is skipped, or `X PeakLists have been skipped as they're malformed.` when more than one PeakList is skipped.
+26. In widget tests, override `peakDeleteGuardProvider` with a fake guard so dependency-blocked delete remains deterministic without a live ObjectBox store.
+27. Ignore malformed `PeakList.peakList` JSON payloads when computing delete blockers.
+28. Validate `name` as required with the exact error message `A peak name is required`.
+29. Validate `osmId` as an integer.
+30. Treat `elevation` as optional; if blank, keep it `null`, and if provided it must parse as an integer.
+31. Allow `area` to be blank or any string.
+32. If any Peak List rewrites are skipped because their payloads are malformed, append the exact warning `1 PeakList has been skipped as it's malformed.` when one PeakList is skipped, or `X PeakLists have been skipped as they're malformed.` when more than one PeakList is skipped.
 
 **Edge Cases:**
 31. Coordinate contract:
@@ -117,6 +126,7 @@ Error flows:
 33. Clear selection only when the deleted Peak was the selected row; keep any other selection intact after deleting a different row.
 34. Reset unsaved edit state when the selected Peak changes, the details pane closes, or the row is deleted.
 35. Preserve the current read-only admin UX for `Tasmap50k`, `GpxTrack`, and `PeakList`.
+36. Add a stable key for the create FAB, for example `objectbox-admin-peak-add`.
 
 **Validation:**
 36. Add deterministic unit tests for the pure Peak-edit helper covering parsing, Tasmania bounds checks, MGRS derivation, and the coordinate source-of-truth rules.
@@ -124,21 +134,26 @@ Error flows:
 38. Add a Peak List rewrite seam to `PeakRepository` so tests can cover `osmId` cascade updates without a live ObjectBox store.
 39. Add deterministic unit tests for `osmId` cascade updates into `PeaksBagged.peakId`.
 40. Add widget tests for Peak edit mode, inline validation, successful save dialog, delete confirmation, dependency-blocked delete, delete-row refresh behavior, and the Peak-only visibility of edit/delete affordances.
-41. Add a robot-driven journey test for the Peak edit/save happy path from the admin shell.
-42. Use stable, app-owned `Key` selectors for the edit FAB, submit button, editable Peak fields, and Peak delete actions.
-43. Keep the test seam deterministic by using the existing `objectboxAdminProvider` refresh flow plus the `peakRepositoryProvider` override and a mutable fake Peak repository that mirrors save/delete behavior in memory.
+41. Add widget and robot coverage for the `Add Peak` entry point and create-mode Peak save flow.
+42. Add a robot-driven journey test for the Peak edit/save happy path from the admin shell.
+43. Use stable, app-owned `Key` selectors for the edit FAB, create FAB, submit button, editable Peak fields, and Peak delete actions.
+44. Add widget and robot coverage for the Peak main-map shortcut and its zoomed navigation behavior.
+45. Keep the test seam deterministic by using the existing `objectboxAdminProvider` refresh flow plus the `peakRepositoryProvider` override and a mutable fake Peak repository that mirrors save/delete behavior in memory.
 </requirements>
 
 <boundaries>
 Edge cases:
 - `id` and `gridZoneDesignator` are visible but not editable.
 - `sourceOfTruth` is read-only text with a one-way `mark as HWC` control, and any edit save must persist `HWC`.
+- `Add Peak` opens the same Peak details pane in create mode and should not require selecting an existing Peak first.
+- In create mode, `osmId` starts at the next available negative number but remains editable before submit.
 - If latitude/longitude and MGRS are both entered, save uses MGRS and discards the entered latitude/longitude.
 - If the stored or derived location cannot be resolved into a valid Tasmania location, the save is rejected inline.
 - If the user deletes the selected Peak, the details pane closes after refresh.
 - If the user deletes a non-selected Peak, the current selection should stay on the still-existing row.
 - The Peak actions column is pinned and visible only for Peak data rows.
 - The Peak actions column has a `Delete` header, stays fixed on the right, and scrolls vertically with the table rows.
+- The Peak main-map shortcut is visible only when a Peak details pane is shown.
 - User-entered coordinate values remain visible until submit, then normalize after a successful save.
 - After an `osmId` conflict dialog is closed, the edited Peak remains selected.
 - Tasmania validation implies the only valid `gridZoneDesignator` value is `55G`.
@@ -172,7 +187,7 @@ Create `./lib/services/peak_admin_editor.dart` as a pure helper for Peak edit dr
 
 Modify `./lib/screens/objectbox_admin_screen.dart` to wire Peak save/delete callbacks, keep route/search/sort behavior unchanged, and refresh the browser after mutations.
 
-Modify `./lib/screens/objectbox_admin_screen_details.dart` to add Peak edit mode, the edit FAB, inline form controls, inline validation text, submit handling, and edit-state reset on row changes.
+Modify `./lib/screens/objectbox_admin_screen_details.dart` to add Peak edit mode, the main-map shortcut, the edit FAB, inline form controls, inline validation text, submit handling, and edit-state reset on row changes.
 
 Modify `./lib/screens/objectbox_admin_screen_table.dart` to add a Peak-only actions column and per-row delete icon buttons.
 
@@ -191,6 +206,7 @@ Update `./test/robot/objectbox_admin/objectbox_admin_robot.dart` and `./test/rob
 Selectors to add or preserve:
 - Preserve the existing `objectbox-admin-*` selectors already used by the current shell and browser tests.
 - Add a stable key for the edit FAB, for example `objectbox-admin-peak-edit`.
+- Add a stable key for the create FAB, for example `objectbox-admin-peak-add`.
 - Add a stable key for the submit button, for example `objectbox-admin-peak-submit`.
 - Add stable keys for the editable Peak fields, using field-specific names such as `objectbox-admin-peak-name`, `objectbox-admin-peak-osm-id`, `objectbox-admin-peak-elevation`, `objectbox-admin-peak-latitude`, `objectbox-admin-peak-longitude`, `objectbox-admin-peak-area`, `objectbox-admin-peak-mgrs100k-id`, `objectbox-admin-peak-easting`, `objectbox-admin-peak-northing`, and `objectbox-admin-peak-source-of-truth`.
 - Add row-specific delete keys derived from the Peak primary key, for example `objectbox-admin-peak-delete-<id>`.
@@ -200,6 +216,7 @@ Selectors to add or preserve:
 Implementation notes:
 - Keep the admin screen as the coordinator for route visibility, provider refresh, and dialog side effects.
 - Keep the edit form local to the details pane rather than moving Peak edit state into the global browser provider.
+- Reuse the same details pane for create mode so Peak creation and editing share validation and save behavior.
 - Reuse `showDangerConfirmDialog` and `showSingleActionDialog` from `./lib/widgets/dialog_helpers.dart`.
 - Reuse existing MGRS helpers instead of introducing another coordinate library.
 - Inject `PeakDeleteGuard` into the Peak delete path so delete checks stay separate from Peak row storage.
@@ -268,6 +285,7 @@ Verification commands:
 
 <done_when>
 - Peak rows in ObjectBox Admin can be edited inline and deleted from the table actions column.
+- Peak rows in ObjectBox Admin can also be created from the `Add Peak` FAB and reuse the same details pane.
 - `id` and `gridZoneDesignator` are not user-editable, and all non-Peak entities remain read-only.
 - Validation is inline, Tasmania-aware, and blocks invalid saves.
 - Successful Peak saves show the requested update dialog and keep the edited row selected.

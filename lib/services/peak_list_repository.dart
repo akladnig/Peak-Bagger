@@ -197,4 +197,73 @@ class PeakListRepository {
 
     return _storage.replaceByName(peakList, beforePutForTest: beforePutForTest);
   }
+
+  Future<PeakList> addPeakItem({
+    required int peakListId,
+    required PeakListItem item,
+  }) async {
+    final peakList = _requireById(peakListId);
+    final items = decodePeakListItems(peakList.peakList);
+    if (items.any((entry) => entry.peakOsmId == item.peakOsmId)) {
+      throw StateError('Peak already exists in list');
+    }
+
+    return save(
+      peakList.copyWith(
+        peakList: encodePeakListItems([...items, item]),
+      ),
+    );
+  }
+
+  Future<PeakList> updatePeakItemPoints({
+    required int peakListId,
+    required int peakOsmId,
+    required int points,
+  }) async {
+    final peakList = _requireById(peakListId);
+    final items = decodePeakListItems(peakList.peakList);
+    final updatedItems = [
+      for (final item in items)
+        if (item.peakOsmId == peakOsmId)
+          PeakListItem(peakOsmId: item.peakOsmId, points: points)
+        else
+          item,
+    ];
+
+    if (updatedItems.length == items.length &&
+        !updatedItems.any((item) => item.peakOsmId == peakOsmId)) {
+      throw StateError('Peak not found in list');
+    }
+
+    return save(
+      peakList.copyWith(peakList: encodePeakListItems(updatedItems)),
+    );
+  }
+
+  Future<PeakList> removePeakItem({
+    required int peakListId,
+    required int peakOsmId,
+  }) async {
+    final peakList = _requireById(peakListId);
+    final items = decodePeakListItems(peakList.peakList);
+    final updatedItems = items
+        .where((item) => item.peakOsmId != peakOsmId)
+        .toList(growable: false);
+
+    if (updatedItems.length == items.length) {
+      throw StateError('Peak not found in list');
+    }
+
+    return save(
+      peakList.copyWith(peakList: encodePeakListItems(updatedItems)),
+    );
+  }
+
+  PeakList _requireById(int peakListId) {
+    final peakList = findById(peakListId);
+    if (peakList == null) {
+      throw StateError('Peak list not found');
+    }
+    return peakList;
+  }
 }

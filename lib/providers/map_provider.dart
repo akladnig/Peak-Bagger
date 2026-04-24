@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latlong2/latlong.dart';
@@ -7,6 +9,7 @@ import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
+import 'package:peak_bagger/services/gpx_track_repair_service.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
@@ -18,6 +21,7 @@ import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/grid_reference_parser.dart';
 import 'package:peak_bagger/services/migration_marker_store.dart';
+import 'package:xml/xml.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
@@ -65,6 +69,8 @@ class MapState {
   final TasmapDisplayMode tasmapDisplayMode;
   final List<Tasmap50k> mapSuggestions;
   final String mapSearchQuery;
+  final int selectedMapFocusSerial;
+  final int selectedTrackFocusSerial;
   final List<GpxTrack> tracks;
   final bool showTracks;
   final bool showPeaks;
@@ -104,6 +110,8 @@ class MapState {
     this.tasmapDisplayMode = TasmapDisplayMode.none,
     this.mapSuggestions = const [],
     this.mapSearchQuery = '',
+    this.selectedMapFocusSerial = 0,
+    this.selectedTrackFocusSerial = 0,
     this.tracks = const [],
     this.showTracks = false,
     this.showPeaks = true,
@@ -151,6 +159,8 @@ class MapState {
     TasmapDisplayMode? tasmapDisplayMode,
     List<Tasmap50k>? mapSuggestions,
     String? mapSearchQuery,
+    int? selectedMapFocusSerial,
+    int? selectedTrackFocusSerial,
     List<GpxTrack>? tracks,
     bool? showTracks,
     bool? showPeaks,
@@ -204,6 +214,10 @@ class MapState {
       tasmapDisplayMode: tasmapDisplayMode ?? this.tasmapDisplayMode,
       mapSuggestions: mapSuggestions ?? this.mapSuggestions,
       mapSearchQuery: mapSearchQuery ?? this.mapSearchQuery,
+      selectedMapFocusSerial:
+          selectedMapFocusSerial ?? this.selectedMapFocusSerial,
+      selectedTrackFocusSerial:
+          selectedTrackFocusSerial ?? this.selectedTrackFocusSerial,
       tracks: tracks ?? this.tracks,
       showTracks: showTracks ?? this.showTracks,
       showPeaks: showPeaks ?? this.showPeaks,
@@ -230,6 +244,10 @@ class MapState {
 }
 
 final mapProvider = NotifierProvider<MapNotifier, MapState>(MapNotifier.new);
+
+final gpxTrackRepositoryProvider = Provider<GpxTrackRepository>((ref) {
+  return GpxTrackRepository(objectboxStore);
+});
 
 Set<int> buildCorrelatedPeakIds(Iterable<GpxTrack> tracks) {
   final ids = <int>{};
@@ -500,7 +518,13 @@ class MapNotifier extends Notifier<MapState> {
       for (final track in result.tracks) {
         final originalTrack = existingTracksById[track.gpxTrackId];
         try {
-          _applyPeakCorrelation(track, correlationService);
+          _applyPeakCorrelation(
+            track,
+            correlationService,
+            track.gpxFileRepaired.isNotEmpty
+                ? track.gpxFileRepaired
+                : track.gpxFile,
+          );
           correlatedTracks.add(track);
         } catch (_) {
           if (originalTrack != null) {
@@ -611,6 +635,7 @@ class MapNotifier extends Notifier<MapState> {
         thresholdMeters: thresholdMeters,
       );
       final importer = GpxImporter();
+      final repairService = GpxTrackRepairService();
       final filterConfig = await ref.read(gpxFilterSettingsProvider.future);
       final tracks = _gpxTrackRepository.getAllTracks();
       var updatedCount = 0;
@@ -620,13 +645,21 @@ class MapNotifier extends Notifier<MapState> {
       for (final track in tracks) {
         try {
           final replacementTrack = _cloneTrack(track);
+          final processingXml = _processingXmlForTrack(
+            replacementTrack,
+            repairService,
+          );
           final processed = importer.processTrack(
-            replacementTrack.gpxFile,
+            processingXml,
             filterConfig: filterConfig,
           );
           _applyProcessingResult(replacementTrack, processed);
           filterFallbackCount += processed.usedRawFallback ? 1 : 0;
-          _applyPeakCorrelation(replacementTrack, correlationService);
+          _applyPeakCorrelation(
+            replacementTrack,
+            correlationService,
+            processingXml,
+          );
           _gpxTrackRepository.replaceTrack(
             existing: track,
             replacement: replacementTrack,
@@ -696,6 +729,24 @@ class MapNotifier extends Notifier<MapState> {
     }
   }
 
+  String _processingXmlForTrack(
+    GpxTrack track,
+    GpxTrackRepairService repairService,
+  ) {
+    if (track.gpxFileRepaired.isNotEmpty) {
+      return track.gpxFileRepaired;
+    }
+
+    final repairResult = repairService.analyzeAndRepair(track.gpxFile);
+    if (repairResult.repairPerformed ||
+        _hasInterpolatedSegmentInXml(track.gpxFile)) {
+      track.gpxFileRepaired = repairResult.repairedXml;
+      return repairResult.repairedXml;
+    }
+
+    return track.gpxFile;
+  }
+
   void _applyProcessingResult(GpxTrack track, GpxTrackProcessingResult result) {
     track.filteredTrack = result.filteredXml ?? '';
     track.displayTrackPointsByZoom = TrackDisplayCacheBuilder.buildJson(
@@ -723,8 +774,9 @@ class MapNotifier extends Notifier<MapState> {
   void _applyPeakCorrelation(
     GpxTrack track,
     TrackPeakCorrelationService correlationService,
+    String correlationXml,
   ) {
-    final matches = correlationService.matchPeaks(track.gpxFile);
+    final matches = correlationService.matchPeaks(correlationXml);
     track.peaks.clear();
     track.peaks.addAll(matches);
     track.peakCorrelationProcessed = true;
@@ -742,6 +794,19 @@ class MapNotifier extends Notifier<MapState> {
     final clone = GpxTrack.fromMap(track.toMap());
     clone.peaks.addAll(track.peaks);
     return clone;
+  }
+
+  bool _hasInterpolatedSegmentInXml(String xml) {
+    try {
+      final document = XmlDocument.parse(xml);
+      return document.findAllElements('trkseg').any((segment) {
+        final typeElement = segment.getElement('type');
+        return typeElement != null &&
+            typeElement.innerText.trim().toLowerCase() == 'interpolated';
+      });
+    } catch (_) {
+      return false;
+    }
   }
 
   String _buildRecalcWarning({
@@ -859,6 +924,10 @@ class MapNotifier extends Notifier<MapState> {
     savePosition();
   }
 
+  void clearSelectedLocation() {
+    state = state.copyWith(clearSelectedLocation: true);
+  }
+
   void setCursorMgrs(LatLng location) {
     state = state.copyWith(cursorMgrs: _convertToMgrs(location));
   }
@@ -907,6 +976,73 @@ class MapNotifier extends Notifier<MapState> {
 
   void selectTrack(int trackId) {
     state = state.copyWith(selectedTrackId: trackId);
+  }
+
+  void showTrack(int trackId, {LatLng? selectedLocation}) {
+    final track = _gpxTrackRepository.findById(trackId);
+    final tracks =
+        track != null &&
+            state.tracks.every((existing) => existing.gpxTrackId != trackId)
+        ? [...state.tracks, track]
+        : null;
+    final focus = track == null ? null : _trackFocus(track);
+
+    state = state.copyWith(
+      center: focus?.center,
+      zoom: focus?.zoom,
+      currentMgrs: focus == null ? null : _convertToMgrs(focus.center),
+      tracks: tracks,
+      selectedTrackId: trackId,
+      selectedLocation: selectedLocation,
+      showTracks: true,
+      clearHoveredTrackId: true,
+      clearGotoMgrs: focus != null,
+      selectedTrackFocusSerial: state.selectedTrackFocusSerial + 1,
+    );
+    if (focus != null) {
+      savePosition();
+    }
+  }
+
+  ({LatLng center, double zoom})? _trackFocus(GpxTrack track) {
+    final points = track.getSegments().expand((segment) => segment).toList();
+    if (points.isEmpty) {
+      return null;
+    }
+    if (points.length == 1) {
+      return (center: points.single, zoom: 12);
+    }
+
+    var minLat = double.infinity;
+    var maxLat = double.negativeInfinity;
+    var minLon = double.infinity;
+    var maxLon = double.negativeInfinity;
+
+    for (final point in points) {
+      minLat = math.min(minLat, point.latitude);
+      maxLat = math.max(maxLat, point.latitude);
+      minLon = math.min(minLon, point.longitude);
+      maxLon = math.max(maxLon, point.longitude);
+    }
+
+    final center = LatLng((minLat + maxLat) / 2, (minLon + maxLon) / 2);
+    final span = math.max(maxLat - minLat, maxLon - minLon);
+
+    return (
+      center: center,
+      zoom: switch (span) {
+        > 4 => 6,
+        > 2 => 7,
+        > 1 => 8,
+        > 0.5 => 9,
+        > 0.25 => 10,
+        > 0.12 => 11,
+        > 0.06 => 12,
+        > 0.03 => 13,
+        > 0.015 => 14,
+        _ => 15,
+      },
+    );
   }
 
   void clearSelectedTrack() {
@@ -1436,6 +1572,8 @@ class MapNotifier extends Notifier<MapState> {
       state = state.copyWith(
         selectedMap: map,
         tasmapDisplayMode: TasmapDisplayMode.selectedMap,
+        clearSelectedLocation: true,
+        selectedMapFocusSerial: state.selectedMapFocusSerial + 1,
         mapSuggestions: [],
         mapSearchQuery: '',
       );
@@ -1620,6 +1758,14 @@ class MapNotifier extends Notifier<MapState> {
       syncEnabled: true,
       selectedPeaks: [peak],
       clearHoveredTrackId: true,
+    );
+  }
+
+  Future<void> reloadPeakMarkers() async {
+    state = state.copyWith(
+      peaks: _peakRepository.getAllPeaks(),
+      isLoadingPeaks: false,
+      clearError: true,
     );
   }
 

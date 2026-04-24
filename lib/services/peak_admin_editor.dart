@@ -113,10 +113,14 @@ class PeakAdminEditor {
 
     final hasLatLng = latitudeText.isNotEmpty || longitudeText.isNotEmpty;
     final hasMgrs =
-        mgrsIdText.isNotEmpty || eastingText.isNotEmpty || northingText.isNotEmpty;
+        mgrsIdText.isNotEmpty ||
+        eastingText.isNotEmpty ||
+        northingText.isNotEmpty;
     final latLngComplete = latitudeText.isNotEmpty && longitudeText.isNotEmpty;
     final mgrsComplete =
-        mgrsIdText.isNotEmpty && eastingText.isNotEmpty && northingText.isNotEmpty;
+        mgrsIdText.isNotEmpty &&
+        eastingText.isNotEmpty &&
+        northingText.isNotEmpty;
 
     if (hasLatLng && hasMgrs && !(latLngComplete && mgrsComplete)) {
       return PeakAdminValidationResult(
@@ -154,11 +158,22 @@ class PeakAdminEditor {
 
       final forward =
           '$fixedGridZoneDesignator${mgrsIdText.toUpperCase()}$eastingText$northingText';
-      components = PeakMgrsConverter.fromForwardString(forward);
-      final coords = mgrs.Mgrs.toPoint(forward);
-      final latLng = LatLng(coords[1], coords[0]);
-      latitude = latLng.latitude;
-      longitude = latLng.longitude;
+      try {
+        components = PeakMgrsConverter.fromForwardString(forward);
+        final coords = mgrs.Mgrs.toPoint(forward);
+        final latLng = LatLng(coords[1], coords[0]);
+        latitude = latLng.latitude;
+        longitude = latLng.longitude;
+      } catch (_) {
+        return PeakAdminValidationResult(
+          fieldErrors: {
+            ...fieldErrors,
+            'mgrs100kId': mgrs100kIdError,
+            'easting': eastingError,
+            'northing': northingError,
+          },
+        );
+      }
     } else {
       if (!latLngComplete) {
         return PeakAdminValidationResult(

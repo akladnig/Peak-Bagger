@@ -125,7 +125,7 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
     await _loadSelectedEntity();
   }
 
-  Future<void> refresh() async {
+  Future<void> refresh({Object? keepSelectedRowPrimaryKey}) async {
     final entities = _repository.getEntities();
     final selectedEntity = _resolveSelectedEntity(entities);
 
@@ -154,7 +154,9 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
       noMatches: false,
     );
 
-    await _loadSelectedEntity();
+    await _loadSelectedEntity(
+      keepSelectedRowPrimaryKey: keepSelectedRowPrimaryKey,
+    );
   }
 
   void setMode(ObjectBoxAdminViewMode mode) {
@@ -204,7 +206,7 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
     );
   }
 
-  Future<void> _loadSelectedEntity() async {
+  Future<void> _loadSelectedEntity({Object? keepSelectedRowPrimaryKey}) async {
     final entity = state.selectedEntity;
     if (entity == null) {
       state = state.copyWith(
@@ -228,13 +230,18 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
         return;
       }
 
+      final nextSelectedRow = keepSelectedRowPrimaryKey == null
+          ? null
+          : _findRowByPrimaryKey(rows, keepSelectedRowPrimaryKey);
+
       state = state.copyWith(
         isLoading: false,
         error: null,
         rows: rows,
         visibleRowCount: rows.isEmpty ? 0 : min(50, rows.length),
         noMatches: rows.isEmpty,
-        clearSelectedRow: true,
+        selectedRow: nextSelectedRow,
+        clearSelectedRow: keepSelectedRowPrimaryKey == null || nextSelectedRow == null,
       );
     } catch (error, stackTrace) {
       logObjectBoxAdminError(
@@ -254,6 +261,19 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
         clearSelectedRow: true,
       );
     }
+  }
+
+  ObjectBoxAdminRow? _findRowByPrimaryKey(
+    List<ObjectBoxAdminRow> rows,
+    Object? primaryKey,
+  ) {
+    for (final row in rows) {
+      if (row.primaryKeyValue == primaryKey) {
+        return row;
+      }
+    }
+
+    return null;
   }
 
   ObjectBoxAdminEntityDescriptor? _resolveSelectedEntity(

@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/router.dart';
+import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
+import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen_controls.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen_details.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen_states.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen_table.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
+import 'package:peak_bagger/services/peak_admin_editor.dart';
+import 'package:peak_bagger/services/peak_delete_guard.dart';
+import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/widgets/dialog_helpers.dart';
 
 class ObjectBoxAdminScreen extends ConsumerStatefulWidget {
   const ObjectBoxAdminScreen({super.key});
@@ -23,6 +30,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   final Map<String, ScrollController> _rowHorizontalControllers = {};
   double _horizontalOffset = 0;
   bool _syncingHorizontal = false;
+  bool _isCreatingPeak = false;
   late final VoidCallback _routerListener;
   String? _lastRoutePath;
 
@@ -163,6 +171,202 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     }
   }
 
+  Future<String?> _savePeak(Peak peak) async {
+    final repository = ref.read(peakRepositoryProvider);
+    final notifier = ref.read(objectboxAdminProvider.notifier);
+
+    final conflict = repository.findByOsmId(peak.osmId);
+    if (conflict != null && conflict.id != peak.id) {
+      if (!mounted) {
+        return 'This osmId is already tied to ${conflict.name}, so cannot be over written.';
+      }
+
+      await showSingleActionDialog(
+        context: context,
+        title: 'Error: cannot change osmId',
+        content: Text(
+          'This osmId is already tied to ${conflict.name}, so cannot be over written.',
+        ),
+        closeKey: 'objectbox-admin-peak-osm-id-conflict-close',
+      );
+      return 'This osmId is already tied to ${conflict.name}, so cannot be over written.';
+    }
+
+    try {
+      final result = await repository.saveDetailed(peak);
+      if (!mounted) {
+        return null;
+      }
+
+      await notifier.refresh(keepSelectedRowPrimaryKey: result.peak.id);
+      if (!mounted) {
+        return null;
+      }
+
+      await ref.read(mapProvider.notifier).reloadPeakMarkers();
+      if (!mounted) {
+        return null;
+      }
+
+      if (_isCreatingPeak) {
+        setState(() {
+          _isCreatingPeak = false;
+        });
+      }
+
+      await showSingleActionDialog(
+        context: context,
+        title: 'Update Successful',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${result.peak.name} updated.'),
+            if (result.warningMessage != null) ...[
+              const SizedBox(height: 8),
+              Text(result.warningMessage!),
+            ],
+          ],
+        ),
+        closeKey: 'objectbox-admin-peak-update-success-close',
+      );
+      return null;
+    } catch (error, stackTrace) {
+      logObjectBoxAdminError(
+        error,
+        stackTrace,
+        'Peak save failed for ${peak.name}',
+      );
+      if (!mounted) {
+        return 'Failed to save Peak: $error';
+      }
+
+      await showSingleActionDialog(
+        context: context,
+        title: 'Save Failed',
+        content: Text('Failed to save Peak: $error'),
+        closeKey: 'objectbox-admin-peak-save-error-close',
+      );
+      return 'Failed to save Peak: $error';
+    }
+  }
+
+  void _viewPeakOnMainMap(Peak peak) {
+    final location = LatLng(peak.latitude, peak.longitude);
+    final mapNotifier = ref.read(mapProvider.notifier);
+    mapNotifier.centerOnLocation(location);
+    mapNotifier.updatePosition(location, 15);
+    router.go('/map');
+  }
+
+  Future<void> _deletePeak(ObjectBoxAdminRow row) async {
+    final repository = ref.read(peakRepositoryProvider);
+    final guard = ref.read(peakDeleteGuardProvider);
+    final notifier = ref.read(objectboxAdminProvider.notifier);
+    final peak =
+        repository.findById(row.primaryKeyValue as int) ?? _peakFromRow(row);
+    final confirmed = await showDangerConfirmDialog(
+      context: context,
+      title: 'Delete Peak?',
+      message:
+          'This will permanently delete the ${peak.name}. Do you want to proceed?',
+      cancelKey: 'cancel-delete',
+      cancelLabel: 'Cancel',
+      confirmKey: 'confirm-delete',
+      confirmLabel: 'Delete',
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    final blockers = guard.check(peak);
+    if (!blockers.canDelete) {
+      if (!mounted) {
+        return;
+      }
+
+      await showSingleActionDialog(
+        context: context,
+        title: 'Delete Blocked',
+        content: Text(_describeDeleteBlockers(blockers.blockers)),
+        closeKey: 'objectbox-admin-peak-delete-blocked-close',
+      );
+      return;
+    }
+
+    final currentState = ref.read(objectboxAdminProvider);
+    final keepSelectedRowPrimaryKey =
+        currentState.selectedRow?.primaryKeyValue == row.primaryKeyValue
+        ? null
+        : currentState.selectedRow?.primaryKeyValue;
+
+    await repository.delete(peak.id);
+    if (!mounted) {
+      return;
+    }
+
+    await notifier.refresh(
+      keepSelectedRowPrimaryKey: keepSelectedRowPrimaryKey,
+    );
+  }
+
+  void _startCreatingPeak() {
+    final notifier = ref.read(objectboxAdminProvider.notifier);
+    setState(() {
+      _isCreatingPeak = true;
+    });
+    notifier.clearSelection();
+  }
+
+  Peak _peakFromRow(ObjectBoxAdminRow row) {
+    final values = row.values;
+    return Peak(
+      id: (values['id'] as int?) ?? (row.primaryKeyValue as int? ?? 0),
+      osmId: (values['osmId'] as int?) ?? 0,
+      name: '${values['name'] ?? ''}',
+      elevation: _doubleValue(values['elevation']),
+      latitude: _doubleValue(values['latitude']) ?? 0,
+      longitude: _doubleValue(values['longitude']) ?? 0,
+      area: values['area']?.toString(),
+      gridZoneDesignator:
+          '${values['gridZoneDesignator'] ?? PeakAdminEditor.fixedGridZoneDesignator}',
+      mgrs100kId: '${values['mgrs100kId'] ?? ''}',
+      easting: '${values['easting'] ?? ''}',
+      northing: '${values['northing'] ?? ''}',
+      sourceOfTruth: '${values['sourceOfTruth'] ?? Peak.sourceOfTruthOsm}',
+    );
+  }
+
+  double? _doubleValue(Object? value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+    return double.tryParse('$value');
+  }
+
+  String _describeDeleteBlockers(List<PeakDeleteBlocker> blockers) {
+    final fragments = blockers
+        .map((blocker) {
+          final dependency = switch (blocker.dependencyType) {
+            PeakDeleteDependencyType.gpxTrack => 'GpxTrack',
+            PeakDeleteDependencyType.peakList => 'PeakList',
+            PeakDeleteDependencyType.peaksBagged => 'PeaksBagged',
+          };
+          return '$dependency ${blocker.displayName}';
+        })
+        .toList(growable: false);
+
+    if (fragments.length == 1) {
+      return 'Delete blocked because it is still referenced by ${fragments.single}.';
+    }
+
+    final body = fragments.length == 2
+        ? '${fragments[0]} and ${fragments[1]}'
+        : '${fragments.take(fragments.length - 1).join(', ')}, and ${fragments.last}';
+    return 'Delete blocked because it is still referenced by $body.';
+  }
+
   @override
   Widget build(BuildContext context) {
     _maybeRefreshOnVisibleEntry();
@@ -191,12 +395,25 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
                   return;
                 }
                 _searchController.clear();
+                if (_isCreatingPeak) {
+                  setState(() {
+                    _isCreatingPeak = false;
+                  });
+                }
                 notifier.selectEntity(entity);
               },
-              onModeChanged: notifier.setMode,
+              onModeChanged: (mode) {
+                if (_isCreatingPeak) {
+                  setState(() {
+                    _isCreatingPeak = false;
+                  });
+                }
+                notifier.setMode(mode);
+              },
               onSearchChanged: notifier.updateSearchQuery,
               onSearchSubmitted: notifier.runSearch,
               onSearchPressed: notifier.runSearch,
+              onAddPeakPressed: _startCreatingPeak,
               onSortPressed: notifier.toggleSort,
               onExportPressed: state.selectedRow == null
                   ? null
@@ -252,6 +469,60 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
       return ObjectBoxAdminSchemaView(entity: entity);
     }
 
+    final isPeakCreateMode =
+        entity.name == 'Peak' &&
+        state.mode == ObjectBoxAdminViewMode.data &&
+        _isCreatingPeak;
+
+    if (isPeakCreateMode) {
+      final createOsmId = ref.read(peakRepositoryProvider).nextSyntheticOsmId();
+
+      return Row(
+        children: [
+          Expanded(
+            child: ObjectBoxAdminDataGrid(
+              key: const Key('objectbox-admin-table'),
+              entity: entity,
+              rows: state.visibleRows,
+              sortAscending: state.sortAscending,
+              selectedRow: state.selectedRow,
+              headerHorizontalController: _headerHorizontalController,
+              rowHorizontalControllerFor: (row) =>
+                  _rowHorizontalControllerFor(entity, row),
+              verticalController: _verticalController,
+              canLoadMore: state.visibleRowCount < state.rows.length,
+              onSortPressed: notifier.toggleSort,
+              onRowTap: (row) {
+                setState(() {
+                  _isCreatingPeak = false;
+                });
+                notifier.selectRow(row);
+              },
+              onDeletePressed: null,
+            ),
+          ),
+          const SizedBox(width: 16),
+          SizedBox(
+            width: 320,
+            child: ObjectBoxAdminDetailsPane(
+              row: null,
+              entity: entity,
+              isCreatingPeak: true,
+              createOsmId: createOsmId,
+              onClose: () {
+                setState(() {
+                  _isCreatingPeak = false;
+                });
+                notifier.clearSelection();
+              },
+              onViewPeakOnMap: _viewPeakOnMainMap,
+              onPeakSubmit: _savePeak,
+            ),
+          ),
+        ],
+      );
+    }
+
     if (state.noMatches) {
       return const ObjectBoxAdminEmptyState(
         key: Key('objectbox-admin-empty-state'),
@@ -284,6 +555,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
             canLoadMore: state.visibleRowCount < state.rows.length,
             onSortPressed: notifier.toggleSort,
             onRowTap: notifier.selectRow,
+            onDeletePressed: entity.name == 'Peak' ? _deletePeak : null,
           ),
         ),
         const SizedBox(width: 16),
@@ -292,7 +564,11 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
           child: ObjectBoxAdminDetailsPane(
             row: state.selectedRow,
             entity: entity,
+            isCreatingPeak: false,
+            createOsmId: 0,
             onClose: notifier.clearSelection,
+            onViewPeakOnMap: _viewPeakOnMainMap,
+            onPeakSubmit: _savePeak,
           ),
         ),
       ],

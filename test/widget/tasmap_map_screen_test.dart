@@ -7,9 +7,12 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
+import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
+import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
+import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/widgets/tasmap_outline_layer.dart';
 
@@ -48,6 +51,8 @@ void main() {
 
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 500));
 
     final labelLayerFinder = find.byKey(const Key('tasmap-label-layer'));
     expect(labelLayerFinder, findsOneWidget);
@@ -61,6 +66,227 @@ void main() {
 
     final text = tester.widget<Text>(textFinder);
     expect(text.textAlign, TextAlign.left);
+  });
+
+  testWidgets('selected map fits to extent on mount', (tester) async {
+    final map = _adamsons();
+    final repository = await TestTasmapRepository.create(maps: [map]);
+    final expectedCenter = repository.getMapCenter(map)!;
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-39.0, 140.0),
+        zoom: 8,
+        basemap: Basemap.tracestrack,
+        selectedMap: map,
+        tasmapDisplayMode: TasmapDisplayMode.selectedMap,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(() => notifier),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
+          tasmapRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(home: MapScreen()),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(
+      notifier.state.center.latitude,
+      moreOrLessEquals(expectedCenter.latitude, epsilon: 0.001),
+    );
+    expect(
+      notifier.state.center.longitude,
+      moreOrLessEquals(expectedCenter.longitude, epsilon: 0.001),
+    );
+    expect(find.byType(TasmapOutlineLayer), findsOneWidget);
+  });
+
+  testWidgets('selecting a map after mount refits the map screen', (
+    tester,
+  ) async {
+    final map = _adamsons();
+    final repository = await TestTasmapRepository.create(maps: [map]);
+    final expectedCenter = repository.getMapCenter(map)!;
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-39.0, 140.0),
+        zoom: 8,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(() => notifier),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
+          tasmapRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(home: MapScreen()),
+      ),
+    );
+
+    await tester.pump();
+    notifier.selectMap(map);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(
+      notifier.state.center.latitude,
+      moreOrLessEquals(expectedCenter.latitude, epsilon: 0.001),
+    );
+    expect(
+      notifier.state.center.longitude,
+      moreOrLessEquals(expectedCenter.longitude, epsilon: 0.001),
+    );
+    expect(find.byType(TasmapOutlineLayer), findsOneWidget);
+  });
+
+  testWidgets('selected track fits to extent on mount', (tester) async {
+    final track = GpxTrack(
+      gpxTrackId: 10,
+      contentHash: 'hash',
+      trackName: 'Ridge Walk',
+      gpxFile: '<gpx></gpx>',
+      displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
+        [const LatLng(-43.1, 146.9), const LatLng(-43.3, 147.3)],
+      ]),
+    );
+    final repository = await TestTasmapRepository.create();
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-39.0, 140.0),
+        zoom: 8,
+        basemap: Basemap.tracestrack,
+        selectedLocation: const LatLng(-42.0, 147.0),
+        selectedTrackId: 10,
+        showTracks: true,
+        tracks: [track],
+      ),
+    );
+    final gpxTrackRepository = GpxTrackRepository.test(
+      InMemoryGpxTrackStorage([track]),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(() => notifier),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
+          tasmapRepositoryProvider.overrideWithValue(repository),
+          gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
+        ],
+        child: const MaterialApp(home: MapScreen()),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(notifier.state.selectedLocation, isNotNull);
+    expect(notifier.state.selectedLocation!.latitude, closeTo(-42.0, 0.001));
+    expect(notifier.state.selectedLocation!.longitude, closeTo(147.0, 0.001));
+    expect(notifier.state.center.latitude, closeTo(-43.2, 0.01));
+    expect(notifier.state.center.longitude, closeTo(147.1, 0.01));
+    expect(notifier.state.zoom, greaterThan(8));
+  });
+
+  testWidgets('selected track refits after returning from another branch', (
+    tester,
+  ) async {
+    final firstTrack = GpxTrack(
+      gpxTrackId: 10,
+      contentHash: 'hash-1',
+      trackName: 'First Track',
+      gpxFile: '<gpx></gpx>',
+      displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
+        [const LatLng(-43.1, 146.9), const LatLng(-43.3, 147.3)],
+      ]),
+    );
+    final secondTrack = GpxTrack(
+      gpxTrackId: 20,
+      contentHash: 'hash-2',
+      trackName: 'Second Track',
+      gpxFile: '<gpx></gpx>',
+      displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
+        [const LatLng(-41.4, 145.8), const LatLng(-41.6, 146.0)],
+      ]),
+    );
+    final repository = await TestTasmapRepository.create();
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-39.0, 140.0),
+        zoom: 8,
+        basemap: Basemap.tracestrack,
+        tracks: [firstTrack, secondTrack],
+      ),
+    );
+    final gpxTrackRepository = GpxTrackRepository.test(
+      InMemoryGpxTrackStorage([firstTrack, secondTrack]),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(() => notifier),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
+          tasmapRepositoryProvider.overrideWithValue(repository),
+          gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
+        ],
+        child: const App(),
+      ),
+    );
+
+    await tester.pump();
+    router.go('/map');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    router.go('/');
+    await tester.pumpAndSettle();
+
+    notifier.showTrack(10, selectedLocation: const LatLng(-43.0, 147.0));
+    router.go('/map');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(notifier.state.center.latitude, closeTo(-43.2, 0.01));
+    expect(notifier.state.center.longitude, closeTo(147.1, 0.01));
+
+    router.go('/');
+    await tester.pumpAndSettle();
+
+    notifier.showTrack(20, selectedLocation: const LatLng(-41.5, 145.9));
+    router.go('/map');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(notifier.state.selectedTrackId, 20);
+    expect(notifier.state.selectedLocation, const LatLng(-41.5, 145.9));
+    expect(notifier.state.center.latitude, closeTo(-41.5, 0.01));
+    expect(notifier.state.center.longitude, closeTo(145.9, 0.01));
   });
 
   testWidgets('overlay labels render without selected map layer', (
@@ -329,6 +555,12 @@ void main() {
       contains('SvgAssetLoader(assets/peak_marker_ticked.svg)'),
     );
     expect(assetNames, contains('SvgAssetLoader(assets/peak_marker.svg)'));
+    expect(
+      assetNames.indexOf('SvgAssetLoader(assets/peak_marker.svg)'),
+      lessThan(
+        assetNames.indexOf('SvgAssetLoader(assets/peak_marker_ticked.svg)'),
+      ),
+    );
   });
 
   testWidgets('Show Peaks toggle hides peak layer', (tester) async {

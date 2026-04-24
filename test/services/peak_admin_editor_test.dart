@@ -68,7 +68,10 @@ void main() {
       expect(result.peak?.latitude, -41.5);
       expect(result.peak?.longitude, 146.5);
       expect(result.peak?.area, 'Central Highlands');
-      expect(result.peak?.gridZoneDesignator, expectedComponents.gridZoneDesignator);
+      expect(
+        result.peak?.gridZoneDesignator,
+        expectedComponents.gridZoneDesignator,
+      );
       expect(result.peak?.mgrs100kId, expectedComponents.mgrs100kId);
       expect(result.peak?.easting, expectedComponents.easting);
       expect(result.peak?.northing, expectedComponents.northing);
@@ -100,7 +103,10 @@ void main() {
       expect(result.coordinateError, isNull);
       expect(result.peak?.latitude, expectedLatLng[1]);
       expect(result.peak?.longitude, expectedLatLng[0]);
-      expect(result.peak?.gridZoneDesignator, PeakAdminEditor.fixedGridZoneDesignator);
+      expect(
+        result.peak?.gridZoneDesignator,
+        PeakAdminEditor.fixedGridZoneDesignator,
+      );
     });
 
     test('prefers MGRS input when both coordinate forms are complete', () {
@@ -196,7 +202,10 @@ void main() {
         ),
       );
 
-      expect(invalidLatitude.fieldErrors['latitude'], PeakAdminEditor.latitudeRangeError);
+      expect(
+        invalidLatitude.fieldErrors['latitude'],
+        PeakAdminEditor.latitudeRangeError,
+      );
       expect(outsideTasmania.coordinateError, PeakAdminEditor.tasmaniaError);
     });
 
@@ -224,6 +233,48 @@ void main() {
       expect(result.fieldErrors['mgrs100kId'], PeakAdminEditor.mgrs100kIdError);
       expect(result.fieldErrors['easting'], PeakAdminEditor.eastingError);
       expect(result.fieldErrors['northing'], PeakAdminEditor.northingError);
+    });
+
+    test('rejects invalid complete MGRS without throwing', () {
+      expect(
+        () => PeakAdminEditor.validateAndBuild(
+          source: Peak(name: 'Old', latitude: -41, longitude: 146),
+          form: const PeakAdminFormState(
+            name: 'Cradle',
+            osmId: '123',
+            elevation: '',
+            latitude: '',
+            longitude: '',
+            area: '',
+            gridZoneDesignator: '55G',
+            mgrs100kId: 'ZZ',
+            easting: '12345',
+            northing: '67890',
+            sourceOfTruth: Peak.sourceOfTruthOsm,
+          ),
+        ),
+        returnsNormally,
+      );
+
+      final result = PeakAdminEditor.validateAndBuild(
+        source: Peak(name: 'Old', latitude: -41, longitude: 146),
+        form: const PeakAdminFormState(
+          name: 'Cradle',
+          osmId: '123',
+          elevation: '',
+          latitude: '',
+          longitude: '',
+          area: '',
+          gridZoneDesignator: '55G',
+          mgrs100kId: 'ZZ',
+          easting: '12345',
+          northing: '67890',
+          sourceOfTruth: Peak.sourceOfTruthOsm,
+        ),
+      );
+
+      expect(result.peak, isNull);
+      expect(result.fieldErrors['mgrs100kId'], PeakAdminEditor.mgrs100kIdError);
     });
   });
 }

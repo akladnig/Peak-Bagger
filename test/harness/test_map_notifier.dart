@@ -1,7 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/services/peak_refresh_result.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 
@@ -17,6 +22,7 @@ class TestMapNotifier extends MapNotifier {
     this.recalcSkippedCount = 0,
     this.recalcWarning,
     this.recalcTracks,
+    this.peakRepository,
     Set<int> correlatedPeakIds = const {},
   }) : _correlatedPeakIds = correlatedPeakIds,
        _startupBackfillWarningMessage = startupBackfillWarningMessage;
@@ -30,16 +36,39 @@ class TestMapNotifier extends MapNotifier {
   final int recalcSkippedCount;
   final String? recalcWarning;
   final List<GpxTrack>? recalcTracks;
+  final PeakRepository? peakRepository;
   final Set<int> _correlatedPeakIds;
   bool _snackbarConsumed = false;
   String? _trackSnackbarMessage;
   String? _startupBackfillWarningMessage;
+  int refreshCallCount = 0;
 
   @override
   MapState build() => initialState;
 
   @override
   Set<int> get correlatedPeakIds => _correlatedPeakIds;
+
+  @override
+  Future<void> reloadPeakMarkers() async {
+    state = state.copyWith(
+      peaks: peakRepository?.getAllPeaks() ?? state.peaks,
+      isLoadingPeaks: false,
+      clearError: true,
+    );
+  }
+
+  @override
+  Future<PeakRefreshResult> refreshPeaks() async {
+    refreshCallCount += 1;
+    final peaks = peakRepository?.getAllPeaks() ?? state.peaks;
+    state = state.copyWith(
+      peaks: peaks,
+      isLoadingPeaks: false,
+      clearError: true,
+    );
+    return PeakRefreshResult(importedCount: peaks.length, skippedCount: 0);
+  }
 
   @override
   void toggleTracks() {
@@ -102,6 +131,83 @@ class TestMapNotifier extends MapNotifier {
       syncEnabled: true,
       selectedPeaks: [peak],
       clearHoveredTrackId: true,
+    );
+  }
+
+  @override
+  void clearSelectedLocation() {
+    state = state.copyWith(clearSelectedLocation: true);
+  }
+
+  @override
+  void showTrack(int trackId, {LatLng? selectedLocation}) {
+    GpxTrack? track;
+    for (final item in state.tracks) {
+      if (item.gpxTrackId == trackId) {
+        track = item;
+        break;
+      }
+    }
+    final focus = track == null ? null : _trackFocus(track);
+
+    state = state.copyWith(
+      center: focus?.center,
+      zoom: focus?.zoom,
+      selectedTrackId: trackId,
+      selectedLocation: selectedLocation,
+      showTracks: true,
+      selectedTrackFocusSerial: state.selectedTrackFocusSerial + 1,
+    );
+  }
+
+  ({LatLng center, double zoom})? _trackFocus(GpxTrack track) {
+    final points = track.getSegments().expand((segment) => segment).toList();
+    if (points.isEmpty) {
+      return null;
+    }
+    if (points.length == 1) {
+      return (center: points.single, zoom: 12);
+    }
+
+    var minLat = double.infinity;
+    var maxLat = double.negativeInfinity;
+    var minLon = double.infinity;
+    var maxLon = double.negativeInfinity;
+
+    for (final point in points) {
+      minLat = math.min(minLat, point.latitude);
+      maxLat = math.max(maxLat, point.latitude);
+      minLon = math.min(minLon, point.longitude);
+      maxLon = math.max(maxLon, point.longitude);
+    }
+
+    final center = LatLng((minLat + maxLat) / 2, (minLon + maxLon) / 2);
+    final span = math.max(maxLat - minLat, maxLon - minLon);
+
+    return (
+      center: center,
+      zoom: switch (span) {
+        > 4 => 6,
+        > 2 => 7,
+        > 1 => 8,
+        > 0.5 => 9,
+        > 0.25 => 10,
+        > 0.12 => 11,
+        > 0.06 => 12,
+        > 0.03 => 13,
+        > 0.015 => 14,
+        _ => 15,
+      },
+    );
+  }
+
+  @override
+  void selectMap(Tasmap50k map) {
+    state = state.copyWith(
+      selectedMap: map,
+      tasmapDisplayMode: TasmapDisplayMode.selectedMap,
+      clearSelectedLocation: true,
+      selectedMapFocusSerial: state.selectedMapFocusSerial + 1,
     );
   }
 

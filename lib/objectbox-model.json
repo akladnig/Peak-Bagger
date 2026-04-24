@@ -185,7 +185,7 @@
     },
     {
       "id": "3:8449374379554926112",
-      "lastPropertyId": "29:3001004799159620060",
+      "lastPropertyId": "30:7984434964772208297",
       "name": "GpxTrack",
       "properties": [
         {
@@ -318,6 +318,11 @@
           "id": "29:3001004799159620060",
           "name": "pausedTime",
           "type": 6
+        },
+        {
+          "id": "30:7984434964772208297",
+          "name": "gpxFileRepaired",
+          "type": 9
         }
       ],
       "relations": [

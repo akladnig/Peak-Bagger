@@ -7,6 +7,7 @@ import 'package:xml/xml.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/services/gpx_track_filter.dart';
+import 'package:peak_bagger/services/gpx_track_repair_service.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 
@@ -42,6 +43,16 @@ class _FileOrganizationResult {
   final String? manualReviewReason;
 
   bool get requiresManualReview => manualReviewReason != null;
+}
+
+class _ProcessingSelection {
+  const _ProcessingSelection({
+    required this.xml,
+    this.warning,
+  });
+
+  final String xml;
+  final String? warning;
 }
 
 class GpxTrackProcessingResult {
@@ -211,12 +222,17 @@ class GpxImporter {
       final segments = _extractAllSegments(doc);
       final stats = GpxTrackStatisticsCalculator().calculateDocument(doc);
       final contentHash = sha256.convert(bytes).toString();
+      final repairService = GpxTrackRepairService();
+      final repairResult = repairService.analyzeAndRepair(content);
+      final persistRepairedXml =
+          repairResult.repairPerformed || _hasInterpolatedSegment(doc);
 
       return GpxTrack(
         contentHash: contentHash,
         trackName: trackName,
         trackDate: trackDate,
         gpxFile: content,
+        gpxFileRepaired: persistRepairedXml ? repairResult.repairedXml : '',
         displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson(segments),
         startDateTime: stats.startDateTime,
         endDateTime: stats.endDateTime,
@@ -239,6 +255,14 @@ class GpxImporter {
     } catch (e) {
       return null;
     }
+  }
+
+  bool _hasInterpolatedSegment(XmlDocument doc) {
+    return doc.findAllElements('trkseg').any((segment) {
+      final typeElement = segment.getElement('type');
+      return typeElement != null &&
+          typeElement.innerText.trim().toLowerCase() == 'interpolated';
+    });
   }
 
   List<List<LatLng>> _extractAllSegments(XmlDocument doc) {
@@ -455,6 +479,7 @@ class GpxImporter {
     GpxFilterConfig filterConfig = GpxFilterConfig.defaults,
   }) async {
     final tracks = <GpxTrack>[];
+    final repairService = GpxTrackRepairService();
     final seenContentHashes = <String>{};
     final seenLogicalMatches = <String>{};
     final existingContentHashes = existingTracks
@@ -472,6 +497,7 @@ class GpxImporter {
     var errorSkippedCount = 0;
     var filterFallbackCount = 0;
     var logWriteFailed = false;
+    String? repairWarning;
 
     final tracksDir = Directory(tracksFolder);
     final tasmaniaDir = Directory(tasmaniaFolder);
@@ -585,8 +611,14 @@ class GpxImporter {
           if (existing != null) {
             track.gpxTrackId = existing.gpxTrackId;
             try {
+              final selection = _processingSelectionForTrack(
+                track,
+                repairService,
+              );
+              final processingXml = selection.xml;
+              repairWarning ??= selection.warning;
               final processed = processTrack(
-                track.gpxFile,
+                processingXml,
                 filterConfig: filterConfig,
               );
               _applyProcessingResult(track, processed);
@@ -624,8 +656,14 @@ class GpxImporter {
         if (existing != null && existing.contentHash != track.contentHash) {
           track.gpxTrackId = existing.gpxTrackId;
           try {
+            final selection = _processingSelectionForTrack(
+              track,
+              repairService,
+            );
+            final processingXml = selection.xml;
+            repairWarning ??= selection.warning;
             final processed = processTrack(
-              track.gpxFile,
+              processingXml,
               filterConfig: filterConfig,
             );
             _applyProcessingResult(track, processed);
@@ -645,8 +683,11 @@ class GpxImporter {
       }
 
       try {
+        final selection = _processingSelectionForTrack(track, repairService);
+        final processingXml = selection.xml;
+        repairWarning ??= selection.warning;
         final processed = processTrack(
-          track.gpxFile,
+          processingXml,
           filterConfig: filterConfig,
         );
         _applyProcessingResult(track, processed);
@@ -678,11 +719,15 @@ class GpxImporter {
       errorSkippedCount: errorSkippedCount,
       noGpxFilesFound: false,
       warning:
-          surfaceWarnings && (errorSkippedCount > 0 || filterFallbackCount > 0)
+          surfaceWarnings &&
+              (errorSkippedCount > 0 ||
+                  filterFallbackCount > 0 ||
+                  repairWarning != null)
           ? _buildImportWarning(
               errorSkippedCount: errorSkippedCount,
               filterFallbackCount: filterFallbackCount,
               logWriteFailed: logWriteFailed,
+              repairWarning: repairWarning,
             )
           : null,
     );
@@ -726,6 +771,32 @@ class GpxImporter {
     }
   }
 
+  _ProcessingSelection _processingSelectionForTrack(
+    GpxTrack track,
+    GpxTrackRepairService repairService,
+  ) {
+    if (track.gpxFileRepaired.isNotEmpty) {
+      return _ProcessingSelection(xml: track.gpxFileRepaired);
+    }
+
+    final repairResult = repairService.analyzeAndRepair(track.gpxFile);
+    if (repairResult.repairPerformed || _hasInterpolatedSegmentInXml(track.gpxFile)) {
+      track.gpxFileRepaired = repairResult.repairedXml;
+      return _ProcessingSelection(xml: repairResult.repairedXml);
+    }
+
+    return _ProcessingSelection(xml: track.gpxFile, warning: repairResult.warning);
+  }
+
+  bool _hasInterpolatedSegmentInXml(String xml) {
+    try {
+      final doc = XmlDocument.parse(xml);
+      return _hasInterpolatedSegment(doc);
+    } catch (_) {
+      return false;
+    }
+  }
+
   void _applyProcessingResult(GpxTrack track, GpxTrackProcessingResult result) {
     track.filteredTrack = result.filteredXml ?? '';
     track.displayTrackPointsByZoom = TrackDisplayCacheBuilder.buildJson(
@@ -754,6 +825,7 @@ class GpxImporter {
     required int errorSkippedCount,
     required int filterFallbackCount,
     required bool logWriteFailed,
+    String? repairWarning,
   }) {
     final parts = <String>[];
     if (errorSkippedCount > 0) {
@@ -765,6 +837,9 @@ class GpxImporter {
     }
     if (filterFallbackCount > 0) {
       parts.add('Some tracks used raw GPX fallback during filtering.');
+    }
+    if (repairWarning != null) {
+      parts.add(repairWarning);
     }
     return parts.join(' ');
   }

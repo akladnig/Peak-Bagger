@@ -12,6 +12,7 @@ class ObjectBoxAdminControls extends StatelessWidget {
     required this.onSearchChanged,
     required this.onSearchSubmitted,
     required this.onSearchPressed,
+    required this.onAddPeakPressed,
     required this.onSortPressed,
     required this.onExportPressed,
     super.key,
@@ -24,6 +25,7 @@ class ObjectBoxAdminControls extends StatelessWidget {
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onSearchSubmitted;
   final VoidCallback onSearchPressed;
+  final VoidCallback onAddPeakPressed;
   final VoidCallback onSortPressed;
   final Future<void> Function()? onExportPressed;
 
@@ -103,6 +105,13 @@ class ObjectBoxAdminControls extends StatelessWidget {
                   onSubmitted: (_) => onSearchSubmitted(),
                 ),
               ),
+              if (entity?.name == 'Peak')
+                FilledButton.icon(
+                  key: const Key('objectbox-admin-peak-add'),
+                  onPressed: onAddPeakPressed,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add Peak'),
+                ),
               if (entity?.name == 'GpxTrack')
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

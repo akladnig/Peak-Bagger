@@ -105,8 +105,31 @@ class PeaksBaggedRepository {
     return _storage.getAll();
   }
 
+  Map<int, int> ascentCountsByPeakId() {
+    final counts = <int, int>{};
+    for (final row in _storage.getAll()) {
+      counts[row.peakId] = (counts[row.peakId] ?? 0) + 1;
+    }
+    return counts;
+  }
+
   Map<int, DateTime?> latestAscentDatesByPeakId() {
     return _computeLatestAscentDatesByPeakId(_storage.getAll());
+  }
+
+  List<PeaksBagged> ascentsForPeakId(int peakId) {
+    final rows = _storage
+        .getAll()
+        .where((row) => row.peakId == peakId)
+        .toList(growable: false);
+    rows.sort((left, right) {
+      final dateCompare = _compareDatesDescending(left.date, right.date);
+      if (dateCompare != 0) {
+        return dateCompare;
+      }
+      return left.gpxId.compareTo(right.gpxId);
+    });
+    return rows;
   }
 
   Future<void> rebuildFromTracks(
@@ -233,5 +256,18 @@ class PeaksBaggedRepository {
     }
 
     return latestByPeakId;
+  }
+
+  static int _compareDatesDescending(DateTime? left, DateTime? right) {
+    if (left == null && right == null) {
+      return 0;
+    }
+    if (left == null) {
+      return 1;
+    }
+    if (right == null) {
+      return -1;
+    }
+    return right.compareTo(left);
   }
 }

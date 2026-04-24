@@ -91,20 +91,26 @@ List<Marker> buildPeakMarkers({
     return const [];
   }
 
-  return peaks
-      .map((peak) {
-        final child = correlatedPeakIds.contains(peak.osmId)
-            ? tickedPeakMarker
-            : untickedPeakMarker;
+  final untickedMarkers = <Marker>[];
+  final tickedMarkers = <Marker>[];
 
-        return Marker(
-          point: LatLng(peak.latitude, peak.longitude),
-          width: 20,
-          height: 20,
-          child: child,
-        );
-      })
-      .toList(growable: false);
+  for (final peak in peaks) {
+    final marker = Marker(
+      point: LatLng(peak.latitude, peak.longitude),
+      width: 20,
+      height: 20,
+      child: correlatedPeakIds.contains(peak.osmId)
+          ? tickedPeakMarker
+          : untickedPeakMarker,
+    );
+    if (correlatedPeakIds.contains(peak.osmId)) {
+      tickedMarkers.add(marker);
+    } else {
+      untickedMarkers.add(marker);
+    }
+  }
+
+  return [...untickedMarkers, ...tickedMarkers];
 }
 
 List<TasmapPolygonLabelEntry> buildOverlayLabelEntries(

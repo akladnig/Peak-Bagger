@@ -1,0 +1,720 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peak_list.dart';
+import 'package:peak_bagger/models/peaks_bagged.dart';
+import 'package:peak_bagger/models/tasmap50k.dart';
+import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_provider.dart';
+import 'package:peak_bagger/providers/tasmap_provider.dart';
+import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/gpx_track_repository.dart';
+import 'package:peak_bagger/services/tasmap_repository.dart';
+import 'package:peak_bagger/widgets/peak_list_peak_dialog.dart';
+
+import '../harness/test_tasmap_repository.dart';
+import '../harness/test_map_notifier.dart';
+
+void main() {
+  testWidgets('view mode shows metadata and history', (tester) async {
+    final peak = _buildPeak(
+      osmId: 101,
+      name: 'Mount View',
+      latitude: -41.0,
+      longitude: 146.0,
+      gridZoneDesignator: '55G',
+      mgrs100kId: 'AB',
+      easting: '12345',
+      northing: '54321',
+      elevation: 1234,
+    );
+    final tasmapRepository = await TestTasmapRepository.create(
+      maps: [
+        Tasmap50k(
+          series: 'TS01',
+          name: 'Resolved Map',
+          parentSeries: 'P1',
+          mgrs100kIds: 'AB',
+          eastingMin: 12000,
+          eastingMax: 13000,
+          northingMin: 54000,
+          northingMax: 55000,
+          mgrsMid: 'AB',
+          eastingMid: 12500,
+          northingMid: 54500,
+        ),
+      ],
+    );
+
+    await _pumpDialog(
+      tester,
+      dialog: PeakListPeakDialog(
+        mode: PeakListPeakDialogMode.view,
+        peakList: PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+        peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
+        peakItems: [const PeakListItem(peakOsmId: 101, points: 4)],
+        ascentRows: [
+          PeaksBagged(
+            baggedId: 1,
+            peakId: 101,
+            gpxId: 10,
+            date: DateTime.utc(2024, 3, 2),
+          ),
+        ],
+        peak: peak,
+        points: 4,
+      ),
+      peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+      tasmapRepository: tasmapRepository,
+      gpxTrackRepository: GpxTrackRepository.test(
+        InMemoryGpxTrackStorage([
+          GpxTrack(gpxTrackId: 10, contentHash: 'abc', trackName: 'Ridge Walk'),
+        ]),
+      ),
+      mapNotifier: TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 10,
+          basemap: Basemap.tracestrack,
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key('peak-list-peak-dialog')), findsOneWidget);
+    expect(find.text('Mount View'), findsWidgets);
+    expect(
+      find.text('55G AB 12345 54321 (-41.00000, 146.00000)'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('peak-list-peak-map-link')), findsOneWidget);
+    expect(find.text('Resolved Map'), findsOneWidget);
+    expect(find.byKey(const Key('peak-list-peak-track-10')), findsOneWidget);
+    expect(find.text('Sat, Mar 2 2024'), findsOneWidget);
+    expect(find.text('Ridge Walk'), findsOneWidget);
+  });
+
+  testWidgets('dialog opens bottom-right and can be dragged', (tester) async {
+    final peak = _buildPeak(
+      osmId: 101,
+      name: 'Mount View',
+      latitude: -41.0,
+      longitude: 146.0,
+      gridZoneDesignator: '55G',
+      mgrs100kId: 'AB',
+      easting: '12345',
+      northing: '54321',
+      elevation: 1234,
+    );
+
+    await _pumpDialog(
+      tester,
+      dialog: PeakListPeakDialog(
+        mode: PeakListPeakDialogMode.view,
+        peakList: PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+        peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
+        peakItems: [const PeakListItem(peakOsmId: 101, points: 4)],
+        ascentRows: const [],
+        peak: peak,
+        points: 4,
+      ),
+      peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+      tasmapRepository: await TestTasmapRepository.create(),
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+      mapNotifier: TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 10,
+          basemap: Basemap.tracestrack,
+        ),
+      ),
+      settle: false,
+    );
+
+    final dialogFinder = find.byKey(const Key('peak-list-peak-dialog'));
+    await tester.pump();
+    final initialRect = tester.getRect(dialogFinder);
+    final screenSize = tester.view.physicalSize / tester.view.devicePixelRatio;
+
+    expect(initialRect.right, closeTo(screenSize.width - 24, 8));
+    expect(initialRect.bottom, closeTo(screenSize.height - 24, 8));
+
+    final gesture = await tester.startGesture(
+      initialRect.topLeft + const Offset(40, 40),
+    );
+    await gesture.moveBy(const Offset(-180, -120));
+    await gesture.up();
+    await tester.pump();
+
+    final movedRect = tester.getRect(dialogFinder);
+    expect(movedRect.left, lessThan(initialRect.left - 40));
+    expect(movedRect.top, lessThan(initialRect.top - 20));
+  });
+
+  testWidgets('tapping map name selects the map for navigation', (
+    tester,
+  ) async {
+    final peak = _buildPeak(
+      osmId: 101,
+      name: 'Mount View',
+      latitude: -41.0,
+      longitude: 146.0,
+      gridZoneDesignator: '55G',
+      mgrs100kId: 'AB',
+      easting: '12345',
+      northing: '54321',
+      elevation: 1234,
+    );
+    final mapNotifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 10,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    await _pumpDialog(
+      tester,
+      dialog: PeakListPeakDialog(
+        mode: PeakListPeakDialogMode.view,
+        peakList: PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+        peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
+        peakItems: [const PeakListItem(peakOsmId: 101, points: 4)],
+        ascentRows: const [],
+        peak: peak,
+        points: 4,
+      ),
+      peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+      tasmapRepository: await TestTasmapRepository.create(
+        maps: [
+          Tasmap50k(
+            series: 'TS01',
+            name: 'Resolved Map',
+            parentSeries: 'P1',
+            mgrs100kIds: 'AB',
+            eastingMin: 12000,
+            eastingMax: 13000,
+            northingMin: 54000,
+            northingMax: 55000,
+            mgrsMid: 'AB',
+            eastingMid: 12500,
+            northingMid: 54500,
+          ),
+        ],
+      ),
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+      mapNotifier: mapNotifier,
+    );
+
+    await tester.tap(find.byKey(const Key('peak-list-peak-map-link')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-list-peak-dialog')), findsNothing);
+    expect(mapNotifier.state.selectedMap?.name, 'Resolved Map');
+    expect(mapNotifier.state.tasmapDisplayMode, TasmapDisplayMode.selectedMap);
+  });
+
+  testWidgets('tapping gpx link updates the selected location to the peak', (
+    tester,
+  ) async {
+    final peak = _buildPeak(
+      osmId: 101,
+      name: 'Mount View',
+      latitude: -41.0,
+      longitude: 146.0,
+      gridZoneDesignator: '55G',
+      mgrs100kId: 'AB',
+      easting: '12345',
+      northing: '54321',
+      elevation: 1234,
+    );
+    final mapNotifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 10,
+        basemap: Basemap.tracestrack,
+        selectedLocation: const LatLng(-42.0, 147.0),
+      ),
+    );
+
+    await _pumpDialog(
+      tester,
+      dialog: PeakListPeakDialog(
+        mode: PeakListPeakDialogMode.view,
+        peakList: PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+        peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
+        peakItems: [const PeakListItem(peakOsmId: 101, points: 4)],
+        ascentRows: [
+          PeaksBagged(
+            baggedId: 1,
+            peakId: 101,
+            gpxId: 10,
+            date: DateTime.utc(2024, 3, 2),
+          ),
+        ],
+        peak: peak,
+        points: 4,
+      ),
+      peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+      tasmapRepository: await TestTasmapRepository.create(
+        maps: [
+          Tasmap50k(
+            series: 'TS01',
+            name: 'Resolved Map',
+            parentSeries: 'P1',
+            mgrs100kIds: 'AB',
+            eastingMin: 12000,
+            eastingMax: 13000,
+            northingMin: 54000,
+            northingMax: 55000,
+            mgrsMid: 'AB',
+            eastingMid: 12500,
+            northingMid: 54500,
+          ),
+        ],
+      ),
+      gpxTrackRepository: GpxTrackRepository.test(
+        InMemoryGpxTrackStorage([
+          GpxTrack(gpxTrackId: 10, contentHash: 'abc', trackName: 'Ridge Walk'),
+        ]),
+      ),
+      mapNotifier: mapNotifier,
+    );
+
+    await tester.tap(find.byKey(const Key('peak-list-peak-track-10')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-list-peak-dialog')), findsNothing);
+    expect(mapNotifier.state.selectedLocation, isNotNull);
+    expect(mapNotifier.state.selectedLocation!.latitude, closeTo(-41.0, 0.001));
+    expect(
+      mapNotifier.state.selectedLocation!.longitude,
+      closeTo(146.0, 0.001),
+    );
+    expect(mapNotifier.state.selectedTrackId, 10);
+    expect(mapNotifier.state.showTracks, isTrue);
+  });
+
+  testWidgets('tapping a different gpx link updates the peak marker', (
+    tester,
+  ) async {
+    final peakOne = _buildPeak(
+      osmId: 101,
+      name: 'Mount View',
+      latitude: -41.0,
+      longitude: 146.0,
+    );
+    final peakTwo = _buildPeak(
+      osmId: 202,
+      name: 'Second Peak',
+      latitude: -42.5,
+      longitude: 147.5,
+    );
+    final mapNotifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 10,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+    final gpxTrackRepository = GpxTrackRepository.test(
+      InMemoryGpxTrackStorage([
+        GpxTrack(gpxTrackId: 10, contentHash: 'abc', trackName: 'Ridge Walk'),
+        GpxTrack(gpxTrackId: 20, contentHash: 'def', trackName: 'Ridge Walk 2'),
+      ]),
+    );
+
+    await _pumpDialog(
+      tester,
+      dialog: PeakListPeakDialog(
+        mode: PeakListPeakDialogMode.view,
+        peakList: PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+        peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
+        peakItems: [const PeakListItem(peakOsmId: 101, points: 4)],
+        ascentRows: [
+          PeaksBagged(
+            baggedId: 1,
+            peakId: 101,
+            gpxId: 10,
+            date: DateTime.utc(2024, 3, 2),
+          ),
+        ],
+        peak: peakOne,
+        points: 4,
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([peakOne, peakTwo]),
+      ),
+      tasmapRepository: await TestTasmapRepository.create(),
+      gpxTrackRepository: gpxTrackRepository,
+      mapNotifier: mapNotifier,
+    );
+
+    await tester.tap(find.byKey(const Key('peak-list-peak-track-10')));
+    await tester.pumpAndSettle();
+
+    await _pumpDialog(
+      tester,
+      dialog: PeakListPeakDialog(
+        mode: PeakListPeakDialogMode.view,
+        peakList: PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+        peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
+        peakItems: [const PeakListItem(peakOsmId: 202, points: 4)],
+        ascentRows: [
+          PeaksBagged(
+            baggedId: 2,
+            peakId: 202,
+            gpxId: 20,
+            date: DateTime.utc(2024, 3, 3),
+          ),
+        ],
+        peak: peakTwo,
+        points: 4,
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([peakOne, peakTwo]),
+      ),
+      tasmapRepository: await TestTasmapRepository.create(),
+      gpxTrackRepository: gpxTrackRepository,
+      mapNotifier: mapNotifier,
+    );
+
+    await tester.tap(find.byKey(const Key('peak-list-peak-track-20')));
+    await tester.pumpAndSettle();
+
+    expect(mapNotifier.state.selectedTrackId, 20);
+    expect(mapNotifier.state.selectedLocation, isNotNull);
+    expect(mapNotifier.state.selectedLocation!.latitude, closeTo(-42.5, 0.001));
+    expect(
+      mapNotifier.state.selectedLocation!.longitude,
+      closeTo(147.5, 0.001),
+    );
+    expect(mapNotifier.state.selectedTrackFocusSerial, 2);
+  });
+
+  testWidgets('add mode autofocuses and shows map names in results', (
+    tester,
+  ) async {
+    final peak = _buildPeak(
+      osmId: 202,
+      name: 'New Peak',
+      latitude: -42.0,
+      longitude: 147.0,
+      gridZoneDesignator: '55G',
+      mgrs100kId: 'AB',
+      easting: '12345',
+      northing: '54321',
+      elevation: 1200,
+    );
+
+    await _pumpDialog(
+      tester,
+      dialog: PeakListPeakDialog(
+        mode: PeakListPeakDialogMode.add,
+        peakList: PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+        peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
+        peakItems: const [],
+        ascentRows: const [],
+      ),
+      peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+      tasmapRepository: await TestTasmapRepository.create(
+        maps: [
+          Tasmap50k(
+            series: 'TS01',
+            name: 'Resolved Map',
+            parentSeries: 'P1',
+            mgrs100kIds: 'AB',
+            eastingMin: 12000,
+            eastingMax: 13000,
+            northingMin: 54000,
+            northingMax: 55000,
+            mgrsMid: 'AB',
+            eastingMid: 12500,
+            northingMid: 54500,
+          ),
+        ],
+      ),
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+    );
+
+    expect(tester.testTextInput.hasAnyClients, isTrue);
+
+    await tester.enterText(
+      find.byKey(const Key('peak-list-peak-search-input')),
+      'New',
+    );
+    await tester.pump();
+
+    expect(find.text('1200m  Map: Resolved Map'), findsOneWidget);
+  });
+
+  testWidgets('add mode filters existing peaks and saves', (tester) async {
+    final listRepository = PeakListRepository.test(
+      InMemoryPeakListStorage([
+        PeakList(
+          peakListId: 1,
+          name: 'Tasmania',
+          peakList: encodePeakListItems([
+            const PeakListItem(peakOsmId: 101, points: 4),
+          ]),
+        ),
+      ]),
+    );
+    final peakA = _buildPeak(
+      osmId: 101,
+      name: 'Already In List',
+      latitude: -41,
+      longitude: 146,
+    );
+    final peakB = _buildPeak(
+      osmId: 202,
+      name: 'New Peak',
+      latitude: -42,
+      longitude: 147,
+    );
+
+    final completer = await _pumpDialog(
+      tester,
+      dialog: PeakListPeakDialog(
+        mode: PeakListPeakDialogMode.add,
+        peakList: listRepository.getAllPeakLists().single,
+        peakListRepository: listRepository,
+        peakItems: [const PeakListItem(peakOsmId: 101, points: 4)],
+        ascentRows: const [],
+      ),
+      peakRepository: PeakRepository.test(InMemoryPeakStorage([peakA, peakB])),
+      tasmapRepository: await TestTasmapRepository.create(),
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('peak-list-peak-search-input')),
+      'New',
+    );
+    await tester.pump();
+
+    expect(find.byKey(const Key('peak-list-peak-result-101')), findsNothing);
+    expect(find.byKey(const Key('peak-list-peak-result-202')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('peak-list-peak-result-202')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('peak-list-peak-save')));
+    await tester.pumpAndSettle();
+
+    final result = await completer.future;
+    expect(result?.deleted, isFalse);
+    expect(result?.selectedPeakId, 202);
+    expect(
+      decodePeakListItems(
+        listRepository.getAllPeakLists().single.peakList,
+      ).map((item) => (item.peakOsmId, item.points)).toList(),
+      [(101, 4), (202, 0)],
+    );
+  });
+
+  testWidgets('edit mode updates points only', (tester) async {
+    final listRepository = PeakListRepository.test(
+      InMemoryPeakListStorage([
+        PeakList(
+          peakListId: 1,
+          name: 'Tasmania',
+          peakList: encodePeakListItems([
+            const PeakListItem(peakOsmId: 101, points: 4),
+          ]),
+        ),
+      ]),
+    );
+    final peak = _buildPeak(
+      osmId: 101,
+      name: 'Mount Edit',
+      latitude: -41,
+      longitude: 146,
+    );
+
+    final completer = await _pumpDialog(
+      tester,
+      dialog: PeakListPeakDialog(
+        mode: PeakListPeakDialogMode.edit,
+        peakList: listRepository.getAllPeakLists().single,
+        peakListRepository: listRepository,
+        peakItems: [const PeakListItem(peakOsmId: 101, points: 4)],
+        ascentRows: const [],
+        peak: peak,
+        points: 4,
+      ),
+      peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+      tasmapRepository: await TestTasmapRepository.create(),
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+    );
+
+    await tester.tap(find.byKey(const Key('peak-list-peak-points')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('7').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('peak-list-peak-save')));
+    await tester.pumpAndSettle();
+
+    final result = await completer.future;
+    expect(result?.selectedPeakId, 101);
+    expect(result?.deleted, isFalse);
+    expect(
+      decodePeakListItems(
+        listRepository.getAllPeakLists().single.peakList,
+      ).single.points,
+      7,
+    );
+  });
+
+  testWidgets('delete mode removes membership and selects next row', (
+    tester,
+  ) async {
+    final listRepository = PeakListRepository.test(
+      InMemoryPeakListStorage([
+        PeakList(
+          peakListId: 1,
+          name: 'Tasmania',
+          peakList: encodePeakListItems([
+            const PeakListItem(peakOsmId: 101, points: 4),
+            const PeakListItem(peakOsmId: 202, points: 5),
+          ]),
+        ),
+      ]),
+    );
+    final peak = _buildPeak(
+      osmId: 101,
+      name: 'Mount Delete',
+      latitude: -41,
+      longitude: 146,
+    );
+
+    final completer = await _pumpDialog(
+      tester,
+      dialog: PeakListPeakDialog(
+        mode: PeakListPeakDialogMode.view,
+        peakList: listRepository.getAllPeakLists().single,
+        peakListRepository: listRepository,
+        peakItems: const [
+          PeakListItem(peakOsmId: 101, points: 4),
+          PeakListItem(peakOsmId: 202, points: 5),
+        ],
+        ascentRows: const [],
+        peak: peak,
+        points: 4,
+      ),
+      peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+      tasmapRepository: await TestTasmapRepository.create(),
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+    );
+
+    await tester.tap(find.byKey(const Key('peak-list-peak-delete')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('peak-list-peak-delete-confirm')));
+    await tester.pumpAndSettle();
+
+    final result = await completer.future;
+    expect(result?.deleted, isTrue);
+    expect(result?.selectedPeakId, 202);
+    expect(
+      decodePeakListItems(
+        listRepository.getAllPeakLists().single.peakList,
+      ).map((item) => item.peakOsmId).toList(),
+      [202],
+    );
+  });
+}
+
+Future<Completer<PeakListPeakDialogOutcome?>> _pumpDialog(
+  WidgetTester tester, {
+  required Widget dialog,
+  required PeakRepository peakRepository,
+  required TasmapRepository tasmapRepository,
+  required GpxTrackRepository gpxTrackRepository,
+  TestMapNotifier? mapNotifier,
+  bool settle = true,
+}) async {
+  final completer = Completer<PeakListPeakDialogOutcome?>();
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        mapProvider.overrideWith(
+          () =>
+              mapNotifier ??
+              TestMapNotifier(
+                MapState(
+                  center: const LatLng(-41.5, 146.5),
+                  zoom: 10,
+                  basemap: Basemap.tracestrack,
+                ),
+              ),
+        ),
+        peakRepositoryProvider.overrideWithValue(peakRepository),
+        tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
+        gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
+      ],
+      child: MaterialApp(
+        home: Builder(
+          builder: (context) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              showGeneralDialog<PeakListPeakDialogOutcome>(
+                context: context,
+                barrierDismissible: true,
+                barrierLabel: MaterialLocalizations.of(
+                  context,
+                ).modalBarrierDismissLabel,
+                barrierColor: Colors.black54,
+                transitionDuration: const Duration(milliseconds: 120),
+                pageBuilder: (_, animation, secondaryAnimation) => dialog,
+                transitionBuilder:
+                    (context, animation, secondaryAnimation, child) {
+                      final fadeAnimation = CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOut,
+                      );
+                      return FadeTransition(
+                        opacity: fadeAnimation,
+                        child: child,
+                      );
+                    },
+              ).then(completer.complete);
+            });
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    ),
+  );
+  if (settle) {
+    await tester.pumpAndSettle();
+  }
+  return completer;
+}
+
+Peak _buildPeak({
+  required int osmId,
+  required String name,
+  required double latitude,
+  required double longitude,
+  String gridZoneDesignator = '',
+  String mgrs100kId = '',
+  String easting = '',
+  String northing = '',
+  double? elevation,
+}) {
+  return Peak(
+    osmId: osmId,
+    name: name,
+    elevation: elevation,
+    latitude: latitude,
+    longitude: longitude,
+    gridZoneDesignator: gridZoneDesignator,
+    mgrs100kId: mgrs100kId,
+    easting: easting,
+    northing: northing,
+  );
+}

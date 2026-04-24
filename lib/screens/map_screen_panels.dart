@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
+import 'package:peak_bagger/widgets/peak_search_results_list.dart';
 
 class MapMgrsReadout extends StatelessWidget {
   const MapMgrsReadout({required this.mgrs, super.key});
@@ -55,6 +56,7 @@ class MapPeakSearchPanel extends StatelessWidget {
     required this.onSubmitted,
     required this.onClose,
     required this.onSelectPeak,
+    required this.mapNameForPeak,
     super.key,
   });
 
@@ -65,6 +67,7 @@ class MapPeakSearchPanel extends StatelessWidget {
   final ValueChanged<String> onSubmitted;
   final VoidCallback onClose;
   final ValueChanged<Peak> onSelectPeak;
+  final String Function(Peak peak) mapNameForPeak;
 
   @override
   Widget build(BuildContext context) {
@@ -104,28 +107,19 @@ class MapPeakSearchPanel extends StatelessWidget {
           if (searchResults.isNotEmpty)
             SizedBox(
               width: 30 * 8.0,
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: searchResults.length,
-                itemBuilder: (context, index) {
-                  final peak = searchResults[index];
-                  return ListTile(
-                    dense: true,
-                    title: Text(peak.name),
-                    subtitle: Text(
-                      peak.elevation != null
-                          ? '${peak.elevation!.toStringAsFixed(0)}m'
-                          : 'Unknown',
-                    ),
-                    onTap: () => onSelectPeak(peak),
-                  );
-                },
+              child: PeakSearchResultsList(
+                searchResults: searchResults,
+                searchQuery: searchQuery,
+                mapNameForPeak: mapNameForPeak,
+                onSelectPeak: onSelectPeak,
               ),
             ),
-          if (searchQuery.isNotEmpty && searchResults.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(8),
-              child: Text('No peaks found'),
+          if (searchResults.isEmpty)
+            PeakSearchResultsList(
+              searchResults: searchResults,
+              searchQuery: searchQuery,
+              mapNameForPeak: mapNameForPeak,
+              onSelectPeak: onSelectPeak,
             ),
         ],
       ),

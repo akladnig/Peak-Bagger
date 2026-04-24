@@ -87,6 +87,18 @@ void main() {
       expect(peak?.name, 'Ossa');
     });
 
+    test('nextSyntheticOsmId returns the next negative id', () async {
+      expect(repository.nextSyntheticOsmId(), -1);
+
+      await repository.addPeaks([
+        Peak(osmId: -1, name: 'Synthetic 1', latitude: -41, longitude: 146),
+        Peak(osmId: -3, name: 'Synthetic 3', latitude: -42, longitude: 147),
+        Peak(osmId: 101, name: 'Cradle', latitude: -41.5, longitude: 146.5),
+      ]);
+
+      expect(repository.nextSyntheticOsmId(), -4);
+    });
+
     test('save persists corrected peak fields', () async {
       final original = Peak(
         id: 7,
@@ -133,65 +145,68 @@ void main() {
       expect(repository.findById(8)?.name, 'Ossa');
     });
 
-    test('saveDetailed rewrites dependent PeakList and PeaksBagged rows', () async {
-      final peakLists = [
-        PeakList(
-          name: 'Abels',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 123, points: 2),
-            const PeakListItem(peakOsmId: 999, points: 4),
+    test(
+      'saveDetailed rewrites dependent PeakList and PeaksBagged rows',
+      () async {
+        final peakLists = [
+          PeakList(
+            name: 'Abels',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 123, points: 2),
+              const PeakListItem(peakOsmId: 999, points: 4),
+            ]),
+          ),
+          PeakList(name: 'Broken', peakList: '{not json'),
+        ];
+        final peaksBagged = [
+          PeaksBagged(baggedId: 1, peakId: 123, gpxId: 7),
+          PeaksBagged(baggedId: 2, peakId: 999, gpxId: 8),
+        ];
+        final rewritePort = _RecordingPeakListRewritePort(
+          peakLists: peakLists,
+          peaksBagged: peaksBagged,
+        );
+        final detailedRepository = PeakRepository.test(
+          InMemoryPeakStorage([
+            Peak(
+              id: 7,
+              osmId: 123,
+              name: 'Cradle',
+              latitude: -41,
+              longitude: 146,
+            ),
           ]),
-        ),
-        PeakList(name: 'Broken', peakList: '{not json'),
-      ];
-      final peaksBagged = [
-        PeaksBagged(baggedId: 1, peakId: 123, gpxId: 7),
-        PeaksBagged(baggedId: 2, peakId: 999, gpxId: 8),
-      ];
-      final rewritePort = _RecordingPeakListRewritePort(
-        peakLists: peakLists,
-        peaksBagged: peaksBagged,
-      );
-      final detailedRepository = PeakRepository.test(
-        InMemoryPeakStorage([
+          peakListRewritePort: rewritePort,
+        );
+
+        final result = await detailedRepository.saveDetailed(
           Peak(
             id: 7,
-            osmId: 123,
+            osmId: 456,
             name: 'Cradle',
-            latitude: -41,
-            longitude: 146,
+            latitude: -41.2,
+            longitude: 146.3,
           ),
-        ]),
-        peakListRewritePort: rewritePort,
-      );
+        );
 
-      final result = await detailedRepository.saveDetailed(
-        Peak(
-          id: 7,
-          osmId: 456,
-          name: 'Cradle',
-          latitude: -41.2,
-          longitude: 146.3,
-        ),
-      );
-
-      expect(result.peak.osmId, 456);
-      expect(result.peak.latitude, -41.2);
-      expect(result.peakListRewriteResult?.rewrittenCount, 1);
-      expect(result.peakListRewriteResult?.skippedMalformedCount, 1);
-      expect(
-        result.peakListRewriteResult?.warningMessage,
-        "1 PeakList has been skipped as it's malformed.",
-      );
-      expect(
-        decodePeakListItems(peakLists.first.peakList)
-            .map((item) => item.peakOsmId)
-            .toList(),
-        [456, 999],
-      );
-      expect(peaksBagged.first.peakId, 456);
-      expect(peaksBagged.last.peakId, 999);
-    });
+        expect(result.peak.osmId, 456);
+        expect(result.peak.latitude, -41.2);
+        expect(result.peakListRewriteResult?.rewrittenCount, 1);
+        expect(result.peakListRewriteResult?.skippedMalformedCount, 1);
+        expect(
+          result.peakListRewriteResult?.warningMessage,
+          "1 PeakList has been skipped as it's malformed.",
+        );
+        expect(
+          decodePeakListItems(
+            peakLists.first.peakList,
+          ).map((item) => item.peakOsmId).toList(),
+          [456, 999],
+        );
+        expect(peaksBagged.first.peakId, 456);
+        expect(peaksBagged.last.peakId, 999);
+      },
+    );
   });
 }
 
@@ -232,7 +247,9 @@ class _RecordingPeakListRewritePort implements PeakListRewritePort {
         final updatedItems = <PeakListItem>[];
         for (final item in items) {
           if (item.peakOsmId == oldOsmId) {
-            updatedItems.add(PeakListItem(peakOsmId: newOsmId, points: item.points));
+            updatedItems.add(
+              PeakListItem(peakOsmId: newOsmId, points: item.points),
+            );
             changed = true;
           } else {
             updatedItems.add(item);

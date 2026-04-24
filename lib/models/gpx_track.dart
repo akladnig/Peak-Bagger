@@ -19,6 +19,7 @@ class GpxTrack {
   @Property(type: PropertyType.dateUtc)
   DateTime? trackDate;
   String gpxFile;
+  String gpxFileRepaired;
   String filteredTrack;
   String displayTrackPointsByZoom;
   @Property(type: PropertyType.dateUtc)
@@ -49,6 +50,7 @@ class GpxTrack {
     required this.trackName,
     this.trackDate,
     this.gpxFile = '',
+    this.gpxFileRepaired = '',
     this.filteredTrack = '',
     this.displayTrackPointsByZoom = '{}',
     this.startDateTime,
@@ -81,6 +83,7 @@ class GpxTrack {
           ? DateTime.tryParse(map['trackDate'] as String)
           : null,
       gpxFile: map['gpxFile'] as String? ?? '',
+      gpxFileRepaired: map['gpxFileRepaired'] as String? ?? '',
       filteredTrack: map['filteredTrack'] as String? ?? '',
       displayTrackPointsByZoom:
           map['displayTrackPointsByZoom'] as String? ?? '{}',
@@ -118,6 +121,7 @@ class GpxTrack {
       'trackName': trackName,
       'trackDate': trackDate?.toIso8601String(),
       'gpxFile': gpxFile,
+      'gpxFileRepaired': gpxFileRepaired,
       'filteredTrack': filteredTrack,
       'displayTrackPointsByZoom': displayTrackPointsByZoom,
       'startDateTime': startDateTime?.toIso8601String(),

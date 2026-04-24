@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -40,8 +41,48 @@ void main() {
       findsNWidgets(2),
     );
     expect(find.text('Peak Name'), findsOneWidget);
-    expect(find.text('Elevation'), findsOneWidget);
-    expect(find.text('Ascent Date'), findsOneWidget);
+    expect(find.text('Height'), findsOneWidget);
+    expect(find.text('Ascent\nDate'), findsOneWidget);
+    expect(find.text('Points'), findsOneWidget);
+  });
+
+  testWidgets('tapping a peak row opens and closes the detail dialog', (
+    tester,
+  ) async {
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Tas Peaks', [200, 300, 100]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+          _buildPeak(200, 'Beta Peak', -42.1, 146.1, elevation: 1100),
+          _buildPeak(300, 'Gamma Peak', -42.2, 146.2, elevation: 1000),
+        ]),
+      ),
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage([
+          PeaksBagged(baggedId: 1, peakId: 100, gpxId: 10),
+        ]),
+      ),
+    );
+
+    tester
+        .widget<InkWell>(find.byKey(const Key('peak-lists-details-row-200')))
+        .onTap!();
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-list-peak-dialog')), findsOneWidget);
+    expect(find.text('Beta Peak'), findsWidgets);
+
+    await tester.tap(find.byKey(const Key('peak-list-peak-close')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-list-peak-dialog')), findsNothing);
   });
 
   testWidgets('summary metrics use unique peak ids and latest ascent dates', (
@@ -60,7 +101,12 @@ void main() {
       filePicker: TestPeakListFilePicker(),
       repository: PeakListRepository.test(
         InMemoryPeakListStorage([
-          _buildPeakList(1, 'Tas Peaks', [200, 300, 100, 100]),
+          _buildPeakList(
+            1,
+            'Tas Peaks',
+            [200, 300, 100, 100],
+            pointsByPeakId: const {200: 7, 300: 3, 100: 5},
+          ),
         ]),
       ),
       peakRepository: peakRepository,
@@ -111,10 +157,34 @@ void main() {
       '1',
     );
     expect(
-      find.text(
-        'Alpha Peak and Beta Peak are your most recent, climbed on 2 Mar 2024. Tas Peaks contains 3 peaks. Climbed 2 of 3 (67%).',
+      find.descendant(
+        of: find.byKey(const Key('peak-lists-details-row-200')),
+        matching: find.text('7'),
       ),
       findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('peak-lists-details-row-100')),
+        matching: find.text('5'),
+      ),
+      findsOneWidget,
+    );
+    final summaryText = tester
+        .widget<Text>(find.byKey(const Key('peak-lists-summary-sentence')))
+        .data;
+    expect(summaryText, contains('Tas Peaks contains 3 peaks.'));
+    expect(
+      summaryText,
+      contains(
+        'Alpha Peak and Beta Peak are your most recent ascent, climbed on 2 Mar 2024.',
+      ),
+    );
+    expect(
+      summaryText,
+      contains(
+        'Climbed 2 of 3 peaks (67%) and earned a total 12 points out of 15.',
+      ),
     );
     expect(
       find.byKey(const Key('peak-lists-mini-map-marker-100-ticked')),
@@ -134,6 +204,36 @@ void main() {
         matching: find.text('2 Mar 2024'),
       ),
       findsNothing,
+    );
+    expect(
+      find.byKey(const Key('peak-lists-details-ascents-200')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<Text>(find.byKey(const Key('peak-lists-details-ascents-200')))
+          .data,
+      '1',
+    );
+    expect(
+      find.byKey(const Key('peak-lists-details-ascents-100')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<Text>(find.byKey(const Key('peak-lists-details-ascents-100')))
+          .data,
+      '2',
+    );
+    expect(
+      find.byKey(const Key('peak-lists-details-ascents-300')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<Text>(find.byKey(const Key('peak-lists-details-ascents-300')))
+          .data,
+      '',
     );
   });
 
@@ -204,7 +304,7 @@ void main() {
               find.byKey(const Key('peak-lists-sort-icon-percentage')),
             )
             .icon,
-        Icons.arrow_downward,
+        isNot(Icons.unfold_more),
       );
       expect(
         tester
@@ -213,6 +313,9 @@ void main() {
         Icons.unfold_more,
       );
 
+      await tester.ensureVisible(
+        find.byKey(const Key('peak-lists-sort-totalPeaks')),
+      );
       await tester.tap(find.byKey(const Key('peak-lists-sort-totalPeaks')));
       await tester.pumpAndSettle();
 
@@ -222,7 +325,7 @@ void main() {
               find.byKey(const Key('peak-lists-sort-icon-totalPeaks')),
             )
             .icon,
-        Icons.arrow_upward,
+        isNot(Icons.unfold_more),
       );
       expect(
         tester
@@ -274,6 +377,331 @@ void main() {
     );
   });
 
+  testWidgets('long peak names wrap in the details table', (tester) async {
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Wrap Me', [100]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'kunanyi / Mount Wellington', -42.0, 146.0),
+        ]),
+      ),
+    );
+
+    final nameText = tester.widget<Text>(
+      find.descendant(
+        of: find.byKey(const Key('peak-lists-details-row-100')),
+        matching: find.text('kunanyi / Mount Wellington'),
+      ),
+    );
+
+    expect(nameText.maxLines, 2);
+    expect(nameText.softWrap, isTrue);
+  });
+
+  testWidgets('tapping a detail row draws a peak circle', (tester) async {
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Circle Me', [101, 102]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(101, 'Alpha Peak', -42.0, 146.0),
+          _buildPeak(102, 'Bravo Peak', -42.1, 146.1),
+        ]),
+      ),
+    );
+
+    expect(
+      find.byKey(const Key('peak-lists-selected-peak-circle-layer')),
+      findsNothing,
+    );
+
+    tester
+        .widget<InkWell>(find.byKey(const Key('peak-lists-details-row-102')))
+        .onTap!();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('peak-lists-selected-peak-circle-layer')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('selected peak circle layers above markers in mini map', (
+    tester,
+  ) async {
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Tas Peaks', [100]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+        ]),
+      ),
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage([
+          PeaksBagged(baggedId: 1, peakId: 100, gpxId: 10),
+        ]),
+      ),
+    );
+
+    tester
+        .widget<InkWell>(find.byKey(const Key('peak-lists-details-row-100')))
+        .onTap!();
+    await tester.pumpAndSettle();
+
+    final miniMap = tester.widget<FlutterMap>(
+      find.descendant(
+        of: find.byKey(const Key('peak-lists-mini-map')),
+        matching: find.byType(FlutterMap),
+      ),
+    );
+
+    expect(
+      miniMap.children.indexWhere((child) => child is CircleLayer),
+      greaterThan(miniMap.children.indexWhere((child) => child is MarkerLayer)),
+    );
+  });
+
+  testWidgets('details table sorts rows by tapped headers', (tester) async {
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Sort Me', [30, 10, 20]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(30, 'Zulu Peak', -42.0, 146.0, elevation: 900),
+          _buildPeak(10, 'Alpha Peak', -42.1, 146.1, elevation: 700),
+          _buildPeak(20, 'Bravo Peak', -42.2, 146.2, elevation: 700),
+        ]),
+      ),
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage([
+          PeaksBagged(
+            baggedId: 1,
+            peakId: 10,
+            gpxId: 10,
+            date: DateTime.utc(2024, 1, 11),
+          ),
+          PeaksBagged(
+            baggedId: 2,
+            peakId: 20,
+            gpxId: 11,
+            date: DateTime.utc(2024, 1, 12),
+          ),
+        ]),
+      ),
+    );
+
+    expect(
+      tester
+          .widget<Icon>(
+            find.byKey(const Key('peak-lists-details-sort-icon-name')),
+          )
+          .icon,
+      Icons.unfold_more,
+    );
+
+    final elevationHeaderSize = tester.getSize(
+      find.byKey(const Key('peak-lists-details-sort-elevation')),
+    );
+    final elevationHeaderStyle = Theme.of(
+      tester.element(
+        find.byKey(const Key('peak-lists-details-sort-elevation')),
+      ),
+    ).textTheme.labelLarge;
+    final elevationTextPainter = TextPainter(
+      text: TextSpan(text: 'Height', style: elevationHeaderStyle),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    expect(
+      elevationHeaderSize.width,
+      greaterThanOrEqualTo(elevationTextPainter.width + 30),
+    );
+
+    await tester.ensureVisible(
+      find.byKey(const Key('peak-lists-details-sort-name')),
+    );
+    await tester.tap(find.byKey(const Key('peak-lists-details-sort-name')));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<Icon>(
+            find.byKey(const Key('peak-lists-details-sort-icon-name')),
+          )
+          .icon,
+      Icons.arrow_upward,
+    );
+    expect(
+      tester
+          .widget<Icon>(
+            find.byKey(const Key('peak-lists-details-sort-icon-elevation')),
+          )
+          .icon,
+      Icons.unfold_more,
+    );
+
+    final alphaTop = tester
+        .getTopLeft(find.byKey(const Key('peak-lists-details-row-10')))
+        .dy;
+    final bravoTop = tester
+        .getTopLeft(find.byKey(const Key('peak-lists-details-row-20')))
+        .dy;
+    final zuluTop = tester
+        .getTopLeft(find.byKey(const Key('peak-lists-details-row-30')))
+        .dy;
+    expect(alphaTop, lessThan(bravoTop));
+    expect(bravoTop, lessThan(zuluTop));
+
+    await tester.ensureVisible(
+      find.byKey(const Key('peak-lists-details-sort-elevation')),
+    );
+    await tester.tap(
+      find.byKey(const Key('peak-lists-details-sort-elevation')),
+    );
+    await tester.pumpAndSettle();
+
+    final lowAlphaTop = tester
+        .getTopLeft(find.byKey(const Key('peak-lists-details-row-10')))
+        .dy;
+    final lowBravoTop = tester
+        .getTopLeft(find.byKey(const Key('peak-lists-details-row-20')))
+        .dy;
+    final highZuluTop = tester
+        .getTopLeft(find.byKey(const Key('peak-lists-details-row-30')))
+        .dy;
+    expect(lowAlphaTop, lessThan(lowBravoTop));
+    expect(lowBravoTop, lessThan(highZuluTop));
+
+    await tester.ensureVisible(
+      find.byKey(const Key('peak-lists-details-sort-ascentDate')),
+    );
+    await tester.tap(
+      find.byKey(const Key('peak-lists-details-sort-ascentDate')),
+    );
+    await tester.pumpAndSettle();
+
+    final datedAlphaTop = tester
+        .getTopLeft(find.byKey(const Key('peak-lists-details-row-10')))
+        .dy;
+    final datedBravoTop = tester
+        .getTopLeft(find.byKey(const Key('peak-lists-details-row-20')))
+        .dy;
+    final blankZuluTop = tester
+        .getTopLeft(find.byKey(const Key('peak-lists-details-row-30')))
+        .dy;
+    expect(datedAlphaTop, lessThan(datedBravoTop));
+    expect(datedBravoTop, lessThan(blankZuluTop));
+
+    await tester.ensureVisible(
+      find.byKey(const Key('peak-lists-details-sort-ascentDate')),
+    );
+    await tester.tap(
+      find.byKey(const Key('peak-lists-details-sort-ascentDate')),
+    );
+    await tester.pumpAndSettle();
+
+    final descendingBravoTop = tester
+        .getTopLeft(find.byKey(const Key('peak-lists-details-row-20')))
+        .dy;
+    final descendingAlphaTop = tester
+        .getTopLeft(find.byKey(const Key('peak-lists-details-row-10')))
+        .dy;
+    final descendingBlankZuluTop = tester
+        .getTopLeft(find.byKey(const Key('peak-lists-details-row-30')))
+        .dy;
+    expect(descendingBravoTop, lessThan(descendingAlphaTop));
+    expect(descendingAlphaTop, lessThan(descendingBlankZuluTop));
+  });
+
+  testWidgets(
+    'selecting a peak list defaults details to ascent date descending',
+    (tester) async {
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Sort Me', [30, 10, 20]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(30, 'Zulu Peak', -42.0, 146.0, elevation: 900),
+            _buildPeak(10, 'Alpha Peak', -42.1, 146.1, elevation: 700),
+            _buildPeak(20, 'Bravo Peak', -42.2, 146.2, elevation: 700),
+          ]),
+        ),
+        peaksBaggedRepository: PeaksBaggedRepository.test(
+          InMemoryPeaksBaggedStorage([
+            PeaksBagged(
+              baggedId: 1,
+              peakId: 10,
+              gpxId: 10,
+              date: DateTime.utc(2024, 1, 11),
+            ),
+            PeaksBagged(
+              baggedId: 2,
+              peakId: 20,
+              gpxId: 11,
+              date: DateTime.utc(2024, 1, 12),
+            ),
+          ]),
+        ),
+      );
+
+    await tester.ensureVisible(find.byKey(const Key('peak-lists-row-1')));
+    await tester.tap(
+      find.byKey(const Key('peak-lists-row-1')),
+      warnIfMissed: false,
+    );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<Icon>(
+              find.byKey(const Key('peak-lists-details-sort-icon-ascentDate')),
+            )
+            .icon,
+        Icons.arrow_downward,
+      );
+
+      final bravoTop = tester
+          .getTopLeft(find.byKey(const Key('peak-lists-details-row-20')))
+          .dy;
+      final alphaTop = tester
+          .getTopLeft(find.byKey(const Key('peak-lists-details-row-10')))
+          .dy;
+      final zuluTop = tester
+          .getTopLeft(find.byKey(const Key('peak-lists-details-row-30')))
+          .dy;
+
+      expect(bravoTop, lessThan(alphaTop));
+      expect(alphaTop, lessThan(zuluTop));
+    },
+  );
+
   testWidgets('supported floor render stays desktop-only and wraps rows', (
     tester,
   ) async {
@@ -324,15 +752,18 @@ void main() {
     expect(find.byKey(const Key('peak-lists-details-pane')), findsOneWidget);
     expect(find.byKey(const Key('peak-lists-mini-map')), findsOneWidget);
     expect(
-      tester.widget<Text>(find.byKey(const Key('peak-lists-selected-title'))).data,
+      tester
+          .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+          .data,
       'This is a very long peak list name that should wrap on the summary pane',
     );
     expect(
       tester.getSize(find.byKey(const Key('peak-lists-row-1'))).height,
-      greaterThan(48),
+      greaterThanOrEqualTo(48),
     );
     expect(
-      tester.getSize(find.byKey(const Key('peak-lists-details-row-101')))
+      tester
+          .getSize(find.byKey(const Key('peak-lists-details-row-101')))
           .height,
       greaterThan(48),
     );
@@ -397,7 +828,8 @@ void main() {
         repository: repository,
       );
 
-      tester.widget<IconButton>(find.byKey(const Key('peak-lists-delete-2')))
+      tester
+          .widget<IconButton>(find.byKey(const Key('peak-lists-delete-2')))
           .onPressed!();
       await tester.pumpAndSettle();
       expect(find.text('Delete Peak List?'), findsOneWidget);
@@ -407,7 +839,8 @@ void main() {
 
       expect(find.byKey(const Key('peak-lists-row-2')), findsOneWidget);
 
-      tester.widget<IconButton>(find.byKey(const Key('peak-lists-delete-2')))
+      tester
+          .widget<IconButton>(find.byKey(const Key('peak-lists-delete-2')))
           .onPressed!();
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('confirm-delete')));
@@ -438,7 +871,8 @@ void main() {
 
     tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-2'))).onTap!();
     await tester.pumpAndSettle();
-    tester.widget<IconButton>(find.byKey(const Key('peak-lists-delete-2')))
+    tester
+        .widget<IconButton>(find.byKey(const Key('peak-lists-delete-2')))
         .onPressed!();
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('confirm-delete')));
@@ -451,7 +885,8 @@ void main() {
       'Charlie',
     );
 
-    tester.widget<IconButton>(find.byKey(const Key('peak-lists-delete-3')))
+    tester
+        .widget<IconButton>(find.byKey(const Key('peak-lists-delete-3')))
         .onPressed!();
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('confirm-delete')));
@@ -464,7 +899,8 @@ void main() {
       'Abels',
     );
 
-    tester.widget<IconButton>(find.byKey(const Key('peak-lists-delete-1')))
+    tester
+        .widget<IconButton>(find.byKey(const Key('peak-lists-delete-1')))
         .onPressed!();
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('confirm-delete')));
@@ -774,11 +1210,17 @@ List<PeakList> _buildLists(List<String> names) {
   ];
 }
 
-PeakList _buildPeakList(int id, String name, List<int> peakIds) {
+PeakList _buildPeakList(
+  int id,
+  String name,
+  List<int> peakIds, {
+  Map<int, int> pointsByPeakId = const {},
+}) {
   return PeakList(
     name: name,
     peakList: encodePeakListItems([
-      for (final peakId in peakIds) PeakListItem(peakOsmId: peakId, points: 0),
+      for (final peakId in peakIds)
+        PeakListItem(peakOsmId: peakId, points: pointsByPeakId[peakId] ?? 0),
     ]),
   )..peakListId = id;
 }

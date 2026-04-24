@@ -11,6 +11,7 @@ import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
+import 'package:peak_bagger/services/gpx_track_repair_service.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/migration_marker_store.dart';
@@ -21,6 +22,7 @@ import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/track_hover_detector.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xml/xml.dart';
 
 import 'harness/test_map_notifier.dart';
 
@@ -484,6 +486,111 @@ void main() {
         expect(await markerStore.isPeaksBaggedBackfillMarked(), isFalse);
       },
     );
+
+    test('recalculateTrackStatistics prefers persisted repaired XML', () async {
+      final gpxRepository = _FakeGpxTrackRepository([
+        GpxTrack(
+          gpxTrackId: 7,
+          contentHash: 'hash-7',
+          trackName: 'Track 7',
+          trackDate: DateTime.utc(2024, 1, 15),
+          gpxFile: _validRecalcGpx,
+          gpxFileRepaired: _persistedRepairedRecalcGpx,
+          displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
+            [const LatLng(-42.0, 146.0), const LatLng(-42.1, 146.1)],
+          ]),
+        ),
+      ]);
+
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => MapNotifier(
+              peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+              overpassService: OverpassService(),
+              tasmapRepository: _NoopTasmapRepository(),
+              gpxTrackRepository: gpxRepository,
+              peaksBaggedRepository: _RecordingPeaksBaggedRepository(),
+              migrationMarkerStore: _FakeMigrationMarkerStore(
+                migrationMarked: true,
+                peaksBaggedBackfillMarked: true,
+              ),
+              loadPositionOnBuild: false,
+              loadPeaksOnBuild: false,
+              loadTracksOnBuild: false,
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.read(mapProvider);
+      final notifier = container.read(mapProvider.notifier);
+      final result = await notifier.recalculateTrackStatistics();
+
+      expect(result, isNotNull);
+      expect(
+        container.read(mapProvider).tracks.single.getSegments(),
+        hasLength(2),
+      );
+      expect(
+        container.read(mapProvider).tracks.single.gpxFileRepaired,
+        _persistedRepairedRecalcGpx,
+      );
+    });
+
+    test('recalculateTrackStatistics repairs raw XML when needed', () async {
+      final gpxRepository = _FakeGpxTrackRepository([
+        GpxTrack(
+          gpxTrackId: 8,
+          contentHash: 'hash-8',
+          trackName: 'Track 8',
+          trackDate: DateTime.utc(2024, 1, 15),
+          gpxFile: _statsGpx('Track 8', [
+            [_StatsPoint(-42.0, 146.0, 100, DateTime.utc(2024, 1, 15, 8))],
+            [_StatsPoint(-42.2, 146.2, 120, DateTime.utc(2024, 1, 15, 8, 5))],
+          ]),
+          displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
+            [const LatLng(-42.0, 146.0), const LatLng(-42.1, 146.1)],
+          ]),
+        ),
+      ]);
+
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => MapNotifier(
+              peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+              overpassService: OverpassService(),
+              tasmapRepository: _NoopTasmapRepository(),
+              gpxTrackRepository: gpxRepository,
+              peaksBaggedRepository: _RecordingPeaksBaggedRepository(),
+              migrationMarkerStore: _FakeMigrationMarkerStore(
+                migrationMarked: true,
+                peaksBaggedBackfillMarked: true,
+              ),
+              loadPositionOnBuild: false,
+              loadPeaksOnBuild: false,
+              loadTracksOnBuild: false,
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(mapProvider.notifier);
+      final result = await notifier.recalculateTrackStatistics();
+
+      expect(result, isNotNull);
+      expect(
+        container.read(mapProvider).tracks.single.gpxFileRepaired,
+        contains('<type>interpolated</type>'),
+      );
+      expect(
+        container.read(mapProvider).tracks.single.getSegments(),
+        hasLength(3),
+      );
+    });
   });
 
   group('MapNotifier hover state', () {
@@ -590,6 +697,119 @@ void main() {
     });
   });
 
+  group('GpxTrackRepairService', () {
+    final service = GpxTrackRepairService();
+
+    test('single segment returns no repair', () {
+      final gpx = _statsGpx('Single Segment', [
+        [
+          _StatsPoint(-42.0, 146.0, 100, DateTime.utc(2024, 1, 15, 8)),
+          _StatsPoint(-42.1, 146.1, 110, DateTime.utc(2024, 1, 15, 8, 10)),
+        ],
+      ]);
+
+      final result = service.analyzeAndRepair(gpx);
+
+      expect(result.repairPerformed, isFalse);
+      expect(result.gapCount, 0);
+      expect(result.interpolatedSegmentCount, 0);
+      expect(result.warning, isNull);
+      expect(result.repairedXml, gpx);
+    });
+
+    test('small time gap does not repair', () {
+      final gpx = _statsGpx('Pause Track', [
+        [_StatsPoint(-42.0, 146.0, 100, DateTime.utc(2024, 1, 15, 8))],
+        [
+          _StatsPoint(
+            -42.0,
+            146.0005,
+            100,
+            DateTime.utc(2024, 1, 15, 8, 0, 30),
+          ),
+        ],
+      ]);
+
+      final result = service.analyzeAndRepair(gpx);
+
+      expect(result.repairPerformed, isFalse);
+      expect(result.gapCount, 0);
+      expect(result.interpolatedSegmentCount, 0);
+      expect(result.repairedXml, gpx);
+    });
+
+    test('large gap and distance inserts interpolated segment', () {
+      final gpx = _statsGpx('Repair Track', [
+        [_StatsPoint(-42.0, 146.0, 100, DateTime.utc(2024, 1, 15, 8))],
+        [_StatsPoint(-42.2, 146.2, 120, DateTime.utc(2024, 1, 15, 8, 5))],
+      ]);
+
+      final result = service.analyzeAndRepair(gpx);
+      final document = XmlDocument.parse(result.repairedXml);
+
+      expect(result.repairPerformed, isTrue);
+      expect(result.gapCount, 1);
+      expect(result.interpolatedSegmentCount, 1);
+      expect(document.findAllElements('trkseg'), hasLength(3));
+      expect(
+        document.findAllElements('type').single.innerText.trim(),
+        'interpolated',
+      );
+    });
+
+    test('already repaired track is preserved as-is', () {
+      const gpx = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <trk>
+    <name>Repair Track</name>
+    <trkseg>
+      <trkpt lat="-42.0" lon="146.0"><time>2024-01-15T08:00:00Z</time></trkpt>
+    </trkseg>
+    <trkseg>
+      <type>interpolated</type>
+      <trkpt lat="-42.0" lon="146.0"><time>2024-01-15T08:00:00Z</time></trkpt>
+      <trkpt lat="-42.2" lon="146.2"><time>2024-01-15T08:05:00Z</time></trkpt>
+    </trkseg>
+    <trkseg>
+      <trkpt lat="-42.2" lon="146.2"><time>2024-01-15T08:05:00Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>
+''';
+
+      final result = service.analyzeAndRepair(gpx);
+
+      expect(result.repairPerformed, isFalse);
+      expect(result.gapCount, 0);
+      expect(result.interpolatedSegmentCount, 0);
+      expect(result.repairedXml, gpx);
+    });
+
+    test('no timestamps returns warning', () {
+      final gpx = _statsGpx('No Time Track', [
+        [_StatsPoint(-42.0, 146.0, 100)],
+        [_StatsPoint(-42.2, 146.2, 120)],
+      ]);
+
+      final result = service.analyzeAndRepair(gpx);
+
+      expect(result.repairPerformed, isFalse);
+      expect(result.gapCount, 0);
+      expect(result.interpolatedSegmentCount, 0);
+      expect(result.warning, contains('No timestamps found'));
+    });
+
+    test('invalid XML fails gracefully', () {
+      final result = service.analyzeAndRepair('<gpx><trk></gpx>');
+
+      expect(result.repairPerformed, isFalse);
+      expect(result.gapCount, 0);
+      expect(result.interpolatedSegmentCount, 0);
+      expect(result.warning, contains('Invalid GPX XML'));
+    });
+  });
+
   group('GpxTrack', () {
     test('newly imported rows populate identity fields', () {
       final track = GpxTrack(
@@ -610,6 +830,7 @@ void main() {
       expect(track.lowestElevation, 0);
       expect(track.highestElevation, 0);
       expect(track.gpxFile, '<gpx></gpx>');
+      expect(track.gpxFileRepaired, '');
       expect(track.displayTrackPointsByZoom, '{}');
       expect(track.hasMetadataTrackDate, isFalse);
     });
@@ -642,6 +863,7 @@ void main() {
         'trackName': 'Frenchmans Cap',
         'trackDate': '2024-01-15T00:00:00.000',
         'gpxFile': '<gpx></gpx>',
+        'gpxFileRepaired': '<gpx><trkseg /></gpx>',
         'displayTrackPointsByZoom': '{"15":[[[-42.0,146.0]]]}',
         'startDateTime': '2024-01-15T08:00:00.000',
         'endDateTime': '2024-01-15T17:00:00.000',
@@ -677,6 +899,7 @@ void main() {
       expect(track.restingTime, 900000);
       expect(track.pausedTime, 600000);
       expect(track.gpxFile, '<gpx></gpx>');
+      expect(track.gpxFileRepaired, '<gpx><trkseg /></gpx>');
       expect(encoded['contentHash'], 'hash');
       expect(encoded['trackName'], 'Frenchmans Cap');
       expect(encoded['trackDate'], isNotNull);
@@ -691,6 +914,7 @@ void main() {
       expect(encoded['restingTime'], 900000);
       expect(encoded['pausedTime'], 600000);
       expect(encoded['gpxFile'], '<gpx></gpx>');
+      expect(encoded['gpxFileRepaired'], '<gpx><trkseg /></gpx>');
     });
 
     test('round-trips elevation profile fields', () {
@@ -1209,6 +1433,58 @@ void main() {
       expect(track.endElevation, 200);
       expect(track.elevationProfile, contains('segmentIndex'));
     });
+
+    test('importTracks repairs signal-loss gaps before processing', () async {
+      final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
+      final tasDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+      final source = File('${tracksDir.path}/repair.gpx');
+      await source.writeAsString(
+        _statsGpx('Repair Import', [
+          [_StatsPoint(-42.0, 146.0, 100, DateTime.utc(2024, 1, 15, 8))],
+          [_StatsPoint(-42.2, 146.2, 120, DateTime.utc(2024, 1, 15, 8, 5))],
+        ]),
+      );
+
+      final importer = GpxImporter(
+        tracksFolder: tracksDir.path,
+        tasmaniaFolder: tasDir.path,
+      );
+
+      final result = await importer.importTracks(includeTasmaniaFolder: false);
+      final track = result.tracks.single;
+
+      expect(result.importedCount, 1);
+      expect(track.gpxFile, isNotEmpty);
+      expect(track.gpxFileRepaired, contains('<type>interpolated</type>'));
+      expect(track.getSegments(), hasLength(3));
+      expect(track.displayTrackPointsByZoom, isNot('{}'));
+    });
+
+    test(
+      'importTracks surfaces repair warnings for missing timestamps',
+      () async {
+        final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
+        final tasDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+        await File('${tracksDir.path}/no-time.gpx').writeAsString(
+          _statsGpx('No Time Import', [
+            [_StatsPoint(-42.0, 146.0, 100)],
+            [_StatsPoint(-42.2, 146.2, 120)],
+          ]),
+        );
+
+        final importer = GpxImporter(
+          tracksFolder: tracksDir.path,
+          tasmaniaFolder: tasDir.path,
+        );
+
+        final result = await importer.importTracks(
+          includeTasmaniaFolder: false,
+        );
+
+        expect(result.importedCount, 1);
+        expect(result.warning, contains('No timestamps found'));
+      },
+    );
 
     test('isTasmanian includes eastern Tasmania longitudes', () {
       final importer = GpxImporter();
@@ -1795,6 +2071,23 @@ const _validRecalcGpx = '''
   <trk>
     <name>Track 7</name>
     <trkseg>
+      <trkpt lat="-42.0" lon="146.0"><time>2024-01-15T08:00:00Z</time></trkpt>
+      <trkpt lat="-42.1" lon="146.1"><time>2024-01-15T09:00:00Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>
+''';
+
+const _persistedRepairedRecalcGpx = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <trk>
+    <name>Track 7</name>
+    <trkseg>
+      <trkpt lat="-42.0" lon="146.0"><time>2024-01-15T08:00:00Z</time></trkpt>
+    </trkseg>
+    <trkseg>
+      <type>interpolated</type>
       <trkpt lat="-42.0" lon="146.0"><time>2024-01-15T08:00:00Z</time></trkpt>
       <trkpt lat="-42.1" lon="146.1"><time>2024-01-15T09:00:00Z</time></trkpt>
     </trkseg>

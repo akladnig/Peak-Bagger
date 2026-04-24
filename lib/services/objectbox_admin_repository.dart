@@ -378,6 +378,7 @@ ObjectBoxAdminRow gpxTrackToAdminRow(GpxTrack track) {
       'trackName': track.trackName,
       'trackDate': track.trackDate,
       'gpxFile': track.gpxFile,
+      'gpxFileRepaired': track.gpxFileRepaired,
       'filteredTrack': track.filteredTrack,
       'displayTrackPointsByZoom': track.displayTrackPointsByZoom,
       'startDateTime': track.startDateTime,

@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
@@ -33,6 +35,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   final _searchFocusNode = FocusNode();
   final _mapFocusNode = FocusNode();
   String? _gotoError;
+  bool _mapReady = false;
+  Tasmap50k? _pendingSelectedMap;
+  int? _pendingSelectedMapSerial;
+  int? _appliedSelectedMapSerial;
+  GpxTrack? _pendingSelectedTrack;
+  int? _pendingSelectedTrackSerial;
+  int? _appliedSelectedTrackSerial;
   bool _isPointerDown = false;
   Offset? _pointerDownPosition;
   bool _primaryClickPending = false;
@@ -207,6 +216,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final displayMgrs =
         mapState.cursorMgrs ?? mapState.gotoMgrs ?? mapState.currentMgrs;
 
+    _queueSelectedMapZoom(mapState);
+    _queueSelectedTrackZoom(mapState);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mapState.syncEnabled) {
         _mapController.move(mapState.center, mapState.zoom);
@@ -350,6 +362,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 options: MapOptions(
                   initialCenter: mapState.center,
                   initialZoom: mapState.zoom,
+                  onMapReady: _handleMapReady,
                   onSecondaryTap: (tapPosition, point) {
                     ref.read(mapProvider.notifier).centerOnSelectedLocation();
                   },
@@ -549,6 +562,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ref.read(mapProvider.notifier).setPeakSearchVisible(false);
                     ref.read(mapProvider.notifier).clearSearch();
                   },
+                  mapNameForPeak: _mapNameForPeak,
                 ),
               ),
             if (mapState.showGotoInput)
@@ -627,16 +641,38 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
   }
 
-  void _zoomToMapExtent(Tasmap50k map) {
+  void _zoomToMapExtent(Tasmap50k map, {int attempt = 0, int? focusSerial}) {
+    if (focusSerial != null && _pendingSelectedMapSerial != focusSerial) {
+      return;
+    }
+    if (_mapController.camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      if (attempt < 6) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _zoomToMapExtent(
+              map,
+              attempt: attempt + 1,
+              focusSerial: focusSerial,
+            );
+          }
+        });
+      }
+      return;
+    }
+
     final repo = ref.read(tasmapRepositoryProvider);
     final bounds = repo.getMapBounds(map);
     if (bounds == null) {
       final center = repo.getMapCenter(map);
       if (center != null) {
         _mapController.move(center, 12);
+        ref.read(mapProvider.notifier).updatePosition(center, 12);
       }
+      _markSelectedMapZoomApplied(focusSerial);
       return;
     }
+
+    final targetCenter = repo.getMapCenter(map);
 
     try {
       final cameraFit = CameraFit.bounds(
@@ -645,16 +681,35 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       );
       _mapController.fitCamera(cameraFit);
 
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final newCenter = _mapController.camera.center;
-        final newZoom = _mapController.camera.zoom;
-        ref.read(mapProvider.notifier).updatePosition(newCenter, newZoom);
-      });
+      if (targetCenter != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) {
+            return;
+          }
+          ref
+              .read(mapProvider.notifier)
+              .updatePosition(targetCenter, _mapController.camera.zoom);
+        });
+      }
+      _markSelectedMapZoomApplied(focusSerial);
     } catch (e) {
       final center = repo.getMapCenter(map);
       if (center != null) {
         _mapController.move(center, 12);
+        ref.read(mapProvider.notifier).updatePosition(center, 12);
       }
+      _markSelectedMapZoomApplied(focusSerial);
+    }
+  }
+
+  void _markSelectedMapZoomApplied(int? focusSerial) {
+    if (focusSerial == null) {
+      return;
+    }
+    _appliedSelectedMapSerial = focusSerial;
+    if (_pendingSelectedMapSerial == focusSerial) {
+      _pendingSelectedMap = null;
+      _pendingSelectedMapSerial = null;
     }
   }
 
@@ -669,5 +724,169 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   void _goToCurrentLocation() {
     // TODO: Implement GPS location
+  }
+
+  String _mapNameForPeak(Peak peak) {
+    try {
+      return ref
+              .read(tasmapRepositoryProvider)
+              .findByMgrsCodeAndCoordinates(
+                '${peak.gridZoneDesignator}${peak.mgrs100kId}${peak.easting}${peak.northing}',
+              )
+              ?.name ??
+          'Unknown';
+    } catch (_) {
+      return 'Unknown';
+    }
+  }
+
+  void _handleMapReady() {
+    _mapReady = true;
+    _tryZoomPendingSelectedMap();
+    _tryZoomPendingSelectedTrack();
+  }
+
+  void _queueSelectedMapZoom(MapState mapState) {
+    final selectedMap = mapState.selectedMap;
+    if (selectedMap == null ||
+        mapState.tasmapDisplayMode != TasmapDisplayMode.selectedMap) {
+      _pendingSelectedMap = null;
+      _pendingSelectedMapSerial = null;
+      return;
+    }
+
+    final nextSerial = mapState.selectedMapFocusSerial;
+    if (_appliedSelectedMapSerial == nextSerial) {
+      return;
+    }
+    _pendingSelectedMap = selectedMap;
+    _pendingSelectedMapSerial = nextSerial;
+    _tryZoomPendingSelectedMap();
+  }
+
+  void _queueSelectedTrackZoom(MapState mapState) {
+    final selectedTrackId = mapState.selectedTrackId;
+    if (selectedTrackId == null || !mapState.showTracks) {
+      _pendingSelectedTrack = null;
+      _pendingSelectedTrackSerial = null;
+      return;
+    }
+
+    final selectedTrack = ref
+        .read(gpxTrackRepositoryProvider)
+        .findById(selectedTrackId);
+    if (selectedTrack == null) {
+      _pendingSelectedTrack = null;
+      _pendingSelectedTrackSerial = null;
+      return;
+    }
+
+    final nextSerial = mapState.selectedTrackFocusSerial;
+    if (_appliedSelectedTrackSerial == nextSerial) {
+      return;
+    }
+
+    _pendingSelectedTrack = selectedTrack;
+    _pendingSelectedTrackSerial = nextSerial;
+    _tryZoomPendingSelectedTrack();
+  }
+
+  void _tryZoomPendingSelectedMap() {
+    final selectedMap = _pendingSelectedMap;
+    final selectedMapSerial = _pendingSelectedMapSerial;
+    if (!_mapReady || selectedMap == null || selectedMapSerial == null) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _zoomToMapExtent(selectedMap, focusSerial: selectedMapSerial);
+    });
+  }
+
+  void _tryZoomPendingSelectedTrack() {
+    final selectedTrack = _pendingSelectedTrack;
+    final selectedTrackSerial = _pendingSelectedTrackSerial;
+    if (!_mapReady || selectedTrack == null || selectedTrackSerial == null) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _zoomToTrackExtent(selectedTrack, focusSerial: selectedTrackSerial);
+    });
+  }
+
+  void _zoomToTrackExtent(GpxTrack track, {int attempt = 0, int? focusSerial}) {
+    if (focusSerial != null && _pendingSelectedTrackSerial != focusSerial) {
+      return;
+    }
+    if (_mapController.camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      if (attempt < 6) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _zoomToTrackExtent(
+              track,
+              attempt: attempt + 1,
+              focusSerial: focusSerial,
+            );
+          }
+        });
+      }
+      return;
+    }
+
+    final points = track.getSegments().expand((segment) => segment).toList();
+    if (points.isEmpty) {
+      _markSelectedTrackZoomApplied(focusSerial);
+      return;
+    }
+
+    if (points.length == 1) {
+      _mapController.move(points.single, 12);
+      ref.read(mapProvider.notifier).updatePosition(points.single, 12);
+      _markSelectedTrackZoomApplied(focusSerial);
+      return;
+    }
+
+    try {
+      final bounds = LatLngBounds.fromPoints(points);
+      final cameraFit = CameraFit.bounds(
+        bounds: bounds,
+        padding: const EdgeInsets.all(50),
+      );
+      _mapController.fitCamera(cameraFit);
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        ref
+            .read(mapProvider.notifier)
+            .updatePosition(
+              _mapController.camera.center,
+              _mapController.camera.zoom,
+            );
+      });
+      _markSelectedTrackZoomApplied(focusSerial);
+    } catch (_) {
+      _mapController.move(points.first, 12);
+      ref.read(mapProvider.notifier).updatePosition(points.first, 12);
+      _markSelectedTrackZoomApplied(focusSerial);
+    }
+  }
+
+  void _markSelectedTrackZoomApplied(int? focusSerial) {
+    if (focusSerial == null) {
+      return;
+    }
+    _appliedSelectedTrackSerial = focusSerial;
+    if (_pendingSelectedTrackSerial == focusSerial) {
+      _pendingSelectedTrack = null;
+      _pendingSelectedTrackSerial = null;
+    }
   }
 }

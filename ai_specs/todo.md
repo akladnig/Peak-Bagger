@@ -13,6 +13,7 @@
 - [ ] Add filter for the above
 - [ ] Allow search for the above
 - [ ] Add an overlay to display features names on hover - only for blue circles
+- [ ] Remove legacy handling
 
 ## 1 Application Skeleton
 
@@ -26,11 +27,13 @@
 - [ ] Set min zoom to 4 and max zoom to 24.
 - [ ] add go to feature - add to goto location?
 - [x] bug - click on map no longer sets marker
+- [x] Add a new data source - geocode Area
 
 ## 3 Tasmanian Peaks and search
 - [ ] Add a tooltip when a peak is hovered over to display info
 - [ ] Add an altName to peak entity
-- [ ] Make peak marker a bit smaller
+- [x] Make peak marker a bit smaller
+- [ ] update go to location  to accept UTM coordionates
 
 ## 4 Add Maps and location search
 - [x] place info popup to right of marker
@@ -42,18 +45,23 @@
 - [x] click on I toggles
 - [ ] Add min-max zooms to objectBox
 - [ ] Reset the id on Reset Map Data
+- [ ] when clicking on track open a left drawer with info about the track
 
 ## 4a
 - [x] add go to map only, centre on map and zoom to map extents, and draw a blue rectangle around the map extents so that the map can be seen when zooming out.
 - [x] Add show maps - a blue grid of all maps. Map name and series to be shown at bottom right of each map.
 - [x] Change map drawing from rectangle to a polygon.
+
 ## 5 Gpx Tracks
-- [ ] implement gpx track import - multiple file import or just scan default folder.
+- [ ] implement gpx track import - multiple file import.
 - [ ] change import behaviour to only import from Tracks once application is complete.
-- [ ] use ramer-douglas-peucker algorithm to draw polylines
 - [x] use geo.dart, ported from gpxpy.
 - [ ] Add option to view raw data
 - [x] Highlight track on click
+- [x] Add filter options to none
+- [ ] Add ObjectBox field detailing filter options
+- [ ] Set filter on a per track level
+- [ ] confirm where repair Track is used.
 
 ### Distance
 - [x] distance (double?) - future, null for now
@@ -88,15 +96,26 @@
 
 ## Peak Lists
 - [ ] Add import waypoints
-- [ ] csv import - cater for missing lat/long or UTM
+- [x] csv import - cater for missing lat/long or UTM
 - [x] On refresh data - if a peak was missing from OSM, the update the osmId if it is added at a later stage.
 - [x] Reset the id to 1.
 - [x] If the sourceOfTruth is HWC, just create the list and do not overwrite data in Peaks 
-- [ ] If csv height is blank, set to 0, do not flag as invalid.
+- [x] If csv height is blank, set to 0, do not flag as invalid.
 - [ ] Update dialogue to say import new list or update list
+- [ ] remove legacy row handling
+- [x] Move import to TR of Peak Lists
+- [x] Move list of Peak to RHS
+- [x] Move map to BL
+- [x] Set map aspect to 4:3
+- [x] clicking on a peak will highlight the peak with a blue circle
+- [x] Add points column and add points metrics
+- [x] Add add peak to list
 
 ## Object Box Admin
 - [x] Rescan entity on entry, for the current entity being shown.
+- [x] Add "Add new peak" to Peak entity
+- [x] Add a goto peak button in the delete column, name of peak and details. Use an eye icon.
+- [ ] Allow entry of UTM coordinates
 
 ## Settings
 - [x] move settings UI stuff from router.md to settings screen

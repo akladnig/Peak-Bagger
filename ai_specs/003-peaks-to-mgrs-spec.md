@@ -3,7 +3,7 @@ Add persisted MGRS metadata to peak records and ensure the Refresh Peak Data act
 </goal>
 
 <background>
-Flutter app with ObjectBox, Riverpod, OverpassService, and a Settings screen refresh action. Current `Peak` records store name, elevation, latitude, longitude, and area only. `MapNotifier.refreshPeaks()` currently clears the peak repository before refetching, which must be replaced with an atomic replace flow. `MapNotifier` currently hardcodes its `OverpassService` and `PeakRepository` dependencies, so the refresh path needs Riverpod-backed seams for deterministic tests, and `lib/main.dart` must override those providers at app startup the same way the existing repository providers are wired. Existing MGRS formatting already uses `mgrs_dart` in `MapNotifier._convertToMgrs()`, so the new peak enrichment must follow the same library and formatting conventions.
+Flutter app with ObjectBox, Riverpod, OverpassService, and a Settings screen refresh action. Current `Peak` records store name, elevation, latitude, longitude, and area only. `MapNotifier.refreshPeaks()` is reserved for the Settings `Refresh Peak Data` action and currently clears the peak repository before refetching, which must be replaced with an atomic replace flow. Screen-entry peak-marker reloads for `MapScreen` and `PeakListsScreen` must use `reloadPeakMarkers()` instead of `refreshPeaks()`. `MapNotifier` currently hardcodes its `OverpassService` and `PeakRepository` dependencies, so the refresh path needs Riverpod-backed seams for deterministic tests, and `lib/main.dart` must override those providers at app startup the same way the existing repository providers are wired. Existing MGRS formatting already uses `mgrs_dart` in `MapNotifier._convertToMgrs()`, so the new peak enrichment must follow the same library and formatting conventions.
 
 Files to examine:
 `./lib/models/peak.dart`
@@ -30,7 +30,7 @@ Primary flow:
 7. If refresh fails, the app shows the failure dialog and keeps existing peaks.
 
 Alternative flows:
-- First launch with an empty peak store: peak loading uses the same enrichment pipeline during startup.
+- First launch with an empty peak store: peak loading uses a separate bootstrap path and must not invoke `refreshPeaks()`.
 - Repeated refresh: refresh updates only rows whose `sourceOfTruth` is `null`, empty, or `OSM`; rows marked `HWC` are preserved.
 - Cancel from the confirmation dialog: no data changes, no loading state, and the user stays on Settings.
 
@@ -43,7 +43,7 @@ Error flows:
 **Functional:**
 1. Add persisted `gridZoneDesignator`, `mgrs100kId`, `easting`, and `northing` fields to `Peak`.
 2. Store MGRS components as fixed-width strings so leading zeros are preserved. All four new fields must be non-null `String` values, and each must default to `''` for existing records. For a combined MGRS string like `55GEN1234567890`, map `gridZoneDesignator = 55G`, `mgrs100kId = EN`, `easting = 12345`, and `northing = 67890`.
-3. Derive the fields from lat/lon using `mgrs_dart` in one shared enrichment path used by both startup load and manual refresh.
+3. Derive the fields from lat/lon using `mgrs_dart` in one shared enrichment path used by the Settings refresh flow. Screen-entry peak-marker reloads for `MapScreen` and `PeakListsScreen` must use `reloadPeakMarkers()` instead of `refreshPeaks()`.
 4. Replace the stored peak set atomically after successful fetch and enrichment. Build the full replacement list first, then replace the stored rows in one rollback-safe repository operation or transaction. Do not clear existing peaks before the replacement write succeeds.
 5. Make `MapNotifier.refreshPeaks()` return a `PeakRefreshResult` that carries imported and skipped counts plus an optional warning message for partial successes.
 6. Make `MapNotifier.refreshPeaks()` throw on hard failure after preserving the existing dataset.
@@ -75,6 +75,7 @@ Edge cases:
 - Empty Overpass response: treat as a failed refresh and keep existing data.
 - Repeated refresh taps: disable the action while loading.
 - Refresh confirmation dialog: use the same pattern as `_confirmResetTrackData` with title `Refresh Peak Data?`, a warning that the current peak set will be overwritten, a cancel action, and a confirm action.
+- Only the Settings `Refresh Peak Data` flow may call `refreshPeaks()`; all other peak-marker reloads on `MapScreen` and `PeakListsScreen` must call `reloadPeakMarkers()`.
 - Refresh result dialog: use the same pattern as `_showResetTrackDataResult` with title `Peak Data Refreshed` and body text `X Peaks imported`, plus warning text when applicable.
 - Refresh failure dialog: use the same pattern as `_showResetTrackDataFailure` with title `Peak Data Refresh Failed` and the error text surfaced from `MapNotifier`.
 - The refresh flow is modal: confirmation first, then loading while the refresh runs, then either the result dialog or the failure dialog.

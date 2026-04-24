@@ -3,8 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
+import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peak_list.dart';
+import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
+import 'package:peak_bagger/providers/peak_provider.dart';
+import 'package:peak_bagger/services/objectbox_admin_repository.dart';
+import 'package:peak_bagger/services/peak_delete_guard.dart';
+import 'package:peak_bagger/services/peak_mgrs_converter.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
 
 import '../harness/test_map_notifier.dart';
 import '../harness/test_objectbox_admin_repository.dart';
@@ -195,11 +204,392 @@ void main() {
       expect(titleTopLeft.dx, 132);
     },
   );
+
+  testWidgets('Peak edit mode validates and refreshes the selected row', (
+    tester,
+  ) async {
+    final peaks = [
+      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', area: 'Old Area'),
+      _buildPeak(id: 2, osmId: 202, name: 'Ossa Spur', area: 'Far East'),
+    ];
+    final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
+      'Peak': peaks.map(_peakRow).toList(),
+      'PeakList': const [],
+      'Tasmap50k': const [],
+      'GpxTrack': const [],
+      'PeaksBagged': const [],
+    };
+    final repository = _MutablePeakRepository(peaks, rowsByEntity);
+
+    await _pumpApp(
+      tester,
+      repository: TestObjectBoxAdminRepository(
+        entities: [_peakEntity()],
+        rowsByEntity: rowsByEntity,
+      ),
+      peakRepository: repository,
+      peakDeleteGuard: PeakDeleteGuard(_NoopPeakDeleteGuardSource()),
+    );
+
+    await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.text('Mt Ossa'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-edit')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-name')),
+      '',
+    );
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-submit')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('A peak name is required'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-name')),
+      'Mt Ossa',
+    );
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-area')),
+      'New Area',
+    );
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-submit')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Update Successful'), findsOneWidget);
+    expect(find.text('Mt Ossa updated.'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const Key('objectbox-admin-peak-update-success-close')),
+    );
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shared-app-bar'))),
+    );
+    final mapState = container.read(mapProvider);
+    expect(mapState.peaks, hasLength(2));
+    expect(mapState.peaks.singleWhere((peak) => peak.id == 1).area, 'New Area');
+    expect(find.text('New Area'), findsWidgets);
+  });
+
+  testWidgets('View Peak on Main Map opens the map at the Peak location', (
+    tester,
+  ) async {
+    final peak = _buildPeak(
+      id: 1,
+      osmId: 101,
+      name: 'Mt Ossa',
+      area: 'Old Area',
+    );
+    final peaks = [peak];
+    final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
+      'Peak': peaks.map(_peakRow).toList(),
+      'PeakList': const [],
+      'Tasmap50k': const [],
+      'GpxTrack': const [],
+      'PeaksBagged': const [],
+    };
+    final repository = _MutablePeakRepository(peaks, rowsByEntity);
+
+    await _pumpApp(
+      tester,
+      repository: TestObjectBoxAdminRepository(
+        entities: [_peakEntity()],
+        rowsByEntity: rowsByEntity,
+      ),
+      peakRepository: repository,
+      peakDeleteGuard: PeakDeleteGuard(_NoopPeakDeleteGuardSource()),
+    );
+
+    await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.text('Mt Ossa'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('objectbox-admin-peak-view-on-map')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-view-on-map')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('app-bar-title')),
+        matching: find.text('Map'),
+      ),
+      findsOneWidget,
+    );
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shared-app-bar'))),
+    );
+    final mapState = container.read(mapProvider);
+    expect(mapState.center.latitude, closeTo(peak.latitude, 0.001));
+    expect(mapState.center.longitude, closeTo(peak.longitude, 0.001));
+    expect(mapState.zoom, 15);
+    expect(mapState.selectedLocation, isNotNull);
+    expect(mapState.syncEnabled, isTrue);
+  });
+
+  testWidgets('Add Peak opens a create form and saves a new peak', (
+    tester,
+  ) async {
+    final peaks = [
+      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', area: 'Old Area'),
+      _buildPeak(id: 2, osmId: 202, name: 'Ossa Spur', area: 'Far East'),
+    ];
+    final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
+      'Peak': peaks.map(_peakRow).toList(),
+      'PeakList': const [],
+      'Tasmap50k': const [],
+      'GpxTrack': const [],
+      'PeaksBagged': const [],
+    };
+    final repository = _MutablePeakRepository(peaks, rowsByEntity);
+
+    await _pumpApp(
+      tester,
+      repository: TestObjectBoxAdminRepository(
+        entities: [_peakEntity()],
+        rowsByEntity: rowsByEntity,
+      ),
+      peakRepository: repository,
+      peakDeleteGuard: PeakDeleteGuard(_NoopPeakDeleteGuardSource()),
+    );
+
+    await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-add')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('objectbox-admin-peak-add')), findsOneWidget);
+    expect(find.text('Add Peak').last, findsOneWidget);
+    expect(find.byKey(const Key('objectbox-admin-peak-name')), findsOneWidget);
+    expect(find.byKey(const Key('objectbox-admin-peak-edit')), findsNothing);
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const Key('objectbox-admin-peak-osm-id')),
+          )
+          .controller!
+          .text,
+      '-1',
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-name')),
+      'New Peak',
+    );
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-osm-id')),
+      '303',
+    );
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-latitude')),
+      '-41.5',
+    );
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-longitude')),
+      '146.5',
+    );
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-submit')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Update Successful'), findsOneWidget);
+    expect(find.text('New Peak updated.'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const Key('objectbox-admin-peak-update-success-close')),
+    );
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shared-app-bar'))),
+    );
+    final mapState = container.read(mapProvider);
+    expect(mapState.peaks, hasLength(3));
+    expect(
+      mapState.peaks.singleWhere((peak) => peak.osmId == 303).name,
+      'New Peak',
+    );
+    expect(
+      container.read(objectboxAdminProvider).selectedRow?.primaryKeyValue,
+      3,
+    );
+    expect(repository.findByOsmId(303)?.name, 'New Peak');
+    expect(find.text('Peak #3'), findsOneWidget);
+  });
+
+  testWidgets('Peak save success surfaces PeakList warnings', (tester) async {
+    final peaks = [
+      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', area: 'Old Area'),
+    ];
+    final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
+      'Peak': peaks.map(_peakRow).toList(),
+      'PeakList': const [],
+      'Tasmap50k': const [],
+      'GpxTrack': const [],
+      'PeaksBagged': const [],
+    };
+    final repository = _MutablePeakRepository(
+      peaks,
+      rowsByEntity,
+      saveResultBuilder: (peak) {
+        return PeakSaveResult(
+          peak: peak,
+          peakListRewriteResult: const PeakListRewriteResult(
+            rewrittenCount: 0,
+            skippedMalformedCount: 1,
+          ),
+        );
+      },
+    );
+
+    await _pumpApp(
+      tester,
+      repository: TestObjectBoxAdminRepository(
+        entities: [_peakEntity()],
+        rowsByEntity: rowsByEntity,
+      ),
+      peakRepository: repository,
+      peakDeleteGuard: PeakDeleteGuard(_NoopPeakDeleteGuardSource()),
+    );
+
+    await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.text('Mt Ossa'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-edit')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-area')),
+      'New Area',
+    );
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-submit')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Update Successful'), findsOneWidget);
+    expect(
+      find.text("1 PeakList has been skipped as it's malformed."),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Peak delete is blocked by dependent PeakList', (tester) async {
+    final peaks = [_buildPeak(id: 1, osmId: 101, name: 'Mt Ossa')];
+    final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
+      'Peak': peaks.map(_peakRow).toList(),
+      'PeakList': const [],
+      'Tasmap50k': const [],
+      'GpxTrack': const [],
+      'PeaksBagged': const [],
+    };
+    final repository = _MutablePeakRepository(peaks, rowsByEntity);
+
+    await _pumpApp(
+      tester,
+      repository: TestObjectBoxAdminRepository(
+        entities: [_peakEntity()],
+        rowsByEntity: rowsByEntity,
+      ),
+      peakRepository: repository,
+      peakDeleteGuard: PeakDeleteGuard(
+        _PeakListBlockerSource(
+          peakLists: [
+            PeakList(
+              name: 'Abels',
+              peakList: encodePeakListItems([
+                const PeakListItem(peakOsmId: 101, points: 3),
+              ]),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.text('Mt Ossa'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-delete-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-delete')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete Blocked'), findsOneWidget);
+    expect(find.textContaining('PeakList Abels'), findsOneWidget);
+    expect(
+      find.byKey(const Key('objectbox-admin-peak-delete-1')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Peak delete confirmation clears the selected row when deleted', (
+    tester,
+  ) async {
+    final peaks = [
+      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa'),
+      _buildPeak(id: 2, osmId: 202, name: 'Ossa Spur'),
+    ];
+    final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
+      'Peak': peaks.map(_peakRow).toList(),
+      'PeakList': const [],
+      'Tasmap50k': const [],
+      'GpxTrack': const [],
+      'PeaksBagged': const [],
+    };
+    final repository = _MutablePeakRepository(peaks, rowsByEntity);
+
+    await _pumpApp(
+      tester,
+      repository: TestObjectBoxAdminRepository(rowsByEntity: rowsByEntity),
+      peakRepository: repository,
+      peakDeleteGuard: PeakDeleteGuard(_NoopPeakDeleteGuardSource()),
+    );
+
+    await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.text('Mt Ossa'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-delete-1')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete Peak?'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('confirm-delete')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Select a row to inspect full values.'), findsOneWidget);
+    expect(
+      find.byKey(const Key('objectbox-admin-peak-delete-1')),
+      findsNothing,
+    );
+  });
 }
 
 Future<void> _pumpApp(
   WidgetTester tester, {
+  List<ObjectBoxAdminEntityDescriptor>? entities,
   TestObjectBoxAdminRepository? repository,
+  PeakRepository? peakRepository,
+  PeakDeleteGuard? peakDeleteGuard,
   Size size = const Size(1000, 900),
 }) async {
   await tester.binding.setSurfaceSize(size);
@@ -217,10 +607,18 @@ Future<void> _pumpApp(
               zoom: 10,
               basemap: Basemap.tracestrack,
             ),
+            peakRepository:
+                peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
           ),
         ),
         objectboxAdminRepositoryProvider.overrideWithValue(
-          repository ?? TestObjectBoxAdminRepository(),
+          repository ?? TestObjectBoxAdminRepository(entities: entities),
+        ),
+        peakRepositoryProvider.overrideWithValue(
+          peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
+        ),
+        peakDeleteGuardProvider.overrideWithValue(
+          peakDeleteGuard ?? PeakDeleteGuard(_NoopPeakDeleteGuardSource()),
         ),
       ],
       child: const App(),
@@ -228,4 +626,230 @@ Future<void> _pumpApp(
   );
 
   await tester.pump();
+}
+
+Peak _buildPeak({
+  required int id,
+  required int osmId,
+  required String name,
+  double? elevation,
+  String? area,
+}) {
+  final location = const LatLng(-41.5, 146.5);
+  final components = PeakMgrsConverter.fromLatLng(location);
+  return Peak(
+    id: id,
+    osmId: osmId,
+    name: name,
+    elevation: elevation,
+    latitude: location.latitude,
+    longitude: location.longitude,
+    area: area,
+    gridZoneDesignator: components.gridZoneDesignator,
+    mgrs100kId: components.mgrs100kId,
+    easting: components.easting,
+    northing: components.northing,
+  );
+}
+
+ObjectBoxAdminEntityDescriptor _peakEntity() {
+  return const ObjectBoxAdminEntityDescriptor(
+    name: 'Peak',
+    displayName: 'Peak',
+    primaryKeyField: 'id',
+    primaryNameField: 'name',
+    fields: [
+      ObjectBoxAdminFieldDescriptor(
+        name: 'id',
+        typeLabel: 'int',
+        nullable: false,
+        isPrimaryKey: true,
+        isPrimaryName: false,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'name',
+        typeLabel: 'String',
+        nullable: false,
+        isPrimaryKey: false,
+        isPrimaryName: true,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'osmId',
+        typeLabel: 'int',
+        nullable: false,
+        isPrimaryKey: false,
+        isPrimaryName: false,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'elevation',
+        typeLabel: 'double',
+        nullable: true,
+        isPrimaryKey: false,
+        isPrimaryName: false,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'latitude',
+        typeLabel: 'double',
+        nullable: false,
+        isPrimaryKey: false,
+        isPrimaryName: false,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'longitude',
+        typeLabel: 'double',
+        nullable: false,
+        isPrimaryKey: false,
+        isPrimaryName: false,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'area',
+        typeLabel: 'String',
+        nullable: true,
+        isPrimaryKey: false,
+        isPrimaryName: false,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'gridZoneDesignator',
+        typeLabel: 'String',
+        nullable: false,
+        isPrimaryKey: false,
+        isPrimaryName: false,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'mgrs100kId',
+        typeLabel: 'String',
+        nullable: false,
+        isPrimaryKey: false,
+        isPrimaryName: false,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'easting',
+        typeLabel: 'String',
+        nullable: false,
+        isPrimaryKey: false,
+        isPrimaryName: false,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'northing',
+        typeLabel: 'String',
+        nullable: false,
+        isPrimaryKey: false,
+        isPrimaryName: false,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'sourceOfTruth',
+        typeLabel: 'String',
+        nullable: false,
+        isPrimaryKey: false,
+        isPrimaryName: false,
+      ),
+    ],
+  );
+}
+
+ObjectBoxAdminRow _peakRow(Peak peak) {
+  return ObjectBoxAdminRow(
+    primaryKeyValue: peak.id,
+    values: {
+      'id': peak.id,
+      'osmId': peak.osmId,
+      'name': peak.name,
+      'elevation': peak.elevation,
+      'latitude': peak.latitude,
+      'longitude': peak.longitude,
+      'area': peak.area,
+      'gridZoneDesignator': peak.gridZoneDesignator,
+      'mgrs100kId': peak.mgrs100kId,
+      'easting': peak.easting,
+      'northing': peak.northing,
+      'sourceOfTruth': peak.sourceOfTruth,
+    },
+  );
+}
+
+class _MutablePeakRepository extends PeakRepository {
+  _MutablePeakRepository(
+    this._peaks,
+    this._rowsByEntity, {
+    this.saveResultBuilder,
+  }) : super.test(InMemoryPeakStorage(_peaks));
+
+  final List<Peak> _peaks;
+  final Map<String, List<ObjectBoxAdminRow>> _rowsByEntity;
+  final PeakSaveResult Function(Peak peak)? saveResultBuilder;
+
+  @override
+  List<Peak> getAllPeaks() => List<Peak>.unmodifiable(_peaks);
+
+  @override
+  Peak? findByOsmId(int osmId) {
+    for (final peak in _peaks) {
+      if (peak.osmId == osmId) {
+        return peak;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Peak? findById(int peakId) {
+    for (final peak in _peaks) {
+      if (peak.id == peakId) {
+        return peak;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Future<PeakSaveResult> saveDetailed(Peak peak) async {
+    final index = _peaks.indexWhere((entry) => entry.id == peak.id);
+    final saved = peak.copyWith();
+    if (index == -1) {
+      saved.id = peak.id == 0 ? _peaks.length + 1 : peak.id;
+      _peaks.add(saved);
+    } else {
+      saved.id = peak.id;
+      _peaks[index] = saved;
+    }
+
+    _syncRows();
+    return saveResultBuilder?.call(saved) ?? PeakSaveResult(peak: saved);
+  }
+
+  @override
+  Future<void> delete(int peakId) async {
+    _peaks.removeWhere((peak) => peak.id == peakId);
+    _syncRows();
+  }
+
+  void _syncRows() {
+    _rowsByEntity['Peak'] = _peaks.map(_peakRow).toList(growable: false);
+  }
+}
+
+class _PeakListBlockerSource implements PeakDeleteGuardSource {
+  _PeakListBlockerSource({required this.peakLists});
+
+  final List<PeakList> peakLists;
+
+  @override
+  List<GpxTrack> loadGpxTracks() => const [];
+
+  @override
+  List<PeakList> loadPeakLists() => peakLists;
+
+  @override
+  List<PeaksBagged> loadPeaksBagged() => const [];
+}
+
+class _NoopPeakDeleteGuardSource implements PeakDeleteGuardSource {
+  @override
+  List<GpxTrack> loadGpxTracks() => const [];
+
+  @override
+  List<PeakList> loadPeakLists() => const [];
+
+  @override
+  List<PeaksBagged> loadPeaksBagged() => const [];
 }
