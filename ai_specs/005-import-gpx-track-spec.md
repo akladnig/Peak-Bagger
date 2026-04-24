@@ -40,6 +40,7 @@ Alternative flows:
 Error flows:
 - File picker fails (permission denied): show error dialog, close gracefully
 - Invalid GPX file selected: skip the file, show error in summary, continue with other files
+- Non-Tasmanian GPX selected: skip and increment error count (consistent with existing import rules)
 - No GPX files found in selection: show "No valid GPX files selected" message
 </user_flows>
 
@@ -50,7 +51,7 @@ Error flows:
 3. Allow selection of multiple GPX files in a single picker session
 4. Default the file picker to ~/Documents/Bushwalking/Tracks
 5. Show an import confirmation dialog for each selected GPX file allowing the user to edit the track name (prefilled from GPX metadata or filename)
-6. The date field must be displayed but read-only (derived from GPX metadata or file modification time)
+6. The date field must be displayed but read-only: GPX metadata track date takes precedence; if missing, use file modification time
 7. Import selected GPX files as new tracks using the renamed track name
 8. Existing tracks must NOT be deleted; the import is additive only
 9. Use existing contentHash deduplication: skip files that already exist with the same contentHash and count as unchanged
@@ -104,10 +105,21 @@ Limits:
    - Use FilePicker.platform with allowedExtensions: ['gpx']
    - NOTE: This default path differs from PeakListFilePicker (~/Documents/Bushwalking) because GPX files are organized under Tracks subfolder, consistent with GpxImporter.getTracksFolder()
 
-2. Create @lib/widgets/gpx_track_import_dialog.dart - mirror peak_list_import_dialog.dart
+2. Create a result class @lib/models/gpx_track_import_result.dart for the import callback:
+   ```dart
+   class GpxTrackImportResult {
+     final bool success;
+     final int addedCount;
+     final int unchangedCount;
+     final int errorCount;
+     final String? errorMessage;
+   }
+   ```
+
+3. Create @lib/widgets/gpx_track_import_dialog.dart - mirror peak_list_import_dialog.dart
    - Accept a `GpxFilePicker` instance
-   - Accept an import callback that follows PeakListImportPresentationResult pattern but adapts for tracks:
-     `Future<PeakListImportPresentationResult> Function({required String trackName, required String gpxPath})`
+   - Accept an import callback that returns GpxTrackImportResult:
+     `Future<GpxTrackImportResult> Function({required String trackName, required String gpxPath})`
    - Show file picker button, selected files list, name field for each
    - Date field read-only with lock icon
    - Match existing dialog patterns for keys, state, and error handling
@@ -117,9 +129,20 @@ Limits:
    - Create dialog via Riverpod or direct instantiation
 
 4. Update @lib/providers/map_provider.dart
-   - Add new method `importGpxFile(String gpxPath, {String? overrideName})` for single-file import
-   - This method parses the GPX, creates a new track record, and updates track list
-   - Reuse existing GPXImporter logic for parsing/deduplication
+   - Add new method `importGpxFile()` to MapNotifier that returns GpxTrackImportResult:
+     ```
+     Future<GpxTrackImportResult> importGpxFile({
+       required String gpxPath,
+       String? overrideName,
+     })
+     ```
+   - This method:
+     - Parses the GPX file using GpxImporter logic
+     - Checks contentHash against existing tracks via GpxTrackRepository
+     - Reuses existing contentHash deduplication
+     - Creates new track record with overrideName if provided
+     - Updates track list state
+     - Returns GpxTrackImportResult with addedCount, unchangedCount, errorCount
 
 5. Add tests in @test/widget/gpx_track_import_dialog_test.dart
    - Test file picker opens with correct defaults
