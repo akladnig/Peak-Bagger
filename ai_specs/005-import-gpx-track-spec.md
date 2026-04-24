@@ -25,7 +25,7 @@ Primary flow:
 1. User taps the import track FAB on the map screen
 2. A GPX file picker dialog opens, showing ~/Documents/Bushwalking/Tracks as the default folder
 3. User selects one or more GPX files from the file picker (or cancels)
-4. If files selected, a confirmation dialog shows for each file allowing the user to rename the track name (but not the date)
+4. If files selected, a list-based dialog shows all selected files with editable name fields (one per file)
 5. On confirmation, the selected GPX files are imported as new tracks
 6. Existing tracks remain unchanged; no tracks are deleted
 7. Success message shows the number of tracks added
@@ -57,13 +57,18 @@ Error flows:
 9. Use existing contentHash deduplication: skip files that already exist with the same contentHash and count as unchanged
 10. Allow duplicate track names in the database (existing behavior)
 11. Show a success summary after import: X tracks added, Y unchanged (skipped), Z errors
-12. On success, refresh the track display if tracks are currently shown
+12. On success, auto-show tracks (set showTracks = true so new tracks are immediately visible)
 
 **Error Handling:**
 13. File picker permission failure: show error dialog with dismiss action
 14. Invalid GPX selected: skip file, continue processing others
 15. Import partially fails: show what succeeded and what failed
 16. No files selected: close dialog silently
+
+**Loading State:**
+16a. During import, show circular progress indicator on the Import button
+16b. During import, disable the Import/Cancel buttons
+16c. Use same loading state pattern as existing import dialogs
 
 **Edge Cases:**
 17. User renames track to empty string: show validation error, require non-empty name
@@ -105,7 +110,7 @@ Limits:
    - Use FilePicker.platform with allowedExtensions: ['gpx']
    - NOTE: This default path differs from PeakListFilePicker (~/Documents/Bushwalking) because GPX files are organized under Tracks subfolder, consistent with GpxImporter.getTracksFolder()
 
-2. Create a result class @lib/models/gpx_track_import_result.dart for the import callback:
+2. Create a reusable result class based on PeakListImportPresentationResult pattern, renamed for tracks:
    ```dart
    class GpxTrackImportResult {
      final bool success;
@@ -115,20 +120,21 @@ Limits:
      final String? errorMessage;
    }
    ```
+   NOTE: Uses PeakListImportPresentationResult structure to align with existing dialog patterns
 
-3. Create @lib/widgets/gpx_track_import_dialog.dart - mirror peak_list_import_dialog.dart
-   - Accept a `GpxFilePicker` instance
-   - Accept an import callback that returns GpxTrackImportResult:
-     `Future<GpxTrackImportResult> Function({required String trackName, required String gpxPath})`
-   - Show file picker button, selected files list, name field for each
-   - Date field read-only with lock icon
+3. Create @lib/widgets/gpx_track_import_dialog.dart - mirror peak_list_import_dialog.dart for multi-file list-based UX
+   - Accept GpxFilePicker (allowMultiple: true)
+   - Show all selected files in a scrollable list with editable name field for each
+   - Date field read-only with lock icon per file
+   - Add loading state UX: show circular progress, disable buttons during import
    - Match existing dialog patterns for keys, state, and error handling
+   - Reuse presentation result class GpxTrackImportResult (rename PeakListImportPresentationResult pattern)
 
-3. Update @lib/widgets/map_action_rail.dart
+4. Update @lib/widgets/map_action_rail.dart
    - Replace current `rescanTracks()` call with dialog-based import flow
-   - Create dialog via Riverpod or direct instantiation
+   - Pass loading state from MapNotifier to dialog
 
-4. Update @lib/providers/map_provider.dart
+5. Update @lib/providers/map_provider.dart
    - Add new method `importGpxFile()` to MapNotifier that returns GpxTrackImportResult:
      ```
      Future<GpxTrackImportResult> importGpxFile({
@@ -137,21 +143,23 @@ Limits:
      })
      ```
    - This method:
-     - Parses the GPX file using GpxImporter logic
-     - Checks contentHash against existing tracks via GpxTrackRepository
+     - Parses the GPX file using GpxImporter logic (same as folder import)
+     - Checks contentHash via GpxTrackRepository.findByContentHash()
      - Reuses existing contentHash deduplication
      - Creates new track record with overrideName if provided
+     - AFTER inserting track, calls _applyPeakCorrelation() for the new track (REQUIRED)
      - Updates track list state
+     - Sets showTracks = true so new tracks are immediately visible
      - Returns GpxTrackImportResult with addedCount, unchangedCount, errorCount
 
-5. Add tests in @test/widget/gpx_track_import_dialog_test.dart
+6. Add tests in @test/widget/gpx_track_import_dialog_test.dart
    - Test file picker opens with correct defaults
    - Test single file selection and rename
    - Test multiple file selection with per-file rename
    - Test empty name validation
    - Test import success and error flows
 
-6. Add unit tests in @test/gpx_track_test.dart
+7. Add unit tests in @test/gpx_track_test.dart
    - Test GpxFilePicker resolves correct default folder
    - Test importGpxFile creates new track record
    - Test contentHash deduplication works for file-based imports
