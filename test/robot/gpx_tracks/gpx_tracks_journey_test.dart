@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -5,6 +6,7 @@ import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -226,13 +228,106 @@ void main() {
 
     await robot.openSettings();
     await robot.openFilterSettings();
-    await robot.setHampelWindow(9);
+    await ProviderScope.containerOf(
+      tester.element(robot.filterSettingsTile),
+    ).read(gpxFilterSettingsProvider.notifier).setHampelWindow(9);
 
     expect(
       ProviderScope.containerOf(
         tester.element(robot.filterSettingsTile),
       ).read(gpxFilterSettingsProvider).value!.hampelWindow,
       9,
+    );
+  });
+
+  testWidgets('disabled filter selections persist and disable windows', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+
+    final robot = GpxTracksRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showTracks: true,
+        tracks: const [],
+      ),
+    );
+    addTearDown(robot.dispose);
+    await robot.pumpApp();
+
+    await robot.openSettings();
+    await robot.openFilterSettings();
+    await robot.setOutlierFilterNone();
+    await robot.setElevationSmootherNone();
+    await robot.setPositionSmootherNone();
+
+    expect(
+      ProviderScope.containerOf(
+        tester.element(robot.filterSettingsTile),
+      ).read(gpxFilterSettingsProvider).value!,
+      isA<GpxFilterConfig>()
+          .having(
+            (config) => config.outlierFilter,
+            'outlierFilter',
+            GpxTrackOutlierFilter.none,
+          )
+          .having(
+            (config) => config.elevationSmoother,
+            'elevationSmoother',
+            GpxTrackElevationSmoother.none,
+          )
+          .having(
+            (config) => config.positionSmoother,
+            'positionSmoother',
+            GpxTrackPositionSmoother.none,
+          ),
+    );
+
+    expect(
+      tester.widget<DropdownButtonFormField<int>>(robot.hampelWindowField)
+          .onChanged,
+      isNull,
+    );
+    expect(
+      tester.widget<DropdownButtonFormField<int>>(robot.elevationWindowField)
+          .onChanged,
+      isNull,
+    );
+    expect(
+      tester.widget<DropdownButtonFormField<int>>(robot.positionWindowField)
+          .onChanged,
+      isNull,
+    );
+
+    router.go('/map');
+    await tester.pumpAndSettle();
+    await robot.openSettings();
+    await robot.openFilterSettings();
+
+    expect(find.textContaining('Outlier Filter: None'), findsOneWidget);
+    expect(
+      ProviderScope.containerOf(
+        tester.element(robot.filterSettingsTile),
+      ).read(gpxFilterSettingsProvider).value!,
+      isA<GpxFilterConfig>()
+          .having(
+            (config) => config.outlierFilter,
+            'outlierFilter',
+            GpxTrackOutlierFilter.none,
+          )
+          .having(
+            (config) => config.elevationSmoother,
+            'elevationSmoother',
+            GpxTrackElevationSmoother.none,
+          )
+          .having(
+            (config) => config.positionSmoother,
+            'positionSmoother',
+            GpxTrackPositionSmoother.none,
+          ),
     );
   });
 

@@ -32,8 +32,18 @@ class GpxTracksRobot {
       find.byKey(const Key('recalculate-track-statistics-tile'));
   Finder get filterSettingsTile =>
       find.byKey(const Key('gpx-filter-settings-section'));
+  Finder get outlierFilterField =>
+      find.byKey(const Key('gpx-filter-outlier-filter'));
   Finder get hampelWindowField =>
       find.byKey(const Key('gpx-filter-hampel-window'));
+  Finder get elevationSmootherField =>
+      find.byKey(const Key('gpx-filter-elevation-smoother'));
+  Finder get elevationWindowField =>
+      find.byKey(const Key('gpx-filter-elevation-window'));
+  Finder get positionSmootherField =>
+      find.byKey(const Key('gpx-filter-position-smoother'));
+  Finder get positionWindowField =>
+      find.byKey(const Key('gpx-filter-position-window'));
   Finder get peakCorrelationSettingsTile =>
       find.byKey(const Key('peak-correlation-settings-section'));
   Finder get peakCorrelationDistanceField =>
@@ -103,6 +113,42 @@ class GpxTracksRobot {
     await tester.pumpAndSettle();
   }
 
+  Future<void> setOutlierFilterNone() async {
+    await tester.scrollUntilVisible(
+      outlierFilterField,
+      200.0,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(outlierFilterField);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('None').last);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> setElevationSmootherNone() async {
+    await tester.scrollUntilVisible(
+      elevationSmootherField,
+      200.0,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(elevationSmootherField);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('None').last);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> setPositionSmootherNone() async {
+    await tester.scrollUntilVisible(
+      positionSmootherField,
+      200.0,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(positionSmootherField);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('None').last);
+    await tester.pumpAndSettle();
+  }
+
   Future<void> openPeakCorrelationSettings() async {
     await tester.ensureVisible(peakCorrelationSettingsTile);
     await tester.tap(peakCorrelationSettingsTile, warnIfMissed: false);
@@ -110,6 +156,11 @@ class GpxTracksRobot {
   }
 
   Future<void> setHampelWindow(int value) async {
+    await tester.scrollUntilVisible(
+      hampelWindowField,
+      200.0,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(hampelWindowField);
     await tester.pumpAndSettle();
     await tester.tap(find.text('$value').last);

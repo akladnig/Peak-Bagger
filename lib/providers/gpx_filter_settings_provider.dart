@@ -2,18 +2,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _hampelWindowKey = 'gpx_filter_hampel_window';
+const _outlierFilterKey = 'gpx_filter_outlier_filter';
 const _elevationSmootherKey = 'gpx_filter_elevation_smoother';
 const _elevationWindowKey = 'gpx_filter_elevation_window';
 const _positionSmootherKey = 'gpx_filter_position_smoother';
 const _positionWindowKey = 'gpx_filter_position_window';
 
-enum GpxTrackElevationSmoother { median, savitzkyGolay }
+enum GpxTrackOutlierFilter { none, hampel }
 
-enum GpxTrackPositionSmoother { movingAverage, kalman }
+enum GpxTrackElevationSmoother { none, median, savitzkyGolay }
+
+enum GpxTrackPositionSmoother { none, movingAverage, kalman }
 
 class GpxFilterConfig {
   const GpxFilterConfig({
     required this.hampelWindow,
+    required this.outlierFilter,
     required this.elevationSmoother,
     required this.elevationWindow,
     required this.positionSmoother,
@@ -22,6 +26,7 @@ class GpxFilterConfig {
 
   static const defaults = GpxFilterConfig(
     hampelWindow: 7,
+    outlierFilter: GpxTrackOutlierFilter.hampel,
     elevationSmoother: GpxTrackElevationSmoother.median,
     elevationWindow: 5,
     positionSmoother: GpxTrackPositionSmoother.movingAverage,
@@ -29,6 +34,7 @@ class GpxFilterConfig {
   );
 
   final int hampelWindow;
+  final GpxTrackOutlierFilter outlierFilter;
   final GpxTrackElevationSmoother elevationSmoother;
   final int elevationWindow;
   final GpxTrackPositionSmoother positionSmoother;
@@ -36,6 +42,7 @@ class GpxFilterConfig {
 
   GpxFilterConfig copyWith({
     int? hampelWindow,
+    GpxTrackOutlierFilter? outlierFilter,
     GpxTrackElevationSmoother? elevationSmoother,
     int? elevationWindow,
     GpxTrackPositionSmoother? positionSmoother,
@@ -43,6 +50,7 @@ class GpxFilterConfig {
   }) {
     return GpxFilterConfig(
       hampelWindow: hampelWindow ?? this.hampelWindow,
+      outlierFilter: outlierFilter ?? this.outlierFilter,
       elevationSmoother: elevationSmoother ?? this.elevationSmoother,
       elevationWindow: elevationWindow ?? this.elevationWindow,
       positionSmoother: positionSmoother ?? this.positionSmoother,
@@ -53,6 +61,7 @@ class GpxFilterConfig {
   GpxFilterConfig normalized() {
     return GpxFilterConfig(
       hampelWindow: _normalizeOdd(hampelWindow, min: 5, max: 11),
+      outlierFilter: outlierFilter,
       elevationSmoother: elevationSmoother,
       elevationWindow: _normalizeOdd(elevationWindow, min: 5, max: 9),
       positionSmoother: positionSmoother,
@@ -62,6 +71,7 @@ class GpxFilterConfig {
 
   Future<void> save(SharedPreferences prefs) async {
     await prefs.setInt(_hampelWindowKey, hampelWindow);
+    await prefs.setString(_outlierFilterKey, outlierFilter.name);
     await prefs.setString(_elevationSmootherKey, elevationSmoother.name);
     await prefs.setInt(_elevationWindowKey, elevationWindow);
     await prefs.setString(_positionSmootherKey, positionSmoother.name);
@@ -71,6 +81,7 @@ class GpxFilterConfig {
   static GpxFilterConfig fromPreferences(SharedPreferences prefs) {
     return GpxFilterConfig(
       hampelWindow: prefs.getInt(_hampelWindowKey) ?? defaults.hampelWindow,
+      outlierFilter: _parseOutlierFilter(prefs.getString(_outlierFilterKey)),
       elevationSmoother: _parseElevationSmoother(
         prefs.getString(_elevationSmootherKey),
       ),
@@ -84,17 +95,29 @@ class GpxFilterConfig {
     ).normalized();
   }
 
+  static GpxTrackOutlierFilter _parseOutlierFilter(String? value) {
+    return switch (value) {
+      'hampel' => GpxTrackOutlierFilter.hampel,
+      'none' => GpxTrackOutlierFilter.none,
+      _ => defaults.outlierFilter,
+    };
+  }
+
   static GpxTrackElevationSmoother _parseElevationSmoother(String? value) {
     return switch (value) {
+      'none' => GpxTrackElevationSmoother.none,
       'savitzkyGolay' => GpxTrackElevationSmoother.savitzkyGolay,
-      _ => GpxTrackElevationSmoother.median,
+      'median' => GpxTrackElevationSmoother.median,
+      _ => defaults.elevationSmoother,
     };
   }
 
   static GpxTrackPositionSmoother _parsePositionSmoother(String? value) {
     return switch (value) {
+      'none' => GpxTrackPositionSmoother.none,
+      'movingAverage' => GpxTrackPositionSmoother.movingAverage,
       'kalman' => GpxTrackPositionSmoother.kalman,
-      _ => GpxTrackPositionSmoother.movingAverage,
+      _ => defaults.positionSmoother,
     };
   }
 }
@@ -122,6 +145,10 @@ class GpxFilterSettingsNotifier extends AsyncNotifier<GpxFilterConfig> {
 
   Future<void> setHampelWindow(int value) async {
     await _update((config) => config.copyWith(hampelWindow: value));
+  }
+
+  Future<void> setOutlierFilter(GpxTrackOutlierFilter value) async {
+    await _update((config) => config.copyWith(outlierFilter: value));
   }
 
   Future<void> setElevationSmoother(GpxTrackElevationSmoother value) async {

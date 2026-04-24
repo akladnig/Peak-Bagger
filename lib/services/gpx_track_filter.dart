@@ -144,10 +144,13 @@ class GpxTrackFilter {
             return const <_TrackPoint>[];
           }
 
-          final elevationFiltered = _applyHampel(
-            speedFiltered,
-            config.hampelWindow,
-          );
+          final elevationFiltered = switch (config.outlierFilter) {
+            GpxTrackOutlierFilter.none => speedFiltered,
+            GpxTrackOutlierFilter.hampel => _applyHampel(
+              speedFiltered,
+              config.hampelWindow,
+            ),
+          };
           final smoothedElevations = _smoothElevations(
             elevationFiltered,
             config.elevationSmoother,
@@ -269,6 +272,7 @@ class GpxTrackFilter {
     }
 
     return switch (smoother) {
+      GpxTrackElevationSmoother.none => points,
       GpxTrackElevationSmoother.median => _medianSmooth(points, windowSize),
       GpxTrackElevationSmoother.savitzkyGolay => _savitzkyGolaySmooth(
         points,
@@ -338,6 +342,7 @@ class GpxTrackFilter {
     }
 
     return switch (smoother) {
+      GpxTrackPositionSmoother.none => points,
       GpxTrackPositionSmoother.movingAverage => _movingAveragePositions(
         points,
         windowSize,

@@ -69,6 +69,61 @@ void main() {
     expect(track.getSegmentsForZoom(15).single, hasLength(2));
   });
 
+  test('importTracks keeps filtered output when outlier filtering is disabled', () async {
+    final tempDir = await Directory.systemTemp.createTemp('gpx-import-none');
+    addTearDown(() async {
+      if (tempDir.existsSync()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
+    final tasmaniaDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+    final source = File('${tracksDir.path}/none-track.gpx');
+    const rawXml = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <trk>
+    <name>None Track</name>
+    <trkseg>
+      <trkpt lat="-42.0000" lon="146.0000">
+        <time>2024-01-15T08:00:00Z</time>
+        <ele>100</ele>
+      </trkpt>
+      <trkpt lat="-42.0001" lon="146.0001">
+        <time>2024-01-15T08:05:00Z</time>
+        <ele>1000</ele>
+      </trkpt>
+      <trkpt lat="-42.0002" lon="146.0002">
+        <time>2024-01-15T08:10:00Z</time>
+        <ele>110</ele>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>
+''';
+    await source.writeAsString(rawXml);
+
+    final importer = GpxImporter(
+      tracksFolder: tracksDir.path,
+      tasmaniaFolder: tasmaniaDir.path,
+    );
+
+    final result = await importer.importTracks(
+      includeTasmaniaFolder: false,
+      filterConfig: GpxFilterConfig.defaults.copyWith(
+        outlierFilter: GpxTrackOutlierFilter.none,
+        elevationSmoother: GpxTrackElevationSmoother.none,
+        positionSmoother: GpxTrackPositionSmoother.none,
+      ),
+    );
+
+    expect(result.importedCount, 1);
+    expect(result.warning, isNull);
+    expect(result.tracks.single.filteredTrack, contains('<ele>1000.00</ele>'));
+    expect(result.tracks.single.getSegmentsForZoom(15), hasLength(1));
+  });
+
   test(
     'importTracks falls back to raw GPX when filtering removes too much',
     () async {

@@ -474,19 +474,40 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           subtitle: Text(_describeFilterConfig(value)),
           childrenPadding: const EdgeInsets.only(bottom: 16),
           children: [
-            _buildIntegerDropdown(
-              key: const Key('gpx-filter-hampel-window'),
-              label: 'Hampel window',
-              value: value.hampelWindow,
-              options: const [5, 7, 9, 11],
+            _buildEnumDropdown<GpxTrackOutlierFilter>(
+              key: const Key('gpx-filter-outlier-filter'),
+              label: 'Outlier Filter',
+              value: value.outlierFilter,
+              options: GpxTrackOutlierFilter.values,
+              labelBuilder: (entry) => switch (entry) {
+                GpxTrackOutlierFilter.none => 'None',
+                GpxTrackOutlierFilter.hampel => 'Hampel Filter',
+              },
               onChanged: (selected) {
                 if (selected == null) return;
                 unawaited(
                   ref
                       .read(gpxFilterSettingsProvider.notifier)
-                      .setHampelWindow(selected),
+                      .setOutlierFilter(selected),
                 );
               },
+            ),
+            const SizedBox(height: 12),
+            _buildIntegerDropdown(
+              key: const Key('gpx-filter-hampel-window'),
+              label: 'Hampel window',
+              value: value.hampelWindow,
+              options: const [5, 7, 9, 11],
+              onChanged: value.outlierFilter == GpxTrackOutlierFilter.none
+                  ? null
+                  : (selected) {
+                      if (selected == null) return;
+                      unawaited(
+                        ref
+                            .read(gpxFilterSettingsProvider.notifier)
+                            .setHampelWindow(selected),
+                      );
+                    },
             ),
             const SizedBox(height: 12),
             _buildEnumDropdown<GpxTrackElevationSmoother>(
@@ -495,6 +516,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               value: value.elevationSmoother,
               options: GpxTrackElevationSmoother.values,
               labelBuilder: (entry) => switch (entry) {
+                GpxTrackElevationSmoother.none => 'None',
                 GpxTrackElevationSmoother.median => 'Median',
                 GpxTrackElevationSmoother.savitzkyGolay => 'Savitzky-Golay',
               },
@@ -513,14 +535,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               label: 'Elevation window',
               value: value.elevationWindow,
               options: const [5, 7, 9],
-              onChanged: (selected) {
-                if (selected == null) return;
-                unawaited(
-                  ref
-                      .read(gpxFilterSettingsProvider.notifier)
-                      .setElevationWindow(selected),
-                );
-              },
+              onChanged: value.elevationSmoother ==
+                      GpxTrackElevationSmoother.none
+                  ? null
+                  : (selected) {
+                      if (selected == null) return;
+                      unawaited(
+                        ref
+                            .read(gpxFilterSettingsProvider.notifier)
+                            .setElevationWindow(selected),
+                      );
+                    },
             ),
             const SizedBox(height: 12),
             _buildEnumDropdown<GpxTrackPositionSmoother>(
@@ -529,6 +554,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               value: value.positionSmoother,
               options: GpxTrackPositionSmoother.values,
               labelBuilder: (entry) => switch (entry) {
+                GpxTrackPositionSmoother.none => 'None',
                 GpxTrackPositionSmoother.movingAverage => 'Moving average',
                 GpxTrackPositionSmoother.kalman => 'Kalman',
               },
@@ -547,14 +573,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               label: 'Position window',
               value: value.positionWindow,
               options: const [3, 5, 7],
-              onChanged: (selected) {
-                if (selected == null) return;
-                unawaited(
-                  ref
-                      .read(gpxFilterSettingsProvider.notifier)
-                      .setPositionWindow(selected),
-                );
-              },
+              onChanged: value.positionSmoother ==
+                      GpxTrackPositionSmoother.none
+                  ? null
+                  : (selected) {
+                      if (selected == null) return;
+                      unawaited(
+                        ref
+                            .read(gpxFilterSettingsProvider.notifier)
+                            .setPositionWindow(selected),
+                      );
+                    },
             ),
           ],
         ),
@@ -623,7 +652,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     required String label,
     required int value,
     required List<int> options,
-    required ValueChanged<int?> onChanged,
+    required ValueChanged<int?>? onChanged,
   }) {
     return DropdownButtonFormField<int>(
       key: key,
@@ -647,7 +676,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     required T value,
     required List<T> options,
     required String Function(T value) labelBuilder,
-    required ValueChanged<T?> onChanged,
+    required ValueChanged<T?>? onChanged,
   }) {
     return DropdownButtonFormField<T>(
       key: key,
@@ -666,6 +695,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   String _describeFilterConfig(GpxFilterConfig config) {
-    return 'Hampel ${config.hampelWindow} • Elevation ${config.elevationWindow} • Position ${config.positionWindow}';
+    return 'Outlier Filter: ${_describeOutlierFilter(config.outlierFilter)} • Elevation smoother: ${_describeElevationSmoother(config.elevationSmoother)} • Position smoother: ${_describePositionSmoother(config.positionSmoother)}';
+  }
+
+  String _describeOutlierFilter(GpxTrackOutlierFilter value) {
+    return switch (value) {
+      GpxTrackOutlierFilter.none => 'None',
+      GpxTrackOutlierFilter.hampel => 'Hampel Filter',
+    };
+  }
+
+  String _describeElevationSmoother(GpxTrackElevationSmoother value) {
+    return switch (value) {
+      GpxTrackElevationSmoother.none => 'None',
+      GpxTrackElevationSmoother.median => 'Median',
+      GpxTrackElevationSmoother.savitzkyGolay => 'Savitzky-Golay',
+    };
+  }
+
+  String _describePositionSmoother(GpxTrackPositionSmoother value) {
+    return switch (value) {
+      GpxTrackPositionSmoother.none => 'None',
+      GpxTrackPositionSmoother.movingAverage => 'Moving average',
+      GpxTrackPositionSmoother.kalman => 'Kalman',
+    };
   }
 }
