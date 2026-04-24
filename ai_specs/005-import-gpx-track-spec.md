@@ -34,7 +34,7 @@ Alternative flows:
 - User taps Cancel or outside the dialog: dialog closes, no action taken
 - User selects a single GPX file: single-file import flow with one confirmation step
 - User selects multiple GPX files: batch import flow with rename options for each
-- User selects a file that already exists (same contentHash): show dialog "This track has already been imported", count as unchanged
+- User selects a file that already exists (same contentHash): show dialog "This track has already been imported", count as unchanged, stop import flow
 
 Error flows:
 - File picker fails (permission denied): show error dialog, close gracefully
@@ -54,8 +54,6 @@ Error flows:
    - Use GpxImporter._extractStartDateTime() for GPX date, fall back to modification time, apply _normalizeTrackDate() to get midnight
 7. Import selected GPX files as new tracks using the renamed track name
 8. Existing tracks must NOT be deleted; the import is additive only
-9. Use existing contentHash deduplication: skip files that already exist with the same contentHash and count as unchanged
-10. Allow duplicate track names in the database (existing behavior)
 11. Show a success summary after import: X tracks added, Y unchanged (skipped), Z errors
 12. On success, auto-show tracks (set showTracks = true so new tracks are immediately visible)
 
@@ -72,9 +70,7 @@ Error flows:
 
 **Edge Cases:**
 17. User renames track to empty string: show validation error, require non-empty name
-18. User selects a file already imported (same contentHash): skip silently, count in unchanged
-19. User selects multiple files where some are invalid: process valid ones, report errors for invalid
-20. Track name conflict (same name + date, different content): allow as separate tracks (duplicates permitted per existing behavior)
+18. User selects a file already imported (same contentHash): show dialog "already imported", halt import flow
 
 **Validation:**
 21. Reuse stable keys from existing import dialogs, especially `Key('peak-list-import-*')` patterns
@@ -125,10 +121,11 @@ Limits:
 3. Create @lib/widgets/gpx_track_import_dialog.dart - mirror peak_list_import_dialog.dart for multi-file list-based UX
    - Accept GpxFilePicker (allowMultiple: true)
    - Show all selected files in a scrollable list with editable name field for each
+   - Store edited names in a Map<String, String> (path → edited name) for passing to importGpxFile
    - NOTE: No date field - date is derived internally
    - Add loading state UX: show circular progress, disable buttons during import
    - Match existing dialog patterns for keys, state, and error handling
-   - Reuse presentation result class GpxTrackImportResult (rename PeakListImportPresentationResult pattern)
+   - Reuse presentation result class GpxTrackImportResult
 
 4. Update @lib/widgets/map_action_rail.dart
    - Replace current `rescanTracks()` call with dialog-based import flow
@@ -149,9 +146,9 @@ Limits:
        - If not found: proceed to create new track
      - Parse GPX file using GpxImporter.parseGpxFile() logic
      - If overrideName provided, override track.trackName
-     - If new track has gpxTrackId=0, ObjectBox auto-assigns the ID
-     - AFTER inserting track, initialize TrackPeakCorrelationService and call _applyPeakCorrelation()
-     - Updates track list state
+- If new track has gpxTrackId=0, ObjectBox auto-assigns the ID
+      - AFTER inserting track, call _applyPeakCorrelation(track, correlationService, xml) where xml = track.gpxFileRepaired.isNotEmpty ? track.gpxFileRepaired : track.gpxFile
+      - Updates track list state
      - Sets showTracks = true
      - Returns GpxTrackImportResult
    - For multiple files: dialog loops over selected files, calls importGpxFile() for each, aggregates results into final GpxTrackImportResult
