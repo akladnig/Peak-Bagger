@@ -34,8 +34,7 @@ Alternative flows:
 - User taps Cancel or outside the dialog: dialog closes, no action taken
 - User selects a single GPX file: single-file import flow with one confirmation step
 - User selects multiple GPX files: batch import flow with rename options for each
-- User selects a file that already exists (same contentHash): skip and count as unchanged
-- User selects a file that has the same track name + date but different content: add as a new track (duplicates allowed)
+- User selects a file that already exists (same contentHash): show dialog "This track has already been imported", count as unchanged
 
 Error flows:
 - File picker fails (permission denied): show error dialog, close gracefully
@@ -143,24 +142,19 @@ Limits:
        String? overrideName,
      })
      ```
-   - This method:
+   - This method (single file):
      - First: compute contentHash for the GPX file
      - Check contentHash via GpxTrackRepository.findByContentHash()
        - If contentHash matches existing: skip, return unchangedCount=1, show dialog "This track has already been imported"
        - If not found: proceed to create new track
-     - Parse and create new track record using GpxImporter.parseGpxFile() logic
-     - Assign new gpxTrackId using next available ID from repository (auto-increment)
-     - AFTER inserting track, initialize TrackPeakCorrelationService and call _applyPeakCorrelation():
-       ```
-       final thresholdMeters = await _peakCorrelationThresholdMeters();
-       final correlationService = TrackPeakCorrelationService(
-         peaks: _peakRepository.getAllPeaks(),
-         thresholdMeters: thresholdMeters,
-       );
-       ```
+     - Parse GPX file using GpxImporter.parseGpxFile() logic
+     - If overrideName provided, override track.trackName
+     - If new track has gpxTrackId=0, ObjectBox auto-assigns the ID
+     - AFTER inserting track, initialize TrackPeakCorrelationService and call _applyPeakCorrelation()
      - Updates track list state
-     - Sets showTracks = true so new tracks are immediately visible
-     - Returns GpxTrackImportResult with addedCount, unchangedCount, errorCount
+     - Sets showTracks = true
+     - Returns GpxTrackImportResult
+   - For multiple files: dialog loops over selected files, calls importGpxFile() for each, aggregates results into final GpxTrackImportResult
 
 6. Add tests in @test/widget/gpx_track_import_dialog_test.dart
    - Test file picker opens with correct defaults
@@ -202,7 +196,7 @@ Phase 4: Integration tests
 1. TDD-first for the new import dialog and picker:
    - Test slice 1 (RED): File picker button opens dialog and shows default folder
    - Test slice 2 (GREEN): Selected files appear in list view
-   - Test slice 3 (RED): Name field is editable, date field is read-only
+   - Test slice 3 (RED): Name field is editable for each file
    - Test slice 4 (GREEN): Import button creates new track
 
 2. Unit tests must cover:
@@ -218,15 +212,15 @@ Phase 4: Integration tests
    - File picker opens with GPX filter
    - Selected files list updates correctly
    - Name field validation for empty input
-   - Date field is read-only
    - Success dialog shows correct counts
+   - Duplicate dialog shows "already imported" message
    - Error dialog shows for invalid GPX
 
 4. Robot tests must cover the primary journey using stable keys:
    - Tap import FAB
    - Select GPX file(s) from picker
    - Verify dialog shows selected files
-   - Edit track name, verify date unchanged
+   - Edit track name
    - Confirm import
    - Verify success message
 
@@ -234,7 +228,6 @@ Phase 4: Integration tests
    - `Key('gpx-file-picker')` for file picker trigger button
    - `Key('gpx-track-import-dialog')` for main dialog container
    - `Key('gpx-track-name-field')` for track name text field
-   - `Key('gpx-track-date-field')` for read-only date display
    - Reuse pattern keys from peak_list_import_dialog where applicable
 
 6. Baseline automated coverage outcome:
@@ -246,11 +239,12 @@ Phase 4: Integration tests
 <done_when>
 1. Tapping the import track FAB opens a GPX file picker dialog
 2. User can select one or more GPX files from ~/Documents/Bushwalking/Tracks
-3. Dialog allows editing track name but shows date as read-only
+3. Dialog allows editing track name for each file (no date field shown)
 4. Import adds new tracks without deleting existing tracks
 5. Success summary shows count of added tracks
-6. Existing tracks remain unchanged after import
-7. Tests cover the import dialog, file picker, and single-file import logic
-8. flutter analyze passes
-9. flutter test passes
+6. Duplicate tracks show "already imported" dialog
+7. Existing tracks remain unchanged after import
+8. Tests cover the import dialog, file picker, and single-file import logic
+9. flutter analyze passes
+10. flutter test passes
 </done_when>
