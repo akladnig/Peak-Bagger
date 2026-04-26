@@ -726,19 +726,28 @@ class _TileCacheSettingsScreenState
   String _status = '';
   int _minZoom = 6;
   int _maxZoom = 14;
-  StoreStats? _stats;
+  Map<String, StoreStats> _allStats = {};
+  bool _loadingStats = true;
 
   @override
   void initState() {
     super.initState();
-    _loadStats();
+    _loadAllStats();
   }
 
-  Future<void> _loadStats() async {
-    final store = TileCacheService.getStoreForBasemap(_selectedBasemap);
-    if (store != null) {
-      setState(() => _stats = store.stats);
-    }
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadAllStats();
+  }
+
+  Future<void> _loadAllStats() async {
+    setState(() => _loadingStats = true);
+    final stats = TileCacheService.getStats();
+    setState(() {
+      _allStats = stats;
+      _loadingStats = false;
+    });
   }
 
   @override
@@ -747,21 +756,55 @@ class _TileCacheSettingsScreenState
       appBar: AppBar(title: const Text('Map Tile Cache')),
       body: ListView(
         children: [
-          if (_stats != null)
-            ListTile(
-              title: const Text('Cached'),
-              subtitle: FutureBuilder(
-                future: _stats!.all,
-                builder: (ctx, snap) {
-                  if (!snap.hasData) return const Text('Loading...');
-                  final data = snap.data!;
-                  return Text(
-                    '${data.length} tiles, ${data.size.toStringAsFixed(1)} KiB',
-                  );
-                },
-              ),
-              leading: const Icon(Icons.storage),
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              'Cache Status',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
+          ),
+          if (_loadingStats)
+            const ListTile(title: Text('Loading...'))
+          else
+            Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              child: DataTable(
+                columns: const [
+                  DataColumn(label: Text('Basemap')),
+                  DataColumn(label: Text('Tiles'), numeric: true),
+                  DataColumn(label: Text('Size'), numeric: true),
+                ],
+                rows: _allStats.entries.map((entry) {
+                  final stat = entry.value;
+                  return DataRow(
+                    cells: [
+                      DataCell(Text(entry.key)),
+                      DataCell(
+                        FutureBuilder(
+                          future: stat.all,
+                          builder: (ctx, snap) {
+                            if (!snap.hasData) return const Text('-');
+                            return Text('${snap.data!.length}');
+                          },
+                        ),
+                      ),
+                      DataCell(
+                        FutureBuilder(
+                          future: stat.all,
+                          builder: (ctx, snap) {
+                            if (!snap.hasData) return const Text('-');
+                            return Text(
+                              '${snap.data!.size.toStringAsFixed(1)} KiB',
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          const SizedBox(height: 16),
           ListTile(
             title: const Text('Basemap'),
             trailing: DropdownButton<Basemap>(
@@ -772,7 +815,6 @@ class _TileCacheSettingsScreenState
               onChanged: (b) {
                 if (b != null) {
                   setState(() => _selectedBasemap = b);
-                  _loadStats();
                 }
               },
             ),
@@ -891,6 +933,7 @@ class _TileCacheSettingsScreenState
     );
     if (confirmed == true) {
       await TileCacheService.clearStore(_selectedBasemap.name);
+      _loadAllStats();
       if (mounted)
         ScaffoldMessenger.of(
           context,
