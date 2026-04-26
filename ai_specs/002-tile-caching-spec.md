@@ -48,11 +48,14 @@ Error flows:
 1. ✓ Integrate flutter_map_tile_caching package (local fork)
 2. ✓ Create 5 FMTC stores on startup
 3. ✓ Replace NetworkTileProvider with FMTCTileProvider
-4. ✓ "Map Tile Cache" section in Settings with cache stats (tile count, size)
+4. ✓ "Map Tile Cache" section in Settings with stats table (all 5 basemaps)
 5. ✓ Bulk download with zoom range selection
-6. ✓ Download progress display
+6. ✓ Download progress showing downloaded/skipped counts
 7. ✓ Cache-first behavior via BrowseLoadingStrategy.cacheFirst
 8. ✓ Clear cache per basemap
+9. ✓ Stats auto-refresh on screen re-entry
+10. ✓ "Skip existing tiles" option (default: true)
+11. ✓ Option saves bandwidth on re-downloads
 </requirements>
 
 **Error Handling:**
