@@ -720,7 +720,8 @@ class TileCacheSettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _TileCacheSettingsScreenState
-    extends ConsumerState<TileCacheSettingsScreen> {
+    extends ConsumerState<TileCacheSettingsScreen>
+    with WidgetsBindingObserver {
   Basemap _selectedBasemap = Basemap.openstreetmap;
   bool _isDownloading = false;
   String _status = '';
@@ -733,13 +734,21 @@ class _TileCacheSettingsScreenState
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadAllStats();
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _loadAllStats();
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadAllStats();
+    }
   }
 
   Future<void> _loadAllStats() async {
@@ -754,7 +763,12 @@ class _TileCacheSettingsScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Map Tile Cache')),
+      appBar: AppBar(
+        title: const Text('Map Tile Cache'),
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadAllStats),
+        ],
+      ),
       body: ListView(
         children: [
           const Padding(
