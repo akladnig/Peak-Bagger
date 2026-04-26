@@ -726,6 +726,20 @@ class _TileCacheSettingsScreenState
   String _status = '';
   int _minZoom = 6;
   int _maxZoom = 14;
+  StoreStats? _stats;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    final store = TileCacheService.getStoreForBasemap(_selectedBasemap);
+    if (store != null) {
+      setState(() => _stats = store.stats);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -733,6 +747,21 @@ class _TileCacheSettingsScreenState
       appBar: AppBar(title: const Text('Map Tile Cache')),
       body: ListView(
         children: [
+          if (_stats != null)
+            ListTile(
+              title: const Text('Cached'),
+              subtitle: FutureBuilder(
+                future: _stats!.all,
+                builder: (ctx, snap) {
+                  if (!snap.hasData) return const Text('Loading...');
+                  final data = snap.data!;
+                  return Text(
+                    '${data.length} tiles, ${data.size.toStringAsFixed(1)} KiB',
+                  );
+                },
+              ),
+              leading: const Icon(Icons.storage),
+            ),
           ListTile(
             title: const Text('Basemap'),
             trailing: DropdownButton<Basemap>(
@@ -740,7 +769,12 @@ class _TileCacheSettingsScreenState
               items: Basemap.values
                   .map((b) => DropdownMenuItem(value: b, child: Text(b.name)))
                   .toList(),
-              onChanged: (b) => setState(() => _selectedBasemap = b!),
+              onChanged: (b) {
+                if (b != null) {
+                  setState(() => _selectedBasemap = b);
+                  _loadStats();
+                }
+              },
             ),
           ),
           ListTile(
