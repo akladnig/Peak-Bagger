@@ -774,14 +774,25 @@ class _TileCacheSettingsScreenState
                   DataColumn(label: Text('Tiles'), numeric: true),
                   DataColumn(label: Text('Size'), numeric: true),
                 ],
-                rows: _allStats.entries.map((entry) {
-                  final stat = entry.value;
+                rows: TileCacheService.storeNames.asMap().entries.map((e) {
+                  final idx = e.key;
+                  final name = e.value;
+                  final stat = _allStats[name];
                   return DataRow(
+                    key: ValueKey(idx),
                     cells: [
-                      DataCell(Text(entry.key)),
+                      DataCell(Text(name)),
                       DataCell(
                         FutureBuilder(
-                          future: stat.all,
+                          key: ValueKey('tiles_$idx'),
+                          future:
+                              stat?.all ??
+                              Future.value((
+                                length: 0,
+                                size: 0.0,
+                                hits: 0,
+                                misses: 0,
+                              )),
                           builder: (ctx, snap) {
                             if (!snap.hasData) return const Text('-');
                             return Text('${snap.data!.length}');
@@ -790,7 +801,15 @@ class _TileCacheSettingsScreenState
                       ),
                       DataCell(
                         FutureBuilder(
-                          future: stat.all,
+                          key: ValueKey('size_$idx'),
+                          future:
+                              stat?.all ??
+                              Future.value((
+                                length: 0,
+                                size: 0.0,
+                                hits: 0,
+                                misses: 0,
+                              )),
                           builder: (ctx, snap) {
                             if (!snap.hasData) return const Text('-');
                             return Text(
