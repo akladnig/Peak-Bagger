@@ -721,7 +721,7 @@ class TileCacheSettingsScreen extends ConsumerStatefulWidget {
 
 class _TileCacheSettingsScreenState
     extends ConsumerState<TileCacheSettingsScreen>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, RouteObserver {
   Basemap _selectedBasemap = Basemap.openstreetmap;
   bool _isDownloading = false;
   String _status = '';
@@ -741,6 +741,11 @@ class _TileCacheSettingsScreenState
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _loadAllStats();
+  }
+
+  @override
+  void didPop() {
     _loadAllStats();
   }
 
