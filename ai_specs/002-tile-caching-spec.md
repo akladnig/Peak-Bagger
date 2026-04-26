@@ -3,21 +3,21 @@ Implement persistent tile caching for map tiles using flutter_map_tile_caching t
 
 Caching must be:
 - Persistent and survives app restarts
-- Cache metadata visible in Settings for user inspection
-- Configurable via Settings screen with zoom range and area selection
+- Cache metadata visible in Settings for user inspection (tile count, size)
+- Configurable via Settings screen with zoom range and basemap selection
 </goal>
 
 <background>
-Tech stack: Flutter with flutter_map ^8.2.2, flutter_map_tile_caching ^10.1.1, Riverpod for state
+Tech stack: Flutter with flutter_map ^8.2.2, flutter_map_tile_caching (local fork), Riverpod for state
 
-Files to examine:
-- @lib/services/tile_downloader.dart (existing manual download)
-- @lib/screens/map_screen.dart:439-443 (current TileLayer with NetworkTileProvider)
-- @lib/screens/map_screen_layers.dart:13-26 (mapTileUrl function)
+Implementation uses local FMTC fork at /Users/adrian/Development/mapping/flutter_map_tile_caching for objectbox ^5 compatibility.
+
+Files:
+- @lib/services/tile_cache_service.dart (FMTC service with store management)
+- @lib/screens/map_screen.dart:438-458 (TileLayer with FMTCTileProvider)
+- @lib/screens/settings_screen.dart:722- (TileCacheSettingsScreen)
+- @lib/main.dart:23 (FMTC initialization)
 - @lib/providers/map_provider.dart:40 (Basemap enum)
-- @lib/screens/settings_screen.dart (for caching UI location)
-
-Context: App already has manual tile download in TileDownloader but uses direct HTTP and file system. FMTC provides superior caching with automatic cache management, LRU eviction, and proper tile provider integration.
 </background>
 
 <user_flows>
@@ -44,22 +44,16 @@ Error flows:
 </user_flows>
 
 <requirements>
-**Functional:**
-1. Integrate flutter_map_tile_caching package for tile caching
-2. Create separate FMTC store for each basemap on startup: 'openstreetmap', 'tracestrack', 'tasmapTopo', 'tasmap50k', 'tasmap25k'
-3. Replace NetworkTileProvider with single FMTCTileProvider using urlTransformer for all basemaps
-4. Add "Map Tile Cache" section to Settings showing metadata per store (tile count, size)
-5. Implement bulk download for openstreetmap (zoom 6-14, Tasmania bounds)
-6. Implement bulk download for tracestrack (zoom 6-14, Tasmania bounds)
-7. Implement bulk download for tasmapTopo/tasmap50k/tasmap25k (zoom 6-14, Tasmania bounds)
-8. Show download progress with cancel option
-9. Support cache-first behavior: check cache, fallback to network on miss
-10. Cache newly fetched tiles (auto-caching for tiles outside initial download region)
-11. Display cache statistics per store: tile count, size, zoom levels cached
-12. Clear cache functionality per store via Settings
-
-Future (out of scope):
-- None - all 5 basemaps covered in this implementation
+**Functional (Complete):**
+1. ✓ Integrate flutter_map_tile_caching package (local fork)
+2. ✓ Create 5 FMTC stores on startup
+3. ✓ Replace NetworkTileProvider with FMTCTileProvider
+4. ✓ "Map Tile Cache" section in Settings with cache stats (tile count, size)
+5. ✓ Bulk download with zoom range selection
+6. ✓ Download progress display
+7. ✓ Cache-first behavior via BrowseLoadingStrategy.cacheFirst
+8. ✓ Clear cache per basemap
+</requirements>
 
 **Error Handling:**
 E1. Handle network timeout during bulk download gracefully
@@ -104,62 +98,46 @@ Limits:
 </boundaries>
 
 <implementation>
-Note: tasmap basemaps use non-standard tile URLs (/{z}/{y}/{x} with y/x swapped). FMTC may need custom URL transformer or this basemap may require testing.
+**Dependency:**
+```yaml
+flutter_map_tile_caching:
+  path: /Users/adrian/Development/mapping/flutter_map_tile_caching
+```
 
-FMTC v10+ API details (verified):
-- Initialize: `await FMTCObjectBoxBackend().initialise()`
-- Create store: `await FMTCStore('storeName').manage.create()`
-- Stores map entry key must correspond to basemap name used in urlTransformer
+**TileCacheService** (`lib/services/tile_cache_service.dart`):
+- `initialize()`: Creates FMTCObjectBoxBackend and 5 stores
+- `getStoreForBasemap(Basemap)`: Returns store for given basemap
+- `clearStore(String)`: Clears cache for given store name
 
-FMTC initialization (@lib/main.dart):
-- Initialize FMTC ObjectBox: `await FMTCObjectBoxBackend().initialise()`
-- Create 5 stores on startup: 'openstreetmap', 'tracestrack', 'tasmapTopo', 'tasmap50k', 'tasmap25k'
-- Each store uses `BrowseStoreStrategy.readUpdateCreate`
+**FMTC Initialization** (`lib/main.dart`):
+```dart
+await TileCacheService.initialize(); // before openStore()
+```
 
-FMTCTileProvider configuration (@lib/screens/map_screen.dart):
-- Single FMTCTileProvider instance with URL transformer for scalability to N basemaps
-- urlTransformer callback maps tile coordinates → basemap-specific URL at runtime
-- Note: tasmap URLs use {z}/{y}/{x} format, not {z}/{x}/{y}. urlTransformer must handle this format correctly
-- Uses all 5 stores with same strategy:
-  ```dart
-  FMTCTileProvider(
-    urlTransformer: (tileCoords, fallbackUrl) {
-      final mapState = ref.read(mapProvider);
-      final basemap = mapState.basemap;
-      var url = mapTileUrl(basemap);
-      // Handle tasmap {z}/{y}/{x} vs standard {z}/{x}/{y} format
-      if (basemap == Basemap.tasmapTopo || 
-          basemap == Basemap.tasmap50k || 
-          basemap == Basemap.tasmap25k) {
-        url = url.replaceAll('{z}', '${tileCoords.z}')
-                 .replaceAll('{y}', '${tileCoords.y}')
-                 .replaceAll('{x}', '${tileCoords.x}');
-      } else {
-        url = url.replaceAll('{z}', '${tileCoords.z}')
-                 .replaceAll('{x}', '${tileCoords.x}')
-                 .replaceAll('{y}', '${tileCoords.y}');
-      }
-      return url;
-    },
-    stores: const {
-      'openstreetmap': BrowseStoreStrategy.readUpdateCreate,
-      'tracestrack': BrowseStoreStrategy.readUpdateCreate,
-      'tasmapTopo': BrowseStoreStrategy.readUpdateCreate,
-      'tasmap50k': BrowseStoreStrategy.readUpdateCreate,
-      'tasmap25k': BrowseStoreStrategy.readUpdateCreate,
-    },
-    loadingStrategy: BrowseLoadingStrategy.cacheFirst,
-  )
-  ```
+**FMTCTileProvider** (`lib/screens/map_screen.dart`):
+- Uses all 5 stores with BrowseStoreStrategy.readUpdateCreate
+- BrowseLoadingStrategy.cacheFirst for cache-first behavior
+- Simple urlTransformer (identity function)
 
-Files to create:
-- @lib/services/tile_cache_service.dart (new: FMTC store management)
-- @test/services/tile_cache_service_test.dart (new: unit tests)
+**TileCacheSettingsScreen** (`lib/screens/settings_screen.dart`):
+- Basemap dropdown selector
+- Min/max zoom dropdowns (default 6-14)
+- Download button with progress stream
+- Cache stats display (tile count, size) using FutureBuilder
+- Clear cache button
 
-Files to modify:
-- @lib/screens/map_screen.dart (line 442): Replace NetworkTileProvider with FMTCTileProvider using urlTransformer
-- @lib/screens/settings_screen.dart: Replace existing tile download ListTile with expanded "Map Tile Cache" section
-- @lib/main.dart: Initialize FMTC ObjectBox and create stores
+**Download API:**
+```dart
+final tileLayer = TileLayer(urlTemplate: mapTileUrl(basemap));
+final bounds = LatLngBounds(southWest, northEast);
+final region = RectangleRegion(bounds).toDownloadable(
+  minZoom: _minZoom,
+  maxZoom: _maxZoom,
+  options: tileLayer,
+);
+final result = store.download.startForeground(region: region);
+await for (final progress in result.downloadProgress) { ... }
+```
 </implementation>
 
 <validation>
