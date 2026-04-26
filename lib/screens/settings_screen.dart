@@ -933,7 +933,7 @@ class _TileCacheSettingsScreenState
         if (!mounted) return;
         setState(
           () => _status =
-              '${progress.successfulTilesCount} tiles (${progress.percentageProgress.toStringAsFixed(1)}%)',
+              '${progress.successfulTilesCount} downloaded, ${progress.existingTilesCount} skipped (${progress.percentageProgress.toStringAsFixed(1)}%)',
         );
       }
       setState(() => _status = 'Download complete!');
