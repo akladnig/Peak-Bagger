@@ -757,6 +757,9 @@ class _TileCacheSettingsScreenState
   void didPush() {}
 
   @override
+  void didPushNext() {}
+
+  @override
   void didPop() {}
 
   @override
