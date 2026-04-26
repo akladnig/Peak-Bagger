@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/services/gpx_file_picker.dart';
+import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
+import 'package:peak_bagger/widgets/gpx_track_import_dialog.dart';
 import 'package:peak_bagger/widgets/left_tooltip_fab.dart';
 
 class MapActionRail extends ConsumerWidget {
@@ -262,9 +265,7 @@ class MapActionRail extends ConsumerWidget {
               onPressed:
                   mapState.isLoadingTracks || mapState.hasTrackRecoveryIssue
                   ? null
-                  : () {
-                      ref.read(mapProvider.notifier).rescanTracks();
-                    },
+                  : () => _showGpxImportDialog(context, ref),
               child: mapState.isLoadingTracks
                   ? const SizedBox(
                       width: 18,
@@ -305,6 +306,24 @@ class MapActionRail extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _showGpxImportDialog(BuildContext context, WidgetRef ref) async {
+    final filePicker = ref.read(gpxFilePickerProvider);
+
+    await showDialog<GpxTrackImportResult>(
+      context: context,
+      builder: (dialogContext) {
+        return GpxTrackImportDialog(
+          filePicker: filePicker,
+          onImport: ({required Map<String, String> pathToEditedNames}) {
+            return ref
+                .read(mapProvider.notifier)
+                .importGpxFiles(pathToEditedNames: pathToEditedNames);
+          },
+        );
+      },
     );
   }
 }

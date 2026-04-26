@@ -10,6 +10,7 @@ import 'package:peak_bagger/services/gpx_track_filter.dart';
 import 'package:peak_bagger/services/gpx_track_repair_service.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
+import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
 
 class TrackImportResult {
   const TrackImportResult({
@@ -46,10 +47,14 @@ class _FileOrganizationResult {
 }
 
 class _ProcessingSelection {
-  const _ProcessingSelection({
-    required this.xml,
-    this.warning,
-  });
+  const _ProcessingSelection({required this.xml, this.warning});
+
+  final String xml;
+  final String? warning;
+}
+
+class ProcessingSelectionResult {
+  const ProcessingSelectionResult({required this.xml, this.warning});
 
   final String xml;
   final String? warning;
@@ -780,12 +785,16 @@ class GpxImporter {
     }
 
     final repairResult = repairService.analyzeAndRepair(track.gpxFile);
-    if (repairResult.repairPerformed || _hasInterpolatedSegmentInXml(track.gpxFile)) {
+    if (repairResult.repairPerformed ||
+        _hasInterpolatedSegmentInXml(track.gpxFile)) {
       track.gpxFileRepaired = repairResult.repairedXml;
       return _ProcessingSelection(xml: repairResult.repairedXml);
     }
 
-    return _ProcessingSelection(xml: track.gpxFile, warning: repairResult.warning);
+    return _ProcessingSelection(
+      xml: track.gpxFile,
+      warning: repairResult.warning,
+    );
   }
 
   bool _hasInterpolatedSegmentInXml(String xml) {
@@ -819,6 +828,24 @@ class GpxImporter {
     track.movingTime = result.stats.movingTime;
     track.restingTime = result.stats.restingTime;
     track.pausedTime = result.stats.pausedTime;
+  }
+
+  /// Public wrapper for [_processingSelectionForTrack]
+  ProcessingSelectionResult selectionForTrack(GpxTrack track) {
+    final repairService = GpxTrackRepairService();
+    final selection = _processingSelectionForTrack(track, repairService);
+    return ProcessingSelectionResult(
+      xml: selection.xml,
+      warning: selection.warning,
+    );
+  }
+
+  /// Public wrapper for [_applyProcessingResult]
+  void applyProcessedTrackResult(
+    GpxTrack track,
+    GpxTrackProcessingResult result,
+  ) {
+    _applyProcessingResult(track, result);
   }
 
   String _buildImportWarning({
@@ -1002,5 +1029,126 @@ class GpxImporter {
     } catch (_) {
       return 'Invalid or unreadable GPX';
     }
+  }
+
+  /// Derives the default track name from GPX XML content or file path.
+  ///
+  /// Returns the GPX metadata name if available and non-empty,
+  /// otherwise falls back to the basename without extension.
+  String deriveDefaultTrackName(String gpxXml, String filePath) {
+    try {
+      final doc = XmlDocument.parse(gpxXml);
+      return _extractTrackName(doc, filePath);
+    } catch (_) {
+      return _basenameWithoutExtension(filePath);
+    }
+  }
+
+  /// Derives the track date from GPX XML content or file mtime fallback.
+  ///
+  /// Returns the normalized date (YYYY-MM-DD) from GPX metadata if available,
+  /// otherwise falls back to the file's modification time.
+  DateTime deriveTrackDate(String gpxXml, DateTime fallbackFileMtime) {
+    try {
+      final doc = XmlDocument.parse(gpxXml);
+      final extracted = _extractStartDateTime(doc);
+      return _normalizeTrackDate(extracted ?? fallbackFileMtime);
+    } catch (_) {
+      return _normalizeTrackDate(fallbackFileMtime);
+    }
+  }
+
+  /// Plans a selective GPX file import without persisting.
+  ///
+  /// [paths] - File paths selected by the user
+  /// [pathToEditedNames] - User-edited names keyed by file path
+  /// [existingContentHashes] - Content hashes of tracks already in the database
+  ///
+  /// Returns a plan containing only valid Tasmanian tracks that are not duplicates.
+  /// Duplicate, non-Tasmanian, route-only, and invalid files are counted
+  /// in the aggregate counts instead.
+  GpxTrackImportPlan planSelectiveImport({
+    required List<String> paths,
+    required Map<String, String> pathToEditedNames,
+    required Set<String> existingContentHashes,
+  }) {
+    final items = <GpxTrackImportPlanItem>[];
+    var unchangedCount = 0;
+    var nonTasmanianCount = 0;
+    var errorCount = 0;
+    final warnings = <String>[];
+
+    final seenContentHashes = <String>{};
+
+    for (final filePath in paths) {
+      final track = parseGpxFile(filePath);
+
+      if (track == null) {
+        errorCount += 1;
+        continue;
+      }
+
+      final firstPoint = _getFirstPointFromFile(filePath);
+      if (firstPoint == null) {
+        errorCount += 1;
+        continue;
+      }
+
+      if (!isTasmanian(firstPoint.lat, firstPoint.lng)) {
+        nonTasmanianCount += 1;
+        continue;
+      }
+
+      final seenInBatch = seenContentHashes.add(track.contentHash);
+      if (!seenInBatch) {
+        unchangedCount += 1;
+        continue;
+      }
+
+      if (existingContentHashes.contains(track.contentHash)) {
+        unchangedCount += 1;
+        continue;
+      }
+
+      // Apply edited name from dialog
+      if (pathToEditedNames.containsKey(filePath)) {
+        track.trackName = pathToEditedNames[filePath]!;
+      }
+
+      // Plan managed storage placement for Tasmanian tracks
+      final plannedRelativePath = _planManagedRelativePath(
+        filePath: filePath,
+        track: track,
+      );
+
+      items.add(
+        GpxTrackImportPlanItem(
+          sourcePath: filePath,
+          track: track,
+          plannedManagedRelativePath: plannedRelativePath,
+          shouldPlaceInManagedStorage: true,
+        ),
+      );
+    }
+
+    if (errorCount > 0 || warnings.isNotEmpty) {
+      warnings.add('See import.log for details.');
+    }
+
+    return GpxTrackImportPlan(
+      items: items,
+      unchangedCount: unchangedCount,
+      nonTasmanianCount: nonTasmanianCount,
+      errorCount: errorCount,
+      warningMessage: warnings.isEmpty ? null : warnings.join(' '),
+    );
+  }
+
+  String? _planManagedRelativePath({
+    required String filePath,
+    required GpxTrack track,
+  }) {
+    final canonicalName = _canonicalFilename(filePath, track.trackDate);
+    return 'Tracks/Tasmania/$canonicalName';
   }
 }

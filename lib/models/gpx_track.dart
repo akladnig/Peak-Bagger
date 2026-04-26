@@ -43,6 +43,8 @@ class GpxTrack {
   int? pausedTime;
   int trackColour;
   bool peakCorrelationProcessed;
+  bool managedPlacementPending;
+  String? managedRelativePath;
 
   GpxTrack({
     this.gpxTrackId = 0,
@@ -72,6 +74,8 @@ class GpxTrack {
     this.pausedTime,
     this.trackColour = 0xFFa726bc,
     this.peakCorrelationProcessed = false,
+    this.managedPlacementPending = false,
+    this.managedRelativePath,
   });
 
   static GpxTrack fromMap(Map<String, dynamic> map) {
@@ -111,6 +115,8 @@ class GpxTrack {
       trackColour: map['trackColour'] as int? ?? 0xFFa726bc,
       peakCorrelationProcessed:
           map['peakCorrelationProcessed'] as bool? ?? false,
+      managedPlacementPending: map['managedPlacementPending'] as bool? ?? false,
+      managedRelativePath: map['managedRelativePath'] as String?,
     );
   }
 
@@ -143,6 +149,8 @@ class GpxTrack {
       'pausedTime': pausedTime,
       'trackColour': trackColour,
       'peakCorrelationProcessed': peakCorrelationProcessed,
+      'managedPlacementPending': managedPlacementPending,
+      'managedRelativePath': managedRelativePath,
     };
   }
 
