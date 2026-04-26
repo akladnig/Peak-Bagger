@@ -15,6 +15,15 @@
 - [ ] Add an overlay to display features names on hover - only for blue circles
 - [ ] Remove legacy handling
 
+## Folder Structure
+- [ ] Update to canonical folder Structure:
+  - Bushwalking / PeakLists
+  - Bushwalking / Features
+  - Bushwalking / GPS
+  - Bushwalking / GPS / Country / State (Region etc.) / Tracks
+  - Bushwalking / GPS / Country / State (Region etc.) / Routes
+  - Bushwalking / GPS / Country / State (Region etc.) / Waypoints
+
 ## 1 Application Skeleton
 
 ## 2  Display map of Tasmania with zoom, pan and search function
@@ -62,6 +71,10 @@
 - [ ] Add ObjectBox field detailing filter options
 - [ ] Set filter on a per track level
 - [ ] confirm where repair Track is used.
+- [ ] move peak correlation to GpsImporter
+- [ ] Confirm that peak correlation for mass import does not drop tracks for which there is no peak
+- [ ] class GpxTrackImportResult change to GpxFileImportResult  to cater for routes and waypoints
+- [ ] Add retry in settings for gpx files that failed folder relocation
 
 ### Distance
 - [x] distance (double?) - future, null for now
@@ -110,6 +123,8 @@
 - [x] clicking on a peak will highlight the peak with a blue circle
 - [x] Add points column and add points metrics
 - [x] Add add peak to list
+- [ ] click on peak in details will go to the peak on the Map screen and zoom to 15.
+- [ ] Refresh lists on change to peak name in ObjectBox Admin
 
 ## Object Box Admin
 - [x] Rescan entity on entry, for the current entity being shown.
