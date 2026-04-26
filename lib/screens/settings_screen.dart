@@ -726,7 +726,7 @@ class _TileCacheSettingsScreenState
   String _status = '';
   int _minZoom = 6;
   int _maxZoom = 14;
-  bool _skipExistingTiles = false;
+  bool _skipExistingTiles = true;
   Map<String, StoreStats> _allStats = {};
   bool _loadingStats = true;
 
