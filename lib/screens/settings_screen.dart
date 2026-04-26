@@ -721,7 +721,8 @@ class TileCacheSettingsScreen extends ConsumerStatefulWidget {
 
 class _TileCacheSettingsScreenState
     extends ConsumerState<TileCacheSettingsScreen>
-    with WidgetsBindingObserver, RouteObserver {
+    with WidgetsBindingObserver
+    implements RouteAware {
   Basemap _selectedBasemap = Basemap.openstreetmap;
   bool _isDownloading = false;
   String _status = '';
@@ -730,6 +731,8 @@ class _TileCacheSettingsScreenState
   bool _skipExistingTiles = true;
   Map<String, StoreStats> _allStats = {};
   bool _loadingStats = true;
+  static RouteObserver<Route<dynamic>>> routeObserver =
+      RouteObserver<Route<dynamic>>>();
 
   @override
   void initState() {
@@ -741,6 +744,7 @@ class _TileCacheSettingsScreenState
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context)!);
     _loadAllStats();
   }
 
