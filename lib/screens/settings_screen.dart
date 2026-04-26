@@ -731,8 +731,9 @@ class _TileCacheSettingsScreenState
   bool _skipExistingTiles = true;
   Map<String, StoreStats> _allStats = {};
   bool _loadingStats = true;
-  static RouteObserver<Route<dynamic>>> routeObserver =
-      RouteObserver<Route<dynamic>>>();
+
+  static final RouteObserver<Route<dynamic>> _routeObserver =
+      RouteObserver<Route<dynamic>>();
 
   @override
   void initState() {
@@ -744,14 +745,19 @@ class _TileCacheSettingsScreenState
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    routeObserver.subscribe(this, ModalRoute.of(context)!);
+    _routeObserver.subscribe(this, ModalRoute.of(context)!);
+  }
+
+  @override
+  void didPopNext() {
     _loadAllStats();
   }
 
   @override
-  void didPop() {
-    _loadAllStats();
-  }
+  void didPush() {}
+
+  @override
+  void didPop() {}
 
   @override
   void dispose() {
