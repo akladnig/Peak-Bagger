@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
@@ -439,7 +440,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   TileLayer(
                     urlTemplate: mapTileUrl(mapState.basemap),
                     userAgentPackageName: 'com.peak_bagger.app',
-                    tileProvider: NetworkTileProvider(),
+                    tileProvider: FMTCTileProvider(
+                      urlTransformer: (url) => url,
+                      stores: {
+                        'openstreetmap': BrowseStoreStrategy.readUpdateCreate,
+                        'tracestrack': BrowseStoreStrategy.readUpdateCreate,
+                        'tasmapTopo': BrowseStoreStrategy.readUpdateCreate,
+                        'tasmap50k': BrowseStoreStrategy.readUpdateCreate,
+                        'tasmap25k': BrowseStoreStrategy.readUpdateCreate,
+                      },
+                      loadingStrategy: BrowseLoadingStrategy.cacheFirst,
+                    ),
                   ),
                   if (mapState.selectedLocation != null)
                     MarkerLayer(
