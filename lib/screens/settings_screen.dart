@@ -726,6 +726,7 @@ class _TileCacheSettingsScreenState
   String _status = '';
   int _minZoom = 6;
   int _maxZoom = 14;
+  bool _skipExistingTiles = false;
   Map<String, StoreStats> _allStats = {};
   bool _loadingStats = true;
 
@@ -862,6 +863,14 @@ class _TileCacheSettingsScreenState
               },
             ),
           ),
+          SwitchListTile(
+            title: const Text('Skip existing tiles'),
+            subtitle: const Text('Only download missing tiles'),
+            value: _skipExistingTiles,
+            onChanged: _isDownloading
+                ? null
+                : (v) => setState(() => _skipExistingTiles = v),
+          ),
           ListTile(
             leading: const Icon(Icons.download),
             title: _isDownloading
@@ -915,7 +924,10 @@ class _TileCacheSettingsScreenState
         options: tileLayer,
       );
 
-      final result = store.download.startForeground(region: region);
+      final result = store.download.startForeground(
+        region: region,
+        skipExistingTiles: _skipExistingTiles,
+      );
 
       await for (final progress in result.downloadProgress) {
         if (!mounted) return;
