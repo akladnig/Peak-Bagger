@@ -315,13 +315,18 @@ class MapActionRail extends ConsumerWidget {
     await showDialog<GpxTrackImportResult>(
       context: context,
       builder: (dialogContext) {
-        return GpxTrackImportDialog(
-          filePicker: filePicker,
-          onImport: ({required Map<String, String> pathToEditedNames}) {
-            return ref
-                .read(mapProvider.notifier)
-                .importGpxFiles(pathToEditedNames: pathToEditedNames);
-          },
+        return SizedBox(
+          width: 320,
+          child: Dialog(
+            child: GpxTrackImportDialog(
+              filePicker: filePicker,
+              onImport: ({required Map<String, String> pathToEditedNames}) {
+                return ref
+                    .read(mapProvider.notifier)
+                    .importGpxFiles(pathToEditedNames: pathToEditedNames);
+              },
+            ),
+          ),
         );
       },
     );
