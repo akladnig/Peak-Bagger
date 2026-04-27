@@ -185,7 +185,7 @@
     },
     {
       "id": "3:8449374379554926112",
-      "lastPropertyId": "30:7984434964772208297",
+      "lastPropertyId": "32:1741998931807441846",
       "name": "GpxTrack",
       "properties": [
         {
@@ -322,6 +322,16 @@
         {
           "id": "30:7984434964772208297",
           "name": "gpxFileRepaired",
+          "type": 9
+        },
+        {
+          "id": "31:4814077432237599816",
+          "name": "managedPlacementPending",
+          "type": 1
+        },
+        {
+          "id": "32:1741998931807441846",
+          "name": "managedRelativePath",
           "type": 9
         }
       ],

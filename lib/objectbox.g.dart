@@ -239,7 +239,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(3, 8449374379554926112),
     name: 'GpxTrack',
-    lastPropertyId: const obx_int.IdUid(30, 7984434964772208297),
+    lastPropertyId: const obx_int.IdUid(32, 1741998931807441846),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -401,6 +401,18 @@ final _entities = <obx_int.ModelEntity>[
       obx_int.ModelProperty(
         id: const obx_int.IdUid(30, 7984434964772208297),
         name: 'gpxFileRepaired',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(31, 4814077432237599816),
+        name: 'managedPlacementPending',
+        type: 1,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(32, 1741998931807441846),
+        name: 'managedRelativePath',
         type: 9,
         flags: 0,
       ),
@@ -827,7 +839,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final elevationProfileOffset = fbb.writeString(object.elevationProfile);
         final filteredTrackOffset = fbb.writeString(object.filteredTrack);
         final gpxFileRepairedOffset = fbb.writeString(object.gpxFileRepaired);
-        fbb.startTable(31);
+        final managedRelativePathOffset = object.managedRelativePath == null
+            ? null
+            : fbb.writeString(object.managedRelativePath!);
+        fbb.startTable(33);
         fbb.addInt64(0, object.gpxTrackId);
         fbb.addOffset(2, trackNameOffset);
         fbb.addInt64(3, object.startDateTime?.millisecondsSinceEpoch);
@@ -855,6 +870,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addInt64(27, object.restingTime);
         fbb.addInt64(28, object.pausedTime);
         fbb.addOffset(29, gpxFileRepairedOffset);
+        fbb.addBool(30, object.managedPlacementPending);
+        fbb.addOffset(31, managedRelativePathOffset);
         fbb.finish(fbb.endTable());
         return object.gpxTrackId;
       },
@@ -1009,6 +1026,15 @@ obx_int.ModelDefinition getObjectBoxModel() {
           54,
           false,
         );
+        final managedPlacementPendingParam = const fb.BoolReader().vTableGet(
+          buffer,
+          rootOffset,
+          64,
+          false,
+        );
+        final managedRelativePathParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 66);
         final object = GpxTrack(
           gpxTrackId: gpxTrackIdParam,
           contentHash: contentHashParam,
@@ -1037,6 +1063,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
           pausedTime: pausedTimeParam,
           trackColour: trackColourParam,
           peakCorrelationProcessed: peakCorrelationProcessedParam,
+          managedPlacementPending: managedPlacementPendingParam,
+          managedRelativePath: managedRelativePathParam,
         );
         obx_int.InternalToManyAccess.setRelInfo<GpxTrack>(
           object.peaks,
@@ -1444,6 +1472,16 @@ class GpxTrack_ {
   /// See [GpxTrack.gpxFileRepaired].
   static final gpxFileRepaired = obx.QueryStringProperty<GpxTrack>(
     _entities[2].properties[26],
+  );
+
+  /// See [GpxTrack.managedPlacementPending].
+  static final managedPlacementPending = obx.QueryBooleanProperty<GpxTrack>(
+    _entities[2].properties[27],
+  );
+
+  /// See [GpxTrack.managedRelativePath].
+  static final managedRelativePath = obx.QueryStringProperty<GpxTrack>(
+    _entities[2].properties[28],
   );
 
   /// see [GpxTrack.peaks]

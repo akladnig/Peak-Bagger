@@ -4,6 +4,10 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_file_picker.dart';
+<<<<<<< feature/import-gpx
+import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
+=======
+>>>>>>> main
 import 'package:peak_bagger/widgets/gpx_track_import_dialog.dart';
 import 'package:peak_bagger/widgets/left_tooltip_fab.dart';
 
@@ -264,9 +268,7 @@ class MapActionRail extends ConsumerWidget {
               onPressed:
                   mapState.isLoadingTracks || mapState.hasTrackRecoveryIssue
                   ? null
-                  : () {
-                      ref.read(mapProvider.notifier).rescanTracks();
-                    },
+                  : () => _showGpxImportDialog(context, ref),
               child: mapState.isLoadingTracks
                   ? const SizedBox(
                       width: 18,
@@ -309,6 +311,26 @@ class MapActionRail extends ConsumerWidget {
       ),
     );
   }
+<<<<<<< feature/import-gpx
+
+  Future<void> _showGpxImportDialog(BuildContext context, WidgetRef ref) async {
+    final filePicker = ref.read(gpxFilePickerProvider);
+
+    await showDialog<GpxTrackImportResult>(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 320, maxHeight: 360),
+            child: GpxTrackImportDialog(
+              filePicker: filePicker,
+              onImport: ({required Map<String, String> pathToEditedNames}) {
+                return ref
+                    .read(mapProvider.notifier)
+                    .importGpxFiles(pathToEditedNames: pathToEditedNames);
+              },
+            ),
+=======
   Future<void> _showGpxImportDialog(BuildContext context, WidgetRef ref) async {
     final filePicker = ref.read(gpxFilePickerProvider);
 
@@ -348,6 +370,7 @@ class MapActionRail extends ConsumerWidget {
                 ),
               ),
             ],
+>>>>>>> main
           ),
         );
       },

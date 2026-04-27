@@ -1,3 +1,4 @@
+import 'dart:io' as io;
 import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,8 @@ import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
+import 'package:peak_bagger/services/import_path_helpers.dart';
+import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
 import 'package:peak_bagger/services/gpx_track_repair_service.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
@@ -594,6 +597,161 @@ class MapNotifier extends Notifier<MapState> {
       includeTasmaniaFolder: true,
       refreshExistingTracks: true,
     );
+  }
+
+  Future<GpxTrackImportResult> importGpxFiles({
+    required Map<String, String> pathToEditedNames,
+  }) async {
+    if (state.isLoadingTracks) {
+      throw Exception('Import already in progress');
+    }
+
+    state = state.copyWith(
+      isLoadingTracks: true,
+      clearTrackOperationStatus: true,
+      clearTrackOperationWarning: true,
+    );
+
+    try {
+      final existingTracks = _gpxTrackRepository.getAllTracks();
+      final existingContentHashes = existingTracks
+          .map((t) => t.contentHash)
+          .where((h) => h.isNotEmpty)
+          .toSet();
+
+      final importer = GpxImporter();
+      final plan = importer.planSelectiveImport(
+        paths: pathToEditedNames.keys.toList(),
+        pathToEditedNames: pathToEditedNames,
+        existingContentHashes: existingContentHashes,
+      );
+
+      // Apply filter config
+      final filterConfig = await ref.read(gpxFilterSettingsProvider.future);
+
+      // Apply processing to each planned track
+      for (final item in plan.items) {
+        final selection = importer.selectionForTrack(item.track);
+        final processed = importer.processTrack(
+          selection.xml,
+          filterConfig: filterConfig,
+        );
+        importer.applyProcessedTrackResult(item.track, processed);
+      }
+
+      // Persist tracks additively
+      final addedItems = <GpxTrackImportItem>[];
+      for (final item in plan.items) {
+        // Apply peak correlation
+        try {
+          final thresholdMeters = await _peakCorrelationThresholdMeters();
+          final correlationService = TrackPeakCorrelationService(
+            peaks: _peakRepository.getAllPeaks(),
+            thresholdMeters: thresholdMeters,
+          );
+          _applyPeakCorrelation(
+            item.track,
+            correlationService,
+            item.track.gpxFileRepaired.isNotEmpty
+                ? item.track.gpxFileRepaired
+                : item.track.gpxFile,
+          );
+        } catch (_) {
+          // Correlation failed, but track is still valid - count as added
+        }
+
+        // Persist track
+        _gpxTrackRepository.putTrack(item.track);
+        addedItems.add(
+          GpxTrackImportItem(
+            track: item.track,
+            managedRelativePath: item.plannedManagedRelativePath,
+            managedPlacementPending: true,
+          ),
+        );
+      }
+
+      // Move files to managed storage
+      for (final item in plan.items) {
+        if (item.shouldPlaceInManagedStorage &&
+            item.plannedManagedRelativePath != null) {
+          try {
+            await _placeFileInManagedStorage(
+              sourcePath: item.sourcePath,
+              relativePath: item.plannedManagedRelativePath!,
+              track: item.track,
+            );
+          } catch (_) {
+            // Placement failed - track is persisted, recovery is pending
+          }
+        }
+      }
+
+      // Refresh tracks from repository
+      final allTracks = _gpxTrackRepository.getAllTracks();
+
+      // Set showTracks to true if we added any tracks
+      final showTracks = state.showTracks || addedItems.isNotEmpty;
+
+      state = state.copyWith(
+        tracks: allTracks,
+        showTracks: showTracks,
+        isLoadingTracks: false,
+        clearHoveredTrackId: true,
+        clearSelectedTrackId: true,
+      );
+
+      return GpxTrackImportResult(
+        items: addedItems,
+        addedCount: addedItems.length,
+        unchangedCount: plan.unchangedCount,
+        nonTasmanianCount: plan.nonTasmanianCount,
+        errorCount: plan.errorCount,
+        warningMessage: plan.warningMessage,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoadingTracks: false,
+        clearHoveredTrackId: true,
+        clearSelectedTrackId: true,
+      );
+      rethrow;
+    }
+  }
+
+  Future<void> _placeFileInManagedStorage({
+    required String sourcePath,
+    required String relativePath,
+    required GpxTrack track,
+  }) async {
+    final root = resolveBushwalkingRoot();
+    final targetPath = '$root${io.Platform.pathSeparator}$relativePath';
+    final targetDir = io.Directory(root).parent;
+
+    if (!targetDir.existsSync()) {
+      await targetDir.create(recursive: true);
+    }
+
+    final targetFile = io.File(targetPath);
+    if (targetFile.existsSync()) {
+      // Add suffix for collision
+      var suffix = 1;
+      var newPath = targetPath;
+      while (io.File(newPath).existsSync()) {
+        final baseName = track.trackName.replaceAll(RegExp(r'[^\w\s-]'), '');
+        newPath =
+            '$root${io.Platform.pathSeparator}Tracks${io.Platform.pathSeparator}Tasmania${io.Platform.pathSeparator}${baseName}_$suffix.gpx';
+        suffix++;
+      }
+      await io.File(sourcePath).rename(newPath);
+      track.managedRelativePath = newPath.substring(root.length + 1);
+    } else {
+      await io.File(sourcePath).rename(targetPath);
+      track.managedRelativePath = relativePath;
+    }
+
+    track.managedPlacementPending = false;
+    _gpxTrackRepository.putTrack(track);
   }
 
   Future<TrackImportResult?> resetTrackData() async {
