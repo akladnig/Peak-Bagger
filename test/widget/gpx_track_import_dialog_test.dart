@@ -156,6 +156,32 @@ void main() {
 
       expect(find.text('Import GPX Track(s)'), findsNothing);
     });
+
+    testWidgets('shows file picker button', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                child: const Text('Open'),
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (_) => GpxTrackImportDialog(
+                    filePicker: _FakeGpxFilePicker(),
+                    onImport: fakeImportRunner,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('gpx-track-select-files')), findsOneWidget);
+    });
   });
 }
 
