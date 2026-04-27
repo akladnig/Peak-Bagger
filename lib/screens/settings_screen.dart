@@ -2,12 +2,16 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart' show LatLng;
+import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/router.dart';
+import 'package:peak_bagger/screens/map_screen_layers.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
-import 'package:peak_bagger/services/tile_downloader.dart';
+import 'package:peak_bagger/services/tile_cache_service.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
@@ -51,16 +55,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         children: [
           ListTile(
             leading: const Icon(Icons.download),
-            title: const Text('Download Offline Tiles'),
-            subtitle: const Text('Download Tasmania map tiles for offline use'),
+            title: const Text('Map Tile Cache'),
+            subtitle: const Text('Download and manage offline map tiles'),
             trailing: _isDownloading
                 ? const SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : null,
-            onTap: _isDownloading ? null : _downloadTiles,
+                : const Icon(Icons.chevron_right),
+            onTap: _isDownloading
+                ? null
+                : () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const TileCacheSettingsScreen(),
+                      ),
+                    );
+                  },
           ),
           ListTile(
             key: const Key('refresh-peak-data-tile'),
@@ -190,28 +202,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       return router.routerDelegate.currentConfiguration.uri.path;
     } catch (_) {
       return null;
-    }
-  }
-
-  Future<void> _downloadTiles() async {
-    setState(() {
-      _isDownloading = true;
-      _status = 'Downloading tiles...';
-    });
-
-    try {
-      await TileDownloader.downloadAllTiles();
-      setState(() {
-        _status = 'Tiles downloaded successfully!';
-      });
-    } catch (e) {
-      setState(() {
-        _status = 'Error downloading tiles: $e';
-      });
-    } finally {
-      setState(() {
-        _isDownloading = false;
-      });
     }
   }
 
@@ -535,8 +525,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               label: 'Elevation window',
               value: value.elevationWindow,
               options: const [5, 7, 9],
-              onChanged: value.elevationSmoother ==
-                      GpxTrackElevationSmoother.none
+              onChanged:
+                  value.elevationSmoother == GpxTrackElevationSmoother.none
                   ? null
                   : (selected) {
                       if (selected == null) return;
@@ -573,8 +563,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               label: 'Position window',
               value: value.positionWindow,
               options: const [3, 5, 7],
-              onChanged: value.positionSmoother ==
-                      GpxTrackPositionSmoother.none
+              onChanged: value.positionSmoother == GpxTrackPositionSmoother.none
                   ? null
                   : (selected) {
                       if (selected == null) return;
@@ -719,5 +708,304 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       GpxTrackPositionSmoother.movingAverage => 'Moving average',
       GpxTrackPositionSmoother.kalman => 'Kalman',
     };
+  }
+}
+
+class TileCacheSettingsScreen extends ConsumerStatefulWidget {
+  const TileCacheSettingsScreen({super.key});
+
+  @override
+  ConsumerState<TileCacheSettingsScreen> createState() =>
+      _TileCacheSettingsScreenState();
+}
+
+class _TileCacheSettingsScreenState
+    extends ConsumerState<TileCacheSettingsScreen>
+    with WidgetsBindingObserver
+    implements RouteAware {
+  Basemap _selectedBasemap = Basemap.openstreetmap;
+  bool _isDownloading = false;
+  String _status = '';
+  int _minZoom = 6;
+  int _maxZoom = 14;
+  bool _skipExistingTiles = true;
+  Map<String, StoreStats> _allStats = {};
+  bool _loadingStats = true;
+
+  static final RouteObserver<Route<dynamic>> _routeObserver =
+      RouteObserver<Route<dynamic>>();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _loadAllStats();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _routeObserver.subscribe(this, ModalRoute.of(context)!);
+  }
+
+  @override
+  void didPopNext() {
+    _loadAllStats();
+  }
+
+  @override
+  void didPush() {}
+
+  @override
+  void didPushNext() {}
+
+  @override
+  void didPop() {}
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadAllStats();
+    }
+  }
+
+  Future<void> _loadAllStats() async {
+    setState(() => _loadingStats = true);
+    final stats = TileCacheService.getStats();
+    setState(() {
+      _allStats = stats;
+      _loadingStats = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Map Tile Cache'),
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadAllStats),
+        ],
+      ),
+      body: ListView(
+        children: [
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              'Cache Status',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ),
+          if (_loadingStats)
+            const ListTile(title: Text('Loading...'))
+          else
+            Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              child: DataTable(
+                columns: const [
+                  DataColumn(label: Text('Basemap')),
+                  DataColumn(label: Text('Tiles'), numeric: true),
+                  DataColumn(label: Text('Size'), numeric: true),
+                ],
+                rows: TileCacheService.storeNames.asMap().entries.map((e) {
+                  final idx = e.key;
+                  final name = e.value;
+                  final stat = _allStats[name];
+                  return DataRow(
+                    key: ValueKey(idx),
+                    cells: [
+                      DataCell(Text(name)),
+                      DataCell(
+                        FutureBuilder(
+                          key: ValueKey('tiles_$idx'),
+                          future:
+                              stat?.all ??
+                              Future.value((
+                                length: 0,
+                                size: 0.0,
+                                hits: 0,
+                                misses: 0,
+                              )),
+                          builder: (ctx, snap) {
+                            if (!snap.hasData) return const Text('-');
+                            return Text('${snap.data!.length}');
+                          },
+                        ),
+                      ),
+                      DataCell(
+                        FutureBuilder(
+                          key: ValueKey('size_$idx'),
+                          future:
+                              stat?.all ??
+                              Future.value((
+                                length: 0,
+                                size: 0.0,
+                                hits: 0,
+                                misses: 0,
+                              )),
+                          builder: (ctx, snap) {
+                            if (!snap.hasData) return const Text('-');
+                            return Text(
+                              '${snap.data!.size.toStringAsFixed(1)} KiB',
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          const SizedBox(height: 16),
+          ListTile(
+            title: const Text('Basemap'),
+            trailing: DropdownButton<Basemap>(
+              value: _selectedBasemap,
+              items: Basemap.values
+                  .map((b) => DropdownMenuItem(value: b, child: Text(b.name)))
+                  .toList(),
+              onChanged: (b) {
+                if (b != null) {
+                  setState(() => _selectedBasemap = b);
+                }
+              },
+            ),
+          ),
+          ListTile(
+            title: const Text('Min Zoom'),
+            trailing: DropdownButton<int>(
+              value: _minZoom,
+              items: List.generate(19, (i) => i)
+                  .map((z) => DropdownMenuItem(value: z, child: Text('$z')))
+                  .toList(),
+              onChanged: (z) {
+                if (z != null && z <= _maxZoom) setState(() => _minZoom = z);
+              },
+            ),
+          ),
+          ListTile(
+            title: const Text('Max Zoom'),
+            trailing: DropdownButton<int>(
+              value: _maxZoom,
+              items: List.generate(19, (i) => i)
+                  .map((z) => DropdownMenuItem(value: z, child: Text('$z')))
+                  .toList(),
+              onChanged: (z) {
+                if (z != null && z >= _minZoom) setState(() => _maxZoom = z);
+              },
+            ),
+          ),
+          SwitchListTile(
+            title: const Text('Skip existing tiles'),
+            subtitle: const Text('Only download missing tiles'),
+            value: _skipExistingTiles,
+            onChanged: _isDownloading
+                ? null
+                : (v) => setState(() => _skipExistingTiles = v),
+          ),
+          ListTile(
+            leading: const Icon(Icons.download),
+            title: _isDownloading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Download'),
+            onTap: _isDownloading ? null : _startDownload,
+          ),
+          if (_status.isNotEmpty) ListTile(title: Text(_status)),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.delete),
+            title: const Text('Clear Cache'),
+            subtitle: const Text(
+              'Delete all cached tiles for selected basemap',
+            ),
+            onTap: _clearCache,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _startDownload() async {
+    setState(() {
+      _isDownloading = true;
+      _status = 'Starting download...';
+    });
+
+    try {
+      final store = TileCacheService.getStoreForBasemap(_selectedBasemap);
+      if (store == null) {
+        setState(() => _status = 'Store not found');
+        return;
+      }
+
+      final tileLayer = TileLayer(
+        urlTemplate: mapTileUrl(_selectedBasemap),
+        userAgentPackageName: 'com.peak_bagger.app',
+      );
+      final bounds = LatLngBounds(
+        const LatLng(-43.8, 144.0),
+        const LatLng(-40.5, 149.0),
+      );
+      final region = RectangleRegion(bounds).toDownloadable(
+        minZoom: _minZoom,
+        maxZoom: _maxZoom,
+        options: tileLayer,
+      );
+
+      final result = store.download.startForeground(
+        region: region,
+        skipExistingTiles: _skipExistingTiles,
+      );
+
+      await for (final progress in result.downloadProgress) {
+        if (!mounted) return;
+        setState(
+          () => _status =
+              '${progress.successfulTilesCount} downloaded, ${progress.existingTilesCount} skipped (${progress.percentageProgress.toStringAsFixed(1)}%)',
+        );
+      }
+    } catch (e) {
+      setState(() => _status = 'Error: $e');
+    } finally {
+      setState(() => _isDownloading = false);
+    }
+  }
+
+  Future<void> _clearCache() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear Cache?'),
+        content: Text('Delete all cached tiles for ${_selectedBasemap.name}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await TileCacheService.clearStore(_selectedBasemap.name);
+      _loadAllStats();
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Cache cleared')));
+    }
   }
 }
