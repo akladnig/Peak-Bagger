@@ -37,40 +37,38 @@ class _GpxTrackImportDialogState extends State<GpxTrackImportDialog> {
     return AlertDialog(
       key: const Key('gpx-track-import-dialog'),
       title: const Text('Import GPX Track(s)'),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            FilledButton.tonal(
-              key: const Key('gpx-track-select-files'),
-              onPressed: _isImporting ? null : _selectFiles,
-              child: const Text('Select GPX Files'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          FilledButton.tonal(
+            key: const Key('gpx-track-select-files'),
+            onPressed: _isImporting ? null : _selectFiles,
+            child: const Text('Select GPX Files'),
+          ),
+          if (_selectedFiles.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 200),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _selectedFiles.length,
+                itemBuilder: (context, index) {
+                  final file = _selectedFiles[index];
+                  return _buildFileRow(file, index);
+                },
+              ),
             ),
-            if (_selectedFiles.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Flexible(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: _selectedFiles.length,
-                  itemBuilder: (context, index) {
-                    final file = _selectedFiles[index];
-                    return _buildFileRow(file, index);
-                  },
-                ),
+          ] else ...[
+            const SizedBox(height: 8),
+            Text(
+              'No files selected',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-            ] else ...[
-              const SizedBox(height: 8),
-              Text(
-                'No files selected',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
+            ),
           ],
-        ),
+        ],
       ),
       actions: [
         TextButton(
