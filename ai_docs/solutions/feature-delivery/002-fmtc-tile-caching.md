@@ -1,33 +1,55 @@
 ---
 title: FMTC Tile Caching Integration for flutter_map
 date: 2026-04-26
-work_type: investigation
-tags: [flutter, flutter_map, tile-caching, offline, objectbox, dependency-conflict]
-confidence: medium
-references: [lib/services/tile_downloader.dart, lib/screens/settings_screen.dart]
+work_type: feature
+tags: [flutter, flutter_map, tile-caching, offline, objectbox]
+confidence: high
+references: [lib/services/tile_cache_service.dart, lib/screens/map_screen.dart, lib/screens/settings_screen.dart, lib/main.dart]
 ---
 
 ## Summary
 
-Investigated integrating flutter_map_tile_caching for persistent tile caching. Abandoned due to objectbox version conflict. Reverted to existing TileDownloader solution.
+Integrated flutter_map_tile_caching for persistent tile caching across 5 basemaps (openstreetmap, tracestrack, tasmapTopo, tasmap50k, tasmap25k). Uses local FMTC fork for objectbox ^5 compatibility.
 
 ## Dependency Resolution
 
-**Tested combinations:**
-- FMTC ^10.1.1 + objectbox ^4.1.0 = INCOMPATIBLE with existing app (objectbox.g.dart generated with 5.x)
-- FMTC ^11.0.0-dev.2 + objectbox ^4.1.0 = INCOMPATIBLE with existing app
-- FMTC git main (unreleased) = hangs, not usable
+**Solution:** Local FMTC fork at `/Users/adrian/Development/mapping/flutter_map_tile_caching` with objectbox ^5 support.
 
-**Core conflict:** FMTC requires objectbox ^4.x due to flat_buffers version mismatch with objectbox ^5.3.1. The app's objectbox.g.dart was generated with objectbox 5.x, so regenerating with 4.x fails.
+```yaml
+flutter_map_tile_caching:
+  path: /Users/adrian/Development/mapping/flutter_map_tile_caching
+```
 
-**Future:** FMTC v10.1.2 (PR #195) promises objectbox ^5 compatibility but hasn't been released yet.
+## Architecture
 
-## Existing Solution
+1. **TileCacheService** (`lib/services/tile_cache_service.dart`):
+   - Initializes FMTCObjectBoxBackend
+   - Creates 5 stores (one per basemap)
+   - Provides getStoreForBasemap, getStats, clearStore
 
-The app already has `TileDownloader` in `lib/services/tile_downloader.dart` which handles offline tile downloads. The Settings screen "Download Offline Tiles" uses this.
+2. **main.dart**: Calls `TileCacheService.initialize()` before ObjectBox
 
-## Key Files
+3. **map_screen.dart**: FMTCTileProvider with:
+   - urlTransformer (identity)
+   - 5 stores with BrowseStoreStrategy.readUpdateCreate
+   - BrowseLoadingStrategy.cacheFirst
 
-- `lib/services/tile_downloader.dart` - existing manual tile downloader
-- `lib/services/tile_cache_service.dart` - was created but deleted (FMTC attempt)
-- `lib/screens/settings_screen.dart` - uses TileDownloader (unchanged)
+4. **settings_screen.dart**: TileCacheSettingsScreen with:
+   - Basemap dropdown
+   - Min/max zoom dropdowns
+   - Download button with progress stream
+   - Clear cache button
+
+## Key API Patterns
+
+- Store initialization: `FMTCObjectBoxBackend().initialise()`
+- Store creation: `FMTCStore(name).manage.create()`
+- Download: `store.download.startForeground(region: region)`
+- Progress: iterate `result.downloadProgress`
+- Stats: `store.stats` (sync, not Future)
+
+## Pitfalls Fixed
+
+- **version conflict:** FMTC requires objectbox ^4, app uses ^5 → used local fork
+- **LatLngBounds:** import from latlong2 correctly
+- **for-loop:** must use `await for` with streams
