@@ -257,7 +257,7 @@ class MapActionRail extends ConsumerWidget {
           ),
           const SizedBox(height: _railSpacing),
           LeftTooltipFab(
-            message: 'Import track',
+            message: 'Import Track(s)',
             child: FloatingActionButton.small(
               key: const Key('import-tracks-fab'),
               heroTag: 'import',
