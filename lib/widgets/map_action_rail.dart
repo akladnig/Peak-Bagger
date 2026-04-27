@@ -315,9 +315,9 @@ class MapActionRail extends ConsumerWidget {
     await showDialog<GpxTrackImportResult>(
       context: context,
       builder: (dialogContext) {
-        return SizedBox(
-          width: 320,
-          child: Dialog(
+        return Dialog(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 320),
             child: GpxTrackImportDialog(
               filePicker: filePicker,
               onImport: ({required Map<String, String> pathToEditedNames}) {
