@@ -19,6 +19,7 @@ import '../services/peak_list_repository.dart';
 import '../services/peaks_bagged_repository.dart';
 import '../widgets/dialog_helpers.dart';
 import '../widgets/left_tooltip_fab.dart';
+import '../widgets/peak_list_create_dialog.dart';
 import '../widgets/peak_list_import_dialog.dart';
 import '../widgets/peak_list_peak_dialog.dart';
 import 'map_screen_layers.dart';
@@ -140,6 +141,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
                   filePicker: filePicker,
                   importRunner: importRunner,
                   duplicateNameChecker: duplicateNameChecker,
+                  onCreateRequested: _handleCreatePeakList,
                   peakListRepository: peakListRepository,
                   selectedMapPeak: selectedMapPeak,
                 ),
@@ -171,8 +173,12 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
                     if (!mounted || result == null) {
                       return;
                     }
+                    final selectedPeakIds = result.selectedPeakIds;
+                    if (selectedPeakIds.isEmpty) {
+                      return;
+                    }
                     setState(() {
-                      _selectedPeakId = result.selectedPeakId;
+                      _selectedPeakId = selectedPeakIds.first;
                     });
                   },
                 ),
@@ -362,6 +368,68 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
         );
         return FadeTransition(opacity: fadeAnimation, child: child);
       },
+    );
+  }
+
+  Future<void> _handleCreatePeakList() async {
+    final createdPeakListId = await showDialog<int>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return PeakListCreateDialog(
+          duplicateNameChecker: ref.read(peakListDuplicateNameCheckerProvider),
+          onCreate: ({required String listName}) async {
+            final saved = await ref.read(peakListRepositoryProvider).save(
+              PeakList(
+                name: listName,
+                peakList: encodePeakListItems(const <PeakListItem>[]),
+              ),
+            );
+            return saved.peakListId;
+          },
+        );
+      },
+    );
+
+    if (!mounted || createdPeakListId == null) {
+      return;
+    }
+
+    final createdSummaryRow = _buildSummaryRowForPeakList(createdPeakListId);
+    if (createdSummaryRow == null) {
+      return;
+    }
+
+    setState(() {
+      _selectedPeakListId = createdPeakListId;
+      _selectedPeakId = null;
+    });
+
+    final result = await _openAddPeakDialog(createdSummaryRow);
+    if (!mounted || result == null) {
+      return;
+    }
+    setState(() {
+      _selectedPeakId = result.selectedPeakId;
+    });
+  }
+
+  _PeakListSummaryRow? _buildSummaryRowForPeakList(int peakListId) {
+    final peakList = ref.read(peakListRepositoryProvider).findById(peakListId);
+    if (peakList == null) {
+      return null;
+    }
+
+    final peakRepository = ref.read(peakRepositoryProvider);
+    final peaksBaggedRepository = ref.read(peaksBaggedRepositoryProvider);
+    return _PeakListSummaryRow.fromPeakList(
+      peakList,
+      peaksById: {
+        for (final peak in peakRepository.getAllPeaks()) peak.osmId: peak,
+      },
+      ascentCountsByPeakId: peaksBaggedRepository.ascentCountsByPeakId(),
+      latestAscentDatesByPeakId: peaksBaggedRepository
+          .latestAscentDatesByPeakId(),
     );
   }
 
@@ -709,6 +777,7 @@ class _SummaryPane extends StatelessWidget {
     required this.filePicker,
     required this.importRunner,
     required this.duplicateNameChecker,
+    required this.onCreateRequested,
     required this.peakListRepository,
   });
 
@@ -723,6 +792,7 @@ class _SummaryPane extends StatelessWidget {
   final PeakListFilePicker filePicker;
   final PeakListImportRunner importRunner;
   final PeakListDuplicateNameChecker duplicateNameChecker;
+  final VoidCallback onCreateRequested;
   final PeakListRepository peakListRepository;
 
   @override
@@ -736,6 +806,7 @@ class _SummaryPane extends StatelessWidget {
             filePicker: filePicker,
             importRunner: importRunner,
             duplicateNameChecker: duplicateNameChecker,
+            onCreateRequested: onCreateRequested,
             peakListRepository: peakListRepository,
           ),
           const SizedBox(height: 12),
@@ -771,6 +842,7 @@ class _SummaryPane extends StatelessWidget {
       ),
     );
   }
+
 }
 
 class _PeakListsToolbar extends StatelessWidget {
@@ -778,12 +850,14 @@ class _PeakListsToolbar extends StatelessWidget {
     required this.filePicker,
     required this.importRunner,
     required this.duplicateNameChecker,
+    required this.onCreateRequested,
     required this.peakListRepository,
   });
 
   final PeakListFilePicker filePicker;
   final PeakListImportRunner importRunner;
   final PeakListDuplicateNameChecker duplicateNameChecker;
+  final VoidCallback onCreateRequested;
   final PeakListRepository peakListRepository;
 
   @override
@@ -799,6 +873,17 @@ class _PeakListsToolbar extends StatelessWidget {
             style: Theme.of(context).textTheme.titleLarge,
           ),
         ),
+        LeftTooltipFab(
+          message: 'Add New Peak List',
+          child: FloatingActionButton.small(
+            key: const Key('peak-lists-add-list-fab'),
+            heroTag: 'peak-list-create',
+            backgroundColor: fabBackground,
+            onPressed: onCreateRequested,
+            child: Icon(Icons.add_circle_outline, color: fabForeground),
+          ),
+        ),
+        const SizedBox(width: 12),
         LeftTooltipFab(
           message: 'Import Peak List',
           child: FloatingActionButton.small(

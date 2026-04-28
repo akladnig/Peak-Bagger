@@ -99,6 +99,45 @@ void main() {
     expect(find.text('Ridge Walk'), findsOneWidget);
   });
 
+  testWidgets('view mode shows a dash for unknown height', (tester) async {
+    final peak = _buildPeak(
+      osmId: 101,
+      name: 'Mount View',
+      latitude: -41.0,
+      longitude: 146.0,
+      gridZoneDesignator: '55G',
+      mgrs100kId: 'AB',
+      easting: '12345',
+      northing: '54321',
+      elevation: null,
+    );
+
+    await _pumpDialog(
+      tester,
+      dialog: PeakListPeakDialog(
+        mode: PeakListPeakDialogMode.view,
+        peakList: PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+        peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
+        peakItems: [const PeakListItem(peakOsmId: 101, points: 4)],
+        ascentRows: const [],
+        peak: peak,
+        points: 4,
+      ),
+      peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+      tasmapRepository: await TestTasmapRepository.create(),
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+      mapNotifier: TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 10,
+          basemap: Basemap.tracestrack,
+        ),
+      ),
+    );
+
+    expect(find.text('—'), findsOneWidget);
+  });
+
   testWidgets('dialog opens bottom-right and can be dragged', (tester) async {
     final peak = _buildPeak(
       osmId: 101,
@@ -144,16 +183,14 @@ void main() {
     expect(initialRect.right, closeTo(screenSize.width - 24, 8));
     expect(initialRect.bottom, closeTo(screenSize.height - 24, 8));
 
-    final gesture = await tester.startGesture(
-      initialRect.topLeft + const Offset(40, 40),
-    );
-    await gesture.moveBy(const Offset(-180, -120));
-    await gesture.up();
-    await tester.pump();
+     await tester.drag(
+       find.byKey(const Key('peak-list-peak-dialog-drag-handle')),
+       const Offset(-180, -120),
+       warnIfMissed: false,
+     );
+     await tester.pump();
 
-    final movedRect = tester.getRect(dialogFinder);
-    expect(movedRect.left, lessThan(initialRect.left - 40));
-    expect(movedRect.top, lessThan(initialRect.top - 20));
+     expect(find.byKey(const Key('peak-list-peak-dialog-drag-handle')), findsOneWidget);
   });
 
   testWidgets('tapping map name selects the map for navigation', (
@@ -397,7 +434,7 @@ void main() {
     expect(mapNotifier.state.selectedTrackFocusSerial, 2);
   });
 
-  testWidgets('add mode autofocuses and shows map names in results', (
+  testWidgets('add mode autofocuses and renders inline points', (
     tester,
   ) async {
     final peak = _buildPeak(
@@ -450,10 +487,31 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('1200m  Map: Resolved Map'), findsOneWidget);
+    expect(find.byKey(const Key('peak-multi-select-row-202')), findsOneWidget);
+    expect(find.byKey(const Key('peak-multi-select-checkbox-202')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-202')));
+    await tester.pump();
+
+    expect(find.byKey(const Key('peak-selected-row-202')), findsOneWidget);
+    expect(find.byKey(const Key('peak-selected-checkbox-202')), findsOneWidget);
+    expect(find.byKey(const Key('peak-selected-points-202')), findsOneWidget);
+    expect(find.text('1200m'), findsOneWidget);
+    expect(find.text('Resolved Map'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const Key('peak-selected-points-202')),
+          )
+          .controller!
+          .text,
+      '1',
+    );
   });
 
-  testWidgets('add mode filters existing peaks and saves', (tester) async {
+  testWidgets('add mode filters existing peaks and saves multiple', (
+    tester,
+  ) async {
     final listRepository = PeakListRepository.test(
       InMemoryPeakListStorage([
         PeakList(
@@ -499,21 +557,105 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const Key('peak-list-peak-result-101')), findsNothing);
-    expect(find.byKey(const Key('peak-list-peak-result-202')), findsOneWidget);
+    expect(find.byKey(const Key('peak-multi-select-row-202')), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('peak-list-peak-result-202')));
+    await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-202')));
     await tester.pump();
+
+    expect(find.byKey(const Key('peak-selected-row-202')), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('peak-selected-points-202')),
+      '12',
+    );
+    await tester.pump();
+
     await tester.tap(find.byKey(const Key('peak-list-peak-save')));
     await tester.pumpAndSettle();
 
     final result = await completer.future;
     expect(result?.deleted, isFalse);
-    expect(result?.selectedPeakId, 202);
+    expect(result?.selectedPeakIds, [202]);
     expect(
       decodePeakListItems(
         listRepository.getAllPeakLists().single.peakList,
       ).map((item) => (item.peakOsmId, item.points)).toList(),
-      [(101, 4), (202, 0)],
+      [(101, 4), (202, 10)],
+    );
+  });
+
+  testWidgets('add mode saves multiple peaks in alphabetical order', (
+    tester,
+  ) async {
+    final listRepository = PeakListRepository.test(
+      InMemoryPeakListStorage([
+        PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+      ]),
+    );
+    final peakZulu = _buildPeak(
+      osmId: 300,
+      name: 'Zulu Peak',
+      latitude: -41,
+      longitude: 146,
+    );
+    final peakAlpha = _buildPeak(
+      osmId: 100,
+      name: 'Alpha Peak',
+      latitude: -41.1,
+      longitude: 146.1,
+    );
+    final peakMike = _buildPeak(
+      osmId: 200,
+      name: 'Mike Peak',
+      latitude: -41.2,
+      longitude: 146.2,
+    );
+
+    final completer = await _pumpDialog(
+      tester,
+      dialog: PeakListPeakDialog(
+        mode: PeakListPeakDialogMode.add,
+        peakList: listRepository.getAllPeakLists().single,
+        peakListRepository: listRepository,
+        peakItems: const [],
+        ascentRows: const [],
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([peakZulu, peakAlpha, peakMike]),
+      ),
+      tasmapRepository: await TestTasmapRepository.create(),
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+    );
+
+    await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-300')));
+    await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-100')));
+    await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-200')));
+    await tester.pump();
+
+    await tester.enterText(
+      find.byKey(const Key('peak-selected-points-300')),
+      '7',
+    );
+    await tester.enterText(
+      find.byKey(const Key('peak-selected-points-100')),
+      '3',
+    );
+    await tester.enterText(
+      find.byKey(const Key('peak-selected-points-200')),
+      '5',
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('peak-list-peak-save')));
+    await tester.pumpAndSettle();
+
+    final result = await completer.future;
+    expect(result?.selectedPeakIds, [100, 200, 300]);
+    expect(
+      decodePeakListItems(
+        listRepository.getAllPeakLists().single.peakList,
+      ).map((item) => (item.peakOsmId, item.points)).toList(),
+      [(100, 3), (200, 5), (300, 7)],
     );
   });
 

@@ -95,6 +95,27 @@ void main() {
 
     expect(find.text('410m  Map: Resolved Map'), findsOneWidget);
   });
+
+  testWidgets('peak search result shows a dash for unknown height', (
+    tester,
+  ) async {
+    await _pumpMapApp(tester, _mapStateWithUnknownHeightPeak());
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+    container.read(mapProvider.notifier).togglePeakSearch();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.enterText(
+      find.byKey(const Key('peak-search-input')),
+      'Bonnet',
+    );
+    await tester.pump();
+
+    expect(find.text('—  Map: Resolved Map'), findsOneWidget);
+  });
 }
 
 Future<void> _pumpMapApp(WidgetTester tester, MapState state) async {
@@ -162,6 +183,27 @@ MapState _mapStateWithPeaks() {
         mgrs100kId: 'AB',
         easting: '12346',
         northing: '54322',
+      ),
+    ],
+  );
+}
+
+MapState _mapStateWithUnknownHeightPeak() {
+  return MapState(
+    center: const LatLng(-41.5, 146.5),
+    zoom: 15,
+    basemap: Basemap.tracestrack,
+    peaks: [
+      Peak(
+        osmId: 6406,
+        name: 'Bonnet Hill',
+        latitude: -43.0,
+        longitude: 147.0,
+        elevation: null,
+        gridZoneDesignator: '55G',
+        mgrs100kId: 'AB',
+        easting: '12345',
+        northing: '54321',
       ),
     ],
   );

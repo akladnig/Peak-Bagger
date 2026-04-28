@@ -13,24 +13,27 @@ import '../providers/tasmap_provider.dart';
 import '../router.dart';
 import '../services/peak_list_repository.dart';
 import 'dialog_helpers.dart';
-import 'peak_search_results_list.dart';
+import 'peak_multi_select_results_list.dart';
+import 'peak_selected_peaks_list.dart';
 
 enum PeakListPeakDialogMode { view, add, edit }
 
 class PeakListPeakDialogOutcome {
   const PeakListPeakDialogOutcome._({
-    required this.selectedPeakId,
+    required this.selectedPeakIds,
     required this.deleted,
   });
 
-  const PeakListPeakDialogOutcome.selected(int selectedPeakId)
-    : this._(selectedPeakId: selectedPeakId, deleted: false);
+  const PeakListPeakDialogOutcome.selected(List<int> selectedPeakIds)
+    : this._(selectedPeakIds: selectedPeakIds, deleted: false);
 
-  const PeakListPeakDialogOutcome.deleted([int? selectedPeakId])
-    : this._(selectedPeakId: selectedPeakId, deleted: true);
+  const PeakListPeakDialogOutcome.deleted([List<int>? selectedPeakIds])
+    : this._(selectedPeakIds: selectedPeakIds ?? const [], deleted: true);
 
-  final int? selectedPeakId;
+  final List<int> selectedPeakIds;
   final bool deleted;
+
+  int? get selectedPeakId => selectedPeakIds.isEmpty ? null : selectedPeakIds.first;
 }
 
 class PeakListPeakDialog extends ConsumerStatefulWidget {
@@ -63,8 +66,9 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   final _pointValues = List<int>.generate(11, (index) => index);
 
   late PeakListPeakDialogMode _mode;
-  Peak? _selectedPeak;
-  int _selectedPoints = 0;
+  final Set<int> _selectedPeakIds = <int>{};
+  final Map<int, int> _selectedPoints = <int, int>{};
+  int _editPoints = 0;
   String _searchQuery = '';
   bool _saving = false;
   Offset _dialogOffset = Offset.zero;
@@ -73,8 +77,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   void initState() {
     super.initState();
     _mode = widget.mode;
-    _selectedPeak = widget.peak;
-    _selectedPoints = widget.points ?? 0;
+    _editPoints = widget.points ?? 0;
   }
 
   @override
@@ -173,19 +176,19 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                         ),
                       ),
                       Flexible(
-                        child: SingleChildScrollView(
+                        child: Padding(
                           padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
                           child: SizedBox(
                             width: dialogWidth - 48,
                             child: switch (_mode) {
-                              PeakListPeakDialogMode.view => _buildViewContent(
-                                context,
+                              PeakListPeakDialogMode.view => SingleChildScrollView(
+                                child: _buildViewContent(context),
                               ),
                               PeakListPeakDialogMode.add => _buildAddContent(
                                 context,
                               ),
-                              PeakListPeakDialogMode.edit => _buildEditContent(
-                                context,
+                              PeakListPeakDialogMode.edit => SingleChildScrollView(
+                                child: _buildEditContent(context),
                               ),
                             },
                           ),
@@ -250,7 +253,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
 
     final theme = Theme.of(context);
     final elevationLabel = peak.elevation == null
-        ? ''
+        ? '—'
         : peak.elevation == peak.elevation!.roundToDouble()
         ? '${peak.elevation!.round()}m'
         : '${peak.elevation!.toStringAsFixed(1)}m';
@@ -318,11 +321,11 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   }
 
   Widget _buildAddContent(BuildContext context) {
-    final searchResults = _filteredSearchResults();
+    final searchResults = _searchResults();
+    final selectedPeaks = _selectedPeaks();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
       children: [
         TextField(
           key: const Key('peak-list-peak-search-input'),
@@ -340,36 +343,27 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
           },
         ),
         const SizedBox(height: 12),
-        if (searchResults.isNotEmpty || _searchQuery.isNotEmpty)
-          SizedBox(
-            height: 180,
-            child: PeakSearchResultsList(
-              searchResults: searchResults,
-              searchQuery: _searchQuery,
-              selectedPeakId: _selectedPeak?.osmId,
-              mapNameForPeak: _mapNameForPeak,
-              itemKeyBuilder: (peak) =>
-                  Key('peak-list-peak-result-${peak.osmId}'),
-              onSelectPeak: (peak) {
-                setState(() {
-                  _selectedPeak = peak;
-                  _selectedPoints = 0;
-                });
-              },
-            ),
+        Expanded(
+          child: PeakMultiSelectResultsList(
+            searchResults: searchResults,
+            searchQuery: _searchQuery,
+            selectedPeakIds: _selectedPeakIds,
+            mapNameForPeak: _mapNameForPeak,
+            onSelectionChanged: _updateSelectedPeakIds,
           ),
-        const SizedBox(height: 12),
-        if (_selectedPeak != null) ...[
-          Text('Selected: ${_selectedPeak!.name}'),
-          const SizedBox(height: 8),
-          _PointsSelector(
-            value: _selectedPoints,
-            values: _pointValues,
-            onChanged: (value) {
-              setState(() {
-                _selectedPoints = value;
-              });
-            },
+        ),
+        if (selectedPeaks.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 240),
+            child: PeakSelectedPeaksList(
+              selectedPeaks: selectedPeaks,
+              selectedPeakIds: _selectedPeakIds,
+              pointsByPeakId: _selectedPoints,
+              mapNameForPeak: _mapNameForPeak,
+              onSelectionChanged: _updateSelectedPeakIds,
+              onPointsChanged: _updatePeakPoints,
+            ),
           ),
         ],
       ],
@@ -389,11 +383,11 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
         _DetailLine(label: 'Peak', value: Text(peak.name)),
         const SizedBox(height: 12),
         _PointsSelector(
-          value: _selectedPoints,
+          value: _editPoints,
           values: _pointValues,
           onChanged: (value) {
             setState(() {
-              _selectedPoints = value;
+              _editPoints = value;
             });
           },
         ),
@@ -409,11 +403,38 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
     };
   }
 
-  List<Peak> _filteredSearchResults() {
+  List<Peak> _searchResults() {
     final repository = ref.read(peakRepositoryProvider);
-    final peaks = repository.searchPeaks(_searchQuery);
     final existingIds = widget.peakItems.map((item) => item.peakOsmId).toSet();
-    return peaks.where((peak) => !existingIds.contains(peak.osmId)).toList();
+    return _sortedPeaks(
+      repository.searchPeaks(_searchQuery).where((peak) {
+        return !existingIds.contains(peak.osmId) &&
+            !_selectedPeakIds.contains(peak.osmId);
+      }).toList(),
+    );
+  }
+
+  List<Peak> _selectedPeaks() {
+    final repository = ref.read(peakRepositoryProvider);
+    return _sortedPeaks(
+      repository
+          .searchPeaks('')
+          .where((peak) => _selectedPeakIds.contains(peak.osmId))
+          .toList(),
+    );
+  }
+
+  List<Peak> _sortedPeaks(List<Peak> peaks) {
+    return List<Peak>.from(peaks)
+      ..sort((left, right) {
+        final nameComparison = left.name.toLowerCase().compareTo(
+          right.name.toLowerCase(),
+        );
+        if (nameComparison != 0) {
+          return nameComparison;
+        }
+        return left.osmId.compareTo(right.osmId);
+      });
   }
 
   int _pointsForPeak(int peakOsmId) {
@@ -471,7 +492,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   Future<void> _enterEditMode() async {
     setState(() {
       _mode = PeakListPeakDialogMode.edit;
-      _selectedPoints = _pointsForPeak(widget.peak?.osmId ?? 0);
+      _editPoints = _pointsForPeak(widget.peak?.osmId ?? 0);
     });
   }
 
@@ -487,14 +508,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   }
 
   Future<void> _saveAdd() async {
-    final selectedPeak = _selectedPeak;
-    if (selectedPeak == null) {
-      await _showFailure('Select a peak first');
-      return;
-    }
-
-    if (widget.peakItems.any((item) => item.peakOsmId == selectedPeak.osmId)) {
-      await _showFailure('Peak already exists in list');
+    if (_selectedPeakIds.isEmpty) {
       return;
     }
 
@@ -503,24 +517,60 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
     });
 
     try {
-      await widget.peakListRepository.addPeakItem(
-        peakListId: widget.peakList.peakListId,
-        item: PeakListItem(
-          peakOsmId: selectedPeak.osmId,
-          points: _selectedPoints,
+      final peakRepository = ref.read(peakRepositoryProvider);
+      final selectedPeaks = List<Peak>.from(peakRepository.searchPeaks(''))
+        ..sort((left, right) {
+          final nameComparison = left.name.toLowerCase().compareTo(
+            right.name.toLowerCase(),
+          );
+          if (nameComparison != 0) {
+            return nameComparison;
+          }
+          return left.osmId.compareTo(right.osmId);
+        });
+      final saveOrder = selectedPeaks
+          .where((peak) => _selectedPeakIds.contains(peak.osmId))
+          .toList(growable: false);
+      final failures = <({Peak peak, Object error})>[];
+
+      for (final peak in saveOrder) {
+        try {
+          await widget.peakListRepository.addPeakItem(
+            peakListId: widget.peakList.peakListId,
+            item: PeakListItem(
+              peakOsmId: peak.osmId,
+              points: _selectedPoints[peak.osmId] ?? 1,
+            ),
+          );
+        } catch (error) {
+          failures.add((peak: peak, error: error));
+        }
+      }
+
+      if (!mounted) {
+        return;
+      }
+      if (failures.isNotEmpty) {
+        final failedIds = failures.map((entry) => entry.peak.osmId).toSet();
+        setState(() {
+          _selectedPeakIds
+            ..clear()
+            ..addAll(failedIds);
+          _selectedPoints.removeWhere((peakId, _) => !failedIds.contains(peakId));
+        });
+        final failedNames = failures.map((entry) => entry.peak.name).join(', ');
+        final failureDetails = failures
+            .map((entry) => '${entry.peak.name}: ${entry.error}')
+            .join('\n');
+        await _showFailure('Failed to add: $failedNames\n\n$failureDetails');
+        return;
+      }
+
+      Navigator.of(context).pop(
+        PeakListPeakDialogOutcome.selected(
+          saveOrder.map((peak) => peak.osmId).toList(growable: false),
         ),
       );
-      if (!mounted) {
-        return;
-      }
-      Navigator.of(
-        context,
-      ).pop(PeakListPeakDialogOutcome.selected(selectedPeak.osmId));
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      await _showFailure(error.toString());
     } finally {
       if (mounted) {
         setState(() {
@@ -545,12 +595,14 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
       await widget.peakListRepository.updatePeakItemPoints(
         peakListId: widget.peakList.peakListId,
         peakOsmId: peak.osmId,
-        points: _selectedPoints,
+        points: _editPoints,
       );
       if (!mounted) {
         return;
       }
-      Navigator.of(context).pop(PeakListPeakDialogOutcome.selected(peak.osmId));
+      Navigator.of(
+        context,
+      ).pop(PeakListPeakDialogOutcome.selected([peak.osmId]));
     } catch (error) {
       if (!mounted) {
         return;
@@ -596,9 +648,14 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
       if (!mounted) {
         return;
       }
+      final nextSelectedPeakId = _nextSelectedPeakId(peak.osmId);
       Navigator.of(
         context,
-      ).pop(PeakListPeakDialogOutcome.deleted(_nextSelectedPeakId(peak.osmId)));
+      ).pop(
+        PeakListPeakDialogOutcome.deleted(
+          nextSelectedPeakId == null ? const [] : [nextSelectedPeakId],
+        ),
+      );
     } catch (error) {
       if (!mounted) {
         return;
@@ -670,6 +727,21 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
       closeKey: 'peak-list-peak-failure-close',
       content: Text(message),
     );
+  }
+
+  void _updateSelectedPeakIds(Set<int> selectedPeakIds) {
+    setState(() {
+      _selectedPeakIds
+        ..clear()
+        ..addAll(selectedPeakIds);
+    });
+  }
+
+  void _updatePeakPoints(int peakId, int points) {
+    setState(() {
+      _selectedPeakIds.add(peakId);
+      _selectedPoints[peakId] = points;
+    });
   }
 }
 

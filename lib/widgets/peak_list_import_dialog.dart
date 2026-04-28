@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../services/peak_list_file_picker.dart';
 import 'dialog_helpers.dart';
+import 'peak_list_name_field.dart';
 
 typedef PeakListDuplicateNameChecker = Future<bool> Function(String name);
 
@@ -82,14 +83,11 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
             key: const Key('peak-list-selected-file'),
           ),
           const SizedBox(height: 16),
-          TextField(
-            key: const Key('peak-list-name-field'),
+          PeakListNameField(
+            fieldKey: const Key('peak-list-name-field'),
             controller: _nameController,
             enabled: !_isImporting,
-            decoration: InputDecoration(
-              labelText: 'List Name',
-              errorText: _nameError,
-            ),
+            errorText: _nameError,
             onChanged: (_) {
               if (_nameError != null) {
                 setState(() {

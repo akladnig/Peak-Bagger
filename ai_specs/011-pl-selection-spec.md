@@ -29,7 +29,7 @@ Primary flow (add multiple peaks):
 3. User types search query, results appear with checkbox rows (all unchecked); empty query shows all peaks
 4. Results sorted alphabetically (case-insensitive), each row shows: [checkbox] Name | Height | Map | Points
     - Name: peak.name (truncate with ellipsis if > 40 chars)
-    - Height: peak.elevation formatted as "${elevation.round()}m" or "Unknown"
+    - Height: peak.elevation formatted as "${elevation.round()}m" or `—`
     - Map: Tasmap 50k map name from `_mapNameForPeak(peak)` (e.g., "King Island")
 5. User checks multiple peaks they want to add
 6. User adjusts points inline for each selected peak (default 1)
@@ -64,27 +64,31 @@ Error flows:
 1. Search results list must show a checkbox to the left of each peak name
 2. Multiple peaks can be selected simultaneously via checkboxes
 3. Peaks in search results must be sorted alphabetically by name (case-insensitive)
-4. Each search result row displays collapsed to single row: `[checkbox] Name | Height | Map | Points`
-   - Name: peak.name, truncated to 40 chars with ellipsis if longer
-   - Height: `${peak.elevation!.round()}m` or "Unknown" if null
-   - Map: Tasmap 50k map name from `_mapNameForPeak(peak)` (e.g., "King Island")
-   - Points: integer field defaulting to 1, editable by typing or using up/down controls
+4. Each search result row displays collapsed to single row: `[checkbox] Name | Height | Map`
+    - Name: peak.name, truncated to 40 chars with ellipsis if longer
+    - Height: `${peak.elevation!.round()}m` or `—` if null
+    - Map: Tasmap 50k map name from `_mapNameForPeak(peak)` (e.g., "King Island")
+    - The row uses compact fixed widths so it still fits the 320px minimum dialog width without horizontal scrolling
+5. Selected peaks already in the peak list must be excluded from search results
+6. Selected peaks appear in a separate list below the search results, marked by a green-ticked checkbox plus a subtle green row highlight
+    - Each selected row displays Name, Height, Map, and an editable Points field
+    - Height renders as `—` when unknown
    - Points entry accepts digits only and clamps live to 0-10
    - If the field is cleared, it reverts to 1 when the change is committed
    - Editing points on an unchecked row automatically selects that peak
-   - The row uses compact fixed widths so it still fits the 320px minimum dialog width without horizontal scrolling
-5. Selected peaks already in the peak list must be excluded from search results
-6. Selected peaks stay visible in the results list and are marked by a green-ticked checkbox plus a subtle green row highlight
-7. Search results list must expand to fill available dialog space
+7. Search results list must expand to fill available dialog space and lazy-load rows as the user scrolls
 8. Save operation must add all selected peaks with their individual point values
 9. Dialog outcome must return list of all selected peak IDs (not just one)
 10. Selecting 50 peaks disables further checkboxes, shows "Maximum 50 peaks per save" message
-11. Search results limited to 100; if results exceed this, show "Showing 100 of N results" message
+11. Search results must not be capped at 100 rows; rows should be built on demand so large result sets remain usable
 12. Selected peaks and returned IDs must use alphabetical order by peak name for deterministic display and save order
-13. Row container, checkbox, and points control must expose stable keys derived from `peak.osmId`:
-   - `peak-multi-select-row-{osmId}`
-   - `peak-multi-select-checkbox-{osmId}`
-   - `peak-multi-select-points-{osmId}`
+13. Search-result row, selected-row, checkbox, and points controls must expose stable keys derived from `peak.osmId`:
+    - `peak-multi-select-row-{osmId}`
+    - `peak-multi-select-checkbox-{osmId}`
+    - `peak-multi-select-points-{osmId}`
+    - `peak-selected-row-{osmId}`
+    - `peak-selected-checkbox-{osmId}`
+    - `peak-selected-points-{osmId}`
 
 **Error Handling:**
 14. If repository save fails, continue saving remaining peaks, then show one error dialog listing all failures and preserve unsaved selections
@@ -99,18 +103,18 @@ Error flows:
 
 **Validation:**
 21. Points values must be integers between 0 and 10 inclusive and can be changed by typing or stepper buttons
-22. Search results display: verify checkbox, name (truncated), height, map, and points controls are present
-23. Selected rows render with a green-ticked checkbox and highlight when selected
-24. Stable keys exist for row, checkbox, and points controls so robot tests can target them deterministically
+22. Search results display: verify checkbox, name (truncated), height, and map controls are present; unknown height renders as `—`
+23. Selected rows render in the separate list with a green-ticked checkbox, highlight, editable points control, and `—` for unknown height
+24. Stable keys exist for search rows, selected rows, checkbox, and points controls so robot tests can target them deterministically
 </requirements>
 
 <boundaries>
 Edge cases:
-- Very long peak names: Truncate with ellipsis at 40 chars in search result row and inline points control
-- Many selected peaks (10+): Selected rows remain in the scrolling results list without layout overflow
+- Very long peak names: Truncate with ellipsis at 40 chars in search result row and selected-peaks list
+- Many selected peaks (10+): Selected rows remain in the separate selected-peaks list without layout overflow
 - Search results exceed dialog height: Results list scrolls within its Expanded space
 - Rapid checkbox toggling: Use setState only (no debounce needed for local state)
-- 100 search results limit: Show "Showing 100 of N results" when truncating
+- Search results are not truncated at a fixed 100-row limit; the list lazily builds additional rows as needed
 
 Error scenarios:
 - Repository unavailable during save: Keep successful saves, show error dialog, and leave unsaved peaks selected for retry
@@ -118,9 +122,9 @@ Error scenarios:
 - Invalid peak data: Should not occur (only selecting existing peaks), but skip if encountered
 
 Limits:
-- Maximum search results displayed: 100 (show message if truncated)
+- Maximum search results displayed: no fixed cap; rows are built lazily as needed
 - Maximum selected peaks per save: 50 (disable checkboxes, show message)
-- Points per peak: 0-10 range enforced by the inline numeric control
+- Points per peak: 0-10 range enforced by the numeric control in the selected-peaks list
 </boundaries>
 
 <implementation>
@@ -133,6 +137,15 @@ Files to modify:
    - New dedicated multi-select results widget used only by add mode
    - Accept `Set<int> selectedPeakIds`, `Map<int, int> pointsByPeakId`, `ValueChanged<Set<int>> onSelectionChanged`, and `void Function(int peakId, int points) onPointsChanged`
    - Sort results alphabetically by `peak.name.toLowerCase()` before display
+    - Collapse display to single row: checkbox + name (truncated 40ch) + height + map
+    - Use compact fixed widths so the row fits the 320px minimum dialog width without overflow
+    - Return a lazily built scrolling list wrapped in `Expanded` to fill available space so rows are created on demand rather than truncated
+    - Disable checkbox if selectedPeakIds.length >= 50 (unless this peak is already selected)
+
+3. **lib/widgets/peak_selected_peaks_list.dart**
+   - New dedicated selected-peaks list used below the search results
+   - Accept `Set<int> selectedPeakIds`, `Map<int, int> pointsByPeakId`, `ValueChanged<Set<int>> onSelectionChanged`, and `void Function(int peakId, int points) onPointsChanged`
+   - Sort selected peaks alphabetically by `peak.name.toLowerCase()` before display
    - Collapse display to single row: checkbox + name (truncated 40ch) + height + map + points control
    - Render selected rows with a green ticked checkbox and subtle green row highlight
    - Points control is a compact numeric field with up/down buttons and direct typing, defaulting to 1
@@ -140,24 +153,23 @@ Files to modify:
    - If the points field is cleared, restore 1 on commit
    - Editing points on a row selects that peak if it is not already selected
    - Use compact fixed widths so the row fits the 320px minimum dialog width without overflow
-   - Return `ListView.separated` wrapped in `Expanded` to fill available space
-   - Disable checkbox if selectedPeakIds.length >= 50 (unless this peak is already selected)
+   - Wrap the list in a scrolling container below the results to allow multiple selections without overflow
 
-3. **lib/widgets/peak_list_peak_dialog.dart**
+4. **lib/widgets/peak_list_peak_dialog.dart**
      - Change state from `_selectedPeak` (Peak?) to:
       - `_selectedPeakIds` (Set<int>) for tracking which peaks are selected
       - `_selectedPoints` (Map<int, int>) for peak ID → points assignments
     - Update `_buildAddContent` layout (top to bottom):
-      - Search TextField
-      - Expanded `PeakMultiSelectResultsList` with checkboxes
-      - Rows show the green tick/highlight inline when selected; no separate selected-peaks section
-      - Points field updates `_selectedPoints[peakId]` inline in the row
+       - Search TextField
+       - Expanded `PeakMultiSelectResultsList` with checkboxes
+       - Separate selected-peaks list below the search results
+       - The selected-peaks list shows the green tick/highlight and updates `_selectedPoints[peakId]` inline in that list
    - Update `_saveAdd()` to iterate `_selectedPeakIds` in alphabetical order and call `addPeakItem` for each
       - Continue through the full selection, collect all failures, keep successful adds, and show one error dialog after the loop if any peak failed
     - Update outcome to return `List<int> selectedPeakIds`
     - Disable Save button when `_selectedPeakIds.isEmpty`
 
-4. **lib/widgets/peak_list_peak_dialog.dart** (or inline in dialog)
+5. **lib/widgets/peak_list_peak_dialog.dart** (or inline in dialog)
     - Update `PeakListPeakDialogOutcome` to support multiple peaks:
    ```dart
    class PeakListPeakDialogOutcome {
@@ -178,7 +190,7 @@ Patterns to use:
 - `Set<int>` for O(1) lookup of selected state in search results
 - `Map<int, int>` to track peak ID → points assignments
 - `Expanded` widget for search results list to fill space between search field and buttons
-- `ListView.separated` for search results
+- A lazily built scrolling list for search results
 - Alphabetical ordering for selected peaks and returned IDs
 - Stable `Key`s derived from peak ID for the row, checkbox, and points control
 - Compact width rules so the row fits the 320px dialog minimum without horizontal scrolling
@@ -198,20 +210,22 @@ What to avoid:
 - `PeakSearchResultsList` widget test: renders checkbox for each result, checkbox toggle updates selected set
 - Sort verification: search results displayed in alphabetical order
 - Selection persistence: toggling checkbox on/off correctly adds/removes from selected set
-- Row layout: single row contains checkbox, name, height, map, points control, and green selected styling (no wrapping)
+- Search results row layout: single row contains checkbox, name, height, and map (no wrapping)
+- Selected list layout: selected peaks render in the separate list with checkbox, points control, and green selected styling
 
 **Widget Tests:**
 - Add dialog with multiple selections: select 3 peaks, assign different points to each, save
-- Selected rows: show green tick/highlight and inline points control
+- Selected rows: show green tick/highlight and points control in the separate list
 - Save with no selection: Save button is disabled until a selection exists
 - Save with multiple peaks: verifies all peaks added with correct points
 - Cross-search persistence: select peaks, search new query, verify previous selections preserved
+- Large result sets: rows continue loading as needed instead of stopping at 100
 - Robot flow uses keys for row, checkbox, and points controls
 - Typing into points auto-selects the row and clamps to 0-10
 - Clearing the points field restores 1 on commit
 
 **Integration Tests (Robot):**
-- Critical journey: Open add dialog → search "mount" → select 3 peaks → assign points 3, 5, 7 inline → save → verify all 3 peaks appear in list with correct points
+- Critical journey: Open add dialog → search "mount" → select 3 peaks → assign points 3, 5, 7 in the selected list → save → verify all 3 peaks appear in list with correct points
 - Error journey: Open add dialog → search → select peak → clear selection → attempt save → verify error shown
 
 **TDD Expectations:**
@@ -221,7 +235,7 @@ What to avoid:
 
 **Baseline Coverage:**
 - Logic: search filtering, sort order, selection state management, points assignment
-- UI behavior: checkbox toggle, inline points control, green selection highlight, error messages, save button state
+- UI behavior: checkbox toggle, selected-peaks points control, green selection highlight, error messages, save button state
 - Critical journeys: multi-select-add flow via robot test
 </validation>
 
@@ -232,7 +246,7 @@ What to avoid:
 4. Save adds all selected peaks with their respective points to the list (partial success allowed, failures reported)
 5. Dialog returns list of all added peak IDs
 6. Search results list expands to fill available dialog space between search field and buttons
-7. Search results truncated at 100 with "Showing 100 of N results" message
+7. Search results lazily build rows as the user scrolls and are not truncated at 100
 8. Selection disabled after 50 peaks with appropriate message
 9. All widget tests pass for new multi-select behavior (including limits and error cases)
 10. Robot test passes for critical multi-select-add journey

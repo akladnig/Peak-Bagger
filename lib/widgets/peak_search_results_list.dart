@@ -55,7 +55,7 @@ class PeakSearchResultsList extends StatelessWidget {
   String _subtitleFor(Peak peak) {
     final heightLabel = peak.elevation != null
         ? '${peak.elevation!.toStringAsFixed(0)}m'
-        : 'Unknown';
+        : '—';
     return '$heightLabel  Map: ${mapNameForPeak(peak)}';
   }
 }

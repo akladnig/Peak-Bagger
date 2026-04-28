@@ -123,7 +123,7 @@
 - [x] clicking on a peak will highlight the peak with a blue circle
 - [x] Add points column and add points metrics
 - [x] Add add peak to list
-- [ ] click on peak in details will go to the peak on the Map screen and zoom to 15.
+- [x] click on peak in details will go to the peak on the Map screen and zoom to 15.
 - [ ] Refresh lists on change to peak name in ObjectBox Admin
 
 ## Object Box Admin

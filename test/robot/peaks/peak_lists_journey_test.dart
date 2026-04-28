@@ -14,6 +14,70 @@ import '../../harness/test_peak_list_file_picker.dart';
 import 'peak_lists_robot.dart';
 
 void main() {
+  testWidgets('peak lists journey creates a list and adds peaks', (
+    tester,
+  ) async {
+    final robot = PeakListsRobot(tester);
+    final peakListRepository = PeakListRepository.test(
+      InMemoryPeakListStorage(),
+    );
+    final peakRepository = PeakRepository.test(
+      InMemoryPeakStorage([
+        _buildPeak(
+          osmId: 300,
+          name: 'Zulu Peak',
+          elevation: 1350,
+          latitude: -41.0,
+          longitude: 146.0,
+        ),
+        _buildPeak(
+          osmId: 100,
+          name: 'Alpha Peak',
+          elevation: 1250,
+          latitude: -41.1,
+          longitude: 146.1,
+        ),
+        _buildPeak(
+          osmId: 200,
+          name: 'Mike Peak',
+          elevation: 1300,
+          latitude: -41.2,
+          longitude: 146.2,
+        ),
+      ]),
+    );
+
+    await robot.pumpApp(
+      filePicker: TestPeakListFilePicker(),
+      repository: peakListRepository,
+      peakRepository: peakRepository,
+    );
+
+    await robot.openCreateDialog();
+    expect(robot.createDialog, findsOneWidget);
+
+    await robot.enterCreateName('  Journey List  ');
+    await robot.submitCreate();
+    await tester.pumpAndSettle();
+
+    expect(robot.addPeakDialog, findsOneWidget);
+    expect(tester.widget<Text>(robot.selectedTitle).data, 'Journey List');
+
+    await robot.toggleAddPeak(300);
+    await robot.toggleAddPeak(100);
+    await robot.toggleAddPeak(200);
+    await robot.enterAddPeakPoints(300, '7');
+    await robot.enterAddPeakPoints(100, '3');
+    await robot.enterAddPeakPoints(200, '5');
+    await robot.submitAddPeakDialog();
+
+    final savedItems = decodePeakListItems(
+      peakListRepository.getAllPeakLists().single.peakList,
+    ).map((item) => (item.peakOsmId, item.points)).toList();
+    expect(savedItems, [(100, 3), (200, 5), (300, 7)]);
+    expect(tester.widget<Text>(robot.selectedTitle).data, 'Journey List');
+  });
+
   testWidgets('peak lists journey creates and updates via dialog flow', (
     tester,
   ) async {
@@ -149,6 +213,73 @@ void main() {
 
     expect(find.byKey(const Key('peak-lists-row-2')), findsNothing);
     expect(tester.widget<Text>(robot.selectedTitle).data, 'Abels');
+  });
+
+  testWidgets('peak lists journey adds multiple peaks alphabetically', (
+    tester,
+  ) async {
+    final robot = PeakListsRobot(tester);
+    final peakListRepository = PeakListRepository.test(
+      InMemoryPeakListStorage([
+        PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+      ]),
+    );
+    final peakRepository = PeakRepository.test(
+      InMemoryPeakStorage([
+        _buildPeak(
+          osmId: 300,
+          name: 'Zulu Peak',
+          elevation: 1350,
+          latitude: -41.0,
+          longitude: 146.0,
+        ),
+        _buildPeak(
+          osmId: 100,
+          name: 'Alpha Peak',
+          elevation: 1250,
+          latitude: -41.1,
+          longitude: 146.1,
+        ),
+        _buildPeak(
+          osmId: 200,
+          name: 'Mike Peak',
+          elevation: 1300,
+          latitude: -41.2,
+          longitude: 146.2,
+        ),
+      ]),
+    );
+
+    await robot.pumpApp(
+      filePicker: TestPeakListFilePicker(),
+      repository: peakListRepository,
+      peakRepository: peakRepository,
+    );
+
+    tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-1'))).onTap!();
+    await tester.pumpAndSettle();
+
+    await robot.openAddPeakDialog();
+    expect(robot.addPeakDialog, findsOneWidget);
+
+    await robot.toggleAddPeak(300);
+    await robot.toggleAddPeak(100);
+    await robot.toggleAddPeak(200);
+
+    expect(robot.addSelectedRow(100), findsOneWidget);
+
+    await robot.enterAddPeakPoints(300, '7');
+    await robot.enterAddPeakPoints(100, '3');
+    await robot.enterAddPeakPoints(200, '5');
+
+    await robot.submitAddPeakDialog();
+
+    final savedItems = decodePeakListItems(
+      peakListRepository.getAllPeakLists().single.peakList,
+    ).map((item) => (item.peakOsmId, item.points)).toList();
+    expect(savedItems, [(100, 3), (200, 5), (300, 7)]);
+    expect(tester.widget<Text>(robot.selectedTitle).data, 'Tasmania');
+    expect(find.byKey(const Key('peak-lists-details-row-100')), findsOneWidget);
   });
 }
 

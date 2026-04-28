@@ -1,6 +1,6 @@
 name: peak_bagger
 description: "A new Flutter project."
-publish_to: 'none'
+publish_to: "none"
 version: 0.1.0+1
 
 environment:
@@ -40,8 +40,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/OSM_standard/
-    - assets/OSM_tracestrack/
     - assets/peak_marker.svg
     - assets/peak_marker_ticked.svg
     - assets/tasmap50k.csv

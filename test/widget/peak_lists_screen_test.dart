@@ -35,6 +35,8 @@ void main() {
     expect(find.byKey(const Key('peak-lists-summary-pane')), findsOneWidget);
     expect(find.byKey(const Key('peak-lists-details-pane')), findsOneWidget);
     expect(find.byKey(const Key('peak-lists-mini-map')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-add-list-fab')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-import-fab')), findsOneWidget);
     expect(find.byKey(const Key('peak-lists-empty-message')), findsOneWidget);
     expect(
       find.text('No peak lists exist. Import a CSV to get started.'),
@@ -82,6 +84,121 @@ void main() {
     await tester.tap(find.byKey(const Key('peak-list-peak-close')));
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const Key('peak-list-peak-dialog')), findsNothing);
+  });
+
+  testWidgets('add dialog selects the first saved alphabetical peak', (
+    tester,
+  ) async {
+    final peakListRepository = PeakListRepository.test(
+      InMemoryPeakListStorage([
+        PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+      ]),
+    );
+    final peakRepository = PeakRepository.test(
+      InMemoryPeakStorage([
+        _buildPeak(300, 'Zulu Peak', -41.0, 146.0),
+        _buildPeak(100, 'Alpha Peak', -41.1, 146.1),
+        _buildPeak(200, 'Mike Peak', -41.2, 146.2),
+      ]),
+    );
+
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: peakListRepository,
+      peakRepository: peakRepository,
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage(),
+      ),
+    );
+
+    tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-1'))).onTap!();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('peak-lists-add-peak')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-300')));
+    await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-100')));
+    await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-200')));
+    await tester.pump();
+
+    expect(find.byKey(const Key('peak-selected-row-100')), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('peak-selected-points-300')),
+      '7',
+    );
+    await tester.enterText(
+      find.byKey(const Key('peak-selected-points-100')),
+      '3',
+    );
+    await tester.enterText(
+      find.byKey(const Key('peak-selected-points-200')),
+      '5',
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('peak-list-peak-save')));
+    await tester.pumpAndSettle();
+
+    final selectedRowFinder = find.byKey(const Key('peak-lists-details-row-100'));
+    expect(selectedRowFinder, findsOneWidget);
+    final selectedRowContainer = tester.widget<Container>(
+      find.descendant(
+        of: selectedRowFinder,
+        matching: find.byType(Container),
+      ).first,
+    );
+    expect(selectedRowContainer.color, isNotNull);
+    expect(
+      decodePeakListItems(peakListRepository.getAllPeakLists().single.peakList)
+          .map((item) => (item.peakOsmId, item.points))
+          .toList(),
+      [(100, 3), (200, 5), (300, 7)],
+    );
+  });
+
+  testWidgets('add dialog cancel keeps the current selection', (
+    tester,
+  ) async {
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Alpha Peak', -41.1, 146.1),
+          _buildPeak(200, 'Mike Peak', -41.2, 146.2),
+        ]),
+      ),
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage(),
+      ),
+    );
+
+    tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-1'))).onTap!();
+    await tester.pumpAndSettle();
+
+    final selectedTitleBefore = tester
+        .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+        .data;
+
+    await tester.tap(find.byKey(const Key('peak-lists-add-peak')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('peak-list-peak-cancel')));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('peak-lists-selected-title'))).data,
+      selectedTitleBefore,
+    );
     expect(find.byKey(const Key('peak-list-peak-dialog')), findsNothing);
   });
 
@@ -927,6 +1044,125 @@ void main() {
     expect(find.byKey(const Key('peak-list-import-dialog')), findsNothing);
   });
 
+  testWidgets('create fab opens dialog and cancel closes it', (tester) async {
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(InMemoryPeakListStorage()),
+    );
+
+    await tester.tap(find.byKey(const Key('peak-lists-add-list-fab')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-list-create-dialog')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('peak-list-create-cancel')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-list-create-dialog')), findsNothing);
+  });
+
+  testWidgets('create dialog validates required and duplicate names', (
+    tester,
+  ) async {
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage(_buildLists(['Abels'])),
+      ),
+      duplicateNameChecker: (name) async => name == 'Abels',
+    );
+
+    await tester.tap(find.byKey(const Key('peak-lists-add-list-fab')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('peak-list-create-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('A list name is required'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('peak-list-create-name-field')),
+      'Abels',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('peak-list-create-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('This peak list already exists.'), findsOneWidget);
+  });
+
+  testWidgets('create dialog saves and opens the peak selector', (
+    tester,
+  ) async {
+    final repository = PeakListRepository.test(InMemoryPeakListStorage());
+
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: repository,
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Alpha Peak', -41.0, 146.0),
+        ]),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('peak-lists-add-list-fab')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('peak-list-create-name-field')),
+      '  Fresh List  ',
+    );
+    await tester.tap(find.byKey(const Key('peak-list-create-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-list-create-dialog')), findsNothing);
+    expect(find.byKey(const Key('peak-list-peak-dialog')), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.byKey(const Key('peak-lists-selected-title'))).data,
+      'Fresh List',
+    );
+
+    final saved = repository.getAllPeakLists().single;
+    expect(saved.name, 'Fresh List');
+    expect(saved.peakList, '[]');
+
+    await tester.tap(find.byKey(const Key('peak-list-peak-cancel')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-list-peak-dialog')), findsNothing);
+  });
+
+  testWidgets('create dialog failure shows modal and keeps dialog open', (
+    tester,
+  ) async {
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(_ThrowingPeakListStorage()),
+    );
+
+    await tester.tap(find.byKey(const Key('peak-lists-add-list-fab')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('peak-list-create-name-field')),
+      'Broken List',
+    );
+    await tester.tap(find.byKey(const Key('peak-list-create-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Peak List Create Failed'), findsOneWidget);
+    expect(find.textContaining('boom'), findsOneWidget);
+    expect(find.byKey(const Key('peak-list-create-error-close')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('peak-list-create-error-close')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-list-create-dialog')), findsOneWidget);
+  });
+
   testWidgets('import stays disabled until a file is selected', (tester) async {
     await _pumpPeakListsApp(
       tester,
@@ -1208,6 +1444,36 @@ List<PeakList> _buildLists(List<String> names) {
     for (var index = 0; index < names.length; index++)
       PeakList(name: names[index], peakList: '[]')..peakListId = index + 1,
   ];
+}
+
+class _ThrowingPeakListStorage implements PeakListStorage {
+  @override
+  int get count => 0;
+
+  @override
+  List<PeakList> getAll() => const <PeakList>[];
+
+  @override
+  PeakList? getById(int peakListId) => null;
+
+  @override
+  PeakList? getByName(String name) => null;
+
+  @override
+  Future<void> delete(int peakListId) async {}
+
+  @override
+  Future<PeakList> put(PeakList peakList) async {
+    throw StateError('boom');
+  }
+
+  @override
+  Future<PeakList> replaceByName(
+    PeakList peakList, {
+    void Function()? beforePutForTest,
+  }) async {
+    throw StateError('boom');
+  }
 }
 
 PeakList _buildPeakList(
