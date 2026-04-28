@@ -134,7 +134,24 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                           padding: const EdgeInsets.fromLTRB(24, 24, 16, 0),
                           child: Row(
                             children: [
-                              Expanded(child: Text(_titleLabel)),
+                              Expanded(
+                                child: _mode == PeakListPeakDialogMode.view
+                                    ? GestureDetector(
+                                        key: const Key('peak-list-peak-name'),
+                                        onTap: _navigateToPeakOnMap,
+                                        child: Text(
+                                          _titleLabel,
+                                          style: TextStyle(
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.primary,
+                                            decoration:
+                                                TextDecoration.underline,
+                                          ),
+                                        ),
+                                      )
+                                    : Text(_titleLabel),
+                              ),
                               if (_mode == PeakListPeakDialogMode.view) ...[
                                 IconButton(
                                   key: const Key('peak-list-peak-edit'),
@@ -439,6 +456,15 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
 
   void _openMap(Tasmap50k map) {
     ref.read(mapProvider.notifier).selectMap(map);
+    _closeDialogAndGoMap();
+  }
+
+  void _navigateToPeakOnMap() {
+    final peak = widget.peak;
+    if (peak == null) return;
+    ref
+        .read(mapProvider.notifier)
+        .updatePosition(LatLng(peak.latitude, peak.longitude), 15.0);
     _closeDialogAndGoMap();
   }
 

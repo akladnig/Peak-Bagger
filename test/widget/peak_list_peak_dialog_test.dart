@@ -626,6 +626,57 @@ void main() {
       [202],
     );
   });
+
+  testWidgets(
+    'tapping peak name navigates to map centered on peak at zoom 15',
+    (tester) async {
+      final peak = _buildPeak(
+        osmId: 101,
+        name: 'Mount View',
+        latitude: -41.0,
+        longitude: 146.0,
+        gridZoneDesignator: '55G',
+        mgrs100kId: 'AB',
+        easting: '12345',
+        northing: '54321',
+        elevation: 1234,
+      );
+      final mapNotifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-42.5, 147.5),
+          zoom: 10,
+          basemap: Basemap.tracestrack,
+        ),
+      );
+
+      await _pumpDialog(
+        tester,
+        dialog: PeakListPeakDialog(
+          mode: PeakListPeakDialogMode.view,
+          peakList: PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+          peakListRepository: PeakListRepository.test(
+            InMemoryPeakListStorage(),
+          ),
+          peakItems: [const PeakListItem(peakOsmId: 101, points: 4)],
+          ascentRows: const [],
+          peak: peak,
+          points: 4,
+        ),
+        peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+        tasmapRepository: await TestTasmapRepository.create(),
+        gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+        mapNotifier: mapNotifier,
+      );
+
+      await tester.tap(find.byKey(const Key('peak-list-peak-name')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('peak-list-peak-dialog')), findsNothing);
+      expect(mapNotifier.state.center.latitude, closeTo(-41.0, 0.001));
+      expect(mapNotifier.state.center.longitude, closeTo(146.0, 0.001));
+      expect(mapNotifier.state.zoom, 15.0);
+    },
+  );
 }
 
 Future<Completer<PeakListPeakDialogOutcome?>> _pumpDialog(
