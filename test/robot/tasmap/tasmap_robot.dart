@@ -29,6 +29,8 @@ class TasmapRobot {
   Finder get gotoMapInput => find.byKey(const Key('goto-map-input'));
   Finder get gotoMapSubmit => find.byKey(const Key('goto-map-submit'));
   Finder get resetMapDataTile => find.byKey(const Key('reset-map-data-tile'));
+  Finder get resetMapDataConfirm =>
+      find.byKey(const Key('reset-map-data-confirm'));
   Finder get tasmapOutlineLayer =>
       find.byKey(const Key('tasmap-outline-layer'));
 
@@ -46,9 +48,9 @@ class TasmapRobot {
 
   Future<void> resetTasmapData() async {
     await tester.tap(resetMapDataTile);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pump();
+    await tester.pumpAndSettle();
+    await tester.tap(resetMapDataConfirm);
+    await tester.pumpAndSettle();
   }
 
   Future<void> openGotoInput() async {

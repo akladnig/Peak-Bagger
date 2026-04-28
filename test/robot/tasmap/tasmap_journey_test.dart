@@ -86,8 +86,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     await tester.tap(find.byKey(const Key('reset-map-data-tile')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('reset-map-data-confirm')));
+    await tester.pumpAndSettle();
 
     expect(repository.getAllMapsCallCount, greaterThan(initialCalls));
   });

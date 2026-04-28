@@ -100,7 +100,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : null,
-            onTap: _isResettingMaps ? null : _resetMapData,
+            onTap: _isResettingMaps ? null : _confirmResetMapData,
           ),
           ListTile(
             key: const Key('reset-track-data-tile'),
@@ -134,7 +134,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 : null,
             onTap: mapState.isLoadingTracks
                 ? null
-                : _recalculateTrackStatistics,
+                : _confirmRecalculateTrackStatistics,
           ),
           if (mapState.hasTrackRecoveryIssue)
             const Padding(
@@ -260,7 +260,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  Future<void> _resetMapData() async {
+  Future<void> _confirmResetMapData() async {
+    final confirmed = await showDangerConfirmDialog(
+      context: context,
+      title: 'Reset Map Data?',
+      message:
+          'This will clear all map data and re-import from source files. Do you wish to proceed?',
+      cancelKey: 'reset-map-data-cancel',
+      cancelLabel: 'Cancel',
+      confirmKey: 'reset-map-data-confirm',
+      confirmLabel: 'Reset',
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
     setState(() {
       _isResettingMaps = true;
       _status = 'Clearing map data...';
@@ -270,19 +285,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final result = await ref
           .read(tasmapStateProvider.notifier)
           .resetAndReimport();
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _status = result.warning == null
             ? 'Map data reset successfully!'
             : 'Map data reset successfully! ${result.warning}';
       });
     } catch (e) {
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _status = 'Error resetting map data: $e';
       });
     } finally {
-      setState(() {
-        _isResettingMaps = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isResettingMaps = false;
+        });
+      }
     }
   }
 
@@ -315,7 +338,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  Future<void> _recalculateTrackStatistics() async {
+  Future<void> _confirmRecalculateTrackStatistics() async {
+    final confirmed = await showDangerConfirmDialog(
+      context: context,
+      title: 'Recalculate Track Statistics?',
+      message:
+          'This will rebuild track statistics and peak correlation from stored GPX XML. Do you wish to proceed?',
+      cancelKey: 'recalculate-stats-cancel',
+      cancelLabel: 'Cancel',
+      confirmKey: 'recalculate-stats-confirm',
+      confirmLabel: 'Recalculate',
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
     final result = await ref
         .read(mapProvider.notifier)
         .recalculateTrackStatistics();

@@ -30,6 +30,8 @@ class GpxTracksRobot {
   Finder get peakMarkerLayer => find.byKey(const Key('peak-marker-layer'));
   Finder get recalcStatsTile =>
       find.byKey(const Key('recalculate-track-statistics-tile'));
+  Finder get recalcStatsConfirm =>
+      find.byKey(const Key('recalculate-stats-confirm'));
   Finder get filterSettingsTile =>
       find.byKey(const Key('gpx-filter-settings-section'));
   Finder get outlierFilterField =>
@@ -95,6 +97,8 @@ class GpxTracksRobot {
 
   Future<void> recalculateTrackStatistics() async {
     await tester.tap(recalcStatsTile);
+    await tester.pumpAndSettle();
+    await tester.tap(recalcStatsConfirm);
     await tester.pumpAndSettle();
   }
 

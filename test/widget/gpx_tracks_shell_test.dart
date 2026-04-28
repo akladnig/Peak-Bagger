@@ -186,6 +186,8 @@ void main() {
       find.byKey(const Key('recalculate-track-statistics-tile')),
     );
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('recalculate-stats-confirm')));
+    await tester.pumpAndSettle();
 
     expect(find.text('Track Statistics Recalculated'), findsOneWidget);
     expect(
