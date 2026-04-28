@@ -689,6 +689,7 @@ class MapNotifier extends Notifier<MapState> {
 
       // Refresh tracks from repository
       final allTracks = _gpxTrackRepository.getAllTracks();
+      _refreshCorrelatedPeakIds(allTracks);
 
       // Set showTracks to true if we added any tracks
       final showTracks = state.showTracks || addedItems.isNotEmpty;
