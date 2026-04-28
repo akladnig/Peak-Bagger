@@ -174,6 +174,20 @@ class PeakListRepository {
     return _storage.getAll();
   }
 
+  List<String> findPeakListNamesForPeak(int peakOsmId) {
+    final names = <String>{};
+
+    for (final peakList in _storage.getAll()) {
+      final items = decodePeakListItems(peakList.peakList);
+      if (items.any((item) => item.peakOsmId == peakOsmId)) {
+        names.add(peakList.name);
+      }
+    }
+
+    final result = names.toList()..sort();
+    return result;
+  }
+
   PeakList? findByName(String name) {
     return _storage.getByName(name);
   }

@@ -33,7 +33,8 @@ class PeakListPeakDialogOutcome {
   final List<int> selectedPeakIds;
   final bool deleted;
 
-  int? get selectedPeakId => selectedPeakIds.isEmpty ? null : selectedPeakIds.first;
+  int? get selectedPeakId =>
+      selectedPeakIds.isEmpty ? null : selectedPeakIds.first;
 }
 
 class PeakListPeakDialog extends ConsumerStatefulWidget {
@@ -88,6 +89,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final size = MediaQuery.sizeOf(context);
     final dialogWidth = (size.width - (_dialogMargin * 2))
         .clamp(320.0, 700.0)
@@ -108,9 +110,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
               offset: clampedOffset,
               child: Material(
                 key: const Key('peak-list-peak-dialog'),
-                color:
-                    Theme.of(context).dialogTheme.backgroundColor ??
-                    Theme.of(context).colorScheme.surface,
+                color: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
                 elevation: 6,
                 shadowColor: Colors.black54,
                 shape: RoundedRectangleBorder(
@@ -135,25 +135,36 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                         },
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(24, 24, 16, 0),
+                          // Header Row: Title, Edit & Trash
                           child: Row(
                             children: [
                               Expanded(
                                 child: _mode == PeakListPeakDialogMode.view
-                                    ? GestureDetector(
+                                    ? InkWell(
                                         key: const Key('peak-list-peak-name'),
                                         onTap: _navigateToPeakOnMap,
-                                        child: Text(
-                                          _titleLabel,
-                                          style: TextStyle(
-                                            color: Theme.of(
-                                              context,
-                                            ).colorScheme.primary,
-                                            decoration:
-                                                TextDecoration.underline,
+                                        hoverColor: theme.colorScheme.primary
+                                            .withValues(alpha: 0.08),
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          child: Text(
+                                            _titleLabel,
+                                            style: theme.textTheme.titleLarge
+                                                ?.copyWith(
+                                                  color:
+                                                      theme.colorScheme.primary,
+                                                ),
                                           ),
                                         ),
                                       )
-                                    : Text(_titleLabel),
+                                    : Text(
+                                        _titleLabel,
+                                        style: theme.textTheme.titleLarge,
+                                      ),
                               ),
                               if (_mode == PeakListPeakDialogMode.view) ...[
                                 IconButton(
@@ -181,15 +192,17 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                           child: SizedBox(
                             width: dialogWidth - 48,
                             child: switch (_mode) {
-                              PeakListPeakDialogMode.view => SingleChildScrollView(
-                                child: _buildViewContent(context),
-                              ),
+                              PeakListPeakDialogMode.view =>
+                                SingleChildScrollView(
+                                  child: _buildViewContent(context),
+                                ),
                               PeakListPeakDialogMode.add => _buildAddContent(
                                 context,
                               ),
-                              PeakListPeakDialogMode.edit => SingleChildScrollView(
-                                child: _buildEditContent(context),
-                              ),
+                              PeakListPeakDialogMode.edit =>
+                                SingleChildScrollView(
+                                  child: _buildEditContent(context),
+                                ),
                             },
                           ),
                         ),
@@ -252,6 +265,10 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
     }
 
     final theme = Theme.of(context);
+    final memberships = widget.peakListRepository.findPeakListNamesForPeak(
+      peak.osmId,
+    );
+    final membershipsLabel = memberships.isEmpty ? '—' : memberships.join(', ');
     final elevationLabel = peak.elevation == null
         ? '—'
         : peak.elevation == peak.elevation!.roundToDouble()
@@ -263,7 +280,13 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _DetailLine(label: 'List', value: Text(widget.peakList.name)),
+        _DetailLine(
+          label: 'List(s)',
+          value: Text(
+            membershipsLabel,
+            key: const Key('peak-list-peak-memberships'),
+          ),
+        ),
         _DetailLine(label: 'Height', value: Text(elevationLabel)),
         _DetailLine(
           label: 'Points',
@@ -425,16 +448,15 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   }
 
   List<Peak> _sortedPeaks(List<Peak> peaks) {
-    return List<Peak>.from(peaks)
-      ..sort((left, right) {
-        final nameComparison = left.name.toLowerCase().compareTo(
-          right.name.toLowerCase(),
-        );
-        if (nameComparison != 0) {
-          return nameComparison;
-        }
-        return left.osmId.compareTo(right.osmId);
-      });
+    return List<Peak>.from(peaks)..sort((left, right) {
+      final nameComparison = left.name.toLowerCase().compareTo(
+        right.name.toLowerCase(),
+      );
+      if (nameComparison != 0) {
+        return nameComparison;
+      }
+      return left.osmId.compareTo(right.osmId);
+    });
   }
 
   int _pointsForPeak(int peakOsmId) {
@@ -556,7 +578,9 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
           _selectedPeakIds
             ..clear()
             ..addAll(failedIds);
-          _selectedPoints.removeWhere((peakId, _) => !failedIds.contains(peakId));
+          _selectedPoints.removeWhere(
+            (peakId, _) => !failedIds.contains(peakId),
+          );
         });
         final failedNames = failures.map((entry) => entry.peak.name).join(', ');
         final failureDetails = failures
@@ -649,9 +673,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
         return;
       }
       final nextSelectedPeakId = _nextSelectedPeakId(peak.osmId);
-      Navigator.of(
-        context,
-      ).pop(
+      Navigator.of(context).pop(
         PeakListPeakDialogOutcome.deleted(
           nextSelectedPeakId == null ? const [] : [nextSelectedPeakId],
         ),

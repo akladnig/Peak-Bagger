@@ -138,5 +138,30 @@ void main() {
         throwsStateError,
       );
     });
+
+    test('findPeakListNamesForPeak returns sorted unique memberships', () async {
+      final repository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(
+            name: 'Zeta',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 11, points: 2),
+              const PeakListItem(peakOsmId: 11, points: 5),
+            ]),
+          )..peakListId = 1,
+          PeakList(
+            name: 'Alpha',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 11, points: 3),
+            ]),
+          )..peakListId = 2,
+          PeakList(name: 'Gamma', peakList: '[]')..peakListId = 3,
+        ]),
+      );
+
+      final names = repository.findPeakListNamesForPeak(11);
+
+      expect(names, ['Alpha', 'Zeta']);
+    });
   });
 }

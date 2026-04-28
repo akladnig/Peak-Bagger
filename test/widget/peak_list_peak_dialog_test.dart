@@ -51,13 +51,29 @@ void main() {
         ),
       ],
     );
+    final peakListRepository = PeakListRepository.test(
+      InMemoryPeakListStorage([
+        PeakList(
+          name: 'Zeta',
+          peakList: encodePeakListItems([
+            const PeakListItem(peakOsmId: 101, points: 4),
+          ]),
+        )..peakListId = 1,
+        PeakList(
+          name: 'Alpha',
+          peakList: encodePeakListItems([
+            const PeakListItem(peakOsmId: 101, points: 7),
+          ]),
+        )..peakListId = 2,
+      ]),
+    );
 
     await _pumpDialog(
       tester,
       dialog: PeakListPeakDialog(
         mode: PeakListPeakDialogMode.view,
         peakList: PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
-        peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
+        peakListRepository: peakListRepository,
         peakItems: [const PeakListItem(peakOsmId: 101, points: 4)],
         ascentRows: [
           PeaksBagged(
@@ -89,6 +105,16 @@ void main() {
     expect(find.byKey(const Key('peak-list-peak-dialog')), findsOneWidget);
     expect(find.text('Mount View'), findsWidgets);
     expect(
+      find.byKey(const Key('peak-list-peak-memberships')),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<Text>(
+        find.byKey(const Key('peak-list-peak-memberships')),
+      ).data,
+      'Alpha, Zeta',
+    );
+    expect(
       find.text('55G AB 12345 54321 (-41.00000, 146.00000)'),
       findsOneWidget,
     );
@@ -97,6 +123,29 @@ void main() {
     expect(find.byKey(const Key('peak-list-peak-track-10')), findsOneWidget);
     expect(find.text('Sat, Mar 2 2024'), findsOneWidget);
     expect(find.text('Ridge Walk'), findsOneWidget);
+
+    final titleText = tester.widget<Text>(
+      find.descendant(
+        of: find.byKey(const Key('peak-list-peak-name')),
+        matching: find.byType(Text),
+      ),
+    );
+    expect(
+      titleText.style?.fontSize,
+      Theme.of(
+        tester.element(find.byKey(const Key('peak-list-peak-name'))),
+      ).textTheme.titleLarge!.fontSize,
+    );
+
+    final titleInkWell = tester.widget<InkWell>(
+      find.byKey(const Key('peak-list-peak-name')),
+    );
+    expect(
+      titleInkWell.hoverColor,
+      Theme.of(
+        tester.element(find.byKey(const Key('peak-list-peak-name'))),
+      ).colorScheme.primary.withValues(alpha: 0.08),
+    );
   });
 
   testWidgets('view mode shows a dash for unknown height', (tester) async {
@@ -135,7 +184,12 @@ void main() {
       ),
     );
 
-    expect(find.text('—'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is Text && widget.data == '—' && widget.key == null,
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('dialog opens bottom-right and can be dragged', (tester) async {
