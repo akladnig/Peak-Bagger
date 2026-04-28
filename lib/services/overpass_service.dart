@@ -3,7 +3,10 @@ import 'dart:convert';
 import 'package:peak_bagger/models/peak.dart';
 
 class OverpassService {
-  static const String _baseUrl = 'https://overpass-api.de/api/interpreter';
+  static const List<String> _endpoints = [
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass-api.de/api/interpreter',
+  ];
 
   // Spatial Extent (Bounding Box):
   // - Longitude: 143.833° to 148.482° East
@@ -18,35 +21,38 @@ out center;
 ''';
 
   Future<List<Peak>> fetchTasmaniaPeaks() async {
-    try {
-      final response = await http.post(
-        Uri.parse(_baseUrl),
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: {'data': _query},
-      );
+    Exception? lastError;
+    for (final endpoint in _endpoints) {
+      try {
+        final response = await http.post(
+          Uri.parse(endpoint),
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: {'data': _query},
+        );
 
-      if (response.statusCode != 200) {
-        throw Exception('Failed to fetch peaks: ${response.statusCode}');
-      }
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body) as Map<String, dynamic>;
+          final elements = data['elements'] as List<dynamic>;
 
-      final data = json.decode(response.body) as Map<String, dynamic>;
-      final elements = data['elements'] as List<dynamic>;
-
-      final peaks = <Peak>[];
-      for (final element in elements) {
-        try {
-          final peak = Peak.fromOverpass(element as Map<String, dynamic>);
-          if (peak.name != 'Unknown') {
-            peaks.add(peak);
+          final peaks = <Peak>[];
+          for (final element in elements) {
+            try {
+              final peak = Peak.fromOverpass(element as Map<String, dynamic>);
+              if (peak.name != 'Unknown') {
+                peaks.add(peak);
+              }
+            } catch (e) {
+              continue;
+            }
           }
-        } catch (e) {
-          continue;
+          return peaks;
         }
+      } catch (e) {
+        lastError = e is Exception ? e : Exception(e.toString());
+        continue;
       }
-
-      return peaks;
-    } catch (e) {
-      rethrow;
     }
+    throw lastError ??
+        Exception('Failed to fetch peaks: no endpoints available');
   }
 }

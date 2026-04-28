@@ -4,10 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_file_picker.dart';
-<<<<<<< feature/import-gpx
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
-=======
->>>>>>> main
 import 'package:peak_bagger/widgets/gpx_track_import_dialog.dart';
 import 'package:peak_bagger/widgets/left_tooltip_fab.dart';
 
@@ -311,7 +308,6 @@ class MapActionRail extends ConsumerWidget {
       ),
     );
   }
-<<<<<<< feature/import-gpx
 
   Future<void> _showGpxImportDialog(BuildContext context, WidgetRef ref) async {
     final filePicker = ref.read(gpxFilePickerProvider);
@@ -330,47 +326,6 @@ class MapActionRail extends ConsumerWidget {
                     .importGpxFiles(pathToEditedNames: pathToEditedNames);
               },
             ),
-=======
-  Future<void> _showGpxImportDialog(BuildContext context, WidgetRef ref) async {
-    final filePicker = ref.read(gpxFilePickerProvider);
-
-    await showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Dismiss',
-      barrierColor: Colors.black54,
-      transitionDuration: const Duration(milliseconds: 200),
-      pageBuilder: (dialogContext, animation, secondaryAnimation) {
-        return SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(1, 0),
-            end: Offset.zero,
-          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
-          child: Stack(
-            children: [
-              Positioned(
-                right: 56,
-                top: 60,
-                bottom: 60,
-                child: Dialog(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 320),
-                    child: GpxTrackImportDialog(
-                      filePicker: filePicker,
-                      onImport:
-                          ({required Map<String, String> pathToEditedNames}) {
-                            return ref
-                                .read(mapProvider.notifier)
-                                .importGpxFiles(
-                                  pathToEditedNames: pathToEditedNames,
-                                );
-                          },
-                    ),
-                  ),
-                ),
-              ),
-            ],
->>>>>>> main
           ),
         );
       },
