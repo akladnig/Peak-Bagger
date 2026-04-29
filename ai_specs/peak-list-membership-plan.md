@@ -26,9 +26,9 @@ Keep the current dialog flow; add a small repository lookup plus widget and robo
 ### Phase 2: Journey coverage
 
 - **Goal**: lock click path + visible membership text
-- [ ] `test/robot/peaks/peak_lists_robot.dart` - add selector/helper for the `List(s)` membership value
-- [ ] `test/robot/peaks/peak_lists_journey_test.dart` - TDD: open peak dialog; assert all memberships shown
-- [ ] Verify: `flutter analyze` && `flutter test test/robot/peaks/peak_lists_journey_test.dart`
+- [x] `test/robot/peaks/peak_lists_robot.dart` - add selector/helper for the `List(s)` membership value
+- [x] `test/robot/peaks/peak_lists_journey_test.dart` - TDD: open peak dialog; assert all memberships shown
+- [x] Verify: `flutter analyze` && `flutter test test/robot/peaks/peak_lists_journey_test.dart`
 
 ## Risks / Out of scope
 

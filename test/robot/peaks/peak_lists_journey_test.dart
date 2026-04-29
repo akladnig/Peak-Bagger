@@ -281,6 +281,53 @@ void main() {
     expect(tester.widget<Text>(robot.selectedTitle).data, 'Tasmania');
     expect(find.byKey(const Key('peak-lists-details-row-100')), findsOneWidget);
   });
+
+  testWidgets('peak lists journey shows all memberships in peak dialog', (
+    tester,
+  ) async {
+    final robot = PeakListsRobot(tester);
+    final peak = _buildPeak(
+      osmId: 101,
+      name: 'Mount Achilles',
+      elevation: 1363,
+      latitude: -41.85916,
+      longitude: 145.97754,
+    );
+    final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+    final peakListRepository = PeakListRepository.test(
+      InMemoryPeakListStorage([
+        PeakList(
+          name: 'Zeta',
+          peakList: encodePeakListItems([
+            const PeakListItem(peakOsmId: 101, points: 4),
+          ]),
+        )..peakListId = 1,
+        PeakList(
+          name: 'Alpha',
+          peakList: encodePeakListItems([
+            const PeakListItem(peakOsmId: 101, points: 6),
+          ]),
+        )..peakListId = 2,
+      ]),
+    );
+
+    await robot.pumpApp(
+      filePicker: TestPeakListFilePicker(),
+      repository: peakListRepository,
+      peakRepository: peakRepository,
+    );
+
+    tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-1'))).onTap!();
+    await tester.pumpAndSettle();
+
+    await robot.openPeakDialog(101);
+
+    expect(robot.addPeakDialog, findsOneWidget);
+    expect(
+      tester.widget<Text>(robot.peakMemberships).data,
+      'Alpha, Zeta',
+    );
+  });
 }
 
 Peak _buildPeak({

@@ -20,6 +20,7 @@ class PeakListsRobot {
   Finder get createDialog => find.byKey(const Key('peak-list-create-dialog'));
   Finder get addPeakButton => find.byKey(const Key('peak-lists-add-peak'));
   Finder get addPeakDialog => find.byKey(const Key('peak-list-peak-dialog'));
+  Finder get peakMemberships => find.byKey(const Key('peak-list-peak-memberships'));
   Finder get addSearchInput => find.byKey(const Key('peak-list-peak-search-input'));
   Finder get addSaveButton => find.byKey(const Key('peak-list-peak-save'));
   Finder get summaryPane => find.byKey(const Key('peak-lists-summary-pane'));
@@ -115,6 +116,14 @@ class PeakListsRobot {
     await tester.tap(addPeakButton);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  Future<void> openPeakDialog(int peakId) async {
+    final row = find.byKey(Key('peak-lists-details-row-$peakId'));
+    tester.widget<InkWell>(row).onTap!();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pumpAndSettle();
   }
 
   Future<void> toggleAddPeak(int peakId) async {
