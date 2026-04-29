@@ -20,7 +20,10 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byKey(const Key('import-tracks-fab')));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+    await container.read(mapProvider.notifier).rescanTracks();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
@@ -81,7 +84,10 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byKey(const Key('import-tracks-fab')));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+    await container.read(mapProvider.notifier).rescanTracks();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 

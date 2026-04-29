@@ -10,6 +10,7 @@ import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/router.dart';
+import 'package:peak_bagger/services/gpx_track_repository.dart';
 
 import '../../harness/test_map_notifier.dart';
 
@@ -56,9 +57,16 @@ class GpxTracksRobot {
       find.byKey(const Key('map-interaction-region'));
 
   Future<void> pumpApp() async {
+    final gpxTrackRepository = GpxTrackRepository.test(
+      InMemoryGpxTrackStorage(initialState.tracks),
+    );
+
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [mapProvider.overrideWith(() => notifier)],
+        overrides: [
+          mapProvider.overrideWith(() => notifier),
+          gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
+        ],
         child: const App(),
       ),
     );

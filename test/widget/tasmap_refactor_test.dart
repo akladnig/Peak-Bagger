@@ -59,23 +59,26 @@ void main() {
 
   testWidgets('tasmap reset reimports from csv', (tester) async {
     SharedPreferences.setMockInitialValues({});
-    final notifier = TestTasmapNotifier();
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          mapProvider.overrideWith(
-            () => TestMapNotifier(
-              MapState(
-                center: const LatLng(-41.5, 146.5),
-                zoom: 12,
-                basemap: Basemap.tracestrack,
-                syncEnabled: false,
-              ),
+    final container = ProviderContainer(
+      overrides: [
+        mapProvider.overrideWith(
+          () => TestMapNotifier(
+            MapState(
+              center: const LatLng(-41.5, 146.5),
+              zoom: 12,
+              basemap: Basemap.tracestrack,
+              syncEnabled: false,
             ),
           ),
-          tasmapStateProvider.overrideWith(() => notifier),
-        ],
+        ),
+        tasmapStateProvider.overrideWith(() => TestTasmapNotifier()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
         child: const MaterialApp(home: SettingsScreen()),
       ),
     );
@@ -83,10 +86,12 @@ void main() {
 
     await tester.tap(find.byKey(const Key('reset-map-data-tile')));
     await tester.pump();
+    await tester.tap(find.byKey(const Key('reset-map-data-confirm')));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump();
 
-    expect(notifier.state.mapCount, 75);
+    expect(container.read(tasmapStateProvider).mapCount, 75);
   });
 }
 

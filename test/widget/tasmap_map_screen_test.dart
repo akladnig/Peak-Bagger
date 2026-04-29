@@ -607,6 +607,78 @@ void main() {
     expect(find.byKey(const Key('peak-marker-layer')), findsNothing);
   });
 
+  testWidgets('imported correlated peaks render as ticked markers', (
+    tester,
+  ) async {
+    final repository = await TestTasmapRepository.create();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(
+            () => _DerivedPeakMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 12,
+                basemap: Basemap.tracestrack,
+                peaks: [
+                  Peak(
+                    osmId: 6406,
+                    name: 'Bonnet Hill',
+                    latitude: -43.0,
+                    longitude: 147.0,
+                  ),
+                ],
+                tracks: [
+                  GpxTrack(
+                    contentHash: 'hash',
+                    trackName: 'Correlated Track',
+                    gpxFile: '<gpx></gpx>',
+                    displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson(
+                      [
+                        [
+                          const LatLng(-43.0, 147.0),
+                          const LatLng(-42.9, 147.1),
+                        ],
+                      ],
+                    ),
+                    peakCorrelationProcessed: true,
+                  )..peaks.add(
+                      Peak(
+                        osmId: 6406,
+                        name: 'Bonnet Hill',
+                        latitude: -43.0,
+                        longitude: 147.0,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
+          tasmapRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(home: MapScreen()),
+      ),
+    );
+
+    await tester.pump();
+
+    final markerLayer = tester.widget<MarkerLayer>(
+      find.byKey(const Key('peak-marker-layer')),
+    );
+    final assetNames = markerLayer.markers
+        .map((marker) => (marker.child as SvgPicture).bytesLoader.toString())
+        .toList();
+
+    expect(
+      assetNames,
+      contains('SvgAssetLoader(assets/peak_marker_ticked.svg)'),
+    );
+  });
+
   testWidgets('peak layer hides below zoom 9', (tester) async {
     final map = _adamsons();
     final repository = await TestTasmapRepository.create(maps: [map]);
@@ -757,4 +829,13 @@ Tasmap50k _wellingtonTwin() {
     p3: 'DM6000080000',
     p4: 'DM9999980000',
   );
+}
+
+class _DerivedPeakMapNotifier extends MapNotifier {
+  _DerivedPeakMapNotifier(this.initialState);
+
+  final MapState initialState;
+
+  @override
+  MapState build() => initialState;
 }

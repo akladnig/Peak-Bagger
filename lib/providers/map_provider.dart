@@ -310,9 +310,7 @@ class MapNotifier extends Notifier<MapState> {
   bool _recoverySnackbarShown = false;
   String? _pendingTrackSnackbarMessage;
   String? _pendingStartupBackfillWarningMessage;
-  Set<int> _correlatedPeakIds = const {};
-
-  Set<int> get correlatedPeakIds => _correlatedPeakIds;
+  Set<int> get correlatedPeakIds => buildCorrelatedPeakIds(state.tracks);
 
   @override
   MapState build() {
@@ -1946,8 +1944,8 @@ class MapNotifier extends Notifier<MapState> {
     }
   }
 
-  void _refreshCorrelatedPeakIds(Iterable<GpxTrack> tracks) {
-    _correlatedPeakIds = buildCorrelatedPeakIds(tracks);
+  Set<int> _refreshCorrelatedPeakIds(Iterable<GpxTrack> tracks) {
+    return buildCorrelatedPeakIds(tracks);
   }
 
   bool _inRange(int value, int min, int max) {

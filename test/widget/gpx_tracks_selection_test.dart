@@ -7,6 +7,7 @@ import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/router.dart';
+import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -62,9 +63,15 @@ void main() {
 
 Future<void> _pumpMapApp(WidgetTester tester, MapState state) async {
   SharedPreferences.setMockInitialValues({});
+  final gpxTrackRepository = GpxTrackRepository.test(
+    InMemoryGpxTrackStorage(state.tracks),
+  );
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [mapProvider.overrideWith(() => TestMapNotifier(state))],
+      overrides: [
+        mapProvider.overrideWith(() => TestMapNotifier(state)),
+        gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
+      ],
       child: const App(),
     ),
   );
