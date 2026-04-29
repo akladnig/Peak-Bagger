@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
+import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/widgets/peak_search_results_list.dart';
 
 Offset peakInfoPopupTopLeft(Offset anchorScreenOffset) {
@@ -342,16 +343,21 @@ class MapInfoPopupCard extends StatelessWidget {
 
 class PeakInfoPopupCard extends StatelessWidget {
   const PeakInfoPopupCard({
-    required this.peak,
+    required this.content,
     required this.onClose,
     super.key,
   });
 
-  final Peak peak;
+  final PeakInfoContent content;
   final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
+    final peak = content.peak;
+    final elevationText = peak.elevation == null
+        ? '—'
+        : '${peak.elevation!.toStringAsFixed(0)}m';
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -383,9 +389,21 @@ class PeakInfoPopupCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Height: ${peak.elevation == null ? '—' : '${peak.elevation!.toStringAsFixed(0)}m'}',
+              'Height: $elevationText',
               style: const TextStyle(fontSize: 13),
             ),
+            const SizedBox(height: 4),
+            Text(
+              'Map: ${content.mapName}',
+              style: const TextStyle(fontSize: 13),
+            ),
+            if (content.listNames.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                'List(s): ${content.listNames.join(', ')}',
+                style: const TextStyle(fontSize: 13),
+              ),
+            ],
           ],
         ),
       ),

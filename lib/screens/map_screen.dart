@@ -720,17 +720,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   },
                 ),
               ),
-            if (mapState.peakInfoPeak != null)
+            if (mapState.peakInfo != null)
               Positioned(
                 left: peakInfoPopupTopLeft(
-                  _screenOffsetForPeak(mapState.peakInfoPeak!),
+                  _screenOffsetForPeak(mapState.peakInfo!.peak),
                 ).dx,
                 top: peakInfoPopupTopLeft(
-                  _screenOffsetForPeak(mapState.peakInfoPeak!),
+                  _screenOffsetForPeak(mapState.peakInfo!.peak),
                 ).dy,
                 child: PeakInfoPopupCard(
                   key: const Key('peak-info-popup'),
-                  peak: mapState.peakInfoPeak!,
+                  content: mapState.peakInfo!,
                   onClose: () {
                     ref.read(mapProvider.notifier).closePeakInfoPopup();
                   },

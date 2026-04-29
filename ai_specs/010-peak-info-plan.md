@@ -30,18 +30,18 @@ Peak hover/click popup on map. Central screen-space hit testing; separate peak p
 ### Phase 2: Content And Providers
 
 - **Goal**: map name + memberships; shared peak-list providers
-- [ ] `lib/providers/peak_list_provider.dart` - move peak-list repository/import/bagged providers from screen
-- [ ] `lib/screens/peak_lists_screen.dart` - import shared providers; remove screen-local definitions
-- [ ] `lib/main.dart` - update provider overrides/imports
-- [ ] `test/widget/peak_lists_screen_test.dart` - update provider override imports
-- [ ] `test/robot/peaks/peak_lists_robot.dart` - update provider override imports
-- [ ] `lib/services/peak_list_repository.dart` - skip malformed payloads in membership lookup
-- [ ] `lib/providers/map_provider.dart` - peak popup content model; membership names; MGRS/lat-lng map-name fallback
-- [ ] `lib/screens/map_screen_panels.dart` - name/height/map/list rows; `—` height; omit empty memberships
-- [ ] TDD: complete MGRS map name, lat/lng fallback, `Unknown` fallback → implement resolver
-- [ ] TDD: sorted memberships, no memberships omitted, malformed list skipped → implement lookup
-- [ ] TDD: popup content rows match spec → implement card
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/providers/peak_list_provider.dart` - move peak-list repository/import/bagged providers from screen
+- [x] `lib/screens/peak_lists_screen.dart` - import shared providers; remove screen-local definitions
+- [x] `lib/main.dart` - update provider overrides/imports
+- [x] `test/widget/peak_lists_screen_test.dart` - update provider override imports
+- [x] `test/robot/peaks/peak_lists_robot.dart` - update provider override imports
+- [x] `lib/services/peak_list_repository.dart` - skip malformed payloads in membership lookup
+- [x] `lib/providers/map_provider.dart` - peak popup content model; membership names; MGRS/lat-lng map-name fallback
+- [x] `lib/screens/map_screen_panels.dart` - name/height/map/list rows; `—` height; omit empty memberships
+- [x] TDD: complete MGRS map name, lat/lng fallback, `Unknown` fallback → implement resolver
+- [x] TDD: sorted memberships, no memberships omitted, malformed list skipped → implement lookup
+- [x] TDD: popup content rows match spec → implement card
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Placement And Cleanup
 

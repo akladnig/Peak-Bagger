@@ -5,10 +5,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peak_list.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
+import 'package:peak_bagger/services/peak_list_repository.dart';
 
 import '../harness/test_map_notifier.dart';
+import '../harness/test_tasmap_notifier.dart';
+import '../harness/test_tasmap_repository.dart';
 
 void main() {
   testWidgets('hovering a peak sets click cursor and highlight', (
@@ -106,12 +112,134 @@ void main() {
     expect(state.selectedLocation, isNotNull);
     expect(state.selectedLocation!.longitude, isNot(closeTo(147.0, 0.001)));
   });
+
+  testWidgets('peak popup shows height map and sorted memberships', (
+    tester,
+  ) async {
+    final tasmapRepository = await TestTasmapRepository.create();
+    final peakListRepository = PeakListRepository.test(
+      InMemoryPeakListStorage([
+        PeakList(
+          name: 'HWC',
+          peakList: encodePeakListItems([
+            const PeakListItem(peakOsmId: 6406, points: 1),
+          ]),
+        )..peakListId = 1,
+        PeakList(
+          name: 'Abels',
+          peakList: encodePeakListItems([
+            const PeakListItem(peakOsmId: 6406, points: 2),
+          ]),
+        )..peakListId = 2,
+      ]),
+    );
+
+    await _pumpMap(
+      tester,
+      _mapStateWithPeak(
+        peak: Peak(
+          osmId: 6406,
+          name: 'Bonnet Hill',
+          elevation: 1234,
+          latitude: -43.0,
+          longitude: 147.0,
+          gridZoneDesignator: '55G',
+          mgrs100kId: 'DM',
+          easting: '80000',
+          northing: '95000',
+        ),
+      ),
+      overrides: [
+        tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
+        tasmapStateProvider.overrideWith(
+          () => TestTasmapNotifier(tasmapRepository),
+        ),
+        peakListRepositoryProvider.overrideWithValue(peakListRepository),
+      ],
+    );
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Height: 1234m'), findsOneWidget);
+    expect(find.text('Map: Adamsons'), findsOneWidget);
+    expect(find.text('List(s): Abels, HWC'), findsOneWidget);
+  });
+
+  testWidgets('peak popup derives map from lat lng when MGRS is incomplete', (
+    tester,
+  ) async {
+    final tasmapRepository = await TestTasmapRepository.create();
+    final mapCenter = tasmapRepository.getMapCenter(
+      tasmapRepository.getAllMaps().first,
+    )!;
+
+    await _pumpMap(
+      tester,
+      _mapStateWithPeak(
+        center: mapCenter,
+        peak: Peak(
+          osmId: 6406,
+          name: 'Bonnet Hill',
+          latitude: mapCenter.latitude,
+          longitude: mapCenter.longitude,
+        ),
+      ),
+      overrides: [
+        tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
+        tasmapStateProvider.overrideWith(
+          () => TestTasmapNotifier(tasmapRepository),
+        ),
+      ],
+    );
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Map: Adamsons'), findsOneWidget);
+  });
+
+  testWidgets('peak popup falls back to unknown map and omits empty lists', (
+    tester,
+  ) async {
+    final tasmapRepository = await TestTasmapRepository.create(maps: []);
+
+    await _pumpMap(
+      tester,
+      _mapStateWithPeak(),
+      overrides: [
+        tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
+        tasmapStateProvider.overrideWith(
+          () => TestTasmapNotifier(tasmapRepository),
+        ),
+      ],
+    );
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Map: Unknown'), findsOneWidget);
+    expect(find.textContaining('List(s):'), findsNothing);
+  });
 }
 
-Future<void> _pumpMap(WidgetTester tester, MapState state) async {
+Future<void> _pumpMap(
+  WidgetTester tester,
+  MapState state, {
+  overrides = const [],
+}) async {
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [mapProvider.overrideWith(() => TestMapNotifier(state))],
+      overrides: [
+        mapProvider.overrideWith(() => TestMapNotifier(state)),
+        ...overrides,
+      ],
       child: const MaterialApp(home: MapScreen()),
     ),
   );
@@ -120,17 +248,25 @@ Future<void> _pumpMap(WidgetTester tester, MapState state) async {
 }
 
 MapState _mapStateWithPeak({
+  LatLng center = const LatLng(-43.0, 147.0),
   LatLng? selectedLocation,
   bool showInfoPopup = false,
+  Peak? peak,
 }) {
   return MapState(
-    center: const LatLng(-43.0, 147.0),
+    center: center,
     zoom: 15,
     basemap: Basemap.tracestrack,
     selectedLocation: selectedLocation,
     showInfoPopup: showInfoPopup,
     peaks: [
-      Peak(osmId: 6406, name: 'Bonnet Hill', latitude: -43.0, longitude: 147.0),
+      peak ??
+          Peak(
+            osmId: 6406,
+            name: 'Bonnet Hill',
+            latitude: -43.0,
+            longitude: 147.0,
+          ),
     ],
   );
 }

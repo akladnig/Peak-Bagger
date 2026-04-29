@@ -26,6 +26,7 @@ import 'package:peak_bagger/services/grid_reference_parser.dart';
 import 'package:peak_bagger/services/migration_marker_store.dart';
 import 'package:xml/xml.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/main.dart';
@@ -43,6 +44,18 @@ const _defaultZoom = 15.0;
 enum Basemap { tasmapTopo, tasmap50k, tasmap25k, tracestrack, openstreetmap }
 
 enum TasmapDisplayMode { overlay, none, selectedMap }
+
+class PeakInfoContent {
+  const PeakInfoContent({
+    required this.peak,
+    required this.mapName,
+    required this.listNames,
+  });
+
+  final Peak peak;
+  final String mapName;
+  final List<String> listNames;
+}
 
 class MapState {
   final LatLng center;
@@ -83,7 +96,7 @@ class MapState {
   final String? trackOperationStatus;
   final String? trackOperationWarning;
   final int? hoveredPeakId;
-  final Peak? peakInfoPeak;
+  final PeakInfoContent? peakInfo;
   final int? hoveredTrackId;
   final int? selectedTrackId;
 
@@ -126,10 +139,12 @@ class MapState {
     this.trackOperationStatus,
     this.trackOperationWarning,
     this.hoveredPeakId,
-    this.peakInfoPeak,
+    this.peakInfo,
     this.hoveredTrackId,
     this.selectedTrackId,
   });
+
+  Peak? get peakInfoPeak => peakInfo?.peak;
 
   bool get showMapOverlay => tasmapDisplayMode == TasmapDisplayMode.overlay;
 
@@ -181,7 +196,7 @@ class MapState {
     bool clearTrackOperationWarning = false,
     int? hoveredPeakId,
     bool clearHoveredPeakId = false,
-    Peak? peakInfoPeak,
+    PeakInfoContent? peakInfo,
     bool clearPeakInfoPopup = false,
     int? hoveredTrackId,
     bool clearHoveredTrackId = false,
@@ -247,9 +262,7 @@ class MapState {
       hoveredPeakId: clearHoveredPeakId
           ? null
           : (hoveredPeakId ?? this.hoveredPeakId),
-      peakInfoPeak: clearPeakInfoPopup
-          ? null
-          : (peakInfoPeak ?? this.peakInfoPeak),
+      peakInfo: clearPeakInfoPopup ? null : (peakInfo ?? this.peakInfo),
       hoveredTrackId: clearHoveredTrackId
           ? null
           : (hoveredTrackId ?? this.hoveredTrackId),
@@ -1149,7 +1162,11 @@ class MapNotifier extends Notifier<MapState> {
 
   void openPeakInfoPopup(Peak peak) {
     state = state.copyWith(
-      peakInfoPeak: peak,
+      peakInfo: PeakInfoContent(
+        peak: peak,
+        mapName: _resolvePeakMapName(peak),
+        listNames: _resolvePeakListNames(peak.osmId),
+      ),
       clearInfoPopup: true,
       clearHoveredTrackId: true,
     );
@@ -1157,6 +1174,34 @@ class MapNotifier extends Notifier<MapState> {
 
   void closePeakInfoPopup() {
     state = state.copyWith(clearPeakInfoPopup: true, clearHoveredPeakId: true);
+  }
+
+  String _resolvePeakMapName(Peak peak) {
+    try {
+      final tasmapRepository = ref.read(tasmapRepositoryProvider);
+      final hasCompleteMgrs =
+          peak.gridZoneDesignator.isNotEmpty &&
+          peak.mgrs100kId.isNotEmpty &&
+          peak.easting.isNotEmpty &&
+          peak.northing.isNotEmpty;
+      final mgrsString = hasCompleteMgrs
+          ? '${peak.gridZoneDesignator}${peak.mgrs100kId}${peak.easting}${peak.northing}'
+          : _convertToMgrs(LatLng(peak.latitude, peak.longitude));
+      return tasmapRepository.findByMgrsCodeAndCoordinates(mgrsString)?.name ??
+          'Unknown';
+    } catch (_) {
+      return 'Unknown';
+    }
+  }
+
+  List<String> _resolvePeakListNames(int peakOsmId) {
+    try {
+      return ref
+          .read(peakListRepositoryProvider)
+          .findPeakListNamesForPeak(peakOsmId);
+    } catch (_) {
+      return const [];
+    }
   }
 
   void setHoveredTrackId(int? trackId) {

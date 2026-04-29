@@ -111,9 +111,9 @@ void main() {
 
       expect(stored?.name, 'Abels');
       expect(
-        decodePeakListItems(stored!.peakList)
-            .map((item) => (item.peakOsmId, item.points))
-            .toList(),
+        decodePeakListItems(
+          stored!.peakList,
+        ).map((item) => (item.peakOsmId, item.points)).toList(),
         [(11, 7)],
       );
     });
@@ -139,29 +139,48 @@ void main() {
       );
     });
 
-    test('findPeakListNamesForPeak returns sorted unique memberships', () async {
+    test(
+      'findPeakListNamesForPeak returns sorted unique memberships',
+      () async {
+        final repository = PeakListRepository.test(
+          InMemoryPeakListStorage([
+            PeakList(
+              name: 'Zeta',
+              peakList: encodePeakListItems([
+                const PeakListItem(peakOsmId: 11, points: 2),
+                const PeakListItem(peakOsmId: 11, points: 5),
+              ]),
+            )..peakListId = 1,
+            PeakList(
+              name: 'Alpha',
+              peakList: encodePeakListItems([
+                const PeakListItem(peakOsmId: 11, points: 3),
+              ]),
+            )..peakListId = 2,
+            PeakList(name: 'Gamma', peakList: '[]')..peakListId = 3,
+          ]),
+        );
+
+        final names = repository.findPeakListNamesForPeak(11);
+
+        expect(names, ['Alpha', 'Zeta']);
+      },
+    );
+
+    test('findPeakListNamesForPeak skips malformed list payloads', () async {
       final repository = PeakListRepository.test(
         InMemoryPeakListStorage([
           PeakList(
-            name: 'Zeta',
+            name: 'Valid',
             peakList: encodePeakListItems([
               const PeakListItem(peakOsmId: 11, points: 2),
-              const PeakListItem(peakOsmId: 11, points: 5),
             ]),
           )..peakListId = 1,
-          PeakList(
-            name: 'Alpha',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 11, points: 3),
-            ]),
-          )..peakListId = 2,
-          PeakList(name: 'Gamma', peakList: '[]')..peakListId = 3,
+          PeakList(name: 'Broken', peakList: '{not json')..peakListId = 2,
         ]),
       );
 
-      final names = repository.findPeakListNamesForPeak(11);
-
-      expect(names, ['Alpha', 'Zeta']);
+      expect(repository.findPeakListNamesForPeak(11), ['Valid']);
     });
   });
 }
