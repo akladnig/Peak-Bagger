@@ -14,6 +14,7 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/services/peak_hover_detector.dart';
 import 'package:peak_bagger/services/track_hover_detector.dart';
 import 'package:peak_bagger/widgets/map_action_rail.dart';
 import 'package:peak_bagger/widgets/map_basemaps_drawer.dart';
@@ -111,7 +112,93 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     if (mapState.hoveredTrackId != null) {
       return SystemMouseCursors.click;
     }
+    if (mapState.hoveredPeakId != null) {
+      return SystemMouseCursors.click;
+    }
     return SystemMouseCursors.grab;
+  }
+
+  bool _handlePeakHover(Offset localPosition, MapState mapState) {
+    final notifier = ref.read(mapProvider.notifier);
+
+    if (_isPointerDown || !mapState.showPeaks || mapState.zoom < 9) {
+      notifier.clearHoveredPeak();
+      return false;
+    }
+
+    final peak = _hitTestPeak(localPosition, mapState);
+    notifier.setHoveredPeakId(peak?.osmId);
+    return peak != null;
+  }
+
+  Peak? _hitTestPeak(Offset localPosition, MapState mapState) {
+    if (!mapState.showPeaks || mapState.zoom < 9) {
+      return null;
+    }
+
+    final camera = _mapController.camera;
+    if (camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      return null;
+    }
+
+    final candidates = _buildPeakHoverCandidates(mapState, camera);
+    if (candidates.isEmpty) {
+      return null;
+    }
+
+    final result = PeakHoverDetector.findHoveredPeak(
+      pointerPosition: localPosition,
+      candidates: candidates,
+    );
+    final peakId = result.hoveredPeakId;
+    if (peakId == null) {
+      return null;
+    }
+    for (final peak in mapState.peaks) {
+      if (peak.osmId == peakId) {
+        return peak;
+      }
+    }
+    return null;
+  }
+
+  List<PeakHoverCandidate> _buildPeakHoverCandidates(
+    MapState mapState,
+    MapCamera camera,
+  ) {
+    final correlatedPeakIds = ref.read(mapProvider.notifier).correlatedPeakIds;
+    final untickedCandidates = <PeakHoverCandidate>[];
+    final tickedCandidates = <PeakHoverCandidate>[];
+
+    for (final peak in mapState.peaks) {
+      final candidate = PeakHoverCandidate(
+        peakId: peak.osmId,
+        screenPosition: camera.latLngToScreenOffset(
+          LatLng(peak.latitude, peak.longitude),
+        ),
+      );
+      if (correlatedPeakIds.contains(peak.osmId)) {
+        tickedCandidates.add(candidate);
+      } else {
+        untickedCandidates.add(candidate);
+      }
+    }
+
+    return [...untickedCandidates, ...tickedCandidates];
+  }
+
+  void _handleMapHover(
+    Offset localPosition,
+    LatLng location,
+    MapState mapState,
+  ) {
+    final notifier = ref.read(mapProvider.notifier);
+    notifier.setCursorMgrs(location);
+    if (_handlePeakHover(localPosition, mapState)) {
+      notifier.clearHoveredTrack();
+      return;
+    }
+    _handleTrackHover(localPosition, location, mapState);
   }
 
   void _handleTrackHover(
@@ -356,6 +443,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               onExit: (_) {
                 final notifier = ref.read(mapProvider.notifier);
                 notifier.clearCursorMgrs();
+                notifier.clearHoveredPeak();
                 notifier.clearHoveredTrack();
               },
               child: FlutterMap(
@@ -388,10 +476,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       _pointerDownPosition = null;
                       _primaryClickPending = false;
                     });
-                    if (ref.read(mapProvider).showInfoPopup) {
-                      ref.read(mapProvider.notifier).toggleInfoPopup();
-                    }
                     if (!moved) {
+                      final notifier = ref.read(mapProvider.notifier);
+                      final tappedPeak = _hitTestPeak(
+                        event.localPosition,
+                        ref.read(mapProvider),
+                      );
+                      if (tappedPeak != null) {
+                        notifier.openPeakInfoPopup(tappedPeak);
+                        return;
+                      }
+                      if (ref.read(mapProvider).showInfoPopup) {
+                        notifier.toggleInfoPopup();
+                      }
                       final tappedLocation = _mapController.camera
                           .screenOffsetToLatLng(event.localPosition);
                       _handleTrackHover(
@@ -399,7 +496,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         tappedLocation,
                         mapState,
                       );
-                      final notifier = ref.read(mapProvider.notifier);
                       if (primaryClickPending ||
                           event.kind != PointerDeviceKind.mouse) {
                         notifier.setSelectedLocation(tappedLocation);
@@ -420,10 +516,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       _pointerDownPosition = null;
                     });
                     ref.read(mapProvider.notifier).clearHoveredTrack();
+                    ref.read(mapProvider.notifier).clearHoveredPeak();
                   },
                   onPointerHover: (event, point) {
-                    ref.read(mapProvider.notifier).setCursorMgrs(point);
-                    _handleTrackHover(event.localPosition, point, mapState);
+                    _handleMapHover(event.localPosition, point, mapState);
                   },
                   onPositionChanged: (position, hasGesture) {
                     if (hasGesture) {
@@ -510,6 +606,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                             .correlatedPeakIds,
                         tickedPeakMarker: _tickedPeakMarker,
                         untickedPeakMarker: _untickedPeakMarker,
+                        hoveredPeakId: mapState.hoveredPeakId,
                       ),
                     ),
                   if (mapState.showSelectedMapLayer)
@@ -620,6 +717,22 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   trackCount: mapState.tracks.length,
                   onClose: () {
                     ref.read(mapProvider.notifier).toggleInfoPopup();
+                  },
+                ),
+              ),
+            if (mapState.peakInfoPeak != null)
+              Positioned(
+                left: peakInfoPopupTopLeft(
+                  _screenOffsetForPeak(mapState.peakInfoPeak!),
+                ).dx,
+                top: peakInfoPopupTopLeft(
+                  _screenOffsetForPeak(mapState.peakInfoPeak!),
+                ).dy,
+                child: PeakInfoPopupCard(
+                  key: const Key('peak-info-popup'),
+                  peak: mapState.peakInfoPeak!,
+                  onClose: () {
+                    ref.read(mapProvider.notifier).closePeakInfoPopup();
                   },
                 ),
               ),
@@ -749,6 +862,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     } catch (_) {
       return 'Unknown';
     }
+  }
+
+  Offset _screenOffsetForPeak(Peak peak) {
+    final camera = _mapController.camera;
+    if (camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      return const Offset(0, 0);
+    }
+    return camera.latLngToScreenOffset(LatLng(peak.latitude, peak.longitude));
   }
 
   void _handleMapReady() {

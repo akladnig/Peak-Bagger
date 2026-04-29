@@ -25,7 +25,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  bool _isDownloading = false;
+  final bool _isDownloading = false;
   bool _isRefreshingPeaks = false;
   bool _isResettingMaps = false;
   String _status = '';
@@ -1040,10 +1040,11 @@ class _TileCacheSettingsScreenState
     if (confirmed == true) {
       await TileCacheService.clearStore(_selectedBasemap.name);
       _loadAllStats();
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Cache cleared')));
+      }
     }
   }
 }

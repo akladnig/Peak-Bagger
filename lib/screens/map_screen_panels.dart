@@ -5,6 +5,10 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/widgets/peak_search_results_list.dart';
 
+Offset peakInfoPopupTopLeft(Offset anchorScreenOffset) {
+  return anchorScreenOffset + const Offset(16, -50);
+}
+
 class MapMgrsReadout extends StatelessWidget {
   const MapMgrsReadout({required this.mgrs, super.key});
 
@@ -329,6 +333,59 @@ class MapInfoPopupCard extends StatelessWidget {
                 ],
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class PeakInfoPopupCard extends StatelessWidget {
+  const PeakInfoPopupCard({
+    required this.peak,
+    required this.onClose,
+    super.key,
+  });
+
+  final Peak peak;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.terrain, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  peak.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  key: const Key('peak-info-popup-close'),
+                  icon: const Icon(Icons.close, size: 16),
+                  onPressed: onClose,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Height: ${peak.elevation == null ? '—' : '${peak.elevation!.toStringAsFixed(0)}m'}',
+              style: const TextStyle(fontSize: 13),
+            ),
           ],
         ),
       ),

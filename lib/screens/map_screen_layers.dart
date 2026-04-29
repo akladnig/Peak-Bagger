@@ -85,6 +85,7 @@ List<Marker> buildPeakMarkers({
   required Set<int> correlatedPeakIds,
   required SvgPicture tickedPeakMarker,
   required SvgPicture untickedPeakMarker,
+  int? hoveredPeakId,
   bool suppressBelowZoom = true,
 }) {
   if (suppressBelowZoom && zoom < 9) {
@@ -95,13 +96,32 @@ List<Marker> buildPeakMarkers({
   final tickedMarkers = <Marker>[];
 
   for (final peak in peaks) {
+    final markerChild = correlatedPeakIds.contains(peak.osmId)
+        ? tickedPeakMarker
+        : untickedPeakMarker;
+    final isHovered = peak.osmId == hoveredPeakId;
     final marker = Marker(
+      key: Key('peak-marker-hitbox-${peak.osmId}'),
       point: LatLng(peak.latitude, peak.longitude),
-      width: 20,
-      height: 20,
-      child: correlatedPeakIds.contains(peak.osmId)
-          ? tickedPeakMarker
-          : untickedPeakMarker,
+      width: isHovered ? 32 : 20,
+      height: isHovered ? 32 : 20,
+      child: isHovered
+          ? Stack(
+              key: Key('peak-marker-hover-${peak.osmId}'),
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.amber, width: 3),
+                  ),
+                ),
+                SizedBox(width: 20, height: 20, child: markerChild),
+              ],
+            )
+          : markerChild,
     );
     if (correlatedPeakIds.contains(peak.osmId)) {
       tickedMarkers.add(marker);

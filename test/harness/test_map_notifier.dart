@@ -120,6 +120,7 @@ class TestMapNotifier extends MapNotifier {
     state = state.copyWith(
       showInfoPopup: !isVisible,
       clearInfoPopup: isVisible,
+      clearPeakInfoPopup: !isVisible,
     );
   }
 

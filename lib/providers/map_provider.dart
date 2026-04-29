@@ -82,6 +82,8 @@ class MapState {
   final bool hasTrackRecoveryIssue;
   final String? trackOperationStatus;
   final String? trackOperationWarning;
+  final int? hoveredPeakId;
+  final Peak? peakInfoPeak;
   final int? hoveredTrackId;
   final int? selectedTrackId;
 
@@ -123,6 +125,8 @@ class MapState {
     this.hasTrackRecoveryIssue = false,
     this.trackOperationStatus,
     this.trackOperationWarning,
+    this.hoveredPeakId,
+    this.peakInfoPeak,
     this.hoveredTrackId,
     this.selectedTrackId,
   });
@@ -175,6 +179,10 @@ class MapState {
     bool clearTrackOperationStatus = false,
     String? trackOperationWarning,
     bool clearTrackOperationWarning = false,
+    int? hoveredPeakId,
+    bool clearHoveredPeakId = false,
+    Peak? peakInfoPeak,
+    bool clearPeakInfoPopup = false,
     int? hoveredTrackId,
     bool clearHoveredTrackId = false,
     int? selectedTrackId,
@@ -236,6 +244,12 @@ class MapState {
       trackOperationWarning: clearTrackOperationWarning
           ? null
           : (trackOperationWarning ?? this.trackOperationWarning),
+      hoveredPeakId: clearHoveredPeakId
+          ? null
+          : (hoveredPeakId ?? this.hoveredPeakId),
+      peakInfoPeak: clearPeakInfoPopup
+          ? null
+          : (peakInfoPeak ?? this.peakInfoPeak),
       hoveredTrackId: clearHoveredTrackId
           ? null
           : (hoveredTrackId ?? this.hoveredTrackId),
@@ -1059,6 +1073,7 @@ class MapNotifier extends Notifier<MapState> {
       zoom: zoom,
       currentMgrs: _convertToMgrs(center),
       clearCursorMgrs: true,
+      clearHoveredPeakId: true,
       clearHoveredTrackId: true,
     );
     savePosition();
@@ -1075,6 +1090,7 @@ class MapNotifier extends Notifier<MapState> {
       clearGotoMgrs: true,
       selectedLocation: location,
       syncEnabled: true,
+      clearHoveredPeakId: true,
       clearHoveredTrackId: true,
     );
     savePosition();
@@ -1107,6 +1123,7 @@ class MapNotifier extends Notifier<MapState> {
         center: selected,
         currentMgrs: _convertToMgrs(selected),
         syncEnabled: true,
+        clearHoveredPeakId: true,
         clearHoveredTrackId: true,
         clearGotoMgrs: true,
       );
@@ -1116,6 +1133,30 @@ class MapNotifier extends Notifier<MapState> {
 
   void clearCursorMgrs() {
     state = state.copyWith(clearCursorMgrs: true);
+  }
+
+  void setHoveredPeakId(int? peakId) {
+    if (peakId == null) {
+      clearHoveredPeak();
+      return;
+    }
+    state = state.copyWith(hoveredPeakId: peakId);
+  }
+
+  void clearHoveredPeak() {
+    state = state.copyWith(clearHoveredPeakId: true);
+  }
+
+  void openPeakInfoPopup(Peak peak) {
+    state = state.copyWith(
+      peakInfoPeak: peak,
+      clearInfoPopup: true,
+      clearHoveredTrackId: true,
+    );
+  }
+
+  void closePeakInfoPopup() {
+    state = state.copyWith(clearPeakInfoPopup: true, clearHoveredPeakId: true);
   }
 
   void setHoveredTrackId(int? trackId) {
@@ -1796,6 +1837,7 @@ class MapNotifier extends Notifier<MapState> {
       infoMgrs: mgrs,
       infoPeakName: peakName,
       infoPeakElevation: peakElevation,
+      clearPeakInfoPopup: true,
     );
   }
 
