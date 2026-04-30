@@ -54,10 +54,10 @@ Prepare/commit service, deterministic seams, Settings wiring, robot journey.
 ### Phase 5: Robot Journeys
 
 - **Goal**: critical user journeys, key-first selectors
-- [ ] `test/robot/settings/list_exports_robot.dart` - robot methods for Settings navigation, export actions, confirmations, result assertions
-- [ ] `test/robot/settings/list_exports_journey_test.dart` - Robot: peak-list happy path via fake picker/service/filesystem
-- [ ] `test/robot/settings/list_exports_journey_test.dart` - Robot: warning path shows warning count + `export.log` path/log failure message
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `test/robot/settings/list_exports_robot.dart` - robot methods for Settings navigation, export actions, confirmations, result assertions
+- [x] `test/robot/settings/list_exports_journey_test.dart` - Robot: peak-list happy path via fake picker/service/filesystem
+- [x] `test/robot/settings/list_exports_journey_test.dart` - Robot: warning path shows warning count + `export.log` path/log failure message
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 
