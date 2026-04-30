@@ -37,11 +37,11 @@ Prepare/commit service, deterministic seams, Settings wiring, robot journey.
 ### Phase 3: Filesystem Semantics
 
 - **Goal**: overwrite, temp writes, partial-failure semantics
-- [ ] `lib/services/data_export_service.dart` - prepare overwrite conflicts; commit temp writes; final replacement; `export.log` after final success only
-- [ ] `lib/services/data_export_file_picker.dart` - platform `getDirectoryPath(initialDirectory: ...)`
-- [ ] `test/services/data_export_service_test.dart` - TDD: prepare no writes/logs; commit uses prepared payloads without repository reread
-- [ ] `test/services/data_export_service_test.dart` - TDD: overwrite declined no writes/logs; temp write failure cleanup; final replacement failure partial warning and no `export.log`
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/services/data_export_service.dart` - prepare overwrite conflicts; commit temp writes; final replacement; `export.log` after final success only
+- [x] `lib/services/data_export_file_picker.dart` - platform `getDirectoryPath(initialDirectory: ...)`
+- [x] `test/services/data_export_service_test.dart` - TDD: prepare no writes/logs; commit uses prepared payloads without repository reread
+- [x] `test/services/data_export_service_test.dart` - TDD: overwrite declined no writes/logs; temp write failure cleanup; final replacement failure partial warning and no `export.log`
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 4: Settings Integration
 

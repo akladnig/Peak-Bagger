@@ -299,12 +299,172 @@ void main() {
       });
     },
   );
+
+  test('prepare reports overwrite conflicts without writes or logs', () async {
+    final fileSystem = RecordingDataExportFileSystem(
+      existingFiles: {'/tmp/export/peaks.csv'},
+    );
+    final service = DefaultDataExportService(
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          Peak(osmId: 1, name: 'Alpha', latitude: -41, longitude: 145),
+        ]),
+      ),
+      peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
+      fileSystem: fileSystem,
+      clock: () => DateTime.utc(2024, 1, 2, 3, 4, 5),
+    );
+
+    final plan = await service.preparePeaksExport('/tmp/export');
+
+    expect(plan.overwriteConflicts, ['/tmp/export/peaks.csv']);
+    expect(fileSystem.writes, isEmpty);
+    expect(fileSystem.replacements, isEmpty);
+    expect(fileSystem.appendedLogs, isEmpty);
+  });
+
+  test('commit with declined overwrite conflict writes nothing', () async {
+    final fileSystem = RecordingDataExportFileSystem(
+      existingFiles: {'/tmp/export/peaks.csv'},
+    );
+    final service = DefaultDataExportService(
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          Peak(osmId: 1, name: 'Alpha', latitude: -41, longitude: 145),
+        ]),
+      ),
+      peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
+      fileSystem: fileSystem,
+      clock: () => DateTime.utc(2024, 1, 2, 3, 4, 5),
+    );
+    final plan = await service.preparePeaksExport('/tmp/export');
+
+    final result = await service.commitExport(plan, allowOverwrite: false);
+
+    expect(result.exportedFileCount, 0);
+    expect(result.exportedRowCount, 0);
+    expect(fileSystem.writes, isEmpty);
+    expect(fileSystem.replacements, isEmpty);
+    expect(fileSystem.appendedLogs, isEmpty);
+  });
+
+  test(
+    'temporary write failure cleans up attempted temps and replaces nothing',
+    () async {
+      final fileSystem = RecordingDataExportFileSystem(
+        failWritePath: '/tmp/export/beta-list-peak-list.csv.tmp',
+      );
+      final service = _peakListExportService(fileSystem);
+      final plan = await service.preparePeakListsExport(
+        '/tmp/export',
+        logDirectory: '/tmp/root',
+      );
+
+      await expectLater(
+        service.commitExport(plan),
+        throwsA(isA<DataExportException>()),
+      );
+
+      expect(fileSystem.replacements, isEmpty);
+      expect(fileSystem.deletedFiles, [
+        '/tmp/export/alpha-list-peak-list.csv.tmp',
+        '/tmp/export/beta-list-peak-list.csv.tmp',
+      ]);
+      expect(fileSystem.appendedLogs, isEmpty);
+    },
+  );
+
+  test(
+    'final replacement failure reports partial export and skips log append',
+    () async {
+      final fileSystem = RecordingDataExportFileSystem(
+        failReplaceTarget: '/tmp/export/beta-list-peak-list.csv',
+      );
+      final service = _peakListExportService(
+        fileSystem,
+        includeMissingPeak: true,
+      );
+      final plan = await service.preparePeakListsExport(
+        '/tmp/export',
+        logDirectory: '/tmp/root',
+      );
+
+      await expectLater(
+        service.commitExport(plan),
+        throwsA(
+          isA<DataExportException>().having(
+            (error) => error.message,
+            'message',
+            contains('may be partially written'),
+          ),
+        ),
+      );
+
+      expect(fileSystem.replacements, [
+        (
+          '/tmp/export/alpha-list-peak-list.csv.tmp',
+          '/tmp/export/alpha-list-peak-list.csv',
+        ),
+      ]);
+      expect(
+        fileSystem.deletedFiles,
+        contains('/tmp/export/beta-list-peak-list.csv.tmp'),
+      );
+      expect(fileSystem.appendedLogs, isEmpty);
+    },
+  );
+}
+
+DefaultDataExportService _peakListExportService(
+  RecordingDataExportFileSystem fileSystem, {
+  bool includeMissingPeak = false,
+}) {
+  return DefaultDataExportService(
+    peakRepository: PeakRepository.test(
+      InMemoryPeakStorage([
+        Peak(osmId: 10, name: 'Alpha Peak', latitude: -41.1, longitude: 145.1),
+        Peak(osmId: 20, name: 'Beta Peak', latitude: -42.2, longitude: 146.2),
+      ]),
+    ),
+    peakListRepository: PeakListRepository.test(
+      InMemoryPeakListStorage([
+        PeakList(
+          peakListId: 1,
+          name: 'Alpha List',
+          peakList: encodePeakListItems([
+            const PeakListItem(peakOsmId: 10, points: 1),
+            if (includeMissingPeak)
+              const PeakListItem(peakOsmId: 99, points: 9),
+          ]),
+        ),
+        PeakList(
+          peakListId: 2,
+          name: 'Beta List',
+          peakList: encodePeakListItems([
+            const PeakListItem(peakOsmId: 20, points: 2),
+          ]),
+        ),
+      ]),
+    ),
+    fileSystem: fileSystem,
+    clock: () => DateTime.utc(2024, 1, 2, 3, 4, 5),
+  );
 }
 
 class RecordingDataExportFileSystem implements DataExportFileSystem {
+  RecordingDataExportFileSystem({
+    this.existingFiles = const {},
+    this.failWritePath,
+    this.failReplaceTarget,
+  });
+
+  final Set<String> existingFiles;
+  final String? failWritePath;
+  final String? failReplaceTarget;
   final writes = <String, String>{};
   final replacements = <(String, String)>[];
   final appendedLogs = <String, List<String>>{};
+  final deletedFiles = <String>[];
 
   @override
   Future<void> appendLog(String path, List<String> entries) async {
@@ -315,24 +475,32 @@ class RecordingDataExportFileSystem implements DataExportFileSystem {
   Future<bool> directoryExists(String path) async => true;
 
   @override
-  Future<bool> fileExists(String path) async => false;
+  Future<bool> fileExists(String path) async => existingFiles.contains(path);
 
   @override
   Future<bool> isDirectoryWritable(String path) async => true;
 
   @override
-  Future<void> deleteFileIfExists(String path) async {}
+  Future<void> deleteFileIfExists(String path) async {
+    deletedFiles.add(path);
+  }
 
   @override
   Future<void> replaceFile({
     required String tempPath,
     required String targetPath,
   }) async {
+    if (targetPath == failReplaceTarget) {
+      throw Exception('replace failed');
+    }
     replacements.add((tempPath, targetPath));
   }
 
   @override
   Future<void> writeTextFile(String path, String contents) async {
+    if (path == failWritePath) {
+      throw Exception('write failed');
+    }
     writes[path] = contents;
   }
 }

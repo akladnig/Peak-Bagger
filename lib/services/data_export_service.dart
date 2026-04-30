@@ -15,7 +15,10 @@ abstract class DataExportService {
     required String logDirectory,
   });
 
-  Future<DataExportCommitResult> commitExport(DataExportPlan plan);
+  Future<DataExportCommitResult> commitExport(
+    DataExportPlan plan, {
+    bool allowOverwrite = true,
+  });
 }
 
 abstract class DataExportFileSystem {
@@ -192,14 +195,42 @@ class DefaultDataExportService implements DataExportService {
   }
 
   @override
-  Future<DataExportCommitResult> commitExport(DataExportPlan plan) async {
-    for (final target in plan.targets) {
-      final tempPath = '${target.path}.tmp';
-      await _fileSystem.writeTextFile(tempPath, target.payload);
-      await _fileSystem.replaceFile(
-        tempPath: tempPath,
-        targetPath: target.path,
+  Future<DataExportCommitResult> commitExport(
+    DataExportPlan plan, {
+    bool allowOverwrite = true,
+  }) async {
+    if (!allowOverwrite && plan.overwriteConflicts.isNotEmpty) {
+      return const DataExportCommitResult(
+        exportedFileCount: 0,
+        exportedRowCount: 0,
+        warningCount: 0,
       );
+    }
+
+    final tempPaths = <String>[];
+    try {
+      for (final target in plan.targets) {
+        final tempPath = '${target.path}.tmp';
+        tempPaths.add(tempPath);
+        await _fileSystem.writeTextFile(tempPath, target.payload);
+      }
+    } catch (e) {
+      await _deleteTempFiles(tempPaths);
+      throw DataExportException('Could not write export files: $e');
+    }
+
+    try {
+      for (final target in plan.targets) {
+        final tempPath = '${target.path}.tmp';
+        await _fileSystem.replaceFile(
+          tempPath: tempPath,
+          targetPath: target.path,
+        );
+        tempPaths.remove(tempPath);
+      }
+    } catch (e) {
+      await _deleteTempFiles(tempPaths);
+      throw DataExportException('Export may be partially written: $e');
     }
 
     String? logWarning;
@@ -218,6 +249,16 @@ class DefaultDataExportService implements DataExportService {
       logPath: logWarning == null ? plan.warningLogPath : null,
       logWarning: logWarning,
     );
+  }
+
+  Future<void> _deleteTempFiles(List<String> tempPaths) async {
+    for (final tempPath in tempPaths) {
+      try {
+        await _fileSystem.deleteFileIfExists(tempPath);
+      } catch (_) {
+        // Failure cleanup is best-effort; preserve the original export error.
+      }
+    }
   }
 
   Future<void> _ensureWritableDirectory(String outputDirectory) async {
