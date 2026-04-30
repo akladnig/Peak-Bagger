@@ -19,12 +19,12 @@ class GpxTracksHarness {
   final Directory tasmaniaDir;
 
   static Future<GpxTracksHarness> create({dynamic overrides = const []}) async {
-    final root = await Directory.systemTemp.createTemp('gpx-tracks-harness');
+    final root = Directory.systemTemp.createTempSync('gpx-tracks-harness');
     final storeDir = Directory('${root.path}/store')..createSync();
     final tracksDir = Directory('${root.path}/Tracks')..createSync();
     final tasmaniaDir = Directory('${tracksDir.path}/Tasmania')..createSync();
 
-    await File('${tracksDir.path}/tas-track.gpx').writeAsString(_tasmanianGpx);
+    File('${tracksDir.path}/tas-track.gpx').writeAsStringSync(_tasmanianGpx);
 
     GpxImporter.debugTracksFolderOverride = tracksDir.path;
     GpxImporter.debugTasmaniaFolderOverride = tasmaniaDir.path;

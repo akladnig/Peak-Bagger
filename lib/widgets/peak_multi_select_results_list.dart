@@ -7,6 +7,7 @@ class PeakMultiSelectResultsList extends StatelessWidget {
     required this.searchResults,
     required this.searchQuery,
     required this.selectedPeakIds,
+    this.readOnlySelectedPeakIds = const {},
     required this.onSelectionChanged,
     required this.mapNameForPeak,
     super.key,
@@ -15,6 +16,7 @@ class PeakMultiSelectResultsList extends StatelessWidget {
   final List<Peak> searchResults;
   final String searchQuery;
   final Set<int> selectedPeakIds;
+  final Set<int> readOnlySelectedPeakIds;
   final ValueChanged<Set<int>> onSelectionChanged;
   final String Function(Peak peak) mapNameForPeak;
 
@@ -60,13 +62,19 @@ class PeakMultiSelectResultsList extends StatelessWidget {
             separatorBuilder: (context, index) => const Divider(height: 1),
             itemBuilder: (context, index) {
               final peak = sortedResults[index];
-              final selected = selectedPeakIds.contains(peak.osmId);
-              final canSelect = selected || !selectionLimitReached;
+              final readOnlySelected = readOnlySelectedPeakIds.contains(
+                peak.osmId,
+              );
+              final selected =
+                  selectedPeakIds.contains(peak.osmId) || readOnlySelected;
+              final canSelect =
+                  !readOnlySelected && (selected || !selectionLimitReached);
               return _PeakSearchResultRow(
                 key: Key('peak-multi-select-row-${peak.osmId}'),
                 peak: peak,
                 selectedPeakIds: selectedPeakIds,
                 selected: selected,
+                readOnlySelected: readOnlySelected,
                 canToggleSelection: canSelect,
                 mapName: mapNameForPeak(peak),
                 onSelectionChanged: onSelectionChanged,
@@ -85,6 +93,7 @@ class _PeakSearchResultRow extends StatelessWidget {
     required this.peak,
     required this.selectedPeakIds,
     required this.selected,
+    required this.readOnlySelected,
     required this.canToggleSelection,
     required this.mapName,
     required this.onSelectionChanged,
@@ -93,6 +102,7 @@ class _PeakSearchResultRow extends StatelessWidget {
   final Peak peak;
   final Set<int> selectedPeakIds;
   final bool selected;
+  final bool readOnlySelected;
   final bool canToggleSelection;
   final String mapName;
   final ValueChanged<Set<int>> onSelectionChanged;
@@ -102,6 +112,7 @@ class _PeakSearchResultRow extends StatelessWidget {
     final checkboxKey = Key('peak-multi-select-checkbox-${peak.osmId}');
 
     return Container(
+      color: selected ? Colors.green.withValues(alpha: 0.12) : null,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -115,12 +126,17 @@ class _PeakSearchResultRow extends StatelessWidget {
           ),
           Expanded(
             flex: 3,
-            child: Text(
-              peak.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              child: Text(
+                peak.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: readOnlySelected
+                    ? Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      )
+                    : null,
+              ),
             ),
-          ),
           const SizedBox(width: 8),
           Expanded(
             flex: 1,

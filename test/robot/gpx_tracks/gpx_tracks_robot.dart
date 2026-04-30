@@ -15,12 +15,12 @@ import 'package:peak_bagger/services/gpx_track_repository.dart';
 import '../../harness/test_map_notifier.dart';
 
 class GpxTracksRobot {
-  GpxTracksRobot(this.tester, this.initialState, {TestMapNotifier? notifier})
+  GpxTracksRobot(this.tester, this.initialState, {MapNotifier? notifier})
     : notifier = notifier ?? TestMapNotifier(initialState);
 
   final WidgetTester tester;
   final MapState initialState;
-  final TestMapNotifier notifier;
+  final MapNotifier notifier;
   TestGesture? _mouseGesture;
   bool _mouseAdded = false;
 
@@ -108,6 +108,28 @@ class GpxTracksRobot {
     await tester.pumpAndSettle();
     await tester.tap(recalcStatsConfirm);
     await tester.pumpAndSettle();
+  }
+
+  Future<void> openImportDialog() async {
+    await tester.tap(importFab);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  Future<void> selectImportFiles() async {
+    await tester.tap(find.byKey(const Key('gpx-track-select-files')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  Future<void> confirmImport() async {
+    await tester.tap(find.byKey(const Key('gpx-track-import-button')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  void expectImportDialogVisible() {
+    expect(find.byKey(const Key('gpx-track-import-dialog')), findsOneWidget);
   }
 
   Future<void> openSettingsFromStartupWarning() async {

@@ -550,8 +550,20 @@ void main() {
     expect(find.byKey(const Key('peak-selected-row-202')), findsOneWidget);
     expect(find.byKey(const Key('peak-selected-checkbox-202')), findsOneWidget);
     expect(find.byKey(const Key('peak-selected-points-202')), findsOneWidget);
-    expect(find.text('1200m'), findsOneWidget);
-    expect(find.text('Resolved Map'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('peak-selected-row-202')),
+        matching: find.text('1200m'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('peak-selected-row-202')),
+        matching: find.text('Resolved Map'),
+      ),
+      findsOneWidget,
+    );
     expect(
       tester
           .widget<TextField>(
@@ -563,7 +575,7 @@ void main() {
     );
   });
 
-  testWidgets('add mode filters existing peaks and saves multiple', (
+  testWidgets('add mode shows existing peaks as checked and saves new ones', (
     tester,
   ) async {
     final listRepository = PeakListRepository.test(
@@ -579,7 +591,7 @@ void main() {
     );
     final peakA = _buildPeak(
       osmId: 101,
-      name: 'Already In List',
+      name: 'Existing Peak',
       latitude: -41,
       longitude: 146,
     );
@@ -606,11 +618,19 @@ void main() {
 
     await tester.enterText(
       find.byKey(const Key('peak-list-peak-search-input')),
-      'New',
+      'Peak',
     );
     await tester.pump();
 
-    expect(find.byKey(const Key('peak-list-peak-result-101')), findsNothing);
+    expect(find.byKey(const Key('peak-multi-select-row-101')), findsOneWidget);
+    expect(
+      tester.widget<Checkbox>(find.byKey(const Key('peak-multi-select-checkbox-101'))).value,
+      isTrue,
+    );
+    expect(
+      tester.widget<Checkbox>(find.byKey(const Key('peak-multi-select-checkbox-101'))).onChanged,
+      isNull,
+    );
     expect(find.byKey(const Key('peak-multi-select-row-202')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-202')));
@@ -686,6 +706,13 @@ void main() {
     await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-200')));
     await tester.pump();
 
+    expect(find.byKey(const Key('peak-multi-select-row-100')), findsOneWidget);
+    expect(
+      tester.widget<Checkbox>(find.byKey(const Key('peak-multi-select-checkbox-100'))).value,
+      isTrue,
+    );
+    expect(find.byKey(const Key('peak-selected-row-100')), findsOneWidget);
+
     await tester.enterText(
       find.byKey(const Key('peak-selected-points-300')),
       '7',
@@ -711,6 +738,52 @@ void main() {
       ).map((item) => (item.peakOsmId, item.points)).toList(),
       [(100, 3), (200, 5), (300, 7)],
     );
+  });
+
+  testWidgets('add mode splits search and selected panes evenly', (tester) async {
+    final listRepository = PeakListRepository.test(
+      InMemoryPeakListStorage([
+        PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+      ]),
+    );
+
+    final completer = await _pumpDialog(
+      tester,
+      dialog: PeakListPeakDialog(
+        mode: PeakListPeakDialogMode.add,
+        peakList: listRepository.getAllPeakLists().single,
+        peakListRepository: listRepository,
+        peakItems: const [],
+        ascentRows: const [],
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(osmId: 300, name: 'Zulu Peak', latitude: -41, longitude: 146),
+          _buildPeak(osmId: 100, name: 'Alpha Peak', latitude: -41.1, longitude: 146.1),
+          _buildPeak(osmId: 200, name: 'Mike Peak', latitude: -41.2, longitude: 146.2),
+        ]),
+      ),
+      tasmapRepository: await TestTasmapRepository.create(),
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+    );
+
+    await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-100')));
+    await tester.pump();
+
+    final resultsPanelHeight = tester.getSize(
+      find.byKey(const Key('peak-list-peak-results-panel')),
+    ).height;
+    final selectedPanelHeight = tester.getSize(
+      find.byKey(const Key('peak-list-peak-selected-panel')),
+    ).height;
+
+    expect(resultsPanelHeight, closeTo(selectedPanelHeight, 0.1));
+    expect(find.byKey(const Key('peak-selected-row-100')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('peak-list-peak-save')));
+    await tester.pumpAndSettle();
+
+    expect(await completer.future, isNotNull);
   });
 
   testWidgets('edit mode updates points only', (tester) async {

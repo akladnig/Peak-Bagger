@@ -29,6 +29,35 @@ void main() {
       tester.widget<Checkbox>(find.byKey(const Key('peak-multi-select-checkbox-1'))).value,
       isTrue,
     );
+    expect(
+      tester
+          .widget<Container>(
+            find.descendant(
+              of: find.byKey(const Key('peak-multi-select-row-1')),
+              matching: find.byType(Container),
+            ).first,
+          )
+          .color,
+      Colors.green.withValues(alpha: 0.12),
+    );
+  });
+
+  testWidgets('read-only selected peaks stay checked and disabled', (tester) async {
+    await tester.pumpWidget(
+      _Harness(
+        searchResults: [_peak(1, 'Alpha Peak')],
+        readOnlySelectedIds: {1},
+      ),
+    );
+
+    expect(
+      tester.widget<Checkbox>(find.byKey(const Key('peak-multi-select-checkbox-1'))).value,
+      isTrue,
+    );
+    expect(
+      tester.widget<Checkbox>(find.byKey(const Key('peak-multi-select-checkbox-1'))).onChanged,
+      isNull,
+    );
   });
 
   testWidgets('unknown height renders as a long dash', (tester) async {
@@ -81,10 +110,12 @@ class _Harness extends StatefulWidget {
   const _Harness({
     required this.searchResults,
     this.initialSelectedIds = const {},
+    this.readOnlySelectedIds = const {},
   });
 
   final List<Peak> searchResults;
   final Set<int> initialSelectedIds;
+  final Set<int> readOnlySelectedIds;
 
   @override
   State<_Harness> createState() => _HarnessState();
@@ -108,6 +139,7 @@ class _HarnessState extends State<_Harness> {
             searchResults: widget.searchResults,
             searchQuery: '',
             selectedPeakIds: _selectedPeakIds,
+            readOnlySelectedPeakIds: widget.readOnlySelectedIds,
             mapNameForPeak: (peak) => 'Map ${peak.osmId}',
             onSelectionChanged: (selectedPeakIds) {
               setState(() {

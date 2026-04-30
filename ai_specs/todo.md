@@ -1,5 +1,4 @@
 # Features to add
-- [ ] tiles not being saved
 - [ ] update spec - check assets folder first only download if required.
 - [ ] Setup private OSM tileserver - use versatiler?
 - [x] goto location should use map name or mgrs two-letter pair
@@ -14,6 +13,7 @@
 - [ ] Allow search for the above
 - [ ] Add an overlay to display features names on hover - only for blue circles
 - [ ] Remove legacy handling
+- [ ] 
 
 ## Folder Structure
 - [ ] Update to canonical folder Structure:
@@ -55,6 +55,7 @@
 - [ ] Add min-max zooms to objectBox
 - [ ] Reset the id on Reset Map Data
 - [ ] when clicking on track open a left drawer with info about the track
+- [ ] Tile cache in setup - change option to allow complete map to be cached rather than all of Tassie
 
 ## 4a
 - [x] add go to map only, centre on map and zoom to map extents, and draw a blue rectangle around the map extents so that the map can be seen when zooming out.
@@ -62,7 +63,7 @@
 - [x] Change map drawing from rectangle to a polygon.
 
 ## 5 Gpx Tracks
-- [ ] implement gpx track import - multiple file import.
+- [x] implement gpx track import - multiple file import.
 - [ ] change import behaviour to only import from Tracks once application is complete.
 - [x] use geo.dart, ported from gpxpy.
 - [ ] Add option to view raw data
@@ -75,6 +76,7 @@
 - [ ] Confirm that peak correlation for mass import does not drop tracks for which there is no peak
 - [ ] class GpxTrackImportResult change to GpxFileImportResult  to cater for routes and waypoints
 - [ ] Add retry in settings for gpx files that failed folder relocation
+- [ ] Add Settings option to change track display - colour, thickness, outline etc.
 
 ### Distance
 - [x] distance (double?) - future, null for now
@@ -124,13 +126,18 @@
 - [x] Add points column and add points metrics
 - [x] Add add peak to list
 - [x] click on peak in details will go to the peak on the Map screen and zoom to 15.
-- [ ] Refresh lists on change to peak name in ObjectBox Admin
+- [ ] Refresh lists on updates to peak name in ObjectBox Admin
+- [ ] Change cursor on hover over clickables
 
 ## Object Box Admin
 - [x] Rescan entity on entry, for the current entity being shown.
 - [x] Add "Add new peak" to Peak entity
 - [x] Add a goto peak button in the delete column, name of peak and details. Use an eye icon.
 - [ ] Allow entry of UTM coordinates
+- [ ] Add a new field to Peak named verified - boolean, true if peak name, height and location have been verified.
+- [ ] Autodelete lat/long or mgrs when editing one field or the other or add a calc icon
+- [ ] double click to select all text in text field
+- [ ] add x in text field to clear it
 
 ## Settings
 - [x] move settings UI stuff from router.md to settings screen

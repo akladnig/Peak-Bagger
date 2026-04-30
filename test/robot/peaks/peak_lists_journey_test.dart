@@ -266,6 +266,8 @@ void main() {
     await robot.toggleAddPeak(100);
     await robot.toggleAddPeak(200);
 
+    expect(robot.addRow(100), findsOneWidget);
+    expect(tester.widget<Checkbox>(robot.addCheckbox(100)).value, isTrue);
     expect(robot.addSelectedRow(100), findsOneWidget);
 
     await robot.enterAddPeakPoints(300, '7');

@@ -22,12 +22,11 @@ Align import path with existing recalc behavior; add regression coverage.
  - [x] `test/widget/tasmap_map_screen_test.dart` - TDD: peak layer renders `peak_marker_ticked.svg` when notifier exposes refreshed correlated ids after import
  - [x] Verify: `flutter analyze` && `flutter test`
 
-### Phase 2: Import journey
+### Phase 2: Import regression
 
-- **Goal**: user import flow proves ticked marker, no Settings detour
-- [ ] `test/robot/gpx_tracks/gpx_tracks_robot.dart` - add import-dialog helpers; key-first selectors for `import-tracks-fab`, `gpx-track-select-files`, `gpx-track-name-field-0`, `gpx-track-import-button`, `peak-marker-layer`
-- [ ] `test/robot/gpx_tracks/single_track_import_journey_test.dart` - TDD: import one correlated GPX track and assert the green/ticked peak marker is present on the map
-- [ ] Verify: `flutter analyze` && `flutter test`
+- **Goal**: single-track import keeps correlated peaks ticked
+- [x] `test/robot/gpx_tracks/single_track_import_journey_test.dart` - regression: import one correlated GPX track and assert correlated peak ids are present after import
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

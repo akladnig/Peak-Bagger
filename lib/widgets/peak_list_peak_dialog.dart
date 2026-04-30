@@ -344,6 +344,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   }
 
   Widget _buildAddContent(BuildContext context) {
+    final existingIds = widget.peakItems.map((item) => item.peakOsmId).toSet();
     final searchResults = _searchResults();
     final selectedPeaks = _selectedPeaks();
 
@@ -367,25 +368,31 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
         ),
         const SizedBox(height: 12),
         Expanded(
-          child: PeakMultiSelectResultsList(
-            searchResults: searchResults,
-            searchQuery: _searchQuery,
-            selectedPeakIds: _selectedPeakIds,
-            mapNameForPeak: _mapNameForPeak,
-            onSelectionChanged: _updateSelectedPeakIds,
+          child: KeyedSubtree(
+            key: const Key('peak-list-peak-results-panel'),
+            child: PeakMultiSelectResultsList(
+              searchResults: searchResults,
+              searchQuery: _searchQuery,
+              selectedPeakIds: _selectedPeakIds,
+              readOnlySelectedPeakIds: existingIds,
+              mapNameForPeak: _mapNameForPeak,
+              onSelectionChanged: _updateSelectedPeakIds,
+            ),
           ),
         ),
         if (selectedPeaks.isNotEmpty) ...[
           const SizedBox(height: 12),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 240),
-            child: PeakSelectedPeaksList(
-              selectedPeaks: selectedPeaks,
-              selectedPeakIds: _selectedPeakIds,
-              pointsByPeakId: _selectedPoints,
-              mapNameForPeak: _mapNameForPeak,
-              onSelectionChanged: _updateSelectedPeakIds,
-              onPointsChanged: _updatePeakPoints,
+          Expanded(
+            child: KeyedSubtree(
+              key: const Key('peak-list-peak-selected-panel'),
+              child: PeakSelectedPeaksList(
+                selectedPeaks: selectedPeaks,
+                selectedPeakIds: _selectedPeakIds,
+                pointsByPeakId: _selectedPoints,
+                mapNameForPeak: _mapNameForPeak,
+                onSelectionChanged: _updateSelectedPeakIds,
+                onPointsChanged: _updatePeakPoints,
+              ),
             ),
           ),
         ],
@@ -428,13 +435,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
 
   List<Peak> _searchResults() {
     final repository = ref.read(peakRepositoryProvider);
-    final existingIds = widget.peakItems.map((item) => item.peakOsmId).toSet();
-    return _sortedPeaks(
-      repository.searchPeaks(_searchQuery).where((peak) {
-        return !existingIds.contains(peak.osmId) &&
-            !_selectedPeakIds.contains(peak.osmId);
-      }).toList(),
-    );
+    return _sortedPeaks(repository.searchPeaks(_searchQuery).toList());
   }
 
   List<Peak> _selectedPeaks() {
