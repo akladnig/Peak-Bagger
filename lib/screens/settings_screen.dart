@@ -10,6 +10,7 @@ import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/screens/map_screen_layers.dart';
+import 'package:peak_bagger/services/data_export_service.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
@@ -29,7 +30,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final bool _isDownloading = false;
   bool _isRefreshingPeaks = false;
   bool _isResettingMaps = false;
-  final bool _isExportingPeakLists = false;
+  bool _isExportingPeakLists = false;
   bool _isExportingPeaks = false;
   String _status = '';
   String _listExportStatus = '';
@@ -54,6 +55,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final filterState = ref.watch(gpxFilterSettingsProvider);
     final peakCorrelationState = ref.watch(peakCorrelationSettingsProvider);
     final isExporting = _isExportingPeakLists || _isExportingPeaks;
+    final isMaintaining =
+        _isRefreshingPeaks || _isResettingMaps || mapState.isLoadingTracks;
+    final isBusy = isExporting || isMaintaining;
 
     return Scaffold(
       body: ListView(
@@ -69,7 +73,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.chevron_right),
-            onTap: _isDownloading || isExporting
+            onTap: _isDownloading || isBusy
                 ? null
                 : () {
                     Navigator.of(context).push(
@@ -91,7 +95,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : null,
-            onTap: _isRefreshingPeaks ? null : _confirmRefreshPeakData,
+            onTap: _isRefreshingPeaks || isExporting
+                ? null
+                : _confirmRefreshPeakData,
           ),
           ListTile(
             key: const Key('reset-map-data-tile'),
@@ -105,7 +111,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : null,
-            onTap: _isResettingMaps ? null : _confirmResetMapData,
+            onTap: _isResettingMaps || isExporting
+                ? null
+                : _confirmResetMapData,
           ),
           ListTile(
             key: const Key('reset-track-data-tile'),
@@ -121,7 +129,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : null,
-            onTap: mapState.isLoadingTracks ? null : _confirmResetTrackData,
+            onTap: mapState.isLoadingTracks || isExporting
+                ? null
+                : _confirmResetTrackData,
           ),
           ListTile(
             key: const Key('recalculate-track-statistics-tile'),
@@ -137,7 +147,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : null,
-            onTap: mapState.isLoadingTracks
+            onTap: mapState.isLoadingTracks || isExporting
                 ? null
                 : _confirmRecalculateTrackStatistics,
           ),
@@ -517,7 +527,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             leading: const Icon(Icons.list_alt),
             title: const Text('Export Peak Lists'),
             subtitle: const Text('Export all peak lists to CSV files'),
-            onTap: _isExportingPeakLists || _isExportingPeaks ? null : () {},
+            trailing: _isExportingPeakLists
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : null,
+            onTap: _isExportingPeakLists || _isExportingPeaks
+                ? null
+                : _confirmExportPeakLists,
           ),
           ListTile(
             key: const Key('list-export-peaks-tile'),
@@ -571,6 +590,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       final service = ref.read(dataExportServiceProvider);
       final plan = await service.preparePeaksExport(outputDirectory);
+      final overwriteAllowed = await _confirmOverwriteIfNeeded(plan);
+      if (overwriteAllowed != true || !mounted) {
+        setState(() {
+          _listExportStatus = 'Peak export cancelled.';
+        });
+        return;
+      }
       final result = await service.commitExport(plan);
       if (!mounted) {
         return;
@@ -581,9 +607,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       });
       await _showListExportResult(
         title: 'Peaks Exported',
-        content: Text(
-          'Exported ${result.exportedRowCount} rows to ${result.exportedFileCount} file.',
-        ),
+        content: _buildListExportResultContent(result),
       );
     } catch (e) {
       if (!mounted) {
@@ -601,6 +625,120 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       }
     }
   }
+
+  Future<void> _confirmExportPeakLists() async {
+    final confirmed = await showDangerConfirmDialog(
+      context: context,
+      title: 'Export Peak Lists?',
+      message:
+          'This will export all peak lists to CSV files. Do you want to proceed?',
+      cancelKey: 'list-export-peak-lists-cancel',
+      cancelLabel: 'Cancel',
+      confirmKey: 'list-export-peak-lists-confirm',
+      confirmLabel: 'Export',
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    final picker = ref.read(dataExportFilePickerProvider);
+    final outputDirectory = await picker.pickOutputDirectory();
+    if (outputDirectory == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _isExportingPeakLists = true;
+      _listExportStatus = 'Exporting peak lists...';
+    });
+
+    try {
+      final logDirectory = await picker.resolveDefaultExportRoot();
+      final service = ref.read(dataExportServiceProvider);
+      final plan = await service.preparePeakListsExport(
+        outputDirectory,
+        logDirectory: logDirectory,
+      );
+      final overwriteAllowed = await _confirmOverwriteIfNeeded(plan);
+      if (overwriteAllowed != true || !mounted) {
+        setState(() {
+          _listExportStatus = 'Peak-list export cancelled.';
+        });
+        return;
+      }
+      final result = await service.commitExport(plan);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _listExportStatus =
+            'Exported ${result.exportedRowCount} peak-list rows to ${_formatFileCount(result.exportedFileCount)}';
+      });
+      await _showListExportResult(
+        title: 'Peak Lists Exported',
+        content: _buildListExportResultContent(result),
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _listExportStatus = 'Error exporting peak lists: $e';
+      });
+      await _showListExportFailure(e.toString());
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isExportingPeakLists = false;
+        });
+      }
+    }
+  }
+
+  Future<bool?> _confirmOverwriteIfNeeded(DataExportPlan plan) {
+    if (plan.overwriteConflicts.isEmpty) {
+      return Future.value(true);
+    }
+
+    final firstPath = plan.overwriteConflicts.first;
+    return showDangerConfirmDialog(
+      context: context,
+      title: 'Overwrite Existing Files?',
+      message:
+          'This export will replace ${_formatFileCount(plan.overwriteConflicts.length)}, including $firstPath. Do you want to proceed?',
+      cancelKey: 'list-export-overwrite-cancel',
+      cancelLabel: 'Cancel',
+      confirmKey: 'list-export-overwrite-confirm',
+      confirmLabel: 'Overwrite',
+    );
+  }
+
+  Widget _buildListExportResultContent(DataExportCommitResult result) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Exported ${result.exportedRowCount} rows to ${_formatFileCount(result.exportedFileCount)}.',
+        ),
+        if (result.warningCount > 0) ...[
+          const SizedBox(height: 12),
+          Text('Warnings: ${result.warningCount}'),
+        ],
+        if (result.logPath != null) ...[
+          const SizedBox(height: 12),
+          Text('Warnings were written to ${result.logPath}.'),
+        ],
+        if (result.logWarning != null) ...[
+          const SizedBox(height: 12),
+          Text(result.logWarning!),
+        ],
+      ],
+    );
+  }
+
+  String _formatFileCount(int count) => count == 1 ? '1 file' : '$count files';
 
   Future<void> _showListExportResult({
     required String title,

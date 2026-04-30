@@ -46,10 +46,10 @@ Prepare/commit service, deterministic seams, Settings wiring, robot journey.
 ### Phase 4: Settings Integration
 
 - **Goal**: complete Settings UX + busy gating
-- [ ] `lib/screens/settings_screen.dart` - `Export Peak Lists`; overwrite dialog; error dialogs; `list-export-status`; disable export/maintenance/tile-cache states
-- [ ] `test/widget/list_export_settings_test.dart` - TDD: peak-list flow; overwrite confirm/decline; log path warning; log failure message
-- [ ] `test/widget/list_export_settings_test.dart` - TDD: export disables refresh/reset/recalc/tile-cache; export disabled during maintenance
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/screens/settings_screen.dart` - `Export Peak Lists`; overwrite dialog; error dialogs; `list-export-status`; disable export/maintenance/tile-cache states
+- [x] `test/widget/list_export_settings_test.dart` - TDD: peak-list flow; overwrite confirm/decline; log path warning; log failure message
+- [x] `test/widget/list_export_settings_test.dart` - TDD: export disables refresh/reset/recalc/tile-cache; export disabled during maintenance
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 5: Robot Journeys
 
