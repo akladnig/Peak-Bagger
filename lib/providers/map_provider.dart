@@ -1088,6 +1088,7 @@ class MapNotifier extends Notifier<MapState> {
       clearCursorMgrs: true,
       clearHoveredPeakId: true,
       clearHoveredTrackId: true,
+      clearPeakInfoPopup: zoom < 9,
     );
     savePosition();
   }
@@ -1934,7 +1935,11 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void togglePeaks() {
-    state = state.copyWith(showPeaks: !state.showPeaks);
+    state = state.copyWith(
+      showPeaks: !state.showPeaks,
+      clearPeakInfoPopup: state.showPeaks,
+      clearHoveredPeakId: state.showPeaks,
+    );
   }
 
   void setPeakSearchVisible(bool visible) {
@@ -2005,10 +2010,12 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   Future<void> reloadPeakMarkers() async {
+    final peaks = _peakRepository.getAllPeaks();
     state = state.copyWith(
-      peaks: _peakRepository.getAllPeaks(),
+      peaks: peaks,
       isLoadingPeaks: false,
       clearError: true,
+      clearPeakInfoPopup: _peakInfoPeakWasRemoved(peaks),
     );
   }
 
@@ -2016,10 +2023,12 @@ class MapNotifier extends Notifier<MapState> {
     state = state.copyWith(isLoadingPeaks: true, clearError: true);
     try {
       final result = await _peakRefreshService.refreshPeaks();
+      final peaks = _peakRepository.getAllPeaks();
       state = state.copyWith(
-        peaks: _peakRepository.getAllPeaks(),
+        peaks: peaks,
         isLoadingPeaks: false,
         clearError: true,
+        clearPeakInfoPopup: _peakInfoPeakWasRemoved(peaks),
       );
       return result;
     } catch (e) {
@@ -2033,6 +2042,12 @@ class MapNotifier extends Notifier<MapState> {
 
   Set<int> _refreshCorrelatedPeakIds(Iterable<GpxTrack> tracks) {
     return buildCorrelatedPeakIds(tracks);
+  }
+
+  bool _peakInfoPeakWasRemoved(List<Peak> peaks) {
+    final peakInfoPeak = state.peakInfoPeak;
+    return peakInfoPeak != null &&
+        !peaks.any((peak) => peak.osmId == peakInfoPeak.osmId);
   }
 
   bool _inRange(int value, int min, int max) {

@@ -46,16 +46,16 @@ Peak hover/click popup on map. Central screen-space hit testing; separate peak p
 ### Phase 3: Placement And Cleanup
 
 - **Goal**: deterministic placement; popup lifecycle integration
-- [ ] `lib/screens/map_screen_panels.dart` - pure placement helper: right, flip left, clamp, unanchorable state
-- [ ] `lib/screens/map_screen.dart` - re-anchor/close on pan/zoom, offscreen, zoom < 9, peak removed, background click, shortcuts
-- [ ] `lib/widgets/map_action_rail.dart` - close peak popup in transient UI cleanup
-- [ ] `lib/router.dart` - close peak popup in shell navigation cleanup
-- [ ] `test/widget/map_screen_keyboard_test.dart` - shortcut cleanup coverage
-- [ ] `test/widget/map_screen_peak_info_test.dart` - placement + lifecycle widget coverage
-- [ ] TDD: right placement, left flip, clamp, offscreen unanchorable → implement helper
-- [ ] TDD: showPeaks false, zoom below threshold, removed peak, navigation/action/search/goto close popup → implement cleanup
-- [ ] TDD: center info popup and peak popup mutually exclusive → implement lifecycle guards
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/screens/map_screen_panels.dart` - pure placement helper: right, flip left, clamp, unanchorable state
+- [x] `lib/screens/map_screen.dart` - re-anchor/close on pan/zoom, offscreen, zoom < 9, peak removed, background click, shortcuts
+- [x] `lib/widgets/map_action_rail.dart` - close peak popup in transient UI cleanup
+- [x] `lib/router.dart` - close peak popup in shell navigation cleanup
+- [x] `test/widget/map_screen_keyboard_test.dart` - shortcut cleanup coverage
+- [x] `test/widget/map_screen_peak_info_test.dart` - placement + lifecycle widget coverage
+- [x] TDD: right placement, left flip, clamp, offscreen unanchorable → implement helper
+- [x] TDD: showPeaks false, zoom below threshold, removed peak, navigation/action/search/goto close popup → implement cleanup
+- [x] TDD: center info popup and peak popup mutually exclusive → implement lifecycle guards
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 4: Robot Journey
 

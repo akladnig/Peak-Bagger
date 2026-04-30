@@ -25,6 +25,9 @@ class MapActionRail extends ConsumerWidget {
     if (closeInfoPopup && mapState.showInfoPopup) {
       notifier.toggleInfoPopup();
     }
+    if (closeInfoPopup && mapState.peakInfoPeak != null) {
+      notifier.closePeakInfoPopup();
+    }
     if (closePeakSearch && mapState.showPeakSearch) {
       notifier.setPeakSearchVisible(false);
     }

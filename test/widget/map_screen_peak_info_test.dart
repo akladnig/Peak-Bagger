@@ -11,6 +11,7 @@ import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
 
 import '../harness/test_map_notifier.dart';
 import '../harness/test_tasmap_notifier.dart';
@@ -111,6 +112,106 @@ void main() {
     expect(state.peakInfoPeak, isNull);
     expect(state.selectedLocation, isNotNull);
     expect(state.selectedLocation!.longitude, isNot(closeTo(147.0, 0.001)));
+  });
+
+  testWidgets('background click closes open peak popup', (tester) async {
+    await _pumpMap(tester, _mapStateWithPeak());
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final container = ProviderScope.containerOf(tester.element(region));
+    final center = tester.getCenter(region);
+
+    await tester.tapAt(center);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(container.read(mapProvider).peakInfoPeak?.osmId, 6406);
+
+    await tester.tapAt(center + const Offset(-100, 0));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final state = container.read(mapProvider);
+    expect(state.peakInfoPeak, isNull);
+    expect(state.selectedLocation, isNotNull);
+  });
+
+  testWidgets('hiding peaks or zooming below threshold closes peak popup', (
+    tester,
+  ) async {
+    await _pumpMap(tester, _mapStateWithPeak());
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final container = ProviderScope.containerOf(tester.element(region));
+    final center = tester.getCenter(region);
+
+    await tester.tapAt(center);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(container.read(mapProvider).peakInfoPeak?.osmId, 6406);
+
+    container.read(mapProvider.notifier).togglePeaks();
+    await tester.pump();
+    expect(container.read(mapProvider).peakInfoPeak, isNull);
+
+    container.read(mapProvider.notifier).togglePeaks();
+    await tester.pump();
+    await tester.tapAt(center);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(container.read(mapProvider).peakInfoPeak?.osmId, 6406);
+
+    container
+        .read(mapProvider.notifier)
+        .updatePosition(const LatLng(-43.0, 147.0), 8);
+    await tester.pump();
+    expect(container.read(mapProvider).peakInfoPeak, isNull);
+  });
+
+  testWidgets('removing the open peak closes peak popup', (tester) async {
+    final peak = Peak(
+      osmId: 6406,
+      name: 'Bonnet Hill',
+      latitude: -43.0,
+      longitude: 147.0,
+    );
+    final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+    await _pumpMap(
+      tester,
+      _mapStateWithPeak(peak: peak),
+      peakRepository: peakRepository,
+    );
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final container = ProviderScope.containerOf(tester.element(region));
+
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(container.read(mapProvider).peakInfoPeak?.osmId, 6406);
+
+    await peakRepository.clearAll();
+    await container.read(mapProvider.notifier).reloadPeakMarkers();
+    await tester.pump();
+
+    expect(container.read(mapProvider).peakInfoPeak, isNull);
+  });
+
+  testWidgets('opening peak search closes peak popup', (tester) async {
+    await _pumpMap(tester, _mapStateWithPeak());
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final container = ProviderScope.containerOf(tester.element(region));
+
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(container.read(mapProvider).peakInfoPeak?.osmId, 6406);
+
+    await tester.tap(find.byKey(const Key('search-peaks-fab')));
+    await tester.pump();
+
+    expect(container.read(mapProvider).peakInfoPeak, isNull);
+    expect(container.read(mapProvider).showPeakSearch, isTrue);
   });
 
   testWidgets('peak popup shows height map and sorted memberships', (
@@ -233,11 +334,14 @@ Future<void> _pumpMap(
   WidgetTester tester,
   MapState state, {
   overrides = const [],
+  PeakRepository? peakRepository,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        mapProvider.overrideWith(() => TestMapNotifier(state)),
+        mapProvider.overrideWith(
+          () => TestMapNotifier(state, peakRepository: peakRepository),
+        ),
         ...overrides,
       ],
       child: const MaterialApp(home: MapScreen()),

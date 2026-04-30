@@ -6,8 +6,47 @@ import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/widgets/peak_search_results_list.dart';
 
-Offset peakInfoPopupTopLeft(Offset anchorScreenOffset) {
-  return anchorScreenOffset + const Offset(16, -50);
+class PeakInfoPopupPlacement {
+  const PeakInfoPopupPlacement({
+    required this.topLeft,
+    required this.isAnchorable,
+  });
+
+  final Offset topLeft;
+  final bool isAnchorable;
+}
+
+PeakInfoPopupPlacement resolvePeakInfoPopupPlacement({
+  required Offset anchorScreenOffset,
+  required Size viewportSize,
+  required Size popupSize,
+  double markerSize = 20,
+  double margin = 8,
+  double preferredGap = 16,
+}) {
+  final isAnchorable =
+      anchorScreenOffset.dx >= 0 &&
+      anchorScreenOffset.dy >= 0 &&
+      anchorScreenOffset.dx <= viewportSize.width &&
+      anchorScreenOffset.dy <= viewportSize.height;
+
+  final halfMarker = markerSize / 2;
+  var left = anchorScreenOffset.dx + halfMarker + preferredGap;
+  if (left + popupSize.width + margin > viewportSize.width) {
+    left = anchorScreenOffset.dx - halfMarker - preferredGap - popupSize.width;
+  }
+  left = left.clamp(margin, viewportSize.width - popupSize.width - margin);
+
+  final unclampedTop = anchorScreenOffset.dy - popupSize.height / 2;
+  final top = unclampedTop.clamp(
+    margin,
+    viewportSize.height - popupSize.height - margin,
+  );
+
+  return PeakInfoPopupPlacement(
+    topLeft: Offset(left.toDouble(), top.toDouble()),
+    isAnchorable: isAnchorable,
+  );
 }
 
 class MapMgrsReadout extends StatelessWidget {

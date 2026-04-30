@@ -52,6 +52,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   double _scrollDy = 0;
   static const _scrollSpeed = 0.001;
   static const _scrollInterval = Duration(milliseconds: 16);
+  static const _peakInfoPopupSize = Size(320, 120);
   static final _tickedPeakMarker = SvgPicture.asset(
     'assets/peak_marker_ticked.svg',
   );
@@ -337,6 +338,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           final mapState = ref.read(mapProvider);
           final key = event.logicalKey;
 
+          if (event is KeyDownEvent && mapState.peakInfoPeak != null) {
+            ref.read(mapProvider.notifier).closePeakInfoPopup();
+          }
+
           // Close popup on any key press (except I which toggles it)
           if (mapState.showInfoPopup && key != LogicalKeyboardKey.keyI) {
             if (event is KeyDownEvent) {
@@ -485,6 +490,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       if (tappedPeak != null) {
                         notifier.openPeakInfoPopup(tappedPeak);
                         return;
+                      }
+                      if (ref.read(mapProvider).peakInfoPeak != null) {
+                        notifier.closePeakInfoPopup();
                       }
                       if (ref.read(mapProvider).showInfoPopup) {
                         notifier.toggleInfoPopup();
@@ -721,22 +729,39 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 ),
               ),
             if (mapState.peakInfo != null)
-              Positioned(
-                left: peakInfoPopupTopLeft(
-                  _screenOffsetForPeak(mapState.peakInfo!.peak),
-                ).dx,
-                top: peakInfoPopupTopLeft(
-                  _screenOffsetForPeak(mapState.peakInfo!.peak),
-                ).dy,
-                child: PeakInfoPopupCard(
-                  key: const Key('peak-info-popup'),
-                  content: mapState.peakInfo!,
-                  onClose: () {
-                    ref.read(mapProvider.notifier).closePeakInfoPopup();
-                  },
-                ),
-              ),
+              _buildPeakInfoPopup(context, mapState.peakInfo!),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPeakInfoPopup(BuildContext context, PeakInfoContent content) {
+    final placement = resolvePeakInfoPopupPlacement(
+      anchorScreenOffset: _screenOffsetForPeak(content.peak),
+      viewportSize: MediaQuery.of(context).size,
+      popupSize: _peakInfoPopupSize,
+    );
+    if (!placement.isAnchorable) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ref.read(mapProvider.notifier).closePeakInfoPopup();
+        }
+      });
+      return const SizedBox.shrink();
+    }
+
+    return Positioned(
+      left: placement.topLeft.dx,
+      top: placement.topLeft.dy,
+      child: SizedBox(
+        width: _peakInfoPopupSize.width,
+        child: PeakInfoPopupCard(
+          key: const Key('peak-info-popup'),
+          content: content,
+          onClose: () {
+            ref.read(mapProvider.notifier).closePeakInfoPopup();
+          },
         ),
       ),
     );

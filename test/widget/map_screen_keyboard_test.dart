@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/router.dart';
@@ -70,6 +71,69 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const Key('goto-map-input')), findsOneWidget);
+  });
+
+  testWidgets('keyboard g closes peak popup before opening goto input', (
+    tester,
+  ) async {
+    await _pumpMapApp(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+    container
+        .read(mapProvider.notifier)
+        .openPeakInfoPopup(
+          Peak(
+            osmId: 6406,
+            name: 'Bonnet Hill',
+            latitude: -41.5,
+            longitude: 146.5,
+          ),
+        );
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyG);
+    await tester.pump();
+
+    expect(container.read(mapProvider).peakInfoPeak, isNull);
+    expect(find.byKey(const Key('goto-map-input')), findsOneWidget);
+  });
+
+  testWidgets('shell navigation closes peak popup', (tester) async {
+    await _pumpMapApp(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+    container.read(mapProvider.notifier).openPeakInfoPopup(
+      Peak(
+        osmId: 6406,
+        name: 'Bonnet Hill',
+        latitude: -41.5,
+        longitude: 146.5,
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('nav-dashboard')));
+    await tester.pump();
+
+    expect(container.read(mapProvider).peakInfoPeak, isNull);
   });
 
   testWidgets('closing peak search returns focus to map shortcuts', (
