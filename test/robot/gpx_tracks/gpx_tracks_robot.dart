@@ -229,9 +229,11 @@ class GpxTracksRobot {
 
   List<String> peakMarkerAssetNames() {
     final markerLayer = tester.widget<MarkerLayer>(peakMarkerLayer);
-    return markerLayer.markers
-        .map((marker) => (marker.child as SvgPicture).bytesLoader.toString())
-        .toList();
+    return markerLayer.markers.map((marker) {
+      final child = marker.child;
+      final visualMarker = child is KeyedSubtree ? child.child : child;
+      return (visualMarker as SvgPicture).bytesLoader.toString();
+    }).toList();
   }
 
   Future<void> hoverTrack() async {

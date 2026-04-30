@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/screens/peak_lists_screen.dart';
 import 'package:peak_bagger/services/peak_list_file_picker.dart';
@@ -20,8 +21,10 @@ class PeakListsRobot {
   Finder get createDialog => find.byKey(const Key('peak-list-create-dialog'));
   Finder get addPeakButton => find.byKey(const Key('peak-lists-add-peak'));
   Finder get addPeakDialog => find.byKey(const Key('peak-list-peak-dialog'));
-  Finder get peakMemberships => find.byKey(const Key('peak-list-peak-memberships'));
-  Finder get addSearchInput => find.byKey(const Key('peak-list-peak-search-input'));
+  Finder get peakMemberships =>
+      find.byKey(const Key('peak-list-peak-memberships'));
+  Finder get addSearchInput =>
+      find.byKey(const Key('peak-list-peak-search-input'));
   Finder get addSaveButton => find.byKey(const Key('peak-list-peak-save'));
   Finder get summaryPane => find.byKey(const Key('peak-lists-summary-pane'));
   Finder get detailsPane => find.byKey(const Key('peak-lists-details-pane'));
@@ -33,10 +36,8 @@ class PeakListsRobot {
   Finder get updateConfirm => find.byKey(const Key('peak-list-update-confirm'));
   Finder get createNameField =>
       find.byKey(const Key('peak-list-create-name-field'));
-  Finder get createButton =>
-      find.byKey(const Key('peak-list-create-button'));
-  Finder get createCancel =>
-      find.byKey(const Key('peak-list-create-cancel'));
+  Finder get createButton => find.byKey(const Key('peak-list-create-button'));
+  Finder get createCancel => find.byKey(const Key('peak-list-create-cancel'));
   Finder get createErrorClose =>
       find.byKey(const Key('peak-list-create-error-close'));
   Finder deleteButtonFor(int peakListId) =>

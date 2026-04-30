@@ -3,7 +3,51 @@ import 'package:flutter/services.dart';
 
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
+import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/widgets/peak_search_results_list.dart';
+
+class PeakInfoPopupPlacement {
+  const PeakInfoPopupPlacement({
+    required this.topLeft,
+    required this.isAnchorable,
+  });
+
+  final Offset topLeft;
+  final bool isAnchorable;
+}
+
+PeakInfoPopupPlacement resolvePeakInfoPopupPlacement({
+  required Offset anchorScreenOffset,
+  required Size viewportSize,
+  required Size popupSize,
+  double markerSize = 20,
+  double margin = 8,
+  double preferredGap = 16,
+}) {
+  final isAnchorable =
+      anchorScreenOffset.dx >= 0 &&
+      anchorScreenOffset.dy >= 0 &&
+      anchorScreenOffset.dx <= viewportSize.width &&
+      anchorScreenOffset.dy <= viewportSize.height;
+
+  final halfMarker = markerSize / 2;
+  var left = anchorScreenOffset.dx + halfMarker + preferredGap;
+  if (left + popupSize.width + margin > viewportSize.width) {
+    left = anchorScreenOffset.dx - halfMarker - preferredGap - popupSize.width;
+  }
+  left = left.clamp(margin, viewportSize.width - popupSize.width - margin);
+
+  final unclampedTop = anchorScreenOffset.dy - popupSize.height / 2;
+  final top = unclampedTop.clamp(
+    margin,
+    viewportSize.height - popupSize.height - margin,
+  );
+
+  return PeakInfoPopupPlacement(
+    topLeft: Offset(left.toDouble(), top.toDouble()),
+    isAnchorable: isAnchorable,
+  );
+}
 
 class MapMgrsReadout extends StatelessWidget {
   const MapMgrsReadout({required this.mgrs, super.key});
@@ -327,6 +371,78 @@ class MapInfoPopupCard extends StatelessWidget {
                     style: const TextStyle(fontSize: 13),
                   ),
                 ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class PeakInfoPopupCard extends StatelessWidget {
+  const PeakInfoPopupCard({
+    required this.content,
+    required this.onClose,
+    super.key,
+  });
+
+  final PeakInfoContent content;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final peak = content.peak;
+    final elevationText = peak.elevation == null
+        ? '—'
+        : '${peak.elevation!.toStringAsFixed(0)}m';
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.terrain, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    peak.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  key: const Key('peak-info-popup-close'),
+                  icon: const Icon(Icons.close, size: 16),
+                  onPressed: onClose,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Height: $elevationText',
+              style: const TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Map: ${content.mapName}',
+              style: const TextStyle(fontSize: 13),
+            ),
+            if (content.listNames.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                'List(s): ${content.listNames.join(', ')}',
+                style: const TextStyle(fontSize: 13),
               ),
             ],
           ],

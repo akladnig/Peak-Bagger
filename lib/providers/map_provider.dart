@@ -26,6 +26,7 @@ import 'package:peak_bagger/services/grid_reference_parser.dart';
 import 'package:peak_bagger/services/migration_marker_store.dart';
 import 'package:xml/xml.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/main.dart';
@@ -43,6 +44,18 @@ const _defaultZoom = 15.0;
 enum Basemap { tasmapTopo, tasmap50k, tasmap25k, tracestrack, openstreetmap }
 
 enum TasmapDisplayMode { overlay, none, selectedMap }
+
+class PeakInfoContent {
+  const PeakInfoContent({
+    required this.peak,
+    required this.mapName,
+    required this.listNames,
+  });
+
+  final Peak peak;
+  final String mapName;
+  final List<String> listNames;
+}
 
 class MapState {
   final LatLng center;
@@ -82,6 +95,8 @@ class MapState {
   final bool hasTrackRecoveryIssue;
   final String? trackOperationStatus;
   final String? trackOperationWarning;
+  final int? hoveredPeakId;
+  final PeakInfoContent? peakInfo;
   final int? hoveredTrackId;
   final int? selectedTrackId;
 
@@ -123,9 +138,13 @@ class MapState {
     this.hasTrackRecoveryIssue = false,
     this.trackOperationStatus,
     this.trackOperationWarning,
+    this.hoveredPeakId,
+    this.peakInfo,
     this.hoveredTrackId,
     this.selectedTrackId,
   });
+
+  Peak? get peakInfoPeak => peakInfo?.peak;
 
   bool get showMapOverlay => tasmapDisplayMode == TasmapDisplayMode.overlay;
 
@@ -175,6 +194,10 @@ class MapState {
     bool clearTrackOperationStatus = false,
     String? trackOperationWarning,
     bool clearTrackOperationWarning = false,
+    int? hoveredPeakId,
+    bool clearHoveredPeakId = false,
+    PeakInfoContent? peakInfo,
+    bool clearPeakInfoPopup = false,
     int? hoveredTrackId,
     bool clearHoveredTrackId = false,
     int? selectedTrackId,
@@ -236,6 +259,10 @@ class MapState {
       trackOperationWarning: clearTrackOperationWarning
           ? null
           : (trackOperationWarning ?? this.trackOperationWarning),
+      hoveredPeakId: clearHoveredPeakId
+          ? null
+          : (hoveredPeakId ?? this.hoveredPeakId),
+      peakInfo: clearPeakInfoPopup ? null : (peakInfo ?? this.peakInfo),
       hoveredTrackId: clearHoveredTrackId
           ? null
           : (hoveredTrackId ?? this.hoveredTrackId),
@@ -1059,7 +1086,9 @@ class MapNotifier extends Notifier<MapState> {
       zoom: zoom,
       currentMgrs: _convertToMgrs(center),
       clearCursorMgrs: true,
+      clearHoveredPeakId: true,
       clearHoveredTrackId: true,
+      clearPeakInfoPopup: zoom < 9,
     );
     savePosition();
   }
@@ -1075,6 +1104,7 @@ class MapNotifier extends Notifier<MapState> {
       clearGotoMgrs: true,
       selectedLocation: location,
       syncEnabled: true,
+      clearHoveredPeakId: true,
       clearHoveredTrackId: true,
     );
     savePosition();
@@ -1107,6 +1137,7 @@ class MapNotifier extends Notifier<MapState> {
         center: selected,
         currentMgrs: _convertToMgrs(selected),
         syncEnabled: true,
+        clearHoveredPeakId: true,
         clearHoveredTrackId: true,
         clearGotoMgrs: true,
       );
@@ -1116,6 +1147,62 @@ class MapNotifier extends Notifier<MapState> {
 
   void clearCursorMgrs() {
     state = state.copyWith(clearCursorMgrs: true);
+  }
+
+  void setHoveredPeakId(int? peakId) {
+    if (peakId == null) {
+      clearHoveredPeak();
+      return;
+    }
+    state = state.copyWith(hoveredPeakId: peakId);
+  }
+
+  void clearHoveredPeak() {
+    state = state.copyWith(clearHoveredPeakId: true);
+  }
+
+  void openPeakInfoPopup(Peak peak) {
+    state = state.copyWith(
+      peakInfo: PeakInfoContent(
+        peak: peak,
+        mapName: _resolvePeakMapName(peak),
+        listNames: _resolvePeakListNames(peak.osmId),
+      ),
+      clearInfoPopup: true,
+      clearHoveredTrackId: true,
+    );
+  }
+
+  void closePeakInfoPopup() {
+    state = state.copyWith(clearPeakInfoPopup: true, clearHoveredPeakId: true);
+  }
+
+  String _resolvePeakMapName(Peak peak) {
+    try {
+      final tasmapRepository = ref.read(tasmapRepositoryProvider);
+      final hasCompleteMgrs =
+          peak.gridZoneDesignator.isNotEmpty &&
+          peak.mgrs100kId.isNotEmpty &&
+          peak.easting.isNotEmpty &&
+          peak.northing.isNotEmpty;
+      final mgrsString = hasCompleteMgrs
+          ? '${peak.gridZoneDesignator}${peak.mgrs100kId}${peak.easting}${peak.northing}'
+          : _convertToMgrs(LatLng(peak.latitude, peak.longitude));
+      return tasmapRepository.findByMgrsCodeAndCoordinates(mgrsString)?.name ??
+          'Unknown';
+    } catch (_) {
+      return 'Unknown';
+    }
+  }
+
+  List<String> _resolvePeakListNames(int peakOsmId) {
+    try {
+      return ref
+          .read(peakListRepositoryProvider)
+          .findPeakListNamesForPeak(peakOsmId);
+    } catch (_) {
+      return const [];
+    }
   }
 
   void setHoveredTrackId(int? trackId) {
@@ -1796,6 +1883,7 @@ class MapNotifier extends Notifier<MapState> {
       infoMgrs: mgrs,
       infoPeakName: peakName,
       infoPeakElevation: peakElevation,
+      clearPeakInfoPopup: true,
     );
   }
 
@@ -1847,7 +1935,11 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void togglePeaks() {
-    state = state.copyWith(showPeaks: !state.showPeaks);
+    state = state.copyWith(
+      showPeaks: !state.showPeaks,
+      clearPeakInfoPopup: state.showPeaks,
+      clearHoveredPeakId: state.showPeaks,
+    );
   }
 
   void setPeakSearchVisible(bool visible) {
@@ -1918,10 +2010,12 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   Future<void> reloadPeakMarkers() async {
+    final peaks = _peakRepository.getAllPeaks();
     state = state.copyWith(
-      peaks: _peakRepository.getAllPeaks(),
+      peaks: peaks,
       isLoadingPeaks: false,
       clearError: true,
+      clearPeakInfoPopup: _peakInfoPeakWasRemoved(peaks),
     );
   }
 
@@ -1929,10 +2023,12 @@ class MapNotifier extends Notifier<MapState> {
     state = state.copyWith(isLoadingPeaks: true, clearError: true);
     try {
       final result = await _peakRefreshService.refreshPeaks();
+      final peaks = _peakRepository.getAllPeaks();
       state = state.copyWith(
-        peaks: _peakRepository.getAllPeaks(),
+        peaks: peaks,
         isLoadingPeaks: false,
         clearError: true,
+        clearPeakInfoPopup: _peakInfoPeakWasRemoved(peaks),
       );
       return result;
     } catch (e) {
@@ -1946,6 +2042,12 @@ class MapNotifier extends Notifier<MapState> {
 
   Set<int> _refreshCorrelatedPeakIds(Iterable<GpxTrack> tracks) {
     return buildCorrelatedPeakIds(tracks);
+  }
+
+  bool _peakInfoPeakWasRemoved(List<Peak> peaks) {
+    final peakInfoPeak = state.peakInfoPeak;
+    return peakInfoPeak != null &&
+        !peaks.any((peak) => peak.osmId == peakInfoPeak.osmId);
   }
 
   bool _inRange(int value, int min, int max) {

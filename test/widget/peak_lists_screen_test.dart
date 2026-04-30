@@ -9,6 +9,7 @@ import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/screens/peak_lists_screen.dart';
@@ -143,26 +144,25 @@ void main() {
     await tester.tap(find.byKey(const Key('peak-list-peak-save')));
     await tester.pumpAndSettle();
 
-    final selectedRowFinder = find.byKey(const Key('peak-lists-details-row-100'));
+    final selectedRowFinder = find.byKey(
+      const Key('peak-lists-details-row-100'),
+    );
     expect(selectedRowFinder, findsOneWidget);
     final selectedRowContainer = tester.widget<Container>(
-      find.descendant(
-        of: selectedRowFinder,
-        matching: find.byType(Container),
-      ).first,
+      find
+          .descendant(of: selectedRowFinder, matching: find.byType(Container))
+          .first,
     );
     expect(selectedRowContainer.color, isNotNull);
     expect(
-      decodePeakListItems(peakListRepository.getAllPeakLists().single.peakList)
-          .map((item) => (item.peakOsmId, item.points))
-          .toList(),
+      decodePeakListItems(
+        peakListRepository.getAllPeakLists().single.peakList,
+      ).map((item) => (item.peakOsmId, item.points)).toList(),
       [(100, 3), (200, 5), (300, 7)],
     );
   });
 
-  testWidgets('add dialog cancel keeps the current selection', (
-    tester,
-  ) async {
+  testWidgets('add dialog cancel keeps the current selection', (tester) async {
     await _pumpPeakListsApp(
       tester,
       filePicker: TestPeakListFilePicker(),
@@ -196,7 +196,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      tester.widget<Text>(find.byKey(const Key('peak-lists-selected-title'))).data,
+      tester
+          .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+          .data,
       selectedTitleBefore,
     );
     expect(find.byKey(const Key('peak-list-peak-dialog')), findsNothing);
@@ -788,11 +790,11 @@ void main() {
         ),
       );
 
-    await tester.ensureVisible(find.byKey(const Key('peak-lists-row-1')));
-    await tester.tap(
-      find.byKey(const Key('peak-lists-row-1')),
-      warnIfMissed: false,
-    );
+      await tester.ensureVisible(find.byKey(const Key('peak-lists-row-1')));
+      await tester.tap(
+        find.byKey(const Key('peak-lists-row-1')),
+        warnIfMissed: false,
+      );
       await tester.pumpAndSettle();
 
       expect(
@@ -1103,9 +1105,7 @@ void main() {
       filePicker: TestPeakListFilePicker(),
       repository: repository,
       peakRepository: PeakRepository.test(
-        InMemoryPeakStorage([
-          _buildPeak(100, 'Alpha Peak', -41.0, 146.0),
-        ]),
+        InMemoryPeakStorage([_buildPeak(100, 'Alpha Peak', -41.0, 146.0)]),
       ),
     );
 
@@ -1121,7 +1121,9 @@ void main() {
     expect(find.byKey(const Key('peak-list-create-dialog')), findsNothing);
     expect(find.byKey(const Key('peak-list-peak-dialog')), findsOneWidget);
     expect(
-      tester.widget<Text>(find.byKey(const Key('peak-lists-selected-title'))).data,
+      tester
+          .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+          .data,
       'Fresh List',
     );
 
@@ -1155,7 +1157,10 @@ void main() {
 
     expect(find.text('Peak List Create Failed'), findsOneWidget);
     expect(find.textContaining('boom'), findsOneWidget);
-    expect(find.byKey(const Key('peak-list-create-error-close')), findsOneWidget);
+    expect(
+      find.byKey(const Key('peak-list-create-error-close')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const Key('peak-list-create-error-close')));
     await tester.pumpAndSettle();

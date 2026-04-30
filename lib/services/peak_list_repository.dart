@@ -178,7 +178,12 @@ class PeakListRepository {
     final names = <String>{};
 
     for (final peakList in _storage.getAll()) {
-      final items = decodePeakListItems(peakList.peakList);
+      late final List<PeakListItem> items;
+      try {
+        items = decodePeakListItems(peakList.peakList);
+      } catch (_) {
+        continue;
+      }
       if (items.any((item) => item.peakOsmId == peakOsmId)) {
         names.add(peakList.name);
       }
@@ -223,9 +228,7 @@ class PeakListRepository {
     }
 
     return save(
-      peakList.copyWith(
-        peakList: encodePeakListItems([...items, item]),
-      ),
+      peakList.copyWith(peakList: encodePeakListItems([...items, item])),
     );
   }
 
@@ -249,9 +252,7 @@ class PeakListRepository {
       throw StateError('Peak not found in list');
     }
 
-    return save(
-      peakList.copyWith(peakList: encodePeakListItems(updatedItems)),
-    );
+    return save(peakList.copyWith(peakList: encodePeakListItems(updatedItems)));
   }
 
   Future<PeakList> removePeakItem({
@@ -268,9 +269,7 @@ class PeakListRepository {
       throw StateError('Peak not found in list');
     }
 
-    return save(
-      peakList.copyWith(peakList: encodePeakListItems(updatedItems)),
-    );
+    return save(peakList.copyWith(peakList: encodePeakListItems(updatedItems)));
   }
 
   PeakList _requireById(int peakListId) {

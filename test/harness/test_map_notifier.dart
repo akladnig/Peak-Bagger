@@ -51,10 +51,15 @@ class TestMapNotifier extends MapNotifier {
 
   @override
   Future<void> reloadPeakMarkers() async {
+    final peaks = peakRepository?.getAllPeaks() ?? state.peaks;
+    final peakInfoPeak = state.peakInfoPeak;
     state = state.copyWith(
-      peaks: peakRepository?.getAllPeaks() ?? state.peaks,
+      peaks: peaks,
       isLoadingPeaks: false,
       clearError: true,
+      clearPeakInfoPopup:
+          peakInfoPeak != null &&
+          !peaks.any((peak) => peak.osmId == peakInfoPeak.osmId),
     );
   }
 
@@ -62,10 +67,14 @@ class TestMapNotifier extends MapNotifier {
   Future<PeakRefreshResult> refreshPeaks() async {
     refreshCallCount += 1;
     final peaks = peakRepository?.getAllPeaks() ?? state.peaks;
+    final peakInfoPeak = state.peakInfoPeak;
     state = state.copyWith(
       peaks: peaks,
       isLoadingPeaks: false,
       clearError: true,
+      clearPeakInfoPopup:
+          peakInfoPeak != null &&
+          !peaks.any((peak) => peak.osmId == peakInfoPeak.osmId),
     );
     return PeakRefreshResult(importedCount: peaks.length, skippedCount: 0);
   }
@@ -90,6 +99,7 @@ class TestMapNotifier extends MapNotifier {
       center: center,
       zoom: zoom,
       clearHoveredTrackId: true,
+      clearPeakInfoPopup: zoom < 9,
     );
   }
 
@@ -120,6 +130,7 @@ class TestMapNotifier extends MapNotifier {
     state = state.copyWith(
       showInfoPopup: !isVisible,
       clearInfoPopup: isVisible,
+      clearPeakInfoPopup: !isVisible,
     );
   }
 

@@ -10,59 +10,17 @@ import '../models/geo_areas.dart';
 import '../models/peak.dart';
 import '../models/peak_list.dart';
 import '../models/peaks_bagged.dart';
-import '../main.dart';
+import '../providers/peak_list_provider.dart';
 import '../providers/map_provider.dart';
 import '../providers/peak_provider.dart';
 import '../services/peak_list_file_picker.dart';
-import '../services/peak_list_import_service.dart';
 import '../services/peak_list_repository.dart';
-import '../services/peaks_bagged_repository.dart';
 import '../widgets/dialog_helpers.dart';
 import '../widgets/left_tooltip_fab.dart';
 import '../widgets/peak_list_create_dialog.dart';
 import '../widgets/peak_list_import_dialog.dart';
 import '../widgets/peak_list_peak_dialog.dart';
 import 'map_screen_layers.dart';
-
-final peakListRepositoryProvider = Provider<PeakListRepository>((ref) {
-  throw UnimplementedError('peakListRepositoryProvider must be overridden');
-});
-
-final peaksBaggedRepositoryProvider = Provider<PeaksBaggedRepository>((ref) {
-  return PeaksBaggedRepository(objectboxStore);
-});
-
-final peakListImportServiceProvider = Provider<PeakListImportService>((ref) {
-  return PeakListImportService(
-    peakRepository: ref.watch(peakRepositoryProvider),
-    peakListRepository: ref.watch(peakListRepositoryProvider),
-  );
-});
-
-final peakListImportRunnerProvider = Provider<PeakListImportRunner>((ref) {
-  final service = ref.watch(peakListImportServiceProvider);
-  return ({required String listName, required String csvPath}) async {
-    final result = await service.importPeakList(
-      listName: listName,
-      csvPath: csvPath,
-    );
-    return PeakListImportPresentationResult(
-      updated: result.updated,
-      importedCount: result.importedCount,
-      skippedCount: result.skippedCount,
-      warningCount: result.warningEntries.length,
-      warningMessage: result.warningMessage,
-      peakListId: result.peakListId,
-      listName: listName.trim(),
-    );
-  };
-});
-
-final peakListDuplicateNameCheckerProvider =
-    Provider<PeakListDuplicateNameChecker>((ref) {
-      final repository = ref.watch(peakListRepositoryProvider);
-      return (name) async => repository.findByName(name.trim()) != null;
-    });
 
 class PeakListsScreen extends ConsumerStatefulWidget {
   const PeakListsScreen({super.key});
@@ -379,12 +337,14 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
         return PeakListCreateDialog(
           duplicateNameChecker: ref.read(peakListDuplicateNameCheckerProvider),
           onCreate: ({required String listName}) async {
-            final saved = await ref.read(peakListRepositoryProvider).save(
-              PeakList(
-                name: listName,
-                peakList: encodePeakListItems(const <PeakListItem>[]),
-              ),
-            );
+            final saved = await ref
+                .read(peakListRepositoryProvider)
+                .save(
+                  PeakList(
+                    name: listName,
+                    peakList: encodePeakListItems(const <PeakListItem>[]),
+                  ),
+                );
             return saved.peakListId;
           },
         );
@@ -842,7 +802,6 @@ class _SummaryPane extends StatelessWidget {
       ),
     );
   }
-
 }
 
 class _PeakListsToolbar extends StatelessWidget {

@@ -80,6 +80,9 @@ const _wideNavigationWidth = 132.0;
 const _themeActionRightInset = 16.0;
 
 void _runShellPreNavigationCleanup(WidgetRef ref) {
+  if (ref.read(mapProvider).peakInfoPeak != null) {
+    ref.read(mapProvider.notifier).closePeakInfoPopup();
+  }
   if (ref.read(mapProvider).showInfoPopup) {
     ref.read(mapProvider.notifier).toggleInfoPopup();
   }
