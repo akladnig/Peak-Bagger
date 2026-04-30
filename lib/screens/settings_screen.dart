@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
+import 'package:peak_bagger/providers/data_export_provider.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/router.dart';
@@ -28,7 +29,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final bool _isDownloading = false;
   bool _isRefreshingPeaks = false;
   bool _isResettingMaps = false;
+  final bool _isExportingPeakLists = false;
+  bool _isExportingPeaks = false;
   String _status = '';
+  String _listExportStatus = '';
   late final VoidCallback _routerListener;
 
   @override
@@ -49,6 +53,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final mapState = ref.watch(mapProvider);
     final filterState = ref.watch(gpxFilterSettingsProvider);
     final peakCorrelationState = ref.watch(peakCorrelationSettingsProvider);
+    final isExporting = _isExportingPeakLists || _isExportingPeaks;
 
     return Scaffold(
       body: ListView(
@@ -64,7 +69,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.chevron_right),
-            onTap: _isDownloading
+            onTap: _isDownloading || isExporting
                 ? null
                 : () {
                     Navigator.of(context).push(
@@ -170,6 +175,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           _buildTrackFilterSection(context, filterState),
           _buildPeakCorrelationSection(context, peakCorrelationState),
+          _buildListExportsSection(),
+          if (_listExportStatus.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                _listExportStatus,
+                key: const Key('list-export-status'),
+              ),
+            ),
           if (_status.isNotEmpty)
             Padding(
               padding: const EdgeInsets.all(16),
@@ -486,6 +500,126 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       title: 'Track Statistics Recalculation Failed',
       closeKey: 'track-stats-recalc-error-close',
       content: Text(error),
+    );
+  }
+
+  Widget _buildListExportsSection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: ExpansionTile(
+        key: const Key('list-export-section'),
+        title: const Text('List Exports'),
+        subtitle: const Text('Export peak lists and peaks to CSV'),
+        initiallyExpanded: true,
+        children: [
+          ListTile(
+            key: const Key('list-export-peak-lists-tile'),
+            leading: const Icon(Icons.list_alt),
+            title: const Text('Export Peak Lists'),
+            subtitle: const Text('Export all peak lists to CSV files'),
+            onTap: _isExportingPeakLists || _isExportingPeaks ? null : () {},
+          ),
+          ListTile(
+            key: const Key('list-export-peaks-tile'),
+            leading: const Icon(Icons.terrain),
+            title: const Text('Export Peaks'),
+            subtitle: const Text('Export all peaks to peaks.csv'),
+            trailing: _isExportingPeaks
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : null,
+            onTap: _isExportingPeakLists || _isExportingPeaks
+                ? null
+                : _confirmExportPeaks,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmExportPeaks() async {
+    final confirmed = await showDangerConfirmDialog(
+      context: context,
+      title: 'Export Peaks?',
+      message:
+          'This will export all peaks to peaks.csv. Do you want to proceed?',
+      cancelKey: 'list-export-peaks-cancel',
+      cancelLabel: 'Cancel',
+      confirmKey: 'list-export-peaks-confirm',
+      confirmLabel: 'Export',
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    final outputDirectory = await ref
+        .read(dataExportFilePickerProvider)
+        .pickOutputDirectory();
+    if (outputDirectory == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _isExportingPeaks = true;
+      _listExportStatus = 'Exporting peaks...';
+    });
+
+    try {
+      final service = ref.read(dataExportServiceProvider);
+      final plan = await service.preparePeaksExport(outputDirectory);
+      final result = await service.commitExport(plan);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _listExportStatus =
+            'Exported ${result.exportedRowCount} peaks to ${result.exportedFileCount} file';
+      });
+      await _showListExportResult(
+        title: 'Peaks Exported',
+        content: Text(
+          'Exported ${result.exportedRowCount} rows to ${result.exportedFileCount} file.',
+        ),
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _listExportStatus = 'Error exporting peaks: $e';
+      });
+      await _showListExportFailure(e.toString());
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isExportingPeaks = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _showListExportResult({
+    required String title,
+    required Widget content,
+  }) {
+    return showSingleActionDialog(
+      context: context,
+      title: title,
+      content: content,
+      closeKey: 'list-export-result-close',
+    );
+  }
+
+  Future<void> _showListExportFailure(String error) {
+    return showSingleActionDialog(
+      context: context,
+      title: 'List Export Failed',
+      content: Text(error),
+      closeKey: 'list-export-error-close',
     );
   }
 
