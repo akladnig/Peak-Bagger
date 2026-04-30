@@ -99,6 +99,10 @@ List<Marker> buildPeakMarkers({
     final markerChild = correlatedPeakIds.contains(peak.osmId)
         ? tickedPeakMarker
         : untickedPeakMarker;
+    final keyedMarkerChild = KeyedSubtree(
+      key: Key('peak-marker-${peak.osmId}'),
+      child: markerChild,
+    );
     final isHovered = peak.osmId == hoveredPeakId;
     final marker = Marker(
       key: Key('peak-marker-hitbox-${peak.osmId}'),
@@ -118,10 +122,10 @@ List<Marker> buildPeakMarkers({
                     border: Border.all(color: Colors.amber, width: 3),
                   ),
                 ),
-                SizedBox(width: 20, height: 20, child: markerChild),
+                SizedBox(width: 20, height: 20, child: keyedMarkerChild),
               ],
             )
-          : markerChild,
+          : keyedMarkerChild,
     );
     if (correlatedPeakIds.contains(peak.osmId)) {
       tickedMarkers.add(marker);

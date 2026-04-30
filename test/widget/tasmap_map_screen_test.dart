@@ -546,9 +546,7 @@ void main() {
     final markerLayer = tester.widget<MarkerLayer>(
       find.byKey(const Key('peak-marker-layer')),
     );
-    final assetNames = markerLayer.markers
-        .map((marker) => (marker.child as SvgPicture).bytesLoader.toString())
-        .toList();
+    final assetNames = markerLayer.markers.map(_peakMarkerAssetName).toList();
 
     expect(
       assetNames,
@@ -631,19 +629,19 @@ void main() {
                 ],
                 tracks: [
                   GpxTrack(
-                    contentHash: 'hash',
-                    trackName: 'Correlated Track',
-                    gpxFile: '<gpx></gpx>',
-                    displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson(
-                      [
-                        [
-                          const LatLng(-43.0, 147.0),
-                          const LatLng(-42.9, 147.1),
-                        ],
-                      ],
-                    ),
-                    peakCorrelationProcessed: true,
-                  )..peaks.add(
+                      contentHash: 'hash',
+                      trackName: 'Correlated Track',
+                      gpxFile: '<gpx></gpx>',
+                      displayTrackPointsByZoom:
+                          TrackDisplayCacheBuilder.buildJson([
+                            [
+                              const LatLng(-43.0, 147.0),
+                              const LatLng(-42.9, 147.1),
+                            ],
+                          ]),
+                      peakCorrelationProcessed: true,
+                    )
+                    ..peaks.add(
                       Peak(
                         osmId: 6406,
                         name: 'Bonnet Hill',
@@ -669,9 +667,7 @@ void main() {
     final markerLayer = tester.widget<MarkerLayer>(
       find.byKey(const Key('peak-marker-layer')),
     );
-    final assetNames = markerLayer.markers
-        .map((marker) => (marker.child as SvgPicture).bytesLoader.toString())
-        .toList();
+    final assetNames = markerLayer.markers.map(_peakMarkerAssetName).toList();
 
     expect(
       assetNames,
@@ -789,6 +785,12 @@ void main() {
     expect(trackIndex, greaterThanOrEqualTo(0));
     expect(peakIndex, greaterThan(trackIndex));
   });
+}
+
+String _peakMarkerAssetName(Marker marker) {
+  final child = marker.child;
+  final visualMarker = child is KeyedSubtree ? child.child : child;
+  return (visualMarker as SvgPicture).bytesLoader.toString();
 }
 
 Tasmap50k _adamsons() {

@@ -60,13 +60,13 @@ Peak hover/click popup on map. Central screen-space hit testing; separate peak p
 ### Phase 4: Robot Journey
 
 - **Goal**: critical user journey with stable selectors
-- [ ] `test/robot/peaks/peak_info_robot.dart` - map harness; selectors: `map-interaction-region`, `peak-marker-6406`, `peak-marker-hitbox-6406`, `peak-info-popup`, `peak-info-popup-close`
-- [ ] `test/robot/peaks/peak_info_journey_test.dart` - hover, click, content, close, background click path
-- [ ] `test/harness/test_map_notifier.dart` - deterministic peak/popup helpers if needed
-- [ ] TDD: robot hover shows click cursor/halo → implement robot + UI seam
-- [ ] TDD: robot click opens popup with content and close button → implement journey
-- [ ] TDD: robot non-peak click keeps map selection behavior and no peak popup → implement journey
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `test/robot/peaks/peak_info_robot.dart` - map harness; selectors: `map-interaction-region`, `peak-marker-6406`, `peak-marker-hitbox-6406`, `peak-info-popup`, `peak-info-popup-close`
+- [x] `test/robot/peaks/peak_info_journey_test.dart` - hover, click, content, close, background click path
+- [x] `test/harness/test_map_notifier.dart` - deterministic peak/popup helpers if needed
+- [x] TDD: robot hover shows click cursor/halo → implement robot + UI seam
+- [x] TDD: robot click opens popup with content and close button → implement journey
+- [x] TDD: robot non-peak click keeps map selection behavior and no peak popup → implement journey
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 
