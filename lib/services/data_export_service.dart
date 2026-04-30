@@ -3,11 +3,17 @@ import 'dart:io';
 import 'package:csv/csv.dart';
 import 'package:path/path.dart' as p;
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 
 abstract class DataExportService {
   Future<DataExportPlan> preparePeaksExport(String outputDirectory);
+
+  Future<DataExportPlan> preparePeakListsExport(
+    String outputDirectory, {
+    required String logDirectory,
+  });
 
   Future<DataExportCommitResult> commitExport(DataExportPlan plan);
 }
@@ -51,12 +57,14 @@ class DataExportPlan {
     required this.targets,
     required this.warningEntries,
     required this.overwriteConflicts,
+    this.warningLogPath,
   });
 
   final String outputDirectory;
   final List<DataExportTarget> targets;
   final List<String> warningEntries;
   final List<String> overwriteConflicts;
+  final String? warningLogPath;
 
   int get totalRowCount =>
       targets.fold(0, (total, target) => total + target.rowCount);
@@ -90,8 +98,6 @@ class DefaultDataExportService implements DataExportService {
        _clock = clock;
 
   final PeakRepository _peakRepository;
-  // Kept for the phase-2 peak-list slice so the service API stays stable.
-  // ignore: unused_field
   final PeakListRepository _peakListRepository;
   final DataExportFileSystem _fileSystem;
   final DateTime Function() _clock;
@@ -118,6 +124,74 @@ class DefaultDataExportService implements DataExportService {
   }
 
   @override
+  Future<DataExportPlan> preparePeakListsExport(
+    String outputDirectory, {
+    required String logDirectory,
+  }) async {
+    await _ensureWritableDirectory(outputDirectory);
+    final peaksByOsmId = {
+      for (final peak in _peakRepository.getAllPeaks()) peak.osmId: peak,
+    };
+    final peakLists = List<PeakList>.from(_peakListRepository.getAllPeakLists())
+      ..sort(_comparePeakListsForExport);
+    final usedFileNames = <String, int>{};
+    final targets = <DataExportTarget>[];
+    final warningEntries = <String>[];
+
+    for (final peakList in peakLists) {
+      late final List<PeakListItem> items;
+      try {
+        items = decodePeakListItems(peakList.peakList);
+      } catch (_) {
+        warningEntries.add(
+          _timestampedLogEntry(
+            'peak-list',
+            peakList.name,
+            'Skipped malformed peak-list payload.',
+          ),
+        );
+        continue;
+      }
+
+      final rows = <_PeakListExportRow>[];
+      for (final item in items) {
+        final peak = peaksByOsmId[item.peakOsmId];
+        if (peak == null) {
+          warningEntries.add(
+            _timestampedLogEntry(
+              'peak-list',
+              peakList.name,
+              'Skipped missing peak osmId ${item.peakOsmId}.',
+            ),
+          );
+          continue;
+        }
+        rows.add(_PeakListExportRow(peak: peak, points: item.points));
+      }
+
+      final fileName = _uniquePeakListFileName(peakList.name, usedFileNames);
+      targets.add(
+        DataExportTarget(
+          fileName: fileName,
+          path: p.join(outputDirectory, fileName),
+          payload: _buildPeakListCsv(rows),
+          rowCount: rows.length,
+        ),
+      );
+    }
+
+    return DataExportPlan(
+      outputDirectory: outputDirectory,
+      targets: List<DataExportTarget>.unmodifiable(targets),
+      warningEntries: List<String>.unmodifiable(warningEntries),
+      warningLogPath: warningEntries.isEmpty
+          ? null
+          : p.join(logDirectory, 'export.log'),
+      overwriteConflicts: await _overwriteConflicts(targets),
+    );
+  }
+
+  @override
   Future<DataExportCommitResult> commitExport(DataExportPlan plan) async {
     for (final target in plan.targets) {
       final tempPath = '${target.path}.tmp';
@@ -128,10 +202,21 @@ class DefaultDataExportService implements DataExportService {
       );
     }
 
+    String? logWarning;
+    if (plan.warningEntries.isNotEmpty && plan.warningLogPath != null) {
+      try {
+        await _fileSystem.appendLog(plan.warningLogPath!, plan.warningEntries);
+      } catch (_) {
+        logWarning = 'Could not update export.log.';
+      }
+    }
+
     return DataExportCommitResult(
       exportedFileCount: plan.targets.length,
       exportedRowCount: plan.totalRowCount,
       warningCount: plan.warningEntries.length,
+      logPath: logWarning == null ? plan.warningLogPath : null,
+      logWarning: logWarning,
     );
   }
 
@@ -193,12 +278,78 @@ class DefaultDataExportService implements DataExportService {
     return const ListToCsvConverter(eol: '\n').convert(rows);
   }
 
+  String _buildPeakListCsv(List<_PeakListExportRow> rows) {
+    final csvRows = <List<Object?>>[
+      const [
+        'Name',
+        'Height',
+        'gridZoneDesignator',
+        'mgrs100kId',
+        'Easting',
+        'Northing',
+        'Latitude',
+        'Longitude',
+        'Points',
+      ],
+      for (final row in rows)
+        [
+          row.peak.name,
+          row.peak.elevation?.toString() ?? '',
+          row.peak.gridZoneDesignator,
+          row.peak.mgrs100kId,
+          row.peak.easting,
+          row.peak.northing,
+          row.peak.latitude.toString(),
+          row.peak.longitude.toString(),
+          row.points.toString(),
+        ],
+    ];
+    return const ListToCsvConverter(eol: '\n').convert(csvRows);
+  }
+
   int _comparePeaksForExport(Peak a, Peak b) {
     final nameCompare = a.name.toLowerCase().compareTo(b.name.toLowerCase());
     if (nameCompare != 0) {
       return nameCompare;
     }
     return a.osmId.compareTo(b.osmId);
+  }
+
+  int _comparePeakListsForExport(PeakList a, PeakList b) {
+    final sanitizedCompare = _sanitizePeakListFileBase(
+      a.name,
+    ).compareTo(_sanitizePeakListFileBase(b.name));
+    if (sanitizedCompare != 0) {
+      return sanitizedCompare;
+    }
+
+    final nameCompare = a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    if (nameCompare != 0) {
+      return nameCompare;
+    }
+
+    return a.peakListId.compareTo(b.peakListId);
+  }
+
+  String _uniquePeakListFileName(
+    String listName,
+    Map<String, int> usedFileNames,
+  ) {
+    final base = _sanitizePeakListFileBase(listName);
+    final nextCount = (usedFileNames[base] ?? 0) + 1;
+    usedFileNames[base] = nextCount;
+    final uniqueBase = nextCount == 1 ? base : '$base-$nextCount';
+    return '$uniqueBase-peak-list.csv';
+  }
+
+  String _sanitizePeakListFileBase(String name) {
+    final sanitized = name
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9._-]+'), '-')
+        .replaceAll(RegExp('-+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
+    return sanitized.isEmpty ? 'peak-list' : sanitized;
   }
 
   // Used by later warning-log slices.
@@ -210,6 +361,13 @@ class DefaultDataExportService implements DataExportService {
   ) {
     return '${_clock().toIso8601String()} | $exportType | $context | $warning';
   }
+}
+
+class _PeakListExportRow {
+  const _PeakListExportRow({required this.peak, required this.points});
+
+  final Peak peak;
+  final int points;
 }
 
 class DataExportException implements Exception {

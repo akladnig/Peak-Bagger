@@ -28,11 +28,11 @@ Prepare/commit service, deterministic seams, Settings wiring, robot journey.
 ### Phase 2: Peak List CSVs
 
 - **Goal**: peak-list prepare plan, warnings, `export.log`
-- [ ] `lib/services/data_export_service.dart` - peak-list prepare; decodable lists only; filename sanitization; duplicate suffixes; `Map<int, Peak>` lookup; warning log entries
-- [ ] `test/services/data_export_service_test.dart` - TDD: one CSV per decodable list; row mapping; item order; deterministic list order
-- [ ] `test/services/data_export_service_test.dart` - TDD: malformed list no CSV + log warning; missing peak row skipped + log warning; all-malformed success with `0` files
-- [ ] `test/services/data_export_service_test.dart` - TDD: filename sanitization, duplicate names, ISO timestamp log entries
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/services/data_export_service.dart` - peak-list prepare; decodable lists only; filename sanitization; duplicate suffixes; `Map<int, Peak>` lookup; warning log entries
+- [x] `test/services/data_export_service_test.dart` - TDD: one CSV per decodable list; row mapping; item order; deterministic list order
+- [x] `test/services/data_export_service_test.dart` - TDD: malformed list no CSV + log warning; missing peak row skipped + log warning; all-malformed success with `0` files
+- [x] `test/services/data_export_service_test.dart` - TDD: filename sanitization, duplicate names, ISO timestamp log entries
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Filesystem Semantics
 
