@@ -396,6 +396,7 @@ class PeakInfoPopupCard extends StatelessWidget {
     final elevationText = peak.elevation == null
         ? '—'
         : '${peak.elevation!.toStringAsFixed(0)}m';
+    final altName = peak.altName.trim();
 
     return Card(
       child: Padding(
@@ -429,6 +430,10 @@ class PeakInfoPopupCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
+            if (altName.isNotEmpty) ...[
+              Text('Alt Name: $altName', style: const TextStyle(fontSize: 13)),
+              const SizedBox(height: 4),
+            ],
             Text(
               'Height: $elevationText',
               style: const TextStyle(fontSize: 13),

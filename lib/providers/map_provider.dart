@@ -2011,11 +2011,13 @@ class MapNotifier extends Notifier<MapState> {
 
   Future<void> reloadPeakMarkers() async {
     final peaks = _peakRepository.getAllPeaks();
+    final refreshedPeakInfo = _refreshedPeakInfo(peaks);
     state = state.copyWith(
       peaks: peaks,
       isLoadingPeaks: false,
       clearError: true,
-      clearPeakInfoPopup: _peakInfoPeakWasRemoved(peaks),
+      peakInfo: refreshedPeakInfo,
+      clearPeakInfoPopup: state.peakInfo != null && refreshedPeakInfo == null,
     );
   }
 
@@ -2024,11 +2026,13 @@ class MapNotifier extends Notifier<MapState> {
     try {
       final result = await _peakRefreshService.refreshPeaks();
       final peaks = _peakRepository.getAllPeaks();
+      final refreshedPeakInfo = _refreshedPeakInfo(peaks);
       state = state.copyWith(
         peaks: peaks,
         isLoadingPeaks: false,
         clearError: true,
-        clearPeakInfoPopup: _peakInfoPeakWasRemoved(peaks),
+        peakInfo: refreshedPeakInfo,
+        clearPeakInfoPopup: state.peakInfo != null && refreshedPeakInfo == null,
       );
       return result;
     } catch (e) {
@@ -2044,10 +2048,22 @@ class MapNotifier extends Notifier<MapState> {
     return buildCorrelatedPeakIds(tracks);
   }
 
-  bool _peakInfoPeakWasRemoved(List<Peak> peaks) {
-    final peakInfoPeak = state.peakInfoPeak;
-    return peakInfoPeak != null &&
-        !peaks.any((peak) => peak.osmId == peakInfoPeak.osmId);
+  PeakInfoContent? _refreshedPeakInfo(List<Peak> peaks) {
+    final existing = state.peakInfo;
+    if (existing == null) {
+      return null;
+    }
+
+    for (final peak in peaks) {
+      if (peak.osmId == existing.peak.osmId) {
+        return PeakInfoContent(
+          peak: peak,
+          mapName: existing.mapName,
+          listNames: existing.listNames,
+        );
+      }
+    }
+    return null;
   }
 
   bool _inRange(int value, int min, int max) {

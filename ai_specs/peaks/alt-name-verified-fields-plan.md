@@ -49,12 +49,12 @@ TDD vertical slices; preserve user-owned metadata through replacements.
 ### Phase 3: Popup + Marker Reload
 
 - **Goal**: clicked peak popup shows fresh `altName`
-- [ ] `lib/screens/map_screen_panels.dart` - render optional `Alt Name: <trimmed altName>` after title
-- [ ] `lib/providers/map_provider.dart` - shared helper for `reloadPeakMarkers` and `refreshPeaks`; refresh `content.peak` only
-- [ ] `test/widget/map_screen_peak_info_test.dart` - popup line order, empty collapse, stale popup refresh
-- [ ] TDD: popup omits empty `altName`; shows non-empty trimmed value in required order → implement
-- [ ] TDD: marker reload/refresh updates open `content.peak`; preserves `mapName`/`listNames` → implement
-- [ ] Verify: `flutter analyze && flutter test`
+- [x] `lib/screens/map_screen_panels.dart` - render optional `Alt Name: <trimmed altName>` after title
+- [x] `lib/providers/map_provider.dart` - shared helper for `reloadPeakMarkers` and `refreshPeaks`; refresh `content.peak` only
+- [x] `test/widget/map_screen_peak_info_test.dart` - popup line order, empty collapse, stale popup refresh
+- [x] TDD: popup omits empty `altName`; shows non-empty trimmed value in required order → implement
+- [x] TDD: marker reload/refresh updates open `content.peak`; preserves `mapName`/`listNames` → implement
+- [x] Verify: `flutter analyze && flutter test`
 
 ### Phase 4: Replacement Preservation
 

@@ -196,6 +196,47 @@ void main() {
     expect(container.read(mapProvider).peakInfoPeak, isNull);
   });
 
+  testWidgets('reload keeps open peak popup content fresh', (tester) async {
+    final peak = Peak(
+      osmId: 6406,
+      name: 'Bonnet Hill',
+      latitude: -43.0,
+      longitude: 147.0,
+    );
+    final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+    await _pumpMap(
+      tester,
+      _mapStateWithPeak(peak: peak),
+      peakRepository: peakRepository,
+    );
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final container = ProviderScope.containerOf(tester.element(region));
+
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(container.read(mapProvider).peakInfoPeak?.altName, '');
+
+    await peakRepository.save(
+      Peak(
+        id: peak.id,
+        osmId: 6406,
+        name: 'Bonnet Hill',
+        altName: 'Updated Alternate',
+        latitude: -43.0,
+        longitude: 147.0,
+      ),
+    );
+    await container.read(mapProvider.notifier).reloadPeakMarkers();
+    await tester.pump();
+
+    final state = container.read(mapProvider);
+    expect(state.peakInfoPeak?.altName, 'Updated Alternate');
+    expect(state.peakInfo?.mapName, isNotEmpty);
+    expect(state.peakInfo?.listNames, isEmpty);
+  });
+
   testWidgets('opening peak search closes peak popup', (tester) async {
     await _pumpMap(tester, _mapStateWithPeak());
 
@@ -269,6 +310,40 @@ void main() {
     expect(find.text('List(s): Abels, HWC'), findsOneWidget);
   });
 
+  testWidgets('peak popup shows non-empty alternate name after title', (
+    tester,
+  ) async {
+    await _pumpMap(
+      tester,
+      _mapStateWithPeak(
+        peak: Peak(
+          osmId: 6406,
+          name: 'Bonnet Hill',
+          altName: '  Kunanyi foothill  ',
+          elevation: 1234,
+          latitude: -43.0,
+          longitude: 147.0,
+        ),
+      ),
+    );
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Bonnet Hill'), findsOneWidget);
+    expect(find.text('Alt Name: Kunanyi foothill'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Bonnet Hill')).dy,
+      lessThan(tester.getTopLeft(find.text('Alt Name: Kunanyi foothill')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('Alt Name: Kunanyi foothill')).dy,
+      lessThan(tester.getTopLeft(find.text('Height: 1234m')).dy),
+    );
+  });
+
   testWidgets('peak popup derives map from lat lng when MGRS is incomplete', (
     tester,
   ) async {
@@ -326,6 +401,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Map: Unknown'), findsOneWidget);
+    expect(find.textContaining('Alt Name:'), findsNothing);
     expect(find.textContaining('List(s):'), findsNothing);
   });
 }
