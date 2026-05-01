@@ -36,12 +36,13 @@ class ObjectBoxAdminDataGrid extends StatelessWidget {
     const primaryColumnWidth = 144.0;
     const actionsColumnWidth = 72.0;
 
-    final otherFields = entity.fields
+    final tableFields = entity.name == 'Peak'
+        ? peakAdminTableFields(entity)
+        : entity.fields;
+    final otherFields = tableFields
         .where((field) => !field.isPrimaryName)
         .toList(growable: false);
-    final primaryField = entity.fields.firstWhere(
-      (field) => field.isPrimaryName,
-    );
+    final primaryField = tableFields.firstWhere((field) => field.isPrimaryName);
     final showActionsColumn = entity.name == 'Peak' && onDeletePressed != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -76,22 +77,22 @@ class ObjectBoxAdminDataGrid extends StatelessWidget {
                 final row = rows[index];
                 final isSelected =
                     selectedRow?.primaryKeyValue == row.primaryKeyValue;
-                  return ObjectBoxAdminDataRowTile(
-                    row: row,
-                    primaryField: primaryField,
-                    otherFields: otherFields,
-                    primaryColumnWidth: primaryColumnWidth,
-                    actionsColumnWidth: actionsColumnWidth,
-                    selected: isSelected,
-                    horizontalController: rowHorizontalControllerFor(row),
-                    onTap: () => onRowTap(row),
-                    showActionsColumn: showActionsColumn,
-                    onDeletePressed: onDeletePressed == null
-                        ? null
-                        : () => onDeletePressed!(row),
-                  );
-                },
-              ),
+                return ObjectBoxAdminDataRowTile(
+                  row: row,
+                  primaryField: primaryField,
+                  otherFields: otherFields,
+                  primaryColumnWidth: primaryColumnWidth,
+                  actionsColumnWidth: actionsColumnWidth,
+                  selected: isSelected,
+                  horizontalController: rowHorizontalControllerFor(row),
+                  onTap: () => onRowTap(row),
+                  showActionsColumn: showActionsColumn,
+                  onDeletePressed: onDeletePressed == null
+                      ? null
+                      : () => onDeletePressed!(row),
+                );
+              },
+            ),
           ),
         ),
       ],

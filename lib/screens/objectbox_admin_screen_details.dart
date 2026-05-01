@@ -106,13 +106,13 @@ class _ObjectBoxAdminReadOnlyDetailsPane extends StatelessWidget {
                   itemBuilder: (context, index) {
                     final field = entity.fields[index];
                     final selectedRow = row!;
+                    final value = selectedRow.values[field.name];
                     return ListTile(
                       dense: true,
                       title: Text(field.name),
-                      subtitle: SelectableText(
-                        objectBoxAdminFormatValue(
-                          selectedRow.values[field.name],
-                        ),
+                      subtitle: objectBoxAdminDetailsValue(
+                        label: field.name,
+                        value: value,
                       ),
                     );
                   },
@@ -450,12 +450,10 @@ class _PeakReadOnlyDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final detailsFields = peakAdminDetailsFields(entity);
     return ListView(
       children: [
-        ...entity.fields.map((field) {
-          final value = objectBoxAdminFormatValue(row.values[field.name]);
-          final isEditable =
-              !field.isPrimaryKey && field.name != 'gridZoneDesignator';
+        ...detailsFields.map((field) {
           final isSourceOfTruth = field.name == 'sourceOfTruth';
           final title = field.name == 'sourceOfTruth'
               ? 'sourceOfTruth'
@@ -463,19 +461,58 @@ class _PeakReadOnlyDetails extends StatelessWidget {
           return ListTile(
             dense: true,
             title: Text(title),
-            subtitle: SelectableText(value),
+            subtitle: objectBoxAdminDetailsValue(
+              label: title,
+              value: row.values[field.name],
+            ),
             trailing: isSourceOfTruth
                 ? TextButton(
                     key: const Key('objectbox-admin-peak-source-of-truth'),
                     onPressed: onMarkAsHwc,
                     child: const Text('Mark as HWC'),
                   )
-                : isEditable
-                ? null
-                : Text(value),
+                : null,
           );
         }),
       ],
+    );
+  }
+}
+
+Widget objectBoxAdminDetailsValue({
+  required String label,
+  required Object? value,
+}) {
+  if (value is bool) {
+    return ObjectBoxAdminDetailsValue(label: label, value: value);
+  }
+
+  return SelectableText(objectBoxAdminFormatValue(value));
+}
+
+class ObjectBoxAdminDetailsValue extends StatelessWidget {
+  const ObjectBoxAdminDetailsValue({
+    required this.label,
+    required this.value,
+    super.key,
+  });
+
+  final String label;
+  final Object? value;
+
+  @override
+  Widget build(BuildContext context) {
+    final rawValue = value as bool;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Semantics(
+        label: label,
+        checked: rawValue,
+        enabled: false,
+        child: ExcludeSemantics(
+          child: Checkbox(value: rawValue, onChanged: null),
+        ),
+      ),
     );
   }
 }
@@ -536,6 +573,7 @@ class _PeakEditForm extends StatelessWidget {
       children: [
         Expanded(
           child: ListView(
+            key: const Key('objectbox-admin-peak-edit-form'),
             children: [
               _buildReadOnlyField(
                 context,

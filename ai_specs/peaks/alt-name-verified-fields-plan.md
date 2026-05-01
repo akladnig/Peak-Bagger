@@ -33,18 +33,18 @@ TDD vertical slices; preserve user-owned metadata through replacements.
 ### Phase 2: Admin Ordering, Search, Details Rendering
 
 - **Goal**: full ObjectBox Admin display/search/edit behavior
-- [ ] `lib/services/objectbox_admin_repository.dart` - Peak-specific search helper; fake search parity; finalized order helpers
-- [ ] `lib/screens/objectbox_admin_screen_table.dart` - table data-field order; keep Delete action appended
-- [ ] `lib/screens/objectbox_admin_screen_details.dart` - details field order; shared bool details renderer; accessible disabled checkbox
-- [ ] `test/harness/test_objectbox_admin_repository.dart` - schema-like fake descriptors; rows include new fields
-- [ ] `test/widget/objectbox_admin_shell_test.dart` - admin edit/create/order/details/search validation coverage
-- [ ] `test/robot/objectbox_admin/objectbox_admin_robot.dart` - `altName` field helper; `verified` checkbox helper
-- [ ] `test/robot/objectbox_admin/objectbox_admin_journey_test.dart` - edit/save `Alt Name` + `Verified` journey
-- [ ] TDD: admin search matches name/altName trimmed case-insensitive, sorted by id → implement
-- [ ] TDD: table order/name pin/delete column behavior → implement
-- [ ] TDD: details bool checkbox semantics, no duplicate text → implement
-- [ ] Robot journey tests + selectors/seams: `objectbox-admin-peak-alt-name`, `objectbox-admin-peak-verified`, fake repository/state
-- [ ] Verify: `flutter analyze && flutter test`
+- [x] `lib/services/objectbox_admin_repository.dart` - Peak-specific search helper; fake search parity; finalized order helpers
+- [x] `lib/screens/objectbox_admin_screen_table.dart` - table data-field order; keep Delete action appended
+- [x] `lib/screens/objectbox_admin_screen_details.dart` - details field order; shared bool details renderer; accessible disabled checkbox
+- [x] `test/harness/test_objectbox_admin_repository.dart` - schema-like fake descriptors; rows include new fields
+- [x] `test/widget/objectbox_admin_shell_test.dart` - admin edit/create/order/details/search validation coverage
+- [x] `test/robot/objectbox_admin/objectbox_admin_robot.dart` - `altName` field helper; `verified` checkbox helper
+- [x] `test/robot/objectbox_admin/objectbox_admin_journey_test.dart` - edit/save `Alt Name` + `Verified` journey
+- [x] TDD: admin search matches name/altName trimmed case-insensitive, sorted by id → implement
+- [x] TDD: table order/name pin/delete column behavior → implement
+- [x] TDD: details bool checkbox semantics, no duplicate text → implement
+- [x] Robot journey tests + selectors/seams: `objectbox-admin-peak-alt-name`, `objectbox-admin-peak-verified`, fake repository/state
+- [x] Verify: `flutter analyze && flutter test`
 
 ### Phase 3: Popup + Marker Reload
 

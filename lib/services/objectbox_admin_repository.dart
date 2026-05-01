@@ -215,7 +215,11 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
     final filtered = query.isEmpty
         ? items
         : items.where((peak) {
-            return peak.name.toLowerCase().contains(query);
+            return _peakMatchesSearch(
+              name: peak.name,
+              altName: peak.altName,
+              query: query,
+            );
           }).toList();
 
     filtered.sort(
@@ -444,7 +448,6 @@ double? _adminDoubleValue(Object? value) {
   return double.tryParse('$value');
 }
 
-
 ObjectBoxAdminRow peakListToAdminRow(PeakList peakList) {
   return ObjectBoxAdminRow(
     primaryKeyValue: peakList.peakListId,
@@ -576,6 +579,13 @@ List<ObjectBoxAdminRow> objectBoxAdminFilterAndSortRows(
       ? rows
       : rows
             .where((row) {
+              if (entity.name == 'Peak') {
+                return _peakMatchesSearch(
+                  name: row.values['name'],
+                  altName: row.values['altName'],
+                  query: trimmedQuery,
+                );
+              }
               final value = row.values[entity.primaryNameField];
               return objectBoxAdminFormatValue(
                 value,
@@ -595,6 +605,15 @@ List<ObjectBoxAdminRow> objectBoxAdminFilterAndSortRows(
     });
 
   return sorted;
+}
+
+bool _peakMatchesSearch({
+  required Object? name,
+  required Object? altName,
+  required String query,
+}) {
+  return objectBoxAdminFormatValue(name).toLowerCase().contains(query) ||
+      objectBoxAdminFormatValue(altName).trim().toLowerCase().contains(query);
 }
 
 void logObjectBoxAdminError(

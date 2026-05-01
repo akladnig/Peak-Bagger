@@ -10,6 +10,7 @@ import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
+import 'package:peak_bagger/screens/objectbox_admin_screen_details.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 import 'package:peak_bagger/services/peak_delete_guard.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
@@ -254,9 +255,29 @@ void main() {
       'Mt Ossa',
     );
     await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-alt-name')),
+      ' mt ossa ',
+    );
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-submit')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Alt Name must be different from Name'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-alt-name')),
+      'Ossa',
+    );
+    await tester.enterText(
       find.byKey(const Key('objectbox-admin-peak-area')),
       'New Area',
     );
+    await tester.drag(
+      find.byKey(const Key('objectbox-admin-peak-edit-form')),
+      const Offset(0, -500),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-verified')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('objectbox-admin-peak-submit')));
     await tester.pumpAndSettle();
 
@@ -274,7 +295,84 @@ void main() {
     final mapState = container.read(mapProvider);
     expect(mapState.peaks, hasLength(2));
     expect(mapState.peaks.singleWhere((peak) => peak.id == 1).area, 'New Area');
+    expect(mapState.peaks.singleWhere((peak) => peak.id == 1).altName, 'Ossa');
+    expect(mapState.peaks.singleWhere((peak) => peak.id == 1).verified, isTrue);
     expect(find.text('New Area'), findsWidgets);
+  });
+
+  testWidgets('Peak admin table and details use required field ordering', (
+    tester,
+  ) async {
+    await _pumpApp(
+      tester,
+      repository: TestObjectBoxAdminRepository(entities: [_peakEntity()]),
+      peakDeleteGuard: PeakDeleteGuard(_NoopPeakDeleteGuardSource()),
+    );
+
+    await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final header = find.byKey(const Key('objectbox-admin-header-row'));
+    expect(
+      tester
+          .getTopLeft(find.descendant(of: header, matching: find.text('name')))
+          .dx,
+      lessThan(
+        tester
+            .getTopLeft(
+              find.descendant(of: header, matching: find.text('altName')),
+            )
+            .dx,
+      ),
+    );
+    expect(
+      tester
+          .getTopLeft(
+            find.descendant(of: header, matching: find.text('altName')),
+          )
+          .dx,
+      lessThan(
+        tester
+            .getTopLeft(find.descendant(of: header, matching: find.text('id')))
+            .dx,
+      ),
+    );
+    expect(
+      find.descendant(of: header, matching: find.text('Delete')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Mt Ossa'));
+    await tester.pumpAndSettle();
+
+    final details = find.byKey(const Key('objectbox-admin-details-close'));
+    expect(
+      tester.getTopLeft(find.text('id').last).dy,
+      lessThan(tester.getTopLeft(find.text('name').last).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('name').last).dy,
+      lessThan(tester.getTopLeft(find.text('altName').last).dy),
+    );
+    expect(details, findsOneWidget);
+  });
+
+  testWidgets('details value renders booleans as disabled checkboxes', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ObjectBoxAdminDetailsValue(label: 'verified', value: true),
+        ),
+      ),
+    );
+
+    final checkbox = tester.widget<Checkbox>(find.byType(Checkbox));
+    expect(checkbox.value, isTrue);
+    expect(checkbox.onChanged, isNull);
+    expect(find.text('true'), findsNothing);
   });
 
   testWidgets('View Peak on Main Map opens the map at the Peak location', (
@@ -632,8 +730,10 @@ Peak _buildPeak({
   required int id,
   required int osmId,
   required String name,
+  String altName = '',
   double? elevation,
   String? area,
+  bool verified = false,
 }) {
   final location = const LatLng(-41.5, 146.5);
   final components = PeakMgrsConverter.fromLatLng(location);
@@ -641,6 +741,7 @@ Peak _buildPeak({
     id: id,
     osmId: osmId,
     name: name,
+    altName: altName,
     elevation: elevation,
     latitude: location.latitude,
     longitude: location.longitude,
@@ -649,6 +750,7 @@ Peak _buildPeak({
     mgrs100kId: components.mgrs100kId,
     easting: components.easting,
     northing: components.northing,
+    verified: verified,
   );
 }
 
@@ -672,6 +774,13 @@ ObjectBoxAdminEntityDescriptor _peakEntity() {
         nullable: false,
         isPrimaryKey: false,
         isPrimaryName: true,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'altName',
+        typeLabel: 'String',
+        nullable: false,
+        isPrimaryKey: false,
+        isPrimaryName: false,
       ),
       ObjectBoxAdminFieldDescriptor(
         name: 'osmId',
@@ -737,6 +846,13 @@ ObjectBoxAdminEntityDescriptor _peakEntity() {
         isPrimaryName: false,
       ),
       ObjectBoxAdminFieldDescriptor(
+        name: 'verified',
+        typeLabel: 'bool',
+        nullable: false,
+        isPrimaryKey: false,
+        isPrimaryName: false,
+      ),
+      ObjectBoxAdminFieldDescriptor(
         name: 'sourceOfTruth',
         typeLabel: 'String',
         nullable: false,
@@ -748,23 +864,7 @@ ObjectBoxAdminEntityDescriptor _peakEntity() {
 }
 
 ObjectBoxAdminRow _peakRow(Peak peak) {
-  return ObjectBoxAdminRow(
-    primaryKeyValue: peak.id,
-    values: {
-      'id': peak.id,
-      'osmId': peak.osmId,
-      'name': peak.name,
-      'elevation': peak.elevation,
-      'latitude': peak.latitude,
-      'longitude': peak.longitude,
-      'area': peak.area,
-      'gridZoneDesignator': peak.gridZoneDesignator,
-      'mgrs100kId': peak.mgrs100kId,
-      'easting': peak.easting,
-      'northing': peak.northing,
-      'sourceOfTruth': peak.sourceOfTruth,
-    },
-  );
+  return peakToAdminRow(peak);
 }
 
 class _MutablePeakRepository extends PeakRepository {

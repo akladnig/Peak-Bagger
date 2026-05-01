@@ -40,6 +40,10 @@ class ObjectBoxAdminRobot {
       find.byKey(const Key('objectbox-admin-peak-view-on-map'));
   Finder get peakSubmitButton =>
       find.byKey(const Key('objectbox-admin-peak-submit'));
+  Finder get peakAltNameField =>
+      find.byKey(const Key('objectbox-admin-peak-alt-name'));
+  Finder get peakVerifiedCheckbox =>
+      find.byKey(const Key('objectbox-admin-peak-verified'));
   Finder get peakDeleteBlockedClose =>
       find.byKey(const Key('objectbox-admin-peak-delete-blocked-close'));
   Finder get peakUpdateSuccessClose =>
@@ -135,6 +139,27 @@ class ObjectBoxAdminRobot {
     await tester.tap(finder);
     await tester.pump();
     tester.testTextInput.enterText(value);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> enterPeakAltName(String value) async {
+    await tester.tap(peakAltNameField);
+    await tester.pump();
+    tester.testTextInput.enterText(value);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> setPeakVerified({required bool verified}) async {
+    await tester.drag(
+      find.byKey(const Key('objectbox-admin-peak-edit-form')),
+      const Offset(0, -500),
+    );
+    await tester.pumpAndSettle();
+    final checkbox = tester.widget<CheckboxListTile>(peakVerifiedCheckbox);
+    if (checkbox.value == verified) {
+      return;
+    }
+    await tester.tap(peakVerifiedCheckbox);
     await tester.pumpAndSettle();
   }
 

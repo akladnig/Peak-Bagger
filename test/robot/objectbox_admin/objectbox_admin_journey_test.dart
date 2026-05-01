@@ -48,6 +48,8 @@ void main() {
     await robot.selectRow('Mt Ossa');
     await robot.startEditingPeak();
     await robot.enterPeakField('name', 'Mt Ossa Peak');
+    await robot.enterPeakAltName('Ossa');
+    await robot.setPeakVerified(verified: true);
     await robot.submitPeakEdit();
 
     expect(find.text('Update Successful'), findsOneWidget);
@@ -61,7 +63,11 @@ void main() {
     final editMapState = editContainer.read(mapProvider);
     expect(editMapState.peaks, hasLength(1));
     expect(editMapState.peaks.single.name, 'Mt Ossa Peak');
+    expect(editMapState.peaks.single.altName, 'Ossa');
+    expect(editMapState.peaks.single.verified, isTrue);
     expect(peakRepository.findById(1)?.name, 'Mt Ossa Peak');
+    expect(peakRepository.findById(1)?.altName, 'Ossa');
+    expect(peakRepository.findById(1)?.verified, isTrue);
     expect(find.text('Mt Ossa Peak'), findsWidgets);
   });
 
@@ -185,7 +191,9 @@ Peak _buildPeak({
   required int id,
   required int osmId,
   required String name,
+  String altName = '',
   String? area,
+  bool verified = false,
 }) {
   final location = const LatLng(-41.5, 146.5);
   final components = PeakMgrsConverter.fromLatLng(location);
@@ -193,6 +201,7 @@ Peak _buildPeak({
     id: id,
     osmId: osmId,
     name: name,
+    altName: altName,
     latitude: location.latitude,
     longitude: location.longitude,
     area: area,
@@ -200,6 +209,7 @@ Peak _buildPeak({
     mgrs100kId: components.mgrs100kId,
     easting: components.easting,
     northing: components.northing,
+    verified: verified,
   );
 }
 
@@ -223,6 +233,13 @@ ObjectBoxAdminEntityDescriptor _peakEntity() {
         nullable: false,
         isPrimaryKey: false,
         isPrimaryName: true,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'altName',
+        typeLabel: 'String',
+        nullable: false,
+        isPrimaryKey: false,
+        isPrimaryName: false,
       ),
       ObjectBoxAdminFieldDescriptor(
         name: 'osmId',
@@ -281,6 +298,13 @@ ObjectBoxAdminEntityDescriptor _peakEntity() {
         isPrimaryName: false,
       ),
       ObjectBoxAdminFieldDescriptor(
+        name: 'verified',
+        typeLabel: 'bool',
+        nullable: false,
+        isPrimaryKey: false,
+        isPrimaryName: false,
+      ),
+      ObjectBoxAdminFieldDescriptor(
         name: 'sourceOfTruth',
         typeLabel: 'String',
         nullable: false,
@@ -292,22 +316,7 @@ ObjectBoxAdminEntityDescriptor _peakEntity() {
 }
 
 ObjectBoxAdminRow _peakRow(Peak peak) {
-  return ObjectBoxAdminRow(
-    primaryKeyValue: peak.id,
-    values: {
-      'id': peak.id,
-      'osmId': peak.osmId,
-      'name': peak.name,
-      'area': peak.area,
-      'latitude': peak.latitude,
-      'longitude': peak.longitude,
-      'gridZoneDesignator': peak.gridZoneDesignator,
-      'mgrs100kId': peak.mgrs100kId,
-      'easting': peak.easting,
-      'northing': peak.northing,
-      'sourceOfTruth': peak.sourceOfTruth,
-    },
-  );
+  return peakToAdminRow(peak);
 }
 
 class _MutablePeakRepository extends PeakRepository {
