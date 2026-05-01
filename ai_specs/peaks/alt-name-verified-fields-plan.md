@@ -59,15 +59,15 @@ TDD vertical slices; preserve user-owned metadata through replacements.
 ### Phase 4: Replacement Preservation
 
 - **Goal**: no metadata loss through refresh/import/backfill
-- [ ] `lib/services/peak_repository.dart` - preserve fields through in-memory copy/save/replace helpers
-- [ ] `lib/services/peak_refresh_service.dart` - preserve/clear fields for OSM refresh, synthetic HWC upgrade, startup backfill, renumber clone
-- [ ] `lib/services/peak_list_import_service.dart` - preserve fields through CSV correction/save paths
-- [ ] `test/services/peak_repository_test.dart` - save/copy/replace preservation
-- [ ] `test/services/peak_refresh_service_test.dart` - OSM match, HWC upgrade, startup backfill, duplicate-name clearing
-- [ ] `test/services/peak_list_import_service_test.dart` - CSV correction preserves fields
-- [ ] TDD: refresh/import/backfill preserve user-owned fields → implement per path
-- [ ] TDD: preserved `altName` equals resulting canonical name clears to `''` → implement
-- [ ] Verify: `flutter analyze && flutter test`
+- [x] `lib/services/peak_repository.dart` - preserve fields through in-memory copy/save/replace helpers
+- [x] `lib/services/peak_refresh_service.dart` - preserve/clear fields for OSM refresh, synthetic HWC upgrade, startup backfill, renumber clone
+- [x] `lib/services/peak_list_import_service.dart` - preserve fields through CSV correction/save paths
+- [x] `test/services/peak_repository_test.dart` - save/copy/replace preservation
+- [x] `test/services/peak_refresh_service_test.dart` - OSM match, HWC upgrade, startup backfill, duplicate-name clearing
+- [x] `test/services/peak_list_import_service_test.dart` - CSV correction preserves fields
+- [x] TDD: refresh/import/backfill preserve user-owned fields → implement per path
+- [x] TDD: preserved `altName` equals resulting canonical name clears to `''` → implement
+- [x] Verify: `flutter analyze && flutter test`
 
 ### Phase 5: Final Verification
 

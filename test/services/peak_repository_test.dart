@@ -54,6 +54,34 @@ void main() {
       expect(peaks.single.name, 'New Peak');
     });
 
+    test(
+      'replaceAll preserves user-owned metadata for matching osmId',
+      () async {
+        await repository.addPeaks([
+          Peak(
+            id: 7,
+            osmId: 123,
+            name: 'Old Peak',
+            altName: 'Manual alternate',
+            verified: true,
+            latitude: -41,
+            longitude: 146,
+          ),
+        ]);
+
+        await repository.replaceAll([
+          Peak(osmId: 123, name: 'New Peak', latitude: -42, longitude: 147),
+        ]);
+
+        final peak = repository.getAllPeaks().single;
+
+        expect(peak.id, 7);
+        expect(peak.name, 'New Peak');
+        expect(peak.altName, 'Manual alternate');
+        expect(peak.verified, isTrue);
+      },
+    );
+
     test('replaceAll rolls back on failure', () async {
       await repository.addPeaks([
         Peak(name: 'Old Peak', latitude: -41, longitude: 146),
@@ -104,10 +132,12 @@ void main() {
         id: 7,
         osmId: 123,
         name: 'Cradle',
+        altName: 'Manual Cradle',
         latitude: -41,
         longitude: 146,
         easting: '10000',
         northing: '20000',
+        verified: true,
       );
       await repository.addPeaks([original]);
 
@@ -130,6 +160,8 @@ void main() {
       expect(peak?.elevation, 1545);
       expect(peak?.easting, '10123');
       expect(peak?.northing, '20123');
+      expect(peak?.altName, 'Manual Cradle');
+      expect(peak?.verified, isTrue);
       expect(peak?.sourceOfTruth, Peak.sourceOfTruthHwc);
     });
 
