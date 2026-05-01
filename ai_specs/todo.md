@@ -56,6 +56,7 @@
 - [ ] Reset the id on Reset Map Data
 - [ ] when clicking on track open a left drawer with info about the track
 - [ ] Tile cache in setup - change option to allow complete map to be cached rather than all of Tassie
+- [ ] remove manual tile folders
 
 ## 4a
 - [x] add go to map only, centre on map and zoom to map extents, and draw a blue rectangle around the map extents so that the map can be seen when zooming out.
@@ -127,6 +128,7 @@
 - [x] Add add peak to list
 - [x] click on peak in details will go to the peak on the Map screen and zoom to 15.
 - [ ] Refresh lists on updates to peak name in ObjectBox Admin
+- [ ] peak lists not updating on track import correlation
 - [ ] Change cursor on hover over clickables
 
 ## Object Box Admin
@@ -136,7 +138,6 @@
 - [ ] Allow entry of UTM coordinates
 - [ ] Add a new field to Peak named verified - boolean, true if peak name, height and location have been verified.
 - [ ] Autodelete lat/long or mgrs when editing one field or the other or add a calc icon
-- [ ] double click to select all text in text field
 - [ ] add x in text field to clear it
 
 ## Settings
