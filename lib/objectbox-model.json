@@ -5,7 +5,7 @@
   "entities": [
     {
       "id": "1:6887978098338940139",
-      "lastPropertyId": "12:809639103704790338",
+      "lastPropertyId": "14:8569973600435793379",
       "name": "Peak",
       "properties": [
         {
@@ -70,6 +70,16 @@
           "id": "12:809639103704790338",
           "name": "sourceOfTruth",
           "type": 9
+        },
+        {
+          "id": "13:2166216577181347171",
+          "name": "altName",
+          "type": 9
+        },
+        {
+          "id": "14:8569973600435793379",
+          "name": "verified",
+          "type": 1
         }
       ],
       "relations": []

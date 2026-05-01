@@ -161,29 +161,61 @@ void main() {
     expect(rows.map((row) => row.values['name']), ['Ossa Spur', 'Mt Ossa']);
   });
 
-  test('peakToAdminRow includes the MGRS fields', () {
+  test('peakToAdminRow includes editable peak metadata', () {
     final row = peakToAdminRow(
       Peak(
         id: 42,
         osmId: 4242,
         name: 'Mount Milner',
+        altName: 'Milner',
         latitude: -41.2,
         longitude: 146.1,
         gridZoneDesignator: '55G',
         mgrs100kId: 'DN',
         easting: '17710',
         northing: '03594',
+        verified: true,
         sourceOfTruth: Peak.sourceOfTruthHwc,
       ),
     );
 
     expect(row.primaryKeyValue, 42);
     expect(row.values['osmId'], 4242);
+    expect(row.values['altName'], 'Milner');
     expect(row.values['gridZoneDesignator'], '55G');
     expect(row.values['mgrs100kId'], 'DN');
     expect(row.values['easting'], '17710');
     expect(row.values['northing'], '03594');
+    expect(row.values['verified'], isTrue);
     expect(row.values['sourceOfTruth'], Peak.sourceOfTruthHwc);
+  });
+
+  test('peakFromAdminRow reconstructs editable peak metadata', () {
+    final peak = peakFromAdminRow(
+      const ObjectBoxAdminRow(
+        primaryKeyValue: 42,
+        values: {
+          'id': 42,
+          'osmId': 4242,
+          'name': 'Mount Milner',
+          'altName': 'Milner',
+          'elevation': 1200.0,
+          'latitude': -41.2,
+          'longitude': 146.1,
+          'area': 'Central',
+          'gridZoneDesignator': '55G',
+          'mgrs100kId': 'DN',
+          'easting': '17710',
+          'northing': '03594',
+          'verified': true,
+          'sourceOfTruth': Peak.sourceOfTruthHwc,
+        },
+      ),
+    );
+
+    expect(peak.id, 42);
+    expect(peak.altName, 'Milner');
+    expect(peak.verified, isTrue);
   });
 
   test('gpxTrackToAdminRow includes correlation fields', () {

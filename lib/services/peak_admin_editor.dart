@@ -7,6 +7,7 @@ import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 class PeakAdminFormState {
   const PeakAdminFormState({
     required this.name,
+    this.altName = '',
     required this.osmId,
     required this.elevation,
     required this.latitude,
@@ -16,10 +17,12 @@ class PeakAdminFormState {
     required this.mgrs100kId,
     required this.easting,
     required this.northing,
+    this.verified = false,
     required this.sourceOfTruth,
   });
 
   final String name;
+  final String altName;
   final String osmId;
   final String elevation;
   final String latitude;
@@ -29,6 +32,7 @@ class PeakAdminFormState {
   final String mgrs100kId;
   final String easting;
   final String northing;
+  final bool verified;
   final String sourceOfTruth;
 }
 
@@ -58,6 +62,8 @@ class PeakAdminEditor {
   static const String mgrs100kIdError =
       'The MGRS 100km identifier must be exactly two letter';
   static const String nameRequiredError = 'A peak name is required';
+  static const String altNameDuplicateNameError =
+      'Alt Name must be different from Name';
   static const String osmIdError = 'osmId must be an integer';
   static const String elevationError = 'Elevation must be an integer';
   static const String tasmaniaError = 'Entered location is not with Tasmania.';
@@ -65,6 +71,7 @@ class PeakAdminEditor {
   static PeakAdminFormState normalize(Peak peak) {
     return PeakAdminFormState(
       name: peak.name,
+      altName: peak.altName,
       osmId: peak.osmId.toString(),
       elevation: _formatOptionalNumber(peak.elevation),
       latitude: peak.latitude.toString(),
@@ -74,6 +81,7 @@ class PeakAdminEditor {
       mgrs100kId: peak.mgrs100kId,
       easting: peak.easting,
       northing: peak.northing,
+      verified: peak.verified,
       sourceOfTruth: peak.sourceOfTruth,
     );
   }
@@ -87,6 +95,10 @@ class PeakAdminEditor {
     final name = form.name.trim();
     if (name.isEmpty) {
       fieldErrors['name'] = nameRequiredError;
+    }
+    final altName = form.altName.trim();
+    if (altName.isNotEmpty && altName.toLowerCase() == name.toLowerCase()) {
+      fieldErrors['altName'] = altNameDuplicateNameError;
     }
 
     final osmId = int.tryParse(form.osmId.trim());
@@ -218,6 +230,7 @@ class PeakAdminEditor {
       id: source.id,
       osmId: osmId!,
       name: name,
+      altName: altName,
       elevation: elevation,
       latitude: latitude,
       longitude: longitude,
@@ -226,6 +239,7 @@ class PeakAdminEditor {
       mgrs100kId: components.mgrs100kId,
       easting: components.easting,
       northing: components.northing,
+      verified: form.verified,
       sourceOfTruth: Peak.sourceOfTruthHwc,
     );
 
