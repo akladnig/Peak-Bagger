@@ -72,10 +72,10 @@ TDD vertical slices; preserve user-owned metadata through replacements.
 ### Phase 5: Final Verification
 
 - **Goal**: generated files, notes, full suite
-- [ ] `ai_specs/peaks/alt-name-verified-fields-plan.md` - keep plan aligned if scope changes
-- [ ] implementation notes/final response - state legacy persisted-row defaulting accepted risk; no old-store fixture
-- [ ] Verify: `dart run build_runner build --delete-conflicting-outputs`
-- [ ] Verify: `flutter analyze && flutter test`
+- [x] `ai_specs/peaks/alt-name-verified-fields-plan.md` - keep plan aligned if scope changes
+- [x] implementation notes/final response - state legacy persisted-row defaulting accepted risk; no old-store fixture
+- [x] Verify: `dart run build_runner build --delete-conflicting-outputs`
+- [x] Verify: `flutter analyze && flutter test`
 
 ## Risks / Out of scope
 
