@@ -10,6 +10,8 @@ import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
@@ -804,6 +806,15 @@ void main() {
       latitude: -41,
       longitude: 146,
     );
+    final mapNotifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        peakListSelectionMode: PeakListSelectionMode.specificList,
+        selectedPeakListId: 1,
+      ),
+    );
 
     final completer = await _pumpDialog(
       tester,
@@ -819,6 +830,11 @@ void main() {
       peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
       tasmapRepository: await TestTasmapRepository.create(),
       gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+      mapNotifier: mapNotifier,
+      peakListRepository: listRepository,
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(MaterialApp)),
     );
 
     await tester.tap(find.byKey(const Key('peak-list-peak-points')));
@@ -837,6 +853,7 @@ void main() {
       ).single.points,
       7,
     );
+    expect(container.read(peakListRevisionProvider), 1);
   });
 
   testWidgets('delete mode removes membership and selects next row', (
@@ -860,6 +877,15 @@ void main() {
       latitude: -41,
       longitude: 146,
     );
+    final mapNotifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        peakListSelectionMode: PeakListSelectionMode.specificList,
+        selectedPeakListId: 1,
+      ),
+    );
 
     final completer = await _pumpDialog(
       tester,
@@ -878,6 +904,11 @@ void main() {
       peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
       tasmapRepository: await TestTasmapRepository.create(),
       gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+      mapNotifier: mapNotifier,
+      peakListRepository: listRepository,
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(MaterialApp)),
     );
 
     await tester.tap(find.byKey(const Key('peak-list-peak-delete')));
@@ -894,7 +925,83 @@ void main() {
       ).map((item) => item.peakOsmId).toList(),
       [202],
     );
+    expect(container.read(peakListRevisionProvider), 1);
   });
+
+  testWidgets(
+    'partial-success multi-add increments revision once when any add succeeds',
+    (tester) async {
+      final listRepository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(
+            peakListId: 1,
+            name: 'Tasmania',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 101, points: 4),
+            ]),
+          ),
+        ]),
+      );
+      final existingPeak = _buildPeak(
+        osmId: 101,
+        name: 'Existing Peak',
+        latitude: -41,
+        longitude: 146,
+      );
+      final newPeak = _buildPeak(
+        osmId: 202,
+        name: 'New Peak',
+        latitude: -42,
+        longitude: 147,
+      );
+      final mapNotifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          peakListSelectionMode: PeakListSelectionMode.specificList,
+          selectedPeakListId: 1,
+        ),
+      );
+
+      await _pumpDialog(
+        tester,
+        dialog: PeakListPeakDialog(
+          mode: PeakListPeakDialogMode.add,
+          peakList: listRepository.getAllPeakLists().single,
+          peakListRepository: listRepository,
+          peakItems: const [],
+          ascentRows: const [],
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([existingPeak, newPeak]),
+        ),
+        tasmapRepository: await TestTasmapRepository.create(),
+        gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+        mapNotifier: mapNotifier,
+        peakListRepository: listRepository,
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(MaterialApp)),
+      );
+
+      await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-101')));
+      await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-202')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('peak-list-peak-save')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.textContaining('Failed to add:'), findsOneWidget);
+      expect(container.read(peakListRevisionProvider), 1);
+      expect(
+        decodePeakListItems(listRepository.getAllPeakLists().single.peakList)
+            .map((item) => item.peakOsmId)
+            .toList(),
+        [101, 202],
+      );
+    },
+  );
 
   testWidgets(
     'tapping peak name navigates to map centered on peak at zoom 15',
@@ -955,6 +1062,7 @@ Future<Completer<PeakListPeakDialogOutcome?>> _pumpDialog(
   required TasmapRepository tasmapRepository,
   required GpxTrackRepository gpxTrackRepository,
   TestMapNotifier? mapNotifier,
+  PeakListRepository? peakListRepository,
   bool settle = true,
 }) async {
   final completer = Completer<PeakListPeakDialogOutcome?>();
@@ -974,6 +1082,9 @@ Future<Completer<PeakListPeakDialogOutcome?>> _pumpDialog(
               ),
         ),
         peakRepositoryProvider.overrideWithValue(peakRepository),
+        peakListRepositoryProvider.overrideWithValue(
+          peakListRepository ?? PeakListRepository.test(InMemoryPeakListStorage()),
+        ),
         tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
         gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
       ],

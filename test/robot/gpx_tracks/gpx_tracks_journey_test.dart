@@ -7,6 +7,8 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
@@ -482,5 +484,19 @@ void main() {
 
     await robot.selectSpecificPeakList('Alpha');
     expect(robot.peakMarkerIds(), [6406]);
+
+    final container = ProviderScope.containerOf(
+      tester.element(robot.mapInteractionRegion),
+    );
+    await container.read(peakListRepositoryProvider).delete(1);
+    container.read(peakListRevisionProvider.notifier).increment();
+    container.read(mapProvider.notifier).reconcileSelectedPeakList();
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(mapProvider).peakListSelectionMode,
+      PeakListSelectionMode.allPeaks,
+    );
+    expect(robot.peakMarkerIds(), [7000, 6406]);
   });
 }

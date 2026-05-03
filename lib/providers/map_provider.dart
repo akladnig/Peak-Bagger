@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
@@ -37,6 +38,8 @@ const _distance = Distance();
 const _latKey = 'map_position_lat';
 const _lngKey = 'map_position_lng';
 const _zoomKey = 'map_zoom';
+const _peakListSelectionModeKey = 'peak_list_selection_mode';
+const _peakListIdKey = 'peak_list_id';
 
 const _defaultCenter = LatLng(-41.5, 146.5);
 const _defaultZoom = 15.0;
@@ -1052,6 +1055,10 @@ class MapNotifier extends Notifier<MapState> {
       final lat = prefs.getDouble(_latKey);
       final lng = prefs.getDouble(_lngKey);
       final zoom = prefs.getDouble(_zoomKey);
+      final peakListSelectionMode = _parsePeakListSelectionMode(
+        prefs.getString(_peakListSelectionModeKey),
+      );
+      final selectedPeakListId = prefs.getInt(_peakListIdKey);
 
       if (lat != null && lng != null && zoom != null) {
         final location = LatLng(lat, lng);
@@ -1063,6 +1070,14 @@ class MapNotifier extends Notifier<MapState> {
           selectedLocation: location,
         );
       }
+
+      state = state.copyWith(
+        peakListSelectionMode: peakListSelectionMode,
+        selectedPeakListId: selectedPeakListId,
+        clearSelectedPeakListId:
+            peakListSelectionMode != PeakListSelectionMode.specificList,
+      );
+      reconcileSelectedPeakList();
     } catch (e) {
       // Keep default position on error
     }
@@ -1092,10 +1107,28 @@ class MapNotifier extends Notifier<MapState> {
       await prefs.setDouble(_latKey, state.center.latitude);
       await prefs.setDouble(_lngKey, state.center.longitude);
       await prefs.setDouble(_zoomKey, state.zoom);
+      await prefs.setString(
+        _peakListSelectionModeKey,
+        state.peakListSelectionMode.name,
+      );
+      if (state.peakListSelectionMode == PeakListSelectionMode.specificList &&
+          state.selectedPeakListId != null) {
+        await prefs.setInt(_peakListIdKey, state.selectedPeakListId!);
+      } else {
+        await prefs.remove(_peakListIdKey);
+      }
       state = state.copyWith(isFirstLaunch: false);
     } catch (e) {
       // Continue without saving
     }
+  }
+
+  PeakListSelectionMode _parsePeakListSelectionMode(String? value) {
+    return switch (value) {
+      'none' => PeakListSelectionMode.none,
+      'specificList' => PeakListSelectionMode.specificList,
+      _ => PeakListSelectionMode.allPeaks,
+    };
   }
 
   void updatePosition(LatLng center, double zoom) {
@@ -1142,6 +1175,41 @@ class MapNotifier extends Notifier<MapState> {
       clearPeakInfoPopup: true,
       clearHoveredPeakId: true,
     );
+    savePosition();
+  }
+
+  void reconcileSelectedPeakList() {
+    if (state.peakListSelectionMode != PeakListSelectionMode.specificList) {
+      return;
+    }
+
+    final peakListId = state.selectedPeakListId;
+    if (peakListId == null) {
+      _resetToAllPeaks();
+      return;
+    }
+
+    final peakList = ref.read(peakListRepositoryProvider).findById(peakListId);
+    if (peakList == null) {
+      _resetToAllPeaks();
+      return;
+    }
+
+    try {
+      decodePeakListItems(peakList.peakList);
+    } catch (_) {
+      _resetToAllPeaks();
+    }
+  }
+
+  void _resetToAllPeaks() {
+    state = state.copyWith(
+      peakListSelectionMode: PeakListSelectionMode.allPeaks,
+      clearSelectedPeakListId: true,
+      clearPeakInfoPopup: true,
+      clearHoveredPeakId: true,
+    );
+    savePosition();
   }
 
   void centerOnLocation(LatLng location) {

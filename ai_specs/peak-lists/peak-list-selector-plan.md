@@ -41,14 +41,14 @@ Thin slice first; then reactive list data; then persistence/reconciliation.
 ### Phase 3: Persistence And Mutation Reconciliation
 
 - **Goal**: async startup restore; in-app mutation invalidation; stale-selection correction
-- [ ] `lib/providers/map_provider.dart` - load/save selection prefs; add `reconcileSelectedPeakList()`; async startup reconciliation; normalize missing/corrupt saved list to `allPeaks`
-- [ ] `lib/screens/peak_lists_screen.dart` - after delete/create/save, bump revision + call `reconcileSelectedPeakList()`
-- [ ] `lib/widgets/peak_list_peak_dialog.dart` - after add/edit/remove, bump revision + reconcile; for partial-success multi-add, do one bump/reconcile if any add succeeded
-- [ ] `lib/providers/peak_list_provider.dart` - inside `peakListImportRunnerProvider`, bump revision + reconcile after successful import result
-- [ ] TDD: startup restores saved selection asynchronously; stale saved `specificList` normalizes to `allPeaks` and persists correction
-- [ ] TDD: delete/edit/import/item mutation invalidates `peakListsProvider` and reconciles active selection
-- [ ] Robot journey tests + selectors/seams for switching drawers, choosing a specific list, then verifying `None` clears popup/hover and mutation-driven fallback remains stable
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/providers/map_provider.dart` - load/save selection prefs; add `reconcileSelectedPeakList()`; async startup reconciliation; normalize missing/corrupt saved list to `allPeaks`
+- [x] `lib/screens/peak_lists_screen.dart` - after delete/create/save, bump revision + call `reconcileSelectedPeakList()`
+- [x] `lib/widgets/peak_list_peak_dialog.dart` - after add/edit/remove, bump revision + reconcile; for partial-success multi-add, do one bump/reconcile if any add succeeded
+- [x] `lib/providers/peak_list_provider.dart` - inside `peakListImportRunnerProvider`, bump revision + reconcile after successful import result
+- [x] TDD: startup restores saved selection asynchronously; stale saved `specificList` normalizes to `allPeaks` and persists correction
+- [x] TDD: delete/edit/import/item mutation invalidates `peakListsProvider` and reconciles active selection
+- [x] Robot journey tests + selectors/seams for switching drawers, choosing a specific list, then verifying `None` clears popup/hover and mutation-driven fallback remains stable
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 
