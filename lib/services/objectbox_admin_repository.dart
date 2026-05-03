@@ -7,6 +7,7 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
+import 'package:peak_bagger/services/peak_admin_editor.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:objectbox/internal.dart' as obx_int;
 
@@ -560,8 +561,40 @@ String objectBoxAdminFormatValue(Object? value) {
   };
 }
 
+String objectBoxAdminFormatFieldValue({
+  required String entityName,
+  required String fieldName,
+  required Object? value,
+}) {
+  if (entityName == 'Peak' &&
+      (fieldName == 'latitude' || fieldName == 'longitude') &&
+      value is num) {
+    return PeakAdminEditor.formatCoordinate(value.toDouble());
+  }
+
+  return objectBoxAdminFormatValue(value);
+}
+
 String objectBoxAdminPreviewValue(Object? value, {int maxChars = 80}) {
   final text = objectBoxAdminFormatValue(value);
+  return _truncateAdminPreview(text, maxChars: maxChars);
+}
+
+String objectBoxAdminPreviewFieldValue({
+  required String entityName,
+  required String fieldName,
+  required Object? value,
+  int maxChars = 80,
+}) {
+  final text = objectBoxAdminFormatFieldValue(
+    entityName: entityName,
+    fieldName: fieldName,
+    value: value,
+  );
+  return _truncateAdminPreview(text, maxChars: maxChars);
+}
+
+String _truncateAdminPreview(String text, {required int maxChars}) {
   if (text.length <= maxChars) {
     return text;
   }

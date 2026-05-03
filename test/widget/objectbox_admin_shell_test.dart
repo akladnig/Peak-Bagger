@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
@@ -12,6 +13,7 @@ import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen_details.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
+import 'package:peak_bagger/services/peak_admin_editor.dart';
 import 'package:peak_bagger/services/peak_delete_guard.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
@@ -421,6 +423,240 @@ void main() {
     expect(repository.findById(1)?.mgrs100kId, expectedComponents.mgrs100kId);
     expect(repository.findById(1)?.easting, expectedComponents.easting);
     expect(repository.findById(1)?.northing, expectedComponents.northing);
+  });
+
+  testWidgets('Peak edit calculates latitude and longitude from changed MGRS', (
+    tester,
+  ) async {
+    final peaks = [
+      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', area: 'Old Area'),
+    ];
+    final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
+      'Peak': peaks.map(_peakRow).toList(),
+      'PeakList': const [],
+      'Tasmap50k': const [],
+      'GpxTrack': const [],
+      'PeaksBagged': const [],
+    };
+    final repository = _MutablePeakRepository(peaks, rowsByEntity);
+    final expectedComponents = PeakMgrsConverter.fromLatLng(
+      const LatLng(-41.6, 146.6),
+    );
+    final expectedForward =
+        '${PeakAdminEditor.fixedGridZoneDesignator}'
+        '${expectedComponents.mgrs100kId}'
+        '${expectedComponents.easting}'
+        '${expectedComponents.northing}';
+    final expectedLatLng = mgrs.Mgrs.toPoint(expectedForward);
+
+    await _pumpApp(
+      tester,
+      repository: TestObjectBoxAdminRepository(
+        entities: [_peakEntity()],
+        rowsByEntity: rowsByEntity,
+      ),
+      peakRepository: repository,
+      peakDeleteGuard: PeakDeleteGuard(_NoopPeakDeleteGuardSource()),
+    );
+
+    await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.text('Mt Ossa'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-edit')));
+    await tester.pumpAndSettle();
+    await tester.drag(
+      find.byKey(const Key('objectbox-admin-peak-edit-form')),
+      const Offset(0, -500),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-mgrs100k-id')),
+      expectedComponents.mgrs100kId,
+    );
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-easting')),
+      expectedComponents.easting,
+    );
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-northing')),
+      expectedComponents.northing,
+    );
+    await tester.pumpAndSettle();
+
+    await tester.drag(
+      find.byKey(const Key('objectbox-admin-peak-edit-form')),
+      const Offset(0, 500),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      _textFormFieldText(tester, 'objectbox-admin-peak-latitude'),
+      isEmpty,
+    );
+    expect(
+      _textFormFieldText(tester, 'objectbox-admin-peak-longitude'),
+      isEmpty,
+    );
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-calculate')));
+    await tester.pumpAndSettle();
+
+    expect(
+      _textFormFieldText(tester, 'objectbox-admin-peak-latitude'),
+      expectedLatLng[1].toStringAsFixed(6),
+    );
+    expect(
+      _textFormFieldText(tester, 'objectbox-admin-peak-longitude'),
+      expectedLatLng[0].toStringAsFixed(6),
+    );
+
+    await tester.drag(
+      find.byKey(const Key('objectbox-admin-peak-edit-form')),
+      const Offset(0, -500),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-submit')));
+    await tester.pumpAndSettle();
+
+    final saved = repository.findById(1)!;
+    expect(saved.mgrs100kId, expectedComponents.mgrs100kId);
+    expect(saved.easting, expectedComponents.easting);
+    expect(saved.northing, expectedComponents.northing);
+    expect(saved.latitude, closeTo(expectedLatLng[1], 0.000001));
+    expect(saved.longitude, closeTo(expectedLatLng[0], 0.000001));
+  });
+
+  testWidgets(
+    'Peak edit shows paired-coordinate error for incomplete lat/lng',
+    (tester) async {
+      final peaks = [
+        _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', area: 'Old Area'),
+      ];
+      final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
+        'Peak': peaks.map(_peakRow).toList(),
+        'PeakList': const [],
+        'Tasmap50k': const [],
+        'GpxTrack': const [],
+        'PeaksBagged': const [],
+      };
+
+      await _pumpApp(
+        tester,
+        repository: TestObjectBoxAdminRepository(
+          entities: [_peakEntity()],
+          rowsByEntity: rowsByEntity,
+        ),
+        peakRepository: _MutablePeakRepository(peaks, rowsByEntity),
+        peakDeleteGuard: PeakDeleteGuard(_NoopPeakDeleteGuardSource()),
+      );
+
+      await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      await tester.tap(find.text('Mt Ossa'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('objectbox-admin-peak-edit')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const Key('objectbox-admin-peak-latitude')),
+        '-41.600000',
+      );
+      await tester.enterText(
+        find.byKey(const Key('objectbox-admin-peak-longitude')),
+        '',
+      );
+      await tester.drag(
+        find.byKey(const Key('objectbox-admin-peak-edit-form')),
+        const Offset(0, -500),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        _textFormFieldText(tester, 'objectbox-admin-peak-mgrs100k-id'),
+        isEmpty,
+      );
+      expect(
+        _textFormFieldText(tester, 'objectbox-admin-peak-easting'),
+        isEmpty,
+      );
+      expect(
+        _textFormFieldText(tester, 'objectbox-admin-peak-northing'),
+        isEmpty,
+      );
+
+      await tester.tap(find.byKey(const Key('objectbox-admin-peak-calculate')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Enter both latitude and longitude.'), findsOneWidget);
+      expect(
+        _textFormFieldText(tester, 'objectbox-admin-peak-mgrs100k-id'),
+        isEmpty,
+      );
+      expect(
+        _textFormFieldText(tester, 'objectbox-admin-peak-easting'),
+        isEmpty,
+      );
+      expect(
+        _textFormFieldText(tester, 'objectbox-admin-peak-northing'),
+        isEmpty,
+      );
+    },
+  );
+
+  testWidgets('Peak admin renders coordinates with six decimals', (
+    tester,
+  ) async {
+    final peaks = [
+      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', area: 'Old Area'),
+    ];
+    final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
+      'Peak': peaks.map(_peakRow).toList(),
+      'PeakList': const [],
+      'Tasmap50k': const [],
+      'GpxTrack': const [],
+      'PeaksBagged': const [],
+    };
+
+    await _pumpApp(
+      tester,
+      repository: TestObjectBoxAdminRepository(
+        entities: [_peakEntity()],
+        rowsByEntity: rowsByEntity,
+      ),
+      peakRepository: _MutablePeakRepository(peaks, rowsByEntity),
+      peakDeleteGuard: PeakDeleteGuard(_NoopPeakDeleteGuardSource()),
+    );
+
+    await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('-41.500000'), findsOneWidget);
+    expect(find.text('146.500000'), findsOneWidget);
+
+    await tester.tap(find.text('Mt Ossa'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('-41.500000'), findsWidgets);
+    expect(find.text('146.500000'), findsWidgets);
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-edit')));
+    await tester.pumpAndSettle();
+
+    expect(
+      _textFormFieldText(tester, 'objectbox-admin-peak-latitude'),
+      '-41.500000',
+    );
+    expect(
+      _textFormFieldText(tester, 'objectbox-admin-peak-longitude'),
+      '146.500000',
+    );
   });
 
   testWidgets('Peak admin table and details use required field ordering', (
@@ -988,6 +1224,10 @@ ObjectBoxAdminEntityDescriptor _peakEntity() {
 
 ObjectBoxAdminRow _peakRow(Peak peak) {
   return peakToAdminRow(peak);
+}
+
+String _textFormFieldText(WidgetTester tester, String key) {
+  return tester.widget<TextFormField>(find.byKey(Key(key))).controller!.text;
 }
 
 class _MutablePeakRepository extends PeakRepository {

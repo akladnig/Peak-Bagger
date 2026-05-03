@@ -30,21 +30,21 @@ ObjectBox Admin Peak coordinate editing. Explicit Calculate, source tracking, sy
 ### Phase 2: MGRS, Errors, Formatting
 
 - **Goal**: MGRS path, invalid states, six-decimal admin rendering
-- [ ] `lib/services/peak_admin_editor.dart` - MGRS calculation path; right-pad 1-5 digit easting/northing before conversion
-- [ ] `lib/services/peak_admin_editor.dart` - apply same MGRS padding in Save path
-- [ ] `lib/services/peak_admin_editor.dart` - source-aware errors; incomplete lat/lng, invalid fields, Tasmania failure, conversion failure
-- [ ] `lib/screens/objectbox_admin_screen_details.dart` - MGRS change handler clears lat/lng only on user text change
-- [ ] `lib/screens/objectbox_admin_screen_details.dart` - failed Calculate updates validation, leaves controller text unchanged
-- [ ] `lib/services/objectbox_admin_repository.dart` - field-aware six-decimal Peak lat/lng formatting helper
-- [ ] `lib/screens/objectbox_admin_screen_details.dart` - use six-decimal formatting in edit + read-only details
-- [ ] `lib/screens/objectbox_admin_screen_table.dart` - use six-decimal formatting in Peak table previews
-- [ ] `test/services/peak_admin_editor_test.dart` - TDD: MGRS calculation derives six-decimal lat/lng
-- [ ] `test/services/peak_admin_editor_test.dart` - TDD: 1-5 digit MGRS padding applies to Calculate and Save
-- [ ] `test/services/peak_admin_editor_test.dart` - TDD: incomplete/invalid coordinates return expected errors, no values
-- [ ] `test/widget/objectbox_admin_shell_test.dart` - TDD: edit MGRS clears lat/lng, Calculate repopulates, Save persists MGRS source
-- [ ] `test/widget/objectbox_admin_shell_test.dart` - TDD: incomplete lat/lng Calculate shows paired-coordinate error, no field mutation
-- [ ] `test/widget/objectbox_admin_shell_test.dart` - TDD: six-decimal lat/lng in edit form, read-only details, table previews
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/services/peak_admin_editor.dart` - MGRS calculation path; right-pad 1-5 digit easting/northing before conversion
+- [x] `lib/services/peak_admin_editor.dart` - apply same MGRS padding in Save path
+- [x] `lib/services/peak_admin_editor.dart` - source-aware errors; incomplete lat/lng, invalid fields, Tasmania failure, conversion failure
+- [x] `lib/screens/objectbox_admin_screen_details.dart` - MGRS change handler clears lat/lng only on user text change
+- [x] `lib/screens/objectbox_admin_screen_details.dart` - failed Calculate updates validation, leaves controller text unchanged
+- [x] `lib/services/objectbox_admin_repository.dart` - field-aware six-decimal Peak lat/lng formatting helper
+- [x] `lib/screens/objectbox_admin_screen_details.dart` - use six-decimal formatting in edit + read-only details
+- [x] `lib/screens/objectbox_admin_screen_table.dart` - use six-decimal formatting in Peak table previews
+- [x] `test/services/peak_admin_editor_test.dart` - TDD: MGRS calculation derives six-decimal lat/lng
+- [x] `test/services/peak_admin_editor_test.dart` - TDD: 1-5 digit MGRS padding applies to Calculate and Save
+- [x] `test/services/peak_admin_editor_test.dart` - TDD: incomplete/invalid coordinates return expected errors, no values
+- [x] `test/widget/objectbox_admin_shell_test.dart` - TDD: edit MGRS clears lat/lng, Calculate repopulates, Save persists MGRS source
+- [x] `test/widget/objectbox_admin_shell_test.dart` - TDD: incomplete lat/lng Calculate shows paired-coordinate error, no field mutation
+- [x] `test/widget/objectbox_admin_shell_test.dart` - TDD: six-decimal lat/lng in edit form, read-only details, table previews
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Journey Hardening
 

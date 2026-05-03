@@ -111,6 +111,8 @@ class _ObjectBoxAdminReadOnlyDetailsPane extends StatelessWidget {
                       dense: true,
                       title: Text(field.name),
                       subtitle: objectBoxAdminDetailsValue(
+                        entityName: entity.name,
+                        fieldName: field.name,
                         label: field.name,
                         value: value,
                       ),
@@ -386,6 +388,29 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
     });
   }
 
+  void _handleMgrsChanged() {
+    final form = _currentFormState();
+    final shouldClear =
+        _activeCoordinateSource != PeakAdminCoordinateSource.mgrs;
+    if (shouldClear) {
+      _latitudeController.clear();
+      _longitudeController.clear();
+    }
+
+    final validation = PeakAdminEditor.validateAndBuild(
+      source: _peak,
+      form: shouldClear ? form.copyWith(latitude: '', longitude: '') : form,
+      coordinateSource: PeakAdminCoordinateSource.mgrs,
+    );
+    setState(() {
+      _activeCoordinateSource = PeakAdminCoordinateSource.mgrs;
+      _validation = validation;
+      if (_submitError != null) {
+        _submitError = null;
+      }
+    });
+  }
+
   void _calculateCoordinates() {
     final coordinateSource = _activeCoordinateSource;
     if (coordinateSource == null || _isSaving) {
@@ -493,6 +518,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
                       validation: _validation,
                       onChanged: _updateValidation,
                       onLatLngChanged: _handleLatLngChanged,
+                      onMgrsChanged: _handleMgrsChanged,
                       onVerifiedChanged: _setVerified,
                       onMarkAsHwc: _markAsHwc,
                       onCalculate: _calculateCoordinates,
@@ -540,6 +566,10 @@ class _PeakReadOnlyDetails extends StatelessWidget {
             dense: true,
             title: Text(title),
             subtitle: objectBoxAdminDetailsValue(
+              entityName: row.values.containsKey(field.name)
+                  ? entity.name
+                  : null,
+              fieldName: field.name,
               label: title,
               value: row.values[field.name],
             ),
@@ -558,11 +588,23 @@ class _PeakReadOnlyDetails extends StatelessWidget {
 }
 
 Widget objectBoxAdminDetailsValue({
+  String? entityName,
+  String? fieldName,
   required String label,
   required Object? value,
 }) {
   if (value is bool) {
     return ObjectBoxAdminDetailsValue(label: label, value: value);
+  }
+
+  if (entityName != null && fieldName != null) {
+    return SelectableText(
+      objectBoxAdminFormatFieldValue(
+        entityName: entityName,
+        fieldName: fieldName,
+        value: value,
+      ),
+    );
   }
 
   return SelectableText(objectBoxAdminFormatValue(value));
@@ -616,6 +658,7 @@ class _PeakEditForm extends StatelessWidget {
     required this.validation,
     required this.onChanged,
     required this.onLatLngChanged,
+    required this.onMgrsChanged,
     required this.onVerifiedChanged,
     required this.onMarkAsHwc,
     required this.onCalculate,
@@ -642,6 +685,7 @@ class _PeakEditForm extends StatelessWidget {
   final PeakAdminValidationResult validation;
   final VoidCallback onChanged;
   final VoidCallback onLatLngChanged;
+  final VoidCallback onMgrsChanged;
   final ValueChanged<bool?> onVerifiedChanged;
   final VoidCallback onMarkAsHwc;
   final VoidCallback onCalculate;
@@ -769,7 +813,7 @@ class _PeakEditForm extends StatelessWidget {
                   border: const OutlineInputBorder(),
                   errorText: validation.fieldErrors['mgrs100kId'],
                 ),
-                onChanged: (_) => onChanged(),
+                onChanged: (_) => onMgrsChanged(),
               ),
               const SizedBox(height: 8),
               TextFormField(
@@ -782,7 +826,7 @@ class _PeakEditForm extends StatelessWidget {
                   errorText: validation.fieldErrors['easting'],
                 ),
                 keyboardType: TextInputType.number,
-                onChanged: (_) => onChanged(),
+                onChanged: (_) => onMgrsChanged(),
               ),
               const SizedBox(height: 8),
               TextFormField(
@@ -795,7 +839,7 @@ class _PeakEditForm extends StatelessWidget {
                   errorText: validation.fieldErrors['northing'],
                 ),
                 keyboardType: TextInputType.number,
-                onChanged: (_) => onChanged(),
+                onChanged: (_) => onMgrsChanged(),
               ),
               const SizedBox(height: 8),
               CheckboxListTile(

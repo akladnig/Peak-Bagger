@@ -223,8 +223,10 @@ class PeakAdminEditor {
         return PeakAdminValidationResult(fieldErrors: fieldErrors);
       }
 
+      final normalizedEasting = _padMgrsComponent(eastingText);
+      final normalizedNorthing = _padMgrsComponent(northingText);
       final forward =
-          '$fixedGridZoneDesignator${mgrsIdText.toUpperCase()}$eastingText$northingText';
+          '$fixedGridZoneDesignator${mgrsIdText.toUpperCase()}$normalizedEasting$normalizedNorthing';
       try {
         components = PeakMgrsConverter.fromForwardString(forward);
         final coords = mgrs.Mgrs.toPoint(forward);
@@ -349,6 +351,10 @@ class PeakAdminEditor {
     }
 
     return value.toString();
+  }
+
+  static String _padMgrsComponent(String value) {
+    return value.padRight(5, '0');
   }
 
   static bool _isInsideTasmania(double latitude, double longitude) {
