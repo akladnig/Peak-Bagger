@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
+import 'package:peak_bagger/providers/peak_csv_export_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/screens/map_screen_layers.dart';
@@ -26,9 +27,11 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final bool _isDownloading = false;
+  bool _isExportingPeaks = false;
   bool _isRefreshingPeaks = false;
   bool _isResettingMaps = false;
   String _status = '';
+  Key _statusKey = const Key('peak-refresh-status');
   late final VoidCallback _routerListener;
 
   @override
@@ -86,7 +89,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : null,
-            onTap: _isRefreshingPeaks ? null : _confirmRefreshPeakData,
+            onTap: (_isRefreshingPeaks || _isExportingPeaks)
+                ? null
+                : _confirmRefreshPeakData,
           ),
           ListTile(
             key: const Key('reset-map-data-tile'),
@@ -167,14 +172,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ],
                 ],
               ),
-            ),
+          ),
           _buildTrackFilterSection(context, filterState),
           _buildPeakCorrelationSection(context, peakCorrelationState),
+          ListTile(
+            key: const Key('export-peak-data-tile'),
+            leading: const Icon(Icons.upload),
+            title: const Text('Export Peak Data'),
+            subtitle: const Text('Export all peaks to CSV'),
+            trailing: _isExportingPeaks
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : null,
+            onTap: (_isRefreshingPeaks || _isExportingPeaks)
+                ? null
+                : _exportPeakData,
+          ),
           if (_status.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(_status, key: const Key('peak-refresh-status')),
-            ),
+            Padding(padding: const EdgeInsets.all(16), child: Text(_status, key: _statusKey)),
         ],
       ),
     );
@@ -205,6 +223,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  void _setStatus(String value, {Key? key}) {
+    setState(() {
+      _status = value;
+      _statusKey = key ?? const Key('peak-refresh-status');
+    });
+  }
+
   Future<void> _confirmRefreshPeakData() async {
     final confirmed = await showDangerConfirmDialog(
       context: context,
@@ -223,8 +248,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     setState(() {
       _isRefreshingPeaks = true;
-      _status = 'Refreshing peak data...';
     });
+    _setStatus('Refreshing peak data...');
 
     try {
       final result = await ref.read(mapProvider.notifier).refreshPeaks();
@@ -232,9 +257,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         return;
       }
 
-      setState(() {
-        _status = '${result.importedCount} Peaks imported';
-      });
+      _setStatus('${result.importedCount} Peaks imported');
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -246,9 +269,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         return;
       }
 
-      setState(() {
-        _status = 'Error refreshing peak data: $e';
-      });
+      _setStatus('Error refreshing peak data: $e');
 
       await _showPeakRefreshFailure(e.toString());
     } finally {
@@ -278,8 +299,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     setState(() {
       _isResettingMaps = true;
-      _status = 'Clearing map data...';
     });
+    _setStatus('Clearing map data...');
 
     try {
       final result = await ref
@@ -288,18 +309,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (!mounted) {
         return;
       }
-      setState(() {
-        _status = result.warning == null
+      _setStatus(
+        result.warning == null
             ? 'Map data reset successfully!'
-            : 'Map data reset successfully! ${result.warning}';
-      });
+            : 'Map data reset successfully! ${result.warning}',
+      );
     } catch (e) {
       if (!mounted) {
         return;
       }
-      setState(() {
-        _status = 'Error resetting map data: $e';
-      });
+      _setStatus('Error resetting map data: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -335,6 +354,40 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _showResetTrackDataResult(result);
         }
       });
+    }
+  }
+
+  Future<void> _exportPeakData() async {
+    setState(() {
+      _isExportingPeaks = true;
+    });
+    _setStatus(
+      'Exporting peak data...',
+      key: const Key('peak-export-status'),
+    );
+
+    try {
+      final result = await ref.read(peakCsvExportRunnerProvider)();
+      if (!mounted) {
+        return;
+      }
+
+      _setStatus(
+        'Exported ${result.exportedCount} peaks to ${result.path}',
+        key: const Key('peak-export-status'),
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      _setStatus('Export failed: $e', key: const Key('peak-export-status'));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isExportingPeaks = false;
+        });
+      }
     }
   }
 
