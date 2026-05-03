@@ -149,11 +149,14 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(container.read(mapProvider).peakInfoPeak?.osmId, 6406);
 
-    container.read(mapProvider.notifier).togglePeaks();
+    container.read(mapProvider.notifier).selectPeakList(PeakListSelectionMode.none);
     await tester.pump();
     expect(container.read(mapProvider).peakInfoPeak, isNull);
+    expect(container.read(mapProvider).hoveredPeakId, isNull);
 
-    container.read(mapProvider.notifier).togglePeaks();
+    container.read(mapProvider.notifier).selectPeakList(
+      PeakListSelectionMode.allPeaks,
+    );
     await tester.pump();
     await tester.tapAt(center);
     await tester.pump();
@@ -403,6 +406,40 @@ void main() {
     expect(find.text('Map: Unknown'), findsOneWidget);
     expect(find.textContaining('Alt Name:'), findsNothing);
     expect(find.textContaining('List(s):'), findsNothing);
+  });
+
+  testWidgets('select peaks FAB opens drawer and none/all peaks update markers', (
+    tester,
+  ) async {
+    await _pumpMap(tester, _mapStateWithPeak());
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final container = ProviderScope.containerOf(tester.element(region));
+
+    expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('show-peaks-fab')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-lists-drawer')), findsOneWidget);
+    expect(find.text('Peak Lists'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('peak-list-item-None')));
+    await tester.pumpAndSettle();
+
+    expect(container.read(mapProvider).peakListSelectionMode, PeakListSelectionMode.none);
+    expect(find.byKey(const Key('peak-marker-layer')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('show-peaks-fab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('peak-list-item-All Peaks')));
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(mapProvider).peakListSelectionMode,
+      PeakListSelectionMode.allPeaks,
+    );
+    expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
   });
 }
 

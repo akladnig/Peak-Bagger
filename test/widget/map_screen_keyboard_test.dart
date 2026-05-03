@@ -187,6 +187,35 @@ void main() {
     expect(find.text('Unknown'), findsOneWidget);
   });
 
+  testWidgets('keyboard b reopens basemaps drawer after peak lists drawer', (
+    tester,
+  ) async {
+    await _pumpMapApp(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('show-peaks-fab')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('peak-lists-drawer')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('peak-list-item-All Peaks')));
+    await tester.pumpAndSettle();
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyB);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Basemaps'), findsOneWidget);
+  });
+
   testWidgets('tapping the map sets the selected marker', (tester) async {
     await _pumpMapApp(
       tester,

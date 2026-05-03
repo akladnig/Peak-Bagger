@@ -45,6 +45,10 @@ enum Basemap { tasmapTopo, tasmap50k, tasmap25k, tracestrack, openstreetmap }
 
 enum TasmapDisplayMode { overlay, none, selectedMap }
 
+enum PeakListSelectionMode { none, allPeaks, specificList }
+
+enum EndDrawerMode { basemaps, peakLists }
+
 class PeakInfoContent {
   const PeakInfoContent({
     required this.peak,
@@ -89,7 +93,9 @@ class MapState {
   final int selectedTrackFocusSerial;
   final List<GpxTrack> tracks;
   final bool showTracks;
-  final bool showPeaks;
+  final PeakListSelectionMode peakListSelectionMode;
+  final int? selectedPeakListId;
+  final EndDrawerMode endDrawerMode;
   final bool isLoadingTracks;
   final String? trackImportError;
   final bool hasTrackRecoveryIssue;
@@ -132,7 +138,9 @@ class MapState {
     this.selectedTrackFocusSerial = 0,
     this.tracks = const [],
     this.showTracks = false,
-    this.showPeaks = true,
+    this.peakListSelectionMode = PeakListSelectionMode.allPeaks,
+    this.selectedPeakListId,
+    this.endDrawerMode = EndDrawerMode.basemaps,
     this.isLoadingTracks = false,
     this.trackImportError,
     this.hasTrackRecoveryIssue = false,
@@ -150,6 +158,8 @@ class MapState {
 
   bool get showSelectedMapLayer =>
       tasmapDisplayMode == TasmapDisplayMode.selectedMap && selectedMap != null;
+
+  bool get showPeaks => peakListSelectionMode != PeakListSelectionMode.none;
 
   MapState copyWith({
     LatLng? center,
@@ -185,7 +195,10 @@ class MapState {
     int? selectedTrackFocusSerial,
     List<GpxTrack>? tracks,
     bool? showTracks,
-    bool? showPeaks,
+    PeakListSelectionMode? peakListSelectionMode,
+    int? selectedPeakListId,
+    bool clearSelectedPeakListId = false,
+    EndDrawerMode? endDrawerMode,
     bool? isLoadingTracks,
     String? trackImportError,
     bool clearTrackImportError = false,
@@ -246,7 +259,12 @@ class MapState {
           selectedTrackFocusSerial ?? this.selectedTrackFocusSerial,
       tracks: tracks ?? this.tracks,
       showTracks: showTracks ?? this.showTracks,
-      showPeaks: showPeaks ?? this.showPeaks,
+      peakListSelectionMode:
+          peakListSelectionMode ?? this.peakListSelectionMode,
+      selectedPeakListId: clearSelectedPeakListId
+          ? null
+          : (selectedPeakListId ?? this.selectedPeakListId),
+      endDrawerMode: endDrawerMode ?? this.endDrawerMode,
       isLoadingTracks: isLoadingTracks ?? this.isLoadingTracks,
       trackImportError: clearTrackImportError
           ? null
@@ -1097,6 +1115,35 @@ class MapNotifier extends Notifier<MapState> {
     state = state.copyWith(basemap: basemap);
   }
 
+  void setEndDrawerMode(EndDrawerMode mode) {
+    if (state.endDrawerMode == mode) {
+      return;
+    }
+    state = state.copyWith(endDrawerMode: mode);
+  }
+
+  void selectPeakList(PeakListSelectionMode mode, {int? peakListId}) {
+    if (mode == PeakListSelectionMode.specificList && peakListId == null) {
+      return;
+    }
+
+    final nextPeakListId = mode == PeakListSelectionMode.specificList
+        ? peakListId
+        : null;
+    if (state.peakListSelectionMode == mode &&
+        state.selectedPeakListId == nextPeakListId) {
+      return;
+    }
+
+    state = state.copyWith(
+      peakListSelectionMode: mode,
+      selectedPeakListId: nextPeakListId,
+      clearSelectedPeakListId: mode != PeakListSelectionMode.specificList,
+      clearPeakInfoPopup: true,
+      clearHoveredPeakId: true,
+    );
+  }
+
   void centerOnLocation(LatLng location) {
     state = state.copyWith(
       center: location,
@@ -1931,14 +1978,6 @@ class MapNotifier extends Notifier<MapState> {
       showTracks: !state.showTracks,
       clearHoveredTrackId: true,
       clearSelectedTrackId: state.showTracks,
-    );
-  }
-
-  void togglePeaks() {
-    state = state.copyWith(
-      showPeaks: !state.showPeaks,
-      clearPeakInfoPopup: state.showPeaks,
-      clearHoveredPeakId: state.showPeaks,
     );
   }
 

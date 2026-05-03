@@ -28,6 +28,7 @@ class GpxTracksRobot {
   Finder get importFab => find.byKey(const Key('import-tracks-fab'));
   Finder get infoFab => find.byKey(const Key('map-info-fab'));
   Finder get showPeaksFab => find.byKey(const Key('show-peaks-fab'));
+  Finder get peakListsDrawer => find.byKey(const Key('peak-lists-drawer'));
   Finder get peakMarkerLayer => find.byKey(const Key('peak-marker-layer'));
   Finder get recalcStatsTile =>
       find.byKey(const Key('recalculate-track-statistics-tile'));
@@ -91,10 +92,18 @@ class GpxTracksRobot {
     await tester.pump(const Duration(milliseconds: 50));
   }
 
-  Future<void> togglePeaks() async {
+  Future<void> selectNoPeaks() async {
     await tester.tap(showPeaksFab);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('peak-list-item-None')));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> selectAllPeaks() async {
+    await tester.tap(showPeaksFab);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('peak-list-item-All Peaks')));
+    await tester.pumpAndSettle();
   }
 
   Future<void> openSettings() async {

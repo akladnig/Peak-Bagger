@@ -460,10 +460,10 @@ void main() {
     await robot.toggleTracks();
     robot.expectTracksShown();
 
-    await robot.togglePeaks();
+    await robot.selectNoPeaks();
     robot.expectPeaksHidden();
 
-    await robot.togglePeaks();
+    await robot.selectAllPeaks();
     robot.expectPeaksShown();
   });
 }

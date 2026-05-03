@@ -78,7 +78,11 @@ class MapActionRail extends ConsumerWidget {
                   ref,
                   closeInfoPopup: true,
                   closePeakSearch: true,
+                  closeGotoInput: true,
                 );
+                ref
+                    .read(mapProvider.notifier)
+                    .setEndDrawerMode(EndDrawerMode.basemaps);
                 Scaffold.of(context).openEndDrawer();
               },
               child: Icon(
@@ -244,13 +248,22 @@ class MapActionRail extends ConsumerWidget {
           ),
           const SizedBox(height: _railSpacing),
           LeftTooltipFab(
-            message: 'Show peaks',
+            message: 'Select Peaks',
             child: FloatingActionButton.small(
               key: const Key('show-peaks-fab'),
               heroTag: 'peaks',
               backgroundColor: Theme.of(context).colorScheme.surface,
               onPressed: () {
-                ref.read(mapProvider.notifier).togglePeaks();
+                _dismissTransientUi(
+                  ref,
+                  closeInfoPopup: true,
+                  closePeakSearch: true,
+                  closeGotoInput: true,
+                );
+                ref
+                    .read(mapProvider.notifier)
+                    .setEndDrawerMode(EndDrawerMode.peakLists);
+                Scaffold.of(context).openEndDrawer();
               },
               child: Icon(
                 Icons.landscape,
