@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -415,6 +417,21 @@ void main() {
       expectedComponents.northing,
     );
 
+    await tester.drag(
+      find.byKey(const Key('objectbox-admin-peak-edit-form')),
+      const Offset(0, 500),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      _textFormFieldText(tester, 'objectbox-admin-peak-latitude'),
+      '-41.600000',
+    );
+    expect(
+      _textFormFieldText(tester, 'objectbox-admin-peak-longitude'),
+      '146.500000',
+    );
+
     await tester.tap(find.byKey(const Key('objectbox-admin-peak-submit')));
     await tester.pumpAndSettle();
 
@@ -656,6 +673,234 @@ void main() {
     expect(
       _textFormFieldText(tester, 'objectbox-admin-peak-longitude'),
       '146.500000',
+    );
+  });
+
+  testWidgets('Peak edit ignores focus-only and non-coordinate edits', (
+    tester,
+  ) async {
+    final peaks = [
+      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', area: 'Old Area'),
+    ];
+    final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
+      'Peak': peaks.map(_peakRow).toList(),
+      'PeakList': const [],
+      'Tasmap50k': const [],
+      'GpxTrack': const [],
+      'PeaksBagged': const [],
+    };
+    final expectedComponents = PeakMgrsConverter.fromLatLng(
+      const LatLng(-41.5, 146.5),
+    );
+
+    await _pumpApp(
+      tester,
+      repository: TestObjectBoxAdminRepository(
+        entities: [_peakEntity()],
+        rowsByEntity: rowsByEntity,
+      ),
+      peakRepository: _MutablePeakRepository(peaks, rowsByEntity),
+      peakDeleteGuard: PeakDeleteGuard(_NoopPeakDeleteGuardSource()),
+    );
+
+    await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.text('Mt Ossa'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-edit')));
+    await tester.pumpAndSettle();
+
+    expect(
+      _isFilledButtonEnabled(tester, 'objectbox-admin-peak-calculate'),
+      isFalse,
+    );
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-latitude')));
+    await tester.pumpAndSettle();
+    await tester.drag(
+      find.byKey(const Key('objectbox-admin-peak-edit-form')),
+      const Offset(0, -500),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      _textFormFieldText(tester, 'objectbox-admin-peak-mgrs100k-id'),
+      expectedComponents.mgrs100kId,
+    );
+    expect(
+      _textFormFieldText(tester, 'objectbox-admin-peak-easting'),
+      expectedComponents.easting,
+    );
+    expect(
+      _textFormFieldText(tester, 'objectbox-admin-peak-northing'),
+      expectedComponents.northing,
+    );
+
+    await tester.drag(
+      find.byKey(const Key('objectbox-admin-peak-edit-form')),
+      const Offset(0, 500),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-name')),
+      'Mt Ossa Peak',
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      _isFilledButtonEnabled(tester, 'objectbox-admin-peak-calculate'),
+      isFalse,
+    );
+
+    await tester.drag(
+      find.byKey(const Key('objectbox-admin-peak-edit-form')),
+      const Offset(0, -500),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      _textFormFieldText(tester, 'objectbox-admin-peak-mgrs100k-id'),
+      expectedComponents.mgrs100kId,
+    );
+    expect(
+      _textFormFieldText(tester, 'objectbox-admin-peak-easting'),
+      expectedComponents.easting,
+    );
+    expect(
+      _textFormFieldText(tester, 'objectbox-admin-peak-northing'),
+      expectedComponents.northing,
+    );
+  });
+
+  testWidgets('Peak calculate is disabled before edit and while saving', (
+    tester,
+  ) async {
+    final saveGate = Completer<void>();
+    final peaks = [
+      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', area: 'Old Area'),
+    ];
+    final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
+      'Peak': peaks.map(_peakRow).toList(),
+      'PeakList': const [],
+      'Tasmap50k': const [],
+      'GpxTrack': const [],
+      'PeaksBagged': const [],
+    };
+
+    await _pumpApp(
+      tester,
+      repository: TestObjectBoxAdminRepository(
+        entities: [_peakEntity()],
+        rowsByEntity: rowsByEntity,
+      ),
+      peakRepository: _MutablePeakRepository(
+        peaks,
+        rowsByEntity,
+        saveGate: saveGate,
+      ),
+      peakDeleteGuard: PeakDeleteGuard(_NoopPeakDeleteGuardSource()),
+    );
+
+    await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.text('Mt Ossa'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-edit')));
+    await tester.pumpAndSettle();
+
+    expect(
+      _isFilledButtonEnabled(tester, 'objectbox-admin-peak-calculate'),
+      isFalse,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-latitude')),
+      '-41.600000',
+    );
+    await tester.pumpAndSettle();
+    expect(
+      _isFilledButtonEnabled(tester, 'objectbox-admin-peak-calculate'),
+      isTrue,
+    );
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-submit')));
+    await tester.pump();
+
+    expect(
+      _isFilledButtonEnabled(tester, 'objectbox-admin-peak-calculate'),
+      isFalse,
+    );
+    expect(
+      _isFilledButtonEnabled(tester, 'objectbox-admin-peak-submit'),
+      isFalse,
+    );
+
+    saveGate.complete();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('Peak row switch and create mode reset calculate state', (
+    tester,
+  ) async {
+    final peaks = [
+      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', area: 'Old Area'),
+      _buildPeak(id: 2, osmId: 202, name: 'Ossa Spur', area: 'Far East'),
+    ];
+    final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
+      'Peak': peaks.map(_peakRow).toList(),
+      'PeakList': const [],
+      'Tasmap50k': const [],
+      'GpxTrack': const [],
+      'PeaksBagged': const [],
+    };
+
+    await _pumpApp(
+      tester,
+      repository: TestObjectBoxAdminRepository(
+        entities: [_peakEntity()],
+        rowsByEntity: rowsByEntity,
+      ),
+      peakRepository: _MutablePeakRepository(peaks, rowsByEntity),
+      peakDeleteGuard: PeakDeleteGuard(_NoopPeakDeleteGuardSource()),
+    );
+
+    await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.text('Mt Ossa'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-edit')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-latitude')),
+      '-41.600000',
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      _isFilledButtonEnabled(tester, 'objectbox-admin-peak-calculate'),
+      isTrue,
+    );
+
+    await tester.tap(find.text('Ossa Spur'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-edit')));
+    await tester.pumpAndSettle();
+
+    expect(
+      _isFilledButtonEnabled(tester, 'objectbox-admin-peak-calculate'),
+      isFalse,
+    );
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-add')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add Peak').last, findsOneWidget);
+    expect(
+      _isFilledButtonEnabled(tester, 'objectbox-admin-peak-calculate'),
+      isFalse,
     );
   });
 
@@ -1230,16 +1475,22 @@ String _textFormFieldText(WidgetTester tester, String key) {
   return tester.widget<TextFormField>(find.byKey(Key(key))).controller!.text;
 }
 
+bool _isFilledButtonEnabled(WidgetTester tester, String key) {
+  return tester.widget<FilledButton>(find.byKey(Key(key))).onPressed != null;
+}
+
 class _MutablePeakRepository extends PeakRepository {
   _MutablePeakRepository(
     this._peaks,
     this._rowsByEntity, {
     this.saveResultBuilder,
+    this.saveGate,
   }) : super.test(InMemoryPeakStorage(_peaks));
 
   final List<Peak> _peaks;
   final Map<String, List<ObjectBoxAdminRow>> _rowsByEntity;
   final PeakSaveResult Function(Peak peak)? saveResultBuilder;
+  final Completer<void>? saveGate;
 
   @override
   List<Peak> getAllPeaks() => List<Peak>.unmodifiable(_peaks);
@@ -1266,6 +1517,8 @@ class _MutablePeakRepository extends PeakRepository {
 
   @override
   Future<PeakSaveResult> saveDetailed(Peak peak) async {
+    await saveGate?.future;
+
     final index = _peaks.indexWhere((entry) => entry.id == peak.id);
     final saved = peak.copyWith();
     if (index == -1) {

@@ -49,15 +49,15 @@ ObjectBox Admin Peak coordinate editing. Explicit Calculate, source tracking, sy
 ### Phase 3: Journey Hardening
 
 - **Goal**: critical admin journey + regressions green
-- [ ] `test/robot/objectbox_admin/objectbox_admin_robot.dart` - add Calculate helper; coordinate field helpers if needed
-- [ ] `test/robot/objectbox_admin/objectbox_admin_journey_test.dart` - robot journey: open Peak, edit coordinate group, Calculate, Save, assert persisted sync
-- [ ] `test/widget/objectbox_admin_shell_test.dart` - TDD: focus-only does not clear opposite group
-- [ ] `test/widget/objectbox_admin_shell_test.dart` - TDD: programmatic Calculate writes do not trigger reciprocal clearing
-- [ ] `test/widget/objectbox_admin_shell_test.dart` - TDD: Calculate disabled before coordinate edit and while saving
-- [ ] `test/widget/objectbox_admin_shell_test.dart` - TDD: non-coordinate edits do not clear coordinate groups
-- [ ] `test/widget/objectbox_admin_shell_test.dart` - TDD: row switch/create mode resets active source and Calculate state
-- [ ] Robot journey tests + selectors/seams: use existing `TestObjectBoxAdminRepository`, `PeakRepository.test`, `InMemoryPeakStorage`; selectors key-first
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `test/robot/objectbox_admin/objectbox_admin_robot.dart` - add Calculate helper; coordinate field helpers if needed
+- [x] `test/robot/objectbox_admin/objectbox_admin_journey_test.dart` - robot journey: open Peak, edit coordinate group, Calculate, Save, assert persisted sync
+- [x] `test/widget/objectbox_admin_shell_test.dart` - TDD: focus-only does not clear opposite group
+- [x] `test/widget/objectbox_admin_shell_test.dart` - TDD: programmatic Calculate writes do not trigger reciprocal clearing
+- [x] `test/widget/objectbox_admin_shell_test.dart` - TDD: Calculate disabled before coordinate edit and while saving
+- [x] `test/widget/objectbox_admin_shell_test.dart` - TDD: non-coordinate edits do not clear coordinate groups
+- [x] `test/widget/objectbox_admin_shell_test.dart` - TDD: row switch/create mode resets active source and Calculate state
+- [x] Robot journey tests + selectors/seams: use existing `TestObjectBoxAdminRepository`, `PeakRepository.test`, `InMemoryPeakStorage`; selectors key-first
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

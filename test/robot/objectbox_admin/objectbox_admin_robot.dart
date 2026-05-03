@@ -40,6 +40,8 @@ class ObjectBoxAdminRobot {
       find.byKey(const Key('objectbox-admin-peak-view-on-map'));
   Finder get peakSubmitButton =>
       find.byKey(const Key('objectbox-admin-peak-submit'));
+  Finder get peakCalculateButton =>
+      find.byKey(const Key('objectbox-admin-peak-calculate'));
   Finder get peakAltNameField =>
       find.byKey(const Key('objectbox-admin-peak-alt-name'));
   Finder get peakVerifiedCheckbox =>
@@ -165,6 +167,11 @@ class ObjectBoxAdminRobot {
 
   Future<void> submitPeakEdit() async {
     await tester.tap(peakSubmitButton);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> calculatePeakCoordinates() async {
+    await tester.tap(peakCalculateButton);
     await tester.pumpAndSettle();
   }
 

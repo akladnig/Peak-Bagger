@@ -71,6 +71,56 @@ void main() {
     expect(find.text('Mt Ossa Peak'), findsWidgets);
   });
 
+  testWidgets(
+    'admin shell calculates and saves synchronized peak coordinates',
+    (tester) async {
+      final robot = ObjectBoxAdminRobot(tester);
+      final peak = _buildPeak(
+        id: 1,
+        osmId: 101,
+        name: 'Mt Ossa',
+        area: 'Old Area',
+      );
+      final peaks = [peak];
+      final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
+        'Peak': [_peakRow(peak)],
+        'PeakList': const [],
+        'Tasmap50k': const [],
+        'GpxTrack': const [],
+        'PeaksBagged': const [],
+      };
+      final peakRepository = _MutablePeakRepository(peaks, rowsByEntity);
+      final expectedComponents = PeakMgrsConverter.fromLatLng(
+        const LatLng(-41.6, 146.5),
+      );
+
+      await robot.pumpApp(
+        repository: TestObjectBoxAdminRepository(
+          entities: [_peakEntity()],
+          rowsByEntity: rowsByEntity,
+        ),
+        peakRepository: peakRepository,
+        peakDeleteGuard: PeakDeleteGuard(_NoopPeakDeleteGuardSource()),
+      );
+
+      await robot.openAdminFromMenu();
+      await robot.selectRow('Mt Ossa');
+      await robot.startEditingPeak();
+      await robot.enterPeakField('latitude', '-41.600000');
+      await robot.calculatePeakCoordinates();
+      await robot.submitPeakEdit();
+
+      expect(find.text('Update Successful'), findsOneWidget);
+
+      final saved = peakRepository.findById(1)!;
+      expect(saved.latitude, -41.6);
+      expect(saved.longitude, 146.5);
+      expect(saved.mgrs100kId, expectedComponents.mgrs100kId);
+      expect(saved.easting, expectedComponents.easting);
+      expect(saved.northing, expectedComponents.northing);
+    },
+  );
+
   testWidgets('admin shell adds a peak row from the add button', (
     tester,
   ) async {
