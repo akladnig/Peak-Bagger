@@ -109,6 +109,7 @@ void main() {
     final enabled = const GpxTrackFilter().filter(
       rawXml,
       config: GpxFilterConfig.defaults.copyWith(
+        outlierFilter: GpxTrackOutlierFilter.hampel,
         elevationSmoother: GpxTrackElevationSmoother.none,
         positionSmoother: GpxTrackPositionSmoother.none,
       ),

@@ -1,20 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/constants.dart';
+
 const peakCorrelationDistanceKey = 'peak_correlation_distance_meters';
-const peakCorrelationDefaultDistanceMeters = 50;
-const peakCorrelationDistanceOptions = <int>[
-  10,
-  20,
-  30,
-  40,
-  50,
-  60,
-  70,
-  80,
-  90,
-  100,
-];
+const peakCorrelationDefaultDistanceMeters = PeakCorrelationConstants.defaultDistanceMeters;
+const peakCorrelationDistanceOptions = PeakCorrelationConstants.distanceOptions;
 
 final peakCorrelationSettingsProvider =
     AsyncNotifierProvider<PeakCorrelationSettingsNotifier, int>(

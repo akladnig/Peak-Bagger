@@ -3,9 +3,11 @@ import 'dart:math' as math;
 
 import 'package:latlong2/latlong.dart';
 
+import '../core/constants.dart';
+
 class TrackDisplayCacheBuilder {
-  static const minZoom = 6;
-  static const maxZoom = 18;
+  static const minZoom = MapConstants.peakMinZoom;
+  static const maxZoom = MapConstants.peakMaxZoom;
   static const _epsilon = 2.0;
   static const _tileSize = 256.0;
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/constants.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 
 class ObjectBoxAdminDataGrid extends StatelessWidget {
@@ -33,8 +34,8 @@ class ObjectBoxAdminDataGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const primaryColumnWidth = 144.0;
-    const actionsColumnWidth = 72.0;
+    const primaryColumnWidth = UiConstants.primaryColumnWidth;
+    const actionsColumnWidth = UiConstants.actionsColumnWidth;
 
     final tableFields = entity.name == 'Peak'
         ? peakAdminTableFields(entity)

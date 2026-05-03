@@ -11,6 +11,8 @@ import 'package:peak_bagger/screens/peak_lists_screen.dart';
 import 'package:peak_bagger/screens/settings_screen.dart';
 import 'package:peak_bagger/widgets/side_menu.dart';
 
+import 'core/constants.dart';
+
 class ShellDestination {
   const ShellDestination({
     required this.branchIndex,
@@ -74,10 +76,6 @@ const shellDestinations = <ShellDestination>[
     keyName: 'nav-settings',
   ),
 ];
-
-const _shellBreakpoint = 720.0;
-const _wideNavigationWidth = 132.0;
-const _themeActionRightInset = 16.0;
 
 void _runShellPreNavigationCleanup(WidgetRef ref) {
   if (ref.read(mapProvider).peakInfoPeak != null) {
@@ -251,7 +249,7 @@ final router = GoRouter(
 
             return LayoutBuilder(
               builder: (context, constraints) {
-                final isWide = constraints.maxWidth >= _shellBreakpoint;
+                final isWide = constraints.maxWidth >= RouterConstants.shellBreakpoint;
 
                 return Scaffold(
                   drawer: isWide
@@ -275,7 +273,7 @@ final router = GoRouter(
                     key: const Key('shared-app-bar'),
                     automaticallyImplyLeading: false,
                     centerTitle: false,
-                    leadingWidth: isWide ? _wideNavigationWidth : null,
+                    leadingWidth: isWide ? RouterConstants.wideNavigationWidth : null,
                     leading: isWide
                         ? Center(
                             child: IconButton(
@@ -334,7 +332,7 @@ final router = GoRouter(
                     actions: [
                       Padding(
                         padding: const EdgeInsets.only(
-                          right: _themeActionRightInset,
+                          right: RouterConstants.themeActionRightInset,
                         ),
                         child: IconButton(
                           key: const Key('app-bar-theme-action'),

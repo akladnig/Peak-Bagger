@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
+import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
@@ -847,9 +848,10 @@ void main() {
         ]),
       );
 
-      final segments = track.getSegmentsForZoom(15);
+      final segments = track.getSegmentsForZoom(MapConstants.defaultZoom.toInt());
 
       expect(segments, hasLength(2));
+      expect(track.getSegments(), hasLength(2));
       expect(segments.first, hasLength(2));
       expect(segments.first.first.latitude, -42.1);
       expect(segments.first.first.longitude, 146.1);
@@ -1398,7 +1400,7 @@ void main() {
       expect(track.contentHash, isNotEmpty);
       expect(track.gpxFile, gpx);
       expect(track.displayTrackPointsByZoom, isNot('{}'));
-      expect(track.getSegmentsForZoom(15), isNotEmpty);
+      expect(track.getSegmentsForZoom(MapConstants.defaultZoom.toInt()), isNotEmpty);
     });
 
     test('parseGpxFile populates elevation analytics', () async {

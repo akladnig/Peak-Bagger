@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/constants.dart';
+
 const _hampelWindowKey = 'gpx_filter_hampel_window';
 const _outlierFilterKey = 'gpx_filter_outlier_filter';
 const _elevationSmootherKey = 'gpx_filter_elevation_smoother';
@@ -25,12 +27,12 @@ class GpxFilterConfig {
   });
 
   static const defaults = GpxFilterConfig(
-    hampelWindow: 7,
-    outlierFilter: GpxTrackOutlierFilter.hampel,
-    elevationSmoother: GpxTrackElevationSmoother.median,
-    elevationWindow: 5,
-    positionSmoother: GpxTrackPositionSmoother.movingAverage,
-    positionWindow: 5,
+    hampelWindow: GpxConstants.defaultHampelWindow,
+    outlierFilter: GpxTrackOutlierFilter.none,
+    elevationSmoother: GpxTrackElevationSmoother.none,
+    elevationWindow: GpxConstants.defaultElevationWindow,
+    positionSmoother: GpxTrackPositionSmoother.none,
+    positionWindow: GpxConstants.defaultPositionWindow,
   );
 
   final int hampelWindow;

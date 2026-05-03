@@ -13,6 +13,17 @@ void main() {
       positionSmoother: GpxTrackPositionSmoother.none,
     );
 
+    expect(GpxFilterConfig.defaults.hampelWindow, 5);
+    expect(GpxFilterConfig.defaults.outlierFilter, GpxTrackOutlierFilter.none);
+    expect(
+      GpxFilterConfig.defaults.elevationSmoother,
+      GpxTrackElevationSmoother.none,
+    );
+    expect(
+      GpxFilterConfig.defaults.positionSmoother,
+      GpxTrackPositionSmoother.none,
+    );
+
     await config.save(prefs);
 
     final restored = GpxFilterConfig.fromPreferences(prefs);

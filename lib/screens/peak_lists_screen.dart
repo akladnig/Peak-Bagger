@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../core/constants.dart';
 import '../models/geo_areas.dart';
 import '../models/peak.dart';
 import '../models/peak_list.dart';
@@ -31,11 +32,6 @@ class PeakListsScreen extends ConsumerStatefulWidget {
 }
 
 class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
-  static const _dividerWidth = 1.0;
-  static const _preferredLeftWidth = 320.0;
-  static const _preferredRightWidth = 360.0;
-  static const _minimumMiniMapAspectWidth = 294.0;
-  static const _columnCellHorizontalPadding = 12.0;
   int? _selectedPeakListId;
   int? _selectedPeakId;
   _PeakListSortColumn _sortColumn = _PeakListSortColumn.percentage;
@@ -105,7 +101,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
                   selectedMapPeak: selectedMapPeak,
                 ),
               ),
-              const VerticalDivider(width: _dividerWidth),
+              const VerticalDivider(width: UiConstants.dividerWidth),
               SizedBox(
                 key: const Key('peak-lists-details-pane'),
                 width: panes.rightWidth,
@@ -150,23 +146,25 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
   }
 
   ({double leftWidth, double rightWidth}) _resolvePaneWidths(double bodyWidth) {
-    final usableWidth = math.max(0.0, bodyWidth - _dividerWidth);
+    final usableWidth = math.max(0.0, bodyWidth - UiConstants.dividerWidth);
     final preferredLeft = usableWidth * 0.55;
-    final rightSoftTarget = _preferredRightWidth;
+    final rightSoftTarget = UiConstants.preferredRightWidth;
     final maxLeftAtPreferredRight = math.max(
       0.0,
       usableWidth - rightSoftTarget,
     );
-    final minLeftForMiniMap = _minimumMiniMapAspectWidth;
+    final minLeftForMiniMap = UiConstants.minimumMiniMapAspectWidth;
     final leftWidth =
         usableWidth >=
-            (_preferredLeftWidth + _preferredRightWidth + _dividerWidth)
+            (UiConstants.preferredLeftWidth +
+                UiConstants.preferredRightWidth +
+                UiConstants.dividerWidth)
         ? preferredLeft
-              .clamp(_preferredLeftWidth, maxLeftAtPreferredRight)
+              .clamp(UiConstants.preferredLeftWidth, maxLeftAtPreferredRight)
               .toDouble()
         : math.max(
             minLeftForMiniMap,
-            math.min(_preferredLeftWidth, maxLeftAtPreferredRight),
+            math.min(UiConstants.preferredLeftWidth, maxLeftAtPreferredRight),
           );
     return (
       leftWidth: leftWidth,
@@ -555,9 +553,8 @@ _SummaryTableWidths _resolveSummaryTableWidths(
   final headerStyle = theme.textTheme.labelLarge;
   final cellStyle = theme.textTheme.bodyMedium;
   final selectedStyle = cellStyle?.copyWith(fontWeight: FontWeight.w600);
-  const horizontalPadding =
-      _PeakListsScreenState._columnCellHorizontalPadding * 2;
-  const headerLabelGap = 12.0;
+  const horizontalPadding = UiConstants.columnCellHorizontalPadding * 2;
+  const headerLabelGap = UiConstants.headerLabelGap;
 
   double list =
       _measureTextWidth(context, 'List', headerStyle) +
@@ -621,7 +618,7 @@ _SummaryTableWidths _resolveSummaryTableWidths(
     );
   }
 
-  const rowHorizontalPadding = 40.0;
+  const rowHorizontalPadding = UiConstants.rowHorizontalPadding;
   final totalWidth =
       list +
       totalPeaks +
@@ -650,11 +647,10 @@ _PeakTableWidths _resolvePeakTableWidths(
   final theme = Theme.of(context);
   final headerStyle = theme.textTheme.labelLarge;
   final cellStyle = theme.textTheme.bodyMedium;
-  const horizontalPadding =
-      _PeakListsScreenState._columnCellHorizontalPadding * 2;
-  const columnGap = 12.0;
-  const headerIconWidth = 18.0;
-  const headerLabelGap = 12.0;
+  const horizontalPadding = UiConstants.columnCellHorizontalPadding * 2;
+  const columnGap = UiConstants.columnGap;
+  const headerIconWidth = UiConstants.headerIconWidth;
+  const headerLabelGap = UiConstants.headerLabelGap;
   const headerControlWidth = headerIconWidth + headerLabelGap;
   final rows = selectedSummaryRow?.peakRows ?? const <_PeakDetailRow>[];
 
@@ -1615,7 +1611,7 @@ class _PeakDetailsHeaderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const columnGap = SizedBox(width: 12);
+    const columnGap = SizedBox(width: UiConstants.columnGap);
     return Row(
       children: [
         SizedBox(
