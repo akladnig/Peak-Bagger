@@ -30,13 +30,13 @@ Thin slice first; then reactive list data; then persistence/reconciliation.
 ### Phase 2: Reactive Peak-List Drawer
 
 - **Goal**: real list data; counts; error-safe drawer
-- [ ] `lib/providers/peak_list_selection_provider.dart` - add `peakListRevisionProvider`, `peakListsProvider`, repo error catch/log `[]`, `specificList` filtering
-- [ ] `lib/widgets/map_peak_lists_drawer.dart` - watch `peakListsProvider`; sort A-Z; skip invalid JSON lists; render count subtitles; selected checkmark
-- [ ] `lib/screens/map_screen.dart` - consume final `filteredPeaksProvider` behavior for `specificList` mode
-- [ ] TDD: `filteredPeaksProvider` returns matching peaks for valid list; returns all peaks on repo error during `specificList`; stays pure
-- [ ] TDD: drawer omits invalid JSON lists, shows `None`/`All Peaks` on repo error, renders renderable-count subtitles
-- [ ] Robot journey tests + selectors/seams for selecting a specific list and asserting only its peaks render
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/providers/peak_list_selection_provider.dart` - add `peakListRevisionProvider`, `peakListsProvider`, repo error catch/log `[]`, `specificList` filtering
+- [x] `lib/widgets/map_peak_lists_drawer.dart` - watch `peakListsProvider`; sort A-Z; skip invalid JSON lists; render count subtitles; selected checkmark
+- [x] `lib/screens/map_screen.dart` - consume final `filteredPeaksProvider` behavior for `specificList` mode
+- [x] TDD: `filteredPeaksProvider` returns matching peaks for valid list; returns all peaks on repo error during `specificList`; stays pure
+- [x] TDD: drawer omits invalid JSON lists, shows `None`/`All Peaks` on repo error, renders renderable-count subtitles
+- [x] Robot journey tests + selectors/seams for selecting a specific list and asserting only its peaks render
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Persistence And Mutation Reconciliation
 

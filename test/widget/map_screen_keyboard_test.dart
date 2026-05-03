@@ -6,7 +6,9 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/router.dart';
+import 'package:peak_bagger/services/peak_list_repository.dart';
 
 import '../harness/test_map_notifier.dart';
 
@@ -243,7 +245,12 @@ void main() {
 Future<void> _pumpMapApp(WidgetTester tester, MapState state) async {
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [mapProvider.overrideWith(() => TestMapNotifier(state))],
+      overrides: [
+        mapProvider.overrideWith(() => TestMapNotifier(state)),
+        peakListRepositoryProvider.overrideWithValue(
+          PeakListRepository.test(InMemoryPeakListStorage()),
+        ),
+      ],
       child: const App(),
     ),
   );

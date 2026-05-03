@@ -8,19 +8,28 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
+import 'package:peak_bagger/services/peak_list_repository.dart';
 
 import '../../harness/test_map_notifier.dart';
 
 class GpxTracksRobot {
-  GpxTracksRobot(this.tester, this.initialState, {MapNotifier? notifier})
-    : notifier = notifier ?? TestMapNotifier(initialState);
+  GpxTracksRobot(
+    this.tester,
+    this.initialState, {
+    MapNotifier? notifier,
+    PeakListRepository? peakListRepository,
+  }) : notifier = notifier ?? TestMapNotifier(initialState),
+       peakListRepository =
+           peakListRepository ?? PeakListRepository.test(InMemoryPeakListStorage());
 
   final WidgetTester tester;
   final MapState initialState;
   final MapNotifier notifier;
+  final PeakListRepository peakListRepository;
   TestGesture? _mouseGesture;
   bool _mouseAdded = false;
 
@@ -67,6 +76,7 @@ class GpxTracksRobot {
         overrides: [
           mapProvider.overrideWith(() => notifier),
           gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
+          peakListRepositoryProvider.overrideWithValue(peakListRepository),
         ],
         child: const App(),
       ),
@@ -103,6 +113,13 @@ class GpxTracksRobot {
     await tester.tap(showPeaksFab);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('peak-list-item-All Peaks')));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> selectSpecificPeakList(String name) async {
+    await tester.tap(showPeaksFab);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key('peak-list-item-$name')));
     await tester.pumpAndSettle();
   }
 
@@ -265,6 +282,20 @@ class GpxTracksRobot {
       final visualMarker = child is KeyedSubtree ? child.child : child;
       return (visualMarker as SvgPicture).bytesLoader.toString();
     }).toList();
+  }
+
+  List<int> peakMarkerIds() {
+    final markerLayer = tester.widget<MarkerLayer>(peakMarkerLayer);
+    return markerLayer.markers
+        .map((marker) {
+          final key = marker.key;
+          if (key is ValueKey<String>) {
+            return int.tryParse(key.value.split('-').last);
+          }
+          return null;
+        })
+        .whereType<int>()
+        .toList(growable: false);
   }
 
   Future<void> hoverTrack() async {
