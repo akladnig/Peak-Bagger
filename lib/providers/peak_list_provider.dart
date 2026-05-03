@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/main.dart';
+import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
+import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/peak_list_import_service.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
@@ -28,6 +30,8 @@ final peakListImportRunnerProvider = Provider<PeakListImportRunner>((ref) {
       listName: listName,
       csvPath: csvPath,
     );
+    ref.read(peakListRevisionProvider.notifier).increment();
+    ref.read(mapProvider.notifier).reconcileSelectedPeakList();
     return PeakListImportPresentationResult(
       updated: result.updated,
       importedCount: result.importedCount,

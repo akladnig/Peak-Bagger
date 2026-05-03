@@ -14,10 +14,12 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/peak_hover_detector.dart';
 import 'package:peak_bagger/services/track_hover_detector.dart';
 import 'package:peak_bagger/widgets/map_action_rail.dart';
 import 'package:peak_bagger/widgets/map_basemaps_drawer.dart';
+import 'package:peak_bagger/widgets/map_peak_lists_drawer.dart';
 import 'package:peak_bagger/widgets/tasmap_polygon_label.dart';
 
 import 'map_screen_layers.dart';
@@ -31,6 +33,7 @@ class MapScreen extends ConsumerStatefulWidget {
 }
 
 class _MapScreenState extends ConsumerState<MapScreen> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   late final MapController _mapController;
   final _gotoController = TextEditingController();
   final _gotoFocusNode = FocusNode();
@@ -119,21 +122,29 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     return SystemMouseCursors.grab;
   }
 
-  bool _handlePeakHover(Offset localPosition, MapState mapState) {
+  bool _handlePeakHover(
+    Offset localPosition,
+    MapState mapState,
+    List<Peak> peaks,
+  ) {
     final notifier = ref.read(mapProvider.notifier);
 
-    if (_isPointerDown || !mapState.showPeaks || mapState.zoom < 9) {
+    if (_isPointerDown || !mapState.showPeaks || mapState.zoom < 8) {
       notifier.clearHoveredPeak();
       return false;
     }
 
-    final peak = _hitTestPeak(localPosition, mapState);
+    final peak = _hitTestPeak(localPosition, mapState, peaks);
     notifier.setHoveredPeakId(peak?.osmId);
     return peak != null;
   }
 
-  Peak? _hitTestPeak(Offset localPosition, MapState mapState) {
-    if (!mapState.showPeaks || mapState.zoom < 9) {
+  Peak? _hitTestPeak(
+    Offset localPosition,
+    MapState mapState,
+    List<Peak> peaks,
+  ) {
+    if (!mapState.showPeaks || mapState.zoom < 8) {
       return null;
     }
 
@@ -142,7 +153,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       return null;
     }
 
-    final candidates = _buildPeakHoverCandidates(mapState, camera);
+    final candidates = _buildPeakHoverCandidates(peaks, camera);
     if (candidates.isEmpty) {
       return null;
     }
@@ -155,7 +166,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     if (peakId == null) {
       return null;
     }
-    for (final peak in mapState.peaks) {
+    for (final peak in peaks) {
       if (peak.osmId == peakId) {
         return peak;
       }
@@ -164,14 +175,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   List<PeakHoverCandidate> _buildPeakHoverCandidates(
-    MapState mapState,
+    List<Peak> peaks,
     MapCamera camera,
   ) {
     final correlatedPeakIds = ref.read(mapProvider.notifier).correlatedPeakIds;
     final untickedCandidates = <PeakHoverCandidate>[];
     final tickedCandidates = <PeakHoverCandidate>[];
 
-    for (final peak in mapState.peaks) {
+    for (final peak in peaks) {
       final candidate = PeakHoverCandidate(
         peakId: peak.osmId,
         screenPosition: camera.latLngToScreenOffset(
@@ -192,10 +203,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     Offset localPosition,
     LatLng location,
     MapState mapState,
+    List<Peak> peaks,
   ) {
     final notifier = ref.read(mapProvider.notifier);
     notifier.setCursorMgrs(location);
-    if (_handlePeakHover(localPosition, mapState)) {
+    if (_handlePeakHover(localPosition, mapState, peaks)) {
       notifier.clearHoveredTrack();
       return;
     }
@@ -301,6 +313,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   @override
   Widget build(BuildContext context) {
     final mapState = ref.watch(mapProvider);
+    final filteredPeaks = ref.watch(filteredPeaksProvider);
     ref.watch(tasmapStateProvider.select((state) => state.tasmapRevision));
     final displayMgrs =
         mapState.cursorMgrs ?? mapState.gotoMgrs ?? mapState.currentMgrs;
@@ -327,7 +340,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     });
 
     return Scaffold(
-      endDrawer: const MapBasemapsDrawer(),
+      key: _scaffoldKey,
+      endDrawer: switch (mapState.endDrawerMode) {
+        EndDrawerMode.basemaps => const MapBasemapsDrawer(),
+        EndDrawerMode.peakLists => const MapPeakListsDrawer(),
+      },
       body: Focus(
         focusNode: _mapFocusNode,
         autofocus: true,
@@ -424,7 +441,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             }
             return KeyEventResult.handled;
           } else if (key == LogicalKeyboardKey.keyB) {
-            Scaffold.of(context).openEndDrawer();
+            ref
+                .read(mapProvider.notifier)
+                .setEndDrawerMode(EndDrawerMode.basemaps);
+            _scaffoldKey.currentState?.openEndDrawer();
             return KeyEventResult.handled;
           } else if (key == LogicalKeyboardKey.keyC) {
             ref.read(mapProvider.notifier).centerOnSelectedLocation();
@@ -486,6 +506,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       final tappedPeak = _hitTestPeak(
                         event.localPosition,
                         ref.read(mapProvider),
+                        ref.read(filteredPeaksProvider),
                       );
                       if (tappedPeak != null) {
                         notifier.openPeakInfoPopup(tappedPeak);
@@ -527,7 +548,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ref.read(mapProvider.notifier).clearHoveredPeak();
                   },
                   onPointerHover: (event, point) {
-                    _handleMapHover(event.localPosition, point, mapState);
+                    _handleMapHover(
+                      event.localPosition,
+                      point,
+                      mapState,
+                      filteredPeaks,
+                    );
                   },
                   onPositionChanged: (position, hasGesture) {
                     if (hasGesture) {
@@ -602,12 +628,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       selectedTrackId: mapState.selectedTrackId,
                     ),
                   if (mapState.showPeaks &&
-                      mapState.peaks.isNotEmpty &&
-                      mapState.zoom >= 9)
+                      filteredPeaks.isNotEmpty &&
+                      mapState.zoom >= 8)
                     MarkerLayer(
                       key: const Key('peak-marker-layer'),
                       markers: buildPeakMarkers(
-                        peaks: mapState.peaks,
+                        peaks: filteredPeaks,
                         zoom: mapState.zoom,
                         correlatedPeakIds: ref
                             .read(mapProvider.notifier)

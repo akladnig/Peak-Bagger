@@ -9,6 +9,7 @@ import '../models/peaks_bagged.dart';
 import '../models/tasmap50k.dart';
 import '../providers/map_provider.dart';
 import '../providers/peak_provider.dart';
+import '../providers/peak_list_selection_provider.dart';
 import '../providers/tasmap_provider.dart';
 import '../router.dart';
 import '../services/peak_list_repository.dart';
@@ -555,6 +556,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
           .where((peak) => _selectedPeakIds.contains(peak.osmId))
           .toList(growable: false);
       final failures = <({Peak peak, Object error})>[];
+      var successfulAddCount = 0;
 
       for (final peak in saveOrder) {
         try {
@@ -565,9 +567,14 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
               points: _selectedPoints[peak.osmId] ?? 1,
             ),
           );
+          successfulAddCount += 1;
         } catch (error) {
           failures.add((peak: peak, error: error));
         }
+      }
+
+      if (successfulAddCount > 0) {
+        _refreshPeakListSelection();
       }
 
       if (!mounted) {
@@ -622,6 +629,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
         peakOsmId: peak.osmId,
         points: _editPoints,
       );
+      _refreshPeakListSelection();
       if (!mounted) {
         return;
       }
@@ -670,6 +678,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
         peakListId: widget.peakList.peakListId,
         peakOsmId: peak.osmId,
       );
+      _refreshPeakListSelection();
       if (!mounted) {
         return;
       }
@@ -706,6 +715,11 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
       return peakIds[index + 1];
     }
     return peakIds[index - 1];
+  }
+
+  void _refreshPeakListSelection() {
+    ref.read(peakListRevisionProvider.notifier).increment();
+    ref.read(mapProvider.notifier).reconcileSelectedPeakList();
   }
 
   Future<void> _openTrack(PeaksBagged row) async {

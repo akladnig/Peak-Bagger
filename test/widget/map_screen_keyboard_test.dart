@@ -6,7 +6,9 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/router.dart';
+import 'package:peak_bagger/services/peak_list_repository.dart';
 
 import '../harness/test_map_notifier.dart';
 
@@ -187,6 +189,35 @@ void main() {
     expect(find.text('Unknown'), findsOneWidget);
   });
 
+  testWidgets('keyboard b reopens basemaps drawer after peak lists drawer', (
+    tester,
+  ) async {
+    await _pumpMapApp(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('show-peaks-fab')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('peak-lists-drawer')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('peak-list-item-All Peaks')));
+    await tester.pumpAndSettle();
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyB);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Basemaps'), findsOneWidget);
+  });
+
   testWidgets('tapping the map sets the selected marker', (tester) async {
     await _pumpMapApp(
       tester,
@@ -214,7 +245,12 @@ void main() {
 Future<void> _pumpMapApp(WidgetTester tester, MapState state) async {
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [mapProvider.overrideWith(() => TestMapNotifier(state))],
+      overrides: [
+        mapProvider.overrideWith(() => TestMapNotifier(state)),
+        peakListRepositoryProvider.overrideWithValue(
+          PeakListRepository.test(InMemoryPeakListStorage()),
+        ),
+      ],
       child: const App(),
     ),
   );

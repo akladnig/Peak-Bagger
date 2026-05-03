@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/screens/peak_lists_screen.dart';
@@ -9,6 +11,8 @@ import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/widgets/peak_list_import_dialog.dart';
+
+import '../../harness/test_map_notifier.dart';
 
 class PeakListsRobot {
   PeakListsRobot(this.tester);
@@ -69,6 +73,15 @@ class PeakListsRobot {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          mapProvider.overrideWith(
+            () => TestMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 15,
+                basemap: Basemap.tracestrack,
+              ),
+            ),
+          ),
           peakRepositoryProvider.overrideWithValue(
             peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
           ),

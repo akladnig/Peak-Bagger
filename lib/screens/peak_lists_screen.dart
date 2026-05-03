@@ -11,6 +11,7 @@ import '../models/peak.dart';
 import '../models/peak_list.dart';
 import '../models/peaks_bagged.dart';
 import '../providers/peak_list_provider.dart';
+import '../providers/peak_list_selection_provider.dart';
 import '../providers/map_provider.dart';
 import '../providers/peak_provider.dart';
 import '../services/peak_list_file_picker.dart';
@@ -227,6 +228,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
     }
 
     await ref.read(peakListRepositoryProvider).delete(peakListId);
+    _refreshPeakListSelectionDependencies();
     if (!mounted) {
       return;
     }
@@ -345,6 +347,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
                     peakList: encodePeakListItems(const <PeakListItem>[]),
                   ),
                 );
+            _refreshPeakListSelectionDependencies();
             return saved.peakListId;
           },
         );
@@ -391,6 +394,11 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
       latestAscentDatesByPeakId: peaksBaggedRepository
           .latestAscentDatesByPeakId(),
     );
+  }
+
+  void _refreshPeakListSelectionDependencies() {
+    ref.read(peakListRevisionProvider.notifier).increment();
+    ref.read(mapProvider.notifier).reconcileSelectedPeakList();
   }
 
   List<_PeakListSummaryRow> _sortSummaryRows(List<_PeakListSummaryRow> rows) {

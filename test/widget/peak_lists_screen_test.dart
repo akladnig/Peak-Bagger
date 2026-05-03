@@ -5,11 +5,14 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
+import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/screens/peak_lists_screen.dart';
@@ -20,6 +23,7 @@ import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/widgets/peak_list_import_dialog.dart';
 
 import '../harness/test_peak_list_file_picker.dart';
+import '../harness/test_map_notifier.dart';
 
 void main() {
   testWidgets('empty state renders copy and shell panes', (tester) async {
@@ -1028,6 +1032,50 @@ void main() {
     expect(find.byKey(const Key('peak-lists-empty-message')), findsOneWidget);
   });
 
+  testWidgets('deleting active list bumps revision and reconciles map selection', (
+    tester,
+  ) async {
+    final repository = PeakListRepository.test(
+      InMemoryPeakListStorage(_buildLists(['Abels', 'Bravo'])),
+    );
+    final mapNotifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        peakListSelectionMode: PeakListSelectionMode.specificList,
+        selectedPeakListId: 2,
+      ),
+    );
+
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: repository,
+      mapNotifier: mapNotifier,
+    );
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('peak-lists-summary-pane'))),
+    );
+
+    tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-2'))).onTap!();
+    await tester.pumpAndSettle();
+    tester
+        .widget<IconButton>(find.byKey(const Key('peak-lists-delete-2')))
+        .onPressed!();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-delete')));
+    await tester.pumpAndSettle();
+
+    expect(container.read(peakListRevisionProvider), 1);
+    expect(
+      container.read(mapProvider).peakListSelectionMode,
+      PeakListSelectionMode.allPeaks,
+    );
+    expect(container.read(mapProvider).selectedPeakListId, isNull);
+  });
+
   testWidgets('import fab opens dialog and cancel closes it', (tester) async {
     await _pumpPeakListsApp(
       tester,
@@ -1365,10 +1413,22 @@ Future<void> _pumpPeakListsApp(
   PeaksBaggedRepository? peaksBaggedRepository,
   PeakListImportRunner? importRunner,
   PeakListDuplicateNameChecker? duplicateNameChecker,
+  TestMapNotifier? mapNotifier,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        mapProvider.overrideWith(
+          () =>
+              mapNotifier ??
+              TestMapNotifier(
+                MapState(
+                  center: const LatLng(-41.5, 146.5),
+                  zoom: 15,
+                  basemap: Basemap.tracestrack,
+                ),
+              ),
+        ),
         peakListRepositoryProvider.overrideWithValue(repository),
         peakRepositoryProvider.overrideWithValue(
           peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
@@ -1410,10 +1470,22 @@ Future<void> _pumpPeakListsScreen(
   PeaksBaggedRepository? peaksBaggedRepository,
   PeakListImportRunner? importRunner,
   PeakListDuplicateNameChecker? duplicateNameChecker,
+  TestMapNotifier? mapNotifier,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        mapProvider.overrideWith(
+          () =>
+              mapNotifier ??
+              TestMapNotifier(
+                MapState(
+                  center: const LatLng(-41.5, 146.5),
+                  zoom: 15,
+                  basemap: Basemap.tracestrack,
+                ),
+              ),
+        ),
         peakListRepositoryProvider.overrideWithValue(repository),
         peakRepositoryProvider.overrideWithValue(
           peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),

@@ -88,7 +88,7 @@ List<Marker> buildPeakMarkers({
   int? hoveredPeakId,
   bool suppressBelowZoom = true,
 }) {
-  if (suppressBelowZoom && zoom < 9) {
+  if (suppressBelowZoom && zoom < 8) {
     return const [];
   }
 

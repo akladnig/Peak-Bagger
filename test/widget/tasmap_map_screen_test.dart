@@ -414,7 +414,9 @@ void main() {
     );
   });
 
-  testWidgets('peak layer defaults on and toggles off', (tester) async {
+  testWidgets('peak layer defaults on and none selection hides it', (
+    tester,
+  ) async {
     final map = _adamsons();
     final repository = await TestTasmapRepository.create(maps: [map]);
 
@@ -453,7 +455,9 @@ void main() {
     expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('show-peaks-fab')));
-    await tester.pump();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('peak-list-item-None')));
+    await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-marker-layer')), findsNothing);
   });
@@ -561,7 +565,7 @@ void main() {
     );
   });
 
-  testWidgets('Show Peaks toggle hides peak layer', (tester) async {
+  testWidgets('None selection hides peak layer', (tester) async {
     final map = _adamsons();
     final repository = await TestTasmapRepository.create(maps: [map]);
 
@@ -600,7 +604,9 @@ void main() {
     expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('show-peaks-fab')));
-    await tester.pump();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('peak-list-item-None')));
+    await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-marker-layer')), findsNothing);
   });

@@ -4,9 +4,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/router.dart';
+import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -364,6 +368,17 @@ void main() {
   testWidgets('peak layer toggles and shows correlated markers', (
     tester,
   ) async {
+    final peakListRepository = PeakListRepository.test(
+      InMemoryPeakListStorage([
+        PeakList(
+          name: 'Alpha',
+          peakList: encodePeakListItems([
+            const PeakListItem(peakOsmId: 6406, points: 1),
+          ]),
+        )..peakListId = 1,
+      ]),
+    );
+
     final robot = GpxTracksRobot(
       tester,
       MapState(
@@ -447,6 +462,7 @@ void main() {
         ),
         correlatedPeakIds: {6406},
       ),
+      peakListRepository: peakListRepository,
     );
     addTearDown(robot.dispose);
     await robot.pumpApp();
@@ -460,10 +476,27 @@ void main() {
     await robot.toggleTracks();
     robot.expectTracksShown();
 
-    await robot.togglePeaks();
+    await robot.selectNoPeaks();
     robot.expectPeaksHidden();
 
-    await robot.togglePeaks();
+    await robot.selectAllPeaks();
     robot.expectPeaksShown();
+
+    await robot.selectSpecificPeakList('Alpha');
+    expect(robot.peakMarkerIds(), [6406]);
+
+    final container = ProviderScope.containerOf(
+      tester.element(robot.mapInteractionRegion),
+    );
+    await container.read(peakListRepositoryProvider).delete(1);
+    container.read(peakListRevisionProvider.notifier).increment();
+    container.read(mapProvider.notifier).reconcileSelectedPeakList();
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(mapProvider).peakListSelectionMode,
+      PeakListSelectionMode.allPeaks,
+    );
+    expect(robot.peakMarkerIds(), [7000, 6406]);
   });
 }
