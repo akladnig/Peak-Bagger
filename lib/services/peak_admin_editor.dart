@@ -34,7 +34,41 @@ class PeakAdminFormState {
   final String northing;
   final bool verified;
   final String sourceOfTruth;
+
+  PeakAdminFormState copyWith({
+    String? name,
+    String? altName,
+    String? osmId,
+    String? elevation,
+    String? latitude,
+    String? longitude,
+    String? area,
+    String? gridZoneDesignator,
+    String? mgrs100kId,
+    String? easting,
+    String? northing,
+    bool? verified,
+    String? sourceOfTruth,
+  }) {
+    return PeakAdminFormState(
+      name: name ?? this.name,
+      altName: altName ?? this.altName,
+      osmId: osmId ?? this.osmId,
+      elevation: elevation ?? this.elevation,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      area: area ?? this.area,
+      gridZoneDesignator: gridZoneDesignator ?? this.gridZoneDesignator,
+      mgrs100kId: mgrs100kId ?? this.mgrs100kId,
+      easting: easting ?? this.easting,
+      northing: northing ?? this.northing,
+      verified: verified ?? this.verified,
+      sourceOfTruth: sourceOfTruth ?? this.sourceOfTruth,
+    );
+  }
 }
+
+enum PeakAdminCoordinateSource { latLng, mgrs }
 
 class PeakAdminValidationResult {
   const PeakAdminValidationResult({
@@ -48,6 +82,20 @@ class PeakAdminValidationResult {
   final Peak? peak;
 
   bool get isValid => peak != null;
+}
+
+class PeakAdminCalculationResult {
+  const PeakAdminCalculationResult({
+    required this.fieldErrors,
+    this.coordinateError,
+    this.form,
+  });
+
+  final Map<String, String> fieldErrors;
+  final String? coordinateError;
+  final PeakAdminFormState? form;
+
+  bool get isValid => form != null;
 }
 
 class PeakAdminEditor {
@@ -74,8 +122,8 @@ class PeakAdminEditor {
       altName: peak.altName,
       osmId: peak.osmId.toString(),
       elevation: _formatOptionalNumber(peak.elevation),
-      latitude: peak.latitude.toString(),
-      longitude: peak.longitude.toString(),
+      latitude: formatCoordinate(peak.latitude),
+      longitude: formatCoordinate(peak.longitude),
       area: peak.area ?? '',
       gridZoneDesignator: fixedGridZoneDesignator,
       mgrs100kId: peak.mgrs100kId,
@@ -89,6 +137,7 @@ class PeakAdminEditor {
   static PeakAdminValidationResult validateAndBuild({
     required Peak source,
     required PeakAdminFormState form,
+    PeakAdminCoordinateSource? coordinateSource,
   }) {
     final fieldErrors = <String, String>{};
 
@@ -153,7 +202,13 @@ class PeakAdminEditor {
     double longitude;
     PeakMgrsComponents components;
 
-    if (mgrsComplete) {
+    final useMgrs = switch (coordinateSource) {
+      PeakAdminCoordinateSource.latLng => false,
+      PeakAdminCoordinateSource.mgrs => true,
+      null => mgrsComplete,
+    };
+
+    if (useMgrs) {
       if (!RegExp(r'^[A-Za-z]{2}$').hasMatch(mgrsIdText)) {
         fieldErrors['mgrs100kId'] = mgrs100kIdError;
       }
@@ -225,6 +280,10 @@ class PeakAdminEditor {
       );
     }
 
+    if (fieldErrors.isNotEmpty) {
+      return PeakAdminValidationResult(fieldErrors: fieldErrors);
+    }
+
     final area = form.area.trim();
     final peak = Peak(
       id: source.id,
@@ -244,6 +303,40 @@ class PeakAdminEditor {
     );
 
     return PeakAdminValidationResult(fieldErrors: fieldErrors, peak: peak);
+  }
+
+  static PeakAdminCalculationResult calculateMissingCoordinates({
+    required PeakAdminCoordinateSource source,
+    required PeakAdminFormState form,
+  }) {
+    final validation = validateAndBuild(
+      source: Peak(name: form.name, latitude: 0, longitude: 0),
+      form: form,
+      coordinateSource: source,
+    );
+    final peak = validation.peak;
+    if (peak == null) {
+      return PeakAdminCalculationResult(
+        fieldErrors: validation.fieldErrors,
+        coordinateError: validation.coordinateError,
+      );
+    }
+
+    return PeakAdminCalculationResult(
+      fieldErrors: const {},
+      form: form.copyWith(
+        latitude: formatCoordinate(peak.latitude),
+        longitude: formatCoordinate(peak.longitude),
+        gridZoneDesignator: peak.gridZoneDesignator,
+        mgrs100kId: peak.mgrs100kId,
+        easting: peak.easting,
+        northing: peak.northing,
+      ),
+    );
+  }
+
+  static String formatCoordinate(double value) {
+    return value.toStringAsFixed(6);
   }
 
   static String _formatOptionalNumber(double? value) {

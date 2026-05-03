@@ -165,6 +165,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   bool _verified = false;
   bool _isEditing = false;
   bool _isSaving = false;
+  PeakAdminCoordinateSource? _activeCoordinateSource;
   String? _submitError;
   PeakAdminValidationResult _validation = const PeakAdminValidationResult(
     fieldErrors: {},
@@ -255,6 +256,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
       _isEditing = false;
     }
     _isSaving = false;
+    _activeCoordinateSource = null;
     _submitError = null;
     _validation = const PeakAdminValidationResult(fieldErrors: {});
   }
@@ -262,6 +264,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   void _startEditing() {
     setState(() {
       _isEditing = true;
+      _activeCoordinateSource = null;
       _submitError = null;
       _validation = const PeakAdminValidationResult(fieldErrors: {});
     });
@@ -277,6 +280,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
     final validation = PeakAdminEditor.validateAndBuild(
       source: _peak,
       form: _currentFormState(),
+      coordinateSource: _activeCoordinateSource,
     );
     return validation.peak ?? _peak;
   }
@@ -310,6 +314,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
     final validation = PeakAdminEditor.validateAndBuild(
       source: _peak,
       form: _currentFormState(),
+      coordinateSource: _activeCoordinateSource,
     );
     setState(() {
       _validation = validation;
@@ -323,6 +328,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
     final validation = PeakAdminEditor.validateAndBuild(
       source: _peak,
       form: _currentFormState(),
+      coordinateSource: _activeCoordinateSource,
     );
 
     setState(() {
@@ -350,6 +356,75 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
         _submitError = null;
       } else {
         _submitError = error;
+      }
+    });
+  }
+
+  void _handleLatLngChanged() {
+    final form = _currentFormState();
+    final shouldClear =
+        _activeCoordinateSource != PeakAdminCoordinateSource.latLng;
+    if (shouldClear) {
+      _mgrs100kIdController.clear();
+      _eastingController.clear();
+      _northingController.clear();
+    }
+
+    final validation = PeakAdminEditor.validateAndBuild(
+      source: _peak,
+      form: shouldClear
+          ? form.copyWith(mgrs100kId: '', easting: '', northing: '')
+          : form,
+      coordinateSource: PeakAdminCoordinateSource.latLng,
+    );
+    setState(() {
+      _activeCoordinateSource = PeakAdminCoordinateSource.latLng;
+      _validation = validation;
+      if (_submitError != null) {
+        _submitError = null;
+      }
+    });
+  }
+
+  void _calculateCoordinates() {
+    final coordinateSource = _activeCoordinateSource;
+    if (coordinateSource == null || _isSaving) {
+      return;
+    }
+
+    final result = PeakAdminEditor.calculateMissingCoordinates(
+      source: coordinateSource,
+      form: _currentFormState(),
+    );
+    if (!result.isValid) {
+      setState(() {
+        _validation = PeakAdminValidationResult(
+          fieldErrors: result.fieldErrors,
+          coordinateError: result.coordinateError,
+        );
+        if (_submitError != null) {
+          _submitError = null;
+        }
+      });
+      return;
+    }
+
+    final form = result.form!;
+    _latitudeController.text = form.latitude;
+    _longitudeController.text = form.longitude;
+    _mgrs100kIdController.text = form.mgrs100kId;
+    _eastingController.text = form.easting;
+    _northingController.text = form.northing;
+
+    final validation = PeakAdminEditor.validateAndBuild(
+      source: _peak,
+      form: _currentFormState(),
+      coordinateSource: coordinateSource,
+    );
+    setState(() {
+      _validation = validation;
+      if (_submitError != null) {
+        _submitError = null;
       }
     });
   }
@@ -417,8 +492,11 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
                       submitError: _submitError,
                       validation: _validation,
                       onChanged: _updateValidation,
+                      onLatLngChanged: _handleLatLngChanged,
                       onVerifiedChanged: _setVerified,
                       onMarkAsHwc: _markAsHwc,
+                      onCalculate: _calculateCoordinates,
+                      canCalculate: _activeCoordinateSource != null,
                       onSubmit: _submit,
                     )
                   : _PeakReadOnlyDetails(
@@ -537,8 +615,11 @@ class _PeakEditForm extends StatelessWidget {
     required this.submitError,
     required this.validation,
     required this.onChanged,
+    required this.onLatLngChanged,
     required this.onVerifiedChanged,
     required this.onMarkAsHwc,
+    required this.onCalculate,
+    required this.canCalculate,
     required this.onSubmit,
   });
 
@@ -560,8 +641,11 @@ class _PeakEditForm extends StatelessWidget {
   final String? submitError;
   final PeakAdminValidationResult validation;
   final VoidCallback onChanged;
+  final VoidCallback onLatLngChanged;
   final ValueChanged<bool?> onVerifiedChanged;
   final VoidCallback onMarkAsHwc;
+  final VoidCallback onCalculate;
+  final bool canCalculate;
   final VoidCallback onSubmit;
 
   @override
@@ -642,7 +726,7 @@ class _PeakEditForm extends StatelessWidget {
                   errorText: validation.fieldErrors['latitude'],
                 ),
                 keyboardType: TextInputType.number,
-                onChanged: (_) => onChanged(),
+                onChanged: (_) => onLatLngChanged(),
               ),
               const SizedBox(height: 8),
               TextFormField(
@@ -655,7 +739,7 @@ class _PeakEditForm extends StatelessWidget {
                   errorText: validation.fieldErrors['longitude'],
                 ),
                 keyboardType: TextInputType.number,
-                onChanged: (_) => onChanged(),
+                onChanged: (_) => onLatLngChanged(),
               ),
               const SizedBox(height: 8),
               TextFormField(
@@ -755,6 +839,12 @@ class _PeakEditForm extends StatelessWidget {
           Text(submitError!, style: TextStyle(color: errorColor)),
         ],
         const SizedBox(height: 12),
+        FilledButton.tonal(
+          key: const Key('objectbox-admin-peak-calculate'),
+          onPressed: isSaving || !canCalculate ? null : onCalculate,
+          child: const Text('Calculate'),
+        ),
+        const SizedBox(height: 8),
         FilledButton(
           key: const Key('objectbox-admin-peak-submit'),
           onPressed: isSaving ? null : onSubmit,

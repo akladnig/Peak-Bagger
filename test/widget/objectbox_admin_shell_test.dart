@@ -267,6 +267,11 @@ void main() {
       find.byKey(const Key('objectbox-admin-peak-alt-name')),
       'Ossa',
     );
+    await tester.drag(
+      find.byKey(const Key('objectbox-admin-peak-edit-form')),
+      const Offset(0, -300),
+    );
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('objectbox-admin-peak-area')),
       'New Area',
@@ -298,6 +303,124 @@ void main() {
     expect(mapState.peaks.singleWhere((peak) => peak.id == 1).altName, 'Ossa');
     expect(mapState.peaks.singleWhere((peak) => peak.id == 1).verified, isTrue);
     expect(find.text('New Area'), findsWidgets);
+  });
+
+  testWidgets('Peak edit calculates MGRS from changed latitude', (
+    tester,
+  ) async {
+    final peaks = [
+      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', area: 'Old Area'),
+    ];
+    final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
+      'Peak': peaks.map(_peakRow).toList(),
+      'PeakList': const [],
+      'Tasmap50k': const [],
+      'GpxTrack': const [],
+      'PeaksBagged': const [],
+    };
+    final repository = _MutablePeakRepository(peaks, rowsByEntity);
+
+    await _pumpApp(
+      tester,
+      repository: TestObjectBoxAdminRepository(
+        entities: [_peakEntity()],
+        rowsByEntity: rowsByEntity,
+      ),
+      peakRepository: repository,
+      peakDeleteGuard: PeakDeleteGuard(_NoopPeakDeleteGuardSource()),
+    );
+
+    await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.text('Mt Ossa'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-edit')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-latitude')),
+      '-41.600000',
+    );
+    await tester.pumpAndSettle();
+
+    await tester.drag(
+      find.byKey(const Key('objectbox-admin-peak-edit-form')),
+      const Offset(0, -500),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const Key('objectbox-admin-peak-mgrs100k-id')),
+          )
+          .controller!
+          .text,
+      isEmpty,
+    );
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const Key('objectbox-admin-peak-easting')),
+          )
+          .controller!
+          .text,
+      isEmpty,
+    );
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const Key('objectbox-admin-peak-northing')),
+          )
+          .controller!
+          .text,
+      isEmpty,
+    );
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-calculate')));
+    await tester.pumpAndSettle();
+
+    final expectedComponents = PeakMgrsConverter.fromLatLng(
+      const LatLng(-41.6, 146.5),
+    );
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const Key('objectbox-admin-peak-mgrs100k-id')),
+          )
+          .controller!
+          .text,
+      expectedComponents.mgrs100kId,
+    );
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const Key('objectbox-admin-peak-easting')),
+          )
+          .controller!
+          .text,
+      expectedComponents.easting,
+    );
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const Key('objectbox-admin-peak-northing')),
+          )
+          .controller!
+          .text,
+      expectedComponents.northing,
+    );
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-submit')));
+    await tester.pumpAndSettle();
+
+    expect(repository.findById(1)?.latitude, -41.6);
+    expect(repository.findById(1)?.longitude, 146.5);
+    expect(repository.findById(1)?.mgrs100kId, expectedComponents.mgrs100kId);
+    expect(repository.findById(1)?.easting, expectedComponents.easting);
+    expect(repository.findById(1)?.northing, expectedComponents.northing);
   });
 
   testWidgets('Peak admin table and details use required field ordering', (
