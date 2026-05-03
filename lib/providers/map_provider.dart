@@ -1139,7 +1139,7 @@ class MapNotifier extends Notifier<MapState> {
       clearCursorMgrs: true,
       clearHoveredPeakId: true,
       clearHoveredTrackId: true,
-      clearPeakInfoPopup: zoom < 9,
+      clearPeakInfoPopup: zoom < 8,
     );
     savePosition();
   }

@@ -47,7 +47,7 @@ Peak hover/click popup on map. Central screen-space hit testing; separate peak p
 
 - **Goal**: deterministic placement; popup lifecycle integration
 - [x] `lib/screens/map_screen_panels.dart` - pure placement helper: right, flip left, clamp, unanchorable state
-- [x] `lib/screens/map_screen.dart` - re-anchor/close on pan/zoom, offscreen, zoom < 9, peak removed, background click, shortcuts
+- [x] `lib/screens/map_screen.dart` - re-anchor/close on pan/zoom, offscreen, zoom < 8, peak removed, background click, shortcuts
 - [x] `lib/widgets/map_action_rail.dart` - close peak popup in transient UI cleanup
 - [x] `lib/router.dart` - close peak popup in shell navigation cleanup
 - [x] `test/widget/map_screen_keyboard_test.dart` - shortcut cleanup coverage

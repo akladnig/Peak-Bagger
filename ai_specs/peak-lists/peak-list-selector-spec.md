@@ -153,7 +153,7 @@ Limits:
     - Modify `endDrawer` to read `ref.watch(mapProvider).endDrawerMode` and return `MapBasemapsDrawer()` or `MapPeakListsDrawer()` accordingly
     - Read `filteredPeaksProvider` and use it for peak marker rendering, hover candidate building, and peak hit-testing instead of raw `mapState.peaks`
     - Update keyboard shortcut `B` to set `endDrawerMode` to `basemaps` before opening the endDrawer
-    - Keep zoom check (`mapState.zoom >= 9`) in rendering logic alongside `showPeaks`
+    - Keep zoom check (`mapState.zoom >= 8`) in rendering logic alongside `showPeaks`
 
 4. `test/widget/map_screen_peak_info_test.dart`:
    - Replace `togglePeaks()` calls with `selectPeakList(PeakListSelectionMode.allPeaks)`

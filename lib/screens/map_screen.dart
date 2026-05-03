@@ -129,7 +129,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   ) {
     final notifier = ref.read(mapProvider.notifier);
 
-    if (_isPointerDown || !mapState.showPeaks || mapState.zoom < 9) {
+    if (_isPointerDown || !mapState.showPeaks || mapState.zoom < 8) {
       notifier.clearHoveredPeak();
       return false;
     }
@@ -144,7 +144,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     MapState mapState,
     List<Peak> peaks,
   ) {
-    if (!mapState.showPeaks || mapState.zoom < 9) {
+    if (!mapState.showPeaks || mapState.zoom < 8) {
       return null;
     }
 
@@ -441,9 +441,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             }
             return KeyEventResult.handled;
           } else if (key == LogicalKeyboardKey.keyB) {
-            ref.read(mapProvider.notifier).setEndDrawerMode(
-              EndDrawerMode.basemaps,
-            );
+            ref
+                .read(mapProvider.notifier)
+                .setEndDrawerMode(EndDrawerMode.basemaps);
             _scaffoldKey.currentState?.openEndDrawer();
             return KeyEventResult.handled;
           } else if (key == LogicalKeyboardKey.keyC) {
@@ -629,7 +629,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ),
                   if (mapState.showPeaks &&
                       filteredPeaks.isNotEmpty &&
-                      mapState.zoom >= 9)
+                      mapState.zoom >= 8)
                     MarkerLayer(
                       key: const Key('peak-marker-layer'),
                       markers: buildPeakMarkers(
