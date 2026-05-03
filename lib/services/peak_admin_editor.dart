@@ -7,6 +7,7 @@ import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 class PeakAdminFormState {
   const PeakAdminFormState({
     required this.name,
+    this.altName = '',
     required this.osmId,
     required this.elevation,
     required this.latitude,
@@ -16,10 +17,12 @@ class PeakAdminFormState {
     required this.mgrs100kId,
     required this.easting,
     required this.northing,
+    this.verified = false,
     required this.sourceOfTruth,
   });
 
   final String name;
+  final String altName;
   final String osmId;
   final String elevation;
   final String latitude;
@@ -29,8 +32,43 @@ class PeakAdminFormState {
   final String mgrs100kId;
   final String easting;
   final String northing;
+  final bool verified;
   final String sourceOfTruth;
+
+  PeakAdminFormState copyWith({
+    String? name,
+    String? altName,
+    String? osmId,
+    String? elevation,
+    String? latitude,
+    String? longitude,
+    String? area,
+    String? gridZoneDesignator,
+    String? mgrs100kId,
+    String? easting,
+    String? northing,
+    bool? verified,
+    String? sourceOfTruth,
+  }) {
+    return PeakAdminFormState(
+      name: name ?? this.name,
+      altName: altName ?? this.altName,
+      osmId: osmId ?? this.osmId,
+      elevation: elevation ?? this.elevation,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      area: area ?? this.area,
+      gridZoneDesignator: gridZoneDesignator ?? this.gridZoneDesignator,
+      mgrs100kId: mgrs100kId ?? this.mgrs100kId,
+      easting: easting ?? this.easting,
+      northing: northing ?? this.northing,
+      verified: verified ?? this.verified,
+      sourceOfTruth: sourceOfTruth ?? this.sourceOfTruth,
+    );
+  }
 }
+
+enum PeakAdminCoordinateSource { latLng, mgrs }
 
 class PeakAdminValidationResult {
   const PeakAdminValidationResult({
@@ -46,6 +84,20 @@ class PeakAdminValidationResult {
   bool get isValid => peak != null;
 }
 
+class PeakAdminCalculationResult {
+  const PeakAdminCalculationResult({
+    required this.fieldErrors,
+    this.coordinateError,
+    this.form,
+  });
+
+  final Map<String, String> fieldErrors;
+  final String? coordinateError;
+  final PeakAdminFormState? form;
+
+  bool get isValid => form != null;
+}
+
 class PeakAdminEditor {
   static const String fixedGridZoneDesignator = '55G';
 
@@ -58,6 +110,8 @@ class PeakAdminEditor {
   static const String mgrs100kIdError =
       'The MGRS 100km identifier must be exactly two letter';
   static const String nameRequiredError = 'A peak name is required';
+  static const String altNameDuplicateNameError =
+      'Alt Name must be different from Name';
   static const String osmIdError = 'osmId must be an integer';
   static const String elevationError = 'Elevation must be an integer';
   static const String tasmaniaError = 'Entered location is not with Tasmania.';
@@ -65,15 +119,17 @@ class PeakAdminEditor {
   static PeakAdminFormState normalize(Peak peak) {
     return PeakAdminFormState(
       name: peak.name,
+      altName: peak.altName,
       osmId: peak.osmId.toString(),
       elevation: _formatOptionalNumber(peak.elevation),
-      latitude: peak.latitude.toString(),
-      longitude: peak.longitude.toString(),
+      latitude: formatCoordinate(peak.latitude),
+      longitude: formatCoordinate(peak.longitude),
       area: peak.area ?? '',
       gridZoneDesignator: fixedGridZoneDesignator,
       mgrs100kId: peak.mgrs100kId,
       easting: peak.easting,
       northing: peak.northing,
+      verified: peak.verified,
       sourceOfTruth: peak.sourceOfTruth,
     );
   }
@@ -81,12 +137,17 @@ class PeakAdminEditor {
   static PeakAdminValidationResult validateAndBuild({
     required Peak source,
     required PeakAdminFormState form,
+    PeakAdminCoordinateSource? coordinateSource,
   }) {
     final fieldErrors = <String, String>{};
 
     final name = form.name.trim();
     if (name.isEmpty) {
       fieldErrors['name'] = nameRequiredError;
+    }
+    final altName = form.altName.trim();
+    if (altName.isNotEmpty && altName.toLowerCase() == name.toLowerCase()) {
+      fieldErrors['altName'] = altNameDuplicateNameError;
     }
 
     final osmId = int.tryParse(form.osmId.trim());
@@ -141,7 +202,13 @@ class PeakAdminEditor {
     double longitude;
     PeakMgrsComponents components;
 
-    if (mgrsComplete) {
+    final useMgrs = switch (coordinateSource) {
+      PeakAdminCoordinateSource.latLng => false,
+      PeakAdminCoordinateSource.mgrs => true,
+      null => mgrsComplete,
+    };
+
+    if (useMgrs) {
       if (!RegExp(r'^[A-Za-z]{2}$').hasMatch(mgrsIdText)) {
         fieldErrors['mgrs100kId'] = mgrs100kIdError;
       }
@@ -156,8 +223,10 @@ class PeakAdminEditor {
         return PeakAdminValidationResult(fieldErrors: fieldErrors);
       }
 
+      final normalizedEasting = _padMgrsComponent(eastingText);
+      final normalizedNorthing = _padMgrsComponent(northingText);
       final forward =
-          '$fixedGridZoneDesignator${mgrsIdText.toUpperCase()}$eastingText$northingText';
+          '$fixedGridZoneDesignator${mgrsIdText.toUpperCase()}$normalizedEasting$normalizedNorthing';
       try {
         components = PeakMgrsConverter.fromForwardString(forward);
         final coords = mgrs.Mgrs.toPoint(forward);
@@ -213,11 +282,16 @@ class PeakAdminEditor {
       );
     }
 
+    if (fieldErrors.isNotEmpty) {
+      return PeakAdminValidationResult(fieldErrors: fieldErrors);
+    }
+
     final area = form.area.trim();
     final peak = Peak(
       id: source.id,
       osmId: osmId!,
       name: name,
+      altName: altName,
       elevation: elevation,
       latitude: latitude,
       longitude: longitude,
@@ -226,10 +300,45 @@ class PeakAdminEditor {
       mgrs100kId: components.mgrs100kId,
       easting: components.easting,
       northing: components.northing,
+      verified: form.verified,
       sourceOfTruth: Peak.sourceOfTruthHwc,
     );
 
     return PeakAdminValidationResult(fieldErrors: fieldErrors, peak: peak);
+  }
+
+  static PeakAdminCalculationResult calculateMissingCoordinates({
+    required PeakAdminCoordinateSource source,
+    required PeakAdminFormState form,
+  }) {
+    final validation = validateAndBuild(
+      source: Peak(name: form.name, latitude: 0, longitude: 0),
+      form: form,
+      coordinateSource: source,
+    );
+    final peak = validation.peak;
+    if (peak == null) {
+      return PeakAdminCalculationResult(
+        fieldErrors: validation.fieldErrors,
+        coordinateError: validation.coordinateError,
+      );
+    }
+
+    return PeakAdminCalculationResult(
+      fieldErrors: const {},
+      form: form.copyWith(
+        latitude: formatCoordinate(peak.latitude),
+        longitude: formatCoordinate(peak.longitude),
+        gridZoneDesignator: peak.gridZoneDesignator,
+        mgrs100kId: peak.mgrs100kId,
+        easting: peak.easting,
+        northing: peak.northing,
+      ),
+    );
+  }
+
+  static String formatCoordinate(double value) {
+    return value.toStringAsFixed(6);
   }
 
   static String _formatOptionalNumber(double? value) {
@@ -242,6 +351,10 @@ class PeakAdminEditor {
     }
 
     return value.toString();
+  }
+
+  static String _padMgrsComponent(String value) {
+    return value.padRight(5, '0');
   }
 
   static bool _isInsideTasmania(double latitude, double longitude) {

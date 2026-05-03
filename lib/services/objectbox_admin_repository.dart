@@ -7,6 +7,7 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
+import 'package:peak_bagger/services/peak_admin_editor.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:objectbox/internal.dart' as obx_int;
 
@@ -215,7 +216,11 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
     final filtered = query.isEmpty
         ? items
         : items.where((peak) {
-            return peak.name.toLowerCase().contains(query);
+            return _peakMatchesSearch(
+              name: peak.name,
+              altName: peak.altName,
+              query: query,
+            );
           }).toList();
 
     filtered.sort(
@@ -345,6 +350,7 @@ ObjectBoxAdminRow peakToAdminRow(Peak peak) {
       'id': peak.id,
       'osmId': peak.osmId,
       'name': peak.name,
+      'altName': peak.altName,
       'elevation': peak.elevation,
       'latitude': peak.latitude,
       'longitude': peak.longitude,
@@ -353,9 +359,94 @@ ObjectBoxAdminRow peakToAdminRow(Peak peak) {
       'mgrs100kId': peak.mgrs100kId,
       'easting': peak.easting,
       'northing': peak.northing,
+      'verified': peak.verified,
       'sourceOfTruth': peak.sourceOfTruth,
     },
   );
+}
+
+Peak peakFromAdminRow(ObjectBoxAdminRow row) {
+  final values = row.values;
+  return Peak(
+    id: (values['id'] as int?) ?? (row.primaryKeyValue as int? ?? 0),
+    osmId: (values['osmId'] as int?) ?? 0,
+    name: '${values['name'] ?? ''}',
+    altName: '${values['altName'] ?? ''}',
+    elevation: _adminDoubleValue(values['elevation']),
+    latitude: _adminDoubleValue(values['latitude']) ?? 0,
+    longitude: _adminDoubleValue(values['longitude']) ?? 0,
+    area: values['area']?.toString(),
+    gridZoneDesignator: '${values['gridZoneDesignator'] ?? '55G'}',
+    mgrs100kId: '${values['mgrs100kId'] ?? ''}',
+    easting: '${values['easting'] ?? ''}',
+    northing: '${values['northing'] ?? ''}',
+    verified: (values['verified'] as bool?) ?? false,
+    sourceOfTruth: '${values['sourceOfTruth'] ?? Peak.sourceOfTruthOsm}',
+  );
+}
+
+List<ObjectBoxAdminFieldDescriptor> peakAdminTableFields(
+  ObjectBoxAdminEntityDescriptor entity,
+) {
+  return _orderedPeakFields(entity, const [
+    'name',
+    'altName',
+    'id',
+    'elevation',
+    'latitude',
+    'longitude',
+    'area',
+    'gridZoneDesignator',
+    'mgrs100kId',
+    'easting',
+    'northing',
+    'verified',
+    'osmId',
+    'sourceOfTruth',
+  ]);
+}
+
+List<ObjectBoxAdminFieldDescriptor> peakAdminDetailsFields(
+  ObjectBoxAdminEntityDescriptor entity,
+) {
+  return _orderedPeakFields(entity, const [
+    'id',
+    'name',
+    'altName',
+    'elevation',
+    'latitude',
+    'longitude',
+    'area',
+    'gridZoneDesignator',
+    'mgrs100kId',
+    'easting',
+    'northing',
+    'verified',
+    'osmId',
+    'sourceOfTruth',
+  ]);
+}
+
+List<ObjectBoxAdminFieldDescriptor> _orderedPeakFields(
+  ObjectBoxAdminEntityDescriptor entity,
+  List<String> order,
+) {
+  if (entity.name != 'Peak') {
+    return entity.fields;
+  }
+
+  final byName = {for (final field in entity.fields) field.name: field};
+  return [
+    for (final name in order)
+      if (byName[name] != null) byName[name]!,
+  ];
+}
+
+double? _adminDoubleValue(Object? value) {
+  if (value is num) {
+    return value.toDouble();
+  }
+  return double.tryParse('$value');
 }
 
 ObjectBoxAdminRow peakListToAdminRow(PeakList peakList) {
@@ -470,8 +561,40 @@ String objectBoxAdminFormatValue(Object? value) {
   };
 }
 
+String objectBoxAdminFormatFieldValue({
+  required String entityName,
+  required String fieldName,
+  required Object? value,
+}) {
+  if (entityName == 'Peak' &&
+      (fieldName == 'latitude' || fieldName == 'longitude') &&
+      value is num) {
+    return PeakAdminEditor.formatCoordinate(value.toDouble());
+  }
+
+  return objectBoxAdminFormatValue(value);
+}
+
 String objectBoxAdminPreviewValue(Object? value, {int maxChars = 80}) {
   final text = objectBoxAdminFormatValue(value);
+  return _truncateAdminPreview(text, maxChars: maxChars);
+}
+
+String objectBoxAdminPreviewFieldValue({
+  required String entityName,
+  required String fieldName,
+  required Object? value,
+  int maxChars = 80,
+}) {
+  final text = objectBoxAdminFormatFieldValue(
+    entityName: entityName,
+    fieldName: fieldName,
+    value: value,
+  );
+  return _truncateAdminPreview(text, maxChars: maxChars);
+}
+
+String _truncateAdminPreview(String text, {required int maxChars}) {
   if (text.length <= maxChars) {
     return text;
   }
@@ -489,6 +612,13 @@ List<ObjectBoxAdminRow> objectBoxAdminFilterAndSortRows(
       ? rows
       : rows
             .where((row) {
+              if (entity.name == 'Peak') {
+                return _peakMatchesSearch(
+                  name: row.values['name'],
+                  altName: row.values['altName'],
+                  query: trimmedQuery,
+                );
+              }
               final value = row.values[entity.primaryNameField];
               return objectBoxAdminFormatValue(
                 value,
@@ -508,6 +638,15 @@ List<ObjectBoxAdminRow> objectBoxAdminFilterAndSortRows(
     });
 
   return sorted;
+}
+
+bool _peakMatchesSearch({
+  required Object? name,
+  required Object? altName,
+  required String query,
+}) {
+  return objectBoxAdminFormatValue(name).toLowerCase().contains(query) ||
+      objectBoxAdminFormatValue(altName).trim().toLowerCase().contains(query);
 }
 
 void logObjectBoxAdminError(

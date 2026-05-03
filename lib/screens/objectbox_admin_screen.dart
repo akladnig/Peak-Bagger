@@ -10,7 +10,6 @@ import 'package:peak_bagger/screens/objectbox_admin_screen_details.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen_states.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen_table.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
-import 'package:peak_bagger/services/peak_admin_editor.dart';
 import 'package:peak_bagger/services/peak_delete_guard.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/widgets/dialog_helpers.dart';
@@ -264,7 +263,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     final guard = ref.read(peakDeleteGuardProvider);
     final notifier = ref.read(objectboxAdminProvider.notifier);
     final peak =
-        repository.findById(row.primaryKeyValue as int) ?? _peakFromRow(row);
+        repository.findById(row.primaryKeyValue as int) ?? peakFromAdminRow(row);
     final confirmed = await showDangerConfirmDialog(
       context: context,
       title: 'Delete Peak?',
@@ -317,32 +316,6 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
       _isCreatingPeak = true;
     });
     notifier.clearSelection();
-  }
-
-  Peak _peakFromRow(ObjectBoxAdminRow row) {
-    final values = row.values;
-    return Peak(
-      id: (values['id'] as int?) ?? (row.primaryKeyValue as int? ?? 0),
-      osmId: (values['osmId'] as int?) ?? 0,
-      name: '${values['name'] ?? ''}',
-      elevation: _doubleValue(values['elevation']),
-      latitude: _doubleValue(values['latitude']) ?? 0,
-      longitude: _doubleValue(values['longitude']) ?? 0,
-      area: values['area']?.toString(),
-      gridZoneDesignator:
-          '${values['gridZoneDesignator'] ?? PeakAdminEditor.fixedGridZoneDesignator}',
-      mgrs100kId: '${values['mgrs100kId'] ?? ''}',
-      easting: '${values['easting'] ?? ''}',
-      northing: '${values['northing'] ?? ''}',
-      sourceOfTruth: '${values['sourceOfTruth'] ?? Peak.sourceOfTruthOsm}',
-    );
-  }
-
-  double? _doubleValue(Object? value) {
-    if (value is num) {
-      return value.toDouble();
-    }
-    return double.tryParse('$value');
   }
 
   String _describeDeleteBlockers(List<PeakDeleteBlocker> blockers) {

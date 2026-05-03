@@ -12,6 +12,7 @@ class Peak {
   int osmId;
 
   String name;
+  String altName;
   double? elevation;
   double latitude;
   double longitude;
@@ -20,12 +21,14 @@ class Peak {
   String mgrs100kId;
   String easting;
   String northing;
+  bool verified;
   String sourceOfTruth;
 
   Peak({
     this.id = 0,
     this.osmId = 0,
     required this.name,
+    this.altName = '',
     this.elevation,
     required this.latitude,
     required this.longitude,
@@ -34,12 +37,14 @@ class Peak {
     this.mgrs100kId = '',
     this.easting = '',
     this.northing = '',
+    this.verified = false,
     this.sourceOfTruth = sourceOfTruthOsm,
   });
 
   Peak copyWith({
     int? osmId,
     String? name,
+    String? altName,
     double? elevation,
     double? latitude,
     double? longitude,
@@ -48,12 +53,14 @@ class Peak {
     String? mgrs100kId,
     String? easting,
     String? northing,
+    bool? verified,
     String? sourceOfTruth,
   }) {
     return Peak(
       id: id,
       osmId: osmId ?? this.osmId,
       name: name ?? this.name,
+      altName: altName ?? this.altName,
       elevation: elevation ?? this.elevation,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
@@ -62,6 +69,7 @@ class Peak {
       mgrs100kId: mgrs100kId ?? this.mgrs100kId,
       easting: easting ?? this.easting,
       northing: northing ?? this.northing,
+      verified: verified ?? this.verified,
       sourceOfTruth: sourceOfTruth ?? this.sourceOfTruth,
     );
   }

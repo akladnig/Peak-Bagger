@@ -161,29 +161,160 @@ void main() {
     expect(rows.map((row) => row.values['name']), ['Ossa Spur', 'Mt Ossa']);
   });
 
-  test('peakToAdminRow includes the MGRS fields', () {
+  test(
+    'filter/sort helper matches peak alternate names case-insensitively',
+    () {
+      const entity = ObjectBoxAdminEntityDescriptor(
+        name: 'Peak',
+        displayName: 'Peak',
+        primaryKeyField: 'id',
+        primaryNameField: 'name',
+        fields: [
+          ObjectBoxAdminFieldDescriptor(
+            name: 'id',
+            typeLabel: 'int',
+            nullable: false,
+            isPrimaryKey: true,
+            isPrimaryName: false,
+          ),
+          ObjectBoxAdminFieldDescriptor(
+            name: 'name',
+            typeLabel: 'String',
+            nullable: false,
+            isPrimaryKey: false,
+            isPrimaryName: true,
+          ),
+          ObjectBoxAdminFieldDescriptor(
+            name: 'altName',
+            typeLabel: 'String',
+            nullable: false,
+            isPrimaryKey: false,
+            isPrimaryName: false,
+          ),
+        ],
+      );
+
+      final rows = objectBoxAdminFilterAndSortRows(
+        entity,
+        rows: const [
+          ObjectBoxAdminRow(
+            primaryKeyValue: 3,
+            values: {'id': 3, 'name': 'Cradle', 'altName': 'Mountain'},
+          ),
+          ObjectBoxAdminRow(
+            primaryKeyValue: 1,
+            values: {'id': 1, 'name': 'Mt Ossa', 'altName': 'Queen'},
+          ),
+          ObjectBoxAdminRow(
+            primaryKeyValue: 2,
+            values: {'id': 2, 'name': 'Pelion West', 'altName': 'Ossa Spur'},
+          ),
+        ],
+        searchQuery: ' ossa ',
+        ascending: true,
+      );
+
+      expect(rows.map((row) => row.values['name']), ['Mt Ossa', 'Pelion West']);
+    },
+  );
+
+  test('peakToAdminRow includes editable peak metadata', () {
     final row = peakToAdminRow(
       Peak(
         id: 42,
         osmId: 4242,
         name: 'Mount Milner',
+        altName: 'Milner',
         latitude: -41.2,
         longitude: 146.1,
         gridZoneDesignator: '55G',
         mgrs100kId: 'DN',
         easting: '17710',
         northing: '03594',
+        verified: true,
         sourceOfTruth: Peak.sourceOfTruthHwc,
       ),
     );
 
     expect(row.primaryKeyValue, 42);
     expect(row.values['osmId'], 4242);
+    expect(row.values['altName'], 'Milner');
     expect(row.values['gridZoneDesignator'], '55G');
     expect(row.values['mgrs100kId'], 'DN');
     expect(row.values['easting'], '17710');
     expect(row.values['northing'], '03594');
+    expect(row.values['verified'], isTrue);
     expect(row.values['sourceOfTruth'], Peak.sourceOfTruthHwc);
+  });
+
+  test('peakFromAdminRow reconstructs editable peak metadata', () {
+    final peak = peakFromAdminRow(
+      const ObjectBoxAdminRow(
+        primaryKeyValue: 42,
+        values: {
+          'id': 42,
+          'osmId': 4242,
+          'name': 'Mount Milner',
+          'altName': 'Milner',
+          'elevation': 1200.0,
+          'latitude': -41.2,
+          'longitude': 146.1,
+          'area': 'Central',
+          'gridZoneDesignator': '55G',
+          'mgrs100kId': 'DN',
+          'easting': '17710',
+          'northing': '03594',
+          'verified': true,
+          'sourceOfTruth': Peak.sourceOfTruthHwc,
+        },
+      ),
+    );
+
+    expect(peak.id, 42);
+    expect(peak.altName, 'Milner');
+    expect(peak.verified, isTrue);
+  });
+
+  test('peak admin field helpers expose required table and details order', () {
+    final repository = ObjectBoxAdminRepositoryImpl(
+      modelDefinition: getObjectBoxModel(),
+    );
+    final peakEntity = repository.getEntities().firstWhere(
+      (entity) => entity.name == 'Peak',
+    );
+
+    expect(peakAdminTableFields(peakEntity).map((field) => field.name), [
+      'name',
+      'altName',
+      'id',
+      'elevation',
+      'latitude',
+      'longitude',
+      'area',
+      'gridZoneDesignator',
+      'mgrs100kId',
+      'easting',
+      'northing',
+      'verified',
+      'osmId',
+      'sourceOfTruth',
+    ]);
+    expect(peakAdminDetailsFields(peakEntity).map((field) => field.name), [
+      'id',
+      'name',
+      'altName',
+      'elevation',
+      'latitude',
+      'longitude',
+      'area',
+      'gridZoneDesignator',
+      'mgrs100kId',
+      'easting',
+      'northing',
+      'verified',
+      'osmId',
+      'sourceOfTruth',
+    ]);
   });
 
   test('gpxTrackToAdminRow includes correlation fields', () {

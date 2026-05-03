@@ -157,6 +157,67 @@ void main() {
     expect(peak?.sourceOfTruth, Peak.sourceOfTruthOsm);
   });
 
+  test(
+    'refreshPeaks preserves OSM metadata and clears duplicate alternate names',
+    () async {
+      final repository = PeakRepository.test(
+        InMemoryPeakStorage([
+          Peak(
+            id: 7,
+            osmId: 321,
+            name: 'Old Peak',
+            altName: 'Manual alternate',
+            verified: true,
+            latitude: -40,
+            longitude: 145,
+            sourceOfTruth: Peak.sourceOfTruthOsm,
+          ),
+          Peak(
+            id: 8,
+            osmId: 654,
+            name: 'Duplicate Alt Peak',
+            altName: ' renamed peak ',
+            verified: true,
+            latitude: -40.5,
+            longitude: 145.5,
+            sourceOfTruth: Peak.sourceOfTruthOsm,
+          ),
+        ]),
+      );
+      final service = PeakRefreshService(
+        TestPeakOverpassService(
+          peaks: [
+            Peak(
+              osmId: 321,
+              name: 'Updated Peak',
+              latitude: -41.7,
+              longitude: 145.9,
+            ),
+            Peak(
+              osmId: 654,
+              name: 'Renamed Peak',
+              latitude: -41.8,
+              longitude: 145.8,
+            ),
+          ],
+        ),
+        repository,
+      );
+
+      await service.refreshPeaks();
+
+      final preserved = repository.findByOsmId(321);
+      expect(preserved?.name, 'Updated Peak');
+      expect(preserved?.altName, 'Manual alternate');
+      expect(preserved?.verified, isTrue);
+
+      final duplicateCleared = repository.findByOsmId(654);
+      expect(duplicateCleared?.name, 'Renamed Peak');
+      expect(duplicateCleared?.altName, '');
+      expect(duplicateCleared?.verified, isTrue);
+    },
+  );
+
   test('refreshPeaks preserves stored peaks missing from overpass', () async {
     final repository = PeakRepository.test(
       InMemoryPeakStorage([
@@ -214,12 +275,14 @@ void main() {
             id: 8,
             osmId: 654,
             name: 'Protected Missing Peak',
+            altName: 'Protected alternate',
             latitude: -42,
             longitude: 146,
             gridZoneDesignator: '55G',
             mgrs100kId: 'EN',
             easting: '12345',
             northing: '67890',
+            verified: true,
             sourceOfTruth: Peak.sourceOfTruthHwc,
           ),
         ]),
@@ -246,6 +309,8 @@ void main() {
       expect(preservedPeak, isNotNull);
       expect(preservedPeak?.id, 1);
       expect(preservedPeak?.name, 'Protected Missing Peak');
+      expect(preservedPeak?.altName, 'Protected alternate');
+      expect(preservedPeak?.verified, isTrue);
       expect(preservedPeak?.sourceOfTruth, Peak.sourceOfTruthHwc);
     },
   );
@@ -259,12 +324,14 @@ void main() {
             id: 8,
             osmId: -1,
             name: 'Protected Missing Peak',
+            altName: ' protected missing peak ',
             latitude: -42,
             longitude: 146,
             gridZoneDesignator: '55G',
             mgrs100kId: 'EN',
             easting: '12345',
             northing: '67890',
+            verified: true,
             sourceOfTruth: Peak.sourceOfTruthHwc,
           ),
         ]),
@@ -298,6 +365,8 @@ void main() {
       expect(upgradedPeak?.mgrs100kId, 'EN');
       expect(upgradedPeak?.easting, '12345');
       expect(upgradedPeak?.northing, '67890');
+      expect(upgradedPeak?.altName, '');
+      expect(upgradedPeak?.verified, isTrue);
       expect(upgradedPeak?.sourceOfTruth, Peak.sourceOfTruthHwc);
     },
   );
@@ -353,7 +422,13 @@ void main() {
       final overpass = TestPeakOverpassService();
       final repository = PeakRepository.test(
         InMemoryPeakStorage([
-          Peak(name: 'Legacy Peak', latitude: -41.5, longitude: 146.5),
+          Peak(
+            name: 'Legacy Peak',
+            altName: 'Stored legacy name',
+            verified: true,
+            latitude: -41.5,
+            longitude: 146.5,
+          ),
         ]),
       );
       final service = PeakRefreshService(overpass, repository);
@@ -368,6 +443,8 @@ void main() {
       expect(peak.mgrs100kId, isNotEmpty);
       expect(peak.easting, hasLength(5));
       expect(peak.northing, hasLength(5));
+      expect(peak.altName, 'Stored legacy name');
+      expect(peak.verified, isTrue);
     },
   );
 }

@@ -8,6 +8,28 @@ void main() {
     expect(peak.sourceOfTruth, Peak.sourceOfTruthOsm);
   });
 
+  test('defaults alternate name and verified metadata', () {
+    final peak = Peak(name: 'Mt Anne', latitude: -41.5, longitude: 146.5);
+
+    expect(peak.altName, '');
+    expect(peak.verified, isFalse);
+  });
+
+  test('copyWith preserves alternate name and verified metadata', () {
+    final peak = Peak(
+      name: 'Mt Anne',
+      altName: 'Anne Peak',
+      latitude: -41.5,
+      longitude: 146.5,
+      verified: true,
+    );
+
+    final copy = peak.copyWith(name: 'Mount Anne');
+
+    expect(copy.altName, 'Anne Peak');
+    expect(copy.verified, isTrue);
+  });
+
   test('fromOverpass parses osmId', () {
     final peak = Peak.fromOverpass({
       'id': 123456,

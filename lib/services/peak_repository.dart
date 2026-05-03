@@ -42,16 +42,14 @@ class PeakListRewriteResult {
     return switch (skippedMalformedCount) {
       0 => null,
       1 => '1 PeakList has been skipped as it\'s malformed.',
-      _ => '$skippedMalformedCount PeakLists have been skipped as they\'re malformed.',
+      _ =>
+        '$skippedMalformedCount PeakLists have been skipped as they\'re malformed.',
     };
   }
 }
 
 class PeakSaveResult {
-  const PeakSaveResult({
-    required this.peak,
-    this.peakListRewriteResult,
-  });
+  const PeakSaveResult({required this.peak, this.peakListRewriteResult});
 
   final Peak peak;
   final PeakListRewriteResult? peakListRewriteResult;
@@ -85,7 +83,9 @@ class ObjectBoxPeakListRewritePort implements PeakListRewritePort {
     final peakLists = _peakListBox.getAll().toList(growable: false)
       ..sort((a, b) {
         final nameCompare = a.name.compareTo(b.name);
-        return nameCompare != 0 ? nameCompare : a.peakListId.compareTo(b.peakListId);
+        return nameCompare != 0
+            ? nameCompare
+            : a.peakListId.compareTo(b.peakListId);
       });
 
     for (final peakList in peakLists) {
@@ -95,7 +95,9 @@ class ObjectBoxPeakListRewritePort implements PeakListRewritePort {
         final updatedItems = <PeakListItem>[];
         for (final item in items) {
           if (item.peakOsmId == oldOsmId) {
-            updatedItems.add(PeakListItem(peakOsmId: newOsmId, points: item.points));
+            updatedItems.add(
+              PeakListItem(peakOsmId: newOsmId, points: item.points),
+            );
             changed = true;
           } else {
             updatedItems.add(item);
@@ -123,7 +125,9 @@ class ObjectBoxPeakListRewritePort implements PeakListRewritePort {
     }
     if (baggedChanged) {
       _peaksBaggedBox.putMany(
-        baggedRows.where((row) => row.peakId == newOsmId).toList(growable: false),
+        baggedRows
+            .where((row) => row.peakId == newOsmId)
+            .toList(growable: false),
       );
     }
 
@@ -265,9 +269,7 @@ class InMemoryPeakStorage implements PeakStorage {
 
   @override
   Future<void> delete(int peakId) async {
-    _peaks = _peaks
-        .where((peak) => peak.id != peakId)
-        .toList(growable: false);
+    _peaks = _peaks.where((peak) => peak.id != peakId).toList(growable: false);
   }
 
   @override
@@ -297,15 +299,15 @@ class PeakRepository {
     Store store, {
     required PeakListRewritePort peakListRewritePort,
   }) : _storage = ObjectBoxPeakStorage(store),
-      _store = store,
-      _peakListRewritePort = peakListRewritePort;
+       _store = store,
+       _peakListRewritePort = peakListRewritePort;
 
   PeakRepository.test(
     PeakStorage storage, {
     PeakListRewritePort? peakListRewritePort,
   }) : _storage = storage,
-      _store = null,
-      _peakListRewritePort = peakListRewritePort ?? _NoopPeakListRewritePort();
+       _store = null,
+       _peakListRewritePort = peakListRewritePort ?? _NoopPeakListRewritePort();
 
   final PeakStorage _storage;
   final Store? _store;
@@ -369,7 +371,9 @@ class PeakRepository {
   }
 
   Future<PeakSaveResult> saveDetailed(Peak peak) async {
-    final previous = peak.id != 0 ? _storage.getById(peak.id) : findByOsmId(peak.osmId);
+    final previous = peak.id != 0
+        ? _storage.getById(peak.id)
+        : findByOsmId(peak.osmId);
     Peak savedPeak = peak;
     PeakListRewriteResult? rewriteResult;
     final store = _store;
@@ -382,7 +386,10 @@ class PeakRepository {
           newOsmId: savedPeak.osmId,
         );
       }
-      return PeakSaveResult(peak: savedPeak, peakListRewriteResult: rewriteResult);
+      return PeakSaveResult(
+        peak: savedPeak,
+        peakListRewriteResult: rewriteResult,
+      );
     }
 
     store.runInTransaction(TxMode.write, () {
@@ -395,7 +402,10 @@ class PeakRepository {
       }
     });
 
-    return PeakSaveResult(peak: savedPeak, peakListRewriteResult: rewriteResult);
+    return PeakSaveResult(
+      peak: savedPeak,
+      peakListRewriteResult: rewriteResult,
+    );
   }
 
   Future<void> delete(int peakId) async {
@@ -424,19 +434,26 @@ class PeakRepository {
       return;
     }
 
-    final existingIdsByOsmId = <int, int>{
-      for (final peak in existingPeaks) peak.osmId: peak.id,
+    final existingPeaksByOsmId = <int, Peak>{
+      for (final peak in existingPeaks) peak.osmId: peak,
     };
 
-    for (final peak in peaks) {
-      final existingId = existingIdsByOsmId[peak.osmId];
-      if (existingId != null) {
-        peak.id = existingId;
-      }
-    }
+    final replacementPeaks = peaks
+        .map((peak) {
+          final existingPeak = existingPeaksByOsmId[peak.osmId];
+          if (existingPeak == null) {
+            return peak;
+          }
+
+          return peak.copyWith(
+            altName: existingPeak.altName,
+            verified: existingPeak.verified,
+          )..id = existingPeak.id;
+        })
+        .toList(growable: false);
 
     await _storage.replaceAll(
-      peaks,
+      replacementPeaks,
       beforePutManyForTest: beforePutManyForTest,
     );
   }

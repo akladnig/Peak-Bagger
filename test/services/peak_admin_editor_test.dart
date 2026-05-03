@@ -13,6 +13,7 @@ void main() {
           id: 7,
           osmId: 123,
           name: 'Cradle',
+          altName: 'Cradle Mountain',
           elevation: 1545,
           latitude: -41.5,
           longitude: 146.5,
@@ -21,17 +22,20 @@ void main() {
           mgrs100kId: 'AB',
           easting: '12345',
           northing: '67890',
+          verified: true,
           sourceOfTruth: Peak.sourceOfTruthOsm,
         ),
       );
 
       expect(draft.name, 'Cradle');
+      expect(draft.altName, 'Cradle Mountain');
       expect(draft.osmId, '123');
       expect(draft.elevation, '1545');
-      expect(draft.latitude, '-41.5');
-      expect(draft.longitude, '146.5');
+      expect(draft.latitude, '-41.500000');
+      expect(draft.longitude, '146.500000');
       expect(draft.area, '  Cradle Country  ');
       expect(draft.gridZoneDesignator, PeakAdminEditor.fixedGridZoneDesignator);
+      expect(draft.verified, isTrue);
       expect(draft.sourceOfTruth, Peak.sourceOfTruthOsm);
     });
 
@@ -78,6 +82,91 @@ void main() {
       expect(result.peak?.sourceOfTruth, Peak.sourceOfTruthHwc);
     });
 
+    test('calculates MGRS fields from latitude and longitude input', () {
+      final result = PeakAdminEditor.calculateMissingCoordinates(
+        source: PeakAdminCoordinateSource.latLng,
+        form: const PeakAdminFormState(
+          name: 'Cradle',
+          osmId: '123',
+          elevation: '',
+          latitude: '-41.5',
+          longitude: '146.5',
+          area: '',
+          gridZoneDesignator: '55G',
+          mgrs100kId: '',
+          easting: '',
+          northing: '',
+          sourceOfTruth: Peak.sourceOfTruthOsm,
+        ),
+      );
+
+      final expectedComponents = PeakMgrsConverter.fromLatLng(
+        const LatLng(-41.5, 146.5),
+      );
+
+      expect(result.isValid, isTrue);
+      expect(result.form?.mgrs100kId, expectedComponents.mgrs100kId);
+      expect(result.form?.easting, expectedComponents.easting);
+      expect(result.form?.northing, expectedComponents.northing);
+      expect(result.form?.latitude, '-41.500000');
+      expect(result.form?.longitude, '146.500000');
+    });
+
+    test('trims alternate name and round-trips verified metadata', () {
+      final result = PeakAdminEditor.validateAndBuild(
+        source: Peak(name: 'Old', latitude: -41, longitude: 146),
+        form: const PeakAdminFormState(
+          name: 'Cradle',
+          altName: '  Cradle Mountain  ',
+          osmId: '123',
+          elevation: '',
+          latitude: '-41.5',
+          longitude: '146.5',
+          area: '',
+          gridZoneDesignator: '55G',
+          mgrs100kId: '',
+          easting: '',
+          northing: '',
+          verified: true,
+          sourceOfTruth: Peak.sourceOfTruthOsm,
+        ),
+      );
+
+      expect(result.isValid, isTrue);
+      expect(result.peak?.altName, 'Cradle Mountain');
+      expect(result.peak?.verified, isTrue);
+    });
+
+    test(
+      'rejects alternate name matching canonical name before coordinates',
+      () {
+        final result = PeakAdminEditor.validateAndBuild(
+          source: Peak(name: 'Old', latitude: -41, longitude: 146),
+          form: const PeakAdminFormState(
+            name: 'Cradle',
+            altName: ' cradle ',
+            osmId: '123',
+            elevation: '',
+            latitude: '',
+            longitude: '',
+            area: '',
+            gridZoneDesignator: '55G',
+            mgrs100kId: '',
+            easting: '',
+            northing: '',
+            sourceOfTruth: Peak.sourceOfTruthOsm,
+          ),
+        );
+
+        expect(
+          result.fieldErrors['altName'],
+          PeakAdminEditor.altNameDuplicateNameError,
+        );
+        expect(result.coordinateError, isNotNull);
+        expect(result.peak, isNull);
+      },
+    );
+
     test('derives latitude and longitude from complete MGRS input', () {
       const forward = '55GEN4151353653';
       final result = PeakAdminEditor.validateAndBuild(
@@ -108,6 +197,139 @@ void main() {
         PeakAdminEditor.fixedGridZoneDesignator,
       );
     });
+
+    test('calculates latitude and longitude from MGRS input', () {
+      const forward = '55GEN4151353653';
+      final result = PeakAdminEditor.calculateMissingCoordinates(
+        source: PeakAdminCoordinateSource.mgrs,
+        form: const PeakAdminFormState(
+          name: 'Cradle',
+          osmId: '123',
+          elevation: '',
+          latitude: '',
+          longitude: '',
+          area: '',
+          gridZoneDesignator: '55G',
+          mgrs100kId: 'EN',
+          easting: '41513',
+          northing: '53653',
+          sourceOfTruth: Peak.sourceOfTruthOsm,
+        ),
+      );
+
+      final expectedLatLng = mgrs.Mgrs.toPoint(forward);
+
+      expect(result.isValid, isTrue);
+      expect(result.form?.latitude, expectedLatLng[1].toStringAsFixed(6));
+      expect(result.form?.longitude, expectedLatLng[0].toStringAsFixed(6));
+      expect(result.form?.easting, '41513');
+      expect(result.form?.northing, '53653');
+    });
+
+    test('right-pads MGRS easting and northing for calculate and save', () {
+      const forward = '55GEN4150053600';
+      final calculated = PeakAdminEditor.calculateMissingCoordinates(
+        source: PeakAdminCoordinateSource.mgrs,
+        form: const PeakAdminFormState(
+          name: 'Cradle',
+          osmId: '123',
+          elevation: '',
+          latitude: '',
+          longitude: '',
+          area: '',
+          gridZoneDesignator: '55G',
+          mgrs100kId: 'EN',
+          easting: '415',
+          northing: '536',
+          sourceOfTruth: Peak.sourceOfTruthOsm,
+        ),
+      );
+      final saved = PeakAdminEditor.validateAndBuild(
+        source: Peak(name: 'Old', latitude: -41, longitude: 146),
+        coordinateSource: PeakAdminCoordinateSource.mgrs,
+        form: const PeakAdminFormState(
+          name: 'Cradle',
+          osmId: '123',
+          elevation: '',
+          latitude: '',
+          longitude: '',
+          area: '',
+          gridZoneDesignator: '55G',
+          mgrs100kId: 'EN',
+          easting: '415',
+          northing: '536',
+          sourceOfTruth: Peak.sourceOfTruthOsm,
+        ),
+      );
+
+      final expectedLatLng = mgrs.Mgrs.toPoint(forward);
+
+      expect(calculated.isValid, isTrue);
+      expect(calculated.form?.easting, '41500');
+      expect(calculated.form?.northing, '53600');
+      expect(calculated.form?.latitude, expectedLatLng[1].toStringAsFixed(6));
+      expect(calculated.form?.longitude, expectedLatLng[0].toStringAsFixed(6));
+      expect(saved.isValid, isTrue);
+      expect(saved.peak?.easting, '41500');
+      expect(saved.peak?.northing, '53600');
+    });
+
+    test(
+      'returns validation errors for incomplete or invalid source input',
+      () {
+        final missingLongitude = PeakAdminEditor.calculateMissingCoordinates(
+          source: PeakAdminCoordinateSource.latLng,
+          form: const PeakAdminFormState(
+            name: 'Cradle',
+            osmId: '123',
+            elevation: '',
+            latitude: '-41.5',
+            longitude: '',
+            area: '',
+            gridZoneDesignator: '55G',
+            mgrs100kId: '',
+            easting: '',
+            northing: '',
+            sourceOfTruth: Peak.sourceOfTruthOsm,
+          ),
+        );
+        final invalidMgrs = PeakAdminEditor.calculateMissingCoordinates(
+          source: PeakAdminCoordinateSource.mgrs,
+          form: const PeakAdminFormState(
+            name: 'Cradle',
+            osmId: '123',
+            elevation: '',
+            latitude: '',
+            longitude: '',
+            area: '',
+            gridZoneDesignator: '55G',
+            mgrs100kId: 'E',
+            easting: '123456',
+            northing: '12a',
+            sourceOfTruth: Peak.sourceOfTruthOsm,
+          ),
+        );
+
+        expect(missingLongitude.isValid, isFalse);
+        expect(
+          missingLongitude.coordinateError,
+          'Enter both latitude and longitude.',
+        );
+        expect(invalidMgrs.isValid, isFalse);
+        expect(
+          invalidMgrs.fieldErrors['mgrs100kId'],
+          PeakAdminEditor.mgrs100kIdError,
+        );
+        expect(
+          invalidMgrs.fieldErrors['easting'],
+          PeakAdminEditor.eastingError,
+        );
+        expect(
+          invalidMgrs.fieldErrors['northing'],
+          PeakAdminEditor.northingError,
+        );
+      },
+    );
 
     test('prefers MGRS input when both coordinate forms are complete', () {
       final mgrsComponents = PeakMgrsConverter.fromLatLng(
@@ -141,6 +363,42 @@ void main() {
       expect(result.peak?.easting, mgrsComponents.easting);
       expect(result.peak?.northing, mgrsComponents.northing);
     });
+
+    test(
+      'uses explicit latitude and longitude source when both are complete',
+      () {
+        final enteredLatLngComponents = PeakMgrsConverter.fromLatLng(
+          const LatLng(-42, 147),
+        );
+        final mgrsComponents = PeakMgrsConverter.fromLatLng(
+          const LatLng(-41.85916, 145.97754),
+        );
+        final result = PeakAdminEditor.validateAndBuild(
+          source: Peak(name: 'Old', latitude: -41, longitude: 146),
+          coordinateSource: PeakAdminCoordinateSource.latLng,
+          form: PeakAdminFormState(
+            name: 'Cradle',
+            osmId: '123',
+            elevation: '1545',
+            latitude: '-42.0',
+            longitude: '147.0',
+            area: '',
+            gridZoneDesignator: '55G',
+            mgrs100kId: mgrsComponents.mgrs100kId,
+            easting: mgrsComponents.easting,
+            northing: mgrsComponents.northing,
+            sourceOfTruth: Peak.sourceOfTruthOsm,
+          ),
+        );
+
+        expect(result.isValid, isTrue);
+        expect(result.peak?.latitude, -42.0);
+        expect(result.peak?.longitude, 147.0);
+        expect(result.peak?.mgrs100kId, enteredLatLngComponents.mgrs100kId);
+        expect(result.peak?.easting, enteredLatLngComponents.easting);
+        expect(result.peak?.northing, enteredLatLngComponents.northing);
+      },
+    );
 
     test('rejects partial mixed coordinate input', () {
       final result = PeakAdminEditor.validateAndBuild(

@@ -52,10 +52,11 @@ class PeakRefreshService {
 
       final matchedSyntheticPeak = syntheticProtectedMatchesByOsmId[peak.osmId];
       if (matchedSyntheticPeak != null) {
+        final upgradedPeak = _preparePreservedPeak(
+          matchedSyntheticPeak,
+        ).copyWith(osmId: peak.osmId);
         refreshedPeaks.add(
-          _preparePreservedPeak(
-            matchedSyntheticPeak,
-          ).copyWith(osmId: peak.osmId),
+          _copyUserMetadata(matchedSyntheticPeak, upgradedPeak),
         );
         seenExistingOsmIds.add(matchedSyntheticPeak.osmId);
         continue;
@@ -68,10 +69,14 @@ class PeakRefreshService {
         skippedCount += 1;
         continue;
       }
-      refreshedPeaks.add(enrichedPeak);
       final matchedExistingPeak = existingPeaksByOsmId[enrichedPeak.osmId];
       if (matchedExistingPeak != null) {
+        refreshedPeaks.add(
+          _copyUserMetadata(matchedExistingPeak, enrichedPeak),
+        );
         seenExistingOsmIds.add(matchedExistingPeak.osmId);
+      } else {
+        refreshedPeaks.add(enrichedPeak);
       }
     }
 
@@ -220,11 +225,27 @@ class PeakRefreshService {
         .trim();
   }
 
+  Peak _copyUserMetadata(Peak source, Peak target) {
+    return target.copyWith(
+      altName: _preservedAltName(source.altName, target.name),
+      verified: source.verified,
+    );
+  }
+
+  String _preservedAltName(String altName, String canonicalName) {
+    final trimmed = altName.trim();
+    if (_normalizeName(trimmed) == _normalizeName(canonicalName)) {
+      return '';
+    }
+    return trimmed;
+  }
+
   Peak _preparePreservedPeak(Peak peak) {
     return Peak(
       id: peak.id,
       osmId: peak.osmId,
       name: peak.name,
+      altName: peak.altName,
       elevation: peak.elevation,
       latitude: peak.latitude,
       longitude: peak.longitude,
@@ -233,6 +254,7 @@ class PeakRefreshService {
       mgrs100kId: peak.mgrs100kId,
       easting: peak.easting,
       northing: peak.northing,
+      verified: peak.verified,
       sourceOfTruth: peak.sourceOfTruth,
     );
   }
@@ -262,6 +284,7 @@ class PeakRefreshService {
       id: id,
       osmId: peak.osmId,
       name: peak.name,
+      altName: peak.altName,
       elevation: peak.elevation,
       latitude: peak.latitude,
       longitude: peak.longitude,
@@ -270,6 +293,7 @@ class PeakRefreshService {
       mgrs100kId: peak.mgrs100kId,
       easting: peak.easting,
       northing: peak.northing,
+      verified: peak.verified,
       sourceOfTruth: peak.sourceOfTruth,
     );
   }

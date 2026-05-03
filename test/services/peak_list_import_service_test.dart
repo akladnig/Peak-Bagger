@@ -49,9 +49,7 @@ void main() {
         );
         expect(
           peakListRepository.getAllPeakLists().single.peakList,
-          encodePeakListItems([
-            const PeakListItem(peakOsmId: 101, points: 3),
-          ]),
+          encodePeakListItems([const PeakListItem(peakOsmId: 101, points: 3)]),
         );
       },
     );
@@ -116,12 +114,12 @@ void main() {
       expect(createdPeak.osmId, lessThan(0));
       expect(createdPeak.name, 'Missing Peak');
       expect(createdPeak.sourceOfTruth, Peak.sourceOfTruthHwc);
-        expect(
-          peakListRepository.getAllPeakLists().single.peakList,
-          encodePeakListItems([
-            PeakListItem(peakOsmId: createdPeak.osmId, points: 1),
-          ]),
-        );
+      expect(
+        peakListRepository.getAllPeakLists().single.peakList,
+        encodePeakListItems([
+          PeakListItem(peakOsmId: createdPeak.osmId, points: 1),
+        ]),
+      );
     });
 
     test(
@@ -133,7 +131,7 @@ void main() {
           elevation: 1363,
           latitude: -41.85916,
           longitude: 145.97754,
-        );
+        ).copyWith(altName: 'Manual Achilles', verified: true);
         final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
         final peakListRepository = PeakListRepository.test(
           InMemoryPeakListStorage(),
@@ -175,6 +173,8 @@ void main() {
         expect(correctedPeak?.elevation, 1401);
         expect(correctedPeak?.easting, normalizedCoords.easting);
         expect(correctedPeak?.northing, normalizedCoords.northing);
+        expect(correctedPeak?.altName, 'Manual Achilles');
+        expect(correctedPeak?.verified, isTrue);
         expect(correctedPeak?.sourceOfTruth, Peak.sourceOfTruthHwc);
       },
     );
@@ -435,9 +435,7 @@ void main() {
         expect(result.skippedCount, 0);
         expect(
           peakListRepository.getAllPeakLists().single.peakList,
-          encodePeakListItems([
-            const PeakListItem(peakOsmId: 201, points: 6),
-          ]),
+          encodePeakListItems([const PeakListItem(peakOsmId: 201, points: 6)]),
         );
       },
     );
@@ -570,9 +568,7 @@ void main() {
         expect(updated.warningMessage, 'Could not update import.log.');
         expect(
           peakListRepository.getAllPeakLists().single.peakList,
-          encodePeakListItems([
-            const PeakListItem(peakOsmId: 101, points: 6),
-          ]),
+          encodePeakListItems([const PeakListItem(peakOsmId: 101, points: 6)]),
         );
       },
     );
@@ -666,41 +662,47 @@ void main() {
       expect(result.warningEntries, isEmpty);
     });
 
-    test('blank and invalid values normalize to defaults with warnings', () async {
-      final peak = _buildPeak(
-        osmId: 101,
-        name: 'Unknown',
-        elevation: 0,
-        latitude: -41.85916,
-        longitude: 145.97754,
-      );
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage(),
-      );
-      final service = PeakListImportService(
-        peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
-        peakListRepository: peakListRepository,
-        csvLoader: (_) async =>
-            'Name,Height,Zone,Easting,Northing,Latitude,Longitude,Points\n,,,,,-41.85916,145.97754,abc\n',
-        importRootLoader: () async => '/tmp/Bushwalking',
-        logWriter: (logPath, entries) async {},
-        clock: () => DateTime.utc(2024, 1, 2, 3, 4, 5),
-      );
+    test(
+      'blank and invalid values normalize to defaults with warnings',
+      () async {
+        final peak = _buildPeak(
+          osmId: 101,
+          name: 'Unknown',
+          elevation: 0,
+          latitude: -41.85916,
+          longitude: 145.97754,
+        );
+        final peakListRepository = PeakListRepository.test(
+          InMemoryPeakListStorage(),
+        );
+        final service = PeakListImportService(
+          peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+          peakListRepository: peakListRepository,
+          csvLoader: (_) async =>
+              'Name,Height,Zone,Easting,Northing,Latitude,Longitude,Points\n,,,,,-41.85916,145.97754,abc\n',
+          importRootLoader: () async => '/tmp/Bushwalking',
+          logWriter: (logPath, entries) async {},
+          clock: () => DateTime.utc(2024, 1, 2, 3, 4, 5),
+        );
 
-      final result = await service.importPeakList(
-        listName: 'Defaults',
-        csvPath: '/tmp/defaults.csv',
-      );
+        final result = await service.importPeakList(
+          listName: 'Defaults',
+          csvPath: '/tmp/defaults.csv',
+        );
 
-      expect(result.importedCount, 1);
-      expect(result.warningEntries, hasLength(2));
-      expect(result.warningEntries.first, contains('normalized invalid points'));
-      expect(result.warningEntries.last, contains('missing height'));
-      expect(
-        peakListRepository.getAllPeakLists().single.peakList,
-        encodePeakListItems([const PeakListItem(peakOsmId: 101, points: 0)]),
-      );
-    });
+        expect(result.importedCount, 1);
+        expect(result.warningEntries, hasLength(2));
+        expect(
+          result.warningEntries.first,
+          contains('normalized invalid points'),
+        );
+        expect(result.warningEntries.last, contains('missing height'));
+        expect(
+          peakListRepository.getAllPeakLists().single.peakList,
+          encodePeakListItems([const PeakListItem(peakOsmId: 101, points: 0)]),
+        );
+      },
+    );
 
     test('duplicate resolved peaks keep first occurrence only', () async {
       final peak = _buildPeak(

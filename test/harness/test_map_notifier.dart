@@ -52,14 +52,13 @@ class TestMapNotifier extends MapNotifier {
   @override
   Future<void> reloadPeakMarkers() async {
     final peaks = peakRepository?.getAllPeaks() ?? state.peaks;
-    final peakInfoPeak = state.peakInfoPeak;
+    final refreshedPeakInfo = _refreshedPeakInfo(peaks);
     state = state.copyWith(
       peaks: peaks,
       isLoadingPeaks: false,
       clearError: true,
-      clearPeakInfoPopup:
-          peakInfoPeak != null &&
-          !peaks.any((peak) => peak.osmId == peakInfoPeak.osmId),
+      peakInfo: refreshedPeakInfo,
+      clearPeakInfoPopup: state.peakInfo != null && refreshedPeakInfo == null,
     );
   }
 
@@ -67,16 +66,33 @@ class TestMapNotifier extends MapNotifier {
   Future<PeakRefreshResult> refreshPeaks() async {
     refreshCallCount += 1;
     final peaks = peakRepository?.getAllPeaks() ?? state.peaks;
-    final peakInfoPeak = state.peakInfoPeak;
+    final refreshedPeakInfo = _refreshedPeakInfo(peaks);
     state = state.copyWith(
       peaks: peaks,
       isLoadingPeaks: false,
       clearError: true,
-      clearPeakInfoPopup:
-          peakInfoPeak != null &&
-          !peaks.any((peak) => peak.osmId == peakInfoPeak.osmId),
+      peakInfo: refreshedPeakInfo,
+      clearPeakInfoPopup: state.peakInfo != null && refreshedPeakInfo == null,
     );
     return PeakRefreshResult(importedCount: peaks.length, skippedCount: 0);
+  }
+
+  PeakInfoContent? _refreshedPeakInfo(List<Peak> peaks) {
+    final existing = state.peakInfo;
+    if (existing == null) {
+      return null;
+    }
+
+    for (final peak in peaks) {
+      if (peak.osmId == existing.peak.osmId) {
+        return PeakInfoContent(
+          peak: peak,
+          mapName: existing.mapName,
+          listNames: existing.listNames,
+        );
+      }
+    }
+    return null;
   }
 
   @override

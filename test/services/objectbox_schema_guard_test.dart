@@ -30,6 +30,8 @@ void main() {
   test('schema signature includes peak and peak list surface markers', () {
     final signature = ObjectBoxSchemaGuard.debugCurrentSchemaSignature();
 
+    expect(signature, contains('Peak.altName:'));
+    expect(signature, contains('Peak.verified:'));
     expect(signature, contains('Peak.sourceOfTruth:'));
     expect(signature, contains('PeakList.name:'));
     expect(signature, contains('PeakList.peakList:'));
