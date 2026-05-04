@@ -258,20 +258,99 @@ void main() {
     expect(container.read(mapProvider).showPeakSearch, isTrue);
   });
 
-  testWidgets('peak popup shows height map and sorted memberships', (
+  testWidgets('peak popup shows MGRS row under map row', (tester) async {
+    final tasmapRepository = await TestTasmapRepository.create();
+
+    await _pumpMap(
+      tester,
+      _mapStateWithPeak(
+        peak: Peak(
+          osmId: 6406,
+          name: 'Bonnet Hill',
+          elevation: 1234,
+          latitude: -43.0,
+          longitude: 147.0,
+          gridZoneDesignator: '55G',
+          mgrs100kId: 'DM',
+          easting: '80000',
+          northing: '95000',
+        ),
+      ),
+      overrides: [
+        tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
+        tasmapStateProvider.overrideWith(
+          () => TestTasmapNotifier(tasmapRepository),
+        ),
+      ],
+    );
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Map: Adamsons'), findsOneWidget);
+    expect(find.text('MGRS: 55G DM 80000 95000'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Map: Adamsons')).dy,
+      lessThan(tester.getTopLeft(find.text('MGRS: 55G DM 80000 95000')).dy),
+    );
+  });
+
+  testWidgets('peak popup shows singular trimmed list label', (tester) async {
+    final peakListRepository = PeakListRepository.test(
+      InMemoryPeakListStorage([
+        PeakList(
+          name: '  Abels  ',
+          peakList: encodePeakListItems([
+            const PeakListItem(peakOsmId: 6406, points: 1),
+          ]),
+        )..peakListId = 1,
+        PeakList(
+          name: '   ',
+          peakList: encodePeakListItems([
+            const PeakListItem(peakOsmId: 6406, points: 2),
+          ]),
+        )..peakListId = 2,
+      ]),
+    );
+
+    await _pumpMap(
+      tester,
+      _mapStateWithPeak(
+        peak: Peak(
+          osmId: 6406,
+          name: 'Bonnet Hill',
+          latitude: -43.0,
+          longitude: 147.0,
+        ),
+      ),
+      peakListRepository: peakListRepository,
+    );
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('List: Abels'), findsOneWidget);
+    expect(find.textContaining('Lists:'), findsNothing);
+  });
+
+  testWidgets('peak popup shows plural trimmed list label and MGRS', (
     tester,
   ) async {
     final tasmapRepository = await TestTasmapRepository.create();
     final peakListRepository = PeakListRepository.test(
       InMemoryPeakListStorage([
         PeakList(
-          name: 'HWC',
+          name: 'HWC  ',
           peakList: encodePeakListItems([
             const PeakListItem(peakOsmId: 6406, points: 1),
           ]),
         )..peakListId = 1,
         PeakList(
-          name: 'Abels',
+          name: 'Abels  ',
           peakList: encodePeakListItems([
             const PeakListItem(peakOsmId: 6406, points: 2),
           ]),
@@ -310,7 +389,8 @@ void main() {
 
     expect(find.text('Height: 1234m'), findsOneWidget);
     expect(find.text('Map: Adamsons'), findsOneWidget);
-    expect(find.text('List(s): Abels, HWC'), findsOneWidget);
+    expect(find.text('MGRS: 55G DM 80000 95000'), findsOneWidget);
+    expect(find.text('Lists: Abels, HWC'), findsOneWidget);
   });
 
   testWidgets('peak popup shows non-empty alternate name after title', (
@@ -381,6 +461,48 @@ void main() {
 
     expect(find.text('Map: Adamsons'), findsOneWidget);
   });
+
+  testWidgets(
+    'peak popup hides whitespace-only MGRS and keeps lat lng map fallback', (
+      tester,
+    ) async {
+      final tasmapRepository = await TestTasmapRepository.create();
+      final mapCenter = tasmapRepository.getMapCenter(
+        tasmapRepository.getAllMaps().first,
+      )!;
+
+      await _pumpMap(
+        tester,
+        _mapStateWithPeak(
+          center: mapCenter,
+          peak: Peak(
+            osmId: 6406,
+            name: 'Bonnet Hill',
+            latitude: mapCenter.latitude,
+            longitude: mapCenter.longitude,
+            gridZoneDesignator: ' 55G ',
+            mgrs100kId: '   ',
+            easting: ' 80000 ',
+            northing: ' 95000 ',
+          ),
+        ),
+        overrides: [
+          tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(tasmapRepository),
+          ),
+        ],
+      );
+
+      final region = find.byKey(const Key('map-interaction-region'));
+      await tester.tapAt(tester.getCenter(region));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Map: Adamsons'), findsOneWidget);
+      expect(find.textContaining('MGRS:'), findsNothing);
+    },
+  );
 
   testWidgets('peak popup falls back to unknown map and omits empty lists', (
     tester,

@@ -1294,13 +1294,17 @@ class MapNotifier extends Notifier<MapState> {
   String _resolvePeakMapName(Peak peak) {
     try {
       final tasmapRepository = ref.read(tasmapRepositoryProvider);
+      final gridZoneDesignator = peak.gridZoneDesignator.trim();
+      final mgrs100kId = peak.mgrs100kId.trim();
+      final easting = peak.easting.trim();
+      final northing = peak.northing.trim();
       final hasCompleteMgrs =
-          peak.gridZoneDesignator.isNotEmpty &&
-          peak.mgrs100kId.isNotEmpty &&
-          peak.easting.isNotEmpty &&
-          peak.northing.isNotEmpty;
+          gridZoneDesignator.isNotEmpty &&
+          mgrs100kId.isNotEmpty &&
+          easting.isNotEmpty &&
+          northing.isNotEmpty;
       final mgrsString = hasCompleteMgrs
-          ? '${peak.gridZoneDesignator}${peak.mgrs100kId}${peak.easting}${peak.northing}'
+          ? '$gridZoneDesignator$mgrs100kId$easting$northing'
           : _convertToMgrs(LatLng(peak.latitude, peak.longitude));
       return tasmapRepository.findByMgrsCodeAndCoordinates(mgrsString)?.name ??
           'Unknown';
