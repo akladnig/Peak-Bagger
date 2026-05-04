@@ -331,7 +331,7 @@ class GpxTracksRobot {
     await tester.pump();
   }
 
-  Future<void> panMap() async {
+  Future<void> zoomMapWithTrackpad() async {
     final gesture = await tester.startGesture(
       tester.getCenter(mapInteractionRegion),
       kind: PointerDeviceKind.trackpad,

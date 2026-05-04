@@ -228,12 +228,15 @@ void main() {
     expect(_mapRegion(tester).cursor, SystemMouseCursors.grab);
   });
 
-  testWidgets('trackpad pan moves the map camera', (tester) async {
+  testWidgets('trackpad vertical gesture changes zoom without moving center', (
+    tester,
+  ) async {
     await _pumpMapApp(tester, _mapStateWithVisibleTrack());
 
     final region = find.byKey(const Key('map-interaction-region'));
     final container = ProviderScope.containerOf(tester.element(region));
     final initialCenter = container.read(mapProvider).center;
+    final initialZoom = container.read(mapProvider).zoom;
 
     final gesture = await tester.startGesture(
       tester.getCenter(region),
@@ -251,7 +254,15 @@ void main() {
     );
     await tester.pump();
 
-    expect(container.read(mapProvider).center, isNot(initialCenter));
+    expect(container.read(mapProvider).zoom, lessThan(initialZoom));
+    expect(
+      container.read(mapProvider).center.latitude,
+      moreOrLessEquals(initialCenter.latitude, epsilon: 0.000001),
+    );
+    expect(
+      container.read(mapProvider).center.longitude,
+      moreOrLessEquals(initialCenter.longitude, epsilon: 0.000001),
+    );
   });
 }
 
