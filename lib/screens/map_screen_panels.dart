@@ -397,6 +397,23 @@ class PeakInfoPopupCard extends StatelessWidget {
         ? '—'
         : '${peak.elevation!.toStringAsFixed(0)}m';
     final altName = peak.altName.trim();
+    final listNames = content.listNames
+        .map((name) => name.trim())
+        .where((name) => name.isNotEmpty)
+        .toList(growable: false);
+    final listLabel = switch (listNames.length) {
+      1 => 'List',
+      _ => 'Lists',
+    };
+    final mgrsParts = [
+      peak.gridZoneDesignator.trim(),
+      peak.mgrs100kId.trim(),
+      peak.easting.trim(),
+      peak.northing.trim(),
+    ];
+    final mgrsText = mgrsParts.every((part) => part.isNotEmpty)
+        ? mgrsParts.join(' ')
+        : null;
 
     return Card(
       child: Padding(
@@ -443,10 +460,17 @@ class PeakInfoPopupCard extends StatelessWidget {
               'Map: ${content.mapName}',
               style: const TextStyle(fontSize: 13),
             ),
-            if (content.listNames.isNotEmpty) ...[
+            if (mgrsText != null) ...[
               const SizedBox(height: 4),
               Text(
-                'List(s): ${content.listNames.join(', ')}',
+                'MGRS: $mgrsText',
+                style: TextStyle(fontSize: 13, fontFamily: 'monospace'),
+              ),
+            ],
+            if (listNames.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                '$listLabel: ${listNames.join(', ')}',
                 style: const TextStyle(fontSize: 13),
               ),
             ],

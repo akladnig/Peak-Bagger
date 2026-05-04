@@ -1,12 +1,11 @@
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/services/csv_importer.dart';
-
-import 'test_tasmap_repository.dart';
+import 'package:peak_bagger/services/tasmap_repository.dart';
 
 class TestTasmapNotifier extends TasmapNotifier {
   TestTasmapNotifier(this.repository);
 
-  final TestTasmapRepository repository;
+  final TasmapRepository repository;
 
   @override
   TasmapState build() => const TasmapState();

@@ -6,9 +6,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
+import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/tasmap_repository.dart';
 
 import '../../harness/test_map_notifier.dart';
+import '../../harness/test_tasmap_notifier.dart';
 
 class PeakInfoRobot {
   PeakInfoRobot(this.tester);
@@ -29,13 +34,25 @@ class PeakInfoRobot {
   Finder peakMarkerHover(int peakOsmId) =>
       find.byKey(Key('peak-marker-hover-$peakOsmId'));
 
-  Future<void> pumpMap({MapState? initialState}) async {
+  Future<void> pumpMap({
+    MapState? initialState,
+    PeakListRepository? peakListRepository,
+    TasmapRepository? tasmapRepository,
+  }) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           mapProvider.overrideWith(
             () => TestMapNotifier(initialState ?? _defaultMapState()),
           ),
+          if (peakListRepository != null)
+            peakListRepositoryProvider.overrideWithValue(peakListRepository),
+          if (tasmapRepository != null)
+            tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
+          if (tasmapRepository != null)
+            tasmapStateProvider.overrideWith(
+              () => TestTasmapNotifier(tasmapRepository),
+            ),
         ],
         child: const MaterialApp(home: MapScreen()),
       ),
@@ -99,11 +116,15 @@ class PeakInfoRobot {
   }
 
   void expectPeakPopupWithContent(String peakName) {
+    expectPeakPopupWithLines([peakName, 'Height: —', 'Map: Unknown']);
+  }
+
+  void expectPeakPopupWithLines(List<String> expectedLines) {
     expect(peakInfoPopup, findsOneWidget);
     expect(peakInfoPopupClose, findsOneWidget);
-    expect(find.text(peakName), findsOneWidget);
-    expect(find.text('Height: —'), findsOneWidget);
-    expect(find.text('Map: Unknown'), findsOneWidget);
+    for (final line in expectedLines) {
+      expect(find.text(line), findsOneWidget);
+    }
   }
 
   void expectNoPeakPopup() {
