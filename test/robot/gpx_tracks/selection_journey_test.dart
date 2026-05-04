@@ -60,7 +60,7 @@ void main() {
     await robot.clickHoveredTrack();
     robot.expectSelectedTrack(7);
 
-    await robot.panMap();
+    await robot.zoomMapWithTrackpad();
     robot.expectSelectedTrack(7);
 
     await robot.clickMapBackground();

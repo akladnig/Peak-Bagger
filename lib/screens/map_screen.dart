@@ -1,5 +1,10 @@
 import 'dart:async';
-import 'package:flutter/gestures.dart' show kPrimaryMouseButton;
+import 'package:flutter/gestures.dart'
+    show
+        PointerPanZoomEndEvent,
+        PointerPanZoomStartEvent,
+        PointerPanZoomUpdateEvent,
+        kPrimaryMouseButton;
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
@@ -17,6 +22,7 @@ import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/peak_hover_detector.dart';
 import 'package:peak_bagger/services/track_hover_detector.dart';
+import 'package:peak_bagger/services/map_trackpad_gesture_classifier.dart';
 import '../core/constants.dart';
 import 'package:peak_bagger/widgets/map_action_rail.dart';
 import 'package:peak_bagger/widgets/map_basemaps_drawer.dart';
@@ -51,6 +57,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   bool _isPointerDown = false;
   Offset? _pointerDownPosition;
   bool _primaryClickPending = false;
+  LatLng? _trackpadGestureCenter;
+  double? _trackpadGestureZoom;
   Timer? _scrollTimer;
   double _scrollDx = 0;
   double _scrollDy = 0;
@@ -302,6 +310,49 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     _scrollDy = 0;
   }
 
+  void _handleTrackpadPanZoomStart(PointerPanZoomStartEvent event) {
+    _mapFocusNode.requestFocus();
+    _trackpadGestureCenter = _mapController.camera.center;
+    _trackpadGestureZoom = _mapController.camera.zoom;
+  }
+
+  void _handleTrackpadPanZoomUpdate(PointerPanZoomUpdateEvent event) {
+    final gestureCenter = _trackpadGestureCenter;
+    final gestureZoom = _trackpadGestureZoom;
+    if (gestureCenter == null || gestureZoom == null) {
+      return;
+    }
+
+    final intent = classifyMapTrackpadGesture(
+      pan: event.pan,
+      scale: event.scale,
+    );
+    final notifier = ref.read(mapProvider.notifier);
+    if (intent.type == MapTrackpadGestureType.none) {
+      if (ref.read(mapProvider).showInfoPopup) {
+        notifier.toggleInfoPopup();
+      }
+      _mapController.move(gestureCenter, gestureZoom);
+      notifier.updatePosition(gestureCenter, gestureZoom);
+      return;
+    }
+
+    final targetZoom = (gestureZoom + intent.zoomDelta).clamp(
+      MapConstants.peakMinZoom.toDouble(),
+      MapConstants.peakMaxZoom.toDouble(),
+    );
+    if (ref.read(mapProvider).showInfoPopup) {
+      notifier.toggleInfoPopup();
+    }
+    _mapController.move(gestureCenter, targetZoom);
+    notifier.updatePosition(gestureCenter, targetZoom);
+  }
+
+  void _handleTrackpadPanZoomEnd(PointerPanZoomEndEvent event) {
+    _trackpadGestureCenter = null;
+    _trackpadGestureZoom = null;
+  }
+
   @override
   void dispose() {
     _scrollTimer?.cancel();
@@ -472,102 +523,113 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 notifier.clearHoveredPeak();
                 notifier.clearHoveredTrack();
               },
-              child: FlutterMap(
-                mapController: _mapController,
-                options: MapOptions(
-                  initialCenter: mapState.center,
-                  initialZoom: mapState.zoom,
-                  onMapReady: _handleMapReady,
-                  onSecondaryTap: (tapPosition, point) {
-                    ref.read(mapProvider.notifier).centerOnSelectedLocation();
-                  },
-                  onPointerDown: (event, point) {
-                    _mapFocusNode.requestFocus();
-                    setState(() {
-                      _isPointerDown = true;
-                      _pointerDownPosition = event.localPosition;
-                      _primaryClickPending =
-                          event.kind == PointerDeviceKind.mouse &&
-                          event.buttons == kPrimaryMouseButton;
-                    });
-                  },
-                  onPointerUp: (event, point) {
-                    final primaryClickPending = _primaryClickPending;
-                    final moved =
-                        _pointerDownPosition != null &&
-                        (event.localPosition - _pointerDownPosition!).distance >
-                            5;
-                    setState(() {
-                      _isPointerDown = false;
-                      _pointerDownPosition = null;
-                      _primaryClickPending = false;
-                    });
-                    if (!moved) {
-                      final notifier = ref.read(mapProvider.notifier);
-                      final tappedPeak = _hitTestPeak(
+              child: Listener(
+                behavior: HitTestBehavior.translucent,
+                onPointerPanZoomStart: _handleTrackpadPanZoomStart,
+                onPointerPanZoomUpdate: _handleTrackpadPanZoomUpdate,
+                onPointerPanZoomEnd: _handleTrackpadPanZoomEnd,
+                child: FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: mapState.center,
+                    initialZoom: mapState.zoom,
+                    interactionOptions: const InteractionOptions(
+                      flags: InteractiveFlag.all &
+                          ~InteractiveFlag.rotate &
+                          ~InteractiveFlag.pinchMove &
+                          ~InteractiveFlag.pinchZoom,
+                    ),
+                    onMapReady: _handleMapReady,
+                    onSecondaryTap: (tapPosition, point) {
+                      ref.read(mapProvider.notifier).centerOnSelectedLocation();
+                    },
+                    onPointerDown: (event, point) {
+                      _mapFocusNode.requestFocus();
+                      setState(() {
+                        _isPointerDown = true;
+                        _pointerDownPosition = event.localPosition;
+                        _primaryClickPending =
+                            event.kind == PointerDeviceKind.mouse &&
+                            event.buttons == kPrimaryMouseButton;
+                      });
+                    },
+                    onPointerUp: (event, point) {
+                      final primaryClickPending = _primaryClickPending;
+                      final moved =
+                          _pointerDownPosition != null &&
+                          (event.localPosition - _pointerDownPosition!).distance >
+                              5;
+                      setState(() {
+                        _isPointerDown = false;
+                        _pointerDownPosition = null;
+                        _primaryClickPending = false;
+                      });
+                      if (!moved) {
+                        final notifier = ref.read(mapProvider.notifier);
+                        final tappedPeak = _hitTestPeak(
+                          event.localPosition,
+                          ref.read(mapProvider),
+                          ref.read(filteredPeaksProvider),
+                        );
+                        if (tappedPeak != null) {
+                          notifier.openPeakInfoPopup(tappedPeak);
+                          return;
+                        }
+                        if (ref.read(mapProvider).peakInfoPeak != null) {
+                          notifier.closePeakInfoPopup();
+                        }
+                        if (ref.read(mapProvider).showInfoPopup) {
+                          notifier.toggleInfoPopup();
+                        }
+                        final tappedLocation = _mapController.camera
+                            .screenOffsetToLatLng(event.localPosition);
+                        _handleTrackHover(
+                          event.localPosition,
+                          tappedLocation,
+                          mapState,
+                        );
+                        if (primaryClickPending ||
+                            event.kind != PointerDeviceKind.mouse) {
+                          notifier.setSelectedLocation(tappedLocation);
+                        }
+                        final hoveredTrackId = ref
+                            .read(mapProvider)
+                            .hoveredTrackId;
+                        if (primaryClickPending && hoveredTrackId != null) {
+                          notifier.selectTrack(hoveredTrackId);
+                        } else if (primaryClickPending) {
+                          notifier.clearSelectedTrack();
+                        }
+                      }
+                    },
+                    onPointerCancel: (event, point) {
+                      setState(() {
+                        _isPointerDown = false;
+                        _pointerDownPosition = null;
+                      });
+                      ref.read(mapProvider.notifier).clearHoveredTrack();
+                      ref.read(mapProvider.notifier).clearHoveredPeak();
+                    },
+                    onPointerHover: (event, point) {
+                      _handleMapHover(
                         event.localPosition,
-                        ref.read(mapProvider),
-                        ref.read(filteredPeaksProvider),
-                      );
-                      if (tappedPeak != null) {
-                        notifier.openPeakInfoPopup(tappedPeak);
-                        return;
-                      }
-                      if (ref.read(mapProvider).peakInfoPeak != null) {
-                        notifier.closePeakInfoPopup();
-                      }
-                      if (ref.read(mapProvider).showInfoPopup) {
-                        notifier.toggleInfoPopup();
-                      }
-                      final tappedLocation = _mapController.camera
-                          .screenOffsetToLatLng(event.localPosition);
-                      _handleTrackHover(
-                        event.localPosition,
-                        tappedLocation,
+                        point,
                         mapState,
+                        filteredPeaks,
                       );
-                      if (primaryClickPending ||
-                          event.kind != PointerDeviceKind.mouse) {
-                        notifier.setSelectedLocation(tappedLocation);
+                    },
+                    onPositionChanged: (position, hasGesture) {
+                      if (hasGesture) {
+                        if (ref.read(mapProvider).showInfoPopup) {
+                          ref.read(mapProvider.notifier).toggleInfoPopup();
+                        }
+                        ref
+                            .read(mapProvider.notifier)
+                            .updatePosition(position.center, position.zoom);
                       }
-                      final hoveredTrackId = ref
-                          .read(mapProvider)
-                          .hoveredTrackId;
-                      if (primaryClickPending && hoveredTrackId != null) {
-                        notifier.selectTrack(hoveredTrackId);
-                      } else if (primaryClickPending) {
-                        notifier.clearSelectedTrack();
-                      }
-                    }
-                  },
-                  onPointerCancel: (event, point) {
-                    setState(() {
-                      _isPointerDown = false;
-                      _pointerDownPosition = null;
-                    });
-                    ref.read(mapProvider.notifier).clearHoveredTrack();
-                    ref.read(mapProvider.notifier).clearHoveredPeak();
-                  },
-                  onPointerHover: (event, point) {
-                    _handleMapHover(
-                      event.localPosition,
-                      point,
-                      mapState,
-                      filteredPeaks,
-                    );
-                  },
-                  onPositionChanged: (position, hasGesture) {
-                    if (hasGesture) {
-                      if (ref.read(mapProvider).showInfoPopup) {
-                        ref.read(mapProvider.notifier).toggleInfoPopup();
-                      }
-                      ref
-                          .read(mapProvider.notifier)
-                          .updatePosition(position.center, position.zoom);
-                    }
-                  },
-                ),
-                children: [
+                    },
+                  ),
+                  children: [
                   TileLayer(
                     urlTemplate: mapTileUrl(mapState.basemap),
                     userAgentPackageName: 'com.peak_bagger.app',
@@ -667,7 +729,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
-                ],
+                  ],
+                ),
               ),
             ),
             const MapActionRail(),
