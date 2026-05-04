@@ -27,14 +27,14 @@ Keep scope tight: popup card, small map-lookup consistency fix, targeted tests.
 ### Phase 2: Placement And Journey Coverage
 
 - **Goal**: larger popup remains edge-safe; critical map journey stays deterministic
-- [ ] `lib/core/constants.dart` - raise `UiConstants.peakInfoPopupSize.height` by minimum needed for extra row
-- [ ] `test/widget/peak_info_popup_placement_test.dart` - use `UiConstants.peakInfoPopupSize`; keep right/left/vertical clamp coverage with real popup size
-- [ ] `test/robot/peaks/peak_info_robot.dart` - add optional `PeakListRepository`/`TasmapRepository` seam via `ProviderScope` overrides; keep key-first selectors
-- [ ] `test/robot/peaks/peak_info_robot.dart` - replace hard-coded popup expectation with expected-line assertions
-- [ ] `test/robot/peaks/peak_info_journey_test.dart` - seed popup journeys for complete MGRS + single-list and multi-list cases; assert rendered lines deterministically
-- [ ] TDD: first failing robot journey opens popup and matches seeded `MGRS:` + `List:`; then add `Lists:` case; add only seams/selectors needed for each red-green cycle
-- [ ] Robot journey tests + selectors/seams for critical popup flow; reuse existing stable popup keys
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/core/constants.dart` - raise `UiConstants.peakInfoPopupSize.height` by minimum needed for extra row
+- [x] `test/widget/peak_info_popup_placement_test.dart` - use `UiConstants.peakInfoPopupSize`; keep right/left/vertical clamp coverage with real popup size
+- [x] `test/robot/peaks/peak_info_robot.dart` - add optional `PeakListRepository`/`TasmapRepository` seam via `ProviderScope` overrides; keep key-first selectors
+- [x] `test/robot/peaks/peak_info_robot.dart` - replace hard-coded popup expectation with expected-line assertions
+- [x] `test/robot/peaks/peak_info_journey_test.dart` - seed popup journeys for complete MGRS + single-list and multi-list cases; assert rendered lines deterministically
+- [x] TDD: first failing robot journey opens popup and matches seeded `MGRS:` + `List:`; then add `Lists:` case; add only seams/selectors needed for each red-green cycle
+- [x] Robot journey tests + selectors/seams for critical popup flow; reuse existing stable popup keys
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

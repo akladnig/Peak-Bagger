@@ -42,7 +42,7 @@ abstract final class RouterConstants {
 abstract final class UiConstants {
   static const scrollSpeed = 0.001;
   static const scrollInterval = Duration(milliseconds: 16);
-  static const peakInfoPopupSize = Size(320, 120);
+  static const peakInfoPopupSize = Size(320, 140);
   static const dialogMargin = 24.0;
   static const dividerWidth = 1.0;
   static const preferredLeftWidth = 320.0;
