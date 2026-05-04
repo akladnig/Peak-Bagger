@@ -33,6 +33,8 @@ import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/main.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 
+import '../core/constants.dart';
+
 const _distance = Distance();
 
 const _latKey = 'map_position_lat';
@@ -40,9 +42,6 @@ const _lngKey = 'map_position_lng';
 const _zoomKey = 'map_zoom';
 const _peakListSelectionModeKey = 'peak_list_selection_mode';
 const _peakListIdKey = 'peak_list_id';
-
-const _defaultCenter = LatLng(-41.5, 146.5);
-const _defaultZoom = 15.0;
 
 enum Basemap { tasmapTopo, tasmap50k, tasmap25k, tracestrack, openstreetmap }
 
@@ -386,11 +385,11 @@ class MapNotifier extends Notifier<MapState> {
       Future.microtask(() => _loadTracks());
     }
     return MapState(
-      center: _defaultCenter,
-      zoom: _defaultZoom,
+      center: MapConstants.defaultCenter,
+      zoom: MapConstants.defaultZoom,
       basemap: Basemap.tracestrack,
       isFirstLaunch: true,
-      selectedLocation: _defaultCenter,
+      selectedLocation: MapConstants.defaultCenter,
     );
   }
 
@@ -2009,14 +2008,13 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   (String?, double?) _findNearbyPeak(LatLng location) {
-    const searchRadiusMeters = 100.0;
     for (final peak in state.peaks) {
       final distance = _distance.as(
         LengthUnit.Meter,
         location,
         LatLng(peak.latitude, peak.longitude),
       );
-      if (distance <= searchRadiusMeters) {
+      if (distance <= MapConstants.searchRadiusMeters) {
         return (peak.name, peak.elevation);
       }
     }

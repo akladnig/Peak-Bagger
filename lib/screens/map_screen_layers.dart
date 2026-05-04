@@ -10,6 +10,8 @@ import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/widgets/tasmap_outline_layer.dart';
 import 'package:peak_bagger/widgets/tasmap_polygon_label.dart';
 
+import '../core/constants.dart';
+
 String mapTileUrl(Basemap basemap) {
   switch (basemap) {
     case Basemap.tracestrack:
@@ -174,7 +176,10 @@ PolylineLayer buildTrackPolylines(
   final polylines = <Polyline>[];
   final selectedBasePolylines = <Polyline>[];
   final selectedOverlayPolylines = <Polyline>[];
-  final displayZoom = zoom.round().clamp(6, 18);
+  final displayZoom = zoom.round().clamp(
+    MapConstants.peakMinZoom,
+    MapConstants.peakMaxZoom,
+  );
 
   for (final track in tracks) {
     final isSelected = track.gpxTrackId == selectedTrackId;

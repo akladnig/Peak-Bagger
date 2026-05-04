@@ -12,6 +12,8 @@ import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
 
+import '../core/constants.dart';
+
 class TrackImportResult {
   const TrackImportResult({
     required this.tracks,
@@ -77,10 +79,6 @@ class GpxTrackProcessingResult {
 }
 
 class GpxImporter {
-  static const _tasmaniaLatMin = -44.0;
-  static const _tasmaniaLatMax = -39.0;
-  static const _tasmaniaLngMin = 143.0;
-  static const _tasmaniaLngMax = 149.0;
   static String? debugTracksFolderOverride;
   static String? debugTasmaniaFolderOverride;
   static String? debugRoutesFolderOverride;
@@ -196,10 +194,10 @@ class GpxImporter {
   }
 
   bool isTasmanian(double lat, double lng) {
-    return lat >= _tasmaniaLatMin &&
-        lat <= _tasmaniaLatMax &&
-        lng >= _tasmaniaLngMin &&
-        lng <= _tasmaniaLngMax;
+    return lat >= GeoConstants.tasmaniaLatMin &&
+        lat <= GeoConstants.tasmaniaLatMax &&
+        lng >= GeoConstants.tasmaniaLngMin &&
+        lng <= GeoConstants.tasmaniaLngMax;
   }
 
   GpxTrack? parseGpxFile(String filePath) {

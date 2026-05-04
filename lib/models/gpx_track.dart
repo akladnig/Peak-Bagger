@@ -4,10 +4,12 @@ import 'package:latlong2/latlong.dart';
 import 'package:objectbox/objectbox.dart';
 import 'package:peak_bagger/models/peak.dart';
 
+import '../core/constants.dart';
+
 @Entity()
 class GpxTrack {
-  static const minDisplayZoom = 6;
-  static const maxDisplayZoom = 18;
+  static const minDisplayZoom = MapConstants.peakMinZoom;
+  static const maxDisplayZoom = MapConstants.peakMaxZoom;
 
   @Id(assignable: true)
   int gpxTrackId = 0;
@@ -157,7 +159,7 @@ class GpxTrack {
   bool get hasMetadataTrackDate => startDateTime != null;
 
   List<List<LatLng>> getSegments() {
-    return getSegmentsForZoom(15);
+    return getSegmentsForZoom(MapConstants.defaultZoom.toInt());
   }
 
   List<List<LatLng>> getSegmentsForZoom(int zoom) {
@@ -165,7 +167,7 @@ class GpxTrack {
     if (caches.isEmpty) {
       return const [];
     }
-    final clampedZoom = zoom.clamp(6, 18);
+    final clampedZoom = zoom.clamp(MapConstants.peakMinZoom, MapConstants.peakMaxZoom);
     return caches[clampedZoom] ?? const [];
   }
 

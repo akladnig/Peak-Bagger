@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../core/constants.dart';
+
 import '../models/gpx_track.dart';
 import '../models/peak.dart';
 import '../models/peak_list.dart';
@@ -63,7 +65,6 @@ class PeakListPeakDialog extends ConsumerStatefulWidget {
 }
 
 class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
-  static const _dialogMargin = 24.0;
   final _searchController = TextEditingController();
   final _pointValues = List<int>.generate(11, (index) => index);
 
@@ -92,10 +93,10 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final size = MediaQuery.sizeOf(context);
-    final dialogWidth = (size.width - (_dialogMargin * 2))
+    final dialogWidth = (size.width - (UiConstants.dialogMargin * 2))
         .clamp(320.0, 700.0)
         .toDouble();
-    final maxLeftShift = size.width - dialogWidth - (_dialogMargin * 2);
+    final maxLeftShift = size.width - dialogWidth - (UiConstants.dialogMargin * 2);
     final clampedOffset = Offset(
       _dialogOffset.dx.clamp(-maxLeftShift, 0).toDouble(),
       _dialogOffset.dy.clamp(-(size.height * 0.5), 0).toDouble(),
@@ -106,7 +107,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
         child: Align(
           alignment: Alignment.bottomRight,
           child: Padding(
-            padding: const EdgeInsets.all(_dialogMargin),
+            padding: EdgeInsets.all(UiConstants.dialogMargin),
             child: Transform.translate(
               offset: clampedOffset,
               child: Material(
@@ -121,7 +122,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
                     maxWidth: dialogWidth,
-                    maxHeight: size.height - (_dialogMargin * 2),
+                    maxHeight: size.height - (UiConstants.dialogMargin * 2),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,

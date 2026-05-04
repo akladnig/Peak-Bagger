@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+
+import '../core/constants.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_file_picker.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
@@ -10,8 +12,6 @@ import 'package:peak_bagger/widgets/left_tooltip_fab.dart';
 
 class MapActionRail extends ConsumerWidget {
   const MapActionRail({super.key});
-
-  static const _railSpacing = 8.0;
 
   void _dismissTransientUi(
     WidgetRef ref, {
@@ -50,7 +50,7 @@ class MapActionRail extends ConsumerWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const SizedBox(height: _railSpacing),
+          const SizedBox(height: UiConstants.railSpacing),
           LeftTooltipFab(
             message: 'Search peaks',
             child: FloatingActionButton.small(
@@ -67,7 +67,7 @@ class MapActionRail extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: _railSpacing),
+          const SizedBox(height: UiConstants.railSpacing),
           LeftTooltipFab(
             message: 'Select Basemaps',
             child: FloatingActionButton.small(
@@ -91,7 +91,7 @@ class MapActionRail extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: _railSpacing),
+          const SizedBox(height: UiConstants.railSpacing),
           LeftTooltipFab(
             message: 'My location',
             child: FloatingActionButton.small(
@@ -170,7 +170,7 @@ class MapActionRail extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: _railSpacing),
+          const SizedBox(height: UiConstants.railSpacing),
           LeftTooltipFab(
             message: 'Center on marker',
             child: FloatingActionButton.small(
@@ -188,7 +188,7 @@ class MapActionRail extends ConsumerWidget {
               child: const Icon(Icons.my_location, color: Colors.amber),
             ),
           ),
-          const SizedBox(height: _railSpacing),
+          const SizedBox(height: UiConstants.railSpacing),
           LeftTooltipFab(
             message: 'Goto Location',
             child: FloatingActionButton.small(
@@ -210,7 +210,7 @@ class MapActionRail extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: _railSpacing),
+          const SizedBox(height: UiConstants.railSpacing),
           LeftTooltipFab(
             message: 'Show Map Grid',
             child: FloatingActionButton.small(
@@ -226,7 +226,7 @@ class MapActionRail extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: _railSpacing),
+          const SizedBox(height: UiConstants.railSpacing),
           LeftTooltipFab(
             message: 'Show tracks',
             child: FloatingActionButton.small(
@@ -246,7 +246,7 @@ class MapActionRail extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: _railSpacing),
+          const SizedBox(height: UiConstants.railSpacing),
           LeftTooltipFab(
             message: 'Select Peaks',
             child: FloatingActionButton.small(
@@ -271,7 +271,7 @@ class MapActionRail extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: _railSpacing),
+          const SizedBox(height: UiConstants.railSpacing),
           LeftTooltipFab(
             message: 'Import Track(s)',
             child: FloatingActionButton.small(
@@ -298,7 +298,7 @@ class MapActionRail extends ConsumerWidget {
                     ),
             ),
           ),
-          const SizedBox(height: _railSpacing),
+          const SizedBox(height: UiConstants.railSpacing),
           LeftTooltipFab(
             message: 'Info',
             child: FloatingActionButton.small(

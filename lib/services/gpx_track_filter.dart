@@ -4,6 +4,8 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:xml/xml.dart';
 
+import '../core/constants.dart';
+
 class GpxTrackFilterResult {
   const GpxTrackFilterResult({
     required this.filteredXml,
@@ -22,8 +24,6 @@ class GpxTrackFilter {
   const GpxTrackFilter();
 
   static const _distance = Distance();
-  static const _maxSpeedMetersPerSecond = 12.0;
-  static const _maxJumpMeters = 2_500.0;
 
   GpxTrackFilterResult filter(
     String rawGpxXml, {
@@ -203,7 +203,8 @@ class GpxTrackFilter {
         current.location,
       );
       final speed = distance / timeDelta;
-      if (speed > _maxSpeedMetersPerSecond || distance > _maxJumpMeters) {
+      if (speed > GpxConstants.maxSpeedMetersPerSecond ||
+          distance > GpxConstants.maxJumpMeters) {
         continue;
       }
 

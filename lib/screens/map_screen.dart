@@ -17,6 +17,7 @@ import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/peak_hover_detector.dart';
 import 'package:peak_bagger/services/track_hover_detector.dart';
+import '../core/constants.dart';
 import 'package:peak_bagger/widgets/map_action_rail.dart';
 import 'package:peak_bagger/widgets/map_basemaps_drawer.dart';
 import 'package:peak_bagger/widgets/map_peak_lists_drawer.dart';
@@ -53,9 +54,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Timer? _scrollTimer;
   double _scrollDx = 0;
   double _scrollDy = 0;
-  static const _scrollSpeed = 0.001;
-  static const _scrollInterval = Duration(milliseconds: 16);
-  static const _peakInfoPopupSize = Size(320, 120);
   static final _tickedPeakMarker = SvgPicture.asset(
     'assets/peak_marker_ticked.svg',
   );
@@ -252,7 +250,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     MapState mapState,
     MapCamera camera,
   ) {
-    final displayZoom = mapState.zoom.round().clamp(6, 18);
+    final displayZoom = mapState.zoom.round().clamp(
+      MapConstants.peakMinZoom,
+      MapConstants.peakMaxZoom,
+    );
     final candidates = <TrackHoverCandidate>[];
 
     for (final track in mapState.tracks) {
@@ -284,10 +285,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   void _startScrolling(double dx, double dy) {
-    _scrollDx = dx * _scrollSpeed;
-    _scrollDy = dy * _scrollSpeed;
+    _scrollDx = dx * UiConstants.scrollSpeed;
+    _scrollDy = dy * UiConstants.scrollSpeed;
     _scrollTimer?.cancel();
-    _scrollTimer = Timer.periodic(_scrollInterval, (_) {
+    _scrollTimer = Timer.periodic(UiConstants.scrollInterval, (_) {
       if (_scrollDx != 0 || _scrollDy != 0) {
         _moveMap(_scrollDx, _scrollDy);
       }
@@ -766,7 +767,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final placement = resolvePeakInfoPopupPlacement(
       anchorScreenOffset: _screenOffsetForPeak(content.peak),
       viewportSize: MediaQuery.of(context).size,
-      popupSize: _peakInfoPopupSize,
+      popupSize: UiConstants.peakInfoPopupSize,
     );
     if (!placement.isAnchorable) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -781,7 +782,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       left: placement.topLeft.dx,
       top: placement.topLeft.dy,
       child: SizedBox(
-        width: _peakInfoPopupSize.width,
+        width: UiConstants.peakInfoPopupSize.width,
         child: PeakInfoPopupCard(
           key: const Key('peak-info-popup'),
           content: content,

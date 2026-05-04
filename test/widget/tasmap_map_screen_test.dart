@@ -681,7 +681,7 @@ void main() {
     );
   });
 
-  testWidgets('peak layer hides below zoom 9', (tester) async {
+  testWidgets('peak layer renders at zoom 8', (tester) async {
     final map = _adamsons();
     final repository = await TestTasmapRepository.create(maps: [map]);
 
@@ -717,7 +717,7 @@ void main() {
 
     await tester.pump();
 
-    expect(find.byKey(const Key('peak-marker-layer')), findsNothing);
+    expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
   });
 
   testWidgets('peak layer renders above track polylines', (tester) async {
