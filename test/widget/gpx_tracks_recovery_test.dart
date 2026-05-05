@@ -228,7 +228,7 @@ void main() {
     expect(_mapRegion(tester).cursor, SystemMouseCursors.grab);
   });
 
-  testWidgets('trackpad vertical gesture changes zoom without moving center', (
+  testWidgets('trackpad scroll down changes zoom without moving center', (
     tester,
   ) async {
     await _pumpMapApp(tester, _mapStateWithVisibleTrack());
@@ -254,7 +254,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(container.read(mapProvider).zoom, lessThan(initialZoom));
+    expect(container.read(mapProvider).zoom, greaterThan(initialZoom));
     expect(
       container.read(mapProvider).center.latitude,
       moreOrLessEquals(initialCenter.latitude, epsilon: 0.000001),

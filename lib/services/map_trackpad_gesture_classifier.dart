@@ -35,5 +35,5 @@ MapTrackpadGestureIntent classifyMapTrackpadGesture({
     return const MapTrackpadGestureIntent.none();
   }
 
-  return MapTrackpadGestureIntent.verticalZoom(-pan.dy / pixelsPerZoomLevel);
+  return MapTrackpadGestureIntent.verticalZoom(pan.dy / pixelsPerZoomLevel);
 }

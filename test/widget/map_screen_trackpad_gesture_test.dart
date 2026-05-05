@@ -11,7 +11,7 @@ import 'package:peak_bagger/router.dart';
 import '../harness/test_map_notifier.dart';
 
 void main() {
-  testWidgets('trackpad vertical gesture zooms without moving center', (
+  testWidgets('trackpad scroll down zooms in without moving center', (
     tester,
   ) async {
     final initialState = MapState(
@@ -37,7 +37,7 @@ void main() {
 
     await gesture.panZoomUpdate(
       tester.getCenter(region),
-      pan: const Offset(0, -120),
+      pan: const Offset(0, 120),
     );
     await tester.pump();
 
@@ -79,7 +79,7 @@ void main() {
 
     await gesture.panZoomUpdate(
       tester.getCenter(region),
-      pan: const Offset(0, -120),
+      pan: const Offset(0, 120),
       scale: 1.5,
     );
     await tester.pump();
@@ -136,7 +136,7 @@ void main() {
     );
   });
 
-  testWidgets('trackpad diagonal gesture uses the vertical component', (
+  testWidgets('trackpad diagonal scroll down uses the vertical component', (
     tester,
   ) async {
     final initialState = MapState(
@@ -162,7 +162,7 @@ void main() {
 
     await gesture.panZoomUpdate(
       tester.getCenter(region),
-      pan: const Offset(40, -120),
+      pan: const Offset(40, 120),
     );
     await tester.pump();
 
@@ -204,7 +204,7 @@ void main() {
 
     await gesture.panZoomUpdate(
       tester.getCenter(region),
-      pan: const Offset(0, -120),
+      pan: const Offset(0, 120),
     );
     await tester.pump();
 
