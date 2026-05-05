@@ -13,6 +13,7 @@ import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/screens/map_screen_layers.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
+import 'package:peak_bagger/services/peak_list_csv_export_service.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
@@ -426,8 +427,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       }
 
       _setStatus(
-        'Exported ${result.exportedFileCount} peak lists. '
-        'Skipped ${result.skippedListCount} lists.',
+        _formatPeakListExportStatus(result),
         key: const Key('peak-list-export-status'),
       );
     } catch (e) {
@@ -446,6 +446,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         });
       }
     }
+  }
+
+  String _formatPeakListExportStatus(PeakListCsvExportResult result) {
+    final parts = <String>[
+      'Exported ${result.exportedFileCount} '
+          '${_pluralize(result.exportedFileCount, 'peak list', 'peak lists')}.',
+      'Skipped ${result.skippedListCount} '
+          '${_pluralize(result.skippedListCount, 'list', 'lists')}.',
+    ];
+
+    final warningCount = result.warningEntries.length;
+    if (warningCount > 0) {
+      parts.add(
+        '$warningCount ${_pluralize(warningCount, 'warning', 'warnings')}.',
+      );
+    }
+    if (result.skippedListCount > 0) {
+      parts.add('Older files may remain for skipped lists.');
+    }
+
+    return parts.join(' ');
+  }
+
+  String _pluralize(int count, String singular, String plural) {
+    return count == 1 ? singular : plural;
   }
 
   Future<void> _confirmRecalculateTrackStatistics() async {

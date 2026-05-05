@@ -120,4 +120,200 @@ void main() {
       isNotNull,
     );
   });
+
+  testWidgets('export peak lists shows warning-bearing success summary', (
+    tester,
+  ) async {
+    final repository = await TestTasmapRepository.create();
+    final notifier = TestPeakNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(() => notifier),
+          peakListCsvExportRunnerProvider.overrideWithValue(() async {
+            return const PeakListCsvExportResult(
+              outputDirectoryPath:
+                  '/Users/adrian/Documents/Bushwalking/Peak_Lists',
+              exportedFileCount: 1,
+              skippedMalformedListCount: 1,
+              warningEntries: ['warning 1', 'warning 2'],
+            );
+          }),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
+          tasmapRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const App(),
+      ),
+    );
+    await tester.pump();
+
+    router.go('/settings');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('export-peak-lists-tile')),
+      200,
+      scrollable: find.byType(Scrollable),
+    );
+
+    await tester.tap(find.byKey(const Key('export-peak-lists-tile')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('peak-list-export-status')),
+      200,
+      scrollable: find.byType(Scrollable),
+    );
+
+    expect(
+      find.text(
+        'Exported 1 peak list. Skipped 1 list. 2 warnings. Older files may remain for skipped lists.',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('export peak lists shows zero-output success state', (
+    tester,
+  ) async {
+    final repository = await TestTasmapRepository.create();
+    final notifier = TestPeakNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(() => notifier),
+          peakListCsvExportRunnerProvider.overrideWithValue(() async {
+            return const PeakListCsvExportResult(
+              outputDirectoryPath:
+                  '/Users/adrian/Documents/Bushwalking/Peak_Lists',
+              exportedFileCount: 0,
+            );
+          }),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
+          tasmapRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const App(),
+      ),
+    );
+    await tester.pump();
+
+    router.go('/settings');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('export-peak-lists-tile')),
+      200,
+      scrollable: find.byType(Scrollable),
+    );
+
+    await tester.tap(find.byKey(const Key('export-peak-lists-tile')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('peak-list-export-status')),
+      200,
+      scrollable: find.byType(Scrollable),
+    );
+
+    expect(
+      find.text('Exported 0 peak lists. Skipped 0 lists.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('export peak lists shows failure with path detail', (
+    tester,
+  ) async {
+    Finder tile(String key) => find.byKey(Key(key), skipOffstage: false);
+
+    final repository = await TestTasmapRepository.create();
+    final notifier = TestPeakNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(() => notifier),
+          peakListCsvExportRunnerProvider.overrideWithValue(() async {
+            throw const PeakListCsvExportException(
+              'Peak_Lists directory does not exist at /tmp/Peak_Lists. Create the folder and retry.',
+            );
+          }),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
+          tasmapRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const App(),
+      ),
+    );
+    await tester.pump();
+
+    router.go('/settings');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('export-peak-lists-tile')),
+      200,
+      scrollable: find.byType(Scrollable),
+    );
+
+    await tester.tap(find.byKey(const Key('export-peak-lists-tile')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('peak-list-export-status')),
+      200,
+      scrollable: find.byType(Scrollable),
+    );
+
+    expect(find.textContaining('Export failed:'), findsOneWidget);
+    expect(find.textContaining('/tmp/Peak_Lists'), findsOneWidget);
+    expect(find.textContaining('Create the folder and retry'), findsOneWidget);
+    expect(
+      tester.widget<ListTile>(tile('export-peak-lists-tile')).onTap,
+      isNotNull,
+    );
+    expect(
+      tester.widget<ListTile>(tile('refresh-peak-data-tile')).onTap,
+      isNotNull,
+    );
+    expect(
+      tester.widget<ListTile>(tile('reset-map-data-tile')).onTap,
+      isNotNull,
+    );
+    expect(
+      tester.widget<ListTile>(tile('export-peak-data-tile')).onTap,
+      isNotNull,
+    );
+  });
 }

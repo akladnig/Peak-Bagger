@@ -42,12 +42,12 @@ Settings-driven per-list CSV export. Dedicated service/provider; reuse existing 
 ### Phase 3: Settings Completion
 
 - **Goal**: production messaging; gate regressions; widget lane depth
-- [ ] `lib/screens/settings_screen.dart` - finalize success/warning/failure copy, older-files-may-remain note, re-enable flow, shared inline status key usage
-- [ ] `test/widget/peak_list_csv_export_settings_test.dart` - add warning-bearing success, zero-output success, fatal failure with path details, four-way gate regression coverage across refresh/reset/export/export-lists
-- [ ] `test/widget/peak_csv_export_settings_test.dart` - update existing peak-export test expectations for four-way shared busy gate if needed
-- [ ] TDD: settings failure shows `Export failed: ...` with path/recovery detail and restores shared-gate actions; then implement
-- [ ] TDD: successful warning run shows exported/skipped counts plus older-files-may-remain note; then implement
-- [ ] Verify: `flutter analyze && flutter test test/widget/peak_list_csv_export_settings_test.dart test/widget/peak_csv_export_settings_test.dart && flutter test`
+- [x] `lib/screens/settings_screen.dart` - finalize success/warning/failure copy, older-files-may-remain note, re-enable flow, shared inline status key usage
+- [x] `test/widget/peak_list_csv_export_settings_test.dart` - add warning-bearing success, zero-output success, fatal failure with path details, four-way gate regression coverage across refresh/reset/export/export-lists
+- [x] `test/widget/peak_csv_export_settings_test.dart` - update existing peak-export test expectations for four-way shared busy gate if needed
+- [x] TDD: settings failure shows `Export failed: ...` with path/recovery detail and restores shared-gate actions; then implement
+- [x] TDD: successful warning run shows exported/skipped counts plus older-files-may-remain note; then implement
+- [x] Verify: `flutter analyze && flutter test test/widget/peak_list_csv_export_settings_test.dart test/widget/peak_csv_export_settings_test.dart && flutter test`
 
 ### Phase 4: Robot Journeys
 
