@@ -52,14 +52,14 @@ Settings-driven per-list CSV export. Dedicated service/provider; reuse existing 
 ### Phase 4: Robot Journeys
 
 - **Goal**: critical user journeys; stable selectors; deterministic seams
-- [ ] `test/robot/peaks/peak_list_export_robot.dart` - add robot around settings export tile, status, final assertions
-- [ ] `test/robot/peaks/peak_list_export_journey_test.dart` - add happy-path journey with fake runner/result
-- [ ] `test/robot/peaks/peak_list_export_journey_test.dart` - add warning-bearing journey with deterministic fake result
-- [ ] `lib/screens/settings_screen.dart` - add only selectors/seams still missing for robot stability
-- [ ] TDD: robot happy path opens settings, runs export, sees final success summary; then implement
-- [ ] TDD: robot warning path sees warning-bearing success without real filesystem IO; then implement
-- [ ] Robot journey tests + selectors/seams for critical flows: `export-peak-lists-tile`, `peak-list-export-status`, provider-overridable runner, deterministic fake results
-- [ ] Verify: `flutter analyze && flutter test test/robot/peaks/peak_list_export_journey_test.dart && flutter test`
+- [x] `test/robot/peaks/peak_list_export_robot.dart` - add robot around settings export tile, status, final assertions
+- [x] `test/robot/peaks/peak_list_export_journey_test.dart` - add happy-path journey with fake runner/result
+- [x] `test/robot/peaks/peak_list_export_journey_test.dart` - add warning-bearing journey with deterministic fake result
+- [x] `lib/screens/settings_screen.dart` - add only selectors/seams still missing for robot stability; no extra changes needed because Phase 1 keys and provider seam were already sufficient
+- [x] TDD: robot happy path opens settings, runs export, sees final success summary; then implement
+- [x] TDD: robot warning path sees warning-bearing success without real filesystem IO; then implement
+- [x] Robot journey tests + selectors/seams for critical flows: `export-peak-lists-tile`, `peak-list-export-status`, provider-overridable runner, deterministic fake results
+- [x] Verify: `flutter analyze && flutter test test/robot/peaks/peak_list_export_journey_test.dart && flutter test`
 
 ## Risks / Out of scope
 
