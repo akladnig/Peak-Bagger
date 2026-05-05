@@ -29,15 +29,15 @@ Settings-driven per-list CSV export. Dedicated service/provider; reuse existing 
 ### Phase 2: Service Hardening
 
 - **Goal**: edge rules; counts; fatal failures
-- [ ] `lib/services/peak_list_csv_export_service.dart` - add zero-stored-lists success, empty-list export, missing-peak row skipping, malformed-list skip, blank-name skip, zero-resolved-row skip, structured warnings, exact `skippedListCount`
-- [ ] `lib/services/peak_list_csv_export_service.dart` - add filename normalization: lowercase, whitespace collapse, slash/backslash/colon replace, leading/trailing dot stripping, collision suffixing, skipped-collider slot reservation, overwrite behavior
-- [ ] `test/services/peak_list_csv_export_service_test.dart` - add zero-output success, warning aggregation, missing directory failure, file-write failure, all-lists-skipped success, stale-file preservation semantics
-- [ ] `test/services/peak_list_csv_export_service_test.dart` - seed raw `PeakList.peakList` payloads for duplicate-row export coverage
-- [ ] TDD: zero stored lists returns success with zero files/zero warnings; then implement
-- [ ] TDD: malformed / blank-name / zero-resolved lists increment exact skip buckets and `skippedListCount`; then implement
-- [ ] TDD: colliding skipped list reserves filename slot; exported sibling gets next suffix; then implement
-- [ ] TDD: missing directory and write failure surface path-aware fatal errors; then implement
-- [ ] Verify: `flutter analyze && flutter test test/services/peak_list_csv_export_service_test.dart && flutter test`
+- [x] `lib/services/peak_list_csv_export_service.dart` - add zero-stored-lists success, empty-list export, missing-peak row skipping, malformed-list skip, blank-name skip, zero-resolved-row skip, structured warnings, exact `skippedListCount`
+- [x] `lib/services/peak_list_csv_export_service.dart` - add filename normalization: lowercase, whitespace collapse, slash/backslash/colon replace, leading/trailing dot stripping, collision suffixing, skipped-collider slot reservation, overwrite behavior
+- [x] `test/services/peak_list_csv_export_service_test.dart` - add zero-output success, warning aggregation, missing directory failure, file-write failure, all-lists-skipped success, stale-file preservation semantics
+- [x] `test/services/peak_list_csv_export_service_test.dart` - seed raw `PeakList.peakList` payloads for duplicate-row export coverage
+- [x] TDD: zero stored lists returns success with zero files/zero warnings; then implement
+- [x] TDD: malformed / blank-name / zero-resolved lists increment exact skip buckets and `skippedListCount`; then implement
+- [x] TDD: colliding skipped list reserves filename slot; exported sibling gets next suffix; then implement
+- [x] TDD: missing directory and write failure surface path-aware fatal errors; then implement
+- [x] Verify: `flutter analyze && flutter test test/services/peak_list_csv_export_service_test.dart && flutter test`
 
 ### Phase 3: Settings Completion
 

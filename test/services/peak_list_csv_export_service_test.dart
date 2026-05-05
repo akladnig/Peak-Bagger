@@ -155,5 +155,269 @@ void main() {
         '300',
       ]);
     });
+
+    test(
+      'succeeds with zero files and zero warnings when no lists exist',
+      () async {
+        final service = PeakListCsvExportService(
+          peakListRepository: PeakListRepository.test(
+            InMemoryPeakListStorage(),
+          ),
+          peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+          outputDirectoryResolver: () => outputDirectory,
+        );
+
+        final result = await service.exportPeakLists();
+
+        expect(result.outputDirectoryPath, outputDirectory.path);
+        expect(result.exportedFileCount, 0);
+        expect(result.skippedListCount, 0);
+        expect(result.warningEntries, isEmpty);
+      },
+    );
+
+    test(
+      'exports empty lists, skips invalid lists, and records deterministic warnings',
+      () async {
+        final peakListRepository = PeakListRepository.test(
+          InMemoryPeakListStorage([
+            PeakList(name: '...', peakList: '[]')..peakListId = 1,
+            PeakList(name: 'Broken', peakList: '{oops')..peakListId = 2,
+            PeakList(name: 'Empty', peakList: '[]')..peakListId = 3,
+            PeakList(
+              name: 'Mixed',
+              peakList: encodePeakListItems([
+                const PeakListItem(peakOsmId: 999, points: 5),
+                const PeakListItem(peakOsmId: 100, points: 7),
+              ]),
+            )..peakListId = 4,
+            PeakList(
+              name: 'Zero',
+              peakList: encodePeakListItems([
+                const PeakListItem(peakOsmId: 888, points: 3),
+              ]),
+            )..peakListId = 5,
+          ]),
+        );
+        final peakRepository = PeakRepository.test(
+          InMemoryPeakStorage([
+            Peak(
+              osmId: 100,
+              name: 'Resolved Peak',
+              latitude: -41,
+              longitude: 146,
+              gridZoneDesignator: '55G',
+              mgrs100kId: 'AA',
+              easting: '111',
+              northing: '222',
+            ),
+          ]),
+        );
+
+        final service = PeakListCsvExportService(
+          peakListRepository: peakListRepository,
+          peakRepository: peakRepository,
+          outputDirectoryResolver: () => outputDirectory,
+        );
+
+        final result = await service.exportPeakLists();
+
+        expect(result.exportedFileCount, 2);
+        expect(result.skippedRowCount, 2);
+        expect(result.skippedBlankNameListCount, 1);
+        expect(result.skippedMalformedListCount, 1);
+        expect(result.skippedZeroResolvedRowListCount, 1);
+        expect(result.skippedListCount, 3);
+        expect(result.warningEntries, [
+          'Peak list 1 (...): blank normalized filename stem',
+          'Peak list 2 (Broken): malformed peakList payload',
+          'Peak list 4 (Mixed): missing peak osmId 999',
+          'Peak list 5 (Zero): missing peak osmId 888',
+          'Peak list 5 (Zero): zero resolved peak rows',
+        ]);
+
+        expect(
+          await File('${outputDirectory.path}/empty-peak-list.csv').exists(),
+          isTrue,
+        );
+        expect(
+          await File('${outputDirectory.path}/mixed-peak-list.csv').exists(),
+          isTrue,
+        );
+        expect(
+          await File('${outputDirectory.path}/zero-peak-list.csv').exists(),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'skipped colliders reserve filename slots and duplicate raw rows still export',
+      () async {
+        final staleFile = File('${outputDirectory.path}/same-peak-list.csv');
+        await staleFile.writeAsString('stale-data');
+
+        final peakListRepository = PeakListRepository.test(
+          InMemoryPeakListStorage([
+            PeakList(name: 'Same', peakList: '{broken')..peakListId = 1,
+            PeakList(
+              name: 'same',
+              peakList: encodePeakListItems([
+                const PeakListItem(peakOsmId: 100, points: 2),
+                const PeakListItem(peakOsmId: 100, points: 9),
+              ]),
+            )..peakListId = 2,
+          ]),
+        );
+        final peakRepository = PeakRepository.test(
+          InMemoryPeakStorage([
+            Peak(
+              osmId: 100,
+              name: 'Duplicated Peak',
+              latitude: -41,
+              longitude: 146,
+              gridZoneDesignator: '55G',
+              mgrs100kId: 'AA',
+              easting: '111',
+              northing: '222',
+            ),
+          ]),
+        );
+
+        final service = PeakListCsvExportService(
+          peakListRepository: peakListRepository,
+          peakRepository: peakRepository,
+          outputDirectoryResolver: () => outputDirectory,
+        );
+
+        final result = await service.exportPeakLists();
+
+        expect(result.exportedFileCount, 1);
+        expect(result.skippedMalformedListCount, 1);
+        expect(result.skippedListCount, 1);
+        expect(await staleFile.readAsString(), 'stale-data');
+
+        final exportedFile = File(
+          '${outputDirectory.path}/same-2-peak-list.csv',
+        );
+        expect(await exportedFile.exists(), isTrue);
+        final rows = const CsvToListConverter(
+          eol: '\n',
+        ).convert(await exportedFile.readAsString());
+        expect(rows, hasLength(3));
+        expect(rows[1][7].toString(), '2');
+        expect(rows[2][7].toString(), '9');
+      },
+    );
+
+    test(
+      'missing output directory fails with path and recovery detail',
+      () async {
+        await outputDirectory.delete(recursive: true);
+
+        final service = PeakListCsvExportService(
+          peakListRepository: PeakListRepository.test(
+            InMemoryPeakListStorage(),
+          ),
+          peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+          outputDirectoryResolver: () => outputDirectory,
+        );
+
+        await expectLater(
+          service.exportPeakLists(),
+          throwsA(
+            isA<PeakListCsvExportException>()
+                .having(
+                  (error) => '$error',
+                  'message',
+                  contains(outputDirectory.path),
+                )
+                .having(
+                  (error) => '$error',
+                  'message',
+                  contains('Create the folder and retry'),
+                ),
+          ),
+        );
+      },
+    );
+
+    test('file writer failure includes target file path', () async {
+      final service = PeakListCsvExportService(
+        peakListRepository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            PeakList(
+              name: 'Alpha List',
+              peakList: encodePeakListItems([
+                const PeakListItem(peakOsmId: 100, points: 3),
+              ]),
+            )..peakListId = 1,
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            Peak(
+              osmId: 100,
+              name: 'Alpha',
+              latitude: -41,
+              longitude: 146,
+              gridZoneDesignator: '55G',
+              mgrs100kId: 'AA',
+              easting: '111',
+              northing: '222',
+            ),
+          ]),
+        ),
+        outputDirectoryResolver: () => outputDirectory,
+        fileWriter: _ThrowingPeakListCsvFileWriter(),
+      );
+
+      await expectLater(
+        service.exportPeakLists(),
+        throwsA(
+          isA<PeakListCsvExportException>().having(
+            (error) => '$error',
+            'message',
+            contains('${outputDirectory.path}/alpha-list-peak-list.csv'),
+          ),
+        ),
+      );
+    });
+
+    test(
+      'all skipped lists still succeed with zero files and warnings',
+      () async {
+        final service = PeakListCsvExportService(
+          peakListRepository: PeakListRepository.test(
+            InMemoryPeakListStorage([
+              PeakList(name: '...', peakList: '[]')..peakListId = 1,
+              PeakList(name: 'Broken', peakList: '{oops')..peakListId = 2,
+              PeakList(
+                name: 'Zero',
+                peakList: encodePeakListItems([
+                  const PeakListItem(peakOsmId: 999, points: 5),
+                ]),
+              )..peakListId = 3,
+            ]),
+          ),
+          peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+          outputDirectoryResolver: () => outputDirectory,
+        );
+
+        final result = await service.exportPeakLists();
+
+        expect(result.exportedFileCount, 0);
+        expect(result.skippedListCount, 3);
+        expect(result.warningEntries, isNotEmpty);
+        expect(outputDirectory.listSync(), isEmpty);
+      },
+    );
   });
+}
+
+class _ThrowingPeakListCsvFileWriter implements PeakListCsvFileWriter {
+  @override
+  Future<void> write(String path, String contents) async {
+    throw const FileSystemException('disk full');
+  }
 }
