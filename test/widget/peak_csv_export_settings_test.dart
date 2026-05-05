@@ -16,7 +16,11 @@ import '../harness/test_tasmap_notifier.dart';
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
-  testWidgets('export peak data shows loading state and success', (tester) async {
+  testWidgets('export peak data shows loading state and success', (
+    tester,
+  ) async {
+    Finder tile(String key) => find.byKey(Key(key), skipOffstage: false);
+
     final repository = await TestTasmapRepository.create();
     final completer = Completer<PeakCsvExportResult>();
     var exportCalls = 0;
@@ -38,7 +42,9 @@ void main() {
         overrides: [
           mapProvider.overrideWith(() => notifier),
           peakCsvExportRunnerProvider.overrideWithValue(exportRunner),
-          tasmapStateProvider.overrideWith(() => TestTasmapNotifier(repository)),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
           tasmapRepositoryProvider.overrideWithValue(repository),
         ],
         child: const App(),
@@ -68,11 +74,11 @@ void main() {
 
     expect(exportCalls, 1);
     expect(
-      tester.widget<ListTile>(find.byKey(const Key('export-peak-data-tile'))).onTap,
+      tester.widget<ListTile>(tile('export-peak-data-tile')).onTap,
       isNull,
     );
     expect(
-      tester.widget<ListTile>(find.byKey(const Key('refresh-peak-data-tile'))).onTap,
+      tester.widget<ListTile>(tile('refresh-peak-data-tile')).onTap,
       isNull,
     );
     expect(find.byKey(const Key('peak-export-status')), findsOneWidget);
@@ -95,16 +101,18 @@ void main() {
       findsOneWidget,
     );
     expect(
-      tester.widget<ListTile>(find.byKey(const Key('export-peak-data-tile'))).onTap,
+      tester.widget<ListTile>(tile('export-peak-data-tile')).onTap,
       isNotNull,
     );
     expect(
-      tester.widget<ListTile>(find.byKey(const Key('refresh-peak-data-tile'))).onTap,
+      tester.widget<ListTile>(tile('refresh-peak-data-tile')).onTap,
       isNotNull,
     );
   });
 
   testWidgets('export peak data shows failure state', (tester) async {
+    Finder tile(String key) => find.byKey(Key(key), skipOffstage: false);
+
     final repository = await TestTasmapRepository.create();
     final notifier = TestPeakNotifier(
       MapState(
@@ -121,7 +129,9 @@ void main() {
           peakCsvExportRunnerProvider.overrideWithValue(() async {
             throw StateError('boom');
           }),
-          tasmapStateProvider.overrideWith(() => TestTasmapNotifier(repository)),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
           tasmapRepositoryProvider.overrideWithValue(repository),
         ],
         child: const App(),
@@ -153,7 +163,7 @@ void main() {
     expect(find.textContaining('Export failed:'), findsOneWidget);
     expect(find.textContaining('boom'), findsOneWidget);
     expect(
-      tester.widget<ListTile>(find.byKey(const Key('export-peak-data-tile'))).onTap,
+      tester.widget<ListTile>(tile('export-peak-data-tile')).onTap,
       isNotNull,
     );
   });

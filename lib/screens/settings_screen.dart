@@ -7,6 +7,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_csv_export_provider.dart';
+import 'package:peak_bagger/providers/peak_list_csv_export_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/screens/map_screen_layers.dart';
@@ -28,6 +29,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final bool _isDownloading = false;
   bool _isExportingPeaks = false;
+  bool _isExportingPeakLists = false;
   bool _isRefreshingPeaks = false;
   bool _isResettingMaps = false;
   String _status = '';
@@ -89,9 +91,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : null,
-            onTap: (_isRefreshingPeaks || _isExportingPeaks)
-                ? null
-                : _confirmRefreshPeakData,
+            onTap: _isStatusActionBusy ? null : _confirmRefreshPeakData,
           ),
           ListTile(
             key: const Key('reset-map-data-tile'),
@@ -105,7 +105,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : null,
-            onTap: _isResettingMaps ? null : _confirmResetMapData,
+            onTap: _isStatusActionBusy ? null : _confirmResetMapData,
           ),
           ListTile(
             key: const Key('reset-track-data-tile'),
@@ -172,7 +172,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ],
                 ],
               ),
-          ),
+            ),
           _buildTrackFilterSection(context, filterState),
           _buildPeakCorrelationSection(context, peakCorrelationState),
           ListTile(
@@ -187,12 +187,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : null,
-            onTap: (_isRefreshingPeaks || _isExportingPeaks)
-                ? null
-                : _exportPeakData,
+            onTap: _isStatusActionBusy ? null : _exportPeakData,
+          ),
+          ListTile(
+            key: const Key('export-peak-lists-tile'),
+            leading: const Icon(Icons.list_alt),
+            title: const Text('Export Peak Lists'),
+            subtitle: const Text('Export stored peak lists to CSV'),
+            trailing: _isExportingPeakLists
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : null,
+            onTap: _isStatusActionBusy ? null : _exportPeakLists,
           ),
           if (_status.isNotEmpty)
-            Padding(padding: const EdgeInsets.all(16), child: Text(_status, key: _statusKey)),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(_status, key: _statusKey),
+            ),
         ],
       ),
     );
@@ -228,6 +243,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _status = value;
       _statusKey = key ?? const Key('peak-refresh-status');
     });
+  }
+
+  bool get _isStatusActionBusy {
+    return _isRefreshingPeaks ||
+        _isResettingMaps ||
+        _isExportingPeaks ||
+        _isExportingPeakLists;
   }
 
   Future<void> _confirmRefreshPeakData() async {
@@ -361,10 +383,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     setState(() {
       _isExportingPeaks = true;
     });
-    _setStatus(
-      'Exporting peak data...',
-      key: const Key('peak-export-status'),
-    );
+    _setStatus('Exporting peak data...', key: const Key('peak-export-status'));
 
     try {
       final result = await ref.read(peakCsvExportRunnerProvider)();
@@ -386,6 +405,44 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (mounted) {
         setState(() {
           _isExportingPeaks = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _exportPeakLists() async {
+    setState(() {
+      _isExportingPeakLists = true;
+    });
+    _setStatus(
+      'Exporting peak lists...',
+      key: const Key('peak-list-export-status'),
+    );
+
+    try {
+      final result = await ref.read(peakListCsvExportRunnerProvider)();
+      if (!mounted) {
+        return;
+      }
+
+      _setStatus(
+        'Exported ${result.exportedFileCount} peak lists. '
+        'Skipped ${result.skippedListCount} lists.',
+        key: const Key('peak-list-export-status'),
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      _setStatus(
+        'Export failed: $e',
+        key: const Key('peak-list-export-status'),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isExportingPeakLists = false;
         });
       }
     }
