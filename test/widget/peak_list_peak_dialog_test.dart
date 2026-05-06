@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
@@ -1022,6 +1023,14 @@ void main() {
           center: const LatLng(-42.5, 147.5),
           zoom: 10,
           basemap: Basemap.tracestrack,
+          selectedPeaks: [
+            Peak(
+              osmId: 202,
+              name: 'Existing Peak',
+              latitude: -41.2,
+              longitude: 146.2,
+            ),
+          ],
         ),
       );
 
@@ -1050,7 +1059,14 @@ void main() {
       expect(find.byKey(const Key('peak-list-peak-dialog')), findsNothing);
       expect(mapNotifier.state.center.latitude, closeTo(-41.0, 0.001));
       expect(mapNotifier.state.center.longitude, closeTo(146.0, 0.001));
-      expect(mapNotifier.state.zoom, 15.0);
+      expect(mapNotifier.state.zoom, MapConstants.defaultZoom);
+      expect(
+        mapNotifier.state.cameraRequestCenter,
+        const LatLng(-41.0, 146.0),
+      );
+      expect(mapNotifier.state.cameraRequestZoom, MapConstants.defaultZoom);
+      expect(mapNotifier.state.selectedLocation, isNull);
+      expect(mapNotifier.state.selectedPeaks.map((peak) => peak.osmId), [202]);
     },
   );
 }

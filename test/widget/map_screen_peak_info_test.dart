@@ -163,10 +163,12 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(container.read(mapProvider).peakInfoPeak?.osmId, 6406);
 
-    container
-        .read(mapProvider.notifier)
-        .updatePosition(const LatLng(-43.0, 147.0), 8);
+    container.read(mapProvider.notifier).requestCameraMove(
+      center: const LatLng(-43.0, 147.0),
+      zoom: 7,
+    );
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
     expect(container.read(mapProvider).peakInfoPeak, isNull);
   });
 

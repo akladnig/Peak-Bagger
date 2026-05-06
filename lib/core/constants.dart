@@ -5,12 +5,13 @@ import 'package:latlong2/latlong.dart';
 abstract final class MapConstants {
   static const defaultCenter = LatLng(-41.5, 146.5);
   static const defaultZoom = 15.0;
+  static const defaultMapZoom = 12.0;
   static const singlePointZoom = 15.0;
+  static const cameraEpsilon = 0.000001;
   static const searchRadiusMeters = 100.0;
   static const peakMinZoom = 6;
   static const peakMaxZoom = 18;
   static const clearPeakInfo = 8;
-
 }
 
 abstract final class GeoConstants {

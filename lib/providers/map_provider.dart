@@ -107,6 +107,9 @@ class MapState {
   final PeakInfoContent? peakInfo;
   final int? hoveredTrackId;
   final int? selectedTrackId;
+  final LatLng? cameraRequestCenter;
+  final double? cameraRequestZoom;
+  final int cameraRequestSerial;
 
   const MapState({
     required this.center,
@@ -152,6 +155,9 @@ class MapState {
     this.peakInfo,
     this.hoveredTrackId,
     this.selectedTrackId,
+    this.cameraRequestCenter,
+    this.cameraRequestZoom,
+    this.cameraRequestSerial = 0,
   });
 
   Peak? get peakInfoPeak => peakInfo?.peak;
@@ -217,6 +223,10 @@ class MapState {
     bool clearHoveredTrackId = false,
     int? selectedTrackId,
     bool clearSelectedTrackId = false,
+    LatLng? cameraRequestCenter,
+    double? cameraRequestZoom,
+    int? cameraRequestSerial,
+    bool clearCameraRequest = false,
     bool clearCursorMgrs = false,
     bool clearError = false,
     bool clearGotoMgrs = false,
@@ -289,6 +299,13 @@ class MapState {
       selectedTrackId: clearSelectedTrackId
           ? null
           : (selectedTrackId ?? this.selectedTrackId),
+      cameraRequestCenter: clearCameraRequest
+          ? null
+          : (cameraRequestCenter ?? this.cameraRequestCenter),
+      cameraRequestZoom: clearCameraRequest
+          ? null
+          : (cameraRequestZoom ?? this.cameraRequestZoom),
+      cameraRequestSerial: cameraRequestSerial ?? this.cameraRequestSerial,
     );
   }
 }
@@ -1143,6 +1160,48 @@ class MapNotifier extends Notifier<MapState> {
     savePosition();
   }
 
+  void requestCameraMove({
+    required LatLng center,
+    required double zoom,
+    LatLng? selectedLocation,
+    bool updateSelectedLocation = false,
+    List<Peak>? selectedPeaks,
+    bool updateSelectedPeaks = false,
+    bool persist = true,
+    bool clearGotoMgrs = false,
+    bool clearHoveredPeakId = true,
+    bool clearHoveredTrackId = true,
+  }) {
+    state = state.copyWith(
+      center: center,
+      zoom: zoom,
+      currentMgrs: _convertToMgrs(center),
+      selectedLocation: updateSelectedLocation ? selectedLocation : null,
+      clearSelectedLocation: updateSelectedLocation && selectedLocation == null,
+      selectedPeaks: updateSelectedPeaks ? selectedPeaks : null,
+      cameraRequestCenter: center,
+      cameraRequestZoom: zoom,
+      cameraRequestSerial: state.cameraRequestSerial + 1,
+      syncEnabled: true,
+      clearGotoMgrs: clearGotoMgrs,
+      clearHoveredPeakId: clearHoveredPeakId,
+      clearHoveredTrackId: clearHoveredTrackId,
+      clearPeakInfoPopup: zoom < MapConstants.clearPeakInfo,
+    );
+    if (persist) {
+      savePosition();
+    }
+  }
+
+  void consumeCameraRequest(int serial) {
+    if (state.cameraRequestSerial != serial ||
+        state.cameraRequestCenter == null ||
+        state.cameraRequestZoom == null) {
+      return;
+    }
+    state = state.copyWith(clearCameraRequest: true);
+  }
+
   void setBasemap(Basemap basemap) {
     state = state.copyWith(basemap: basemap);
   }
@@ -1212,16 +1271,15 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void centerOnLocation(LatLng location) {
-    state = state.copyWith(
+    requestCameraMove(
       center: location,
-      currentMgrs: _convertToMgrs(location),
-      clearGotoMgrs: true,
+      zoom: state.zoom,
       selectedLocation: location,
-      syncEnabled: true,
+      updateSelectedLocation: true,
+      clearGotoMgrs: true,
       clearHoveredPeakId: true,
       clearHoveredTrackId: true,
     );
-    savePosition();
   }
 
   void clearSelectedLocation() {
@@ -1247,15 +1305,13 @@ class MapNotifier extends Notifier<MapState> {
   void centerOnSelectedLocation() {
     final selected = state.selectedLocation;
     if (selected != null) {
-      state = state.copyWith(
+      requestCameraMove(
         center: selected,
-        currentMgrs: _convertToMgrs(selected),
-        syncEnabled: true,
+        zoom: state.zoom,
+        clearGotoMgrs: true,
         clearHoveredPeakId: true,
         clearHoveredTrackId: true,
-        clearGotoMgrs: true,
       );
-      savePosition();
     }
   }
 
@@ -2112,9 +2168,9 @@ class MapNotifier extends Notifier<MapState> {
     state = state.copyWith(
       center: LatLng(peak.latitude, peak.longitude),
       zoom: MapConstants.singlePointZoom,
-      syncEnabled: true,
       selectedPeaks: [peak],
       clearHoveredTrackId: true,
+      clearPeakInfoPopup: MapConstants.singlePointZoom < MapConstants.clearPeakInfo,
     );
   }
 

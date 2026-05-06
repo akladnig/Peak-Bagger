@@ -75,6 +75,9 @@ void main() {
     expect(find.byKey(const Key('peak-search-input')), findsNothing);
     expect(state.selectedPeaks.map((peak) => peak.osmId), contains(6406));
     expect(state.center, const LatLng(-43.0, 147.0));
+    expect(state.selectedLocation, isNull);
+    expect(state.cameraRequestCenter, isNull);
+    expect(state.cameraRequestZoom, isNull);
   });
 
   testWidgets('peak search result shows height and map name', (tester) async {

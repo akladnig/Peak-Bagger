@@ -254,8 +254,12 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   void _viewPeakOnMainMap(Peak peak) {
     final location = LatLng(peak.latitude, peak.longitude);
     final mapNotifier = ref.read(mapProvider.notifier);
-    mapNotifier.centerOnLocation(location);
-    mapNotifier.updatePosition(location, MapConstants.defaultZoom);
+    mapNotifier.requestCameraMove(
+      center: location,
+      zoom: MapConstants.defaultZoom,
+      selectedLocation: location,
+      updateSelectedLocation: true,
+    );
     router.go('/map');
   }
 

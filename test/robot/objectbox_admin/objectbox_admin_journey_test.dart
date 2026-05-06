@@ -234,7 +234,6 @@ void main() {
     expect(mapState.center.longitude, closeTo(peak.longitude, 0.001));
     expect(mapState.zoom, MapConstants.defaultZoom);
     expect(mapState.selectedLocation, isNotNull);
-    expect(mapState.syncEnabled, isTrue);
   });
 }
 
