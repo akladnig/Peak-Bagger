@@ -1423,9 +1423,6 @@ class MapNotifier extends Notifier<MapState> {
       clearGotoMgrs: focus != null,
       selectedTrackFocusSerial: state.selectedTrackFocusSerial + 1,
     );
-    if (focus != null) {
-      persistCameraPosition();
-    }
   }
 
   ({LatLng center, double zoom})? _trackFocus(GpxTrack track) {

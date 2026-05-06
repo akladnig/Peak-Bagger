@@ -42,15 +42,15 @@ Defer map camera persistence off hot paths; keep visible camera behavior unchang
 ### Phase 3: Route-Entry + Serial-Gated Fits
 
 - **Goal**: preserve cold-start/hidden-branch route-entry behavior; remove duplicate final saves
-- [ ] `lib/providers/map_provider.dart` - classify and route final persistence ownership for `requestCameraMove(...)`, `selectMap(...)`, `showTrack(...)`, `centerOnLocation(...)`, `centerOnSelectedLocation(...)`, `centerOnPeak(...)`, `selectAllSearchResults(...)`
-- [ ] `lib/screens/map_screen.dart` - preserve `cameraRequest*`, `selectedMapFocusSerial`, `selectedTrackFocusSerial` handoffs; keep one-shot serial gating; preserve cold-start vs hidden-branch behavior
-- [ ] `test/widget/map_screen_camera_request_test.dart` - keep/extending real-notifier `cameraRequest*` and selected-map route-entry coverage
-- [ ] `test/widget/map_screen_route_entry_test.dart` - new real-notifier selected-map/selected-track cold-start + hidden-branch replay/gating coverage
-- [ ] `test/widget/tasmap_map_screen_test.dart` - keep/update selected-track visible behavior if existing assertions still fit best there
-- [ ] TDD: off-screen `requestCameraMove(...)` preserves `selectedLocation`, `selectedPeaks`, `clearGotoMgrs`, hover-clear flags across cold-start and hidden branch; then implement handoff contract
-- [ ] TDD: `selectMap(...)` preserves `selectedMap`, `tasmapDisplayMode`, `clearSelectedLocation`, `mapSuggestions`, `mapSearchQuery`; one-shot fit only; then implement/retain serial gating
-- [ ] TDD: `showTrack(...)` preserves `tracks`, `selectedTrackId`, `selectedLocation`, `showTracks`, `clearHoveredTrackId`, `clearGotoMgrs`; final persisted camera owned by fit path, not pre-fit provider save; then implement duplicate-save cleanup
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/providers/map_provider.dart` - classify and route final persistence ownership for `requestCameraMove(...)`, `selectMap(...)`, `showTrack(...)`, `centerOnLocation(...)`, `centerOnSelectedLocation(...)`, `centerOnPeak(...)`, `selectAllSearchResults(...)`
+- [x] `lib/screens/map_screen.dart` - preserve `cameraRequest*`, `selectedMapFocusSerial`, `selectedTrackFocusSerial` handoffs; keep one-shot serial gating; preserve cold-start vs hidden-branch behavior
+- [x] `test/widget/map_screen_camera_request_test.dart` - keep/extending real-notifier `cameraRequest*` and selected-map route-entry coverage
+- [x] `test/widget/map_screen_route_entry_test.dart` - new real-notifier selected-map/selected-track cold-start + hidden-branch replay/gating coverage
+- [x] `test/widget/tasmap_map_screen_test.dart` - keep/update selected-track visible behavior if existing assertions still fit best there
+- [x] TDD: off-screen `requestCameraMove(...)` preserves `selectedLocation`, `selectedPeaks`, `clearGotoMgrs`, hover-clear flags across cold-start and hidden branch; then implement handoff contract
+- [x] TDD: `selectMap(...)` preserves `selectedMap`, `tasmapDisplayMode`, `clearSelectedLocation`, `mapSuggestions`, `mapSearchQuery`; one-shot fit only; then implement/retain serial gating
+- [x] TDD: `showTrack(...)` preserves `tracks`, `selectedTrackId`, `selectedLocation`, `showTracks`, `clearHoveredTrackId`, `clearGotoMgrs`; final persisted camera owned by fit path, not pre-fit provider save; then implement duplicate-save cleanup
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 4: Journey Regression Sweep
 
