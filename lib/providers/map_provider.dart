@@ -1117,12 +1117,21 @@ class MapNotifier extends Notifier<MapState> {
     }
   }
 
-  Future<void> savePosition() async {
+  Future<void> persistCameraPosition() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setDouble(_latKey, state.center.latitude);
       await prefs.setDouble(_lngKey, state.center.longitude);
       await prefs.setDouble(_zoomKey, state.zoom);
+      state = state.copyWith(isFirstLaunch: false);
+    } catch (e) {
+      // Continue without saving
+    }
+  }
+
+  Future<void> persistPeakListSelection() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
         _peakListSelectionModeKey,
         state.peakListSelectionMode.name,
@@ -1133,7 +1142,6 @@ class MapNotifier extends Notifier<MapState> {
       } else {
         await prefs.remove(_peakListIdKey);
       }
-      state = state.copyWith(isFirstLaunch: false);
     } catch (e) {
       // Continue without saving
     }
@@ -1157,7 +1165,6 @@ class MapNotifier extends Notifier<MapState> {
       clearHoveredTrackId: true,
       clearPeakInfoPopup: zoom < MapConstants.clearPeakInfo,
     );
-    savePosition();
   }
 
   void requestCameraMove({
@@ -1189,7 +1196,7 @@ class MapNotifier extends Notifier<MapState> {
       clearPeakInfoPopup: zoom < MapConstants.clearPeakInfo,
     );
     if (persist) {
-      savePosition();
+      persistCameraPosition();
     }
   }
 
@@ -1233,7 +1240,7 @@ class MapNotifier extends Notifier<MapState> {
       clearPeakInfoPopup: true,
       clearHoveredPeakId: true,
     );
-    savePosition();
+    persistPeakListSelection();
   }
 
   void reconcileSelectedPeakList() {
@@ -1267,7 +1274,7 @@ class MapNotifier extends Notifier<MapState> {
       clearPeakInfoPopup: true,
       clearHoveredPeakId: true,
     );
-    savePosition();
+    persistPeakListSelection();
   }
 
   void centerOnLocation(LatLng location) {
@@ -1416,9 +1423,6 @@ class MapNotifier extends Notifier<MapState> {
       clearGotoMgrs: focus != null,
       selectedTrackFocusSerial: state.selectedTrackFocusSerial + 1,
     );
-    if (focus != null) {
-      savePosition();
-    }
   }
 
   ({LatLng center, double zoom})? _trackFocus(GpxTrack track) {
@@ -1999,7 +2003,7 @@ class MapNotifier extends Notifier<MapState> {
 
   void centerOnLocationWithZoom(LatLng location, Tasmap50k map) {
     state = state.copyWith(center: location, clearHoveredTrackId: true);
-    savePosition();
+    persistCameraPosition();
   }
 
   void toggleMapOverlay() {
