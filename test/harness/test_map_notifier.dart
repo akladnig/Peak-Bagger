@@ -121,6 +121,36 @@ class TestMapNotifier extends MapNotifier {
   }
 
   @override
+  void requestCameraMove({
+    required LatLng center,
+    required double zoom,
+    LatLng? selectedLocation,
+    bool updateSelectedLocation = false,
+    List<Peak>? selectedPeaks,
+    bool updateSelectedPeaks = false,
+    bool persist = true,
+    bool clearGotoMgrs = false,
+    bool clearHoveredPeakId = true,
+    bool clearHoveredTrackId = true,
+  }) {
+    state = state.copyWith(
+      center: center,
+      zoom: zoom,
+      selectedLocation: updateSelectedLocation ? selectedLocation : null,
+      clearSelectedLocation: updateSelectedLocation && selectedLocation == null,
+      selectedPeaks: updateSelectedPeaks ? selectedPeaks : null,
+      cameraRequestCenter: center,
+      cameraRequestZoom: zoom,
+      cameraRequestSerial: state.cameraRequestSerial + 1,
+      syncEnabled: true,
+      clearGotoMgrs: clearGotoMgrs,
+      clearHoveredPeakId: clearHoveredPeakId,
+      clearHoveredTrackId: clearHoveredTrackId,
+      clearPeakInfoPopup: zoom < MapConstants.clearPeakInfo,
+    );
+  }
+
+  @override
   void searchPeaks(String query) {
     final lowered = query.toLowerCase();
     final results = state.peaks
@@ -153,11 +183,40 @@ class TestMapNotifier extends MapNotifier {
 
   @override
   void centerOnPeak(Peak peak) {
-    state = state.copyWith(
+    requestCameraMove(
       center: LatLng(peak.latitude, peak.longitude),
-      zoom: MapConstants.defaultZoom,
-      syncEnabled: true,
+      zoom: MapConstants.singlePointZoom,
       selectedPeaks: [peak],
+      updateSelectedPeaks: true,
+      persist: false,
+      clearHoveredTrackId: true,
+    );
+  }
+
+  @override
+  void centerOnLocation(LatLng location) {
+    requestCameraMove(
+      center: location,
+      zoom: state.zoom,
+      selectedLocation: location,
+      updateSelectedLocation: true,
+      clearGotoMgrs: true,
+      clearHoveredPeakId: true,
+      clearHoveredTrackId: true,
+    );
+  }
+
+  @override
+  void centerOnSelectedLocation() {
+    final selected = state.selectedLocation;
+    if (selected == null) {
+      return;
+    }
+    requestCameraMove(
+      center: selected,
+      zoom: state.zoom,
+      clearGotoMgrs: true,
+      clearHoveredPeakId: true,
       clearHoveredTrackId: true,
     );
   }
