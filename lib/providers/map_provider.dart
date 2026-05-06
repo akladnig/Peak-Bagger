@@ -1138,7 +1138,7 @@ class MapNotifier extends Notifier<MapState> {
       clearCursorMgrs: true,
       clearHoveredPeakId: true,
       clearHoveredTrackId: true,
-      clearPeakInfoPopup: zoom < 8,
+      clearPeakInfoPopup: zoom < MapConstants.clearPeakInfo,
     );
     savePosition();
   }
@@ -1371,7 +1371,7 @@ class MapNotifier extends Notifier<MapState> {
       return null;
     }
     if (points.length == 1) {
-      return (center: points.single, zoom: 12);
+      return (center: points.single, zoom: MapConstants.singlePointZoom);
     }
 
     var minLat = double.infinity;
@@ -2111,7 +2111,7 @@ class MapNotifier extends Notifier<MapState> {
   void centerOnPeak(Peak peak) {
     state = state.copyWith(
       center: LatLng(peak.latitude, peak.longitude),
-      zoom: 15.0,
+      zoom: MapConstants.singlePointZoom,
       syncEnabled: true,
       selectedPeaks: [peak],
       clearHoveredTrackId: true,

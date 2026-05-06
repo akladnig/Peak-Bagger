@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
@@ -254,7 +255,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     final location = LatLng(peak.latitude, peak.longitude);
     final mapNotifier = ref.read(mapProvider.notifier);
     mapNotifier.centerOnLocation(location);
-    mapNotifier.updatePosition(location, 15);
+    mapNotifier.updatePosition(location, MapConstants.defaultZoom);
     router.go('/map');
   }
 

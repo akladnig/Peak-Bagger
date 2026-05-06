@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
@@ -231,7 +232,7 @@ void main() {
     final mapState = container.read(mapProvider);
     expect(mapState.center.latitude, closeTo(peak.latitude, 0.001));
     expect(mapState.center.longitude, closeTo(peak.longitude, 0.001));
-    expect(mapState.zoom, 15);
+    expect(mapState.zoom, MapConstants.defaultZoom);
     expect(mapState.selectedLocation, isNotNull);
     expect(mapState.syncEnabled, isTrue);
   });

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
@@ -115,7 +116,7 @@ class TestMapNotifier extends MapNotifier {
       center: center,
       zoom: zoom,
       clearHoveredTrackId: true,
-      clearPeakInfoPopup: zoom < 9,
+      clearPeakInfoPopup: zoom < MapConstants.clearPeakInfo,
     );
   }
 
@@ -154,7 +155,7 @@ class TestMapNotifier extends MapNotifier {
   void centerOnPeak(Peak peak) {
     state = state.copyWith(
       center: LatLng(peak.latitude, peak.longitude),
-      zoom: 15,
+      zoom: MapConstants.defaultZoom,
       syncEnabled: true,
       selectedPeaks: [peak],
       clearHoveredTrackId: true,
