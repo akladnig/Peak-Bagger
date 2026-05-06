@@ -151,6 +151,12 @@ class TestMapNotifier extends MapNotifier {
   }
 
   @override
+  Future<void> persistCameraPosition() async {}
+
+  @override
+  Future<void> persistPeakListSelection() async {}
+
+  @override
   void searchPeaks(String query) {
     final lowered = query.toLowerCase();
     final results = state.peaks

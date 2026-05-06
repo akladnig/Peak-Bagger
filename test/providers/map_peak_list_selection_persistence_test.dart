@@ -95,6 +95,45 @@ void main() {
     );
     expect(container.read(mapProvider).selectedPeakListId, isNull);
   });
+
+  test('peak list selection save does not rewrite camera prefs', () async {
+    SharedPreferences.setMockInitialValues({
+      'map_position_lat': -43.0,
+      'map_position_lng': 147.0,
+      'map_zoom': 12.0,
+    });
+
+    final container = ProviderContainer(
+      overrides: [
+        mapProvider.overrideWith(
+          () => _InitialStateMapNotifier(
+            MapState(
+              center: const LatLng(-41.5, 146.5),
+              zoom: 15,
+              basemap: Basemap.tracestrack,
+            ),
+          ),
+        ),
+        peakListRepositoryProvider.overrideWithValue(
+          PeakListRepository.test(InMemoryPeakListStorage()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    container.read(mapProvider.notifier).selectPeakList(
+      PeakListSelectionMode.specificList,
+      peakListId: 7,
+    );
+    await _drainAsync();
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getDouble('map_position_lat'), -43.0);
+    expect(prefs.getDouble('map_position_lng'), 147.0);
+    expect(prefs.getDouble('map_zoom'), 12.0);
+    expect(prefs.getString('peak_list_selection_mode'), 'specificList');
+    expect(prefs.getInt('peak_list_id'), 7);
+  });
 }
 
 Future<void> _drainAsync() async {
