@@ -55,10 +55,10 @@ Defer map camera persistence off hot paths; keep visible camera behavior unchang
 ### Phase 4: Journey Regression Sweep
 
 - **Goal**: user-visible map journeys still coherent
-- [ ] `test/robot/tasmap/tasmap_journey_test.dart` + `test/robot/tasmap/tasmap_robot.dart` - keep selected-map goto journey green; stable keys only; no persistence assertions unless real notifier intentionally used
-- [ ] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` or focused robot lane - cover selected-track route-entry journey if Phase 3 changes visible behavior
-- [ ] TDD: critical journey stays visually/functionally correct after persistence refactor; then adjust robot helpers/selectors minimally
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `test/robot/tasmap/tasmap_journey_test.dart` + `test/robot/tasmap/tasmap_robot.dart` - keep selected-map goto journey green; stable keys only; no persistence assertions unless real notifier intentionally used
+- [x] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` or focused robot lane - cover selected-track route-entry journey if Phase 3 changes visible behavior
+- [x] TDD: critical journey stays visually/functionally correct after persistence refactor; then adjust robot helpers/selectors minimally
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 
