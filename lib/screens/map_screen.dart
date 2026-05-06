@@ -355,6 +355,53 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     _trackpadGestureZoom = null;
   }
 
+  void _centerOnSelectedLocationDirect() {
+    final selected = ref.read(mapProvider).selectedLocation;
+    if (selected == null) {
+      return;
+    }
+
+    _mapController.move(selected, _mapController.camera.zoom);
+    final notifier = ref.read(mapProvider.notifier);
+    notifier.updatePosition(selected, _mapController.camera.zoom);
+    notifier.clearGotoMgrs();
+  }
+
+  void _moveVisibleMapToLocation(
+    LatLng location,
+    double zoom, {
+    bool updateSelectedLocation = false,
+  }) {
+    _mapController.move(location, zoom);
+    final notifier = ref.read(mapProvider.notifier);
+    if (updateSelectedLocation) {
+      notifier.setSelectedLocation(location);
+    }
+    notifier.updatePosition(location, zoom);
+    notifier.clearGotoMgrs();
+  }
+
+  double _selectedMapGotoZoom(Tasmap50k map) {
+    if (_mapController.camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      return MapConstants.defaultMapZoom;
+    }
+
+    final bounds = ref.read(tasmapRepositoryProvider).getMapBounds(map);
+    if (bounds == null) {
+      return MapConstants.defaultMapZoom;
+    }
+
+    try {
+      final fit = CameraFit.bounds(
+        bounds: bounds,
+        padding: const EdgeInsets.all(50),
+      );
+      return fit.fit(_mapController.camera).zoom;
+    } catch (_) {
+      return MapConstants.defaultMapZoom;
+    }
+  }
+
   @override
   void dispose() {
     _scrollTimer?.cancel();
@@ -499,7 +546,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             _scaffoldKey.currentState?.openEndDrawer();
             return KeyEventResult.handled;
           } else if (key == LogicalKeyboardKey.keyC) {
-            ref.read(mapProvider.notifier).centerOnSelectedLocation();
+            _centerOnSelectedLocationDirect();
             return KeyEventResult.handled;
           } else if (key == LogicalKeyboardKey.keyM) {
             ref.read(mapProvider.notifier).toggleMapOverlay();
@@ -541,7 +588,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ),
                     onMapReady: _handleMapReady,
                     onSecondaryTap: (tapPosition, point) {
-                      ref.read(mapProvider.notifier).centerOnSelectedLocation();
+                      _centerOnSelectedLocationDirect();
                     },
                     onPointerDown: (event, point) {
                       _mapFocusNode.requestFocus();
@@ -869,13 +916,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       setState(() => _gotoError = error);
     } else if (location != null) {
       final selectedMap = ref.read(mapProvider).selectedMap;
-      if (selectedMap != null) {
-        _zoomToMapExtent(selectedMap);
-        ref.read(mapProvider.notifier).centerOnLocation(location);
-      } else {
-        _mapController.move(location, 15);
-        ref.read(mapProvider.notifier).centerOnLocation(location);
-      }
+      final zoom = selectedMap == null
+          ? MapConstants.defaultZoom
+          : _selectedMapGotoZoom(selectedMap);
+      _moveVisibleMapToLocation(location, zoom, updateSelectedLocation: true);
       ref.read(mapProvider.notifier).setGotoInputVisible(false);
     }
   }

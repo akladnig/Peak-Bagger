@@ -31,14 +31,14 @@ Remove rebuild-time camera replay. Replace with explicit non-controller request 
 ### Phase 2: Visible-Map Ownership Split
 
 - **Goal**: move visible-map recenter and goto paths onto direct controller ownership
-- [ ] `test/widget/` focused map sync test file - add keyboard `C`, `onSecondaryTap`, visible-map goto, selected-map goto zoom-derivation coverage
-- [ ] `lib/screens/map_screen.dart` - convert key `C` and `onSecondaryTap` to direct controller-owned recenter; convert visible-map goto completion to direct controller-owned move; forbid intermediate visible fit move for selected-map goto
-- [ ] `lib/providers/map_provider.dart` - split shared location helpers by caller ownership; add named non-controller selected-location request only if needed; keep `centerOnLocation(...)`/`centerOnSelectedLocation(...)` semantics explicit
-- [ ] `lib/widgets/map_action_rail.dart` - keep current-location and center-on-marker on request path; align to renamed API if introduced
-- [ ] TDD: visible-map selected-location recenter via keyboard `C` updates camera without request replay, then implement
-- [ ] TDD: selected-map goto derives zoom only and settles directly on resolved location with no intermediate visible fit move, then implement
-- [ ] TDD: non-controller center-on-marker remains request-driven and still lands on current selected location, then implement
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `test/widget/` focused map sync test file - add keyboard `C`, `onSecondaryTap`, visible-map goto, selected-map goto zoom-derivation coverage
+- [x] `lib/screens/map_screen.dart` - convert key `C` and `onSecondaryTap` to direct controller-owned recenter; convert visible-map goto completion to direct controller-owned move; forbid intermediate visible fit move for selected-map goto
+- [x] `lib/providers/map_provider.dart` - split shared location helpers by caller ownership; add named non-controller selected-location request only if needed; keep `centerOnLocation(...)`/`centerOnSelectedLocation(...)` semantics explicit
+- [x] `lib/widgets/map_action_rail.dart` - keep current-location and center-on-marker on request path; align to renamed API if introduced
+- [x] TDD: visible-map selected-location recenter via keyboard `C` updates camera without request replay, then implement
+- [x] TDD: selected-map goto derives zoom only and settles directly on resolved location with no intermediate visible fit move, then implement
+- [x] TDD: non-controller center-on-marker remains request-driven and still lands on current selected location, then implement
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Remaining Callers And Regressions
 
