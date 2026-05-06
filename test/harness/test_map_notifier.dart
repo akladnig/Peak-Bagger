@@ -183,13 +183,12 @@ class TestMapNotifier extends MapNotifier {
 
   @override
   void centerOnPeak(Peak peak) {
-    requestCameraMove(
+    state = state.copyWith(
       center: LatLng(peak.latitude, peak.longitude),
       zoom: MapConstants.singlePointZoom,
       selectedPeaks: [peak],
-      updateSelectedPeaks: true,
-      persist: false,
       clearHoveredTrackId: true,
+      clearPeakInfoPopup: MapConstants.singlePointZoom < MapConstants.clearPeakInfo,
     );
   }
 

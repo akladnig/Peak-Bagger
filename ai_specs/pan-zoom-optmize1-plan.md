@@ -43,15 +43,15 @@ Remove rebuild-time camera replay. Replace with explicit non-controller request 
 ### Phase 3: Remaining Callers And Regressions
 
 - **Goal**: finish off-controller callers; preserve peak and fit behavior
-- [ ] `test/widget/` focused map sync test file - add peak-dialog navigate-to-peak request coverage; keep `centerOnPeak(...)` distinct and non-persisting
-- [ ] `test/widget/map_screen_peak_search_test.dart` - assert peak-search focus still uses visible-map focus-and-select semantics
-- [ ] `lib/widgets/peak_list_peak_dialog.dart` - migrate `_navigateToPeakOnMap()` off direct `updatePosition(...)`; keep plain navigation semantics; keep track-open flow aligned to request/fit contract
-- [ ] `lib/providers/map_provider.dart` - narrow or remove generic `syncEnabled` replay role; retain only compatibility state if still required
-- [ ] `lib/screens/map_screen.dart` - preserve selected-map and selected-track fit serial gating; normalize selected-map fit fallback zoom to `MapConstants.defaultMapZoom`
-- [ ] TDD: peak-dialog navigate-to-peak uses request path without setting `selectedPeaks`, then implement
-- [ ] TDD: `centerOnPeak(...)` remains visible-map-only, non-persisting, and does not set `selectedLocation`, then implement
-- [ ] TDD: selected-map fit fallback uses `MapConstants.defaultMapZoom`, then implement
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `test/widget/peak_list_peak_dialog_test.dart` - add peak-dialog navigate-to-peak request coverage; keep `centerOnPeak(...)` distinct and non-persisting
+- [x] `test/widget/map_screen_peak_search_test.dart` - assert peak-search focus still uses visible-map focus-and-select semantics
+- [x] `lib/widgets/peak_list_peak_dialog.dart` - migrate `_navigateToPeakOnMap()` off direct `updatePosition(...)`; keep plain navigation semantics; keep track-open flow aligned to request/fit contract
+- [x] `lib/providers/map_provider.dart` - narrow or remove generic `syncEnabled` replay role; retain only compatibility state if still required
+- [x] `lib/screens/map_screen.dart` - preserve selected-map and selected-track fit serial gating; normalize selected-map fit fallback zoom to `MapConstants.defaultMapZoom`
+- [x] TDD: peak-dialog navigate-to-peak uses request path without setting `selectedPeaks`, then implement
+- [x] TDD: `centerOnPeak(...)` remains visible-map-only, non-persisting, and does not set `selectedLocation`, then implement
+- [x] TDD: selected-map fit fallback uses `MapConstants.defaultMapZoom`, then implement
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

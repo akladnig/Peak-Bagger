@@ -355,6 +355,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     _trackpadGestureZoom = null;
   }
 
+  void _focusPeakDirect(Peak peak) {
+    final location = LatLng(peak.latitude, peak.longitude);
+    _mapController.move(location, MapConstants.singlePointZoom);
+    ref.read(mapProvider.notifier).centerOnPeak(peak);
+  }
+
   void _centerOnSelectedLocationDirect() {
     final selected = ref.read(mapProvider).selectedLocation;
     if (selected == null) {
@@ -811,7 +817,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ref.read(mapProvider.notifier).setPeakSearchVisible(false);
                   },
                   onSelectPeak: (peak) {
-                    ref.read(mapProvider.notifier).centerOnPeak(peak);
+                    _focusPeakDirect(peak);
                     ref.read(mapProvider.notifier).setPeakSearchVisible(false);
                     ref.read(mapProvider.notifier).clearSearch();
                   },

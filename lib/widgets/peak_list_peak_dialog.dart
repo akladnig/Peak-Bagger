@@ -508,9 +508,10 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   void _navigateToPeakOnMap() {
     final peak = widget.peak;
     if (peak == null) return;
-    ref
-        .read(mapProvider.notifier)
-        .updatePosition(LatLng(peak.latitude, peak.longitude), 15.0);
+    ref.read(mapProvider.notifier).requestCameraMove(
+      center: LatLng(peak.latitude, peak.longitude),
+      zoom: MapConstants.defaultZoom,
+    );
     _closeDialogAndGoMap();
   }
 
@@ -738,9 +739,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
       return;
     }
 
-    final mapNotifier = ref.read(mapProvider.notifier);
-    mapNotifier.enableSync();
-    mapNotifier.showTrack(
+    ref.read(mapProvider.notifier).showTrack(
       track.gpxTrackId,
       selectedLocation: widget.peak == null
           ? null
