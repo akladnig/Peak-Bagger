@@ -143,9 +143,11 @@ void main() {
 
     expect(container.read(mapProvider).hoveredTrackId, isNull);
     expect(_mapRegion(tester).cursor, SystemMouseCursors.grab);
+
+    await gesture.removePointer();
   });
 
-  testWidgets('hidden tracks and recovery mode disable hover detection', (
+  testWidgets('hidden tracks disable hover detection', (
     tester,
   ) async {
     final hiddenState = _mapStateWithVisibleTrack(showTracks: false);
@@ -158,11 +160,6 @@ void main() {
     final hiddenGesture = await tester.createGesture(
       kind: PointerDeviceKind.mouse,
     );
-    addTearDown(() async {
-      try {
-        await hiddenGesture.removePointer();
-      } catch (_) {}
-    });
 
     final hiddenCenter = tester.getCenter(hiddenRegion);
     await hiddenGesture.addPointer(location: hiddenCenter);
@@ -174,7 +171,9 @@ void main() {
     expect(_mapRegion(tester).cursor, SystemMouseCursors.grab);
 
     await hiddenGesture.removePointer();
+  });
 
+  testWidgets('recovery mode disables hover detection', (tester) async {
     await _pumpMapApp(
       tester,
       _mapStateWithVisibleTrack(hasRecoveryIssue: true),
@@ -187,11 +186,6 @@ void main() {
     final recoveryGesture = await tester.createGesture(
       kind: PointerDeviceKind.mouse,
     );
-    addTearDown(() async {
-      try {
-        await recoveryGesture.removePointer();
-      } catch (_) {}
-    });
 
     final recoveryCenter = tester.getCenter(recoveryRegion);
     await recoveryGesture.addPointer(location: recoveryCenter);
@@ -201,6 +195,8 @@ void main() {
 
     expect(recoveryContainer.read(mapProvider).hoveredTrackId, isNull);
     expect(_mapRegion(tester).cursor, SystemMouseCursors.grab);
+
+    await recoveryGesture.removePointer();
   });
 
   testWidgets('camera changes clear stale hovered track state', (tester) async {
@@ -209,7 +205,6 @@ void main() {
     final region = find.byKey(const Key('map-interaction-region'));
     final container = ProviderScope.containerOf(tester.element(region));
     final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    addTearDown(gesture.removePointer);
 
     final center = tester.getCenter(region);
     await gesture.addPointer(location: center);
@@ -226,6 +221,8 @@ void main() {
 
     expect(container.read(mapProvider).hoveredTrackId, isNull);
     expect(_mapRegion(tester).cursor, SystemMouseCursors.grab);
+
+    await gesture.removePointer();
   });
 
   testWidgets('trackpad scroll down changes zoom without moving center', (
@@ -242,11 +239,6 @@ void main() {
       tester.getCenter(region),
       kind: PointerDeviceKind.trackpad,
     );
-    addTearDown(() async {
-      try {
-        await gesture.up();
-      } catch (_) {}
-    });
 
     await gesture.panZoomUpdate(
       tester.getCenter(region),
@@ -263,10 +255,21 @@ void main() {
       container.read(mapProvider).center.longitude,
       moreOrLessEquals(initialCenter.longitude, epsilon: 0.000001),
     );
+
+    await gesture.up();
   });
 }
 
 Future<void> _pumpMapApp(WidgetTester tester, MapState state) async {
+  addTearDown(() async {
+    try {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      router.go('/');
+      await tester.pump();
+    } catch (_) {}
+  });
+
   await tester.pumpWidget(
     ProviderScope(
       overrides: [mapProvider.overrideWith(() => TestMapNotifier(state))],

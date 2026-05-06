@@ -29,11 +29,6 @@ void main() {
       tester.getCenter(region),
       kind: PointerDeviceKind.trackpad,
     );
-    addTearDown(() async {
-      try {
-        await gesture.up();
-      } catch (_) {}
-    });
 
     await gesture.panZoomUpdate(
       tester.getCenter(region),
@@ -51,6 +46,8 @@ void main() {
       state.center.longitude,
       moreOrLessEquals(initialState.center.longitude, epsilon: 0.000001),
     );
+
+    await gesture.up();
   });
 
   testWidgets('trackpad pinch zoom still changes zoom after gesture update', (
@@ -71,11 +68,6 @@ void main() {
       tester.getCenter(region),
       kind: PointerDeviceKind.trackpad,
     );
-    addTearDown(() async {
-      try {
-        await gesture.up();
-      } catch (_) {}
-    });
 
     await gesture.panZoomUpdate(
       tester.getCenter(region),
@@ -94,6 +86,8 @@ void main() {
       state.center.longitude,
       moreOrLessEquals(initialState.center.longitude, epsilon: 0.000001),
     );
+
+    await gesture.up();
   });
 
   testWidgets('trackpad horizontal gesture is a no-op', (tester) async {
@@ -112,11 +106,6 @@ void main() {
       tester.getCenter(region),
       kind: PointerDeviceKind.trackpad,
     );
-    addTearDown(() async {
-      try {
-        await gesture.up();
-      } catch (_) {}
-    });
 
     await gesture.panZoomUpdate(
       tester.getCenter(region),
@@ -134,6 +123,8 @@ void main() {
       state.center.longitude,
       moreOrLessEquals(initialState.center.longitude, epsilon: 0.000001),
     );
+
+    await gesture.up();
   });
 
   testWidgets('trackpad diagonal scroll down uses the vertical component', (
@@ -154,11 +145,6 @@ void main() {
       tester.getCenter(region),
       kind: PointerDeviceKind.trackpad,
     );
-    addTearDown(() async {
-      try {
-        await gesture.up();
-      } catch (_) {}
-    });
 
     await gesture.panZoomUpdate(
       tester.getCenter(region),
@@ -176,6 +162,8 @@ void main() {
       state.center.longitude,
       moreOrLessEquals(initialState.center.longitude, epsilon: 0.000001),
     );
+
+    await gesture.up();
   });
 
   testWidgets('trackpad vertical zoom clamps at the max zoom bound', (
@@ -196,11 +184,6 @@ void main() {
       tester.getCenter(region),
       kind: PointerDeviceKind.trackpad,
     );
-    addTearDown(() async {
-      try {
-        await gesture.up();
-      } catch (_) {}
-    });
 
     await gesture.panZoomUpdate(
       tester.getCenter(region),
@@ -218,6 +201,8 @@ void main() {
       state.center.longitude,
       moreOrLessEquals(initialState.center.longitude, epsilon: 0.000001),
     );
+
+    await gesture.up();
   });
 }
 

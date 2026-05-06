@@ -29,15 +29,15 @@ Defer map camera persistence off hot paths; keep visible camera behavior unchang
 ### Phase 2: Interactive Completion + Lifecycle Flush
 
 - **Goal**: trackpad, keyboard, pause/dispose flush; no duplicate flush
-- [ ] `lib/screens/map_screen.dart` - wire `PointerPanZoomEnd`, `_stopScrolling()`, discrete keyboard zoom commit, `WidgetsBindingObserver`, pause flush, disposal flush, consume-on-flush
-- [ ] `test/widget/map_screen_persistence_test.dart` - real-notifier keyboard, trackpad, pause, dispose, consume-on-flush coverage
-- [ ] `test/widget/map_screen_keyboard_test.dart` - keep gesture/UI assertions only; adapt if keys or timing seams change
-- [ ] `test/widget/map_screen_trackpad_gesture_test.dart` - keep gesture/UI assertions only; adapt if handler shape changes
-- [ ] TDD: trackpad update defers save; `PointerPanZoomEnd` commits once; then implement end seam
-- [ ] TDD: held-key pan commits once at `_stopScrolling()`; discrete keyboard zoom commits once per keydown; then implement keyboard seams
-- [ ] TDD: pause flush and disposal flush consume pending final camera so same camera cannot flush twice; then implement lifecycle owner
-- [ ] Robot journey tests + selectors/seams for critical flows: update existing robot only for visible gesture behavior if UI changes; keep persistence proof outside robot unless real-notifier lane added
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/screens/map_screen.dart` - wire `PointerPanZoomEnd`, `_stopScrolling()`, discrete keyboard zoom commit, `WidgetsBindingObserver`, pause flush, disposal flush, consume-on-flush
+- [x] `test/widget/map_screen_persistence_test.dart` - real-notifier keyboard, trackpad, pause, dispose, consume-on-flush coverage
+- [x] `test/widget/map_screen_keyboard_test.dart` - keep gesture/UI assertions only; adapt if keys or timing seams change
+- [x] `test/widget/map_screen_trackpad_gesture_test.dart` - keep gesture/UI assertions only; adapt if handler shape changes
+- [x] TDD: trackpad update defers save; `PointerPanZoomEnd` commits once; then implement end seam
+- [x] TDD: held-key pan commits once at `_stopScrolling()`; discrete keyboard zoom commits once per keydown; then implement keyboard seams
+- [x] TDD: pause flush and disposal flush consume pending final camera so same camera cannot flush twice; then implement lifecycle owner
+- [x] Robot journey tests + selectors/seams for critical flows: update existing robot only for visible gesture behavior if UI changes; keep persistence proof outside robot unless real-notifier lane added
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Route-Entry + Serial-Gated Fits
 

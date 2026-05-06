@@ -336,15 +336,12 @@ class GpxTracksRobot {
       tester.getCenter(mapInteractionRegion),
       kind: PointerDeviceKind.trackpad,
     );
-    addTearDown(() async {
-      try {
-        await gesture.up();
-      } catch (_) {}
-    });
     await gesture.panZoomUpdate(
       tester.getCenter(mapInteractionRegion),
       pan: const Offset(0, 120),
     );
+    await tester.pump();
+    await gesture.up();
     await tester.pump();
   }
 

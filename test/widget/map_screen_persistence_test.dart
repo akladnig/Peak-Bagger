@@ -1,4 +1,7 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -77,10 +80,99 @@ void main() {
     );
     expect(prefsAfterDebounce.getDouble('map_zoom'), state.zoom);
   });
+
+  testWidgets('trackpad gesture commits once at pan-zoom end', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final notifier = await _buildCountingNotifier();
+    await _pumpApp(tester, notifier);
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final gesture = await tester.startGesture(
+      tester.getCenter(region),
+      kind: PointerDeviceKind.trackpad,
+    );
+
+    await gesture.panZoomUpdate(
+      tester.getCenter(region),
+      pan: const Offset(0, 120),
+    );
+    await tester.pump();
+
+    expect(notifier.persistCameraPositionCallCount, 0);
+
+    await gesture.up();
+    await tester.pump();
+
+    expect(notifier.persistCameraPositionCallCount, 1);
+  });
+
+  testWidgets('held-key pan commits once at stop scrolling', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final notifier = await _buildCountingNotifier();
+    await _pumpApp(tester, notifier);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump(const Duration(milliseconds: 64));
+
+    expect(notifier.persistCameraPositionCallCount, 0);
+
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+
+    expect(notifier.persistCameraPositionCallCount, 1);
+  });
+
+  testWidgets('discrete keyboard zoom commits once per keydown', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final notifier = await _buildCountingNotifier();
+    await _pumpApp(tester, notifier);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.period);
+    await tester.pump();
+
+    expect(notifier.persistCameraPositionCallCount, 1);
+  });
+
+  testWidgets('pause flush consumes pending save before dispose', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final notifier = await _buildCountingNotifier();
+    await _pumpApp(tester, notifier);
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.drag(region, const Offset(80, 0));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(notifier.persistCameraPositionCallCount, 0);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+
+    expect(notifier.persistCameraPositionCallCount, 1);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+
+    expect(notifier.persistCameraPositionCallCount, 1);
+  });
 }
 
 Future<MapNotifier> _buildRealNotifier() async {
   return MapNotifier(
+    peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+    overpassService: OverpassService(),
+    tasmapRepository: await TestTasmapRepository.create(),
+    gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+    peaksBaggedRepository: PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
+    migrationMarkerStore: const MigrationMarkerStore(),
+    loadPositionOnBuild: false,
+    loadPeaksOnBuild: false,
+    loadTracksOnBuild: false,
+  );
+}
+
+Future<_CountingMapNotifier> _buildCountingNotifier() async {
+  return _CountingMapNotifier(
     peakRepository: PeakRepository.test(InMemoryPeakStorage()),
     overpassService: OverpassService(),
     tasmapRepository: await TestTasmapRepository.create(),
@@ -116,4 +208,26 @@ Future<void> _drainAsync() async {
   await Future<void>.delayed(Duration.zero);
   await Future<void>.delayed(Duration.zero);
   await Future<void>.delayed(const Duration(milliseconds: 10));
+}
+
+class _CountingMapNotifier extends MapNotifier {
+  _CountingMapNotifier({
+    required super.peakRepository,
+    required super.overpassService,
+    required super.tasmapRepository,
+    required super.gpxTrackRepository,
+    required super.peaksBaggedRepository,
+    required super.migrationMarkerStore,
+    required super.loadPositionOnBuild,
+    required super.loadPeaksOnBuild,
+    required super.loadTracksOnBuild,
+  });
+
+  int persistCameraPositionCallCount = 0;
+
+  @override
+  Future<void> persistCameraPosition() async {
+    persistCameraPositionCallCount += 1;
+    await super.persistCameraPosition();
+  }
 }

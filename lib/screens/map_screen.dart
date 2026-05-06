@@ -39,9 +39,11 @@ class MapScreen extends ConsumerStatefulWidget {
   ConsumerState<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends ConsumerState<MapScreen> {
+class _MapScreenState extends ConsumerState<MapScreen>
+    with WidgetsBindingObserver {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   late final MapController _mapController;
+  late final MapNotifier _mapNotifier;
   final _gotoController = TextEditingController();
   final _gotoFocusNode = FocusNode();
   final _searchFocusNode = FocusNode();
@@ -65,6 +67,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   double _scrollDx = 0;
   double _scrollDy = 0;
   Timer? _pendingCameraSaveTimer;
+  bool _hasPendingCameraSave = false;
   static final _tickedPeakMarker = SvgPicture.asset(
     'assets/peak_marker_ticked.svg',
   );
@@ -76,9 +79,20 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _mapController = MapController();
+    _mapNotifier = ref.read(mapProvider.notifier);
     _searchFocusNode.addListener(_onSearchFocusChange);
     _gotoFocusNode.addListener(_onGotoFocusChange);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      _flushPendingCameraPosition();
+    }
   }
 
   void _handleGotoSubmit(MapState mapState) {
@@ -311,6 +325,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     _scrollTimer = null;
     _scrollDx = 0;
     _scrollDy = 0;
+    _flushPendingCameraPosition();
   }
 
   void _handleTrackpadPanZoomStart(PointerPanZoomStartEvent event) {
@@ -337,7 +352,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       }
       _mapController.move(gestureCenter, gestureZoom);
       notifier.updatePosition(gestureCenter, gestureZoom);
-      _persistCameraPositionNow();
+      _markPendingCameraSave();
       return;
     }
 
@@ -350,12 +365,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
     _mapController.move(gestureCenter, targetZoom);
     notifier.updatePosition(gestureCenter, targetZoom);
-    _persistCameraPositionNow();
+    _markPendingCameraSave();
   }
 
   void _handleTrackpadPanZoomEnd(PointerPanZoomEndEvent event) {
     _trackpadGestureCenter = null;
     _trackpadGestureZoom = null;
+    _flushPendingCameraPosition();
   }
 
   void _focusPeakDirect(Peak peak) {
@@ -393,17 +409,34 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   void _scheduleCameraPositionSave() {
+    _hasPendingCameraSave = true;
     _pendingCameraSaveTimer?.cancel();
     _pendingCameraSaveTimer = Timer(MapConstants.cameraSaveDebounce, () {
-      _pendingCameraSaveTimer = null;
-      unawaited(ref.read(mapProvider.notifier).persistCameraPosition());
+      _flushPendingCameraPosition();
     });
+  }
+
+  void _markPendingCameraSave() {
+    _hasPendingCameraSave = true;
+  }
+
+  void _flushPendingCameraPosition() {
+    if (!_hasPendingCameraSave) {
+      _pendingCameraSaveTimer?.cancel();
+      _pendingCameraSaveTimer = null;
+      return;
+    }
+    _pendingCameraSaveTimer?.cancel();
+    _pendingCameraSaveTimer = null;
+    _hasPendingCameraSave = false;
+    unawaited(_mapNotifier.persistCameraPosition());
   }
 
   void _persistCameraPositionNow() {
     _pendingCameraSaveTimer?.cancel();
     _pendingCameraSaveTimer = null;
-    unawaited(ref.read(mapProvider.notifier).persistCameraPosition());
+    _hasPendingCameraSave = false;
+    unawaited(_mapNotifier.persistCameraPosition());
   }
 
   double _selectedMapGotoZoom(Tasmap50k map) {
@@ -429,7 +462,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   @override
   void dispose() {
-    _pendingCameraSaveTimer?.cancel();
+    _flushPendingCameraPosition();
+    WidgetsBinding.instance.removeObserver(this);
     _scrollTimer?.cancel();
     _gotoFocusNode.dispose();
     _searchFocusNode.dispose();
@@ -1039,7 +1073,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     ref
         .read(mapProvider.notifier)
         .updatePosition(newCenter, _mapController.camera.zoom);
-    _persistCameraPositionNow();
+    _markPendingCameraSave();
   }
 
   void _goToCurrentLocation() {
