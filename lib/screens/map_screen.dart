@@ -14,6 +14,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
@@ -27,6 +28,7 @@ import '../core/constants.dart';
 import 'package:peak_bagger/widgets/map_action_rail.dart';
 import 'package:peak_bagger/widgets/map_basemaps_drawer.dart';
 import 'package:peak_bagger/widgets/map_peak_lists_drawer.dart';
+import 'package:peak_bagger/widgets/map_rebuild_debug_counters.dart';
 import 'package:peak_bagger/widgets/tasmap_polygon_label.dart';
 
 import 'map_screen_layers.dart';
@@ -66,6 +68,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
   Timer? _scrollTimer;
   double _scrollDx = 0;
   double _scrollDy = 0;
+  _LiveCameraState? _liveCamera;
+  int _cameraIntentToken = 0;
+  final _viewportUiRevision = ValueNotifier<int>(0);
   Timer? _pendingCameraSaveTimer;
   bool _hasPendingCameraSave = false;
   static final _tickedPeakMarker = SvgPicture.asset(
@@ -345,14 +350,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
       pan: event.pan,
       scale: event.scale,
     );
-    final notifier = ref.read(mapProvider.notifier);
     if (intent.type == MapTrackpadGestureType.none) {
-      if (ref.read(mapProvider).showInfoPopup) {
-        notifier.toggleInfoPopup();
-      }
       _mapController.move(gestureCenter, gestureZoom);
-      notifier.updatePosition(gestureCenter, gestureZoom);
-      _markPendingCameraSave();
+      _updateContinuousCamera(
+        center: gestureCenter,
+        zoom: gestureZoom,
+        debounce: false,
+      );
       return;
     }
 
@@ -360,12 +364,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
       MapConstants.peakMinZoom.toDouble(),
       MapConstants.peakMaxZoom.toDouble(),
     );
-    if (ref.read(mapProvider).showInfoPopup) {
-      notifier.toggleInfoPopup();
-    }
     _mapController.move(gestureCenter, targetZoom);
-    notifier.updatePosition(gestureCenter, targetZoom);
-    _markPendingCameraSave();
+    _updateContinuousCamera(
+      center: gestureCenter,
+      zoom: targetZoom,
+      debounce: false,
+    );
   }
 
   void _handleTrackpadPanZoomEnd(PointerPanZoomEndEvent event) {
@@ -376,8 +380,15 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
   void _focusPeakDirect(Peak peak) {
     final location = LatLng(peak.latitude, peak.longitude);
-    _mapController.move(location, MapConstants.singlePointZoom);
-    ref.read(mapProvider.notifier).centerOnPeak(peak);
+    _applyAcceptedCameraMove(
+      PendingCameraRequest(
+        center: location,
+        zoom: MapConstants.singlePointZoom,
+        serial: 0,
+        selectedPeaksBehavior: PendingCameraSelectionBehavior.replace,
+        selectedPeaks: [peak],
+      ),
+    );
   }
 
   void _centerOnSelectedLocationDirect() {
@@ -386,11 +397,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
       return;
     }
 
-    _mapController.move(selected, _mapController.camera.zoom);
-    final notifier = ref.read(mapProvider.notifier);
-    notifier.updatePosition(selected, _mapController.camera.zoom);
-    _persistCameraPositionNow();
-    notifier.clearGotoMgrs();
+    _applyAcceptedCameraMove(
+      PendingCameraRequest(
+        center: selected,
+        zoom: _mapController.camera.zoom,
+        serial: 0,
+        clearGotoMgrs: true,
+      ),
+    );
   }
 
   void _moveVisibleMapToLocation(
@@ -398,14 +412,18 @@ class _MapScreenState extends ConsumerState<MapScreen>
     double zoom, {
     bool updateSelectedLocation = false,
   }) {
-    _mapController.move(location, zoom);
-    final notifier = ref.read(mapProvider.notifier);
-    if (updateSelectedLocation) {
-      notifier.setSelectedLocation(location);
-    }
-    notifier.updatePosition(location, zoom);
-    _persistCameraPositionNow();
-    notifier.clearGotoMgrs();
+    _applyAcceptedCameraMove(
+      PendingCameraRequest(
+        center: location,
+        zoom: zoom,
+        serial: 0,
+        selectedLocationBehavior: updateSelectedLocation
+            ? PendingCameraSelectionBehavior.replace
+            : PendingCameraSelectionBehavior.preserve,
+        selectedLocation: updateSelectedLocation ? location : null,
+        clearGotoMgrs: true,
+      ),
+    );
   }
 
   void _scheduleCameraPositionSave() {
@@ -429,14 +447,159 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _pendingCameraSaveTimer?.cancel();
     _pendingCameraSaveTimer = null;
     _hasPendingCameraSave = false;
-    unawaited(_mapNotifier.persistCameraPosition());
+    if (_commitLiveCameraToCanonicalState()) {
+      unawaited(_mapNotifier.persistCameraPosition());
+    }
   }
 
-  void _persistCameraPositionNow() {
+  void _applyAcceptedCameraMove(
+    PendingCameraRequest request, {
+    bool consumePendingRequest = false,
+  }) {
+    _supersedePendingContinuousCamera();
+    if (!_isSameCamera(request.center, request.zoom)) {
+      _mapController.move(request.center, request.zoom);
+    }
+    _acceptCameraIntent(
+      request,
+      consumePendingRequest: consumePendingRequest,
+    );
+  }
+
+  void _applyAcceptedCameraFit(
+    PendingCameraRequest request,
+    VoidCallback applyController, {
+    bool consumePendingRequest = false,
+  }) {
+    _supersedePendingContinuousCamera();
+    applyController();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _acceptCameraIntent(
+        request.copyWith(
+          center: _mapController.camera.center,
+          zoom: _mapController.camera.zoom,
+        ),
+        consumePendingRequest: consumePendingRequest,
+      );
+    });
+  }
+
+  void _acceptCameraIntent(
+    PendingCameraRequest request, {
+    bool consumePendingRequest = false,
+  }) {
+    ref.read(mapProvider.notifier).acceptCameraIntent(request);
+    if (consumePendingRequest) {
+      ref.read(mapProvider.notifier).consumeCameraRequest(request.serial);
+    }
+    if (request.persist) {
+      unawaited(_mapNotifier.persistCameraPosition());
+    }
+  }
+
+  void _updateContinuousCamera({
+    required LatLng center,
+    required double zoom,
+    bool debounce = true,
+  }) {
+    final liveCamera = _LiveCameraState(
+      center: center,
+      zoom: zoom,
+      mgrs: _convertToMgrs(center),
+      token: ++_cameraIntentToken,
+    );
+    _liveCamera = liveCamera;
+    _bumpViewportUiRevision();
+    _applyContinuousMotionSideEffects(zoom: zoom);
+    if (debounce) {
+      _scheduleCameraPositionSave();
+    } else {
+      _markPendingCameraSave();
+    }
+  }
+
+  void _applyContinuousMotionSideEffects({required double zoom}) {
+    final mapState = ref.read(mapProvider);
+    final notifier = ref.read(mapProvider.notifier);
+    if (mapState.cursorMgrs != null) {
+      notifier.clearCursorMgrs();
+    }
+    if (mapState.hoveredPeakId != null) {
+      notifier.clearHoveredPeak();
+    }
+    if (mapState.hoveredTrackId != null) {
+      notifier.clearHoveredTrack();
+    }
+    if (mapState.showInfoPopup) {
+      notifier.toggleInfoPopup();
+    }
+    if (zoom < MapConstants.clearPeakInfo && mapState.peakInfo != null) {
+      notifier.closePeakInfoPopup();
+    }
+  }
+
+  bool _commitLiveCameraToCanonicalState() {
+    final liveCamera = _liveCamera;
+    if (liveCamera == null || liveCamera.token != _cameraIntentToken) {
+      return false;
+    }
+
+    final mapState = ref.read(mapProvider);
+    if (_isSameCameraForValues(
+      leftCenter: mapState.center,
+      leftZoom: mapState.zoom,
+      rightCenter: liveCamera.center,
+      rightZoom: liveCamera.zoom,
+    )) {
+      if (_liveCamera?.token == liveCamera.token) {
+        _liveCamera = null;
+        _bumpViewportUiRevision();
+      }
+      return false;
+    }
+
+    ref.read(mapProvider.notifier).updatePosition(liveCamera.center, liveCamera.zoom);
+    if (_liveCamera?.token == liveCamera.token) {
+      _liveCamera = null;
+      _bumpViewportUiRevision();
+    }
+    return true;
+  }
+
+  void _supersedePendingContinuousCamera() {
+    _cameraIntentToken += 1;
     _pendingCameraSaveTimer?.cancel();
     _pendingCameraSaveTimer = null;
     _hasPendingCameraSave = false;
-    unawaited(_mapNotifier.persistCameraPosition());
+    if (_liveCamera != null) {
+      _liveCamera = null;
+      _bumpViewportUiRevision();
+    }
+  }
+
+  void _bumpViewportUiRevision() {
+    _viewportUiRevision.value += 1;
+  }
+
+  String _convertToMgrs(LatLng location) {
+    try {
+      final mgrsString = mgrs.Mgrs.forward([
+        location.longitude,
+        location.latitude,
+      ], 5);
+      if (mgrsString.length >= 10) {
+        final firstLine = mgrsString.substring(0, 5);
+        final easting = mgrsString.substring(5, 10);
+        final northing = mgrsString.substring(10);
+        return '$firstLine\n$easting $northing';
+      }
+      return mgrsString;
+    } catch (_) {
+      return 'Invalid';
+    }
   }
 
   double _selectedMapGotoZoom(Tasmap50k map) {
@@ -468,30 +631,43 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _gotoFocusNode.dispose();
     _searchFocusNode.dispose();
     _mapFocusNode.dispose();
+    _viewportUiRevision.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final mapState = ref.watch(mapProvider);
-    final filteredPeaks = ref.watch(filteredPeaksProvider);
-    ref.watch(tasmapStateProvider.select((state) => state.tasmapRevision));
-    final displayMgrs =
-        mapState.cursorMgrs ?? mapState.gotoMgrs ?? mapState.currentMgrs;
-
-    _queueSelectedMapZoom(mapState);
-    _queueSelectedTrackZoom(mapState);
-    _queueCameraRequest(mapState);
+    MapRebuildDebugCounters.recordRouteRootBuild();
+    final routeChrome = ref.watch(
+      mapProvider.select(
+        (state) => (
+          endDrawerMode: state.endDrawerMode,
+          showPeakSearch: state.showPeakSearch,
+          searchResults: state.searchResults,
+          searchQuery: state.searchQuery,
+          showGotoInput: state.showGotoInput,
+          mapSuggestions: state.mapSuggestions,
+          showInfoPopup: state.showInfoPopup,
+          infoMapName: state.infoMapName,
+          infoMgrs: state.infoMgrs,
+          infoPeakName: state.infoPeakName,
+          infoPeakElevation: state.infoPeakElevation,
+          hasTrackRecoveryIssue: state.hasTrackRecoveryIssue,
+          trackCount: state.tracks.length,
+          peakInfo: state.peakInfo,
+        ),
+      ),
+    );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mapState.showPeakSearch && !_searchFocusNode.hasFocus) {
+      if (routeChrome.showPeakSearch && !_searchFocusNode.hasFocus) {
         _searchFocusNode.requestFocus();
       }
-      if (mapState.showGotoInput && !_gotoFocusNode.hasFocus) {
+      if (routeChrome.showGotoInput && !_gotoFocusNode.hasFocus) {
         _gotoFocusNode.requestFocus();
       }
-      if (!mapState.showPeakSearch &&
-          !mapState.showGotoInput &&
+      if (!routeChrome.showPeakSearch &&
+          !routeChrome.showGotoInput &&
           !_mapFocusNode.hasFocus &&
           mounted) {
         _mapFocusNode.requestFocus();
@@ -500,7 +676,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
     return Scaffold(
       key: _scaffoldKey,
-      endDrawer: switch (mapState.endDrawerMode) {
+      endDrawer: switch (routeChrome.endDrawerMode) {
         EndDrawerMode.basemaps => const MapBasemapsDrawer(),
         EndDrawerMode.peakLists => const MapPeakListsDrawer(),
       },
@@ -542,11 +718,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
                       key == LogicalKeyboardKey.add)
                   ? currentZoom + 1
                   : currentZoom - 1;
-              _mapController.move(_mapController.camera.center, newZoom);
-              ref
-                  .read(mapProvider.notifier)
-                  .updatePosition(_mapController.camera.center, newZoom);
-              _persistCameraPositionNow();
+              _applyAcceptedCameraMove(
+                PendingCameraRequest(
+                  center: _mapController.camera.center,
+                  zoom: newZoom,
+                  serial: 0,
+                ),
+              );
             }
             return KeyEventResult.handled;
           } else if (key == LogicalKeyboardKey.keyK ||
@@ -592,11 +770,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
               final selectedLocation = mapState.selectedLocation;
               if (selectedLocation != null) {
                 // Center on the marker so popup appears to the right of marker
-                _mapController.move(selectedLocation, mapState.zoom);
-                ref
-                    .read(mapProvider.notifier)
-                    .updatePosition(selectedLocation, mapState.zoom);
-                _persistCameraPositionNow();
+                _applyAcceptedCameraMove(
+                  PendingCameraRequest(
+                    center: selectedLocation,
+                    zoom: mapState.zoom,
+                    serial: 0,
+                  ),
+                );
               }
               ref.read(mapProvider.notifier).toggleInfoPopup();
             }
@@ -623,245 +803,283 @@ class _MapScreenState extends ConsumerState<MapScreen>
         },
         child: Stack(
           children: [
-            MouseRegion(
-              key: const Key('map-interaction-region'),
-              cursor: _mouseCursor(mapState),
-              onExit: (_) {
-                final notifier = ref.read(mapProvider.notifier);
-                notifier.clearCursorMgrs();
-                notifier.clearHoveredPeak();
-                notifier.clearHoveredTrack();
-              },
-              child: Listener(
-                behavior: HitTestBehavior.translucent,
-                onPointerPanZoomStart: _handleTrackpadPanZoomStart,
-                onPointerPanZoomUpdate: _handleTrackpadPanZoomUpdate,
-                onPointerPanZoomEnd: _handleTrackpadPanZoomEnd,
-                child: FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(
-                    initialCenter: mapState.center,
-                    initialZoom: mapState.zoom,
-                    interactionOptions: const InteractionOptions(
-                      flags: InteractiveFlag.all &
-                          ~InteractiveFlag.rotate &
-                          ~InteractiveFlag.pinchMove &
-                          ~InteractiveFlag.pinchZoom,
-                    ),
-                    onMapReady: _handleMapReady,
-                    onSecondaryTap: (tapPosition, point) {
-                      _centerOnSelectedLocationDirect();
-                    },
-                    onPointerDown: (event, point) {
-                      _mapFocusNode.requestFocus();
-                      setState(() {
-                        _isPointerDown = true;
-                        _pointerDownPosition = event.localPosition;
-                        _primaryClickPending =
-                            event.kind == PointerDeviceKind.mouse &&
-                            event.buttons == kPrimaryMouseButton;
-                      });
-                    },
-                    onPointerUp: (event, point) {
-                      final primaryClickPending = _primaryClickPending;
-                      final moved =
-                          _pointerDownPosition != null &&
-                          (event.localPosition - _pointerDownPosition!).distance >
-                              5;
-                      setState(() {
-                        _isPointerDown = false;
-                        _pointerDownPosition = null;
-                        _primaryClickPending = false;
-                      });
-                      if (!moved) {
-                        final notifier = ref.read(mapProvider.notifier);
-                        final tappedPeak = _hitTestPeak(
-                          event.localPosition,
-                          ref.read(mapProvider),
-                          ref.read(filteredPeaksProvider),
-                        );
-                        if (tappedPeak != null) {
-                          notifier.openPeakInfoPopup(tappedPeak);
-                          return;
-                        }
-                        if (ref.read(mapProvider).peakInfoPeak != null) {
-                          notifier.closePeakInfoPopup();
-                        }
-                        if (ref.read(mapProvider).showInfoPopup) {
-                          notifier.toggleInfoPopup();
-                        }
-                        final tappedLocation = _mapController.camera
-                            .screenOffsetToLatLng(event.localPosition);
-                        _handleTrackHover(
-                          event.localPosition,
-                          tappedLocation,
-                          mapState,
-                        );
-                        if (primaryClickPending ||
-                            event.kind != PointerDeviceKind.mouse) {
-                          notifier.setSelectedLocation(tappedLocation);
-                        }
-                        final hoveredTrackId = ref
-                            .read(mapProvider)
-                            .hoveredTrackId;
-                        if (primaryClickPending && hoveredTrackId != null) {
-                          notifier.selectTrack(hoveredTrackId);
-                        } else if (primaryClickPending) {
-                          notifier.clearSelectedTrack();
-                        }
-                      }
-                    },
-                    onPointerCancel: (event, point) {
-                      setState(() {
-                        _isPointerDown = false;
-                        _pointerDownPosition = null;
-                      });
-                      ref.read(mapProvider.notifier).clearHoveredTrack();
-                      ref.read(mapProvider.notifier).clearHoveredPeak();
-                    },
-                    onPointerHover: (event, point) {
-                      _handleMapHover(
-                        event.localPosition,
-                        point,
-                        mapState,
-                        filteredPeaks,
-                      );
-                    },
-                    onPositionChanged: (position, hasGesture) {
-                      if (hasGesture) {
-                        if (ref.read(mapProvider).showInfoPopup) {
-                          ref.read(mapProvider.notifier).toggleInfoPopup();
-                        }
-                        ref
-                            .read(mapProvider.notifier)
-                            .updatePosition(position.center, position.zoom);
-                        _scheduleCameraPositionSave();
-                      }
-                    },
-                  ),
-                  children: [
-                  TileLayer(
-                    urlTemplate: mapTileUrl(mapState.basemap),
-                    userAgentPackageName: 'com.peak_bagger.app',
-                    tileProvider: FMTCTileProvider(
-                      urlTransformer: (url) => url,
-                      stores: {
-                        'openstreetmap': BrowseStoreStrategy.readUpdateCreate,
-                        'tracestrack': BrowseStoreStrategy.readUpdateCreate,
-                        'tasmapTopo': BrowseStoreStrategy.readUpdateCreate,
-                        'tasmap50k': BrowseStoreStrategy.readUpdateCreate,
-                        'tasmap25k': BrowseStoreStrategy.readUpdateCreate,
-                      },
-                      loadingStrategy: BrowseLoadingStrategy.cacheFirst,
-                    ),
-                  ),
-                  if (mapState.selectedLocation != null)
-                    MarkerLayer(
-                      markers: [
-                        Marker(
-                          point: mapState.selectedLocation!,
-                          width: 40,
-                          height: 40,
-                          child: Icon(
-                            Icons.my_location,
-                            color: Colors.amber,
-                            size: 32,
+            Consumer(
+              builder: (context, ref, _) {
+                final mapState = ref.watch(mapProvider);
+                final filteredPeaks = ref.watch(filteredPeaksProvider);
+                ref.watch(
+                  tasmapStateProvider.select((state) => state.tasmapRevision),
+                );
+                _queueSelectedMapZoom(mapState);
+                _queueSelectedTrackZoom(mapState);
+                _queueCameraRequest(mapState);
+
+                return ValueListenableBuilder<int>(
+                  valueListenable: _viewportUiRevision,
+                  builder: (context, revision, child) {
+                    final displayMgrs =
+                        mapState.cursorMgrs ??
+                        mapState.gotoMgrs ??
+                        _liveCamera?.mgrs ??
+                        mapState.currentMgrs;
+                    final displayZoom = _liveCamera?.zoom ?? mapState.zoom;
+
+                    return Stack(
+                      children: [
+                        MouseRegion(
+                          key: const Key('map-interaction-region'),
+                          cursor: _mouseCursor(mapState),
+                          onExit: (_) {
+                            final notifier = ref.read(mapProvider.notifier);
+                            notifier.clearCursorMgrs();
+                            notifier.clearHoveredPeak();
+                            notifier.clearHoveredTrack();
+                          },
+                          child: Listener(
+                            behavior: HitTestBehavior.translucent,
+                            onPointerPanZoomStart: _handleTrackpadPanZoomStart,
+                            onPointerPanZoomUpdate: _handleTrackpadPanZoomUpdate,
+                            onPointerPanZoomEnd: _handleTrackpadPanZoomEnd,
+                            child: FlutterMap(
+                              mapController: _mapController,
+                              options: MapOptions(
+                                initialCenter: mapState.center,
+                                initialZoom: mapState.zoom,
+                                interactionOptions: const InteractionOptions(
+                                  flags: InteractiveFlag.all &
+                                      ~InteractiveFlag.rotate &
+                                      ~InteractiveFlag.pinchMove &
+                                      ~InteractiveFlag.pinchZoom,
+                                ),
+                                onMapReady: _handleMapReady,
+                                onSecondaryTap: (tapPosition, point) {
+                                  _centerOnSelectedLocationDirect();
+                                },
+                                onPointerDown: (event, point) {
+                                  _mapFocusNode.requestFocus();
+                                  _isPointerDown = true;
+                                  _pointerDownPosition = event.localPosition;
+                                  _primaryClickPending =
+                                      event.kind == PointerDeviceKind.mouse &&
+                                      event.buttons == kPrimaryMouseButton;
+                                  _bumpViewportUiRevision();
+                                },
+                                onPointerUp: (event, point) {
+                                  final primaryClickPending =
+                                      _primaryClickPending;
+                                  final moved =
+                                      _pointerDownPosition != null &&
+                                      (event.localPosition - _pointerDownPosition!)
+                                              .distance >
+                                          5;
+                                  _isPointerDown = false;
+                                  _pointerDownPosition = null;
+                                  _primaryClickPending = false;
+                                  _bumpViewportUiRevision();
+                                  if (moved) {
+                                    _flushPendingCameraPosition();
+                                    return;
+                                  }
+                                  final notifier = ref.read(mapProvider.notifier);
+                                  final tappedPeak = _hitTestPeak(
+                                    event.localPosition,
+                                    ref.read(mapProvider),
+                                    ref.read(filteredPeaksProvider),
+                                  );
+                                  if (tappedPeak != null) {
+                                    notifier.openPeakInfoPopup(tappedPeak);
+                                    return;
+                                  }
+                                  if (ref.read(mapProvider).peakInfoPeak != null) {
+                                    notifier.closePeakInfoPopup();
+                                  }
+                                  if (ref.read(mapProvider).showInfoPopup) {
+                                    notifier.toggleInfoPopup();
+                                  }
+                                  final tappedLocation = _mapController.camera
+                                      .screenOffsetToLatLng(event.localPosition);
+                                  _handleTrackHover(
+                                    event.localPosition,
+                                    tappedLocation,
+                                    mapState,
+                                  );
+                                  if (primaryClickPending ||
+                                      event.kind != PointerDeviceKind.mouse) {
+                                    notifier.setSelectedLocation(tappedLocation);
+                                  }
+                                  final hoveredTrackId = ref
+                                      .read(mapProvider)
+                                      .hoveredTrackId;
+                                  if (primaryClickPending &&
+                                      hoveredTrackId != null) {
+                                    notifier.selectTrack(hoveredTrackId);
+                                  } else if (primaryClickPending) {
+                                    notifier.clearSelectedTrack();
+                                  }
+                                },
+                                onPointerCancel: (event, point) {
+                                  _isPointerDown = false;
+                                  _pointerDownPosition = null;
+                                  _bumpViewportUiRevision();
+                                  _flushPendingCameraPosition();
+                                  ref.read(mapProvider.notifier).clearHoveredTrack();
+                                  ref.read(mapProvider.notifier).clearHoveredPeak();
+                                },
+                                onPointerHover: (event, point) {
+                                  _handleMapHover(
+                                    event.localPosition,
+                                    point,
+                                    mapState,
+                                    filteredPeaks,
+                                  );
+                                },
+                                onPositionChanged: (position, hasGesture) {
+                                  if (hasGesture) {
+                                    _updateContinuousCamera(
+                                      center: position.center,
+                                      zoom: position.zoom,
+                                    );
+                                  }
+                                },
+                              ),
+                              children: [
+                                TileLayer(
+                                  urlTemplate: mapTileUrl(mapState.basemap),
+                                  userAgentPackageName: 'com.peak_bagger.app',
+                                  tileProvider: FMTCTileProvider(
+                                    urlTransformer: (url) => url,
+                                    stores: {
+                                      'openstreetmap':
+                                          BrowseStoreStrategy.readUpdateCreate,
+                                      'tracestrack':
+                                          BrowseStoreStrategy.readUpdateCreate,
+                                      'tasmapTopo':
+                                          BrowseStoreStrategy.readUpdateCreate,
+                                      'tasmap50k':
+                                          BrowseStoreStrategy.readUpdateCreate,
+                                      'tasmap25k':
+                                          BrowseStoreStrategy.readUpdateCreate,
+                                    },
+                                    loadingStrategy:
+                                        BrowseLoadingStrategy.cacheFirst,
+                                  ),
+                                ),
+                                if (mapState.selectedLocation != null)
+                                  MarkerLayer(
+                                    markers: [
+                                      Marker(
+                                        point: mapState.selectedLocation!,
+                                        width: 40,
+                                        height: 40,
+                                        child: const Icon(
+                                          Icons.my_location,
+                                          color: Colors.amber,
+                                          size: 32,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                if (mapState.selectedPeaks.isNotEmpty)
+                                  CircleLayer(
+                                    circles: mapState.selectedPeaks.map((peak) {
+                                      return CircleMarker(
+                                        point: LatLng(
+                                          peak.latitude,
+                                          peak.longitude,
+                                        ),
+                                        radius: 15,
+                                        color: Colors.blue.withValues(alpha: 0.3),
+                                        borderColor: Colors.blue,
+                                        borderStrokeWidth: 2,
+                                      );
+                                    }).toList(),
+                                  ),
+                                if (mapState.showSelectedMapLayer)
+                                  buildMapRectangle(
+                                    ref.read(tasmapRepositoryProvider),
+                                    mapState.selectedMap!,
+                                  ),
+                                if (mapState.showMapOverlay)
+                                  PolygonLayer(
+                                    key: const Key('tasmap-layer'),
+                                    polygons: buildAllMapRectangles(
+                                      ref.read(tasmapRepositoryProvider),
+                                    ),
+                                  ),
+                                if (mapState.showTracks)
+                                  buildTrackPolylines(
+                                    mapState.tracks,
+                                    mapState.zoom,
+                                    selectedTrackId: mapState.selectedTrackId,
+                                  ),
+                                if (mapState.showPeaks &&
+                                    filteredPeaks.isNotEmpty &&
+                                    mapState.zoom >= MapConstants.peakMinZoom)
+                                  MarkerLayer(
+                                    key: const Key('peak-marker-layer'),
+                                    markers: buildPeakMarkers(
+                                      peaks: filteredPeaks,
+                                      zoom: mapState.zoom,
+                                      correlatedPeakIds: ref
+                                          .read(mapProvider.notifier)
+                                          .correlatedPeakIds,
+                                      tickedPeakMarker: _tickedPeakMarker,
+                                      untickedPeakMarker: _untickedPeakMarker,
+                                      hoveredPeakId: mapState.hoveredPeakId,
+                                    ),
+                                  ),
+                                if (mapState.showSelectedMapLayer)
+                                  TasmapPolygonLabelLayer(
+                                    key: const Key('tasmap-label-layer'),
+                                    insetX: tasmapPolygonLabelDefaultInsetX,
+                                    insetY: tasmapPolygonLabelDefaultInsetY,
+                                    entries: buildSelectedMapLabelEntries(
+                                      ref.read(tasmapRepositoryProvider),
+                                      mapState.selectedMap!,
+                                      mapState.zoom,
+                                      Theme.of(context).colorScheme.onSurface,
+                                    ),
+                                  ),
+                                if (mapState.showMapOverlay)
+                                  TasmapPolygonLabelLayer(
+                                    key: const Key('tasmap-label-layer'),
+                                    insetX: tasmapPolygonLabelDefaultInsetX,
+                                    insetY: tasmapPolygonLabelDefaultInsetY,
+                                    entries: buildOverlayLabelEntries(
+                                      ref.read(tasmapRepositoryProvider),
+                                      mapState.zoom,
+                                      Theme.of(context).colorScheme.onSurface,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
+                        Positioned(
+                          left: 16,
+                          top: 16,
+                          child: MapMgrsReadout(mgrs: displayMgrs),
+                        ),
+                        Positioned(
+                          left: 16,
+                          bottom: 16,
+                          child: MapZoomReadout(zoom: displayZoom),
+                        ),
                       ],
-                    ),
-                  if (mapState.selectedPeaks.isNotEmpty)
-                    CircleLayer(
-                      circles: mapState.selectedPeaks.map((peak) {
-                        return CircleMarker(
-                          point: LatLng(peak.latitude, peak.longitude),
-                          radius: 15,
-                          color: Colors.blue.withValues(alpha: 0.3),
-                          borderColor: Colors.blue,
-                          borderStrokeWidth: 2,
-                        );
-                      }).toList(),
-                    ),
-                  if (mapState.showSelectedMapLayer)
-                    buildMapRectangle(
-                      ref.read(tasmapRepositoryProvider),
-                      mapState.selectedMap!,
-                    ),
-                  if (mapState.showMapOverlay)
-                    PolygonLayer(
-                      key: const Key('tasmap-layer'),
-                      polygons: buildAllMapRectangles(
-                        ref.read(tasmapRepositoryProvider),
-                      ),
-                    ),
-                  if (mapState.showTracks)
-                    buildTrackPolylines(
-                      mapState.tracks,
-                      mapState.zoom,
-                      selectedTrackId: mapState.selectedTrackId,
-                    ),
-                  if (mapState.showPeaks &&
-                      filteredPeaks.isNotEmpty &&
-                      mapState.zoom >= MapConstants.peakMinZoom)
-                    MarkerLayer(
-                      key: const Key('peak-marker-layer'),
-                      markers: buildPeakMarkers(
-                        peaks: filteredPeaks,
-                        zoom: mapState.zoom,
-                        correlatedPeakIds: ref
-                            .read(mapProvider.notifier)
-                            .correlatedPeakIds,
-                        tickedPeakMarker: _tickedPeakMarker,
-                        untickedPeakMarker: _untickedPeakMarker,
-                        hoveredPeakId: mapState.hoveredPeakId,
-                      ),
-                    ),
-                  if (mapState.showSelectedMapLayer)
-                    TasmapPolygonLabelLayer(
-                      key: const Key('tasmap-label-layer'),
-                      insetX: tasmapPolygonLabelDefaultInsetX,
-                      insetY: tasmapPolygonLabelDefaultInsetY,
-                      entries: buildSelectedMapLabelEntries(
-                        ref.read(tasmapRepositoryProvider),
-                        mapState.selectedMap!,
-                        mapState.zoom,
-                        Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                  if (mapState.showMapOverlay)
-                    TasmapPolygonLabelLayer(
-                      key: const Key('tasmap-label-layer'),
-                      insetX: tasmapPolygonLabelDefaultInsetX,
-                      insetY: tasmapPolygonLabelDefaultInsetY,
-                      entries: buildOverlayLabelEntries(
-                        ref.read(tasmapRepositoryProvider),
-                        mapState.zoom,
-                        Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+                    );
+                  },
+                );
+              },
             ),
             const MapActionRail(),
-            Positioned(
-              left: 16,
-              top: 16,
-              child: MapMgrsReadout(mgrs: displayMgrs),
-            ),
-            Positioned(
-              left: 16,
-              bottom: 16,
-              child: MapZoomReadout(zoom: mapState.zoom),
-            ),
-            if (mapState.showPeakSearch)
+            if (routeChrome.showPeakSearch)
               Positioned(
                 right: 72,
                 top: 16,
                 child: MapPeakSearchPanel(
                   focusNode: _searchFocusNode,
-                  searchResults: mapState.searchResults,
-                  searchQuery: mapState.searchQuery,
+                  searchResults: routeChrome.searchResults,
+                  searchQuery: routeChrome.searchQuery,
                   onChanged: (value) {
                     ref.read(mapProvider.notifier).searchPeaks(value);
                   },
@@ -881,7 +1099,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                   mapNameForPeak: _mapNameForPeak,
                 ),
               ),
-            if (mapState.showGotoInput)
+            if (routeChrome.showGotoInput)
               Positioned(
                 right: 72,
                 top: 16,
@@ -889,7 +1107,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                   focusNode: _gotoFocusNode,
                   controller: _gotoController,
                   errorText: _gotoError,
-                  mapSuggestions: mapState.mapSuggestions,
+                  mapSuggestions: routeChrome.mapSuggestions,
                   onChanged: (value) {
                     if (_gotoError != null) {
                       setState(() => _gotoError = null);
@@ -912,24 +1130,24 @@ class _MapScreenState extends ConsumerState<MapScreen>
                   },
                 ),
               ),
-            if (mapState.showInfoPopup)
+            if (routeChrome.showInfoPopup)
               Positioned(
                 left: MediaQuery.of(context).size.width / 2 + 16,
                 top: MediaQuery.of(context).size.height / 2 - 50,
                 child: MapInfoPopupCard(
-                  infoMapName: mapState.infoMapName,
-                  infoMgrs: mapState.infoMgrs,
-                  infoPeakName: mapState.infoPeakName,
-                  infoPeakElevation: mapState.infoPeakElevation,
-                  hasTrackRecoveryIssue: mapState.hasTrackRecoveryIssue,
-                  trackCount: mapState.tracks.length,
+                  infoMapName: routeChrome.infoMapName,
+                  infoMgrs: routeChrome.infoMgrs,
+                  infoPeakName: routeChrome.infoPeakName,
+                  infoPeakElevation: routeChrome.infoPeakElevation,
+                  hasTrackRecoveryIssue: routeChrome.hasTrackRecoveryIssue,
+                  trackCount: routeChrome.trackCount,
                   onClose: () {
                     ref.read(mapProvider.notifier).toggleInfoPopup();
                   },
                 ),
               ),
-            if (mapState.peakInfo != null)
-              _buildPeakInfoPopup(context, mapState.peakInfo!),
+            if (routeChrome.peakInfo != null)
+              _buildPeakInfoPopup(context, routeChrome.peakInfo!),
           ],
         ),
       ),
@@ -1011,11 +1229,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
     if (bounds == null) {
       final center = repo.getMapCenter(map);
       if (center != null) {
-        _mapController.move(center, MapConstants.defaultMapZoom);
-        ref
-            .read(mapProvider.notifier)
-            .updatePosition(center, MapConstants.defaultMapZoom);
-        _persistCameraPositionNow();
+        _applyAcceptedCameraMove(
+          PendingCameraRequest(
+            center: center,
+            zoom: MapConstants.defaultMapZoom,
+            serial: focusSerial ?? 0,
+          ),
+        );
       }
       _markSelectedMapZoomApplied(focusSerial);
       return;
@@ -1028,28 +1248,25 @@ class _MapScreenState extends ConsumerState<MapScreen>
         bounds: bounds,
         padding: const EdgeInsets.all(50),
       );
-      _mapController.fitCamera(cameraFit);
-
-      if (targetCenter != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) {
-            return;
-          }
-          ref
-              .read(mapProvider.notifier)
-              .updatePosition(targetCenter, _mapController.camera.zoom);
-          _persistCameraPositionNow();
-        });
-      }
+      _applyAcceptedCameraFit(
+        PendingCameraRequest(
+          center: targetCenter ?? _mapController.camera.center,
+          zoom: _mapController.camera.zoom,
+          serial: focusSerial ?? 0,
+        ),
+        () => _mapController.fitCamera(cameraFit),
+      );
       _markSelectedMapZoomApplied(focusSerial);
     } catch (e) {
       final center = repo.getMapCenter(map);
       if (center != null) {
-        _mapController.move(center, MapConstants.defaultMapZoom);
-        ref
-            .read(mapProvider.notifier)
-            .updatePosition(center, MapConstants.defaultMapZoom);
-        _persistCameraPositionNow();
+        _applyAcceptedCameraMove(
+          PendingCameraRequest(
+            center: center,
+            zoom: MapConstants.defaultMapZoom,
+            serial: focusSerial ?? 0,
+          ),
+        );
       }
       _markSelectedMapZoomApplied(focusSerial);
     }
@@ -1070,10 +1287,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final center = _mapController.camera.center;
     final newCenter = LatLng(center.latitude + dy, center.longitude + dx);
     _mapController.move(newCenter, _mapController.camera.zoom);
-    ref
-        .read(mapProvider.notifier)
-        .updatePosition(newCenter, _mapController.camera.zoom);
-    _markPendingCameraSave();
+    _updateContinuousCamera(
+      center: newCenter,
+      zoom: _mapController.camera.zoom,
+      debounce: false,
+    );
   }
 
   void _goToCurrentLocation() {
@@ -1110,14 +1328,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
   }
 
   void _queueCameraRequest(MapState mapState) {
-    final center = mapState.cameraRequestCenter;
-    final zoom = mapState.cameraRequestZoom;
-    if (center == null || zoom == null) {
+    final request = mapState.pendingCameraRequest;
+    if (request == null) {
       _pendingCameraRequestSerial = null;
       return;
     }
 
-    final nextSerial = mapState.cameraRequestSerial;
+    final nextSerial = request.serial;
     if (_appliedCameraRequestSerial == nextSerial) {
       return;
     }
@@ -1142,16 +1359,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
   void _applyPendingCameraRequest(int serial) {
     final mapState = ref.read(mapProvider);
-    final center = mapState.cameraRequestCenter;
-    final zoom = mapState.cameraRequestZoom;
-    if (mapState.cameraRequestSerial != serial || center == null || zoom == null) {
+    final request = mapState.pendingCameraRequest;
+    if (mapState.cameraRequestSerial != serial || request?.serial != serial) {
       return;
     }
 
-    if (!_isSameCamera(center, zoom)) {
-      _mapController.move(center, zoom);
-    }
-
+    _applyAcceptedCameraMove(request!, consumePendingRequest: true);
     _markCameraRequestApplied(serial);
   }
 
@@ -1164,12 +1377,24 @@ class _MapScreenState extends ConsumerState<MapScreen>
         (camera.zoom - zoom).abs() <= MapConstants.cameraEpsilon;
   }
 
+  bool _isSameCameraForValues({
+    required LatLng leftCenter,
+    required double leftZoom,
+    required LatLng rightCenter,
+    required double rightZoom,
+  }) {
+    return (leftCenter.latitude - rightCenter.latitude).abs() <=
+            MapConstants.cameraEpsilon &&
+        (leftCenter.longitude - rightCenter.longitude).abs() <=
+            MapConstants.cameraEpsilon &&
+        (leftZoom - rightZoom).abs() <= MapConstants.cameraEpsilon;
+  }
+
   void _markCameraRequestApplied(int serial) {
     _appliedCameraRequestSerial = serial;
     if (_pendingCameraRequestSerial == serial) {
       _pendingCameraRequestSerial = null;
     }
-    ref.read(mapProvider.notifier).consumeCameraRequest(serial);
   }
 
   void _queueSelectedMapZoom(MapState mapState) {
@@ -1272,11 +1497,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
     }
 
     if (points.length == 1) {
-      _mapController.move(points.single, MapConstants.defaultMapZoom);
-      ref
-          .read(mapProvider.notifier)
-          .updatePosition(points.single, MapConstants.defaultMapZoom);
-      _persistCameraPositionNow();
+      _applyAcceptedCameraMove(
+        PendingCameraRequest(
+          center: points.single,
+          zoom: MapConstants.defaultMapZoom,
+          serial: focusSerial ?? 0,
+        ),
+      );
       _markSelectedTrackZoomApplied(focusSerial);
       return;
     }
@@ -1287,27 +1514,23 @@ class _MapScreenState extends ConsumerState<MapScreen>
         bounds: bounds,
         padding: const EdgeInsets.all(50),
       );
-      _mapController.fitCamera(cameraFit);
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) {
-          return;
-        }
-        ref
-            .read(mapProvider.notifier)
-            .updatePosition(
-              _mapController.camera.center,
-              _mapController.camera.zoom,
-            );
-        _persistCameraPositionNow();
-      });
+      _applyAcceptedCameraFit(
+        PendingCameraRequest(
+          center: _mapController.camera.center,
+          zoom: _mapController.camera.zoom,
+          serial: focusSerial ?? 0,
+        ),
+        () => _mapController.fitCamera(cameraFit),
+      );
       _markSelectedTrackZoomApplied(focusSerial);
     } catch (_) {
-      _mapController.move(points.first, MapConstants.defaultMapZoom);
-      ref
-          .read(mapProvider.notifier)
-          .updatePosition(points.first, MapConstants.defaultMapZoom);
-      _persistCameraPositionNow();
+      _applyAcceptedCameraMove(
+        PendingCameraRequest(
+          center: points.first,
+          zoom: MapConstants.defaultMapZoom,
+          serial: focusSerial ?? 0,
+        ),
+      );
       _markSelectedTrackZoomApplied(focusSerial);
     }
   }
@@ -1322,4 +1545,18 @@ class _MapScreenState extends ConsumerState<MapScreen>
       _pendingSelectedTrackSerial = null;
     }
   }
+}
+
+class _LiveCameraState {
+  const _LiveCameraState({
+    required this.center,
+    required this.zoom,
+    required this.mgrs,
+    required this.token,
+  });
+
+  final LatLng center;
+  final double zoom;
+  final String mgrs;
+  final int token;
 }

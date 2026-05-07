@@ -14,9 +14,17 @@ class MapPeakListsDrawer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mapState = ref.watch(mapProvider);
+    final (:peakListSelectionMode, :selectedPeakListId, :peaks) = ref.watch(
+      mapProvider.select(
+        (state) => (
+          peakListSelectionMode: state.peakListSelectionMode,
+          selectedPeakListId: state.selectedPeakListId,
+          peaks: state.peaks,
+        ),
+      ),
+    );
     final peakLists = ref.watch(peakListsProvider);
-    final renderablePeakIds = mapState.peaks
+    final renderablePeakIds = peaks
         .map((peak) => peak.osmId)
         .toSet();
     final visiblePeakLists = <({PeakList peakList, int renderableCount})>[];
@@ -62,7 +70,7 @@ class MapPeakListsDrawer extends ConsumerWidget {
           ListTile(
             key: const Key('peak-list-item-None'),
             title: const Text(_noneLabel),
-            trailing: mapState.peakListSelectionMode == PeakListSelectionMode.none
+            trailing: peakListSelectionMode == PeakListSelectionMode.none
                 ? const Icon(Icons.check)
                 : null,
             onTap: () {
@@ -77,9 +85,9 @@ class MapPeakListsDrawer extends ConsumerWidget {
               key: Key('peak-list-item-${entry.peakList.name}'),
               title: Text(entry.peakList.name),
               subtitle: Text(_renderablePeakLabel(entry.renderableCount)),
-              trailing: mapState.peakListSelectionMode ==
+              trailing: peakListSelectionMode ==
                           PeakListSelectionMode.specificList &&
-                      mapState.selectedPeakListId == entry.peakList.peakListId
+                      selectedPeakListId == entry.peakList.peakListId
                   ? const Icon(Icons.check)
                   : null,
               onTap: () {
@@ -94,7 +102,7 @@ class MapPeakListsDrawer extends ConsumerWidget {
             key: const Key('peak-list-item-All Peaks'),
             title: const Text(_allPeaksLabel),
             trailing:
-                mapState.peakListSelectionMode == PeakListSelectionMode.allPeaks
+                peakListSelectionMode == PeakListSelectionMode.allPeaks
                 ? const Icon(Icons.check)
                 : null,
             onTap: () {

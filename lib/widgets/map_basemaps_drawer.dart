@@ -7,7 +7,7 @@ class MapBasemapsDrawer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mapState = ref.watch(mapProvider);
+    final basemap = ref.watch(mapProvider.select((state) => state.basemap));
 
     return Drawer(
       child: Column(
@@ -23,7 +23,7 @@ class MapBasemapsDrawer extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.map),
             title: const Text('Tracestrack Topo'),
-            trailing: mapState.basemap == Basemap.tracestrack
+            trailing: basemap == Basemap.tracestrack
                 ? const Icon(Icons.check)
                 : null,
             onTap: () {
@@ -34,7 +34,7 @@ class MapBasemapsDrawer extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.map_outlined),
             title: const Text('OpenStreetMap'),
-            trailing: mapState.basemap == Basemap.openstreetmap
+            trailing: basemap == Basemap.openstreetmap
                 ? const Icon(Icons.check)
                 : null,
             onTap: () {
@@ -45,7 +45,7 @@ class MapBasemapsDrawer extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.map_outlined),
             title: const Text('TasMap Topographic'),
-            trailing: mapState.basemap == Basemap.tasmapTopo
+            trailing: basemap == Basemap.tasmapTopo
                 ? const Icon(Icons.check)
                 : null,
             onTap: () {
@@ -56,7 +56,7 @@ class MapBasemapsDrawer extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.map_outlined),
             title: const Text('TasMap 50k'),
-            trailing: mapState.basemap == Basemap.tasmap50k
+            trailing: basemap == Basemap.tasmap50k
                 ? const Icon(Icons.check)
                 : null,
             onTap: () {
@@ -67,7 +67,7 @@ class MapBasemapsDrawer extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.map_outlined),
             title: const Text('TasMap 25k'),
-            trailing: mapState.basemap == Basemap.tasmap25k
+            trailing: basemap == Basemap.tasmap25k
                 ? const Icon(Icons.check)
                 : null,
             onTap: () {

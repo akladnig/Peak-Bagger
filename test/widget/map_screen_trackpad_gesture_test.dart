@@ -36,18 +36,24 @@ void main() {
     );
     await tester.pump();
 
-    final state = container.read(mapProvider);
-    expect(state.zoom, greaterThan(initialState.zoom));
+    expect(_zoomReadoutValue(tester), greaterThan(initialState.zoom));
+
+    final inMotionState = container.read(mapProvider);
+    expect(inMotionState.zoom, initialState.zoom);
     expect(
-      state.center.latitude,
+      inMotionState.center.latitude,
       moreOrLessEquals(initialState.center.latitude, epsilon: 0.000001),
     );
     expect(
-      state.center.longitude,
+      inMotionState.center.longitude,
       moreOrLessEquals(initialState.center.longitude, epsilon: 0.000001),
     );
 
     await gesture.up();
+    await tester.pump();
+
+    final state = container.read(mapProvider);
+    expect(state.zoom, greaterThan(initialState.zoom));
   });
 
   testWidgets('trackpad pinch zoom still changes zoom after gesture update', (
@@ -76,18 +82,24 @@ void main() {
     );
     await tester.pump();
 
-    final state = container.read(mapProvider);
-    expect(state.zoom, greaterThan(initialState.zoom));
+    expect(_zoomReadoutValue(tester), greaterThan(initialState.zoom));
+
+    final inMotionState = container.read(mapProvider);
+    expect(inMotionState.zoom, initialState.zoom);
     expect(
-      state.center.latitude,
+      inMotionState.center.latitude,
       moreOrLessEquals(initialState.center.latitude, epsilon: 0.000001),
     );
     expect(
-      state.center.longitude,
+      inMotionState.center.longitude,
       moreOrLessEquals(initialState.center.longitude, epsilon: 0.000001),
     );
 
     await gesture.up();
+    await tester.pump();
+
+    final state = container.read(mapProvider);
+    expect(state.zoom, greaterThan(initialState.zoom));
   });
 
   testWidgets('trackpad horizontal gesture is a no-op', (tester) async {
@@ -152,18 +164,24 @@ void main() {
     );
     await tester.pump();
 
-    final state = container.read(mapProvider);
-    expect(state.zoom, greaterThan(initialState.zoom));
+    expect(_zoomReadoutValue(tester), greaterThan(initialState.zoom));
+
+    final inMotionState = container.read(mapProvider);
+    expect(inMotionState.zoom, initialState.zoom);
     expect(
-      state.center.latitude,
+      inMotionState.center.latitude,
       moreOrLessEquals(initialState.center.latitude, epsilon: 0.000001),
     );
     expect(
-      state.center.longitude,
+      inMotionState.center.longitude,
       moreOrLessEquals(initialState.center.longitude, epsilon: 0.000001),
     );
 
     await gesture.up();
+    await tester.pump();
+
+    final state = container.read(mapProvider);
+    expect(state.zoom, greaterThan(initialState.zoom));
   });
 
   testWidgets('trackpad vertical zoom clamps at the max zoom bound', (
@@ -204,6 +222,46 @@ void main() {
 
     await gesture.up();
   });
+
+  testWidgets('trackpad zoom dismisses info popup during motion', (tester) async {
+    final initialState = MapState(
+      center: const LatLng(-41.5, 146.5),
+      zoom: 10,
+      basemap: Basemap.tracestrack,
+      showInfoPopup: true,
+    );
+
+    await _pumpMapApp(tester, initialState);
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final container = ProviderScope.containerOf(tester.element(region));
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(region),
+      kind: PointerDeviceKind.trackpad,
+    );
+
+    await gesture.panZoomUpdate(
+      tester.getCenter(region),
+      pan: const Offset(0, 120),
+    );
+    await tester.pump();
+
+    expect(container.read(mapProvider).showInfoPopup, isFalse);
+    expect(_zoomReadoutValue(tester), greaterThan(initialState.zoom));
+
+    await gesture.up();
+  });
+}
+
+double _zoomReadoutValue(WidgetTester tester) {
+  final text = tester.widget<Text>(
+    find.descendant(
+      of: find.byKey(const Key('map-zoom-readout')),
+      matching: find.byType(Text),
+    ),
+  );
+  return double.parse(text.data!.replaceFirst('zoom: ', ''));
 }
 
 Future<void> _pumpMapApp(WidgetTester tester, MapState state) async {

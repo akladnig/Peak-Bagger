@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
@@ -133,20 +131,54 @@ class TestMapNotifier extends MapNotifier {
     bool clearHoveredPeakId = true,
     bool clearHoveredTrackId = true,
   }) {
+    final nextSerial = state.cameraRequestSerial + 1;
     state = state.copyWith(
-      center: center,
-      zoom: zoom,
-      selectedLocation: updateSelectedLocation ? selectedLocation : null,
-      clearSelectedLocation: updateSelectedLocation && selectedLocation == null,
-      selectedPeaks: updateSelectedPeaks ? selectedPeaks : null,
-      cameraRequestCenter: center,
-      cameraRequestZoom: zoom,
-      cameraRequestSerial: state.cameraRequestSerial + 1,
-      syncEnabled: true,
-      clearGotoMgrs: clearGotoMgrs,
-      clearHoveredPeakId: clearHoveredPeakId,
-      clearHoveredTrackId: clearHoveredTrackId,
-      clearPeakInfoPopup: zoom < MapConstants.clearPeakInfo,
+      pendingCameraRequest: PendingCameraRequest(
+        center: center,
+        zoom: zoom,
+        serial: nextSerial,
+        selectedLocationBehavior: updateSelectedLocation
+            ? (selectedLocation == null
+                  ? PendingCameraSelectionBehavior.clear
+                  : PendingCameraSelectionBehavior.replace)
+            : PendingCameraSelectionBehavior.preserve,
+        selectedLocation: selectedLocation,
+        selectedPeaksBehavior: updateSelectedPeaks
+            ? ((selectedPeaks == null || selectedPeaks.isEmpty)
+                  ? PendingCameraSelectionBehavior.clear
+                  : PendingCameraSelectionBehavior.replace)
+            : PendingCameraSelectionBehavior.preserve,
+        selectedPeaks: selectedPeaks ?? const [],
+        persist: persist,
+        clearGotoMgrs: clearGotoMgrs,
+        clearHoveredPeakId: clearHoveredPeakId,
+        clearHoveredTrackId: clearHoveredTrackId,
+      ),
+      cameraRequestSerial: nextSerial,
+    );
+  }
+
+  @override
+  void acceptCameraIntent(PendingCameraRequest request) {
+    state = state.copyWith(
+      center: request.center,
+      zoom: request.zoom,
+      selectedLocation: switch (request.selectedLocationBehavior) {
+        PendingCameraSelectionBehavior.preserve => null,
+        PendingCameraSelectionBehavior.replace => request.selectedLocation,
+        PendingCameraSelectionBehavior.clear => null,
+      },
+      clearSelectedLocation:
+          request.selectedLocationBehavior == PendingCameraSelectionBehavior.clear,
+      selectedPeaks: switch (request.selectedPeaksBehavior) {
+        PendingCameraSelectionBehavior.preserve => null,
+        PendingCameraSelectionBehavior.replace => request.selectedPeaks,
+        PendingCameraSelectionBehavior.clear => const <Peak>[],
+      },
+      clearGotoMgrs: request.clearGotoMgrs,
+      clearHoveredPeakId: request.clearHoveredPeakId,
+      clearHoveredTrackId: request.clearHoveredTrackId,
+      clearPeakInfoPopup: request.zoom < MapConstants.clearPeakInfo,
     );
   }
 
@@ -189,12 +221,13 @@ class TestMapNotifier extends MapNotifier {
 
   @override
   void centerOnPeak(Peak peak) {
-    state = state.copyWith(
+    requestCameraMove(
       center: LatLng(peak.latitude, peak.longitude),
       zoom: MapConstants.singlePointZoom,
       selectedPeaks: [peak],
+      updateSelectedPeaks: true,
+      clearHoveredPeakId: true,
       clearHoveredTrackId: true,
-      clearPeakInfoPopup: MapConstants.singlePointZoom < MapConstants.clearPeakInfo,
     );
   }
 
@@ -233,63 +266,11 @@ class TestMapNotifier extends MapNotifier {
 
   @override
   void showTrack(int trackId, {LatLng? selectedLocation}) {
-    GpxTrack? track;
-    for (final item in state.tracks) {
-      if (item.gpxTrackId == trackId) {
-        track = item;
-        break;
-      }
-    }
-    final focus = track == null ? null : _trackFocus(track);
-
     state = state.copyWith(
-      center: focus?.center,
-      zoom: focus?.zoom,
       selectedTrackId: trackId,
       selectedLocation: selectedLocation,
       showTracks: true,
       selectedTrackFocusSerial: state.selectedTrackFocusSerial + 1,
-    );
-  }
-
-  ({LatLng center, double zoom})? _trackFocus(GpxTrack track) {
-    final points = track.getSegments().expand((segment) => segment).toList();
-    if (points.isEmpty) {
-      return null;
-    }
-    if (points.length == 1) {
-      return (center: points.single, zoom: 12);
-    }
-
-    var minLat = double.infinity;
-    var maxLat = double.negativeInfinity;
-    var minLon = double.infinity;
-    var maxLon = double.negativeInfinity;
-
-    for (final point in points) {
-      minLat = math.min(minLat, point.latitude);
-      maxLat = math.max(maxLat, point.latitude);
-      minLon = math.min(minLon, point.longitude);
-      maxLon = math.max(maxLon, point.longitude);
-    }
-
-    final center = LatLng((minLat + maxLat) / 2, (minLon + maxLon) / 2);
-    final span = math.max(maxLat - minLat, maxLon - minLon);
-
-    return (
-      center: center,
-      zoom: switch (span) {
-        > 4 => 6,
-        > 2 => 7,
-        > 1 => 8,
-        > 0.5 => 9,
-        > 0.25 => 10,
-        > 0.12 => 11,
-        > 0.06 => 12,
-        > 0.03 => 13,
-        > 0.015 => 14,
-        _ => 15,
-      },
     );
   }
 

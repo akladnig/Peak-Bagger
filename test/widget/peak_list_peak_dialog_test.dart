@@ -1057,9 +1057,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('peak-list-peak-dialog')), findsNothing);
-      expect(mapNotifier.state.center.latitude, closeTo(-41.0, 0.001));
-      expect(mapNotifier.state.center.longitude, closeTo(146.0, 0.001));
-      expect(mapNotifier.state.zoom, MapConstants.defaultZoom);
+      expect(mapNotifier.state.center.latitude, closeTo(-42.5, 0.001));
+      expect(mapNotifier.state.center.longitude, closeTo(147.5, 0.001));
+      expect(mapNotifier.state.zoom, 10);
       expect(
         mapNotifier.state.cameraRequestCenter,
         const LatLng(-41.0, 146.0),

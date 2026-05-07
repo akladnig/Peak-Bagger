@@ -57,6 +57,7 @@ class MapMgrsReadout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      key: const Key('map-mgrs-readout'),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
@@ -75,6 +76,7 @@ class MapZoomReadout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      key: const Key('map-zoom-readout'),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),

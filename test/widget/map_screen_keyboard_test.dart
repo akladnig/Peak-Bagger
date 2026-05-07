@@ -13,6 +13,25 @@ import 'package:peak_bagger/services/peak_list_repository.dart';
 import '../harness/test_map_notifier.dart';
 
 void main() {
+  testWidgets('keyboard zoom shortcut commits once immediately', (tester) async {
+    final notifier = _CountingKeyboardMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 10,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+    await _pumpMapAppWithNotifier(tester, notifier);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.period);
+    await tester.pump();
+
+    expect(notifier.acceptCameraIntentCallCount, 1);
+    expect(notifier.persistCameraPositionCallCount, 1);
+    expect(notifier.state.zoom, 11);
+    expect(notifier.state.cameraRequestCenter, isNull);
+  });
+
   testWidgets('keyboard zoom shortcut updates map zoom', (tester) async {
     await _pumpMapApp(
       tester,
@@ -189,6 +208,30 @@ void main() {
     expect(find.text('Unknown'), findsOneWidget);
   });
 
+  testWidgets('keyboard i recenters through accepted camera apply only', (
+    tester,
+  ) async {
+    const target = LatLng(-41.6, 146.6);
+    final notifier = _CountingKeyboardMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        selectedLocation: target,
+      ),
+    );
+    await _pumpMapAppWithNotifier(tester, notifier);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyI);
+    await tester.pump();
+
+    expect(notifier.acceptCameraIntentCallCount, 1);
+    expect(notifier.persistCameraPositionCallCount, 1);
+    expect(notifier.state.center, target);
+    expect(notifier.state.cameraRequestCenter, isNull);
+    expect(notifier.state.showInfoPopup, isTrue);
+  });
+
   testWidgets('keyboard b reopens basemaps drawer after peak lists drawer', (
     tester,
   ) async {
@@ -259,4 +302,44 @@ Future<void> _pumpMapApp(WidgetTester tester, MapState state) async {
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
   await tester.pump(const Duration(milliseconds: 100));
+}
+
+Future<void> _pumpMapAppWithNotifier(
+  WidgetTester tester,
+  MapNotifier notifier,
+) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        mapProvider.overrideWith(() => notifier),
+        peakListRepositoryProvider.overrideWithValue(
+          PeakListRepository.test(InMemoryPeakListStorage()),
+        ),
+      ],
+      child: const App(),
+    ),
+  );
+  await tester.pump();
+  router.go('/map');
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 100));
+  await tester.pump(const Duration(milliseconds: 100));
+}
+
+class _CountingKeyboardMapNotifier extends TestMapNotifier {
+  _CountingKeyboardMapNotifier(super.initialState);
+
+  int acceptCameraIntentCallCount = 0;
+  int persistCameraPositionCallCount = 0;
+
+  @override
+  void acceptCameraIntent(PendingCameraRequest request) {
+    acceptCameraIntentCallCount += 1;
+    super.acceptCameraIntent(request);
+  }
+
+  @override
+  Future<void> persistCameraPosition() async {
+    persistCameraPositionCallCount += 1;
+  }
 }

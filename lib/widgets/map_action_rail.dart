@@ -9,6 +9,7 @@ import 'package:peak_bagger/services/gpx_file_picker.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
 import 'package:peak_bagger/widgets/gpx_track_import_dialog.dart';
 import 'package:peak_bagger/widgets/left_tooltip_fab.dart';
+import 'package:peak_bagger/widgets/map_rebuild_debug_counters.dart';
 
 class MapActionRail extends ConsumerWidget {
   const MapActionRail({super.key});
@@ -38,11 +39,18 @@ class MapActionRail extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mapState = ref.watch(mapProvider);
+    MapRebuildDebugCounters.recordActionRailBuild();
+    final (:tracks, :isLoadingTracks, :hasTrackRecoveryIssue) = ref.watch(
+      mapProvider.select(
+        (state) => (
+          tracks: state.tracks,
+          isLoadingTracks: state.isLoadingTracks,
+          hasTrackRecoveryIssue: state.hasTrackRecoveryIssue,
+        ),
+      ),
+    );
     final isDisabled =
-        mapState.tracks.isEmpty ||
-        mapState.isLoadingTracks ||
-        mapState.hasTrackRecoveryIssue;
+        tracks.isEmpty || isLoadingTracks || hasTrackRecoveryIssue;
 
     return Positioned(
       top: 16,
@@ -279,10 +287,10 @@ class MapActionRail extends ConsumerWidget {
               heroTag: 'import',
               backgroundColor: Theme.of(context).colorScheme.surface,
               onPressed:
-                  mapState.isLoadingTracks || mapState.hasTrackRecoveryIssue
+                  isLoadingTracks || hasTrackRecoveryIssue
                   ? null
                   : () => _showGpxImportDialog(context, ref),
-              child: mapState.isLoadingTracks
+              child: isLoadingTracks
                   ? const SizedBox(
                       width: 18,
                       height: 18,
@@ -290,7 +298,7 @@ class MapActionRail extends ConsumerWidget {
                     )
                   : Icon(
                       Icons.input,
-                      color: mapState.hasTrackRecoveryIssue
+                      color: hasTrackRecoveryIssue
                           ? Theme.of(
                               context,
                             ).colorScheme.onSurface.withValues(alpha: 0.38)

@@ -1,11 +1,13 @@
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart' show PointerScrollEvent;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
+import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/router.dart';
@@ -57,7 +59,8 @@ void main() {
       tester.element(find.byKey(const Key('shared-app-bar'))),
     );
 
-    await tester.drag(region, const Offset(80, 0));
+    final gesture = await tester.startGesture(tester.getCenter(region));
+    await gesture.moveBy(const Offset(80, 0));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
@@ -79,6 +82,61 @@ void main() {
       closeTo(state.center.longitude, 0.000001),
     );
     expect(prefsAfterDebounce.getDouble('map_zoom'), state.zoom);
+
+    await gesture.up();
+  });
+
+  testWidgets('drag updates live MGRS before canonical provider sync', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final notifier = await _buildCountingNotifier();
+    await _pumpApp(tester, notifier);
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shared-app-bar'))),
+    );
+    final initialMgrs = container.read(mapProvider).currentMgrs;
+
+    final gesture = await tester.startGesture(tester.getCenter(region));
+    await gesture.moveBy(const Offset(80, 0));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(container.read(mapProvider).currentMgrs, initialMgrs);
+    expect(_mgrsReadoutText(tester), isNot(initialMgrs));
+
+    await gesture.up();
+  });
+
+  testWidgets('drag debounce commits fewer canonical syncs than motion updates', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final notifier = await _buildCountingNotifier();
+    await _pumpApp(tester, notifier);
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final gesture = await tester.startGesture(tester.getCenter(region));
+
+    await gesture.moveBy(const Offset(20, 0));
+    await tester.pump(const Duration(milliseconds: 16));
+    await gesture.moveBy(const Offset(20, 0));
+    await tester.pump(const Duration(milliseconds: 16));
+    await gesture.moveBy(const Offset(20, 0));
+    await tester.pump(const Duration(milliseconds: 16));
+
+    expect(notifier.canonicalCameraSyncCallCount, 0);
+
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(notifier.canonicalCameraSyncCallCount, 1);
+
+    await gesture.up();
+    await tester.pump();
+
+    expect(notifier.canonicalCameraSyncCallCount, 1);
   });
 
   testWidgets('trackpad gesture commits once at pan-zoom end', (tester) async {
@@ -104,6 +162,83 @@ void main() {
     await tester.pump();
 
     expect(notifier.persistCameraPositionCallCount, 1);
+  });
+
+  testWidgets('mouse wheel zoom commits once on debounce without end sync', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final notifier = await _buildCountingNotifier();
+    await _pumpApp(tester, notifier);
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final center = tester.getCenter(region);
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: center);
+    await tester.pump();
+
+    await tester.sendEventToBinding(
+      PointerScrollEvent(
+        position: center,
+        scrollDelta: const Offset(0, -20),
+        kind: PointerDeviceKind.mouse,
+      ),
+    );
+    await tester.pump();
+
+    expect(notifier.canonicalCameraSyncCallCount, 0);
+
+    await tester.pump(MapConstants.cameraSaveDebounce);
+
+    expect(notifier.canonicalCameraSyncCallCount, 1);
+
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(notifier.canonicalCameraSyncCallCount, 1);
+  });
+
+  testWidgets('newer request beats pending continuous flush and stale persistence', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final notifier = await _buildCountingNotifier();
+    await _pumpApp(tester, notifier);
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shared-app-bar'))),
+    );
+    const target = LatLng(-41.6, 146.6);
+
+    final gesture = await tester.startGesture(tester.getCenter(region));
+    await gesture.moveBy(const Offset(80, 0));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(notifier.persistCameraPositionCallCount, 0);
+
+    container.read(mapProvider.notifier).requestCameraMove(
+      center: target,
+      zoom: MapConstants.defaultZoom,
+      selectedLocation: target,
+      updateSelectedLocation: true,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(notifier.persistCameraPositionCallCount, 1);
+    expect(container.read(mapProvider).center, target);
+
+    await gesture.up();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(notifier.persistCameraPositionCallCount, 1);
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getDouble('map_position_lat'), closeTo(target.latitude, 0.000001));
+    expect(prefs.getDouble('map_position_lng'), closeTo(target.longitude, 0.000001));
+    expect(prefs.getDouble('map_zoom'), MapConstants.defaultZoom);
   });
 
   testWidgets('held-key pan commits once at stop scrolling', (tester) async {
@@ -139,7 +274,8 @@ void main() {
     await _pumpApp(tester, notifier);
 
     final region = find.byKey(const Key('map-interaction-region'));
-    await tester.drag(region, const Offset(80, 0));
+    final gesture = await tester.startGesture(tester.getCenter(region));
+    await gesture.moveBy(const Offset(80, 0));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
@@ -149,6 +285,9 @@ void main() {
     await tester.pump();
 
     expect(notifier.persistCameraPositionCallCount, 1);
+
+    await gesture.up();
+    await tester.pump();
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
@@ -210,6 +349,15 @@ Future<void> _drainAsync() async {
   await Future<void>.delayed(const Duration(milliseconds: 10));
 }
 
+String _mgrsReadoutText(WidgetTester tester) {
+  final readout = find.descendant(
+    of: find.byKey(const Key('map-mgrs-readout')),
+    matching: find.byType(RichText),
+  );
+  final richText = tester.widget<RichText>(readout);
+  return richText.text.toPlainText();
+}
+
 class _CountingMapNotifier extends MapNotifier {
   _CountingMapNotifier({
     required super.peakRepository,
@@ -223,7 +371,17 @@ class _CountingMapNotifier extends MapNotifier {
     required super.loadTracksOnBuild,
   });
 
+  // Phase 1 seam plan: keep persistence counting for the current behavior, but
+  // move continuous-path frequency assertions to the future accepted-camera sync
+  // boundary once MapScreen routes every winning camera intent through it.
+  int canonicalCameraSyncCallCount = 0;
   int persistCameraPositionCallCount = 0;
+
+  @override
+  void updatePosition(LatLng center, double zoom) {
+    canonicalCameraSyncCallCount += 1;
+    super.updatePosition(center, zoom);
+  }
 
   @override
   Future<void> persistCameraPosition() async {

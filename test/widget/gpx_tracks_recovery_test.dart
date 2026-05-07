@@ -246,7 +246,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(container.read(mapProvider).zoom, greaterThan(initialZoom));
+    expect(container.read(mapProvider).zoom, initialZoom);
     expect(
       container.read(mapProvider).center.latitude,
       moreOrLessEquals(initialCenter.latitude, epsilon: 0.000001),
@@ -257,6 +257,9 @@ void main() {
     );
 
     await gesture.up();
+    await tester.pump();
+
+    expect(container.read(mapProvider).zoom, greaterThan(initialZoom));
   });
 }
 
