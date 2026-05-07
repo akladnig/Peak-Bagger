@@ -26,15 +26,15 @@ Map camera hot-path refactor. Keep live motion in a narrow `MapScreen` seam; com
 ### Phase 2: Continuous Live-Camera Slice
 
 - **Goal**: drag/wheel/trackpad/held-key use live local camera; canonical sync throttled
-- [ ] `lib/screens/map_screen.dart` - add live-camera state/coordinator, latest-wins token, debounce/end-sync flush, live MGRS derivation, popup/hover/cursor side-effect reassignment
-- [ ] `lib/screens/map_screen_panels.dart` - add stable app-owned keys for `MapMgrsReadout` and `MapZoomReadout`
-- [ ] `lib/core/constants.dart` - reuse `MapConstants.cameraSaveDebounce`; touch only if tests prove a gap
-- [ ] `test/widget/map_screen_persistence_test.dart` - migrate continuous-path assertions to live UI plus canonical-sync counter; cover debounce, dedupe, lifecycle flush, held-key end-sync, wheel no-extra-end-sync
-- [ ] `test/widget/map_screen_trackpad_gesture_test.dart` - migrate in-motion assertions away from immediate provider zoom/center; assert live readouts and accepted end-sync behavior
-- [ ] TDD: drag updates visible camera and readouts before canonical provider sync, then implement
-- [ ] TDD: after `N` continuous updates, canonical sync count is less than `N`; debounce/end-sync dedupe keeps one final accepted commit, then implement
-- [ ] TDD: trackpad pinch path stays functional, zoom clamps, popup dismissal timing stays coherent, then implement
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/screens/map_screen.dart` - add live-camera state/coordinator, latest-wins token, debounce/end-sync flush, live MGRS derivation, popup/hover/cursor side-effect reassignment
+- [x] `lib/screens/map_screen_panels.dart` - add stable app-owned keys for `MapMgrsReadout` and `MapZoomReadout`
+- [x] `lib/core/constants.dart` - reuse `MapConstants.cameraSaveDebounce`; touch only if tests prove a gap
+- [x] `test/widget/map_screen_persistence_test.dart` - migrate continuous-path assertions to live UI plus canonical-sync counter; cover debounce, dedupe, lifecycle flush, held-key end-sync, wheel no-extra-end-sync
+- [x] `test/widget/map_screen_trackpad_gesture_test.dart` - migrate in-motion assertions away from immediate provider zoom/center; assert live readouts and accepted end-sync behavior
+- [x] TDD: drag updates visible camera and readouts before canonical provider sync, then implement
+- [x] TDD: after `N` continuous updates, canonical sync count is less than `N`; debounce/end-sync dedupe keeps one final accepted commit, then implement
+- [x] TDD: trackpad pinch path stays functional, zoom clamps, popup dismissal timing stays coherent, then implement
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Discrete Acceptance Model
 
