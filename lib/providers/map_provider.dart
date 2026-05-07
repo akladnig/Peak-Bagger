@@ -51,6 +51,36 @@ enum PeakListSelectionMode { none, allPeaks, specificList }
 
 enum EndDrawerMode { basemaps, peakLists }
 
+enum PendingCameraSelectionBehavior { preserve, replace, clear }
+
+class PendingCameraRequest {
+  const PendingCameraRequest({
+    required this.center,
+    required this.zoom,
+    required this.serial,
+    this.selectedLocationBehavior = PendingCameraSelectionBehavior.preserve,
+    this.selectedLocation,
+    this.selectedPeaksBehavior = PendingCameraSelectionBehavior.preserve,
+    this.selectedPeaks = const [],
+    this.persist = true,
+    this.clearGotoMgrs = false,
+    this.clearHoveredPeakId = true,
+    this.clearHoveredTrackId = true,
+  });
+
+  final LatLng center;
+  final double zoom;
+  final int serial;
+  final PendingCameraSelectionBehavior selectedLocationBehavior;
+  final LatLng? selectedLocation;
+  final PendingCameraSelectionBehavior selectedPeaksBehavior;
+  final List<Peak> selectedPeaks;
+  final bool persist;
+  final bool clearGotoMgrs;
+  final bool clearHoveredPeakId;
+  final bool clearHoveredTrackId;
+}
+
 class PeakInfoContent {
   const PeakInfoContent({
     required this.peak,
@@ -107,6 +137,8 @@ class MapState {
   final PeakInfoContent? peakInfo;
   final int? hoveredTrackId;
   final int? selectedTrackId;
+  // Phase 1 design target: Phase 3 will replace these scattered request fields
+  // with a single PendingCameraRequest once accepted-apply ownership lands.
   final LatLng? cameraRequestCenter;
   final double? cameraRequestZoom;
   final int cameraRequestSerial;

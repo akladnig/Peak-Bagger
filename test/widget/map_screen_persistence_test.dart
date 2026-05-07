@@ -223,6 +223,9 @@ class _CountingMapNotifier extends MapNotifier {
     required super.loadTracksOnBuild,
   });
 
+  // Phase 1 seam plan: keep persistence counting for the current behavior, but
+  // move continuous-path frequency assertions to the future accepted-camera sync
+  // boundary once MapScreen routes every winning camera intent through it.
   int persistCameraPositionCallCount = 0;
 
   @override

@@ -476,6 +476,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final mapState = ref.watch(mapProvider);
     final filteredPeaks = ref.watch(filteredPeaksProvider);
     ref.watch(tasmapStateProvider.select((state) => state.tasmapRevision));
+    // Phase 1 seam target: keep the route root on canonical state, then extract a
+    // hot-path subtree for FlutterMap, the selected-location marker, live
+    // readouts, and rebuild instrumentation so camera churn stops here.
     final displayMgrs =
         mapState.cursorMgrs ?? mapState.gotoMgrs ?? mapState.currentMgrs;
 

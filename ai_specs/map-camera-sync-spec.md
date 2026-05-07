@@ -68,7 +68,7 @@ Error flows:
 17. The `pending camera request object` schema must include these minimum fields:
 - required accepted-at-apply inputs: `center`, `zoom`, request serial or token
 - selection payload semantics for `selectedLocation`: preserve, replace with a provided location, or clear
-- selection payload semantics for `selectedPeaks`: preserve, replace with a provided list, or clear-to-empty
+- selection payload semantics for `selectedPeaks`: preserve, replace with a non-empty provided list, or clear-to-empty. An empty provided list must be treated as `clear-to-empty`.
 - request-owned behavior flags: whether to clear goto MGRS, hovered peak, hovered track, or other request-scoped state as part of accepted apply
 - persistence control: whether the accepted request writes persisted camera state after visible application
 
@@ -122,9 +122,8 @@ The schema may include additional fields only if they are required to preserve c
 | Track hover | N/A | Canonical sync | Canonical sync |
 
 This lag for peak markers, track polylines, selected-peaks circles, all-map overlay polygons, selected-map labels, overlay labels, and related hover behavior is intentional and acceptable for this optimization in exchange for reducing hot-path churn.
-Selected-map labels and overlay labels intentionally share the same canonical-sync behavior.
+Selected-map rectangle and selected-map labels together form the selected-map visual feature, and both selected-map labels and overlay labels intentionally share canonical-sync behavior.
 These layers must refresh together on canonical sync so rendered geometry, visibility thresholds, and hover targets stay aligned after each accepted debounce or end-sync update.
-Selected-map rectangle and selected-map labels together form the selected-map visual feature and intentionally share the same canonical-sync cadence.
 By default, no escalation from canonical sync to a narrower live subtree occurs unless the user explicitly requests a revision after reviewing the implemented behavior.
 Content within one visible layer must not mix live and canonical sources inconsistently; for example, a layer's threshold logic and rendered geometry must use the same source.
 34. Movement side effects currently bundled inside `updatePosition()` must be reassigned explicitly rather than lost implicitly:
@@ -200,6 +199,7 @@ Implementation expectations:
 - Reuse existing focus serial mechanisms where practical. Do not require a full replacement of `selectedMapFocusSerial` or `selectedTrackFocusSerial` if a smaller addition, such as one continuous-interaction token or coordinator, can enforce the latest-wins rule across all camera intents.
 - Fix or migrate legacy discrete camera paths that currently mutate provider camera state without going through controller-owned acceptance, including `selectAllSearchResults()`, `centerOnPeak()`, and `centerOnLocationWithZoom()`, unless a specific path is explicitly excluded from scope with justification.
 - Follow the hidden-route contract above for off-route reader behavior.
+- Implement a transient `liveCameraMgrs` value in the extracted hot-path seam so `MapMgrsReadout` can stay live while canonical `currentMgrs` lags until sync.
 - Keep live readout data close to the live camera seam so `MapMgrsReadout` and `MapZoomReadout` can update cheaply during motion.
 - Drag end-sync may be implemented via pointer-up or another explicit end-of-interaction seam, as long as the latest-wins and dedupe rules hold.
 - Custom trackpad pinch end-sync may be implemented via `PointerPanZoomEndEvent` or another explicit end-of-interaction seam that preserves the latest-wins and dedupe rules.
@@ -264,6 +264,38 @@ Any additional direct controller move or provider-driven camera request discover
 
 <discovered_writers>
 Before any refactor implementation tasks begin, append the results of the required camera-writer grep audit here or in an equivalent implementation note. For each discovered writer, record whether it was migrated into the acceptance model, covered by the continuous/discrete policy unchanged, or explicitly left out of scope with justification.
+
+Grep audit run against `state.copyWith(center:`, `state.copyWith(zoom:`, `updatePosition(`, `requestCameraMove(`, `.move(`, and `fitCamera(` before refactor implementation.
+
+Continuous camera writers:
+- `lib/screens/map_screen.dart:337-375` `_handleTrackpadPanZoomUpdate()` plus `_handleTrackpadPanZoomEnd()` uses `_mapController.move(...)` and `updatePosition(...)` for the existing custom desktop trackpad zoom path. Keep as a continuous live-camera path with required end-sync; optional mid-gesture debounce only if needed.
+- `lib/screens/map_screen.dart:730-739` `MapOptions.onPositionChanged` currently sends every gesture tick through `updatePosition(...)`. Split this shared callback into continuous drag and wheel handling under the spec table: drag gets debounce plus end-sync, wheel gets debounce without a required extra end-sync.
+- `lib/screens/map_screen.dart:1069-1077` `_moveMap()` is the held-key pan writer. Treat as continuous live-camera motion with key-stop end-sync and optional mid-motion debounce only if the smaller implementation needs it.
+
+Discrete controller-owned camera writers that must route through one accepted-apply seam:
+- `lib/screens/map_screen.dart:377-380` `_focusPeakDirect()` currently does `_mapController.move(...)` before `centerOnPeak(...)`. Migrate to the accepted discrete apply helper so visible apply wins before canonical state or persistence.
+- `lib/screens/map_screen.dart:383-408` `_centerOnSelectedLocationDirect()` and `_moveVisibleMapToLocation()` currently move, call `updatePosition(...)`, and persist immediately. Migrate to the same accepted discrete apply helper.
+- `lib/screens/map_screen.dart:529-550` keyboard single-step zoom currently moves, updates canonical camera immediately, and persists immediately. Keep as a discrete immediate commit, but route through the accepted apply seam.
+- `lib/screens/map_screen.dart:590-601` keyboard `I` selected-location recenter currently moves and updates canonical camera before toggling the info popup. Keep as a discrete immediate commit while preserving current popup timing.
+- `lib/screens/map_screen.dart:990-1055` `_zoomToMapExtent()` uses direct `move(...)` fallbacks plus `fitCamera(...)` with a post-frame `updatePosition(...)`. Keep as a discrete accepted apply path whose final accepted camera is taken after controller application.
+- `lib/screens/map_screen.dart:1143-1156` `_applyPendingCameraRequest()` currently moves from provider request fields and clears the request serial. This becomes the route-mounted accepted apply path for the new pending request object.
+- `lib/screens/map_screen.dart:1249-1311` `_zoomToTrackExtent()` uses direct `move(...)` fallbacks plus `fitCamera(...)` with a post-frame `updatePosition(...)`. Keep as a discrete accepted apply path whose final accepted camera is taken after controller application.
+
+Provider-side camera writers or request creators to migrate into the pending request object model:
+- `lib/providers/map_provider.dart:1170-1209` `requestCameraMove(...)` is currently both a request creator and an early canonical camera mutation/persistence writer. Replace this scattered `cameraRequestCenter/cameraRequestZoom/cameraRequestSerial` representation with one pending request object and defer canonical writes until visible acceptance.
+- `lib/providers/map_provider.dart:1280-1289` `centerOnLocation(...)` currently forwards to `requestCameraMove(...)`. Keep as a discrete request creator backed by the new pending request object.
+- `lib/providers/map_provider.dart:1312-1322` `centerOnSelectedLocation()` currently forwards to `requestCameraMove(...)`. Keep as a discrete request creator backed by the new pending request object.
+- `lib/providers/map_provider.dart:2004-2007` `centerOnLocationWithZoom(...)` directly mutates `state.center` and persists without controller-owned acceptance. Migrate to the discrete accepted-apply/request-object model in Phase 3.
+- `lib/providers/map_provider.dart:2127-2164` `selectAllSearchResults()` directly mutates accepted camera fields. Migrate to the discrete accepted-apply/request-object model in Phase 3.
+- `lib/providers/map_provider.dart:2171-2179` `centerOnPeak(...)` directly mutates accepted camera fields. Migrate to the discrete accepted-apply/request-object model in Phase 3.
+
+Off-route request entry points that must create pending requests without overwriting accepted camera fields early:
+- `lib/widgets/peak_list_peak_dialog.dart:508-515` `_navigateToPeakOnMap()` creates a camera request before routing to the map. Keep in scope and back it with the pending request object.
+- `lib/screens/objectbox_admin_screen.dart:254-263` `_viewPeakOnMainMap()` creates a camera request before routing to the map. Keep in scope and back it with the pending request object.
+
+Out-of-scope for production refactor but covered by the audit:
+- `test/widget/map_screen_persistence_test.dart`, `test/widget/map_screen_route_entry_test.dart`, `test/widget/map_screen_camera_request_test.dart`, `test/widget/map_screen_peak_info_test.dart`, `test/widget/gpx_tracks_recovery_test.dart`, `test/gpx_track_test.dart`, and `test/harness/test_map_notifier.dart` contain test-only `updatePosition(...)` or `requestCameraMove(...)` calls and must be updated alongside production behavior changes.
+- `lib/services/geo.dart` `.move(...)` matches are `LocationDelta.move(...)` helpers, not map camera writers, so they are out of scope for this refactor.
 </discovered_writers>
 
 <stages>
