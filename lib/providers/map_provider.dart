@@ -1,5 +1,4 @@
 import 'dart:io' as io;
-import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -79,6 +78,36 @@ class PendingCameraRequest {
   final bool clearGotoMgrs;
   final bool clearHoveredPeakId;
   final bool clearHoveredTrackId;
+
+  PendingCameraRequest copyWith({
+    LatLng? center,
+    double? zoom,
+    int? serial,
+    PendingCameraSelectionBehavior? selectedLocationBehavior,
+    LatLng? selectedLocation,
+    PendingCameraSelectionBehavior? selectedPeaksBehavior,
+    List<Peak>? selectedPeaks,
+    bool? persist,
+    bool? clearGotoMgrs,
+    bool? clearHoveredPeakId,
+    bool? clearHoveredTrackId,
+  }) {
+    return PendingCameraRequest(
+      center: center ?? this.center,
+      zoom: zoom ?? this.zoom,
+      serial: serial ?? this.serial,
+      selectedLocationBehavior:
+          selectedLocationBehavior ?? this.selectedLocationBehavior,
+      selectedLocation: selectedLocation ?? this.selectedLocation,
+      selectedPeaksBehavior:
+          selectedPeaksBehavior ?? this.selectedPeaksBehavior,
+      selectedPeaks: selectedPeaks ?? this.selectedPeaks,
+      persist: persist ?? this.persist,
+      clearGotoMgrs: clearGotoMgrs ?? this.clearGotoMgrs,
+      clearHoveredPeakId: clearHoveredPeakId ?? this.clearHoveredPeakId,
+      clearHoveredTrackId: clearHoveredTrackId ?? this.clearHoveredTrackId,
+    );
+  }
 }
 
 class PeakInfoContent {
@@ -137,10 +166,7 @@ class MapState {
   final PeakInfoContent? peakInfo;
   final int? hoveredTrackId;
   final int? selectedTrackId;
-  // Phase 1 design target: Phase 3 will replace these scattered request fields
-  // with a single PendingCameraRequest once accepted-apply ownership lands.
-  final LatLng? cameraRequestCenter;
-  final double? cameraRequestZoom;
+  final PendingCameraRequest? pendingCameraRequest;
   final int cameraRequestSerial;
 
   const MapState({
@@ -187,8 +213,7 @@ class MapState {
     this.peakInfo,
     this.hoveredTrackId,
     this.selectedTrackId,
-    this.cameraRequestCenter,
-    this.cameraRequestZoom,
+    this.pendingCameraRequest,
     this.cameraRequestSerial = 0,
   });
 
@@ -200,6 +225,10 @@ class MapState {
       tasmapDisplayMode == TasmapDisplayMode.selectedMap && selectedMap != null;
 
   bool get showPeaks => peakListSelectionMode != PeakListSelectionMode.none;
+
+  LatLng? get cameraRequestCenter => pendingCameraRequest?.center;
+
+  double? get cameraRequestZoom => pendingCameraRequest?.zoom;
 
   MapState copyWith({
     LatLng? center,
@@ -255,10 +284,9 @@ class MapState {
     bool clearHoveredTrackId = false,
     int? selectedTrackId,
     bool clearSelectedTrackId = false,
-    LatLng? cameraRequestCenter,
-    double? cameraRequestZoom,
+    PendingCameraRequest? pendingCameraRequest,
     int? cameraRequestSerial,
-    bool clearCameraRequest = false,
+    bool clearPendingCameraRequest = false,
     bool clearCursorMgrs = false,
     bool clearError = false,
     bool clearGotoMgrs = false,
@@ -331,12 +359,9 @@ class MapState {
       selectedTrackId: clearSelectedTrackId
           ? null
           : (selectedTrackId ?? this.selectedTrackId),
-      cameraRequestCenter: clearCameraRequest
+      pendingCameraRequest: clearPendingCameraRequest
           ? null
-          : (cameraRequestCenter ?? this.cameraRequestCenter),
-      cameraRequestZoom: clearCameraRequest
-          ? null
-          : (cameraRequestZoom ?? this.cameraRequestZoom),
+          : (pendingCameraRequest ?? this.pendingCameraRequest),
       cameraRequestSerial: cameraRequestSerial ?? this.cameraRequestSerial,
     );
   }
@@ -1199,6 +1224,32 @@ class MapNotifier extends Notifier<MapState> {
     );
   }
 
+  void acceptCameraIntent(PendingCameraRequest request) {
+    state = state.copyWith(
+      center: request.center,
+      zoom: request.zoom,
+      currentMgrs: _convertToMgrs(request.center),
+      selectedLocation: switch (request.selectedLocationBehavior) {
+        PendingCameraSelectionBehavior.preserve => null,
+        PendingCameraSelectionBehavior.replace => request.selectedLocation,
+        PendingCameraSelectionBehavior.clear => null,
+      },
+      clearSelectedLocation:
+          request.selectedLocationBehavior == PendingCameraSelectionBehavior.clear,
+      selectedPeaks: switch (request.selectedPeaksBehavior) {
+        PendingCameraSelectionBehavior.preserve => null,
+        PendingCameraSelectionBehavior.replace => request.selectedPeaks,
+        PendingCameraSelectionBehavior.clear => const <Peak>[],
+      },
+      syncEnabled: true,
+      clearCursorMgrs: true,
+      clearGotoMgrs: request.clearGotoMgrs,
+      clearHoveredPeakId: request.clearHoveredPeakId,
+      clearHoveredTrackId: request.clearHoveredTrackId,
+      clearPeakInfoPopup: request.zoom < MapConstants.clearPeakInfo,
+    );
+  }
+
   void requestCameraMove({
     required LatLng center,
     required double zoom,
@@ -1211,34 +1262,39 @@ class MapNotifier extends Notifier<MapState> {
     bool clearHoveredPeakId = true,
     bool clearHoveredTrackId = true,
   }) {
+    final nextSerial = state.cameraRequestSerial + 1;
     state = state.copyWith(
-      center: center,
-      zoom: zoom,
-      currentMgrs: _convertToMgrs(center),
-      selectedLocation: updateSelectedLocation ? selectedLocation : null,
-      clearSelectedLocation: updateSelectedLocation && selectedLocation == null,
-      selectedPeaks: updateSelectedPeaks ? selectedPeaks : null,
-      cameraRequestCenter: center,
-      cameraRequestZoom: zoom,
-      cameraRequestSerial: state.cameraRequestSerial + 1,
-      syncEnabled: true,
-      clearGotoMgrs: clearGotoMgrs,
-      clearHoveredPeakId: clearHoveredPeakId,
-      clearHoveredTrackId: clearHoveredTrackId,
-      clearPeakInfoPopup: zoom < MapConstants.clearPeakInfo,
+      pendingCameraRequest: PendingCameraRequest(
+        center: center,
+        zoom: zoom,
+        serial: nextSerial,
+        selectedLocationBehavior: updateSelectedLocation
+            ? (selectedLocation == null
+                  ? PendingCameraSelectionBehavior.clear
+                  : PendingCameraSelectionBehavior.replace)
+            : PendingCameraSelectionBehavior.preserve,
+        selectedLocation: selectedLocation,
+        selectedPeaksBehavior: updateSelectedPeaks
+            ? ((selectedPeaks == null || selectedPeaks.isEmpty)
+                  ? PendingCameraSelectionBehavior.clear
+                  : PendingCameraSelectionBehavior.replace)
+            : PendingCameraSelectionBehavior.preserve,
+        selectedPeaks: selectedPeaks ?? const [],
+        persist: persist,
+        clearGotoMgrs: clearGotoMgrs,
+        clearHoveredPeakId: clearHoveredPeakId,
+        clearHoveredTrackId: clearHoveredTrackId,
+      ),
+      cameraRequestSerial: nextSerial,
     );
-    if (persist) {
-      persistCameraPosition();
-    }
   }
 
   void consumeCameraRequest(int serial) {
     if (state.cameraRequestSerial != serial ||
-        state.cameraRequestCenter == null ||
-        state.cameraRequestZoom == null) {
+        state.pendingCameraRequest?.serial != serial) {
       return;
     }
-    state = state.copyWith(clearCameraRequest: true);
+    state = state.copyWith(clearPendingCameraRequest: true);
   }
 
   void setBasemap(Basemap basemap) {
@@ -1441,60 +1497,15 @@ class MapNotifier extends Notifier<MapState> {
             state.tracks.every((existing) => existing.gpxTrackId != trackId)
         ? [...state.tracks, track]
         : null;
-    final focus = track == null ? null : _trackFocus(track);
 
     state = state.copyWith(
-      center: focus?.center,
-      zoom: focus?.zoom,
-      currentMgrs: focus == null ? null : _convertToMgrs(focus.center),
       tracks: tracks,
       selectedTrackId: trackId,
       selectedLocation: selectedLocation,
       showTracks: true,
       clearHoveredTrackId: true,
-      clearGotoMgrs: focus != null,
+      clearGotoMgrs: track != null,
       selectedTrackFocusSerial: state.selectedTrackFocusSerial + 1,
-    );
-  }
-
-  ({LatLng center, double zoom})? _trackFocus(GpxTrack track) {
-    final points = track.getSegments().expand((segment) => segment).toList();
-    if (points.isEmpty) {
-      return null;
-    }
-    if (points.length == 1) {
-      return (center: points.single, zoom: MapConstants.singlePointZoom);
-    }
-
-    var minLat = double.infinity;
-    var maxLat = double.negativeInfinity;
-    var minLon = double.infinity;
-    var maxLon = double.negativeInfinity;
-
-    for (final point in points) {
-      minLat = math.min(minLat, point.latitude);
-      maxLat = math.max(maxLat, point.latitude);
-      minLon = math.min(minLon, point.longitude);
-      maxLon = math.max(maxLon, point.longitude);
-    }
-
-    final center = LatLng((minLat + maxLat) / 2, (minLon + maxLon) / 2);
-    final span = math.max(maxLat - minLat, maxLon - minLon);
-
-    return (
-      center: center,
-      zoom: switch (span) {
-        > 4 => 6,
-        > 2 => 7,
-        > 1 => 8,
-        > 0.5 => 9,
-        > 0.25 => 10,
-        > 0.12 => 11,
-        > 0.06 => 12,
-        > 0.03 => 13,
-        > 0.015 => 14,
-        _ => 15,
-      },
     );
   }
 
@@ -2034,8 +2045,12 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void centerOnLocationWithZoom(LatLng location, Tasmap50k map) {
-    state = state.copyWith(center: location, clearHoveredTrackId: true);
-    persistCameraPosition();
+    requestCameraMove(
+      center: location,
+      zoom: state.zoom,
+      clearHoveredPeakId: true,
+      clearHoveredTrackId: true,
+    );
   }
 
   void toggleMapOverlay() {
@@ -2183,15 +2198,18 @@ class MapNotifier extends Notifier<MapState> {
         zoom = 10 - (maxDiff / 10).clamp(0, 3);
       }
 
-      state = state.copyWith(
+      requestCameraMove(
+        center: LatLng(centerLat, centerLng),
+        zoom: zoom,
         selectedPeaks: List.from(peaks),
+        updateSelectedPeaks: true,
+        clearHoveredPeakId: true,
+        clearHoveredTrackId: true,
+      );
+      state = state.copyWith(
         showPeakSearch: false,
         searchQuery: '',
         searchResults: [],
-        center: LatLng(centerLat, centerLng),
-        zoom: zoom,
-        currentMgrs: _convertToMgrs(LatLng(centerLat, centerLng)),
-        clearHoveredTrackId: true,
       );
     }
   }
@@ -2201,12 +2219,13 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void centerOnPeak(Peak peak) {
-    state = state.copyWith(
+    requestCameraMove(
       center: LatLng(peak.latitude, peak.longitude),
       zoom: MapConstants.singlePointZoom,
       selectedPeaks: [peak],
+      updateSelectedPeaks: true,
+      clearHoveredPeakId: true,
       clearHoveredTrackId: true,
-      clearPeakInfoPopup: MapConstants.singlePointZoom < MapConstants.clearPeakInfo,
     );
   }
 

@@ -197,6 +197,50 @@ void main() {
     expect(notifier.canonicalCameraSyncCallCount, 1);
   });
 
+  testWidgets('newer request beats pending continuous flush and stale persistence', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final notifier = await _buildCountingNotifier();
+    await _pumpApp(tester, notifier);
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shared-app-bar'))),
+    );
+    const target = LatLng(-41.6, 146.6);
+
+    final gesture = await tester.startGesture(tester.getCenter(region));
+    await gesture.moveBy(const Offset(80, 0));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(notifier.persistCameraPositionCallCount, 0);
+
+    container.read(mapProvider.notifier).requestCameraMove(
+      center: target,
+      zoom: MapConstants.defaultZoom,
+      selectedLocation: target,
+      updateSelectedLocation: true,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(notifier.persistCameraPositionCallCount, 1);
+    expect(container.read(mapProvider).center, target);
+
+    await gesture.up();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(notifier.persistCameraPositionCallCount, 1);
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getDouble('map_position_lat'), closeTo(target.latitude, 0.000001));
+    expect(prefs.getDouble('map_position_lng'), closeTo(target.longitude, 0.000001));
+    expect(prefs.getDouble('map_zoom'), MapConstants.defaultZoom);
+  });
+
   testWidgets('held-key pan commits once at stop scrolling', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final notifier = await _buildCountingNotifier();

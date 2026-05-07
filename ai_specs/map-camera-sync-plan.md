@@ -39,30 +39,30 @@ Map camera hot-path refactor. Keep live motion in a narrow `MapScreen` seam; com
 ### Phase 3: Discrete Acceptance Model
 
 - **Goal**: one accepted-camera seam for direct moves, fit moves, off-route requests
-- [ ] `lib/providers/map_provider.dart` - add pending request object schema with camera payload, selection semantics, clear flags, serial/token, persistence intent
-- [ ] `lib/screens/map_screen.dart` - route all discrete controller moves and request consumption through accepted-apply helper; prevent stale continuous flush overwrite
-- [ ] `lib/providers/map_provider.dart` - migrate legacy provider camera writers such as `centerOnLocationWithZoom()`, `centerOnPeak()`, `selectAllSearchResults()`, `requestCameraMove()` to the same ownership rule
-- [ ] `test/widget/map_screen_keyboard_test.dart` - cover discrete keyboard zoom and `I` recenter as immediate accepted commits without stale echo
-- [ ] `test/widget/map_screen_persistence_test.dart` - cover newer discrete intent beating older continuous pending flush; persistence only after winning visible apply
-- [ ] TDD: discrete keyboard zoom commits immediately once per action, then implement
-- [ ] TDD: newer goto/focus/request supersedes older pending continuous commit and stale persistence never writes, then implement
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/providers/map_provider.dart` - add pending request object schema with camera payload, selection semantics, clear flags, serial/token, persistence intent
+- [x] `lib/screens/map_screen.dart` - route all discrete controller moves and request consumption through accepted-apply helper; prevent stale continuous flush overwrite
+- [x] `lib/providers/map_provider.dart` - migrate legacy provider camera writers such as `centerOnLocationWithZoom()`, `centerOnPeak()`, `selectAllSearchResults()`, `requestCameraMove()` to the same ownership rule
+- [x] `test/widget/map_screen_keyboard_test.dart` - cover discrete keyboard zoom and `I` recenter as immediate accepted commits without stale echo
+- [x] `test/widget/map_screen_persistence_test.dart` - cover newer discrete intent beating older continuous pending flush; persistence only after winning visible apply
+- [x] TDD: discrete keyboard zoom commits immediately once per action, then implement
+- [x] TDD: newer goto/focus/request supersedes older pending continuous commit and stale persistence never writes, then implement
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 4: Rebuild Narrowing And Journey Proof
 
 - **Goal**: hot path isolated; non-camera UI insulated from camera churn
-- [ ] `lib/screens/map_screen.dart` - split route root into narrow consumers; keep live subtree limited to viewport, selected-location marker, readouts, gesture-owned UI
-- [ ] `lib/providers/peak_list_selection_provider.dart` - stop watching full `MapState`; depend only on peaks plus peak-list selection inputs
-- [ ] `lib/widgets/map_action_rail.dart` - narrow `mapProvider` watch to track-related fields only; add explicit rebuild counter seam for widget tests
-- [ ] `lib/widgets/map_peak_lists_drawer.dart` - narrow only if instrumentation still shows camera churn when drawer present
-- [ ] `lib/widgets/map_basemaps_drawer.dart` - narrow only if instrumentation still shows camera churn when drawer present
-- [ ] `lib/router.dart` - narrow map-route snackbar consumer only if instrumentation still shows churn
-- [ ] `test/widget/map_screen_*` - add rebuild-proof tests for extracted hot-path boundary and visible non-camera consumer boundary
-- [ ] `test/robot/` - add one map journey only if existing harness can drive selectors and timing deterministically; otherwise document omission in execution notes
-- [ ] TDD: continuous camera motion does not rebuild the route-root seam or `MapActionRail`, then implement
-- [ ] TDD: `filteredPeaksProvider` output stays correct after dependency narrowing, then implement
-- [ ] Robot journey tests + selectors/seams for critical flows: `Key('map-interaction-region')`, readout keys, rebuild counter seam, deterministic debounce/time control if existing harness already supports it
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/screens/map_screen.dart` - split route root into narrow consumers; keep live subtree limited to viewport, selected-location marker, readouts, gesture-owned UI
+- [x] `lib/providers/peak_list_selection_provider.dart` - stop watching full `MapState`; depend only on peaks plus peak-list selection inputs
+- [x] `lib/widgets/map_action_rail.dart` - narrow `mapProvider` watch to track-related fields only; add explicit rebuild counter seam for widget tests
+- [x] `lib/widgets/map_peak_lists_drawer.dart` - narrow only if instrumentation still shows camera churn when drawer present
+- [x] `lib/widgets/map_basemaps_drawer.dart` - narrow only if instrumentation still shows camera churn when drawer present
+- [x] `lib/router.dart` - narrow map-route snackbar consumer only if instrumentation still shows churn
+- [x] `test/widget/map_screen_*` - add rebuild-proof tests for extracted hot-path boundary and visible non-camera consumer boundary
+- [x] `test/robot/` - add one map journey only if existing harness can drive selectors and timing deterministically; otherwise document omission in execution notes
+- [x] TDD: continuous camera motion does not rebuild the route-root seam or `MapActionRail`, then implement
+- [x] TDD: `filteredPeaksProvider` output stays correct after dependency narrowing, then implement
+- [x] Robot journey tests + selectors/seams for critical flows: `Key('map-interaction-region')`, readout keys, rebuild counter seam, deterministic debounce/time control if existing harness already supports it
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

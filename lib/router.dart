@@ -168,7 +168,15 @@ final router = GoRouter(
                   if (navigationShell.currentIndex == 1)
                     Consumer(
                       builder: (context, ref, _) {
-                        final mapState = ref.watch(mapProvider);
+                        final trackShellState = ref.watch(
+                          mapProvider.select(
+                            (state) => (
+                              hasTrackRecoveryIssue: state.hasTrackRecoveryIssue,
+                              trackOperationStatus: state.trackOperationStatus,
+                              trackOperationWarning: state.trackOperationWarning,
+                            ),
+                          ),
+                        );
                         final trackSnackbar = ref
                             .read(mapProvider.notifier)
                             .consumeTrackSnackbarMessage();
@@ -180,7 +188,7 @@ final router = GoRouter(
                             );
                           });
                         }
-                        if (!mapState.hasTrackRecoveryIssue) {
+                        if (!trackShellState.hasTrackRecoveryIssue) {
                           return const SizedBox.shrink();
                         }
                         if (ref

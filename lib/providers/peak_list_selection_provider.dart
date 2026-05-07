@@ -27,17 +27,22 @@ final peakListsProvider = Provider<List<PeakList>>((ref) {
 });
 
 final filteredPeaksProvider = Provider<List<Peak>>((ref) {
-  final mapState = ref.watch(mapProvider);
-  final peaks = mapState.peaks;
+  final peaks = ref.watch(mapProvider.select((state) => state.peaks));
+  final peakListSelectionMode = ref.watch(
+    mapProvider.select((state) => state.peakListSelectionMode),
+  );
+  final selectedPeakListId = ref.watch(
+    mapProvider.select((state) => state.selectedPeakListId),
+  );
   final peakLists = ref.watch(peakListsProvider);
 
-  return switch (mapState.peakListSelectionMode) {
+  return switch (peakListSelectionMode) {
     PeakListSelectionMode.none => const [],
     PeakListSelectionMode.allPeaks => peaks,
     PeakListSelectionMode.specificList => _filterSpecificListPeaks(
       peaks: peaks,
       peakLists: peakLists,
-      peakListId: mapState.selectedPeakListId,
+      peakListId: selectedPeakListId,
     ),
   };
 });
