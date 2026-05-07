@@ -10,8 +10,10 @@ abstract final class MapConstants {
   static const cameraSaveDebounce = Duration(milliseconds: 150);
   static const cameraEpsilon = 0.000001;
   static const searchRadiusMeters = 100.0;
-  static const peakMinZoom = 6;
+  static const peakMinZoom = 8;
   static const peakMaxZoom = 18;
+  static const trackMinZoom = 6;
+  static const trackMaxZoom = 18;
   static const clearPeakInfo = 8;
 }
 

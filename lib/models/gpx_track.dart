@@ -8,8 +8,8 @@ import '../core/constants.dart';
 
 @Entity()
 class GpxTrack {
-  static const minDisplayZoom = MapConstants.peakMinZoom;
-  static const maxDisplayZoom = MapConstants.peakMaxZoom;
+  static const minDisplayZoom = MapConstants.trackMinZoom;
+  static const maxDisplayZoom = MapConstants.trackMaxZoom;
 
   @Id(assignable: true)
   int gpxTrackId = 0;
@@ -167,7 +167,7 @@ class GpxTrack {
     if (caches.isEmpty) {
       return const [];
     }
-    final clampedZoom = zoom.clamp(MapConstants.peakMinZoom, MapConstants.peakMaxZoom);
+    final clampedZoom = zoom.clamp(MapConstants.trackMinZoom, MapConstants.trackMaxZoom);
     return caches[clampedZoom] ?? const [];
   }
 

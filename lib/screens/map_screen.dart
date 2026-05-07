@@ -152,7 +152,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   ) {
     final notifier = ref.read(mapProvider.notifier);
 
-    if (_isPointerDown || !mapState.showPeaks || mapState.zoom < 8) {
+    if (_isPointerDown || !mapState.showPeaks || mapState.zoom < MapConstants.peakMinZoom) {
       notifier.clearHoveredPeak();
       return false;
     }
@@ -167,7 +167,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     MapState mapState,
     List<Peak> peaks,
   ) {
-    if (!mapState.showPeaks || mapState.zoom < 8) {
+    if (!mapState.showPeaks || mapState.zoom < MapConstants.peakMinZoom) {
       return null;
     }
 
@@ -802,7 +802,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     ),
                   if (mapState.showPeaks &&
                       filteredPeaks.isNotEmpty &&
-                      mapState.zoom >= 8)
+                      mapState.zoom >= MapConstants.peakMinZoom)
                     MarkerLayer(
                       key: const Key('peak-marker-layer'),
                       markers: buildPeakMarkers(
