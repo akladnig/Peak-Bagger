@@ -9,7 +9,10 @@
 - [ ] Allow search for the above
 - [ ] Add an overlay to display features names on hover - only for blue circles
 - [ ] Remove legacy handling
-- [ ] 
+- [ ] fix all SI units to have space in front of the unit.
+- [i] Remove all narrow screen/mobile phone stuff
+- [ ] Set minimum width to half screen
+- [ ] Do not show failed http tile request
 
 ## Folder Structure
 - [ ] Update to canonical folder Structure:
@@ -46,6 +49,9 @@
 - [ ] Peak search not zooming to extents
 - [ ] when clicking on track open a left drawer with info about the track
 - [ ] Tile cache in setup - change option to allow complete map to be cached rather than all of Tassie
+- [ ] Fix mgrs jank
+- [ ] add Map name to mgrs display
+- [ ] Add a current peak list display under the mgrs
 
 ## 5 Gpx Tracks
 - [ ] change import behaviour to only import from Tracks once application is complete.
@@ -55,8 +61,7 @@
 - [ ] move peak correlation to GpsImporter
 - [ ] Confirm that peak correlation for mass import does not drop tracks for which there is no peak
 - [ ] class GpxTrackImportResult change to GpxFileImportResult  to cater for routes and waypoints
-- [ ] Add retry in settings for gpx files that failed folder relocation
-- [ ] Add Settings option to change track display - colour, thickness, outline etc.
+- [ ] distance/time to/from peak should be from the highest peak
 
 ### Speed
 - [ ] averageSpeed
@@ -100,6 +105,9 @@ F14. Add app-wide peak search, peak list selection widgets, and Peak Lists scree
 
 ## Settings
 - [ ] Add a help dialogue to explain what the adjustable settings mean.
+- [ ] Add retry in settings for gpx files that failed folder relocation
+- [ ] Add Settings option to change track display - colour, thickness, outline etc.
+- [ ] Add track opacity for non-selected tracks
 
 ### CSV export/import
 - [ ] Update csv import to match export
