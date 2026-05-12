@@ -27,7 +27,6 @@ class SideMenu extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       width: UiConstants.sideMenuColumnWidth,
-      // color: theme.appBarTheme.backgroundColor,
       child: SingleChildScrollView(
         child: Column(
           children: [
@@ -71,68 +70,6 @@ class SideMenu extends StatelessWidget {
   }
 }
 
-class _WideMenuItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _WideMenuItem({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Material(
-        color: isSelected
-            // ? (isDark ? const Color(0xFF45475A) : const Color(0xFFBCC0CC))
-            ? (isDark ? const Color(0xFF6347EA) : const Color(0xFFBCC0CC))
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          splashColor: Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          child: SizedBox(
-            width: double.infinity,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    icon,
-                    color: isSelected
-                        ? theme.colorScheme.onPrimary
-                        : theme.iconTheme.color,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    label,
-                    style: TextStyle(fontSize: 10),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _WideMenuItemNew extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -146,9 +83,10 @@ class _WideMenuItemNew extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
   });
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),

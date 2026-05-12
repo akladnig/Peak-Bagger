@@ -31,18 +31,18 @@ Narrow slice: notifier reconciliation, in-body panel, deterministic formatting, 
 ### Phase 2: Panel UI + Local Formatting
 
 - **Goal**: render desktop-only panel with deterministic content and fallback rules
-- [ ] `lib/screens/map_screen.dart` - derive `selectedTrack` from visible `MapState.tracks`; width-gate on `RouterConstants.shellBreakpoint`; add inner-stack panel overlay; hide MGRS/zoom readouts while panel visible
-- [ ] `lib/screens/map_screen_panels.dart` - add `MapTrackInfoPanel` widget, section widgets, required keys, pinned header, `SafeArea`, scrollable body, deterministic slide animation, width = `UiConstants.preferredLeftWidth`
-- [ ] `lib/screens/map_screen_panels.dart` - add small pure/local formatting helpers for date, time, duration, distance, elevation, peaks normalization/dedup/sort
-- [ ] `lib/widgets/map_basemaps_drawer.dart` - add `Key('basemaps-drawer')`
-- [ ] `lib/widgets/map_action_rail.dart` - add `Key('show-basemaps-fab')` to basemaps FAB
-- [ ] `test/widget/map_track_info_formatting_test.dart` - unit coverage for formatter and peaks presentation rules
-- [ ] `test/widget/map_screen_track_info_test.dart` - widget coverage for visibility gate, close button, content sections, `None` fallbacks, readout hiding, long-content scroll/header access, basemap coexistence
-- [ ] TDD: desktop width + visible selected track renders `Key('track-info-panel')`; narrow width hides panel without changing selected-track state/highlight behavior
-- [ ] TDD: close button clears only selected-track state and re-hides panel
-- [ ] TDD: header/date/time/summary/peaks/elevation/time sections render exact mappings and specified fallback strings
-- [ ] TDD: peak names trim, blank->`Unknown Peak`, sort case-insensitively, dedupe by raw `osmId`; shared highest-point block shown once only when allowed
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/screens/map_screen.dart` - derive `selectedTrack` from visible `MapState.tracks`; width-gate on `RouterConstants.shellBreakpoint`; add inner-stack panel overlay; hide MGRS/zoom readouts while panel visible
+- [x] `lib/screens/map_screen_panels.dart` - add `MapTrackInfoPanel` widget, section widgets, required keys, pinned header, `SafeArea`, scrollable body, deterministic slide animation, width = `UiConstants.preferredLeftWidth`
+- [x] `lib/screens/map_screen_panels.dart` - add small pure/local formatting helpers for date, time, duration, distance, elevation, peaks normalization/dedup/sort
+- [x] `lib/widgets/map_basemaps_drawer.dart` - add `Key('basemaps-drawer')`
+- [x] `lib/widgets/map_action_rail.dart` - add `Key('show-basemaps-fab')` to basemaps FAB
+- [x] `test/widget/map_track_info_formatting_test.dart` - unit coverage for formatter and peaks presentation rules
+- [x] `test/widget/map_screen_track_info_test.dart` - widget coverage for visibility gate, close button, content sections, `None` fallbacks, readout hiding, long-content scroll/header access, basemap coexistence
+- [x] TDD: desktop width + visible selected track renders `Key('track-info-panel')`; narrow width hides panel without changing selected-track state/highlight behavior
+- [x] TDD: close button clears only selected-track state and re-hides panel
+- [x] TDD: header/date/time/summary/peaks/elevation/time sections render exact mappings and specified fallback strings
+- [x] TDD: peak names trim, blank->`Unknown Peak`, sort case-insensitively, dedupe by raw `osmId`; shared highest-point block shown once only when allowed
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Interaction Journeys + Regression Hooks
 

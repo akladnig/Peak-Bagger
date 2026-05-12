@@ -872,18 +872,30 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 _queueSelectedTrackZoom(mapState);
                 _queueCameraRequest(mapState);
 
-                return ValueListenableBuilder<int>(
-                  valueListenable: _viewportUiRevision,
-                  builder: (context, revision, child) {
-                    final displayMgrs =
-                        mapState.cursorMgrs ??
-                        mapState.gotoMgrs ??
-                        _liveCamera?.mgrs ??
-                        mapState.currentMgrs;
-                    final displayZoom = _liveCamera?.zoom ?? mapState.zoom;
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    return ValueListenableBuilder<int>(
+                      valueListenable: _viewportUiRevision,
+                      builder: (context, revision, child) {
+                        final displayMgrs =
+                            mapState.cursorMgrs ??
+                            mapState.gotoMgrs ??
+                            _liveCamera?.mgrs ??
+                            mapState.currentMgrs;
+                        final displayZoom = _liveCamera?.zoom ?? mapState.zoom;
+                        final viewportWidth = constraints.maxWidth;
+                        GpxTrack? selectedTrack;
+                        if (viewportWidth >= RouterConstants.shellBreakpoint) {
+                          for (final track in mapState.tracks) {
+                            if (track.gpxTrackId == mapState.selectedTrackId) {
+                              selectedTrack = track;
+                              break;
+                            }
+                          }
+                        }
 
-                    return Stack(
-                      children: [
+                        return Stack(
+                          children: [
                         MouseRegion(
                           key: const Key('map-interaction-region'),
                           cursor: _mouseCursor(mapState),
@@ -1113,17 +1125,46 @@ class _MapScreenState extends ConsumerState<MapScreen>
                             ),
                           ),
                         ),
-                        Positioned(
-                          left: 16,
-                          top: 16,
-                          child: MapMgrsReadout(mgrs: displayMgrs),
-                        ),
-                        Positioned(
-                          left: 16,
-                          bottom: 16,
-                          child: MapZoomReadout(zoom: displayZoom),
-                        ),
-                      ],
+                        if (selectedTrack == null)
+                          Positioned(
+                            left: 16,
+                            top: 16,
+                            child: MapMgrsReadout(mgrs: displayMgrs),
+                          ),
+                        if (selectedTrack == null)
+                          Positioned(
+                            left: 16,
+                            bottom: 16,
+                            child: MapZoomReadout(zoom: displayZoom),
+                          ),
+                        if (viewportWidth >= RouterConstants.shellBreakpoint)
+                          Positioned(
+                            left: 16,
+                            top: 16,
+                            bottom: 16,
+                            child: AnimatedSlide(
+                              duration: const Duration(milliseconds: 200),
+                              curve: Curves.easeOut,
+                              offset: selectedTrack == null
+                                  ? const Offset(-1.1, 0)
+                                  : Offset.zero,
+                              child: IgnorePointer(
+                                ignoring: selectedTrack == null,
+                                child: selectedTrack == null
+                                    ? const SizedBox(width: UiConstants.preferredLeftWidth)
+                                    : MapTrackInfoPanel(
+                                        track: selectedTrack,
+                                        onClose: () {
+                                          ref.read(mapProvider.notifier).clearSelectedTrack();
+                                          _mapFocusNode.requestFocus();
+                                        },
+                                      ),
+                              ),
+                            ),
+                          ),
+                          ],
+                        );
+                      },
                     );
                   },
                 );

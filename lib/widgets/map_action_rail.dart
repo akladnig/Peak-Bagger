@@ -79,6 +79,7 @@ class MapActionRail extends ConsumerWidget {
           LeftTooltipFab(
             message: 'Select Basemaps',
             child: FloatingActionButton.small(
+              key: const Key('show-basemaps-fab'),
               heroTag: 'layers',
               backgroundColor: Theme.of(context).colorScheme.surface,
               onPressed: () {

@@ -10,6 +10,7 @@ class MapBasemapsDrawer extends ConsumerWidget {
     final basemap = ref.watch(mapProvider.select((state) => state.basemap));
 
     return Drawer(
+      key: const Key('basemaps-drawer'),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
