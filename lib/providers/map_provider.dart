@@ -1486,17 +1486,39 @@ class MapNotifier extends Notifier<MapState> {
     state = state.copyWith(clearHoveredTrackId: true);
   }
 
+  void reconcileSelectedTrackState() {
+    final selectedTrackId = state.selectedTrackId;
+    if (selectedTrackId == null) {
+      return;
+    }
+    final hasVisibleTrack =
+        state.showTracks &&
+        state.tracks.any((track) => track.gpxTrackId == selectedTrackId);
+    if (!hasVisibleTrack) {
+      state = state.copyWith(clearSelectedTrackId: true);
+    }
+  }
+
   void selectTrack(int trackId) {
+    final hasVisibleTrack =
+        state.showTracks &&
+        state.tracks.any((track) => track.gpxTrackId == trackId);
+    if (!hasVisibleTrack) {
+      return;
+    }
     state = state.copyWith(selectedTrackId: trackId);
   }
 
   void showTrack(int trackId, {LatLng? selectedLocation}) {
     final track = _gpxTrackRepository.findById(trackId);
-    final tracks =
-        track != null &&
-            state.tracks.every((existing) => existing.gpxTrackId != trackId)
+    if (track == null) {
+      state = state.copyWith(clearSelectedTrackId: true, clearHoveredTrackId: true);
+      return;
+    }
+
+    final tracks = state.tracks.every((existing) => existing.gpxTrackId != trackId)
         ? [...state.tracks, track]
-        : null;
+        : state.tracks;
 
     state = state.copyWith(
       tracks: tracks,
@@ -1504,7 +1526,7 @@ class MapNotifier extends Notifier<MapState> {
       selectedLocation: selectedLocation,
       showTracks: true,
       clearHoveredTrackId: true,
-      clearGotoMgrs: track != null,
+      clearGotoMgrs: true,
       selectedTrackFocusSerial: state.selectedTrackFocusSerial + 1,
     );
   }

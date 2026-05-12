@@ -30,6 +30,9 @@ void main() {
     final notifier = await _buildRealNotifier();
     await _pumpApp(tester, notifier);
 
+    router.go('/');
+    await tester.pumpAndSettle();
+
     final container = ProviderScope.containerOf(
       tester.element(find.byKey(const Key('shared-app-bar'))),
     );
@@ -282,7 +285,10 @@ Future<void> _pumpConfiguredApp(
   WidgetTester tester,
   MapNotifier notifier, {
   TestTasmapRepository? repository,
+  Size size = const Size(1600, 900),
 }) async {
+  await tester.binding.setSurfaceSize(size);
+  addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     ProviderScope(
       overrides: [

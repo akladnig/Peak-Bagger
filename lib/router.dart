@@ -12,6 +12,7 @@ import 'package:peak_bagger/screens/settings_screen.dart';
 import 'package:peak_bagger/widgets/side_menu.dart';
 
 import 'core/constants.dart';
+import 'core/app_sizes.dart';
 
 class ShellDestination {
   const ShellDestination({
@@ -93,7 +94,7 @@ void _runShellPreNavigationCleanup(WidgetRef ref) {
 }
 
 final router = GoRouter(
-  initialLocation: '/',
+  initialLocation: '/map',
   routes: [
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) {
@@ -107,12 +108,8 @@ final router = GoRouter(
             );
 
             void goToDestination(
-              ShellDestination destination, {
-              bool closeCompactNavigation = false,
-            }) {
-              if (closeCompactNavigation) {
-                Navigator.of(context).pop();
-              }
+              ShellDestination destination 
+            ) {
               if (destination.branchIndex == navigationShell.currentIndex) {
                 return;
               }
@@ -120,17 +117,16 @@ final router = GoRouter(
               navigationShell.goBranch(destination.branchIndex);
             }
 
-            Widget buildShellBody(bool isWide) {
+            Widget buildShellBody() {
               return Stack(
                 children: [
                   Row(
                     children: [
-                      if (isWide)
-                        SideMenu(
-                          destinations: shellDestinations,
-                          selectedBranchIndex: navigationShell.currentIndex,
-                          onDestinationSelected: goToDestination,
-                        ),
+                      SideMenu(
+                        destinations: shellDestinations,
+                        selectedBranchIndex: navigationShell.currentIndex,
+                        onDestinationSelected: goToDestination,
+                      ),
                       Expanded(child: navigationShell),
                     ],
                   ),
@@ -171,9 +167,11 @@ final router = GoRouter(
                         final trackShellState = ref.watch(
                           mapProvider.select(
                             (state) => (
-                              hasTrackRecoveryIssue: state.hasTrackRecoveryIssue,
+                              hasTrackRecoveryIssue:
+                                  state.hasTrackRecoveryIssue,
                               trackOperationStatus: state.trackOperationStatus,
-                              trackOperationWarning: state.trackOperationWarning,
+                              trackOperationWarning:
+                                  state.trackOperationWarning,
                             ),
                           ),
                         );
@@ -229,11 +227,11 @@ final router = GoRouter(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     const Icon(Icons.warning_amber_rounded),
-                                    const SizedBox(width: 8),
+                                    gapWXS,
                                     const Text(
                                       'Some tracks need to be rebuilt.',
                                     ),
-                                    const SizedBox(width: 12),
+                                    gapWSML,
                                     TextButton(
                                       key: const Key(
                                         'open-track-recovery-settings',
@@ -257,21 +255,15 @@ final router = GoRouter(
 
             return LayoutBuilder(
               builder: (context, constraints) {
-                final isWide = constraints.maxWidth >= RouterConstants.shellBreakpoint;
-
                 return Scaffold(
-                  drawer: isWide
-                      ? null
-                      : Drawer(
+                  drawer: Drawer(
                           child: SafeArea(
                             child: SideMenu(
                               destinations: shellDestinations,
                               selectedBranchIndex: navigationShell.currentIndex,
-                              compact: true,
                               onDestinationSelected: (destination) {
                                 goToDestination(
                                   destination,
-                                  closeCompactNavigation: true,
                                 );
                               },
                             ),
@@ -281,9 +273,8 @@ final router = GoRouter(
                     key: const Key('shared-app-bar'),
                     automaticallyImplyLeading: false,
                     centerTitle: false,
-                    leadingWidth: isWide ? RouterConstants.wideNavigationWidth : null,
-                    leading: isWide
-                        ? Center(
+                    leadingWidth: RouterConstants.wideNavigationWidth,
+                    leading: Center(
                             child: IconButton(
                               key: const Key('app-bar-home'),
                               tooltip: 'Dashboard',
@@ -292,50 +283,14 @@ final router = GoRouter(
                               },
                               icon: const FaIcon(FontAwesomeIcons.mountain),
                             ),
-                          )
-                        : Builder(
-                            builder: (context) {
-                              return IconButton(
-                                key: const Key('app-bar-menu'),
-                                tooltip: 'Menu',
-                                onPressed: () {
-                                  Scaffold.of(context).openDrawer();
-                                },
-                                icon: const Icon(Icons.menu),
-                              );
-                            },
                           ),
                     titleSpacing: 0,
-                    title: isWide
-                        ? Align(
+                    title: Align(
                             alignment: Alignment.centerLeft,
                             child: KeyedSubtree(
                               key: const Key('app-bar-title'),
                               child: Text(currentDestination.title),
                             ),
-                          )
-                        : Row(
-                            children: [
-                              IconButton(
-                                key: const Key('app-bar-home'),
-                                tooltip: 'Dashboard',
-                                onPressed: () {
-                                  goToDestination(shellDestinations.first);
-                                },
-                                icon: const FaIcon(FontAwesomeIcons.mountain),
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: KeyedSubtree(
-                                  key: const Key('app-bar-title'),
-                                  child: Text(
-                                    currentDestination.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                            ],
                           ),
                     actions: [
                       Padding(
@@ -355,7 +310,7 @@ final router = GoRouter(
                       ),
                     ],
                   ),
-                  body: buildShellBody(isWide),
+                  body: buildShellBody(),
                 );
               },
             );

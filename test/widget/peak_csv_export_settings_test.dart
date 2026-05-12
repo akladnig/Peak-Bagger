@@ -20,6 +20,7 @@ void main() {
     tester,
   ) async {
     Finder tile(String key) => find.byKey(Key(key), skipOffstage: false);
+    final settingsScrollable = find.byType(Scrollable).last;
 
     final repository = await TestTasmapRepository.create();
     final completer = Completer<PeakCsvExportResult>();
@@ -59,7 +60,7 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const Key('export-peak-data-tile')),
       200,
-      scrollable: find.byType(Scrollable),
+      scrollable: settingsScrollable,
     );
 
     await tester.tap(find.byKey(const Key('export-peak-data-tile')));
@@ -69,7 +70,7 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const Key('peak-export-status')),
       200,
-      scrollable: find.byType(Scrollable),
+      scrollable: settingsScrollable,
     );
 
     expect(exportCalls, 1);
@@ -125,6 +126,7 @@ void main() {
 
   testWidgets('export peak data shows failure state', (tester) async {
     Finder tile(String key) => find.byKey(Key(key), skipOffstage: false);
+    final settingsScrollable = find.byType(Scrollable).last;
 
     final repository = await TestTasmapRepository.create();
     final notifier = TestPeakNotifier(
@@ -159,7 +161,7 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const Key('export-peak-data-tile')),
       200,
-      scrollable: find.byType(Scrollable),
+      scrollable: settingsScrollable,
     );
 
     await tester.tap(find.byKey(const Key('export-peak-data-tile')));
@@ -169,7 +171,7 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const Key('peak-export-status')),
       200,
-      scrollable: find.byType(Scrollable),
+      scrollable: settingsScrollable,
     );
 
     expect(find.byKey(const Key('peak-export-status')), findsOneWidget);

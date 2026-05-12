@@ -27,6 +27,7 @@ class PeakListExportRobot {
 
   Finder get exportTile => find.byKey(const Key('export-peak-lists-tile'));
   Finder get exportStatus => find.byKey(const Key('peak-list-export-status'));
+  Finder get settingsScrollable => find.byType(Scrollable).last;
 
   Future<void> pumpApp() async {
     await tester.pumpWidget(
@@ -50,7 +51,7 @@ class PeakListExportRobot {
     await tester.scrollUntilVisible(
       exportTile,
       200,
-      scrollable: find.byType(Scrollable),
+      scrollable: settingsScrollable,
     );
     await tester.tap(exportTile);
     await tester.pump();
@@ -58,7 +59,7 @@ class PeakListExportRobot {
     await tester.scrollUntilVisible(
       exportStatus,
       200,
-      scrollable: find.byType(Scrollable),
+      scrollable: settingsScrollable,
     );
   }
 

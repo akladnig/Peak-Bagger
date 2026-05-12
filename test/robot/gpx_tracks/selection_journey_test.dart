@@ -59,20 +59,34 @@ void main() {
 
     await robot.clickHoveredTrack();
     robot.expectSelectedTrack(7);
+    robot.expectTrackInfoPanelVisible('Hover Track');
 
-    await robot.zoomMapWithTrackpad();
-    robot.expectSelectedTrack(7);
-
-    await robot.clickMapBackground();
+    await robot.closeTrackInfoPanel();
     robot.expectNoSelectedTrack();
-    robot.expectNoHoveredTrack();
+    robot.expectNoTrackInfoPanel();
 
     await robot.hoverTrack();
     await robot.clickHoveredTrack();
     robot.expectSelectedTrack(7);
+    robot.expectTrackInfoPanelVisible('Hover Track');
+
+    await robot.zoomMapWithTrackpad();
+    robot.expectSelectedTrack(7);
+    robot.expectTrackInfoPanelVisible('Hover Track');
+
+    await robot.clickMapBackground();
+    robot.expectNoSelectedTrack();
+    robot.expectNoHoveredTrack();
+    robot.expectNoTrackInfoPanel();
+
+    await robot.hoverTrack();
+    await robot.clickHoveredTrack();
+    robot.expectSelectedTrack(7);
+    robot.expectTrackInfoPanelVisible('Hover Track');
 
     await robot.toggleTracks();
     robot.expectTracksHidden();
     robot.expectNoSelectedTrack();
+    robot.expectNoTrackInfoPanel();
   });
 }

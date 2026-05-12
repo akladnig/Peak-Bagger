@@ -37,6 +37,8 @@ class RecoveryRobot {
   }
 
   Future<void> openSettingsFromBanner() async {
+    await tester.ensureVisible(bannerAction);
+    await tester.pumpAndSettle();
     await tester.tap(bannerAction);
     await tester.pumpAndSettle();
   }

@@ -15,6 +15,7 @@ import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
+import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
@@ -392,6 +393,89 @@ void main() {
     );
     expect(mapNotifier.state.selectedTrackId, 10);
     expect(mapNotifier.state.showTracks, isTrue);
+  });
+
+  testWidgets('gpx link can reveal track info panel on wide map route', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final peak = _buildPeak(
+      osmId: 101,
+      name: 'Mount View',
+      latitude: -41.0,
+      longitude: 146.0,
+    );
+    final gpxTrackRepository = GpxTrackRepository.test(
+      InMemoryGpxTrackStorage([
+        GpxTrack(
+          gpxTrackId: 10,
+          contentHash: 'abc',
+          trackName: 'Ridge Walk',
+          gpxFile: '<gpx></gpx>',
+        ),
+      ]),
+    );
+    final mapNotifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 10,
+        basemap: Basemap.tracestrack,
+      ),
+      gpxTrackRepository: gpxTrackRepository,
+    );
+    final tasmapRepository = await TestTasmapRepository.create();
+
+    await _pumpDialog(
+      tester,
+      dialog: PeakListPeakDialog(
+        mode: PeakListPeakDialogMode.view,
+        peakList: PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+        peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
+        peakItems: [const PeakListItem(peakOsmId: 101, points: 4)],
+        ascentRows: [
+          PeaksBagged(
+            baggedId: 1,
+            peakId: 101,
+            gpxId: 10,
+            date: DateTime.utc(2024, 3, 2),
+          ),
+        ],
+        peak: peak,
+        points: 4,
+      ),
+      peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+      tasmapRepository: tasmapRepository,
+      gpxTrackRepository: gpxTrackRepository,
+      mapNotifier: mapNotifier,
+    );
+
+    await tester.tap(find.byKey(const Key('peak-list-peak-track-10')));
+    await tester.pumpAndSettle();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(() => mapNotifier),
+          peakRepositoryProvider.overrideWithValue(
+            PeakRepository.test(InMemoryPeakStorage([peak])),
+          ),
+          peakListRepositoryProvider.overrideWithValue(
+            PeakListRepository.test(InMemoryPeakListStorage()),
+          ),
+          tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
+          gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
+        ],
+        child: const MaterialApp(home: MapScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
+    expect(find.text('Ridge Walk'), findsOneWidget);
   });
 
   testWidgets('tapping a different gpx link updates the peak marker', (
