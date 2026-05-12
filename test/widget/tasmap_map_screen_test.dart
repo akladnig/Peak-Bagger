@@ -155,6 +155,9 @@ void main() {
   });
 
   testWidgets('selected track fits to extent on mount', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     final track = GpxTrack(
       gpxTrackId: 10,
       contentHash: 'hash',
@@ -199,6 +202,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 500));
 
+    expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
     expect(notifier.state.selectedLocation, isNotNull);
     expect(notifier.state.selectedLocation!.latitude, closeTo(-42.0, 0.001));
     expect(notifier.state.selectedLocation!.longitude, closeTo(147.0, 0.001));
@@ -210,6 +214,9 @@ void main() {
   testWidgets('selected track refits after returning from another branch', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     final firstTrack = GpxTrack(
       gpxTrackId: 10,
       contentHash: 'hash-1',
@@ -270,6 +277,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 500));
 
+    expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
     expect(notifier.state.center.latitude, closeTo(-43.2, 0.01));
     expect(notifier.state.center.longitude, closeTo(147.1, 0.01));
 
@@ -283,6 +291,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 500));
 
+    expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
     expect(notifier.state.selectedTrackId, 20);
     expect(notifier.state.selectedLocation, const LatLng(-41.5, 145.9));
     expect(notifier.state.center.latitude, closeTo(-41.5, 0.01));

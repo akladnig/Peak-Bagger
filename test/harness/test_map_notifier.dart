@@ -4,6 +4,7 @@ import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
@@ -22,6 +23,7 @@ class TestMapNotifier extends MapNotifier {
     this.recalcWarning,
     this.recalcTracks,
     this.peakRepository,
+    this.gpxTrackRepository,
     Set<int> correlatedPeakIds = const {},
   }) : _correlatedPeakIds = correlatedPeakIds,
        _startupBackfillWarningMessage = startupBackfillWarningMessage;
@@ -36,6 +38,7 @@ class TestMapNotifier extends MapNotifier {
   final String? recalcWarning;
   final List<GpxTrack>? recalcTracks;
   final PeakRepository? peakRepository;
+  final GpxTrackRepository? gpxTrackRepository;
   final Set<int> _correlatedPeakIds;
   bool _snackbarConsumed = false;
   String? _trackSnackbarMessage;
@@ -266,7 +269,20 @@ class TestMapNotifier extends MapNotifier {
 
   @override
   void showTrack(int trackId, {LatLng? selectedLocation}) {
+    final track = gpxTrackRepository?.findById(trackId);
+    if (gpxTrackRepository != null && track == null) {
+      state = state.copyWith(clearSelectedTrackId: true, clearHoveredTrackId: true);
+      return;
+    }
+
+    final tracks =
+        track != null &&
+            state.tracks.every((existing) => existing.gpxTrackId != trackId)
+        ? [...state.tracks, track]
+        : null;
+
     state = state.copyWith(
+      tracks: tracks,
       selectedTrackId: trackId,
       selectedLocation: selectedLocation,
       showTracks: true,

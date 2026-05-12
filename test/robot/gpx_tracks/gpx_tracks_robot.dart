@@ -22,14 +22,16 @@ class GpxTracksRobot {
     this.initialState, {
     MapNotifier? notifier,
     PeakListRepository? peakListRepository,
+    this.surfaceSize = const Size(1600, 900),
   }) : notifier = notifier ?? TestMapNotifier(initialState),
        peakListRepository =
-           peakListRepository ?? PeakListRepository.test(InMemoryPeakListStorage());
+            peakListRepository ?? PeakListRepository.test(InMemoryPeakListStorage());
 
   final WidgetTester tester;
   final MapState initialState;
   final MapNotifier notifier;
   final PeakListRepository peakListRepository;
+  final Size surfaceSize;
   TestGesture? _mouseGesture;
   bool _mouseAdded = false;
 
@@ -65,8 +67,13 @@ class GpxTracksRobot {
       find.byKey(const Key('startup-backfill-warning-open-settings'));
   Finder get mapInteractionRegion =>
       find.byKey(const Key('map-interaction-region'));
+  Finder get trackInfoPanel => find.byKey(const Key('track-info-panel'));
+  Finder get trackInfoPanelClose =>
+      find.byKey(const Key('track-info-panel-close'));
 
   Future<void> pumpApp() async {
+    await tester.binding.setSurfaceSize(surfaceSize);
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final gpxTrackRepository = GpxTrackRepository.test(
       InMemoryGpxTrackStorage(initialState.tracks),
     );
@@ -320,8 +327,12 @@ class GpxTracksRobot {
   }
 
   Future<void> clickMapBackground() async {
-    final background =
-        tester.getTopLeft(mapInteractionRegion) + const Offset(120, 120);
+    final regionTopLeft = tester.getTopLeft(mapInteractionRegion);
+    final regionSize = tester.getSize(mapInteractionRegion);
+    final background = Offset(
+      regionTopLeft.dx + regionSize.width - 160,
+      regionTopLeft.dy + 160,
+    );
     await _ensureMouse(background);
     await _mouseGesture!.moveTo(background);
     await tester.pump();
@@ -372,6 +383,22 @@ class GpxTracksRobot {
       ).read(mapProvider).selectedTrackId,
       trackId,
     );
+  }
+
+  void expectTrackInfoPanelVisible([String? trackName]) {
+    expect(trackInfoPanel, findsOneWidget);
+    if (trackName != null) {
+      expect(find.text(trackName), findsOneWidget);
+    }
+  }
+
+  void expectNoTrackInfoPanel() {
+    expect(trackInfoPanel, findsNothing);
+  }
+
+  Future<void> closeTrackInfoPanel() async {
+    await tester.tap(trackInfoPanelClose);
+    await tester.pumpAndSettle();
   }
 
   void expectNoSelectedTrack() {

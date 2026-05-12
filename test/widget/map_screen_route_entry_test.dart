@@ -130,6 +130,7 @@ void main() {
     final state = _container(tester).read(mapProvider);
     expect(state.selectedTrackId, 20);
     expect(state.selectedLocation, const LatLng(-41.5, 145.9));
+    expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
 
     final prefsAfterMap = await SharedPreferences.getInstance();
     expect(

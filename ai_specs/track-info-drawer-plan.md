@@ -47,16 +47,16 @@ Narrow slice: notifier reconciliation, in-body panel, deterministic formatting, 
 ### Phase 3: Interaction Journeys + Regression Hooks
 
 - **Goal**: prove click-select, replacement, route-entry, and drawer coexistence through real journeys
-- [ ] `test/harness/test_map_notifier.dart` - mirror narrowed production selected-track contract only where widget/robot determinism requires it
-- [ ] `test/robot/gpx_tracks/gpx_tracks_robot.dart` - add width seam, key-first selectors for track panel open/close assertions
-- [ ] `test/robot/gpx_tracks/selection_journey_test.dart` - extend journey: hover/select track -> panel visible -> close button clears selection -> background click closes -> toggle tracks hides
-- [ ] `test/widget/peak_list_peak_dialog_test.dart` - regression for `showTrack(...)` entry opening panel when route surface is wide enough
-- [ ] `test/widget/tasmap_map_screen_test.dart` - only overlap cases for selected-track focus with panel-visible selected state
-- [ ] TDD: selecting another visible track updates panel content immediately without extra close/open cycle
-- [ ] TDD: route-entry/programmatic `showTrack(...)` reveals panel on return to map when selected id resolves
-- [ ] TDD: basemaps drawer can open with selected track + panel visible; first `Escape` closes drawer, later `Escape` closes track panel
-- [ ] Robot journey tests + selectors/seams for critical flows
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `test/harness/test_map_notifier.dart` - mirror narrowed production selected-track contract only where widget/robot determinism requires it
+- [x] `test/robot/gpx_tracks/gpx_tracks_robot.dart` - add width seam, key-first selectors for track panel open/close assertions
+- [x] `test/robot/gpx_tracks/selection_journey_test.dart` - extend journey: hover/select track -> panel visible -> close button clears selection -> background click closes -> toggle tracks hides
+- [x] `test/widget/peak_list_peak_dialog_test.dart` - regression for `showTrack(...)` entry opening panel when route surface is wide enough
+- [x] `test/widget/tasmap_map_screen_test.dart` - only overlap cases for selected-track focus with panel-visible selected state
+- [x] TDD: selecting another visible track updates panel content immediately without extra close/open cycle
+- [x] TDD: route-entry/programmatic `showTrack(...)` reveals panel on return to map when selected id resolves
+- [x] TDD: basemaps drawer can open with selected track + panel visible; first `Escape` closes drawer, later `Escape` closes track panel
+- [x] Robot journey tests + selectors/seams for critical flows
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

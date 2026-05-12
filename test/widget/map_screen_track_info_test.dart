@@ -202,6 +202,46 @@ void main() {
     );
     expect(container.read(mapProvider).selectedTrackId, 10);
   });
+
+  testWidgets('selecting another visible track updates panel content immediately', (
+    tester,
+  ) async {
+    final tracks = [
+      GpxTrack(
+        gpxTrackId: 10,
+        contentHash: 'hash-10',
+        trackName: 'First Track',
+        gpxFile: '<gpx></gpx>',
+      ),
+      GpxTrack(
+        gpxTrackId: 20,
+        contentHash: 'hash-20',
+        trackName: 'Second Track',
+        gpxFile: '<gpx></gpx>',
+      ),
+    ];
+    final state = MapState(
+      center: const LatLng(-41.5, 146.5),
+      zoom: 15,
+      basemap: Basemap.tracestrack,
+      showTracks: true,
+      tracks: tracks,
+      selectedTrackId: 10,
+    );
+
+    await _pumpRawMapScreen(tester, state, size: const Size(1600, 900));
+
+    expect(find.text('First Track'), findsOneWidget);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+    container.read(mapProvider.notifier).selectTrack(20);
+    await tester.pumpAndSettle();
+
+    expect(find.text('First Track'), findsNothing);
+    expect(find.text('Second Track'), findsOneWidget);
+  });
 }
 
 Future<void> _pumpRawMapScreen(
