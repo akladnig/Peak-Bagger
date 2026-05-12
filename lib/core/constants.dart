@@ -41,7 +41,7 @@ abstract final class PeakCorrelationConstants {
 }
 
 abstract final class RouterConstants {
-  static const shellBreakpoint = 720.0;
+  static const shellBreakpoint = 1024.0;
   static const wideNavigationWidth = 132.0;
   static const themeActionRightInset = 16.0;
 }
@@ -52,7 +52,7 @@ abstract final class UiConstants {
   static const peakInfoPopupSize = Size(320, 140);
   static const dialogMargin = 24.0;
   static const dividerWidth = 1.0;
-  static const preferredLeftWidth = 320.0;
+  static const preferredLeftWidth = 360.0;
   static const preferredRightWidth = 360.0;
   static const minimumMiniMapAspectWidth = 294.0;
   static const columnCellHorizontalPadding = 12.0;
@@ -63,4 +63,5 @@ abstract final class UiConstants {
   static const railSpacing = 8.0;
   static const primaryColumnWidth = 144.0;
   static const actionsColumnWidth = 72.0;
+  static const sideMenuColumnWidth = 70.0;
 }

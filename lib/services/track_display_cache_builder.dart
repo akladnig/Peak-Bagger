@@ -6,8 +6,8 @@ import 'package:latlong2/latlong.dart';
 import '../core/constants.dart';
 
 class TrackDisplayCacheBuilder {
-  static const minZoom = MapConstants.peakMinZoom;
-  static const maxZoom = MapConstants.peakMaxZoom;
+  static const minZoom = MapConstants.trackMinZoom;
+  static const maxZoom = MapConstants.trackMaxZoom;
   static const _epsilon = 2.0;
   static const _tileSize = 256.0;
 

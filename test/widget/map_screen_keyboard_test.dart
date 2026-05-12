@@ -3,11 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/router.dart';
+import 'package:peak_bagger/screens/map_screen.dart';
+import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 
 import '../harness/test_map_notifier.dart';
@@ -208,6 +211,34 @@ void main() {
     expect(find.text('Unknown'), findsOneWidget);
   });
 
+  testWidgets('keyboard g closes map info and does not open goto input', (
+    tester,
+  ) async {
+    await _pumpMapApp(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        selectedLocation: const LatLng(-41.5, 146.5),
+      ),
+    );
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyI);
+    await tester.pump();
+    expect(container.read(mapProvider).showInfoPopup, isTrue);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyG);
+    await tester.pump();
+
+    expect(container.read(mapProvider).showInfoPopup, isFalse);
+    expect(find.byKey(const Key('goto-map-input')), findsNothing);
+  });
+
   testWidgets('keyboard i recenters through accepted camera apply only', (
     tester,
   ) async {
@@ -261,6 +292,67 @@ void main() {
     expect(find.text('Basemaps'), findsOneWidget);
   });
 
+  testWidgets('escape closes drawer before affecting selected track', (
+    tester,
+  ) async {
+    final state = MapState(
+      center: const LatLng(-41.5, 146.5),
+      zoom: 15,
+      basemap: Basemap.tracestrack,
+      showTracks: true,
+      tracks: [_track(10)],
+      selectedTrackId: 10,
+    );
+    await _pumpRawMapScreen(tester, state);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+    tester.widget<Focus>(find.byType(Focus).first).focusNode?.requestFocus();
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyB);
+    await tester.pumpAndSettle();
+    expect(find.text('Basemaps'), findsOneWidget);
+
+    Actions.invoke(
+      tester.element(find.byType(Scaffold).first),
+      const DismissSurfaceIntent(),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Basemaps'), findsNothing);
+    expect(container.read(mapProvider).selectedTrackId, 10);
+  });
+
+  testWidgets('escape clears selected track when no higher priority surface is open', (
+    tester,
+  ) async {
+    final state = MapState(
+      center: const LatLng(-41.5, 146.5),
+      zoom: 15,
+      basemap: Basemap.tracestrack,
+      showTracks: true,
+      tracks: [_track(10)],
+      selectedTrackId: 10,
+    );
+    await _pumpRawMapScreen(tester, state);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+    tester.widget<Focus>(find.byType(Focus).first).focusNode?.requestFocus();
+    await tester.pump();
+
+    Actions.invoke(
+      tester.element(find.byType(Scaffold).first),
+      const DismissSurfaceIntent(),
+    );
+    await tester.pump();
+
+    expect(container.read(mapProvider).selectedTrackId, isNull);
+  });
+
   testWidgets('tapping the map sets the selected marker', (tester) async {
     await _pumpMapApp(
       tester,
@@ -285,7 +377,13 @@ void main() {
   });
 }
 
-Future<void> _pumpMapApp(WidgetTester tester, MapState state) async {
+Future<void> _pumpMapApp(
+  WidgetTester tester,
+  MapState state, {
+  Size size = const Size(1600, 900),
+}) async {
+  await tester.binding.setSurfaceSize(size);
+  addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -307,7 +405,11 @@ Future<void> _pumpMapApp(WidgetTester tester, MapState state) async {
 Future<void> _pumpMapAppWithNotifier(
   WidgetTester tester,
   MapNotifier notifier,
-) async {
+  {
+  Size size = const Size(1600, 900),
+}) async {
+  await tester.binding.setSurfaceSize(size);
+  addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -321,6 +423,33 @@ Future<void> _pumpMapAppWithNotifier(
   );
   await tester.pump();
   router.go('/map');
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 100));
+  await tester.pump(const Duration(milliseconds: 100));
+}
+
+Future<void> _pumpRawMapScreen(
+  WidgetTester tester,
+  MapState state, {
+  Size size = const Size(1600, 900),
+}) async {
+  await tester.binding.setSurfaceSize(size);
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  final gpxTrackRepository = GpxTrackRepository.test(
+    InMemoryGpxTrackStorage(state.tracks),
+  );
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        mapProvider.overrideWith(() => TestMapNotifier(state)),
+        peakListRepositoryProvider.overrideWithValue(
+          PeakListRepository.test(InMemoryPeakListStorage()),
+        ),
+        gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
+      ],
+      child: const MaterialApp(home: MapScreen()),
+    ),
+  );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
   await tester.pump(const Duration(milliseconds: 100));
@@ -342,4 +471,13 @@ class _CountingKeyboardMapNotifier extends TestMapNotifier {
   Future<void> persistCameraPosition() async {
     persistCameraPositionCallCount += 1;
   }
+}
+
+GpxTrack _track(int id) {
+  return GpxTrack(
+    gpxTrackId: id,
+    contentHash: 'hash-$id',
+    trackName: 'Track $id',
+    gpxFile: '<gpx></gpx>',
+  );
 }

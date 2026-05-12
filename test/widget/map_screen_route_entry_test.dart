@@ -142,6 +142,59 @@ void main() {
     );
     expect(prefsAfterMap.getDouble('map_zoom'), state.zoom);
   });
+
+  testWidgets('cold-start showTrack miss clears selection before map opens', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final gpxRepository = GpxTrackRepository.test(InMemoryGpxTrackStorage());
+    final notifier = await _buildRealNotifier(gpxTrackRepository: gpxRepository);
+    await _pumpApp(tester, notifier, gpxTrackRepository: gpxRepository);
+
+    notifier.showTrack(999, selectedLocation: const LatLng(-41.5, 145.9));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    router.go('/map');
+    await tester.pumpAndSettle();
+
+    final state = _container(tester).read(mapProvider);
+    expect(state.selectedTrackId, isNull);
+    expect(state.selectedTrackFocusSerial, 0);
+  });
+
+  testWidgets('map mount reconciles pre-seeded stale selected track', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final staleState = MapState(
+      center: const LatLng(-41.5, 146.5),
+      zoom: 15,
+      basemap: Basemap.tracestrack,
+      showTracks: true,
+      tracks: [_track(10, [const LatLng(-41.5, 146.5), const LatLng(-41.6, 146.6)])],
+      selectedTrackId: 999,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(() => _InitialStateMapNotifier(staleState)),
+          peakListRepositoryProvider.overrideWithValue(
+            PeakListRepository.test(InMemoryPeakListStorage()),
+          ),
+        ],
+        child: const App(),
+      ),
+    );
+    await tester.pump();
+    router.go('/map');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final state = _container(tester).read(mapProvider);
+    expect(state.selectedTrackId, isNull);
+  });
 }
 
 ProviderContainer _container(WidgetTester tester) {
@@ -183,7 +236,10 @@ Future<void> _pumpApp(
   MapNotifier notifier, {
   TestTasmapRepository? repository,
   GpxTrackRepository? gpxTrackRepository,
+  Size size = const Size(1600, 900),
 }) async {
+  await tester.binding.setSurfaceSize(size);
+  addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -201,4 +257,13 @@ Future<void> _pumpApp(
   );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
+}
+
+class _InitialStateMapNotifier extends MapNotifier {
+  _InitialStateMapNotifier(this.initialState);
+
+  final MapState initialState;
+
+  @override
+  MapState build() => initialState;
 }

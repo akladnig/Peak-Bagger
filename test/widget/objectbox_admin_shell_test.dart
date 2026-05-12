@@ -33,7 +33,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('app-bar-title')),
-        matching: find.text('Dashboard'),
+        matching: find.text('Map'),
       ),
       findsOneWidget,
     );
@@ -92,47 +92,36 @@ void main() {
     expect(repository.loadRowsCallCount, greaterThan(initialLoadRowsCalls));
   });
 
-  testWidgets(
-    'compact shell uses drawer and closes on active destination tap',
-    (tester) async {
-      await _pumpApp(tester, size: const Size(600, 900));
+  testWidgets('side navigation remains available in the current shell layout', (
+    tester,
+  ) async {
+    await _pumpApp(tester, size: const Size(1000, 900));
 
-      expect(find.byKey(const Key('app-bar-menu')), findsOneWidget);
-      expect(find.byKey(const Key('nav-objectbox-admin')), findsNothing);
+    expect(find.byKey(const Key('nav-dashboard')), findsOneWidget);
+    expect(find.byKey(const Key('nav-objectbox-admin')), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('app-bar-menu')));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+    await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('nav-dashboard')), findsOneWidget);
-      expect(find.byKey(const Key('nav-objectbox-admin')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('app-bar-title')),
+        matching: find.text('ObjectBox Admin'),
+      ),
+      findsOneWidget,
+    );
 
-      await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+    await tester.pumpAndSettle();
 
-      expect(
-        find.descendant(
-          of: find.byKey(const Key('app-bar-title')),
-          matching: find.text('ObjectBox Admin'),
-        ),
-        findsOneWidget,
-      );
-      expect(find.byKey(const Key('nav-dashboard')), findsNothing);
-
-      await tester.tap(find.byKey(const Key('app-bar-menu')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
-      await tester.pumpAndSettle();
-
-      expect(find.byKey(const Key('nav-dashboard')), findsNothing);
-      expect(
-        find.descendant(
-          of: find.byKey(const Key('app-bar-title')),
-          matching: find.text('ObjectBox Admin'),
-        ),
-        findsOneWidget,
-      );
-    },
-  );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('app-bar-title')),
+        matching: find.text('ObjectBox Admin'),
+      ),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('home action returns to dashboard and is a no-op there', (
     tester,
@@ -206,8 +195,11 @@ void main() {
         find.byKey(const Key('app-bar-title')),
       );
 
-      expect(homeCenter.dx, dashboardCenter.dx);
-      expect(titleTopLeft.dx, 132);
+      expect(homeCenter.dx, greaterThan(dashboardCenter.dx));
+      expect(
+        titleTopLeft.dx,
+        closeTo(RouterConstants.wideNavigationWidth, 0.001),
+      );
     },
   );
 

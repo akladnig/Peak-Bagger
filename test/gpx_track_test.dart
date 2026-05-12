@@ -629,11 +629,16 @@ void main() {
       expect(container.read(mapProvider).showInfoPopup, isTrue);
     });
 
-    test('stores, replaces, and clears selectedTrackId', () {
+    test('visible ids replace selectedTrackId and invalid ids are ignored', () {
       final initialState = MapState(
         center: const LatLng(-41.5, 146.5),
         zoom: 15,
         basemap: Basemap.tracestrack,
+        showTracks: true,
+        tracks: [
+          GpxTrack(gpxTrackId: 3, contentHash: 'hash-3', trackName: 'Track 3'),
+          GpxTrack(gpxTrackId: 7, contentHash: 'hash-7', trackName: 'Track 7'),
+        ],
       );
       final container = ProviderContainer(
         overrides: [
@@ -648,6 +653,9 @@ void main() {
       expect(container.read(mapProvider).selectedTrackId, 3);
 
       notifier.selectTrack(7);
+      expect(container.read(mapProvider).selectedTrackId, 7);
+
+      notifier.selectTrack(999);
       expect(container.read(mapProvider).selectedTrackId, 7);
 
       notifier.clearSelectedTrack();

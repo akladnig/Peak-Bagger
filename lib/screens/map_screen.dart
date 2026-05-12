@@ -34,6 +34,10 @@ import 'package:peak_bagger/widgets/tasmap_polygon_label.dart';
 import 'map_screen_layers.dart';
 import 'map_screen_panels.dart';
 
+class DismissSurfaceIntent extends Intent {
+  const DismissSurfaceIntent();
+}
+
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
 
@@ -89,6 +93,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _mapNotifier = ref.read(mapProvider.notifier);
     _searchFocusNode.addListener(_onSearchFocusChange);
     _gotoFocusNode.addListener(_onGotoFocusChange);
+    Future.microtask(() {
+      if (mounted) {
+        _mapNotifier.reconcileSelectedTrackState();
+      }
+    });
   }
 
   @override
@@ -135,6 +144,41 @@ class _MapScreenState extends ConsumerState<MapScreen>
     if (!_gotoFocusNode.hasFocus && mounted) {
       _mapFocusNode.requestFocus();
     }
+  }
+
+  bool _dismissHighestPrioritySurface() {
+    final mapState = ref.read(mapProvider);
+    final notifier = ref.read(mapProvider.notifier);
+    final scaffoldWidth = _scaffoldKey.currentContext?.size?.width;
+    final viewportWidth =
+        scaffoldWidth ?? MediaQuery.sizeOf(_scaffoldKey.currentContext ?? context).width;
+    final panelVisible =
+        viewportWidth >= RouterConstants.shellBreakpoint &&
+        mapState.showTracks &&
+        mapState.tracks.any(
+          (track) => track.gpxTrackId == mapState.selectedTrackId,
+        );
+    final scaffoldState = _scaffoldKey.currentState;
+    final scaffoldContext = _scaffoldKey.currentContext;
+    if ((scaffoldState?.isEndDrawerOpen ?? false) && scaffoldContext != null) {
+      Navigator.of(scaffoldContext).pop();
+      _mapFocusNode.requestFocus();
+      return true;
+    }
+    if (mapState.peakInfoPeak != null) {
+      notifier.closePeakInfoPopup();
+      return true;
+    }
+    if (mapState.showInfoPopup) {
+      notifier.toggleInfoPopup();
+      return true;
+    }
+    if (panelVisible) {
+      notifier.clearSelectedTrack();
+      _mapFocusNode.requestFocus();
+      return true;
+    }
+    return false;
   }
 
   MouseCursor _mouseCursor(MapState mapState) {
@@ -674,40 +718,45 @@ class _MapScreenState extends ConsumerState<MapScreen>
       }
     });
 
-    return Scaffold(
-      key: _scaffoldKey,
-      endDrawer: switch (routeChrome.endDrawerMode) {
-        EndDrawerMode.basemaps => const MapBasemapsDrawer(),
-        EndDrawerMode.peakLists => const MapPeakListsDrawer(),
+    return Shortcuts(
+      shortcuts: const {
+        SingleActivator(LogicalKeyboardKey.escape): DismissSurfaceIntent(),
       },
-      body: Focus(
-        focusNode: _mapFocusNode,
-        autofocus: true,
-        onKeyEvent: (node, event) {
-          if (_searchFocusNode.hasFocus || _gotoFocusNode.hasFocus) {
-            return KeyEventResult.ignored;
-          }
-          final mapState = ref.read(mapProvider);
-          final key = event.logicalKey;
+      child: Actions(
+        actions: {
+          DismissSurfaceIntent: CallbackAction<DismissSurfaceIntent>(
+            onInvoke: (intent) => _dismissHighestPrioritySurface(),
+          ),
+        },
+        child: Focus(
+          focusNode: _mapFocusNode,
+          autofocus: true,
+          onKeyEvent: (node, event) {
+        if (_searchFocusNode.hasFocus || _gotoFocusNode.hasFocus) {
+          return KeyEventResult.ignored;
+        }
+        final mapState = ref.read(mapProvider);
+        final key = event.logicalKey;
+        final notifier = ref.read(mapProvider.notifier);
 
-          if (event is KeyDownEvent && mapState.peakInfoPeak != null) {
-            ref.read(mapProvider.notifier).closePeakInfoPopup();
-          }
+        if (event is KeyDownEvent && mapState.peakInfoPeak != null) {
+          notifier.closePeakInfoPopup();
+        }
 
-          // Close popup on any key press (except I which toggles it)
-          if (mapState.showInfoPopup && key != LogicalKeyboardKey.keyI) {
-            if (event is KeyDownEvent) {
-              ref.read(mapProvider.notifier).toggleInfoPopup();
-            }
-            return KeyEventResult.handled;
+        // Close popup on any key press (except I which toggles it)
+        if (mapState.showInfoPopup && key != LogicalKeyboardKey.keyI) {
+          if (event is KeyDownEvent) {
+            notifier.toggleInfoPopup();
           }
+          return KeyEventResult.handled;
+        }
 
-          if (key == LogicalKeyboardKey.equal ||
-              key == LogicalKeyboardKey.comma ||
-              key == LogicalKeyboardKey.period ||
-              key == LogicalKeyboardKey.less ||
-              key == LogicalKeyboardKey.add ||
-              key == LogicalKeyboardKey.minus ||
+        if (key == LogicalKeyboardKey.equal ||
+               key == LogicalKeyboardKey.comma ||
+               key == LogicalKeyboardKey.period ||
+               key == LogicalKeyboardKey.less ||
+               key == LogicalKeyboardKey.add ||
+               key == LogicalKeyboardKey.minus ||
               key == LogicalKeyboardKey.greater) {
             if (event is KeyDownEvent) {
               final currentZoom = _mapController.camera.zoom;
@@ -763,7 +812,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
             _goToCurrentLocation();
             return KeyEventResult.handled;
           } else if (key == LogicalKeyboardKey.keyG) {
-            ref.read(mapProvider.notifier).toggleGotoInput();
+            notifier.toggleGotoInput();
             return KeyEventResult.handled;
           } else if (key == LogicalKeyboardKey.keyI) {
             if (event is KeyDownEvent) {
@@ -775,33 +824,42 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     center: selectedLocation,
                     zoom: mapState.zoom,
                     serial: 0,
-                  ),
-                );
+                    ),
+                  );
+                }
+                notifier.toggleInfoPopup();
               }
-              ref.read(mapProvider.notifier).toggleInfoPopup();
-            }
-            return KeyEventResult.handled;
-          } else if (key == LogicalKeyboardKey.keyB) {
-            ref
-                .read(mapProvider.notifier)
-                .setEndDrawerMode(EndDrawerMode.basemaps);
+              return KeyEventResult.handled;
+            } else if (key == LogicalKeyboardKey.keyB) {
+            notifier.setEndDrawerMode(EndDrawerMode.basemaps);
             _scaffoldKey.currentState?.openEndDrawer();
             return KeyEventResult.handled;
           } else if (key == LogicalKeyboardKey.keyC) {
             _centerOnSelectedLocationDirect();
             return KeyEventResult.handled;
           } else if (key == LogicalKeyboardKey.keyM) {
-            ref.read(mapProvider.notifier).toggleMapOverlay();
+            notifier.toggleMapOverlay();
             return KeyEventResult.handled;
           } else if (key == LogicalKeyboardKey.keyT) {
             if (event is KeyDownEvent) {
-              ref.read(mapProvider.notifier).toggleTracks();
+              notifier.toggleTracks();
             }
             return KeyEventResult.handled;
           }
-          return KeyEventResult.ignored;
+            return KeyEventResult.ignored;
+          },
+          child: Scaffold(
+        key: _scaffoldKey,
+        endDrawer: switch (routeChrome.endDrawerMode) {
+          EndDrawerMode.basemaps => const MapBasemapsDrawer(),
+          EndDrawerMode.peakLists => const MapPeakListsDrawer(),
         },
-        child: Stack(
+        onEndDrawerChanged: (isOpen) {
+          if (!isOpen && mounted) {
+            _mapFocusNode.requestFocus();
+          }
+        },
+        body: Stack(
           children: [
             Consumer(
               builder: (context, ref, _) {
@@ -1150,6 +1208,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
               _buildPeakInfoPopup(context, routeChrome.peakInfo!),
           ],
         ),
+          ),
+        ),
       ),
     );
   }
@@ -1423,9 +1483,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
       return;
     }
 
-    final selectedTrack = ref
-        .read(gpxTrackRepositoryProvider)
-        .findById(selectedTrackId);
+    GpxTrack? selectedTrack;
+    for (final track in mapState.tracks) {
+      if (track.gpxTrackId == selectedTrackId) {
+        selectedTrack = track;
+        break;
+      }
+    }
     if (selectedTrack == null) {
       _pendingSelectedTrack = null;
       _pendingSelectedTrackSerial = null;

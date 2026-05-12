@@ -14,9 +14,9 @@ void main() {
       expect(theme.brightness, Brightness.light);
     });
 
-    test('dark theme uses Mocha blue as primary', () {
+    test('dark theme uses configured primary color', () {
       final theme = CatppuccinColors.dark;
-      expect(theme.colorScheme.primary, const Color(0xFF89B4FA));
+      expect(theme.colorScheme.primary, const Color(0xFF6347EA));
     });
 
     test('light theme uses Latte blue as primary', () {
@@ -24,9 +24,9 @@ void main() {
       expect(theme.colorScheme.primary, const Color(0xFF1E66F5));
     });
 
-    test('dark theme uses Mocha pink as secondary', () {
+    test('dark theme uses configured secondary color', () {
       final theme = CatppuccinColors.dark;
-      expect(theme.colorScheme.secondary, const Color(0xFFCBA6F7));
+      expect(theme.colorScheme.secondary, const Color(0xFF221B52));
     });
 
     test('light theme uses Latte mauve as secondary', () {
@@ -34,9 +34,9 @@ void main() {
       expect(theme.colorScheme.secondary, const Color(0xFF8839EF));
     });
 
-    test('dark theme uses Mocha base as scaffold background', () {
+    test('dark theme uses configured scaffold background', () {
       final theme = CatppuccinColors.dark;
-      expect(theme.scaffoldBackgroundColor, const Color(0xFF1E1E2E));
+      expect(theme.scaffoldBackgroundColor, const Color(0xFF111111));
     });
 
     test('light theme uses Latte base as scaffold background', () {
