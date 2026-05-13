@@ -27,19 +27,17 @@ class SideMenu extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       width: UiConstants.sideMenuColumnWidth,
-      child: SizedBox.expand(
-        child: Column(
-          children: [
-            const SizedBox(height: 12),
-            for (final destination in destinations) ...[
-              _buildDestination(
-                destination: destination,
-                isSelected: selectedBranchIndex == destination.branchIndex,
-              ),
-              const SizedBox(height: 8),
-            ],
+      child: ListView(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        children: [
+          for (final destination in destinations) ...[
+            _buildDestination(
+              destination: destination,
+              isSelected: selectedBranchIndex == destination.branchIndex,
+            ),
+            const SizedBox(height: 8),
           ],
-        ),
+        ],
       ),
     );
   }

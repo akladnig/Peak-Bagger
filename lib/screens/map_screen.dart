@@ -24,6 +24,7 @@ import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/peak_hover_detector.dart';
 import 'package:peak_bagger/services/track_hover_detector.dart';
 import 'package:peak_bagger/services/map_trackpad_gesture_classifier.dart';
+import 'package:peak_bagger/services/tile_cache_service.dart';
 import '../core/constants.dart';
 import 'package:peak_bagger/widgets/map_action_rail.dart';
 import 'package:peak_bagger/widgets/map_basemaps_drawer.dart';
@@ -1050,25 +1051,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                           ),
                                           userAgentPackageName:
                                               'com.peak_bagger.app',
-                                          tileProvider: FMTCTileProvider(
-                                            urlTransformer: (url) => url,
-                                            stores: {
-                                              'openstreetmap':
-                                                  BrowseStoreStrategy
-                                                      .readUpdateCreate,
-                                              'tracestrack': BrowseStoreStrategy
-                                                  .readUpdateCreate,
-                                              'tasmapTopo': BrowseStoreStrategy
-                                                  .readUpdateCreate,
-                                              'tasmap50k': BrowseStoreStrategy
-                                                  .readUpdateCreate,
-                                              'tasmap25k': BrowseStoreStrategy
-                                                  .readUpdateCreate,
-                                            },
-                                            loadingStrategy:
-                                                BrowseLoadingStrategy
-                                                    .cacheFirst,
-                                          ),
+                                          tileProvider:
+                                              _buildTileProviderForBasemap(
+                                                mapState.basemap,
+                                              ),
                                         ),
                                         if (mapState.selectedLocation != null)
                                           MarkerLayer(
@@ -1332,6 +1318,24 @@ class _MapScreenState extends ConsumerState<MapScreen>
           ),
         ),
       ),
+    );
+  }
+
+  TileProvider _buildTileProviderForBasemap(Basemap basemap) {
+    if (TileCacheService.getStoreForBasemap(basemap) == null) {
+      return NetworkTileProvider();
+    }
+
+    return FMTCTileProvider(
+      urlTransformer: (url) => url,
+      stores: {
+        'openstreetmap': BrowseStoreStrategy.readUpdateCreate,
+        'tracestrack': BrowseStoreStrategy.readUpdateCreate,
+        'tasmapTopo': BrowseStoreStrategy.readUpdateCreate,
+        'tasmap50k': BrowseStoreStrategy.readUpdateCreate,
+        'tasmap25k': BrowseStoreStrategy.readUpdateCreate,
+      },
+      loadingStrategy: BrowseLoadingStrategy.cacheFirst,
     );
   }
 
