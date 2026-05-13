@@ -37,7 +37,7 @@ Model/parser first, then schema + CSV fixture, then regression pass.
 - **Goal**: prove bundled import still works with updated schema
 - [x] `test/csv_importer_test.dart` - bundled CSV import path still covered; expanded header / 10-12 parsing locked
 - [x] `test/tasmap50k_test.dart` - lock `hasValidPolygonPointCount` for 10 and 12
-- [ ] Run full suite; fix generator/data mismatches (blocked: `flutter test` hits pre-existing `side_menu.dart` overflow and robot `RootUnavailable` failures unrelated to Tasmap import)
+- [ ] Run full suite; fix generator/data mismatches (blocked: remaining unrelated robot failures in `test/robot/peaks/peak_list_export_journey_test.dart` and `test/robot/gpx_tracks/recovery_journey_test.dart`)
 - [ ] Verify: `flutter analyze && flutter test` (blocked by the same unrelated failures)
 
 ## Risks / Out of scope
