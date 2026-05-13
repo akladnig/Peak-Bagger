@@ -1,4 +1,5 @@
 import 'package:peak_bagger/models/peak_list.dart';
+import 'package:peak_bagger/services/tassy_full_peak_list_sync_service.dart';
 
 import '../objectbox.g.dart';
 
@@ -168,6 +169,8 @@ class PeakListRepository {
 
   final PeakListStorage _storage;
 
+  PeakListStorage get storage => _storage;
+
   int get peakListCount => _storage.count;
 
   List<PeakList> getAllPeakLists() {
@@ -209,12 +212,26 @@ class PeakListRepository {
     PeakList peakList, {
     void Function()? beforePutForTest,
   }) async {
+    return saveWithoutSync(
+      peakList,
+      beforePutForTest: beforePutForTest,
+    );
+  }
+
+  Future<PeakList> saveWithoutSync(
+    PeakList peakList, {
+    void Function()? beforePutForTest,
+  }) async {
     final existing = _storage.getByName(peakList.name);
     if (existing == null) {
       return _storage.put(peakList);
     }
 
     return _storage.replaceByName(peakList, beforePutForTest: beforePutForTest);
+  }
+
+  Future<TassyFullPeakListSyncResult> refreshTassyFullPeakList() {
+    return TassyFullPeakListSyncService(this).refresh();
   }
 
   Future<PeakList> addPeakItem({

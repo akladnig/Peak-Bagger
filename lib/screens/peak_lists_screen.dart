@@ -225,7 +225,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
       }
     }
 
-    await ref.read(peakListRepositoryProvider).delete(peakListId);
+    await ref.read(peakListMutationRepositoryProvider).delete(peakListId);
     _refreshPeakListSelectionDependencies();
     if (!mounted) {
       return;
@@ -272,7 +272,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
         return PeakListPeakDialog(
           mode: PeakListPeakDialogMode.view,
           peakList: selectedSummaryRow.peakList,
-          peakListRepository: ref.read(peakListRepositoryProvider),
+          peakListRepository: ref.read(peakListMutationRepositoryProvider),
           peakItems: [
             for (final row in selectedSummaryRow.peakRows)
               PeakListItem(peakOsmId: row.peakId, points: row.points),
@@ -311,7 +311,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
         return PeakListPeakDialog(
           mode: PeakListPeakDialogMode.add,
           peakList: selectedSummaryRow.peakList,
-          peakListRepository: ref.read(peakListRepositoryProvider),
+          peakListRepository: ref.read(peakListMutationRepositoryProvider),
           peakItems: [
             for (final row in selectedSummaryRow.peakRows)
               PeakListItem(peakOsmId: row.peakId, points: row.points),
@@ -338,7 +338,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
           duplicateNameChecker: ref.read(peakListDuplicateNameCheckerProvider),
           onCreate: ({required String listName}) async {
             final saved = await ref
-                .read(peakListRepositoryProvider)
+                .read(peakListMutationRepositoryProvider)
                 .save(
                   PeakList(
                     name: listName,

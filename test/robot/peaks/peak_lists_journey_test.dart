@@ -71,10 +71,20 @@ void main() {
     await robot.enterAddPeakPoints(200, '5');
     await robot.submitAddPeakDialog();
 
-    final savedItems = decodePeakListItems(
-      peakListRepository.getAllPeakLists().single.peakList,
-    ).map((item) => (item.peakOsmId, item.points)).toList();
-    expect(savedItems, [(100, 3), (200, 5), (300, 7)]);
+    final journeyList = peakListRepository.findByName('Journey List')!;
+    final tassyFullList = peakListRepository.findByName('Tassy Full')!;
+    expect(
+      decodePeakListItems(journeyList.peakList)
+          .map((item) => (item.peakOsmId, item.points))
+          .toList(),
+      [(100, 3), (200, 5), (300, 7)],
+    );
+    expect(
+      decodePeakListItems(tassyFullList.peakList)
+          .map((item) => (item.peakOsmId, item.points))
+          .toList(),
+      [(100, 3), (200, 5), (300, 7)],
+    );
     expect(tester.widget<Text>(robot.selectedTitle).data, 'Journey List');
   });
 
@@ -117,6 +127,7 @@ void main() {
         listName: listName,
         csvPath: csvPath,
       );
+      await peakListRepository.refreshTassyFullPeakList();
       adminRowsByEntity['PeakList'] = peakListRepository
           .getAllPeakLists()
           .map(peakListToAdminRow)
@@ -152,7 +163,7 @@ void main() {
     expect(find.text('0 peaks skipped'), findsOneWidget);
     expect(find.textContaining('warnings. See import.log'), findsOneWidget);
 
-    final createdId = peakListRepository.getAllPeakLists().single.peakListId;
+    final createdId = peakListRepository.findByName('Journey List')!.peakListId;
 
     await robot.closeResultDialog();
 
@@ -177,14 +188,18 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Peak List Updated'), findsOneWidget);
-    expect(peakListRepository.getAllPeakLists().single.peakListId, createdId);
+    expect(peakListRepository.findByName('Journey List')!.peakListId, createdId);
+    expect(peakListRepository.findByName('Tassy Full'), isNotNull);
 
     await robot.closeResultDialog();
 
     final peakListRows = adminRowsByEntity['PeakList']!;
-    expect(peakListRows, hasLength(1));
-    expect(peakListRows.single.values['name'], 'Journey List');
-    expect(peakListRows.single.values['peakList'], contains('peakOsmId'));
+    expect(peakListRows, hasLength(2));
+    expect(peakListRows.map((row) => row.values['name']), containsAll(['Journey List', 'Tassy Full']));
+    expect(
+      peakListRows.firstWhere((row) => row.values['name'] == 'Journey List').values['peakList'],
+      contains('peakOsmId'),
+    );
   });
 
   testWidgets('peak lists journey selects and deletes targeted row', (
@@ -276,10 +291,20 @@ void main() {
 
     await robot.submitAddPeakDialog();
 
-    final savedItems = decodePeakListItems(
-      peakListRepository.getAllPeakLists().single.peakList,
-    ).map((item) => (item.peakOsmId, item.points)).toList();
-    expect(savedItems, [(100, 3), (200, 5), (300, 7)]);
+    final tasmania = peakListRepository.findByName('Tasmania')!;
+    final tassyFullList = peakListRepository.findByName('Tassy Full')!;
+    expect(
+      decodePeakListItems(tasmania.peakList)
+          .map((item) => (item.peakOsmId, item.points))
+          .toList(),
+      [(100, 3), (200, 5), (300, 7)],
+    );
+    expect(
+      decodePeakListItems(tassyFullList.peakList)
+          .map((item) => (item.peakOsmId, item.points))
+          .toList(),
+      [(100, 3), (200, 5), (300, 7)],
+    );
     expect(tester.widget<Text>(robot.selectedTitle).data, 'Tasmania');
     expect(find.byKey(const Key('peak-lists-details-row-100')), findsOneWidget);
   });

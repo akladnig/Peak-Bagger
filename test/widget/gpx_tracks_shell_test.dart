@@ -242,6 +242,40 @@ void main() {
     );
   });
 
+  testWidgets('settings keeps the Tassy Full update action visible', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1024, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _pumpApp(tester, TestMapNotifier(_baseState()));
+
+    router.go('/settings');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final settingsScrollable = find.byType(Scrollable).last;
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('update-tassy-full-peak-list-tile')),
+      200,
+      scrollable: settingsScrollable,
+    );
+
+    expect(find.byKey(const Key('update-tassy-full-peak-list-tile')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('update-tassy-full-peak-list-tile')),
+        matching: find.text(
+          'Updates the Tassy Full Peak List to include peaks from all other peak lists',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('recalculate-track-statistics-tile')), findsOneWidget);
+  });
+
   testWidgets(
     'shell theme action stays in app bar and aligns with map fab lane',
     (tester) async {

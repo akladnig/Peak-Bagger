@@ -208,6 +208,75 @@ void main() {
     expect(find.byKey(const Key('peak-list-peak-dialog')), findsNothing);
   });
 
+  testWidgets('add dialog refreshes the Tassy Full list', (tester) async {
+    tester.view.physicalSize = const Size(1024, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final peakListRepository = PeakListRepository.test(
+      InMemoryPeakListStorage([
+        PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+      ]),
+    );
+    final peakRepository = PeakRepository.test(
+      InMemoryPeakStorage([
+        _buildPeak(300, 'Zulu Peak', -41.0, 146.0),
+        _buildPeak(100, 'Alpha Peak', -41.1, 146.1),
+        _buildPeak(200, 'Mike Peak', -41.2, 146.2),
+      ]),
+    );
+
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: peakListRepository,
+      peakRepository: peakRepository,
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage(),
+      ),
+    );
+
+    tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-1'))).onTap!();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('peak-lists-add-peak')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-300')));
+    await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-100')));
+    await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-200')));
+    await tester.pump();
+
+    await tester.enterText(
+      find.byKey(const Key('peak-selected-points-300')),
+      '7',
+    );
+    await tester.enterText(
+      find.byKey(const Key('peak-selected-points-100')),
+      '3',
+    );
+    await tester.enterText(
+      find.byKey(const Key('peak-selected-points-200')),
+      '5',
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('peak-list-peak-save')));
+    await tester.pumpAndSettle();
+
+    final tassyFull = peakListRepository.findByName('Tassy Full');
+    expect(tassyFull, isNotNull);
+    expect(find.byKey(Key('peak-lists-row-${tassyFull!.peakListId}')), findsOneWidget);
+    expect(find.text('Tassy Full'), findsOneWidget);
+    expect(
+      decodePeakListItems(tassyFull.peakList)
+          .map((item) => (item.peakOsmId, item.points))
+          .toList(),
+      [(100, 3), (200, 5), (300, 7)],
+    );
+  });
+
   testWidgets('summary metrics use unique peak ids and latest ascent dates', (
     tester,
   ) async {
