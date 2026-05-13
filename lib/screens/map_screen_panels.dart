@@ -205,12 +205,17 @@ class MapTrackInfoPanel extends StatelessWidget {
                         const _SectionTitle(title: 'Peaks Climbed'),
                         thinDivider,
                         const SizedBox(height: 6),
-                        for (final peakName in normalizedPeaks)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: Text(peakName),
-                          ),
-                        const SizedBox(height: 2),
+                        if (normalizedPeaks.isNotEmpty) ...[
+                          for (final peakName in normalizedPeaks)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Text(peakName),
+                            ),
+                          const SizedBox(height: 2),
+                        ] else ...[
+                          const Text('None'),
+                          const SizedBox(height: 6),
+                        ],
                         thinDivider,
                         if (track.peakCorrelationProcessed &&
                             normalizedPeaks.isNotEmpty) ...[
@@ -224,8 +229,7 @@ class MapTrackInfoPanel extends StatelessWidget {
                             value: formatDistance(track.distanceFromPeak),
                           ),
                           const SizedBox(height: 8),
-                        ] else
-                          const Text('None'),
+                        ],
                         const SizedBox(height: 20),
                         const _SectionTitle(title: 'Elevation'),
                         thinDivider,
