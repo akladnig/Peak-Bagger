@@ -25,11 +25,11 @@ Tile-cache scope filter. Mandatory Tasmap selection, exact polygon download regi
 ### Phase 2: Settings UI State
 
 - **Goal**: mandatory selected map visible in settings UI
-- [ ] `lib/screens/settings_screen.dart` - local search state, default selection chip/label, dropdown, suggestion list, `tasmapRevision` reseed
-- [ ] `lib/providers/tasmap_provider.dart` - surface any minimal state access needed for revision watching only if the screen cannot read current provider state cleanly
-- [ ] `test/widget/tile_cache_settings_screen_test.dart` - `TDD:` default chip on first build, live search, empty results preserve selection, reseed after Tasmap refresh, stable keys
-- [ ] `test/widget/tile_cache_settings_screen_test.dart` - assert `Key('tile-cache-basemap-dropdown')`, `Key('tile-cache-map-search-field')`, `Key('tile-cache-map-suggestion-0')`, `Key('tile-cache-selected-map-chip')`, `Key('tile-cache-download-button')`
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/screens/settings_screen.dart` - local search state, default selection chip/label, dropdown, suggestion list, `tasmapRevision` reseed
+- [x] `lib/providers/tasmap_provider.dart` - no change needed; screen reads `tasmapRevision` directly
+- [x] `test/widget/tile_cache_settings_screen_test.dart` - `TDD:` default chip on first build, live search, empty results preserve selection, reseed after Tasmap refresh, stable keys
+- [x] `test/widget/tile_cache_settings_screen_test.dart` - assert `Key('tile-cache-basemap-dropdown')`, `Key('tile-cache-map-search-field')`, `Key('tile-cache-map-suggestion-0')`, `Key('tile-cache-selected-map-chip')`, `Key('tile-cache-download-button')`
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Download Journey
 
