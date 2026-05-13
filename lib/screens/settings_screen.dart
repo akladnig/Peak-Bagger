@@ -62,6 +62,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     return Scaffold(
       body: ListView(
+        key: const Key('settings-scrollable'),
         children: [
           ListTile(
             leading: const Icon(Icons.download),

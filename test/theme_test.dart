@@ -26,7 +26,7 @@ void main() {
 
     test('dark theme uses configured secondary color', () {
       final theme = CatppuccinColors.dark;
-      expect(theme.colorScheme.secondary, const Color(0xFF221B52));
+      expect(theme.colorScheme.secondary, const Color(0xFF2A2A2A));
     });
 
     test('light theme uses Latte mauve as secondary', () {

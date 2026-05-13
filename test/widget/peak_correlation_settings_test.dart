@@ -43,6 +43,12 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
+    await tester.drag(
+      find.byKey(const Key('settings-scrollable')),
+      const Offset(0, -500),
+    );
+    await tester.pumpAndSettle();
+
     expect(
       find.byKey(const Key('peak-correlation-settings-section')),
       findsOneWidget,
@@ -89,6 +95,12 @@ void main() {
 
     router.go('/settings');
     await tester.pump();
+    await tester.pumpAndSettle();
+
+    await tester.drag(
+      find.byKey(const Key('settings-scrollable')),
+      const Offset(0, -500),
+    );
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(

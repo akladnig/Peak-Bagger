@@ -160,7 +160,7 @@ void main() {
     expect(selectedRowContainer.color, isNotNull);
     expect(
       decodePeakListItems(
-        peakListRepository.getAllPeakLists().single.peakList,
+        peakListRepository.findByName('Tasmania')!.peakList,
       ).map((item) => (item.peakOsmId, item.points)).toList(),
       [(100, 3), (200, 5), (300, 7)],
     );

@@ -93,6 +93,13 @@ void main() {
 
     expect(find.byKey(const Key('gpx-filter-outlier-filter')), findsOneWidget);
 
+    await tester.drag(
+      find.byKey(const Key('settings-scrollable')),
+      const Offset(0, -500),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('gpx-filter-outlier-filter')));
+
     await tester.tap(find.byKey(const Key('gpx-filter-outlier-filter')));
     await tester.pumpAndSettle();
     expect(find.text('None'), findsWidgets);
