@@ -95,7 +95,7 @@ void main() {
   testWidgets('side navigation remains available in the current shell layout', (
     tester,
   ) async {
-    await _pumpApp(tester, size: const Size(1000, 900));
+    await _pumpApp(tester, size: const Size(1280, 900));
 
     expect(find.byKey(const Key('nav-dashboard')), findsOneWidget);
     expect(find.byKey(const Key('nav-objectbox-admin')), findsOneWidget);
@@ -1284,7 +1284,7 @@ Future<void> _pumpApp(
   TestObjectBoxAdminRepository? repository,
   PeakRepository? peakRepository,
   PeakDeleteGuard? peakDeleteGuard,
-  Size size = const Size(1000, 900),
+  Size size = const Size(1280, 900),
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() async {

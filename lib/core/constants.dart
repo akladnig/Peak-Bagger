@@ -41,7 +41,6 @@ abstract final class PeakCorrelationConstants {
 }
 
 abstract final class RouterConstants {
-  static const shellBreakpoint = 1024.0;
   static const wideNavigationWidth = 132.0;
   static const themeActionRightInset = 16.0;
 }

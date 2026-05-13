@@ -107,9 +107,7 @@ final router = GoRouter(
                   destination.branchIndex == navigationShell.currentIndex,
             );
 
-            void goToDestination(
-              ShellDestination destination 
-            ) {
+            void goToDestination(ShellDestination destination) {
               if (destination.branchIndex == navigationShell.currentIndex) {
                 return;
               }
@@ -253,66 +251,47 @@ final router = GoRouter(
               );
             }
 
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                return Scaffold(
-                  drawer: Drawer(
-                          child: SafeArea(
-                            child: SideMenu(
-                              destinations: shellDestinations,
-                              selectedBranchIndex: navigationShell.currentIndex,
-                              onDestinationSelected: (destination) {
-                                goToDestination(
-                                  destination,
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                  appBar: AppBar(
-                    key: const Key('shared-app-bar'),
-                    automaticallyImplyLeading: false,
-                    centerTitle: false,
-                    leadingWidth: RouterConstants.wideNavigationWidth,
-                    leading: Center(
-                            child: IconButton(
-                              key: const Key('app-bar-home'),
-                              tooltip: 'Dashboard',
-                              onPressed: () {
-                                goToDestination(shellDestinations.first);
-                              },
-                              icon: const FaIcon(FontAwesomeIcons.mountain),
-                            ),
-                          ),
-                    titleSpacing: 0,
-                    title: Align(
-                            alignment: Alignment.centerLeft,
-                            child: KeyedSubtree(
-                              key: const Key('app-bar-title'),
-                              child: Text(currentDestination.title),
-                            ),
-                          ),
-                    actions: [
-                      Padding(
-                        padding: const EdgeInsets.only(
-                          right: RouterConstants.themeActionRightInset,
-                        ),
-                        child: IconButton(
-                          key: const Key('app-bar-theme-action'),
-                          tooltip: 'Toggle theme',
-                          onPressed: () {
-                            ref.read(themeModeProvider.notifier).toggleTheme();
-                          },
-                          icon: Icon(
-                            isDark ? Icons.light_mode : Icons.dark_mode,
-                          ),
-                        ),
-                      ),
-                    ],
+            return Scaffold(
+              appBar: AppBar(
+                key: const Key('shared-app-bar'),
+                automaticallyImplyLeading: false,
+                centerTitle: false,
+                leadingWidth: RouterConstants.wideNavigationWidth,
+                leading: Center(
+                  child: IconButton(
+                    key: const Key('app-bar-home'),
+                    tooltip: 'Dashboard',
+                    onPressed: () {
+                      goToDestination(shellDestinations.first);
+                    },
+                    icon: const FaIcon(FontAwesomeIcons.mountain),
                   ),
-                  body: buildShellBody(),
-                );
-              },
+                ),
+                titleSpacing: 0,
+                title: Align(
+                  alignment: Alignment.centerLeft,
+                  child: KeyedSubtree(
+                    key: const Key('app-bar-title'),
+                    child: Text(currentDestination.title),
+                  ),
+                ),
+                actions: [
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      right: RouterConstants.themeActionRightInset,
+                    ),
+                    child: IconButton(
+                      key: const Key('app-bar-theme-action'),
+                      tooltip: 'Toggle theme',
+                      onPressed: () {
+                        ref.read(themeModeProvider.notifier).toggleTheme();
+                      },
+                      icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
+                    ),
+                  ),
+                ],
+              ),
+              body: buildShellBody(),
             );
           },
         );

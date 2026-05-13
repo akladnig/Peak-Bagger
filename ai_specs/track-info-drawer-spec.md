@@ -13,7 +13,7 @@ Current track selection already exists through `selectedTrackId` in `./lib/provi
 
 The map route already uses right-side `endDrawer` content for basemaps and peak lists via `./lib/widgets/map_basemaps_drawer.dart` and `./lib/widgets/map_peak_lists_drawer.dart`. The app shell already uses `Scaffold.drawer` for navigation, so this feature must not use `Scaffold.drawer`. Implement the track info UI as a custom left-side in-body sliding panel within the map screen stack.
 
-This feature is desktop-only. Existing track selection is based on primary mouse click and existing programmatic `showTrack(...)` flows; touch-specific behavior is out of scope. This slice is explicitly scoped to `MapScreen` viewport widths at or above `RouterConstants.shellBreakpoint`: production code and tests must guard the panel behind that `MapScreen` width check, and below that width the app should preserve existing track selection/highlight behavior without rendering the panel.
+This feature is desktop-only. Existing track selection is based on primary mouse click and existing programmatic `showTrack(...)` flows; touch-specific behavior is out of scope. The app is macOS-only and the runner enforces a 1024 px minimum window width, so there is no compact-screen branch for this slice.
 
 The existing `GpxTrack` model stores track-level statistics and correlated peak names through `track.peaks`. It does not store per-peak distance-to/from values, so this slice must not invent correlated-peak distance rows.
 
@@ -75,7 +75,7 @@ Stable requirement IDs for cross-references below:
 Use the stable ids for cross-references below; the visible list numbers are presentational only.
 
 **Functional:**
-1. Add a left-side track info panel to `./lib/screens/map_screen.dart` that is visible only when `MediaQuery.sizeOf(context).width >= RouterConstants.shellBreakpoint`, `showTracks == true`, and `selectedTrackId` resolves to a matching `GpxTrack` within `MapState.tracks`.
+1. Add a left-side track info panel to `./lib/screens/map_screen.dart` that is visible when `showTracks == true` and `selectedTrackId` resolves to a matching `GpxTrack` within `MapState.tracks`.
 2. Do not use `Scaffold.drawer` for this feature. Present the UI as a custom in-body sliding panel layered inside the map screen stack so the shell drawer and existing right-side end-drawers continue to work unchanged.
 3. Keep entry points aligned with existing selection behavior: any path that sets `selectedTrackId` to a track present in `MapState.tracks` while `showTracks == true`, including direct map selection and existing `showTrack(...)` flows, must reveal the panel.
 4. Track-info panel visibility is derived from displayed map state only: `showTracks == true` and `selectedTrackId` resolving within `MapState.tracks`. A selected track id that is not present in `MapState.tracks` while `showTracks == true` is invalid everywhere in this slice and must be reconciled before any selected-track focus logic runs.
@@ -171,12 +171,12 @@ Limits:
 - No SharedPreferences or file-backed persistence for drawer visibility or selection.
 - No new left-side global shell navigation changes.
 - No touch selection path is required or expected in this slice; desktop mouse interaction and existing programmatic `showTrack(...)` flows are the supported entry points.
-- Below `RouterConstants.shellBreakpoint`, preserve existing track selection/highlight behavior but do not render the track info panel. This gate is based on the `MapScreen` viewport width available to the route itself, not on a separate shell mode.
+- The app runs on macOS desktop with a 1024 px minimum window width, so the track info panel does not need a compact-screen branch.
 - Avoid adding `intl` or other formatting packages unless a concrete implementation need appears that cannot be met with small local helpers.
 </boundaries>
 
 <implementation>
-1. Modify `./lib/screens/map_screen.dart` to derive the selected `GpxTrack` from `selectedTrackId` and `tracks`, where panel visibility means `MediaQuery.sizeOf(context).width >= RouterConstants.shellBreakpoint` plus `showTracks == true` and membership in `MapState.tracks`, then overlay a dedicated track info panel component in the inner map stack using `AnimatedSlide`, `AnimatedPositioned`, or an equivalent deterministic animation widget so it sits above the map/readouts but below the action rail and outer-stack popups. Selected-track focus must use reconciled visible-track state rather than an independent repository-only fallback. Hide the left-side MGRS and zoom readouts while the panel is visible instead of shifting them.
+1. Modify `./lib/screens/map_screen.dart` to derive the selected `GpxTrack` from `selectedTrackId` and `tracks`, then overlay a dedicated track info panel component in the inner map stack using `AnimatedSlide`, `AnimatedPositioned`, or an equivalent deterministic animation widget so it sits above the map/readouts but below the action rail and outer-stack popups. Selected-track focus must use reconciled visible-track state rather than an independent repository-only fallback. Hide the left-side MGRS and zoom readouts while the panel is visible instead of shifting them.
 2. Keep `endDrawer` logic intact for right-side drawers. The new left-side panel must be independent of `endDrawerMode`.
 3. Add the rendering component alongside existing map-route panel code, either in `./lib/screens/map_screen_panels.dart` or in `./lib/screens/map_track_info_panel.dart` if a dedicated file improves readability. It should accept the selected track data and an `onClose` callback rather than pulling additional global state on its own unless there is a clear testability reason to do otherwise.
 4. Structure the panel with `SafeArea`, a pinned header, and a vertically scrollable body.
@@ -198,7 +198,7 @@ Limits:
 14. Keep `./test/widget/map_screen_route_entry_test.dart` as the canonical hidden-branch and route-entry coverage for real `MapNotifier` `showTrack()` repository-resolution and miss-handling behavior. Only add a GPX-repository seam to `TestMapNotifier.showTrack()` if panel-specific widget coverage cannot stay deterministic without it.
 15. Direct panel coverage files:
 - add a dedicated notifier-contract test file, for example `./test/providers/map_provider_selected_track_test.dart`, as the primary home for selected-track contract coverage (`selectTrack(...)` valid/no-op cases, `showTrack(...)` miss handling, targeted normalization, and pre-seeded stale-state normalization)
-- add a focused panel behavior file, for example `./test/widget/map_screen_track_info_test.dart` or `./test/widget/map_track_info_panel_test.dart`, as the primary home for panel visibility, close behavior, width-gate behavior, and keyboard interactions
+- add a focused panel behavior file, for example `./test/widget/map_screen_track_info_test.dart` or `./test/widget/map_track_info_panel_test.dart`, as the primary home for panel visibility, close behavior, and keyboard interactions
 - `./test/widget/map_screen_route_entry_test.dart`
 - `./test/widget/map_screen_keyboard_test.dart`
 16. Regression entry-point files:
@@ -233,11 +233,9 @@ Phase 3: Add click-select and route-entry journey coverage. Verify selecting fro
 - `trackDate` remains a calendar date without timezone shifting while `startDateTime` and `endDateTime` convert to local device time
 - peaks section presentation as one shared track-level highest-point distance block plus peak names, or `None`
 4. Widget tests must cover:
-- panel-visible widget tests must explicitly set a surface width at or above `RouterConstants.shellBreakpoint`
-- at least one narrow-width regression test must explicitly set a surface width below `RouterConstants.shellBreakpoint` and assert that panel selectors are absent while existing track selection/highlight behavior remains unchanged
-- shared widget-test pump helpers that exercise `App()` or `MapScreen()` for panel behavior must accept an explicit surface-width seam and default panel-visible coverage to a width at or above `RouterConstants.shellBreakpoint`
+- panel-visible widget tests should use a desktop-sized surface width
+- shared widget-test pump helpers that exercise `App()` or `MapScreen()` for panel behavior should accept an explicit surface-width seam and default panel-visible coverage to a desktop-sized width
 - when `showTracks == true` and `selectedTrackId` resolves to a track in `MapState.tracks`, `Key('track-info-panel')` is present and the track name renders
-- below `RouterConstants.shellBreakpoint`, panel selectors are absent while existing track selection/highlight behavior remains unchanged
 - pressing `Key('track-info-panel-close')` clears selection and removes the panel
 - selecting a different track updates the rendered content
 - primary-clicking empty map background while the panel is open preserves current map behavior by updating `selectedLocation`, clearing `selectedTrackId`, and closing the panel
@@ -256,7 +254,7 @@ Phase 3: Add click-select and route-entry journey coverage. Verify selecting fro
 - returning to the map route with a still-valid `selectedTrackId` shows the panel again
 - closing the panel clears only selected-track state and does not introduce any new marker-clearing behavior
 5. Robot-driven widget journey tests must cover the critical flow using stable app-owned keys and the existing map harness:
-- robot panel-visible tests must explicitly set a surface width at or above `RouterConstants.shellBreakpoint`
+- robot panel-visible tests must explicitly set a desktop-sized surface width
 - shared robot harness pump helpers must accept an explicit surface-width seam and use it for panel-visible coverage
 - hover or otherwise target a visible track through the existing map interaction seam
 - primary-click to select the track

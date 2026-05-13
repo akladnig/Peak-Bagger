@@ -67,7 +67,7 @@ class ObjectBoxAdminRobot {
     List<ObjectBoxAdminEntityDescriptor>? entities,
     PeakRepository? peakRepository,
     PeakDeleteGuard? peakDeleteGuard,
-    Size size = const Size(1000, 900),
+    Size size = const Size(1280, 900),
   }) async {
     await tester.binding.setSurfaceSize(size);
     addTearDown(() async {
