@@ -96,7 +96,13 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('410m  Map: Resolved Map'), findsOneWidget);
+    final tile = find.widgetWithText(ListTile, 'Bonnet Hill');
+    expect(tile, findsOneWidget);
+    expect(find.descendant(of: tile, matching: find.text('410 m')), findsOneWidget);
+    expect(
+      find.descendant(of: tile, matching: find.text('Resolved Map')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('peak search result shows a dash for unknown height', (
@@ -117,7 +123,13 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('—  Map: Resolved Map'), findsOneWidget);
+    final tile = find.widgetWithText(ListTile, 'Bonnet Hill');
+    expect(tile, findsOneWidget);
+    expect(find.descendant(of: tile, matching: find.text('—')), findsOneWidget);
+    expect(
+      find.descendant(of: tile, matching: find.text('Resolved Map')),
+      findsOneWidget,
+    );
   });
 }
 

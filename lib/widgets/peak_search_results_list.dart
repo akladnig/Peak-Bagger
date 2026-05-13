@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/peak.dart';
+import '../theme.dart';
 
 class PeakSearchResultsList extends StatelessWidget {
   const PeakSearchResultsList({
@@ -26,15 +27,26 @@ class PeakSearchResultsList extends StatelessWidget {
       return ListView.separated(
         shrinkWrap: true,
         itemCount: searchResults.length,
-        separatorBuilder: (context, index) => const Divider(height: 1),
+        separatorBuilder: (context, index) => thinDivider,
         itemBuilder: (context, index) {
           final peak = searchResults[index];
           final isSelected = selectedPeakId == peak.osmId;
           return ListTile(
             key: itemKeyBuilder?.call(peak),
             dense: true,
-            title: Text(peak.name),
-            subtitle: Text(_subtitleFor(peak)),
+            title: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    peak.name,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(_heightFor(peak)),
+              ],
+            ),
+            subtitle: Text(mapNameForPeak(peak)),
             selected: isSelected,
             onTap: () => onSelectPeak(peak),
           );
@@ -52,10 +64,9 @@ class PeakSearchResultsList extends StatelessWidget {
     return const SizedBox.shrink();
   }
 
-  String _subtitleFor(Peak peak) {
-    final heightLabel = peak.elevation != null
-        ? '${peak.elevation!.toStringAsFixed(0)}m'
+  String _heightFor(Peak peak) {
+    return peak.elevation != null
+        ? '${peak.elevation!.toStringAsFixed(0)} m'
         : '—';
-    return '$heightLabel  Map: ${mapNameForPeak(peak)}';
   }
 }
