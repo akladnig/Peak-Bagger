@@ -8,12 +8,15 @@ import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_csv_export_provider.dart';
 import 'package:peak_bagger/providers/peak_list_csv_export_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/screens/map_screen_layers.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/peak_list_csv_export_service.dart';
+import 'package:peak_bagger/services/tassy_full_peak_list_sync_service.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
@@ -32,6 +35,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _isExportingPeaks = false;
   bool _isExportingPeakLists = false;
   bool _isRefreshingPeaks = false;
+  bool _isRefreshingTassyFull = false;
   bool _isResettingMaps = false;
   String _status = '';
   Key _statusKey = const Key('peak-refresh-status');
@@ -142,6 +146,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ? null
                 : _confirmRecalculateTrackStatistics,
           ),
+          ListTile(
+            key: const Key('update-tassy-full-peak-list-tile'),
+            leading: const Icon(Icons.sync),
+            title: const Text('Update Tassy Full Peak List'),
+            subtitle: const Text(
+              'Updates the Tassy Full Peak List to include peaks from all other peak lists',
+            ),
+            trailing: _isRefreshingTassyFull
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : null,
+            onTap: _isStatusActionBusy || _isRefreshingTassyFull
+                ? null
+                : _confirmUpdateTassyFullPeakList,
+          ),
           if (mapState.hasTrackRecoveryIssue)
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -248,6 +270,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   bool get _isStatusActionBusy {
     return _isRefreshingPeaks ||
+        _isRefreshingTassyFull ||
         _isResettingMaps ||
         _isExportingPeaks ||
         _isExportingPeakLists;
@@ -508,6 +531,57 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     });
   }
 
+  Future<void> _confirmUpdateTassyFullPeakList() async {
+    final confirmed = await showDangerConfirmDialog(
+      context: context,
+      title: 'Update Tassy Full Peak List?',
+      message:
+          'This will rebuild Tassy Full from all other peak lists. Do you wish to proceed?',
+      cancelKey: 'update-tassy-full-cancel',
+      cancelLabel: 'Cancel',
+      confirmKey: 'update-tassy-full-confirm',
+      confirmLabel: 'Update',
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _isRefreshingTassyFull = true;
+    });
+
+    try {
+      final result = await ref
+          .read(peakListRepositoryProvider)
+          .refreshTassyFullPeakList();
+      if (!mounted) {
+        return;
+      }
+
+      ref.read(peakListRevisionProvider.notifier).increment();
+      ref.read(mapProvider.notifier).reconcileSelectedPeakList();
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showUpdateTassyFullPeakListResult(result);
+        }
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      await _showUpdateTassyFullPeakListFailure(error.toString());
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshingTassyFull = false;
+        });
+      }
+    }
+  }
+
   Future<void> _showResetTrackDataResult(TrackImportResult? result) async {
     if (!mounted || result == null) {
       return;
@@ -620,6 +694,45 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context: context,
       title: 'Track Statistics Recalculation Failed',
       closeKey: 'track-stats-recalc-error-close',
+      content: Text(error),
+    );
+  }
+
+  Future<void> _showUpdateTassyFullPeakListResult(
+    TassyFullPeakListSyncResult result,
+  ) async {
+    if (!mounted) {
+      return;
+    }
+
+    await showSingleActionDialog(
+      context: context,
+      title: 'Tassy Full Peak List Updated',
+      closeKey: 'update-tassy-full-result-close',
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Added ${result.addedCount} ${_pluralize(result.addedCount, "peak", "peaks")}',
+          ),
+          Text(
+            'Updated ${result.updatedCount} ${_pluralize(result.updatedCount, "peak", "peaks")}',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showUpdateTassyFullPeakListFailure(String error) async {
+    if (!mounted) {
+      return;
+    }
+
+    await showSingleActionDialog(
+      context: context,
+      title: 'Tassy Full Peak List Update Failed',
+      closeKey: 'update-tassy-full-error-close',
       content: Text(error),
     );
   }
