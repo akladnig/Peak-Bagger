@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+const thinDivider = Divider(height: 0, color: Color(0xff7b7b7b));
+
 class CatppuccinColors {
   static ThemeData get dark => _createDarkTheme();
   static ThemeData get light => _createLightTheme();
@@ -10,10 +12,9 @@ class CatppuccinColors {
       colorScheme: const ColorScheme.dark(
         // onPrimary: Color(0xFFCDD6F4),
         // primary: Color(0xFF89B4FA),
-        
         primary: Color(0xFF6347EA),
         onPrimary: Color(0xFFA89FFF),
-        secondary: Color(0xFF221B52),
+        secondary: Color(0xFF2A2A2A),
         onSecondary: Color(0xFFCDD6F4),
         primaryContainer: Color(0xFF221B52),
         onPrimaryContainer: Colors.white,

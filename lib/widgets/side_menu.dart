@@ -27,7 +27,7 @@ class SideMenu extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       width: UiConstants.sideMenuColumnWidth,
-      child: SingleChildScrollView(
+      child: SizedBox.expand(
         child: Column(
           children: [
             const SizedBox(height: 12),

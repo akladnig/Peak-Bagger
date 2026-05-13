@@ -83,7 +83,7 @@ Use the stable ids for cross-references below; the visible list numbers are pres
 6. Empty-map clicks, track reset flows, track visibility-off flows, and other existing clear-selection paths must also hide the panel because no selected track remains.
 7. When the panel is visible, hide the existing left-side MGRS and zoom readouts instead of shifting them or letting them overlap the panel.
 8. Panel placement and z-order must match the current nested `Stack` structure in `MapScreen`: place the track info panel in the inner map stack so it sits above `FlutterMap` and the left readouts, remove or omit the MGRS and zoom readouts from that same inner stack while the panel is visible, and keep the action rail, search/goto surfaces, map info popup, and peak info popup in the outer stack above the panel.
-9. Create a dedicated track info panel component with a concrete visual contract: use the route's normal surface color, similar elevation to existing map drawers, a 16 px horizontal padding rhythm, the specified width constraint, a pinned header, and a deterministic in-body slide animation. Do not assume there is an existing left-side panel component to reuse. Place this panel alongside the map-route screen code, either in `./lib/screens/map_screen_panels.dart` or in a dedicated nearby file such as `./lib/screens/map_track_info_panel.dart` if readability benefits.
+9. Create a dedicated track info panel component with a concrete visual contract: use `theme.colorScheme.secondary`, similar elevation to existing map drawers, a 16 px horizontal padding rhythm, the specified width constraint, a pinned header, and a deterministic in-body slide animation. Do not assume there is an existing left-side panel component to reuse. Place this panel alongside the map-route screen code, either in `./lib/screens/map_screen_panels.dart` or in a dedicated nearby file such as `./lib/screens/map_track_info_panel.dart` if readability benefits.
 10. The panel must be wrapped in `SafeArea`, use a pinned header, and keep the remaining content in a vertically scrollable body so all sections stay reachable on shorter viewports while the close button remains accessible.
 11. The panel header must render the selected track name left-aligned and a close button right-aligned. Blank track names must display `Unnamed Track`. The close control must expose an accessible tooltip or semantic label such as `Close track info`.
 12. Below the header, render the track date row and the `from ... to ...` time row using deterministic formatting. Partial cases must render exactly as follows:
@@ -96,7 +96,7 @@ Use the stable ids for cross-references below; the visible list numbers are pres
 14. `Total Time` appears intentionally both in the summary row and in the full Time section for scanability.
 15. Render a `Peaks Climbed` section using correlated peaks from `track.peaks`.
 16. If `peakCorrelationProcessed == false`, treat the `Peaks Climbed` section as unavailable for this slice: render `None` and omit the shared track-level highest-point distance block.
-17. If `peakCorrelationProcessed == true` and one or more correlated peaks exist, first show one shared track-level highest-point distance block with the rows `Track distance to highest peak` and `Track distance from highest peak`, using the existing stored `distanceToPeak` and `distanceFromPeak` values once for the whole track. Then list the correlated peak names once each.
+17. If `peakCorrelationProcessed == true` and one or more correlated peaks exist, first show one shared track-level highest-point distance block with the rows `Distance to highest peak` and `Distance from highest peak`, using the existing stored `distanceToPeak` and `distanceFromPeak` values once for the whole track. Then list the correlated peak names once each.
 18. Peak display-name normalization must be deterministic: trim the raw peak name, apply the `Unknown Peak` fallback for blank results, sort case-insensitively by the displayed name, and de-duplicate correlated peaks by raw `osmId` only, including `osmId <= 0` values.
 19. If `peakCorrelationProcessed == true` and there are no correlated peaks after normalization and `osmId`-based de-duplication, render `None` and omit the shared track-level highest-point distance block.
 20. Do not invent new correlated-peak distance calculations or persisted fields in this slice. Use the existing stored `distanceToPeak` and `distanceFromPeak` values only in the shared track-level highest-point distance block.
@@ -246,7 +246,7 @@ Phase 3: Add click-select and route-entry journey coverage. Verify selecting fro
 - pre-seeded stale selected-track state is reconciled through notifier-owned normalization without mutating during build
 - elevation fields map correctly: `highestElevation` -> Max and `lowestElevation` -> Min
 - partial date/time cases render exactly as specified above when the widget fixtures are already local and timezone-safe
-- when correlated peaks exist, the section includes one shared `Track distance to highest peak` / `Track distance from highest peak` block followed by the peak-name list
+- when correlated peaks exist, the section includes one shared `Distance to highest peak` / `Distance from highest peak` block followed by the peak-name list
 - while the panel is open, the left-side MGRS and zoom readouts are hidden
 - the panel header remains accessible while long body content scrolls
 - adding the panel does not change existing peak search or goto visibility semantics
@@ -286,7 +286,7 @@ Phase 3: Add click-select and route-entry journey coverage. Verify selecting fro
 <done_when>
 1. Selecting a track or showing a track reveals a left-side info panel with readable metadata and statistics.
 2. Closing the panel clears the selected track and removes selected-track emphasis.
-3. Peaks Climbed lists correlated peak names or `None`, and when peaks exist the section includes one shared `Track distance to highest peak` / `Track distance from highest peak` block using the existing stored track-level values.
+3. Peaks Climbed lists correlated peak names or `None`, and when peaks exist the section includes one shared `Distance to highest peak` / `Distance from highest peak` block using the existing stored track-level values.
 4. Existing basemap and peak-list drawers still open correctly while the selected track and visible track info panel remain intact.
 5. Automated tests cover presentation logic, panel UI behavior, and the critical selection-to-panel journey.
 </done_when>

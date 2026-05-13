@@ -6,6 +6,7 @@ import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/peak_search_results_list.dart';
 
 class PeakInfoPopupPlacement {
@@ -118,6 +119,7 @@ class MapTrackInfoPanel extends StatelessWidget {
         constraints: const BoxConstraints(maxHeight: 520),
         child: Card(
           key: const Key('track-info-panel'),
+          color: Theme.of(context).colorScheme.secondary,
           margin: EdgeInsets.zero,
           child: SafeArea(
             child: Column(
@@ -128,21 +130,39 @@ class MapTrackInfoPanel extends StatelessWidget {
                     horizontal: 16,
                     vertical: 12,
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          displayName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ),
+                          IconButton(
+                            key: const Key('track-info-panel-close'),
+                            tooltip: 'Close track info',
+                            onPressed: onClose,
+                            icon: const Icon(Icons.close),
+                          ),
+                        ],
                       ),
-                      IconButton(
-                        key: const Key('track-info-panel-close'),
-                        tooltip: 'Close track info',
-                        onPressed: onClose,
-                        icon: const Icon(Icons.close),
+
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(formatTrackDate(track.trackDate)),
+                          Text(
+                            formatTrackTimeRange(
+                              track.startDateTime,
+                              track.endDateTime,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -157,14 +177,6 @@ class MapTrackInfoPanel extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(formatTrackDate(track.trackDate)),
-                        const SizedBox(height: 4),
-                        Text(
-                          formatTrackTimeRange(
-                            track.startDateTime,
-                            track.endDateTime,
-                          ),
-                        ),
                         const SizedBox(height: 16),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -191,60 +203,74 @@ class MapTrackInfoPanel extends StatelessWidget {
                         ),
                         const SizedBox(height: 20),
                         const _SectionTitle(title: 'Peaks Climbed'),
+                        thinDivider,
+                        const SizedBox(height: 6),
+                        for (final peakName in normalizedPeaks)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Text(peakName),
+                          ),
+                        const SizedBox(height: 2),
+                        thinDivider,
                         if (track.peakCorrelationProcessed &&
                             normalizedPeaks.isNotEmpty) ...[
                           _LabeledValueRow(
-                            label: 'Track distance to highest peak',
+                            label: 'Distance to highest peak',
                             value: formatDistance(track.distanceToPeak),
                           ),
+                          thinDivider,
                           _LabeledValueRow(
-                            label: 'Track distance from highest peak',
+                            label: 'Distance from highest peak',
                             value: formatDistance(track.distanceFromPeak),
                           ),
                           const SizedBox(height: 8),
-                          for (final peakName in normalizedPeaks)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 4),
-                              child: Text(peakName),
-                            ),
                         ] else
                           const Text('None'),
                         const SizedBox(height: 20),
                         const _SectionTitle(title: 'Elevation'),
+                        thinDivider,
                         _LabeledValueRow(
                           label: 'Total Ascent',
                           value: formatAscent(track.ascent),
                         ),
+                        thinDivider,
                         _LabeledValueRow(
                           label: 'Start Elevation',
                           value: formatElevation(track.startElevation),
                         ),
+                        thinDivider,
                         _LabeledValueRow(
                           label: 'End Elevation',
                           value: formatElevation(track.endElevation),
                         ),
+                        thinDivider,
                         _LabeledValueRow(
                           label: 'Max Elevation',
                           value: formatElevation(track.highestElevation),
                         ),
+                        thinDivider,
                         _LabeledValueRow(
                           label: 'Min Elevation',
                           value: formatElevation(track.lowestElevation),
                         ),
                         const SizedBox(height: 20),
                         const _SectionTitle(title: 'Time'),
+                        thinDivider,
                         _LabeledValueRow(
                           label: 'Total Time',
                           value: formatDuration(track.totalTimeMillis),
                         ),
+                        thinDivider,
                         _LabeledValueRow(
                           label: 'Moving Time',
                           value: formatDuration(track.movingTime),
                         ),
+                        thinDivider,
                         _LabeledValueRow(
                           label: 'Resting Time',
                           value: formatDuration(track.restingTime),
                         ),
+                        thinDivider,
                         _LabeledValueRow(
                           label: 'Paused Time',
                           value: formatDuration(track.pausedTime),
@@ -271,7 +297,7 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Text(title, style: Theme.of(context).textTheme.titleSmall),
+      child: Text(title, style: Theme.of(context).textTheme.titleMedium),
     );
   }
 }
@@ -285,15 +311,30 @@ class _LabeledValueRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(top: 6, bottom: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: Text(label, style: Theme.of(context).textTheme.bodySmall),
+            flex: 3,
+            child: Text(
+              label,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.clip,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           ),
           const SizedBox(width: 12),
-          Flexible(child: Text(value, textAlign: TextAlign.end)),
+          Expanded(
+            flex: 1,
+            child: Text(
+              value,
+              maxLines: 1,
+              softWrap: false,
+              textAlign: TextAlign.end,
+            ),
+          ),
         ],
       ),
     );

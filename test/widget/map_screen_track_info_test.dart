@@ -10,6 +10,7 @@ import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/screens/map_screen_panels.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/theme.dart';
 
 import '../harness/test_map_notifier.dart';
 
@@ -114,6 +115,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: CatppuccinColors.dark,
         home: Scaffold(
           body: MapTrackInfoPanel(track: track, onClose: () {}),
         ),
@@ -121,17 +123,31 @@ void main() {
     );
     await tester.pump();
 
+    final panel = tester.widget<Card>(find.byKey(const Key('track-info-panel')));
+
     expect(find.text('Unnamed Track'), findsOneWidget);
     expect(find.text('Wed, 7 January 2026'), findsOneWidget);
     expect(find.text('from Unknown to Unknown'), findsOneWidget);
+    expect(panel.color, CatppuccinColors.dark.colorScheme.secondary);
     expect(find.text('Distance'), findsOneWidget);
     expect(find.text('12.4 km'), findsOneWidget);
     expect(find.text('Ascent'), findsOneWidget);
     expect(find.text('Unknown'), findsWidgets);
     expect(find.text('Peaks Climbed'), findsOneWidget);
-    expect(find.text('Track distance to highest peak'), findsOneWidget);
+    expect(find.text('Distance to highest peak'), findsOneWidget);
+    final distanceLabel = tester.widget<Text>(
+      find.text('Distance to highest peak'),
+    );
+    expect(distanceLabel.maxLines, 1);
+    expect(distanceLabel.softWrap, isFalse);
+    expect(distanceLabel.overflow, TextOverflow.clip);
+    final highestPeakLabel = tester.widget<Text>(
+      find.text('Distance from highest peak'),
+    );
+    expect(highestPeakLabel.maxLines, 1);
+    expect(highestPeakLabel.softWrap, isFalse);
+    expect(highestPeakLabel.overflow, TextOverflow.clip);
     expect(find.text('840 m'), findsOneWidget);
-    expect(find.text('Track distance from highest peak'), findsOneWidget);
     expect(find.text('11.6 km'), findsOneWidget);
     expect(find.text('Unknown Peak'), findsOneWidget);
     expect(find.text('beta'), findsOneWidget);
