@@ -21,6 +21,7 @@ import 'package:peak_bagger/services/tile_cache_service.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
+import 'package:peak_bagger/services/tile_cache_download_scope.dart';
 import 'package:peak_bagger/widgets/dialog_helpers.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -999,7 +1000,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 }
 
 class TileCacheSettingsScreen extends ConsumerStatefulWidget {
-  const TileCacheSettingsScreen({super.key});
+  const TileCacheSettingsScreen({super.key, this.downloadStarter});
+
+  final TileCacheDownloadStarter? downloadStarter;
 
   @override
   ConsumerState<TileCacheSettingsScreen> createState() =>
@@ -1249,7 +1252,15 @@ class _TileCacheSettingsScreenState
         options: tileLayer,
       );
 
-      final result = store.download.startForeground(
+      final starter = widget.downloadStarter ??
+          ({required region, required skipExistingTiles}) {
+            return store.download.startForeground(
+              region: region,
+              skipExistingTiles: skipExistingTiles,
+            );
+          };
+
+      final result = starter(
         region: region,
         skipExistingTiles: _skipExistingTiles,
       );
@@ -1262,9 +1273,13 @@ class _TileCacheSettingsScreenState
         );
       }
     } catch (e) {
-      setState(() => _status = 'Error: $e');
+      if (mounted) {
+        setState(() => _status = 'Error: $e');
+      }
     } finally {
-      setState(() => _isDownloading = false);
+      if (mounted) {
+        setState(() => _isDownloading = false);
+      }
     }
   }
 

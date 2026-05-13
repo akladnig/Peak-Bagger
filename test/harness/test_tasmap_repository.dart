@@ -79,9 +79,27 @@ class TestTasmapRepository implements TasmapRepository {
     }
 
     return _maps
-        .where((map) => map.name.toLowerCase().contains(lowered))
+        .where((map) => map.name.toLowerCase().startsWith(lowered))
         .take(10)
         .toList(growable: false);
+  }
+
+  List<Tasmap50k> getAllMapsSortedByName() {
+    final maps = getAllMaps();
+    maps.sort((a, b) {
+      final byName = a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      if (byName != 0) {
+        return byName;
+      }
+
+      final bySeries = a.series.toLowerCase().compareTo(b.series.toLowerCase());
+      if (bySeries != 0) {
+        return bySeries;
+      }
+
+      return a.id.compareTo(b.id);
+    });
+    return maps;
   }
 
   @override
