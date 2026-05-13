@@ -34,11 +34,11 @@ Tile-cache scope filter. Mandatory Tasmap selection, exact polygon download regi
 ### Phase 3: Download Journey
 
 - **Goal**: selected map drives foreground download; robot proof on critical path
-- [ ] `lib/screens/settings_screen.dart` - wire selected-map polygon into download request; keep basemap store and skip-existing behavior unchanged
-- [ ] `test/robot/settings/tile_cache_settings_journey_test.dart` - `TDD:` open settings, select basemap, confirm default map, search/select map, start download through fake seam
-- [ ] `test/robot/settings/tile_cache_settings_journey_test.dart` - verify selected region snapshot, skip-existing flag, and mid-download UI edits only affect next request
-- [ ] `test/robot/tasmap/tasmap_robot.dart` - reuse selector conventions only if journey harness needs a reference for stable key-first interactions
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/screens/settings_screen.dart` - wire selected-map polygon into download request; keep basemap store and skip-existing behavior unchanged
+- [x] `test/robot/settings/tile_cache_journey_test.dart` - `TDD:` open settings, select basemap, confirm default map, search/select map, start download through fake seam
+- [x] `test/robot/settings/tile_cache_journey_test.dart` - verify selected region snapshot, skip-existing flag, and mid-download UI edits only affect next request
+- [x] `test/robot/settings/tile_cache_robot.dart` - reusable stable-key harness for the tile-cache journey
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

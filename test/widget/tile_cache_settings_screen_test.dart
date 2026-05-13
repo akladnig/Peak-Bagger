@@ -58,7 +58,6 @@ void main() {
       const Offset(0, -1200),
     );
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('tile-cache-download-button')), findsOneWidget);
     expect(find.byKey(const Key('tile-cache-selected-map-chip')), findsOneWidget);
     expect(
       find.descendant(
@@ -67,6 +66,12 @@ void main() {
       ),
       findsOneWidget,
     );
+    await tester.drag(
+      find.byType(Scrollable).last,
+      const Offset(0, -800),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('tile-cache-download-button')), findsOneWidget);
   });
 
   testWidgets('search selects map and empty results keep selection', (

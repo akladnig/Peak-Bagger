@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
@@ -26,7 +25,12 @@ import 'package:peak_bagger/services/tile_cache_download_scope.dart';
 import 'package:peak_bagger/widgets/dialog_helpers.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({
+    super.key,
+    this.tileCacheSettingsScreenBuilder,
+  });
+
+  final WidgetBuilder? tileCacheSettingsScreenBuilder;
 
   @override
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
@@ -82,7 +86,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 : () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => const TileCacheSettingsScreen(),
+                        builder: widget.tileCacheSettingsScreenBuilder ??
+                            (context) => const TileCacheSettingsScreen(),
                       ),
                     );
                   },
@@ -1370,33 +1375,53 @@ class _TileCacheSettingsScreenState
     });
 
     try {
-      final store = TileCacheService.getStoreForBasemap(_selectedBasemap);
-      if (store == null) {
-        setState(() => _status = 'Store not found');
-        return;
-      }
-
       final tileLayer = TileLayer(
         urlTemplate: mapTileUrl(_selectedBasemap),
         userAgentPackageName: 'com.peak_bagger.app',
       );
-      final bounds = LatLngBounds(
-        const LatLng(-43.8, 144.0),
-        const LatLng(-40.5, 149.0),
-      );
-      final region = RectangleRegion(bounds).toDownloadable(
+      final selectedMap = _selectedMap;
+      if (selectedMap == null) {
+        setState(() => _status = 'No Tasmap sheet selected');
+        return;
+      }
+
+      final repository = ref.read(tasmapRepositoryProvider);
+      final polygonPoints = repository.getMapPolygonPoints(selectedMap);
+      if (polygonPoints.isEmpty) {
+        setState(() => _status = 'Selected Tasmap sheet has no polygon');
+        return;
+      }
+
+      final region = buildTileCacheDownloadRegion(
+        polygonPoints: polygonPoints,
         minZoom: _minZoom,
         maxZoom: _maxZoom,
         options: tileLayer,
       );
 
-      final starter = widget.downloadStarter ??
-          ({required region, required skipExistingTiles}) {
-            return store.download.startForeground(
-              region: region,
-              skipExistingTiles: skipExistingTiles,
-            );
-          };
+      final starter = widget.downloadStarter;
+      if (starter == null) {
+        final store = TileCacheService.getStoreForBasemap(_selectedBasemap);
+        if (store == null) {
+          setState(() => _status = 'Store not found');
+          return;
+        }
+
+        final result = store.download.startForeground(
+          region: region,
+          skipExistingTiles: _skipExistingTiles,
+        );
+
+        await for (final progress in result.downloadProgress) {
+          if (!mounted) return;
+          setState(
+            () => _status =
+                '${progress.successfulTilesCount} downloaded, ${progress.existingTilesCount} skipped (${progress.percentageProgress.toStringAsFixed(1)}%)',
+          );
+        }
+
+        return;
+      }
 
       final result = starter(
         region: region,
