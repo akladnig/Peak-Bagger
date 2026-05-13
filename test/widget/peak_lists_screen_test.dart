@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -10,10 +11,12 @@ import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
+import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
+import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/screens/peak_lists_screen.dart';
 import 'package:peak_bagger/services/peak_list_file_picker.dart';
@@ -24,6 +27,7 @@ import 'package:peak_bagger/widgets/peak_list_import_dialog.dart';
 
 import '../harness/test_peak_list_file_picker.dart';
 import '../harness/test_map_notifier.dart';
+import '../harness/test_tasmap_repository.dart';
 
 void main() {
   testWidgets('empty state renders copy and shell panes', (tester) async {
@@ -90,6 +94,110 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-list-peak-dialog')), findsNothing);
+  });
+
+  testWidgets('tapping a mini-map marker opens peak info popup', (tester) async {
+    final tasmapRepository = await TestTasmapRepository.create(
+      maps: [
+        Tasmap50k(
+          series: 'TS07',
+          name: 'Test Map',
+          parentSeries: '8211',
+          mgrs100kIds: 'EN',
+          eastingMin: 10000,
+          eastingMax: 20000,
+          northingMin: 60000,
+          northingMax: 70000,
+        ),
+      ],
+    );
+
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Tas Peaks', [200, 300, 100]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+          _buildPeak(200, 'Beta Peak', -42.1, 146.1, elevation: 1100),
+          _buildPeak(300, 'Gamma Peak', -42.2, 146.2, elevation: 1000),
+        ]),
+      ),
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage([
+          PeaksBagged(baggedId: 1, peakId: 100, gpxId: 10),
+        ]),
+      ),
+      tasmapRepository: tasmapRepository,
+    );
+
+    await tester.tap(find.byKey(const Key('peak-lists-mini-map-marker-200-unticked')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-lists-mini-map-popup')), findsOneWidget);
+    expect(find.text('Beta Peak'), findsWidgets);
+    final highlightedRowContainer = tester.widget<Container>(
+      find
+          .descendant(
+            of: find.byKey(const Key('peak-lists-details-row-200')),
+            matching: find.byType(Container),
+          )
+          .first,
+    );
+    expect(highlightedRowContainer.color, isNotNull);
+
+    await tester.tapAt(tester.getTopLeft(find.byKey(const Key('peak-lists-mini-map'))) + const Offset(10, 10));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-lists-mini-map-popup')), findsNothing);
+    expect(find.byKey(const Key('peak-lists-details-row-200')), findsOneWidget);
+  });
+
+  testWidgets('hovering a mini-map marker shows hover ring', (tester) async {
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Tas Peaks', [200, 300, 100]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+          _buildPeak(200, 'Beta Peak', -42.1, 146.1, elevation: 1100),
+          _buildPeak(300, 'Gamma Peak', -42.2, 146.2, elevation: 1000),
+        ]),
+      ),
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage([
+          PeaksBagged(baggedId: 1, peakId: 100, gpxId: 10),
+        ]),
+      ),
+    );
+
+    final marker = find.byKey(const Key('peak-lists-mini-map-marker-200-unticked'));
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(gesture.removePointer);
+
+    await gesture.addPointer(location: tester.getCenter(marker));
+    await tester.pump();
+    await gesture.moveTo(tester.getCenter(marker));
+    await tester.pump();
+
+    expect(find.byKey(const Key('peak-marker-hover-200')), findsOneWidget);
+
+    await gesture.moveTo(
+      tester.getTopLeft(find.byKey(const Key('peak-lists-mini-map'))) -
+          const Offset(20, 20),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const Key('peak-marker-hover-200')), findsNothing);
   });
 
   testWidgets('add dialog selects the first saved alphabetical peak', (
@@ -1480,6 +1588,7 @@ Future<void> _pumpPeakListsApp(
   required PeakListRepository repository,
   PeakRepository? peakRepository,
   PeaksBaggedRepository? peaksBaggedRepository,
+  TestTasmapRepository? tasmapRepository,
   PeakListImportRunner? importRunner,
   PeakListDuplicateNameChecker? duplicateNameChecker,
   TestMapNotifier? mapNotifier,
@@ -1501,6 +1610,9 @@ Future<void> _pumpPeakListsApp(
         peakListRepositoryProvider.overrideWithValue(repository),
         peakRepositoryProvider.overrideWithValue(
           peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
+        ),
+        tasmapRepositoryProvider.overrideWithValue(
+          tasmapRepository ?? await TestTasmapRepository.create(),
         ),
         peaksBaggedRepositoryProvider.overrideWithValue(
           peaksBaggedRepository ??
@@ -1537,6 +1649,7 @@ Future<void> _pumpPeakListsScreen(
   required PeakListRepository repository,
   PeakRepository? peakRepository,
   PeaksBaggedRepository? peaksBaggedRepository,
+  TestTasmapRepository? tasmapRepository,
   PeakListImportRunner? importRunner,
   PeakListDuplicateNameChecker? duplicateNameChecker,
   TestMapNotifier? mapNotifier,
@@ -1558,6 +1671,9 @@ Future<void> _pumpPeakListsScreen(
         peakListRepositoryProvider.overrideWithValue(repository),
         peakRepositoryProvider.overrideWithValue(
           peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
+        ),
+        tasmapRepositoryProvider.overrideWithValue(
+          tasmapRepository ?? await TestTasmapRepository.create(),
         ),
         peaksBaggedRepositoryProvider.overrideWithValue(
           peaksBaggedRepository ??

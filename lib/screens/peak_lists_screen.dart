@@ -14,8 +14,12 @@ import '../models/peaks_bagged.dart';
 import '../providers/peak_list_provider.dart';
 import '../providers/map_provider.dart';
 import '../providers/peak_provider.dart';
+import '../providers/tasmap_provider.dart';
+import 'map_screen_panels.dart';
 import '../services/peak_list_file_picker.dart';
+import '../services/peak_hover_detector.dart';
 import '../services/peak_list_repository.dart';
+import '../services/peak_info_content_resolver.dart';
 import '../widgets/dialog_helpers.dart';
 import '../widgets/left_tooltip_fab.dart';
 import '../widgets/peak_list_create_dialog.dart';
@@ -98,6 +102,11 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
                   onCreateRequested: _handleCreatePeakList,
                   peakListRepository: peakListRepository,
                   selectedMapPeak: selectedMapPeak,
+                  onPeakSelected: (peakId) {
+                    setState(() {
+                      _selectedPeakId = peakId;
+                    });
+                  },
                 ),
               ),
               const VerticalDivider(width: UiConstants.dividerWidth),
@@ -741,6 +750,7 @@ class _SummaryPane extends StatelessWidget {
     required this.duplicateNameChecker,
     required this.onCreateRequested,
     required this.peakListRepository,
+    required this.onPeakSelected,
   });
 
   final List<_PeakListSummaryRow> rows;
@@ -756,6 +766,7 @@ class _SummaryPane extends StatelessWidget {
   final PeakListDuplicateNameChecker duplicateNameChecker;
   final VoidCallback onCreateRequested;
   final PeakListRepository peakListRepository;
+  final ValueChanged<int> onPeakSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -798,6 +809,7 @@ class _SummaryPane extends StatelessWidget {
                       orElse: () => rows.first,
                     ),
               selectedMapPeak: selectedMapPeak,
+              onPeakSelected: onPeakSelected,
             ),
           ),
         ],
@@ -1750,10 +1762,12 @@ class _MiniPeakMapContainer extends StatelessWidget {
   const _MiniPeakMapContainer({
     required this.selectedSummaryRow,
     required this.selectedMapPeak,
+    required this.onPeakSelected,
   });
 
   final _PeakListSummaryRow? selectedSummaryRow;
   final _MapPeak? selectedMapPeak;
+  final ValueChanged<int> onPeakSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -1770,6 +1784,7 @@ class _MiniPeakMapContainer extends StatelessWidget {
                   child: _MiniPeakMap(
                     selectedSummaryRow: selectedSummaryRow,
                     selectedMapPeak: selectedMapPeak,
+                    onPeakSelected: onPeakSelected,
                   ),
                 ),
               ),
@@ -1781,20 +1796,22 @@ class _MiniPeakMapContainer extends StatelessWidget {
   }
 }
 
-class _MiniPeakMap extends StatefulWidget {
+class _MiniPeakMap extends ConsumerStatefulWidget {
   const _MiniPeakMap({
     required this.selectedSummaryRow,
     required this.selectedMapPeak,
+    required this.onPeakSelected,
   });
 
   final _PeakListSummaryRow? selectedSummaryRow;
   final _MapPeak? selectedMapPeak;
+  final ValueChanged<int> onPeakSelected;
 
   @override
-  State<_MiniPeakMap> createState() => _MiniPeakMapState();
+  ConsumerState<_MiniPeakMap> createState() => _MiniPeakMapState();
 }
 
-class _MiniPeakMapState extends State<_MiniPeakMap> {
+class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
   static final _tickedPeakMarker = SvgPicture.asset(
     'assets/peak_marker_ticked.svg',
   );
@@ -1802,6 +1819,165 @@ class _MiniPeakMapState extends State<_MiniPeakMap> {
     'assets/peak_marker.svg',
     colorFilter: const ColorFilter.mode(Color(0xFFD66A6D), BlendMode.srcIn),
   );
+  final _mapController = MapController();
+  PeakInfoContent? _popupContent;
+  int? _hoveredPeakId;
+  static const _tapThreshold = 24.0;
+
+  @override
+  void didUpdateWidget(covariant _MiniPeakMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldPeakId = oldWidget.selectedMapPeak?.peak.osmId;
+    final newPeakId = widget.selectedMapPeak?.peak.osmId;
+    final oldListId = oldWidget.selectedSummaryRow?.peakList.peakListId;
+    final newListId = widget.selectedSummaryRow?.peakList.peakListId;
+    final popupPeakId = _popupContent?.peak.osmId;
+    if ((oldPeakId != newPeakId || oldListId != newListId) &&
+        popupPeakId != newPeakId) {
+      _popupContent = null;
+    }
+  }
+
+  void _clearPopup() {
+    if (_popupContent == null) {
+      return;
+    }
+    setState(() {
+      _popupContent = null;
+    });
+  }
+
+  void _handleHover(Offset localPosition) {
+    final summaryRow = widget.selectedSummaryRow;
+    if (summaryRow == null || summaryRow.mapPeaks.isEmpty) {
+      if (_hoveredPeakId != null) {
+        setState(() {
+          _hoveredPeakId = null;
+        });
+      }
+      return;
+    }
+
+    final camera = _mapController.camera;
+    if (camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      return;
+    }
+
+    final candidates = [
+      for (final peak in summaryRow.mapPeaks)
+        PeakHoverCandidate(
+          peakId: peak.peak.osmId,
+          screenPosition: camera.latLngToScreenOffset(
+            LatLng(peak.peak.latitude, peak.peak.longitude),
+          ),
+        ),
+    ];
+    final result = PeakHoverDetector.findHoveredPeak(
+      pointerPosition: localPosition,
+      candidates: candidates,
+    );
+
+    if (result.hoveredPeakId == _hoveredPeakId) {
+      return;
+    }
+
+    setState(() {
+      _hoveredPeakId = result.hoveredPeakId;
+    });
+  }
+
+  void _clearHover() {
+    if (_hoveredPeakId == null) {
+      return;
+    }
+    setState(() {
+      _hoveredPeakId = null;
+    });
+  }
+
+  Future<void> _handleMapTap(Offset localPosition) async {
+    final summaryRow = widget.selectedSummaryRow;
+    if (summaryRow == null || summaryRow.mapPeaks.isEmpty) {
+      return;
+    }
+
+    final camera = _mapController.camera;
+    if (camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      return;
+    }
+
+    final candidates = [
+      for (final peak in summaryRow.mapPeaks)
+        PeakHoverCandidate(
+          peakId: peak.peak.osmId,
+          screenPosition: camera.latLngToScreenOffset(
+            LatLng(peak.peak.latitude, peak.peak.longitude),
+          ),
+        ),
+    ];
+    final result = PeakHoverDetector.findHoveredPeak(
+      pointerPosition: localPosition,
+      candidates: candidates,
+    );
+    final peakId = result.hoveredPeakId ?? _findNearestPeakId(
+      pointerPosition: localPosition,
+      candidates: candidates,
+    );
+    if (peakId == null) {
+      _clearPopup();
+      return;
+    }
+
+    Peak? tappedPeak;
+    for (final peak in summaryRow.mapPeaks) {
+      if (peak.peak.osmId == peakId) {
+        tappedPeak = peak.peak;
+        break;
+      }
+    }
+    if (tappedPeak == null) {
+      _clearPopup();
+      return;
+    }
+
+    widget.onPeakSelected(peakId);
+    final content = resolvePeakInfoContent(
+      peak: tappedPeak,
+      peakListRepository: ref.read(peakListRepositoryProvider),
+      tasmapRepository: ref.read(tasmapRepositoryProvider),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _popupContent = content;
+    });
+  }
+
+  int? _findNearestPeakId({
+    required Offset pointerPosition,
+    required List<PeakHoverCandidate> candidates,
+  }) {
+    int? nearestPeakId;
+    double? nearestDistance;
+    for (final candidate in candidates) {
+      final distance = (pointerPosition - candidate.screenPosition).distance;
+      if (distance > _tapThreshold) {
+        continue;
+      }
+      if (nearestDistance == null || distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestPeakId = candidate.peakId;
+      }
+    }
+    return nearestPeakId;
+  }
+
+  Offset _screenOffsetForPeak(Peak peak) {
+    return _mapController.camera.latLngToScreenOffset(
+      LatLng(peak.latitude, peak.longitude),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1810,71 +1986,146 @@ class _MiniPeakMapState extends State<_MiniPeakMap> {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: KeyedSubtree(
-          key: const Key('peak-lists-mini-map'),
-          child: FlutterMap(
-            key: ValueKey(widget.selectedSummaryRow?.peakList.peakListId),
-            options: MapOptions(
-              initialCameraFit: _resolveInitialCameraFit(markerPeaks),
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: mapTileUrl(Basemap.openstreetmap),
-                userAgentPackageName: 'com.peak_bagger.app',
-                tileProvider: NetworkTileProvider(),
-              ),
-              MarkerLayer(
-                markers:
-                    buildPeakMarkers(
-                          peaks: [for (final peak in markerPeaks) peak.peak],
-                          zoom: 0,
-                          correlatedPeakIds: {
-                            for (final peak in markerPeaks.where(
-                              (peak) => peak.isClimbed,
-                            ))
-                              peak.peak.osmId,
-                          },
-                          tickedPeakMarker: _tickedPeakMarker,
-                          untickedPeakMarker: _untickedPeakMarker,
-                          suppressBelowZoom: false,
-                        )
-                        .asMap()
-                        .entries
-                        .map((entry) {
-                          final marker = entry.value;
-                          final peak = markerPeaks[entry.key];
-                          return Marker(
-                            point: marker.point,
-                            width: marker.width,
-                            height: marker.height,
-                            child: SizedBox(
-                              key: Key(
-                                'peak-lists-mini-map-marker-${peak.peak.osmId}-${peak.isClimbed ? 'ticked' : 'unticked'}',
-                              ),
-                              child: marker.child,
-                            ),
-                          );
-                        })
-                        .toList(growable: false),
-              ),
-              if (widget.selectedMapPeak != null)
-                CircleLayer(
-                  key: const Key('peak-lists-selected-peak-circle-layer'),
-                  circles: [
-                    CircleMarker(
-                      point: LatLng(
-                        widget.selectedMapPeak!.peak.latitude,
-                        widget.selectedMapPeak!.peak.longitude,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final viewportSize = Size(constraints.maxWidth, constraints.maxHeight);
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                KeyedSubtree(
+                  key: const Key('peak-lists-mini-map'),
+                  child: FlutterMap(
+                    key: ValueKey(widget.selectedSummaryRow?.peakList.peakListId),
+                    mapController: _mapController,
+                    options: MapOptions(
+                      initialCameraFit: _resolveInitialCameraFit(markerPeaks),
+                      interactionOptions: const InteractionOptions(
+                        flags: InteractiveFlag.none,
                       ),
-                      radius: 15,
-                      color: Colors.blue.withValues(alpha: 0.3),
-                      borderColor: Colors.blue,
-                      borderStrokeWidth: 2,
                     ),
-                  ],
+                    children: [
+                      TileLayer(
+                        urlTemplate: mapTileUrl(Basemap.openstreetmap),
+                        userAgentPackageName: 'com.peak_bagger.app',
+                        tileProvider: NetworkTileProvider(),
+                      ),
+                      MarkerLayer(
+                        markers:
+                            buildPeakMarkers(
+                                  peaks: [for (final peak in markerPeaks) peak.peak],
+                                  zoom: 0,
+                                  correlatedPeakIds: {
+                                    for (final peak in markerPeaks.where(
+                                      (peak) => peak.isClimbed,
+                                    ))
+                                        peak.peak.osmId,
+                                    },
+                                    hoveredPeakId: _hoveredPeakId,
+                                    tickedPeakMarker: _tickedPeakMarker,
+                                    untickedPeakMarker: _untickedPeakMarker,
+                                    suppressBelowZoom: false,
+                                  )
+                                .asMap()
+                                .entries
+                                .map((entry) {
+                                  final marker = entry.value;
+                                  final peak = markerPeaks[entry.key];
+                                  return Marker(
+                                    point: marker.point,
+                                    width: marker.width,
+                                    height: marker.height,
+                                    child: SizedBox(
+                                      key: Key(
+                                        'peak-lists-mini-map-marker-${peak.peak.osmId}-${peak.isClimbed ? 'ticked' : 'unticked'}',
+                                      ),
+                                      child: marker.child,
+                                    ),
+                                  );
+                                })
+                                .toList(growable: false),
+                      ),
+                      if (widget.selectedMapPeak != null)
+                        CircleLayer(
+                          key: const Key('peak-lists-selected-peak-circle-layer'),
+                          circles: [
+                            CircleMarker(
+                              point: LatLng(
+                                widget.selectedMapPeak!.peak.latitude,
+                                widget.selectedMapPeak!.peak.longitude,
+                              ),
+                              radius: 15,
+                              color: Colors.blue.withValues(alpha: 0.3),
+                              borderColor: Colors.blue,
+                              borderStrokeWidth: 2,
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
                 ),
-            ],
-          ),
+                Positioned.fill(
+                  child: MouseRegion(
+                    cursor: _hoveredPeakId != null
+                        ? SystemMouseCursors.click
+                        : SystemMouseCursors.basic,
+                    onHover: (event) {
+                      _handleHover(event.localPosition);
+                    },
+                    onExit: (_) {
+                      _clearHover();
+                    },
+                    child: Listener(
+                      behavior: HitTestBehavior.translucent,
+                      onPointerUp: (event) {
+                        _handleMapTap(event.localPosition);
+                      },
+                    ),
+                  ),
+                ),
+                if (_popupContent != null)
+                  Builder(
+                    builder: (context) {
+                      final effectivePopupSize = Size(
+                        math.min(
+                          UiConstants.peakInfoPopupSize.width,
+                          math.max(1.0, viewportSize.width - 16),
+                        ),
+                        math.min(
+                          UiConstants.peakInfoPopupSize.height,
+                          math.max(1.0, viewportSize.height - 16),
+                        ),
+                      );
+                      final placement = resolvePeakInfoPopupPlacement(
+                        anchorScreenOffset: _screenOffsetForPeak(_popupContent!.peak),
+                        viewportSize: viewportSize,
+                        popupSize: effectivePopupSize,
+                      );
+                      if (!placement.isAnchorable) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            _clearPopup();
+                          }
+                        });
+                        return const SizedBox.shrink();
+                      }
+
+                      return Positioned(
+                        left: placement.topLeft.dx,
+                        top: placement.topLeft.dy,
+                        child: SizedBox(
+                          width: effectivePopupSize.width,
+                          child: PeakInfoPopupCard(
+                            key: const Key('peak-lists-mini-map-popup'),
+                            content: _popupContent!,
+                            onClose: _clearPopup,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            );
+          },
         ),
       ),
     );

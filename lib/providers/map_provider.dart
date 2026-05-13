@@ -18,6 +18,7 @@ import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
 import 'package:peak_bagger/services/peak_refresh_service.dart';
+import 'package:peak_bagger/services/peak_info_content_resolver.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/track_peak_correlation_service.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
@@ -33,6 +34,8 @@ import 'package:peak_bagger/main.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 
 import '../core/constants.dart';
+
+export 'package:peak_bagger/services/peak_info_content_resolver.dart';
 
 const _distance = Distance();
 
@@ -108,18 +111,6 @@ class PendingCameraRequest {
       clearHoveredTrackId: clearHoveredTrackId ?? this.clearHoveredTrackId,
     );
   }
-}
-
-class PeakInfoContent {
-  const PeakInfoContent({
-    required this.peak,
-    required this.mapName,
-    required this.listNames,
-  });
-
-  final Peak peak;
-  final String mapName;
-  final List<String> listNames;
 }
 
 class MapState {
@@ -1428,10 +1419,10 @@ class MapNotifier extends Notifier<MapState> {
 
   void openPeakInfoPopup(Peak peak) {
     state = state.copyWith(
-      peakInfo: PeakInfoContent(
+      peakInfo: resolvePeakInfoContent(
         peak: peak,
-        mapName: _resolvePeakMapName(peak),
-        listNames: _resolvePeakListNames(peak.osmId),
+        peakListRepository: ref.read(peakListRepositoryProvider),
+        tasmapRepository: ref.read(tasmapRepositoryProvider),
       ),
       clearInfoPopup: true,
       clearHoveredTrackId: true,
@@ -1440,38 +1431,6 @@ class MapNotifier extends Notifier<MapState> {
 
   void closePeakInfoPopup() {
     state = state.copyWith(clearPeakInfoPopup: true, clearHoveredPeakId: true);
-  }
-
-  String _resolvePeakMapName(Peak peak) {
-    try {
-      final tasmapRepository = ref.read(tasmapRepositoryProvider);
-      final gridZoneDesignator = peak.gridZoneDesignator.trim();
-      final mgrs100kId = peak.mgrs100kId.trim();
-      final easting = peak.easting.trim();
-      final northing = peak.northing.trim();
-      final hasCompleteMgrs =
-          gridZoneDesignator.isNotEmpty &&
-          mgrs100kId.isNotEmpty &&
-          easting.isNotEmpty &&
-          northing.isNotEmpty;
-      final mgrsString = hasCompleteMgrs
-          ? '$gridZoneDesignator$mgrs100kId$easting$northing'
-          : _convertToMgrs(LatLng(peak.latitude, peak.longitude));
-      return tasmapRepository.findByMgrsCodeAndCoordinates(mgrsString)?.name ??
-          'Unknown';
-    } catch (_) {
-      return 'Unknown';
-    }
-  }
-
-  List<String> _resolvePeakListNames(int peakOsmId) {
-    try {
-      return ref
-          .read(peakListRepositoryProvider)
-          .findPeakListNamesForPeak(peakOsmId);
-    } catch (_) {
-      return const [];
-    }
   }
 
   void setHoveredTrackId(int? trackId) {
@@ -2298,10 +2257,10 @@ class MapNotifier extends Notifier<MapState> {
 
     for (final peak in peaks) {
       if (peak.osmId == existing.peak.osmId) {
-        return PeakInfoContent(
+        return resolvePeakInfoContent(
           peak: peak,
-          mapName: existing.mapName,
-          listNames: existing.listNames,
+          peakListRepository: ref.read(peakListRepositoryProvider),
+          tasmapRepository: ref.read(tasmapRepositoryProvider),
         );
       }
     }
