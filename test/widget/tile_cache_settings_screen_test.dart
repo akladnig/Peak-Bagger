@@ -52,10 +52,35 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Cache Status'), findsOneWidget);
-    expect(find.byKey(const Key('tile-cache-basemap-dropdown')), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('tile-cache-basemap-chip-openstreetmap')),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<FilterChip>(
+        find.byKey(const Key('tile-cache-basemap-chip-openstreetmap')),
+      ).selected,
+      isTrue,
+    );
+    await tester.tap(find.byKey(const Key('tile-cache-basemap-chip-tracestrack')));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<FilterChip>(
+        find.byKey(const Key('tile-cache-basemap-chip-openstreetmap')),
+      ).selected,
+      isTrue,
+    );
+    expect(
+      tester.widget<FilterChip>(
+        find.byKey(const Key('tile-cache-basemap-chip-tracestrack')),
+      ).selected,
+      isTrue,
+    );
     await tester.drag(
       find.byType(Scrollable).last,
-      const Offset(0, -1200),
+      const Offset(0, -800),
     );
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('tile-cache-selected-map-chip')), findsOneWidget);
@@ -201,9 +226,7 @@ void main() {
     await tester.tap(find.byKey(const Key('tile-cache-map-suggestion-0')));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('tile-cache-basemap-dropdown')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('tasmap50k').last);
+    await tester.tap(find.byKey(const Key('tile-cache-basemap-chip-tracestrack')));
     await tester.pumpAndSettle();
 
     expect(

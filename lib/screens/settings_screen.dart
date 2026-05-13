@@ -1019,7 +1019,7 @@ class _TileCacheSettingsScreenState
     extends ConsumerState<TileCacheSettingsScreen>
     with WidgetsBindingObserver
     implements RouteAware {
-  Basemap _selectedBasemap = Basemap.openstreetmap;
+  final Set<Basemap> _selectedBasemaps = {Basemap.openstreetmap};
   bool _isDownloading = false;
   String _status = '';
   int _minZoom = 6;
@@ -1087,6 +1087,31 @@ class _TileCacheSettingsScreenState
     _mapSuggestions = const [];
     _mapSearchController.text = _selectedMap?.name ?? '';
     _status = _selectedMap == null ? 'No Tasmap sheets available' : '';
+  }
+
+  List<Basemap> _selectedBasemapsInOrder() {
+    final selected = _selectedBasemaps.toList(growable: false);
+    selected.sort(
+      (a, b) => TileCacheService.storeNames.indexOf(a.name).compareTo(
+            TileCacheService.storeNames.indexOf(b.name),
+          ),
+    );
+    return selected;
+  }
+
+  void _toggleBasemap(Basemap basemap, bool selected) {
+    setState(() {
+      if (selected) {
+        _selectedBasemaps.add(basemap);
+        return;
+      }
+
+      if (_selectedBasemaps.length == 1 && _selectedBasemaps.contains(basemap)) {
+        return;
+      }
+
+      _selectedBasemaps.remove(basemap);
+    });
   }
 
   void _syncSelectedMapWithRepository() {
@@ -1243,19 +1268,30 @@ class _TileCacheSettingsScreenState
               ),
             ),
           const SizedBox(height: 16),
-          ListTile(
-            title: const Text('Basemap'),
-            trailing: DropdownButton<Basemap>(
-              key: const Key('tile-cache-basemap-dropdown'),
-              value: _selectedBasemap,
-              items: Basemap.values
-                  .map((b) => DropdownMenuItem(value: b, child: Text(b.name)))
-                  .toList(),
-              onChanged: (b) {
-                if (b != null) {
-                  setState(() => _selectedBasemap = b);
-                }
-              },
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Basemaps'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: Basemap.values
+                      .map(
+                        (basemap) => FilterChip(
+                          key: Key('tile-cache-basemap-chip-${basemap.name}'),
+                          label: Text(basemap.name),
+                          selected: _selectedBasemaps.contains(basemap),
+                          onSelected: _isDownloading
+                              ? null
+                              : (selected) => _toggleBasemap(basemap, selected),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 8),
@@ -1351,7 +1387,9 @@ class _TileCacheSettingsScreenState
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Text('Download'),
-            onTap: _isDownloading || _selectedMap == null ? null : _startDownload,
+            onTap: _isDownloading || _selectedMap == null || _selectedBasemaps.isEmpty
+                ? null
+                : _startDownload,
           ),
           if (_status.isNotEmpty) ListTile(title: Text(_status)),
           const Divider(),
@@ -1359,7 +1397,7 @@ class _TileCacheSettingsScreenState
             leading: const Icon(Icons.delete),
             title: const Text('Clear Cache'),
             subtitle: const Text(
-              'Delete all cached tiles for selected basemap',
+              'Delete all cached tiles for selected basemaps',
             ),
             onTap: _clearCache,
           ),
@@ -1375,10 +1413,6 @@ class _TileCacheSettingsScreenState
     });
 
     try {
-      final tileLayer = TileLayer(
-        urlTemplate: mapTileUrl(_selectedBasemap),
-        userAgentPackageName: 'com.peak_bagger.app',
-      );
       final selectedMap = _selectedMap;
       if (selectedMap == null) {
         setState(() => _status = 'No Tasmap sheet selected');
@@ -1392,48 +1426,45 @@ class _TileCacheSettingsScreenState
         return;
       }
 
-      final region = buildTileCacheDownloadRegion(
-        polygonPoints: polygonPoints,
-        minZoom: _minZoom,
-        maxZoom: _maxZoom,
-        options: tileLayer,
-      );
-
       final starter = widget.downloadStarter;
-      if (starter == null) {
-        final store = TileCacheService.getStoreForBasemap(_selectedBasemap);
-        if (store == null) {
-          setState(() => _status = 'Store not found');
-          return;
-        }
+      final selectedBasemaps = _selectedBasemapsInOrder();
+      if (selectedBasemaps.isEmpty) {
+        setState(() => _status = 'Select at least one basemap');
+        return;
+      }
 
-        final result = store.download.startForeground(
-          region: region,
-          skipExistingTiles: _skipExistingTiles,
+      for (final basemap in selectedBasemaps) {
+        if (!mounted) return;
+
+        final tileLayer = TileLayer(
+          urlTemplate: mapTileUrl(basemap),
+          userAgentPackageName: 'com.peak_bagger.app',
         );
+        final region = buildTileCacheDownloadRegion(
+          polygonPoints: polygonPoints,
+          minZoom: _minZoom,
+          maxZoom: _maxZoom,
+          options: tileLayer,
+        );
+
+        final result = starter != null
+            ? starter(
+                basemap: basemap,
+                region: region,
+                skipExistingTiles: _skipExistingTiles,
+              )
+            : _startForegroundForBasemap(
+                basemap: basemap,
+                region: region,
+              );
 
         await for (final progress in result.downloadProgress) {
           if (!mounted) return;
           setState(
             () => _status =
-                '${progress.successfulTilesCount} downloaded, ${progress.existingTilesCount} skipped (${progress.percentageProgress.toStringAsFixed(1)}%)',
+                '${basemap.name}: ${progress.successfulTilesCount} downloaded, ${progress.existingTilesCount} skipped (${progress.percentageProgress.toStringAsFixed(1)}%)',
           );
         }
-
-        return;
-      }
-
-      final result = starter(
-        region: region,
-        skipExistingTiles: _skipExistingTiles,
-      );
-
-      await for (final progress in result.downloadProgress) {
-        if (!mounted) return;
-        setState(
-          () => _status =
-              '${progress.successfulTilesCount} downloaded, ${progress.existingTilesCount} skipped (${progress.percentageProgress.toStringAsFixed(1)}%)',
-        );
       }
     } catch (e) {
       if (mounted) {
@@ -1446,12 +1477,32 @@ class _TileCacheSettingsScreenState
     }
   }
 
+  ({Stream<TileEvent> tileEvents, Stream<DownloadProgress> downloadProgress})
+      _startForegroundForBasemap({
+    required Basemap basemap,
+    required DownloadableRegion region,
+  }) {
+    final store = TileCacheService.getStoreForBasemap(basemap);
+    if (store == null) {
+      throw StateError('Store not found for ${basemap.name}');
+    }
+
+    return store.download.startForeground(
+      region: region,
+      skipExistingTiles: _skipExistingTiles,
+    );
+  }
+
   Future<void> _clearCache() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Clear Cache?'),
-        content: Text('Delete all cached tiles for ${_selectedBasemap.name}?'),
+        content: Text(
+          _selectedBasemaps.length == 1
+              ? 'Delete all cached tiles for ${_selectedBasemaps.first.name}?'
+              : 'Delete all cached tiles for selected basemaps?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -1465,7 +1516,9 @@ class _TileCacheSettingsScreenState
       ),
     );
     if (confirmed == true) {
-      await TileCacheService.clearStore(_selectedBasemap.name);
+      for (final basemap in _selectedBasemapsInOrder()) {
+        await TileCacheService.clearStore(basemap.name);
+      }
       _loadAllStats();
       if (mounted) {
         ScaffoldMessenger.of(
