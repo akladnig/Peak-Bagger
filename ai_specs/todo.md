@@ -10,8 +10,7 @@
 - [ ] Add an overlay to display features names on hover - only for blue circles
 - [ ] Remove legacy handling
 - [ ] fix all SI units to have space in front of the unit.
-- [i] Remove all narrow screen/mobile phone stuff
-- [ ] Set minimum width to half screen
+- [ ] Check for internet connection before tile downloads
 - [ ] Do not show failed http tile request
 
 ## Folder Structure
@@ -26,8 +25,6 @@
 ## 1 Application Skeleton
 
 ## 2  Display map of Tasmania with zoom, pan and search function
-- [x] Change two finger from pan to zoom
-- [x] disable 2 finger map rotation
 - [ ] change zoom level display to actual distance
 - [ ] Automatically ask for permissions
 - [ ] implement smooth panning and scrolling. When clicking, smooth transition from one level to another.
@@ -36,7 +33,6 @@
 - [ ] add go to feature - add to goto location?
 
 ## 3 Tasmanian Peaks and search
-- [x] Add an altName to peak entity
 - [ ] update go to location  to accept UTM coordionates
 - [ ] add My Ascents to peak info popup
 
@@ -47,7 +43,6 @@
 - [ ] Clicking x on peak search clears blue circles
 - [ ] Clicking in blue circle selects peak and clears blue circles
 - [ ] Peak search not zooming to extents
-- [ ] when clicking on track open a left drawer with info about the track
 - [ ] Tile cache in setup - change option to allow complete map to be cached rather than all of Tassie
 - [ ] Fix mgrs jank
 - [ ] add Map name to mgrs display
@@ -61,7 +56,7 @@
 - [ ] move peak correlation to GpsImporter
 - [ ] Confirm that peak correlation for mass import does not drop tracks for which there is no peak
 - [ ] class GpxTrackImportResult change to GpxFileImportResult  to cater for routes and waypoints
-- [ ] distance/time to/from peak should be from the highest peak
+- [ ] Fix date display for track info - incorrect date being calculated
 
 ### Speed
 - [ ] averageSpeed
@@ -72,6 +67,7 @@
 - [ ] maxSpeed5m
 - [ ] ascentSpeed
 - [ ] descentSpeed
+
 ### Time
 - [x] totalTimeMillis (int?) - future, null for now (Duration stored as milliseconds)
 - [x] movingTime
@@ -79,8 +75,6 @@
 - [ ] Time calculation are not working as expected.
 ### Climbs
 - [ ] climbs
-
-- [x] add to spec and implement distance3d algorthims as per gpxpy: https://github.com/tkrajina/gpxpy/blob/dev/gpxpy/geo.py
 
 ## Peak Lists
 - [ ] Update dialogue to say import new list or update list
@@ -90,7 +84,6 @@
 - [ ] Change cursor on hover over clickables
 - [ ] Add peak info functionality as per map_screen
 - [ ] Mini map - add +/- zoom keys
-- [ ] Update Tassy Full to scan other lists and inlcude
 - [ ] Change details view header to Peak Name
 
  mgrs.Mgrs.toPoint can produce long decimal values (lib/services/peak_admin_editor.dart:175-178) change to 6 digits.
