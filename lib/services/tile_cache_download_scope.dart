@@ -2,11 +2,13 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
+import 'package:peak_bagger/providers/map_provider.dart';
 
 typedef TileCacheDownloadStarter = ({
   Stream<TileEvent> tileEvents,
   Stream<DownloadProgress> downloadProgress,
 }) Function({
+  required Basemap basemap,
   required DownloadableRegion region,
   required bool skipExistingTiles,
 });

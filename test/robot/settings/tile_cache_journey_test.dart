@@ -1,5 +1,6 @@
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/screens/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -37,11 +38,17 @@ void main() {
     final robot = TileCacheRobot(tester, repository);
     addTearDown(robot.repository.dispose);
 
+    final capturedBasemaps = <Basemap>[];
     late dynamic capturedRegion;
 
     await robot.pumpApp(
       tileCacheBuilder: (_) => TileCacheSettingsScreen(
-        downloadStarter: ({required region, required skipExistingTiles}) {
+        downloadStarter: ({
+          required basemap,
+          required region,
+          required skipExistingTiles,
+        }) {
+          capturedBasemaps.add(basemap);
           capturedRegion = region;
           expect(skipExistingTiles, isTrue);
           return (
@@ -56,10 +63,16 @@ void main() {
     await robot.searchMaps('Zu');
     await robot.selectMapSuggestion(0);
     robot.expectSelectedMap('Zulu');
+    robot.expectBasemapSelected(Basemap.openstreetmap);
+
+    await robot.toggleBasemap(Basemap.tracestrack);
+    robot.expectBasemapSelected(Basemap.openstreetmap);
+    robot.expectBasemapSelected(Basemap.tracestrack);
 
     await robot.scrollToDownloadButton();
     await robot.tapDownload();
 
+    expect(capturedBasemaps, [Basemap.openstreetmap, Basemap.tracestrack]);
     expect(capturedRegion.originalRegion.outline, repository.getMapPolygonPoints(zulu));
   });
 }

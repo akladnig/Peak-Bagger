@@ -23,6 +23,8 @@ class TileCacheRobot {
       find.byKey(const Key('tile-cache-map-search-field'));
   Finder get tileCacheSelectedMapChip =>
       find.byKey(const Key('tile-cache-selected-map-chip'));
+  Finder basemapChip(Basemap basemap) =>
+      find.byKey(Key('tile-cache-basemap-chip-${basemap.name}'));
   Finder get tileCacheDownloadButton =>
       find.byKey(const Key('tile-cache-download-button'));
   Finder mapSuggestion(int index) =>
@@ -86,6 +88,11 @@ class TileCacheRobot {
     await tester.pumpAndSettle();
   }
 
+  Future<void> toggleBasemap(Basemap basemap) async {
+    await tester.tap(basemapChip(basemap));
+    await tester.pumpAndSettle();
+  }
+
   Future<void> tapDownload() async {
     await tester.tap(tileCacheDownloadButton);
     await tester.pumpAndSettle();
@@ -99,5 +106,9 @@ class TileCacheRobot {
       ),
       findsOneWidget,
     );
+  }
+
+  void expectBasemapSelected(Basemap basemap) {
+    expect(tester.widget<FilterChip>(basemapChip(basemap)).selected, isTrue);
   }
 }
