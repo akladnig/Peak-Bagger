@@ -67,5 +67,51 @@ void main() {
       ]);
       expect(map.hasValidPolygonPointCount, isTrue);
     });
+
+    test('polygonPoints returns 12 sequential points', () {
+      final map = Tasmap50k(
+        series: 'TS07',
+        name: 'Adamsons',
+        parentSeries: '8211',
+        p1: 'DN6000009999',
+        p2: 'DN6999909999',
+        p3: 'DN6999940000',
+        p4: 'DN6000040000',
+        p5: 'DM6000080000',
+        p6: 'DM6999980000',
+        p7: 'DM7999980000',
+        p8: 'DM7999889999',
+        p9: 'DN7999889999',
+        p10: 'DN7999940000',
+        p11: 'DN6999940000',
+        p12: 'DN6000040000',
+      );
+
+      expect(map.polygonPoints, hasLength(12));
+      expect(map.hasValidPolygonPointCount, isTrue);
+      expect(map.polygonPoints.last, 'DN6000040000');
+    });
+
+    test('polygonPoints returns 10 sequential points', () {
+      final map = Tasmap50k(
+        series: 'TS07',
+        name: 'Adamsons',
+        parentSeries: '8211',
+        p1: 'DN6000009999',
+        p2: 'DN6999909999',
+        p3: 'DN6999940000',
+        p4: 'DN6000040000',
+        p5: 'DM6000080000',
+        p6: 'DM6999980000',
+        p7: 'DM7999980000',
+        p8: 'DM7999889999',
+        p9: 'DN7999889999',
+        p10: 'DN7999940000',
+      );
+
+      expect(map.polygonPoints, hasLength(10));
+      expect(map.hasValidPolygonPointCount, isTrue);
+      expect(map.polygonPoints.last, 'DN7999940000');
+    });
   });
 }

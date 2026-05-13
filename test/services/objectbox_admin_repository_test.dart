@@ -27,20 +27,24 @@ void main() {
     expect(entities.first.primaryNameField, 'name');
     expect(
       entities[1].fields.map((field) => field.name),
-      containsAll([
-        'id',
-        'series',
-        'name',
-        'p1',
-        'p2',
-        'p3',
-        'p4',
-        'p5',
-        'p6',
-        'p7',
-        'p8',
-      ]),
-    );
+        containsAll([
+          'id',
+          'series',
+          'name',
+          'p1',
+          'p2',
+          'p3',
+          'p4',
+          'p5',
+          'p6',
+          'p7',
+          'p8',
+          'p9',
+          'p10',
+          'p11',
+          'p12',
+        ]),
+      );
     expect(
       entities[1].fields.map((field) => field.name),
       isNot(contains('tl')),
