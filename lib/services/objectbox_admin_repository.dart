@@ -272,6 +272,10 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
               'p6': map.p6,
               'p7': map.p7,
               'p8': map.p8,
+              'p9': map.p9,
+              'p10': map.p10,
+              'p11': map.p11,
+              'p12': map.p12,
             },
           ),
         )

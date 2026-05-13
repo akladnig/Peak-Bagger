@@ -24,6 +24,10 @@ class Tasmap50k {
   String p6;
   String p7;
   String p8;
+  String p9;
+  String p10;
+  String p11;
+  String p12;
 
   Tasmap50k({
     this.id = 0,
@@ -46,6 +50,10 @@ class Tasmap50k {
     this.p6 = '',
     this.p7 = '',
     this.p8 = '',
+    this.p9 = '',
+    this.p10 = '',
+    this.p11 = '',
+    this.p12 = '',
   });
 
   List<String> get mgrs100kIdList =>
@@ -60,8 +68,12 @@ class Tasmap50k {
     p6,
     p7,
     p8,
+    p9,
+    p10,
+    p11,
+    p12,
   ].where((point) => point.isNotEmpty).toList(growable: false);
 
   bool get hasValidPolygonPointCount =>
-      const {4, 6, 8}.contains(polygonPoints.length);
+      const {4, 6, 8, 10, 12}.contains(polygonPoints.length);
 }

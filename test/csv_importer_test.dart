@@ -81,6 +81,121 @@ void main() {
       expect(CsvImporter.normalizePointValue('en 00000 69999'), 'EN0000069999');
     });
 
+    test('parseRow accepts 12 sequential point columns', () {
+      final headers = [
+        'Series',
+        'Name',
+        'Parent',
+        'MGRS',
+        'eastingMin',
+        'eastingMax',
+        'northingMin',
+        'northingMax',
+        'mgrsMid',
+        'eastingMid',
+        'northingMid',
+        'p1',
+        'p2',
+        'p3',
+        'p4',
+        'p5',
+        'p6',
+        'p7',
+        'p8',
+        'p9',
+        'p10',
+        'p11',
+        'p12',
+      ];
+      final row = [
+        'TS07',
+        'Adamsons',
+        '8211',
+        'DM DN',
+        60000,
+        99999,
+        80000,
+        9999,
+        'DM',
+        80000,
+        95000,
+        'DN6000009999',
+        'DN6999909999',
+        'DN6999940000',
+        'DN6000040000',
+        'DM6000080000',
+        'DM6999980000',
+        'DM7999980000',
+        'DM7999889999',
+        'DN7999889999',
+        'DN7999940000',
+        'DN6999940000',
+        'DN6000040000',
+      ];
+
+      final result = CsvImporter.parseRow(headers, row, rowNumber: 2);
+
+      expect(result.map, isNotNull);
+      expect(result.map!.polygonPoints, hasLength(12));
+      expect(result.map!.polygonPoints.first, 'DN6000009999');
+      expect(result.map!.polygonPoints.last, 'DN6000040000');
+    });
+
+    test('parseRow accepts 10 sequential point columns', () {
+      final headers = [
+        'Series',
+        'Name',
+        'Parent',
+        'MGRS',
+        'eastingMin',
+        'eastingMax',
+        'northingMin',
+        'northingMax',
+        'mgrsMid',
+        'eastingMid',
+        'northingMid',
+        'p1',
+        'p2',
+        'p3',
+        'p4',
+        'p5',
+        'p6',
+        'p7',
+        'p8',
+        'p9',
+        'p10',
+      ];
+      final row = [
+        'TS07',
+        'Adamsons',
+        '8211',
+        'DM DN',
+        60000,
+        99999,
+        80000,
+        9999,
+        'DM',
+        80000,
+        95000,
+        'DN6000009999',
+        'DN6999909999',
+        'DN6999940000',
+        'DN6000040000',
+        'DM6000080000',
+        'DM6999980000',
+        'DM7999980000',
+        'DM7999889999',
+        'DN7999889999',
+        'DN7999940000',
+      ];
+
+      final result = CsvImporter.parseRow(headers, row, rowNumber: 2);
+
+      expect(result.map, isNotNull);
+      expect(result.map!.polygonPoints, hasLength(10));
+      expect(result.map!.hasValidPolygonPointCount, isTrue);
+    });
+
     test('parseRow rejects non-sequential and short point runs', () {
       final headers = [
         'Series',
@@ -129,6 +244,66 @@ void main() {
 
       expect(result.map, isNull);
       expect(result.error, contains('expected 4, 6, or 8 points'));
+    });
+
+    test('parseRow rejects populated point columns beyond p12', () {
+      final headers = [
+        'Series',
+        'Name',
+        'Parent',
+        'MGRS',
+        'eastingMin',
+        'eastingMax',
+        'northingMin',
+        'northingMax',
+        'mgrsMid',
+        'eastingMid',
+        'northingMid',
+        'p1',
+        'p2',
+        'p3',
+        'p4',
+        'p5',
+        'p6',
+        'p7',
+        'p8',
+        'p9',
+        'p10',
+        'p11',
+        'p12',
+        'p13',
+      ];
+      final row = [
+        'TS07',
+        'Adamsons',
+        '8211',
+        'DM DN',
+        60000,
+        99999,
+        80000,
+        9999,
+        'DM',
+        80000,
+        95000,
+        'DN6000009999',
+        'DN6999909999',
+        'DN6999940000',
+        'DN6000040000',
+        'DM6000080000',
+        'DM6999980000',
+        'DM7999980000',
+        'DM7999889999',
+        'DN7999889999',
+        'DN7999940000',
+        'DN6999940000',
+        'DN6000040000',
+        'DN5000040000',
+      ];
+
+      final result = CsvImporter.parseRow(headers, row, rowNumber: 3);
+
+      expect(result.map, isNull);
+      expect(result.error, contains('p13'));
     });
   });
 }

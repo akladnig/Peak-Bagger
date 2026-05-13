@@ -94,7 +94,7 @@ class CsvImporter {
     final points = <String>[];
     var seenBlank = false;
 
-    for (var i = 1; i <= 8; i++) {
+    for (var i = 1; i <= 12; i++) {
       final normalized = normalizePointValue(data['p$i']);
       if (normalized == null) {
         seenBlank = true;
@@ -113,7 +113,32 @@ class CsvImporter {
       points.add(normalized);
     }
 
-    if (!const {4, 6, 8}.contains(points.length)) {
+    for (var i = 0; i < headers.length; i++) {
+      final header = headers[i].trim().toLowerCase();
+      final match = RegExp(r'^p(\d+)$').firstMatch(header);
+      if (match == null) {
+        continue;
+      }
+
+      final pointNumber = int.tryParse(match.group(1) ?? '');
+      if (pointNumber == null || pointNumber <= 12) {
+        continue;
+      }
+
+      final normalized = normalizePointValue(i < row.length ? row[i] : null);
+      if (normalized == null) {
+        continue;
+      }
+
+      return TasmapCsvRowParseResult(
+        error: _describeRowIssue(
+          rowNumber,
+          'expected 12 points but found populated point in p$pointNumber',
+        ),
+      );
+    }
+
+    if (!const {4, 6, 8, 10, 12}.contains(points.length)) {
       return TasmapCsvRowParseResult(
         error: _describeRowIssue(
           rowNumber,
@@ -149,6 +174,10 @@ class CsvImporter {
         p6: points.length > 5 ? points[5] : '',
         p7: points.length > 6 ? points[6] : '',
         p8: points.length > 7 ? points[7] : '',
+        p9: points.length > 8 ? points[8] : '',
+        p10: points.length > 9 ? points[9] : '',
+        p11: points.length > 10 ? points[10] : '',
+        p12: points.length > 11 ? points[11] : '',
       ),
     );
   }
