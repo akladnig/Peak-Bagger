@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
+import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_csv_export_provider.dart';
 import 'package:peak_bagger/providers/peak_list_csv_export_provider.dart';
@@ -21,10 +21,16 @@ import 'package:peak_bagger/services/tile_cache_service.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
+import 'package:peak_bagger/services/tile_cache_download_scope.dart';
 import 'package:peak_bagger/widgets/dialog_helpers.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({
+    super.key,
+    this.tileCacheSettingsScreenBuilder,
+  });
+
+  final WidgetBuilder? tileCacheSettingsScreenBuilder;
 
   @override
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
@@ -80,7 +86,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 : () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => const TileCacheSettingsScreen(),
+                        builder: widget.tileCacheSettingsScreenBuilder ??
+                            (context) => const TileCacheSettingsScreen(),
                       ),
                     );
                   },
@@ -999,7 +1006,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 }
 
 class TileCacheSettingsScreen extends ConsumerStatefulWidget {
-  const TileCacheSettingsScreen({super.key});
+  const TileCacheSettingsScreen({super.key, this.downloadStarter});
+
+  final TileCacheDownloadStarter? downloadStarter;
 
   @override
   ConsumerState<TileCacheSettingsScreen> createState() =>
@@ -1018,6 +1027,10 @@ class _TileCacheSettingsScreenState
   bool _skipExistingTiles = true;
   Map<String, StoreStats> _allStats = {};
   bool _loadingStats = true;
+  late final TextEditingController _mapSearchController;
+  Tasmap50k? _selectedMap;
+  List<Tasmap50k> _mapSuggestions = const [];
+  int _lastTasmapRevision = 0;
 
   static final RouteObserver<Route<dynamic>> _routeObserver =
       RouteObserver<Route<dynamic>>();
@@ -1026,6 +1039,8 @@ class _TileCacheSettingsScreenState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _mapSearchController = TextEditingController();
+    _seedSelectedMap();
     _loadAllStats();
   }
 
@@ -1052,6 +1067,7 @@ class _TileCacheSettingsScreenState
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _mapSearchController.dispose();
     super.dispose();
   }
 
@@ -1060,6 +1076,78 @@ class _TileCacheSettingsScreenState
     if (state == AppLifecycleState.resumed) {
       _loadAllStats();
     }
+  }
+
+  void _seedSelectedMap() {
+    final repo = ref.read(tasmapRepositoryProvider);
+    final maps = sortTileCacheMapsByName(repo.getAllMaps());
+    _lastTasmapRevision = ref.read(tasmapStateProvider).tasmapRevision;
+
+    _selectedMap = selectInitialTileCacheMap(maps);
+    _mapSuggestions = const [];
+    _mapSearchController.text = _selectedMap?.name ?? '';
+    _status = _selectedMap == null ? 'No Tasmap sheets available' : '';
+  }
+
+  void _syncSelectedMapWithRepository() {
+    final repo = ref.read(tasmapRepositoryProvider);
+    final maps = sortTileCacheMapsByName(repo.getAllMaps());
+
+    if (maps.isEmpty) {
+      setState(() {
+        _selectedMap = null;
+        _mapSuggestions = const [];
+        _mapSearchController.clear();
+        _status = 'No Tasmap sheets available';
+      });
+      return;
+    }
+
+    final currentSeries = _selectedMap?.series;
+    final stillExists = currentSeries != null &&
+        maps.any((map) => map.series == currentSeries);
+    if (stillExists) {
+      return;
+    }
+
+    final nextSelected = maps.first;
+    setState(() {
+      _selectedMap = nextSelected;
+      _mapSuggestions = const [];
+      _mapSearchController.text = nextSelected.name;
+      if (_status == 'No Tasmap sheets available') {
+        _status = '';
+      }
+    });
+  }
+
+  void _handleTasmapRevision(int revision) {
+    if (revision == _lastTasmapRevision) {
+      return;
+    }
+
+    _lastTasmapRevision = revision;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _syncSelectedMapWithRepository();
+      }
+    });
+  }
+
+  void _handleMapSearchChanged(String value) {
+    final repo = ref.read(tasmapRepositoryProvider);
+    setState(() {
+      _mapSuggestions = value.isEmpty ? const [] : repo.searchMaps(value);
+    });
+  }
+
+  void _selectMapSuggestion(Tasmap50k map) {
+    setState(() {
+      _selectedMap = map;
+      _mapSearchController.text = map.name;
+      _mapSuggestions = const [];
+      _status = '';
+    });
   }
 
   Future<void> _loadAllStats() async {
@@ -1073,6 +1161,11 @@ class _TileCacheSettingsScreenState
 
   @override
   Widget build(BuildContext context) {
+    final tasmapRevision = ref.watch(
+      tasmapStateProvider.select((state) => state.tasmapRevision),
+    );
+    _handleTasmapRevision(tasmapRevision);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Map Tile Cache'),
@@ -1153,6 +1246,7 @@ class _TileCacheSettingsScreenState
           ListTile(
             title: const Text('Basemap'),
             trailing: DropdownButton<Basemap>(
+              key: const Key('tile-cache-basemap-dropdown'),
               value: _selectedBasemap,
               items: Basemap.values
                   .map((b) => DropdownMenuItem(value: b, child: Text(b.name)))
@@ -1164,6 +1258,57 @@ class _TileCacheSettingsScreenState
               },
             ),
           ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TextField(
+              key: const Key('tile-cache-map-search-field'),
+              controller: _mapSearchController,
+              decoration: const InputDecoration(
+                labelText: 'Map',
+                hintText: 'Search Tasmap sheets',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: _handleMapSearchChanged,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                const Text('Selected map'),
+                Chip(
+                  key: const Key('tile-cache-selected-map-chip'),
+                  label: Text(
+                    _selectedMap?.name ?? 'No Tasmap sheets available',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_mapSuggestions.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: SizedBox(
+                height: 160,
+                child: ListView.builder(
+                  itemCount: _mapSuggestions.length,
+                  itemBuilder: (context, index) {
+                    final map = _mapSuggestions[index];
+                    return ListTile(
+                      key: Key('tile-cache-map-suggestion-$index'),
+                      title: Text(map.name),
+                      subtitle: Text(map.series),
+                      onTap: () => _selectMapSuggestion(map),
+                    );
+                  },
+                ),
+              ),
+            ),
           ListTile(
             title: const Text('Min Zoom'),
             trailing: DropdownButton<int>(
@@ -1197,6 +1342,7 @@ class _TileCacheSettingsScreenState
                 : (v) => setState(() => _skipExistingTiles = v),
           ),
           ListTile(
+            key: const Key('tile-cache-download-button'),
             leading: const Icon(Icons.download),
             title: _isDownloading
                 ? const SizedBox(
@@ -1205,7 +1351,7 @@ class _TileCacheSettingsScreenState
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Text('Download'),
-            onTap: _isDownloading ? null : _startDownload,
+            onTap: _isDownloading || _selectedMap == null ? null : _startDownload,
           ),
           if (_status.isNotEmpty) ListTile(title: Text(_status)),
           const Divider(),
@@ -1229,27 +1375,55 @@ class _TileCacheSettingsScreenState
     });
 
     try {
-      final store = TileCacheService.getStoreForBasemap(_selectedBasemap);
-      if (store == null) {
-        setState(() => _status = 'Store not found');
-        return;
-      }
-
       final tileLayer = TileLayer(
         urlTemplate: mapTileUrl(_selectedBasemap),
         userAgentPackageName: 'com.peak_bagger.app',
       );
-      final bounds = LatLngBounds(
-        const LatLng(-43.8, 144.0),
-        const LatLng(-40.5, 149.0),
-      );
-      final region = RectangleRegion(bounds).toDownloadable(
+      final selectedMap = _selectedMap;
+      if (selectedMap == null) {
+        setState(() => _status = 'No Tasmap sheet selected');
+        return;
+      }
+
+      final repository = ref.read(tasmapRepositoryProvider);
+      final polygonPoints = repository.getMapPolygonPoints(selectedMap);
+      if (polygonPoints.isEmpty) {
+        setState(() => _status = 'Selected Tasmap sheet has no polygon');
+        return;
+      }
+
+      final region = buildTileCacheDownloadRegion(
+        polygonPoints: polygonPoints,
         minZoom: _minZoom,
         maxZoom: _maxZoom,
         options: tileLayer,
       );
 
-      final result = store.download.startForeground(
+      final starter = widget.downloadStarter;
+      if (starter == null) {
+        final store = TileCacheService.getStoreForBasemap(_selectedBasemap);
+        if (store == null) {
+          setState(() => _status = 'Store not found');
+          return;
+        }
+
+        final result = store.download.startForeground(
+          region: region,
+          skipExistingTiles: _skipExistingTiles,
+        );
+
+        await for (final progress in result.downloadProgress) {
+          if (!mounted) return;
+          setState(
+            () => _status =
+                '${progress.successfulTilesCount} downloaded, ${progress.existingTilesCount} skipped (${progress.percentageProgress.toStringAsFixed(1)}%)',
+          );
+        }
+
+        return;
+      }
+
+      final result = starter(
         region: region,
         skipExistingTiles: _skipExistingTiles,
       );
@@ -1262,9 +1436,13 @@ class _TileCacheSettingsScreenState
         );
       }
     } catch (e) {
-      setState(() => _status = 'Error: $e');
+      if (mounted) {
+        setState(() => _status = 'Error: $e');
+      }
     } finally {
-      setState(() => _isDownloading = false);
+      if (mounted) {
+        setState(() => _isDownloading = false);
+      }
     }
   }
 
