@@ -8,12 +8,16 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/tasmap_repository.dart';
 
 import '../harness/test_map_notifier.dart';
+import '../harness/test_tasmap_notifier.dart';
+import '../harness/test_tasmap_repository.dart';
 
 void main() {
   testWidgets('keyboard zoom shortcut commits once immediately', (tester) async {
@@ -382,6 +386,7 @@ Future<void> _pumpMapApp(
   MapState state, {
   Size size = const Size(1600, 900),
 }) async {
+  final tasmapRepository = await TestTasmapRepository.create();
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
@@ -391,6 +396,8 @@ Future<void> _pumpMapApp(
         peakListRepositoryProvider.overrideWithValue(
           PeakListRepository.test(InMemoryPeakListStorage()),
         ),
+        tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
+        tasmapStateProvider.overrideWith(() => TestTasmapNotifier(tasmapRepository)),
       ],
       child: const App(),
     ),
@@ -408,6 +415,7 @@ Future<void> _pumpMapAppWithNotifier(
   {
   Size size = const Size(1600, 900),
 }) async {
+  final tasmapRepository = await TestTasmapRepository.create();
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
@@ -417,6 +425,8 @@ Future<void> _pumpMapAppWithNotifier(
         peakListRepositoryProvider.overrideWithValue(
           PeakListRepository.test(InMemoryPeakListStorage()),
         ),
+        tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
+        tasmapStateProvider.overrideWith(() => TestTasmapNotifier(tasmapRepository)),
       ],
       child: const App(),
     ),

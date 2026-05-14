@@ -14,6 +14,7 @@ import 'package:peak_bagger/services/tasmap_repository.dart';
 
 import '../../harness/test_map_notifier.dart';
 import '../../harness/test_tasmap_notifier.dart';
+import '../../harness/test_tasmap_repository.dart';
 
 class PeakInfoRobot {
   PeakInfoRobot(this.tester);
@@ -39,20 +40,21 @@ class PeakInfoRobot {
     PeakListRepository? peakListRepository,
     TasmapRepository? tasmapRepository,
   }) async {
+    final resolvedPeakListRepository =
+        peakListRepository ?? PeakListRepository.test(InMemoryPeakListStorage());
+    final resolvedTasmapRepository =
+        tasmapRepository ?? await TestTasmapRepository.create();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           mapProvider.overrideWith(
             () => TestMapNotifier(initialState ?? _defaultMapState()),
           ),
-          if (peakListRepository != null)
-            peakListRepositoryProvider.overrideWithValue(peakListRepository),
-          if (tasmapRepository != null)
-            tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
-          if (tasmapRepository != null)
-            tasmapStateProvider.overrideWith(
-              () => TestTasmapNotifier(tasmapRepository),
-            ),
+          peakListRepositoryProvider.overrideWithValue(resolvedPeakListRepository),
+          tasmapRepositoryProvider.overrideWithValue(resolvedTasmapRepository),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(resolvedTasmapRepository),
+          ),
         ],
         child: const MaterialApp(home: MapScreen()),
       ),
