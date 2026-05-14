@@ -45,6 +45,15 @@ class TestMapNotifier extends MapNotifier {
   String? _startupBackfillWarningMessage;
   int refreshCallCount = 0;
 
+  void setTracks(List<GpxTrack> tracks) {
+    state = state.copyWith(
+      tracks: tracks,
+      showTracks: tracks.isNotEmpty,
+      isLoadingTracks: false,
+      hasTrackRecoveryIssue: false,
+    );
+  }
+
   @override
   MapState build() => initialState;
 

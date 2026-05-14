@@ -21,18 +21,18 @@ Pure track selection + compact card UI + dashboard wiring + journey coverage.
 
 ### Phase 2: Card widget + dashboard slot
 - **Goal**: render populated/empty Latest Walk card in dashboard grid
-- [ ] `lib/widgets/dashboard/latest_walk_card.dart` - populated card, empty placeholder, 4:3 layout, static non-interactive mini-map
-- [ ] `lib/screens/dashboard_screen.dart` - swap `latest-walk` body from placeholder to card, watch `mapProvider.tracks`
-- [ ] `test/widget/latest_walk_card_test.dart` - TDD: populated render, empty render, single-line metadata, long-name truncation, 1-point vs 2+ point framing, provider-driven refresh
-- [ ] TDD: stable keys `latest-walk-card`, `latest-walk-mini-map`, `latest-walk-empty-state`
-- [ ] Verify: `flutter analyze` && `flutter test test/widget/latest_walk_card_test.dart test/widget/dashboard_screen_test.dart`
+- [x] `lib/widgets/dashboard/latest_walk_card.dart` - populated card, empty placeholder, 4:3 layout, static non-interactive mini-map
+- [x] `lib/screens/dashboard_screen.dart` - swap `latest-walk` body from placeholder to card, watch `mapProvider.tracks`
+- [x] `test/widget/latest_walk_card_test.dart` - TDD: populated render, empty render, single-line metadata, long-name truncation, 1-point vs 2+ point framing, provider-driven refresh
+- [x] TDD: stable keys `latest-walk-card`, `latest-walk-mini-map`, `latest-walk-empty-state`
+- [x] Verify: `flutter analyze` && `flutter test test/widget/latest_walk_card_test.dart test/widget/dashboard_screen_test.dart`
 
 ### Phase 3: Dashboard journey coverage
 - **Goal**: confirm end-to-end dashboard entry stays stable
-- [ ] `test/robot/dashboard/dashboard_journey_test.dart` - assert Latest Walk card present after dashboard open; add key-based checks for empty/populated state
-- [ ] `test/robot/dashboard/dashboard_robot.dart` - add selectors/actions if journey needs them
-- [ ] TDD: critical path opens dashboard, card exists, refresh after track update reflected without restart
-- [ ] Verify: `flutter analyze` && `flutter test test/robot/dashboard/dashboard_journey_test.dart`
+- [x] `test/robot/dashboard/dashboard_journey_test.dart` - assert Latest Walk card present after dashboard open; add key-based checks for empty/populated state
+- [x] `test/robot/dashboard/dashboard_robot.dart` - add selectors/actions if journey needs them
+- [x] TDD: critical path opens dashboard, card exists, refresh after track update reflected without restart
+- [x] Verify: `flutter analyze` && `flutter test test/robot/dashboard/dashboard_journey_test.dart`
 
 ## Risks / Out of scope
 - **Risks**: `flutter_map` rendering in widget tests; keep assertions key/text-based, avoid tile dependence

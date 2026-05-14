@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/dashboard_layout_provider.dart';
+import '../providers/map_provider.dart';
+import '../widgets/dashboard/latest_walk_card.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -43,8 +45,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   final definition = dashboardCards.firstWhere(
                     (card) => card.id == order[index],
                   );
+                  final body = definition.id == 'latest-walk'
+                      ? LatestWalkCard(
+                          tracks: ref.watch(
+                            mapProvider.select((state) => state.tracks),
+                          ),
+                        )
+                      : const _DashboardCardBody();
                   return _DashboardCard(
                     definition: definition,
+                    body: body,
                     onMove: (draggedId, targetId) {
                       unawaited(
                         ref
@@ -74,9 +84,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 }
 
 class _DashboardCard extends StatefulWidget {
-  const _DashboardCard({required this.definition, required this.onMove});
+  const _DashboardCard({
+    required this.definition,
+    required this.body,
+    required this.onMove,
+  });
 
   final DashboardCardDefinition definition;
+  final Widget body;
   final void Function(String draggedId, String targetId) onMove;
 
   @override
@@ -141,7 +156,7 @@ class _DashboardCardState extends State<_DashboardCard> {
                     }
                   },
                 ),
-                const Expanded(child: _DashboardCardBody()),
+                Expanded(child: widget.body),
               ],
             ),
           ),

@@ -17,6 +17,8 @@ class DashboardRobot {
   Finder get board => find.byKey(const Key('dashboard-board'));
   Finder card(String id) => find.byKey(Key('dashboard-card-$id'));
   Finder dragHandle(String id) => find.byKey(Key('dashboard-card-$id-drag-handle'));
+  Finder get latestWalkCard => find.byKey(const Key('latest-walk-card'));
+  Finder get latestWalkEmptyState => find.byKey(const Key('latest-walk-empty-state'));
 
   Future<void> pumpApp({required ProviderContainer container}) async {
     this.container = container;

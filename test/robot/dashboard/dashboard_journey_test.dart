@@ -2,9 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/providers/dashboard_layout_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
+import 'package:peak_bagger/services/track_display_cache_builder.dart';
 
 import '../../harness/test_map_notifier.dart';
 import '../../harness/test_tasmap_repository.dart';
@@ -41,6 +43,7 @@ void main() {
     expect(robot.board, findsOneWidget);
     expect(robot.card('distance'), findsOneWidget);
     expect(robot.dragHandle('distance'), findsOneWidget);
+    expect(robot.latestWalkEmptyState, findsOneWidget);
 
     await robot.container
         .read(dashboardLayoutProvider.notifier)
@@ -86,4 +89,75 @@ void main() {
     expect(robot.card('distance'), findsOneWidget);
     expect(robot.dragHandle('distance'), findsOneWidget);
   });
+
+  testWidgets('dashboard journey refreshes latest walk card after track update', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+
+    final robot = DashboardRobot(tester);
+    final notifier = TestMapNotifier(
+      const MapState(
+        center: LatLng(-41.5, 146.5),
+        zoom: 12,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    final container = ProviderContainer(
+      overrides: [
+        mapProvider.overrideWith(() => notifier),
+        tasmapRepositoryProvider.overrideWithValue(
+          await TestTasmapRepository.create(),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await robot.pumpApp(container: container);
+    await robot.openDashboard();
+
+    expect(robot.latestWalkEmptyState, findsOneWidget);
+
+    notifier.setTracks([
+      _track(
+        10,
+        DateTime.utc(2026, 5, 14, 10),
+        segments: [
+          [const LatLng(-41.5, 146.5), const LatLng(-41.4, 146.6)],
+        ],
+      ),
+      _track(
+        20,
+        DateTime.utc(2026, 5, 15, 10),
+        segments: [
+          [const LatLng(-41.6, 146.6), const LatLng(-41.7, 146.7)],
+        ],
+      ),
+    ]);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Track 20'), findsOneWidget);
+    expect(robot.latestWalkCard, findsOneWidget);
+  });
+}
+
+GpxTrack _track(
+  int id,
+  DateTime? startDateTime, {
+  List<List<LatLng>> segments = const [],
+}) {
+  return GpxTrack(
+    gpxTrackId: id,
+    contentHash: 'hash-$id',
+    trackName: 'Track $id',
+    trackDate: startDateTime,
+    startDateTime: startDateTime,
+    distance2d: 12400,
+    ascent: 638,
+    gpxFile: segments.isEmpty ? '' : '<gpx></gpx>',
+    displayTrackPointsByZoom: segments.isEmpty
+        ? '{}'
+        : TrackDisplayCacheBuilder.buildJson(segments),
+  );
 }
