@@ -19,7 +19,6 @@ import 'map_screen_panels.dart';
 import '../services/peak_list_file_picker.dart';
 import '../services/peak_hover_detector.dart';
 import '../services/peak_list_repository.dart';
-import '../services/peak_info_content_resolver.dart';
 import '../widgets/dialog_helpers.dart';
 import '../widgets/left_tooltip_fab.dart';
 import '../widgets/peak_list_create_dialog.dart';
