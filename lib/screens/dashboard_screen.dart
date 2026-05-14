@@ -73,43 +73,77 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 }
 
-class _DashboardCard extends StatelessWidget {
+class _DashboardCard extends StatefulWidget {
   const _DashboardCard({required this.definition, required this.onMove});
 
   final DashboardCardDefinition definition;
   final void Function(String draggedId, String targetId) onMove;
 
   @override
+  State<_DashboardCard> createState() => _DashboardCardState();
+}
+
+class _DashboardCardState extends State<_DashboardCard> {
+  bool _isPointerHovered = false;
+  bool _isDragging = false;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return DragTarget<String>(
-      key: Key('dashboard-card-${definition.id}'),
-      onWillAcceptWithDetails: (details) => details.data != definition.id,
+      key: Key('dashboard-card-${widget.definition.id}'),
+      onWillAcceptWithDetails: (details) =>
+          details.data != widget.definition.id,
       onAcceptWithDetails: (details) {
-        onMove(details.data, definition.id);
+        widget.onMove(details.data, widget.definition.id);
       },
       builder: (context, candidateData, rejectedData) {
-        final isHovered = candidateData.isNotEmpty;
-        return Card(
-          elevation: 4,
-          clipBehavior: Clip.antiAlias,
-          color: theme.colorScheme.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-            side: BorderSide(
-              color: isHovered
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.outlineVariant,
-              width: isHovered ? 2 : 1,
+        final isHovered =
+            _isPointerHovered || _isDragging || candidateData.isNotEmpty;
+        return MouseRegion(
+          onEnter: (_) {
+            if (!_isPointerHovered) {
+              setState(() => _isPointerHovered = true);
+            }
+          },
+          onExit: (_) {
+            if (_isPointerHovered) {
+              setState(() => _isPointerHovered = false);
+            }
+          },
+          child: Card(
+            elevation: 4,
+            clipBehavior: Clip.antiAlias,
+            color: theme.colorScheme.surfaceContainer,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+              side: BorderSide(
+                color: isHovered
+                    ? theme.colorScheme.outlineVariant
+                    : theme.colorScheme.outline,
+                width: isHovered ? 2 : 1,
+              ),
             ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _DashboardCardHeader(definition: definition),
-              const Expanded(child: _DashboardCardBody()),
-            ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _DashboardCardHeader(
+                  definition: widget.definition,
+                  onDragStarted: () {
+                    if (!_isDragging) {
+                      setState(() => _isDragging = true);
+                    }
+                  },
+                  onDragEnded: () {
+                    if (_isDragging) {
+                      setState(() => _isDragging = false);
+                    }
+                  },
+                ),
+                const Expanded(child: _DashboardCardBody()),
+              ],
+            ),
           ),
         );
       },
@@ -118,9 +152,15 @@ class _DashboardCard extends StatelessWidget {
 }
 
 class _DashboardCardHeader extends StatelessWidget {
-  const _DashboardCardHeader({required this.definition});
+  const _DashboardCardHeader({
+    required this.definition,
+    required this.onDragStarted,
+    required this.onDragEnded,
+  });
 
   final DashboardCardDefinition definition;
+  final VoidCallback onDragStarted;
+  final VoidCallback onDragEnded;
 
   @override
   Widget build(BuildContext context) {
@@ -130,6 +170,8 @@ class _DashboardCardHeader extends StatelessWidget {
       cursor: SystemMouseCursors.grab,
       child: Draggable<String>(
         data: definition.id,
+        onDragStarted: onDragStarted,
+        onDragEnd: (_) => onDragEnded(),
         feedback: _DashboardCardDragFeedback(definition: definition),
         childWhenDragging: const Opacity(
           opacity: 0.35,
@@ -180,13 +222,17 @@ class _DashboardCardDragFeedback extends StatelessWidget {
       color: Colors.transparent,
       child: SizedBox(
         width: 280,
+        height: 280 / dashboardCardAspectRatio,
         child: Card(
           elevation: 8,
           clipBehavior: Clip.antiAlias,
-          color: theme.colorScheme.surface,
+          color: theme.colorScheme.surfaceContainer,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
-            side: BorderSide(color: theme.colorScheme.primary, width: 2),
+            side: BorderSide(
+              color: theme.colorScheme.outlineVariant,
+              width: 2,
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

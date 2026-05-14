@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -80,6 +82,74 @@ void main() {
           'top-5-walks',
         ],
       );
+    });
+
+    testWidgets('hovering a card updates its border', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await _pumpDashboard(tester, const Size(1400, 1000));
+
+      final cardFinder = find
+          .descendant(
+            of: find.byKey(const Key('dashboard-card-elevation')),
+            matching: find.byType(Card),
+          )
+          .first;
+
+      final initialCard = tester.widget<Card>(cardFinder);
+      final initialShape = initialCard.shape as RoundedRectangleBorder;
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+
+      await mouse.moveTo(tester.getCenter(cardFinder));
+      await tester.pump();
+
+      final hoveredCard = tester.widget<Card>(cardFinder);
+      final hoveredShape = hoveredCard.shape as RoundedRectangleBorder;
+
+      expect(hoveredShape.side.width, 2);
+      expect(hoveredShape.side.color, isNot(initialShape.side.color));
+
+      await mouse.moveTo(const Offset(10, 10));
+      await tester.pump();
+
+      final restoredCard = tester.widget<Card>(cardFinder);
+      final restoredShape = restoredCard.shape as RoundedRectangleBorder;
+
+      expect(restoredShape.side.width, 1);
+      expect(restoredShape.side.color, initialShape.side.color);
+    });
+
+    testWidgets('dragging a header updates the card border', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await _pumpDashboard(tester, const Size(1400, 1000));
+
+      final cardFinder = find
+          .descendant(
+            of: find.byKey(const Key('dashboard-card-distance')),
+            matching: find.byType(Card),
+          )
+          .first;
+      final initialCard = tester.widget<Card>(cardFinder);
+      final initialShape = initialCard.shape as RoundedRectangleBorder;
+
+      final handleFinder = find.byKey(
+        const Key('dashboard-card-distance-drag-handle'),
+      );
+      final gesture = await tester.startGesture(
+        tester.getCenter(handleFinder),
+        kind: PointerDeviceKind.mouse,
+      );
+      addTearDown(gesture.removePointer);
+
+      await gesture.moveBy(const Offset(48, 0));
+      await tester.pump();
+
+      final draggingCard = tester.widget<Card>(cardFinder);
+      final draggingShape = draggingCard.shape as RoundedRectangleBorder;
+
+      expect(draggingShape.side.width, 2);
+      expect(draggingShape.side.color, isNot(initialShape.side.color));
     });
   });
 }

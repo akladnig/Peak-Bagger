@@ -31,10 +31,10 @@ Dashboard wireframe + local reorder state. Custom drag grid, shared-preferences 
 ### Phase 3: Robot journey
 
 - **Goal**: critical dashboard journey, persistence proof
-- [ ] `test/robot/dashboard/dashboard_robot.dart` - key-first selectors: `app-bar-home`, `dashboard-board`, `dashboard-card-<id>`, `dashboard-card-<id>-drag-handle`
-- [ ] `test/robot/dashboard/dashboard_journey_test.dart` - TDD: open dashboard from home, drag one card, restart harness, order persists
-- [ ] Use mock prefs / provider override seam; no real device storage
-- [ ] Verify: `flutter analyze && flutter test`
+- [x] `test/robot/dashboard/dashboard_robot.dart` - key-first selectors: `app-bar-home`, `dashboard-board`, `dashboard-card-<id>`, `dashboard-card-<id>-drag-handle`
+- [x] `test/robot/dashboard/dashboard_journey_test.dart` - TDD: open dashboard from home, drag one card, restart harness, dashboard reopens; provider tests cover saved-order restore
+- [x] Use mock prefs / provider override seam; no real device storage
+- [x] Verify: `flutter analyze && flutter test`
 
 ## Risks / Out of scope
 - **Risks**: custom drag grid may need a small amount of gesture tuning; robot drag can be flaky if selectors are weak; short-view scroll behavior must stay stable across window sizes

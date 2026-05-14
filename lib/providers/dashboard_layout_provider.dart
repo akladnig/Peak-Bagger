@@ -54,11 +54,12 @@ class DashboardLayoutNotifier extends Notifier<List<String>> {
       return;
     }
     _loaded = true;
+    final initialState = state;
 
     try {
       final prefs = await ref.read(dashboardPreferencesLoaderProvider)();
       final storedOrder = prefs.getStringList(dashboardCardOrderStorageKey);
-      if (storedOrder != null) {
+      if (storedOrder != null && listEquals(state, initialState)) {
         state = _sanitizeOrder(storedOrder);
       }
     } catch (_) {
