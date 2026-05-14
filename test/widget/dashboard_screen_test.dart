@@ -45,6 +45,42 @@ void main() {
       await _pumpDashboard(tester, const Size(700, 1000));
       _expectGridContract(tester, 1);
     });
+
+    testWidgets('dragging a header reorders cards', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await tester.binding.setSurfaceSize(const Size(1400, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: DashboardScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final handle = find.byKey(const Key('dashboard-card-distance-drag-handle'));
+      final target = find.byKey(const Key('dashboard-card-peaks-bagged'));
+      final gestureOffset = tester.getCenter(target) - tester.getCenter(handle);
+
+      await tester.drag(handle, gestureOffset);
+      await tester.pumpAndSettle();
+
+      expect(
+        container.read(dashboardLayoutProvider),
+        <String>[
+          'elevation',
+          'latest-walk',
+          'distance',
+          'peaks-bagged',
+          'top-5-highest',
+          'top-5-walks',
+        ],
+      );
+    });
   });
 }
 

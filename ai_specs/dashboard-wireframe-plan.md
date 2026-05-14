@@ -23,10 +23,10 @@ Dashboard wireframe + local reorder state. Custom drag grid, shared-preferences 
 ### Phase 2: Drag reorder + responsive grid
 
 - **Goal**: header-only drag/drop, auto reflow, persistence on move
-- [ ] `lib/screens/dashboard_screen.dart` - custom drag grid, header drag handles, drop targets, order update on drop
-- [ ] `test/widget/dashboard_screen_test.dart` - TDD: drag header reorders; drop on same slot no-op; 3/2/1 layout at `1200/800` breakpoints; short viewport scrolls
-- [ ] `test/providers/dashboard_layout_provider_test.dart` - TDD: reorder persists; unknown/missing ids preserve default append order
-- [ ] Verify: `flutter analyze && flutter test`
+- [x] `lib/screens/dashboard_screen.dart` - custom drag grid, header drag handles, drop targets, order update on drop
+- [x] `test/widget/dashboard_screen_test.dart` - TDD: drag header reorders; drop on same slot no-op; 3/2/1 layout at `1200/800` breakpoints; short viewport scrolls
+- [x] `test/providers/dashboard_layout_provider_test.dart` - TDD: reorder persists; unknown/missing ids preserve default append order
+- [x] Verify: `flutter analyze && flutter test`
 
 ### Phase 3: Robot journey
 

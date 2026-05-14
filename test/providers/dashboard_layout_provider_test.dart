@@ -93,5 +93,30 @@ void main() {
 
       expect(container.read(dashboardLayoutProvider), nextOrder);
     });
+
+    test('moveCard reorders and persists the next order', () async {
+      SharedPreferences.setMockInitialValues({});
+
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await container
+          .read(dashboardLayoutProvider.notifier)
+          .moveCard('distance', 'peaks-bagged');
+
+      const expected = <String>[
+        'elevation',
+        'latest-walk',
+        'distance',
+        'peaks-bagged',
+        'top-5-highest',
+        'top-5-walks',
+      ];
+
+      expect(container.read(dashboardLayoutProvider), expected);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getStringList(dashboardCardOrderStorageKey), expected);
+    });
   });
 }
