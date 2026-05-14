@@ -22,8 +22,6 @@
   - Bushwalking / GPS / Country / State (Region etc.) / Routes
   - Bushwalking / GPS / Country / State (Region etc.) / Waypoints
 
-## 1 Application Skeleton
-
 ## 2  Display map of Tasmania with zoom, pan and search function
 - [ ] change zoom level display to actual distance
 - [ ] Automatically ask for permissions
@@ -43,7 +41,6 @@
 - [ ] Clicking x on peak search clears blue circles
 - [ ] Clicking in blue circle selects peak and clears blue circles
 - [ ] Peak search not zooming to extents
-- [ ] Tile cache in setup - change option to allow complete map to be cached rather than all of Tassie
 - [ ] Fix mgrs jank
 - [ ] add Map name to mgrs display
 - [ ] Add a current peak list display under the mgrs
@@ -81,17 +78,18 @@
 - [ ] remove legacy row handling
 - [ ] Refresh lists on updates to peak name in ObjectBox Admin
 - [ ] peak lists not updating on track import correlation
+- [ ] peak lists not updating on change of peak details
 - [ ] Change cursor on hover over clickables
-- [ ] Add peak info functionality as per map_screen
+- [x] Add peak info functionality as per map_screen
 - [ ] Mini map - add +/- zoom keys
 - [ ] Change details view header to Peak Name
+- [ ] Remove points column
+- [x] Selected row use primaryContainer as background and 5c47cd for dividers
 
  mgrs.Mgrs.toPoint can produce long decimal values (lib/services/peak_admin_editor.dart:175-178) change to 6 digits.
 
 ## Object Box Admin
 - [ ] Allow entry of UTM coordinates
-- [x] Add a new field to Peak named verified - boolean, true if peak name, height and location have been verified.
-- [x] Autodelete lat/long or mgrs when editing one field or the other or add a calc icon
 - [ ] add x in text field to clear it
 
 F14. Add app-wide peak search, peak list selection widgets, and Peak Lists screen display out of scope for this iteration unless they are directly needed by the clicked-peak popup change.
@@ -131,10 +129,3 @@ m - enable map grid
 s - feature search/goto location
 t - tracks
 i - info
-
-
-# Errors
-- [x] Zoom display not updating
-- [x] keyboard keys should change focus to search boxes
-- [x] duplicate peak search
-- [x] peaks not showing
