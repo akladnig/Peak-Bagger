@@ -54,8 +54,8 @@ const shellDestinations = <ShellDestination>[
   ShellDestination(
     branchIndex: 2,
     routePath: '/peaks',
-    label: 'Peak Lists',
-    title: 'Peak Lists',
+    label: 'My Peak Lists',
+    title: 'My Peak Lists',
     icon: Icons.landscape,
     keyName: 'nav-peak-lists',
   ),

@@ -652,6 +652,7 @@ Future<void> _pumpMap(
   PeakRepository? peakRepository,
   PeakListRepository? peakListRepository,
 }) async {
+  final tasmapRepository = await TestTasmapRepository.create();
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -661,9 +662,13 @@ Future<void> _pumpMap(
         peakListRepositoryProvider.overrideWithValue(
           peakListRepository ?? PeakListRepository.test(InMemoryPeakListStorage()),
         ),
-        ...overrides,
+        tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
+        tasmapStateProvider.overrideWith(() => TestTasmapNotifier(tasmapRepository)),
       ],
-      child: const MaterialApp(home: MapScreen()),
+      child: ProviderScope(
+        overrides: [...overrides],
+        child: const MaterialApp(home: MapScreen()),
+      ),
     ),
   );
   await tester.pump();

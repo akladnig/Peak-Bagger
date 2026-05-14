@@ -520,7 +520,7 @@ enum _PeakListSortColumn {
   ascents,
 }
 
-enum _PeakDetailSortColumn { name, elevation, ascentDate, ascents, points }
+enum _PeakDetailSortColumn { name, elevation, ascentDate, ascents }
 
 typedef _SummaryTableWidths = ({
   double list,
@@ -538,7 +538,6 @@ typedef _PeakTableWidths = ({
   double elevation,
   double ascentDate,
   double ascents,
-  double points,
   double totalWidth,
 });
 
@@ -687,12 +686,6 @@ _PeakTableWidths _resolvePeakTableWidths(
         0,
       ) +
       horizontalPadding;
-  double points =
-      math.max(
-        _measureTextWidth(context, 'Points', headerStyle) + headerControlWidth,
-        0,
-      ) +
-      horizontalPadding;
 
   for (final row in rows) {
     peakName = math.max(
@@ -714,11 +707,6 @@ _PeakTableWidths _resolvePeakTableWidths(
       _measureTextWidth(context, row.ascentCountLabel, cellStyle) +
           horizontalPadding,
     );
-    points = math.max(
-      points,
-      _measureTextWidth(context, row.pointsLabel, cellStyle) +
-          horizontalPadding,
-    );
   }
 
   peakName = math.min(peakName, 180.0);
@@ -729,9 +717,7 @@ _PeakTableWidths _resolvePeakTableWidths(
     elevation: elevation,
     ascentDate: ascentDate,
     ascents: ascents,
-    points: points,
-    totalWidth:
-        peakName + elevation + ascentDate + ascents + points + (columnGap * 4),
+    totalWidth: peakName + elevation + ascentDate + ascents + (columnGap * 3),
   );
 }
 
@@ -775,14 +761,6 @@ class _SummaryPane extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _PeakListsToolbar(
-            filePicker: filePicker,
-            importRunner: importRunner,
-            duplicateNameChecker: duplicateNameChecker,
-            onCreateRequested: onCreateRequested,
-            peakListRepository: peakListRepository,
-          ),
-          const SizedBox(height: 12),
           Expanded(
             flex: 3,
             child: _SummaryListCard(
@@ -793,6 +771,11 @@ class _SummaryPane extends StatelessWidget {
               onSelected: onSelected,
               onSortSelected: onSortSelected,
               onDeleteRequested: onDeleteRequested,
+              filePicker: filePicker,
+              importRunner: importRunner,
+              duplicateNameChecker: duplicateNameChecker,
+              onCreateRequested: onCreateRequested,
+              peakListRepository: peakListRepository,
             ),
           ),
           const SizedBox(height: 12),
@@ -818,8 +801,139 @@ class _SummaryPane extends StatelessWidget {
   }
 }
 
-class _PeakListsToolbar extends StatelessWidget {
-  const _PeakListsToolbar({
+class _SummaryListCard extends StatelessWidget {
+  const _SummaryListCard({
+    required this.rows,
+    required this.selectedPeakListId,
+    required this.sortColumn,
+    required this.sortAscending,
+    required this.onSelected,
+    required this.onSortSelected,
+    required this.onDeleteRequested,
+    required this.filePicker,
+    required this.importRunner,
+    required this.duplicateNameChecker,
+    required this.onCreateRequested,
+    required this.peakListRepository,
+  });
+
+  final List<_PeakListSummaryRow> rows;
+  final int? selectedPeakListId;
+  final _PeakListSortColumn sortColumn;
+  final bool sortAscending;
+  final ValueChanged<int> onSelected;
+  final ValueChanged<_PeakListSortColumn> onSortSelected;
+  final ValueChanged<int> onDeleteRequested;
+  final PeakListFilePicker filePicker;
+  final PeakListImportRunner importRunner;
+  final PeakListDuplicateNameChecker duplicateNameChecker;
+  final VoidCallback onCreateRequested;
+  final PeakListRepository peakListRepository;
+
+  @override
+  Widget build(BuildContext context) {
+    final widths = _resolveSummaryTableWidths(context, rows);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  const headerActionsWidth = 128.0;
+                  return Stack(
+                    children: [
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SizedBox(
+                          width: widths.totalWidth + headerActionsWidth,
+                          height: constraints.maxHeight,
+                          child: Padding(
+                            padding: const EdgeInsets.only(
+                              right: headerActionsWidth,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _SummaryHeader(
+                                  sortColumn: sortColumn,
+                                  sortAscending: sortAscending,
+                                  onSortSelected: onSortSelected,
+                                  widths: widths,
+                                ),
+                                const SizedBox(height: 8),
+                                Expanded(
+                                  child: rows.isEmpty
+                                      ? const Center(
+                                          child: Card(
+                                            child: Padding(
+                                              padding: EdgeInsets.all(16),
+                                              child: Text(
+                                                'No peak lists exist. Import a CSV to get started.',
+                                                key: Key(
+                                                  'peak-lists-empty-message',
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      : SingleChildScrollView(
+                                          key: const Key(
+                                            'peak-lists-summary-table-scroll',
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.stretch,
+                                            children: [
+                                              for (final row in rows)
+                                                _SummaryRowCard(
+                                                  row: row,
+                                                  selectedPeakListId:
+                                                      selectedPeakListId,
+                                                  widths: widths,
+                                                  onSelected: onSelected,
+                                                  onDeleteRequested:
+                                                      onDeleteRequested,
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: Transform.translate(
+                          offset: const Offset(20, -6),
+                          child: _SummaryHeaderActions(
+                            filePicker: filePicker,
+                            importRunner: importRunner,
+                            duplicateNameChecker: duplicateNameChecker,
+                            onCreateRequested: onCreateRequested,
+                            peakListRepository: peakListRepository,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryHeaderActions extends StatelessWidget {
+  const _SummaryHeaderActions({
     required this.filePicker,
     required this.importRunner,
     required this.duplicateNameChecker,
@@ -839,13 +953,8 @@ class _PeakListsToolbar extends StatelessWidget {
     final fabForeground = _fabForegroundColor(context);
 
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Expanded(
-          child: Text(
-            'My Peak Lists',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-        ),
         LeftTooltipFab(
           message: 'Add New Peak List',
           child: FloatingActionButton.small(
@@ -905,89 +1014,6 @@ class _PeakListsToolbar extends StatelessWidget {
   }
 }
 
-class _SummaryListCard extends StatelessWidget {
-  const _SummaryListCard({
-    required this.rows,
-    required this.selectedPeakListId,
-    required this.sortColumn,
-    required this.sortAscending,
-    required this.onSelected,
-    required this.onSortSelected,
-    required this.onDeleteRequested,
-  });
-
-  final List<_PeakListSummaryRow> rows;
-  final int? selectedPeakListId;
-  final _PeakListSortColumn sortColumn;
-  final bool sortAscending;
-  final ValueChanged<int> onSelected;
-  final ValueChanged<_PeakListSortColumn> onSortSelected;
-  final ValueChanged<int> onDeleteRequested;
-
-  @override
-  Widget build(BuildContext context) {
-    final widths = _resolveSummaryTableWidths(context, rows);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SizedBox(
-                width: widths.totalWidth,
-                height: constraints.maxHeight,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _SummaryHeader(
-                      sortColumn: sortColumn,
-                      sortAscending: sortAscending,
-                      onSortSelected: onSortSelected,
-                      widths: widths,
-                    ),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: rows.isEmpty
-                          ? const Center(
-                              child: Card(
-                                child: Padding(
-                                  padding: EdgeInsets.all(16),
-                                  child: Text(
-                                    'No peak lists exist. Import a CSV to get started.',
-                                    key: Key('peak-lists-empty-message'),
-                                  ),
-                                ),
-                              ),
-                            )
-                          : SingleChildScrollView(
-                              key: const Key('peak-lists-summary-table-scroll'),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  for (final row in rows)
-                                    _SummaryRowCard(
-                                      row: row,
-                                      selectedPeakListId: selectedPeakListId,
-                                      widths: widths,
-                                      onSelected: onSelected,
-                                      onDeleteRequested: onDeleteRequested,
-                                    ),
-                                ],
-                              ),
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
 class _SummaryHeader extends StatelessWidget {
   const _SummaryHeader({
     required this.sortColumn,
@@ -1005,6 +1031,7 @@ class _SummaryHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = Theme.of(context).textTheme.labelLarge;
     return Row(
+      key: const Key('peak-lists-summary-header'),
       children: [
         SizedBox(
           width: widths.list,
@@ -1151,94 +1178,117 @@ class _SummaryRowCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final peakListId = row.peakList.peakListId;
+    final isSelected = peakListId == selectedPeakListId;
     return Card(
-      child: InkWell(
-        key: Key('peak-lists-row-$peakListId'),
-        onTap: () => onSelected(peakListId),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              SizedBox(
-                width: widths.list,
-                child: Text(
-                  row.peakList.name,
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.clip,
-                  style: peakListId == selectedPeakListId
-                      ? const TextStyle(fontWeight: FontWeight.w600)
-                      : null,
-                ),
-              ),
-              SizedBox(
-                width: widths.totalPeaks,
-                child: Text(
-                  row.totalPeaksLabel,
-                  key: Key('peak-lists-total-$peakListId'),
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.clip,
-                ),
-              ),
-              SizedBox(
-                width: widths.climbed,
-                child: Text(
-                  row.climbedLabel,
-                  key: Key('peak-lists-climbed-$peakListId'),
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.clip,
-                ),
-              ),
-              SizedBox(
-                width: widths.percentage,
-                child: Text(
-                  row.percentageLabel,
-                  key: Key('peak-lists-percentage-$peakListId'),
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.clip,
-                ),
-              ),
-              SizedBox(
-                width: widths.unclimbed,
-                child: Text(
-                  row.unclimbedLabel,
-                  key: Key('peak-lists-unclimbed-$peakListId'),
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.clip,
-                ),
-              ),
-              SizedBox(
-                width: widths.ascents,
-                child: Text(
-                  row.ascentCountLabel,
-                  key: Key('peak-lists-ascents-$peakListId'),
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.clip,
-                ),
-              ),
-              SizedBox(
-                width: widths.actions,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: IconButton(
-                    key: Key('peak-lists-delete-$peakListId'),
-                    icon: const Icon(Icons.delete_forever),
-                    tooltip: 'Delete ${row.peakList.name}',
-                    onPressed: () => onDeleteRequested(peakListId),
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        key: Key('peak-lists-row-decoration-$peakListId'),
+        decoration: isSelected ? _selectedRowDecoration(context) : null,
+        child: InkWell(
+          key: Key('peak-lists-row-$peakListId'),
+          onTap: () => onSelected(peakListId),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: widths.list,
+                  child: Text(
+                    row.peakList.name,
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.clip,
+                    style: isSelected
+                        ? const TextStyle(fontWeight: FontWeight.w600)
+                        : null,
                   ),
                 ),
-              ),
-            ],
+                SizedBox(
+                  width: widths.totalPeaks,
+                  child: Text(
+                    row.totalPeaksLabel,
+                    key: Key('peak-lists-total-$peakListId'),
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.clip,
+                  ),
+                ),
+                SizedBox(
+                  width: widths.climbed,
+                  child: Text(
+                    row.climbedLabel,
+                    key: Key('peak-lists-climbed-$peakListId'),
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.clip,
+                  ),
+                ),
+                SizedBox(
+                  width: widths.percentage,
+                  child: Text(
+                    row.percentageLabel,
+                    key: Key('peak-lists-percentage-$peakListId'),
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.clip,
+                  ),
+                ),
+                SizedBox(
+                  width: widths.unclimbed,
+                  child: Text(
+                    row.unclimbedLabel,
+                    key: Key('peak-lists-unclimbed-$peakListId'),
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.clip,
+                  ),
+                ),
+                SizedBox(
+                  width: widths.ascents,
+                  child: Text(
+                    row.ascentCountLabel,
+                    key: Key('peak-lists-ascents-$peakListId'),
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.clip,
+                  ),
+                ),
+                SizedBox(
+                  width: widths.actions,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Tooltip(
+                      message: 'Delete ${row.peakList.name}',
+                      child: InkResponse(
+                        key: Key('peak-lists-delete-$peakListId'),
+                        onTap: () => onDeleteRequested(peakListId),
+                        radius: 16,
+                        child: const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(Icons.delete_forever, size: 18),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+BoxDecoration _selectedRowDecoration(BuildContext context) {
+  return BoxDecoration(
+    color: Theme.of(context).colorScheme.primaryContainer,
+    border: const Border(
+      top: BorderSide(color: Color(0xFF5c47cd)),
+      bottom: BorderSide(color: Color(0xFF5c47cd)),
+    ),
+  );
 }
 
 class _DetailsPane extends StatelessWidget {
@@ -1330,15 +1380,21 @@ class _PeakDetailsTableCard extends StatefulWidget {
 class _PeakDetailsTableCardState extends State<_PeakDetailsTableCard> {
   _PeakDetailSortColumn? _sortColumn = _PeakDetailSortColumn.ascentDate;
   bool _sortAscending = false;
+  final _tableScrollKey = GlobalKey();
+  final Map<int, GlobalKey> _rowKeys = {};
 
   @override
   void didUpdateWidget(covariant _PeakDetailsTableCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     final oldPeakListId = oldWidget.selectedSummaryRow?.peakList.peakListId;
     final newPeakListId = widget.selectedSummaryRow?.peakList.peakListId;
+    if (oldWidget.selectedPeakId != widget.selectedPeakId) {
+      _centerSelectedRowIfNeeded();
+    }
     if (oldPeakListId != newPeakListId) {
       _sortColumn = _PeakDetailSortColumn.ascentDate;
       _sortAscending = false;
+      _rowKeys.clear();
     }
   }
 
@@ -1356,6 +1412,7 @@ class _PeakDetailsTableCardState extends State<_PeakDetailsTableCard> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(
+              key: _tableScrollKey,
               scrollDirection: Axis.horizontal,
               child: SizedBox(
                 width: widths.totalWidth,
@@ -1395,83 +1452,76 @@ class _PeakDetailsTableCardState extends State<_PeakDetailsTableCard> {
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   for (final row in sortedRows)
-                                    InkWell(
+                                    KeyedSubtree(
                                       key: Key(
                                         'peak-lists-details-row-${row.peakId}',
                                       ),
-                                      onTap: () async {
-                                        await widget.onPeakSelected(row.peakId);
-                                      },
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 6,
-                                        ),
-                                        color:
-                                            row.peakId == widget.selectedPeakId
-                                            ? Theme.of(context)
-                                                  .colorScheme
-                                                  .primary
-                                                  .withValues(alpha: 0.08)
+                                        key: _rowKeyFor(row.peakId),
+                                        decoration: row.peakId ==
+                                                widget.selectedPeakId
+                                            ? _selectedRowDecoration(context)
                                             : null,
-                                        child: Row(
-                                          children: [
-                                            SizedBox(
-                                              width: widths.peakName,
-                                              child: Text(
-                                                row.name,
-                                                maxLines: 2,
-                                                softWrap: true,
-                                                overflow: TextOverflow.clip,
-                                              ),
+                                        child: InkWell(
+                                          onTap: () async {
+                                            await widget.onPeakSelected(
+                                              row.peakId,
+                                            );
+                                          },
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 6,
                                             ),
-                                            const SizedBox(width: 12),
-                                            SizedBox(
-                                              width: widths.elevation,
-                                              child: Text(
-                                                row.elevationLabel,
-                                                maxLines: 1,
-                                                softWrap: false,
-                                                overflow: TextOverflow.clip,
-                                                textAlign: TextAlign.right,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            SizedBox(
-                                              width: widths.ascentDate,
-                                              child: Text(
-                                                row.ascentDateLabel,
-                                                maxLines: 1,
-                                                softWrap: false,
-                                                overflow: TextOverflow.clip,
-                                                textAlign: TextAlign.right,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            SizedBox(
-                                              width: widths.ascents,
-                                              child: Text(
-                                                row.ascentCountLabel,
-                                                key: Key(
-                                                  'peak-lists-details-ascents-${row.peakId}',
+                                            child: Row(
+                                              children: [
+                                                SizedBox(
+                                                  width: widths.peakName,
+                                                  child: Text(
+                                                    row.name,
+                                                    maxLines: 2,
+                                                    softWrap: true,
+                                                    overflow: TextOverflow.clip,
+                                                  ),
                                                 ),
-                                                maxLines: 1,
-                                                softWrap: false,
-                                                overflow: TextOverflow.clip,
-                                                textAlign: TextAlign.right,
-                                              ),
+                                                const SizedBox(width: 12),
+                                                SizedBox(
+                                                  width: widths.elevation,
+                                                  child: Text(
+                                                    row.elevationLabel,
+                                                    maxLines: 1,
+                                                    softWrap: false,
+                                                    overflow: TextOverflow.clip,
+                                                    textAlign: TextAlign.right,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                SizedBox(
+                                                  width: widths.ascentDate,
+                                                  child: Text(
+                                                    row.ascentDateLabel,
+                                                    maxLines: 1,
+                                                    softWrap: false,
+                                                    overflow: TextOverflow.clip,
+                                                    textAlign: TextAlign.right,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                SizedBox(
+                                                  width: widths.ascents,
+                                                  child: Text(
+                                                    row.ascentCountLabel,
+                                                    key: Key(
+                                                      'peak-lists-details-ascents-${row.peakId}',
+                                                    ),
+                                                    maxLines: 1,
+                                                    softWrap: false,
+                                                    overflow: TextOverflow.clip,
+                                                    textAlign: TextAlign.right,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                            const SizedBox(width: 12),
-                                            SizedBox(
-                                              width: widths.points,
-                                              child: Text(
-                                                row.pointsLabel,
-                                                maxLines: 1,
-                                                softWrap: false,
-                                                overflow: TextOverflow.clip,
-                                                textAlign: TextAlign.right,
-                                              ),
-                                            ),
-                                          ],
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -1487,6 +1537,53 @@ class _PeakDetailsTableCardState extends State<_PeakDetailsTableCard> {
         ),
       ),
     );
+  }
+
+  GlobalKey _rowKeyFor(int peakId) {
+    return _rowKeys.putIfAbsent(peakId, () => GlobalKey());
+  }
+
+  void _centerSelectedRowIfNeeded() {
+    final selectedPeakId = widget.selectedPeakId;
+    if (selectedPeakId == null) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || widget.selectedPeakId != selectedPeakId) {
+        return;
+      }
+
+      final rowContext = _rowKeys[selectedPeakId]?.currentContext;
+      final tableContext = _tableScrollKey.currentContext;
+      if (rowContext == null || tableContext == null) {
+        return;
+      }
+
+      final rowBox = rowContext.findRenderObject() as RenderBox?;
+      final tableBox = tableContext.findRenderObject() as RenderBox?;
+      if (rowBox == null || tableBox == null) {
+        return;
+      }
+
+      final rowTopLeft = rowBox.localToGlobal(Offset.zero);
+      final rowRect = rowTopLeft & rowBox.size;
+      final tableTopLeft = tableBox.localToGlobal(Offset.zero);
+      final tableRect = tableTopLeft & tableBox.size;
+
+      final isVisible =
+          rowRect.top >= tableRect.top && rowRect.bottom <= tableRect.bottom;
+      if (isVisible) {
+        return;
+      }
+
+      Scrollable.ensureVisible(
+        rowContext,
+        alignment: 0.5,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   void _handleSortSelected(_PeakDetailSortColumn column) {
@@ -1567,7 +1664,6 @@ class _PeakDetailsTableCardState extends State<_PeakDetailsTableCard> {
         _PeakDetailSortColumn.ascents => left.ascentCount.compareTo(
           right.ascentCount,
         ),
-        _PeakDetailSortColumn.points => left.points.compareTo(right.points),
       };
       if (comparison != 0) {
         return comparison * direction;
@@ -1667,19 +1763,6 @@ class _PeakDetailsHeaderRow extends StatelessWidget {
           child: _DetailSortHeaderCell(
             label: 'Ascents',
             column: _PeakDetailSortColumn.ascents,
-            sortColumn: sortColumn,
-            sortAscending: sortAscending,
-            onTap: onSortSelected,
-            textStyle: textStyle,
-            textAlign: TextAlign.right,
-          ),
-        ),
-        columnGap,
-        SizedBox(
-          width: widths.points,
-          child: _DetailSortHeaderCell(
-            label: 'Points',
-            column: _PeakDetailSortColumn.points,
             sortColumn: sortColumn,
             sortAscending: sortAscending,
             onTap: onSortSelected,
@@ -1919,10 +2002,12 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
       pointerPosition: localPosition,
       candidates: candidates,
     );
-    final peakId = result.hoveredPeakId ?? _findNearestPeakId(
-      pointerPosition: localPosition,
-      candidates: candidates,
-    );
+    final peakId =
+        result.hoveredPeakId ??
+        _findNearestPeakId(
+          pointerPosition: localPosition,
+          candidates: candidates,
+        );
     if (peakId == null) {
       _clearPopup();
       return;
@@ -1988,14 +2073,19 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
         padding: const EdgeInsets.all(12),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final viewportSize = Size(constraints.maxWidth, constraints.maxHeight);
+            final viewportSize = Size(
+              constraints.maxWidth,
+              constraints.maxHeight,
+            );
             return Stack(
               clipBehavior: Clip.none,
               children: [
                 KeyedSubtree(
                   key: const Key('peak-lists-mini-map'),
                   child: FlutterMap(
-                    key: ValueKey(widget.selectedSummaryRow?.peakList.peakListId),
+                    key: ValueKey(
+                      widget.selectedSummaryRow?.peakList.peakListId,
+                    ),
                     mapController: _mapController,
                     options: MapOptions(
                       initialCameraFit: _resolveInitialCameraFit(markerPeaks),
@@ -2012,19 +2102,21 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                       MarkerLayer(
                         markers:
                             buildPeakMarkers(
-                                  peaks: [for (final peak in markerPeaks) peak.peak],
+                                  peaks: [
+                                    for (final peak in markerPeaks) peak.peak,
+                                  ],
                                   zoom: 0,
                                   correlatedPeakIds: {
                                     for (final peak in markerPeaks.where(
                                       (peak) => peak.isClimbed,
                                     ))
-                                        peak.peak.osmId,
-                                    },
-                                    hoveredPeakId: _hoveredPeakId,
-                                    tickedPeakMarker: _tickedPeakMarker,
-                                    untickedPeakMarker: _untickedPeakMarker,
-                                    suppressBelowZoom: false,
-                                  )
+                                      peak.peak.osmId,
+                                  },
+                                  hoveredPeakId: _hoveredPeakId,
+                                  tickedPeakMarker: _tickedPeakMarker,
+                                  untickedPeakMarker: _untickedPeakMarker,
+                                  suppressBelowZoom: false,
+                                )
                                 .asMap()
                                 .entries
                                 .map((entry) {
@@ -2046,7 +2138,9 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                       ),
                       if (widget.selectedMapPeak != null)
                         CircleLayer(
-                          key: const Key('peak-lists-selected-peak-circle-layer'),
+                          key: const Key(
+                            'peak-lists-selected-peak-circle-layer',
+                          ),
                           circles: [
                             CircleMarker(
                               point: LatLng(
@@ -2096,7 +2190,9 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                         ),
                       );
                       final placement = resolvePeakInfoPopupPlacement(
-                        anchorScreenOffset: _screenOffsetForPeak(_popupContent!.peak),
+                        anchorScreenOffset: _screenOffsetForPeak(
+                          _popupContent!.peak,
+                        ),
                         viewportSize: viewportSize,
                         popupSize: effectivePopupSize,
                       );
@@ -2388,8 +2484,6 @@ class _PeakDetailRow {
   }
 
   String get ascentCountLabel => ascentCount == 0 ? '' : ascentCount.toString();
-
-  String get pointsLabel => points.toString();
 }
 
 class _MapPeak {

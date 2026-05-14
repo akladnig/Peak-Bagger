@@ -14,14 +14,14 @@ void main() {
     expect(shellDestinations.map((it) => it.label), [
       'Dashboard',
       'Map',
-      'Peak Lists',
+      'My Peak Lists',
       'ObjectBox Admin',
       'Settings',
     ]);
     expect(shellDestinations.map((it) => it.title), [
       'Dashboard',
       'Map',
-      'Peak Lists',
+      'My Peak Lists',
       'ObjectBox Admin',
       'Settings',
     ]);

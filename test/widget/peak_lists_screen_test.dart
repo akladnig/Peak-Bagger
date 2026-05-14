@@ -46,6 +46,17 @@ void main() {
     expect(find.byKey(const Key('peak-lists-mini-map')), findsOneWidget);
     expect(find.byKey(const Key('peak-lists-add-list-fab')), findsOneWidget);
     expect(find.byKey(const Key('peak-lists-import-fab')), findsOneWidget);
+    final summaryHeaderCenter = tester.getCenter(
+      find.byKey(const Key('peak-lists-summary-header')),
+    );
+    expect(
+      tester.getCenter(find.byKey(const Key('peak-lists-add-list-fab'))).dy,
+      closeTo(summaryHeaderCenter.dy + 4, 1),
+    );
+    expect(
+      tester.getCenter(find.byKey(const Key('peak-lists-import-fab'))).dy,
+      closeTo(summaryHeaderCenter.dy + 4, 1),
+    );
     expect(find.byKey(const Key('peak-lists-empty-message')), findsOneWidget);
     expect(
       find.text('No peak lists exist. Import a CSV to get started.'),
@@ -54,7 +65,6 @@ void main() {
     expect(find.text('Peak Name'), findsOneWidget);
     expect(find.text('Height'), findsOneWidget);
     expect(find.text('Ascent\nDate'), findsOneWidget);
-    expect(find.text('Points'), findsOneWidget);
   });
 
   testWidgets('tapping a peak row opens and closes the detail dialog', (
@@ -83,7 +93,14 @@ void main() {
     );
 
     tester
-        .widget<InkWell>(find.byKey(const Key('peak-lists-details-row-200')))
+        .widget<InkWell>(
+          find
+              .descendant(
+                of: find.byKey(const Key('peak-lists-details-row-200')),
+                matching: find.byType(InkWell),
+              )
+              .first,
+        )
         .onTap!();
     await tester.pumpAndSettle();
 
@@ -148,7 +165,15 @@ void main() {
           )
           .first,
     );
-    expect(highlightedRowContainer.color, isNotNull);
+    final highlightedDecoration = highlightedRowContainer.decoration as BoxDecoration?;
+    expect(highlightedDecoration, isNotNull);
+    expect(
+      highlightedDecoration!.color,
+      Theme.of(tester.element(find.byKey(const Key('peak-lists-details-pane'))))
+          .colorScheme
+          .primaryContainer,
+    );
+    expect(highlightedDecoration.border, isA<Border>());
 
     await tester.tapAt(tester.getTopLeft(find.byKey(const Key('peak-lists-mini-map'))) + const Offset(10, 10));
     await tester.pumpAndSettle();
@@ -198,6 +223,68 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const Key('peak-marker-hover-200')), findsNothing);
+  });
+
+  testWidgets('selecting an offscreen peak centers the details row', (
+    tester,
+  ) async {
+    final peaks = [
+      for (var index = 1; index <= 20; index++)
+        _buildPeak(
+          index,
+          'Peak $index',
+          -42.0 - (index * 0.01),
+          146.0 + (index * 0.01),
+        ),
+    ];
+
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Tas Peaks', [for (var i = 1; i <= 20; i++) i]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(InMemoryPeakStorage(peaks)),
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage([
+          PeaksBagged(baggedId: 1, peakId: 1, gpxId: 10),
+        ]),
+      ),
+    );
+
+    final rowFinder = find.byKey(const Key('peak-lists-details-row-12'));
+    tester
+        .widget<InkWell>(
+          find.descendant(of: rowFinder, matching: find.byType(InkWell)).first,
+        )
+        .onTap!();
+    await tester.pumpAndSettle();
+
+    final rowCenter = tester.getCenter(rowFinder);
+    final cardCenter = tester.getCenter(
+      find
+          .descendant(
+            of: find.byKey(const Key('peak-lists-details-pane')),
+            matching: find.byType(Card),
+          )
+          .first,
+    );
+    final rowContainer = tester.widget<Container>(
+      find.descendant(of: rowFinder, matching: find.byType(Container)).first,
+    );
+
+    final rowDecoration = rowContainer.decoration as BoxDecoration?;
+    expect(rowDecoration, isNotNull);
+    expect(
+      rowDecoration!.color,
+      Theme.of(tester.element(find.byKey(const Key('peak-lists-details-pane'))))
+          .colorScheme
+          .primaryContainer,
+    );
+    expect(rowDecoration.border, isA<Border>());
+    expect(rowCenter.dy, closeTo(cardCenter.dy, 120));
   });
 
   testWidgets('add dialog selects the first saved alphabetical peak', (
@@ -265,7 +352,9 @@ void main() {
           .descendant(of: selectedRowFinder, matching: find.byType(Container))
           .first,
     );
-    expect(selectedRowContainer.color, isNotNull);
+    final selectedRowDecoration = selectedRowContainer.decoration as BoxDecoration?;
+    expect(selectedRowDecoration, isNotNull);
+    expect(selectedRowDecoration!.color, isNotNull);
     expect(
       decodePeakListItems(
         peakListRepository.findByName('Tasmania')!.peakList,
@@ -455,20 +544,6 @@ void main() {
     expect(
       tester.widget<Text>(find.byKey(const Key('peak-lists-unclimbed-1'))).data,
       '1',
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(const Key('peak-lists-details-row-200')),
-        matching: find.text('7'),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(const Key('peak-lists-details-row-100')),
-        matching: find.text('5'),
-      ),
-      findsOneWidget,
     );
     final summaryText = tester
         .widget<Text>(find.byKey(const Key('peak-lists-summary-sentence')))
@@ -665,6 +740,13 @@ void main() {
           .data,
       'Abels',
     );
+    final selectedRowContainer = tester.widget<Container>(
+      find.byKey(const Key('peak-lists-row-decoration-1')),
+    );
+    final selectedRowDecoration = selectedRowContainer.decoration as BoxDecoration?;
+    expect(selectedRowDecoration, isNotNull);
+    expect(selectedRowDecoration!.color, isNotNull);
+    expect(selectedRowDecoration.border, isA<Border>());
 
     tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-2'))).onTap!();
     await tester.pumpAndSettle();
@@ -727,7 +809,14 @@ void main() {
     );
 
     tester
-        .widget<InkWell>(find.byKey(const Key('peak-lists-details-row-102')))
+        .widget<InkWell>(
+          find
+              .descendant(
+                of: find.byKey(const Key('peak-lists-details-row-102')),
+                matching: find.byType(InkWell),
+              )
+              .first,
+        )
         .onTap!();
     await tester.pumpAndSettle();
 
@@ -761,7 +850,14 @@ void main() {
     );
 
     tester
-        .widget<InkWell>(find.byKey(const Key('peak-lists-details-row-100')))
+        .widget<InkWell>(
+          find
+              .descendant(
+                of: find.byKey(const Key('peak-lists-details-row-100')),
+                matching: find.byType(InkWell),
+              )
+              .first,
+        )
         .onTap!();
     await tester.pumpAndSettle();
 
@@ -1059,7 +1155,7 @@ void main() {
     );
     expect(
       tester.getSize(find.byKey(const Key('peak-lists-row-1'))).height,
-      greaterThanOrEqualTo(48),
+      lessThan(48),
     );
     expect(
       tester
@@ -1128,9 +1224,8 @@ void main() {
         repository: repository,
       );
 
-      tester
-          .widget<IconButton>(find.byKey(const Key('peak-lists-delete-2')))
-          .onPressed!();
+      await tester.ensureVisible(find.byKey(const Key('peak-lists-delete-2')));
+      await tester.tap(find.byKey(const Key('peak-lists-delete-2')));
       await tester.pumpAndSettle();
       expect(find.text('Delete Peak List?'), findsOneWidget);
 
@@ -1139,9 +1234,8 @@ void main() {
 
       expect(find.byKey(const Key('peak-lists-row-2')), findsOneWidget);
 
-      tester
-          .widget<IconButton>(find.byKey(const Key('peak-lists-delete-2')))
-          .onPressed!();
+      await tester.ensureVisible(find.byKey(const Key('peak-lists-delete-2')));
+      await tester.tap(find.byKey(const Key('peak-lists-delete-2')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('confirm-delete')));
       await tester.pumpAndSettle();
@@ -1171,9 +1265,8 @@ void main() {
 
     tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-2'))).onTap!();
     await tester.pumpAndSettle();
-    tester
-        .widget<IconButton>(find.byKey(const Key('peak-lists-delete-2')))
-        .onPressed!();
+    await tester.ensureVisible(find.byKey(const Key('peak-lists-delete-2')));
+    await tester.tap(find.byKey(const Key('peak-lists-delete-2')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('confirm-delete')));
     await tester.pumpAndSettle();
@@ -1185,9 +1278,8 @@ void main() {
       'Charlie',
     );
 
-    tester
-        .widget<IconButton>(find.byKey(const Key('peak-lists-delete-3')))
-        .onPressed!();
+    await tester.ensureVisible(find.byKey(const Key('peak-lists-delete-3')));
+    await tester.tap(find.byKey(const Key('peak-lists-delete-3')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('confirm-delete')));
     await tester.pumpAndSettle();
@@ -1199,9 +1291,8 @@ void main() {
       'Abels',
     );
 
-    tester
-        .widget<IconButton>(find.byKey(const Key('peak-lists-delete-1')))
-        .onPressed!();
+    await tester.ensureVisible(find.byKey(const Key('peak-lists-delete-1')));
+    await tester.tap(find.byKey(const Key('peak-lists-delete-1')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('confirm-delete')));
     await tester.pumpAndSettle();
@@ -1238,9 +1329,8 @@ void main() {
 
     tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-2'))).onTap!();
     await tester.pumpAndSettle();
-    tester
-        .widget<IconButton>(find.byKey(const Key('peak-lists-delete-2')))
-        .onPressed!();
+    await tester.ensureVisible(find.byKey(const Key('peak-lists-delete-2')));
+    await tester.tap(find.byKey(const Key('peak-lists-delete-2')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('confirm-delete')));
     await tester.pumpAndSettle();

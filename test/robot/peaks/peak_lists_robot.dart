@@ -134,7 +134,8 @@ class PeakListsRobot {
 
   Future<void> openPeakDialog(int peakId) async {
     final row = find.byKey(Key('peak-lists-details-row-$peakId'));
-    tester.widget<InkWell>(row).onTap!();
+    final tapTarget = find.descendant(of: row, matching: find.byType(InkWell));
+    tester.widget<InkWell>(tapTarget).onTap!();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 150));
     await tester.pumpAndSettle();
@@ -194,7 +195,7 @@ class PeakListsRobot {
   }
 
   Future<void> deleteRow(int peakListId) async {
-    tester.widget<IconButton>(deleteButtonFor(peakListId)).onPressed!();
+    tester.widget<InkResponse>(deleteButtonFor(peakListId)).onTap!();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
   }
