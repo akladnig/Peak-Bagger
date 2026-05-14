@@ -13,7 +13,6 @@ import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
-import 'package:peak_bagger/services/tasmap_repository.dart';
 
 import '../harness/test_map_notifier.dart';
 import '../harness/test_tasmap_notifier.dart';
