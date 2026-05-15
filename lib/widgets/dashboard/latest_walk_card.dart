@@ -257,6 +257,7 @@ class _LatestWalkMiniMap extends StatelessWidget {
             color: theme.colorScheme.surfaceContainerHighest,
           ),
           child: FlutterMap(
+            key: ValueKey('latest-walk-map-${track.gpxTrackId}'),
             options: options,
             children: [
               TileLayer(

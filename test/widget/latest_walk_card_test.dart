@@ -85,6 +85,7 @@ void main() {
       tester.widget<IconButton>(find.byKey(const Key('latest-walk-next-track'))).onPressed,
       isNull,
     );
+    expect(find.byKey(const ValueKey('latest-walk-map-20')), findsOneWidget);
   });
 
   testWidgets('paginates tracks with next disabled at latest', (tester) async {
@@ -138,6 +139,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Track 10'), findsOneWidget);
+    expect(find.byKey(const ValueKey('latest-walk-map-10')), findsOneWidget);
     expect(
       tester.widget<IconButton>(find.byKey(const Key('latest-walk-next-track'))).onPressed,
       isNotNull,
@@ -147,6 +149,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Track 20'), findsOneWidget);
+    expect(find.byKey(const ValueKey('latest-walk-map-20')), findsOneWidget);
   });
 
   testWidgets('renders peak markers for correlated peaks', (tester) async {
