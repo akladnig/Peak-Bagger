@@ -94,7 +94,7 @@ void _runShellPreNavigationCleanup(WidgetRef ref) {
 }
 
 final router = GoRouter(
-  initialLocation: '/map',
+  initialLocation: '/',
   routes: [
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) {
