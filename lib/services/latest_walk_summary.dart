@@ -66,11 +66,16 @@ class LatestWalkSummary {
   }
 
   static GpxTrack? selectLatestTrack(Iterable<GpxTrack> tracks) {
-    final sorted = tracks.where((track) => track.startDateTime != null).toList();
+    final sorted = orderedTracks(tracks);
     if (sorted.isEmpty) {
       return null;
     }
 
+    return sorted.first;
+  }
+
+  static List<GpxTrack> orderedTracks(Iterable<GpxTrack> tracks) {
+    final sorted = tracks.where((track) => track.startDateTime != null).toList();
     sorted.sort((a, b) {
       final startComparison = b.startDateTime!.compareTo(a.startDateTime!);
       if (startComparison != 0) {
@@ -78,8 +83,25 @@ class LatestWalkSummary {
       }
       return b.gpxTrackId.compareTo(a.gpxTrackId);
     });
+    return List<GpxTrack>.unmodifiable(sorted);
+  }
 
-    return sorted.first;
+  static int indexOfTrackId(List<GpxTrack> tracks, int trackId) {
+    return tracks.indexWhere((track) => track.gpxTrackId == trackId);
+  }
+
+  static GpxTrack? previousTrack(List<GpxTrack> tracks, int index) {
+    if (index <= 0 || index >= tracks.length) {
+      return null;
+    }
+    return tracks[index - 1];
+  }
+
+  static GpxTrack? nextTrack(List<GpxTrack> tracks, int index) {
+    if (index < 0 || index >= tracks.length - 1) {
+      return null;
+    }
+    return tracks[index + 1];
   }
 
   static List<List<LatLng>> _safeSegments(GpxTrack track) {

@@ -71,6 +71,40 @@ void main() {
     expect(summary.track?.gpxTrackId, 20);
   });
 
+  test('orders tracks newest first and exposes paging bounds', () {
+    final ordered = LatestWalkSummary.orderedTracks([
+      _track(
+        10,
+        DateTime.utc(2026, 5, 14, 10),
+        segments: [
+          [const LatLng(-41.5, 146.5), const LatLng(-41.4, 146.6)],
+        ],
+      ),
+      _track(
+        20,
+        DateTime.utc(2026, 5, 15, 10),
+        segments: [
+          [const LatLng(-41.6, 146.6), const LatLng(-41.7, 146.7)],
+        ],
+      ),
+      _track(
+        30,
+        DateTime.utc(2026, 5, 13, 10),
+        segments: [
+          [const LatLng(-41.8, 146.8), const LatLng(-41.9, 146.9)],
+        ],
+      ),
+      _track(40, null),
+    ]);
+
+    expect(ordered.map((track) => track.gpxTrackId), [20, 10, 30]);
+    expect(LatestWalkSummary.indexOfTrackId(ordered, 20), 0);
+    expect(LatestWalkSummary.indexOfTrackId(ordered, 10), 1);
+    expect(LatestWalkSummary.previousTrack(ordered, 0), isNull);
+    expect(LatestWalkSummary.nextTrack(ordered, 0)?.gpxTrackId, 10);
+    expect(LatestWalkSummary.nextTrack(ordered, 2), isNull);
+  });
+
   test('shows empty when newest track has no usable geometry', () {
     final summary = LatestWalkSummary.fromTracks([
       _track(

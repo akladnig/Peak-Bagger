@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -139,6 +140,74 @@ void main() {
 
     expect(find.text('Track 20'), findsOneWidget);
     expect(robot.latestWalkCard, findsOneWidget);
+  });
+
+  testWidgets('dashboard journey pages latest walk tracks', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+
+    final robot = DashboardRobot(tester);
+    final notifier = TestMapNotifier(
+      const MapState(
+        center: LatLng(-41.5, 146.5),
+        zoom: 12,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    final container = ProviderContainer(
+      overrides: [
+        mapProvider.overrideWith(() => notifier),
+        tasmapRepositoryProvider.overrideWithValue(
+          await TestTasmapRepository.create(),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await robot.pumpApp(container: container);
+    await robot.openDashboard();
+
+    notifier.setTracks([
+      _track(
+        10,
+        DateTime.utc(2026, 5, 14, 10),
+        segments: [
+          [const LatLng(-41.5, 146.5), const LatLng(-41.4, 146.6)],
+        ],
+      ),
+      _track(
+        20,
+        DateTime.utc(2026, 5, 15, 10),
+        segments: [
+          [const LatLng(-41.6, 146.6), const LatLng(-41.7, 146.7)],
+        ],
+      ),
+      _track(
+        30,
+        DateTime.utc(2026, 5, 13, 10),
+        segments: [
+          [const LatLng(-41.8, 146.8), const LatLng(-41.9, 146.9)],
+        ],
+      ),
+    ]);
+    await tester.pumpAndSettle();
+
+    expect(robot.latestWalkTitle, findsOneWidget);
+    expect(find.text('Track 20'), findsOneWidget);
+    expect(
+      tester.widget<IconButton>(robot.latestWalkNextTrack).onPressed,
+      isNull,
+    );
+    expect(
+      tester.widget<IconButton>(robot.latestWalkPrevTrack).onPressed,
+      isNotNull,
+    );
+
+    await robot.tapLatestWalkPrev();
+    expect(find.text('Track 10'), findsOneWidget);
+
+    await robot.tapLatestWalkNext();
+    expect(find.text('Track 20'), findsOneWidget);
   });
 }
 

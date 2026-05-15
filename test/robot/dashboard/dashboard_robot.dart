@@ -19,6 +19,9 @@ class DashboardRobot {
   Finder dragHandle(String id) => find.byKey(Key('dashboard-card-$id-drag-handle'));
   Finder get latestWalkCard => find.byKey(const Key('latest-walk-card'));
   Finder get latestWalkEmptyState => find.byKey(const Key('latest-walk-empty-state'));
+  Finder get latestWalkPrevTrack => find.byKey(const Key('latest-walk-prev-track'));
+  Finder get latestWalkNextTrack => find.byKey(const Key('latest-walk-next-track'));
+  Finder get latestWalkTitle => find.byKey(const Key('latest-walk-track-title'));
 
   Future<void> pumpApp({required ProviderContainer container}) async {
     this.container = container;
@@ -49,6 +52,16 @@ class DashboardRobot {
     await gesture.moveTo(end);
     await tester.pump();
     await gesture.up();
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapLatestWalkPrev() async {
+    await tester.tap(latestWalkPrevTrack);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapLatestWalkNext() async {
+    await tester.tap(latestWalkNextTrack);
     await tester.pumpAndSettle();
   }
 
