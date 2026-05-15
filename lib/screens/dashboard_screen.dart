@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/dashboard_layout_provider.dart';
 import '../providers/map_provider.dart';
+import '../widgets/dashboard/elevation_card.dart';
 import '../widgets/dashboard/latest_walk_card.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -24,6 +25,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final order = ref.watch(dashboardLayoutProvider);
+    final tracks = ref.watch(mapProvider.select((state) => state.tracks));
+    final isLoadingTracks = ref.watch(
+      mapProvider.select((state) => state.isLoadingTracks),
+    );
 
     return Scaffold(
       body: SafeArea(
@@ -45,13 +50,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   final definition = dashboardCards.firstWhere(
                     (card) => card.id == order[index],
                   );
-                  final body = definition.id == 'latest-walk'
-                      ? LatestWalkCard(
-                          tracks: ref.watch(
-                            mapProvider.select((state) => state.tracks),
-                          ),
-                        )
-                      : const _DashboardCardBody();
+                  final body = switch (definition.id) {
+                    'latest-walk' => LatestWalkCard(tracks: tracks),
+                    'elevation' => ElevationCard(
+                      tracks: tracks,
+                      isLoading: isLoadingTracks,
+                    ),
+                    _ => const _DashboardCardBody(),
+                  };
                   return _DashboardCard(
                     definition: definition,
                     body: body,

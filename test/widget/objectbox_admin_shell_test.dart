@@ -33,7 +33,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('app-bar-title')),
-        matching: find.text('Map'),
+        matching: find.text('Dashboard'),
       ),
       findsOneWidget,
     );
