@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 const dashboardCardOrderStorageKey = 'dashboard_card_order';
 
 const dashboardCardAspectRatio = 4 / 3;
-const dashboardDesktopWideBreakpoint = 1200.0;
+const dashboardDesktopWideBreakpoint = 1500.0;
 const dashboardDesktopMediumBreakpoint = 800.0;
 
 class DashboardCardDefinition {

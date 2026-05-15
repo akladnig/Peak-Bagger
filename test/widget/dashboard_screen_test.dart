@@ -15,7 +15,7 @@ void main() {
   group('DashboardScreen', () {
     testWidgets('renders six placeholder cards', (tester) async {
     SharedPreferences.setMockInitialValues({});
-    await _pumpDashboard(tester, const Size(1400, 1000));
+    await _pumpDashboard(tester, const Size(1400, 1800));
 
     for (final card in dashboardCards) {
         expect(find.text(card.title), findsOneWidget);
@@ -42,10 +42,10 @@ void main() {
 
     testWidgets('uses the 3/2/1 column contract', (tester) async {
     SharedPreferences.setMockInitialValues({});
-    await _pumpDashboard(tester, const Size(1400, 1000));
+    await _pumpDashboard(tester, const Size(1600, 1000));
     _expectGridContract(tester, 3);
 
-      await _pumpDashboard(tester, const Size(1000, 1000));
+      await _pumpDashboard(tester, const Size(1400, 1000));
       _expectGridContract(tester, 2);
 
       await _pumpDashboard(tester, const Size(700, 1000));
@@ -69,7 +69,7 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      await tester.binding.setSurfaceSize(const Size(1400, 1000));
+      await tester.binding.setSurfaceSize(const Size(1400, 1800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       await tester.pumpWidget(

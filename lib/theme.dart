@@ -10,8 +10,6 @@ class CatppuccinColors {
     return ThemeData(
       brightness: Brightness.dark,
       colorScheme: const ColorScheme.dark(
-        // onPrimary: Color(0xFFCDD6F4),
-        // primary: Color(0xFF89B4FA),
         primary: Color(0xFF6347EA),
         onPrimary: Color(0xFFA89FFF),
         secondary: Color(0xFF191919),
@@ -20,7 +18,6 @@ class CatppuccinColors {
         onTertiary: Color(0xFFCDD6F4),
         primaryContainer: Color(0xFF221B52),
         onPrimaryContainer: Colors.white,
-        // surface: Color(0xFF1E1E2E),
         surface: Color(0xFF111111),
         onSurface: Color(0xFFCDD6F4),
         surfaceContainer: Color(0xFF191919),
@@ -29,12 +26,9 @@ class CatppuccinColors {
         error: Color(0xFFF38BA8),
         onError: Color(0xFFCDD6F4),
       ),
-      // scaffoldBackgroundColor: const Color(0xFF1E1E2E),
       scaffoldBackgroundColor: const Color(0xFF111111),
       appBarTheme: const AppBarTheme(
-        // backgroundColor: Color(0xFF313244),
         backgroundColor: Color(0xFF111111),
-        // backgroundColor: Color(0xFF221B52),
         foregroundColor: Color(0xFFCDD6F4),
         elevation: 2,
         surfaceTintColor: Colors.transparent,

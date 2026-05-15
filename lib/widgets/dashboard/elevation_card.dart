@@ -2,10 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../core/constants.dart';
 import '../../models/gpx_track.dart';
 import '../../services/elevation_summary_service.dart';
-
-enum ElevationDisplayMode { columns, line }
+import 'elevation_chart.dart';
 
 class ElevationCard extends StatefulWidget {
   const ElevationCard({
@@ -24,7 +24,7 @@ class ElevationCard extends StatefulWidget {
 }
 
 class _ElevationCardState extends State<ElevationCard> {
-  static const double _bucketExtent = 72;
+  static const double _bucketExtent = DashboardUI.columnWidth;
 
   final ElevationSummaryService _service = const ElevationSummaryService();
   final ScrollController _scrollController = ScrollController();
@@ -124,69 +124,79 @@ class _ElevationCardState extends State<ElevationCard> {
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _ElevationHeader(
-              period: _period,
-              totalMetres: timeline.totalMetres,
-              averageMetres: timeline.averageMetres,
-              onPeriodChanged: _selectPeriod,
-              onPrevious: () => _shiftWindow(false),
-              onNext: () => _shiftWindow(true),
-              canMovePrevious: _canMovePrevious(timeline.buckets.length),
-              canMoveNext: _canMoveNext(timeline.buckets.length),
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  _viewportWidth = constraints.maxWidth;
-                  _maxScrollExtent = math.max(
-                    0,
-                    (timeline.buckets.length * _bucketExtent) - constraints.maxWidth,
-                  );
-                  _syncScrollPosition(timeline.buckets.length);
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                _viewportWidth = constraints.maxWidth;
+                _maxScrollExtent = math.max(
+                  0,
+                  (timeline.buckets.length * _bucketExtent) - constraints.maxWidth,
+                );
+                _syncScrollPosition(timeline.buckets.length);
 
-                  final visibleBuckets = _visibleBuckets(timeline.buckets, constraints.maxWidth);
-                  final visibleTotal = _service.visibleTotalMetres(visibleBuckets);
-                  final visibleAverage = _service.visibleAverageMetres(visibleBuckets);
+                final visibleBuckets = _visibleBuckets(
+                  timeline.buckets,
+                  constraints.maxWidth,
+                );
+                final visibleTotal = _service.visibleTotalMetres(visibleBuckets);
+                final visibleAverage = _service.visibleAverageMetres(visibleBuckets);
 
-                  return Stack(
-                    children: [
-                      Positioned.fill(
-                        child: _ElevationTimelineStrip(
-                          key: const Key('elevation-scroll-view'),
-                          controller: _scrollController,
-                          buckets: timeline.buckets,
-                          mode: _mode,
-                          bucketExtent: _bucketExtent,
-                          visibleTotal: visibleTotal,
-                          visibleAverage: visibleAverage,
-                        ),
-                      ),
-                      Positioned(
-                        top: 0,
-                        right: 0,
-                        child: FloatingActionButton.small(
-                          key: const Key('elevation-mode-fab'),
-                          onPressed: _toggleMode,
-                          tooltip: _mode == ElevationDisplayMode.columns
-                              ? 'Switch to line view'
-                              : 'Switch to column view',
-                          child: Icon(
-                            _mode == ElevationDisplayMode.columns
-                                ? Icons.show_chart
-                                : Icons.bar_chart,
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _ElevationHeader(
+                      period: _period,
+                      totalMetres: visibleTotal,
+                      averageMetres: visibleAverage,
+                      onPeriodChanged: _selectPeriod,
+                      onPrevious: () => _shiftWindow(false),
+                      onNext: () => _shiftWindow(true),
+                      canMovePrevious: _canMovePrevious(timeline.buckets.length),
+                      canMoveNext: _canMoveNext(timeline.buckets.length),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: ElevationChart(
+                              key: const Key('elevation-scroll-view'),
+                              controller: _scrollController,
+                              buckets: timeline.buckets,
+                              mode: _mode,
+                              bucketExtent: _bucketExtent,
+                              visibleTotalMetres: visibleTotal,
+                              visibleAverageMetres: visibleAverage,
+                            ),
                           ),
-                        ),
+                          Positioned(
+                            top: 0,
+                            right: 0,
+                            child: FloatingActionButton.small(
+                              key: const Key('elevation-mode-fab'),
+                              onPressed: _toggleMode,
+                              tooltip: _mode == ElevationDisplayMode.columns
+                                  ? 'Switch to line view'
+                                  : 'Switch to column view',
+                              child: Icon(
+                                _mode == ElevationDisplayMode.columns
+                                    ? Icons.show_chart
+                                    : Icons.bar_chart,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  );
-                },
-              ),
+                    ),
+                  ],
+                );
+              },
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -214,7 +224,9 @@ class _ElevationCardState extends State<ElevationCard> {
         return;
       }
 
-      final target = _anchoredToLatest ? _scrollController.offset.clamp(0.0, _maxScrollExtent) : _maxScrollExtent;
+      final target = _anchoredToLatest
+          ? _scrollController.offset.clamp(0.0, _maxScrollExtent).toDouble()
+          : _maxScrollExtent;
       if (!_anchoredToLatest) {
         _anchoredToLatest = true;
       }
@@ -232,10 +244,15 @@ class _ElevationCardState extends State<ElevationCard> {
 
     final visibleCount = math.max(1, (viewportWidth / _bucketExtent).floor());
     final maxStartIndex = math.max(0, buckets.length - visibleCount);
+    if (!_scrollController.hasClients) {
+      return buckets.sublist(maxStartIndex, buckets.length);
+    }
+
+    final currentOffset = _scrollController.offset.clamp(0.0, _maxScrollExtent).toDouble();
     final startIndex = _anchoredToLatest
         ? math.min(
             maxStartIndex,
-            (_scrollController.offset / _bucketExtent).floor(),
+            math.max(0, (currentOffset / _bucketExtent).floor()),
           )
         : maxStartIndex;
     final endIndex = math.min(buckets.length, startIndex + visibleCount);
@@ -319,8 +336,16 @@ class _ElevationHeader extends StatelessWidget {
                     )
                     .toList(growable: false),
               ),
-              _MetricPill(label: 'Total', value: '$totalMetres m'),
-              _MetricPill(label: 'Average', value: '$averageMetres m'),
+              _MetricPill(
+                key: const Key('elevation-total-metric'),
+                label: 'Total',
+                value: '$totalMetres m',
+              ),
+              _MetricPill(
+                key: const Key('elevation-average-metric'),
+                label: 'Average',
+                value: '$averageMetres m',
+              ),
               IconButton(
                 key: const Key('elevation-prev-window'),
                 tooltip: 'Previous window',
@@ -342,7 +367,7 @@ class _ElevationHeader extends StatelessWidget {
 }
 
 class _MetricPill extends StatelessWidget {
-  const _MetricPill({required this.label, required this.value});
+  const _MetricPill({super.key, required this.label, required this.value});
 
   final String label;
   final String value;
@@ -359,129 +384,6 @@ class _MetricPill extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Text('$label $value'),
-      ),
-    );
-  }
-}
-
-class _ElevationTimelineStrip extends StatelessWidget {
-  const _ElevationTimelineStrip({
-    super.key,
-    required this.controller,
-    required this.buckets,
-    required this.mode,
-    required this.bucketExtent,
-    required this.visibleTotal,
-    required this.visibleAverage,
-  });
-
-  final ScrollController controller;
-  final List<ElevationBucket> buckets;
-  final ElevationDisplayMode mode;
-  final double bucketExtent;
-  final int visibleTotal;
-  final int visibleAverage;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final maxAscent = buckets.fold<double>(0, (maxValue, bucket) => math.max(maxValue, bucket.ascentMetres));
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text('Visible: $visibleTotal m average $visibleAverage m'),
-        ),
-        Expanded(
-          child: ListView.builder(
-            controller: controller,
-            scrollDirection: Axis.horizontal,
-            itemExtent: bucketExtent,
-            itemCount: buckets.length,
-            itemBuilder: (context, index) {
-              final bucket = buckets[index];
-              final heightFactor = maxAscent <= 0 ? 0.0 : bucket.ascentMetres / maxAscent;
-
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: _ElevationBucketTile(
-                  key: Key('elevation-bucket-$index'),
-                  bucket: bucket,
-                  mode: mode,
-                  heightFactor: heightFactor,
-                  color: theme.colorScheme.primary,
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ElevationBucketTile extends StatelessWidget {
-  const _ElevationBucketTile({
-    super.key,
-    required this.bucket,
-    required this.mode,
-    required this.heightFactor,
-    required this.color,
-  });
-
-  final ElevationBucket bucket;
-  final ElevationDisplayMode mode;
-  final double heightFactor;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final barHeight = 24 + (heightFactor * 84);
-
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: SizedBox(
-        width: 48,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              bucket.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall,
-            ),
-            const SizedBox(height: 4),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              width: mode == ElevationDisplayMode.columns ? 18 : 12,
-              height: math.max(24, barHeight),
-              decoration: BoxDecoration(
-                color: mode == ElevationDisplayMode.columns
-                    ? color.withValues(alpha: 0.8)
-                    : color.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(mode == ElevationDisplayMode.columns ? 8 : 999),
-              ),
-              child: Center(
-                child: Icon(
-                  mode == ElevationDisplayMode.columns ? Icons.square : Icons.circle,
-                  size: mode == ElevationDisplayMode.columns ? 10 : 8,
-                  color: theme.colorScheme.onPrimary,
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${bucket.roundedAscentMetres} m',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall,
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -64,3 +64,7 @@ abstract final class UiConstants {
   static const actionsColumnWidth = 72.0;
   static const sideMenuColumnWidth = 70.0;
 }
+
+abstract final class DashboardUI {
+  static const columnWidth = 56.0;
+}

@@ -25,12 +25,12 @@ fl_chart renderers, rolling windows, total + average, hover, scroll, mode toggle
 ### Phase 2: fl_chart interactions + journeys
 
 - **Goal**: chart renderers; hover; smooth line/bar toggle; robot coverage
-- [ ] `pubspec.yaml` - add `fl_chart`
-- [ ] `lib/widgets/dashboard/elevation_chart.dart` - bar + smoothed-line renderers; horizontal scroll; hover popup; top-right FAB; bucket keys
-- [ ] `lib/widgets/dashboard/elevation_card.dart` - connect chart state, period presets, mode toggle, and arrow transitions
-- [ ] `test/widget/elevation_card_test.dart` - TDD: mode toggle; hover popup; weekly labels for 3/6-month views; initial right-edge anchor; no-hover touch fallback
-- [ ] `test/robot/dashboard/elevation_journey_test.dart` - critical journey with stable keys/seams: open dashboard -> change period -> scroll -> verify total/avg -> toggle mode -> hover inspect -> arrow clamp
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `pubspec.yaml` - add `fl_chart`
+- [x] `lib/widgets/dashboard/elevation_chart.dart` - bar + smoothed-line renderers; horizontal scroll; hover popup; top-right FAB; bucket keys
+- [x] `lib/widgets/dashboard/elevation_card.dart` - connect chart state, period presets, mode toggle, and arrow transitions
+- [x] `test/widget/elevation_card_test.dart` - TDD: mode toggle; hover popup; weekly labels for 3/6-month views; initial right-edge anchor; no-hover touch fallback
+- [x] `test/robot/dashboard/elevation_journey_test.dart` - critical journey with stable keys/seams: open dashboard -> change period -> scroll -> verify total/avg -> toggle mode -> hover inspect -> arrow clamp
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 - **Risks**: fl_chart hover/touch parity; scroll/animation determinism; timezone boundary handling
