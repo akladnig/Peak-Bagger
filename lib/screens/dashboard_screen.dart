@@ -7,6 +7,7 @@ import '../core/number_formatters.dart';
 import '../providers/dashboard_layout_provider.dart';
 import '../providers/map_provider.dart';
 import '../services/summary_card_service.dart';
+import '../widgets/dashboard/distance_card.dart';
 import '../widgets/dashboard/elevation_card.dart';
 import '../widgets/dashboard/latest_walk_card.dart';
 import '../widgets/dashboard/summary_card.dart';
@@ -20,6 +21,7 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   SummaryVisibleSummary? _elevationSummary;
+  SummaryVisibleSummary? _distanceSummary;
 
   @override
   void initState() {
@@ -34,6 +36,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     setState(() {
       _elevationSummary = summary;
+    });
+  }
+
+  void _handleDistanceSummaryChanged(SummaryVisibleSummary? summary) {
+    if (_distanceSummary == summary) {
+      return;
+    }
+
+    setState(() {
+      _distanceSummary = summary;
     });
   }
 
@@ -66,6 +78,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     (card) => card.id == order[index],
                   );
                   final body = switch (definition.id) {
+                    'distance' => DistanceCard(
+                      tracks: tracks,
+                      isLoading: isLoadingTracks,
+                      onVisibleSummaryChanged: _handleDistanceSummaryChanged,
+                    ),
                     'latest-walk' => LatestWalkCard(tracks: tracks),
                     'elevation' => ElevationCard(
                       tracks: tracks,
@@ -76,15 +93,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   };
                   return _DashboardCard(
                     definition: definition,
-                    headerTrailing:
-                        definition.id == 'elevation' &&
-                            _elevationSummary != null
-                        ? _DashboardCardHeaderMetrics(
-                            summary: _elevationSummary!,
-                            valueFormatter: (value) =>
-                                '${formatElevationMetres(value.round())} m',
-                          )
-                        : null,
+                    headerTrailing: switch (definition.id) {
+                      'elevation' when _elevationSummary != null =>
+                        _DashboardCardHeaderMetrics(
+                          summary: _elevationSummary!,
+                          valueFormatter: (value) =>
+                              '${formatElevationMetres(value.round())} m',
+                        ),
+                      'distance' when _distanceSummary != null =>
+                        _DashboardCardHeaderMetrics(
+                          summary: _distanceSummary!,
+                          valueFormatter: formatDistance,
+                        ),
+                      _ => null,
+                    },
                     body: body,
                     onMove: (draggedId, targetId) {
                       unawaited(

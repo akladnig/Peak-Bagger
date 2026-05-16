@@ -91,7 +91,7 @@ void main() {
     expect(robot.dragHandle('distance'), findsOneWidget);
   });
 
-  testWidgets('dashboard journey refreshes latest walk card after track update', (
+  testWidgets('dashboard journey exposes scoped distance controls', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -118,29 +118,86 @@ void main() {
     await robot.pumpApp(container: container);
     await robot.openDashboard();
 
-    expect(robot.latestWalkEmptyState, findsOneWidget);
-
     notifier.setTracks([
       _track(
         10,
-        DateTime.utc(2026, 5, 14, 10),
-        segments: [
-          [const LatLng(-41.5, 146.5), const LatLng(-41.4, 146.6)],
-        ],
-      ),
-      _track(
-        20,
         DateTime.utc(2026, 5, 15, 10),
         segments: [
-          [const LatLng(-41.6, 146.6), const LatLng(-41.7, 146.7)],
+          [const LatLng(-41.5, 146.5), const LatLng(-41.4, 146.6)],
         ],
       ),
     ]);
     await tester.pumpAndSettle();
 
-    expect(find.text('Track 20'), findsOneWidget);
-    expect(robot.latestWalkCard, findsOneWidget);
+    expect(
+      robot.summaryControl('distance', 'summary-period-dropdown'),
+      findsOneWidget,
+    );
+    expect(
+      robot.summaryControl('distance', 'summary-prev-window'),
+      findsOneWidget,
+    );
+    expect(
+      robot.summaryControl('distance', 'summary-next-window'),
+      findsOneWidget,
+    );
+    expect(
+      robot.summaryControl('distance', 'summary-mode-fab'),
+      findsOneWidget,
+    );
   });
+
+  testWidgets(
+    'dashboard journey refreshes latest walk card after track update',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+
+      final robot = DashboardRobot(tester);
+      final notifier = TestMapNotifier(
+        const MapState(
+          center: LatLng(-41.5, 146.5),
+          zoom: 12,
+          basemap: Basemap.tracestrack,
+        ),
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(() => notifier),
+          tasmapRepositoryProvider.overrideWithValue(
+            await TestTasmapRepository.create(),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await robot.pumpApp(container: container);
+      await robot.openDashboard();
+
+      expect(robot.latestWalkEmptyState, findsOneWidget);
+
+      notifier.setTracks([
+        _track(
+          10,
+          DateTime.utc(2026, 5, 14, 10),
+          segments: [
+            [const LatLng(-41.5, 146.5), const LatLng(-41.4, 146.6)],
+          ],
+        ),
+        _track(
+          20,
+          DateTime.utc(2026, 5, 15, 10),
+          segments: [
+            [const LatLng(-41.6, 146.6), const LatLng(-41.7, 146.7)],
+          ],
+        ),
+      ]);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Track 20'), findsOneWidget);
+      expect(robot.latestWalkCard, findsOneWidget);
+    },
+  );
 
   testWidgets('dashboard journey pages latest walk tracks', (tester) async {
     SharedPreferences.setMockInitialValues({});
