@@ -16,23 +16,27 @@ class DashboardRobot {
   Finder get homeButton => find.byKey(const Key('app-bar-home'));
   Finder get board => find.byKey(const Key('dashboard-board'));
   Finder card(String id) => find.byKey(Key('dashboard-card-$id'));
-  Finder dragHandle(String id) => find.byKey(Key('dashboard-card-$id-drag-handle'));
+  Finder dragHandle(String id) =>
+      find.byKey(Key('dashboard-card-$id-drag-handle'));
+  Finder summaryControl(String id, String key) =>
+      find.descendant(of: card(id), matching: find.byKey(Key(key)));
   Finder get latestWalkCard => find.byKey(const Key('latest-walk-card'));
-  Finder get latestWalkEmptyState => find.byKey(const Key('latest-walk-empty-state'));
-  Finder get latestWalkPrevTrack => find.byKey(const Key('latest-walk-prev-track'));
-  Finder get latestWalkNextTrack => find.byKey(const Key('latest-walk-next-track'));
-  Finder get latestWalkTitle => find.byKey(const Key('latest-walk-track-title'));
+  Finder get latestWalkEmptyState =>
+      find.byKey(const Key('latest-walk-empty-state'));
+  Finder get latestWalkPrevTrack =>
+      find.byKey(const Key('latest-walk-prev-track'));
+  Finder get latestWalkNextTrack =>
+      find.byKey(const Key('latest-walk-next-track'));
+  Finder get latestWalkTitle =>
+      find.byKey(const Key('latest-walk-track-title'));
 
   Future<void> pumpApp({required ProviderContainer container}) async {
     this.container = container;
-    await tester.binding.setSurfaceSize(const Size(1400, 1000));
+    await tester.binding.setSurfaceSize(const Size(2200, 1000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const App(),
-      ),
+      UncontrolledProviderScope(container: container, child: const App()),
     );
     await tester.pumpAndSettle();
   }

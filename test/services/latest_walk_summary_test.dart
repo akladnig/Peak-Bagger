@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/core/date_formatters.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
-import 'package:peak_bagger/screens/map_screen_panels.dart';
 import 'package:peak_bagger/services/latest_walk_summary.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 
@@ -114,10 +114,7 @@ void main() {
           [const LatLng(-41.5, 146.5), const LatLng(-41.4, 146.6)],
         ],
       ),
-      _track(
-        20,
-        DateTime.utc(2026, 5, 15, 10),
-      ),
+      _track(20, DateTime.utc(2026, 5, 15, 10)),
     ]);
 
     expect(summary.isEmpty, isTrue);

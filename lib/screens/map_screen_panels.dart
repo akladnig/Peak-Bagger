@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:peak_bagger/core/constants.dart';
+import 'package:peak_bagger/core/date_formatters.dart';
+import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
@@ -369,28 +371,6 @@ class _SummaryMetric extends StatelessWidget {
   }
 }
 
-String formatTrackDate(DateTime? trackDate) {
-  if (trackDate == null) {
-    return 'Unknown';
-  }
-  const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const months = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ];
-  return '${weekdays[trackDate.weekday - 1]}, ${trackDate.day} ${months[trackDate.month - 1]} ${trackDate.year}';
-}
-
 String formatTrackTimeRange(DateTime? start, DateTime? end) {
   return 'from ${formatTimeOnly(start)} to ${formatTimeOnly(end)}';
 }
@@ -403,24 +383,6 @@ String formatTimeOnly(DateTime? value) {
   final hour = local.hour.toString().padLeft(2, '0');
   final minute = local.minute.toString().padLeft(2, '0');
   return '$hour:$minute';
-}
-
-String formatDistance(double value) {
-  if (value < 1000) {
-    return '${value.round()} m';
-  }
-  return '${(value / 1000).toStringAsFixed(1)} km';
-}
-
-String formatElevation(double value) {
-  return '${value.round()} m';
-}
-
-String formatAscent(double? value) {
-  if (value == null) {
-    return 'Unknown';
-  }
-  return formatElevation(value);
 }
 
 String formatDuration(int? millis) {

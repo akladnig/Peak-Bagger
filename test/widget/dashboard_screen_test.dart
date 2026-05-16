@@ -190,7 +190,7 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      await tester.binding.setSurfaceSize(const Size(1400, 1000));
+      await tester.binding.setSurfaceSize(const Size(2200, 1000));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       await tester.pumpWidget(
@@ -201,7 +201,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const Key('elevation-period-dropdown')));
+      await tester.tap(_elevationControl('summary-period-dropdown'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('All Time').last);
       await tester.pumpAndSettle();
@@ -230,7 +230,79 @@ void main() {
         findsNWidgets(2),
       );
     });
+
+    testWidgets('shows distance summary in the header', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => TestMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 10,
+                basemap: Basemap.tracestrack,
+                tracks: [
+                  _track(1, DateTime(2026, 5, 15, 10), distance2d: 12400),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.binding.setSurfaceSize(const Size(2200, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: DashboardScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(_distanceControl('summary-period-dropdown'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('All Time').last);
+      await tester.pumpAndSettle();
+
+      final header = find.byKey(
+        const Key('dashboard-card-distance-drag-handle'),
+      );
+      expect(
+        find.descendant(of: header, matching: find.text('Distance')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: header, matching: find.text('Total:')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: header, matching: find.text('Annual Avg:')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: header, matching: find.text('12.4 km')),
+        findsNWidgets(2),
+      );
+    });
   });
+}
+
+Finder _elevationControl(String key) {
+  return find.descendant(
+    of: find.byKey(const Key('dashboard-card-elevation')),
+    matching: find.byKey(Key(key)),
+  );
+}
+
+Finder _distanceControl(String key) {
+  return find.descendant(
+    of: find.byKey(const Key('dashboard-card-distance')),
+    matching: find.byKey(Key(key)),
+  );
 }
 
 Future<void> _pumpDashboard(WidgetTester tester, Size size) async {
@@ -268,12 +340,18 @@ void _expectGridContract(WidgetTester tester, int columns) {
   expect(delegate.childAspectRatio, dashboardCardAspectRatio);
 }
 
-GpxTrack _track(int id, DateTime? trackDate, {double? ascent}) {
+GpxTrack _track(
+  int id,
+  DateTime? trackDate, {
+  double? ascent,
+  double distance2d = 0,
+}) {
   return GpxTrack(
     gpxTrackId: id,
     contentHash: 'hash-$id',
     trackName: 'Track $id',
     trackDate: trackDate,
     ascent: ascent,
+    distance2d: distance2d,
   );
 }
