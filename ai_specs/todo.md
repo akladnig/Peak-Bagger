@@ -22,6 +22,10 @@
   - Bushwalking / GPS / Country / State (Region etc.) / Routes
   - Bushwalking / GPS / Country / State (Region etc.) / Waypoints
 
+## Dashboard
+- [ ] header text to be constant - expanded???
+- [ ] change dropdown and make it similar in all the app.
+
 ## 2  Display map of Tasmania with zoom, pan and search function
 - [ ] change zoom level display to actual distance
 - [ ] Automatically ask for permissions
