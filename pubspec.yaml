@@ -17,6 +17,7 @@ dependencies:
   fl_chart: ^1.0.0
   flutter_svg: ^2.0.17
   latlong2: ^0.9.1
+  intl: ^0.20.2
   mgrs_dart: ^2.0.0
   http: ^1.2.0
   geolocator: ^14.0.0

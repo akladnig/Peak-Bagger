@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/number_formatters.dart';
 import '../providers/dashboard_layout_provider.dart';
 import '../providers/map_provider.dart';
+import '../services/elevation_summary_service.dart';
 import '../widgets/dashboard/elevation_card.dart';
 import '../widgets/dashboard/latest_walk_card.dart';
 
@@ -16,10 +18,22 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  ElevationVisibleSummary? _elevationSummary;
+
   @override
   void initState() {
     super.initState();
     unawaited(ref.read(dashboardLayoutProvider.notifier).load());
+  }
+
+  void _handleElevationSummaryChanged(ElevationVisibleSummary? summary) {
+    if (_elevationSummary == summary) {
+      return;
+    }
+
+    setState(() {
+      _elevationSummary = summary;
+    });
   }
 
   @override
@@ -55,11 +69,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     'elevation' => ElevationCard(
                       tracks: tracks,
                       isLoading: isLoadingTracks,
+                      onVisibleSummaryChanged: _handleElevationSummaryChanged,
                     ),
                     _ => const _DashboardCardBody(),
                   };
                   return _DashboardCard(
                     definition: definition,
+                    headerTrailing:
+                        definition.id == 'elevation' &&
+                            _elevationSummary != null
+                        ? _DashboardCardHeaderMetrics(
+                            summary: _elevationSummary!,
+                          )
+                        : null,
                     body: body,
                     onMove: (draggedId, targetId) {
                       unawaited(
@@ -92,11 +114,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 class _DashboardCard extends StatefulWidget {
   const _DashboardCard({
     required this.definition,
+    required this.headerTrailing,
     required this.body,
     required this.onMove,
   });
 
   final DashboardCardDefinition definition;
+  final Widget? headerTrailing;
   final Widget body;
   final void Function(String draggedId, String targetId) onMove;
 
@@ -151,6 +175,7 @@ class _DashboardCardState extends State<_DashboardCard> {
               children: [
                 _DashboardCardHeader(
                   definition: widget.definition,
+                  headerTrailing: widget.headerTrailing,
                   onDragStarted: () {
                     if (!_isDragging) {
                       setState(() => _isDragging = true);
@@ -175,11 +200,13 @@ class _DashboardCardState extends State<_DashboardCard> {
 class _DashboardCardHeader extends StatelessWidget {
   const _DashboardCardHeader({
     required this.definition,
+    required this.headerTrailing,
     required this.onDragStarted,
     required this.onDragEnded,
   });
 
   final DashboardCardDefinition definition;
+  final Widget? headerTrailing;
   final VoidCallback onDragStarted;
   final VoidCallback onDragEnded;
 
@@ -193,7 +220,10 @@ class _DashboardCardHeader extends StatelessWidget {
         data: definition.id,
         onDragStarted: onDragStarted,
         onDragEnd: (_) => onDragEnded(),
-        feedback: _DashboardCardDragFeedback(definition: definition),
+        feedback: _DashboardCardDragFeedback(
+          definition: definition,
+          headerTrailing: headerTrailing,
+        ),
         childWhenDragging: const Opacity(
           opacity: 0.35,
           child: _DashboardCardHeaderBodyPlaceholder(),
@@ -202,16 +232,10 @@ class _DashboardCardHeader extends StatelessWidget {
           key: Key('dashboard-card-${definition.id}-drag-handle'),
           color: theme.colorScheme.primaryContainer,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  definition.title,
-                  style: theme.textTheme.titleMedium,
-                ),
-              ),
-              const Icon(Icons.drag_indicator),
-            ],
+          child: _DashboardCardHeaderRow(
+            title: definition.title,
+            headerTrailing: headerTrailing,
+            titleStyle: theme.textTheme.titleMedium,
           ),
         ),
       ),
@@ -224,16 +248,18 @@ class _DashboardCardBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text('Placeholder'),
-    );
+    return const Center(child: Text('Placeholder'));
   }
 }
 
 class _DashboardCardDragFeedback extends StatelessWidget {
-  const _DashboardCardDragFeedback({required this.definition});
+  const _DashboardCardDragFeedback({
+    required this.definition,
+    required this.headerTrailing,
+  });
 
   final DashboardCardDefinition definition;
+  final Widget? headerTrailing;
 
   @override
   Widget build(BuildContext context) {
@@ -250,27 +276,21 @@ class _DashboardCardDragFeedback extends StatelessWidget {
           color: theme.colorScheme.surfaceContainer,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
-            side: BorderSide(
-              color: theme.colorScheme.outlineVariant,
-              width: 2,
-            ),
+            side: BorderSide(color: theme.colorScheme.outlineVariant, width: 2),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Container(
                 color: theme.colorScheme.primaryContainer,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        definition.title,
-                        style: theme.textTheme.titleMedium,
-                      ),
-                    ),
-                    const Icon(Icons.drag_indicator),
-                  ],
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: _DashboardCardHeaderRow(
+                  title: definition.title,
+                  headerTrailing: headerTrailing,
+                  titleStyle: theme.textTheme.titleMedium,
                 ),
               ),
               const Expanded(child: SizedBox.shrink()),
@@ -278,6 +298,105 @@ class _DashboardCardDragFeedback extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _DashboardCardHeaderRow extends StatelessWidget {
+  const _DashboardCardHeaderRow({
+    required this.title,
+    required this.headerTrailing,
+    required this.titleStyle,
+  });
+
+  final String title;
+  final Widget? headerTrailing;
+  final TextStyle? titleStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(title, style: titleStyle),
+        const SizedBox(width: 12),
+        if (headerTrailing != null) ...[
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: headerTrailing!,
+            ),
+          ),
+          const SizedBox(width: 12),
+        ] else ...[
+          const Spacer(),
+        ],
+        const Icon(Icons.drag_indicator),
+      ],
+    );
+  }
+}
+
+class _DashboardCardHeaderMetrics extends StatelessWidget {
+  const _DashboardCardHeaderMetrics({required this.summary});
+
+  final ElevationVisibleSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _DashboardCardHeaderMetricPill(
+          label: 'Total:',
+          value: '${formatElevationMetres(summary.totalMetres)} m',
+        ),
+        const SizedBox(width: 24),
+        _DashboardCardHeaderMetricPill(
+          label: _averageLabel,
+          value: '${formatElevationMetres(summary.averageMetres)} m',
+        ),
+      ],
+    );
+  }
+
+  String get _averageLabel {
+    return switch (summary.period) {
+      ElevationPeriodPreset.week => 'Daily Avg:',
+      ElevationPeriodPreset.month => 'Weekly Avg:',
+      ElevationPeriodPreset.last3Months ||
+      ElevationPeriodPreset.last6Months => 'Monthly Avg:',
+      ElevationPeriodPreset.last12Months => 'Monthly Avg:',
+      ElevationPeriodPreset.allTime => 'Annual Avg:',
+    };
+  }
+}
+
+class _DashboardCardHeaderMetricPill extends StatelessWidget {
+  const _DashboardCardHeaderMetricPill({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        // padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        Text(label),
+        SizedBox(
+          width: 70,
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

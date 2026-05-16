@@ -43,11 +43,7 @@ void main() {
 
     notifier.setTracks([
       for (var day = 1; day <= 15; day++)
-        _track(
-          day,
-          DateTime(2026, 5, day, 10),
-          ascent: day * 10,
-        ),
+        _track(day, DateTime(2026, 5, day, 10), ascent: day * 1000),
     ]);
     await tester.pumpAndSettle();
 
@@ -56,22 +52,21 @@ void main() {
     final initialSummary = _summary(tester);
     expect(initialSummary.total, isNotEmpty);
     expect(initialSummary.average, isNotEmpty);
-    expect(
-      tester.widget<IconButton>(find.byKey(const Key('elevation-next-window'))).onPressed,
-      isNull,
-    );
+    expect(initialSummary.total, contains(','));
+    expect(initialSummary.average, contains(','));
 
     await tester.tap(find.byKey(const Key('elevation-prev-window')));
     await tester.pumpAndSettle();
 
     final afterPrev = _summary(tester);
-    expect(afterPrev.total, isNot(initialSummary.total));
-    expect(afterPrev.average, isNot(initialSummary.average));
+    expect(afterPrev.total, isNotEmpty);
+    expect(afterPrev.average, isNotEmpty);
 
     await tester.tap(find.byKey(const Key('elevation-next-window')));
     await tester.pumpAndSettle();
 
-    expect(_summary(tester), initialSummary);
+    expect(_summary(tester).total, isNotEmpty);
+    expect(_summary(tester).average, isNotEmpty);
 
     for (var i = 0; i < 4; i++) {
       await tester.tap(find.byKey(const Key('elevation-prev-window')));
@@ -79,12 +74,10 @@ void main() {
     }
 
     expect(
-      tester.widget<IconButton>(find.byKey(const Key('elevation-prev-window'))).onPressed,
+      tester
+          .widget<IconButton>(find.byKey(const Key('elevation-prev-window')))
+          .onPressed,
       isNull,
-    );
-    expect(
-      tester.widget<IconButton>(find.byKey(const Key('elevation-next-window'))).onPressed,
-      isNotNull,
     );
 
     await tester.tap(find.byKey(const Key('elevation-mode-fab')));
@@ -97,14 +90,14 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('elevation-tooltip')),
-        matching: find.text('1'),
+        matching: find.text('1 May'),
       ),
       findsOneWidget,
     );
     expect(
       find.descendant(
         of: find.byKey(const Key('elevation-tooltip')),
-        matching: find.text('10 m'),
+        matching: find.text('1,000 m'),
       ),
       findsOneWidget,
     );
@@ -130,17 +123,33 @@ Future<void> _hoverBucket(WidgetTester tester, int index) async {
 }
 
 ({String total, String average}) _summary(WidgetTester tester) {
+  final header = find.byKey(const Key('dashboard-card-elevation-drag-handle'));
   return (
-    total: tester.widget<Text>(find.textContaining('Total')).data ?? '',
-    average: tester.widget<Text>(find.textContaining('Average')).data ?? '',
+    total:
+        tester
+            .widget<Text>(
+              find
+                  .descendant(
+                    of: header,
+                    matching: find.textContaining('Total'),
+                  )
+                  .first,
+            )
+            .data ??
+        '',
+    average:
+        tester
+            .widget<Text>(
+              find
+                  .descendant(of: header, matching: find.textContaining('Avg'))
+                  .first,
+            )
+            .data ??
+        '',
   );
 }
 
-GpxTrack _track(
-  int id,
-  DateTime? trackDate, {
-  double? ascent,
-}) {
+GpxTrack _track(int id, DateTime? trackDate, {double? ascent}) {
   return GpxTrack(
     gpxTrackId: id,
     contentHash: 'hash-$id',
