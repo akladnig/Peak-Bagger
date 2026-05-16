@@ -8,7 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
-
 import '../../harness/test_map_notifier.dart';
 import '../../harness/test_tasmap_repository.dart';
 import 'dashboard_robot.dart';
@@ -55,32 +54,32 @@ void main() {
     expect(initialSummary.total, contains(','));
     expect(initialSummary.average, contains(','));
 
-    await tester.tap(find.byKey(const Key('elevation-prev-window')));
+    await tester.tap(_summaryControl('summary-prev-window'));
     await tester.pumpAndSettle();
 
     final afterPrev = _summary(tester);
     expect(afterPrev.total, isNotEmpty);
     expect(afterPrev.average, isNotEmpty);
 
-    await tester.tap(find.byKey(const Key('elevation-next-window')));
+    await tester.tap(_summaryControl('summary-next-window'));
     await tester.pumpAndSettle();
 
     expect(_summary(tester).total, isNotEmpty);
     expect(_summary(tester).average, isNotEmpty);
 
     for (var i = 0; i < 4; i++) {
-      await tester.tap(find.byKey(const Key('elevation-prev-window')));
+      await tester.tap(_summaryControl('summary-prev-window'));
       await tester.pumpAndSettle();
     }
 
     expect(
       tester
-          .widget<IconButton>(find.byKey(const Key('elevation-prev-window')))
+          .widget<IconButton>(_summaryControl('summary-prev-window'))
           .onPressed,
       isNull,
     );
 
-    await tester.tap(find.byKey(const Key('elevation-mode-fab')));
+    await tester.tap(_summaryControl('summary-mode-fab'));
     await tester.pumpAndSettle();
     expect(find.byIcon(Icons.bar_chart), findsOneWidget);
 
@@ -105,7 +104,7 @@ void main() {
 }
 
 Future<void> _selectPeriod(WidgetTester tester, String label) async {
-  await tester.tap(find.byKey(const Key('elevation-period-dropdown')));
+  await tester.tap(_summaryControl('summary-period-dropdown'));
   await tester.pumpAndSettle();
   await tester.tap(find.text(label).last);
   await tester.pumpAndSettle();
@@ -131,7 +130,9 @@ Future<void> _hoverBucket(WidgetTester tester, int index) async {
               find
                   .descendant(
                     of: header,
-                    matching: find.textContaining('Total'),
+                    matching: find.byKey(
+                      const Key('dashboard-card-summary-total-value'),
+                    ),
                   )
                   .first,
             )
@@ -141,7 +142,12 @@ Future<void> _hoverBucket(WidgetTester tester, int index) async {
         tester
             .widget<Text>(
               find
-                  .descendant(of: header, matching: find.textContaining('Avg'))
+                  .descendant(
+                    of: header,
+                    matching: find.byKey(
+                      const Key('dashboard-card-summary-average-value'),
+                    ),
+                  )
                   .first,
             )
             .data ??
@@ -156,5 +162,12 @@ GpxTrack _track(int id, DateTime? trackDate, {double? ascent}) {
     trackName: 'Track $id',
     trackDate: trackDate,
     ascent: ascent,
+  );
+}
+
+Finder _summaryControl(String key) {
+  return find.descendant(
+    of: find.byKey(const Key('dashboard-card-elevation')),
+    matching: find.byKey(Key(key)),
   );
 }

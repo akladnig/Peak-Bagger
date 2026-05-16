@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:peak_bagger/core/date_formatters.dart';
+import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/screens/map_screen_panels.dart';
 
@@ -13,7 +15,10 @@ void main() {
 
   test('formatTrackTimeRange renders partial cases', () {
     expect(
-      formatTrackTimeRange(DateTime(2026, 1, 7, 14, 5), DateTime(2026, 1, 7, 16, 40)),
+      formatTrackTimeRange(
+        DateTime(2026, 1, 7, 14, 5),
+        DateTime(2026, 1, 7, 16, 40),
+      ),
       'from 14:05 to 16:40',
     );
     expect(
@@ -45,9 +50,6 @@ void main() {
       Peak(osmId: 0, name: 'Ignored duplicate name', latitude: 0, longitude: 0),
     ];
 
-    expect(
-      normalizeTrackPeakNames(peaks),
-      ['Alpha', 'beta', 'Unknown Peak'],
-    );
+    expect(normalizeTrackPeakNames(peaks), ['Alpha', 'beta', 'Unknown Peak']);
   });
 }

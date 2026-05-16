@@ -1,26 +1,7 @@
-import 'dart:math' as math;
-
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/services/summary_card_service.dart';
 
-enum ElevationPeriodPreset {
-  week,
-  month,
-  last3Months,
-  last6Months,
-  last12Months,
-  allTime,
-}
-
-extension ElevationPeriodPresetLabel on ElevationPeriodPreset {
-  String get label => switch (this) {
-    ElevationPeriodPreset.week => 'Week',
-    ElevationPeriodPreset.month => 'Month',
-    ElevationPeriodPreset.last3Months => 'Last 3 Months',
-    ElevationPeriodPreset.last6Months => 'Last 6 Months',
-    ElevationPeriodPreset.last12Months => 'Last 12 Months',
-    ElevationPeriodPreset.allTime => 'All Time',
-  };
-}
+typedef ElevationPeriodPreset = SummaryPeriodPreset;
 
 class ElevationBucket {
   const ElevationBucket({
@@ -31,6 +12,16 @@ class ElevationBucket {
     required this.trackCount,
   });
 
+  factory ElevationBucket.fromSummary(SummaryBucket bucket) {
+    return ElevationBucket(
+      start: bucket.start,
+      endExclusive: bucket.endExclusive,
+      label: bucket.label,
+      ascentMetres: bucket.value,
+      trackCount: bucket.trackCount,
+    );
+  }
+
   final DateTime start;
   final DateTime endExclusive;
   final String label;
@@ -38,6 +29,16 @@ class ElevationBucket {
   final int trackCount;
 
   int get roundedAscentMetres => ascentMetres.round();
+
+  SummaryBucket toSummaryBucket() {
+    return SummaryBucket(
+      start: start,
+      endExclusive: endExclusive,
+      label: label,
+      value: ascentMetres,
+      trackCount: trackCount,
+    );
+  }
 }
 
 class ElevationTimeline {
@@ -53,6 +54,17 @@ class ElevationTimeline {
       windowEndExclusive = null,
       buckets = const [];
 
+  factory ElevationTimeline.fromSummary(SummaryTimeline timeline) {
+    return ElevationTimeline(
+      period: timeline.period,
+      windowStart: timeline.windowStart,
+      windowEndExclusive: timeline.windowEndExclusive,
+      buckets: timeline.buckets
+          .map(ElevationBucket.fromSummary)
+          .toList(growable: false),
+    );
+  }
+
   final ElevationPeriodPreset period;
   final DateTime? windowStart;
   final DateTime? windowEndExclusive;
@@ -65,42 +77,51 @@ class ElevationTimeline {
 
   int get totalMetres => totalAscentMetres.round();
 
-  int get averageMetres => _visibleAverageMetres(buckets);
+  int get averageMetres {
+    final summaryBuckets = buckets
+        .map((bucket) => bucket.toSummaryBucket())
+        .toList(growable: false);
+    return _service.visibleAverageValue(summaryBuckets).round();
+  }
+
+  static const SummaryCardService _service = SummaryCardService();
 }
 
 class ElevationSummaryService {
   const ElevationSummaryService();
+
+  static const SummaryMetricDefinition metric = SummaryMetricDefinition(
+    valueOf: _trackAscent,
+  );
+
+  static const SummaryCardService _service = SummaryCardService();
 
   ElevationTimeline buildTimeline({
     required Iterable<GpxTrack> tracks,
     required ElevationPeriodPreset period,
     DateTime? now,
   }) {
-    final usableTracks = tracks
-        .where((track) => track.trackDate != null && track.ascent != null)
-        .toList(growable: false);
-    if (usableTracks.isEmpty) {
-      return ElevationTimeline.empty(period: period);
-    }
-
-    final referenceDate = _startOfDay((now ?? DateTime.now()).toLocal());
-    final windowStart = _timelineStart(period, usableTracks);
-    final windowEndExclusive = switch (period) {
-      ElevationPeriodPreset.month => _nextMonth(_startOfMonth(referenceDate)),
-      _ => _startOfDay(referenceDate.add(const Duration(days: 1))),
-    };
-    final buckets = _buildBuckets(
-      tracks: usableTracks,
-      period: period,
-      windowStart: windowStart,
-      windowEndExclusive: windowEndExclusive,
+    return ElevationTimeline.fromSummary(
+      _service.buildTimeline(
+        tracks: tracks,
+        period: period,
+        metric: metric,
+        now: now,
+      ),
     );
+  }
 
-    return ElevationTimeline(
-      period: period,
-      windowStart: windowStart,
-      windowEndExclusive: windowEndExclusive,
-      buckets: buckets,
+  double shiftScrollOffset({
+    required double currentOffset,
+    required double viewportWidth,
+    required double maxScrollExtent,
+    required bool forward,
+  }) {
+    return _service.shiftScrollOffset(
+      currentOffset: currentOffset,
+      viewportWidth: viewportWidth,
+      maxScrollExtent: maxScrollExtent,
+      forward: forward,
     );
   }
 
@@ -110,269 +131,37 @@ class ElevationSummaryService {
     required int bucketCount,
     required bool forward,
   }) {
-    if (bucketCount <= 0) {
-      return 0;
-    }
-
-    final safeVisibleCount = math.max(1, visibleBucketCount);
-    final maxStartIndex = math.max(0, bucketCount - safeVisibleCount);
-    final delta = math.max(1, (safeVisibleCount / 2).round());
-    final next = forward
-        ? currentStartIndex + delta
-        : currentStartIndex - delta;
-    return next.clamp(0, maxStartIndex);
+    return _service.shiftWindowStartIndex(
+      currentStartIndex: currentStartIndex,
+      visibleBucketCount: visibleBucketCount,
+      bucketCount: bucketCount,
+      forward: forward,
+    );
   }
 
-  double shiftScrollOffset({
-    required double currentOffset,
-    required double viewportWidth,
-    required double maxScrollExtent,
-    required bool forward,
-  }) {
-    final delta = math.max(1.0, viewportWidth / 2);
-    final next = forward ? currentOffset + delta : currentOffset - delta;
-    return next.clamp(0.0, maxScrollExtent);
+  int visibleAverageMetres(Iterable<ElevationBucket> buckets) {
+    return _service
+        .visibleAverageValue(buckets.map((bucket) => bucket.toSummaryBucket()))
+        .round();
   }
-
-  int visibleAverageMetres(Iterable<ElevationBucket> buckets) =>
-      _visibleAverageMetres(buckets);
 
   int visibleAverageMetresForPeriod({
     required ElevationPeriodPreset period,
     required Iterable<ElevationBucket> buckets,
   }) {
-    return switch (period) {
-      ElevationPeriodPreset.week ||
-      ElevationPeriodPreset.last12Months ||
-      ElevationPeriodPreset.allTime => _visibleAverageMetres(buckets),
-      ElevationPeriodPreset.month => _averageByWeek(buckets),
-      ElevationPeriodPreset.last3Months ||
-      ElevationPeriodPreset.last6Months => _averageByMonth(buckets),
-    };
+    return _service
+        .visibleAverageValueForPeriod(
+          period: period,
+          buckets: buckets.map((bucket) => bucket.toSummaryBucket()),
+        )
+        .round();
   }
 
   int visibleTotalMetres(Iterable<ElevationBucket> buckets) {
-    final bucketList = buckets.toList(growable: false);
-    if (bucketList.isEmpty) {
-      return 0;
-    }
-
-    final total = bucketList.fold<double>(
-      0,
-      (sum, bucket) => sum + bucket.ascentMetres,
-    );
-    return total.round();
+    return _service
+        .visibleTotalValue(buckets.map((bucket) => bucket.toSummaryBucket()))
+        .round();
   }
 }
 
-int _visibleAverageMetres(Iterable<ElevationBucket> buckets) {
-  final bucketList = buckets.toList(growable: false);
-  if (bucketList.isEmpty) {
-    return 0;
-  }
-
-  final total = bucketList.fold<double>(
-    0,
-    (sum, bucket) => sum + bucket.ascentMetres,
-  );
-  return (total / bucketList.length).round();
-}
-
-int _averageByWeek(Iterable<ElevationBucket> buckets) {
-  final bucketList = buckets.toList(growable: false);
-  if (bucketList.isEmpty) {
-    return 0;
-  }
-
-  final weeklyTotals = <DateTime, double>{};
-  for (final bucket in bucketList) {
-    final weekStart = _startOfDay(
-      bucket.start.subtract(Duration(days: bucket.start.weekday - 1)),
-    );
-    weeklyTotals.update(
-      weekStart,
-      (value) => value + bucket.ascentMetres,
-      ifAbsent: () => bucket.ascentMetres,
-    );
-  }
-
-  final total = weeklyTotals.values.fold<double>(
-    0,
-    (sum, value) => sum + value,
-  );
-  return (total / weeklyTotals.length).round();
-}
-
-int _averageByMonth(Iterable<ElevationBucket> buckets) {
-  final bucketList = buckets.toList(growable: false);
-  if (bucketList.isEmpty) {
-    return 0;
-  }
-
-  final monthlyTotals = <DateTime, double>{};
-  for (final bucket in bucketList) {
-    final monthStart = DateTime(bucket.start.year, bucket.start.month);
-    monthlyTotals.update(
-      monthStart,
-      (value) => value + bucket.ascentMetres,
-      ifAbsent: () => bucket.ascentMetres,
-    );
-  }
-
-  final total = monthlyTotals.values.fold<double>(
-    0,
-    (sum, value) => sum + value,
-  );
-  return (total / monthlyTotals.length).round();
-}
-
-DateTime _startOfDay(DateTime date) =>
-    DateTime(date.year, date.month, date.day);
-
-DateTime _startOfMonth(DateTime date) => DateTime(date.year, date.month);
-
-DateTime _startOfYear(DateTime date) => DateTime(date.year);
-
-DateTime _addMonthsClamped(DateTime date, int months) {
-  final totalMonths = (date.year * 12) + (date.month - 1) + months;
-  final year = totalMonths ~/ 12;
-  final month = (totalMonths % 12) + 1;
-  final day = math.min(date.day, _daysInMonth(year, month));
-  return DateTime(year, month, day);
-}
-
-int _daysInMonth(int year, int month) => DateTime(year, month + 1, 0).day;
-
-DateTime _nextDay(DateTime date) =>
-    DateTime(date.year, date.month, date.day + 1);
-
-DateTime _nextWeek(DateTime date) =>
-    DateTime(date.year, date.month, date.day + 7);
-
-DateTime _nextMonth(DateTime date) => _addMonthsClamped(date, 1);
-
-DateTime _nextYear(DateTime date) => DateTime(date.year + 1);
-
-DateTime _timelineStart(
-  ElevationPeriodPreset period,
-  List<GpxTrack> usableTracks,
-) {
-  final earliestDate = _earliestTrackDate(usableTracks);
-
-  return switch (period) {
-    ElevationPeriodPreset.week => earliestDate,
-    ElevationPeriodPreset.month ||
-    ElevationPeriodPreset.last3Months ||
-    ElevationPeriodPreset.last6Months ||
-    ElevationPeriodPreset.last12Months => _startOfMonth(earliestDate),
-    ElevationPeriodPreset.allTime => _startOfYear(earliestDate),
-  };
-}
-
-DateTime _earliestTrackDate(List<GpxTrack> tracks) {
-  final dates = tracks
-      .map((track) => track.trackDate!.toLocal())
-      .map(_startOfDay)
-      .toList(growable: false);
-  dates.sort();
-  return dates.first;
-}
-
-List<ElevationBucket> _buildBuckets({
-  required List<GpxTrack> tracks,
-  required ElevationPeriodPreset period,
-  required DateTime windowStart,
-  required DateTime windowEndExclusive,
-}) {
-  final buckets = <_BucketBuilder>[];
-  var cursor = windowStart;
-
-  while (cursor.isBefore(windowEndExclusive)) {
-    final next = switch (period) {
-      ElevationPeriodPreset.week ||
-      ElevationPeriodPreset.month => _nextDay(cursor),
-      ElevationPeriodPreset.last3Months ||
-      ElevationPeriodPreset.last6Months => _nextWeek(cursor),
-      ElevationPeriodPreset.last12Months => _nextMonth(cursor),
-      ElevationPeriodPreset.allTime => _nextYear(cursor),
-    };
-
-    buckets.add(
-      _BucketBuilder(
-        start: cursor,
-        endExclusive: next,
-        label: _labelFor(period, cursor),
-      ),
-    );
-    cursor = next;
-  }
-
-  final totals = List<double>.filled(buckets.length, 0);
-  final counts = List<int>.filled(buckets.length, 0);
-
-  for (final track in tracks) {
-    final trackDate = _startOfDay(track.trackDate!.toLocal());
-    for (var index = 0; index < buckets.length; index++) {
-      final bucket = buckets[index];
-      final inRange =
-          !trackDate.isBefore(bucket.start) &&
-          trackDate.isBefore(bucket.endExclusive);
-      if (!inRange) {
-        continue;
-      }
-      totals[index] += track.ascent!;
-      counts[index] += 1;
-      break;
-    }
-  }
-
-  return [
-    for (var index = 0; index < buckets.length; index++)
-      ElevationBucket(
-        start: buckets[index].start,
-        endExclusive: buckets[index].endExclusive,
-        label: buckets[index].label,
-        ascentMetres: totals[index],
-        trackCount: counts[index],
-      ),
-  ];
-}
-
-String _labelFor(ElevationPeriodPreset period, DateTime date) {
-  const weekdays = <String>['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const months = <String>[
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-
-  return switch (period) {
-    ElevationPeriodPreset.week => weekdays[date.weekday - 1],
-    ElevationPeriodPreset.month => date.day.toString(),
-    ElevationPeriodPreset.last3Months ||
-    ElevationPeriodPreset.last6Months => months[date.month - 1],
-    ElevationPeriodPreset.last12Months => months[date.month - 1],
-    ElevationPeriodPreset.allTime => date.year.toString(),
-  };
-}
-
-class _BucketBuilder {
-  const _BucketBuilder({
-    required this.start,
-    required this.endExclusive,
-    required this.label,
-  });
-
-  final DateTime start;
-  final DateTime endExclusive;
-  final String label;
-}
+double? _trackAscent(GpxTrack track) => track.ascent;

@@ -201,7 +201,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const Key('elevation-period-dropdown')));
+      await tester.tap(_elevationControl('summary-period-dropdown'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('All Time').last);
       await tester.pumpAndSettle();
@@ -231,6 +231,13 @@ void main() {
       );
     });
   });
+}
+
+Finder _elevationControl(String key) {
+  return find.descendant(
+    of: find.byKey(const Key('dashboard-card-elevation')),
+    matching: find.byKey(Key(key)),
+  );
 }
 
 Future<void> _pumpDashboard(WidgetTester tester, Size size) async {

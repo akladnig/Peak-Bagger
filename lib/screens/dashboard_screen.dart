@@ -6,9 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/number_formatters.dart';
 import '../providers/dashboard_layout_provider.dart';
 import '../providers/map_provider.dart';
-import '../services/elevation_summary_service.dart';
+import '../services/summary_card_service.dart';
 import '../widgets/dashboard/elevation_card.dart';
 import '../widgets/dashboard/latest_walk_card.dart';
+import '../widgets/dashboard/summary_card.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -18,7 +19,7 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  ElevationVisibleSummary? _elevationSummary;
+  SummaryVisibleSummary? _elevationSummary;
 
   @override
   void initState() {
@@ -26,7 +27,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     unawaited(ref.read(dashboardLayoutProvider.notifier).load());
   }
 
-  void _handleElevationSummaryChanged(ElevationVisibleSummary? summary) {
+  void _handleElevationSummaryChanged(SummaryVisibleSummary? summary) {
     if (_elevationSummary == summary) {
       return;
     }
@@ -80,6 +81,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             _elevationSummary != null
                         ? _DashboardCardHeaderMetrics(
                             summary: _elevationSummary!,
+                            valueFormatter: (value) =>
+                                '${formatElevationMetres(value.round())} m',
                           )
                         : null,
                     body: body,
@@ -337,23 +340,31 @@ class _DashboardCardHeaderRow extends StatelessWidget {
 }
 
 class _DashboardCardHeaderMetrics extends StatelessWidget {
-  const _DashboardCardHeaderMetrics({required this.summary});
+  const _DashboardCardHeaderMetrics({
+    required this.summary,
+    required this.valueFormatter,
+  });
 
-  final ElevationVisibleSummary summary;
+  final SummaryVisibleSummary summary;
+  final String Function(double value) valueFormatter;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    return Wrap(
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 12,
+      runSpacing: 4,
       children: [
         _DashboardCardHeaderMetricPill(
           label: 'Total:',
-          value: '${formatElevationMetres(summary.totalMetres)} m',
+          value: valueFormatter(summary.totalValue),
+          valueKey: const Key('dashboard-card-summary-total-value'),
         ),
-        const SizedBox(width: 24),
         _DashboardCardHeaderMetricPill(
           label: _averageLabel,
-          value: '${formatElevationMetres(summary.averageMetres)} m',
+          value: valueFormatter(summary.averageValue),
+          valueKey: const Key('dashboard-card-summary-average-value'),
         ),
       ],
     );
@@ -361,12 +372,12 @@ class _DashboardCardHeaderMetrics extends StatelessWidget {
 
   String get _averageLabel {
     return switch (summary.period) {
-      ElevationPeriodPreset.week => 'Daily Avg:',
-      ElevationPeriodPreset.month => 'Weekly Avg:',
-      ElevationPeriodPreset.last3Months ||
-      ElevationPeriodPreset.last6Months => 'Monthly Avg:',
-      ElevationPeriodPreset.last12Months => 'Monthly Avg:',
-      ElevationPeriodPreset.allTime => 'Annual Avg:',
+      SummaryPeriodPreset.week => 'Daily Avg:',
+      SummaryPeriodPreset.month => 'Weekly Avg:',
+      SummaryPeriodPreset.last3Months ||
+      SummaryPeriodPreset.last6Months => 'Monthly Avg:',
+      SummaryPeriodPreset.last12Months => 'Monthly Avg:',
+      SummaryPeriodPreset.allTime => 'Annual Avg:',
     };
   }
 }
@@ -375,10 +386,12 @@ class _DashboardCardHeaderMetricPill extends StatelessWidget {
   const _DashboardCardHeaderMetricPill({
     required this.label,
     required this.value,
+    this.valueKey,
   });
 
   final String label;
   final String value;
+  final Key? valueKey;
 
   @override
   Widget build(BuildContext context) {
@@ -387,9 +400,13 @@ class _DashboardCardHeaderMetricPill extends StatelessWidget {
         // padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         Text(label),
         SizedBox(
-          width: 70,
+          width: 64,
           child: Text(
             value,
+            key: valueKey,
+            maxLines: 1,
+            overflow: TextOverflow.fade,
+            softWrap: false,
             textAlign: TextAlign.right,
             style: const TextStyle(
               fontFeatures: [FontFeature.tabularFigures()],

@@ -44,13 +44,10 @@ void main() {
       );
 
       expect(find.byKey(const Key('elevation-card')), findsOneWidget);
-      expect(
-        find.byKey(const Key('elevation-period-dropdown')),
-        findsOneWidget,
-      );
-      expect(find.byKey(const Key('elevation-prev-window')), findsOneWidget);
-      expect(find.byKey(const Key('elevation-next-window')), findsOneWidget);
-      expect(find.byKey(const Key('elevation-mode-fab')), findsOneWidget);
+      expect(_cardControl('summary-period-dropdown'), findsOneWidget);
+      expect(_cardControl('summary-prev-window'), findsOneWidget);
+      expect(_cardControl('summary-next-window'), findsOneWidget);
+      expect(_cardControl('summary-mode-fab'), findsOneWidget);
       expect(find.byKey(const Key('elevation-bucket-0')), findsOneWidget);
     });
 
@@ -93,7 +90,7 @@ void main() {
 
       expect(
         tester
-            .widget<IconButton>(find.byKey(const Key('elevation-prev-window')))
+            .widget<IconButton>(_cardControl('summary-prev-window'))
             .onPressed,
         isNotNull,
       );
@@ -109,7 +106,7 @@ void main() {
           .position
           .pixels;
 
-      await tester.tap(find.byKey(const Key('elevation-prev-window')));
+      await tester.tap(_cardControl('summary-prev-window'));
       await tester.pumpAndSettle();
 
       final after = tester
@@ -136,7 +133,7 @@ void main() {
 
       expect(
         tester
-            .widget<IconButton>(find.byKey(const Key('elevation-prev-window')))
+            .widget<IconButton>(_cardControl('summary-prev-window'))
             .onPressed,
         isNotNull,
       );
@@ -152,7 +149,7 @@ void main() {
           .position
           .pixels;
 
-      await tester.tap(find.byKey(const Key('elevation-prev-window')));
+      await tester.tap(_cardControl('summary-prev-window'));
       await tester.pumpAndSettle();
 
       final after = tester
@@ -207,7 +204,7 @@ void main() {
 
       expect(find.byIcon(Icons.show_chart), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('elevation-mode-fab')));
+      await tester.tap(_cardControl('summary-mode-fab'));
       await tester.pumpAndSettle();
 
       expect(find.byIcon(Icons.bar_chart), findsOneWidget);
@@ -252,7 +249,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const Key('elevation-prev-window')));
+      await tester.tap(_cardControl('summary-prev-window'));
       await tester.pumpAndSettle();
 
       expect(
@@ -371,7 +368,7 @@ Future<void> _pumpElevationCard(
 }
 
 Future<void> _selectPeriod(WidgetTester tester, String label) async {
-  await tester.tap(find.byKey(const Key('elevation-period-dropdown')));
+  await tester.tap(_cardControl('summary-period-dropdown'));
   await tester.pumpAndSettle();
   await tester.tap(find.text(label).last);
   await tester.pumpAndSettle();
@@ -395,5 +392,12 @@ GpxTrack _track(int id, DateTime? trackDate, {double? ascent}) {
     trackName: 'Track $id',
     trackDate: trackDate,
     ascent: ascent,
+  );
+}
+
+Finder _cardControl(String key) {
+  return find.descendant(
+    of: find.byKey(const Key('elevation-card')),
+    matching: find.byKey(Key(key)),
   );
 }

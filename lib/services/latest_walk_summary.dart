@@ -1,7 +1,8 @@
 import 'package:latlong2/latlong.dart';
 
+import '../core/date_formatters.dart';
+import '../core/number_formatters.dart';
 import '../models/gpx_track.dart';
-import '../screens/map_screen_panels.dart';
 
 class LatestWalkSummary {
   const LatestWalkSummary._({
@@ -14,12 +15,12 @@ class LatestWalkSummary {
   });
 
   const LatestWalkSummary.empty()
-      : track = null,
-        segments = const [],
-        title = '',
-        dateText = '',
-        distanceText = '',
-        ascentText = '';
+    : track = null,
+      segments = const [],
+      title = '',
+      dateText = '',
+      distanceText = '',
+      ascentText = '';
 
   final GpxTrack? track;
   final List<List<LatLng>> segments;
@@ -75,7 +76,9 @@ class LatestWalkSummary {
   }
 
   static List<GpxTrack> orderedTracks(Iterable<GpxTrack> tracks) {
-    final sorted = tracks.where((track) => track.startDateTime != null).toList();
+    final sorted = tracks
+        .where((track) => track.startDateTime != null)
+        .toList();
     sorted.sort((a, b) {
       final startComparison = b.startDateTime!.compareTo(a.startDateTime!);
       if (startComparison != 0) {
