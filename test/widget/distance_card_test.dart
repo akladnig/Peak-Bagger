@@ -1,5 +1,6 @@
 import 'dart:ui' show PointerDeviceKind;
 
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
@@ -37,9 +38,24 @@ void main() {
       await _pumpDistanceCard(
         tester,
         tracks: [
-          _track(10, DateTime(2026, 3, 1, 10), distance2d: 1000),
-          _track(20, DateTime(2026, 4, 15, 10), distance2d: 2000),
-          _track(30, DateTime(2026, 5, 15, 10), distance2d: 3000),
+          _track(
+            10,
+            DateTime(2026, 3, 1, 10),
+            distance2d: 1000,
+            distance3d: 1050,
+          ),
+          _track(
+            20,
+            DateTime(2026, 4, 15, 10),
+            distance2d: 2000,
+            distance3d: 2100,
+          ),
+          _track(
+            30,
+            DateTime(2026, 5, 15, 10),
+            distance2d: 3000,
+            distance3d: 3200,
+          ),
         ],
         now: DateTime(2026, 5, 15, 12),
       );
@@ -58,9 +74,24 @@ void main() {
       await _pumpDistanceCard(
         tester,
         tracks: [
-          _track(10, DateTime(2025, 12, 15, 10), distance2d: 1000),
-          _track(20, DateTime(2026, 1, 15, 10), distance2d: 2000),
-          _track(30, DateTime(2026, 5, 15, 10), distance2d: 3000),
+          _track(
+            10,
+            DateTime(2025, 12, 15, 10),
+            distance2d: 1000,
+            distance3d: 1100,
+          ),
+          _track(
+            20,
+            DateTime(2026, 1, 15, 10),
+            distance2d: 2000,
+            distance3d: 2200,
+          ),
+          _track(
+            30,
+            DateTime(2026, 5, 15, 10),
+            distance2d: 3000,
+            distance3d: 3300,
+          ),
         ],
         now: DateTime(2026, 5, 15, 12),
         onVisibleSummaryChanged: (value) => summary = value,
@@ -83,16 +114,42 @@ void main() {
       await _pumpDistanceCard(
         tester,
         tracks: [
-          _track(10, DateTime(2026, 5, 1, 10), distance2d: 100),
-          _track(20, DateTime(2026, 5, 15, 10), distance2d: 300),
-          _track(30, DateTime(2026, 5, 31, 10), distance2d: 12340),
+          _track(
+            10,
+            DateTime(2026, 5, 1, 10),
+            distance2d: 100,
+            distance3d: 110,
+          ),
+          _track(
+            20,
+            DateTime(2026, 5, 15, 10),
+            distance2d: 300,
+            distance3d: 320,
+          ),
+          _track(
+            30,
+            DateTime(2026, 5, 31, 10),
+            distance2d: 12340,
+            distance3d: 12780,
+          ),
         ],
         now: DateTime(2026, 5, 15, 12),
       );
 
       await _selectPeriod(tester, 'Month');
+
+      final barChart = tester.widget<BarChart>(find.byType(BarChart));
+      expect(barChart.data.barGroups[30].barRods, hasLength(1));
+      expect(
+        barChart.data.barGroups[30].barRods.single.rodStackItems,
+        hasLength(2),
+      );
+
       await tester.tap(_cardControl('summary-mode-fab'));
       await tester.pumpAndSettle();
+
+      final lineChart = tester.widget<LineChart>(find.byType(LineChart));
+      expect(lineChart.data.lineBarsData, hasLength(2));
 
       await _hoverBucket(tester, 30);
 
@@ -107,7 +164,14 @@ void main() {
       expect(
         find.descendant(
           of: find.byKey(const Key('distance-tooltip')),
-          matching: find.text('12.3 km'),
+          matching: find.text('2D: 12.3 km'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('distance-tooltip')),
+          matching: find.text('3D: 12.8 km'),
         ),
         findsOneWidget,
       );
@@ -172,12 +236,18 @@ Finder _cardControl(String key) {
   );
 }
 
-GpxTrack _track(int id, DateTime? trackDate, {required double distance2d}) {
+GpxTrack _track(
+  int id,
+  DateTime? trackDate, {
+  required double distance2d,
+  required double distance3d,
+}) {
   return GpxTrack(
     gpxTrackId: id,
     contentHash: 'hash-$id',
     trackName: 'Track $id',
     trackDate: trackDate,
     distance2d: distance2d,
+    distance3d: distance3d,
   );
 }

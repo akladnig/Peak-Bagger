@@ -45,23 +45,24 @@ Error flows:
 4. Use the same preset set as Elevation: Week, Month, Last 3 Months, Last 6 Months, Last 12 Months, All Time.
 5. Use the existing `formatElevationMetres` helper for elevation-style metre values and a shared `formatDistance` helper for distance values so current `m/km` output stays consistent across the app.
 6. Keep the Distance header summary behavior identical to Elevation: same location, same timing, and same header-trailing rendering contract, but using distance totals and averages for the active window.
-7. Extract a reusable summary-card shell plus metric adapters so Elevation, Distance, and Peaks Bagged can share the same header, controls, scroll behavior, summary reporting, and card chrome.
-8. Extract shared chart primitives so the bucket hover, tooltip, column/line rendering, and horizontal scrolling behavior stay consistent across summary cards.
-9. Migrate shared summary logic to neutral `Summary*` types rather than reusing `Elevation*` names inside shared layers.
+7. Keep the dashboard header metrics in a fixed single-row desktop layout rather than wrapping the summary pills; validate that header-summary contract at a wide desktop width.
+8. Extract a reusable summary-card shell plus metric adapters so Elevation, Distance, and Peaks Bagged can share the same header, controls, scroll behavior, summary reporting, and card chrome.
+9. Extract shared chart primitives so the bucket hover, tooltip, column/line rendering, and horizontal scrolling behavior stay consistent across summary cards.
+10. Migrate shared summary logic to neutral `Summary*` types rather than reusing `Elevation*` names inside shared layers.
 
 **Error Handling:**
-10. Show a loading state while tracks are unavailable and an empty state when there are no usable tracks.
-11. Do not crash or switch modes if a window contains only zero totals; render zero-value buckets normally.
+11. Show a loading state while tracks are unavailable and an empty state when there are no usable tracks.
+12. Do not crash or switch modes if a window contains only zero totals; render zero-value buckets normally.
 
 **Edge Cases:**
-12. Ignore tracks with null `trackDate`.
-13. Treat `distance2d` as the only source of truth; do not use `distance3d`, `distanceToPeak`, or `distanceFromPeak`.
-14. Long labels and compact widths must not force multi-line headers or clipped controls.
+13. Ignore tracks with null `trackDate`.
+14. Treat `distance2d` as the only source of truth; do not use `distance3d`, `distanceToPeak`, or `distanceFromPeak`.
+15. Long labels and compact widths must not force multi-line in-card controls or clipped controls.
 
 **Validation:**
-15. Expose deterministic seams for `now` and track input so service and widget tests are stable.
-16. Use shared neutral keys for the common shell controls across Elevation, Distance, and Peaks Bagged (`summary-period-dropdown`, `summary-prev-window`, `summary-next-window`, `summary-mode-fab`), and treat those keys as intentionally duplicated across dashboard cards; tests and robots must target them by scoping descendant lookups within a specific card root.
-17. Add at least one regression test proving the Elevation card still renders the same header summary and interactions after the shared-shell refactor.
+16. Expose deterministic seams for `now` and track input so service and widget tests are stable.
+17. Use shared neutral keys for the common shell controls across Elevation, Distance, and Peaks Bagged (`summary-period-dropdown`, `summary-prev-window`, `summary-next-window`, `summary-mode-fab`), and treat those keys as intentionally duplicated across dashboard cards; tests and robots must target them by scoping descendant lookups within a specific card root.
+18. Add at least one regression test proving the Elevation card still renders the same header summary and interactions after the shared-shell refactor.
 </requirements>
 
 <boundaries>
@@ -109,8 +110,8 @@ Limits:
 <validation>
 - Unit-test `./lib/services/summary_card_service.dart` with `./test/services/summary_card_service_test.dart` for distance and elevation metric adapters, newest-window selection, null `trackDate` filtering, window bucketing, and zero totals.
 - Widget-test `./lib/widgets/dashboard/summary_card.dart` and `./lib/widgets/dashboard/distance_card.dart` with `./test/widget/summary_card_test.dart` and `./test/widget/distance_card_test.dart` for populated rendering, empty/loading states, period changes, previous/next navigation, mode toggle, and stable layout on compact sizes.
-- Extend `./test/widget/dashboard_screen_test.dart` or add a sibling widget test to verify the dashboard shows the Distance card in the `distance` slot and preserves the existing drag/reorder contract.
-- Add or extend `./test/robot/dashboard/dashboard_journey_test.dart` to confirm the dashboard exposes stable selectors for the Distance card and its controls without relying on text-only selectors.
+- Extend `./test/widget/dashboard_screen_test.dart` or add a sibling widget test to verify the dashboard shows the Distance card in the `distance` slot, preserves the existing drag/reorder contract, and keeps the fixed single-row summary header at a wide desktop width.
+- Add or extend `./test/robot/dashboard/dashboard_journey_test.dart` to confirm the dashboard exposes stable selectors for the Distance card and its controls without relying on text-only selectors; use a wide desktop surface for header-summary assertions.
 - Add regression coverage for the Elevation card and chart to prove the shared shell still preserves the existing header summary, tooltip, and navigation behavior.
 - Update formatter coverage to prove the shared `formatDistance` helper preserves existing `840 m` / `12.4 km` behavior and that existing callers in `./lib/screens/map_screen_panels.dart` and `./lib/services/latest_walk_summary.dart` still render unchanged output after the helper move.
 - Update widget and robot selector coverage to assert the new shared shell keys for dropdown/previous/next/mode controls via card-scoped descendant lookups, while preserving existing metric-specific Elevation keys and adding metric-specific Distance keys that follow the shared `{keyPrefix}-...` pattern.

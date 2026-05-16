@@ -15,11 +15,15 @@ class DistanceCard extends StatelessWidget {
   });
 
   static const metric = SummaryMetricDefinition(valueOf: _trackDistance);
+  static const secondaryMetric = SummaryMetricDefinition(
+    valueOf: _trackDistance3d,
+  );
   static const adapter = SummaryCardMetricAdapter(
     keyPrefix: 'distance',
     emptyStateText: 'No distance data yet',
     metric: metric,
-    tooltipValueText: _distanceTooltipValue,
+    secondaryMetric: secondaryMetric,
+    tooltipValueTexts: _distanceTooltipValues,
     headerValueText: formatDistance,
   );
 
@@ -43,7 +47,16 @@ class DistanceCard extends StatelessWidget {
   }
 }
 
-String _distanceTooltipValue(SummaryBucket bucket) =>
-    formatDistance(bucket.value);
+List<String> _distanceTooltipValues(
+  SummaryBucket bucket,
+  SummaryBucket? secondaryBucket,
+) {
+  return [
+    '2D: ${formatDistance(bucket.value)}',
+    if (secondaryBucket != null) '3D: ${formatDistance(secondaryBucket.value)}',
+  ];
+}
 
 double? _trackDistance(GpxTrack track) => track.distance2d;
+
+double? _trackDistance3d(GpxTrack track) => track.distance3d;

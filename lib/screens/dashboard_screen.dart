@@ -376,17 +376,15 @@ class _DashboardCardHeaderMetrics extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      alignment: WrapAlignment.end,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 12,
-      runSpacing: 4,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
         _DashboardCardHeaderMetricPill(
           label: 'Total:',
           value: valueFormatter(summary.totalValue),
           valueKey: const Key('dashboard-card-summary-total-value'),
         ),
+        SizedBox(width: 20),
         _DashboardCardHeaderMetricPill(
           label: averageLabelText(summary.period),
           value: valueFormatter(summary.averageValue),
@@ -412,10 +410,9 @@ class _DashboardCardHeaderMetricPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        // padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         Text(label),
         SizedBox(
-          width: 64,
+          width: 70,
           child: Text(
             value,
             key: valueKey,

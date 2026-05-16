@@ -21,7 +21,7 @@ class ElevationCard extends StatelessWidget {
     keyPrefix: 'elevation',
     emptyStateText: 'No elevation data yet',
     metric: ElevationSummaryService.metric,
-    tooltipValueText: formatElevationTooltipValue,
+    tooltipValueTexts: formatElevationTooltipValues,
     headerValueText: _formatHeaderValue,
     tooltipTitleText: formatElevationTooltipTitle,
   );

@@ -39,11 +39,11 @@ Extract shared summary-card foundations from Elevation, then add Distance as a t
 - [x] `lib/providers/dashboard_layout_provider.dart` - no logic change expected; confirm existing `distance` id/ordering contract still fits
 - [x] `test/services/summary_card_service_test.dart` - add distance adapter coverage for filtering, buckets, totals, zero totals
 - [x] `test/widget/distance_card_test.dart` - add loading/empty/populated, shared controls, header-summary behavior, tooltip/bucket selectors, compact layout
-- [x] `test/widget/dashboard_screen_test.dart` - add scoped shared-key interactions for Distance card + header summary assertions
+- [x] `test/widget/dashboard_screen_test.dart` - add scoped shared-key interactions for Distance card + header summary assertions on a wide desktop surface
 - [x] TDD: Distance loading/empty/populated states mirror Elevation behavior; then implement adapter wiring
 - [x] TDD: Distance buckets sum `distance2d`, header summary uses `formatDistance`, active-window updates match Elevation timing; then implement dashboard integration
 - [x] TDD: shared control keys work only via card-scoped descendant lookups; Distance keeps `{keyPrefix}-bucket-*` / `{keyPrefix}-tooltip`; then finalize selectors
-- [x] Robot journey tests + selectors/seams for critical flows: add Distance card presence + scoped control access under `dashboard-card-distance`
+- [x] Robot journey tests + selectors/seams for critical flows: add Distance card presence + scoped control access under `dashboard-card-distance`; use a wide desktop surface for header-summary assertions
 - [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Regression Hardening

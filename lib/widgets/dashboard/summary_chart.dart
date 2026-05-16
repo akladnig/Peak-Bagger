@@ -16,22 +16,28 @@ class SummaryChart extends StatefulWidget {
     required this.keyPrefix,
     required this.controller,
     required this.buckets,
+    this.secondaryBuckets,
     required this.mode,
     required this.bucketExtent,
     required this.period,
     required this.referenceDate,
-    required this.tooltipValueText,
+    required this.tooltipValueTexts,
     required this.tooltipTitleText,
   });
 
   final String keyPrefix;
   final ScrollController controller;
   final List<SummaryBucket> buckets;
+  final List<SummaryBucket>? secondaryBuckets;
   final SummaryDisplayMode mode;
   final double bucketExtent;
   final SummaryPeriodPreset period;
   final DateTime referenceDate;
-  final String Function(SummaryBucket bucket) tooltipValueText;
+  final List<String> Function(
+    SummaryBucket bucket,
+    SummaryBucket? secondaryBucket,
+  )
+  tooltipValueTexts;
   final String Function(SummaryBucket bucket, SummaryPeriodPreset period)
   tooltipTitleText;
 
@@ -63,6 +69,7 @@ class _SummaryChartState extends State<SummaryChart> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final buckets = widget.buckets;
+    final secondaryBuckets = widget.secondaryBuckets;
     final contentWidth = math.max<double>(
       (widget.bucketExtent * buckets.length).ceilToDouble() + 0.01,
       1,
@@ -71,7 +78,16 @@ class _SummaryChartState extends State<SummaryChart> {
       0,
       (maxValue, bucket) => math.max(maxValue, bucket.value),
     );
-    final chartMaxY = math.max(1.0, maxValue * 1.1);
+    final secondaryMaxValue =
+        secondaryBuckets?.fold<double>(
+          0,
+          (maxValue, bucket) => math.max(maxValue, bucket.value),
+        ) ??
+        0;
+    final chartMaxY = math.max(
+      1.0,
+      math.max(maxValue, secondaryMaxValue) * 1.1,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -91,12 +107,14 @@ class _SummaryChartState extends State<SummaryChart> {
                       child: widget.mode == SummaryDisplayMode.columns
                           ? _SummaryBarChart(
                               buckets: buckets,
+                              secondaryBuckets: secondaryBuckets,
                               chartMaxY: chartMaxY,
                               selectedBucketIndex: _selectedBucketIndex,
                               bucketExtent: widget.bucketExtent,
                             )
                           : _SummaryLineChart(
                               buckets: buckets,
+                              secondaryBuckets: secondaryBuckets,
                               chartMaxY: chartMaxY,
                               selectedBucketIndex: _selectedBucketIndex,
                             ),
@@ -183,8 +201,9 @@ class _SummaryChartState extends State<SummaryChart> {
                                 buckets[_selectedBucketIndex!],
                                 widget.period,
                               ),
-                              valueText: widget.tooltipValueText(
+                              valueTexts: widget.tooltipValueTexts(
                                 buckets[_selectedBucketIndex!],
+                                secondaryBuckets?[_selectedBucketIndex!],
                               ),
                             ),
                           ),
@@ -204,12 +223,14 @@ class _SummaryChartState extends State<SummaryChart> {
 class _SummaryBarChart extends StatelessWidget {
   const _SummaryBarChart({
     required this.buckets,
+    required this.secondaryBuckets,
     required this.chartMaxY,
     required this.selectedBucketIndex,
     required this.bucketExtent,
   });
 
   final List<SummaryBucket> buckets;
+  final List<SummaryBucket>? secondaryBuckets;
   final double chartMaxY;
   final int? selectedBucketIndex;
   final double bucketExtent;
@@ -230,12 +251,31 @@ class _SummaryBarChart extends StatelessWidget {
               barsSpace: 0,
               barRods: [
                 BarChartRodData(
-                  toY: buckets[index].value,
+                  toY: secondaryBuckets == null
+                      ? buckets[index].value
+                      : math.max(
+                          buckets[index].value,
+                          secondaryBuckets![index].value,
+                        ),
                   width: DashboardUI.rodWidthFor(bucketExtent),
                   borderRadius: BorderRadius.circular(DashboardUI.rodRadius),
-                  color: index == selectedBucketIndex
-                      ? theme.colorScheme.tertiary
-                      : theme.colorScheme.primary,
+                  color: Colors.transparent,
+                  rodStackItems: [
+                    BarChartRodStackItem(
+                      0,
+                      buckets[index].value,
+                      index == selectedBucketIndex
+                          ? theme.colorScheme.tertiary
+                          : theme.colorScheme.primary,
+                    ),
+                    if (secondaryBuckets != null &&
+                        secondaryBuckets![index].value > buckets[index].value)
+                      BarChartRodStackItem(
+                        buckets[index].value,
+                        secondaryBuckets![index].value,
+                        _secondarySeriesColor,
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -257,11 +297,13 @@ class _SummaryBarChart extends StatelessWidget {
 class _SummaryLineChart extends StatelessWidget {
   const _SummaryLineChart({
     required this.buckets,
+    required this.secondaryBuckets,
     required this.chartMaxY,
     required this.selectedBucketIndex,
   });
 
   final List<SummaryBucket> buckets;
+  final List<SummaryBucket>? secondaryBuckets;
   final double chartMaxY;
   final int? selectedBucketIndex;
 
@@ -276,6 +318,32 @@ class _SummaryLineChart extends StatelessWidget {
         minY: 0,
         maxY: chartMaxY,
         lineBarsData: [
+          if (secondaryBuckets != null)
+            LineChartBarData(
+              spots: [
+                for (var index = 0; index < secondaryBuckets!.length; index++)
+                  FlSpot(index.toDouble(), secondaryBuckets![index].value),
+              ],
+              isCurved: true,
+              color: _secondarySeriesColor,
+              barWidth: ChartUI.barWidth,
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (spot, percent, barData, index) {
+                  final isSelected = index == selectedBucketIndex;
+                  return FlDotCirclePainter(
+                    radius: isSelected
+                        ? ChartUI.radiusSelected
+                        : ChartUI.radius,
+                    color: theme.colorScheme.surfaceContainer,
+                    strokeColor: isSelected
+                        ? ChartUI.colourSelected
+                        : ChartUI.colour,
+                    strokeWidth: ChartUI.strokeWidth,
+                  );
+                },
+              ),
+            ),
           LineChartBarData(
             spots: [
               for (var index = 0; index < buckets.length; index++)
@@ -283,17 +351,18 @@ class _SummaryLineChart extends StatelessWidget {
             ],
             isCurved: true,
             color: theme.colorScheme.primary,
-            barWidth: 3,
+            barWidth: ChartUI.barWidth,
             dotData: FlDotData(
               show: true,
               getDotPainter: (spot, percent, barData, index) {
                 final isSelected = index == selectedBucketIndex;
                 return FlDotCirclePainter(
-                  radius: isSelected ? 5 : 3,
-                  color: isSelected
+                  radius: isSelected ? ChartUI.radiusSelected : ChartUI.radius,
+                  color: theme.colorScheme.surfaceContainer,
+                  strokeColor: isSelected
                       ? theme.colorScheme.tertiary
                       : theme.colorScheme.primary,
-                  strokeWidth: 0,
+                  strokeWidth: ChartUI.strokeWidth,
                 );
               },
             ),
@@ -500,11 +569,11 @@ class _SummaryTooltipCard extends StatelessWidget {
   const _SummaryTooltipCard({
     super.key,
     required this.titleText,
-    required this.valueText,
+    required this.valueTexts,
   });
 
   final String titleText;
-  final String valueText;
+  final List<String> valueTexts;
 
   @override
   Widget build(BuildContext context) {
@@ -524,8 +593,10 @@ class _SummaryTooltipCard extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 4),
-            Text(valueText, style: theme.textTheme.bodySmall),
+            for (var index = 0; index < valueTexts.length; index++) ...[
+              SizedBox(height: index == 0 ? 4 : 2),
+              Text(valueTexts[index], style: theme.textTheme.bodySmall),
+            ],
           ],
         ),
       ),
@@ -546,3 +617,5 @@ String defaultTooltipTitleText(
     SummaryPeriodPreset.allTime => bucket.label,
   };
 }
+
+const _secondarySeriesColor = Color(0xFF2E7D32);

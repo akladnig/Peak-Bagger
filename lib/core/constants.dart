@@ -1,5 +1,3 @@
-import 'dart:ui' show Size;
-
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -83,4 +81,15 @@ abstract final class DashboardUI {
   static double rodWidthFor(double columnWidth) => columnWidth * 0.8;
 
   static const rodRadius = 2.0;
+}
+
+abstract final class ChartUI {
+  static const barWidth = 2.0;
+  static const radius = 3.0;
+  static const radiusSelected = 5.0;
+  static const colour = Color(0xFF2E7D32);
+  static const colourSelected = Color(0xD92E7D32);
+  static const strokeColor = Color(0x00000000);
+  static const strokeColorSelected = Color(0x00000000);
+  static const strokeWidth = 2.0;
 }

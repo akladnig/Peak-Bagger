@@ -37,16 +37,22 @@ class SummaryCardMetricAdapter {
     required this.keyPrefix,
     required this.emptyStateText,
     required this.metric,
-    required this.tooltipValueText,
+    required this.tooltipValueTexts,
     required this.headerValueText,
     this.tooltipTitleText = defaultTooltipTitleText,
     this.averageLabelText = defaultAverageLabelText,
+    this.secondaryMetric,
   });
 
   final String keyPrefix;
   final String emptyStateText;
   final SummaryMetricDefinition metric;
-  final String Function(SummaryBucket bucket) tooltipValueText;
+  final SummaryMetricDefinition? secondaryMetric;
+  final List<String> Function(
+    SummaryBucket bucket,
+    SummaryBucket? secondaryBucket,
+  )
+  tooltipValueTexts;
   final String Function(double value) headerValueText;
   final String Function(SummaryBucket bucket, SummaryPeriodPreset period)
   tooltipTitleText;
@@ -190,6 +196,14 @@ class _SummaryCardState extends State<SummaryCard> {
       metric: widget.adapter.metric,
       now: widget.now,
     );
+    final secondaryTimeline = widget.adapter.secondaryMetric == null
+        ? null
+        : _service.buildTimeline(
+            tracks: widget.tracks,
+            period: _period,
+            metric: widget.adapter.secondaryMetric!,
+            now: widget.now,
+          );
 
     if (timeline.isEmpty) {
       _reportVisibleSummary(null);
@@ -272,11 +286,12 @@ class _SummaryCardState extends State<SummaryCard> {
                         keyPrefix: widget.adapter.keyPrefix,
                         controller: _scrollController,
                         buckets: timeline.buckets,
+                        secondaryBuckets: secondaryTimeline?.buckets,
                         mode: _mode,
                         bucketExtent: bucketExtent,
                         period: _period,
                         referenceDate: referenceDate,
-                        tooltipValueText: widget.adapter.tooltipValueText,
+                        tooltipValueTexts: widget.adapter.tooltipValueTexts,
                         tooltipTitleText: widget.adapter.tooltipTitleText,
                       ),
                     ),

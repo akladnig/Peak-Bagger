@@ -5,8 +5,10 @@ import 'summary_chart.dart';
 
 typedef ElevationDisplayMode = SummaryDisplayMode;
 
-String formatElevationTooltipValue(SummaryBucket bucket) =>
-    '${formatElevationMetres(bucket.roundedValue)} m';
+List<String> formatElevationTooltipValues(
+  SummaryBucket bucket,
+  SummaryBucket? secondaryBucket,
+) => ['${formatElevationMetres(bucket.roundedValue)} m'];
 
 String formatElevationTooltipTitle(
   SummaryBucket bucket,
