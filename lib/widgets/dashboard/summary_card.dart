@@ -42,6 +42,7 @@ class SummaryCardMetricAdapter {
     this.tooltipTitleText = defaultTooltipTitleText,
     this.averageLabelText = defaultAverageLabelText,
     this.secondaryMetric,
+    this.barSeriesStyle = SummaryBarSeriesStyle.stacked,
   });
 
   final String keyPrefix;
@@ -57,6 +58,7 @@ class SummaryCardMetricAdapter {
   final String Function(SummaryBucket bucket, SummaryPeriodPreset period)
   tooltipTitleText;
   final String Function(SummaryPeriodPreset period) averageLabelText;
+  final SummaryBarSeriesStyle barSeriesStyle;
 }
 
 class SummaryCard extends StatefulWidget {
@@ -65,6 +67,7 @@ class SummaryCard extends StatefulWidget {
     required this.tracks,
     required this.isLoading,
     required this.adapter,
+    this.initialMode = SummaryDisplayMode.columns,
     this.now,
     this.onVisibleSummaryChanged,
   });
@@ -72,6 +75,7 @@ class SummaryCard extends StatefulWidget {
   final List<GpxTrack> tracks;
   final bool isLoading;
   final SummaryCardMetricAdapter adapter;
+  final SummaryDisplayMode initialMode;
   final DateTime? now;
   final ValueChanged<SummaryVisibleSummary?>? onVisibleSummaryChanged;
 
@@ -84,7 +88,7 @@ class _SummaryCardState extends State<SummaryCard> {
   final ScrollController _scrollController = ScrollController();
 
   SummaryPeriodPreset _period = SummaryPeriodPreset.last12Months;
-  SummaryDisplayMode _mode = SummaryDisplayMode.columns;
+  late SummaryDisplayMode _mode;
   bool _anchoredToLatest = false;
   double _viewportWidth = 0;
   double _maxScrollExtent = 0;
@@ -93,6 +97,7 @@ class _SummaryCardState extends State<SummaryCard> {
   @override
   void initState() {
     super.initState();
+    _mode = widget.initialMode;
     _scrollController.addListener(_handleScroll);
   }
 
@@ -288,6 +293,7 @@ class _SummaryCardState extends State<SummaryCard> {
                         buckets: timeline.buckets,
                         secondaryBuckets: secondaryTimeline?.buckets,
                         mode: _mode,
+                        barSeriesStyle: widget.adapter.barSeriesStyle,
                         bucketExtent: bucketExtent,
                         period: _period,
                         referenceDate: referenceDate,

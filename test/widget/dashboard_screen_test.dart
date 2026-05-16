@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/providers/dashboard_layout_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/screens/dashboard_screen.dart';
@@ -288,6 +289,78 @@ void main() {
         findsNWidgets(2),
       );
     });
+
+    testWidgets('shows peaks bagged summary in the header', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => TestMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 10,
+                basemap: Basemap.tracestrack,
+                tracks: [
+                  _track(1, DateTime(2026, 5, 1, 10), peakIds: [11]),
+                  _track(2, DateTime(2026, 5, 15, 10), peakIds: [11, 22]),
+                  _track(3, DateTime(2026, 5, 31, 10), peakIds: [33]),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.binding.setSurfaceSize(const Size(2200, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: DashboardScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final header = find.byKey(
+        const Key('dashboard-card-peaks-bagged-drag-handle'),
+      );
+      expect(
+        find.descendant(of: header, matching: find.text('Peaks Bagged')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: header, matching: find.text('Total:')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: header, matching: find.byKey(
+          const Key('dashboard-card-summary-total-value'),
+        )),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find
+                  .descendant(
+                    of: header,
+                    matching: find.byKey(
+                      const Key('dashboard-card-summary-total-value'),
+                    ),
+                  )
+                  .first,
+            )
+            .data,
+        '4',
+      );
+      expect(
+        find.descendant(of: header, matching: find.text('Monthly Avg:')),
+        findsOneWidget,
+      );
+    });
   });
 }
 
@@ -345,8 +418,9 @@ GpxTrack _track(
   DateTime? trackDate, {
   double? ascent,
   double distance2d = 0,
+  List<int> peakIds = const [],
 }) {
-  return GpxTrack(
+  final track = GpxTrack(
     gpxTrackId: id,
     contentHash: 'hash-$id',
     trackName: 'Track $id',
@@ -354,4 +428,15 @@ GpxTrack _track(
     ascent: ascent,
     distance2d: distance2d,
   );
+  track.peaks.addAll(
+    peakIds.map(
+      (peakId) => Peak(
+        osmId: peakId,
+        name: 'Peak $peakId',
+        latitude: -42,
+        longitude: 146,
+      ),
+    ),
+  );
+  return track;
 }
