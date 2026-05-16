@@ -1,6 +1,5 @@
 import 'dart:ui' show Size;
 
-import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 abstract final class MapConstants {
@@ -67,20 +66,5 @@ abstract final class UiConstants {
 }
 
 abstract final class DashboardUI {
-  static const fullHeightLabelGuides = true;
-
-  static double columnWidthFor({
-    required double availableWidth,
-    required int visibleColumnCount,
-  }) {
-    if (visibleColumnCount <= 0) {
-      return availableWidth;
-    }
-
-    return availableWidth / visibleColumnCount;
-  }
-
-  static double rodWidthFor(double columnWidth) => columnWidth * 0.8;
-
-  static const rodRadius = 2.0;
+  static const columnWidth = 56.0;
 }
