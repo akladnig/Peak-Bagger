@@ -43,6 +43,7 @@ void main() {
 
     expect(robot.board, findsOneWidget);
     expect(robot.card('distance'), findsOneWidget);
+    expect(robot.card('peaks-bagged'), findsOneWidget);
     expect(robot.dragHandle('distance'), findsOneWidget);
     expect(robot.latestWalkEmptyState, findsOneWidget);
 

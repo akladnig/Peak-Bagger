@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/number_formatters.dart';
 import '../providers/dashboard_layout_provider.dart';
 import '../providers/map_provider.dart';
 import '../services/summary_card_service.dart';
 import '../widgets/dashboard/distance_card.dart';
 import '../widgets/dashboard/elevation_card.dart';
 import '../widgets/dashboard/latest_walk_card.dart';
+import '../widgets/dashboard/peaks_bagged_card.dart';
 import '../widgets/dashboard/summary_card.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -21,6 +23,7 @@ class DashboardScreen extends ConsumerStatefulWidget {
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   SummaryVisibleSummary? _elevationSummary;
   SummaryVisibleSummary? _distanceSummary;
+  SummaryVisibleSummary? _peaksBaggedSummary;
 
   @override
   void initState() {
@@ -45,6 +48,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     setState(() {
       _distanceSummary = summary;
+    });
+  }
+
+  void _handlePeaksBaggedSummaryChanged(SummaryVisibleSummary? summary) {
+    if (_peaksBaggedSummary == summary) {
+      return;
+    }
+
+    setState(() {
+      _peaksBaggedSummary = summary;
     });
   }
 
@@ -88,6 +101,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       isLoading: isLoadingTracks,
                       onVisibleSummaryChanged: _handleElevationSummaryChanged,
                     ),
+                    'peaks-bagged' => PeaksBaggedCard(
+                      tracks: tracks,
+                      isLoading: isLoadingTracks,
+                      onVisibleSummaryChanged:
+                          _handlePeaksBaggedSummaryChanged,
+                    ),
                     _ => const _DashboardCardBody(),
                   };
                   return _DashboardCard(
@@ -106,6 +125,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           valueFormatter: DistanceCard.adapter.headerValueText,
                           averageLabelText:
                               DistanceCard.adapter.averageLabelText,
+                        ),
+                      'peaks-bagged' when _peaksBaggedSummary != null =>
+                        _DashboardCardHeaderMetrics(
+                          summary: _peaksBaggedSummary!,
+                          valueFormatter: _formatCountValue,
+                          averageLabelText: defaultAverageLabelText,
                         ),
                       _ => null,
                     },
@@ -438,3 +463,5 @@ class _DashboardCardHeaderBodyPlaceholder extends StatelessWidget {
     return const SizedBox.shrink();
   }
 }
+
+String _formatCountValue(double value) => formatElevationMetres(value.round());

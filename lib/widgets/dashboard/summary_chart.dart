@@ -8,6 +8,8 @@ import '../../core/date_formatters.dart';
 import '../../services/summary_card_service.dart';
 import '../../theme.dart';
 
+enum SummaryBarSeriesStyle { stacked, grouped }
+
 enum SummaryDisplayMode { columns, line }
 
 class SummaryChart extends StatefulWidget {
@@ -18,6 +20,7 @@ class SummaryChart extends StatefulWidget {
     required this.buckets,
     this.secondaryBuckets,
     required this.mode,
+    required this.barSeriesStyle,
     required this.bucketExtent,
     required this.period,
     required this.referenceDate,
@@ -30,6 +33,7 @@ class SummaryChart extends StatefulWidget {
   final List<SummaryBucket> buckets;
   final List<SummaryBucket>? secondaryBuckets;
   final SummaryDisplayMode mode;
+  final SummaryBarSeriesStyle barSeriesStyle;
   final double bucketExtent;
   final SummaryPeriodPreset period;
   final DateTime referenceDate;
@@ -105,13 +109,14 @@ class _SummaryChartState extends State<SummaryChart> {
                     child: Padding(
                       padding: const EdgeInsets.only(top: 20, bottom: 28),
                       child: widget.mode == SummaryDisplayMode.columns
-                          ? _SummaryBarChart(
-                              buckets: buckets,
-                              secondaryBuckets: secondaryBuckets,
-                              chartMaxY: chartMaxY,
-                              selectedBucketIndex: _selectedBucketIndex,
-                              bucketExtent: widget.bucketExtent,
-                            )
+                            ? _SummaryBarChart(
+                                buckets: buckets,
+                                secondaryBuckets: secondaryBuckets,
+                                chartMaxY: chartMaxY,
+                                selectedBucketIndex: _selectedBucketIndex,
+                                bucketExtent: widget.bucketExtent,
+                                style: widget.barSeriesStyle,
+                              )
                           : _SummaryLineChart(
                               buckets: buckets,
                               secondaryBuckets: secondaryBuckets,
@@ -227,6 +232,7 @@ class _SummaryBarChart extends StatelessWidget {
     required this.chartMaxY,
     required this.selectedBucketIndex,
     required this.bucketExtent,
+    required this.style,
   });
 
   final List<SummaryBucket> buckets;
@@ -234,6 +240,7 @@ class _SummaryBarChart extends StatelessWidget {
   final double chartMaxY;
   final int? selectedBucketIndex;
   final double bucketExtent;
+  final SummaryBarSeriesStyle style;
 
   @override
   Widget build(BuildContext context) {
@@ -246,39 +253,71 @@ class _SummaryBarChart extends StatelessWidget {
         alignment: BarChartAlignment.spaceAround,
         barGroups: [
           for (var index = 0; index < buckets.length; index++)
-            BarChartGroupData(
-              x: index,
-              barsSpace: 0,
-              barRods: [
-                BarChartRodData(
-                  toY: secondaryBuckets == null
-                      ? buckets[index].value
-                      : math.max(
+            switch (style) {
+              SummaryBarSeriesStyle.grouped => BarChartGroupData(
+                x: index,
+                barsSpace: 6,
+                barRods: [
+                  _seriesRod(
+                    value: buckets[index].value,
+                    width: DashboardUI.rodWidthFor(bucketExtent) / 2,
+                    color: index == selectedBucketIndex
+                        ? theme.colorScheme.tertiary
+                        : theme.colorScheme.primary,
+                  ),
+                  if (secondaryBuckets != null)
+                    _seriesRod(
+                      value: secondaryBuckets![index].value,
+                      width: DashboardUI.rodWidthFor(bucketExtent) / 2,
+                      color: _secondarySeriesColor,
+                    ),
+                ],
+              ),
+              SummaryBarSeriesStyle.stacked => BarChartGroupData(
+                x: index,
+                barsSpace: 0,
+                barRods: [
+                  BarChartRodData(
+                    toY: secondaryBuckets == null
+                        ? buckets[index].value
+                        : math.max(
+                            buckets[index].value,
+                            secondaryBuckets![index].value,
+                          ),
+                    width: DashboardUI.rodWidthFor(bucketExtent),
+                    borderRadius: BorderRadius.circular(DashboardUI.rodRadius),
+                    color: Colors.transparent,
+                    rodStackItems: [
+                      if (secondaryBuckets != null &&
+                          secondaryBuckets![index].value < buckets[index].value)
+                        BarChartRodStackItem(
+                          0,
+                          secondaryBuckets![index].value,
+                          _secondarySeriesColor,
+                        ),
+                      BarChartRodStackItem(
+                        secondaryBuckets != null &&
+                                secondaryBuckets![index].value <
+                                    buckets[index].value
+                            ? secondaryBuckets![index].value
+                            : 0,
+                        buckets[index].value,
+                        index == selectedBucketIndex
+                            ? theme.colorScheme.tertiary
+                            : theme.colorScheme.primary,
+                      ),
+                      if (secondaryBuckets != null &&
+                          secondaryBuckets![index].value > buckets[index].value)
+                        BarChartRodStackItem(
                           buckets[index].value,
                           secondaryBuckets![index].value,
+                          _secondarySeriesColor,
                         ),
-                  width: DashboardUI.rodWidthFor(bucketExtent),
-                  borderRadius: BorderRadius.circular(DashboardUI.rodRadius),
-                  color: Colors.transparent,
-                  rodStackItems: [
-                    BarChartRodStackItem(
-                      0,
-                      buckets[index].value,
-                      index == selectedBucketIndex
-                          ? theme.colorScheme.tertiary
-                          : theme.colorScheme.primary,
-                    ),
-                    if (secondaryBuckets != null &&
-                        secondaryBuckets![index].value > buckets[index].value)
-                      BarChartRodStackItem(
-                        buckets[index].value,
-                        secondaryBuckets![index].value,
-                        _secondarySeriesColor,
-                      ),
-                  ],
-                ),
-              ],
-            ),
+                    ],
+                  ),
+                ],
+              ),
+            },
         ],
         titlesData: const FlTitlesData(
           leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -292,6 +331,19 @@ class _SummaryBarChart extends StatelessWidget {
       ),
     );
   }
+}
+
+BarChartRodData _seriesRod({
+  required double value,
+  required double width,
+  required Color color,
+}) {
+  return BarChartRodData(
+    toY: value,
+    width: width,
+    borderRadius: BorderRadius.circular(DashboardUI.rodRadius),
+    color: color,
+  );
 }
 
 class _SummaryLineChart extends StatelessWidget {
