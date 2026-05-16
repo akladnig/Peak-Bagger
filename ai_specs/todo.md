@@ -24,10 +24,10 @@
 
 ## Shared Services
 - [ ] move number formatters from map_screen_panels to number_formatters.dart and consolidate
+
 ## Dashboard
-- [ ] header text to be constant - expanded???
 - [ ] change dropdown and make it similar in all the app.
-- [ ] Add a summary card for year to date. Total km, ascent, peaks, walks etc.
+- [ ] Add y-axis labels
 
 ## 2  Display map of Tasmania with zoom, pan and search function
 - [ ] change zoom level display to actual distance

@@ -11,10 +11,13 @@ import '../widgets/dashboard/distance_card.dart';
 import '../widgets/dashboard/elevation_card.dart';
 import '../widgets/dashboard/latest_walk_card.dart';
 import '../widgets/dashboard/peaks_bagged_card.dart';
+import '../widgets/dashboard/year_to_date_card.dart';
 import '../widgets/dashboard/summary_card.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
-  const DashboardScreen({super.key});
+  const DashboardScreen({super.key, this.now});
+
+  final DateTime? now;
 
   @override
   ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
@@ -78,6 +81,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               final columns = _resolveColumnCount(constraints.maxWidth);
               return GridView.builder(
                 key: const Key('dashboard-board'),
+                findChildIndexCallback: (key) {
+                  final valueKey = key is ValueKey<String> ? key.value : null;
+                  if (valueKey == null ||
+                      !valueKey.startsWith('dashboard-card-')) {
+                    return null;
+                  }
+
+                  final cardId = valueKey.substring('dashboard-card-'.length);
+                  return order.indexOf(cardId);
+                },
                 itemCount: order.length,
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: columns,
@@ -93,23 +106,31 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     'distance' => DistanceCard(
                       tracks: tracks,
                       isLoading: isLoadingTracks,
+                      now: widget.now,
                       onVisibleSummaryChanged: _handleDistanceSummaryChanged,
                     ),
                     'latest-walk' => LatestWalkCard(tracks: tracks),
                     'elevation' => ElevationCard(
                       tracks: tracks,
                       isLoading: isLoadingTracks,
+                      now: widget.now,
                       onVisibleSummaryChanged: _handleElevationSummaryChanged,
                     ),
                     'peaks-bagged' => PeaksBaggedCard(
                       tracks: tracks,
                       isLoading: isLoadingTracks,
-                      onVisibleSummaryChanged:
-                          _handlePeaksBaggedSummaryChanged,
+                      now: widget.now,
+                      onVisibleSummaryChanged: _handlePeaksBaggedSummaryChanged,
+                    ),
+                    'year-to-date' => YearToDateCard(
+                      tracks: tracks,
+                      isLoading: isLoadingTracks,
+                      now: widget.now,
                     ),
                     _ => const _DashboardCardBody(),
                   };
                   return _DashboardCard(
+                    key: ValueKey('dashboard-card-${definition.id}'),
                     definition: definition,
                     headerTrailing: switch (definition.id) {
                       'elevation' when _elevationSummary != null =>
@@ -165,6 +186,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
 class _DashboardCard extends StatefulWidget {
   const _DashboardCard({
+    super.key,
     required this.definition,
     required this.headerTrailing,
     required this.body,
@@ -189,7 +211,6 @@ class _DashboardCardState extends State<_DashboardCard> {
     final theme = Theme.of(context);
 
     return DragTarget<String>(
-      key: Key('dashboard-card-${widget.definition.id}'),
       onWillAcceptWithDetails: (details) =>
           details.data != widget.definition.id,
       onAcceptWithDetails: (details) {
@@ -369,20 +390,25 @@ class _DashboardCardHeaderRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Text(title, style: titleStyle),
+        Expanded(
+          child: Text(
+            title,
+            style: titleStyle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
         const SizedBox(width: 12),
         if (headerTrailing != null) ...[
-          Expanded(
+          Flexible(
             child: Align(
               alignment: Alignment.centerRight,
               child: headerTrailing!,
             ),
           ),
           const SizedBox(width: 12),
-        ] else ...[
-          const Spacer(),
         ],
-        const Icon(Icons.drag_indicator),
+        const Icon(Icons.drag_indicator, size: 18),
       ],
     );
   }
@@ -401,21 +427,26 @@ class _DashboardCardHeaderMetrics extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        _DashboardCardHeaderMetricPill(
-          label: 'Total:',
-          value: valueFormatter(summary.totalValue),
-          valueKey: const Key('dashboard-card-summary-total-value'),
-        ),
-        SizedBox(width: 20),
-        _DashboardCardHeaderMetricPill(
-          label: averageLabelText(summary.period),
-          value: valueFormatter(summary.averageValue),
-          valueKey: const Key('dashboard-card-summary-average-value'),
-        ),
-      ],
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerRight,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          _DashboardCardHeaderMetricPill(
+            label: 'Total:',
+            value: valueFormatter(summary.totalValue),
+            valueKey: const Key('dashboard-card-summary-total-value'),
+          ),
+          const SizedBox(width: 20),
+          _DashboardCardHeaderMetricPill(
+            label: averageLabelText(summary.period),
+            value: valueFormatter(summary.averageValue),
+            valueKey: const Key('dashboard-card-summary-average-value'),
+          ),
+        ],
+      ),
     );
   }
 }

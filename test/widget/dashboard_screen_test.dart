@@ -15,7 +15,7 @@ import '../harness/test_map_notifier.dart';
 
 void main() {
   group('DashboardScreen', () {
-    testWidgets('renders six placeholder cards', (tester) async {
+    testWidgets('renders seven dashboard cards', (tester) async {
       SharedPreferences.setMockInitialValues({});
       await _pumpDashboard(tester, const Size(1400, 1800));
 
@@ -99,6 +99,7 @@ void main() {
         'latest-walk',
         'distance',
         'peaks-bagged',
+        'year-to-date',
         'top-5-highest',
         'top-5-walks',
       ]);
@@ -336,9 +337,10 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.descendant(of: header, matching: find.byKey(
-          const Key('dashboard-card-summary-total-value'),
-        )),
+        find.descendant(
+          of: header,
+          matching: find.byKey(const Key('dashboard-card-summary-total-value')),
+        ),
         findsOneWidget,
       );
       expect(

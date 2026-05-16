@@ -20,6 +20,13 @@ class DashboardRobot {
       find.byKey(Key('dashboard-card-$id-drag-handle'));
   Finder summaryControl(String id, String key) =>
       find.descendant(of: card(id), matching: find.byKey(Key(key)));
+  Finder get yearToDateCard =>
+      find.byKey(const Key('dashboard-card-year-to-date'));
+  Finder get yearToDateLoadingState =>
+      find.byKey(const Key('year-to-date-loading-state'));
+  Finder get yearToDateTitle => find.byKey(const Key('year-to-date-title'));
+  Finder yearToDateControl(String key) =>
+      find.descendant(of: yearToDateCard, matching: find.byKey(Key(key)));
   Finder get latestWalkCard => find.byKey(const Key('latest-walk-card'));
   Finder get latestWalkEmptyState =>
       find.byKey(const Key('latest-walk-empty-state'));
