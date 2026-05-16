@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/number_formatters.dart';
 import '../providers/dashboard_layout_provider.dart';
 import '../providers/map_provider.dart';
 import '../services/summary_card_service.dart';
@@ -97,13 +96,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       'elevation' when _elevationSummary != null =>
                         _DashboardCardHeaderMetrics(
                           summary: _elevationSummary!,
-                          valueFormatter: (value) =>
-                              '${formatElevationMetres(value.round())} m',
+                          valueFormatter: ElevationCard.adapter.headerValueText,
+                          averageLabelText:
+                              ElevationCard.adapter.averageLabelText,
                         ),
                       'distance' when _distanceSummary != null =>
                         _DashboardCardHeaderMetrics(
                           summary: _distanceSummary!,
-                          valueFormatter: formatDistance,
+                          valueFormatter: DistanceCard.adapter.headerValueText,
+                          averageLabelText:
+                              DistanceCard.adapter.averageLabelText,
                         ),
                       _ => null,
                     },
@@ -365,10 +367,12 @@ class _DashboardCardHeaderMetrics extends StatelessWidget {
   const _DashboardCardHeaderMetrics({
     required this.summary,
     required this.valueFormatter,
+    required this.averageLabelText,
   });
 
   final SummaryVisibleSummary summary;
   final String Function(double value) valueFormatter;
+  final String Function(SummaryPeriodPreset period) averageLabelText;
 
   @override
   Widget build(BuildContext context) {
@@ -384,23 +388,12 @@ class _DashboardCardHeaderMetrics extends StatelessWidget {
           valueKey: const Key('dashboard-card-summary-total-value'),
         ),
         _DashboardCardHeaderMetricPill(
-          label: _averageLabel,
+          label: averageLabelText(summary.period),
           value: valueFormatter(summary.averageValue),
           valueKey: const Key('dashboard-card-summary-average-value'),
         ),
       ],
     );
-  }
-
-  String get _averageLabel {
-    return switch (summary.period) {
-      SummaryPeriodPreset.week => 'Daily Avg:',
-      SummaryPeriodPreset.month => 'Weekly Avg:',
-      SummaryPeriodPreset.last3Months ||
-      SummaryPeriodPreset.last6Months => 'Monthly Avg:',
-      SummaryPeriodPreset.last12Months => 'Monthly Avg:',
-      SummaryPeriodPreset.allTime => 'Annual Avg:',
-    };
   }
 }
 

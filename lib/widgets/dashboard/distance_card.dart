@@ -15,6 +15,13 @@ class DistanceCard extends StatelessWidget {
   });
 
   static const metric = SummaryMetricDefinition(valueOf: _trackDistance);
+  static const adapter = SummaryCardMetricAdapter(
+    keyPrefix: 'distance',
+    emptyStateText: 'No distance data yet',
+    metric: metric,
+    tooltipValueText: _distanceTooltipValue,
+    headerValueText: formatDistance,
+  );
 
   final List<GpxTrack> tracks;
   final bool isLoading;
@@ -30,12 +37,7 @@ class DistanceCard extends StatelessWidget {
         isLoading: isLoading,
         now: now,
         onVisibleSummaryChanged: onVisibleSummaryChanged,
-        adapter: const SummaryCardMetricAdapter(
-          keyPrefix: 'distance',
-          emptyStateText: 'No distance data yet',
-          metric: metric,
-          tooltipValueText: _distanceTooltipValue,
-        ),
+        adapter: adapter,
       ),
     );
   }

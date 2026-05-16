@@ -49,14 +49,14 @@ Extract shared summary-card foundations from Elevation, then add Distance as a t
 ### Phase 3: Regression Hardening
 
 - **Goal**: lock refactor safety; prep Peaks Bagged reuse
-- [ ] `test/widget/elevation_card_test.dart` - refresh/assert preserved Elevation control keys, tooltip, header-summary behavior under shared shell
-- [ ] `test/services/elevation_summary_service_test.dart` - migrate or replace with neutral-summary coverage if generic service fully subsumes old file
-- [ ] `test/robot/dashboard/elevation_journey_test.dart` - update to scoped shared-key lookup; keep Elevation metric-local assertions
-- [ ] `test/robot/dashboard/dashboard_journey_test.dart` - harden shared-control selector helpers for multiple summary cards on one board
-- [ ] `lib/widgets/dashboard/summary_card.dart` - final cleanup for reusable adapter seams needed by future Peaks Bagged card; no Peaks Bagged feature work yet
-- [ ] TDD: Elevation and Distance can coexist with duplicated shared control keys on one dashboard without selector ambiguity; then finalize robot/widget helpers
-- [ ] TDD: generic summary layers expose only neutral `Summary*` types; then remove leftover shared `Elevation*` type leakage
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `test/widget/elevation_card_test.dart` - refresh/assert preserved Elevation control keys, tooltip, header-summary behavior under shared shell
+- [x] `test/services/elevation_summary_service_test.dart` - migrate or replace with neutral-summary coverage if generic service fully subsumes old file
+- [x] `test/robot/dashboard/elevation_journey_test.dart` - update to scoped shared-key lookup; keep Elevation metric-local assertions
+- [x] `test/robot/dashboard/dashboard_journey_test.dart` - harden shared-control selector helpers for multiple summary cards on one board
+- [x] `lib/widgets/dashboard/summary_card.dart` - final cleanup for reusable adapter seams needed by future Peaks Bagged card; no Peaks Bagged feature work yet
+- [x] TDD: Elevation and Distance can coexist with duplicated shared control keys on one dashboard without selector ambiguity; then finalize robot/widget helpers
+- [x] TDD: generic summary layers expose only neutral `Summary*` types; then remove leftover shared `Elevation*` type leakage
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/gpx_track.dart';
+import '../../core/number_formatters.dart';
 import '../../services/elevation_summary_service.dart';
 import 'elevation_chart.dart';
 import 'summary_card.dart';
@@ -16,6 +17,15 @@ class ElevationCard extends StatelessWidget {
     this.onVisibleSummaryChanged,
   });
 
+  static const adapter = SummaryCardMetricAdapter(
+    keyPrefix: 'elevation',
+    emptyStateText: 'No elevation data yet',
+    metric: ElevationSummaryService.metric,
+    tooltipValueText: formatElevationTooltipValue,
+    headerValueText: _formatHeaderValue,
+    tooltipTitleText: formatElevationTooltipTitle,
+  );
+
   final List<GpxTrack> tracks;
   final bool isLoading;
   final DateTime? now;
@@ -30,14 +40,11 @@ class ElevationCard extends StatelessWidget {
         isLoading: isLoading,
         now: now,
         onVisibleSummaryChanged: onVisibleSummaryChanged,
-        adapter: const SummaryCardMetricAdapter(
-          keyPrefix: 'elevation',
-          emptyStateText: 'No elevation data yet',
-          metric: ElevationSummaryService.metric,
-          tooltipValueText: formatElevationTooltipValue,
-          tooltipTitleText: formatElevationTooltipTitle,
-        ),
+        adapter: adapter,
       ),
     );
   }
 }
+
+String _formatHeaderValue(double value) =>
+    '${formatElevationMetres(value.round())} m';

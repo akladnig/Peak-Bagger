@@ -38,15 +38,19 @@ class SummaryCardMetricAdapter {
     required this.emptyStateText,
     required this.metric,
     required this.tooltipValueText,
+    required this.headerValueText,
     this.tooltipTitleText = defaultTooltipTitleText,
+    this.averageLabelText = defaultAverageLabelText,
   });
 
   final String keyPrefix;
   final String emptyStateText;
   final SummaryMetricDefinition metric;
   final String Function(SummaryBucket bucket) tooltipValueText;
+  final String Function(double value) headerValueText;
   final String Function(SummaryBucket bucket, SummaryPeriodPreset period)
   tooltipTitleText;
+  final String Function(SummaryPeriodPreset period) averageLabelText;
 }
 
 class SummaryCard extends StatefulWidget {
@@ -511,3 +515,6 @@ int visibleColumnCountForPeriod(SummaryPeriodPreset period) {
     SummaryPeriodPreset.last12Months || SummaryPeriodPreset.allTime => 12,
   };
 }
+
+String defaultAverageLabelText(SummaryPeriodPreset period) =>
+    period.averageLabel;
