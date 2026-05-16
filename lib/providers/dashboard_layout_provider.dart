@@ -20,6 +20,7 @@ const dashboardCards = <DashboardCardDefinition>[
   DashboardCardDefinition(id: 'distance', title: 'Distance'),
   DashboardCardDefinition(id: 'latest-walk', title: 'Latest Walk'),
   DashboardCardDefinition(id: 'peaks-bagged', title: 'Peaks Bagged'),
+  DashboardCardDefinition(id: 'year-to-date', title: 'My Year to Date'),
   DashboardCardDefinition(id: 'top-5-highest', title: 'Top 5 Highest'),
   DashboardCardDefinition(id: 'top-5-walks', title: 'Top 5 Walks'),
 ];
@@ -29,6 +30,7 @@ const dashboardDefaultCardOrder = <String>[
   'distance',
   'latest-walk',
   'peaks-bagged',
+  'year-to-date',
   'top-5-highest',
   'top-5-walks',
 ];
@@ -109,7 +111,11 @@ class DashboardLayoutNotifier extends Notifier<List<String>> {
     return next;
   }
 
-  List<String> _moveCard(List<String> order, String draggedId, String targetId) {
+  List<String> _moveCard(
+    List<String> order,
+    String draggedId,
+    String targetId,
+  ) {
     final draggedIndex = order.indexOf(draggedId);
     final targetIndex = order.indexOf(targetId);
     if (draggedIndex < 0 || targetIndex < 0 || draggedIndex == targetIndex) {
@@ -118,7 +124,9 @@ class DashboardLayoutNotifier extends Notifier<List<String>> {
 
     final next = [...order];
     final dragged = next.removeAt(draggedIndex);
-    final adjustedTargetIndex = draggedIndex < targetIndex ? targetIndex - 1 : targetIndex;
+    final adjustedTargetIndex = draggedIndex < targetIndex
+        ? targetIndex - 1
+        : targetIndex;
     next.insert(adjustedTargetIndex, dragged);
     return next;
   }

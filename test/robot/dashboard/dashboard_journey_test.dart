@@ -44,6 +44,7 @@ void main() {
     expect(robot.board, findsOneWidget);
     expect(robot.card('distance'), findsOneWidget);
     expect(robot.card('peaks-bagged'), findsOneWidget);
+    expect(robot.card('year-to-date'), findsOneWidget);
     expect(robot.dragHandle('distance'), findsOneWidget);
     expect(robot.latestWalkEmptyState, findsOneWidget);
 
@@ -55,6 +56,7 @@ void main() {
       'latest-walk',
       'distance',
       'peaks-bagged',
+      'year-to-date',
       'top-5-highest',
       'top-5-walks',
     ];
@@ -90,6 +92,7 @@ void main() {
     expect(robot.board, findsOneWidget);
     expect(robot.card('distance'), findsOneWidget);
     expect(robot.dragHandle('distance'), findsOneWidget);
+    expect(robot.card('year-to-date'), findsOneWidget);
   });
 
   testWidgets('dashboard journey exposes scoped distance controls', (
@@ -266,6 +269,93 @@ void main() {
 
     await robot.tapLatestWalkNext();
     expect(find.text('Track 20'), findsOneWidget);
+  });
+
+  testWidgets('dashboard journey keeps year selection stable across reorder', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+
+    final robot = DashboardRobot(tester);
+    final notifier = TestMapNotifier(
+      const MapState(
+        center: LatLng(-41.5, 146.5),
+        zoom: 12,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    final container = ProviderContainer(
+      overrides: [
+        mapProvider.overrideWith(() => notifier),
+        tasmapRepositoryProvider.overrideWithValue(
+          await TestTasmapRepository.create(),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await robot.pumpApp(container: container);
+    await robot.openDashboard();
+
+    notifier.setTracks([
+      _track(
+        10,
+        DateTime.utc(2025, 5, 14, 10),
+        segments: [
+          [const LatLng(-41.5, 146.5), const LatLng(-41.4, 146.6)],
+        ],
+      ),
+      _track(
+        20,
+        DateTime.utc(2026, 5, 15, 10),
+        segments: [
+          [const LatLng(-41.6, 146.6), const LatLng(-41.7, 146.7)],
+        ],
+      ),
+      _track(
+        30,
+        DateTime.utc(2027, 5, 13, 10),
+        segments: [
+          [const LatLng(-41.8, 146.8), const LatLng(-41.9, 146.9)],
+        ],
+      ),
+    ]);
+    await tester.pumpAndSettle();
+
+    expect(robot.yearToDateCard, findsOneWidget);
+    expect(robot.yearToDateTitle, findsOneWidget);
+    expect(find.text('My Walks in 2026'), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const Key('year-to-date-distance-value')))
+          .data,
+      '12.4 km',
+    );
+
+    await tester.tap(robot.yearToDateControl('year-to-date-prev-year'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('My Walks in 2025'), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const Key('year-to-date-distance-value')))
+          .data,
+      '12.4 km',
+    );
+
+    await robot.container
+        .read(dashboardLayoutProvider.notifier)
+        .moveCard('year-to-date', 'distance');
+    await tester.pumpAndSettle();
+
+    expect(find.text('My Walks in 2025'), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const Key('year-to-date-distance-value')))
+          .data,
+      '12.4 km',
+    );
   });
 }
 

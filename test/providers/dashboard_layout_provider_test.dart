@@ -11,7 +11,10 @@ void main() {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      expect(container.read(dashboardLayoutProvider), dashboardDefaultCardOrder);
+      expect(
+        container.read(dashboardLayoutProvider),
+        dashboardDefaultCardOrder,
+      );
     });
 
     test('loads and sanitizes stored order data', () async {
@@ -29,17 +32,15 @@ void main() {
 
       await container.read(dashboardLayoutProvider.notifier).load();
 
-      expect(
-        container.read(dashboardLayoutProvider),
-        <String>[
-          'distance',
-          'elevation',
-          'latest-walk',
-          'peaks-bagged',
-          'top-5-highest',
-          'top-5-walks',
-        ],
-      );
+      expect(container.read(dashboardLayoutProvider), <String>[
+        'distance',
+        'elevation',
+        'latest-walk',
+        'peaks-bagged',
+        'year-to-date',
+        'top-5-highest',
+        'top-5-walks',
+      ]);
     });
 
     test('saves and reloads the reordered layout', () async {
@@ -53,11 +54,14 @@ void main() {
         'elevation',
         'latest-walk',
         'peaks-bagged',
+        'year-to-date',
         'top-5-highest',
         'top-5-walks',
       ];
 
-      await container.read(dashboardLayoutProvider.notifier).setOrder(reordered);
+      await container
+          .read(dashboardLayoutProvider.notifier)
+          .setOrder(reordered);
 
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getStringList(dashboardCardOrderStorageKey), reordered);
@@ -86,10 +90,13 @@ void main() {
         'elevation',
         'latest-walk',
         'peaks-bagged',
+        'year-to-date',
         'top-5-walks',
       ];
 
-      await container.read(dashboardLayoutProvider.notifier).setOrder(nextOrder);
+      await container
+          .read(dashboardLayoutProvider.notifier)
+          .setOrder(nextOrder);
 
       expect(container.read(dashboardLayoutProvider), nextOrder);
     });
@@ -109,6 +116,7 @@ void main() {
         'latest-walk',
         'distance',
         'peaks-bagged',
+        'year-to-date',
         'top-5-highest',
         'top-5-walks',
       ];
