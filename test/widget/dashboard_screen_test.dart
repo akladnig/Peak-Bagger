@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/providers/dashboard_layout_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/screens/dashboard_screen.dart';
@@ -14,10 +15,10 @@ import '../harness/test_map_notifier.dart';
 void main() {
   group('DashboardScreen', () {
     testWidgets('renders six placeholder cards', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    await _pumpDashboard(tester, const Size(1400, 1000));
+      SharedPreferences.setMockInitialValues({});
+      await _pumpDashboard(tester, const Size(1400, 1800));
 
-    for (final card in dashboardCards) {
+      for (final card in dashboardCards) {
         expect(find.text(card.title), findsOneWidget);
         expect(find.byKey(Key('dashboard-card-${card.id}')), findsOneWidget);
         expect(
@@ -28,8 +29,8 @@ void main() {
     });
 
     testWidgets('scrolls when the viewport is short', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    await _pumpDashboard(tester, const Size(1400, 520));
+      SharedPreferences.setMockInitialValues({});
+      await _pumpDashboard(tester, const Size(1400, 520));
 
       await tester.scrollUntilVisible(
         find.byKey(const Key('dashboard-card-top-5-walks')),
@@ -37,15 +38,18 @@ void main() {
         scrollable: find.byType(Scrollable).first,
       );
 
-      expect(find.byKey(const Key('dashboard-card-top-5-walks')), findsOneWidget);
+      expect(
+        find.byKey(const Key('dashboard-card-top-5-walks')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('uses the 3/2/1 column contract', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    await _pumpDashboard(tester, const Size(1400, 1000));
-    _expectGridContract(tester, 3);
+      SharedPreferences.setMockInitialValues({});
+      await _pumpDashboard(tester, const Size(1600, 1000));
+      _expectGridContract(tester, 3);
 
-      await _pumpDashboard(tester, const Size(1000, 1000));
+      await _pumpDashboard(tester, const Size(1400, 1000));
       _expectGridContract(tester, 2);
 
       await _pumpDashboard(tester, const Size(700, 1000));
@@ -69,7 +73,7 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      await tester.binding.setSurfaceSize(const Size(1400, 1000));
+      await tester.binding.setSurfaceSize(const Size(1400, 1800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       await tester.pumpWidget(
@@ -80,24 +84,23 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final handle = find.byKey(const Key('dashboard-card-distance-drag-handle'));
+      final handle = find.byKey(
+        const Key('dashboard-card-distance-drag-handle'),
+      );
       final target = find.byKey(const Key('dashboard-card-peaks-bagged'));
       final gestureOffset = tester.getCenter(target) - tester.getCenter(handle);
 
       await tester.drag(handle, gestureOffset);
       await tester.pumpAndSettle();
 
-      expect(
-        container.read(dashboardLayoutProvider),
-        <String>[
-          'elevation',
-          'latest-walk',
-          'distance',
-          'peaks-bagged',
-          'top-5-highest',
-          'top-5-walks',
-        ],
-      );
+      expect(container.read(dashboardLayoutProvider), <String>[
+        'elevation',
+        'latest-walk',
+        'distance',
+        'peaks-bagged',
+        'top-5-highest',
+        'top-5-walks',
+      ]);
     });
 
     testWidgets('hovering a card updates its border', (tester) async {
@@ -167,6 +170,66 @@ void main() {
       expect(draggingShape.side.width, 2);
       expect(draggingShape.side.color, isNot(initialShape.side.color));
     });
+
+    testWidgets('shows elevation summary in the header', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => TestMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 10,
+                basemap: Basemap.tracestrack,
+                tracks: [_track(1, DateTime(2026, 5, 15, 10), ascent: 1234)],
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.binding.setSurfaceSize(const Size(1400, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: DashboardScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('elevation-period-dropdown')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('All Time').last);
+      await tester.pumpAndSettle();
+
+      final header = find.byKey(
+        const Key('dashboard-card-elevation-drag-handle'),
+      );
+      expect(
+        find.descendant(of: header, matching: find.text('Elevation')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: header, matching: find.text('Total:')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: header, matching: find.text('Annual Avg 1,234 m')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: header, matching: find.text('Annual Avg:')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: header, matching: find.text('1,234 m')),
+        findsNWidgets(2),
+      );
+    });
   });
 }
 
@@ -195,9 +258,22 @@ Future<void> _pumpDashboard(WidgetTester tester, Size size) async {
 }
 
 void _expectGridContract(WidgetTester tester, int columns) {
-  final grid = tester.widget<GridView>(find.byKey(const Key('dashboard-board')));
-  final delegate = grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+  final grid = tester.widget<GridView>(
+    find.byKey(const Key('dashboard-board')),
+  );
+  final delegate =
+      grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
 
   expect(delegate.crossAxisCount, columns);
   expect(delegate.childAspectRatio, dashboardCardAspectRatio);
+}
+
+GpxTrack _track(int id, DateTime? trackDate, {double? ascent}) {
+  return GpxTrack(
+    gpxTrackId: id,
+    contentHash: 'hash-$id',
+    trackName: 'Track $id',
+    trackDate: trackDate,
+    ascent: ascent,
+  );
 }
