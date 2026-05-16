@@ -126,7 +126,13 @@ void main() {
     expect(find.text('from Unknown to Unknown'), findsOneWidget);
     expect(panel.color, CatppuccinColors.dark.colorScheme.secondary);
     expect(find.text('Distance'), findsOneWidget);
-    expect(find.text('12.4 km'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.ancestor(of: find.text('Distance'), matching: find.byType(Row)).first,
+        matching: find.text('12 km'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Ascent'), findsOneWidget);
     expect(find.text('Unknown'), findsWidgets);
     expect(find.text('Peaks Climbed'), findsOneWidget);
@@ -144,7 +150,18 @@ void main() {
     expect(highestPeakLabel.softWrap, isFalse);
     expect(highestPeakLabel.overflow, TextOverflow.clip);
     expect(find.text('840 m'), findsOneWidget);
-    expect(find.text('11.6 km'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find
+            .ancestor(
+              of: find.text('Distance from highest peak'),
+              matching: find.byType(Row),
+            )
+            .first,
+        matching: find.text('12 km'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Unknown Peak'), findsOneWidget);
     expect(find.text('beta'), findsOneWidget);
     expect(find.text('Elevation'), findsOneWidget);

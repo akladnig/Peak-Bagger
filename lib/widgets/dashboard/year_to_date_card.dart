@@ -45,6 +45,7 @@ class _YearToDateCardState extends State<YearToDateCard> {
 
   @override
   Widget build(BuildContext context) {
+    final currentYear = _service.initialYear(now: widget.now);
     return KeyedSubtree(
       key: const Key('year-to-date-card'),
       child: widget.isLoading
@@ -58,6 +59,7 @@ class _YearToDateCardState extends State<YearToDateCard> {
                     year: _selectedYear,
                     onPrevious: _previousYear,
                     onNext: _nextYear,
+                    canMoveNext: _selectedYear < currentYear,
                   ),
                   const SizedBox(height: 12),
                   Expanded(
@@ -92,11 +94,13 @@ class _YearToDateHeader extends StatelessWidget {
     required this.year,
     required this.onPrevious,
     required this.onNext,
+    required this.canMoveNext,
   });
 
   final int year;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
+  final bool canMoveNext;
 
   @override
   Widget build(BuildContext context) {
@@ -126,7 +130,7 @@ class _YearToDateHeader extends StatelessWidget {
         IconButton(
           key: const Key('year-to-date-next-year'),
           tooltip: 'Next year',
-          onPressed: onNext,
+          onPressed: canMoveNext ? onNext : null,
           padding: EdgeInsets.zero,
           visualDensity: VisualDensity.compact,
           constraints: const BoxConstraints.tightFor(width: 32, height: 32),

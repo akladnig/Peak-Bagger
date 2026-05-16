@@ -62,7 +62,7 @@ void main() {
         find.byKey(const Key('year-to-date-distance-value')),
         findsOneWidget,
       );
-      expect(find.text('3.0 km'), findsOneWidget);
+      expect(find.text('3 km'), findsOneWidget);
       expect(
         find.byKey(const Key('year-to-date-ascent-value')),
         findsOneWidget,
@@ -81,6 +81,10 @@ void main() {
         find.byKey(const Key('year-to-date-new-peaks-climbed-value')),
         findsOneWidget,
       );
+      expect(
+        tester.widget<IconButton>(find.byKey(const Key('year-to-date-next-year'))).onPressed,
+        isNull,
+      );
 
       await tester.tap(find.byKey(const Key('year-to-date-prev-year')));
       await tester.pumpAndSettle();
@@ -90,7 +94,7 @@ void main() {
         find.byKey(const Key('year-to-date-distance-value')),
         findsOneWidget,
       );
-      expect(find.text('2.0 km'), findsOneWidget);
+      expect(find.text('2 km'), findsOneWidget);
       expect(
         find.descendant(
           of: find.byKey(const Key('year-to-date-card')),
@@ -98,12 +102,16 @@ void main() {
         ),
         findsOneWidget,
       );
+      expect(
+        tester.widget<IconButton>(find.byKey(const Key('year-to-date-next-year'))).onPressed,
+        isNotNull,
+      );
 
       await tester.tap(find.byKey(const Key('year-to-date-next-year')));
       await tester.pumpAndSettle();
 
       expect(find.text('My Walks in 2026'), findsOneWidget);
-      expect(find.text('3.0 km'), findsOneWidget);
+      expect(find.text('3 km'), findsOneWidget);
     });
 
     testWidgets('renders zero values when the selected year has no walks', (

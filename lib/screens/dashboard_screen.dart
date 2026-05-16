@@ -388,30 +388,76 @@ class _DashboardCardHeaderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            title,
-            style: titleStyle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        const SizedBox(width: 12),
-        if (headerTrailing != null) ...[
-          Flexible(
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: headerTrailing!,
+    if (headerTrailing == null) {
+      return Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: titleStyle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           const SizedBox(width: 12),
+          const Icon(Icons.drag_indicator, size: 18),
         ],
-        const Icon(Icons.drag_indicator, size: 18),
-      ],
+      );
+    }
+
+    final textDirection = Directionality.of(context);
+    final titleWidth = _measureSingleLineTextWidth(
+      text: title,
+      style: titleStyle,
+      textDirection: textDirection,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final trailingMaxWidth = (constraints.maxWidth -
+                titleWidth.clamp(0.0, constraints.maxWidth).toDouble() -
+                42)
+            .clamp(0.0, constraints.maxWidth)
+            .toDouble();
+
+        return Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: titleStyle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 12),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: trailingMaxWidth),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: headerTrailing!,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Icon(Icons.drag_indicator, size: 18),
+          ],
+        );
+      },
     );
   }
+}
+
+double _measureSingleLineTextWidth({
+  required String text,
+  required TextStyle? style,
+  required TextDirection textDirection,
+}) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    maxLines: 1,
+    textDirection: textDirection,
+  )..layout();
+  return painter.width;
 }
 
 class _DashboardCardHeaderMetrics extends StatelessWidget {

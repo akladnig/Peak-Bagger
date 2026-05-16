@@ -36,6 +36,7 @@ class PeaksBaggedCard extends StatelessWidget {
       tooltipValueTexts: _tooltipValueTexts,
       headerValueText: _formatHeaderValue,
       barSeriesStyle: SummaryBarSeriesStyle.stacked,
+      yAxisLabelText: formatCount,
     );
 
     return KeyedSubtree(
@@ -52,7 +53,7 @@ class PeaksBaggedCard extends StatelessWidget {
   }
 }
 
-String _formatHeaderValue(double value) => formatElevationMetres(value.round());
+String _formatHeaderValue(double value) => formatCount(value);
 
 List<String> _tooltipValueTexts(
   SummaryBucket bucket,

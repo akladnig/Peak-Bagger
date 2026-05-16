@@ -286,7 +286,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.descendant(of: header, matching: find.text('12.4 km')),
+        find.descendant(of: header, matching: find.text('12 km')),
         findsNWidgets(2),
       );
     });

@@ -47,6 +47,7 @@ void main() {
           _track(30, DateTime(2026, 5, 15, 10), peakIds: [33, 44]),
         ],
         now: DateTime(2026, 5, 15, 12),
+        width: 1000,
       );
 
       expect(find.byKey(const Key('peaks-bagged-card')), findsOneWidget);
@@ -93,15 +94,109 @@ void main() {
           _track(30, DateTime(2026, 5, 31, 10), peakIds: [11, 33, 44]),
         ],
         now: DateTime(2026, 5, 15, 12),
+        width: 560,
       );
 
       await _selectPeriod(tester, 'Month');
 
       expect(find.byType(LineChart), findsOneWidget);
+      final lineChart = tester.widget<LineChart>(find.byType(LineChart));
+      expect(
+        find.byKey(const Key('peaks-bagged-y-axis-label-0')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('peaks-bagged-y-axis-label-4')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('peaks-bagged-y-axis-separator')),
+        findsOneWidget,
+      );
+      expect(lineChart.data.gridData.show, isTrue);
+      expect(lineChart.data.gridData.drawVerticalLine, isFalse);
+      expect(
+        lineChart.data.gridData.horizontalInterval,
+        closeTo(lineChart.data.maxY / 4, 1e-9),
+      );
+      expect(lineChart.data.gridData.checkToShowHorizontalLine(0), isFalse);
+      expect(lineChart.data.gridData.checkToShowHorizontalLine(lineChart.data.maxY), isFalse);
+      expect(lineChart.data.extraLinesData.extraLinesOnTop, isTrue);
+      expect(lineChart.data.extraLinesData.horizontalLines, hasLength(2));
+      expect(lineChart.data.extraLinesData.horizontalLines[0].y, 0);
+      expect(lineChart.data.extraLinesData.horizontalLines[0].dashArray, isNull);
+      expect(lineChart.data.extraLinesData.horizontalLines[1].y, lineChart.data.maxY);
+      expect(lineChart.data.extraLinesData.horizontalLines[1].dashArray, equals([8, 4]));
+      expect(
+        lineChart.data.gridData
+            .getDrawingHorizontalLine(lineChart.data.gridData.horizontalInterval!)
+            .dashArray,
+        equals([8, 4]),
+      );
+
+      final topLabel = tester.widget<Text>(
+        find.byKey(const Key('peaks-bagged-y-axis-label-0')),
+      );
+      final bottomLabel = tester.widget<Text>(
+        find.byKey(const Key('peaks-bagged-y-axis-label-4')),
+      );
+      expect(
+        _numericValue(topLabel.data),
+        greaterThan(_numericValue(bottomLabel.data)),
+      );
+
       await tester.tap(_cardControl('summary-mode-fab'));
       await tester.pumpAndSettle();
 
       final switchedBarChart = tester.widget<BarChart>(find.byType(BarChart));
+      expect(
+        find.byKey(const Key('peaks-bagged-y-axis-label-0')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('peaks-bagged-y-axis-label-4')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('peaks-bagged-y-axis-separator')),
+        findsOneWidget,
+      );
+      expect(switchedBarChart.data.gridData.show, isTrue);
+      expect(switchedBarChart.data.gridData.drawVerticalLine, isFalse);
+      expect(
+        switchedBarChart.data.gridData.horizontalInterval,
+        closeTo(switchedBarChart.data.maxY / 4, 1e-9),
+      );
+      expect(
+        switchedBarChart.data.gridData.checkToShowHorizontalLine(0),
+        isFalse,
+      );
+      expect(
+        switchedBarChart.data.gridData.checkToShowHorizontalLine(
+          switchedBarChart.data.maxY,
+        ),
+        isFalse,
+      );
+      expect(switchedBarChart.data.extraLinesData.extraLinesOnTop, isTrue);
+      expect(switchedBarChart.data.extraLinesData.horizontalLines, hasLength(2));
+      expect(switchedBarChart.data.extraLinesData.horizontalLines[0].y, 0);
+      expect(
+        switchedBarChart.data.extraLinesData.horizontalLines[0].dashArray,
+        isNull,
+      );
+      expect(switchedBarChart.data.extraLinesData.horizontalLines[1].y, switchedBarChart.data.maxY);
+      expect(
+        switchedBarChart.data.extraLinesData.horizontalLines[1].dashArray,
+        equals([8, 4]),
+      );
+      expect(
+        switchedBarChart.data.gridData
+            .getDrawingHorizontalLine(
+              switchedBarChart.data.gridData.horizontalInterval!,
+            )
+            .dashArray,
+        equals([8, 4]),
+      );
       expect(switchedBarChart.data.barGroups[30].barRods, hasLength(1));
       expect(switchedBarChart.data.barGroups[30].barRods.single.toY, 3);
       expect(
@@ -117,27 +212,27 @@ void main() {
         3,
       );
 
-      await _hoverBucket(tester, 30);
+      await _hoverBucket(tester, 0);
 
       expect(find.byKey(const Key('peaks-bagged-tooltip')), findsOneWidget);
       expect(
         find.descendant(
           of: find.byKey(const Key('peaks-bagged-tooltip')),
-          matching: find.text('31 May'),
+          matching: find.text('1 May'),
         ),
         findsOneWidget,
       );
       expect(
         find.descendant(
           of: find.byKey(const Key('peaks-bagged-tooltip')),
-          matching: find.text('Total climbs: 3'),
+          matching: find.text('Total climbs: 1'),
         ),
         findsOneWidget,
       );
       expect(
         find.descendant(
           of: find.byKey(const Key('peaks-bagged-tooltip')),
-          matching: find.text('New peaks: 2'),
+          matching: find.text('New peaks: 1'),
         ),
         findsOneWidget,
       );
@@ -200,6 +295,12 @@ Finder _cardControl(String key) {
     of: find.byKey(const Key('peaks-bagged-card')),
     matching: find.byKey(Key(key)),
   );
+}
+
+double _numericValue(String? text) {
+  final cleaned = text?.replaceAll(',', '') ?? '';
+  final match = RegExp(r'-?\d+(?:\.\d+)?').firstMatch(cleaned);
+  return double.parse(match!.group(0)!);
 }
 
 GpxTrack _track(

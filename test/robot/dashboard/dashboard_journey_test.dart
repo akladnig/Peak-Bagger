@@ -330,7 +330,7 @@ void main() {
       tester
           .widget<Text>(find.byKey(const Key('year-to-date-distance-value')))
           .data,
-      '12.4 km',
+      '12 km',
     );
 
     await tester.tap(robot.yearToDateControl('year-to-date-prev-year'));
@@ -341,7 +341,7 @@ void main() {
       tester
           .widget<Text>(find.byKey(const Key('year-to-date-distance-value')))
           .data,
-      '12.4 km',
+      '12 km',
     );
 
     await robot.container
@@ -354,7 +354,7 @@ void main() {
       tester
           .widget<Text>(find.byKey(const Key('year-to-date-distance-value')))
           .data,
-      '12.4 km',
+      '12 km',
     );
   });
 }

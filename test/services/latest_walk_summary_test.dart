@@ -135,7 +135,7 @@ void main() {
     ]);
 
     expect(summary.dateText, formatTrackDate(DateTime.utc(2026, 1, 7, 23, 30)));
-    expect(summary.distanceText, '12.4 km');
+    expect(summary.distanceText, '12 km');
     expect(summary.ascentText, 'Unknown');
   });
 }

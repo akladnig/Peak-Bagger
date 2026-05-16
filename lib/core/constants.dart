@@ -66,6 +66,7 @@ abstract final class UiConstants {
 
 abstract final class DashboardUI {
   static const fullHeightLabelGuides = true;
+  static const yAxisLabelWidth = 72.0;
 
   static double columnWidthFor({
     required double availableWidth,
