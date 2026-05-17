@@ -8,6 +8,7 @@ import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/services/import_path_helpers.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/migration_marker_store.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
@@ -23,11 +24,22 @@ void main() {
     final homeRoot = Directory(
       Platform.environment['HOME'] ?? Directory.current.path,
     );
-    final importDir = Directory(
-      '${homeRoot.path}/Documents/Bushwalking/Tracks/Tasmania',
-    )..createSync(recursive: true);
-    final gpxFile = File('${importDir.path}/selected-track-import.gpx')
+    final uniqueSuffix = DateTime.now().microsecondsSinceEpoch;
+    final tmpRoot = Directory('${homeRoot.path}/tmp/peak-bagger-import-test-$uniqueSuffix')
+      ..createSync(recursive: true);
+    addTearDown(() => tmpRoot.deleteSync(recursive: true));
+
+    final bushwalkingRoot = Directory('${tmpRoot.path}/Bushwalking')
+      ..createSync(recursive: true);
+    Directory('${bushwalkingRoot.path}/Tracks/Tasmania')
+      .createSync(recursive: true);
+    final gpxFile = File('${tmpRoot.path}/selected-track-import.gpx')
       ..writeAsStringSync(_tasmanianTrackGpx);
+
+    debugBushwalkingRootOverride = bushwalkingRoot.path;
+    addTearDown(() {
+      debugBushwalkingRootOverride = null;
+    });
 
     final tasmapRepository = await TestTasmapRepository.create();
     final repository = TestWritableGpxTrackRepository();
@@ -64,11 +76,13 @@ void main() {
     final result = await notifier.importGpxFiles(
       pathToEditedNames: {gpxFile.path: 'Selected Track'},
     );
+    final importedTrack = result.items.single.track;
 
     expect(result.addedCount, 1);
     expect(notifier.state.tracks, hasLength(1));
     expect(notifier.state.showTracks, isTrue);
-    expect(notifier.state.selectedTrackId, result.items.first.track.gpxTrackId);
+    expect(importedTrack.trackName, 'Selected Track');
+    expect(notifier.state.selectedTrackId, importedTrack.gpxTrackId);
     expect(
       notifier.state.selectedTrackFocusSerial,
       focusSerialBefore + 1,

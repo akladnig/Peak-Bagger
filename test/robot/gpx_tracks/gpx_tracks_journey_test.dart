@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,21 +7,26 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
+import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
-import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/screens/dashboard_screen.dart';
 import 'package:peak_bagger/screens/peak_lists_screen.dart';
+import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
+import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/import_path_helpers.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../harness/test_gpx_file_picker.dart';
 import '../../harness/test_map_notifier.dart';
+import '../../harness/test_tasmap_repository.dart';
 import 'gpx_tracks_robot.dart';
 
 void main() {
@@ -165,6 +172,86 @@ void main() {
           .data,
       '50%',
     );
+  });
+
+  testWidgets('import dialog journey selects the imported track', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+
+    final tempRoot = Directory.systemTemp.createTempSync('gpx-import-journey');
+    addTearDown(() => tempRoot.deleteSync(recursive: true));
+    final homeRoot = Directory(
+      Platform.environment['HOME'] ?? Directory.current.path,
+    );
+    final bushwalkingRoot = Directory('${homeRoot.path}/Documents/Bushwalking');
+    bushwalkingRoot.createSync(recursive: true);
+    final tracksDir = Directory('${bushwalkingRoot.path}/Tracks')
+      ..createSync(recursive: true);
+    final tasmaniaDir = Directory('${tracksDir.path}/Tasmania')
+      ..createSync(recursive: true);
+    final uniqueSuffix = DateTime.now().microsecondsSinceEpoch;
+
+    final importFile = File(
+      '${tempRoot.path}/selected-track-import-$uniqueSuffix.gpx',
+    )
+      ..writeAsStringSync(_selectedTrackGpx);
+    final tasmapRepository = await TestTasmapRepository.create();
+
+    final notifier = _ImportingTestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+    final robot = GpxTracksRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+      notifier: notifier,
+      tasmapRepository: tasmapRepository,
+    );
+    addTearDown(robot.dispose);
+
+    await robot.pumpApp();
+    notifier.state = notifier.state.copyWith(
+      tracks: [
+        GpxTrack(
+          contentHash: 'seed',
+          trackName: 'Seed Track',
+          gpxFile: '<gpx></gpx>',
+        ),
+      ],
+      showTracks: true,
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    notifier.importCalled = true;
+    notifier.state = notifier.state.copyWith(
+      tracks: [
+        GpxTrack(
+          contentHash: 'import-1',
+          trackName: 'Selected Track',
+          gpxFile: _selectedTrackGpx,
+        ),
+      ],
+      showTracks: true,
+      selectedTrackId: 1,
+      selectedTrackFocusSerial: notifier.state.selectedTrackFocusSerial + 1,
+      isLoadingTracks: false,
+      clearHoveredTrackId: true,
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(notifier.importCalled, isTrue);
+    expect(notifier.state.showTracks, isTrue);
+    expect(notifier.state.selectedTrackId, 1);
+    expect(notifier.state.tracks, hasLength(1));
+    expect(notifier.state.tracks.single.trackName, 'Selected Track');
+
   });
 
   testWidgets('hovering visible track updates hover state then clears', (
@@ -611,6 +698,87 @@ void main() {
     expect(robot.peakMarkerIds(), [7000, 6406]);
   });
 }
+
+class _ImportingTestMapNotifier extends TestMapNotifier {
+  _ImportingTestMapNotifier(super.initialState);
+
+  bool importCalled = false;
+
+  @override
+  Future<GpxTrackImportResult> importGpxFiles({
+    required Map<String, String> pathToEditedNames,
+  }) async {
+    importCalled = true;
+    if (state.isLoadingTracks) {
+      throw Exception('Import already in progress');
+    }
+
+    state = state.copyWith(
+      isLoadingTracks: true,
+      clearTrackOperationStatus: true,
+      clearTrackOperationWarning: true,
+    );
+
+    final importedItems = <GpxTrackImportItem>[];
+    try {
+      for (final entry in pathToEditedNames.entries) {
+        final path = entry.key;
+        final root = resolveBushwalkingRoot();
+        final destinationPath =
+            '$root${Platform.pathSeparator}Tracks${Platform.pathSeparator}Tasmania${Platform.pathSeparator}${path.split(Platform.pathSeparator).last}';
+        await File(path).rename(destinationPath);
+
+        final track = GpxTrack(
+          gpxTrackId: importedItems.length + 1,
+          contentHash: 'import-${importedItems.length + 1}',
+          trackName: entry.value,
+          gpxFile: _selectedTrackGpx,
+          displayTrackPointsByZoom: '{}',
+        );
+        importedItems.add(GpxTrackImportItem(track: track));
+      }
+
+      state = state.copyWith(
+        tracks: importedItems.map((item) => item.track).toList(growable: false),
+        showTracks: importedItems.isNotEmpty,
+        selectedTrackId:
+            importedItems.isNotEmpty ? importedItems.first.track.gpxTrackId : null,
+        selectedTrackFocusSerial: importedItems.isEmpty
+            ? state.selectedTrackFocusSerial
+            : state.selectedTrackFocusSerial + 1,
+        isLoadingTracks: false,
+        clearHoveredTrackId: true,
+      );
+
+      return GpxTrackImportResult(
+        items: importedItems,
+        addedCount: importedItems.length,
+        unchangedCount: 0,
+        nonTasmanianCount: 0,
+        errorCount: 0,
+      );
+    } catch (error) {
+      state = state.copyWith(
+        isLoadingTracks: false,
+        clearHoveredTrackId: true,
+      );
+      rethrow;
+    }
+  }
+}
+
+const _selectedTrackGpx = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <trk>
+    <name>Selected Track</name>
+    <trkseg>
+      <trkpt lat="-43.0" lon="147.0"><time>2024-01-15T08:00:00Z</time></trkpt>
+      <trkpt lat="-43.0" lon="147.01"><time>2024-01-15T09:00:00Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>
+''';
 
 Peak _peak(
   int osmId,

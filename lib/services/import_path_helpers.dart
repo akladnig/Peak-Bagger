@@ -4,7 +4,13 @@ import 'dart:io';
 ///
 /// This is the canonical root used by importer storage semantics.
 /// The file picker may use separate fallback behavior for dialog usability.
+String? debugBushwalkingRootOverride;
+
 String resolveBushwalkingRoot() {
+  if (debugBushwalkingRootOverride != null) {
+    return debugBushwalkingRootOverride!;
+  }
+
   final home = _resolveHomeDirectory();
   if (home == null) {
     return Directory.current.path;
