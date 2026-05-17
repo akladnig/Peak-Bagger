@@ -805,15 +805,22 @@ class MapNotifier extends Notifier<MapState> {
       // Refresh tracks from repository
       final allTracks = _gpxTrackRepository.getAllTracks();
 
+      final selectedImportedTrack = addedItems.isNotEmpty
+          ? addedItems.first.track
+          : null;
+
       // Set showTracks to true if we added any tracks
       final showTracks = state.showTracks || addedItems.isNotEmpty;
 
       state = state.copyWith(
         tracks: allTracks,
         showTracks: showTracks,
+        selectedTrackId: selectedImportedTrack?.gpxTrackId ?? state.selectedTrackId,
+        selectedTrackFocusSerial: selectedImportedTrack == null
+            ? state.selectedTrackFocusSerial
+            : state.selectedTrackFocusSerial + 1,
         isLoadingTracks: false,
         clearHoveredTrackId: true,
-        clearSelectedTrackId: true,
       );
 
       return GpxTrackImportResult(
@@ -828,7 +835,6 @@ class MapNotifier extends Notifier<MapState> {
       state = state.copyWith(
         isLoadingTracks: false,
         clearHoveredTrackId: true,
-        clearSelectedTrackId: true,
       );
       rethrow;
     }
