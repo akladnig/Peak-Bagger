@@ -252,6 +252,18 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     }
   }
 
+  void _viewGpxTrackOnMainMap(ObjectBoxAdminRow row) {
+    final trackId = row.primaryKeyValue as int;
+    final repository = ref.read(gpxTrackRepositoryProvider);
+    final track = repository.findById(trackId);
+    if (track == null) {
+      return;
+    }
+
+    ref.read(mapProvider.notifier).showTrack(trackId);
+    router.go('/map');
+  }
+
   void _viewPeakOnMainMap(Peak peak) {
     final location = LatLng(peak.latitude, peak.longitude);
     final mapNotifier = ref.read(mapProvider.notifier);
@@ -312,6 +324,44 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
       return;
     }
 
+    await notifier.refresh(
+      keepSelectedRowPrimaryKey: keepSelectedRowPrimaryKey,
+    );
+  }
+
+  Future<void> _deleteGpxTrack(ObjectBoxAdminRow row) async {
+    final repository = ref.read(gpxTrackRepositoryProvider);
+    final notifier = ref.read(objectboxAdminProvider.notifier);
+    final mapNotifier = ref.read(mapProvider.notifier);
+    final trackId = row.primaryKeyValue as int;
+    final trackName = repository.findById(trackId)?.trackName ??
+        (row.values['trackName']?.toString().trim().isNotEmpty == true
+            ? row.values['trackName']!.toString().trim()
+            : 'Track');
+
+    final confirmed = await showDangerConfirmDialog(
+      context: context,
+      title: 'Delete Track?',
+      message:
+          'This will permanently delete the $trackName. Do you want to proceed?',
+      cancelKey: 'cancel-delete',
+      cancelLabel: 'Cancel',
+      confirmKey: 'confirm-delete',
+      confirmLabel: 'Delete',
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    final currentState = ref.read(objectboxAdminProvider);
+    final keepSelectedRowPrimaryKey =
+        currentState.selectedRow?.primaryKeyValue == row.primaryKeyValue
+        ? null
+        : currentState.selectedRow?.primaryKeyValue;
+
+    repository.deleteTrack(trackId);
+    await mapNotifier.deleteTrack(trackId);
     await notifier.refresh(
       keepSelectedRowPrimaryKey: keepSelectedRowPrimaryKey,
     );
@@ -484,22 +534,23 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
           const SizedBox(width: 16),
           SizedBox(
             width: 320,
-            child: ObjectBoxAdminDetailsPane(
-              row: null,
-              entity: entity,
-              isCreatingPeak: true,
-              createOsmId: createOsmId,
-              onClose: () {
-                setState(() {
-                  _isCreatingPeak = false;
-                });
-                notifier.clearSelection();
-              },
-              onViewPeakOnMap: _viewPeakOnMainMap,
-              onPeakSubmit: _savePeak,
+              child: ObjectBoxAdminDetailsPane(
+                row: null,
+                entity: entity,
+                isCreatingPeak: true,
+                createOsmId: createOsmId,
+                onClose: () {
+                  setState(() {
+                    _isCreatingPeak = false;
+                  });
+                  notifier.clearSelection();
+                },
+                onViewPeakOnMap: _viewPeakOnMainMap,
+                onViewGpxTrackOnMap: _viewGpxTrackOnMainMap,
+                onPeakSubmit: _savePeak,
+              ),
             ),
-          ),
-        ],
+          ],
       );
     }
 
@@ -535,7 +586,11 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
             canLoadMore: state.visibleRowCount < state.rows.length,
             onSortPressed: notifier.toggleSort,
             onRowTap: notifier.selectRow,
-            onDeletePressed: entity.name == 'Peak' ? _deletePeak : null,
+            onDeletePressed: switch (entity.name) {
+              'Peak' => _deletePeak,
+              'GpxTrack' => _deleteGpxTrack,
+              _ => null,
+            },
           ),
         ),
         const SizedBox(width: 16),
@@ -548,6 +603,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
             createOsmId: 0,
             onClose: notifier.clearSelection,
             onViewPeakOnMap: _viewPeakOnMainMap,
+            onViewGpxTrackOnMap: _viewGpxTrackOnMainMap,
             onPeakSubmit: _savePeak,
           ),
         ),

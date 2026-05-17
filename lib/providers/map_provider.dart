@@ -1461,6 +1461,30 @@ class MapNotifier extends Notifier<MapState> {
     state = state.copyWith(clearHoveredTrackId: true);
   }
 
+  Future<void> deleteTrack(int trackId) async {
+    final remainingVisibleTracks = state.tracks
+        .where((track) => track.gpxTrackId != trackId)
+        .toList(growable: false);
+    final trackWasLoaded = remainingVisibleTracks.length != state.tracks.length;
+    final trackWasSelected = state.selectedTrackId == trackId;
+    final trackWasHovered = state.hoveredTrackId == trackId;
+
+    if (trackWasLoaded || trackWasSelected || trackWasHovered) {
+      state = state.copyWith(
+        tracks: remainingVisibleTracks,
+        showTracks: remainingVisibleTracks.isEmpty ? false : state.showTracks,
+        clearSelectedTrackId: trackWasSelected,
+        clearSelectedLocation: trackWasSelected,
+        clearHoveredTrackId: trackWasHovered,
+        selectedTrackFocusSerial: state.selectedTrackFocusSerial + 1,
+      );
+    }
+
+    final remainingTracks = _gpxTrackRepository.getAllTracks();
+    await _peaksBaggedRepository.syncFromTracks(remainingTracks);
+    ref.read(peaksBaggedRevisionProvider.notifier).increment();
+  }
+
   void reconcileSelectedTrackState() {
     final selectedTrackId = state.selectedTrackId;
     if (selectedTrackId == null) {

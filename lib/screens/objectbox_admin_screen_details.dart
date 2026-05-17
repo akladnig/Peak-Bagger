@@ -11,6 +11,7 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
     required this.onClose,
     required this.createOsmId,
     required this.onViewPeakOnMap,
+    required this.onViewGpxTrackOnMap,
     required this.onPeakSubmit,
     super.key,
   });
@@ -21,6 +22,7 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
   final VoidCallback onClose;
   final int createOsmId;
   final void Function(Peak peak) onViewPeakOnMap;
+  final void Function(ObjectBoxAdminRow row)? onViewGpxTrackOnMap;
   final Future<String?> Function(Peak peak) onPeakSubmit;
 
   @override
@@ -49,6 +51,12 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
       row: row,
       entity: entity,
       onClose: onClose,
+      onViewGpxTrackOnMap: row == null || onViewGpxTrackOnMap == null
+          ? null
+          : () {
+              final selectedRow = row!;
+              onViewGpxTrackOnMap!(selectedRow);
+            },
     );
   }
 }
@@ -58,11 +66,13 @@ class _ObjectBoxAdminReadOnlyDetailsPane extends StatelessWidget {
     required this.row,
     required this.entity,
     required this.onClose,
+    this.onViewGpxTrackOnMap,
   });
 
   final ObjectBoxAdminRow? row;
   final ObjectBoxAdminEntityDescriptor entity;
   final VoidCallback onClose;
+  final VoidCallback? onViewGpxTrackOnMap;
 
   @override
   Widget build(BuildContext context) {
@@ -82,6 +92,13 @@ class _ObjectBoxAdminReadOnlyDetailsPane extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
+                if (entity.name == 'GpxTrack' && onViewGpxTrackOnMap != null)
+                  IconButton(
+                    key: const Key('objectbox-admin-gpx-track-view-on-map'),
+                    tooltip: 'View Track on Main Map',
+                    onPressed: onViewGpxTrackOnMap,
+                    icon: const Icon(Icons.visibility_outlined),
+                  ),
                 IconButton(
                   key: const Key('objectbox-admin-details-close'),
                   onPressed: row == null ? null : onClose,
@@ -597,14 +614,27 @@ Widget objectBoxAdminDetailsValue({
     return ObjectBoxAdminDetailsValue(label: label, value: value);
   }
 
-  if (entityName != null && fieldName != null) {
-    return SelectableText(
-      objectBoxAdminFormatFieldValue(
-        entityName: entityName,
-        fieldName: fieldName,
-        value: value,
-      ),
+  final formattedValue = objectBoxAdminFormatFieldValue(
+    entityName: entityName ?? '',
+    fieldName: fieldName ?? '',
+    value: value,
+  );
+
+  if (entityName == 'GpxTrack' &&
+      (fieldName == 'gpxFile' ||
+          fieldName == 'filteredTrack' ||
+          fieldName == 'displayTrackPointsByZoom' ||
+          fieldName == 'elevationProfile')) {
+    return Text(
+      formattedValue,
+      maxLines: 5,
+      overflow: TextOverflow.ellipsis,
+      softWrap: true,
     );
+  }
+
+  if (entityName != null && fieldName != null) {
+    return SelectableText(formattedValue);
   }
 
   return SelectableText(objectBoxAdminFormatValue(value));

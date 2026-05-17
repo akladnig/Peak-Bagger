@@ -16,6 +16,7 @@ import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen_details.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
+import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_admin_editor.dart';
 import 'package:peak_bagger/services/peak_delete_guard.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
@@ -66,6 +67,215 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('PeaksBagged').last, findsOneWidget);
+  });
+
+  testWidgets('gpx track file details are capped and non-selectable', (
+    tester,
+  ) async {
+    final gpxFileWidget = objectBoxAdminDetailsValue(
+      entityName: 'GpxTrack',
+      fieldName: 'gpxFile',
+      label: 'gpxFile',
+      value: 'line1\nline2\nline3\nline4\nline5\nline6',
+    );
+    final filteredTrackWidget = objectBoxAdminDetailsValue(
+      entityName: 'GpxTrack',
+      fieldName: 'filteredTrack',
+      label: 'filteredTrack',
+      value: 'line1\nline2\nline3\nline4\nline5\nline6',
+    );
+    final displayTrackPointsByZoomWidget = objectBoxAdminDetailsValue(
+      entityName: 'GpxTrack',
+      fieldName: 'displayTrackPointsByZoom',
+      label: 'displayTrackPointsByZoom',
+      value: 'line1\nline2\nline3\nline4\nline5\nline6',
+    );
+    final elevationProfileWidget = objectBoxAdminDetailsValue(
+      entityName: 'GpxTrack',
+      fieldName: 'elevationProfile',
+      label: 'elevationProfile',
+      value: 'line1\nline2\nline3\nline4\nline5\nline6',
+    );
+
+    for (final widget in [
+      gpxFileWidget,
+      filteredTrackWidget,
+      displayTrackPointsByZoomWidget,
+      elevationProfileWidget,
+    ]) {
+      expect(widget, isA<Text>());
+      final text = widget as Text;
+      expect(text.maxLines, 5);
+      expect(text.overflow, TextOverflow.ellipsis);
+      expect(text.data, contains('line1'));
+    }
+  });
+
+  testWidgets('gpx track row shows view and delete actions', (tester) async {
+    final track = _buildGpxTrack(id: 7, trackName: 'Mt Anne');
+    final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
+      'Peak': const [],
+      'PeakList': const [],
+      'Tasmap50k': const [],
+      'GpxTrack': [gpxTrackToAdminRow(track)],
+      'PeaksBagged': const [],
+    };
+
+    await _pumpApp(
+      tester,
+      repository: TestObjectBoxAdminRepository(rowsByEntity: rowsByEntity),
+      gpxTrackRepository: _MutableGpxTrackRepository([track]),
+    );
+
+    await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-entity-dropdown')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('GpxTrack').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Mt Anne'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('objectbox-admin-gpx-track-delete-7')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('objectbox-admin-gpx-track-view-on-map')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-gpx-track-view-on-map')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('app-bar-title')),
+        matching: find.text('Map'),
+      ),
+      findsOneWidget,
+    );
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shared-app-bar'))),
+    );
+    final mapState = container.read(mapProvider);
+    expect(mapState.showTracks, isTrue);
+    expect(mapState.selectedTrackId, 7);
+  });
+
+  testWidgets('gpx track delete clears active track map state', (tester) async {
+    final track = _buildGpxTrack(id: 7, trackName: 'Mt Anne');
+    final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
+      'Peak': const [],
+      'PeakList': const [],
+      'Tasmap50k': const [],
+      'GpxTrack': [gpxTrackToAdminRow(track)],
+      'PeaksBagged': const [],
+    };
+    final mapState = MapState(
+      center: const LatLng(-41.5, 146.5),
+      zoom: 10,
+      basemap: Basemap.tracestrack,
+      tracks: [track],
+      showTracks: true,
+      selectedTrackId: 7,
+      selectedLocation: const LatLng(-41.5, 146.5),
+      hoveredTrackId: 7,
+      selectedTrackFocusSerial: 3,
+    );
+
+    await _pumpApp(
+      tester,
+      repository: TestObjectBoxAdminRepository(rowsByEntity: rowsByEntity),
+      gpxTrackRepository: _MutableGpxTrackRepository([track]),
+      mapState: mapState,
+    );
+
+    await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-entity-dropdown')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('GpxTrack').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Mt Anne'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('objectbox-admin-gpx-track-delete-7')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete Track?'), findsOneWidget);
+    expect(
+      find.text('This will permanently delete the Mt Anne. Do you want to proceed?'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('confirm-delete')));
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shared-app-bar'))),
+    );
+    final deletedState = container.read(mapProvider);
+    expect(deletedState.tracks, isEmpty);
+    expect(deletedState.selectedTrackId, isNull);
+    expect(deletedState.selectedLocation, isNull);
+    expect(deletedState.hoveredTrackId, isNull);
+    expect(deletedState.showTracks, isFalse);
+    expect(deletedState.selectedTrackFocusSerial, 4);
+  });
+
+  testWidgets('gpx track view is a no-op when the track is missing', (
+    tester,
+  ) async {
+    final track = _buildGpxTrack(id: 7, trackName: 'Mt Anne');
+    final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
+      'Peak': const [],
+      'PeakList': const [],
+      'Tasmap50k': const [],
+      'GpxTrack': [gpxTrackToAdminRow(track)],
+      'PeaksBagged': const [],
+    };
+
+    await _pumpApp(
+      tester,
+      repository: TestObjectBoxAdminRepository(rowsByEntity: rowsByEntity),
+      gpxTrackRepository: _MutableGpxTrackRepository(),
+    );
+
+    await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-entity-dropdown')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('GpxTrack').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Mt Anne'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('objectbox-admin-gpx-track-view-on-map')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('app-bar-title')),
+        matching: find.text('ObjectBox Admin'),
+      ),
+      findsOneWidget,
+    );
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shared-app-bar'))),
+    );
+    final mapState = container.read(mapProvider);
+    expect(mapState.selectedTrackId, isNull);
+    expect(mapState.showTracks, isFalse);
   });
 
   testWidgets('admin shell reloads rows when re-entered', (tester) async {
@@ -1283,6 +1493,8 @@ Future<void> _pumpApp(
   List<ObjectBoxAdminEntityDescriptor>? entities,
   TestObjectBoxAdminRepository? repository,
   PeakRepository? peakRepository,
+  GpxTrackRepository? gpxTrackRepository,
+  MapState? mapState,
   PeakDeleteGuard? peakDeleteGuard,
   Size size = const Size(1280, 900),
 }) async {
@@ -1296,13 +1508,16 @@ Future<void> _pumpApp(
       overrides: [
         mapProvider.overrideWith(
           () => TestMapNotifier(
-            MapState(
-              center: const LatLng(-41.5, 146.5),
-              zoom: 10,
-              basemap: Basemap.tracestrack,
-            ),
+            mapState ??
+                MapState(
+                  center: const LatLng(-41.5, 146.5),
+                  zoom: 10,
+                  basemap: Basemap.tracestrack,
+                ),
             peakRepository:
                 peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
+            gpxTrackRepository:
+                gpxTrackRepository ?? GpxTrackRepository.test(InMemoryGpxTrackStorage()),
           ),
         ),
         objectboxAdminRepositoryProvider.overrideWithValue(
@@ -1310,6 +1525,9 @@ Future<void> _pumpApp(
         ),
         peakRepositoryProvider.overrideWithValue(
           peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
+        ),
+        gpxTrackRepositoryProvider.overrideWithValue(
+          gpxTrackRepository ?? GpxTrackRepository.test(InMemoryGpxTrackStorage()),
         ),
         peakDeleteGuardProvider.overrideWithValue(
           peakDeleteGuard ?? PeakDeleteGuard(_NoopPeakDeleteGuardSource()),
@@ -1348,6 +1566,45 @@ Peak _buildPeak({
     northing: components.northing,
     verified: verified,
   );
+}
+
+GpxTrack _buildGpxTrack({
+  required int id,
+  required String trackName,
+}) {
+  return GpxTrack(
+    gpxTrackId: id,
+    contentHash: 'hash-$id',
+    trackName: trackName,
+  );
+}
+
+class _MutableGpxTrackRepository extends GpxTrackRepository {
+  _MutableGpxTrackRepository([List<GpxTrack> tracks = const []])
+      : _tracks = List<GpxTrack>.from(tracks),
+        super.test(InMemoryGpxTrackStorage());
+
+  final List<GpxTrack> _tracks;
+
+  @override
+  List<GpxTrack> getAllTracks() => List<GpxTrack>.unmodifiable(_tracks);
+
+  @override
+  GpxTrack? findById(int id) {
+    for (final track in _tracks) {
+      if (track.gpxTrackId == id) {
+        return track;
+      }
+    }
+    return null;
+  }
+
+  @override
+  bool deleteTrack(int id) {
+    final previousLength = _tracks.length;
+    _tracks.removeWhere((track) => track.gpxTrackId == id);
+    return _tracks.length != previousLength;
+  }
 }
 
 ObjectBoxAdminEntityDescriptor _peakEntity() {
