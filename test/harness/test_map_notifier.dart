@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
@@ -9,6 +11,7 @@ import 'package:peak_bagger/services/peak_refresh_result.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
+import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 
 class TestMapNotifier extends MapNotifier {
   TestMapNotifier(
@@ -23,10 +26,11 @@ class TestMapNotifier extends MapNotifier {
     this.recalcWarning,
     this.recalcTracks,
     this.peakRepository,
+    this.peaksBaggedRepository,
     this.gpxTrackRepository,
     Set<int> correlatedPeakIds = const {},
   }) : _correlatedPeakIds = correlatedPeakIds,
-       _startupBackfillWarningMessage = startupBackfillWarningMessage;
+        _startupBackfillWarningMessage = startupBackfillWarningMessage;
 
   final MapState initialState;
   final String rescanStatus;
@@ -38,6 +42,7 @@ class TestMapNotifier extends MapNotifier {
   final String? recalcWarning;
   final List<GpxTrack>? recalcTracks;
   final PeakRepository? peakRepository;
+  final PeaksBaggedRepository? peaksBaggedRepository;
   final GpxTrackRepository? gpxTrackRepository;
   final Set<int> _correlatedPeakIds;
   bool _snackbarConsumed = false;
@@ -52,6 +57,9 @@ class TestMapNotifier extends MapNotifier {
       isLoadingTracks: false,
       hasTrackRecoveryIssue: false,
     );
+    if (peaksBaggedRepository != null) {
+      unawaited(peaksBaggedRepository!.rebuildFromTracks(tracks));
+    }
   }
 
   @override

@@ -22,7 +22,7 @@ void main() {
         dashboardCardOrderStorageKey: <String>[
           'bogus',
           'distance',
-          'distance',
+          'top-5-highest',
           'elevation',
         ],
       });
@@ -34,11 +34,11 @@ void main() {
 
       expect(container.read(dashboardLayoutProvider), <String>[
         'distance',
+        'my-lists',
         'elevation',
         'latest-walk',
         'peaks-bagged',
         'year-to-date',
-        'top-5-highest',
         'top-5-walks',
       ]);
     });
@@ -55,7 +55,7 @@ void main() {
         'latest-walk',
         'peaks-bagged',
         'year-to-date',
-        'top-5-highest',
+        'my-lists',
         'top-5-walks',
       ];
 
@@ -85,7 +85,7 @@ void main() {
       addTearDown(container.dispose);
 
       final nextOrder = <String>[
-        'top-5-highest',
+        'my-lists',
         'distance',
         'elevation',
         'latest-walk',
@@ -117,7 +117,7 @@ void main() {
         'distance',
         'peaks-bagged',
         'year-to-date',
-        'top-5-highest',
+        'my-lists',
         'top-5-walks',
       ];
 

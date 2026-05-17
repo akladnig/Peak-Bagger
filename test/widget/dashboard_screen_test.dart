@@ -9,7 +9,10 @@ import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/providers/dashboard_layout_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/screens/dashboard_screen.dart';
+import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 
 import '../harness/test_map_notifier.dart';
 
@@ -59,6 +62,9 @@ void main() {
 
     testWidgets('dragging a header reorders cards', (tester) async {
       SharedPreferences.setMockInitialValues({});
+      final peaksBaggedRepository = PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage(),
+      );
       final container = ProviderContainer(
         overrides: [
           mapProvider.overrideWith(
@@ -68,7 +74,14 @@ void main() {
                 zoom: 10,
                 basemap: Basemap.tracestrack,
               ),
+              peaksBaggedRepository: peaksBaggedRepository,
             ),
+          ),
+          peakListRepositoryProvider.overrideWithValue(
+            PeakListRepository.test(InMemoryPeakListStorage()),
+          ),
+          peaksBaggedRepositoryProvider.overrideWithValue(
+            peaksBaggedRepository,
           ),
         ],
       );
@@ -100,7 +113,7 @@ void main() {
         'distance',
         'peaks-bagged',
         'year-to-date',
-        'top-5-highest',
+        'my-lists',
         'top-5-walks',
       ]);
     });
@@ -188,6 +201,12 @@ void main() {
               ),
             ),
           ),
+          peakListRepositoryProvider.overrideWithValue(
+            PeakListRepository.test(InMemoryPeakListStorage()),
+          ),
+          peaksBaggedRepositoryProvider.overrideWithValue(
+            PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
+          ),
         ],
       );
       addTearDown(container.dispose);
@@ -250,6 +269,12 @@ void main() {
               ),
             ),
           ),
+          peakListRepositoryProvider.overrideWithValue(
+            PeakListRepository.test(InMemoryPeakListStorage()),
+          ),
+          peaksBaggedRepositoryProvider.overrideWithValue(
+            PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
+          ),
         ],
       );
       addTearDown(container.dispose);
@@ -309,6 +334,12 @@ void main() {
                 ],
               ),
             ),
+          ),
+          peakListRepositoryProvider.overrideWithValue(
+            PeakListRepository.test(InMemoryPeakListStorage()),
+          ),
+          peaksBaggedRepositoryProvider.overrideWithValue(
+            PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
           ),
         ],
       );
@@ -387,6 +418,9 @@ Future<void> _pumpDashboard(WidgetTester tester, Size size) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        peaksBaggedRepositoryProvider.overrideWithValue(
+          PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
+        ),
         mapProvider.overrideWith(
           () => TestMapNotifier(
             const MapState(
@@ -395,6 +429,9 @@ Future<void> _pumpDashboard(WidgetTester tester, Size size) async {
               basemap: Basemap.tracestrack,
             ),
           ),
+        ),
+        peakListRepositoryProvider.overrideWithValue(
+          PeakListRepository.test(InMemoryPeakListStorage()),
         ),
       ],
       child: const MaterialApp(home: DashboardScreen()),

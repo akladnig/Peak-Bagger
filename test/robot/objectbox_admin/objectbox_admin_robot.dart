@@ -8,10 +8,13 @@ import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 import 'package:peak_bagger/services/peak_delete_guard.dart';
+import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 
 import '../../harness/test_map_notifier.dart';
 import '../../harness/test_objectbox_admin_repository.dart';
@@ -99,6 +102,12 @@ class ObjectBoxAdminRobot {
             peakRepositoryProvider.overrideWithValue(
               PeakRepository.test(InMemoryPeakStorage()),
             ),
+          peakListRepositoryProvider.overrideWithValue(
+            PeakListRepository.test(InMemoryPeakListStorage()),
+          ),
+          peaksBaggedRepositoryProvider.overrideWithValue(
+            PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
+          ),
           if (peakDeleteGuard == null)
             peakDeleteGuardProvider.overrideWithValue(
               PeakDeleteGuard(_NoopPeakDeleteGuardSource()),
