@@ -24,6 +24,7 @@ void main() {
           'distance',
           'top-5-highest',
           'elevation',
+          'top-5-walks',
         ],
       });
 
@@ -36,10 +37,10 @@ void main() {
         'distance',
         'my-lists',
         'elevation',
+        'my-ascents',
         'latest-walk',
         'peaks-bagged',
         'year-to-date',
-        'top-5-walks',
       ]);
     });
 
@@ -56,7 +57,7 @@ void main() {
         'peaks-bagged',
         'year-to-date',
         'my-lists',
-        'top-5-walks',
+        'my-ascents',
       ];
 
       await container
@@ -91,7 +92,7 @@ void main() {
         'latest-walk',
         'peaks-bagged',
         'year-to-date',
-        'top-5-walks',
+        'my-ascents',
       ];
 
       await container
@@ -118,7 +119,7 @@ void main() {
         'peaks-bagged',
         'year-to-date',
         'my-lists',
-        'top-5-walks',
+        'my-ascents',
       ];
 
       expect(container.read(dashboardLayoutProvider), expected);

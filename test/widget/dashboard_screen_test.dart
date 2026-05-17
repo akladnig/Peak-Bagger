@@ -23,7 +23,13 @@ void main() {
       await _pumpDashboard(tester, const Size(1400, 1800));
 
       for (final card in dashboardCards) {
-        expect(find.text(card.title), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(Key('dashboard-card-${card.id}')),
+            matching: find.text(card.title),
+          ),
+          findsOneWidget,
+        );
         expect(find.byKey(Key('dashboard-card-${card.id}')), findsOneWidget);
         expect(
           find.byKey(Key('dashboard-card-${card.id}-drag-handle')),
@@ -37,13 +43,13 @@ void main() {
       await _pumpDashboard(tester, const Size(1400, 520));
 
       await tester.scrollUntilVisible(
-        find.byKey(const Key('dashboard-card-top-5-walks')),
+        find.byKey(const Key('dashboard-card-my-ascents')),
         200,
         scrollable: find.byType(Scrollable).first,
       );
 
       expect(
-        find.byKey(const Key('dashboard-card-top-5-walks')),
+        find.byKey(const Key('dashboard-card-my-ascents')),
         findsOneWidget,
       );
     });
@@ -114,7 +120,7 @@ void main() {
         'peaks-bagged',
         'year-to-date',
         'my-lists',
-        'top-5-walks',
+        'my-ascents',
       ]);
     });
 

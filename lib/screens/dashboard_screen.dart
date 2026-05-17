@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:peak_bagger/core/constants.dart';
 
 import '../core/number_formatters.dart';
 import '../providers/dashboard_layout_provider.dart';
@@ -10,6 +11,7 @@ import '../services/summary_card_service.dart';
 import '../widgets/dashboard/distance_card.dart';
 import '../widgets/dashboard/elevation_card.dart';
 import '../widgets/dashboard/latest_walk_card.dart';
+import '../widgets/dashboard/my_ascents_card.dart';
 import '../widgets/dashboard/my_lists_card.dart';
 import '../widgets/dashboard/peaks_bagged_card.dart';
 import '../widgets/dashboard/year_to_date_card.dart';
@@ -117,6 +119,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       now: widget.now,
                       onVisibleSummaryChanged: _handleElevationSummaryChanged,
                     ),
+                    'my-ascents' => const MyAscentsCard(),
                     'my-lists' => const MyListsCard(),
                     'peaks-bagged' => PeaksBaggedCard(
                       tracks: tracks,
@@ -237,7 +240,7 @@ class _DashboardCardState extends State<_DashboardCard> {
             clipBehavior: Clip.antiAlias,
             color: theme.colorScheme.surfaceContainer,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: DashboardUI.cardBorderRadius,
               side: BorderSide(
                 color: isHovered
                     ? theme.colorScheme.outlineVariant
@@ -350,7 +353,7 @@ class _DashboardCardDragFeedback extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           color: theme.colorScheme.surfaceContainer,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: DashboardUI.cardBorderRadius,
             side: BorderSide(color: theme.colorScheme.outlineVariant, width: 2),
           ),
           child: Column(
@@ -416,11 +419,12 @@ class _DashboardCardHeaderRow extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final trailingMaxWidth = (constraints.maxWidth -
-                titleWidth.clamp(0.0, constraints.maxWidth).toDouble() -
-                42)
-            .clamp(0.0, constraints.maxWidth)
-            .toDouble();
+        final trailingMaxWidth =
+            (constraints.maxWidth -
+                    titleWidth.clamp(0.0, constraints.maxWidth).toDouble() -
+                    42)
+                .clamp(0.0, constraints.maxWidth)
+                .toDouble();
 
         return Row(
           children: [

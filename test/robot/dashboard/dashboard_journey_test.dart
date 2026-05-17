@@ -56,7 +56,7 @@ void main() {
       'peaks-bagged',
       'year-to-date',
       'my-lists',
-      'top-5-walks',
+      'my-ascents',
     ];
     robot.expectOrder(savedOrder);
 
@@ -338,7 +338,7 @@ void main() {
         'peaks-bagged',
         'year-to-date',
         'top-5-highest',
-        'top-5-walks',
+        'my-ascents',
       ],
     });
 
@@ -374,7 +374,7 @@ void main() {
       'peaks-bagged',
       'year-to-date',
       'my-lists',
-      'top-5-walks',
+      'my-ascents',
     ]);
     expect(robot.myListsCard, findsOneWidget);
     expect(robot.myListsTable, findsOneWidget);

@@ -27,12 +27,12 @@ My Ascents dashboard card. Pure summary seam first, then card wiring, then robot
 ### Phase 2: Card + dashboard slot
 
 - **Goal**: compact table card; slot migration
-- [ ] `./lib/widgets/dashboard/my_ascents_card.dart` - table UI, empty state, year headers, sort toggle, internal scroll, stable keys
-- [ ] `./lib/screens/dashboard_screen.dart` - render `MyAscentsCard` in `my-ascents`; preserve drag/reorder wiring
-- [ ] `./lib/providers/dashboard_layout_provider.dart` - register `my-ascents`; replace default `top-5-walks`; keep legacy migration
-- [ ] `./test/widget/my_ascents_card_test.dart` - TDD: title, columns, year headers, sort toggle, empty state, null-date skip, wide/narrow sanity
-- [ ] `./test/widget/dashboard_screen_test.dart` - TDD: `my-ascents` slot visible; order preserved; legacy id migration; drag still works
-- [ ] Verify: `flutter analyze && flutter test test/widget/my_ascents_card_test.dart test/widget/dashboard_screen_test.dart`
+- [x] `./lib/widgets/dashboard/my_ascents_card.dart` - table UI, empty state, year headers, sort toggle, internal scroll, stable keys
+- [x] `./lib/screens/dashboard_screen.dart` - render `MyAscentsCard` in `my-ascents`; preserve drag/reorder wiring
+- [x] `./lib/providers/dashboard_layout_provider.dart` - register `my-ascents`; replace default `top-5-walks`; keep legacy migration
+- [x] `./test/widget/my_ascents_card_test.dart` - TDD: title, columns, year headers, sort toggle, empty state, null-date skip, wide/narrow sanity
+- [x] `./test/widget/dashboard_screen_test.dart` - TDD: `my-ascents` slot visible; order preserved; legacy id migration; drag still works
+- [x] Verify: `flutter analyze && flutter test test/widget/my_ascents_card_test.dart test/widget/dashboard_screen_test.dart`
 
 ### Phase 3: Robot journey coverage
 

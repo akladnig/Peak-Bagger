@@ -16,7 +16,9 @@ class DashboardCardDefinition {
 }
 
 const myListsCardId = 'my-lists';
+const myAscentsCardId = 'my-ascents';
 const _legacyTopFiveHighestCardId = 'top-5-highest';
+const _legacyTopFiveWalksCardId = 'top-5-walks';
 
 const dashboardCards = <DashboardCardDefinition>[
   DashboardCardDefinition(id: 'elevation', title: 'Elevation'),
@@ -25,7 +27,7 @@ const dashboardCards = <DashboardCardDefinition>[
   DashboardCardDefinition(id: 'peaks-bagged', title: 'Peaks Bagged'),
   DashboardCardDefinition(id: 'year-to-date', title: 'My Year to Date'),
   DashboardCardDefinition(id: myListsCardId, title: 'My Lists'),
-  DashboardCardDefinition(id: 'top-5-walks', title: 'Top 5 Walks'),
+  DashboardCardDefinition(id: myAscentsCardId, title: 'My Ascents'),
 ];
 
 const dashboardDefaultCardOrder = <String>[
@@ -35,7 +37,7 @@ const dashboardDefaultCardOrder = <String>[
   'peaks-bagged',
   'year-to-date',
   myListsCardId,
-  'top-5-walks',
+  myAscentsCardId,
 ];
 
 final dashboardPreferencesLoaderProvider =
@@ -118,6 +120,7 @@ class DashboardLayoutNotifier extends Notifier<List<String>> {
   String _normalizeCardId(String id) {
     return switch (id) {
       _legacyTopFiveHighestCardId => myListsCardId,
+      _legacyTopFiveWalksCardId => myAscentsCardId,
       _ => id,
     };
   }
