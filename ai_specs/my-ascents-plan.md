@@ -37,10 +37,10 @@ My Ascents dashboard card. Pure summary seam first, then card wiring, then robot
 ### Phase 3: Robot journey coverage
 
 - **Goal**: stable dashboard journey; fake data path
-- [ ] `./test/robot/dashboard/dashboard_robot.dart` - add selectors for `my-ascents` card, table, rows, sort toggle, year headers
-- [ ] `./test/robot/dashboard/dashboard_journey_test.dart` - open dashboard; verify card; assert grouped rows; toggle sort; confirm migrated layout order
-- [ ] Add/adjust deterministic fake fixtures for `PeakRepository`, `PeaksBaggedRepository`, shared prefs
-- [ ] Verify: `flutter analyze && flutter test test/robot/dashboard/dashboard_journey_test.dart`
+- [x] `./test/robot/dashboard/dashboard_robot.dart` - add selectors for `my-ascents` card, table, rows, sort toggle, year headers
+- [x] `./test/robot/dashboard/dashboard_journey_test.dart` - open dashboard; verify card; assert grouped rows; toggle sort; confirm migrated layout order
+- [x] Add/adjust deterministic fake fixtures for `PeakRepository`, `PeaksBaggedRepository`, shared prefs
+- [x] Verify: `flutter analyze && flutter test test/robot/dashboard/dashboard_journey_test.dart`
 
 ## Risks / Out of scope
 

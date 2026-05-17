@@ -5,12 +5,14 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/providers/dashboard_layout_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 
@@ -327,7 +329,7 @@ void main() {
     );
   });
 
-  testWidgets('dashboard journey shows My Lists rows and migrates layout', (
+  testWidgets('dashboard journey shows My Ascents rows and migrates layout', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({
@@ -349,14 +351,19 @@ void main() {
         zoom: 12,
         basemap: Basemap.tracestrack,
         tracks: [
-          _trackWithPeaks(10, [1, 2]),
-          _trackWithPeaks(20, [1, 3]),
+          _trackWithPeaks(10, [1, 2], DateTime.utc(2025, 5, 14)),
+          _trackWithPeaks(20, [1, 3], DateTime.utc(2026, 5, 15)),
         ],
       ),
     );
 
     final container = await _createContainer(
       notifier: notifier,
+      peaks: [
+        _peak(1, 'Alpha', elevation: 1234),
+        _peak(2, 'Beta', elevation: 1000),
+        _peak(3, 'Gamma', elevation: 900),
+      ],
       peakLists: [
         _peakList(1, 'Alpha', [1, 2]),
         _peakList(2, 'Beta', [1, 3]),
@@ -376,6 +383,39 @@ void main() {
       'my-lists',
       'my-ascents',
     ]);
+    await tester.drag(
+      find.byKey(const Key('dashboard-board')),
+      const Offset(0, -800),
+    );
+    await tester.pumpAndSettle();
+    expect(robot.myAscentsCard, findsOneWidget);
+    expect(robot.myAscentsTable, findsOneWidget);
+    expect(robot.myAscentsSortToggle, findsOneWidget);
+    expect(robot.myAscentsYearHeader(2026), findsOneWidget);
+    expect(robot.myAscentsYearHeader(2025), findsOneWidget);
+    expect(robot.myAscentsRow(1), findsOneWidget);
+    expect(robot.myAscentsRow(2), findsOneWidget);
+    expect(robot.myAscentsRow(3), findsOneWidget);
+    expect(robot.myAscentsRow(4), findsOneWidget);
+    expect(
+      find.descendant(of: robot.myAscentsRow(3), matching: find.text('Alpha')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: robot.myAscentsRow(4), matching: find.text('Gamma')),
+      findsOneWidget,
+    );
+    expect(
+      tester.getTopLeft(robot.myAscentsRow(3)).dy,
+      lessThan(tester.getTopLeft(robot.myAscentsRow(1)).dy),
+    );
+
+    await robot.tapMyAscentsSortToggle();
+
+    expect(
+      tester.getTopLeft(robot.myAscentsRow(1)).dy,
+      lessThan(tester.getTopLeft(robot.myAscentsRow(3)).dy),
+    );
     expect(robot.myListsCard, findsOneWidget);
     expect(robot.myListsTable, findsOneWidget);
     expect(robot.myListsRow(1), findsOneWidget);
@@ -397,6 +437,7 @@ void main() {
 
 Future<ProviderContainer> _createContainer({
   required TestMapNotifier notifier,
+  List<Peak> peaks = const [],
   List<PeakList> peakLists = const [],
 }) async {
   final peaksBaggedRepository = PeaksBaggedRepository.test(
@@ -409,6 +450,9 @@ Future<ProviderContainer> _createContainer({
   return ProviderContainer(
     overrides: [
       mapProvider.overrideWith(() => notifier),
+      peakRepositoryProvider.overrideWithValue(
+        PeakRepository.test(InMemoryPeakStorage(peaks)),
+      ),
       peakListRepositoryProvider.overrideWithValue(
         PeakListRepository.test(InMemoryPeakListStorage(peakLists)),
       ),
@@ -432,12 +476,16 @@ PeakList _peakList(int id, String name, List<int> peakIds) {
   );
 }
 
-GpxTrack _trackWithPeaks(int id, List<int> peakIds) {
+GpxTrack _trackWithPeaks(
+  int id,
+  List<int> peakIds,
+  DateTime startDateTime,
+) {
   final track = GpxTrack(
     gpxTrackId: id,
     contentHash: 'hash-$id',
     trackName: 'Track $id',
-    trackDate: DateTime.utc(2026, 5, 15, 10),
+    trackDate: startDateTime,
   );
   track.peaks.addAll(
     peakIds.map(
@@ -450,6 +498,20 @@ GpxTrack _trackWithPeaks(int id, List<int> peakIds) {
     ),
   );
   return track;
+}
+
+Peak _peak(
+  int osmId,
+  String name, {
+  double? elevation,
+}) {
+  return Peak(
+    osmId: osmId,
+    name: name,
+    elevation: elevation,
+    latitude: -42,
+    longitude: 146,
+  );
 }
 
 GpxTrack _track(

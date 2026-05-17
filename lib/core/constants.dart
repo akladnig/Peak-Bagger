@@ -65,6 +65,7 @@ abstract final class UiConstants {
 }
 
 abstract final class DashboardUI {
+  static final cardBorderRadius = BorderRadius.circular(12);
   static const fullHeightLabelGuides = true;
   static const yAxisLabelWidth = 72.0;
 
