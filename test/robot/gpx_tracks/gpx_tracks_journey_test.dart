@@ -5,12 +5,17 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
-import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/router.dart';
+import 'package:peak_bagger/screens/dashboard_screen.dart';
+import 'package:peak_bagger/screens/peak_lists_screen.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -54,6 +59,112 @@ void main() {
 
     await robot.toggleTracks();
     robot.expectTracksShown();
+  });
+
+  testWidgets('import refreshes dashboard and peak list counts', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+
+    final peakRepository = PeakRepository.test(
+      InMemoryPeakStorage([
+        _peak(100, 'Alpha Peak', latitude: -43.0, longitude: 147.0),
+        _peak(200, 'Beta Peak', latitude: -43.1, longitude: 147.1),
+      ]),
+    );
+    final peaksBaggedRepository = PeaksBaggedRepository.test(
+      InMemoryPeaksBaggedStorage(),
+    );
+    final peakListRepository = PeakListRepository.test(
+      InMemoryPeakListStorage([
+        _buildPeakList(1, 'Tas Peaks', [100, 200]),
+      ]),
+    );
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+      peakRepository: peakRepository,
+      peaksBaggedRepository: peaksBaggedRepository,
+    );
+    final robot = GpxTracksRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+      notifier: notifier,
+      peakRepository: peakRepository,
+      peaksBaggedRepository: peaksBaggedRepository,
+      peakListRepository: peakListRepository,
+    );
+    addTearDown(robot.dispose);
+    await robot.pumpApp();
+
+    notifier.setTracks([
+      GpxTrack(
+        gpxTrackId: 10,
+        contentHash: 'hash-10',
+        trackName: 'Selected Track',
+        trackDate: DateTime(2024, 1, 15),
+      )..peaks.add(_peak(100, 'Alpha Peak', latitude: -43.0, longitude: 147.0)),
+    ]);
+    final importedTrack = notifier.state.tracks.single;
+    final uiNotifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        tracks: [importedTrack],
+        showTracks: true,
+      ),
+      peakRepository: peakRepository,
+      peaksBaggedRepository: peaksBaggedRepository,
+    );
+    final uiContainer = ProviderContainer(
+      overrides: [
+        mapProvider.overrideWith(() => uiNotifier),
+        peakRepositoryProvider.overrideWithValue(peakRepository),
+        peakListRepositoryProvider.overrideWithValue(peakListRepository),
+        peaksBaggedRepositoryProvider.overrideWithValue(peaksBaggedRepository),
+      ],
+    );
+    addTearDown(uiContainer.dispose);
+    uiContainer.read(peaksBaggedRevisionProvider.notifier).increment();
+    await tester.pumpAndSettle();
+
+    expect(notifier.state.tracks, hasLength(1));
+    expect(peaksBaggedRepository.getAll(), hasLength(1));
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: uiContainer,
+        child: const MaterialApp(home: DashboardScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(robot.dashboardMyAscentsCard, findsOneWidget);
+    expect(find.byKey(const Key('my-ascents-row-1')), findsOneWidget);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: uiContainer,
+        child: const MaterialApp(home: PeakListsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<Text>(find.byKey(const Key('peak-lists-climbed-1'))).data,
+      '1',
+    );
+    expect(
+      tester.widget<Text>(find.byKey(const Key('peak-lists-percentage-1')))
+          .data,
+      '50%',
+    );
   });
 
   testWidgets('hovering visible track updates hover state then clears', (
@@ -499,4 +610,27 @@ void main() {
     );
     expect(robot.peakMarkerIds(), [7000, 6406]);
   });
+}
+
+Peak _peak(
+  int osmId,
+  String name, {
+  required double latitude,
+  required double longitude,
+}) {
+  return Peak(
+    osmId: osmId,
+    name: name,
+    latitude: latitude,
+    longitude: longitude,
+  );
+}
+
+PeakList _buildPeakList(int id, String name, List<int> peakIds) {
+  return PeakList(
+    name: name,
+    peakList: encodePeakListItems([
+      for (final peakId in peakIds) PeakListItem(peakOsmId: peakId, points: 1),
+    ]),
+  )..peakListId = id;
 }
