@@ -31,6 +31,11 @@ final peaksBaggedRepositoryProvider = Provider<PeaksBaggedRepository>((ref) {
   return PeaksBaggedRepository(objectboxStore);
 });
 
+final peaksBaggedRevisionProvider = NotifierProvider<
+  PeaksBaggedRevisionNotifier,
+  int
+>(PeaksBaggedRevisionNotifier.new);
+
 final peakListImportServiceProvider = Provider<PeakListImportService>((ref) {
   return PeakListImportService(
     peakRepository: ref.watch(peakRepositoryProvider),
@@ -64,6 +69,15 @@ final peakListDuplicateNameCheckerProvider =
       final repository = ref.watch(peakListRepositoryProvider);
       return (name) async => repository.findByName(name.trim()) != null;
     });
+
+class PeaksBaggedRevisionNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void increment() {
+    state += 1;
+  }
+}
 
 class _AutoRefreshingPeakListRepository extends PeakListRepository {
   _AutoRefreshingPeakListRepository(
