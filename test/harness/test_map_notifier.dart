@@ -96,6 +96,32 @@ class TestMapNotifier extends MapNotifier {
     return PeakRefreshResult(importedCount: peaks.length, skippedCount: 0);
   }
 
+  @override
+  Future<void> deleteTrack(int trackId) async {
+    final remainingVisibleTracks = state.tracks
+        .where((track) => track.gpxTrackId != trackId)
+        .toList(growable: false);
+    final trackWasLoaded = remainingVisibleTracks.length != state.tracks.length;
+    final trackWasSelected = state.selectedTrackId == trackId;
+    final trackWasHovered = state.hoveredTrackId == trackId;
+
+    if (trackWasLoaded || trackWasSelected || trackWasHovered) {
+      state = state.copyWith(
+        tracks: remainingVisibleTracks,
+        showTracks: remainingVisibleTracks.isEmpty ? false : state.showTracks,
+        clearSelectedTrackId: trackWasSelected,
+        clearSelectedLocation: trackWasSelected,
+        clearHoveredTrackId: trackWasHovered,
+        selectedTrackFocusSerial: state.selectedTrackFocusSerial + 1,
+      );
+    }
+
+    final remainingTracks = gpxTrackRepository?.getAllTracks() ?? remainingVisibleTracks;
+    if (peaksBaggedRepository != null) {
+      await peaksBaggedRepository!.syncFromTracks(remainingTracks);
+    }
+  }
+
   PeakInfoContent? _refreshedPeakInfo(List<Peak> peaks) {
     final existing = state.peakInfo;
     if (existing == null) {

@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
@@ -131,6 +132,65 @@ void main() {
     expect(notifier.state.tracks, hasLength(1));
     expect(notifier.state.selectedTrackId, 7);
     expect(notifier.state.selectedTrackFocusSerial, focusSerialBefore);
+  });
+
+  test('deleteTrack clears bagged summaries for removed tracks', () async {
+    final track = GpxTrack(
+      gpxTrackId: 7,
+      contentHash: 'hash-7',
+      trackName: 'Track 7',
+      gpxFile: '<gpx></gpx>',
+    )..peaks.add(
+        Peak(osmId: 101, name: 'Peak 101', latitude: -42, longitude: 146),
+      );
+    final repository = TestWritableGpxTrackRepository([track]);
+    final peaksBaggedRepository = PeaksBaggedRepository.test(
+      InMemoryPeaksBaggedStorage([
+        PeaksBagged(baggedId: 1, peakId: 101, gpxId: 7),
+      ]),
+    );
+    final tasmapRepository = await TestTasmapRepository.create();
+    final container = ProviderContainer(
+      overrides: [
+        mapProvider.overrideWith(
+          () => MapNotifier(
+            peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+            overpassService: OverpassService(),
+            tasmapRepository: tasmapRepository,
+            gpxTrackRepository: repository,
+            peaksBaggedRepository: peaksBaggedRepository,
+            migrationMarkerStore: const MigrationMarkerStore(),
+            loadPositionOnBuild: false,
+            loadPeaksOnBuild: false,
+            loadTracksOnBuild: false,
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(mapProvider.notifier);
+    notifier.state = MapState(
+      center: const LatLng(-41.5, 146.5),
+      zoom: 15,
+      basemap: Basemap.tracestrack,
+      showTracks: true,
+      tracks: [track],
+      selectedTrackId: 7,
+      selectedLocation: const LatLng(-41.5, 146.5),
+      hoveredTrackId: 7,
+    );
+
+    repository.deleteTrack(7);
+    await notifier.deleteTrack(7);
+
+    expect(notifier.state.tracks, isEmpty);
+    expect(notifier.state.selectedTrackId, isNull);
+    expect(notifier.state.selectedLocation, isNull);
+    expect(notifier.state.hoveredTrackId, isNull);
+    expect(notifier.state.showTracks, isFalse);
+    expect(peaksBaggedRepository.getAll(), isEmpty);
+    expect(container.read(peaksBaggedRevisionProvider), 1);
   });
 }
 
