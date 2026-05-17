@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:peak_bagger/models/gpx_track.dart';
-import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
+import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/widgets/dashboard/my_lists_card.dart';
 
 import '../harness/test_map_notifier.dart';
@@ -25,7 +25,7 @@ void main() {
           _peakList(14, 'Gamma', [1, 5, 8]),
           _peakList(15, 'Epsilon', [9]),
         ],
-        tracks: [_track(1, peakIds: [1, 2, 3, 4, 5, 6])],
+        climbedPeakIds: {1, 2, 3, 4, 5, 6},
         width: 360,
       );
 
@@ -65,7 +65,7 @@ void main() {
       await _pumpMyListsCard(
         tester,
         peakLists: const [],
-        tracks: const [],
+        climbedPeakIds: const {},
       );
 
       expect(find.byKey(const Key('my-lists-empty-state')), findsOneWidget);
@@ -78,23 +78,40 @@ void main() {
 Future<void> _pumpMyListsCard(
   WidgetTester tester, {
   required List<PeakList> peakLists,
-  required List<GpxTrack> tracks,
+  required Set<int> climbedPeakIds,
   double width = 420,
 }) async {
+  final peaksBaggedRepository = PeaksBaggedRepository.test(
+    InMemoryPeaksBaggedStorage(
+      climbedPeakIds
+          .map(
+            (peakId) => PeaksBagged(
+              baggedId: peakId,
+              peakId: peakId,
+              gpxId: 1,
+              date: DateTime.utc(2026, 5, 15),
+            ),
+          )
+          .toList(growable: false),
+    ),
+  );
+
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         peakListRepositoryProvider.overrideWithValue(
           PeakListRepository.test(InMemoryPeakListStorage(peakLists)),
         ),
+        peaksBaggedRepositoryProvider.overrideWithValue(peaksBaggedRepository),
         mapProvider.overrideWith(
           () => TestMapNotifier(
             MapState(
               center: const LatLng(-41.5, 146.5),
               zoom: 15,
               basemap: Basemap.tracestrack,
-              tracks: tracks,
+              tracks: const [],
             ),
+            peaksBaggedRepository: peaksBaggedRepository,
           ),
         ),
       ],
@@ -127,27 +144,4 @@ PeakList _peakList(
           .toList(growable: false),
     ),
   );
-}
-
-GpxTrack _track(
-  int id, {
-  required List<int> peakIds,
-}) {
-  final track = GpxTrack(
-    gpxTrackId: id,
-    contentHash: 'hash-$id',
-    trackName: 'Track $id',
-    trackDate: DateTime.utc(2026, 5, 15, 10),
-  );
-  track.peaks.addAll(
-    peakIds.map(
-      (peakId) => Peak(
-        osmId: peakId,
-        name: 'Peak $peakId',
-        latitude: -42,
-        longitude: 146,
-      ),
-    ),
-  );
-  return track;
 }

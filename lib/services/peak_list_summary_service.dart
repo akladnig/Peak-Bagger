@@ -1,4 +1,3 @@
-import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 
 class PeakListSummaryRow {
@@ -46,14 +45,13 @@ class PeakListSummaryService {
 
   List<PeakListSummaryRow> buildRows({
     required Iterable<PeakList> peakLists,
-    required Iterable<GpxTrack> tracks,
+    required Set<int> climbedPeakIds,
     int maxRows = 5,
   }) {
     if (maxRows <= 0) {
       return const [];
     }
 
-    final climbedPeakIds = _climbedPeakIds(tracks);
     final rows = <PeakListSummaryRow>[];
 
     for (final peakList in peakLists) {
@@ -62,9 +60,7 @@ class PeakListSummaryService {
         final items = decodePeakListItems(peakList.peakList);
         final uniquePeakIds = <int>{};
         for (final item in items) {
-          if (item.peakOsmId > 0) {
-            uniquePeakIds.add(item.peakOsmId);
-          }
+          uniquePeakIds.add(item.peakOsmId);
         }
 
         final totalPeaks = uniquePeakIds.length;
@@ -91,20 +87,6 @@ class PeakListSummaryService {
     }
 
     return List<PeakListSummaryRow>.unmodifiable(rows.sublist(0, maxRows));
-  }
-
-  Set<int> _climbedPeakIds(Iterable<GpxTrack> tracks) {
-    final climbedPeakIds = <int>{};
-
-    for (final track in tracks) {
-      for (final peak in track.peaks) {
-        if (peak.osmId > 0) {
-          climbedPeakIds.add(peak.osmId);
-        }
-      }
-    }
-
-    return climbedPeakIds;
   }
 
   int _compareRows(PeakListSummaryRow left, PeakListSummaryRow right) {

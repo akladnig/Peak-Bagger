@@ -4,17 +4,19 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
+import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/my_lists_summary_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 
 import '../harness/test_map_notifier.dart';
 
 void main() {
   test('recomputes when peak lists or climb data change', () async {
-    final repository = PeakListRepository.test(
+    final peakListRepository = PeakListRepository.test(
       InMemoryPeakListStorage([
         PeakList(
           peakListId: 1,
@@ -26,19 +28,27 @@ void main() {
         ),
       ]),
     );
+    final peaksBaggedRepository = PeaksBaggedRepository.test(
+      InMemoryPeaksBaggedStorage([
+        PeaksBagged(baggedId: 1, peakId: 1, gpxId: 10, date: DateTime.utc(2026, 5, 15)),
+      ]),
+    );
     final mapNotifier = TestMapNotifier(
       MapState(
         center: const LatLng(-41.5, 146.5),
         zoom: 15,
         basemap: Basemap.tracestrack,
         tracks: [_track(10, peakIds: [1])],
+        showTracks: true,
       ),
+      peaksBaggedRepository: peaksBaggedRepository,
     );
 
     final container = ProviderContainer(
       overrides: [
         mapProvider.overrideWith(() => mapNotifier),
-        peakListRepositoryProvider.overrideWithValue(repository),
+        peakListRepositoryProvider.overrideWithValue(peakListRepository),
+        peaksBaggedRepositoryProvider.overrideWithValue(peaksBaggedRepository),
       ],
     );
     addTearDown(container.dispose);
@@ -48,12 +58,13 @@ void main() {
     expect(rows.single.totalPeaks, 2);
     expect(rows.single.climbed, 1);
 
+    await peaksBaggedRepository.rebuildFromTracks([_track(10, peakIds: [1, 2])]);
     mapNotifier.setTracks([_track(10, peakIds: [1, 2])]);
     rows = container.read(myListsSummaryProvider);
     expect(rows.single.climbed, 2);
     expect(rows.single.percentageLabel, '100%');
 
-    await repository.save(
+    await peakListRepository.save(
       PeakList(
         peakListId: 1,
         name: 'Alpha',
@@ -73,6 +84,9 @@ void main() {
   });
 
   test('returns empty state when no usable lists exist', () {
+    final peaksBaggedRepository = PeaksBaggedRepository.test(
+      InMemoryPeaksBaggedStorage(),
+    );
     final container = ProviderContainer(
       overrides: [
         mapProvider.overrideWith(
@@ -81,12 +95,15 @@ void main() {
               center: const LatLng(-41.5, 146.5),
               zoom: 15,
               basemap: Basemap.tracestrack,
+              tracks: const [],
             ),
+            peaksBaggedRepository: peaksBaggedRepository,
           ),
         ),
         peakListRepositoryProvider.overrideWithValue(
           PeakListRepository.test(InMemoryPeakListStorage()),
         ),
+        peaksBaggedRepositoryProvider.overrideWithValue(peaksBaggedRepository),
       ],
     );
     addTearDown(container.dispose);

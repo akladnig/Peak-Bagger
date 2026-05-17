@@ -7,7 +7,10 @@ import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
+import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import '../../harness/test_map_notifier.dart';
 import '../../harness/test_tasmap_repository.dart';
 import 'dashboard_robot.dart';
@@ -30,6 +33,12 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         mapProvider.overrideWith(() => notifier),
+        peakListRepositoryProvider.overrideWithValue(
+          PeakListRepository.test(InMemoryPeakListStorage()),
+        ),
+        peaksBaggedRepositoryProvider.overrideWithValue(
+          PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
+        ),
         tasmapRepositoryProvider.overrideWithValue(
           await TestTasmapRepository.create(),
         ),

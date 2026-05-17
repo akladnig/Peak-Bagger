@@ -11,6 +11,7 @@ import 'package:peak_bagger/providers/dashboard_layout_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 
 import '../../harness/test_map_notifier.dart';
@@ -398,12 +399,20 @@ Future<ProviderContainer> _createContainer({
   required TestMapNotifier notifier,
   List<PeakList> peakLists = const [],
 }) async {
+  final peaksBaggedRepository = PeaksBaggedRepository.test(
+    InMemoryPeaksBaggedStorage(),
+  );
+  if (notifier.initialState.tracks.isNotEmpty) {
+    await peaksBaggedRepository.rebuildFromTracks(notifier.initialState.tracks);
+  }
+
   return ProviderContainer(
     overrides: [
       mapProvider.overrideWith(() => notifier),
       peakListRepositoryProvider.overrideWithValue(
         PeakListRepository.test(InMemoryPeakListStorage(peakLists)),
       ),
+      peaksBaggedRepositoryProvider.overrideWithValue(peaksBaggedRepository),
       tasmapRepositoryProvider.overrideWithValue(
         await TestTasmapRepository.create(),
       ),

@@ -1,6 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:peak_bagger/models/gpx_track.dart';
-import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/peak_list_summary_service.dart';
 
@@ -18,9 +16,7 @@ void main() {
           _peakList(14, 'Gamma', [1, 5, 8]),
           _peakList(15, 'Epsilon', [9]),
         ],
-        tracks: [
-          _track(1, peakIds: [1, 2, 3, 4, 5, 6]),
-        ],
+        climbedPeakIds: {1, 2, 3, 4, 5, 6},
       );
 
       expect(rows, hasLength(5));
@@ -53,7 +49,7 @@ void main() {
           _peakList(20, 'Empty', []),
           PeakList(name: 'Broken', peakList: 'not-json')..peakListId = 21,
         ],
-        tracks: const [],
+        climbedPeakIds: const {},
       );
 
       expect(rows, hasLength(1));
@@ -67,7 +63,7 @@ void main() {
     test('returns empty list when no usable peak lists exist', () {
       final rows = service.buildRows(
         peakLists: const [],
-        tracks: const [],
+        climbedPeakIds: const {},
       );
 
       expect(rows, isEmpty);
@@ -89,27 +85,4 @@ PeakList _peakList(
           .toList(growable: false),
     ),
   );
-}
-
-GpxTrack _track(
-  int id, {
-  required List<int> peakIds,
-}) {
-  final track = GpxTrack(
-    gpxTrackId: id,
-    contentHash: 'hash-$id',
-    trackName: 'Track $id',
-    trackDate: DateTime.utc(2026, 5, 15, 10),
-  );
-  track.peaks.addAll(
-    peakIds.map(
-      (peakId) => Peak(
-        osmId: peakId,
-        name: 'Peak $peakId',
-        latitude: -42,
-        longitude: 146,
-      ),
-    ),
-  );
-  return track;
 }
