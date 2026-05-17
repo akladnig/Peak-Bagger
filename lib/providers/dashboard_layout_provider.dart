@@ -15,13 +15,16 @@ class DashboardCardDefinition {
   final String title;
 }
 
+const myListsCardId = 'my-lists';
+const _legacyTopFiveHighestCardId = 'top-5-highest';
+
 const dashboardCards = <DashboardCardDefinition>[
   DashboardCardDefinition(id: 'elevation', title: 'Elevation'),
   DashboardCardDefinition(id: 'distance', title: 'Distance'),
   DashboardCardDefinition(id: 'latest-walk', title: 'Latest Walk'),
   DashboardCardDefinition(id: 'peaks-bagged', title: 'Peaks Bagged'),
   DashboardCardDefinition(id: 'year-to-date', title: 'My Year to Date'),
-  DashboardCardDefinition(id: 'top-5-highest', title: 'Top 5 Highest'),
+  DashboardCardDefinition(id: myListsCardId, title: 'My Lists'),
   DashboardCardDefinition(id: 'top-5-walks', title: 'Top 5 Walks'),
 ];
 
@@ -31,7 +34,7 @@ const dashboardDefaultCardOrder = <String>[
   'latest-walk',
   'peaks-bagged',
   'year-to-date',
-  'top-5-highest',
+  myListsCardId,
   'top-5-walks',
 ];
 
@@ -94,7 +97,8 @@ class DashboardLayoutNotifier extends Notifier<List<String>> {
     final seen = <String>{};
     final next = <String>[];
 
-    for (final id in order) {
+    for (final rawId in order) {
+      final id = _normalizeCardId(rawId);
       if (!dashboardDefaultCardOrder.contains(id) || seen.contains(id)) {
         continue;
       }
@@ -109,6 +113,13 @@ class DashboardLayoutNotifier extends Notifier<List<String>> {
     }
 
     return next;
+  }
+
+  String _normalizeCardId(String id) {
+    return switch (id) {
+      _legacyTopFiveHighestCardId => myListsCardId,
+      _ => id,
+    };
   }
 
   List<String> _moveCard(
