@@ -60,6 +60,7 @@ Use Osmium or osmfilter to extract only pedestrian paths:
 osmfilter input.osm.pbf --keep="highway=path =footway =cycleway =steps" --output=paths.osm.pbf
 Step 3: Convert to Queryable Format
 Option A: SQLite with Spatialite
+
 # Convert PBF to SQLite with spatial indexing
 ogr2ogr -f SQLite -dsco SPATIALITE=YES paths.db paths.osm.pbf
 Option B: Use a Dart package to parse PBF
@@ -201,6 +202,7 @@ docker run -d \
 Now you have:
 - Map tiles: http://localhost:3000/tiles/{z}/{x}/{y}.pbf
 - Spatial queries: http://localhost:3000/sql?q=SELECT * FROM planet_osm_line WHERE highway='path'
+
 ## Step 6: Query from Flutter
 // Use http package to query PostGIS via Martin
 final response = await http.get(
