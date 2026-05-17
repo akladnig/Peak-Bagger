@@ -294,12 +294,13 @@ void main() {
       final themeAction = tester.getCenter(
         find.byKey(const Key('app-bar-theme-action')),
       );
-      final searchFab = tester.getCenter(
-        find.byKey(const Key('search-peaks-fab')),
-      );
+      final searchFabKey = find.byKey(const Key('search-peaks-fab'));
+      await tester.ensureVisible(searchFabKey);
+      await tester.pumpAndSettle();
+      final mapInfoFab = tester.getCenter(find.byKey(const Key('map-info-fab')));
 
-      expect(themeAction.dx, searchFab.dx);
-      expect(themeAction.dy, lessThan(searchFab.dy));
+      expect(themeAction.dx, mapInfoFab.dx);
+      expect(themeAction.dy, lessThan(mapInfoFab.dy));
     },
   );
 }

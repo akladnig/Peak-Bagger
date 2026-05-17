@@ -25,7 +25,18 @@ class TasmapRobot {
 
   Finder get mapInteractionRegion =>
       find.byKey(const Key('map-interaction-region'));
+  Finder get mapActionToolsGroup =>
+      find.byKey(const Key('map-action-tools-group'));
+  Finder get mapActionViewGroup =>
+      find.byKey(const Key('map-action-view-group'));
+  Finder get mapActionLocationGroup =>
+      find.byKey(const Key('map-action-location-group'));
+  Finder get createRouteFab => find.byKey(const Key('create-route-fab'));
+  Finder get showBasemapsFab => find.byKey(const Key('show-basemaps-fab'));
   Finder get gotoMapFab => find.byKey(const Key('goto-map-fab'));
+  Finder get searchPeaksFab => find.byKey(const Key('search-peaks-fab'));
+  Finder get gridMapFab => find.byKey(const Key('grid-map-fab'));
+  Finder get mapInfoFab => find.byKey(const Key('map-info-fab'));
   Finder get gotoMapInput => find.byKey(const Key('goto-map-input'));
   Finder get gotoMapSubmit => find.byKey(const Key('goto-map-submit'));
   Finder get resetMapDataTile => find.byKey(const Key('reset-map-data-tile'));
@@ -54,6 +65,8 @@ class TasmapRobot {
   }
 
   Future<void> openGotoInput() async {
+    await tester.ensureVisible(gotoMapFab);
+    await tester.pumpAndSettle();
     await tester.tap(gotoMapFab);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));

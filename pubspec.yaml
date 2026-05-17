@@ -44,4 +44,5 @@ flutter:
   assets:
     - assets/peak_marker.svg
     - assets/peak_marker_ticked.svg
+    - assets/route.svg
     - assets/tasmap50k.csv

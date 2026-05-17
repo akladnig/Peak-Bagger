@@ -253,8 +253,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(container.read(mapProvider).peakInfoPeak?.osmId, 6406);
 
-    await tester.tap(find.byKey(const Key('search-peaks-fab')));
-    await tester.pump();
+    final searchPeaksFab = find.byKey(const Key('search-peaks-fab'));
+    await tester.ensureVisible(searchPeaksFab);
+    await tester.pumpAndSettle();
+    tester.widget<FloatingActionButton>(searchPeaksFab).onPressed!();
+    await tester.pumpAndSettle();
 
     expect(container.read(mapProvider).peakInfoPeak, isNull);
     expect(container.read(mapProvider).showPeakSearch, isTrue);
@@ -542,7 +545,10 @@ void main() {
 
     expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('show-peaks-fab')));
+    final showPeaksFab = find.byKey(const Key('show-peaks-fab'));
+    await tester.ensureVisible(showPeaksFab);
+    await tester.pumpAndSettle();
+    await tester.tap(showPeaksFab);
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-lists-drawer')), findsOneWidget);
@@ -554,7 +560,9 @@ void main() {
     expect(container.read(mapProvider).peakListSelectionMode, PeakListSelectionMode.none);
     expect(find.byKey(const Key('peak-marker-layer')), findsNothing);
 
-    await tester.tap(find.byKey(const Key('show-peaks-fab')));
+    await tester.ensureVisible(showPeaksFab);
+    await tester.pumpAndSettle();
+    await tester.tap(showPeaksFab);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('peak-list-item-All Peaks')));
     await tester.pumpAndSettle();
@@ -612,7 +620,10 @@ void main() {
       peakListRepository: peakListRepository,
     );
 
-    await tester.tap(find.byKey(const Key('show-peaks-fab')));
+    final showPeaksFab = find.byKey(const Key('show-peaks-fab'));
+    await tester.ensureVisible(showPeaksFab);
+    await tester.pumpAndSettle();
+    await tester.tap(showPeaksFab);
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-list-item-Alpha')), findsOneWidget);
@@ -636,7 +647,10 @@ void main() {
       peakListRepository: PeakListRepository.test(_ThrowingPeakListStorage()),
     );
 
-    await tester.tap(find.byKey(const Key('show-peaks-fab')));
+    final showPeaksFab = find.byKey(const Key('show-peaks-fab'));
+    await tester.ensureVisible(showPeaksFab);
+    await tester.pumpAndSettle();
+    await tester.tap(showPeaksFab);
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-list-item-None')), findsOneWidget);

@@ -59,6 +59,7 @@ abstract final class UiConstants {
   static const columnGap = 12.0;
   static const headerIconWidth = 18.0;
   static const railSpacing = 8.0;
+  static const groupSpacing = 24.0;
   static const primaryColumnWidth = 144.0;
   static const actionsColumnWidth = 72.0;
   static const sideMenuColumnWidth = 70.0;

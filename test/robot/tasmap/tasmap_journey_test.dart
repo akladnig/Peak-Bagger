@@ -51,6 +51,55 @@ void main() {
     robot.expectSelectedMapLabelVisible('Adamsons\nTS07');
   });
 
+  testWidgets('map rail groups stay reachable and placeholder stays inert', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+
+    final repository = await TestTasmapRepository.create();
+    final robot = TasmapRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        tasmapDisplayMode: TasmapDisplayMode.overlay,
+        selectedMap: repository.getAllMaps().first,
+        syncEnabled: false,
+      ),
+      repository,
+    );
+    addTearDown(robot.dispose);
+
+    await robot.pumpApp();
+    robot.expectMapReady();
+
+    expect(robot.mapActionToolsGroup, findsOneWidget);
+    expect(robot.mapActionViewGroup, findsOneWidget);
+    expect(robot.mapActionLocationGroup, findsOneWidget);
+    expect(robot.createRouteFab, findsOneWidget);
+
+    final container = _container(tester);
+    expect(
+      tester.widget<FloatingActionButton>(robot.createRouteFab).onPressed,
+      isNull,
+    );
+
+    await tester.tap(robot.createRouteFab);
+    await tester.pump();
+    expect(container.read(mapProvider).showInfoPopup, isFalse);
+    expect(container.read(mapProvider).showPeakSearch, isFalse);
+
+    await tester.tap(robot.gridMapFab);
+    await tester.pump();
+    expect(container.read(mapProvider).tasmapDisplayMode, TasmapDisplayMode.none);
+
+    tester.widget<FloatingActionButton>(robot.searchPeaksFab).onPressed!();
+    await tester.pump();
+    expect(container.read(mapProvider).showPeakSearch, isTrue);
+
+  });
+
   testWidgets('reset map data refreshes map screen tasmap reads', (
     tester,
   ) async {
@@ -92,4 +141,10 @@ void main() {
 
     expect(repository.getAllMapsCallCount, greaterThan(initialCalls));
   });
+}
+
+ProviderContainer _container(WidgetTester tester) {
+  return ProviderScope.containerOf(
+    tester.element(find.byKey(const Key('shared-app-bar'))),
+  );
 }

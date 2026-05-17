@@ -463,7 +463,10 @@ void main() {
 
     expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('show-peaks-fab')));
+    final showPeaksFab = find.byKey(const Key('show-peaks-fab'));
+    await tester.ensureVisible(showPeaksFab);
+    await tester.pumpAndSettle();
+    await tester.tap(showPeaksFab);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('peak-list-item-None')));
     await tester.pumpAndSettle();
@@ -612,7 +615,10 @@ void main() {
 
     expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('show-peaks-fab')));
+    final showPeaksFab = find.byKey(const Key('show-peaks-fab'));
+    await tester.ensureVisible(showPeaksFab);
+    await tester.pumpAndSettle();
+    await tester.tap(showPeaksFab);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('peak-list-item-None')));
     await tester.pumpAndSettle();
