@@ -29,7 +29,6 @@
 - [ ] change dropdown and make it similar in all the app.
 - [ ] Add a legend to the graphs
 - [ ] Display an average line. Moving average?
-- [ ] Add y-axis labels
 - [ ] Add shortcut keys - j,k,l,m cmd [, cmd ], tab, shift tab
 - [ ] move hardcoded colours to theme
 
@@ -65,6 +64,7 @@
 - [ ] Confirm that peak correlation for mass import does not drop tracks for which there is no peak
 - [ ] class GpxTrackImportResult change to GpxFileImportResult  to cater for routes and waypoints
 - [ ] Fix date display for track info - incorrect date being calculated
+- [ ] Add elevation profile allow x-axis distance/time selection
 
 ### Speed
 - [ ] averageSpeed
@@ -91,17 +91,21 @@
 - [ ] peak lists not updating on track import correlation
 - [ ] peak lists not updating on change of peak details
 - [ ] Change cursor on hover over clickables
-- [x] Add peak info functionality as per map_screen
 - [ ] Mini map - add +/- zoom keys
 - [ ] Change details view header to Peak Name
-- [ ] Remove points column
-- [x] Selected row use primaryContainer as background and 5c47cd for dividers
 
  mgrs.Mgrs.toPoint can produce long decimal values (lib/services/peak_admin_editor.dart:175-178) change to 6 digits.
 
 ## Object Box Admin
 - [ ] Allow entry of UTM coordinates
 - [ ] add x in text field to clear it
+
+### GpxTrack
+- [x] Date format
+- [x] show ellipsis for gpxFile and filteredTrack
+- [ ] Do not sace filtered track if same as gpxFile
+- [ ] Remove managedPlacementPending and managedRelativePath
+- [x] add delete button
 
 F14. Add app-wide peak search, peak list selection widgets, and Peak Lists screen display out of scope for this iteration unless they are directly needed by the clicked-peak popup change.
 
