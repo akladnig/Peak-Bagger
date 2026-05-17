@@ -463,6 +463,7 @@ class MapNotifier extends Notifier<MapState> {
       state = state.copyWith(isLoadingPeaks: true);
       try {
         await _peakRefreshService.refreshPeaks();
+        ref.read(peakRevisionProvider.notifier).increment();
         state = state.copyWith(
           peaks: _peakRepository.getAllPeaks(),
           isLoadingPeaks: false,
@@ -475,7 +476,10 @@ class MapNotifier extends Notifier<MapState> {
         );
       }
     } else {
-      await _peakRefreshService.backfillStoredPeaks();
+      final changed = await _peakRefreshService.backfillStoredPeaks();
+      if (changed) {
+        ref.read(peakRevisionProvider.notifier).increment();
+      }
       state = state.copyWith(peaks: _peakRepository.getAllPeaks());
     }
   }
@@ -657,6 +661,7 @@ class MapNotifier extends Notifier<MapState> {
       final allTracks = _gpxTrackRepository.getAllTracks();
       if (syncPeaksBagged) {
         await _peaksBaggedRepository.rebuildFromTracks(allTracks);
+        ref.read(peaksBaggedRevisionProvider.notifier).increment();
         if (markPeaksBaggedBackfillComplete) {
           await _migrationMarkerStore.markPeaksBaggedBackfillComplete();
         }
@@ -941,6 +946,7 @@ class MapNotifier extends Notifier<MapState> {
       final refreshedTracks = _gpxTrackRepository.getAllTracks();
       try {
         await _peaksBaggedRepository.syncFromTracks(refreshedTracks);
+        ref.read(peaksBaggedRevisionProvider.notifier).increment();
         await _migrationMarkerStore.markPeaksBaggedBackfillComplete();
         _pendingStartupBackfillWarningMessage = null;
       } catch (e) {
@@ -2226,6 +2232,7 @@ class MapNotifier extends Notifier<MapState> {
     state = state.copyWith(isLoadingPeaks: true, clearError: true);
     try {
       final result = await _peakRefreshService.refreshPeaks();
+      ref.read(peakRevisionProvider.notifier).increment();
       final peaks = _peakRepository.getAllPeaks();
       final refreshedPeakInfo = _refreshedPeakInfo(peaks);
       state = state.copyWith(

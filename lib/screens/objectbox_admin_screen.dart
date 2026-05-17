@@ -194,6 +194,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
 
     try {
       final result = await repository.saveDetailed(peak);
+      ref.read(peakRevisionProvider.notifier).increment();
       if (!mounted) {
         return null;
       }
@@ -306,6 +307,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
         : currentState.selectedRow?.primaryKeyValue;
 
     await repository.delete(peak.id);
+    ref.read(peakRevisionProvider.notifier).increment();
     if (!mounted) {
       return;
     }

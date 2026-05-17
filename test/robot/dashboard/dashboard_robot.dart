@@ -42,6 +42,15 @@ class DashboardRobot {
   Finder myListsRow(int peakListId) => find.byKey(Key('my-lists-row-$peakListId'));
   Finder myListsControl(String key) =>
       find.descendant(of: myListsCard, matching: find.byKey(Key(key)));
+  Finder get myAscentsCard => find.byKey(const Key('dashboard-card-my-ascents'));
+  Finder get myAscentsEmptyState =>
+      find.byKey(const Key('my-ascents-empty-state'));
+  Finder get myAscentsTable => find.byKey(const Key('my-ascents-table'));
+  Finder myAscentsRow(int baggedId) => find.byKey(Key('my-ascents-row-$baggedId'));
+  Finder myAscentsYearHeader(int year) =>
+      find.byKey(Key('my-ascents-year-$year'));
+  Finder get myAscentsSortToggle =>
+      find.byKey(const Key('my-ascents-sort-toggle'));
 
   Future<void> pumpApp({required ProviderContainer container}) async {
     this.container = container;
@@ -79,6 +88,11 @@ class DashboardRobot {
 
   Future<void> tapLatestWalkNext() async {
     await tester.tap(latestWalkNextTrack);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapMyAscentsSortToggle() async {
+    await tester.tap(myAscentsSortToggle);
     await tester.pumpAndSettle();
   }
 
