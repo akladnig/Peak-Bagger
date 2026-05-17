@@ -100,7 +100,7 @@ void main() {
         'distance',
         'peaks-bagged',
         'year-to-date',
-        'top-5-highest',
+        'my-lists',
         'top-5-walks',
       ]);
     });

@@ -26,12 +26,12 @@ Single derived Riverpod provider, compact table card, legacy slot migration.
 ### Phase 2: Card wiring
 
 - **Goal**: dashboard table UI + slot integration
-- [ ] `lib/widgets/dashboard/my_lists_card.dart` - table UI; title; empty state; stable keys; no scroll
-- [ ] `lib/screens/dashboard_screen.dart` - render `MyListsCard` in `my-lists`; preserve drag/reorder wiring
-- [ ] `test/widget/my_lists_card_test.dart` - TDD: title, 5 columns, row rendering, cap-at-five, empty state, narrow/wide sanity
-- [ ] `test/widget/dashboard_screen_test.dart` - TDD: `my-lists` slot visible; card order intact; drag handles intact; legacy id migrated
-- [ ] `test/robot/dashboard/dashboard_robot.dart` - add selectors for `my-lists` card/root/table/rows
-- [ ] Verify: `flutter analyze && flutter test test/widget/my_lists_card_test.dart test/widget/dashboard_screen_test.dart`
+- [x] `lib/widgets/dashboard/my_lists_card.dart` - table UI; title; empty state; stable keys; no scroll
+- [x] `lib/screens/dashboard_screen.dart` - render `MyListsCard` in `my-lists`; preserve drag/reorder wiring
+- [x] `test/widget/my_lists_card_test.dart` - TDD: title, 5 columns, row rendering, cap-at-five, empty state, narrow/wide sanity
+- [x] `test/widget/dashboard_screen_test.dart` - TDD: `my-lists` slot visible; card order intact; drag handles intact; legacy id migrated
+- [x] `test/robot/dashboard/dashboard_robot.dart` - add selectors for `my-lists` card/root/table/rows
+- [x] Verify: `flutter analyze && flutter test test/widget/my_lists_card_test.dart test/widget/dashboard_screen_test.dart`
 
 ### Phase 3: Journey coverage
 

@@ -36,6 +36,12 @@ class DashboardRobot {
       find.byKey(const Key('latest-walk-next-track'));
   Finder get latestWalkTitle =>
       find.byKey(const Key('latest-walk-track-title'));
+  Finder get myListsCard => find.byKey(const Key('dashboard-card-my-lists'));
+  Finder get myListsEmptyState => find.byKey(const Key('my-lists-empty-state'));
+  Finder get myListsTable => find.byKey(const Key('my-lists-table'));
+  Finder myListsRow(int peakListId) => find.byKey(Key('my-lists-row-$peakListId'));
+  Finder myListsControl(String key) =>
+      find.descendant(of: myListsCard, matching: find.byKey(Key(key)));
 
   Future<void> pumpApp({required ProviderContainer container}) async {
     this.container = container;

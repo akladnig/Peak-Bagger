@@ -10,6 +10,7 @@ import '../services/summary_card_service.dart';
 import '../widgets/dashboard/distance_card.dart';
 import '../widgets/dashboard/elevation_card.dart';
 import '../widgets/dashboard/latest_walk_card.dart';
+import '../widgets/dashboard/my_lists_card.dart';
 import '../widgets/dashboard/peaks_bagged_card.dart';
 import '../widgets/dashboard/year_to_date_card.dart';
 import '../widgets/dashboard/summary_card.dart';
@@ -116,6 +117,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       now: widget.now,
                       onVisibleSummaryChanged: _handleElevationSummaryChanged,
                     ),
+                    'my-lists' => const MyListsCard(),
                     'peaks-bagged' => PeaksBaggedCard(
                       tracks: tracks,
                       isLoading: isLoadingTracks,
