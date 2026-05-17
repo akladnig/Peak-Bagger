@@ -27,7 +27,11 @@
 
 ## Dashboard
 - [ ] change dropdown and make it similar in all the app.
+- [ ] Add a legend to the graphs
+- [ ] Display an average line. Moving average?
 - [ ] Add y-axis labels
+- [ ] Add shortcut keys - j,k,l,m cmd [, cmd ], tab, shift tab
+- [ ] move hardcoded colours to theme
 
 ## 2  Display map of Tasmania with zoom, pan and search function
 - [ ] change zoom level display to actual distance
