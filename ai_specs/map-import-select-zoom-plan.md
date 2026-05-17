@@ -30,8 +30,9 @@ Reuse current `selectedTrackFocusSerial`; no new camera state.
 ### Phase 2: Map-screen journey
 
 - **Goal**: real map import selects + zooms
-- [ ] `test/robot/gpx_tracks/single_track_import_journey_test.dart` - import one GPX through the map screen; assert track panel visible and camera centers/zooms to the imported track
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/widgets/gpx_track_import_dialog.dart` - keep the import dialog scrollable enough for selected-file state + actions
+- [x] `test/robot/gpx_tracks/single_track_import_journey_test.dart` - seeded imported-track state on map screen; assert track panel visible and camera centers/zooms to the imported track
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 
