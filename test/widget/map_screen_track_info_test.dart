@@ -228,7 +228,10 @@ void main() {
 
     await _pumpRawMapScreen(tester, state, size: const Size(1600, 900));
 
-    await tester.tap(find.byKey(const Key('show-basemaps-fab')));
+    final basemapsFab = find.byKey(const Key('show-basemaps-fab'));
+    await tester.ensureVisible(basemapsFab);
+    await tester.pumpAndSettle();
+    await tester.tap(basemapsFab);
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('basemaps-drawer')), findsOneWidget);

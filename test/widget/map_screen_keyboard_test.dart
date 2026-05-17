@@ -278,7 +278,10 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byKey(const Key('show-peaks-fab')));
+    final showPeaksFab = find.byKey(const Key('show-peaks-fab'));
+    await tester.ensureVisible(showPeaksFab);
+    await tester.pumpAndSettle();
+    await tester.tap(showPeaksFab);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('peak-lists-drawer')), findsOneWidget);
 

@@ -35,7 +35,10 @@ void main() {
 
     await tester.pump();
 
-    await tester.tap(find.byKey(const Key('grid-map-fab')));
+    final gridFab = find.byKey(const Key('grid-map-fab'));
+    await tester.ensureVisible(gridFab);
+    await tester.pumpAndSettle();
+    await tester.tap(gridFab);
     await tester.pump();
 
     final container = ProviderScope.containerOf(
@@ -46,14 +49,18 @@ void main() {
       TasmapDisplayMode.none,
     );
 
-    await tester.tap(find.byKey(const Key('grid-map-fab')));
+    await tester.ensureVisible(gridFab);
+    await tester.pumpAndSettle();
+    await tester.tap(gridFab);
     await tester.pump();
     expect(
       container.read(mapProvider).tasmapDisplayMode,
       TasmapDisplayMode.selectedMap,
     );
 
-    await tester.tap(find.byKey(const Key('grid-map-fab')));
+    await tester.ensureVisible(gridFab);
+    await tester.pumpAndSettle();
+    await tester.tap(gridFab);
     await tester.pump();
     expect(
       container.read(mapProvider).tasmapDisplayMode,

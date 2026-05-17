@@ -18,7 +18,7 @@ Files to examine: `./lib/widgets/map_action_rail.dart`, `./lib/widgets/left_tool
 <user_flows>
 Primary flow:
 1. User opens the map screen.
-2. User sees three labeled sections in the action rail: Tools, View, and Location.
+2. User sees three labeled sections in the action rail: Tools, View, and Loc.
 3. User chooses an action from the appropriate section.
 4. The existing action behaves exactly as it does today.
 5. The Info FAB remains separately anchored at the bottom-right.
@@ -35,31 +35,32 @@ Error flows:
 
 <requirements>
 **Functional:**
-1. Replace the flat top-right action stack with three labeled containers: `Tools`, `View`, and `Location`.
+1. Replace the flat top-right action stack with three labeled containers: `Tools`, `View`, and `Loc`.
 2. Render the `Tools` container with `Import Track` first and `Create Route` second.
-3. Add a disabled `Create Route` placeholder FAB with `Icons.route`, `Key('create-route-fab')`, and no side effects.
+3. Add a disabled `Create Route` placeholder FAB with `SvgPicture.asset('assets/route.svg')`, `Key('create-route-fab')`, and no side effects.
 4. Render the `View` container with `Select Basemaps`, `Show Map Grid`, `Select Peak List`, and `Show tracks` in that order.
 5. Keep the existing peaks drawer behavior for the renamed `Select Peak List` button; only the user-facing label changes.
-6. Render the `Location` container with `Search Peaks`, `Goto Location`, `Center on marker`, and `My location` in that order.
+6. Render the `Loc` container with `Search Peaks`, `Goto Location`, `Center on marker`, and `My location` in that order.
 7. Keep the Info FAB separate from the grouped rail and anchor it at the bottom-right without a container.
 8. Preserve the current action behavior, hero tags, and provider interactions for all existing controls.
 9. Keep every action icon-only, and make each control's tooltip message and semantics label match the wording used in this spec.
 10. Change the `Select Peak List` control's tooltip message and semantics label to `Select Peak List`.
 11. Give the three grouped containers stable keys so tests can target them without relying on visible text.
+12. Use `UiConstants.groupSpacing` between section containers and `UiConstants.railSpacing` within each section.
 
 **Error Handling:**
-12. If the grouped rail would overflow the screen height, the layout must remain usable through vertical scrolling rather than clipping or obscuring controls.
-13. The `Create Route` placeholder must remain inert even if it is rendered in an enabled state by mistake.
+13. If the grouped rail would overflow the screen height, the layout must remain usable through vertical scrolling rather than clipping or obscuring controls.
+14. The `Create Route` placeholder must remain inert even if it is rendered in an enabled state by mistake.
 
 **Edge Cases:**
-14. The grouped layout must work on both desktop and compact mobile sizes without covering the map interaction region.
-15. Existing stable keys must remain attached to the real action buttons so current tests can survive the layout change.
-16. The new group containers must not change the visible ordering of the existing buttons within each group.
-17. Keyboard focus and semantics order must follow the visual top-to-bottom order of the grouped rail, with Info last, using explicit traversal or sort keys if needed.
+15. The grouped layout must work on both desktop and compact mobile sizes without covering the map interaction region.
+16. Existing stable keys must remain attached to the real action buttons so current tests can survive the layout change.
+17. The new group containers must not change the visible ordering of the existing buttons within each group.
+18. Keyboard focus and semantics order must follow the visual top-to-bottom order of the grouped rail, with Info last, using explicit traversal or sort keys if needed.
 
 **Validation:**
-18. Require baseline automated coverage for UI behavior and the critical map-action journey.
-19. Preserve the existing `MapRebuildDebugCounters.actionRailBuilds` assertion path by keeping the rail's provider-watching build boundary at the top-level widget and making grouped sections pure children.
+19. Require baseline automated coverage for UI behavior and the critical map-action journey.
+20. Preserve the existing `MapRebuildDebugCounters.actionRailBuilds` assertion path by keeping the rail's provider-watching build boundary at the top-level widget and making grouped sections pure children.
 </requirements>
 
 <boundaries>
@@ -78,6 +79,7 @@ Limits:
 1. Do not change map provider state, drawer logic, or route navigation.
 2. Do not rename or remove existing keys unless this spec explicitly adds a new one.
 3. Do not implement real route creation here; the new control is a placeholder only.
+4. Bundle `assets/route.svg` in `pubspec.yaml` so the placeholder icon resolves at runtime.
 </boundaries>
 
 <implementation>
@@ -93,7 +95,7 @@ Add stable keys for `Tools`, `View`, and `Location` group containers so robot te
 
 <stages>
 Phase 1: Layout split
-1. Convert the flat action column into labeled Tools, View, and Location groups.
+1. Convert the flat action column into labeled Tools, View, and Loc groups.
 2. Add the disabled Create Route placeholder and move the Info FAB to the bottom-right.
 3. Verify the existing action buttons still render with their current keys.
 
@@ -112,7 +114,7 @@ Phase 3: Test and polish
 Desired:
 1. `Tools` contains `Import Track` and a disabled `Create Route` placeholder.
 2. `View` contains `Select Basemaps`, `Show Map Grid`, `Select Peak List`, and `Show tracks`.
-3. `Location` contains `Search Peaks`, `Goto Location`, `Center on marker`, and `My location`.
+3. `Loc` contains `Search Peaks`, `Goto Location`, `Center on marker`, and `My location`.
 4. `Info` floats independently at the bottom-right.
 
 Undesired:
@@ -135,5 +137,5 @@ Stable selectors to keep or add:
 </validation>
 
 <done_when>
-The spec is complete when the map action rail is visibly grouped into Tools, View, and Location sections, the Info FAB is independently anchored at the bottom-right, the Create Route placeholder exists but does nothing, the peaks drawer button reads `Select Peak List`, all existing actions still behave the same, and the updated widget and robot coverage passes.
+The spec is complete when the map action rail is visibly grouped into Tools, View, and Loc sections, the Info FAB is independently anchored at the bottom-right, the Create Route placeholder exists but does nothing, the peaks drawer button reads `Select Peak List`, all existing actions still behave the same, and the updated widget and robot coverage passes.
 </done_when>
