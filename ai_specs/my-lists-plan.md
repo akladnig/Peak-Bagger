@@ -36,9 +36,9 @@ Single derived Riverpod provider, compact table card, legacy slot migration.
 ### Phase 3: Journey coverage
 
 - **Goal**: end-to-end dashboard path with deterministic data
-- [ ] `test/robot/dashboard/dashboard_journey_test.dart` - open dashboard; locate `My Lists`; verify top rows/columns; verify legacy order migration
-- [ ] Update dashboard/widget robot fixtures - inject in-memory peak-list + climb-data providers/repositories; keep selectors stable
-- [ ] Verify: `flutter analyze && flutter test test/robot/dashboard/dashboard_journey_test.dart`
+- [x] `test/robot/dashboard/dashboard_journey_test.dart` - open dashboard; locate `My Lists`; verify top rows/columns; verify legacy order migration
+- [x] Update dashboard/widget robot fixtures - inject in-memory peak-list + climb-data providers/repositories; keep selectors stable
+- [x] Verify: `flutter analyze && flutter test test/robot/dashboard/dashboard_journey_test.dart`
 
 ## Risks / Out of scope
 

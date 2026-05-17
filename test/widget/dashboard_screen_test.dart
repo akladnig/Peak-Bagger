@@ -9,7 +9,9 @@ import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/providers/dashboard_layout_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/screens/dashboard_screen.dart';
+import 'package:peak_bagger/services/peak_list_repository.dart';
 
 import '../harness/test_map_notifier.dart';
 
@@ -69,6 +71,9 @@ void main() {
                 basemap: Basemap.tracestrack,
               ),
             ),
+          ),
+          peakListRepositoryProvider.overrideWithValue(
+            PeakListRepository.test(InMemoryPeakListStorage()),
           ),
         ],
       );
@@ -188,6 +193,9 @@ void main() {
               ),
             ),
           ),
+          peakListRepositoryProvider.overrideWithValue(
+            PeakListRepository.test(InMemoryPeakListStorage()),
+          ),
         ],
       );
       addTearDown(container.dispose);
@@ -249,6 +257,9 @@ void main() {
                 ],
               ),
             ),
+          ),
+          peakListRepositoryProvider.overrideWithValue(
+            PeakListRepository.test(InMemoryPeakListStorage()),
           ),
         ],
       );
@@ -394,7 +405,10 @@ Future<void> _pumpDashboard(WidgetTester tester, Size size) async {
               zoom: 10,
               basemap: Basemap.tracestrack,
             ),
+            ),
           ),
+        peakListRepositoryProvider.overrideWithValue(
+          PeakListRepository.test(InMemoryPeakListStorage()),
         ),
       ],
       child: const MaterialApp(home: DashboardScreen()),
