@@ -46,6 +46,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
     final duplicateNameChecker = ref.watch(
       peakListDuplicateNameCheckerProvider,
     );
+    ref.watch(peaksBaggedRevisionProvider);
     final peakListRepository = ref.watch(peakListRepositoryProvider);
     final peakRepository = ref.watch(peakRepositoryProvider);
     final peaksBaggedRepository = ref.watch(peaksBaggedRepositoryProvider);
