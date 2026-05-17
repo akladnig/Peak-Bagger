@@ -68,6 +68,31 @@ void main() {
     expect(find.text('PeaksBagged').last, findsOneWidget);
   });
 
+  testWidgets('gpx track file details are capped and non-selectable', (
+    tester,
+  ) async {
+    final gpxFileWidget = objectBoxAdminDetailsValue(
+      entityName: 'GpxTrack',
+      fieldName: 'gpxFile',
+      label: 'gpxFile',
+      value: 'line1\nline2\nline3\nline4\nline5\nline6',
+    );
+    final filteredTrackWidget = objectBoxAdminDetailsValue(
+      entityName: 'GpxTrack',
+      fieldName: 'filteredTrack',
+      label: 'filteredTrack',
+      value: 'line1\nline2\nline3\nline4\nline5\nline6',
+    );
+
+    for (final widget in [gpxFileWidget, filteredTrackWidget]) {
+      expect(widget, isA<Text>());
+      final text = widget as Text;
+      expect(text.maxLines, 5);
+      expect(text.overflow, TextOverflow.ellipsis);
+      expect(text.data, contains('line1'));
+    }
+  });
+
   testWidgets('admin shell reloads rows when re-entered', (tester) async {
     final repository = TestObjectBoxAdminRepository();
 

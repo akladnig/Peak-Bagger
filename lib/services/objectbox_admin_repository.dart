@@ -576,6 +576,15 @@ String objectBoxAdminFormatFieldValue({
     return PeakAdminEditor.formatCoordinate(value.toDouble());
   }
 
+  if (entityName == 'GpxTrack' &&
+      (fieldName == 'totalTimeMillis' ||
+          fieldName == 'movingTime' ||
+          fieldName == 'restingTime' ||
+          fieldName == 'pausedTime') &&
+      value is num) {
+    return _formatDurationHms(value.toInt());
+  }
+
   return objectBoxAdminFormatValue(value);
 }
 
@@ -659,4 +668,15 @@ void logObjectBoxAdminError(
   String context,
 ) {
   developer.log(context, error: error, stackTrace: stackTrace);
+}
+
+String _formatDurationHms(int millis) {
+  final totalSeconds = millis ~/ 1000;
+  final hours = totalSeconds ~/ 3600;
+  final minutes = (totalSeconds % 3600) ~/ 60;
+  final seconds = totalSeconds % 60;
+  final hoursText = hours.toString().padLeft(2, '0');
+  final minutesText = minutes.toString().padLeft(2, '0');
+  final secondsText = seconds.toString().padLeft(2, '0');
+  return '$hoursText:$minutesText:$secondsText';
 }

@@ -222,6 +222,41 @@ void main() {
     },
   );
 
+  test('formatFieldValue renders GpxTrack durations as hh:mm:ss', () {
+    expect(
+      objectBoxAdminFormatFieldValue(
+        entityName: 'GpxTrack',
+        fieldName: 'totalTimeMillis',
+        value: 5400000,
+      ),
+      '01:30:00',
+    );
+    expect(
+      objectBoxAdminFormatFieldValue(
+        entityName: 'GpxTrack',
+        fieldName: 'movingTime',
+        value: 90061000,
+      ),
+      '25:01:01',
+    );
+    expect(
+      objectBoxAdminFormatFieldValue(
+        entityName: 'GpxTrack',
+        fieldName: 'restingTime',
+        value: 300000,
+      ),
+      '00:05:00',
+    );
+    expect(
+      objectBoxAdminFormatFieldValue(
+        entityName: 'GpxTrack',
+        fieldName: 'pausedTime',
+        value: null,
+      ),
+      '—',
+    );
+  });
+
   test('peakToAdminRow includes editable peak metadata', () {
     final row = peakToAdminRow(
       Peak(

@@ -597,14 +597,24 @@ Widget objectBoxAdminDetailsValue({
     return ObjectBoxAdminDetailsValue(label: label, value: value);
   }
 
-  if (entityName != null && fieldName != null) {
-    return SelectableText(
-      objectBoxAdminFormatFieldValue(
-        entityName: entityName,
-        fieldName: fieldName,
-        value: value,
-      ),
+  final formattedValue = objectBoxAdminFormatFieldValue(
+    entityName: entityName ?? '',
+    fieldName: fieldName ?? '',
+    value: value,
+  );
+
+  if (entityName == 'GpxTrack' &&
+      (fieldName == 'gpxFile' || fieldName == 'filteredTrack')) {
+    return Text(
+      formattedValue,
+      maxLines: 5,
+      overflow: TextOverflow.ellipsis,
+      softWrap: true,
     );
+  }
+
+  if (entityName != null && fieldName != null) {
+    return SelectableText(formattedValue);
   }
 
   return SelectableText(objectBoxAdminFormatValue(value));

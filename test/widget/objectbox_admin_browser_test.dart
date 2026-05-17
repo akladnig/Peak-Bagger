@@ -547,7 +547,7 @@ void main() {
                     find.widgetWithText(ListTile, 'filteredTrack'),
                   )
                   .subtitle
-              as SelectableText)
+              as Text)
           .data,
       contains('<gpx><trk>'),
     );
@@ -740,6 +740,64 @@ void main() {
     expect(find.text('movingTime'), findsWidgets);
     expect(find.text('restingTime'), findsWidgets);
     expect(find.text('pausedTime'), findsWidgets);
+    final detailsScrollable = find
+        .descendant(
+          of: find.byKey(const Key('objectbox-admin-details-list')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+
+    await tester.scrollUntilVisible(
+      find.widgetWithText(ListTile, 'totalTimeMillis'),
+      200,
+      scrollable: detailsScrollable,
+    );
+    expect(
+      (tester.widget<ListTile>(find.widgetWithText(ListTile, 'totalTimeMillis'))
+              .subtitle
+          as SelectableText)
+          .data,
+      '01:30:00',
+    );
+
+    await tester.scrollUntilVisible(
+      find.widgetWithText(ListTile, 'movingTime'),
+      200,
+      scrollable: detailsScrollable,
+    );
+    expect(
+      (tester.widget<ListTile>(find.widgetWithText(ListTile, 'movingTime'))
+              .subtitle
+          as SelectableText)
+          .data,
+      '01:20:00',
+    );
+
+    await tester.scrollUntilVisible(
+      find.widgetWithText(ListTile, 'restingTime'),
+      200,
+      scrollable: detailsScrollable,
+    );
+    expect(
+      (tester.widget<ListTile>(find.widgetWithText(ListTile, 'restingTime'))
+              .subtitle
+          as SelectableText)
+          .data,
+      '00:05:00',
+    );
+
+    await tester.scrollUntilVisible(
+      find.widgetWithText(ListTile, 'pausedTime'),
+      200,
+      scrollable: detailsScrollable,
+    );
+    expect(
+      (tester.widget<ListTile>(find.widgetWithText(ListTile, 'pausedTime'))
+              .subtitle
+          as SelectableText)
+          .data,
+      '00:01:30',
+    );
   });
 }
 
