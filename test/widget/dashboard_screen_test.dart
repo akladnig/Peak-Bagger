@@ -4,15 +4,22 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/providers/dashboard_layout_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
-import 'package:peak_bagger/screens/dashboard_screen.dart';
+import 'package:peak_bagger/providers/peak_provider.dart';
+import 'package:peak_bagger/router.dart';
+import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/track_display_cache_builder.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:peak_bagger/screens/dashboard_screen.dart';
 
 import '../harness/test_map_notifier.dart';
 
@@ -399,6 +406,90 @@ void main() {
         find.descendant(of: header, matching: find.text('Monthly Avg:')),
         findsOneWidget,
       );
+    });
+
+    testWidgets('tapping a my ascents row opens the map at that track', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+
+      final peakRepository = PeakRepository.test(
+        InMemoryPeakStorage([
+          Peak(
+            osmId: 11,
+            name: 'Alpha',
+            elevation: 1234,
+            latitude: -41,
+            longitude: 146,
+          ),
+        ]),
+      );
+      final peaksBaggedRepository = PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage([
+          PeaksBagged(
+            baggedId: 1,
+            peakId: 11,
+            gpxId: 101,
+            date: DateTime.utc(2026, 5, 15),
+          ),
+        ]),
+      );
+      final gpxTrackRepository = GpxTrackRepository.test(
+        InMemoryGpxTrackStorage([
+          _track(101, DateTime.utc(2026, 5, 15, 10), peakIds: [11]),
+        ]),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => TestMapNotifier(
+              const MapState(
+                center: LatLng(-41.5, 146.5),
+                zoom: 10,
+                basemap: Basemap.tracestrack,
+              ),
+              peakRepository: peakRepository,
+              peaksBaggedRepository: peaksBaggedRepository,
+              gpxTrackRepository: gpxTrackRepository,
+            ),
+          ),
+          peakRepositoryProvider.overrideWithValue(peakRepository),
+          peaksBaggedRepositoryProvider.overrideWithValue(
+            peaksBaggedRepository,
+          ),
+          gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
+          peakListRepositoryProvider.overrideWithValue(
+            PeakListRepository.test(InMemoryPeakListStorage()),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.binding.setSurfaceSize(const Size(1400, 1800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const App(),
+        ),
+      );
+      await tester.pump();
+      router.go('/');
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('dashboard-card-my-ascents')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      await tester.tap(find.byKey(const Key('my-ascents-row-1')));
+      await tester.pumpAndSettle();
+
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/map');
+      expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
+      expect(container.read(mapProvider).selectedTrackId, 101);
     });
   });
 }

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../providers/map_provider.dart';
 import '../../providers/my_ascents_summary_provider.dart';
+import '../../router.dart';
 import '../../services/my_ascents_summary_service.dart';
 
 class MyAscentsCard extends ConsumerStatefulWidget {
@@ -20,6 +22,15 @@ class _MyAscentsCardState extends ConsumerState<MyAscentsCard> {
     setState(() => _ascending = !_ascending);
   }
 
+  void _openTrack(int trackId) {
+    if (trackId <= 0) {
+      return;
+    }
+
+    ref.read(mapProvider.notifier).showTrack(trackId);
+    router.go('/map');
+  }
+
   @override
   Widget build(BuildContext context) {
     final source = ref.watch(myAscentsSummaryProvider);
@@ -32,19 +43,9 @@ class _MyAscentsCardState extends ConsumerState<MyAscentsCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: IconButton(
-                key: const Key('my-ascents-sort-toggle'),
-                tooltip: _ascending ? 'Sort newest first' : 'Sort oldest first',
-                onPressed: _toggleSort,
-                icon: Icon(
-                  _ascending ? Icons.arrow_upward : Icons.arrow_downward,
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
             _MyAscentsTableHeader(
+              ascending: _ascending,
+              onToggleSort: _toggleSort,
               key: const Key('my-ascents-table-header'),
             ),
             const SizedBox(height: 8),
@@ -61,7 +62,10 @@ class _MyAscentsCardState extends ConsumerState<MyAscentsCard> {
                               year: section.year,
                             ),
                             for (final row in section.rows)
-                              _MyAscentsTableRow(row: row),
+                              _MyAscentsTableRow(
+                                row: row,
+                                onTap: () => _openTrack(row.gpxId),
+                              ),
                             const SizedBox(height: 4),
                           ],
                         ],
@@ -88,13 +92,21 @@ class _MyAscentsEmptyState extends StatelessWidget {
 }
 
 class _MyAscentsTableHeader extends StatelessWidget {
-  const _MyAscentsTableHeader({super.key});
+  const _MyAscentsTableHeader({
+    super.key,
+    required this.ascending,
+    required this.onToggleSort,
+  });
+
+  final bool ascending;
+  final VoidCallback onToggleSort;
 
   @override
   Widget build(BuildContext context) {
     final style = Theme.of(context).textTheme.labelMedium;
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         _MyAscentsTableCell(
           label: 'Peak Name',
@@ -113,6 +125,12 @@ class _MyAscentsTableHeader extends StatelessWidget {
           flex: 4,
           textAlign: TextAlign.end,
           style: style,
+        ),
+        IconButton(
+          key: const Key('my-ascents-sort-toggle'),
+          tooltip: ascending ? 'Sort newest first' : 'Sort oldest first',
+          onPressed: onToggleSort,
+          icon: Icon(ascending ? Icons.arrow_upward : Icons.arrow_downward),
         ),
       ],
     );
@@ -150,9 +168,10 @@ class _MyAscentsYearHeader extends StatelessWidget {
 }
 
 class _MyAscentsTableRow extends StatelessWidget {
-  const _MyAscentsTableRow({required this.row});
+  const _MyAscentsTableRow({required this.row, required this.onTap});
 
   final MyAscentsRow row;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -160,34 +179,38 @@ class _MyAscentsTableRow extends StatelessWidget {
 
     return KeyedSubtree(
       key: Key('my-ascents-row-${row.baggedId}'),
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+      child: InkWell(
+        onTap: onTap,
+        mouseCursor: SystemMouseCursors.click,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+            ),
           ),
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(
-          children: [
-            _MyAscentsTableCell(
-              label: row.peakName,
-              flex: 5,
-              textAlign: TextAlign.start,
-              style: theme.textTheme.bodyMedium,
-            ),
-            _MyAscentsTableCell(
-              label: row.elevationText,
-              flex: 2,
-              textAlign: TextAlign.end,
-              style: theme.textTheme.bodyMedium,
-            ),
-            _MyAscentsTableCell(
-              label: row.dateText,
-              flex: 4,
-              textAlign: TextAlign.end,
-              style: theme.textTheme.bodyMedium,
-            ),
-          ],
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              _MyAscentsTableCell(
+                label: row.peakName,
+                flex: 5,
+                textAlign: TextAlign.start,
+                style: theme.textTheme.bodyMedium,
+              ),
+              _MyAscentsTableCell(
+                label: row.elevationText,
+                flex: 2,
+                textAlign: TextAlign.end,
+                style: theme.textTheme.bodyMedium,
+              ),
+              _MyAscentsTableCell(
+                label: row.dateText,
+                flex: 4,
+                textAlign: TextAlign.end,
+                style: theme.textTheme.bodyMedium,
+              ),
+            ],
+          ),
         ),
       ),
     );

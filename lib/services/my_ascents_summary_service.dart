@@ -40,6 +40,7 @@ class MyAscentsRow {
   const MyAscentsRow({
     required this.baggedId,
     required this.peakId,
+    required this.gpxId,
     required this.peakName,
     required this.elevationText,
     required this.date,
@@ -48,6 +49,7 @@ class MyAscentsRow {
 
   final int baggedId;
   final int peakId;
+  final int gpxId;
   final String peakName;
   final String elevationText;
   final DateTime date;
@@ -122,6 +124,7 @@ class MyAscentsSummaryService {
     return MyAscentsRow(
       baggedId: baggedRow.baggedId,
       peakId: baggedRow.peakId,
+      gpxId: baggedRow.gpxId,
       peakName: peakName,
       elevationText: elevationText,
       date: date,
