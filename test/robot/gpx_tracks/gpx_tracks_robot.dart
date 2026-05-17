@@ -11,12 +11,14 @@ import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
+import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/gpx_file_picker.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/tasmap_repository.dart';
 
 import '../../harness/test_map_notifier.dart';
 import '../../harness/test_gpx_file_picker.dart';
@@ -29,6 +31,7 @@ class GpxTracksRobot {
     PeakListRepository? peakListRepository,
     PeakRepository? peakRepository,
     PeaksBaggedRepository? peaksBaggedRepository,
+    TasmapRepository? tasmapRepository,
     GpxFilePicker? gpxFilePicker,
     this.surfaceSize = const Size(1600, 900),
   }) : notifier = notifier ?? TestMapNotifier(initialState),
@@ -38,6 +41,7 @@ class GpxTracksRobot {
             peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
         peaksBaggedRepository =
             peaksBaggedRepository ?? PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
+        tasmapRepository = tasmapRepository,
         gpxFilePicker = gpxFilePicker ?? FakeGpxFilePicker();
 
   final WidgetTester tester;
@@ -46,6 +50,7 @@ class GpxTracksRobot {
   final PeakListRepository peakListRepository;
   final PeakRepository peakRepository;
   final PeaksBaggedRepository peaksBaggedRepository;
+  final TasmapRepository? tasmapRepository;
   final GpxFilePicker gpxFilePicker;
   final Size surfaceSize;
   TestGesture? _mouseGesture;
@@ -62,6 +67,7 @@ class GpxTracksRobot {
       find.byKey(const Key('gpx-track-import-summary'));
   Finder get importResultClose =>
       find.byKey(const Key('gpx-track-import-result-close'));
+  Finder get importSelectedRow => find.byKey(const Key('gpx-track-row-0'));
   Finder get peakMarkerLayer => find.byKey(const Key('peak-marker-layer'));
   Finder get recalcStatsTile =>
       find.byKey(const Key('recalculate-track-statistics-tile'));
@@ -103,13 +109,15 @@ class GpxTracksRobot {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          mapProvider.overrideWith(() => notifier),
-          gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
-          peakListRepositoryProvider.overrideWithValue(peakListRepository),
-          peakRepositoryProvider.overrideWithValue(peakRepository),
-          peaksBaggedRepositoryProvider.overrideWithValue(peaksBaggedRepository),
-          gpxFilePickerProvider.overrideWithValue(gpxFilePicker),
-        ],
+        mapProvider.overrideWith(() => notifier),
+        gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
+        peakListRepositoryProvider.overrideWithValue(peakListRepository),
+        peakRepositoryProvider.overrideWithValue(peakRepository),
+        peaksBaggedRepositoryProvider.overrideWithValue(peaksBaggedRepository),
+        if (tasmapRepository != null)
+          tasmapRepositoryProvider.overrideWithValue(tasmapRepository!),
+        gpxFilePickerProvider.overrideWithValue(gpxFilePicker),
+      ],
         child: const App(),
       ),
     );
@@ -171,13 +179,13 @@ class GpxTracksRobot {
   Future<void> openImportDialog() async {
     await tester.tap(importFab);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 300));
   }
 
   Future<void> selectImportFiles() async {
     await tester.tap(find.byKey(const Key('gpx-track-select-files')));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 300));
   }
 
   Future<void> confirmImport() async {
@@ -186,9 +194,43 @@ class GpxTracksRobot {
     await tester.pump(const Duration(milliseconds: 100));
   }
 
+  Future<void> importSelectedFiles() async {
+    await openImportDialog();
+    await selectImportFiles();
+    await waitForImportSelection();
+    for (var i = 0; i < 50; i++) {
+      final importButton = tester.widget<FilledButton>(
+        find.byKey(const Key('gpx-track-import-button')),
+      );
+      if (importButton.onPressed != null) {
+        break;
+      }
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await confirmImport();
+  }
+
+  Future<void> waitForImportSelection() async {
+    for (var i = 0; i < 50; i++) {
+      if (importSelectedRow.evaluate().isNotEmpty) {
+        return;
+      }
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+
+  Future<void> waitForImportResult() async {
+    for (var i = 0; i < 50; i++) {
+      if (notifier.state.selectedTrackId != null) {
+        return;
+      }
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+
   Future<void> closeImportResult() async {
     await tester.tap(importResultClose);
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
   }
 
   Future<void> openDashboard() async {

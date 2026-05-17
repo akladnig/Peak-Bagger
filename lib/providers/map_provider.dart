@@ -777,29 +777,23 @@ class MapNotifier extends Notifier<MapState> {
 
         // Persist track
         _gpxTrackRepository.putTrack(item.track);
-        addedItems.add(
-          GpxTrackImportItem(
-            track: item.track,
-            managedRelativePath: item.plannedManagedRelativePath,
-            managedPlacementPending: true,
-          ),
-        );
+        addedItems.add(GpxTrackImportItem(track: item.track));
       }
 
       // Move files to managed storage
       for (final item in plan.items) {
-        if (item.shouldPlaceInManagedStorage &&
-            item.plannedManagedRelativePath != null) {
-          try {
-            await _placeFileInManagedStorage(
-              sourcePath: item.sourcePath,
-              relativePath: item.plannedManagedRelativePath!,
-              track: item.track,
-            );
-          } catch (_) {
-            // Placement failed - track is persisted, recovery is pending
-          }
+      if (item.shouldPlaceInManagedStorage &&
+          item.plannedManagedRelativePath != null) {
+        try {
+          await _placeFileInManagedStorage(
+            sourcePath: item.sourcePath,
+            relativePath: item.plannedManagedRelativePath!,
+            track: item.track,
+          );
+        } catch (_) {
+          // Placement failed - track is persisted, recovery is pending.
         }
+      }
       }
 
       // Refresh tracks from repository
@@ -869,13 +863,10 @@ class MapNotifier extends Notifier<MapState> {
         suffix++;
       }
       await io.File(sourcePath).rename(newPath);
-      track.managedRelativePath = newPath.substring(root.length + 1);
     } else {
       await io.File(sourcePath).rename(targetPath);
-      track.managedRelativePath = relativePath;
     }
 
-    track.managedPlacementPending = false;
     _gpxTrackRepository.putTrack(track);
   }
 

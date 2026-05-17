@@ -58,11 +58,7 @@ class GpxTrackImportResult {
 class GpxTrackImportItem {
   const GpxTrackImportItem({
     required this.track,
-    this.managedRelativePath,
-    this.managedPlacementPending = false,
   });
 
   final GpxTrack track;
-  final String? managedRelativePath;
-  final bool managedPlacementPending;
 }

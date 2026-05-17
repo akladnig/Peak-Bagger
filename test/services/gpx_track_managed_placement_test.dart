@@ -2,35 +2,43 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 
 void main() {
-  group('GpxTrack managed placement fields', () {
-    test('fromMap/toMap roundtrip preserves managedPlacementPending', () {
+  group('GpxTrack serialization', () {
+    test('fromMap/toMap roundtrip preserves surviving fields', () {
       final track = GpxTrack(
         contentHash: 'abc123',
         trackName: 'Test Track',
-        managedPlacementPending: true,
-        managedRelativePath: 'Tracks/Tasmania/test.gpx',
+        trackDate: DateTime(2024, 1, 15),
+        gpxFile: '<gpx></gpx>',
+        peakCorrelationProcessed: true,
       );
 
       final map = track.toMap();
       final restored = GpxTrack.fromMap(map);
 
-      expect(restored.managedPlacementPending, isTrue);
-      expect(restored.managedRelativePath, 'Tracks/Tasmania/test.gpx');
+      expect(restored.contentHash, 'abc123');
+      expect(restored.trackName, 'Test Track');
+      expect(restored.trackDate, DateTime(2024, 1, 15));
+      expect(restored.peakCorrelationProcessed, isTrue);
+      expect(restored.toMap().containsKey('managedRelativePath'), isFalse);
+      expect(restored.toMap().containsKey('managedPlacementPending'), isFalse);
     });
 
-    test('fromMap defaults to false/null when fields are absent', () {
+    test('fromMap ignores removed placement keys in legacy rows', () {
       final legacyMap = <String, dynamic>{
         'gpxTrackId': 1,
         'contentHash': 'abc123',
         'trackName': 'Legacy Track',
-        'managedPlacementPending': null,
-        'managedRelativePath': null,
+        'managedPlacementPending': true,
+        'managedRelativePath': 'Tracks/Tasmania/test.gpx',
       };
 
       final track = GpxTrack.fromMap(legacyMap);
 
-      expect(track.managedPlacementPending, isFalse);
-      expect(track.managedRelativePath, isNull);
+      expect(track.gpxTrackId, 1);
+      expect(track.contentHash, 'abc123');
+      expect(track.trackName, 'Legacy Track');
+      expect(track.toMap().containsKey('managedPlacementPending'), isFalse);
+      expect(track.toMap().containsKey('managedRelativePath'), isFalse);
     });
 
     test('fromMap handles missing fields gracefully', () {
@@ -42,22 +50,9 @@ void main() {
 
       final track = GpxTrack.fromMap(legacyMap);
 
-      expect(track.managedPlacementPending, isFalse);
-      expect(track.managedRelativePath, isNull);
-    });
-
-    test('toMap includes managed placement fields', () {
-      final track = GpxTrack(
-        contentHash: 'abc123',
-        trackName: 'Test Track',
-        managedPlacementPending: true,
-        managedRelativePath: 'Tracks/Tasmania/test.gpx',
-      );
-
-      final map = track.toMap();
-
-      expect(map['managedPlacementPending'], isTrue);
-      expect(map['managedRelativePath'], 'Tracks/Tasmania/test.gpx');
+      expect(track.gpxTrackId, 1);
+      expect(track.contentHash, 'abc123');
+      expect(track.trackName, 'Legacy Track');
     });
   });
 }
