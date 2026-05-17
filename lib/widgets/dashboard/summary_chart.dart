@@ -24,8 +24,10 @@ class SummaryChart extends StatefulWidget {
     required this.bucketExtent,
     required this.period,
     required this.referenceDate,
+    required this.chartMaxYFor,
     required this.tooltipValueTexts,
     required this.tooltipTitleText,
+    required this.yAxisLabelText,
   });
 
   final String keyPrefix;
@@ -37,6 +39,7 @@ class SummaryChart extends StatefulWidget {
   final double bucketExtent;
   final SummaryPeriodPreset period;
   final DateTime referenceDate;
+  final double Function(double maxValue) chartMaxYFor;
   final List<String> Function(
     SummaryBucket bucket,
     SummaryBucket? secondaryBucket,
@@ -44,6 +47,7 @@ class SummaryChart extends StatefulWidget {
   tooltipValueTexts;
   final String Function(SummaryBucket bucket, SummaryPeriodPreset period)
   tooltipTitleText;
+  final String Function(double value) yAxisLabelText;
 
   @override
   State<SummaryChart> createState() => _SummaryChartState();
@@ -74,7 +78,7 @@ class _SummaryChartState extends State<SummaryChart> {
     final theme = Theme.of(context);
     final buckets = widget.buckets;
     final secondaryBuckets = widget.secondaryBuckets;
-    final contentWidth = math.max<double>(
+    final bucketContentWidth = math.max<double>(
       (widget.bucketExtent * buckets.length).ceilToDouble() + 0.01,
       1,
     );
@@ -88,139 +92,209 @@ class _SummaryChartState extends State<SummaryChart> {
           (maxValue, bucket) => math.max(maxValue, bucket.value),
         ) ??
         0;
-    final chartMaxY = math.max(
-      1.0,
-      math.max(maxValue, secondaryMaxValue) * 1.1,
-    );
+    const yAxisLabelWidth = DashboardUI.yAxisLabelWidth;
+    final chartMaxY = widget.chartMaxYFor(math.max(maxValue, secondaryMaxValue));
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final chartViewportWidth = math.max<double>(
+          constraints.maxWidth - yAxisLabelWidth,
+          1,
+        );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            controller: widget.controller,
-            scrollDirection: Axis.horizontal,
-            child: SizedBox(
-              width: contentWidth,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  Positioned.fill(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 20, bottom: 28),
-                      child: widget.mode == SummaryDisplayMode.columns
-                            ? _SummaryBarChart(
-                                buckets: buckets,
-                                secondaryBuckets: secondaryBuckets,
-                                chartMaxY: chartMaxY,
-                                selectedBucketIndex: _selectedBucketIndex,
-                                bucketExtent: widget.bucketExtent,
-                                style: widget.barSeriesStyle,
-                              )
-                          : _SummaryLineChart(
-                              buckets: buckets,
-                              secondaryBuckets: secondaryBuckets,
-                              chartMaxY: chartMaxY,
-                              selectedBucketIndex: _selectedBucketIndex,
-                            ),
-                    ),
-                  ),
-                  if (DashboardUI.fullHeightLabelGuides)
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: _VerticalLabelGuides(
-                          buckets: buckets,
-                          bucketExtent: widget.bucketExtent,
-                          period: widget.period,
-                          referenceDate: widget.referenceDate,
-                        ),
-                      ),
-                    ),
                   Positioned(
                     left: 0,
-                    right: 0,
-                    bottom: 0,
+                    top: 20,
+                    bottom: 28,
+                    width: yAxisLabelWidth,
                     child: IgnorePointer(
-                      child: _BottomAxisLabels(
-                        buckets: buckets,
-                        bucketExtent: widget.bucketExtent,
-                        period: widget.period,
-                        referenceDate: widget.referenceDate,
+                      child: _YAxisLabels(
+                        keyPrefix: widget.keyPrefix,
+                        chartMaxY: chartMaxY,
+                        yAxisLabelText: widget.yAxisLabelText,
                       ),
                     ),
                   ),
-                  Positioned.fill(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (var index = 0; index < buckets.length; index++)
-                          SizedBox(
-                            width: widget.bucketExtent,
-                            child: MouseRegion(
-                              key: Key('${widget.keyPrefix}-bucket-$index'),
-                              cursor: SystemMouseCursors.click,
-                              onEnter: (_) =>
-                                  _selectBucket(index, pinned: false),
-                              onExit: (_) => _clearHoverSelection(index),
-                              child: GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: () => _selectBucket(index, pinned: true),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 120),
-                                  decoration: BoxDecoration(
-                                    color: _selectedBucketIndex == index
-                                        ? theme.colorScheme.primary.withValues(
-                                            alpha: 0.10,
-                                          )
-                                        : Colors.transparent,
-                                    border: Border(
-                                      bottom: BorderSide(
-                                        color: _selectedBucketIndex == index
-                                            ? theme.colorScheme.primary
-                                            : Colors.transparent,
-                                        width: 2,
+                  // Draw the y-axis
+                  Positioned(
+                    left: yAxisLabelWidth,
+                    top: 20,
+                    bottom: 28,
+                    child: IgnorePointer(
+                      child: ColoredBox(
+                        key: Key('${widget.keyPrefix}-y-axis-separator'),
+                        color: _axisColor(),
+                        child: const SizedBox(width: 1),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: yAxisLabelWidth,
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    child: SingleChildScrollView(
+                      controller: widget.controller,
+                      scrollDirection: Axis.horizontal,
+                      child: SizedBox(
+                        width: math.max(bucketContentWidth, chartViewportWidth),
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Positioned.fill(
+                              child: Padding(
+                                padding: const EdgeInsets.only(
+                                  top: 20,
+                                  bottom: 28,
+                                ),
+                                child: widget.mode == SummaryDisplayMode.columns
+                                    ? _SummaryBarChart(
+                                        buckets: buckets,
+                                        secondaryBuckets: secondaryBuckets,
+                                        chartMaxY: chartMaxY,
+                                        selectedBucketIndex:
+                                            _selectedBucketIndex,
+                                        bucketExtent: widget.bucketExtent,
+                                        style: widget.barSeriesStyle,
+                                        yAxisLabelText: widget.yAxisLabelText,
+                                      )
+                                    : _SummaryLineChart(
+                                        buckets: buckets,
+                                        secondaryBuckets: secondaryBuckets,
+                                        chartMaxY: chartMaxY,
+                                        selectedBucketIndex:
+                                            _selectedBucketIndex,
+                                        yAxisLabelText: widget.yAxisLabelText,
+                                      ),
+                              ),
+                            ),
+                            if (DashboardUI.fullHeightLabelGuides)
+                              Positioned.fill(
+                                child: IgnorePointer(
+                                  child: _VerticalLabelGuides(
+                                    buckets: buckets,
+                                    bucketExtent: widget.bucketExtent,
+                                    period: widget.period,
+                                    referenceDate: widget.referenceDate,
+                                  ),
+                                ),
+                              ),
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              child: IgnorePointer(
+                                child: _BottomAxisLabels(
+                                  keyPrefix: widget.keyPrefix,
+                                  buckets: buckets,
+                                  bucketExtent: widget.bucketExtent,
+                                  period: widget.period,
+                                  referenceDate: widget.referenceDate,
+                                ),
+                              ),
+                            ),
+                            Positioned.fill(
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  for (
+                                    var index = 0;
+                                    index < buckets.length;
+                                    index++
+                                  )
+                                    SizedBox(
+                                      width: widget.bucketExtent,
+                                      child: MouseRegion(
+                                        key: Key(
+                                          '${widget.keyPrefix}-bucket-$index',
+                                        ),
+                                        cursor: SystemMouseCursors.click,
+                                        onEnter: (_) =>
+                                            _selectBucket(index, pinned: false),
+                                        onExit: (_) =>
+                                            _clearHoverSelection(index),
+                                        child: GestureDetector(
+                                          behavior: HitTestBehavior.opaque,
+                                          onTap: () => _selectBucket(
+                                            index,
+                                            pinned: true,
+                                          ),
+                                          child: AnimatedContainer(
+                                            duration: const Duration(
+                                              milliseconds: 120,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  _selectedBucketIndex == index
+                                                  ? theme.colorScheme.primary
+                                                        .withValues(alpha: 0.10)
+                                                  : Colors.transparent,
+                                              border: Border(
+                                                bottom: BorderSide(
+                                                  color:
+                                                      _selectedBucketIndex ==
+                                                          index
+                                                      ? theme
+                                                            .colorScheme
+                                                            .primary
+                                                      : Colors.transparent,
+                                                  width: 2,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            if (_selectedBucketIndex != null)
+                              Positioned(
+                                top: 0,
+                                left:
+                                    (_selectedBucketIndex! *
+                                        widget.bucketExtent) +
+                                    (widget.bucketExtent / 2),
+                                child: FractionalTranslation(
+                                  translation: const Offset(-0.5, 0),
+                                  child: IgnorePointer(
+                                    child: ConstrainedBox(
+                                      constraints: const BoxConstraints(
+                                        maxWidth: 220,
+                                      ),
+                                      child: _SummaryTooltipCard(
+                                        key: Key('${widget.keyPrefix}-tooltip'),
+                                        titleText: widget.tooltipTitleText(
+                                          buckets[_selectedBucketIndex!],
+                                          widget.period,
+                                        ),
+                                        valueTexts: widget.tooltipValueTexts(
+                                          buckets[_selectedBucketIndex!],
+                                          secondaryBuckets?[_selectedBucketIndex!],
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  if (_selectedBucketIndex != null)
-                    Positioned(
-                      top: 0,
-                      left:
-                          (_selectedBucketIndex! * widget.bucketExtent) +
-                          (widget.bucketExtent / 2),
-                      child: FractionalTranslation(
-                        translation: const Offset(-0.5, 0),
-                        child: IgnorePointer(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 220),
-                            child: _SummaryTooltipCard(
-                              key: Key('${widget.keyPrefix}-tooltip'),
-                              titleText: widget.tooltipTitleText(
-                                buckets[_selectedBucketIndex!],
-                                widget.period,
-                              ),
-                              valueTexts: widget.tooltipValueTexts(
-                                buckets[_selectedBucketIndex!],
-                                secondaryBuckets?[_selectedBucketIndex!],
-                              ),
-                            ),
-                          ),
+                          ],
                         ),
                       ),
                     ),
+                  ),
                 ],
               ),
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 }
@@ -233,6 +307,7 @@ class _SummaryBarChart extends StatelessWidget {
     required this.selectedBucketIndex,
     required this.bucketExtent,
     required this.style,
+    required this.yAxisLabelText,
   });
 
   final List<SummaryBucket> buckets;
@@ -241,6 +316,7 @@ class _SummaryBarChart extends StatelessWidget {
   final int? selectedBucketIndex;
   final double bucketExtent;
   final SummaryBarSeriesStyle style;
+  final String Function(double value) yAxisLabelText;
 
   @override
   Widget build(BuildContext context) {
@@ -325,7 +401,8 @@ class _SummaryBarChart extends StatelessWidget {
           rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
           bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
-        gridData: const FlGridData(show: false),
+        gridData: _summaryGridData(chartMaxY),
+        extraLinesData: _summaryExtraLinesData(chartMaxY),
         borderData: FlBorderData(show: false),
         barTouchData: const BarTouchData(enabled: false),
       ),
@@ -346,18 +423,58 @@ BarChartRodData _seriesRod({
   );
 }
 
+FlGridData _summaryGridData(double chartMaxY) {
+  final interval = chartMaxY / 4;
+
+  return FlGridData(
+    show: true,
+    drawVerticalLine: false,
+    horizontalInterval: interval,
+    checkToShowHorizontalLine: (value) => value > 0 && value < chartMaxY,
+    getDrawingHorizontalLine: (value) =>
+        FlLine(color: _guideColor(), strokeWidth: 1, dashArray: [8, 4]),
+  );
+}
+
+ExtraLinesData _summaryExtraLinesData(double chartMaxY) {
+  return ExtraLinesData(
+    extraLinesOnTop: true,
+    horizontalLines: [
+      HorizontalLine(y: 0, color: _axisColor(), strokeWidth: 1.5),
+      HorizontalLine(
+        y: chartMaxY,
+        color: _guideColor(),
+        strokeWidth: 1,
+        dashArray: [8, 4],
+      ),
+    ],
+  );
+}
+
+Color _guideColor() {
+  final baseColor = thinDivider.color ?? const Color(0xff7b7b7b);
+  return baseColor.withValues(alpha: baseColor.a * 0.2);
+}
+
+Color _axisColor() {
+  final baseColor = thinDivider.color ?? const Color(0xff7b7b7b);
+  return baseColor.withValues(alpha: baseColor.a * 0.9);
+}
+
 class _SummaryLineChart extends StatelessWidget {
   const _SummaryLineChart({
     required this.buckets,
     required this.secondaryBuckets,
     required this.chartMaxY,
     required this.selectedBucketIndex,
+    required this.yAxisLabelText,
   });
 
   final List<SummaryBucket> buckets;
   final List<SummaryBucket>? secondaryBuckets;
   final double chartMaxY;
   final int? selectedBucketIndex;
+  final String Function(double value) yAxisLabelText;
 
   @override
   Widget build(BuildContext context) {
@@ -426,7 +543,8 @@ class _SummaryLineChart extends StatelessWidget {
           rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
           bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
-        gridData: const FlGridData(show: false),
+        gridData: _summaryGridData(chartMaxY),
+        extraLinesData: _summaryExtraLinesData(chartMaxY),
         borderData: FlBorderData(show: false),
         lineTouchData: const LineTouchData(enabled: false),
       ),
@@ -434,14 +552,88 @@ class _SummaryLineChart extends StatelessWidget {
   }
 }
 
+class _YAxisLabels extends StatelessWidget {
+  const _YAxisLabels({
+    required this.keyPrefix,
+    required this.chartMaxY,
+    required this.yAxisLabelText,
+  });
+
+  final String keyPrefix;
+  final double chartMaxY;
+  final String Function(double value) yAxisLabelText;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final labelValues = _yAxisLabelValues(chartMaxY);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final textDirection = Directionality.of(context);
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            for (var index = 0; index <= 4; index++)
+              Positioned(
+                left: 0,
+                right: 4,
+                top: _yAxisLabelTop(
+                  index: index,
+                  chartHeight: constraints.maxHeight,
+                  labelStyle: theme.textTheme.labelSmall,
+                  labelText: yAxisLabelText(labelValues[index]),
+                  textDirection: textDirection,
+                ),
+                child: Text(
+                  yAxisLabelText(labelValues[index]),
+                  key: Key('$keyPrefix-y-axis-label-$index'),
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall,
+                  textAlign: TextAlign.right,
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+List<double> _yAxisLabelValues(double chartMaxY) {
+  final interval = chartMaxY / 4;
+  return [for (var index = 0; index <= 4; index++) chartMaxY - (interval * index)];
+}
+
+double _yAxisLabelTop({
+  required int index,
+  required double chartHeight,
+  required TextStyle? labelStyle,
+  required String labelText,
+  required TextDirection textDirection,
+}) {
+  final painter = TextPainter(
+    text: TextSpan(text: labelText, style: labelStyle),
+    maxLines: 1,
+    textDirection: textDirection,
+  )..layout();
+
+  final interval = chartHeight / 4;
+  return (interval * index) - (painter.height / 2);
+}
+
 class _BottomAxisLabels extends StatelessWidget {
   const _BottomAxisLabels({
+    required this.keyPrefix,
     required this.buckets,
     required this.bucketExtent,
     required this.period,
     required this.referenceDate,
   });
 
+  final String keyPrefix;
   final List<SummaryBucket> buckets;
   final double bucketExtent;
   final SummaryPeriodPreset period;
@@ -474,7 +666,7 @@ class _BottomAxisLabels extends StatelessWidget {
                       top: 0,
                       bottom: 0,
                       child: ColoredBox(
-                        color: thinDivider.color ?? const Color(0xff7b7b7b),
+                        color: _guideColor(),
                         child: const SizedBox(width: 1),
                       ),
                     ),
@@ -498,15 +690,20 @@ class _BottomAxisLabels extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    if (period == SummaryPeriodPreset.last6Months) {
+    if (period == SummaryPeriodPreset.month ||
+        period == SummaryPeriodPreset.last3Months ||
+        period == SummaryPeriodPreset.last6Months) {
       return Positioned.fill(
         child: Align(
           alignment: Alignment.centerLeft,
           child: SizedBox(
             width: _labelSpanWidth(index),
             child: Padding(
-              padding: const EdgeInsets.only(left: 4),
+              padding: EdgeInsets.only(
+                left: period == SummaryPeriodPreset.month ? 2 : 4,
+              ),
               child: Text(
+                key: Key('$keyPrefix-bottom-axis-label-$index'),
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.visible,
@@ -521,6 +718,7 @@ class _BottomAxisLabels extends StatelessWidget {
 
     return Center(
       child: Text(
+        key: Key('$keyPrefix-bottom-axis-label-$index'),
         label,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
@@ -530,14 +728,15 @@ class _BottomAxisLabels extends StatelessWidget {
   }
 
   double _labelSpanWidth(int index) {
-    final bucket = buckets[index];
     var span = 1;
     for (var nextIndex = index + 1; nextIndex < buckets.length; nextIndex++) {
-      final nextBucket = buckets[nextIndex];
-      final sameMonth =
-          nextBucket.start.month == bucket.start.month &&
-          nextBucket.start.year == bucket.start.year;
-      if (!sameMonth) {
+      final nextLabel = _axisLabelFor(
+        index: nextIndex,
+        buckets: buckets,
+        period: period,
+        referenceDate: referenceDate,
+      );
+      if (nextLabel.isNotEmpty) {
         break;
       }
       span += 1;
@@ -576,15 +775,48 @@ class _VerticalLabelGuides extends StatelessWidget {
                     period: period,
                     referenceDate: referenceDate,
                   ).isNotEmpty
-                  ? ColoredBox(
-                      color: thinDivider.color ?? const Color(0xff7b7b7b),
-                      child: const SizedBox(width: 1, height: double.infinity),
+                  ? SizedBox(
+                      width: 1,
+                      height: double.infinity,
+                      child: CustomPaint(
+                        painter: _DashedVerticalLinePainter(
+                          color: _guideColor(),
+                        ),
+                      ),
                     )
                   : const SizedBox.shrink(),
             ),
           ),
       ],
     );
+  }
+}
+
+class _DashedVerticalLinePainter extends CustomPainter {
+  const _DashedVerticalLinePainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+    const dashLength = 8.0;
+    const gapLength = 4.0;
+    final x = size.width / 2;
+
+    var startY = 0.0;
+    while (startY < size.height) {
+      final endY = math.min(startY + dashLength, size.height);
+      canvas.drawLine(Offset(x, startY), Offset(x, endY), paint);
+      startY += dashLength + gapLength;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedVerticalLinePainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }
 
@@ -597,7 +829,7 @@ String _axisLabelFor({
   final bucket = buckets[index];
 
   if (period == SummaryPeriodPreset.month) {
-    final dayDelta = bucket.start.difference(referenceDate).inDays;
+    final dayDelta = _dateOnlyDifferenceInDays(bucket.start, referenceDate);
     return dayDelta % 7 == 0 ? bucket.label : '';
   }
 
@@ -615,6 +847,12 @@ String _axisLabelFor({
   }
 
   return bucket.label;
+}
+
+int _dateOnlyDifferenceInDays(DateTime a, DateTime b) {
+  final aUtc = DateTime.utc(a.year, a.month, a.day);
+  final bUtc = DateTime.utc(b.year, b.month, b.day);
+  return aUtc.difference(bUtc).inDays;
 }
 
 class _SummaryTooltipCard extends StatelessWidget {

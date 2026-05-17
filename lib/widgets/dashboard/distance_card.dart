@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../core/number_formatters.dart';
@@ -25,6 +27,8 @@ class DistanceCard extends StatelessWidget {
     secondaryMetric: secondaryMetric,
     tooltipValueTexts: _distanceTooltipValues,
     headerValueText: formatDistance,
+    yAxisLabelText: formatDistance,
+    chartMaxYFor: _distanceChartMaxY,
   );
 
   final List<GpxTrack> tracks;
@@ -60,3 +64,7 @@ List<String> _distanceTooltipValues(
 double? _trackDistance(GpxTrack track) => track.distance2d;
 
 double? _trackDistance3d(GpxTrack track) => track.distance3d;
+
+double _distanceChartMaxY(double maxValue) {
+  return math.max(4000.0, (((maxValue.floor()) + 1 + 3999) ~/ 4000) * 4000.0);
+}

@@ -1,5 +1,6 @@
 import 'dart:ui' show PointerDeviceKind;
 
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
@@ -41,6 +42,7 @@ void main() {
           _track(30, DateTime(2026, 5, 15, 10), ascent: 300),
         ],
         now: DateTime(2026, 5, 15, 12),
+        width: 1000,
       );
 
       expect(find.byKey(const Key('elevation-card')), findsOneWidget);
@@ -49,6 +51,35 @@ void main() {
       expect(_cardControl('summary-next-window'), findsOneWidget);
       expect(_cardControl('summary-mode-fab'), findsOneWidget);
       expect(find.byKey(const Key('elevation-bucket-0')), findsOneWidget);
+    });
+
+    testWidgets('renders aligned all time year buckets', (tester) async {
+      await _pumpElevationCard(
+        tester,
+        tracks: [
+          _track(10, DateTime(2022, 1, 15, 10), ascent: 100),
+          _track(20, DateTime(2023, 1, 15, 10), ascent: 200),
+          _track(30, DateTime(2024, 1, 15, 10), ascent: 300),
+          _track(40, DateTime(2025, 1, 15, 10), ascent: 400),
+          _track(50, DateTime(2026, 1, 15, 10), ascent: 500),
+        ],
+        now: DateTime(2026, 5, 15, 12),
+        width: 1000,
+      );
+
+      await _selectPeriod(tester, 'All Time');
+
+      expect(
+        tester.widget<Text>(find.byKey(const Key('elevation-bottom-axis-label-0'))).data,
+        '2022',
+      );
+      expect(
+        tester.widget<Text>(find.byKey(const Key('elevation-bottom-axis-label-4'))).data,
+        '2026',
+      );
+
+      final barChart = tester.widget<BarChart>(find.byType(BarChart));
+      expect(barChart.data.barGroups, hasLength(5));
     });
 
     testWidgets('shows the visible date range under the dropdown', (
@@ -198,31 +229,79 @@ void main() {
           _track(30, DateTime(2026, 5, 31, 10), ascent: 1234),
         ],
         now: DateTime(2026, 5, 15, 12),
+        width: 1000,
       );
 
       await _selectPeriod(tester, 'Month');
 
       expect(find.byIcon(Icons.show_chart), findsOneWidget);
 
+      expect(
+        find.byKey(const Key('elevation-y-axis-label-0')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('elevation-y-axis-label-4')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('elevation-y-axis-separator')), findsOneWidget);
+
       await tester.tap(_cardControl('summary-mode-fab'));
       await tester.pumpAndSettle();
 
+      final lineChart = tester.widget<LineChart>(find.byType(LineChart));
+      expect(lineChart.data.gridData.checkToShowHorizontalLine(0), isFalse);
+      expect(lineChart.data.gridData.checkToShowHorizontalLine(lineChart.data.maxY), isFalse);
+      expect(lineChart.data.extraLinesData.extraLinesOnTop, isTrue);
+      expect(lineChart.data.extraLinesData.horizontalLines, hasLength(2));
+      expect(lineChart.data.extraLinesData.horizontalLines[0].y, 0);
+      expect(lineChart.data.extraLinesData.horizontalLines[0].dashArray, isNull);
+      expect(lineChart.data.extraLinesData.horizontalLines[1].y, lineChart.data.maxY);
+      expect(lineChart.data.extraLinesData.horizontalLines[1].dashArray, equals([8, 4]));
+      expect(
+        lineChart.data.gridData
+            .getDrawingHorizontalLine(lineChart.data.gridData.horizontalInterval!)
+            .dashArray,
+        equals([8, 4]),
+      );
+
+      expect(
+        find.byKey(const Key('elevation-y-axis-label-0')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('elevation-y-axis-label-4')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('elevation-y-axis-separator')), findsOneWidget);
+
       expect(find.byIcon(Icons.bar_chart), findsOneWidget);
 
-      await _hoverBucket(tester, 30);
+      final topLabel = tester.widget<Text>(
+        find.byKey(const Key('elevation-y-axis-label-0')),
+      );
+      final bottomLabel = tester.widget<Text>(
+        find.byKey(const Key('elevation-y-axis-label-4')),
+      );
+      expect(
+        _numericValue(topLabel.data),
+        greaterThan(_numericValue(bottomLabel.data)),
+      );
+
+      await _hoverBucket(tester, 0);
 
       expect(find.byKey(const Key('elevation-tooltip')), findsOneWidget);
       expect(
         find.descendant(
           of: find.byKey(const Key('elevation-tooltip')),
-          matching: find.text('31 May'),
+          matching: find.text('1 May'),
         ),
         findsOneWidget,
       );
       expect(
         find.descendant(
           of: find.byKey(const Key('elevation-tooltip')),
-          matching: find.text('1,234 m'),
+          matching: find.text('100 m'),
         ),
         findsOneWidget,
       );
@@ -240,6 +319,7 @@ void main() {
             _track(100 + day, DateTime(2026, 5, day, 10), ascent: day * 10),
         ],
         now: DateTime(2026, 5, 15, 12),
+        width: 1000,
       );
 
       await _selectPeriod(tester, 'Month');
@@ -305,22 +385,23 @@ void main() {
     testWidgets('shows tooltip when tapped on touch devices', (tester) async {
       await _pumpElevationCard(
         tester,
-        tracks: [_track(10, DateTime(2026, 5, 31, 10), ascent: 1234)],
+        tracks: [_track(10, DateTime(2026, 5, 1, 10), ascent: 1234)],
         now: DateTime(2026, 5, 15, 12),
+        width: 1000,
       );
 
       await _selectPeriod(tester, 'Month');
 
-      expect(find.byKey(const Key('elevation-bucket-30')), findsOneWidget);
+      expect(find.byKey(const Key('elevation-bucket-0')), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('elevation-bucket-30')));
+      await tester.tap(find.byKey(const Key('elevation-bucket-0')));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('elevation-tooltip')), findsOneWidget);
       expect(
         find.descendant(
           of: find.byKey(const Key('elevation-tooltip')),
-          matching: find.text('31 May'),
+          matching: find.text('1 May'),
         ),
         findsOneWidget,
       );
@@ -400,4 +481,10 @@ Finder _cardControl(String key) {
     of: find.byKey(const Key('elevation-card')),
     matching: find.byKey(Key(key)),
   );
+}
+
+double _numericValue(String? text) {
+  final cleaned = text?.replaceAll(',', '') ?? '';
+  final match = RegExp(r'-?\d+(?:\.\d+)?').firstMatch(cleaned);
+  return double.parse(match!.group(0)!);
 }

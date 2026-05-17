@@ -10,6 +10,8 @@ List<String> formatElevationTooltipValues(
   SummaryBucket? secondaryBucket,
 ) => ['${formatElevationMetres(bucket.roundedValue)} m'];
 
+String formatElevationAxisLabel(double value) => formatElevation(value);
+
 String formatElevationTooltipTitle(
   SummaryBucket bucket,
   SummaryPeriodPreset period,

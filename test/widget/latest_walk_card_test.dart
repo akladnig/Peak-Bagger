@@ -66,7 +66,7 @@ void main() {
     );
 
     expect(find.text('Track 20'), findsOneWidget);
-    expect(find.text('12.4 km'), findsOneWidget);
+    expect(find.text('12 km'), findsOneWidget);
     expect(find.text('638 m'), findsOneWidget);
     expect(find.byKey(const Key('latest-walk-mini-map')), findsOneWidget);
     expect(find.byType(FlutterMap), findsOneWidget);

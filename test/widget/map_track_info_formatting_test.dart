@@ -34,7 +34,7 @@ void main() {
 
   test('formatDistance and formatDuration use local panel rules', () {
     expect(formatDistance(840), '840 m');
-    expect(formatDistance(12400), '12.4 km');
+    expect(formatDistance(12400), '12 km');
     expect(formatDuration(0), '0m');
     expect(formatDuration(59 * 60 * 1000), '59m');
     expect(formatDuration(2 * 60 * 60 * 1000 + 5 * 60 * 1000), '2h 5m');

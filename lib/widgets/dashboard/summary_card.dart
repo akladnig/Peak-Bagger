@@ -39,6 +39,8 @@ class SummaryCardMetricAdapter {
     required this.metric,
     required this.tooltipValueTexts,
     required this.headerValueText,
+    required this.yAxisLabelText,
+    this.chartMaxYFor = defaultChartMaxYFor,
     this.tooltipTitleText = defaultTooltipTitleText,
     this.averageLabelText = defaultAverageLabelText,
     this.secondaryMetric,
@@ -55,6 +57,8 @@ class SummaryCardMetricAdapter {
   )
   tooltipValueTexts;
   final String Function(double value) headerValueText;
+  final String Function(double value) yAxisLabelText;
+  final double Function(double maxValue) chartMaxYFor;
   final String Function(SummaryBucket bucket, SummaryPeriodPreset period)
   tooltipTitleText;
   final String Function(SummaryPeriodPreset period) averageLabelText;
@@ -229,10 +233,17 @@ class _SummaryCardState extends State<SummaryCard> {
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                _viewportWidth = constraints.maxWidth;
-                final visibleColumnCount = visibleColumnCountForPeriod(_period);
+                final chartViewportWidth = math.max<double>(
+                  constraints.maxWidth - DashboardUI.yAxisLabelWidth,
+                  1,
+                );
+                _viewportWidth = chartViewportWidth;
+                final visibleColumnCount = math.min(
+                  visibleColumnCountForPeriod(_period),
+                  timeline.buckets.length,
+                );
                 final bucketExtent = DashboardUI.columnWidthFor(
-                  availableWidth: constraints.maxWidth,
+                  availableWidth: chartViewportWidth,
                   visibleColumnCount: visibleColumnCount,
                 );
                 final contentWidth = math.max<double>(
@@ -242,13 +253,13 @@ class _SummaryCardState extends State<SummaryCard> {
                 );
                 _maxScrollExtent = math.max(
                   0,
-                  contentWidth - constraints.maxWidth,
+                  contentWidth - chartViewportWidth,
                 );
                 _syncScrollPosition(timeline.buckets.length);
 
                 final visibleBuckets = _visibleBuckets(
                   timeline.buckets,
-                  constraints.maxWidth,
+                  chartViewportWidth,
                 );
                 final visibleTotal = _service.visibleTotalValue(visibleBuckets);
                 final visibleAverage = _service.visibleAverageValueForPeriod(
@@ -297,8 +308,10 @@ class _SummaryCardState extends State<SummaryCard> {
                         bucketExtent: bucketExtent,
                         period: _period,
                         referenceDate: referenceDate,
+                        chartMaxYFor: widget.adapter.chartMaxYFor,
                         tooltipValueTexts: widget.adapter.tooltipValueTexts,
                         tooltipTitleText: widget.adapter.tooltipTitleText,
+                        yAxisLabelText: widget.adapter.yAxisLabelText,
                       ),
                     ),
                   ],
@@ -539,3 +552,7 @@ int visibleColumnCountForPeriod(SummaryPeriodPreset period) {
 
 String defaultAverageLabelText(SummaryPeriodPreset period) =>
     period.averageLabel;
+
+double defaultChartMaxYFor(double maxValue) {
+  return math.max(4.0, (((maxValue.floor()) + 1 + 3) ~/ 4) * 4.0);
+}

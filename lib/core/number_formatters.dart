@@ -4,11 +4,13 @@ final NumberFormat _wholeNumberFormat = NumberFormat.decimalPattern('en_US');
 
 String formatElevationMetres(int metres) => _wholeNumberFormat.format(metres);
 
+String formatCount(double value) => _wholeNumberFormat.format(value.round());
+
 String formatDistance(double value) {
   if (value < 1000) {
     return '${value.round()} m';
   }
-  return '${(value / 1000).toStringAsFixed(1)} km';
+  return '${(value / 1000).round()} km';
 }
 
 String formatElevation(double value) => '${value.round()} m';
