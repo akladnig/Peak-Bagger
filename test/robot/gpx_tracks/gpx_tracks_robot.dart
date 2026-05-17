@@ -6,15 +6,20 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:peak_bagger/app.dart';
+import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/router.dart';
+import 'package:peak_bagger/services/gpx_file_picker.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 
 import '../../harness/test_map_notifier.dart';
+import '../../harness/test_gpx_file_picker.dart';
 
 class GpxTracksRobot {
   GpxTracksRobot(
@@ -22,15 +27,26 @@ class GpxTracksRobot {
     this.initialState, {
     MapNotifier? notifier,
     PeakListRepository? peakListRepository,
+    PeakRepository? peakRepository,
+    PeaksBaggedRepository? peaksBaggedRepository,
+    GpxFilePicker? gpxFilePicker,
     this.surfaceSize = const Size(1600, 900),
   }) : notifier = notifier ?? TestMapNotifier(initialState),
-       peakListRepository =
-            peakListRepository ?? PeakListRepository.test(InMemoryPeakListStorage());
+        peakListRepository =
+            peakListRepository ?? PeakListRepository.test(InMemoryPeakListStorage()),
+        peakRepository =
+            peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
+        peaksBaggedRepository =
+            peaksBaggedRepository ?? PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
+        gpxFilePicker = gpxFilePicker ?? FakeGpxFilePicker();
 
   final WidgetTester tester;
   final MapState initialState;
   final MapNotifier notifier;
   final PeakListRepository peakListRepository;
+  final PeakRepository peakRepository;
+  final PeaksBaggedRepository peaksBaggedRepository;
+  final GpxFilePicker gpxFilePicker;
   final Size surfaceSize;
   TestGesture? _mouseGesture;
   bool _mouseAdded = false;
@@ -40,6 +56,12 @@ class GpxTracksRobot {
   Finder get infoFab => find.byKey(const Key('map-info-fab'));
   Finder get showPeaksFab => find.byKey(const Key('show-peaks-fab'));
   Finder get peakListsDrawer => find.byKey(const Key('peak-lists-drawer'));
+  Finder get dashboardMyAscentsCard =>
+      find.byKey(const Key('dashboard-card-my-ascents'));
+  Finder get importResultSummary =>
+      find.byKey(const Key('gpx-track-import-summary'));
+  Finder get importResultClose =>
+      find.byKey(const Key('gpx-track-import-result-close'));
   Finder get peakMarkerLayer => find.byKey(const Key('peak-marker-layer'));
   Finder get recalcStatsTile =>
       find.byKey(const Key('recalculate-track-statistics-tile'));
@@ -84,6 +106,9 @@ class GpxTracksRobot {
           mapProvider.overrideWith(() => notifier),
           gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
           peakListRepositoryProvider.overrideWithValue(peakListRepository),
+          peakRepositoryProvider.overrideWithValue(peakRepository),
+          peaksBaggedRepositoryProvider.overrideWithValue(peaksBaggedRepository),
+          gpxFilePickerProvider.overrideWithValue(gpxFilePicker),
         ],
         child: const App(),
       ),
@@ -161,8 +186,30 @@ class GpxTracksRobot {
     await tester.pump(const Duration(milliseconds: 100));
   }
 
+  Future<void> closeImportResult() async {
+    await tester.tap(importResultClose);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> openDashboard() async {
+    await tester.tap(find.byKey(const Key('nav-dashboard')));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
+  }
+
+  Future<void> openPeakLists() async {
+    await tester.tap(find.byKey(const Key('nav-peak-lists')));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
+  }
+
   void expectImportDialogVisible() {
     expect(find.byKey(const Key('gpx-track-import-dialog')), findsOneWidget);
+  }
+
+  void expectImportResultSummary(String text) {
+    expect(importResultSummary, findsOneWidget);
+    expect(tester.widget<Text>(importResultSummary).data, text);
   }
 
   Future<void> openSettingsFromStartupWarning() async {

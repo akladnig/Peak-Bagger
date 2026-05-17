@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
+import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
@@ -111,6 +112,67 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-list-peak-dialog')), findsNothing);
+  });
+
+  testWidgets('bagged revision refreshes peak list counts', (tester) async {
+    final peaksBaggedRepository = PeaksBaggedRepository.test(
+      InMemoryPeaksBaggedStorage([
+        PeaksBagged(baggedId: 1, peakId: 100, gpxId: 10),
+      ]),
+    );
+
+    await _pumpPeakListsScreen(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Tas Peaks', [100, 200]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+          _buildPeak(200, 'Beta Peak', -42.1, 146.1, elevation: 1100),
+        ]),
+      ),
+      peaksBaggedRepository: peaksBaggedRepository,
+    );
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('peak-lists-climbed-1'))).data,
+      '1',
+    );
+    expect(
+      tester.widget<Text>(find.byKey(const Key('peak-lists-percentage-1')))
+          .data,
+      '50%',
+    );
+
+    await peaksBaggedRepository.rebuildFromTracks([
+      GpxTrack(
+        gpxTrackId: 10,
+        contentHash: 'hash-10',
+        trackName: 'Track 10',
+        trackDate: DateTime.utc(2026, 5, 15),
+      )..peaks.addAll([
+          _buildPeak(100, 'Alpha Peak', -42.0, 146.0),
+          _buildPeak(200, 'Beta Peak', -42.1, 146.1),
+        ]),
+    ]);
+    ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('peak-lists-summary-pane'))),
+    ).read(peaksBaggedRevisionProvider.notifier).increment();
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('peak-lists-climbed-1'))).data,
+      '2',
+    );
+    expect(
+      tester.widget<Text>(find.byKey(const Key('peak-lists-percentage-1')))
+          .data,
+      '100%',
+    );
   });
 
   testWidgets('tapping a mini-map marker opens peak info popup', (tester) async {

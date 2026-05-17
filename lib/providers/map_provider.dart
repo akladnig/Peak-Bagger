@@ -804,6 +804,10 @@ class MapNotifier extends Notifier<MapState> {
 
       // Refresh tracks from repository
       final allTracks = _gpxTrackRepository.getAllTracks();
+      if (addedItems.isNotEmpty) {
+        await _peaksBaggedRepository.syncFromTracks(allTracks);
+        ref.read(peaksBaggedRevisionProvider.notifier).increment();
+      }
 
       final selectedImportedTrack = addedItems.isNotEmpty
           ? addedItems.first.track

@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/migration_marker_store.dart';
@@ -28,17 +30,23 @@ void main() {
 
     final tasmapRepository = await TestTasmapRepository.create();
     final repository = TestWritableGpxTrackRepository();
+    final peakRepository = PeakRepository.test(
+      InMemoryPeakStorage([
+        _peak(1, 'Selected Peak', latitude: -43.0, longitude: 147.0),
+      ]),
+    );
+    final peaksBaggedRepository = PeaksBaggedRepository.test(
+      InMemoryPeaksBaggedStorage(),
+    );
     final container = ProviderContainer(
       overrides: [
         mapProvider.overrideWith(
           () => MapNotifier(
-            peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+            peakRepository: peakRepository,
             overpassService: OverpassService(),
             tasmapRepository: tasmapRepository,
             gpxTrackRepository: repository,
-            peaksBaggedRepository: PeaksBaggedRepository.test(
-              InMemoryPeaksBaggedStorage(),
-            ),
+            peaksBaggedRepository: peaksBaggedRepository,
             migrationMarkerStore: const MigrationMarkerStore(),
             loadPositionOnBuild: false,
             loadPeaksOnBuild: false,
@@ -64,6 +72,8 @@ void main() {
       notifier.state.selectedTrackFocusSerial,
       focusSerialBefore + 1,
     );
+    expect(peaksBaggedRepository.getAll(), hasLength(1));
+    expect(container.read(peaksBaggedRevisionProvider), 1);
   });
 
   test('non-added import keeps the current selected track', () async {
@@ -170,6 +180,20 @@ class TestWritableGpxTrackRepository extends GpxTrackRepository {
     _tracks.removeWhere((track) => track.gpxTrackId == id);
     return _tracks.length != previousLength;
   }
+}
+
+Peak _peak(
+  int osmId,
+  String name, {
+  required double latitude,
+  required double longitude,
+}) {
+  return Peak(
+    osmId: osmId,
+    name: name,
+    latitude: latitude,
+    longitude: longitude,
+  );
 }
 
 const _tasmanianTrackGpx = '''
