@@ -1,10 +1,12 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
+import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 
@@ -22,29 +24,30 @@ void main() {
       'GpxTrack',
       'PeakList',
       'PeaksBagged',
+      'Route',
     ]);
     expect(entities.first.primaryKeyField, 'id');
     expect(entities.first.primaryNameField, 'name');
     expect(
       entities[1].fields.map((field) => field.name),
-        containsAll([
-          'id',
-          'series',
-          'name',
-          'p1',
-          'p2',
-          'p3',
-          'p4',
-          'p5',
-          'p6',
-          'p7',
-          'p8',
-          'p9',
-          'p10',
-          'p11',
-          'p12',
-        ]),
-      );
+      containsAll([
+        'id',
+        'series',
+        'name',
+        'p1',
+        'p2',
+        'p3',
+        'p4',
+        'p5',
+        'p6',
+        'p7',
+        'p8',
+        'p9',
+        'p10',
+        'p11',
+        'p12',
+      ]),
+    );
     expect(
       entities[1].fields.map((field) => field.name),
       isNot(contains('tl')),
@@ -115,6 +118,26 @@ void main() {
     expect(
       entities[4].fields.map((field) => field.name),
       containsAll(['baggedId', 'peakId', 'gpxId', 'date']),
+    );
+    expect(entities.last.primaryKeyField, 'id');
+    expect(entities.last.primaryNameField, 'name');
+    expect(
+      entities.last.fields.map((field) => field.name),
+      containsAll([
+        'id',
+        'name',
+        'gpxRouteJson',
+        'displayRoutePointsByZoom',
+        'colour',
+        'distance2d',
+        'distance3d',
+        'ascent',
+        'descent',
+        'startElevation',
+        'endElevation',
+        'lowestElevation',
+        'highestElevation',
+      ]),
     );
   });
 
@@ -222,6 +245,49 @@ void main() {
     },
   );
 
+  test('filter/sort helper matches route names case-insensitively', () {
+    const entity = ObjectBoxAdminEntityDescriptor(
+      name: 'Route',
+      displayName: 'Route',
+      primaryKeyField: 'id',
+      primaryNameField: 'name',
+      fields: [
+        ObjectBoxAdminFieldDescriptor(
+          name: 'id',
+          typeLabel: 'int',
+          nullable: false,
+          isPrimaryKey: true,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'name',
+          typeLabel: 'String',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: true,
+        ),
+      ],
+    );
+
+    final rows = objectBoxAdminFilterAndSortRows(
+      entity,
+      rows: const [
+        ObjectBoxAdminRow(
+          primaryKeyValue: 2,
+          values: {'id': 2, 'name': 'Other Route'},
+        ),
+        ObjectBoxAdminRow(
+          primaryKeyValue: 1,
+          values: {'id': 1, 'name': 'Mt Ossa Route'},
+        ),
+      ],
+      searchQuery: 'ossa',
+      ascending: true,
+    );
+
+    expect(rows.map((row) => row.values['name']), ['Mt Ossa Route']);
+  });
+
   test('formatFieldValue renders GpxTrack durations as hh:mm:ss', () {
     expect(
       objectBoxAdminFormatFieldValue(
@@ -312,6 +378,34 @@ void main() {
     expect(peak.id, 42);
     expect(peak.altName, 'Milner');
     expect(peak.verified, isTrue);
+  });
+
+  test('routeToAdminRow exposes persisted route fields', () {
+    final row = routeToAdminRow(
+      Route(
+        id: 7,
+        name: 'Mt Ossa Route',
+        gpxRoute: [const LatLng(-41.5, 146.5)],
+        displayRoutePointsByZoom: '{"10":[]}',
+        colour: 12,
+        distance2d: 12.5,
+        distance3d: 13.2,
+        ascent: 850,
+        descent: 840,
+        startElevation: 120,
+        endElevation: 1210,
+        lowestElevation: 110,
+        highestElevation: 1600,
+      ),
+    );
+
+    expect(row.primaryKeyValue, 7);
+    expect(row.values['name'], 'Mt Ossa Route');
+    expect(row.values['gpxRouteJson'], '[[-41.5,146.5]]');
+    expect(row.values['displayRoutePointsByZoom'], '{"10":[]}');
+    expect(row.values['colour'], 12);
+    expect(row.values['distance2d'], 12.5);
+    expect(row.values['highestElevation'], 1600);
   });
 
   test('peak admin field helpers expose required table and details order', () {

@@ -6,6 +6,7 @@ import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
+import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/services/peak_admin_editor.dart';
 import 'package:peak_bagger/objectbox.g.dart';
@@ -64,6 +65,7 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
       'Tasmap50k' => _loadTasmapRows(store, trimmedQuery, ascending),
       'GpxTrack' => _loadTrackRows(store, trimmedQuery, ascending),
       'PeaksBagged' => _loadPeaksBaggedRows(store, trimmedQuery, ascending),
+      'Route' => _loadRouteRows(store, trimmedQuery, ascending),
       _ => <ObjectBoxAdminRow>[],
     };
 
@@ -345,6 +347,26 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
 
     return filtered.map(peaksBaggedToAdminRow).toList(growable: false);
   }
+
+  List<ObjectBoxAdminRow> _loadRouteRows(
+    Store store,
+    String query,
+    bool ascending,
+  ) {
+    final box = store.box<Route>();
+    final items = box.getAll();
+    final filtered = query.isEmpty
+        ? items
+        : items
+              .where((route) => route.name.toLowerCase().contains(query))
+              .toList();
+
+    filtered.sort(
+      (a, b) => ascending ? a.id.compareTo(b.id) : b.id.compareTo(a.id),
+    );
+
+    return filtered.map(routeToAdminRow).toList(growable: false);
+  }
 }
 
 ObjectBoxAdminRow peakToAdminRow(Peak peak) {
@@ -510,6 +532,27 @@ ObjectBoxAdminRow peaksBaggedToAdminRow(PeaksBagged row) {
       'peakId': row.peakId,
       'gpxId': row.gpxId,
       'date': row.date,
+    },
+  );
+}
+
+ObjectBoxAdminRow routeToAdminRow(Route route) {
+  return ObjectBoxAdminRow(
+    primaryKeyValue: route.id,
+    values: {
+      'id': route.id,
+      'name': route.name,
+      'gpxRouteJson': route.gpxRouteJson,
+      'displayRoutePointsByZoom': route.displayRoutePointsByZoom,
+      'colour': route.colour,
+      'distance2d': route.distance2d,
+      'distance3d': route.distance3d,
+      'ascent': route.ascent,
+      'descent': route.descent,
+      'startElevation': route.startElevation,
+      'endElevation': route.endElevation,
+      'lowestElevation': route.lowestElevation,
+      'highestElevation': route.highestElevation,
     },
   );
 }

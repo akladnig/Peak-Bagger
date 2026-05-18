@@ -67,9 +67,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('PeaksBagged').last, findsOneWidget);
+    expect(find.text('Route').last, findsOneWidget);
   });
 
-  testWidgets('gpx track file details are capped and non-selectable', (
+  testWidgets('gpx track file details are capped and selectable', (
     tester,
   ) async {
     final gpxFileWidget = objectBoxAdminDetailsValue(
@@ -103,10 +104,9 @@ void main() {
       displayTrackPointsByZoomWidget,
       elevationProfileWidget,
     ]) {
-      expect(widget, isA<Text>());
-      final text = widget as Text;
+      expect(widget, isA<SelectableText>());
+      final text = widget as SelectableText;
       expect(text.maxLines, 5);
-      expect(text.overflow, TextOverflow.ellipsis);
       expect(text.data, contains('line1'));
     }
   });
@@ -148,7 +148,9 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(find.byKey(const Key('objectbox-admin-gpx-track-view-on-map')));
+    await tester.tap(
+      find.byKey(const Key('objectbox-admin-gpx-track-view-on-map')),
+    );
     await tester.pumpAndSettle();
 
     expect(
@@ -206,12 +208,16 @@ void main() {
 
     await tester.tap(find.text('Mt Anne'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('objectbox-admin-gpx-track-delete-7')));
+    await tester.tap(
+      find.byKey(const Key('objectbox-admin-gpx-track-delete-7')),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Delete Track?'), findsOneWidget);
     expect(
-      find.text('This will permanently delete the Mt Anne. Do you want to proceed?'),
+      find.text(
+        'This will permanently delete the Mt Anne. Do you want to proceed?',
+      ),
       findsOneWidget,
     );
 
@@ -259,7 +265,9 @@ void main() {
 
     await tester.tap(find.text('Mt Anne'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('objectbox-admin-gpx-track-view-on-map')));
+    await tester.tap(
+      find.byKey(const Key('objectbox-admin-gpx-track-view-on-map')),
+    );
     await tester.pumpAndSettle();
 
     expect(
@@ -1517,7 +1525,8 @@ Future<void> _pumpApp(
             peakRepository:
                 peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
             gpxTrackRepository:
-                gpxTrackRepository ?? GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+                gpxTrackRepository ??
+                GpxTrackRepository.test(InMemoryGpxTrackStorage()),
           ),
         ),
         objectboxAdminRepositoryProvider.overrideWithValue(
@@ -1527,7 +1536,8 @@ Future<void> _pumpApp(
           peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
         ),
         gpxTrackRepositoryProvider.overrideWithValue(
-          gpxTrackRepository ?? GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+          gpxTrackRepository ??
+              GpxTrackRepository.test(InMemoryGpxTrackStorage()),
         ),
         peakDeleteGuardProvider.overrideWithValue(
           peakDeleteGuard ?? PeakDeleteGuard(_NoopPeakDeleteGuardSource()),
@@ -1568,10 +1578,7 @@ Peak _buildPeak({
   );
 }
 
-GpxTrack _buildGpxTrack({
-  required int id,
-  required String trackName,
-}) {
+GpxTrack _buildGpxTrack({required int id, required String trackName}) {
   return GpxTrack(
     gpxTrackId: id,
     contentHash: 'hash-$id',
@@ -1581,8 +1588,8 @@ GpxTrack _buildGpxTrack({
 
 class _MutableGpxTrackRepository extends GpxTrackRepository {
   _MutableGpxTrackRepository([List<GpxTrack> tracks = const []])
-      : _tracks = List<GpxTrack>.from(tracks),
-        super.test(InMemoryGpxTrackStorage());
+    : _tracks = List<GpxTrack>.from(tracks),
+      super.test(InMemoryGpxTrackStorage());
 
   final List<GpxTrack> _tracks;
 

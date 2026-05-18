@@ -417,9 +417,83 @@
         }
       ],
       "relations": []
+    },
+    {
+      "id": "6:3506540890240152030",
+      "lastPropertyId": "13:8747517438538908610",
+      "name": "Route",
+      "properties": [
+        {
+          "id": "1:2188231076669519255",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:1411349293898722170",
+          "name": "name",
+          "type": 9
+        },
+        {
+          "id": "3:1535979703523787788",
+          "name": "displayRoutePointsByZoom",
+          "type": 9
+        },
+        {
+          "id": "4:6017809366811028685",
+          "name": "colour",
+          "type": 6
+        },
+        {
+          "id": "5:5315881796693193560",
+          "name": "distance2d",
+          "type": 8
+        },
+        {
+          "id": "6:2208974196016124072",
+          "name": "distance3d",
+          "type": 8
+        },
+        {
+          "id": "7:9200665486370958132",
+          "name": "ascent",
+          "type": 8
+        },
+        {
+          "id": "8:6577824166279808829",
+          "name": "descent",
+          "type": 8
+        },
+        {
+          "id": "9:2538669739041613493",
+          "name": "startElevation",
+          "type": 8
+        },
+        {
+          "id": "10:5427729360856529099",
+          "name": "endElevation",
+          "type": 8
+        },
+        {
+          "id": "11:7531847065936996502",
+          "name": "lowestElevation",
+          "type": 8
+        },
+        {
+          "id": "12:1477644722764121334",
+          "name": "highestElevation",
+          "type": 8
+        },
+        {
+          "id": "13:8747517438538908610",
+          "name": "gpxRouteJson",
+          "type": 9
+        }
+      ],
+      "relations": []
     }
   ],
-  "lastEntityId": "5:9023966399287465849",
+  "lastEntityId": "6:3506540890240152030",
   "lastIndexId": "2:7211080441040466135",
   "lastRelationId": "1:8194382659905112901",
   "lastSequenceId": "0:0",
