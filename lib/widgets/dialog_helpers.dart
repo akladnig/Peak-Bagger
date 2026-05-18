@@ -5,7 +5,7 @@ Future<bool?> showDangerConfirmDialog({
   required String title,
   required String message,
   required String cancelKey,
-  required String cancelLabel,
+  String cancelLabel = "Cancel",
   required String confirmKey,
   required String confirmLabel,
 }) {
