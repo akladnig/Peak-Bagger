@@ -53,6 +53,8 @@ enum PeakListSelectionMode { none, allPeaks, specificList }
 
 enum EndDrawerMode { basemaps, peakLists }
 
+enum RouteMode { snapToTrail, straightLine }
+
 enum PendingCameraSelectionBehavior { preserve, replace, clear }
 
 class PendingCameraRequest {
@@ -131,6 +133,11 @@ class MapState {
   final String? infoPeakName;
   final double? infoPeakElevation;
   final LatLng? selectedLocation;
+  final bool isRouteDrafting;
+  final String routeDraftName;
+  final RouteMode routeDraftMode;
+  final List<LatLng> routeDraftMarkers;
+  final bool routeDraftNameFieldFocused;
   final bool syncEnabled;
   final List<Peak> peaks;
   final bool isLoadingPeaks;
@@ -178,6 +185,11 @@ class MapState {
     this.infoPeakName,
     this.infoPeakElevation,
     this.selectedLocation,
+    this.isRouteDrafting = false,
+    this.routeDraftName = '',
+    this.routeDraftMode = RouteMode.snapToTrail,
+    this.routeDraftMarkers = const [],
+    this.routeDraftNameFieldFocused = false,
     this.syncEnabled = true,
     this.peaks = const [],
     this.isLoadingPeaks = false,
@@ -241,6 +253,11 @@ class MapState {
     bool clearInfoPopup = false,
     LatLng? selectedLocation,
     bool clearSelectedLocation = false,
+    bool? isRouteDrafting,
+    String? routeDraftName,
+    RouteMode? routeDraftMode,
+    List<LatLng>? routeDraftMarkers,
+    bool? routeDraftNameFieldFocused,
     bool? syncEnabled,
     List<Peak>? peaks,
     bool? isLoadingPeaks,
@@ -306,6 +323,12 @@ class MapState {
       selectedLocation: clearSelectedLocation
           ? null
           : (selectedLocation ?? this.selectedLocation),
+      isRouteDrafting: isRouteDrafting ?? this.isRouteDrafting,
+      routeDraftName: routeDraftName ?? this.routeDraftName,
+      routeDraftMode: routeDraftMode ?? this.routeDraftMode,
+      routeDraftMarkers: routeDraftMarkers ?? this.routeDraftMarkers,
+      routeDraftNameFieldFocused:
+          routeDraftNameFieldFocused ?? this.routeDraftNameFieldFocused,
       syncEnabled: syncEnabled ?? this.syncEnabled,
       peaks: peaks ?? this.peaks,
       isLoadingPeaks: isLoadingPeaks ?? this.isLoadingPeaks,
@@ -1297,6 +1320,73 @@ class MapNotifier extends Notifier<MapState> {
 
   void setBasemap(Basemap basemap) {
     state = state.copyWith(basemap: basemap);
+  }
+
+  void beginRouteDraft() {
+    if (state.isRouteDrafting) {
+      return;
+    }
+
+    state = state.copyWith(
+      isRouteDrafting: true,
+      routeDraftName: '',
+      routeDraftMode: RouteMode.snapToTrail,
+      routeDraftMarkers: const [],
+      routeDraftNameFieldFocused: false,
+      clearSelectedLocation: true,
+      clearSelectedTrackId: true,
+    );
+  }
+
+  void endRouteDraft() {
+    if (!state.isRouteDrafting &&
+        state.routeDraftName.isEmpty &&
+        state.routeDraftMarkers.isEmpty &&
+        state.routeDraftMode == RouteMode.snapToTrail) {
+      return;
+    }
+
+    state = state.copyWith(
+      isRouteDrafting: false,
+      routeDraftName: '',
+      routeDraftMode: RouteMode.snapToTrail,
+      routeDraftMarkers: const [],
+      routeDraftNameFieldFocused: false,
+    );
+  }
+
+  void setRouteDraftNameFieldFocused(bool focused) {
+    if (state.routeDraftNameFieldFocused == focused) {
+      return;
+    }
+
+    state = state.copyWith(routeDraftNameFieldFocused: focused);
+  }
+
+  void setRouteDraftMode(RouteMode mode) {
+    if (!state.isRouteDrafting || state.routeDraftMode == mode) {
+      return;
+    }
+
+    state = state.copyWith(routeDraftMode: mode);
+  }
+
+  void setRouteDraftName(String value) {
+    if (!state.isRouteDrafting || state.routeDraftName == value) {
+      return;
+    }
+
+    state = state.copyWith(routeDraftName: value);
+  }
+
+  void addRouteDraftMarker(LatLng point) {
+    if (!state.isRouteDrafting) {
+      return;
+    }
+
+    state = state.copyWith(
+      routeDraftMarkers: [...state.routeDraftMarkers, point],
+    );
   }
 
   void setEndDrawerMode(EndDrawerMode mode) {

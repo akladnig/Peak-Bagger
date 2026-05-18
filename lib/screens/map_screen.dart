@@ -29,6 +29,7 @@ import '../core/constants.dart';
 import 'package:peak_bagger/widgets/map_action_rail.dart';
 import 'package:peak_bagger/widgets/map_basemaps_drawer.dart';
 import 'package:peak_bagger/widgets/map_peak_lists_drawer.dart';
+import 'package:peak_bagger/widgets/map_route_bottom_sheet.dart';
 import 'package:peak_bagger/widgets/map_rebuild_debug_counters.dart';
 import 'package:peak_bagger/widgets/tasmap_polygon_label.dart';
 
@@ -176,6 +177,35 @@ class _MapScreenState extends ConsumerState<MapScreen>
       return true;
     }
     return false;
+  }
+
+  void _beginRouteDraft() {
+    final scaffoldState = _scaffoldKey.currentState;
+    final scaffoldContext = _scaffoldKey.currentContext;
+    final mapState = ref.read(mapProvider);
+    final notifier = ref.read(mapProvider.notifier);
+
+    if ((scaffoldState?.isEndDrawerOpen ?? false) && scaffoldContext != null) {
+      Navigator.of(scaffoldContext).pop();
+    }
+
+    if (mapState.peakInfoPeak != null) {
+      notifier.closePeakInfoPopup();
+    }
+    if (mapState.showInfoPopup) {
+      notifier.toggleInfoPopup();
+    }
+    if (mapState.showPeakSearch) {
+      notifier.setPeakSearchVisible(false);
+    }
+    if (mapState.showGotoInput) {
+      notifier.setGotoInputVisible(false);
+    }
+
+    notifier.clearSelectedLocation();
+    notifier.clearSelectedTrack();
+    notifier.beginRouteDraft();
+    _mapFocusNode.requestFocus();
   }
 
   MouseCursor _mouseCursor(MapState mapState) {
@@ -697,6 +727,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
           hasTrackRecoveryIssue: state.hasTrackRecoveryIssue,
           trackCount: state.tracks.length,
           peakInfo: state.peakInfo,
+          isRouteDrafting: state.isRouteDrafting,
+          routeDraftMarkers: state.routeDraftMarkers,
+          routeDraftNameFieldFocused: state.routeDraftNameFieldFocused,
         ),
       ),
     );
@@ -711,6 +744,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
       if (!routeChrome.showPeakSearch &&
           !routeChrome.showGotoInput &&
           !_mapFocusNode.hasFocus &&
+          !routeChrome.routeDraftNameFieldFocused &&
           mounted) {
         _mapFocusNode.requestFocus();
       }
@@ -731,6 +765,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
           autofocus: true,
           onKeyEvent: (node, event) {
             if (_searchFocusNode.hasFocus || _gotoFocusNode.hasFocus) {
+              return KeyEventResult.ignored;
+            }
+            if (routeChrome.routeDraftNameFieldFocused &&
+                event.logicalKey != LogicalKeyboardKey.escape) {
               return KeyEventResult.ignored;
             }
             final mapState = ref.read(mapProvider);
@@ -963,6 +1001,17 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                           final notifier = ref.read(
                                             mapProvider.notifier,
                                           );
+                                          final tappedLocation = _mapController
+                                              .camera
+                                              .screenOffsetToLatLng(
+                                                event.localPosition,
+                                              );
+                                          if (routeChrome.isRouteDrafting) {
+                                            notifier.addRouteDraftMarker(
+                                              tappedLocation,
+                                            );
+                                            return;
+                                          }
                                           final tappedPeak = _hitTestPeak(
                                             event.localPosition,
                                             ref.read(mapProvider),
@@ -985,11 +1034,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               .showInfoPopup) {
                                             notifier.toggleInfoPopup();
                                           }
-                                          final tappedLocation = _mapController
-                                              .camera
-                                              .screenOffsetToLatLng(
-                                                event.localPosition,
-                                              );
                                           _handleTrackHover(
                                             event.localPosition,
                                             tappedLocation,
@@ -1070,6 +1114,36 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                   size: 32,
                                                 ),
                                               ),
+                                            ],
+                                          ),
+                                        if (routeChrome.isRouteDrafting &&
+                                            routeChrome.routeDraftMarkers
+                                                .isNotEmpty)
+                                          MarkerLayer(
+                                            key: const Key(
+                                              'route-draft-marker-layer',
+                                            ),
+                                            markers: [
+                                              for (var index = 0;
+                                                  index <
+                                                      routeChrome
+                                                          .routeDraftMarkers
+                                                          .length;
+                                                  index++)
+                                                Marker(
+                                                  key: Key(
+                                                    'route-draft-marker-$index',
+                                                  ),
+                                                  point: routeChrome
+                                                      .routeDraftMarkers[index],
+                                                  width: 32,
+                                                  height: 32,
+                                                  child: const Icon(
+                                                    Icons.adjust,
+                                                    color: Colors.green,
+                                                    size: 22,
+                                                  ),
+                                                ),
                                             ],
                                           ),
                                         if (mapState.selectedPeaks.isNotEmpty)
@@ -1225,7 +1299,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     );
                   },
                 ),
-                const MapActionRail(),
+                if (routeChrome.isRouteDrafting)
+                  const Positioned(
+                    left: 0,
+                    right: 88,
+                    bottom: 0,
+                    child: MapRouteBottomSheet(),
+                  ),
+                MapActionRail(onCreateRoute: _beginRouteDraft),
                 if (routeChrome.showPeakSearch)
                   Positioned(
                     right: 72,

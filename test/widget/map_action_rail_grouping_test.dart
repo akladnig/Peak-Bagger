@@ -145,6 +145,28 @@ void main() {
     );
     expect(infoTop.dy, greaterThan(locationTop.dy));
   });
+
+  testWidgets('route drafting hides tools and location groups', (tester) async {
+    await _pumpRail(
+      tester,
+      TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 12,
+          basemap: Basemap.tracestrack,
+          selectedMap: _selectedMap(),
+          tasmapDisplayMode: TasmapDisplayMode.overlay,
+          isRouteDrafting: true,
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key('map-action-tools-group')), findsNothing);
+    expect(find.byKey(const Key('map-action-location-group')), findsNothing);
+    expect(find.byKey(const Key('create-route-fab')), findsNothing);
+    expect(find.byKey(const Key('map-action-view-group')), findsOneWidget);
+    expect(find.byKey(const Key('map-info-fab')), findsOneWidget);
+  });
 }
 
 Future<void> _pumpRail(WidgetTester tester, TestMapNotifier notifier) async {
