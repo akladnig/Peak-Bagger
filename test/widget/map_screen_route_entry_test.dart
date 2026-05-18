@@ -22,6 +22,25 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
+  testWidgets('create route opens the draft sheet from the map shell', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final notifier = await _buildRealNotifier();
+    await _pumpApp(tester, notifier);
+
+    router.go('/map');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('create-route-fab')));
+    await tester.pumpAndSettle();
+
+    final state = _container(tester).read(mapProvider);
+    expect(state.isRouteDrafting, isTrue);
+    expect(state.selectedLocation, isNull);
+    expect(find.byKey(const Key('route-bottom-sheet')), findsOneWidget);
+  });
+
   testWidgets('hidden-branch requestCameraMove preserves selected location and peaks', (
     tester,
   ) async {

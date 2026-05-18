@@ -298,6 +298,36 @@ void main() {
     expect(find.text('Basemaps'), findsOneWidget);
   });
 
+  testWidgets('route name focus ignores map shortcut keys', (tester) async {
+    await _pumpMapApp(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final container = ProviderScope.containerOf(tester.element(region));
+
+    await tester.tap(find.byKey(const Key('create-route-fab')));
+    await tester.pumpAndSettle();
+
+    container.read(mapProvider.notifier).setRouteDraftNameFieldFocused(true);
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyB);
+    await tester.pump();
+
+    expect(container.read(mapProvider).routeDraftNameFieldFocused, isTrue);
+    expect(find.byKey(const Key('basemaps-drawer')), findsNothing);
+    expect(find.byKey(const Key('route-bottom-sheet')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('route-cancel-button')));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('escape closes drawer before affecting selected track', (
     tester,
   ) async {

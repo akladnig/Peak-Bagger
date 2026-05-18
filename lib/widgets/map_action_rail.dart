@@ -14,7 +14,9 @@ import 'package:peak_bagger/widgets/left_tooltip_fab.dart';
 import 'package:peak_bagger/widgets/map_rebuild_debug_counters.dart';
 
 class MapActionRail extends ConsumerWidget {
-  const MapActionRail({super.key});
+  const MapActionRail({super.key, this.onCreateRoute});
+
+  final VoidCallback? onCreateRoute;
 
   void _dismissTransientUi(
     WidgetRef ref, {
@@ -42,12 +44,13 @@ class MapActionRail extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     MapRebuildDebugCounters.recordActionRailBuild();
-    final (:tracks, :isLoadingTracks, :hasTrackRecoveryIssue) = ref.watch(
+    final (:tracks, :isLoadingTracks, :hasTrackRecoveryIssue, :isRouteDrafting) = ref.watch(
       mapProvider.select(
         (state) => (
           tracks: state.tracks,
           isLoadingTracks: state.isLoadingTracks,
           hasTrackRecoveryIssue: state.hasTrackRecoveryIssue,
+          isRouteDrafting: state.isRouteDrafting,
         ),
       ),
     );
@@ -68,69 +71,75 @@ class MapActionRail extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  _MapActionSection(
-                    sectionKey: const Key('map-action-tools-group'),
-                    title: 'Tools',
-                    sortOrder: 0,
-                    children: [
-                      LeftTooltipFab(
-                        message: 'Import Track',
-                        child: FloatingActionButton.small(
-                          key: const Key('import-tracks-fab'),
-                          heroTag: 'import',
-                          backgroundColor:
-                              Theme.of(context).colorScheme.surface,
-                          onPressed:
-                              isLoadingTracks || hasTrackRecoveryIssue
-                              ? null
-                              : () => _showGpxImportDialog(context, ref),
-                          child: isLoadingTracks
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
+                  if (!isRouteDrafting) ...[
+                    _MapActionSection(
+                      sectionKey: const Key('map-action-tools-group'),
+                      title: 'Tools',
+                      sortOrder: 0,
+                      children: [
+                        LeftTooltipFab(
+                          message: 'Import Track',
+                          child: FloatingActionButton.small(
+                            key: const Key('import-tracks-fab'),
+                            heroTag: 'import',
+                            backgroundColor:
+                                Theme.of(context).colorScheme.surface,
+                            onPressed:
+                                isLoadingTracks || hasTrackRecoveryIssue
+                                ? null
+                                : () => _showGpxImportDialog(context, ref),
+                            child: isLoadingTracks
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.input,
+                                    color: hasTrackRecoveryIssue
+                                        ? Theme.of(
+                                            context,
+                                          ).colorScheme.onSurface.withValues(
+                                            alpha: 0.38,
+                                          )
+                                        : Theme.of(context)
+                                              .colorScheme
+                                              .onSurface,
                                   ),
-                                )
-                              : Icon(
-                                  Icons.input,
-                                  color: hasTrackRecoveryIssue
-                                      ? Theme.of(
-                                          context,
-                                        ).colorScheme.onSurface.withValues(
-                                          alpha: 0.38,
-                                        )
-                                      : Theme.of(context)
-                                            .colorScheme
-                                            .onSurface,
-                                ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: UiConstants.railSpacing),
-                      LeftTooltipFab(
-                        message: 'Create Route',
-                        child: FloatingActionButton.small(
-                          key: const Key('create-route-fab'),
-                          heroTag: 'create-route',
-                          backgroundColor:
-                              Theme.of(context).colorScheme.surface,
-                          onPressed: null,
-                          child: SvgPicture.asset(
-                            'assets/route.svg',
-                            width: 18,
-                            height: 18,
-                            colorFilter: ColorFilter.mode(
-                              Theme.of(
-                                context,
-                              ).colorScheme.onSurface.withValues(alpha: 0.38),
-                              BlendMode.srcIn,
+                        const SizedBox(height: UiConstants.railSpacing),
+                        LeftTooltipFab(
+                          message: 'Create Route',
+                          child: FloatingActionButton.small(
+                            key: const Key('create-route-fab'),
+                            heroTag: 'create-route',
+                            backgroundColor:
+                                Theme.of(context).colorScheme.surface,
+                            onPressed: onCreateRoute,
+                            child: SvgPicture.asset(
+                              'assets/route.svg',
+                              width: 18,
+                              height: 18,
+                              colorFilter: ColorFilter.mode(
+                                onCreateRoute == null
+                                    ? Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface.withValues(
+                                        alpha: 0.38,
+                                      )
+                                    : Theme.of(context).colorScheme.onSurface,
+                                BlendMode.srcIn,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: UiConstants.groupSpacing),
+                      ],
+                    ),
+                    const SizedBox(height: UiConstants.groupSpacing),
+                  ],
                   _MapActionSection(
                     sectionKey: const Key('map-action-view-group'),
                     title: 'View',
@@ -227,165 +236,167 @@ class MapActionRail extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: UiConstants.groupSpacing),
-                  _MapActionSection(
-                    sectionKey: const Key('map-action-location-group'),
-                    title: 'Loc',
-                    sortOrder: 2,
-                    children: [
-                      LeftTooltipFab(
-                        message: 'Search Peaks',
-                        child: FloatingActionButton.small(
-                          key: const Key('search-peaks-fab'),
-                          heroTag: 'search',
-                          backgroundColor:
-                              Theme.of(context).colorScheme.surface,
-                          onPressed: () {
-                            _dismissTransientUi(ref, closeInfoPopup: true);
-                            ref.read(mapProvider.notifier).togglePeakSearch();
-                          },
-                          child: Icon(
-                            Icons.search,
-                            color: Theme.of(context).colorScheme.onSurface,
+                  if (!isRouteDrafting) ...[
+                    const SizedBox(height: UiConstants.groupSpacing),
+                    _MapActionSection(
+                      sectionKey: const Key('map-action-location-group'),
+                      title: 'Loc',
+                      sortOrder: 2,
+                      children: [
+                        LeftTooltipFab(
+                          message: 'Search Peaks',
+                          child: FloatingActionButton.small(
+                            key: const Key('search-peaks-fab'),
+                            heroTag: 'search',
+                            backgroundColor:
+                                Theme.of(context).colorScheme.surface,
+                            onPressed: () {
+                              _dismissTransientUi(ref, closeInfoPopup: true);
+                              ref.read(mapProvider.notifier).togglePeakSearch();
+                            },
+                            child: Icon(
+                              Icons.search,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: UiConstants.railSpacing),
-                      LeftTooltipFab(
-                        message: 'Goto Location',
-                        child: FloatingActionButton.small(
-                          key: const Key('goto-map-fab'),
-                          heroTag: 'goto',
-                          backgroundColor:
-                              Theme.of(context).colorScheme.surface,
-                          onPressed: () {
-                            _dismissTransientUi(
-                              ref,
-                              closeInfoPopup: true,
-                              closePeakSearch: true,
-                              closeGotoInput: true,
-                            );
-                            ref.read(mapProvider.notifier).toggleGotoInput();
-                          },
-                          child: Icon(
-                            Icons.directions,
-                            color: Theme.of(context).colorScheme.onSurface,
+                        const SizedBox(height: UiConstants.railSpacing),
+                        LeftTooltipFab(
+                          message: 'Goto Location',
+                          child: FloatingActionButton.small(
+                            key: const Key('goto-map-fab'),
+                            heroTag: 'goto',
+                            backgroundColor:
+                                Theme.of(context).colorScheme.surface,
+                            onPressed: () {
+                              _dismissTransientUi(
+                                ref,
+                                closeInfoPopup: true,
+                                closePeakSearch: true,
+                                closeGotoInput: true,
+                              );
+                              ref.read(mapProvider.notifier).toggleGotoInput();
+                            },
+                            child: Icon(
+                              Icons.directions,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: UiConstants.railSpacing),
-                      LeftTooltipFab(
-                        message: 'Center on marker',
-                        child: FloatingActionButton.small(
-                          heroTag: 'centermarker',
-                          backgroundColor:
-                              Theme.of(context).colorScheme.surface,
-                          onPressed: () {
-                            _dismissTransientUi(
-                              ref,
-                              closeInfoPopup: true,
-                              closePeakSearch: true,
-                              closeGotoInput: true,
-                            );
-                            ref
-                                .read(mapProvider.notifier)
-                                .centerOnSelectedLocation();
-                          },
-                          child: const Icon(
-                            Icons.my_location,
-                            color: Colors.amber,
+                        const SizedBox(height: UiConstants.railSpacing),
+                        LeftTooltipFab(
+                          message: 'Center on marker',
+                          child: FloatingActionButton.small(
+                            heroTag: 'centermarker',
+                            backgroundColor:
+                                Theme.of(context).colorScheme.surface,
+                            onPressed: () {
+                              _dismissTransientUi(
+                                ref,
+                                closeInfoPopup: true,
+                                closePeakSearch: true,
+                                closeGotoInput: true,
+                              );
+                              ref
+                                  .read(mapProvider.notifier)
+                                  .centerOnSelectedLocation();
+                            },
+                            child: const Icon(
+                              Icons.my_location,
+                              color: Colors.amber,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: UiConstants.railSpacing),
-                      LeftTooltipFab(
-                        message: 'My location',
-                        child: FloatingActionButton.small(
-                          heroTag: 'mylocation',
-                          backgroundColor:
-                              Theme.of(context).colorScheme.surface,
-                          onPressed: () async {
-                            _dismissTransientUi(
-                              ref,
-                              closeInfoPopup: true,
-                              closePeakSearch: true,
-                              closeGotoInput: true,
-                            );
-                            try {
-                              final serviceEnabled =
-                                  await Geolocator.isLocationServiceEnabled();
-                              if (!serviceEnabled) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Location services are disabled',
-                                      ),
-                                    ),
-                                  );
-                                }
-                                return;
-                              }
-
-                              var permission = await Geolocator.checkPermission();
-                              if (permission == LocationPermission.denied) {
-                                permission = await Geolocator.requestPermission();
-                                if (permission == LocationPermission.denied) {
+                        const SizedBox(height: UiConstants.railSpacing),
+                        LeftTooltipFab(
+                          message: 'My location',
+                          child: FloatingActionButton.small(
+                            heroTag: 'mylocation',
+                            backgroundColor:
+                                Theme.of(context).colorScheme.surface,
+                            onPressed: () async {
+                              _dismissTransientUi(
+                                ref,
+                                closeInfoPopup: true,
+                                closePeakSearch: true,
+                                closeGotoInput: true,
+                              );
+                              try {
+                                final serviceEnabled =
+                                    await Geolocator.isLocationServiceEnabled();
+                                if (!serviceEnabled) {
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text(
-                                          'Location permission denied',
+                                          'Location services are disabled',
                                         ),
                                       ),
                                     );
                                   }
                                   return;
                                 }
-                              }
 
-                              if (permission == LocationPermission.deniedForever) {
+                                var permission = await Geolocator.checkPermission();
+                                if (permission == LocationPermission.denied) {
+                                  permission = await Geolocator.requestPermission();
+                                  if (permission == LocationPermission.denied) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Location permission denied',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                    return;
+                                  }
+                                }
+
+                                if (permission == LocationPermission.deniedForever) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Location permissions are permanently denied',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                }
+
+                                final position = await Geolocator.getCurrentPosition(
+                                  locationSettings: const LocationSettings(
+                                    accuracy: LocationAccuracy.high,
+                                  ),
+                                );
+                                ref
+                                    .read(mapProvider.notifier)
+                                    .centerOnLocation(
+                                      LatLng(
+                                        position.latitude,
+                                        position.longitude,
+                                      ),
+                                    );
+                              } catch (e) {
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Location permissions are permanently denied',
-                                      ),
-                                    ),
+                                    SnackBar(content: Text('Location error: $e')),
                                   );
                                 }
-                                return;
                               }
-
-                              final position = await Geolocator.getCurrentPosition(
-                                locationSettings: const LocationSettings(
-                                  accuracy: LocationAccuracy.high,
-                                ),
-                              );
-                              ref
-                                  .read(mapProvider.notifier)
-                                  .centerOnLocation(
-                                    LatLng(
-                                      position.latitude,
-                                      position.longitude,
-                                    ),
-                                  );
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Location error: $e')),
-                                );
-                              }
-                            }
-                          },
-                          child: Icon(
-                            Icons.near_me,
-                            color: Theme.of(context).colorScheme.onSurface,
+                            },
+                            child: Icon(
+                              Icons.near_me,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

@@ -51,7 +51,7 @@ void main() {
     robot.expectSelectedMapLabelVisible('Adamsons\nTS07');
   });
 
-  testWidgets('map rail groups stay reachable and placeholder stays inert', (
+  testWidgets('map rail groups stay reachable and create route opens sheet', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -82,21 +82,22 @@ void main() {
     final container = _container(tester);
     expect(
       tester.widget<FloatingActionButton>(robot.createRouteFab).onPressed,
-      isNull,
+      isNotNull,
     );
 
     await tester.tap(robot.createRouteFab);
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(container.read(mapProvider).showInfoPopup, isFalse);
     expect(container.read(mapProvider).showPeakSearch, isFalse);
+    expect(container.read(mapProvider).isRouteDrafting, isTrue);
+    expect(find.byKey(const Key('route-bottom-sheet')), findsOneWidget);
+    expect(robot.mapActionToolsGroup, findsNothing);
+    expect(robot.mapActionLocationGroup, findsNothing);
+    expect(robot.createRouteFab, findsNothing);
 
     await tester.tap(robot.gridMapFab);
     await tester.pump();
     expect(container.read(mapProvider).tasmapDisplayMode, TasmapDisplayMode.none);
-
-    tester.widget<FloatingActionButton>(robot.searchPeaksFab).onPressed!();
-    await tester.pump();
-    expect(container.read(mapProvider).showPeakSearch, isTrue);
 
   });
 
