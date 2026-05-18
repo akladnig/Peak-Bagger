@@ -625,12 +625,7 @@ Widget objectBoxAdminDetailsValue({
           fieldName == 'filteredTrack' ||
           fieldName == 'displayTrackPointsByZoom' ||
           fieldName == 'elevationProfile')) {
-    return Text(
-      formattedValue,
-      maxLines: 5,
-      overflow: TextOverflow.ellipsis,
-      softWrap: true,
-    );
+    return SelectableText(formattedValue, maxLines: 5);
   }
 
   if (entityName != null && fieldName != null) {

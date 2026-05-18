@@ -18,6 +18,7 @@ import 'models/gpx_track.dart';
 import 'models/peak.dart';
 import 'models/peak_list.dart';
 import 'models/peaks_bagged.dart';
+import 'models/route.dart';
 import 'models/tasmap50k.dart';
 
 export 'package:objectbox/objectbox.dart'; // so that callers only have to import this file
@@ -513,6 +514,94 @@ final _entities = <obx_int.ModelEntity>[
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
   ),
+  obx_int.ModelEntity(
+    id: const obx_int.IdUid(6, 3506540890240152030),
+    name: 'Route',
+    lastPropertyId: const obx_int.IdUid(13, 8747517438538908610),
+    flags: 0,
+    properties: <obx_int.ModelProperty>[
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(1, 2188231076669519255),
+        name: 'id',
+        type: 6,
+        flags: 1,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(2, 1411349293898722170),
+        name: 'name',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(3, 1535979703523787788),
+        name: 'displayRoutePointsByZoom',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(4, 6017809366811028685),
+        name: 'colour',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(5, 5315881796693193560),
+        name: 'distance2d',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(6, 2208974196016124072),
+        name: 'distance3d',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(7, 9200665486370958132),
+        name: 'ascent',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(8, 6577824166279808829),
+        name: 'descent',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(9, 2538669739041613493),
+        name: 'startElevation',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(10, 5427729360856529099),
+        name: 'endElevation',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(11, 7531847065936996502),
+        name: 'lowestElevation',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(12, 1477644722764121334),
+        name: 'highestElevation',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(13, 8747517438538908610),
+        name: 'gpxRouteJson',
+        type: 9,
+        flags: 0,
+      ),
+    ],
+    relations: <obx_int.ModelRelation>[],
+    backlinks: <obx_int.ModelBacklink>[],
+  ),
 ];
 
 /// Shortcut for [obx.Store.new] that passes [getObjectBoxModel] and for Flutter
@@ -558,7 +647,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
     // Typically, this is done with `dart run build_runner build`.
     generatorVersion: obx_int.GeneratorVersion.v2025_12_16,
     entities: _entities,
-    lastEntityId: const obx_int.IdUid(5, 9023966399287465849),
+    lastEntityId: const obx_int.IdUid(6, 3506540890240152030),
     lastIndexId: const obx_int.IdUid(2, 7211080441040466135),
     lastRelationId: const obx_int.IdUid(1, 8194382659905112901),
     lastSequenceId: const obx_int.IdUid(0, 0),
@@ -1220,6 +1309,128 @@ obx_int.ModelDefinition getObjectBoxModel() {
         return object;
       },
     ),
+    Route: obx_int.EntityDefinition<Route>(
+      model: _entities[5],
+      toOneRelations: (Route object) => [],
+      toManyRelations: (Route object) => {},
+      getId: (Route object) => object.id,
+      setId: (Route object, int id) {
+        object.id = id;
+      },
+      objectToFB: (Route object, fb.Builder fbb) {
+        final nameOffset = fbb.writeString(object.name);
+        final displayRoutePointsByZoomOffset = fbb.writeString(
+          object.displayRoutePointsByZoom,
+        );
+        final gpxRouteJsonOffset = fbb.writeString(object.gpxRouteJson);
+        fbb.startTable(14);
+        fbb.addInt64(0, object.id);
+        fbb.addOffset(1, nameOffset);
+        fbb.addOffset(2, displayRoutePointsByZoomOffset);
+        fbb.addInt64(3, object.colour);
+        fbb.addFloat64(4, object.distance2d);
+        fbb.addFloat64(5, object.distance3d);
+        fbb.addFloat64(6, object.ascent);
+        fbb.addFloat64(7, object.descent);
+        fbb.addFloat64(8, object.startElevation);
+        fbb.addFloat64(9, object.endElevation);
+        fbb.addFloat64(10, object.lowestElevation);
+        fbb.addFloat64(11, object.highestElevation);
+        fbb.addOffset(12, gpxRouteJsonOffset);
+        fbb.finish(fbb.endTable());
+        return object.id;
+      },
+      objectFromFB: (obx.Store store, ByteData fbData) {
+        final buffer = fb.BufferContext(fbData);
+        final rootOffset = buffer.derefObject(0);
+        final idParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          4,
+          0,
+        );
+        final nameParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 6, '');
+        final displayRoutePointsByZoomParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 8, '');
+        final colourParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          10,
+          0,
+        );
+        final distance2dParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          12,
+          0,
+        );
+        final distance3dParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          14,
+          0,
+        );
+        final ascentParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          16,
+          0,
+        );
+        final descentParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          18,
+          0,
+        );
+        final startElevationParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          20,
+          0,
+        );
+        final endElevationParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          22,
+          0,
+        );
+        final lowestElevationParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          24,
+          0,
+        );
+        final highestElevationParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          26,
+          0,
+        );
+        final object =
+            Route(
+                id: idParam,
+                name: nameParam,
+                displayRoutePointsByZoom: displayRoutePointsByZoomParam,
+                colour: colourParam,
+                distance2d: distance2dParam,
+                distance3d: distance3dParam,
+                ascent: ascentParam,
+                descent: descentParam,
+                startElevation: startElevationParam,
+                endElevation: endElevationParam,
+                lowestElevation: lowestElevationParam,
+                highestElevation: highestElevationParam,
+              )
+              ..gpxRouteJson = const fb.StringReader(
+                asciiOptimization: true,
+              ).vTableGet(buffer, rootOffset, 28, '');
+
+        return object;
+      },
+    ),
   };
 
   return obx_int.ModelDefinition(model, bindings);
@@ -1596,5 +1807,71 @@ class PeaksBagged_ {
   /// See [PeaksBagged.date].
   static final date = obx.QueryDateProperty<PeaksBagged>(
     _entities[4].properties[3],
+  );
+}
+
+/// [Route] entity fields to define ObjectBox queries.
+class Route_ {
+  /// See [Route.id].
+  static final id = obx.QueryIntegerProperty<Route>(_entities[5].properties[0]);
+
+  /// See [Route.name].
+  static final name = obx.QueryStringProperty<Route>(
+    _entities[5].properties[1],
+  );
+
+  /// See [Route.displayRoutePointsByZoom].
+  static final displayRoutePointsByZoom = obx.QueryStringProperty<Route>(
+    _entities[5].properties[2],
+  );
+
+  /// See [Route.colour].
+  static final colour = obx.QueryIntegerProperty<Route>(
+    _entities[5].properties[3],
+  );
+
+  /// See [Route.distance2d].
+  static final distance2d = obx.QueryDoubleProperty<Route>(
+    _entities[5].properties[4],
+  );
+
+  /// See [Route.distance3d].
+  static final distance3d = obx.QueryDoubleProperty<Route>(
+    _entities[5].properties[5],
+  );
+
+  /// See [Route.ascent].
+  static final ascent = obx.QueryDoubleProperty<Route>(
+    _entities[5].properties[6],
+  );
+
+  /// See [Route.descent].
+  static final descent = obx.QueryDoubleProperty<Route>(
+    _entities[5].properties[7],
+  );
+
+  /// See [Route.startElevation].
+  static final startElevation = obx.QueryDoubleProperty<Route>(
+    _entities[5].properties[8],
+  );
+
+  /// See [Route.endElevation].
+  static final endElevation = obx.QueryDoubleProperty<Route>(
+    _entities[5].properties[9],
+  );
+
+  /// See [Route.lowestElevation].
+  static final lowestElevation = obx.QueryDoubleProperty<Route>(
+    _entities[5].properties[10],
+  );
+
+  /// See [Route.highestElevation].
+  static final highestElevation = obx.QueryDoubleProperty<Route>(
+    _entities[5].properties[11],
+  );
+
+  /// See [Route.gpxRouteJson].
+  static final gpxRouteJson = obx.QueryStringProperty<Route>(
+    _entities[5].properties[12],
   );
 }

@@ -31,6 +31,7 @@ class ObjectBoxSchemaGuard {
     final peakList = model.findEntityByName('PeakList');
     final gpxTrack = model.findEntityByName('GpxTrack');
     final peaksBagged = model.findEntityByName('PeaksBagged');
+    final route = model.findEntityByName('Route');
 
     return [
       'modelVersion:${model.modelVersion}',
@@ -45,6 +46,10 @@ class ObjectBoxSchemaGuard {
       'PeaksBagged.peakId:${_hasProperty(peaksBagged, 'peakId')}',
       'PeaksBagged.gpxId:${_hasProperty(peaksBagged, 'gpxId')}',
       'PeaksBagged.date:${_hasProperty(peaksBagged, 'date')}',
+      'Route.name:${_hasProperty(route, 'name')}',
+      'Route.gpxRouteJson:${_hasProperty(route, 'gpxRouteJson')}',
+      'Route.displayRoutePointsByZoom:${_hasProperty(route, 'displayRoutePointsByZoom')}',
+      'Route.colour:${_hasProperty(route, 'colour')}',
     ].join('|');
   }
 

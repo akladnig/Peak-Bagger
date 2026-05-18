@@ -72,6 +72,27 @@ void main() {
     expect(find.text('Mt Ossa Peak'), findsWidgets);
   });
 
+  testWidgets('admin shell browses a Route row', (tester) async {
+    final robot = ObjectBoxAdminRobot(tester);
+
+    await robot.pumpApp(repository: TestObjectBoxAdminRepository());
+
+    await robot.openAdminFromMenu();
+    await tester.tap(robot.entityDropdown);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Route').last);
+    await tester.pumpAndSettle();
+
+    await robot.selectRow('Mt Ossa Route');
+
+    expect(find.text('Route #1'), findsOneWidget);
+    expect(find.text('gpxRouteJson').last, findsOneWidget);
+    expect(
+      find.byKey(const Key('objectbox-admin-details-close')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets(
     'admin shell calculates and saves synchronized peak coordinates',
     (tester) async {

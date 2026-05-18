@@ -38,5 +38,9 @@ void main() {
     expect(signature, contains('PeaksBagged.peakId:'));
     expect(signature, contains('PeaksBagged.gpxId:'));
     expect(signature, contains('PeaksBagged.date:'));
+    expect(signature, contains('Route.name:'));
+    expect(signature, contains('Route.gpxRouteJson:'));
+    expect(signature, contains('Route.displayRoutePointsByZoom:'));
+    expect(signature, contains('Route.colour:'));
   });
 }

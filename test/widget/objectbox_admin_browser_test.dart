@@ -56,6 +56,30 @@ void main() {
     expect(find.text('No matches'), findsOneWidget);
   });
 
+  testWidgets('admin browser opens Route details pane', (tester) async {
+    await _pumpApp(tester, repository: TestObjectBoxAdminRepository());
+
+    await tester.tap(find.byKey(const Key('side-menu-objectbox-admin')));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-entity-dropdown')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Route').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Mt Ossa Route'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Route #1'), findsOneWidget);
+    expect(
+      find.byKey(const Key('objectbox-admin-details-close')),
+      findsOneWidget,
+    );
+    expect(find.text('gpxRouteJson').last, findsOneWidget);
+    expect(find.text('displayRoutePointsByZoom').last, findsOneWidget);
+  });
+
   testWidgets('Peak delete refresh keeps other selection intact', (
     tester,
   ) async {
@@ -547,7 +571,7 @@ void main() {
                     find.widgetWithText(ListTile, 'filteredTrack'),
                   )
                   .subtitle
-              as Text)
+              as SelectableText)
           .data,
       contains('<gpx><trk>'),
     );
@@ -753,9 +777,12 @@ void main() {
       scrollable: detailsScrollable,
     );
     expect(
-      (tester.widget<ListTile>(find.widgetWithText(ListTile, 'totalTimeMillis'))
-              .subtitle
-          as SelectableText)
+      (tester
+                  .widget<ListTile>(
+                    find.widgetWithText(ListTile, 'totalTimeMillis'),
+                  )
+                  .subtitle
+              as SelectableText)
           .data,
       '01:30:00',
     );
@@ -766,9 +793,10 @@ void main() {
       scrollable: detailsScrollable,
     );
     expect(
-      (tester.widget<ListTile>(find.widgetWithText(ListTile, 'movingTime'))
-              .subtitle
-          as SelectableText)
+      (tester
+                  .widget<ListTile>(find.widgetWithText(ListTile, 'movingTime'))
+                  .subtitle
+              as SelectableText)
           .data,
       '01:20:00',
     );
@@ -779,9 +807,12 @@ void main() {
       scrollable: detailsScrollable,
     );
     expect(
-      (tester.widget<ListTile>(find.widgetWithText(ListTile, 'restingTime'))
-              .subtitle
-          as SelectableText)
+      (tester
+                  .widget<ListTile>(
+                    find.widgetWithText(ListTile, 'restingTime'),
+                  )
+                  .subtitle
+              as SelectableText)
           .data,
       '00:05:00',
     );
@@ -792,9 +823,10 @@ void main() {
       scrollable: detailsScrollable,
     );
     expect(
-      (tester.widget<ListTile>(find.widgetWithText(ListTile, 'pausedTime'))
-              .subtitle
-          as SelectableText)
+      (tester
+                  .widget<ListTile>(find.widgetWithText(ListTile, 'pausedTime'))
+                  .subtitle
+              as SelectableText)
           .data,
       '00:01:30',
     );
