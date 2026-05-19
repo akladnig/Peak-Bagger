@@ -6,6 +6,7 @@ import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
+import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/widgets/map_tracks_routes_drawer.dart';
 
 import '../harness/test_map_notifier.dart';
@@ -30,7 +31,9 @@ void main() {
         overrides: [
           mapProvider.overrideWith(() => notifier),
           routeRepositoryProvider.overrideWithValue(
-            RouteStore.inMemory([app_route.Route(name: 'Route 1')]),
+            RouteRepository.test(
+              InMemoryRouteStorage([app_route.Route(name: 'Route 1')]),
+            ),
           ),
         ],
         child: const MaterialApp(
@@ -66,7 +69,9 @@ void main() {
       ProviderScope(
         overrides: [
           mapProvider.overrideWith(() => notifier),
-          routeRepositoryProvider.overrideWithValue(RouteStore.inMemory()),
+          routeRepositoryProvider.overrideWithValue(
+            RouteRepository.test(InMemoryRouteStorage()),
+          ),
         ],
         child: const MaterialApp(
           home: Scaffold(body: MapTracksRoutesDrawer()),

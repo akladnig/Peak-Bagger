@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -16,10 +17,12 @@ import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/screens/dashboard_screen.dart';
 import 'package:peak_bagger/screens/peak_lists_screen.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
+import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/import_path_helpers.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -696,6 +699,91 @@ void main() {
       PeakListSelectionMode.allPeaks,
     );
     expect(robot.peakMarkerIds(), [7000, 6406]);
+  });
+
+  testWidgets('save route then enable routes restores layer after restart', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+    final tasmapRepository = await TestTasmapRepository.create();
+    final notifier = MapNotifier(
+      peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+      overpassService: OverpassService(),
+      tasmapRepository: tasmapRepository,
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+      routeRepository: routeRepository,
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage(),
+      ),
+      loadPositionOnBuild: false,
+      loadPeaksOnBuild: false,
+      loadTracksOnBuild: false,
+    );
+    final robot = GpxTracksRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+      notifier: notifier,
+      tasmapRepository: tasmapRepository,
+      routeRepository: routeRepository,
+    );
+    addTearDown(robot.dispose);
+    await robot.pumpApp();
+
+    await tester.tap(find.byKey(const Key('create-route-fab')));
+    await tester.pumpAndSettle();
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region) + const Offset(-40, 0));
+    await tester.pumpAndSettle();
+    await tester.tapAt(tester.getCenter(region) + const Offset(40, 0));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('route-name-field')), 'Restart Route');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('route-save-button')));
+    await tester.pumpAndSettle();
+
+    expect(routeRepository.getAllRoutes(), hasLength(1));
+
+    await robot.toggleRoutes();
+    expect(find.byType(PolylineLayer), findsOneWidget);
+
+    final restartNotifier = MapNotifier(
+      peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+      overpassService: OverpassService(),
+      tasmapRepository: tasmapRepository,
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+      routeRepository: routeRepository,
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage(),
+      ),
+      loadPositionOnBuild: false,
+      loadPeaksOnBuild: false,
+      loadTracksOnBuild: false,
+    );
+    final restartRobot = GpxTracksRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+      notifier: restartNotifier,
+      tasmapRepository: tasmapRepository,
+      routeRepository: routeRepository,
+    );
+    addTearDown(restartRobot.dispose);
+    await restartRobot.pumpApp();
+
+    final restartContainer = ProviderScope.containerOf(
+      tester.element(restartRobot.mapInteractionRegion),
+    );
+    expect(restartContainer.read(mapProvider).showRoutes, isTrue);
+    expect(find.byType(PolylineLayer), findsOneWidget);
   });
 }
 

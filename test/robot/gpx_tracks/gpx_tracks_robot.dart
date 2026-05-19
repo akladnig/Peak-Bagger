@@ -11,6 +11,7 @@ import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
+import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/gpx_file_picker.dart';
@@ -18,7 +19,9 @@ import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../harness/test_map_notifier.dart';
 import '../../harness/test_gpx_file_picker.dart';
@@ -31,8 +34,10 @@ class GpxTracksRobot {
     PeakListRepository? peakListRepository,
     PeakRepository? peakRepository,
     PeaksBaggedRepository? peaksBaggedRepository,
+    RouteRepository? routeRepository,
     TasmapRepository? tasmapRepository,
     GpxFilePicker? gpxFilePicker,
+    Future<SharedPreferences> Function()? prefsLoader,
     this.surfaceSize = const Size(1600, 900),
   }) : notifier = notifier ?? TestMapNotifier(initialState),
         peakListRepository =
@@ -41,8 +46,10 @@ class GpxTracksRobot {
             peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
         peaksBaggedRepository =
             peaksBaggedRepository ?? PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
+        routeRepository = routeRepository ?? RouteRepository.test(InMemoryRouteStorage()),
         tasmapRepository = tasmapRepository,
-        gpxFilePicker = gpxFilePicker ?? FakeGpxFilePicker();
+        gpxFilePicker = gpxFilePicker ?? FakeGpxFilePicker(),
+        prefsLoader = prefsLoader;
 
   final WidgetTester tester;
   final MapState initialState;
@@ -50,8 +57,10 @@ class GpxTracksRobot {
   final PeakListRepository peakListRepository;
   final PeakRepository peakRepository;
   final PeaksBaggedRepository peaksBaggedRepository;
+  final RouteRepository routeRepository;
   final TasmapRepository? tasmapRepository;
   final GpxFilePicker gpxFilePicker;
+  final Future<SharedPreferences> Function()? prefsLoader;
   final Size surfaceSize;
   TestGesture? _mouseGesture;
   bool _mouseAdded = false;
@@ -115,6 +124,9 @@ class GpxTracksRobot {
         peakListRepositoryProvider.overrideWithValue(peakListRepository),
         peakRepositoryProvider.overrideWithValue(peakRepository),
         peaksBaggedRepositoryProvider.overrideWithValue(peaksBaggedRepository),
+        routeRepositoryProvider.overrideWithValue(routeRepository),
+        if (prefsLoader != null)
+          mapPreferencesLoaderProvider.overrideWithValue(prefsLoader!),
         if (tasmapRepository != null)
           tasmapRepositoryProvider.overrideWithValue(tasmapRepository!),
         gpxFilePickerProvider.overrideWithValue(gpxFilePicker),
@@ -144,6 +156,16 @@ class GpxTracksRobot {
     await tester.pumpAndSettle();
     expect(tracksRoutesDrawer, findsOneWidget);
     await tester.tap(find.text('Show Tracks'));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> toggleRoutes() async {
+    await tester.ensureVisible(showTracksFab);
+    await tester.pumpAndSettle();
+    tester.widget<FloatingActionButton>(showTracksFab).onPressed!.call();
+    await tester.pumpAndSettle();
+    expect(tracksRoutesDrawer, findsOneWidget);
+    await tester.tap(find.text('Show Routes'));
     await tester.pumpAndSettle();
   }
 

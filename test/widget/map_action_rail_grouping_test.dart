@@ -7,6 +7,7 @@ import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
+import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/widgets/left_tooltip_fab.dart';
 import 'package:peak_bagger/widgets/map_action_rail.dart';
 import 'package:peak_bagger/widgets/map_tracks_routes_drawer.dart';
@@ -183,7 +184,9 @@ Future<void> _pumpRail(WidgetTester tester, TestMapNotifier notifier) async {
     ProviderScope(
       overrides: [
         mapProvider.overrideWith(() => notifier),
-        routeRepositoryProvider.overrideWithValue(RouteStore.inMemory()),
+        routeRepositoryProvider.overrideWithValue(
+          RouteRepository.test(InMemoryRouteStorage()),
+        ),
       ],
       child: MaterialApp(
         home: Scaffold(

@@ -47,15 +47,15 @@ Add real route repo/read path so saved routes render and survive restart.
 ### Phase 3: Coverage + Regression Sweep
 
 - **Goal**: stabilize journey coverage and repo seams
-- [ ] `test/harness/test_map_notifier.dart` - add independent tracks/routes visibility seeding, route repo overrides, route availability overrides, save-state/snackbar hooks, prefs loader seams
-- [ ] `test/widget/map_screen_keyboard_test.dart` - update `T` expectations from direct toggle to drawer open path
-- [ ] `test/widget/map_action_rail_grouping_test.dart`, `test/widget/gpx_tracks_recovery_test.dart`, `test/widget/map_screen_route_sheet_test.dart` - update old disabled/toggle assumptions; add drawer, helper text, route-save, overlay, and restore assertions
-- [ ] `test/robot/gpx_tracks/gpx_tracks_robot.dart`, `test/robot/gpx_tracks/gpx_tracks_journey_test.dart`, `test/robot/gpx_tracks/selection_journey_test.dart`, `test/robot/gpx_tracks/recovery_robot.dart` - add stable drawer/switch robot methods and restart-restore journey coverage
-- [ ] `test/gpx_track_test.dart` or new route-focused test file near model/service scope - cover route cache parsing/raw fallback and repository create/read/update behavior
-- [ ] TDD: restart with stored `showTracks`/`showRoutes` combinations restores same combination before later dataset changes
-- [ ] TDD: turning tracks off still clears selected/hovered track state; turning routes off does not mutate tracks/selection
-- [ ] Robot journey tests + selectors/seams for save route -> enable routes -> restart -> layer still restored
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `test/harness/test_map_notifier.dart` - add independent tracks/routes visibility seeding, route repo overrides, route availability overrides, save-state/snackbar hooks, prefs loader seams
+- [x] `test/widget/map_screen_keyboard_test.dart` - update `T` expectations from direct toggle to drawer open path
+- [x] `test/widget/map_action_rail_grouping_test.dart`, `test/widget/gpx_tracks_recovery_test.dart`, `test/widget/map_screen_route_sheet_test.dart` - update old disabled/toggle assumptions; add drawer, helper text, route-save, overlay, and restore assertions
+- [x] `test/robot/gpx_tracks/gpx_tracks_robot.dart`, `test/robot/gpx_tracks/gpx_tracks_journey_test.dart`, `test/robot/gpx_tracks/selection_journey_test.dart`, `test/robot/gpx_tracks/recovery_robot.dart` - add stable drawer/switch robot methods and restart-restore journey coverage
+- [x] `test/gpx_track_test.dart` or new route-focused test file near model/service scope - cover route cache parsing/raw fallback and repository create/read/update behavior
+- [x] TDD: restart with stored `showTracks`/`showRoutes` combinations restores same combination before later dataset changes
+- [x] TDD: turning tracks off still clears selected/hovered track state; turning routes off does not mutate tracks/selection
+- [x] Robot journey tests + selectors/seams for save route -> enable routes -> restart -> layer still restored
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 
