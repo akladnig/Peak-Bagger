@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
@@ -12,6 +13,8 @@ import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/services/track_display_cache_builder.dart';
 
 class TestMapNotifier extends MapNotifier {
   TestMapNotifier(
@@ -28,6 +31,8 @@ class TestMapNotifier extends MapNotifier {
     this.peakRepository,
     this.peaksBaggedRepository,
     this.gpxTrackRepository,
+    this.routeRepository,
+    this.routeSaveErrorMessage,
     Set<int> correlatedPeakIds = const {},
   }) : _correlatedPeakIds = correlatedPeakIds,
         _startupBackfillWarningMessage = startupBackfillWarningMessage;
@@ -44,16 +49,18 @@ class TestMapNotifier extends MapNotifier {
   final PeakRepository? peakRepository;
   final PeaksBaggedRepository? peaksBaggedRepository;
   final GpxTrackRepository? gpxTrackRepository;
+  final RouteRepository? routeRepository;
+  final String? routeSaveErrorMessage;
   final Set<int> _correlatedPeakIds;
   bool _snackbarConsumed = false;
   String? _trackSnackbarMessage;
   String? _startupBackfillWarningMessage;
+  String? _routeSnackbarMessage;
   int refreshCallCount = 0;
 
   void setTracks(List<GpxTrack> tracks) {
     state = state.copyWith(
       tracks: tracks,
-      showTracks: tracks.isNotEmpty,
       isLoadingTracks: false,
       hasTrackRecoveryIssue: false,
     );
@@ -108,7 +115,6 @@ class TestMapNotifier extends MapNotifier {
     if (trackWasLoaded || trackWasSelected || trackWasHovered) {
       state = state.copyWith(
         tracks: remainingVisibleTracks,
-        showTracks: remainingVisibleTracks.isEmpty ? false : state.showTracks,
         clearSelectedTrackId: trackWasSelected,
         clearSelectedLocation: trackWasSelected,
         clearHoveredTrackId: trackWasHovered,
@@ -142,9 +148,7 @@ class TestMapNotifier extends MapNotifier {
 
   @override
   void toggleTracks() {
-    if (state.tracks.isEmpty ||
-        state.isLoadingTracks ||
-        state.hasTrackRecoveryIssue) {
+    if (state.isLoadingTracks || state.hasTrackRecoveryIssue) {
       return;
     }
     state = state.copyWith(
@@ -233,6 +237,41 @@ class TestMapNotifier extends MapNotifier {
 
   @override
   Future<void> persistPeakListSelection() async {}
+
+  @override
+  Future<void> persistTracksRoutesVisibility() async {}
+
+  @override
+  Future<void> saveRouteDraft() async {
+    final trimmedName = state.routeDraftName.trim();
+    if (trimmedName.isEmpty || state.routeDraftMarkers.length < 2) {
+      state = state.copyWith(routeDraftNameError: 'A Route name must be entered');
+      return;
+    }
+    if (routeSaveErrorMessage != null) {
+      _routeSnackbarMessage = routeSaveErrorMessage;
+      state = state.copyWith(isSavingRoute: false);
+      return;
+    }
+    routeRepository?.saveRoute(
+      Route(
+        name: trimmedName,
+        gpxRoute: List<LatLng>.from(state.routeDraftMarkers, growable: false),
+        displayRoutePointsByZoom: TrackDisplayCacheBuilder.buildJson([
+          List<LatLng>.from(state.routeDraftMarkers, growable: false),
+        ]),
+        colour: 0xFFFF0000,
+      ),
+    );
+    endRouteDraft();
+  }
+
+  @override
+  String? consumeRouteSnackbarMessage() {
+    final message = _routeSnackbarMessage;
+    _routeSnackbarMessage = null;
+    return message;
+  }
 
   @override
   void searchPeaks(String query) {

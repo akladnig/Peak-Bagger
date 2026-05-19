@@ -279,7 +279,7 @@ void main() {
         final notifier = container.read(mapProvider.notifier);
         await _drainAsync();
 
-        expect(container.read(mapProvider).showTracks, isTrue);
+        expect(container.read(mapProvider).showTracks, isFalse);
         expect(container.read(mapProvider).hasTrackRecoveryIssue, isFalse);
         expect(peaksRepository.rebuildTrackCounts, [1]);
         expect(await markerStore.isPeaksBaggedBackfillMarked(), isTrue);

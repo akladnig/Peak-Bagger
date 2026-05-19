@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../core/constants.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/services/gpx_file_picker.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
 import 'package:peak_bagger/widgets/gpx_track_import_dialog.dart';
@@ -44,18 +45,16 @@ class MapActionRail extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     MapRebuildDebugCounters.recordActionRailBuild();
-    final (:tracks, :isLoadingTracks, :hasTrackRecoveryIssue, :isRouteDrafting) = ref.watch(
+    final (:isLoadingTracks, :hasTrackRecoveryIssue, :isRouteDrafting) = ref.watch(
       mapProvider.select(
         (state) => (
-          tracks: state.tracks,
           isLoadingTracks: state.isLoadingTracks,
           hasTrackRecoveryIssue: state.hasTrackRecoveryIssue,
           isRouteDrafting: state.isRouteDrafting,
         ),
       ),
     );
-    final isDisabled =
-        tracks.isEmpty || isLoadingTracks || hasTrackRecoveryIssue;
+    ref.watch(routeAvailabilityProvider);
     final viewPaddingBottom = MediaQuery.of(context).viewPadding.bottom;
 
     return Positioned.fill(
@@ -215,20 +214,21 @@ class MapActionRail extends ConsumerWidget {
                       ),
                       const SizedBox(height: UiConstants.railSpacing),
                       LeftTooltipFab(
-                        message: 'Show tracks',
+                        message: 'Show Tracks/Routes (T)',
                         child: FloatingActionButton.small(
                           key: const Key('show-tracks-fab'),
                           heroTag: 'tracks',
                           backgroundColor:
                               Theme.of(context).colorScheme.surface,
-                          onPressed: isDisabled
-                              ? null
-                              : () {
-                                  ref.read(mapProvider.notifier).toggleTracks();
-                                },
+                          onPressed: () {
+                            ref
+                                .read(mapProvider.notifier)
+                                .setEndDrawerMode(EndDrawerMode.tracksRoutes);
+                            Scaffold.of(context).openEndDrawer();
+                          },
                           child: Icon(
                             Icons.route,
-                            color: isDisabled
+                            color: (isLoadingTracks || hasTrackRecoveryIssue)
                                 ? Colors.red
                                 : Theme.of(context).colorScheme.onSurface,
                           ),

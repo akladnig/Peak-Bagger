@@ -37,11 +37,14 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final (:routeDraftName, :routeDraftMode) = ref.watch(
+    final (:routeDraftName, :routeDraftNameError, :routeDraftMode, :routeDraftMarkers, :isSavingRoute) = ref.watch(
       mapProvider.select(
         (state) => (
           routeDraftName: state.routeDraftName,
+          routeDraftNameError: state.routeDraftNameError,
           routeDraftMode: state.routeDraftMode,
+          routeDraftMarkers: state.routeDraftMarkers,
+          isSavingRoute: state.isSavingRoute,
         ),
       ),
     );
@@ -76,6 +79,7 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
                         child: Center(
                           child: _RouteEditingGroup(
                             routeDraftName: routeDraftName,
+                            routeDraftNameError: routeDraftNameError,
                             routeDraftMode: routeMode,
                             routeNameFocusNode: _routeNameFocusNode,
                             onNameChanged: notifier.setRouteDraftName,
@@ -86,7 +90,12 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
                       const SizedBox(width: 12),
                       _RouteActionsGroup(
                         onCancel: notifier.endRouteDraft,
-                        onSave: notifier.endRouteDraft,
+                        onSave: notifier.saveRouteDraft,
+                        canSave:
+                            routeDraftMarkers.length >= 2 &&
+                            routeDraftName.trim().isNotEmpty &&
+                            !isSavingRoute,
+                        isSaving: isSavingRoute,
                       ),
                     ],
                   ),
@@ -165,6 +174,7 @@ class _DistanceElevationGroup extends StatelessWidget {
 class _RouteEditingGroup extends StatelessWidget {
   const _RouteEditingGroup({
     required this.routeDraftName,
+    required this.routeDraftNameError,
     required this.routeDraftMode,
     required this.routeNameFocusNode,
     required this.onNameChanged,
@@ -172,6 +182,7 @@ class _RouteEditingGroup extends StatelessWidget {
   });
 
   final String routeDraftName;
+  final String? routeDraftNameError;
   final RouteMode routeDraftMode;
   final FocusNode routeNameFocusNode;
   final ValueChanged<String> onNameChanged;
@@ -230,6 +241,15 @@ class _RouteEditingGroup extends StatelessWidget {
             ],
           ),
         ),
+        if (routeDraftNameError != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            routeDraftNameError!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.error,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -267,10 +287,17 @@ class _RouteModeButton extends StatelessWidget {
 }
 
 class _RouteActionsGroup extends StatelessWidget {
-  const _RouteActionsGroup({required this.onCancel, required this.onSave});
+  const _RouteActionsGroup({
+    required this.onCancel,
+    required this.onSave,
+    required this.canSave,
+    required this.isSaving,
+  });
 
   final VoidCallback onCancel;
-  final VoidCallback onSave;
+  final Future<void> Function() onSave;
+  final bool canSave;
+  final bool isSaving;
 
   @override
   Widget build(BuildContext context) {
@@ -289,8 +316,14 @@ class _RouteActionsGroup extends StatelessWidget {
             const SizedBox(width: 8),
             FilledButton(
               key: const Key('route-save-button'),
-              onPressed: onSave,
-              child: const Text('Save'),
+              onPressed: canSave ? () => onSave() : null,
+              child: isSaving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Save'),
             ),
           ],
         ),

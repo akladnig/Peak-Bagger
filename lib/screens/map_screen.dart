@@ -21,6 +21,7 @@ import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
+import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/services/peak_hover_detector.dart';
 import 'package:peak_bagger/services/track_hover_detector.dart';
 import 'package:peak_bagger/services/map_trackpad_gesture_classifier.dart';
@@ -29,6 +30,7 @@ import '../core/constants.dart';
 import 'package:peak_bagger/widgets/map_action_rail.dart';
 import 'package:peak_bagger/widgets/map_basemaps_drawer.dart';
 import 'package:peak_bagger/widgets/map_peak_lists_drawer.dart';
+import 'package:peak_bagger/widgets/map_tracks_routes_drawer.dart';
 import 'package:peak_bagger/widgets/map_route_bottom_sheet.dart';
 import 'package:peak_bagger/widgets/map_rebuild_debug_counters.dart';
 import 'package:peak_bagger/widgets/tasmap_polygon_label.dart';
@@ -58,6 +60,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   final _mapFocusNode = FocusNode();
   String? _gotoError;
   bool _mapReady = false;
+  bool _wasRouteDrafting = false;
   Tasmap50k? _pendingSelectedMap;
   int? _pendingSelectedMapSerial;
   int? _appliedSelectedMapSerial;
@@ -878,7 +881,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
               return KeyEventResult.handled;
             } else if (key == LogicalKeyboardKey.keyT) {
               if (event is KeyDownEvent) {
-                notifier.toggleTracks();
+                notifier.setEndDrawerMode(EndDrawerMode.tracksRoutes);
+                _scaffoldKey.currentState?.openEndDrawer();
               }
               return KeyEventResult.handled;
             }
@@ -889,6 +893,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
             endDrawer: switch (routeChrome.endDrawerMode) {
               EndDrawerMode.basemaps => const MapBasemapsDrawer(),
               EndDrawerMode.peakLists => const MapPeakListsDrawer(),
+              EndDrawerMode.tracksRoutes => const MapTracksRoutesDrawer(),
             },
             onEndDrawerChanged: (isOpen) {
               if (!isOpen && mounted) {
@@ -901,6 +906,32 @@ class _MapScreenState extends ConsumerState<MapScreen>
                   builder: (context, ref, _) {
                     final mapState = ref.watch(mapProvider);
                     final filteredPeaks = ref.watch(filteredPeaksProvider);
+                    final routes = ref.watch(routeListProvider);
+                    final routeDraftVisibility = ref.watch(
+                      mapProvider.select(
+                        (state) => (
+                          isRouteDrafting: state.isRouteDrafting,
+                        ),
+                      ),
+                    );
+                    final routeSnackbarMessage = ref
+                        .read(mapProvider.notifier)
+                        .consumeRouteSnackbarMessage();
+                    if (routeSnackbarMessage != null) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(routeSnackbarMessage)),
+                        );
+                      });
+                    }
+                    if (_wasRouteDrafting && !routeDraftVisibility.isRouteDrafting) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!mounted) return;
+                        _mapFocusNode.requestFocus();
+                      });
+                    }
+                    _wasRouteDrafting = routeDraftVisibility.isRouteDrafting;
                     ref.watch(
                       tasmapStateProvider.select(
                         (state) => state.tasmapRevision,
@@ -1178,6 +1209,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                 tasmapRepositoryProvider,
                                               ),
                                             ),
+                                          ),
+                                        if (mapState.showRoutes)
+                                          buildRoutePolylines(
+                                            routes,
+                                            mapState.zoom,
                                           ),
                                         if (mapState.showTracks)
                                           buildTrackPolylines(

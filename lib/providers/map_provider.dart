@@ -8,6 +8,8 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/route.dart';
+import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/import_path_helpers.dart';
@@ -20,6 +22,7 @@ import 'package:peak_bagger/services/peak_refresh_result.dart';
 import 'package:peak_bagger/services/peak_refresh_service.dart';
 import 'package:peak_bagger/services/peak_info_content_resolver.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/track_peak_correlation_service.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
@@ -44,6 +47,8 @@ const _lngKey = 'map_position_lng';
 const _zoomKey = 'map_zoom';
 const _peakListSelectionModeKey = 'peak_list_selection_mode';
 const _peakListIdKey = 'peak_list_id';
+const _showTracksKey = 'show_tracks';
+const _showRoutesKey = 'show_routes';
 
 enum Basemap { tasmapTopo, tasmap50k, tasmap25k, tracestrack, openstreetmap }
 
@@ -51,7 +56,7 @@ enum TasmapDisplayMode { overlay, none, selectedMap }
 
 enum PeakListSelectionMode { none, allPeaks, specificList }
 
-enum EndDrawerMode { basemaps, peakLists }
+enum EndDrawerMode { basemaps, peakLists, tracksRoutes }
 
 enum RouteMode { snapToTrail, straightLine }
 
@@ -134,7 +139,9 @@ class MapState {
   final double? infoPeakElevation;
   final LatLng? selectedLocation;
   final bool isRouteDrafting;
+  final bool isSavingRoute;
   final String routeDraftName;
+  final String? routeDraftNameError;
   final RouteMode routeDraftMode;
   final List<LatLng> routeDraftMarkers;
   final bool routeDraftNameFieldFocused;
@@ -152,6 +159,7 @@ class MapState {
   final int selectedTrackFocusSerial;
   final List<GpxTrack> tracks;
   final bool showTracks;
+  final bool showRoutes;
   final PeakListSelectionMode peakListSelectionMode;
   final int? selectedPeakListId;
   final EndDrawerMode endDrawerMode;
@@ -186,7 +194,9 @@ class MapState {
     this.infoPeakElevation,
     this.selectedLocation,
     this.isRouteDrafting = false,
+    this.isSavingRoute = false,
     this.routeDraftName = '',
+    this.routeDraftNameError,
     this.routeDraftMode = RouteMode.snapToTrail,
     this.routeDraftMarkers = const [],
     this.routeDraftNameFieldFocused = false,
@@ -204,6 +214,7 @@ class MapState {
     this.selectedTrackFocusSerial = 0,
     this.tracks = const [],
     this.showTracks = false,
+    this.showRoutes = false,
     this.peakListSelectionMode = PeakListSelectionMode.allPeaks,
     this.selectedPeakListId,
     this.endDrawerMode = EndDrawerMode.basemaps,
@@ -254,7 +265,10 @@ class MapState {
     LatLng? selectedLocation,
     bool clearSelectedLocation = false,
     bool? isRouteDrafting,
+    bool? isSavingRoute,
     String? routeDraftName,
+    String? routeDraftNameError,
+    bool clearRouteDraftNameError = false,
     RouteMode? routeDraftMode,
     List<LatLng>? routeDraftMarkers,
     bool? routeDraftNameFieldFocused,
@@ -272,6 +286,7 @@ class MapState {
     int? selectedTrackFocusSerial,
     List<GpxTrack>? tracks,
     bool? showTracks,
+    bool? showRoutes,
     PeakListSelectionMode? peakListSelectionMode,
     int? selectedPeakListId,
     bool clearSelectedPeakListId = false,
@@ -324,7 +339,11 @@ class MapState {
           ? null
           : (selectedLocation ?? this.selectedLocation),
       isRouteDrafting: isRouteDrafting ?? this.isRouteDrafting,
+      isSavingRoute: isSavingRoute ?? this.isSavingRoute,
       routeDraftName: routeDraftName ?? this.routeDraftName,
+      routeDraftNameError: clearRouteDraftNameError
+          ? null
+          : (routeDraftNameError ?? this.routeDraftNameError),
       routeDraftMode: routeDraftMode ?? this.routeDraftMode,
       routeDraftMarkers: routeDraftMarkers ?? this.routeDraftMarkers,
       routeDraftNameFieldFocused:
@@ -345,6 +364,7 @@ class MapState {
           selectedTrackFocusSerial ?? this.selectedTrackFocusSerial,
       tracks: tracks ?? this.tracks,
       showTracks: showTracks ?? this.showTracks,
+      showRoutes: showRoutes ?? this.showRoutes,
       peakListSelectionMode:
           peakListSelectionMode ?? this.peakListSelectionMode,
       selectedPeakListId: clearSelectedPeakListId
@@ -383,9 +403,67 @@ class MapState {
 
 final mapProvider = NotifierProvider<MapNotifier, MapState>(MapNotifier.new);
 
+final mapPreferencesLoaderProvider =
+    Provider<Future<SharedPreferences> Function()>((ref) {
+      return SharedPreferences.getInstance;
+    });
+
 final gpxTrackRepositoryProvider = Provider<GpxTrackRepository>((ref) {
   return GpxTrackRepository(objectboxStore);
 });
+
+final trackAvailabilityProvider = Provider<TrackAvailabilityState>((ref) {
+  final (:tracks, :isLoadingTracks, :hasTrackRecoveryIssue) = ref.watch(
+    mapProvider.select(
+      (state) => (
+        tracks: state.tracks,
+        isLoadingTracks: state.isLoadingTracks,
+        hasTrackRecoveryIssue: state.hasTrackRecoveryIssue,
+      ),
+    ),
+  );
+
+  if (isLoadingTracks) {
+    return const TrackAvailabilityState.loading();
+  }
+  if (hasTrackRecoveryIssue) {
+    return const TrackAvailabilityState.recoveryDisabled();
+  }
+  if (tracks.isEmpty) {
+    return const TrackAvailabilityState.empty();
+  }
+  return const TrackAvailabilityState.available();
+});
+
+enum TrackAvailabilityStatus { loading, recoveryDisabled, empty, available }
+
+class TrackAvailabilityState {
+  const TrackAvailabilityState._(this.status);
+
+  const TrackAvailabilityState.loading() : this._(TrackAvailabilityStatus.loading);
+
+  const TrackAvailabilityState.recoveryDisabled()
+    : this._(TrackAvailabilityStatus.recoveryDisabled);
+
+  const TrackAvailabilityState.empty() : this._(TrackAvailabilityStatus.empty);
+
+  const TrackAvailabilityState.available()
+    : this._(TrackAvailabilityStatus.available);
+
+  final TrackAvailabilityStatus status;
+
+  bool get isEnabled => status == TrackAvailabilityStatus.available;
+
+  String? get helperText {
+    return switch (status) {
+      TrackAvailabilityStatus.loading => 'Loading tracks...',
+      TrackAvailabilityStatus.recoveryDisabled =>
+        'Tracks unavailable during recovery',
+      TrackAvailabilityStatus.empty => 'No tracks loaded',
+      TrackAvailabilityStatus.available => null,
+    };
+  }
+}
 
 Set<int> buildCorrelatedPeakIds(Iterable<GpxTrack> tracks) {
   final ids = <int>{};
@@ -411,6 +489,7 @@ class MapNotifier extends Notifier<MapState> {
     OverpassService? overpassService,
     TasmapRepository? tasmapRepository,
     GpxTrackRepository? gpxTrackRepository,
+    RouteRepository? routeRepository,
     PeaksBaggedRepository? peaksBaggedRepository,
     MigrationMarkerStore? migrationMarkerStore,
     bool loadPositionOnBuild = true,
@@ -420,6 +499,7 @@ class MapNotifier extends Notifier<MapState> {
        _injectedOverpassService = overpassService,
        _injectedTasmapRepository = tasmapRepository,
        _injectedGpxTrackRepository = gpxTrackRepository,
+       _injectedRouteRepository = routeRepository,
        _injectedPeaksBaggedRepository = peaksBaggedRepository,
        _injectedMigrationMarkerStore = migrationMarkerStore,
        _loadPositionOnBuild = loadPositionOnBuild,
@@ -430,6 +510,7 @@ class MapNotifier extends Notifier<MapState> {
   final OverpassService? _injectedOverpassService;
   final TasmapRepository? _injectedTasmapRepository;
   final GpxTrackRepository? _injectedGpxTrackRepository;
+  final RouteRepository? _injectedRouteRepository;
   final PeaksBaggedRepository? _injectedPeaksBaggedRepository;
   final MigrationMarkerStore? _injectedMigrationMarkerStore;
   final bool _loadPositionOnBuild;
@@ -440,11 +521,17 @@ class MapNotifier extends Notifier<MapState> {
   late final PeakRefreshService _peakRefreshService;
   late final TasmapRepository _tasmapRepository;
   late final GpxTrackRepository _gpxTrackRepository;
+  late final RouteRepository _routeRepository;
   late final PeaksBaggedRepository _peaksBaggedRepository;
   late final MigrationMarkerStore _migrationMarkerStore;
+  late final Future<SharedPreferences> Function() _prefsLoader;
   bool _recoverySnackbarShown = false;
   String? _pendingTrackSnackbarMessage;
   String? _pendingStartupBackfillWarningMessage;
+  String? _pendingRouteSnackbarMessage;
+  bool _isRestoringVisibilityPrefs = false;
+  bool _showTracksRestoreOverridden = false;
+  bool _showRoutesRestoreOverridden = false;
   Set<int> get correlatedPeakIds => buildCorrelatedPeakIds(state.tracks);
 
   @override
@@ -459,19 +546,14 @@ class MapNotifier extends Notifier<MapState> {
         _injectedTasmapRepository ?? ref.read(tasmapRepositoryProvider);
     _gpxTrackRepository =
         _injectedGpxTrackRepository ?? GpxTrackRepository(objectboxStore);
+    _routeRepository =
+        _injectedRouteRepository ?? ref.read(routeRepositoryProvider);
     _peaksBaggedRepository =
         _injectedPeaksBaggedRepository ?? PeaksBaggedRepository(objectboxStore);
     _migrationMarkerStore =
         _injectedMigrationMarkerStore ?? const MigrationMarkerStore();
-    if (_loadPositionOnBuild) {
-      _loadPosition();
-    }
-    if (_loadPeaksOnBuild) {
-      Future.microtask(() => _loadPeaks());
-    }
-    if (_loadTracksOnBuild) {
-      Future.microtask(() => _loadTracks());
-    }
+    _prefsLoader = ref.read(mapPreferencesLoaderProvider);
+    Future.microtask(_runStartupLoad);
     return MapState(
       center: MapConstants.defaultCenter,
       zoom: MapConstants.defaultZoom,
@@ -479,6 +561,36 @@ class MapNotifier extends Notifier<MapState> {
       isFirstLaunch: true,
       selectedLocation: MapConstants.defaultCenter,
     );
+  }
+
+  Future<void> _runStartupLoad() async {
+    await _restoreVisibilityPrefs();
+    if (_loadPositionOnBuild) {
+      await _loadPosition();
+    }
+    if (_loadPeaksOnBuild) {
+      await _loadPeaks();
+    }
+    if (_loadTracksOnBuild) {
+      await _loadTracks();
+    }
+  }
+
+  Future<void> _restoreVisibilityPrefs() async {
+    _isRestoringVisibilityPrefs = true;
+    try {
+      final prefs = await _prefsLoader();
+      final showTracks = prefs.getBool(_showTracksKey) ?? false;
+      final showRoutes = prefs.getBool(_showRoutesKey) ?? false;
+      state = state.copyWith(
+        showTracks: _showTracksRestoreOverridden ? null : showTracks,
+        showRoutes: _showRoutesRestoreOverridden ? null : showRoutes,
+      );
+    } catch (_) {
+      // Continue with defaults on read failure.
+    } finally {
+      _isRestoringVisibilityPrefs = false;
+    }
   }
 
   Future<void> _loadPeaks() async {
@@ -526,7 +638,6 @@ class MapNotifier extends Notifier<MapState> {
         _gpxTrackRepository.deleteAll();
         state = state.copyWith(
           tracks: const [],
-          showTracks: false,
           hasTrackRecoveryIssue: false,
           clearHoveredTrackId: true,
           clearSelectedTrackId: true,
@@ -551,7 +662,6 @@ class MapNotifier extends Notifier<MapState> {
         _refreshCorrelatedPeakIds(tracks);
         state = state.copyWith(
           tracks: tracks,
-          showTracks: false,
           hasTrackRecoveryIssue: true,
           clearHoveredTrackId: true,
           clearSelectedTrackId: true,
@@ -562,7 +672,6 @@ class MapNotifier extends Notifier<MapState> {
         _refreshCorrelatedPeakIds(tracks);
         state = state.copyWith(
           tracks: tracks,
-          showTracks: true,
           hasTrackRecoveryIssue: false,
           clearHoveredTrackId: true,
           clearSelectedTrackId: true,
@@ -703,11 +812,6 @@ class MapNotifier extends Notifier<MapState> {
       }
       state = state.copyWith(
         tracks: allTracks,
-        showTracks: hasRecoveryIssue
-            ? false
-            : (resetExisting
-                  ? false
-                  : state.showTracks || allTracks.isNotEmpty),
         isLoadingTracks: false,
         hasTrackRecoveryIssue: hasRecoveryIssue,
         trackOperationStatus: statusMessage,
@@ -830,12 +934,8 @@ class MapNotifier extends Notifier<MapState> {
           ? addedItems.first.track
           : null;
 
-      // Set showTracks to true if we added any tracks
-      final showTracks = state.showTracks || addedItems.isNotEmpty;
-
       state = state.copyWith(
         tracks: allTracks,
-        showTracks: showTracks,
         selectedTrackId: selectedImportedTrack?.gpxTrackId ?? state.selectedTrackId,
         selectedTrackFocusSerial: selectedImportedTrack == null
             ? state.selectedTrackFocusSerial
@@ -904,7 +1004,7 @@ class MapNotifier extends Notifier<MapState> {
       return null;
     }
 
-    state = state.copyWith(showTracks: false, clearHoveredTrackId: true);
+    state = state.copyWith(clearHoveredTrackId: true);
     if (!state.hasTrackRecoveryIssue) {
       _recoverySnackbarShown = false;
     }
@@ -1137,6 +1237,12 @@ class MapNotifier extends Notifier<MapState> {
     return message;
   }
 
+  String? consumeRouteSnackbarMessage() {
+    final message = _pendingRouteSnackbarMessage;
+    _pendingRouteSnackbarMessage = null;
+    return message;
+  }
+
   String? consumeStartupBackfillWarningMessage() {
     final message = _pendingStartupBackfillWarningMessage;
     _pendingStartupBackfillWarningMessage = null;
@@ -1145,7 +1251,7 @@ class MapNotifier extends Notifier<MapState> {
 
   Future<void> _loadPosition() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _prefsLoader();
       final lat = prefs.getDouble(_latKey);
       final lng = prefs.getDouble(_lngKey);
       final zoom = prefs.getDouble(_zoomKey);
@@ -1197,7 +1303,7 @@ class MapNotifier extends Notifier<MapState> {
 
   Future<void> persistCameraPosition() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _prefsLoader();
       await prefs.setDouble(_latKey, state.center.latitude);
       await prefs.setDouble(_lngKey, state.center.longitude);
       await prefs.setDouble(_zoomKey, state.zoom);
@@ -1209,7 +1315,7 @@ class MapNotifier extends Notifier<MapState> {
 
   Future<void> persistPeakListSelection() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _prefsLoader();
       await prefs.setString(
         _peakListSelectionModeKey,
         state.peakListSelectionMode.name,
@@ -1329,7 +1435,9 @@ class MapNotifier extends Notifier<MapState> {
 
     state = state.copyWith(
       isRouteDrafting: true,
+      isSavingRoute: false,
       routeDraftName: '',
+      routeDraftNameError: 'A Route name must be entered',
       routeDraftMode: RouteMode.snapToTrail,
       routeDraftMarkers: const [],
       routeDraftNameFieldFocused: false,
@@ -1348,11 +1456,17 @@ class MapNotifier extends Notifier<MapState> {
 
     state = state.copyWith(
       isRouteDrafting: false,
+      isSavingRoute: false,
       routeDraftName: '',
+      clearRouteDraftNameError: true,
       routeDraftMode: RouteMode.snapToTrail,
       routeDraftMarkers: const [],
       routeDraftNameFieldFocused: false,
     );
+  }
+
+  String? _validateRouteDraftName(String value) {
+    return value.trim().isEmpty ? 'A Route name must be entered' : null;
   }
 
   void setRouteDraftNameFieldFocused(bool focused) {
@@ -1376,7 +1490,10 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
-    state = state.copyWith(routeDraftName: value);
+    state = state.copyWith(
+      routeDraftName: value,
+      routeDraftNameError: _validateRouteDraftName(value),
+    );
   }
 
   void addRouteDraftMarker(LatLng point) {
@@ -1389,11 +1506,63 @@ class MapNotifier extends Notifier<MapState> {
     );
   }
 
+  Future<void> saveRouteDraft() async {
+    if (!state.isRouteDrafting || state.isSavingRoute) {
+      return;
+    }
+
+    final trimmedName = state.routeDraftName.trim();
+    final routeNameError = _validateRouteDraftName(trimmedName);
+    if (routeNameError != null || state.routeDraftMarkers.length < 2) {
+      state = state.copyWith(routeDraftNameError: routeNameError);
+      return;
+    }
+
+    state = state.copyWith(isSavingRoute: true, clearRouteDraftNameError: true);
+    try {
+      final route = Route(
+        name: trimmedName,
+        gpxRoute: List<LatLng>.from(state.routeDraftMarkers, growable: false),
+        displayRoutePointsByZoom: TrackDisplayCacheBuilder.buildJson([
+          List<LatLng>.from(state.routeDraftMarkers, growable: false),
+        ]),
+        colour: 0xFFFF0000,
+      );
+      _routeRepository.saveRoute(route);
+      ref.read(routeRevisionProvider.notifier).increment();
+      endRouteDraft();
+    } catch (error) {
+      state = state.copyWith(isSavingRoute: false);
+      _pendingRouteSnackbarMessage = 'Failed to save route: $error';
+    }
+  }
+
   void setEndDrawerMode(EndDrawerMode mode) {
     if (state.endDrawerMode == mode) {
       return;
     }
     state = state.copyWith(endDrawerMode: mode);
+  }
+
+  Future<void> persistTracksRoutesVisibility() async {
+    try {
+      final prefs = await _prefsLoader();
+      await prefs.setBool(_showTracksKey, state.showTracks);
+      await prefs.setBool(_showRoutesKey, state.showRoutes);
+    } catch (_) {
+      // Continue without saving.
+    }
+  }
+
+  void setShowRoutes(bool value) {
+    if (state.showRoutes == value) {
+      return;
+    }
+    if (_isRestoringVisibilityPrefs) {
+      _showRoutesRestoreOverridden = true;
+    }
+    state = state.copyWith(showRoutes: value);
+    persistTracksRoutesVisibility();
   }
 
   void selectPeakList(PeakListSelectionMode mode, {int? peakListId}) {
@@ -1553,7 +1722,6 @@ class MapNotifier extends Notifier<MapState> {
     if (trackWasLoaded || trackWasSelected || trackWasHovered) {
       state = state.copyWith(
         tracks: remainingVisibleTracks,
-        showTracks: remainingVisibleTracks.isEmpty ? false : state.showTracks,
         clearSelectedTrackId: trackWasSelected,
         clearSelectedLocation: trackWasSelected,
         clearHoveredTrackId: trackWasHovered,
@@ -1594,6 +1762,10 @@ class MapNotifier extends Notifier<MapState> {
     if (track == null) {
       state = state.copyWith(clearSelectedTrackId: true, clearHoveredTrackId: true);
       return;
+    }
+
+    if (_isRestoringVisibilityPrefs) {
+      _showTracksRestoreOverridden = true;
     }
 
     final tracks = state.tracks.every((existing) => existing.gpxTrackId != trackId)
@@ -2248,16 +2420,18 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void toggleTracks() {
-    if (state.tracks.isEmpty ||
-        state.isLoadingTracks ||
-        state.hasTrackRecoveryIssue) {
+    if (state.isLoadingTracks || state.hasTrackRecoveryIssue) {
       return;
+    }
+    if (_isRestoringVisibilityPrefs) {
+      _showTracksRestoreOverridden = true;
     }
     state = state.copyWith(
       showTracks: !state.showTracks,
       clearHoveredTrackId: true,
       clearSelectedTrackId: state.showTracks,
     );
+    persistTracksRoutesVisibility();
   }
 
   void setPeakSearchVisible(bool visible) {
