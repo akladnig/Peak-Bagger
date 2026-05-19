@@ -13,6 +13,7 @@ import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 
@@ -32,6 +33,7 @@ class TestMapNotifier extends MapNotifier {
     this.peaksBaggedRepository,
     this.gpxTrackRepository,
     this.routeRepository,
+    this.routePlanningOutcomes = const [],
     this.routeSaveErrorMessage,
     Set<int> correlatedPeakIds = const {},
   }) : _correlatedPeakIds = correlatedPeakIds,
@@ -50,12 +52,14 @@ class TestMapNotifier extends MapNotifier {
   final PeaksBaggedRepository? peaksBaggedRepository;
   final GpxTrackRepository? gpxTrackRepository;
   final RouteRepository? routeRepository;
+  final List<Object> routePlanningOutcomes;
   final String? routeSaveErrorMessage;
   final Set<int> _correlatedPeakIds;
   bool _snackbarConsumed = false;
   String? _trackSnackbarMessage;
   String? _startupBackfillWarningMessage;
   String? _routeSnackbarMessage;
+  var _routePlanningOutcomeIndex = 0;
   int refreshCallCount = 0;
 
   void setTracks(List<GpxTrack> tracks) {
@@ -74,6 +78,86 @@ class TestMapNotifier extends MapNotifier {
 
   @override
   Set<int> get correlatedPeakIds => _correlatedPeakIds;
+
+  @override
+  void addRouteDraftMarker(LatLng point) {
+    if (!state.isRouteDrafting) {
+      return;
+    }
+    if (routePlanningOutcomes.isEmpty) {
+      super.addRouteDraftMarker(point);
+      return;
+    }
+
+    switch (state.routeDraftStage) {
+      case RouteDraftStage.inactive:
+        return;
+      case RouteDraftStage.awaitingStart:
+        state = state.copyWith(
+          routeDraftMarkers: [point],
+          routeDraftStage: RouteDraftStage.awaitingNextPoint,
+          clearRouteDraftError: true,
+        );
+      case RouteDraftStage.awaitingNextPoint:
+      case RouteDraftStage.segmentFailure:
+        final start = state.routeDraftMarkers.isEmpty
+            ? null
+            : state.routeDraftMarkers.last;
+        if (start == null) {
+          state = state.copyWith(
+            routeDraftMarkers: [point],
+            routeDraftStage: RouteDraftStage.awaitingNextPoint,
+            clearRouteDraftError: true,
+          );
+          return;
+        }
+        if (start == point) {
+          state = state.copyWith(
+            routeDraftMarkers: [...state.routeDraftMarkers, point],
+            routeDraftStage: RouteDraftStage.segmentFailure,
+            routeDraftError:
+                'Start and end points must be different to calculate a route.',
+            routeDraftProvisionalPoints: const [],
+          );
+          return;
+        }
+        state = state.copyWith(
+          routeDraftMarkers: [...state.routeDraftMarkers, point],
+          routeDraftStage: RouteDraftStage.routingSegment,
+          routeDraftProvisionalPoints: [start, point],
+          clearRouteDraftError: true,
+        );
+
+        final outcome = routePlanningOutcomes[_routePlanningOutcomeIndex++];
+        if (outcome is PlannedRouteSegment) {
+          state = state.copyWith(
+            routeDraftCommittedPoints: _appendRouteSegment(
+              state.routeDraftCommittedPoints,
+              outcome.points,
+            ),
+            routeDraftDistanceMeters:
+                state.routeDraftDistanceMeters + outcome.distanceMeters,
+            routeDraftProvisionalPoints: const [],
+            routeDraftStage: RouteDraftStage.awaitingNextPoint,
+            clearRouteDraftError: true,
+          );
+          return;
+        }
+
+        final message = switch (outcome) {
+          RoutePlanningException(:final message) => message,
+          String() => outcome,
+          _ => 'Failed to calculate route.',
+        };
+        state = state.copyWith(
+          routeDraftStage: RouteDraftStage.segmentFailure,
+          routeDraftError: message,
+          routeDraftProvisionalPoints: const [],
+        );
+      case RouteDraftStage.routingSegment:
+        return;
+    }
+  }
 
   @override
   Future<void> reloadPeakMarkers() async {
@@ -244,7 +328,7 @@ class TestMapNotifier extends MapNotifier {
   @override
   Future<void> saveRouteDraft() async {
     final trimmedName = state.routeDraftName.trim();
-    if (trimmedName.isEmpty || state.routeDraftMarkers.length < 2) {
+    if (trimmedName.isEmpty || state.routeDraftCommittedPoints.length < 2) {
       state = state.copyWith(routeDraftNameError: 'A Route name must be entered');
       return;
     }
@@ -256,13 +340,21 @@ class TestMapNotifier extends MapNotifier {
     routeRepository?.saveRoute(
       Route(
         name: trimmedName,
-        gpxRoute: List<LatLng>.from(state.routeDraftMarkers, growable: false),
+        gpxRoute: List<LatLng>.from(
+          state.routeDraftCommittedPoints,
+          growable: false,
+        ),
         displayRoutePointsByZoom: TrackDisplayCacheBuilder.buildJson([
-          List<LatLng>.from(state.routeDraftMarkers, growable: false),
+          List<LatLng>.from(
+            state.routeDraftCommittedPoints,
+            growable: false,
+          ),
         ]),
-        colour: 0xFFFF0000,
+        colour: state.routeDraftColour,
+        distance2d: state.routeDraftDistanceMeters,
       ),
     );
+    state = state.copyWith(showRoutes: true);
     endRouteDraft();
   }
 
@@ -456,4 +548,20 @@ class TestMapNotifier extends MapNotifier {
     _startupBackfillWarningMessage = null;
     return message;
   }
+}
+
+List<LatLng> _appendRouteSegment(
+  List<LatLng> existing,
+  List<LatLng> segment,
+) {
+  if (existing.isEmpty) {
+    return List<LatLng>.from(segment, growable: false);
+  }
+  if (segment.isEmpty) {
+    return List<LatLng>.from(existing, growable: false);
+  }
+  final nextSegment = existing.last == segment.first
+      ? segment.skip(1)
+      : segment;
+  return [...existing, ...nextSegment];
 }

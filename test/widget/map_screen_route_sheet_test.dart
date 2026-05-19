@@ -118,6 +118,14 @@ void main() {
     expect(state.selectedTrackId, isNull);
     expect(find.byKey(const Key('route-draft-marker-layer')), findsOneWidget);
     expect(find.byKey(const Key('route-draft-marker-0')), findsOneWidget);
+    final markerContainer = tester.widget<Container>(
+      find.descendant(
+        of: find.byKey(const Key('route-draft-marker-0')),
+        matching: find.byType(Container),
+      ),
+    );
+    final decoration = markerContainer.decoration! as BoxDecoration;
+    expect(decoration.color, const Color(0xFFFF0000));
   });
 
   testWidgets('blank route name shows inline error and save stays disabled', (
@@ -263,6 +271,46 @@ void main() {
     expect(find.textContaining('Failed to save route'), findsOneWidget);
   });
 
+  testWidgets('routing failure shows inline error and save stays disabled', (
+    tester,
+  ) async {
+    final tasmapRepository = await TestTasmapRepository.create();
+    final notifier = MapNotifier(
+      peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+      overpassService: OverpassService(),
+      tasmapRepository: tasmapRepository,
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+      routeRepository: RouteRepository.test(InMemoryRouteStorage()),
+      routePlanner: const _FailingRoutePlanner('No path found.'),
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage(),
+      ),
+      loadPositionOnBuild: false,
+      loadPeaksOnBuild: false,
+      loadTracksOnBuild: false,
+    );
+    await _pumpMap(
+      tester,
+      notifier,
+      tasmapRepository: tasmapRepository,
+    );
+
+    await tester.tap(find.byKey(const Key('create-route-fab')));
+    await tester.pumpAndSettle();
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region) + const Offset(-40, 0));
+    await tester.pumpAndSettle();
+    await tester.tapAt(tester.getCenter(region) + const Offset(40, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('route-error-text')), findsOneWidget);
+    final saveButton = tester.widget<FilledButton>(
+      find.byKey(const Key('route-save-button')),
+    );
+    expect(saveButton.onPressed, isNull);
+  });
+
   testWidgets('create route hides the entry button while drafting', (
     tester,
   ) async {
@@ -313,6 +361,20 @@ class _ImmediateRoutePlanner implements RoutePlanner {
     required LatLng end,
   }) async {
     return segment;
+  }
+}
+
+class _FailingRoutePlanner implements RoutePlanner {
+  const _FailingRoutePlanner(this.message);
+
+  final String message;
+
+  @override
+  Future<PlannedRouteSegment> planSegment({
+    required LatLng start,
+    required LatLng end,
+  }) async {
+    throw RoutePlanningException(message);
   }
 }
 

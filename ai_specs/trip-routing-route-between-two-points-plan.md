@@ -32,14 +32,14 @@ Approach: thin vertical slice first; keep state in existing `mapProvider` stack.
 ### Phase 2: Continuation And Failure Recovery
 
 - **Goal**: append segments; preserve last good route; deterministic stale-result handling
-- [ ] `lib/providers/map_provider.dart` - append from current endpoint; segment-failure state; identical-point rejection; retry semantics; cancel clears transient route state only
-- [ ] `lib/screens/map_screen_layers.dart` - route-colour markers, provisional line, committed routed lines; explicit layer ordering above existing overlays
-- [ ] `test/harness/test_map_notifier.dart` - fake planner injection; deterministic async/result control
-- [ ] `test/providers/route_draft_state_test.dart` - extend beyond marker-only draft behavior
-- [ ] `test/widget/map_screen_route_sheet_test.dart` - cover loading/error/save-disabled transitions, route-colour draft state, saved visibility
-- [ ] TDD: third tap appends from point 2, not restart -> then implement
-- [ ] TDD: identical point / empty segment / package failure / stale late result preserve last successful geometry -> then implement
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/providers/map_provider.dart` - append from current endpoint; segment-failure state; identical-point rejection; retry semantics; cancel clears transient route state only
+- [x] `lib/screens/map_screen_layers.dart` - route-colour markers, provisional line, committed routed lines; explicit layer ordering above existing overlays
+- [x] `test/harness/test_map_notifier.dart` - fake planner injection; deterministic async/result control
+- [x] `test/providers/route_draft_state_test.dart` - extend beyond marker-only draft behavior
+- [x] `test/widget/map_screen_route_sheet_test.dart` - cover loading/error/save-disabled transitions, route-colour draft state, saved visibility
+- [x] TDD: third tap appends from point 2, not restart -> then implement
+- [x] TDD: identical point / empty segment / package failure / stale late result preserve last successful geometry -> then implement
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Interaction Guards And Journey Lane
 

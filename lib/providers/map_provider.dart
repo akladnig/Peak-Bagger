@@ -1588,6 +1588,16 @@ class MapNotifier extends Notifier<MapState> {
           );
           return;
         }
+        if (start == point) {
+          state = state.copyWith(
+            routeDraftMarkers: [...state.routeDraftMarkers, point],
+            routeDraftStage: RouteDraftStage.segmentFailure,
+            routeDraftError:
+                'Start and end points must be different to calculate a route.',
+            routeDraftProvisionalPoints: const [],
+          );
+          return;
+        }
         final requestId = state.routeDraftRequestId + 1;
         state = state.copyWith(
           routeDraftMarkers: [...state.routeDraftMarkers, point],
