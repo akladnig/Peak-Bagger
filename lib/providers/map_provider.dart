@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' as io;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,7 @@ import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
+import 'package:peak_bagger/providers/route_planner_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/import_path_helpers.dart';
@@ -23,6 +25,7 @@ import 'package:peak_bagger/services/peak_refresh_service.dart';
 import 'package:peak_bagger/services/peak_info_content_resolver.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/services/track_peak_correlation_service.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
@@ -59,6 +62,14 @@ enum PeakListSelectionMode { none, allPeaks, specificList }
 enum EndDrawerMode { basemaps, peakLists, tracksRoutes }
 
 enum RouteMode { snapToTrail, straightLine }
+
+enum RouteDraftStage {
+  inactive,
+  awaitingStart,
+  awaitingNextPoint,
+  routingSegment,
+  segmentFailure,
+}
 
 enum PendingCameraSelectionBehavior { preserve, replace, clear }
 
@@ -144,6 +155,13 @@ class MapState {
   final String? routeDraftNameError;
   final RouteMode routeDraftMode;
   final List<LatLng> routeDraftMarkers;
+  final RouteDraftStage routeDraftStage;
+  final String? routeDraftError;
+  final int routeDraftColour;
+  final List<LatLng> routeDraftCommittedPoints;
+  final List<LatLng> routeDraftProvisionalPoints;
+  final double routeDraftDistanceMeters;
+  final int routeDraftRequestId;
   final bool routeDraftNameFieldFocused;
   final bool syncEnabled;
   final List<Peak> peaks;
@@ -199,6 +217,13 @@ class MapState {
     this.routeDraftNameError,
     this.routeDraftMode = RouteMode.snapToTrail,
     this.routeDraftMarkers = const [],
+    this.routeDraftStage = RouteDraftStage.inactive,
+    this.routeDraftError,
+    this.routeDraftColour = 0xFFFF0000,
+    this.routeDraftCommittedPoints = const [],
+    this.routeDraftProvisionalPoints = const [],
+    this.routeDraftDistanceMeters = 0,
+    this.routeDraftRequestId = 0,
     this.routeDraftNameFieldFocused = false,
     this.syncEnabled = true,
     this.peaks = const [],
@@ -271,6 +296,14 @@ class MapState {
     bool clearRouteDraftNameError = false,
     RouteMode? routeDraftMode,
     List<LatLng>? routeDraftMarkers,
+    RouteDraftStage? routeDraftStage,
+    String? routeDraftError,
+    bool clearRouteDraftError = false,
+    int? routeDraftColour,
+    List<LatLng>? routeDraftCommittedPoints,
+    List<LatLng>? routeDraftProvisionalPoints,
+    double? routeDraftDistanceMeters,
+    int? routeDraftRequestId,
     bool? routeDraftNameFieldFocused,
     bool? syncEnabled,
     List<Peak>? peaks,
@@ -346,6 +379,18 @@ class MapState {
           : (routeDraftNameError ?? this.routeDraftNameError),
       routeDraftMode: routeDraftMode ?? this.routeDraftMode,
       routeDraftMarkers: routeDraftMarkers ?? this.routeDraftMarkers,
+      routeDraftStage: routeDraftStage ?? this.routeDraftStage,
+      routeDraftError: clearRouteDraftError
+          ? null
+          : (routeDraftError ?? this.routeDraftError),
+      routeDraftColour: routeDraftColour ?? this.routeDraftColour,
+      routeDraftCommittedPoints:
+          routeDraftCommittedPoints ?? this.routeDraftCommittedPoints,
+      routeDraftProvisionalPoints:
+          routeDraftProvisionalPoints ?? this.routeDraftProvisionalPoints,
+      routeDraftDistanceMeters:
+          routeDraftDistanceMeters ?? this.routeDraftDistanceMeters,
+      routeDraftRequestId: routeDraftRequestId ?? this.routeDraftRequestId,
       routeDraftNameFieldFocused:
           routeDraftNameFieldFocused ?? this.routeDraftNameFieldFocused,
       syncEnabled: syncEnabled ?? this.syncEnabled,
@@ -490,6 +535,7 @@ class MapNotifier extends Notifier<MapState> {
     TasmapRepository? tasmapRepository,
     GpxTrackRepository? gpxTrackRepository,
     RouteRepository? routeRepository,
+    RoutePlanner? routePlanner,
     PeaksBaggedRepository? peaksBaggedRepository,
     MigrationMarkerStore? migrationMarkerStore,
     bool loadPositionOnBuild = true,
@@ -500,6 +546,7 @@ class MapNotifier extends Notifier<MapState> {
        _injectedTasmapRepository = tasmapRepository,
        _injectedGpxTrackRepository = gpxTrackRepository,
        _injectedRouteRepository = routeRepository,
+       _injectedRoutePlanner = routePlanner,
        _injectedPeaksBaggedRepository = peaksBaggedRepository,
        _injectedMigrationMarkerStore = migrationMarkerStore,
        _loadPositionOnBuild = loadPositionOnBuild,
@@ -511,6 +558,7 @@ class MapNotifier extends Notifier<MapState> {
   final TasmapRepository? _injectedTasmapRepository;
   final GpxTrackRepository? _injectedGpxTrackRepository;
   final RouteRepository? _injectedRouteRepository;
+  final RoutePlanner? _injectedRoutePlanner;
   final PeaksBaggedRepository? _injectedPeaksBaggedRepository;
   final MigrationMarkerStore? _injectedMigrationMarkerStore;
   final bool _loadPositionOnBuild;
@@ -522,6 +570,7 @@ class MapNotifier extends Notifier<MapState> {
   late final TasmapRepository _tasmapRepository;
   late final GpxTrackRepository _gpxTrackRepository;
   late final RouteRepository _routeRepository;
+  late final RoutePlanner _routePlanner;
   late final PeaksBaggedRepository _peaksBaggedRepository;
   late final MigrationMarkerStore _migrationMarkerStore;
   late final Future<SharedPreferences> Function() _prefsLoader;
@@ -548,6 +597,7 @@ class MapNotifier extends Notifier<MapState> {
         _injectedGpxTrackRepository ?? GpxTrackRepository(objectboxStore);
     _routeRepository =
         _injectedRouteRepository ?? ref.read(routeRepositoryProvider);
+    _routePlanner = _injectedRoutePlanner ?? ref.read(routePlannerProvider);
     _peaksBaggedRepository =
         _injectedPeaksBaggedRepository ?? PeaksBaggedRepository(objectboxStore);
     _migrationMarkerStore =
@@ -1440,6 +1490,13 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftNameError: 'A Route name must be entered',
       routeDraftMode: RouteMode.snapToTrail,
       routeDraftMarkers: const [],
+      routeDraftStage: RouteDraftStage.awaitingStart,
+      clearRouteDraftError: true,
+      routeDraftColour: 0xFFFF0000,
+      routeDraftCommittedPoints: const [],
+      routeDraftProvisionalPoints: const [],
+      routeDraftDistanceMeters: 0,
+      routeDraftRequestId: 0,
       routeDraftNameFieldFocused: false,
       clearSelectedLocation: true,
       clearSelectedTrackId: true,
@@ -1461,6 +1518,11 @@ class MapNotifier extends Notifier<MapState> {
       clearRouteDraftNameError: true,
       routeDraftMode: RouteMode.snapToTrail,
       routeDraftMarkers: const [],
+      routeDraftStage: RouteDraftStage.inactive,
+      clearRouteDraftError: true,
+      routeDraftCommittedPoints: const [],
+      routeDraftProvisionalPoints: const [],
+      routeDraftDistanceMeters: 0,
       routeDraftNameFieldFocused: false,
     );
   }
@@ -1478,7 +1540,9 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void setRouteDraftMode(RouteMode mode) {
-    if (!state.isRouteDrafting || state.routeDraftMode == mode) {
+    if (!state.isRouteDrafting ||
+        state.routeDraftMode == mode ||
+        mode == RouteMode.straightLine) {
       return;
     }
 
@@ -1501,9 +1565,47 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
-    state = state.copyWith(
-      routeDraftMarkers: [...state.routeDraftMarkers, point],
-    );
+    switch (state.routeDraftStage) {
+      case RouteDraftStage.inactive:
+        return;
+      case RouteDraftStage.awaitingStart:
+        state = state.copyWith(
+          routeDraftMarkers: [point],
+          routeDraftStage: RouteDraftStage.awaitingNextPoint,
+          routeDraftProvisionalPoints: const [],
+          clearRouteDraftError: true,
+        );
+      case RouteDraftStage.awaitingNextPoint:
+      case RouteDraftStage.segmentFailure:
+        final start = state.routeDraftMarkers.isEmpty
+            ? null
+            : state.routeDraftMarkers.last;
+        if (start == null) {
+          state = state.copyWith(
+            routeDraftMarkers: [point],
+            routeDraftStage: RouteDraftStage.awaitingNextPoint,
+            clearRouteDraftError: true,
+          );
+          return;
+        }
+        final requestId = state.routeDraftRequestId + 1;
+        state = state.copyWith(
+          routeDraftMarkers: [...state.routeDraftMarkers, point],
+          routeDraftStage: RouteDraftStage.routingSegment,
+          routeDraftProvisionalPoints: [start, point],
+          clearRouteDraftError: true,
+          routeDraftRequestId: requestId,
+        );
+        unawaited(
+          _planRouteDraftSegment(
+            requestId: requestId,
+            start: start,
+            end: point,
+          ),
+        );
+      case RouteDraftStage.routingSegment:
+        return;
+    }
   }
 
   Future<void> saveRouteDraft() async {
@@ -1513,28 +1615,96 @@ class MapNotifier extends Notifier<MapState> {
 
     final trimmedName = state.routeDraftName.trim();
     final routeNameError = _validateRouteDraftName(trimmedName);
-    if (routeNameError != null || state.routeDraftMarkers.length < 2) {
+    if (routeNameError != null || state.routeDraftCommittedPoints.length < 2) {
       state = state.copyWith(routeDraftNameError: routeNameError);
       return;
     }
 
     state = state.copyWith(isSavingRoute: true, clearRouteDraftNameError: true);
     try {
+      final committedPoints = List<LatLng>.from(
+        state.routeDraftCommittedPoints,
+        growable: false,
+      );
       final route = Route(
         name: trimmedName,
-        gpxRoute: List<LatLng>.from(state.routeDraftMarkers, growable: false),
+        gpxRoute: committedPoints,
         displayRoutePointsByZoom: TrackDisplayCacheBuilder.buildJson([
-          List<LatLng>.from(state.routeDraftMarkers, growable: false),
+          committedPoints,
         ]),
-        colour: 0xFFFF0000,
+        colour: state.routeDraftColour,
+        distance2d: state.routeDraftDistanceMeters,
       );
       _routeRepository.saveRoute(route);
       ref.read(routeRevisionProvider.notifier).increment();
+      state = state.copyWith(showRoutes: true);
       endRouteDraft();
     } catch (error) {
       state = state.copyWith(isSavingRoute: false);
       _pendingRouteSnackbarMessage = 'Failed to save route: $error';
     }
+  }
+
+  Future<void> _planRouteDraftSegment({
+    required int requestId,
+    required LatLng start,
+    required LatLng end,
+  }) async {
+    try {
+      final segment = await _routePlanner.planSegment(start: start, end: end);
+      if (!_isActiveRouteDraftRequest(requestId)) {
+        return;
+      }
+      state = state.copyWith(
+        routeDraftCommittedPoints: _appendRouteSegment(
+          state.routeDraftCommittedPoints,
+          segment.points,
+        ),
+        routeDraftDistanceMeters:
+            state.routeDraftDistanceMeters + segment.distanceMeters,
+        routeDraftProvisionalPoints: const [],
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        clearRouteDraftError: true,
+      );
+    } on RoutePlanningException catch (error) {
+      if (!_isActiveRouteDraftRequest(requestId)) {
+        return;
+      }
+      state = state.copyWith(
+        routeDraftStage: RouteDraftStage.segmentFailure,
+        routeDraftError: error.message,
+        routeDraftProvisionalPoints: const [],
+      );
+    } catch (error) {
+      if (!_isActiveRouteDraftRequest(requestId)) {
+        return;
+      }
+      state = state.copyWith(
+        routeDraftStage: RouteDraftStage.segmentFailure,
+        routeDraftError: 'Failed to calculate route: $error',
+        routeDraftProvisionalPoints: const [],
+      );
+    }
+  }
+
+  bool _isActiveRouteDraftRequest(int requestId) {
+    return state.isRouteDrafting && state.routeDraftRequestId == requestId;
+  }
+
+  List<LatLng> _appendRouteSegment(
+    List<LatLng> existing,
+    List<LatLng> segment,
+  ) {
+    if (existing.isEmpty) {
+      return List<LatLng>.from(segment, growable: false);
+    }
+    if (segment.isEmpty) {
+      return List<LatLng>.from(existing, growable: false);
+    }
+    final nextSegment = existing.last == segment.first
+        ? segment.skip(1)
+        : segment;
+    return [...existing, ...nextSegment];
   }
 
   void setEndDrawerMode(EndDrawerMode mode) {

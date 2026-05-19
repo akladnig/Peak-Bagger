@@ -29,6 +29,7 @@ dependencies:
   csv: ^6.0.0
   xml: ^6.0.0
   crypto: ^3.0.6
+  trip_routing: ^0.0.13
   flutter_map_tile_caching:
     path: /Users/adrian/Development/mapping/flutter_map_tile_caching
   objectbox_generator: ^5.3.1

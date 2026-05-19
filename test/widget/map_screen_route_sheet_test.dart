@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,6 +16,7 @@ import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 
@@ -139,15 +142,17 @@ void main() {
     expect(saveButton.onPressed, isNull);
   });
 
-  testWidgets('valid route save persists route and closes sheet', (tester) async {
+  testWidgets('valid route save persists routed geometry and closes sheet', (tester) async {
     final routeRepository = RouteRepository.test(InMemoryRouteStorage());
     final tasmapRepository = await TestTasmapRepository.create();
+    final routePlanner = _CompletingRoutePlanner();
     final notifier = MapNotifier(
       peakRepository: PeakRepository.test(InMemoryPeakStorage()),
       overpassService: OverpassService(),
       tasmapRepository: tasmapRepository,
       gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
       routeRepository: routeRepository,
+      routePlanner: routePlanner,
       peaksBaggedRepository: PeaksBaggedRepository.test(
         InMemoryPeaksBaggedStorage(),
       ),
@@ -169,7 +174,24 @@ void main() {
     await tester.tapAt(tester.getCenter(region) + const Offset(-40, 0));
     await tester.pumpAndSettle();
     await tester.tapAt(tester.getCenter(region) + const Offset(40, 0));
+    await tester.pump();
+
+    expect(find.byKey(const Key('route-loading-text')), findsOneWidget);
+
+    routePlanner.complete(
+      const PlannedRouteSegment(
+        points: [
+          LatLng(-41.5, 146.5),
+          LatLng(-41.55, 146.55),
+          LatLng(-41.6, 146.6),
+        ],
+        distanceMeters: 1234.5,
+      ),
+    );
     await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('route-distance-text')), findsOneWidget);
+    expect(find.text('1.2 km'), findsOneWidget);
     await tester.enterText(find.byKey(const Key('route-name-field')), 'Ridge Loop');
     await tester.pump();
 
@@ -181,8 +203,10 @@ void main() {
     expect(savedRoutes, hasLength(1));
     expect(savedRoutes.single.name, 'Ridge Loop');
     expect(savedRoutes.single.colour, 0xFFFF0000);
-    expect(savedRoutes.single.gpxRoute, hasLength(2));
+    expect(savedRoutes.single.gpxRoute, hasLength(3));
+    expect(savedRoutes.single.distance2d, 1234.5);
     expect(savedRoutes.single.displayRoutePointsByZoom, isNot('{}'));
+    expect(_container(tester).read(mapProvider).showRoutes, isTrue);
   });
 
   testWidgets('route save failure shows snackbar and keeps sheet open', (
@@ -190,12 +214,23 @@ void main() {
   ) async {
     final routeRepository = RouteRepository.test(_FailingRouteStorage());
     final tasmapRepository = await TestTasmapRepository.create();
+    final routePlanner = _ImmediateRoutePlanner(
+      const PlannedRouteSegment(
+        points: [
+          LatLng(-41.5, 146.5),
+          LatLng(-41.55, 146.55),
+          LatLng(-41.6, 146.6),
+        ],
+        distanceMeters: 1234.5,
+      ),
+    );
     final notifier = MapNotifier(
       peakRepository: PeakRepository.test(InMemoryPeakStorage()),
       overpassService: OverpassService(),
       tasmapRepository: tasmapRepository,
       gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
       routeRepository: routeRepository,
+      routePlanner: routePlanner,
       peaksBaggedRepository: PeaksBaggedRepository.test(
         InMemoryPeaksBaggedStorage(),
       ),
@@ -247,6 +282,38 @@ void main() {
     expect(find.byKey(const Key('route-bottom-sheet')), findsOneWidget);
     expect(fab, findsNothing);
   });
+}
+
+class _CompletingRoutePlanner implements RoutePlanner {
+  final _completer = Completer<PlannedRouteSegment>();
+
+  @override
+  Future<PlannedRouteSegment> planSegment({
+    required LatLng start,
+    required LatLng end,
+  }) {
+    return _completer.future;
+  }
+
+  void complete(PlannedRouteSegment segment) {
+    if (!_completer.isCompleted) {
+      _completer.complete(segment);
+    }
+  }
+}
+
+class _ImmediateRoutePlanner implements RoutePlanner {
+  const _ImmediateRoutePlanner(this.segment);
+
+  final PlannedRouteSegment segment;
+
+  @override
+  Future<PlannedRouteSegment> planSegment({
+    required LatLng start,
+    required LatLng end,
+  }) async {
+    return segment;
+  }
 }
 
 ProviderContainer _container(WidgetTester tester) {

@@ -1028,6 +1028,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.6.16"
+  trip_routing:
+    dependency: "direct main"
+    description:
+      name: trip_routing
+      sha256: ee521c86c9fd443a70d5256b50362e04ffa11e7f34ec19c6342d01c1dd221d38
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.13"
   typed_data:
     dependency: transitive
     description:

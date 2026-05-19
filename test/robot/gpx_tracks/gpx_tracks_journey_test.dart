@@ -22,6 +22,7 @@ import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/import_path_helpers.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
@@ -701,18 +702,29 @@ void main() {
     expect(robot.peakMarkerIds(), [7000, 6406]);
   });
 
-  testWidgets('save route then enable routes restores layer after restart', (
+  testWidgets('save route keeps routes visible across restart', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
     final routeRepository = RouteRepository.test(InMemoryRouteStorage());
     final tasmapRepository = await TestTasmapRepository.create();
+    final routePlanner = _ImmediateRoutePlanner(
+      const PlannedRouteSegment(
+        points: [
+          LatLng(-41.5, 146.5),
+          LatLng(-41.55, 146.55),
+          LatLng(-41.6, 146.6),
+        ],
+        distanceMeters: 1234.5,
+      ),
+    );
     final notifier = MapNotifier(
       peakRepository: PeakRepository.test(InMemoryPeakStorage()),
       overpassService: OverpassService(),
       tasmapRepository: tasmapRepository,
       gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
       routeRepository: routeRepository,
+      routePlanner: routePlanner,
       peaksBaggedRepository: PeaksBaggedRepository.test(
         InMemoryPeaksBaggedStorage(),
       ),
@@ -748,8 +760,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(routeRepository.getAllRoutes(), hasLength(1));
-
-    await robot.toggleRoutes();
+    final container = ProviderScope.containerOf(
+      tester.element(robot.mapInteractionRegion),
+    );
+    expect(container.read(mapProvider).showRoutes, isTrue);
     expect(find.byType(PolylineLayer), findsOneWidget);
 
     final restartNotifier = MapNotifier(
@@ -785,6 +799,20 @@ void main() {
     expect(restartContainer.read(mapProvider).showRoutes, isTrue);
     expect(find.byType(PolylineLayer), findsOneWidget);
   });
+}
+
+class _ImmediateRoutePlanner implements RoutePlanner {
+  const _ImmediateRoutePlanner(this.segment);
+
+  final PlannedRouteSegment segment;
+
+  @override
+  Future<PlannedRouteSegment> planSegment({
+    required LatLng start,
+    required LatLng end,
+  }) async {
+    return segment;
+  }
 }
 
 class _ImportingTestMapNotifier extends TestMapNotifier {
