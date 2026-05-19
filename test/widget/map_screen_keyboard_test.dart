@@ -298,6 +298,22 @@ void main() {
     expect(find.text('Basemaps'), findsOneWidget);
   });
 
+  testWidgets('keyboard t opens tracks routes drawer', (tester) async {
+    await _pumpMapApp(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyT);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('tracks-routes-drawer')), findsOneWidget);
+  });
+
   testWidgets('route name focus ignores map shortcut keys', (tester) async {
     await _pumpMapApp(
       tester,

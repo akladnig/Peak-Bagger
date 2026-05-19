@@ -13,7 +13,7 @@ import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import '../harness/test_map_notifier.dart';
 
 void main() {
-  testWidgets('recovery state shows banner and disables track controls', (
+  testWidgets('recovery state shows banner and disables track switch in drawer', (
     tester,
   ) async {
     final state = MapState(
@@ -46,8 +46,14 @@ void main() {
       find.byKey(const Key('import-tracks-fab')),
     );
 
-    expect(showTracksFab.onPressed, isNull);
+    expect(showTracksFab.onPressed, isNotNull);
     expect(importFab.onPressed, isNull);
+
+    await tester.tap(find.byKey(const Key('show-tracks-fab')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('tracks-routes-drawer')), findsOneWidget);
+    expect(find.text('Tracks unavailable during recovery'), findsOneWidget);
   });
 
   testWidgets('hovering a visible track sets hover state and clears on exit', (

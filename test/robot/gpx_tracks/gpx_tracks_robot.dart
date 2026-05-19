@@ -57,6 +57,7 @@ class GpxTracksRobot {
   bool _mouseAdded = false;
 
   Finder get showTracksFab => find.byKey(const Key('show-tracks-fab'));
+  Finder get tracksRoutesDrawer => find.byKey(const Key('tracks-routes-drawer'));
   Finder get importFab => find.byKey(const Key('import-tracks-fab'));
   Finder get infoFab => find.byKey(const Key('map-info-fab'));
   Finder get showPeaksFab => find.byKey(const Key('show-peaks-fab'));
@@ -137,27 +138,37 @@ class GpxTracksRobot {
   }
 
   Future<void> toggleTracks() async {
-    await tester.tap(showTracksFab);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
+    await tester.ensureVisible(showTracksFab);
+    await tester.pumpAndSettle();
+    tester.widget<FloatingActionButton>(showTracksFab).onPressed!.call();
+    await tester.pumpAndSettle();
+    expect(tracksRoutesDrawer, findsOneWidget);
+    await tester.tap(find.text('Show Tracks'));
+    await tester.pumpAndSettle();
   }
 
   Future<void> selectNoPeaks() async {
-    await tester.tap(showPeaksFab);
+    await tester.ensureVisible(showPeaksFab);
+    await tester.pumpAndSettle();
+    tester.widget<FloatingActionButton>(showPeaksFab).onPressed!.call();
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('peak-list-item-None')));
     await tester.pumpAndSettle();
   }
 
   Future<void> selectAllPeaks() async {
-    await tester.tap(showPeaksFab);
+    await tester.ensureVisible(showPeaksFab);
+    await tester.pumpAndSettle();
+    tester.widget<FloatingActionButton>(showPeaksFab).onPressed!.call();
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('peak-list-item-All Peaks')));
     await tester.pumpAndSettle();
   }
 
   Future<void> selectSpecificPeakList(String name) async {
-    await tester.tap(showPeaksFab);
+    await tester.ensureVisible(showPeaksFab);
+    await tester.pumpAndSettle();
+    tester.widget<FloatingActionButton>(showPeaksFab).onPressed!.call();
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(Key('peak-list-item-$name')));
     await tester.pumpAndSettle();

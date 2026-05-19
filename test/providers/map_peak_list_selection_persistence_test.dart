@@ -149,6 +149,23 @@ class _InitialStateMapNotifier extends MapNotifier {
 
   @override
   MapState build() => initialState;
+
+  @override
+  Future<void> persistPeakListSelection() async {
+    final mode = state.peakListSelectionMode;
+    final selectedPeakListId = state.selectedPeakListId;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'peak_list_selection_mode',
+      mode.name,
+    );
+    if (mode == PeakListSelectionMode.specificList &&
+        selectedPeakListId != null) {
+      await prefs.setInt('peak_list_id', selectedPeakListId);
+    } else {
+      await prefs.remove('peak_list_id');
+    }
+  }
 }
 
 class _FakeImportService extends PeakListImportService {

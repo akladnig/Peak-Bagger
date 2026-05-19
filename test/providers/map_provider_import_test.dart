@@ -80,7 +80,7 @@ void main() {
 
     expect(result.addedCount, 1);
     expect(notifier.state.tracks, hasLength(1));
-    expect(notifier.state.showTracks, isTrue);
+    expect(notifier.state.showTracks, isFalse);
     expect(importedTrack.trackName, 'Selected Track');
     expect(notifier.state.selectedTrackId, importedTrack.gpxTrackId);
     expect(
@@ -202,7 +202,7 @@ void main() {
     expect(notifier.state.selectedTrackId, isNull);
     expect(notifier.state.selectedLocation, isNull);
     expect(notifier.state.hoveredTrackId, isNull);
-    expect(notifier.state.showTracks, isFalse);
+    expect(notifier.state.showTracks, isTrue);
     expect(peaksBaggedRepository.getAll(), isEmpty);
     expect(container.read(peaksBaggedRevisionProvider), 1);
   });

@@ -29,6 +29,7 @@ import '../core/constants.dart';
 import 'package:peak_bagger/widgets/map_action_rail.dart';
 import 'package:peak_bagger/widgets/map_basemaps_drawer.dart';
 import 'package:peak_bagger/widgets/map_peak_lists_drawer.dart';
+import 'package:peak_bagger/widgets/map_tracks_routes_drawer.dart';
 import 'package:peak_bagger/widgets/map_route_bottom_sheet.dart';
 import 'package:peak_bagger/widgets/map_rebuild_debug_counters.dart';
 import 'package:peak_bagger/widgets/tasmap_polygon_label.dart';
@@ -878,7 +879,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
               return KeyEventResult.handled;
             } else if (key == LogicalKeyboardKey.keyT) {
               if (event is KeyDownEvent) {
-                notifier.toggleTracks();
+                notifier.setEndDrawerMode(EndDrawerMode.tracksRoutes);
+                _scaffoldKey.currentState?.openEndDrawer();
               }
               return KeyEventResult.handled;
             }
@@ -889,6 +891,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
             endDrawer: switch (routeChrome.endDrawerMode) {
               EndDrawerMode.basemaps => const MapBasemapsDrawer(),
               EndDrawerMode.peakLists => const MapPeakListsDrawer(),
+              EndDrawerMode.tracksRoutes => const MapTracksRoutesDrawer(),
             },
             onEndDrawerChanged: (isOpen) {
               if (!isOpen && mounted) {

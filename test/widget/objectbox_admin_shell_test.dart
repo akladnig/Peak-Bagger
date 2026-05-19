@@ -232,7 +232,7 @@ void main() {
     expect(deletedState.selectedTrackId, isNull);
     expect(deletedState.selectedLocation, isNull);
     expect(deletedState.hoveredTrackId, isNull);
-    expect(deletedState.showTracks, isFalse);
+    expect(deletedState.showTracks, isTrue);
     expect(deletedState.selectedTrackFocusSerial, 4);
   });
 

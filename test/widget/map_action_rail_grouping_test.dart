@@ -6,8 +6,10 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/widgets/left_tooltip_fab.dart';
 import 'package:peak_bagger/widgets/map_action_rail.dart';
+import 'package:peak_bagger/widgets/map_tracks_routes_drawer.dart';
 
 import '../harness/test_map_notifier.dart';
 
@@ -44,7 +46,7 @@ void main() {
         'Select Basemaps',
         'Show Map Grid',
         'Select Peak List',
-        'Show tracks',
+        'Show Tracks/Routes (T)',
       ]),
     );
     expect(
@@ -90,6 +92,13 @@ void main() {
     await tester.tap(infoFab);
     await tester.pump();
     expect(container.read(mapProvider).showInfoPopup, isTrue);
+
+    final showTracksFab = find.byKey(const Key('show-tracks-fab'));
+    await tester.ensureVisible(showTracksFab);
+    await tester.pumpAndSettle();
+    await tester.tap(showTracksFab);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('tracks-routes-drawer')), findsOneWidget);
   });
 
   testWidgets('grouped rail fits a short viewport without overflow', (
@@ -172,9 +181,15 @@ void main() {
 Future<void> _pumpRail(WidgetTester tester, TestMapNotifier notifier) async {
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [mapProvider.overrideWith(() => notifier)],
-      child: const MaterialApp(
-        home: Scaffold(body: Stack(children: [MapActionRail()])),
+      overrides: [
+        mapProvider.overrideWith(() => notifier),
+        routeRepositoryProvider.overrideWithValue(RouteStore.inMemory()),
+      ],
+      child: MaterialApp(
+        home: Scaffold(
+          endDrawer: const MapTracksRoutesDrawer(),
+          body: Stack(children: const [MapActionRail()]),
+        ),
       ),
     ),
   );

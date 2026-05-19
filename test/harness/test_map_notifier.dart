@@ -53,7 +53,6 @@ class TestMapNotifier extends MapNotifier {
   void setTracks(List<GpxTrack> tracks) {
     state = state.copyWith(
       tracks: tracks,
-      showTracks: tracks.isNotEmpty,
       isLoadingTracks: false,
       hasTrackRecoveryIssue: false,
     );
@@ -108,7 +107,6 @@ class TestMapNotifier extends MapNotifier {
     if (trackWasLoaded || trackWasSelected || trackWasHovered) {
       state = state.copyWith(
         tracks: remainingVisibleTracks,
-        showTracks: remainingVisibleTracks.isEmpty ? false : state.showTracks,
         clearSelectedTrackId: trackWasSelected,
         clearSelectedLocation: trackWasSelected,
         clearHoveredTrackId: trackWasHovered,
@@ -142,9 +140,7 @@ class TestMapNotifier extends MapNotifier {
 
   @override
   void toggleTracks() {
-    if (state.tracks.isEmpty ||
-        state.isLoadingTracks ||
-        state.hasTrackRecoveryIssue) {
+    if (state.isLoadingTracks || state.hasTrackRecoveryIssue) {
       return;
     }
     state = state.copyWith(
@@ -233,6 +229,9 @@ class TestMapNotifier extends MapNotifier {
 
   @override
   Future<void> persistPeakListSelection() async {}
+
+  @override
+  Future<void> persistTracksRoutesVisibility() async {}
 
   @override
   void searchPeaks(String query) {
