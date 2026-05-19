@@ -1,17 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/main.dart';
 import 'package:peak_bagger/models/route.dart';
-import 'package:peak_bagger/objectbox.g.dart';
+import 'package:peak_bagger/services/route_repository.dart';
 
 final routeRevisionProvider = NotifierProvider<RouteRevisionNotifier, int>(
   RouteRevisionNotifier.new,
 );
 
-final routeRepositoryProvider = Provider<RouteStore>((ref) {
+final routeRepositoryProvider = Provider<RouteRepository>((ref) {
   try {
-    return RouteStore(objectboxStore.box<Route>());
+    return RouteRepository(objectboxStore);
   } catch (_) {
-    return RouteStore.inMemory();
+    return RouteRepository.test(InMemoryRouteStorage());
   }
 });
 
@@ -27,21 +27,6 @@ final routeAvailabilityProvider = Provider<RouteAvailabilityState>((ref) {
   }
   return RouteAvailabilityState.available(routes);
 });
-
-class RouteStore {
-  RouteStore(this._box) : _routes = null;
-
-  RouteStore.inMemory([List<Route> routes = const []])
-    : _box = null,
-      _routes = List<Route>.from(routes);
-
-  final Box<Route>? _box;
-  final List<Route>? _routes;
-
-  List<Route> getAllRoutes() {
-    return List<Route>.unmodifiable(_box?.getAll() ?? _routes ?? const <Route>[]);
-  }
-}
 
 class RouteAvailabilityState {
   const RouteAvailabilityState._({required this.routes, required this.isAvailable});

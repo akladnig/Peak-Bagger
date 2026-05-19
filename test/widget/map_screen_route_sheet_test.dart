@@ -3,11 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
+import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/services/tasmap_repository.dart';
+import 'package:peak_bagger/services/overpass_service.dart';
 
 import '../harness/test_tasmap_notifier.dart';
 import '../harness/test_tasmap_repository.dart';
@@ -109,6 +117,117 @@ void main() {
     expect(find.byKey(const Key('route-draft-marker-0')), findsOneWidget);
   });
 
+  testWidgets('blank route name shows inline error and save stays disabled', (
+    tester,
+  ) async {
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+    await _pumpMap(tester, notifier);
+
+    await tester.tap(find.byKey(const Key('create-route-fab')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('A Route name must be entered'), findsOneWidget);
+    final saveButton = tester.widget<FilledButton>(
+      find.byKey(const Key('route-save-button')),
+    );
+    expect(saveButton.onPressed, isNull);
+  });
+
+  testWidgets('valid route save persists route and closes sheet', (tester) async {
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+    final tasmapRepository = await TestTasmapRepository.create();
+    final notifier = MapNotifier(
+      peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+      overpassService: OverpassService(),
+      tasmapRepository: tasmapRepository,
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+      routeRepository: routeRepository,
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage(),
+      ),
+      loadPositionOnBuild: false,
+      loadPeaksOnBuild: false,
+      loadTracksOnBuild: false,
+    );
+    await _pumpMap(
+      tester,
+      notifier,
+      routeRepository: routeRepository,
+      tasmapRepository: tasmapRepository,
+    );
+
+    await tester.tap(find.byKey(const Key('create-route-fab')));
+    await tester.pumpAndSettle();
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region) + const Offset(-40, 0));
+    await tester.pumpAndSettle();
+    await tester.tapAt(tester.getCenter(region) + const Offset(40, 0));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('route-name-field')), 'Ridge Loop');
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('route-save-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('route-bottom-sheet')), findsNothing);
+    final savedRoutes = routeRepository.getAllRoutes();
+    expect(savedRoutes, hasLength(1));
+    expect(savedRoutes.single.name, 'Ridge Loop');
+    expect(savedRoutes.single.colour, 0xFFFF0000);
+    expect(savedRoutes.single.gpxRoute, hasLength(2));
+    expect(savedRoutes.single.displayRoutePointsByZoom, isNot('{}'));
+  });
+
+  testWidgets('route save failure shows snackbar and keeps sheet open', (
+    tester,
+  ) async {
+    final routeRepository = RouteRepository.test(_FailingRouteStorage());
+    final tasmapRepository = await TestTasmapRepository.create();
+    final notifier = MapNotifier(
+      peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+      overpassService: OverpassService(),
+      tasmapRepository: tasmapRepository,
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+      routeRepository: routeRepository,
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage(),
+      ),
+      loadPositionOnBuild: false,
+      loadPeaksOnBuild: false,
+      loadTracksOnBuild: false,
+    );
+    await _pumpMap(
+      tester,
+      notifier,
+      routeRepository: routeRepository,
+      tasmapRepository: tasmapRepository,
+    );
+
+    await tester.tap(find.byKey(const Key('create-route-fab')));
+    await tester.pumpAndSettle();
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region) + const Offset(-40, 0));
+    await tester.pumpAndSettle();
+    await tester.tapAt(tester.getCenter(region) + const Offset(40, 0));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('route-name-field')), 'Failure Route');
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('route-save-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('route-bottom-sheet')), findsOneWidget);
+    expect(find.textContaining('Failed to save route'), findsOneWidget);
+  });
+
   testWidgets('create route hides the entry button while drafting', (
     tester,
   ) async {
@@ -138,20 +257,28 @@ ProviderContainer _container(WidgetTester tester) {
 
 Future<void> _pumpMap(
   WidgetTester tester,
-  MapNotifier notifier,
+  MapNotifier notifier, {
+  RouteRepository? routeRepository,
+  TasmapRepository? tasmapRepository,
+}
 ) async {
-  final tasmapRepository = await TestTasmapRepository.create();
+  final effectiveTasmapRepository = tasmapRepository ?? await TestTasmapRepository.create();
+  final effectiveRouteRepository = routeRepository ??
+      RouteRepository.test(InMemoryRouteStorage());
   await tester.binding.setSurfaceSize(const Size(1600, 900));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         mapProvider.overrideWith(() => notifier),
+        routeRepositoryProvider.overrideWithValue(effectiveRouteRepository),
         peakListRepositoryProvider.overrideWithValue(
           PeakListRepository.test(InMemoryPeakListStorage()),
         ),
-        tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
-        tasmapStateProvider.overrideWith(() => TestTasmapNotifier(tasmapRepository)),
+        tasmapRepositoryProvider.overrideWithValue(effectiveTasmapRepository),
+        tasmapStateProvider.overrideWith(
+          () => TestTasmapNotifier(effectiveTasmapRepository),
+        ),
       ],
       child: const MaterialApp(home: MapScreen()),
     ),
@@ -167,4 +294,20 @@ GpxTrack _track(int id) {
     trackName: 'Track $id',
     gpxFile: '<gpx></gpx>',
   );
+}
+
+class _FailingRouteStorage implements RouteStorage {
+  @override
+  bool delete(int id) => false;
+
+  @override
+  List<app_route.Route> getAll() => const [];
+
+  @override
+  app_route.Route? getById(int id) => null;
+
+  @override
+  int save(app_route.Route route) {
+    throw Exception('write failed');
+  }
 }

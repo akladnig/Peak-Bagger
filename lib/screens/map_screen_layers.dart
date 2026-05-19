@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
@@ -166,6 +167,44 @@ List<TasmapPolygonLabelEntry> buildOverlayLabelEntries(
   }
 
   return entries;
+}
+
+PolylineLayer buildRoutePolylines(List<app_route.Route> routes, double zoom) {
+  final polylines = <Polyline>[];
+  final displayZoom = zoom.round().clamp(
+    MapConstants.trackMinZoom,
+    MapConstants.trackMaxZoom,
+  );
+
+  for (final route in routes) {
+    try {
+      for (final segment in route.getSegmentsForZoom(displayZoom)) {
+        if (segment.isEmpty) {
+          continue;
+        }
+        polylines.add(
+          Polyline(
+            points: segment,
+            color: Color(route.colour),
+            strokeWidth: RouteUI.width,
+          ),
+        );
+      }
+    } catch (_) {
+      if (route.gpxRoute.isEmpty) {
+        continue;
+      }
+      polylines.add(
+        Polyline(
+          points: route.gpxRoute,
+          color: Color(route.colour),
+          strokeWidth: RouteUI.width,
+        ),
+      );
+    }
+  }
+
+  return PolylineLayer(polylines: polylines);
 }
 
 PolylineLayer buildTrackPolylines(

@@ -31,18 +31,18 @@ Add real route repo/read path so saved routes render and survive restart.
 ### Phase 2: Route Persistence + Overlay
 
 - **Goal**: saved routes become real data and render from visibility state
-- [ ] `lib/services/route_repository.dart` - add ObjectBox-backed + writable in-memory route storage, synchronous read/save API, stable ID-on-create contract
-- [ ] `lib/models/route.dart` - add zoom-cache decode helper mirroring track lookup and raw-geometry fallback support; keep `app_route.Route` alias rule where Flutter `Route` also imported
-- [ ] `lib/core/constants.dart` - add `RouteUI.width = 1.0`
-- [ ] `lib/providers/map_provider.dart` - add `saveRouteDraft()`, `isSavingRoute`, `routeDraftNameError`, route-save snackbar seam, revision bump only on successful save, post-save cleanup, blank-name validation, default red colour
-- [ ] `lib/widgets/map_route_bottom_sheet.dart` - wire save to notifier, show inline `A Route name must be entered`, disable save until valid, keep mode buttons visible/mutually selectable/no-op
-- [ ] `lib/screens/map_screen_layers.dart` - add route polyline builder using route cache first, raw `[route.gpxRoute]` fallback, stored colour, `RouteUI.width`, render below track layer
-- [ ] `lib/screens/map_screen.dart` - consume route-save snackbar seam, close sheet only on successful save, render route overlays only when `showRoutes` is true
-- [ ] TDD: save valid draft -> persisted route with red colour, raw geometry JSON, zoom cache, revision bump, draft cleanup, no success snackbar
-- [ ] TDD: blank/whitespace name or <2 markers -> save blocked, inline error shown, sheet stays open
-- [ ] TDD: repo save failure -> no phantom route, no revision bump, visibility unchanged, snackbar shown, draft preserved
-- [ ] TDD: route overlay uses cache JSON when valid, falls back to raw geometry when cache missing/invalid, skips only when both unusable
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/services/route_repository.dart` - add ObjectBox-backed + writable in-memory route storage, synchronous read/save API, stable ID-on-create contract
+- [x] `lib/models/route.dart` - add zoom-cache decode helper mirroring track lookup and raw-geometry fallback support; keep `app_route.Route` alias rule where Flutter `Route` also imported
+- [x] `lib/core/constants.dart` - add `RouteUI.width = 1.0`
+- [x] `lib/providers/map_provider.dart` - add `saveRouteDraft()`, `isSavingRoute`, `routeDraftNameError`, route-save snackbar seam, revision bump only on successful save, post-save cleanup, blank-name validation, default red colour
+- [x] `lib/widgets/map_route_bottom_sheet.dart` - wire save to notifier, show inline `A Route name must be entered`, disable save until valid, keep mode buttons visible/mutually selectable/no-op
+- [x] `lib/screens/map_screen_layers.dart` - add route polyline builder using route cache first, raw `[route.gpxRoute]` fallback, stored colour, `RouteUI.width`, render below track layer
+- [x] `lib/screens/map_screen.dart` - consume route-save snackbar seam, close sheet only on successful save, render route overlays only when `showRoutes` is true
+- [x] TDD: save valid draft -> persisted route with red colour, raw geometry JSON, zoom cache, revision bump, draft cleanup, no success snackbar
+- [x] TDD: blank/whitespace name or <2 markers -> save blocked, inline error shown, sheet stays open
+- [x] TDD: repo save failure -> no phantom route, no revision bump, visibility unchanged, snackbar shown, draft preserved
+- [x] TDD: route overlay uses cache JSON when valid, falls back to raw geometry when cache missing/invalid, skips only when both unusable
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Coverage + Regression Sweep
 

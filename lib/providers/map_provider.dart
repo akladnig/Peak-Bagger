@@ -8,6 +8,8 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/route.dart';
+import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/import_path_helpers.dart';
@@ -20,6 +22,7 @@ import 'package:peak_bagger/services/peak_refresh_result.dart';
 import 'package:peak_bagger/services/peak_refresh_service.dart';
 import 'package:peak_bagger/services/peak_info_content_resolver.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/track_peak_correlation_service.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
@@ -136,7 +139,9 @@ class MapState {
   final double? infoPeakElevation;
   final LatLng? selectedLocation;
   final bool isRouteDrafting;
+  final bool isSavingRoute;
   final String routeDraftName;
+  final String? routeDraftNameError;
   final RouteMode routeDraftMode;
   final List<LatLng> routeDraftMarkers;
   final bool routeDraftNameFieldFocused;
@@ -189,7 +194,9 @@ class MapState {
     this.infoPeakElevation,
     this.selectedLocation,
     this.isRouteDrafting = false,
+    this.isSavingRoute = false,
     this.routeDraftName = '',
+    this.routeDraftNameError,
     this.routeDraftMode = RouteMode.snapToTrail,
     this.routeDraftMarkers = const [],
     this.routeDraftNameFieldFocused = false,
@@ -258,7 +265,10 @@ class MapState {
     LatLng? selectedLocation,
     bool clearSelectedLocation = false,
     bool? isRouteDrafting,
+    bool? isSavingRoute,
     String? routeDraftName,
+    String? routeDraftNameError,
+    bool clearRouteDraftNameError = false,
     RouteMode? routeDraftMode,
     List<LatLng>? routeDraftMarkers,
     bool? routeDraftNameFieldFocused,
@@ -329,7 +339,11 @@ class MapState {
           ? null
           : (selectedLocation ?? this.selectedLocation),
       isRouteDrafting: isRouteDrafting ?? this.isRouteDrafting,
+      isSavingRoute: isSavingRoute ?? this.isSavingRoute,
       routeDraftName: routeDraftName ?? this.routeDraftName,
+      routeDraftNameError: clearRouteDraftNameError
+          ? null
+          : (routeDraftNameError ?? this.routeDraftNameError),
       routeDraftMode: routeDraftMode ?? this.routeDraftMode,
       routeDraftMarkers: routeDraftMarkers ?? this.routeDraftMarkers,
       routeDraftNameFieldFocused:
@@ -475,6 +489,7 @@ class MapNotifier extends Notifier<MapState> {
     OverpassService? overpassService,
     TasmapRepository? tasmapRepository,
     GpxTrackRepository? gpxTrackRepository,
+    RouteRepository? routeRepository,
     PeaksBaggedRepository? peaksBaggedRepository,
     MigrationMarkerStore? migrationMarkerStore,
     bool loadPositionOnBuild = true,
@@ -484,6 +499,7 @@ class MapNotifier extends Notifier<MapState> {
        _injectedOverpassService = overpassService,
        _injectedTasmapRepository = tasmapRepository,
        _injectedGpxTrackRepository = gpxTrackRepository,
+       _injectedRouteRepository = routeRepository,
        _injectedPeaksBaggedRepository = peaksBaggedRepository,
        _injectedMigrationMarkerStore = migrationMarkerStore,
        _loadPositionOnBuild = loadPositionOnBuild,
@@ -494,6 +510,7 @@ class MapNotifier extends Notifier<MapState> {
   final OverpassService? _injectedOverpassService;
   final TasmapRepository? _injectedTasmapRepository;
   final GpxTrackRepository? _injectedGpxTrackRepository;
+  final RouteRepository? _injectedRouteRepository;
   final PeaksBaggedRepository? _injectedPeaksBaggedRepository;
   final MigrationMarkerStore? _injectedMigrationMarkerStore;
   final bool _loadPositionOnBuild;
@@ -504,12 +521,14 @@ class MapNotifier extends Notifier<MapState> {
   late final PeakRefreshService _peakRefreshService;
   late final TasmapRepository _tasmapRepository;
   late final GpxTrackRepository _gpxTrackRepository;
+  late final RouteRepository _routeRepository;
   late final PeaksBaggedRepository _peaksBaggedRepository;
   late final MigrationMarkerStore _migrationMarkerStore;
   late final Future<SharedPreferences> Function() _prefsLoader;
   bool _recoverySnackbarShown = false;
   String? _pendingTrackSnackbarMessage;
   String? _pendingStartupBackfillWarningMessage;
+  String? _pendingRouteSnackbarMessage;
   bool _isRestoringVisibilityPrefs = false;
   bool _showTracksRestoreOverridden = false;
   bool _showRoutesRestoreOverridden = false;
@@ -527,6 +546,8 @@ class MapNotifier extends Notifier<MapState> {
         _injectedTasmapRepository ?? ref.read(tasmapRepositoryProvider);
     _gpxTrackRepository =
         _injectedGpxTrackRepository ?? GpxTrackRepository(objectboxStore);
+    _routeRepository =
+        _injectedRouteRepository ?? ref.read(routeRepositoryProvider);
     _peaksBaggedRepository =
         _injectedPeaksBaggedRepository ?? PeaksBaggedRepository(objectboxStore);
     _migrationMarkerStore =
@@ -1216,6 +1237,12 @@ class MapNotifier extends Notifier<MapState> {
     return message;
   }
 
+  String? consumeRouteSnackbarMessage() {
+    final message = _pendingRouteSnackbarMessage;
+    _pendingRouteSnackbarMessage = null;
+    return message;
+  }
+
   String? consumeStartupBackfillWarningMessage() {
     final message = _pendingStartupBackfillWarningMessage;
     _pendingStartupBackfillWarningMessage = null;
@@ -1408,7 +1435,9 @@ class MapNotifier extends Notifier<MapState> {
 
     state = state.copyWith(
       isRouteDrafting: true,
+      isSavingRoute: false,
       routeDraftName: '',
+      routeDraftNameError: 'A Route name must be entered',
       routeDraftMode: RouteMode.snapToTrail,
       routeDraftMarkers: const [],
       routeDraftNameFieldFocused: false,
@@ -1427,11 +1456,17 @@ class MapNotifier extends Notifier<MapState> {
 
     state = state.copyWith(
       isRouteDrafting: false,
+      isSavingRoute: false,
       routeDraftName: '',
+      clearRouteDraftNameError: true,
       routeDraftMode: RouteMode.snapToTrail,
       routeDraftMarkers: const [],
       routeDraftNameFieldFocused: false,
     );
+  }
+
+  String? _validateRouteDraftName(String value) {
+    return value.trim().isEmpty ? 'A Route name must be entered' : null;
   }
 
   void setRouteDraftNameFieldFocused(bool focused) {
@@ -1455,7 +1490,10 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
-    state = state.copyWith(routeDraftName: value);
+    state = state.copyWith(
+      routeDraftName: value,
+      routeDraftNameError: _validateRouteDraftName(value),
+    );
   }
 
   void addRouteDraftMarker(LatLng point) {
@@ -1466,6 +1504,37 @@ class MapNotifier extends Notifier<MapState> {
     state = state.copyWith(
       routeDraftMarkers: [...state.routeDraftMarkers, point],
     );
+  }
+
+  Future<void> saveRouteDraft() async {
+    if (!state.isRouteDrafting || state.isSavingRoute) {
+      return;
+    }
+
+    final trimmedName = state.routeDraftName.trim();
+    final routeNameError = _validateRouteDraftName(trimmedName);
+    if (routeNameError != null || state.routeDraftMarkers.length < 2) {
+      state = state.copyWith(routeDraftNameError: routeNameError);
+      return;
+    }
+
+    state = state.copyWith(isSavingRoute: true, clearRouteDraftNameError: true);
+    try {
+      final route = Route(
+        name: trimmedName,
+        gpxRoute: List<LatLng>.from(state.routeDraftMarkers, growable: false),
+        displayRoutePointsByZoom: TrackDisplayCacheBuilder.buildJson([
+          List<LatLng>.from(state.routeDraftMarkers, growable: false),
+        ]),
+        colour: 0xFFFF0000,
+      );
+      _routeRepository.saveRoute(route);
+      ref.read(routeRevisionProvider.notifier).increment();
+      endRouteDraft();
+    } catch (error) {
+      state = state.copyWith(isSavingRoute: false);
+      _pendingRouteSnackbarMessage = 'Failed to save route: $error';
+    }
   }
 
   void setEndDrawerMode(EndDrawerMode mode) {

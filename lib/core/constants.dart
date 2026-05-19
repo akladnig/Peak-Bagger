@@ -48,6 +48,10 @@ abstract final class RouteConstants {
   static const sheetHeight = 320.0;
 }
 
+abstract final class RouteUI {
+  static const width = 1.0;
+}
+
 abstract final class UiConstants {
   static const scrollSpeed = 0.001;
   static const scrollInterval = Duration(milliseconds: 16);
