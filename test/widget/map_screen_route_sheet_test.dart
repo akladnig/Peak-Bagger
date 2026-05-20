@@ -332,7 +332,7 @@ void main() {
     expect(find.textContaining('Failed to save route'), findsOneWidget);
   });
 
-  testWidgets('routing failure shows inline error and save stays disabled', (
+  testWidgets('off-track route tap falls back to a straight segment', (
     tester,
   ) async {
     final tasmapRepository = await TestTasmapRepository.create();
@@ -365,11 +365,15 @@ void main() {
     await tester.tapAt(tester.getCenter(region) + const Offset(40, 0));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('route-error-text')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('route-name-field')), 'Fallback Route');
+    await tester.pump();
+
+    expect(find.byKey(const Key('route-distance-text')), findsOneWidget);
+    expect(find.byKey(const Key('route-error-text')), findsNothing);
     final saveButton = tester.widget<FilledButton>(
       find.byKey(const Key('route-save-button')),
     );
-    expect(saveButton.onPressed, isNull);
+    expect(saveButton.onPressed, isNotNull);
   });
 
   testWidgets('route mode secondary tap is a no-op for draft state', (

@@ -1679,14 +1679,24 @@ class MapNotifier extends Notifier<MapState> {
         routeDraftStage: RouteDraftStage.awaitingNextPoint,
         clearRouteDraftError: true,
       );
-    } on RoutePlanningException catch (error) {
+    } on RoutePlanningException {
       if (!_isActiveRouteDraftRequest(requestId)) {
         return;
       }
       state = state.copyWith(
-        routeDraftStage: RouteDraftStage.segmentFailure,
-        routeDraftError: error.message,
+        routeDraftCommittedPoints: _appendRouteSegment(
+          state.routeDraftCommittedPoints,
+          [start, end],
+        ),
+        routeDraftDistanceMeters:
+            state.routeDraftDistanceMeters + _distance.as(
+              LengthUnit.Meter,
+              start,
+              end,
+            ),
         routeDraftProvisionalPoints: const [],
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        clearRouteDraftError: true,
       );
     } catch (error) {
       if (!_isActiveRouteDraftRequest(requestId)) {

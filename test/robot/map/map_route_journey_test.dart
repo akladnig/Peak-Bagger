@@ -54,4 +54,46 @@ void main() {
     expect(robot.savedRoutes().single.gpxRoute, hasLength(5));
     expect(robot.container().read(mapProvider).showRoutes, isTrue);
   });
+
+  testWidgets('route journey falls back to a straight off-track segment', (
+    tester,
+  ) async {
+    final robot = MapRouteRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+      routePlanningOutcomes: const [
+        PlannedRouteSegment(
+          points: [
+            LatLng(-41.5, 146.5),
+            LatLng(-41.55, 146.55),
+            LatLng(-41.6, 146.6),
+          ],
+          distanceMeters: 1000,
+        ),
+        RoutePlanningException('No path found.'),
+      ],
+    );
+
+    await robot.pumpApp();
+    await robot.openMap();
+    await robot.enterRouteMode();
+
+    await robot.tapRoutePoint(const Offset(-40, 0));
+    await robot.tapRoutePoint(const Offset(40, 0));
+    await robot.tapRoutePoint(const Offset(80, 0));
+
+    expect(robot.routeDistanceText, findsOneWidget);
+
+    await robot.enterRouteName('Fallback Route');
+    await robot.saveRoute();
+
+    expect(robot.routeBottomSheet, findsNothing);
+    expect(robot.savedRoutes(), hasLength(1));
+    expect(robot.savedRoutes().single.gpxRoute, hasLength(5));
+    expect(robot.container().read(mapProvider).showRoutes, isTrue);
+  });
 }

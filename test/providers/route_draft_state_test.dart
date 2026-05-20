@@ -193,7 +193,7 @@ void main() {
     expect(state.routeDraftError, isNotNull);
   });
 
-  test('later segment failure preserves the last successful routed geometry', () async {
+  test('later segment no-path failure falls back to a straight segment', () async {
     final routePlanner = _ControlledRoutePlanner();
     final realNotifier = await _buildRouteTestNotifier(routePlanner: routePlanner);
     final container = ProviderContainer(
@@ -230,13 +230,29 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     final state = container.read(mapProvider);
-    expect(state.routeDraftStage, RouteDraftStage.segmentFailure);
+    expect(state.routeDraftStage, RouteDraftStage.awaitingNextPoint);
     expect(
       state.routeDraftCommittedPoints,
-      const [point1, LatLng(-41.55, 146.55), point2],
+      const [
+        point1,
+        LatLng(-41.55, 146.55),
+        point2,
+        point3,
+      ],
     );
     expect(state.routeDraftProvisionalPoints, isEmpty);
-    expect(state.routeDraftError, 'No path found.');
+    expect(state.routeDraftError, isNull);
+    expect(
+      state.routeDraftDistanceMeters,
+      closeTo(
+        1000 + const Distance().as(
+          LengthUnit.Meter,
+          point2,
+          point3,
+        ),
+        0.001,
+      ),
+    );
   });
 
   test('late route result is ignored after cancelling the draft', () async {
