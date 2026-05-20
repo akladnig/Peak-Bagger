@@ -14,12 +14,14 @@ class MapRouteBottomSheet extends ConsumerStatefulWidget {
 
 class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
   late final FocusNode _routeNameFocusNode;
+  late final TextEditingController _routeNameController;
   late final MapNotifier _notifier;
 
   @override
   void initState() {
     super.initState();
     _notifier = ref.read(mapProvider.notifier);
+    _routeNameController = TextEditingController();
     _routeNameFocusNode = FocusNode()
       ..addListener(() {
         if (mounted) {
@@ -31,12 +33,25 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
   @override
   void dispose() {
     _notifier.setRouteDraftNameFieldFocused(false);
+    _routeNameController.dispose();
     _routeNameFocusNode.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<String>(
+      mapProvider.select((state) => state.routeDraftName),
+      (previous, next) {
+        if (_routeNameController.text != next) {
+          _routeNameController.value = TextEditingValue(
+            text: next,
+            selection: TextSelection.collapsed(offset: next.length),
+          );
+        }
+      },
+    );
+
     final (
       :routeDraftName,
       :routeDraftNameError,
@@ -102,6 +117,7 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
                             routeDraftNameError: routeDraftNameError,
                             routeDraftMode: routeMode,
                             routeDraftColour: routeDraftColour,
+                            routeNameController: _routeNameController,
                             routeNameFocusNode: _routeNameFocusNode,
                             onNameChanged: notifier.setRouteDraftName,
                             onModeSelected: notifier.setRouteDraftMode,
@@ -190,6 +206,7 @@ class _RouteEditingGroup extends StatelessWidget {
     required this.routeDraftNameError,
     required this.routeDraftMode,
     required this.routeDraftColour,
+    required this.routeNameController,
     required this.routeNameFocusNode,
     required this.onNameChanged,
     required this.onModeSelected,
@@ -199,6 +216,7 @@ class _RouteEditingGroup extends StatelessWidget {
   final String? routeDraftNameError;
   final RouteMode routeDraftMode;
   final int routeDraftColour;
+  final TextEditingController routeNameController;
   final FocusNode routeNameFocusNode;
   final ValueChanged<String> onNameChanged;
   final ValueChanged<RouteMode> onModeSelected;
@@ -239,8 +257,8 @@ class _RouteEditingGroup extends StatelessWidget {
                 width: 244,
                 child: TextFormField(
                   key: const Key('route-name-field'),
+                  controller: routeNameController,
                   focusNode: routeNameFocusNode,
-                  initialValue: routeDraftName,
                   onChanged: onNameChanged,
                   maxLines: 1,
                   textAlignVertical: TextAlignVertical.center,

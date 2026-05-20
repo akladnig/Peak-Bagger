@@ -1554,9 +1554,12 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
+    final routeNameError = _validateRouteDraftName(value);
+
     state = state.copyWith(
       routeDraftName: value,
-      routeDraftNameError: _validateRouteDraftName(value),
+      routeDraftNameError: routeNameError,
+      clearRouteDraftNameError: routeNameError == null,
     );
   }
 

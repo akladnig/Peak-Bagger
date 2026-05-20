@@ -185,6 +185,32 @@ void main() {
     expect(saveButton.onPressed, isNull);
   });
 
+  testWidgets('route name error clears on first typed character', (
+    tester,
+  ) async {
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+    await _pumpMap(tester, notifier);
+
+    await tester.tap(find.byKey(const Key('create-route-fab')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('A Route name must be entered'), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('route-name-field')), 't');
+    await tester.pump();
+
+    final state = _container(tester).read(mapProvider);
+    expect(state.routeDraftName, 't');
+    expect(state.routeDraftNameError, isNull);
+    expect(find.text('A Route name must be entered'), findsNothing);
+  });
+
   testWidgets('valid route save persists routed geometry and closes sheet', (tester) async {
     final routeRepository = RouteRepository.test(InMemoryRouteStorage());
     final tasmapRepository = await TestTasmapRepository.create();

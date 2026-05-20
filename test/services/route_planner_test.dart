@@ -37,12 +37,41 @@ void main() {
         errors: const ['No path found.'],
       ),
     );
-    final planner = TripRoutingRoutePlanner(client: client);
+    final planner = TripRoutingRoutePlanner(
+      client: client,
+      fallback: const _NullFallbackRoutePlanner(),
+    );
 
     await expectLater(
       () => planner.planSegment(start: start, end: end),
       throwsA(isA<RoutePlanningException>()),
     );
+  });
+
+  test('trip routing adapter falls back when package graph is unavailable', () async {
+    const start = LatLng(-41.5, 146.5);
+    const end = LatLng(-41.6, 146.6);
+    final client = _FakeTripRoutingClient(
+      trip_routing.Trip(
+        route: const [],
+        distance: 0,
+        errors: const ['Graph data unavailable'],
+      ),
+    );
+    final planner = TripRoutingRoutePlanner(
+      client: client,
+      fallback: const _FallbackRoutePlanner(
+        PlannedRouteSegment(
+          points: [start, LatLng(-41.55, 146.55), end],
+          distanceMeters: 1234.5,
+        ),
+      ),
+    );
+
+    final segment = await planner.planSegment(start: start, end: end);
+
+    expect(segment.points, const [start, LatLng(-41.55, 146.55), end]);
+    expect(segment.distanceMeters, 1234.5);
   });
 }
 
@@ -62,5 +91,31 @@ class _FakeTripRoutingClient implements TripRoutingClient {
   }) async {
     recordedWaypoints = List<LatLng>.from(waypoints, growable: false);
     return trip;
+  }
+}
+
+class _FallbackRoutePlanner implements RoutePlannerFallback {
+  const _FallbackRoutePlanner(this.segment);
+
+  final PlannedRouteSegment segment;
+
+  @override
+  Future<PlannedRouteSegment?> tryPlanSegment({
+    required LatLng start,
+    required LatLng end,
+  }) async {
+    return segment;
+  }
+}
+
+class _NullFallbackRoutePlanner implements RoutePlannerFallback {
+  const _NullFallbackRoutePlanner();
+
+  @override
+  Future<PlannedRouteSegment?> tryPlanSegment({
+    required LatLng start,
+    required LatLng end,
+  }) async {
+    return null;
   }
 }
