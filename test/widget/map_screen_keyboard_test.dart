@@ -367,10 +367,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Basemaps'), findsOneWidget);
 
-    Actions.invoke(
-      tester.element(find.byType(Scaffold).first),
-      const DismissSurfaceIntent(),
-    );
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
 
     expect(find.text('Basemaps'), findsNothing);
@@ -403,6 +400,39 @@ void main() {
     await tester.pump();
 
     expect(container.read(mapProvider).selectedTrackId, isNull);
+  });
+
+  testWidgets('escape closes drawer and keeps route draft active', (
+    tester,
+  ) async {
+    await _pumpMapApp(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final container = ProviderScope.containerOf(tester.element(region));
+    tester.widget<Focus>(find.byType(Focus).first).focusNode?.requestFocus();
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('create-route-fab')));
+    await tester.pumpAndSettle();
+    expect(container.read(mapProvider).isRouteDrafting, isTrue);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyB);
+    await tester.pumpAndSettle();
+    expect(find.text('Basemaps'), findsOneWidget);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Basemaps'), findsNothing);
+    expect(container.read(mapProvider).isRouteDrafting, isTrue);
+    expect(find.byKey(const Key('route-bottom-sheet')), findsOneWidget);
   });
 
   testWidgets('tapping the map sets the selected marker', (tester) async {

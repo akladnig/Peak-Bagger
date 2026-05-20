@@ -732,6 +732,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
           peakInfo: state.peakInfo,
           isRouteDrafting: state.isRouteDrafting,
           routeDraftMarkers: state.routeDraftMarkers,
+          routeDraftCommittedPoints: state.routeDraftCommittedPoints,
+          routeDraftProvisionalPoints: state.routeDraftProvisionalPoints,
+          routeDraftColour: state.routeDraftColour,
           routeDraftNameFieldFocused: state.routeDraftNameFieldFocused,
         ),
       ),
@@ -998,7 +1001,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                             ),
                                         onMapReady: _handleMapReady,
                                         onSecondaryTap: (tapPosition, point) {
-                                          _centerOnSelectedLocationDirect();
+                                          if (!routeChrome.isRouteDrafting) {
+                                            _centerOnSelectedLocationDirect();
+                                          }
                                         },
                                         onPointerDown: (event, point) {
                                           _mapFocusNode.requestFocus();
@@ -1147,6 +1152,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               ),
                                             ],
                                           ),
+                                        if (routeChrome.isRouteDrafting)
+                                          buildDraftRoutePolylines(
+                                            committedPoints:
+                                                routeChrome.routeDraftCommittedPoints,
+                                            provisionalPoints:
+                                                routeChrome.routeDraftProvisionalPoints,
+                                            colour: routeChrome.routeDraftColour,
+                                          ),
                                         if (routeChrome.isRouteDrafting &&
                                             routeChrome.routeDraftMarkers
                                                 .isNotEmpty)
@@ -1154,28 +1167,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                             key: const Key(
                                               'route-draft-marker-layer',
                                             ),
-                                            markers: [
-                                              for (var index = 0;
-                                                  index <
-                                                      routeChrome
-                                                          .routeDraftMarkers
-                                                          .length;
-                                                  index++)
-                                                Marker(
-                                                  key: Key(
-                                                    'route-draft-marker-$index',
-                                                  ),
-                                                  point: routeChrome
-                                                      .routeDraftMarkers[index],
-                                                  width: 32,
-                                                  height: 32,
-                                                  child: const Icon(
-                                                    Icons.adjust,
-                                                    color: Colors.green,
-                                                    size: 22,
-                                                  ),
-                                                ),
-                                            ],
+                                            markers: buildRouteDraftMarkers(
+                                              points:
+                                                  routeChrome.routeDraftMarkers,
+                                              colour:
+                                                  routeChrome.routeDraftColour,
+                                            ),
                                           ),
                                         if (mapState.selectedPeaks.isNotEmpty)
                                           CircleLayer(

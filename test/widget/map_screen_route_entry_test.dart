@@ -41,6 +41,29 @@ void main() {
     expect(find.byKey(const Key('route-bottom-sheet')), findsOneWidget);
   });
 
+  testWidgets('route draft survives branch navigation in the current session', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final notifier = await _buildRealNotifier();
+    await _pumpApp(tester, notifier);
+
+    router.go('/map');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('create-route-fab')));
+    await tester.pumpAndSettle();
+
+    router.go('/');
+    await tester.pumpAndSettle();
+    router.go('/map');
+    await tester.pumpAndSettle();
+
+    final state = _container(tester).read(mapProvider);
+    expect(state.isRouteDrafting, isTrue);
+    expect(find.byKey(const Key('route-bottom-sheet')), findsOneWidget);
+  });
+
   testWidgets('hidden-branch requestCameraMove preserves selected location and peaks', (
     tester,
   ) async {

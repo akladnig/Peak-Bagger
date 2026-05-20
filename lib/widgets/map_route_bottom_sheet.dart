@@ -14,12 +14,14 @@ class MapRouteBottomSheet extends ConsumerStatefulWidget {
 
 class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
   late final FocusNode _routeNameFocusNode;
+  late final TextEditingController _routeNameController;
   late final MapNotifier _notifier;
 
   @override
   void initState() {
     super.initState();
     _notifier = ref.read(mapProvider.notifier);
+    _routeNameController = TextEditingController();
     _routeNameFocusNode = FocusNode()
       ..addListener(() {
         if (mounted) {
@@ -31,19 +33,46 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
   @override
   void dispose() {
     _notifier.setRouteDraftNameFieldFocused(false);
+    _routeNameController.dispose();
     _routeNameFocusNode.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final (:routeDraftName, :routeDraftNameError, :routeDraftMode, :routeDraftMarkers, :isSavingRoute) = ref.watch(
+    ref.listen<String>(
+      mapProvider.select((state) => state.routeDraftName),
+      (previous, next) {
+        if (_routeNameController.text != next) {
+          _routeNameController.value = TextEditingValue(
+            text: next,
+            selection: TextSelection.collapsed(offset: next.length),
+          );
+        }
+      },
+    );
+
+    final (
+      :routeDraftName,
+      :routeDraftNameError,
+      :routeDraftMode,
+      :routeDraftCommittedPoints,
+      :routeDraftStage,
+      :routeDraftDistanceMeters,
+      :routeDraftError,
+      :routeDraftColour,
+      :isSavingRoute,
+    ) = ref.watch(
       mapProvider.select(
         (state) => (
           routeDraftName: state.routeDraftName,
           routeDraftNameError: state.routeDraftNameError,
           routeDraftMode: state.routeDraftMode,
-          routeDraftMarkers: state.routeDraftMarkers,
+          routeDraftCommittedPoints: state.routeDraftCommittedPoints,
+          routeDraftStage: state.routeDraftStage,
+          routeDraftDistanceMeters: state.routeDraftDistanceMeters,
+          routeDraftError: state.routeDraftError,
+          routeDraftColour: state.routeDraftColour,
           isSavingRoute: state.isSavingRoute,
         ),
       ),
@@ -72,7 +101,13 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Expanded(child: _DistanceElevationGroup()),
+                      Expanded(
+                        child: _DistanceElevationGroup(
+                          routeDraftStage: routeDraftStage,
+                          routeDraftDistanceMeters: routeDraftDistanceMeters,
+                          routeDraftError: routeDraftError,
+                        ),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         flex: 3,
@@ -81,6 +116,8 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
                             routeDraftName: routeDraftName,
                             routeDraftNameError: routeDraftNameError,
                             routeDraftMode: routeMode,
+                            routeDraftColour: routeDraftColour,
+                            routeNameController: _routeNameController,
                             routeNameFocusNode: _routeNameFocusNode,
                             onNameChanged: notifier.setRouteDraftName,
                             onModeSelected: notifier.setRouteDraftMode,
@@ -88,26 +125,17 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      _RouteActionsGroup(
-                        onCancel: notifier.endRouteDraft,
-                        onSave: notifier.saveRouteDraft,
-                        canSave:
-                            routeDraftMarkers.length >= 2 &&
+                        _RouteActionsGroup(
+                          onCancel: notifier.endRouteDraft,
+                          onSave: notifier.saveRouteDraft,
+                          canSave:
+                            routeDraftCommittedPoints.length >= 2 &&
                             routeDraftName.trim().isNotEmpty &&
+                            routeDraftStage != RouteDraftStage.routingSegment &&
                             !isSavingRoute,
-                        isSaving: isSavingRoute,
-                      ),
+                          isSaving: isSavingRoute,
+                        ),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    key: const Key('route-elevation-placeholder'),
-                    height: 92,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: theme.colorScheme.outline),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
                   ),
                 ],
               ),
@@ -120,52 +148,53 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
 }
 
 class _DistanceElevationGroup extends StatelessWidget {
-  const _DistanceElevationGroup();
+  const _DistanceElevationGroup({
+    required this.routeDraftStage,
+    required this.routeDraftDistanceMeters,
+    required this.routeDraftError,
+  });
+
+  final RouteDraftStage routeDraftStage;
+  final double routeDraftDistanceMeters;
+  final String? routeDraftError;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final distanceKilometers = (routeDraftDistanceMeters / 1000)
+        .toStringAsFixed(1);
 
     return Column(
       key: const Key('route-distance-elevation-group'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text.rich(
-          TextSpan(
-            children: [
-              TextSpan(
-                text: '12.3 km',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const TextSpan(text: '  •  '),
-              const WidgetSpan(
-                alignment: PlaceholderAlignment.middle,
-                child: Icon(Icons.arrow_upward, size: 16),
-              ),
-              const TextSpan(text: ' '),
-              TextSpan(
-                text: '315 m',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const TextSpan(text: '  •  '),
-              const WidgetSpan(
-                alignment: PlaceholderAlignment.middle,
-                child: Icon(Icons.arrow_downward, size: 16),
-              ),
-              const TextSpan(text: ' '),
-              TextSpan(
-                text: '234 m',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+        if (routeDraftStage == RouteDraftStage.routingSegment)
+          Text(
+            'Routing...',
+            key: const Key('route-loading-text'),
+            style: theme.textTheme.bodyMedium,
+          )
+        else if (routeDraftError != null)
+          Text(
+            routeDraftError!,
+            key: const Key('route-error-text'),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.error,
+            ),
+          )
+        else if (routeDraftDistanceMeters > 0)
+          Text(
+            '$distanceKilometers km',
+            key: const Key('route-distance-text'),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          )
+        else
+          Text(
+            'Tap two points to route',
+            style: theme.textTheme.bodyMedium,
           ),
-        ),
       ],
     );
   }
@@ -176,6 +205,8 @@ class _RouteEditingGroup extends StatelessWidget {
     required this.routeDraftName,
     required this.routeDraftNameError,
     required this.routeDraftMode,
+    required this.routeDraftColour,
+    required this.routeNameController,
     required this.routeNameFocusNode,
     required this.onNameChanged,
     required this.onModeSelected,
@@ -184,6 +215,8 @@ class _RouteEditingGroup extends StatelessWidget {
   final String routeDraftName;
   final String? routeDraftNameError;
   final RouteMode routeDraftMode;
+  final int routeDraftColour;
+  final TextEditingController routeNameController;
   final FocusNode routeNameFocusNode;
   final ValueChanged<String> onNameChanged;
   final ValueChanged<RouteMode> onModeSelected;
@@ -208,6 +241,7 @@ class _RouteEditingGroup extends StatelessWidget {
                 key: const Key('route-mode-snap-to-trail'),
                 label: 'Snap to Trail',
                 selected: routeDraftMode == RouteMode.snapToTrail,
+                selectedColor: Color(routeDraftColour),
                 onPressed: () => onModeSelected(RouteMode.snapToTrail),
               ),
               const SizedBox(width: 8),
@@ -215,15 +249,16 @@ class _RouteEditingGroup extends StatelessWidget {
                 key: const Key('route-mode-straight-line'),
                 label: 'Straight Line',
                 selected: routeDraftMode == RouteMode.straightLine,
-                onPressed: () => onModeSelected(RouteMode.straightLine),
+                selectedColor: Color(routeDraftColour),
+                onPressed: null,
               ),
               const SizedBox(width: 12),
               SizedBox(
                 width: 244,
                 child: TextFormField(
                   key: const Key('route-name-field'),
+                  controller: routeNameController,
                   focusNode: routeNameFocusNode,
-                  initialValue: routeDraftName,
                   onChanged: onNameChanged,
                   maxLines: 1,
                   textAlignVertical: TextAlignVertical.center,
@@ -260,17 +295,18 @@ class _RouteModeButton extends StatelessWidget {
     super.key,
     required this.label,
     required this.selected,
+    required this.selectedColor,
     required this.onPressed,
   });
 
   final String label;
   final bool selected;
-  final VoidCallback onPressed;
+  final Color selectedColor;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final selectedColor = Colors.green.shade700;
 
     return FilledButton(
       style: FilledButton.styleFrom(

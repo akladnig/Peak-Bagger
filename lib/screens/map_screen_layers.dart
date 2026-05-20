@@ -169,6 +169,61 @@ List<TasmapPolygonLabelEntry> buildOverlayLabelEntries(
   return entries;
 }
 
+PolylineLayer buildDraftRoutePolylines({
+  required List<LatLng> committedPoints,
+  required List<LatLng> provisionalPoints,
+  required int colour,
+}) {
+  final polylines = <Polyline>[];
+
+  if (committedPoints.length >= 2) {
+    polylines.add(
+      Polyline(
+        points: committedPoints,
+        color: Color(colour),
+        strokeWidth: RouteUI.width,
+      ),
+    );
+  }
+
+  if (provisionalPoints.length >= 2) {
+    polylines.add(
+      Polyline(
+        points: provisionalPoints,
+        color: Color(colour),
+        strokeWidth: RouteUI.width,
+      ),
+    );
+  }
+
+  return PolylineLayer(
+    key: const Key('route-draft-polyline-layer'),
+    polylines: polylines,
+  );
+}
+
+List<Marker> buildRouteDraftMarkers({
+  required List<LatLng> points,
+  required int colour,
+}) {
+  return [
+    for (var index = 0; index < points.length; index++)
+      Marker(
+        key: Key('route-draft-marker-$index'),
+        point: points[index],
+        width: 24,
+        height: 24,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Color(colour),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+          ),
+        ),
+      ),
+  ];
+}
+
 PolylineLayer buildRoutePolylines(List<app_route.Route> routes, double zoom) {
   final polylines = <Polyline>[];
   final displayZoom = zoom.round().clamp(
