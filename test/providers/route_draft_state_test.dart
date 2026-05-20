@@ -279,8 +279,7 @@ void main() {
 }
 
 class _InitialStateMapNotifier extends MapNotifier {
-  _InitialStateMapNotifier(this.initialState, {RoutePlanner? routePlanner})
-    : super(routePlanner: routePlanner);
+  _InitialStateMapNotifier(this.initialState);
 
   final MapState initialState;
 

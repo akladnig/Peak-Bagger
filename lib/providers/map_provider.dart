@@ -1719,7 +1719,6 @@ class MapNotifier extends Notifier<MapState> {
         : segment;
     return [...existing, ...nextSegment];
   }
-
   void setEndDrawerMode(EndDrawerMode mode) {
     if (state.endDrawerMode == mode) {
       return;

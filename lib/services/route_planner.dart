@@ -49,6 +49,16 @@ abstract class RoutePlannerFallback {
   });
 }
 
+class NoopRoutePlannerFallback implements RoutePlannerFallback {
+  const NoopRoutePlannerFallback();
+
+  @override
+  Future<PlannedRouteSegment?> tryPlanSegment({
+    required LatLng start,
+    required LatLng end,
+  }) async => null;
+}
+
 class TripRoutingServiceClient implements TripRoutingClient {
   TripRoutingServiceClient({trip_routing.TripService? tripService})
     : _tripService = tripService ?? trip_routing.TripService();
@@ -71,6 +81,76 @@ class TripRoutingServiceClient implements TripRoutingClient {
       forceIncludeWaypoints: forceIncludeWaypoints,
       duplicationPenalty: duplicationPenalty,
     );
+  }
+}
+
+const _routeGraphPathDefine = 'PEAK_BAGGER_ROUTE_GRAPH_PATH';
+
+class LocalFileTripRoutingClient implements TripRoutingClient {
+  LocalFileTripRoutingClient({
+    trip_routing.TripService? tripService,
+    String? graphFilePath,
+  }) : _tripService = tripService,
+       graphFilePath =
+           graphFilePath ??
+           const String.fromEnvironment(_routeGraphPathDefine);
+
+  final trip_routing.TripService? _tripService;
+  final String graphFilePath;
+  Future<trip_routing.TripService>? _serviceFuture;
+
+  @override
+  Future<trip_routing.Trip> findTotalTrip(
+    List<LatLng> waypoints, {
+    bool preferWalkingPaths = true,
+    bool replaceWaypointsWithBuildingEntrances = false,
+    bool forceIncludeWaypoints = false,
+    double duplicationPenalty = 0.0,
+  }) async {
+    final resolvedGraphPath = graphFilePath.trim();
+    if (resolvedGraphPath.isEmpty) {
+      return trip_routing.Trip(
+        route: const [],
+        distance: 0,
+        errors: const [
+          'Local route graph not configured. Set PEAK_BAGGER_ROUTE_GRAPH_PATH to a highway.json file.',
+        ],
+      );
+    }
+
+    try {
+      final tripService = await (_serviceFuture ??= _loadService(resolvedGraphPath));
+      return tripService.findTotalTrip(
+        waypoints,
+        preferWalkingPaths: preferWalkingPaths,
+        replaceWaypointsWithBuildingEntrances:
+            replaceWaypointsWithBuildingEntrances,
+        forceIncludeWaypoints: forceIncludeWaypoints,
+        duplicationPenalty: duplicationPenalty,
+      );
+    } catch (error) {
+      return trip_routing.Trip(
+        route: const [],
+        distance: 0,
+        errors: ['Failed to load local route graph: $error'],
+      );
+    }
+  }
+
+  Future<trip_routing.TripService> _loadService(String graphPath) async {
+    final rawJson = await File(graphPath).readAsString();
+    final decodedJson = jsonDecode(rawJson);
+    if (decodedJson is! Map<String, dynamic>) {
+      throw const FormatException('Expected decoded Overpass JSON object.');
+    }
+
+    final tripService = _tripService ?? trip_routing.TripService();
+    await tripService.loadOverpassJson(
+      decodedJson,
+      preferWalkingPaths: true,
+      source: graphPath,
+    );
+    return tripService;
   }
 }
 
