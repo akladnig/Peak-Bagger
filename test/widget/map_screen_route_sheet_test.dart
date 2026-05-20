@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
@@ -57,7 +59,7 @@ void main() {
     expect(find.byKey(const Key('route-name-field')), findsOneWidget);
     expect(find.byKey(const Key('route-mode-snap-to-trail')), findsOneWidget);
     expect(find.byKey(const Key('route-mode-straight-line')), findsOneWidget);
-    expect(find.byKey(const Key('route-elevation-placeholder')), findsOneWidget);
+    expect(find.byKey(const Key('route-distance-elevation-group')), findsOneWidget);
   });
 
   testWidgets('route sheet accepts name input and closes on cancel', (
@@ -126,6 +128,39 @@ void main() {
     );
     final decoration = markerContainer.decoration! as BoxDecoration;
     expect(decoration.color, const Color(0xFFFF0000));
+  });
+
+  testWidgets('route mode tap on a peak adds a route marker instead of opening popup', (
+    tester,
+  ) async {
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        peaks: [
+          Peak(
+            osmId: 7001,
+            name: 'Route Peak',
+            latitude: -41.5,
+            longitude: 146.5,
+          ),
+        ],
+      ),
+    );
+    await _pumpMap(tester, notifier);
+
+    await tester.tap(find.byKey(const Key('create-route-fab')));
+    await tester.pumpAndSettle();
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('route-draft-marker-0')), findsOneWidget);
+    expect(find.byKey(const Key('peak-info-popup')), findsNothing);
+    expect(_container(tester).read(mapProvider).selectedLocation, isNull);
   });
 
   testWidgets('blank route name shows inline error and save stays disabled', (
@@ -309,6 +344,41 @@ void main() {
       find.byKey(const Key('route-save-button')),
     );
     expect(saveButton.onPressed, isNull);
+  });
+
+  testWidgets('route mode secondary tap is a no-op for draft state', (
+    tester,
+  ) async {
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+    await _pumpMap(tester, notifier);
+
+    await tester.tap(find.byKey(const Key('create-route-fab')));
+    await tester.pumpAndSettle();
+
+    final container = _container(tester);
+    final currentState = container.read(mapProvider);
+    container.read(mapProvider.notifier).state = currentState.copyWith(
+      selectedLocation: const LatLng(-41.7, 146.7),
+    );
+    await tester.pump();
+
+    final map = tester.widget<FlutterMap>(find.byType(FlutterMap));
+    map.options.onSecondaryTap?.call(
+      const TapPosition(Offset.zero, Offset.zero),
+      const LatLng(-41.4, 146.4),
+    );
+    await tester.pump();
+
+    final state = container.read(mapProvider);
+    expect(state.center, currentState.center);
+    expect(state.routeDraftMarkers, isEmpty);
+    expect(state.isRouteDrafting, isTrue);
   });
 
   testWidgets('create route hides the entry button while drafting', (

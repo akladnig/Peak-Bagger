@@ -44,15 +44,16 @@ Approach: thin vertical slice first; keep state in existing `mapProvider` stack.
 ### Phase 3: Interaction Guards And Journey Lane
 
 - **Goal**: route-mode shell behavior solid; critical journey covered by robot tests
-- [ ] `lib/screens/map_screen.dart` - preserve View-group actions during route mode; keep `Esc` dismissing unrelated surfaces only; keep hover passive
-- [ ] `lib/widgets/map_route_bottom_sheet.dart` - finalize selector contract; remove metric placeholders; route-colour-consistent UI copy
-- [ ] `test/widget/map_screen_keyboard_test.dart` - route-mode `Esc`/drawer behavior; route-name focus; no route-state mutation
-- [ ] `test/widget/map_screen_route_entry_test.dart` - no regression in map shell entry/persistence seams
-- [ ] `test/robot/map/map_route_robot.dart` - robot helpers; stable key-first selectors; deterministic waits
-- [ ] `test/robot/map/map_route_journey_test.dart` - happy-path 3-tap route draft + save
-- [ ] TDD: route mode blocks peak popup, track selection, selected-location recenter, right-click mutation -> then implement
-- [ ] Robot journey tests + selectors/seams for critical flow: `create-route-fab`, `route-loading-text`, `route-distance-text`, `route-error-text`, `route-cancel-button`, `route-save-button`, draft marker/polyline keys; fake planner responses only
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/screens/map_screen.dart` - preserve View-group actions during route mode; keep `Esc` dismissing unrelated surfaces only; keep hover passive
+- [x] `lib/widgets/map_route_bottom_sheet.dart` - finalize selector contract; remove metric placeholders; route-colour-consistent UI copy
+- [x] `test/widget/map_screen_keyboard_test.dart` - route-mode `Esc`/drawer behavior; route-name focus; no route-state mutation
+- [x] `test/widget/map_screen_route_entry_test.dart` - no regression in map shell entry/persistence seams
+- [x] `test/widget/map_screen_route_sheet_test.dart` - route-mode interaction guards: peak tap routes, right-click no-op, route-colour assertions
+- [x] `test/robot/map/map_route_robot.dart` - robot helpers; stable key-first selectors; deterministic waits
+- [x] `test/robot/map/map_route_journey_test.dart` - happy-path 3-tap route draft + save
+- [x] TDD: route mode blocks peak popup, track selection, selected-location recenter, right-click mutation -> then implement
+- [x] Robot journey tests + selectors/seams for critical flow: `create-route-fab`, `route-loading-text`, `route-distance-text`, `route-error-text`, `route-cancel-button`, `route-save-button`, draft marker/polyline keys; fake planner responses only
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

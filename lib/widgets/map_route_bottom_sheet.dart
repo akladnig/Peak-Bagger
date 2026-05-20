@@ -45,6 +45,7 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
       :routeDraftStage,
       :routeDraftDistanceMeters,
       :routeDraftError,
+      :routeDraftColour,
       :isSavingRoute,
     ) = ref.watch(
       mapProvider.select(
@@ -56,6 +57,7 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
           routeDraftStage: state.routeDraftStage,
           routeDraftDistanceMeters: state.routeDraftDistanceMeters,
           routeDraftError: state.routeDraftError,
+          routeDraftColour: state.routeDraftColour,
           isSavingRoute: state.isSavingRoute,
         ),
       ),
@@ -99,6 +101,7 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
                             routeDraftName: routeDraftName,
                             routeDraftNameError: routeDraftNameError,
                             routeDraftMode: routeMode,
+                            routeDraftColour: routeDraftColour,
                             routeNameFocusNode: _routeNameFocusNode,
                             onNameChanged: notifier.setRouteDraftName,
                             onModeSelected: notifier.setRouteDraftMode,
@@ -117,16 +120,6 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
                           isSaving: isSavingRoute,
                         ),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    key: const Key('route-elevation-placeholder'),
-                    height: 92,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: theme.colorScheme.outline),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
                   ),
                 ],
               ),
@@ -196,6 +189,7 @@ class _RouteEditingGroup extends StatelessWidget {
     required this.routeDraftName,
     required this.routeDraftNameError,
     required this.routeDraftMode,
+    required this.routeDraftColour,
     required this.routeNameFocusNode,
     required this.onNameChanged,
     required this.onModeSelected,
@@ -204,6 +198,7 @@ class _RouteEditingGroup extends StatelessWidget {
   final String routeDraftName;
   final String? routeDraftNameError;
   final RouteMode routeDraftMode;
+  final int routeDraftColour;
   final FocusNode routeNameFocusNode;
   final ValueChanged<String> onNameChanged;
   final ValueChanged<RouteMode> onModeSelected;
@@ -228,6 +223,7 @@ class _RouteEditingGroup extends StatelessWidget {
                 key: const Key('route-mode-snap-to-trail'),
                 label: 'Snap to Trail',
                 selected: routeDraftMode == RouteMode.snapToTrail,
+                selectedColor: Color(routeDraftColour),
                 onPressed: () => onModeSelected(RouteMode.snapToTrail),
               ),
               const SizedBox(width: 8),
@@ -235,6 +231,7 @@ class _RouteEditingGroup extends StatelessWidget {
                 key: const Key('route-mode-straight-line'),
                 label: 'Straight Line',
                 selected: routeDraftMode == RouteMode.straightLine,
+                selectedColor: Color(routeDraftColour),
                 onPressed: null,
               ),
               const SizedBox(width: 12),
@@ -280,17 +277,18 @@ class _RouteModeButton extends StatelessWidget {
     super.key,
     required this.label,
     required this.selected,
+    required this.selectedColor,
     required this.onPressed,
   });
 
   final String label;
   final bool selected;
+  final Color selectedColor;
   final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final selectedColor = Colors.green.shade700;
 
     return FilledButton(
       style: FilledButton.styleFrom(
