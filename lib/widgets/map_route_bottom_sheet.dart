@@ -255,36 +255,41 @@ class _RouteEditingGroup extends StatelessWidget {
               const SizedBox(width: 12),
               SizedBox(
                 width: 244,
-                child: TextFormField(
-                  key: const Key('route-name-field'),
-                  controller: routeNameController,
-                  focusNode: routeNameFocusNode,
-                  onChanged: onNameChanged,
-                  maxLines: 1,
-                  textAlignVertical: TextAlignVertical.center,
-                  decoration: const InputDecoration(
-                    hintText: 'Route name',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextFormField(
+                      key: const Key('route-name-field'),
+                      controller: routeNameController,
+                      focusNode: routeNameFocusNode,
+                      onChanged: onNameChanged,
+                      maxLines: 1,
+                      textAlignVertical: TextAlignVertical.center,
+                      decoration: const InputDecoration(
+                        hintText: 'Route name',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
                     ),
-                  ),
+                    if (routeDraftNameError != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        routeDraftNameError!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.error,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],
           ),
         ),
-        if (routeDraftNameError != null) ...[
-          const SizedBox(height: 8),
-          Text(
-            routeDraftNameError!,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.error,
-            ),
-          ),
-        ],
       ],
     );
   }

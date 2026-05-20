@@ -29,7 +29,7 @@ class ShellDestination {
   final String routePath;
   final String label;
   final String title;
-  final IconData icon;
+  final Widget icon;
   final String keyName;
   final String? legacyKeyName;
 }
@@ -40,7 +40,7 @@ const shellDestinations = <ShellDestination>[
     routePath: '/',
     label: 'Dashboard',
     title: 'Dashboard',
-    icon: Icons.dashboard,
+    icon: Icon(Icons.dashboard),
     keyName: 'nav-dashboard',
   ),
   ShellDestination(
@@ -48,7 +48,7 @@ const shellDestinations = <ShellDestination>[
     routePath: '/map',
     label: 'Map',
     title: 'Map',
-    icon: Icons.map,
+    icon: Icon(Icons.map),
     keyName: 'nav-map',
   ),
   ShellDestination(
@@ -56,7 +56,7 @@ const shellDestinations = <ShellDestination>[
     routePath: '/peaks',
     label: 'My Peak Lists',
     title: 'My Peak Lists',
-    icon: Icons.landscape,
+    icon: Icon(Icons.landscape),
     keyName: 'nav-peak-lists',
   ),
   ShellDestination(
@@ -64,7 +64,7 @@ const shellDestinations = <ShellDestination>[
     routePath: '/objectbox-admin',
     label: 'ObjectBox Admin',
     title: 'ObjectBox Admin',
-    icon: FontAwesomeIcons.database,
+    icon: FaIcon(FontAwesomeIcons.database),
     keyName: 'nav-objectbox-admin',
     legacyKeyName: 'side-menu-objectbox-admin',
   ),
@@ -73,7 +73,7 @@ const shellDestinations = <ShellDestination>[
     routePath: '/settings',
     label: 'Settings',
     title: 'Settings',
-    icon: Icons.settings,
+    icon: Icon(Icons.settings),
     keyName: 'nav-settings',
   ),
 ];

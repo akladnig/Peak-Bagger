@@ -69,7 +69,7 @@ class SideMenu extends StatelessWidget {
 }
 
 class _WideMenuItemNew extends StatelessWidget {
-  final IconData icon;
+  final Widget icon;
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
@@ -105,7 +105,7 @@ class _WideMenuItemNew extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    icon: Icon(icon),
+                     icon: icon,
                     style: IconButton.styleFrom(
                       backgroundColor: isSelected
                           ? theme.iconTheme.color

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
@@ -85,6 +86,7 @@ class TripRoutingServiceClient implements TripRoutingClient {
 }
 
 const _routeGraphPathDefine = 'PEAK_BAGGER_ROUTE_GRAPH_PATH';
+const _bundledRouteGraphAsset = 'assets/highway.json';
 
 class LocalFileTripRoutingClient implements TripRoutingClient {
   LocalFileTripRoutingClient({
@@ -108,15 +110,6 @@ class LocalFileTripRoutingClient implements TripRoutingClient {
     double duplicationPenalty = 0.0,
   }) async {
     final resolvedGraphPath = graphFilePath.trim();
-    if (resolvedGraphPath.isEmpty) {
-      return trip_routing.Trip(
-        route: const [],
-        distance: 0,
-        errors: const [
-          'Local route graph not configured. Set PEAK_BAGGER_ROUTE_GRAPH_PATH to a highway.json file.',
-        ],
-      );
-    }
 
     try {
       final tripService = await (_serviceFuture ??= _loadService(resolvedGraphPath));
@@ -138,7 +131,10 @@ class LocalFileTripRoutingClient implements TripRoutingClient {
   }
 
   Future<trip_routing.TripService> _loadService(String graphPath) async {
-    final rawJson = await File(graphPath).readAsString();
+    final useLocalFile = graphPath.isNotEmpty;
+    final rawJson = useLocalFile
+        ? await File(graphPath).readAsString()
+        : await rootBundle.loadString(_bundledRouteGraphAsset);
     final decodedJson = jsonDecode(rawJson);
     if (decodedJson is! Map<String, dynamic>) {
       throw const FormatException('Expected decoded Overpass JSON object.');
@@ -148,7 +144,7 @@ class LocalFileTripRoutingClient implements TripRoutingClient {
     await tripService.loadOverpassJson(
       decodedJson,
       preferWalkingPaths: true,
-      source: graphPath,
+      source: useLocalFile ? graphPath : _bundledRouteGraphAsset,
     );
     return tripService;
   }
