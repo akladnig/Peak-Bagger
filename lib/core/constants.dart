@@ -45,9 +45,8 @@ abstract final class RouterConstants {
 }
 
 abstract final class RouteConstants {
-  static const sheetHeight = 320.0;
+  static const sheetHeight = 200.0;
 }
-
 
 enum DemSource { copernicusGlo30, theList, elvis }
 
@@ -94,7 +93,7 @@ abstract final class DemConstants {
 }
 
 abstract final class RouteUI {
-  static const width = 1.0;
+  static const width = 2.0;
 }
 
 abstract final class UiConstants {
