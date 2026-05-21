@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 import 'package:peak_bagger/services/peak_list_import_service.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/widgets/peak_list_import_dialog.dart';
 
 import '../../harness/test_peak_list_file_picker.dart';
@@ -86,6 +90,71 @@ void main() {
       [(100, 3), (200, 5), (300, 7)],
     );
     expect(tester.widget<Text>(robot.selectedTitle).data, 'Journey List');
+  });
+
+  testWidgets('peak lists journey keeps negative peak ids climbed', (
+    tester,
+  ) async {
+    final robot = PeakListsRobot(tester);
+    final peakListRepository = PeakListRepository.test(
+      InMemoryPeakListStorage([
+        PeakList(
+          name: 'Tas Peaks',
+          peakList: encodePeakListItems([
+            const PeakListItem(peakOsmId: -1, points: 4),
+          ]),
+        )..peakListId = 1,
+      ]),
+    );
+    final peakRepository = PeakRepository.test(
+      InMemoryPeakStorage([
+        _buildPeak(
+          osmId: -1,
+          name: 'Tinderbox Hill',
+          elevation: 300,
+          latitude: -42.0,
+          longitude: 146.0,
+        ),
+      ]),
+    );
+    final peaksBaggedRepository = PeaksBaggedRepository.test(
+      InMemoryPeaksBaggedStorage(),
+    );
+
+    await robot.pumpApp(
+      filePicker: TestPeakListFilePicker(),
+      repository: peakListRepository,
+      peakRepository: peakRepository,
+      peaksBaggedRepository: peaksBaggedRepository,
+    );
+
+    await peaksBaggedRepository.rebuildFromTracks([
+      GpxTrack(
+        gpxTrackId: 10,
+        contentHash: 'hash-10',
+        trackName: 'Track 10',
+        trackDate: DateTime.utc(2026, 5, 15),
+      )..peaks.add(
+          _buildPeak(
+            osmId: -1,
+            name: 'Tinderbox Hill',
+            elevation: 300,
+            latitude: -42.0,
+            longitude: 146.0,
+          ),
+        ),
+    ]);
+    ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('peak-lists-summary-pane'))),
+    ).read(peaksBaggedRevisionProvider.notifier).increment();
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('peak-lists-climbed-1'))).data,
+      '1',
+    );
+    expect(find.byKey(const Key('peak-lists-details-row--1')), findsOneWidget);
+    expect(find.text('Tinderbox Hill'), findsWidgets);
   });
 
   testWidgets('peak lists journey creates and updates via dialog flow', (

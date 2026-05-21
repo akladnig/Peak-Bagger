@@ -82,6 +82,31 @@ void main() {
       expect(summary.peaksClimbed, 0);
       expect(summary.newPeaksClimbed, 0);
     });
+
+    test('counts negative peak ids as valid climbs', () {
+      final summary = service.buildSummary(
+        tracks: [
+          _track(
+            10,
+            DateTime.utc(2026, 1, 1, 12),
+            distance2d: 1000,
+            ascent: 10,
+            peakIds: [-1, 2],
+          ),
+          _track(
+            20,
+            DateTime.utc(2026, 6, 15, 12),
+            distance2d: 2000,
+            ascent: 20,
+            peakIds: [-1, 3],
+          ),
+        ],
+        year: 2026,
+      );
+
+      expect(summary.peaksClimbed, 3);
+      expect(summary.newPeaksClimbed, 3);
+    });
   });
 }
 

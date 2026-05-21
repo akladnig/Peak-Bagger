@@ -96,7 +96,7 @@ class YearToDateSummaryService {
   Set<int> _peakIdsForTrack(GpxTrack track) {
     return track.peaks
         .map((peak) => peak.osmId)
-        .where((peakId) => peakId > 0)
+        .where((peakId) => peakId != 0)
         .toSet();
   }
 }
