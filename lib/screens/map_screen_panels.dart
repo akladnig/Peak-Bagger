@@ -5,6 +5,7 @@ import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/core/date_formatters.dart';
 import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
@@ -100,20 +101,21 @@ class MapZoomReadout extends StatelessWidget {
 
 class MapTrackInfoPanel extends StatelessWidget {
   const MapTrackInfoPanel({
-    required this.track,
+    this.track,
+    this.route,
     required this.onClose,
     super.key,
-  });
+  })  : assert(track != null || route != null),
+        assert(track == null || route == null);
 
-  final GpxTrack track;
+  final GpxTrack? track;
+  final app_route.Route? route;
   final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
-    final displayName = track.trackName.trim().isEmpty
-        ? 'Unnamed Track'
-        : track.trackName.trim();
-    final normalizedPeaks = normalizeTrackPeakNames(track.peaks);
+    final isRoute = route != null;
+    final displayName = isRoute ? _routeName(route!) : _trackName(track!);
 
     return SizedBox(
       width: UiConstants.preferredLeftWidth,
@@ -147,25 +149,21 @@ class MapTrackInfoPanel extends StatelessWidget {
                           ),
                           IconButton(
                             key: const Key('track-info-panel-close'),
-                            tooltip: 'Close track info',
+                            tooltip: isRoute ? 'Close route info' : 'Close track info',
                             onPressed: onClose,
                             icon: const Icon(Icons.close),
                           ),
                         ],
                       ),
-
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(formatTrackDate(track.trackDate)),
-                          Text(
-                            formatTrackTimeRange(
-                              track.startDateTime,
-                              track.endDateTime,
-                            ),
-                          ),
-                        ],
-                      ),
+                      if (!isRoute) ...[
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(formatTrackDate(track!.trackDate)),
+                            Text(formatTrackTimeRange(track!.startDateTime, track!.endDateTime)),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -176,113 +174,9 @@ class MapTrackInfoPanel extends StatelessWidget {
                       horizontal: 16,
                       vertical: 12,
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 16),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: _SummaryMetric(
-                                label: 'Distance',
-                                value: formatDistance(track.distance2d),
-                              ),
-                            ),
-                            Expanded(
-                              child: _SummaryMetric(
-                                label: 'Ascent',
-                                value: formatAscent(track.ascent),
-                              ),
-                            ),
-                            Expanded(
-                              child: _SummaryMetric(
-                                label: 'Total Time',
-                                value: formatDuration(track.totalTimeMillis),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        const _SectionTitle(title: 'Peaks Climbed'),
-                        thinDivider,
-                        const SizedBox(height: 6),
-                        if (normalizedPeaks.isNotEmpty) ...[
-                          for (final peakName in normalizedPeaks)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 4),
-                              child: Text(peakName),
-                            ),
-                          const SizedBox(height: 2),
-                        ] else ...[
-                          const Text('None'),
-                          const SizedBox(height: 6),
-                        ],
-                        thinDivider,
-                        if (track.peakCorrelationProcessed &&
-                            normalizedPeaks.isNotEmpty) ...[
-                          _LabeledValueRow(
-                            label: 'Distance to highest peak',
-                            value: formatDistance(track.distanceToPeak),
-                          ),
-                          thinDivider,
-                          _LabeledValueRow(
-                            label: 'Distance from highest peak',
-                            value: formatDistance(track.distanceFromPeak),
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                        const SizedBox(height: 20),
-                        const _SectionTitle(title: 'Elevation'),
-                        thinDivider,
-                        _LabeledValueRow(
-                          label: 'Total Ascent',
-                          value: formatAscent(track.ascent),
-                        ),
-                        thinDivider,
-                        _LabeledValueRow(
-                          label: 'Start Elevation',
-                          value: formatElevation(track.startElevation),
-                        ),
-                        thinDivider,
-                        _LabeledValueRow(
-                          label: 'End Elevation',
-                          value: formatElevation(track.endElevation),
-                        ),
-                        thinDivider,
-                        _LabeledValueRow(
-                          label: 'Max Elevation',
-                          value: formatElevation(track.highestElevation),
-                        ),
-                        thinDivider,
-                        _LabeledValueRow(
-                          label: 'Min Elevation',
-                          value: formatElevation(track.lowestElevation),
-                        ),
-                        const SizedBox(height: 20),
-                        const _SectionTitle(title: 'Time'),
-                        thinDivider,
-                        _LabeledValueRow(
-                          label: 'Total Time',
-                          value: formatDuration(track.totalTimeMillis),
-                        ),
-                        thinDivider,
-                        _LabeledValueRow(
-                          label: 'Moving Time',
-                          value: formatDuration(track.movingTime),
-                        ),
-                        thinDivider,
-                        _LabeledValueRow(
-                          label: 'Resting Time',
-                          value: formatDuration(track.restingTime),
-                        ),
-                        thinDivider,
-                        _LabeledValueRow(
-                          label: 'Paused Time',
-                          value: formatDuration(track.pausedTime),
-                        ),
-                      ],
-                    ),
+                    child: isRoute
+                        ? _buildRouteBody(context, route!)
+                        : _buildTrackBody(context, track!),
                   ),
                 ),
               ],
@@ -290,6 +184,184 @@ class MapTrackInfoPanel extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  String _trackName(GpxTrack track) {
+    return track.trackName.trim().isEmpty ? 'Unnamed Track' : track.trackName.trim();
+  }
+
+  String _routeName(app_route.Route route) {
+    return route.name.trim().isEmpty ? 'Unnamed Route' : route.name.trim();
+  }
+
+  Widget _buildRouteBody(BuildContext context, app_route.Route route) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _SummaryMetric(
+                label: 'Distance',
+                value: formatDistance(route.distance2d),
+              ),
+            ),
+            Expanded(
+              child: _SummaryMetric(
+                label: 'Ascent',
+                value: formatAscent(route.ascent),
+              ),
+            ),
+            Expanded(
+              child: _SummaryMetric(
+                label: 'Descent',
+                value: formatElevation(route.descent),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        const _SectionTitle(title: 'Elevation'),
+        thinDivider,
+        _LabeledValueRow(
+          label: 'Total Ascent',
+          value: formatAscent(route.ascent),
+        ),
+        thinDivider,
+        _LabeledValueRow(
+          label: 'Start Elevation',
+          value: formatElevation(route.startElevation),
+        ),
+        thinDivider,
+        _LabeledValueRow(
+          label: 'End Elevation',
+          value: formatElevation(route.endElevation),
+        ),
+        thinDivider,
+        _LabeledValueRow(
+          label: 'Max Elevation',
+          value: formatElevation(route.highestElevation),
+        ),
+        thinDivider,
+        _LabeledValueRow(
+          label: 'Min Elevation',
+          value: formatElevation(route.lowestElevation),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTrackBody(BuildContext context, GpxTrack track) {
+    final normalizedPeaks = normalizeTrackPeakNames(track.peaks);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _SummaryMetric(
+                label: 'Distance',
+                value: formatDistance(track.distance2d),
+              ),
+            ),
+            Expanded(
+              child: _SummaryMetric(
+                label: 'Ascent',
+                value: formatAscent(track.ascent),
+              ),
+            ),
+            Expanded(
+              child: _SummaryMetric(
+                label: 'Total Time',
+                value: formatDuration(track.totalTimeMillis),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        const _SectionTitle(title: 'Peaks Climbed'),
+        thinDivider,
+        const SizedBox(height: 6),
+        if (normalizedPeaks.isNotEmpty) ...[
+          for (final peakName in normalizedPeaks)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(peakName),
+            ),
+          const SizedBox(height: 2),
+        ] else ...[
+          const Text('None'),
+          const SizedBox(height: 6),
+        ],
+        thinDivider,
+        if (track.peakCorrelationProcessed && normalizedPeaks.isNotEmpty) ...[
+          _LabeledValueRow(
+            label: 'Distance to highest peak',
+            value: formatDistance(track.distanceToPeak),
+          ),
+          thinDivider,
+          _LabeledValueRow(
+            label: 'Distance from highest peak',
+            value: formatDistance(track.distanceFromPeak),
+          ),
+          const SizedBox(height: 8),
+        ],
+        const SizedBox(height: 20),
+        const _SectionTitle(title: 'Elevation'),
+        thinDivider,
+        _LabeledValueRow(
+          label: 'Total Ascent',
+          value: formatAscent(track.ascent),
+        ),
+        thinDivider,
+        _LabeledValueRow(
+          label: 'Start Elevation',
+          value: formatElevation(track.startElevation),
+        ),
+        thinDivider,
+        _LabeledValueRow(
+          label: 'End Elevation',
+          value: formatElevation(track.endElevation),
+        ),
+        thinDivider,
+        _LabeledValueRow(
+          label: 'Max Elevation',
+          value: formatElevation(track.highestElevation),
+        ),
+        thinDivider,
+        _LabeledValueRow(
+          label: 'Min Elevation',
+          value: formatElevation(track.lowestElevation),
+        ),
+        const SizedBox(height: 20),
+        const _SectionTitle(title: 'Time'),
+        thinDivider,
+        _LabeledValueRow(
+          label: 'Total Time',
+          value: formatDuration(track.totalTimeMillis),
+        ),
+        thinDivider,
+        _LabeledValueRow(
+          label: 'Moving Time',
+          value: formatDuration(track.movingTime),
+        ),
+        thinDivider,
+        _LabeledValueRow(
+          label: 'Resting Time',
+          value: formatDuration(track.restingTime),
+        ),
+        thinDivider,
+        _LabeledValueRow(
+          label: 'Paused Time',
+          value: formatDuration(track.pausedTime),
+        ),
+      ],
     );
   }
 }

@@ -1,0 +1,121 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/route.dart';
+import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/services/route_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../harness/test_map_notifier.dart';
+
+void main() {
+  group('selected route contract', () {
+    test('invalid selectRoute is no-op and valid visible id clears track', () async {
+      SharedPreferences.setMockInitialValues({'show_routes': true});
+      final routeRepository = RouteRepository.test(
+        InMemoryRouteStorage([_route(1), _route(2)]),
+      );
+      final notifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          showRoutes: true,
+          selectedTrackId: 1,
+        ),
+        routeRepository: routeRepository,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(() => notifier),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.read(mapProvider);
+      await Future<void>.delayed(Duration.zero);
+
+      final mapNotifier = container.read(mapProvider.notifier);
+
+      mapNotifier.selectRoute(999);
+      expect(container.read(mapProvider).selectedRouteId, isNull);
+
+      mapNotifier.selectRoute(2);
+      expect(container.read(mapProvider).selectedRouteId, 2);
+      expect(container.read(mapProvider).selectedTrackId, isNull);
+    });
+
+    test('reconcileSelectedRouteState clears stale selected id', () async {
+      SharedPreferences.setMockInitialValues({'show_routes': true});
+      final routeRepository = RouteRepository.test(
+        InMemoryRouteStorage([_route(1)]),
+      );
+      final notifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          showRoutes: true,
+          selectedRouteId: 999,
+        ),
+        routeRepository: routeRepository,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(() => notifier),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.read(mapProvider);
+      await Future<void>.delayed(Duration.zero);
+
+      container.read(mapProvider.notifier).reconcileSelectedRouteState();
+
+      expect(container.read(mapProvider).selectedRouteId, isNull);
+    });
+
+    test('setShowRoutes(false) clears selected route and hover', () async {
+      SharedPreferences.setMockInitialValues({'show_routes': true});
+      final routeRepository = RouteRepository.test(
+        InMemoryRouteStorage([_route(1)]),
+      );
+      final notifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          showRoutes: true,
+          hoveredRouteId: 1,
+          selectedRouteId: 1,
+        ),
+        routeRepository: routeRepository,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(() => notifier),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.read(mapProvider);
+      await Future<void>.delayed(Duration.zero);
+
+      container.read(mapProvider.notifier).setShowRoutes(false);
+
+      expect(container.read(mapProvider).selectedRouteId, isNull);
+      expect(container.read(mapProvider).hoveredRouteId, isNull);
+    });
+  });
+}
+
+Route _route(int id) {
+  return Route(
+    id: id,
+    name: 'Route $id',
+    gpxRoute: [
+      const LatLng(-41.5, 146.49),
+      const LatLng(-41.5, 146.51),
+    ],
+  );
+}
