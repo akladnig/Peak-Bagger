@@ -24,6 +24,7 @@ dependencies:
   file_picker: ^10.3.10
   path_provider: ^2.1.0
   path: ^1.9.0
+  gdal_dart: ^0.2.4
   objectbox: 5.3.1
   objectbox_flutter_libs: 5.3.1
   csv: ^6.0.0
@@ -52,3 +53,5 @@ flutter:
     - assets/peak_marker_ticked.svg
     - assets/route.svg
     - assets/tasmap50k.csv
+    - assets/cop30_hh.tif
+    - assets/tasmania_dem_25m.tif

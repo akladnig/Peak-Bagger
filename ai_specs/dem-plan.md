@@ -26,12 +26,12 @@ Approach: Riverpod state + injected sampler seam first; GDAL asset/bootstrap sec
 ### Phase 2: GDAL Sampler + Shared Formatting
 
 - **Goal**: real raster-backed sampler; app config wired
-- [ ] `pubspec.yaml` - add `gdal_dart`; register `assets/cop30_hh.tif` and `assets/tasmania_dem_25m.tif`
-- [ ] `lib/core/constants.dart` - add DEM source enum/constants; default `theList`; add resolution/source metadata needed by sampler
-- [ ] `lib/core/number_formatters.dart` - extend `formatDistance(double value, {int decimalPlaces = 0})`; preserve existing unit switching; km honors requested precision
-- [ ] `lib/services/route_elevation_sampler.dart` - TDD: cache bundled asset to local path; open GDAL dataset; densify polyline; sample elevations; compute ascent/descent/distance3d/start/end/low/high; return summary tagged with request/version
-- [ ] `test/services/route_elevation_sampler_test.dart` - TDD: known polyline summary; short-route zero behavior; failure path; cache/bootstrap seam deterministic
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `pubspec.yaml` - add `gdal_dart`; register `assets/cop30_hh.tif` and `assets/tasmania_dem_25m.tif`
+- [x] `lib/core/constants.dart` - add DEM source enum/constants; default `theList`; add resolution/source metadata needed by sampler
+- [x] `lib/core/number_formatters.dart` - extend `formatDistance(double value, {int decimalPlaces = 0})`; preserve existing unit switching; km honors requested precision
+- [x] `lib/services/route_elevation_sampler.dart` - TDD: cache bundled asset to local path; open GDAL dataset; densify polyline; sample elevations; compute ascent/descent/distance3d/start/end/low/high; return summary tagged with request/version
+- [x] `test/services/route_elevation_sampler_test.dart` - TDD: known polyline summary; short-route zero behavior; failure path; cache/bootstrap seam deterministic
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Journey Hardening
 

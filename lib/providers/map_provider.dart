@@ -637,7 +637,7 @@ class MapNotifier extends Notifier<MapState> {
     _routeRepository =
         _injectedRouteRepository ?? ref.read(routeRepositoryProvider);
     _routeElevationSampler =
-        _injectedRouteElevationSampler ?? const NoopRouteElevationSampler();
+        _injectedRouteElevationSampler ?? BundledDemRouteElevationSampler();
     _routePlanner = _injectedRoutePlanner ?? ref.read(routePlannerProvider);
     _peaksBaggedRepository =
         _injectedPeaksBaggedRepository ?? PeaksBaggedRepository(objectboxStore);
