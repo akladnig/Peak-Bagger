@@ -45,11 +45,55 @@ abstract final class RouterConstants {
 }
 
 abstract final class RouteConstants {
-  static const sheetHeight = 320.0;
+  static const sheetHeight = 200.0;
+}
+
+enum DemSource { copernicusGlo30, theList, elvis }
+
+class DemSourceConfig {
+  const DemSourceConfig({
+    required this.source,
+    required this.label,
+    required this.assetPath,
+    required this.resolutionMetres,
+  });
+
+  final DemSource source;
+  final String label;
+  final String assetPath;
+  final double resolutionMetres;
+}
+
+abstract final class DemConstants {
+  static const selectedSource = DemSource.theList;
+  static const sampleSpacingMetres = 25.0;
+
+  static const sources = <DemSource, DemSourceConfig>{
+    DemSource.copernicusGlo30: DemSourceConfig(
+      source: DemSource.copernicusGlo30,
+      label: 'Copernicus GLO-30',
+      assetPath: 'assets/cop30_hh.tif',
+      resolutionMetres: 30,
+    ),
+    DemSource.theList: DemSourceConfig(
+      source: DemSource.theList,
+      label: 'theList',
+      assetPath: 'assets/tasmania_dem_25m.tif',
+      resolutionMetres: 25,
+    ),
+    DemSource.elvis: DemSourceConfig(
+      source: DemSource.elvis,
+      label: 'ELVIS',
+      assetPath: 'assets/cop30_hh.tif',
+      resolutionMetres: 30,
+    ),
+  };
+
+  static DemSourceConfig get selectedConfig => sources[selectedSource]!;
 }
 
 abstract final class RouteUI {
-  static const width = 1.0;
+  static const width = 2.0;
 }
 
 abstract final class UiConstants {

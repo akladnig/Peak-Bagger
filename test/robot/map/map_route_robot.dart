@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +15,7 @@ import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 
@@ -23,13 +26,15 @@ class MapRouteRobot {
     this.tester,
     this.initialState, {
     required this.routePlanningOutcomes,
+    this.routeElevationOutcomes = const [],
     RouteRepository? routeRepository,
   }) : routeRepository =
-           routeRepository ?? RouteRepository.test(InMemoryRouteStorage());
+            routeRepository ?? RouteRepository.test(InMemoryRouteStorage());
 
   final WidgetTester tester;
   final MapState initialState;
   final List<Object> routePlanningOutcomes;
+  final List<Object> routeElevationOutcomes;
   final RouteRepository routeRepository;
 
   late final TestTasmapRepository _tasmapRepository;
@@ -40,6 +45,10 @@ class MapRouteRobot {
   Finder get createRouteFab => find.byKey(const Key('create-route-fab'));
   Finder get routeSaveButton => find.byKey(const Key('route-save-button'));
   Finder get routeDistanceText => find.byKey(const Key('route-distance-text'));
+  Finder get routeAscentText => find.byKey(const Key('route-ascent-text'));
+  Finder get routeDescentText => find.byKey(const Key('route-descent-text'));
+  Finder get routeElevationErrorText =>
+      find.byKey(const Key('route-elevation-error-text'));
   Finder get routeBottomSheet => find.byKey(const Key('route-bottom-sheet'));
 
   Future<void> pumpApp() async {
@@ -51,6 +60,7 @@ class MapRouteRobot {
       tasmapRepository: _tasmapRepository,
       gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
       routeRepository: routeRepository,
+      routeElevationSampler: _QueueRouteElevationSampler(routeElevationOutcomes),
       routePlanner: _QueueRoutePlanner(routePlanningOutcomes),
       peaksBaggedRepository: PeaksBaggedRepository.test(
         InMemoryPeaksBaggedStorage(),
@@ -69,11 +79,12 @@ class MapRouteRobot {
             PeakListRepository.test(InMemoryPeakListStorage()),
           ),
         ],
-        child: const App(),
-      ),
-    );
-    await tester.pump();
-  }
+      child: const App(),
+    ),
+  );
+  await tester.pump();
+  _mapNotifier.state = initialState;
+}
 
   Future<void> openMap() async {
     router.go('/map');
@@ -136,5 +147,51 @@ class _QueueRoutePlanner implements RoutePlanner {
       throw RoutePlanningException(outcome);
     }
     throw const RoutePlanningException('Unexpected queued route outcome.');
+  }
+}
+
+class _QueueRouteElevationSampler implements RouteElevationSampler {
+  _QueueRouteElevationSampler(this._outcomes);
+
+  final List<Object> _outcomes;
+  var _index = 0;
+
+  @override
+  Future<RouteElevationSummary> sampleRoute({
+    required List<LatLng> points,
+    required int requestId,
+    required int geometryVersion,
+  }) async {
+    if (_outcomes.isEmpty) {
+      return RouteElevationSummary.zero(
+        requestId: requestId,
+        geometryVersion: geometryVersion,
+      );
+    }
+
+    final outcome = _outcomes[_index++];
+    if (outcome is RouteElevationSummary) {
+      return RouteElevationSummary(
+        requestId: requestId,
+        geometryVersion: geometryVersion,
+        distance3d: outcome.distance3d,
+        ascent: outcome.ascent,
+        descent: outcome.descent,
+        startElevation: outcome.startElevation,
+        endElevation: outcome.endElevation,
+        lowestElevation: outcome.lowestElevation,
+        highestElevation: outcome.highestElevation,
+      );
+    }
+    if (outcome is Completer<RouteElevationSummary>) {
+      return outcome.future;
+    }
+    if (outcome is Exception) {
+      throw outcome;
+    }
+    if (outcome is Error) {
+      throw outcome;
+    }
+    throw Exception('Unexpected queued elevation outcome.');
   }
 }

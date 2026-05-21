@@ -734,6 +734,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
           routeDraftMarkers: state.routeDraftMarkers,
           routeDraftCommittedPoints: state.routeDraftCommittedPoints,
           routeDraftProvisionalPoints: state.routeDraftProvisionalPoints,
+          routeDraftMode: state.routeDraftMode,
           routeDraftColour: state.routeDraftColour,
           routeDraftNameFieldFocused: state.routeDraftNameFieldFocused,
         ),
@@ -1045,6 +1046,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                           if (routeChrome.isRouteDrafting) {
                                             notifier.addRouteDraftMarker(
                                               tappedLocation,
+                                              straightLine:
+                                                  routeChrome.routeDraftMode ==
+                                                  RouteMode.straightLine,
                                             );
                                             return;
                                           }

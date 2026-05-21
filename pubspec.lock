@@ -343,6 +343,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.0.0"
+  gdal_dart:
+    dependency: "direct main"
+    description:
+      name: gdal_dart
+      sha256: "85d4e393512b35e701f3d1b3ff0498b6ae1d4f967c7cda8e8126c5071f16934b"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.4"
   geoclue:
     dependency: transitive
     description:

@@ -28,7 +28,6 @@ import 'package:peak_bagger/services/import_path_helpers.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../harness/test_gpx_file_picker.dart';
 import '../../harness/test_map_notifier.dart';
 import '../../harness/test_tasmap_repository.dart';
 import 'gpx_tracks_robot.dart';
@@ -192,14 +191,12 @@ void main() {
     bushwalkingRoot.createSync(recursive: true);
     final tracksDir = Directory('${bushwalkingRoot.path}/Tracks')
       ..createSync(recursive: true);
-    final tasmaniaDir = Directory('${tracksDir.path}/Tasmania')
-      ..createSync(recursive: true);
+    Directory('${tracksDir.path}/Tasmania').createSync(recursive: true);
     final uniqueSuffix = DateTime.now().microsecondsSinceEpoch;
 
-    final importFile = File(
+    File(
       '${tempRoot.path}/selected-track-import-$uniqueSuffix.gpx',
-    )
-      ..writeAsStringSync(_selectedTrackGpx);
+    ).writeAsStringSync(_selectedTrackGpx);
     final tasmapRepository = await TestTasmapRepository.create();
 
     final notifier = _ImportingTestMapNotifier(

@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:io' as io;
 
+import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gdal_dart/gdal_dart.dart' show GdalException;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
@@ -25,6 +28,7 @@ import 'package:peak_bagger/services/peak_refresh_service.dart';
 import 'package:peak_bagger/services/peak_info_content_resolver.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/services/track_peak_correlation_service.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
@@ -161,7 +165,13 @@ class MapState {
   final List<LatLng> routeDraftCommittedPoints;
   final List<LatLng> routeDraftProvisionalPoints;
   final double routeDraftDistanceMeters;
+  final bool routeDraftStraightLineFallback;
   final int routeDraftRequestId;
+  final RouteElevationSummary? routeDraftElevationSummary;
+  final bool routeDraftElevationLoading;
+  final String? routeDraftElevationError;
+  final int routeDraftElevationRequestId;
+  final int routeDraftGeometryVersion;
   final bool routeDraftNameFieldFocused;
   final bool syncEnabled;
   final List<Peak> peaks;
@@ -223,7 +233,13 @@ class MapState {
     this.routeDraftCommittedPoints = const [],
     this.routeDraftProvisionalPoints = const [],
     this.routeDraftDistanceMeters = 0,
+    this.routeDraftStraightLineFallback = false,
     this.routeDraftRequestId = 0,
+    this.routeDraftElevationSummary,
+    this.routeDraftElevationLoading = false,
+    this.routeDraftElevationError,
+    this.routeDraftElevationRequestId = 0,
+    this.routeDraftGeometryVersion = 0,
     this.routeDraftNameFieldFocused = false,
     this.syncEnabled = true,
     this.peaks = const [],
@@ -303,7 +319,15 @@ class MapState {
     List<LatLng>? routeDraftCommittedPoints,
     List<LatLng>? routeDraftProvisionalPoints,
     double? routeDraftDistanceMeters,
+    bool? routeDraftStraightLineFallback,
     int? routeDraftRequestId,
+    RouteElevationSummary? routeDraftElevationSummary,
+    bool clearRouteDraftElevationSummary = false,
+    bool? routeDraftElevationLoading,
+    String? routeDraftElevationError,
+    bool clearRouteDraftElevationError = false,
+    int? routeDraftElevationRequestId,
+    int? routeDraftGeometryVersion,
     bool? routeDraftNameFieldFocused,
     bool? syncEnabled,
     List<Peak>? peaks,
@@ -390,7 +414,21 @@ class MapState {
           routeDraftProvisionalPoints ?? this.routeDraftProvisionalPoints,
       routeDraftDistanceMeters:
           routeDraftDistanceMeters ?? this.routeDraftDistanceMeters,
+      routeDraftStraightLineFallback:
+          routeDraftStraightLineFallback ?? this.routeDraftStraightLineFallback,
       routeDraftRequestId: routeDraftRequestId ?? this.routeDraftRequestId,
+      routeDraftElevationSummary: clearRouteDraftElevationSummary
+          ? null
+          : (routeDraftElevationSummary ?? this.routeDraftElevationSummary),
+      routeDraftElevationLoading:
+          routeDraftElevationLoading ?? this.routeDraftElevationLoading,
+      routeDraftElevationError: clearRouteDraftElevationError
+          ? null
+          : (routeDraftElevationError ?? this.routeDraftElevationError),
+      routeDraftElevationRequestId:
+          routeDraftElevationRequestId ?? this.routeDraftElevationRequestId,
+      routeDraftGeometryVersion:
+          routeDraftGeometryVersion ?? this.routeDraftGeometryVersion,
       routeDraftNameFieldFocused:
           routeDraftNameFieldFocused ?? this.routeDraftNameFieldFocused,
       syncEnabled: syncEnabled ?? this.syncEnabled,
@@ -535,6 +573,7 @@ class MapNotifier extends Notifier<MapState> {
     TasmapRepository? tasmapRepository,
     GpxTrackRepository? gpxTrackRepository,
     RouteRepository? routeRepository,
+    RouteElevationSampler? routeElevationSampler,
     RoutePlanner? routePlanner,
     PeaksBaggedRepository? peaksBaggedRepository,
     MigrationMarkerStore? migrationMarkerStore,
@@ -546,7 +585,8 @@ class MapNotifier extends Notifier<MapState> {
        _injectedTasmapRepository = tasmapRepository,
        _injectedGpxTrackRepository = gpxTrackRepository,
        _injectedRouteRepository = routeRepository,
-       _injectedRoutePlanner = routePlanner,
+        _injectedRouteElevationSampler = routeElevationSampler,
+        _injectedRoutePlanner = routePlanner,
        _injectedPeaksBaggedRepository = peaksBaggedRepository,
        _injectedMigrationMarkerStore = migrationMarkerStore,
        _loadPositionOnBuild = loadPositionOnBuild,
@@ -558,6 +598,7 @@ class MapNotifier extends Notifier<MapState> {
   final TasmapRepository? _injectedTasmapRepository;
   final GpxTrackRepository? _injectedGpxTrackRepository;
   final RouteRepository? _injectedRouteRepository;
+  final RouteElevationSampler? _injectedRouteElevationSampler;
   final RoutePlanner? _injectedRoutePlanner;
   final PeaksBaggedRepository? _injectedPeaksBaggedRepository;
   final MigrationMarkerStore? _injectedMigrationMarkerStore;
@@ -570,6 +611,7 @@ class MapNotifier extends Notifier<MapState> {
   late final TasmapRepository _tasmapRepository;
   late final GpxTrackRepository _gpxTrackRepository;
   late final RouteRepository _routeRepository;
+  late final RouteElevationSampler _routeElevationSampler;
   late final RoutePlanner _routePlanner;
   late final PeaksBaggedRepository _peaksBaggedRepository;
   late final MigrationMarkerStore _migrationMarkerStore;
@@ -597,6 +639,8 @@ class MapNotifier extends Notifier<MapState> {
         _injectedGpxTrackRepository ?? GpxTrackRepository(objectboxStore);
     _routeRepository =
         _injectedRouteRepository ?? ref.read(routeRepositoryProvider);
+    _routeElevationSampler =
+        _injectedRouteElevationSampler ?? BundledDemRouteElevationSampler();
     _routePlanner = _injectedRoutePlanner ?? ref.read(routePlannerProvider);
     _peaksBaggedRepository =
         _injectedPeaksBaggedRepository ?? PeaksBaggedRepository(objectboxStore);
@@ -1496,7 +1540,13 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftCommittedPoints: const [],
       routeDraftProvisionalPoints: const [],
       routeDraftDistanceMeters: 0,
+      routeDraftStraightLineFallback: false,
       routeDraftRequestId: 0,
+      clearRouteDraftElevationSummary: true,
+      routeDraftElevationLoading: false,
+      clearRouteDraftElevationError: true,
+      routeDraftElevationRequestId: 0,
+      routeDraftGeometryVersion: 0,
       routeDraftNameFieldFocused: false,
       clearSelectedLocation: true,
       clearSelectedTrackId: true,
@@ -1523,6 +1573,12 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftCommittedPoints: const [],
       routeDraftProvisionalPoints: const [],
       routeDraftDistanceMeters: 0,
+      routeDraftStraightLineFallback: false,
+      clearRouteDraftElevationSummary: true,
+      routeDraftElevationLoading: false,
+      clearRouteDraftElevationError: true,
+      routeDraftElevationRequestId: 0,
+      routeDraftGeometryVersion: 0,
       routeDraftNameFieldFocused: false,
     );
   }
@@ -1541,8 +1597,7 @@ class MapNotifier extends Notifier<MapState> {
 
   void setRouteDraftMode(RouteMode mode) {
     if (!state.isRouteDrafting ||
-        state.routeDraftMode == mode ||
-        mode == RouteMode.straightLine) {
+        state.routeDraftMode == mode) {
       return;
     }
 
@@ -1563,10 +1618,12 @@ class MapNotifier extends Notifier<MapState> {
     );
   }
 
-  void addRouteDraftMarker(LatLng point) {
+  void addRouteDraftMarker(LatLng point, {bool straightLine = false}) {
     if (!state.isRouteDrafting) {
       return;
     }
+
+    final useStraightLine = straightLine || state.routeDraftStraightLineFallback;
 
     switch (state.routeDraftStage) {
       case RouteDraftStage.inactive:
@@ -1598,7 +1655,27 @@ class MapNotifier extends Notifier<MapState> {
             routeDraftError:
                 'Start and end points must be different to calculate a route.',
             routeDraftProvisionalPoints: const [],
+            );
+            return;
+          }
+        if (useStraightLine) {
+          state = state.copyWith(
+            routeDraftMarkers: [...state.routeDraftMarkers, point],
+            routeDraftCommittedPoints: _appendRouteSegment(
+              state.routeDraftCommittedPoints,
+              [start, point],
+            ),
+            routeDraftDistanceMeters:
+                state.routeDraftDistanceMeters + _distance.as(
+                  LengthUnit.Meter,
+                  start,
+                  point,
+                ),
+            routeDraftProvisionalPoints: const [],
+            routeDraftStage: RouteDraftStage.awaitingNextPoint,
+            clearRouteDraftError: true,
           );
+          _resampleRouteDraftElevation();
           return;
         }
         final requestId = state.routeDraftRequestId + 1;
@@ -1639,6 +1716,7 @@ class MapNotifier extends Notifier<MapState> {
         state.routeDraftCommittedPoints,
         growable: false,
       );
+      final elevationSummary = _routeDraftElevationSummaryForSave();
       final route = Route(
         name: trimmedName,
         gpxRoute: committedPoints,
@@ -1647,6 +1725,13 @@ class MapNotifier extends Notifier<MapState> {
         ]),
         colour: state.routeDraftColour,
         distance2d: state.routeDraftDistanceMeters,
+        distance3d: elevationSummary.distance3d,
+        ascent: elevationSummary.ascent,
+        descent: elevationSummary.descent,
+        startElevation: elevationSummary.startElevation,
+        endElevation: elevationSummary.endElevation,
+        lowestElevation: elevationSummary.lowestElevation,
+        highestElevation: elevationSummary.highestElevation,
       );
       _routeRepository.saveRoute(route);
       ref.read(routeRevisionProvider.notifier).increment();
@@ -1679,15 +1764,33 @@ class MapNotifier extends Notifier<MapState> {
         routeDraftStage: RouteDraftStage.awaitingNextPoint,
         clearRouteDraftError: true,
       );
-    } on RoutePlanningException catch (error) {
+      _resampleRouteDraftElevation();
+    } on RoutePlanningException {
       if (!_isActiveRouteDraftRequest(requestId)) {
         return;
       }
-      state = state.copyWith(
-        routeDraftStage: RouteDraftStage.segmentFailure,
-        routeDraftError: error.message,
-        routeDraftProvisionalPoints: const [],
+
+      debugPrint(
+        'Route planning fell back to straight line for request $requestId.',
       );
+
+      state = state.copyWith(
+        routeDraftCommittedPoints: _appendRouteSegment(
+          state.routeDraftCommittedPoints,
+          [start, end],
+        ),
+        routeDraftDistanceMeters:
+            state.routeDraftDistanceMeters + _distance.as(
+              LengthUnit.Meter,
+              start,
+              end,
+            ),
+        routeDraftProvisionalPoints: const [],
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftStraightLineFallback: true,
+        clearRouteDraftError: true,
+      );
+      _resampleRouteDraftElevation();
     } catch (error) {
       if (!_isActiveRouteDraftRequest(requestId)) {
         return;
@@ -1702,6 +1805,124 @@ class MapNotifier extends Notifier<MapState> {
 
   bool _isActiveRouteDraftRequest(int requestId) {
     return state.isRouteDrafting && state.routeDraftRequestId == requestId;
+  }
+
+  RouteElevationSummary _routeDraftElevationSummaryForSave() {
+    final summary = state.routeDraftElevationSummary;
+    if (summary == null ||
+        state.routeDraftElevationLoading ||
+        summary.requestId != state.routeDraftElevationRequestId ||
+        summary.geometryVersion != state.routeDraftGeometryVersion) {
+      return RouteElevationSummary.zero(
+        requestId: state.routeDraftElevationRequestId,
+        geometryVersion: state.routeDraftGeometryVersion,
+      );
+    }
+
+    return summary;
+  }
+
+  void _resampleRouteDraftElevation() {
+    if (!state.isRouteDrafting || state.routeDraftCommittedPoints.length < 2) {
+      state = state.copyWith(
+        clearRouteDraftElevationSummary: true,
+        routeDraftElevationLoading: false,
+        clearRouteDraftElevationError: true,
+      );
+      return;
+    }
+
+    final requestId = state.routeDraftElevationRequestId + 1;
+    final geometryVersion = state.routeDraftGeometryVersion + 1;
+    final committedPoints = List<LatLng>.from(
+      state.routeDraftCommittedPoints,
+      growable: false,
+    );
+
+    state = state.copyWith(
+      clearRouteDraftElevationSummary: true,
+      routeDraftElevationLoading: true,
+      clearRouteDraftElevationError: true,
+      routeDraftElevationRequestId: requestId,
+      routeDraftGeometryVersion: geometryVersion,
+    );
+
+    unawaited(
+      _sampleRouteDraftElevation(
+        points: committedPoints,
+        requestId: requestId,
+        geometryVersion: geometryVersion,
+      ),
+    );
+  }
+
+  Future<void> _sampleRouteDraftElevation({
+    required List<LatLng> points,
+    required int requestId,
+    required int geometryVersion,
+  }) async {
+    try {
+      final summary = await _routeElevationSampler.sampleRoute(
+        points: points,
+        requestId: requestId,
+        geometryVersion: geometryVersion,
+      );
+      if (!_isActiveRouteDraftElevationRequest(
+        requestId: requestId,
+        geometryVersion: geometryVersion,
+      )) {
+        return;
+      }
+
+      state = state.copyWith(
+        routeDraftElevationSummary: summary,
+        routeDraftElevationLoading: false,
+        clearRouteDraftElevationError: true,
+      );
+    } on GdalException catch (error, stackTrace) {
+      if (!_isActiveRouteDraftElevationRequest(
+        requestId: requestId,
+        geometryVersion: geometryVersion,
+      )) {
+        return;
+      }
+
+      developer.log(
+        'GDAL route elevation sampling failed.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      debugPrint('GDAL route elevation sampling failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      state = state.copyWith(
+        clearRouteDraftElevationSummary: true,
+        routeDraftElevationLoading: false,
+        clearRouteDraftElevationError: true,
+      );
+    } catch (error) {
+      if (!_isActiveRouteDraftElevationRequest(
+        requestId: requestId,
+        geometryVersion: geometryVersion,
+      )) {
+        return;
+      }
+
+      state = state.copyWith(
+        clearRouteDraftElevationSummary: true,
+        routeDraftElevationLoading: false,
+        routeDraftElevationError: 'Failed to sample elevation: $error',
+      );
+    }
+  }
+
+  bool _isActiveRouteDraftElevationRequest({
+    required int requestId,
+    required int geometryVersion,
+  }) {
+    return state.isRouteDrafting &&
+        state.routeDraftElevationRequestId == requestId &&
+        state.routeDraftGeometryVersion == geometryVersion;
   }
 
   List<LatLng> _appendRouteSegment(
