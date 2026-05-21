@@ -18,7 +18,9 @@ import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
+import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 
@@ -215,12 +217,22 @@ void main() {
     final routeRepository = RouteRepository.test(InMemoryRouteStorage());
     final tasmapRepository = await TestTasmapRepository.create();
     final routePlanner = _CompletingRoutePlanner();
+    final routeElevationSampler = _ImmediateRouteElevationSampler(
+      const RouteElevationSummary(
+        requestId: 1,
+        geometryVersion: 1,
+        ascent: 432,
+        descent: 210,
+        distance3d: 1250,
+      ),
+    );
     final notifier = MapNotifier(
       peakRepository: PeakRepository.test(InMemoryPeakStorage()),
       overpassService: OverpassService(),
       tasmapRepository: tasmapRepository,
       gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
       routeRepository: routeRepository,
+      routeElevationSampler: routeElevationSampler,
       routePlanner: routePlanner,
       peaksBaggedRepository: PeaksBaggedRepository.test(
         InMemoryPeaksBaggedStorage(),
@@ -234,6 +246,18 @@ void main() {
       notifier,
       routeRepository: routeRepository,
       tasmapRepository: tasmapRepository,
+    );
+    notifier.state = notifier.state.copyWith(
+      tracks: [
+        _track(
+          10,
+          points: [
+            const LatLng(-41.5, 146.498283),
+            const LatLng(-41.5, 146.501717),
+          ],
+        ),
+      ],
+      showTracks: true,
     );
 
     await tester.tap(find.byKey(const Key('create-route-fab')));
@@ -257,10 +281,17 @@ void main() {
         distanceMeters: 1234.5,
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump();
 
     expect(find.byKey(const Key('route-distance-text')), findsOneWidget);
     expect(find.text('1.2 km'), findsOneWidget);
+    expect(find.text('Ascent'), findsOneWidget);
+    expect(find.text('432 m'), findsOneWidget);
+    expect(find.text('Descent'), findsOneWidget);
+    expect(find.text('210 m'), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_upward), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_downward), findsOneWidget);
     await tester.enterText(find.byKey(const Key('route-name-field')), 'Ridge Loop');
     await tester.pump();
 
@@ -342,6 +373,14 @@ void main() {
       tasmapRepository: tasmapRepository,
       gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
       routeRepository: RouteRepository.test(InMemoryRouteStorage()),
+      routeElevationSampler: _ImmediateRouteElevationSampler(
+        const RouteElevationSummary(
+          requestId: 1,
+          geometryVersion: 1,
+          ascent: 150,
+          descent: 75,
+        ),
+      ),
       routePlanner: const _FailingRoutePlanner('No path found.'),
       peaksBaggedRepository: PeaksBaggedRepository.test(
         InMemoryPeaksBaggedStorage(),
@@ -364,12 +403,24 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tapAt(tester.getCenter(region) + const Offset(40, 0));
     await tester.pumpAndSettle();
+    await tester.tapAt(tester.getCenter(region) + const Offset(80, 0));
+    await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('route-name-field')), 'Fallback Route');
     await tester.pump();
 
     expect(find.byKey(const Key('route-distance-text')), findsOneWidget);
+    expect(find.text('Ascent'), findsOneWidget);
+    expect(find.text('150 m'), findsOneWidget);
+    expect(find.text('Descent'), findsOneWidget);
+    expect(find.text('75 m'), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_upward), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_downward), findsOneWidget);
     expect(find.byKey(const Key('route-error-text')), findsNothing);
+    expect(
+      _container(tester).read(mapProvider).routeDraftMarkers,
+      hasLength(3),
+    );
     final saveButton = tester.widget<FilledButton>(
       find.byKey(const Key('route-save-button')),
     );
@@ -430,6 +481,96 @@ void main() {
     expect(find.byKey(const Key('route-bottom-sheet')), findsOneWidget);
     expect(fab, findsNothing);
   });
+
+  testWidgets('route sheet shows elevation loading and error states after routing completes', (
+    tester,
+  ) async {
+    final tasmapRepository = await TestTasmapRepository.create();
+    final routeElevationSampler = _ControlledRouteElevationSampler();
+    final notifier = MapNotifier(
+      peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+      overpassService: OverpassService(),
+      tasmapRepository: tasmapRepository,
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+      routeRepository: RouteRepository.test(InMemoryRouteStorage()),
+      routeElevationSampler: routeElevationSampler,
+      routePlanner: const _ImmediateRoutePlanner(
+        PlannedRouteSegment(
+          points: [
+            LatLng(-41.5, 146.5),
+            LatLng(-41.55, 146.55),
+            LatLng(-41.6, 146.6),
+          ],
+          distanceMeters: 1234.5,
+        ),
+      ),
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage(),
+      ),
+      loadPositionOnBuild: false,
+      loadPeaksOnBuild: false,
+      loadTracksOnBuild: false,
+    );
+    await _pumpMap(
+      tester,
+      notifier,
+      tasmapRepository: tasmapRepository,
+    );
+
+    await tester.tap(find.byKey(const Key('create-route-fab')));
+    await tester.pumpAndSettle();
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region) + const Offset(-40, 0));
+    await tester.pumpAndSettle();
+    await tester.tapAt(tester.getCenter(region) + const Offset(40, 0));
+    await tester.pump();
+
+    expect(find.byKey(const Key('route-elevation-loading-text')), findsOneWidget);
+
+    routeElevationSampler.failNext(Exception('DEM offline'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byKey(const Key('route-distance-text')), findsOneWidget);
+    expect(find.byKey(const Key('route-elevation-loading-text')), findsNothing);
+    expect(find.byKey(const Key('route-elevation-error-text')), findsOneWidget);
+    expect(find.textContaining('Failed to sample elevation'), findsOneWidget);
+    expect(find.text('315 m'), findsNothing);
+    expect(find.text('234 m'), findsNothing);
+  });
+
+  testWidgets('route sheet uses shared meter and kilometer distance formatting', (
+    tester,
+  ) async {
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        isRouteDrafting: true,
+        routeDraftName: 'Short route',
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftCommittedPoints: const [
+          LatLng(-41.5, 146.5),
+          LatLng(-41.5005, 146.5005),
+        ],
+        routeDraftDistanceMeters: 850,
+        routeDraftElevationSummary: const RouteElevationSummary(
+          requestId: 1,
+          geometryVersion: 1,
+          ascent: 10,
+          descent: 12,
+        ),
+      ),
+    );
+    await _pumpMap(tester, notifier);
+
+    final distanceText = tester.widget<Text>(
+      find.byKey(const Key('route-distance-text')),
+    );
+    expect(distanceText.data, '850 m');
+  });
 }
 
 class _CompletingRoutePlanner implements RoutePlanner {
@@ -478,6 +619,50 @@ class _FailingRoutePlanner implements RoutePlanner {
   }
 }
 
+class _ImmediateRouteElevationSampler implements RouteElevationSampler {
+  const _ImmediateRouteElevationSampler(this.summary);
+
+  final RouteElevationSummary summary;
+
+  @override
+  Future<RouteElevationSummary> sampleRoute({
+    required List<LatLng> points,
+    required int requestId,
+    required int geometryVersion,
+  }) async {
+    return RouteElevationSummary(
+      requestId: requestId,
+      geometryVersion: geometryVersion,
+      distance3d: summary.distance3d,
+      ascent: summary.ascent,
+      descent: summary.descent,
+      startElevation: summary.startElevation,
+      endElevation: summary.endElevation,
+      lowestElevation: summary.lowestElevation,
+      highestElevation: summary.highestElevation,
+    );
+  }
+}
+
+class _ControlledRouteElevationSampler implements RouteElevationSampler {
+  final _completers = <Completer<RouteElevationSummary>>[];
+
+  @override
+  Future<RouteElevationSummary> sampleRoute({
+    required List<LatLng> points,
+    required int requestId,
+    required int geometryVersion,
+  }) {
+    final completer = Completer<RouteElevationSummary>();
+    _completers.add(completer);
+    return completer.future;
+  }
+
+  void failNext(Object error) {
+    _completers.removeAt(0).completeError(error);
+  }
+}
+
 ProviderContainer _container(WidgetTester tester) {
   return ProviderScope.containerOf(
     tester.element(find.byKey(const Key('map-interaction-region'))),
@@ -516,12 +701,15 @@ Future<void> _pumpMap(
   await tester.pump(const Duration(milliseconds: 100));
 }
 
-GpxTrack _track(int id) {
+GpxTrack _track(int id, {List<LatLng>? points}) {
   return GpxTrack(
     gpxTrackId: id,
     contentHash: 'hash-$id',
     trackName: 'Track $id',
     gpxFile: '<gpx></gpx>',
+    displayTrackPointsByZoom: points == null
+        ? '{}'
+        : TrackDisplayCacheBuilder.buildJson([points]),
   );
 }
 

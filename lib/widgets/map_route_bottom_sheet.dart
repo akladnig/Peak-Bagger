@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:peak_bagger/core/constants.dart';
+import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/services/route_elevation_sampler.dart';
 
 class MapRouteBottomSheet extends ConsumerStatefulWidget {
   const MapRouteBottomSheet({super.key});
@@ -60,6 +62,9 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
       :routeDraftStage,
       :routeDraftDistanceMeters,
       :routeDraftError,
+      :routeDraftElevationSummary,
+      :routeDraftElevationLoading,
+      :routeDraftElevationError,
       :routeDraftColour,
       :isSavingRoute,
     ) = ref.watch(
@@ -72,6 +77,9 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
           routeDraftStage: state.routeDraftStage,
           routeDraftDistanceMeters: state.routeDraftDistanceMeters,
           routeDraftError: state.routeDraftError,
+          routeDraftElevationSummary: state.routeDraftElevationSummary,
+          routeDraftElevationLoading: state.routeDraftElevationLoading,
+          routeDraftElevationError: state.routeDraftElevationError,
           routeDraftColour: state.routeDraftColour,
           isSavingRoute: state.isSavingRoute,
         ),
@@ -106,6 +114,10 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
                           routeDraftStage: routeDraftStage,
                           routeDraftDistanceMeters: routeDraftDistanceMeters,
                           routeDraftError: routeDraftError,
+                          routeDraftElevationSummary: routeDraftElevationSummary,
+                          routeDraftElevationLoading:
+                              routeDraftElevationLoading,
+                          routeDraftElevationError: routeDraftElevationError,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -152,17 +164,26 @@ class _DistanceElevationGroup extends StatelessWidget {
     required this.routeDraftStage,
     required this.routeDraftDistanceMeters,
     required this.routeDraftError,
+    required this.routeDraftElevationSummary,
+    required this.routeDraftElevationLoading,
+    required this.routeDraftElevationError,
   });
 
   final RouteDraftStage routeDraftStage;
   final double routeDraftDistanceMeters;
   final String? routeDraftError;
+  final RouteElevationSummary? routeDraftElevationSummary;
+  final bool routeDraftElevationLoading;
+  final String? routeDraftElevationError;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final distanceKilometers = (routeDraftDistanceMeters / 1000)
-        .toStringAsFixed(1);
+    final distanceText = formatDistance(
+      routeDraftDistanceMeters,
+      decimalPlaces: 1,
+    );
+    final elevationSummary = routeDraftElevationSummary;
 
     return Column(
       key: const Key('route-distance-elevation-group'),
@@ -183,18 +204,90 @@ class _DistanceElevationGroup extends StatelessWidget {
             ),
           )
         else if (routeDraftDistanceMeters > 0)
-          Text(
-            '$distanceKilometers km',
-            key: const Key('route-distance-text'),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+          Wrap(
+            spacing: 16,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                distanceText,
+                key: const Key('route-distance-text'),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              if (routeDraftElevationLoading)
+                Text(
+                  'Sampling elevation...',
+                  key: const Key('route-elevation-loading-text'),
+                  style: theme.textTheme.bodySmall,
+                )
+              else if (routeDraftElevationError != null)
+                Text(
+                  routeDraftElevationError!,
+                  key: const Key('route-elevation-error-text'),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                )
+              else if (elevationSummary != null) ...[
+                _ElevationMetric(
+                  icon: Icons.arrow_upward,
+                  label: 'Ascent',
+                  value: elevationSummary.ascent.round(),
+                  valueKey: const Key('route-ascent-text'),
+                ),
+                _ElevationMetric(
+                  icon: Icons.arrow_downward,
+                  label: 'Descent',
+                  value: elevationSummary.descent.round(),
+                  valueKey: const Key('route-descent-text'),
+                ),
+              ],
+            ],
           )
         else
           Text(
             'Tap two points to route',
             style: theme.textTheme.bodyMedium,
           ),
+      ],
+    );
+  }
+}
+
+class _ElevationMetric extends StatelessWidget {
+  const _ElevationMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.valueKey,
+  });
+
+  final IconData icon;
+  final String label;
+  final int value;
+  final Key valueKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
+        const SizedBox(width: 4),
+        Text(label, style: theme.textTheme.bodySmall),
+        const SizedBox(width: 4),
+        Text(
+          '${formatElevationMetres(value)} m',
+          key: valueKey,
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ],
     );
   }
