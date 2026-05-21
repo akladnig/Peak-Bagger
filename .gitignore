@@ -48,3 +48,5 @@ app.*.map.json
 /assets/highway.json
 /assets/tasmania_dem_25m.tif
 /assets/tasmania_dem_25m.vrt
+/assets/tassy dem.xlsx
+/ai_specs/todo.md
