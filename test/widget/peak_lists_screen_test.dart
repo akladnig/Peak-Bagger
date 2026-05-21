@@ -175,6 +175,52 @@ void main() {
     );
   });
 
+  testWidgets('negative peak ids appear in peak lists counts and rows', (
+    tester,
+  ) async {
+    final peakListRepository = PeakListRepository.test(
+      InMemoryPeakListStorage([
+        _buildPeakList(1, 'Tas Peaks', [-1]),
+      ]),
+    );
+    final peakRepository = PeakRepository.test(
+      InMemoryPeakStorage([
+        _buildPeak(-1, 'Tinderbox Hill', -42.0, 146.0, elevation: 300),
+      ]),
+    );
+    final peaksBaggedRepository = PeaksBaggedRepository.test(
+      InMemoryPeaksBaggedStorage(),
+    );
+
+    await _pumpPeakListsScreen(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: peakListRepository,
+      peakRepository: peakRepository,
+      peaksBaggedRepository: peaksBaggedRepository,
+    );
+
+    await peaksBaggedRepository.rebuildFromTracks([
+      GpxTrack(
+        gpxTrackId: 10,
+        contentHash: 'hash-10',
+        trackName: 'Track 10',
+        trackDate: DateTime.utc(2026, 5, 15),
+      )..peaks.add(_buildPeak(-1, 'Tinderbox Hill', -42.0, 146.0)),
+    ]);
+    ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('peak-lists-summary-pane'))),
+    ).read(peaksBaggedRevisionProvider.notifier).increment();
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('peak-lists-climbed-1'))).data,
+      '1',
+    );
+    expect(find.byKey(const Key('peak-lists-details-row--1')), findsOneWidget);
+    expect(find.text('Tinderbox Hill'), findsWidgets);
+  });
+
   testWidgets('tapping a mini-map marker opens peak info popup', (tester) async {
     final tasmapRepository = await TestTasmapRepository.create(
       maps: [

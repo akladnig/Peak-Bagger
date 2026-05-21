@@ -84,6 +84,21 @@ void main() {
       expect(rows.single.date, isNull);
     });
 
+    test('deriveRows keeps negative peak ids', () {
+      final track =
+          GpxTrack(gpxTrackId: 7, contentHash: 'hash', trackName: 'Track')
+            ..peaks.addAll([
+              Peak(osmId: -1, name: 'Synthetic Peak', latitude: -42, longitude: 146),
+              Peak(osmId: 0, name: 'Invalid Peak', latitude: -42, longitude: 146),
+              Peak(osmId: 33, name: 'Valid Peak', latitude: -42, longitude: 146),
+            ]);
+
+      final rows = PeaksBaggedRepository.deriveRows([track]);
+
+      expect(rows, hasLength(2));
+      expect(rows.map((row) => row.peakId).toList(), [-1, 33]);
+    });
+
     test(
       'rebuildFromTracks clears stored rows and restarts baggedId from 1',
       () async {

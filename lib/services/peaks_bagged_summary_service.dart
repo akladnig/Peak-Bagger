@@ -34,7 +34,7 @@ class PeaksBaggedSummaryService {
 
       final uniquePeakIds = track.peaks
           .map((peak) => peak.osmId)
-          .where((peakId) => peakId > 0)
+          .where((peakId) => peakId != 0)
           .toSet()
           .toList(growable: false)
         ..sort();

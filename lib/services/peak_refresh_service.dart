@@ -181,7 +181,7 @@ class PeakRefreshService {
     final matchedSyntheticOsmIds = <int>{};
 
     for (final refreshedPeak in refreshedPeaks) {
-      if (refreshedPeak.osmId <= 0 ||
+      if (refreshedPeak.osmId == 0 ||
           existingPeaksByOsmId.containsKey(refreshedPeak.osmId)) {
         continue;
       }

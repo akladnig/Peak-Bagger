@@ -62,6 +62,30 @@ void main() {
         20: 1,
       });
     });
+
+    test('counts negative peak ids as valid peaks', () {
+      final trackOne = _track(
+        10,
+        DateTime.utc(2026, 5, 15, 10),
+        peakIds: [-1, 11],
+      );
+      final trackTwo = _track(
+        20,
+        DateTime.utc(2026, 5, 16, 10),
+        peakIds: [-1, 22],
+      );
+
+      final series = service.buildSeries([trackTwo, trackOne]);
+
+      expect(series.totalCountsByTrackId, {
+        10: 2,
+        20: 2,
+      });
+      expect(series.newCountsByTrackId, {
+        10: 2,
+        20: 1,
+      });
+    });
   });
 }
 
