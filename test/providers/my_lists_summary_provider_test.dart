@@ -67,7 +67,7 @@ void main() {
     await peakListRepository.save(
       PeakList(
         peakListId: 1,
-        name: 'Alpha',
+        name: 'Alpha Renamed',
         peakList: encodePeakListItems([
           const PeakListItem(peakOsmId: 1, points: 1),
           const PeakListItem(peakOsmId: 2, points: 1),
@@ -78,6 +78,7 @@ void main() {
     container.read(peakListRevisionProvider.notifier).increment();
 
     rows = container.read(myListsSummaryProvider);
+    expect(rows.single.peakList.name, 'Alpha Renamed');
     expect(rows.single.totalPeaks, 3);
     expect(rows.single.climbed, 2);
     expect(rows.single.unclimbed, 1);

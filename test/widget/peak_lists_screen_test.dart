@@ -175,6 +175,41 @@ void main() {
     );
   });
 
+  testWidgets('peak rename refreshes Tassy Full rows', (tester) async {
+    final peakRepository = PeakRepository.test(
+      InMemoryPeakStorage([
+        _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+      ]),
+    );
+
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Tassy Full', [100]),
+        ]),
+      ),
+      peakRepository: peakRepository,
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage([
+          PeaksBagged(baggedId: 1, peakId: 100, gpxId: 10),
+        ]),
+      ),
+    );
+
+    expect(find.text('Alpha Peak'), findsWidgets);
+
+    await peakRepository.save(_buildPeak(100, 'Renamed Peak', -42.0, 146.0, elevation: 1200));
+    ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('peak-lists-summary-pane'))),
+    ).read(peakRevisionProvider.notifier).increment();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Renamed Peak'), findsWidgets);
+    expect(find.text('Alpha Peak'), findsNothing);
+  });
+
   testWidgets('negative peak ids appear in peak lists counts and rows', (
     tester,
   ) async {
@@ -1287,6 +1322,9 @@ void main() {
             final saved = await repository.save(
               PeakList(name: listName, peakList: '[]'),
             );
+            ProviderScope.containerOf(
+              tester.element(find.byKey(const Key('peak-lists-summary-pane'))),
+            ).read(peakListRevisionProvider.notifier).increment();
             return PeakListImportPresentationResult(
               updated: false,
               importedCount: 1,
@@ -1316,6 +1354,55 @@ void main() {
           .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
           .data,
       'Abels',
+    );
+  });
+
+  testWidgets('renaming the selected list refreshes title and row', (
+    tester,
+  ) async {
+    final repository = PeakListRepository.test(
+      InMemoryPeakListStorage([
+        PeakList(name: 'Abels', peakList: '[]')..peakListId = 1,
+        PeakList(name: 'Bravo', peakList: '[]')..peakListId = 2,
+      ]),
+    );
+
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: repository,
+    );
+
+    tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-1'))).onTap!();
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+          .data,
+      'Abels',
+    );
+
+    await repository.save(
+      PeakList(peakListId: 1, name: 'Abels Renamed', peakList: '[]'),
+    );
+    ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('peak-lists-summary-pane'))),
+    ).read(peakListRevisionProvider.notifier).increment();
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+          .data,
+      'Abels Renamed',
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('peak-lists-row-1')),
+        matching: find.text('Abels Renamed'),
+      ),
+      findsOneWidget,
     );
   });
 

@@ -12,6 +12,7 @@ import '../models/peak.dart';
 import '../models/peak_list.dart';
 import '../models/peaks_bagged.dart';
 import '../providers/peak_list_provider.dart';
+import '../providers/peak_list_selection_provider.dart';
 import '../providers/map_provider.dart';
 import '../providers/peak_provider.dart';
 import '../providers/tasmap_provider.dart';
@@ -47,6 +48,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
       peakListDuplicateNameCheckerProvider,
     );
     ref.watch(peaksBaggedRevisionProvider);
+    ref.watch(peakRevisionProvider);
     final peakListRepository = ref.watch(peakListRepositoryProvider);
     final peakRepository = ref.watch(peakRepositoryProvider);
     final peaksBaggedRepository = ref.watch(peaksBaggedRepositoryProvider);
@@ -56,7 +58,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
     final ascentCountsByPeakId = peaksBaggedRepository.ascentCountsByPeakId();
     final latestAscentDatesByPeakId = peaksBaggedRepository
         .latestAscentDatesByPeakId();
-    final peakLists = peakListRepository.getAllPeakLists();
+    final peakLists = ref.watch(peakListsProvider);
     final summaryRows = peakLists
         .map(
           (peakList) => _PeakListSummaryRow.fromPeakList(
