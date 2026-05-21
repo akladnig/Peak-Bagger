@@ -330,6 +330,18 @@ class TestMapNotifier extends MapNotifier {
   Future<void> persistTracksRoutesVisibility() async {}
 
   @override
+  void setShowRoutes(bool value) {
+    if (state.showRoutes == value) {
+      return;
+    }
+    state = state.copyWith(
+      showRoutes: value,
+      clearSelectedRouteId: !value,
+      clearHoveredRouteId: !value,
+    );
+  }
+
+  @override
   Future<void> saveRouteDraft() async {
     final trimmedName = state.routeDraftName.trim();
     if (trimmedName.isEmpty || state.routeDraftCommittedPoints.length < 2) {
@@ -466,6 +478,53 @@ class TestMapNotifier extends MapNotifier {
       showTracks: true,
       selectedTrackFocusSerial: state.selectedTrackFocusSerial + 1,
     );
+  }
+
+  @override
+  void selectRoute(int routeId) {
+    final hasVisibleRoute =
+        state.showRoutes &&
+        routeRepository?.getAllRoutes().any((route) => route.id == routeId) ==
+            true;
+    if (!hasVisibleRoute) {
+      return;
+    }
+
+    state = state.copyWith(
+      selectedRouteId: routeId,
+      clearSelectedTrackId: true,
+    );
+  }
+
+  @override
+  void reconcileSelectedRouteState() {
+    final selectedRouteId = state.selectedRouteId;
+    if (selectedRouteId == null) {
+      return;
+    }
+
+    final hasVisibleRoute =
+        state.showRoutes &&
+        routeRepository?.getAllRoutes().any((route) => route.id == selectedRouteId) ==
+            true;
+    if (!hasVisibleRoute) {
+      state = state.copyWith(clearSelectedRouteId: true);
+    }
+  }
+
+  @override
+  void clearSelectedRoute() {
+    state = state.copyWith(clearSelectedRouteId: true);
+  }
+
+  @override
+  void setHoveredRouteId(int? routeId) {
+    state = state.copyWith(hoveredRouteId: routeId);
+  }
+
+  @override
+  void clearHoveredRoute() {
+    state = state.copyWith(hoveredRouteId: null);
   }
 
   @override

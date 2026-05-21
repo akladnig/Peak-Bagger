@@ -16,6 +16,7 @@ import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
@@ -24,6 +25,7 @@ import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/services/peak_hover_detector.dart';
+import 'package:peak_bagger/services/route_hover_detector.dart';
 import 'package:peak_bagger/services/track_hover_detector.dart';
 import 'package:peak_bagger/services/map_trackpad_gesture_classifier.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
@@ -102,6 +104,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     Future.microtask(() {
       if (mounted) {
         _mapNotifier.reconcileSelectedTrackState();
+        _mapNotifier.reconcileSelectedRouteState();
       }
     });
   }
@@ -156,10 +159,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final mapState = ref.read(mapProvider);
     final notifier = ref.read(mapProvider.notifier);
     final panelVisible =
-        mapState.showTracks &&
-        mapState.tracks.any(
-          (track) => track.gpxTrackId == mapState.selectedTrackId,
-        );
+        (mapState.showTracks &&
+            mapState.tracks.any(
+              (track) => track.gpxTrackId == mapState.selectedTrackId,
+            )) ||
+        (mapState.showRoutes && mapState.selectedRouteId != null);
     final scaffoldState = _scaffoldKey.currentState;
     final scaffoldContext = _scaffoldKey.currentContext;
     if ((scaffoldState?.isEndDrawerOpen ?? false) && scaffoldContext != null) {
@@ -176,6 +180,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
       return true;
     }
     if (panelVisible) {
+      notifier.clearSelectedRoute();
       notifier.clearSelectedTrack();
       _mapFocusNode.requestFocus();
       return true;
@@ -208,6 +213,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
     notifier.clearSelectedLocation();
     notifier.clearSelectedTrack();
+    notifier.clearSelectedRoute();
     notifier.beginRouteDraft();
     _mapFocusNode.requestFocus();
   }
@@ -216,7 +222,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     if (_isPointerDown) {
       return SystemMouseCursors.grabbing;
     }
-    if (mapState.hoveredTrackId != null) {
+    if (mapState.hoveredTrackId != null || mapState.hoveredRouteId != null) {
       return SystemMouseCursors.click;
     }
     if (mapState.hoveredPeakId != null) {
@@ -242,6 +248,37 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final peak = _hitTestPeak(localPosition, mapState, peaks);
     notifier.setHoveredPeakId(peak?.osmId);
     return peak != null;
+  }
+
+  void _handleRouteHover(
+    Offset localPosition,
+    MapState mapState,
+    List<app_route.Route> routes,
+  ) {
+    final notifier = ref.read(mapProvider.notifier);
+
+    if (_isPointerDown || !mapState.showRoutes) {
+      notifier.clearHoveredRoute();
+      return;
+    }
+
+    final camera = _mapController.camera;
+    if (camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      notifier.clearHoveredRoute();
+      return;
+    }
+
+    final candidates = _buildRouteHoverCandidates(routes, camera);
+    if (candidates.isEmpty) {
+      notifier.clearHoveredRoute();
+      return;
+    }
+
+    final result = RouteHoverDetector.findHoveredRoute(
+      pointerPosition: localPosition,
+      candidates: candidates,
+    );
+    notifier.setHoveredRouteId(result.hoveredRouteId);
   }
 
   Peak? _hitTestPeak(
@@ -304,19 +341,64 @@ class _MapScreenState extends ConsumerState<MapScreen>
     return [...untickedCandidates, ...tickedCandidates];
   }
 
+  List<RouteHoverCandidate> _buildRouteHoverCandidates(
+    List<app_route.Route> routes,
+    MapCamera camera,
+  ) {
+    final displayZoom = _mapController.camera.zoom.round().clamp(
+      MapConstants.trackMinZoom,
+      MapConstants.trackMaxZoom,
+    );
+    final candidates = <RouteHoverCandidate>[];
+
+    for (final route in routes) {
+      try {
+        final projectedSegments = <List<Offset>>[];
+        for (final segment in route.getSegmentsForZoom(displayZoom)) {
+          if (segment.length < 2) {
+            continue;
+          }
+          projectedSegments.add(
+            segment.map(camera.latLngToScreenOffset).toList(growable: false),
+          );
+        }
+        if (projectedSegments.isEmpty) {
+          continue;
+        }
+        candidates.add(
+          RouteHoverCandidate(routeId: route.id, segments: projectedSegments),
+        );
+      } catch (_) {
+        continue;
+      }
+    }
+
+    return candidates;
+  }
+
   void _handleMapHover(
     Offset localPosition,
     LatLng location,
     MapState mapState,
     List<Peak> peaks,
+    List<app_route.Route> routes,
   ) {
     final notifier = ref.read(mapProvider.notifier);
     notifier.setCursorMgrs(location);
     if (_handlePeakHover(localPosition, mapState, peaks)) {
       notifier.clearHoveredTrack();
+      notifier.clearHoveredRoute();
       return;
     }
     _handleTrackHover(localPosition, location, mapState);
+    if (ref.read(mapProvider).hoveredTrackId != null) {
+      notifier.clearHoveredRoute();
+      return;
+    }
+    _handleRouteHover(localPosition, mapState, routes);
+    if (ref.read(mapProvider).hoveredRouteId != null) {
+      notifier.clearHoveredTrack();
+    }
   }
 
   void _handleTrackHover(
@@ -909,10 +991,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
             body: Stack(
               children: [
                 Consumer(
-                  builder: (context, ref, _) {
+                  builder: (context, ref, child) {
                     final mapState = ref.watch(mapProvider);
                     final filteredPeaks = ref.watch(filteredPeaksProvider);
                     final routes = ref.watch(routeListProvider);
+                    ref.listen(routeListProvider, (previous, next) {
+                      _mapNotifier.reconcileSelectedRouteState();
+                    });
                     final routeDraftVisibility = ref.watch(
                       mapProvider.select(
                         (state) => (
@@ -967,6 +1052,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                 break;
                               }
                             }
+                            app_route.Route? selectedRoute;
+                            for (final route in routes) {
+                              if (route.id == mapState.selectedRouteId) {
+                                selectedRoute = route;
+                                break;
+                              }
+                            }
 
                             return Stack(
                               children: [
@@ -980,6 +1072,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                     notifier.clearCursorMgrs();
                                     notifier.clearHoveredPeak();
                                     notifier.clearHoveredTrack();
+                                    notifier.clearHoveredRoute();
                                   },
                                   child: Listener(
                                     behavior: HitTestBehavior.translucent,
@@ -1091,12 +1184,21 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                           final hoveredTrackId = ref
                                               .read(mapProvider)
                                               .hoveredTrackId;
+                                          final hoveredRouteId = ref
+                                              .read(mapProvider)
+                                              .hoveredRouteId;
                                           if (primaryClickPending &&
                                               hoveredTrackId != null) {
                                             notifier.selectTrack(
                                               hoveredTrackId,
                                             );
+                                          } else if (primaryClickPending &&
+                                              hoveredRouteId != null) {
+                                            notifier.selectRoute(
+                                              hoveredRouteId,
+                                            );
                                           } else if (primaryClickPending) {
+                                            notifier.clearSelectedRoute();
                                             notifier.clearSelectedTrack();
                                           }
                                         },
@@ -1111,6 +1213,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                           ref
                                               .read(mapProvider.notifier)
                                               .clearHoveredPeak();
+                                          ref
+                                              .read(mapProvider.notifier)
+                                              .clearHoveredRoute();
                                         },
                                         onPointerHover: (event, point) {
                                           _handleMapHover(
@@ -1118,6 +1223,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                             point,
                                             mapState,
                                             filteredPeaks,
+                                            routes,
                                           );
                                         },
                                         onPositionChanged:
@@ -1308,22 +1414,30 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                   child: AnimatedSlide(
                                     duration: const Duration(milliseconds: 200),
                                     curve: Curves.easeOut,
-                                    offset: selectedTrack == null
+                                    offset: selectedTrack == null && selectedRoute == null
                                         ? const Offset(-1.1, 0)
                                         : Offset.zero,
                                     child: IgnorePointer(
-                                      ignoring: selectedTrack == null,
-                                      child: selectedTrack == null
+                                      ignoring:
+                                          selectedTrack == null &&
+                                          selectedRoute == null,
+                                      child: selectedRoute == null &&
+                                              selectedTrack == null
                                           ? const SizedBox(
                                               width: UiConstants
                                                   .preferredLeftWidth,
                                             )
                                           : MapTrackInfoPanel(
-                                              track: selectedTrack,
+                                              track: selectedRoute == null
+                                                  ? selectedTrack
+                                                  : null,
+                                              route: selectedRoute,
                                               onClose: () {
-                                                ref
-                                                    .read(mapProvider.notifier)
-                                                    .clearSelectedTrack();
+                                                final notifier = ref.read(
+                                                  mapProvider.notifier,
+                                                );
+                                                notifier.clearSelectedTrack();
+                                                notifier.clearSelectedRoute();
                                                 _mapFocusNode.requestFocus();
                                               },
                                             ),

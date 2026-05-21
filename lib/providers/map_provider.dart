@@ -186,6 +186,7 @@ class MapState {
   final String mapSearchQuery;
   final int selectedMapFocusSerial;
   final int selectedTrackFocusSerial;
+  final int? hoveredRouteId;
   final List<GpxTrack> tracks;
   final bool showTracks;
   final bool showRoutes;
@@ -201,6 +202,7 @@ class MapState {
   final PeakInfoContent? peakInfo;
   final int? hoveredTrackId;
   final int? selectedTrackId;
+  final int? selectedRouteId;
   final PendingCameraRequest? pendingCameraRequest;
   final int cameraRequestSerial;
 
@@ -254,6 +256,7 @@ class MapState {
     this.mapSearchQuery = '',
     this.selectedMapFocusSerial = 0,
     this.selectedTrackFocusSerial = 0,
+    this.hoveredRouteId,
     this.tracks = const [],
     this.showTracks = false,
     this.showRoutes = false,
@@ -269,6 +272,7 @@ class MapState {
     this.peakInfo,
     this.hoveredTrackId,
     this.selectedTrackId,
+    this.selectedRouteId,
     this.pendingCameraRequest,
     this.cameraRequestSerial = 0,
   });
@@ -363,8 +367,12 @@ class MapState {
     bool clearPeakInfoPopup = false,
     int? hoveredTrackId,
     bool clearHoveredTrackId = false,
+    int? hoveredRouteId,
+    bool clearHoveredRouteId = false,
     int? selectedTrackId,
     bool clearSelectedTrackId = false,
+    int? selectedRouteId,
+    bool clearSelectedRouteId = false,
     PendingCameraRequest? pendingCameraRequest,
     int? cameraRequestSerial,
     bool clearPendingCameraRequest = false,
@@ -446,6 +454,9 @@ class MapState {
           selectedMapFocusSerial ?? this.selectedMapFocusSerial,
       selectedTrackFocusSerial:
           selectedTrackFocusSerial ?? this.selectedTrackFocusSerial,
+      hoveredRouteId: clearHoveredRouteId
+          ? null
+          : (hoveredRouteId ?? this.hoveredRouteId),
       tracks: tracks ?? this.tracks,
       showTracks: showTracks ?? this.showTracks,
       showRoutes: showRoutes ?? this.showRoutes,
@@ -477,6 +488,9 @@ class MapState {
       selectedTrackId: clearSelectedTrackId
           ? null
           : (selectedTrackId ?? this.selectedTrackId),
+      selectedRouteId: clearSelectedRouteId
+          ? null
+          : (selectedRouteId ?? this.selectedRouteId),
       pendingCameraRequest: clearPendingCameraRequest
           ? null
           : (pendingCameraRequest ?? this.pendingCameraRequest),
@@ -1976,7 +1990,11 @@ class MapNotifier extends Notifier<MapState> {
     if (_isRestoringVisibilityPrefs) {
       _showRoutesRestoreOverridden = true;
     }
-    state = state.copyWith(showRoutes: value);
+    state = state.copyWith(
+      showRoutes: value,
+      clearSelectedRouteId: !value,
+      clearHoveredRouteId: !value,
+    );
     persistTracksRoutesVisibility();
   }
 
@@ -2162,6 +2180,20 @@ class MapNotifier extends Notifier<MapState> {
     }
   }
 
+  void reconcileSelectedRouteState() {
+    final selectedRouteId = state.selectedRouteId;
+    if (selectedRouteId == null) {
+      return;
+    }
+
+    final hasVisibleRoute =
+        state.showRoutes &&
+        _routeRepository.getAllRoutes().any((route) => route.id == selectedRouteId);
+    if (!hasVisibleRoute) {
+      state = state.copyWith(clearSelectedRouteId: true);
+    }
+  }
+
   void selectTrack(int trackId) {
     final hasVisibleTrack =
         state.showTracks &&
@@ -2169,7 +2201,10 @@ class MapNotifier extends Notifier<MapState> {
     if (!hasVisibleTrack) {
       return;
     }
-    state = state.copyWith(selectedTrackId: trackId);
+    state = state.copyWith(
+      selectedTrackId: trackId,
+      clearSelectedRouteId: true,
+    );
   }
 
   void showTrack(int trackId, {LatLng? selectedLocation}) {
@@ -2190,6 +2225,7 @@ class MapNotifier extends Notifier<MapState> {
     state = state.copyWith(
       tracks: tracks,
       selectedTrackId: trackId,
+      clearSelectedRouteId: true,
       selectedLocation: selectedLocation,
       showTracks: true,
       clearHoveredTrackId: true,
@@ -2200,6 +2236,32 @@ class MapNotifier extends Notifier<MapState> {
 
   void clearSelectedTrack() {
     state = state.copyWith(clearSelectedTrackId: true);
+  }
+
+  void selectRoute(int routeId) {
+    final hasVisibleRoute =
+        state.showRoutes &&
+        _routeRepository.getAllRoutes().any((route) => route.id == routeId);
+    if (!hasVisibleRoute) {
+      return;
+    }
+
+    state = state.copyWith(
+      selectedRouteId: routeId,
+      clearSelectedTrackId: true,
+    );
+  }
+
+  void clearSelectedRoute() {
+    state = state.copyWith(clearSelectedRouteId: true);
+  }
+
+  void setHoveredRouteId(int? routeId) {
+    state = state.copyWith(hoveredRouteId: routeId);
+  }
+
+  void clearHoveredRoute() {
+    state = state.copyWith(hoveredRouteId: null);
   }
 
   (LatLng?, String?) parseGridReference(String input) {
