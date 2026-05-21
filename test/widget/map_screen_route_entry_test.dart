@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +10,7 @@ import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
@@ -16,8 +20,10 @@ import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/route_graph_store.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
 import '../harness/test_tasmap_repository.dart';
 
@@ -39,6 +45,48 @@ void main() {
     expect(state.isRouteDrafting, isTrue);
     expect(state.selectedLocation, isNull);
     expect(find.byKey(const Key('route-bottom-sheet')), findsOneWidget);
+  });
+
+  testWidgets('create route stays disabled until preload completes', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final completer = Completer<trip_routing.TripService>();
+    final store = _DeferredRouteGraphStore(completer.future);
+    final notifier = await _buildRealNotifier();
+    await _pumpApp(tester, notifier, routeGraphStore: store);
+
+    router.go('/map');
+    await tester.pumpAndSettle();
+
+    final fab = tester.widget<FloatingActionButton>(
+      find.byKey(const Key('create-route-fab')),
+    );
+    expect(fab.onPressed, isNull);
+
+    completer.complete(trip_routing.TripService());
+    await tester.pumpAndSettle();
+
+    final enabledFab = tester.widget<FloatingActionButton>(
+      find.byKey(const Key('create-route-fab')),
+    );
+    expect(enabledFab.onPressed, isNotNull);
+  });
+
+  testWidgets('failed preload keeps create route disabled', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final store = _FailedRouteGraphStore();
+    final notifier = await _buildRealNotifier();
+    await _pumpApp(tester, notifier, routeGraphStore: store);
+
+    router.go('/map');
+    await tester.pumpAndSettle();
+    await tester.pump();
+
+    final fab = tester.widget<FloatingActionButton>(
+      find.byKey(const Key('create-route-fab')),
+    );
+    expect(fab.onPressed, isNull);
   });
 
   testWidgets('route draft survives branch navigation in the current session', (
@@ -256,7 +304,7 @@ GpxTrack _track(int id, List<LatLng> points) {
   );
 }
 
-Future<MapNotifier> _buildRealNotifier({
+  Future<MapNotifier> _buildRealNotifier({
   TestTasmapRepository? repository,
   GpxTrackRepository? gpxTrackRepository,
 }) async {
@@ -279,6 +327,7 @@ Future<void> _pumpApp(
   MapNotifier notifier, {
   TestTasmapRepository? repository,
   GpxTrackRepository? gpxTrackRepository,
+  RouteGraphStore? routeGraphStore,
   Size size = const Size(1600, 900),
 }) async {
   await tester.binding.setSurfaceSize(size);
@@ -287,6 +336,9 @@ Future<void> _pumpApp(
     ProviderScope(
       overrides: [
         mapProvider.overrideWith(() => notifier),
+        routeGraphStoreProvider.overrideWithValue(
+          routeGraphStore ?? _ReadyRouteGraphStore(),
+        ),
         peakListRepositoryProvider.overrideWithValue(
           PeakListRepository.test(InMemoryPeakListStorage()),
         ),
@@ -309,4 +361,52 @@ class _InitialStateMapNotifier extends MapNotifier {
 
   @override
   MapState build() => initialState;
+}
+
+class _DeferredRouteGraphStore implements RouteGraphStore {
+  _DeferredRouteGraphStore(this.future);
+
+  final Future<trip_routing.TripService> future;
+
+  @override
+  Future<trip_routing.TripService> preload() => future;
+
+  @override
+  Future<trip_routing.TripService> reload() => future;
+
+  @override
+  Future<void> replaceSnapshot(String rawJson) async {}
+
+  @override
+  Future<File> snapshotFile() => throw UnimplementedError();
+}
+
+class _FailedRouteGraphStore implements RouteGraphStore {
+  @override
+  Future<trip_routing.TripService> preload() async {
+    throw const RouteGraphLoadException('failed');
+  }
+
+  @override
+  Future<trip_routing.TripService> reload() => preload();
+
+  @override
+  Future<void> replaceSnapshot(String rawJson) async {}
+
+  @override
+  Future<File> snapshotFile() => throw UnimplementedError();
+}
+
+class _ReadyRouteGraphStore implements RouteGraphStore {
+  @override
+  Future<trip_routing.TripService> preload() async => trip_routing.TripService();
+
+  @override
+  Future<trip_routing.TripService> reload() async => trip_routing.TripService();
+
+  @override
+  Future<void> replaceSnapshot(String rawJson) async {}
+
+  @override
+  Future<File> snapshotFile() => throw UnimplementedError();
 }

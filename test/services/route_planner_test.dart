@@ -1,31 +1,33 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/services/route_graph_store.dart';
 import 'package:peak_bagger/services/route_planner.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
 void main() {
-  test(
-    'trip routing adapter plans a segment with ordered waypoints',
-    () async {
-      const start = LatLng(-41.5, 146.5);
-      const end = LatLng(-41.6, 146.6);
-      const midpoint = LatLng(-41.55, 146.55);
-      final client = _FakeTripRoutingClient(
-        trip_routing.Trip(
-          route: const [start, midpoint, end],
-          distance: 1234.5,
-          errors: const [],
-        ),
-      );
-      final planner = TripRoutingRoutePlanner(client: client);
+  test('local file client preloads the graph before routing', () async {
+    const start = LatLng(-41.5, 146.5);
+    const end = LatLng(-41.6, 146.6);
+    const midpoint = LatLng(-41.55, 146.55);
+    final service = _FakeTripService(
+      trip_routing.Trip(
+        route: const [start, midpoint, end],
+        distance: 1234.5,
+        errors: const [],
+      ),
+    );
+    final store = _FakeRouteGraphStore(service);
+    final client = LocalFileTripRoutingClient(routeGraphStore: store);
 
-      final segment = await planner.planSegment(start: start, end: end);
+    final trip = await client.findTotalTrip([start, end]);
 
-      expect(client.recordedWaypoints, const [start, end]);
-      expect(segment.points, const [start, midpoint, end]);
-      expect(segment.distanceMeters, 1234.5);
-    },
-  );
+    expect(store.preloadCallCount, 1);
+    expect(service.recordedWaypoints, const [start, end]);
+    expect(trip.route, const [start, midpoint, end]);
+    expect(trip.distance, 1234.5);
+  });
 
   test('trip routing adapter rejects an unusable trip result', () async {
     const start = LatLng(-41.5, 146.5);
@@ -37,10 +39,7 @@ void main() {
         errors: const ['No path found.'],
       ),
     );
-    final planner = TripRoutingRoutePlanner(
-      client: client,
-      fallback: const _NullFallbackRoutePlanner(),
-    );
+    final planner = TripRoutingRoutePlanner(client: client);
 
     await expectLater(
       () => planner.planSegment(start: start, end: end),
@@ -48,30 +47,17 @@ void main() {
     );
   });
 
-  test('trip routing adapter falls back when package graph is unavailable', () async {
+  test('trip routing adapter surfaces route graph load failure', () async {
     const start = LatLng(-41.5, 146.5);
     const end = LatLng(-41.6, 146.6);
-    final client = _FakeTripRoutingClient(
-      trip_routing.Trip(
-        route: const [],
-        distance: 0,
-        errors: const ['Graph data unavailable'],
-      ),
-    );
-    final planner = TripRoutingRoutePlanner(
-      client: client,
-      fallback: const _FallbackRoutePlanner(
-        PlannedRouteSegment(
-          points: [start, LatLng(-41.55, 146.55), end],
-          distanceMeters: 1234.5,
-        ),
-      ),
-    );
+    final store = _ThrowingRouteGraphStore();
+    final client = LocalFileTripRoutingClient(routeGraphStore: store);
+    final planner = TripRoutingRoutePlanner(client: client);
 
-    final segment = await planner.planSegment(start: start, end: end);
-
-    expect(segment.points, const [start, LatLng(-41.55, 146.55), end]);
-    expect(segment.distanceMeters, 1234.5);
+    await expectLater(
+      () => planner.planSegment(start: start, end: end),
+      throwsA(isA<RouteGraphLoadException>()),
+    );
   });
 }
 
@@ -94,28 +80,59 @@ class _FakeTripRoutingClient implements TripRoutingClient {
   }
 }
 
-class _FallbackRoutePlanner implements RoutePlannerFallback {
-  const _FallbackRoutePlanner(this.segment);
+class _FakeRouteGraphStore implements RouteGraphStore {
+  _FakeRouteGraphStore(this.service);
 
-  final PlannedRouteSegment segment;
+  final _FakeTripService service;
+  int preloadCallCount = 0;
 
   @override
-  Future<PlannedRouteSegment?> tryPlanSegment({
-    required LatLng start,
-    required LatLng end,
-  }) async {
-    return segment;
+  Future<trip_routing.TripService> preload() async {
+    preloadCallCount += 1;
+    return service;
   }
+
+  @override
+  Future<trip_routing.TripService> reload() async => service;
+
+  @override
+  Future<void> replaceSnapshot(String rawJson) async {}
+
+  @override
+  Future<File> snapshotFile() => throw UnimplementedError();
 }
 
-class _NullFallbackRoutePlanner implements RoutePlannerFallback {
-  const _NullFallbackRoutePlanner();
+class _ThrowingRouteGraphStore implements RouteGraphStore {
+  @override
+  Future<trip_routing.TripService> preload() async {
+    throw const RouteGraphLoadException('route graph unavailable');
+  }
 
   @override
-  Future<PlannedRouteSegment?> tryPlanSegment({
-    required LatLng start,
-    required LatLng end,
+  Future<trip_routing.TripService> reload() => preload();
+
+  @override
+  Future<void> replaceSnapshot(String rawJson) async {}
+
+  @override
+  Future<File> snapshotFile() => throw UnimplementedError();
+}
+
+class _FakeTripService extends trip_routing.TripService {
+  _FakeTripService(this.trip);
+
+  final trip_routing.Trip trip;
+  List<LatLng>? recordedWaypoints;
+
+  @override
+  Future<trip_routing.Trip> findTotalTrip(
+    List<LatLng> waypoints, {
+    bool preferWalkingPaths = true,
+    bool replaceWaypointsWithBuildingEntrances = false,
+    bool forceIncludeWaypoints = false,
+    double duplicationPenalty = 0.0,
   }) async {
-    return null;
+    recordedWaypoints = List<LatLng>.from(waypoints, growable: false);
+    return trip;
   }
 }

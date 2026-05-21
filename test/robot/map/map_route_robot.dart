@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -8,6 +10,7 @@ import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
@@ -15,9 +18,11 @@ import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/route_graph_store.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/services/route_repository.dart';
+import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
 import '../../harness/test_tasmap_repository.dart';
 
@@ -54,6 +59,7 @@ class MapRouteRobot {
   Future<void> pumpApp() async {
     await tester.binding.setSurfaceSize(const Size(1600, 900));
     _tasmapRepository = await TestTasmapRepository.create();
+    router = createRouter();
     _mapNotifier = MapNotifier(
       peakRepository: PeakRepository.test(InMemoryPeakStorage()),
       overpassService: OverpassService(),
@@ -74,17 +80,18 @@ class MapRouteRobot {
       ProviderScope(
         overrides: [
           mapProvider.overrideWith(() => _mapNotifier),
+          routeGraphStoreProvider.overrideWithValue(_ReadyRouteGraphStore()),
           routeRepositoryProvider.overrideWithValue(routeRepository),
           peakListRepositoryProvider.overrideWithValue(
             PeakListRepository.test(InMemoryPeakListStorage()),
           ),
         ],
-      child: const App(),
-    ),
-  );
-  await tester.pump();
-  _mapNotifier.state = initialState;
-}
+        child: const App(),
+      ),
+    );
+    await tester.pump();
+    _mapNotifier.state = initialState;
+  }
 
   Future<void> openMap() async {
     router.go('/map');
@@ -194,4 +201,18 @@ class _QueueRouteElevationSampler implements RouteElevationSampler {
     }
     throw Exception('Unexpected queued elevation outcome.');
   }
+}
+
+class _ReadyRouteGraphStore implements RouteGraphStore {
+  @override
+  Future<trip_routing.TripService> preload() async => trip_routing.TripService();
+
+  @override
+  Future<trip_routing.TripService> reload() async => trip_routing.TripService();
+
+  @override
+  Future<void> replaceSnapshot(String rawJson) async {}
+
+  @override
+  Future<File> snapshotFile() => throw UnimplementedError();
 }
