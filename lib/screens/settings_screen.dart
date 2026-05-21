@@ -11,11 +11,13 @@ import 'package:peak_bagger/providers/peak_list_csv_export_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
+import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/screens/map_screen_layers.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/peak_list_csv_export_service.dart';
+import 'package:peak_bagger/services/route_graph_refresh_service.dart';
 import 'package:peak_bagger/services/tassy_full_peak_list_sync_service.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
@@ -41,6 +43,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _isExportingPeaks = false;
   bool _isExportingPeakLists = false;
   bool _isRefreshingPeaks = false;
+  bool _isRefreshingRouteGraph = false;
   bool _isRefreshingTassyFull = false;
   bool _isResettingMaps = false;
   String _status = '';
@@ -65,6 +68,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final mapState = ref.watch(mapProvider);
     final filterState = ref.watch(gpxFilterSettingsProvider);
     final peakCorrelationState = ref.watch(peakCorrelationSettingsProvider);
+    final routeGraphReadiness = ref.watch(routeGraphReadinessProvider);
 
     return Scaffold(
       body: ListView(
@@ -106,6 +110,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 : null,
             onTap: _isStatusActionBusy ? null : _confirmRefreshPeakData,
           ),
+          ListTile(
+            key: const Key('refresh-route-graph-tile'),
+            leading: const Icon(Icons.route),
+            title: const Text('Refresh Route Graph'),
+            subtitle: const Text('Re-fetch route graph snapshot from Overpass'),
+            trailing: _isRefreshingRouteGraph
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : null,
+            onTap: _isStatusActionBusy ? null : _confirmRefreshRouteGraph,
+          ),
+          if (routeGraphReadiness.status == RouteGraphReadinessStatus.failed)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text('Route graph unavailable. Use Refresh Route Graph to retry.'),
+            ),
           ListTile(
             key: const Key('reset-map-data-tile'),
             leading: const Icon(Icons.map),
@@ -278,6 +301,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   bool get _isStatusActionBusy {
     return _isRefreshingPeaks ||
+        _isRefreshingRouteGraph ||
         _isRefreshingTassyFull ||
         _isResettingMaps ||
         _isExportingPeaks ||
@@ -330,6 +354,63 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (mounted) {
         setState(() {
           _isRefreshingPeaks = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _confirmRefreshRouteGraph() async {
+    final confirmed = await showDangerConfirmDialog(
+      context: context,
+      title: 'Refresh Route Graph?',
+      message:
+          'This will overwrite the current route graph snapshot. Do you want to proceed?',
+      cancelKey: 'route-graph-refresh-cancel',
+      cancelLabel: 'Cancel',
+      confirmKey: 'route-graph-refresh-confirm',
+      confirmLabel: 'Refresh',
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _isRefreshingRouteGraph = true;
+    });
+    _setStatus('Refreshing route graph...', key: const Key('route-graph-refresh-status'));
+
+    try {
+      final result = await ref.read(routeGraphRefreshServiceProvider).refreshRouteGraph();
+      if (!mounted) {
+        return;
+      }
+
+      ref.read(routeGraphReadinessProvider.notifier).markReady();
+      _setStatus(
+        '${result.elementCount} route graph elements imported',
+        key: const Key('route-graph-refresh-status'),
+      );
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showRouteGraphRefreshResult(result);
+        }
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      _setStatus(
+        'Error refreshing route graph: $error',
+        key: const Key('route-graph-refresh-status'),
+      );
+      await _showRouteGraphRefreshFailure(error.toString());
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshingRouteGraph = false;
         });
       }
     }
@@ -653,6 +734,40 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  Future<void> _showRouteGraphRefreshResult(
+    RouteGraphRefreshResult result,
+  ) async {
+    if (!mounted) {
+      return;
+    }
+
+    await showSingleActionDialog(
+      context: context,
+      title: 'Route Graph Refreshed',
+      closeKey: 'route-graph-refresh-result-close',
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('${result.elementCount} route graph elements imported'),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showRouteGraphRefreshFailure(String error) async {
+    if (!mounted) {
+      return;
+    }
+
+    await showSingleActionDialog(
+      context: context,
+      title: 'Route Graph Refresh Failed',
+      closeKey: 'route-graph-refresh-error-close',
+      content: Text(error),
     );
   }
 

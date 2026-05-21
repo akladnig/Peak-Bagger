@@ -30,6 +30,7 @@ import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
+import 'package:peak_bagger/services/route_graph_store.dart';
 import 'package:peak_bagger/services/track_peak_correlation_service.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
@@ -1765,6 +1766,17 @@ class MapNotifier extends Notifier<MapState> {
         clearRouteDraftError: true,
       );
       _resampleRouteDraftElevation();
+    } on RouteGraphLoadException catch (error) {
+      if (!_isActiveRouteDraftRequest(requestId)) {
+        return;
+      }
+
+      state = state.copyWith(
+        routeDraftStage: RouteDraftStage.segmentFailure,
+        routeDraftError: error.toString(),
+        routeDraftProvisionalPoints: const [],
+        routeDraftStraightLineFallback: false,
+      );
     } on RoutePlanningException {
       if (!_isActiveRouteDraftRequest(requestId)) {
         return;

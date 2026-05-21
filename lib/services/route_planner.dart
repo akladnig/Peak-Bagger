@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
 
-import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
+import 'package:peak_bagger/services/route_graph_store.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
 class PlannedRouteSegment {
@@ -85,21 +85,11 @@ class TripRoutingServiceClient implements TripRoutingClient {
   }
 }
 
-const _routeGraphPathDefine = 'PEAK_BAGGER_ROUTE_GRAPH_PATH';
-const _bundledRouteGraphAsset = 'assets/highway.json';
-
 class LocalFileTripRoutingClient implements TripRoutingClient {
-  LocalFileTripRoutingClient({
-    trip_routing.TripService? tripService,
-    String? graphFilePath,
-  }) : _tripService = tripService,
-       graphFilePath =
-           graphFilePath ??
-           const String.fromEnvironment(_routeGraphPathDefine);
+  LocalFileTripRoutingClient({RouteGraphStore? routeGraphStore})
+    : _routeGraphStore = routeGraphStore ?? BundledRouteGraphStore();
 
-  final trip_routing.TripService? _tripService;
-  final String graphFilePath;
-  Future<trip_routing.TripService>? _serviceFuture;
+  final RouteGraphStore _routeGraphStore;
 
   @override
   Future<trip_routing.Trip> findTotalTrip(
@@ -109,44 +99,15 @@ class LocalFileTripRoutingClient implements TripRoutingClient {
     bool forceIncludeWaypoints = false,
     double duplicationPenalty = 0.0,
   }) async {
-    final resolvedGraphPath = graphFilePath.trim();
-
-    try {
-      final tripService = await (_serviceFuture ??= _loadService(resolvedGraphPath));
-      return tripService.findTotalTrip(
-        waypoints,
-        preferWalkingPaths: preferWalkingPaths,
-        replaceWaypointsWithBuildingEntrances:
-            replaceWaypointsWithBuildingEntrances,
-        forceIncludeWaypoints: forceIncludeWaypoints,
-        duplicationPenalty: duplicationPenalty,
-      );
-    } catch (error) {
-      return trip_routing.Trip(
-        route: const [],
-        distance: 0,
-        errors: ['Failed to load local route graph: $error'],
-      );
-    }
-  }
-
-  Future<trip_routing.TripService> _loadService(String graphPath) async {
-    final useLocalFile = graphPath.isNotEmpty;
-    final rawJson = useLocalFile
-        ? await File(graphPath).readAsString()
-        : await rootBundle.loadString(_bundledRouteGraphAsset);
-    final decodedJson = jsonDecode(rawJson);
-    if (decodedJson is! Map<String, dynamic>) {
-      throw const FormatException('Expected decoded Overpass JSON object.');
-    }
-
-    final tripService = _tripService ?? trip_routing.TripService();
-    await tripService.loadOverpassJson(
-      decodedJson,
-      preferWalkingPaths: true,
-      source: useLocalFile ? graphPath : _bundledRouteGraphAsset,
+    final tripService = await _routeGraphStore.preload();
+    return tripService.findTotalTrip(
+      waypoints,
+      preferWalkingPaths: preferWalkingPaths,
+      replaceWaypointsWithBuildingEntrances:
+          replaceWaypointsWithBuildingEntrances,
+      forceIncludeWaypoints: forceIncludeWaypoints,
+      duplicationPenalty: duplicationPenalty,
     );
-    return tripService;
   }
 }
 
@@ -467,12 +428,9 @@ class OverpassRoutePlannerFallback implements RoutePlannerFallback {
 class TripRoutingRoutePlanner implements RoutePlanner {
   TripRoutingRoutePlanner({
     TripRoutingClient? client,
-    RoutePlannerFallback? fallback,
-  }) : _client = client ?? TripRoutingServiceClient(),
-       _fallback = fallback ?? OverpassRoutePlannerFallback();
+  }) : _client = client ?? TripRoutingServiceClient();
 
   final TripRoutingClient _client;
-  final RoutePlannerFallback _fallback;
 
   @override
   Future<PlannedRouteSegment> planSegment({
@@ -484,15 +442,6 @@ class TripRoutingRoutePlanner implements RoutePlanner {
       preferWalkingPaths: true,
     );
     if (trip.errors.isNotEmpty) {
-      if (_shouldTryFallback(trip.errors)) {
-        final fallbackSegment = await _fallback.tryPlanSegment(
-          start: start,
-          end: end,
-        );
-        if (fallbackSegment != null) {
-          return fallbackSegment;
-        }
-      }
       throw RoutePlanningException(trip.errors.join('\n'));
     }
     if (trip.route.length < 2) {
@@ -504,13 +453,6 @@ class TripRoutingRoutePlanner implements RoutePlanner {
     return PlannedRouteSegment(
       points: List<LatLng>.from(trip.route, growable: false),
       distanceMeters: trip.distance,
-    );
-  }
-
-  bool _shouldTryFallback(List<String> errors) {
-    return errors.any(
-      (error) =>
-          error == 'Graph data unavailable' || error == 'No path found.',
     );
   }
 }

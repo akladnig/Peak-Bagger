@@ -44,3 +44,7 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 /assets/~$tasmap50k.xlsx
+/assets/cop30_hh.tif
+/assets/highway.json
+/assets/tasmania_dem_25m.tif
+/assets/tasmania_dem_25m.vrt

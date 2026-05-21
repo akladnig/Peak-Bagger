@@ -93,7 +93,8 @@ void _runShellPreNavigationCleanup(WidgetRef ref) {
   }
 }
 
-final router = GoRouter(
+GoRouter createRouter() {
+  return GoRouter(
   initialLocation: '/',
   routes: [
     StatefulShellRoute.indexedStack(
@@ -345,4 +346,7 @@ final router = GoRouter(
       ],
     ),
   ],
-);
+  );
+}
+
+GoRouter router = createRouter();
