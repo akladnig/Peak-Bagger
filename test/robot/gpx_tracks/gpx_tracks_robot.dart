@@ -35,9 +35,9 @@ class GpxTracksRobot {
     PeakRepository? peakRepository,
     PeaksBaggedRepository? peaksBaggedRepository,
     RouteRepository? routeRepository,
-    TasmapRepository? tasmapRepository,
+    this.tasmapRepository,
     GpxFilePicker? gpxFilePicker,
-    Future<SharedPreferences> Function()? prefsLoader,
+    this.prefsLoader,
     this.surfaceSize = const Size(1600, 900),
   }) : notifier = notifier ?? TestMapNotifier(initialState),
         peakListRepository =
@@ -47,9 +47,7 @@ class GpxTracksRobot {
         peaksBaggedRepository =
             peaksBaggedRepository ?? PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
         routeRepository = routeRepository ?? RouteRepository.test(InMemoryRouteStorage()),
-        tasmapRepository = tasmapRepository,
-        gpxFilePicker = gpxFilePicker ?? FakeGpxFilePicker(),
-        prefsLoader = prefsLoader;
+        gpxFilePicker = gpxFilePicker ?? FakeGpxFilePicker();
 
   final WidgetTester tester;
   final MapState initialState;

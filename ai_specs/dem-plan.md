@@ -36,11 +36,11 @@ Approach: Riverpod state + injected sampler seam first; GDAL asset/bootstrap sec
 ### Phase 3: Journey Hardening
 
 - **Goal**: selectors/seams stable; critical route journey covered
-- [ ] `lib/screens/map_screen.dart` - update watched route state only if draft sheet rebuild/selectors need elevation fields exposed cleanly
-- [ ] `test/robot/map/map_route_robot.dart` - add fake sampler injection + selectors for distance/ascent/descent/elevation error
-- [ ] `test/robot/map/map_route_journey_test.dart` - TDD: happy path saves sampled elevation data; stale/in-flight path still saves zeros deterministically when required
-- [ ] Robot journey tests + selectors/seams for critical flows - key-first selectors; fake sampler; deterministic async completion ordering; no real raster dependency in robot lane
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/screens/map_screen.dart` - update watched route state only if draft sheet rebuild/selectors need elevation fields exposed cleanly
+- [x] `test/robot/map/map_route_robot.dart` - add fake sampler injection + selectors for distance/ascent/descent/elevation error
+- [x] `test/robot/map/map_route_journey_test.dart` - TDD: happy path saves sampled elevation data; stale/in-flight path still saves zeros deterministically when required
+- [x] Robot journey tests + selectors/seams for critical flows - key-first selectors; fake sampler; deterministic async completion ordering; no real raster dependency in robot lane
+- [x] Verify: `flutter analyze` && `flutter test --no-pub`
 
 ## Risks / Out of scope
 
