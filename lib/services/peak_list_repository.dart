@@ -130,7 +130,16 @@ class InMemoryPeakListStorage implements PeakListStorage {
   Future<PeakList> put(PeakList peakList) async {
     final id = peakList.peakListId == 0 ? _nextId++ : peakList.peakListId;
     final stored = peakList.copyWith(peakListId: id);
-    _peakLists = [..._peakLists, stored];
+    final index = _peakLists.indexWhere((entry) => entry.peakListId == id);
+    if (index == -1) {
+      _peakLists = [..._peakLists, stored];
+      return stored;
+    }
+
+    _peakLists = [
+      for (var i = 0; i < _peakLists.length; i++)
+        if (i == index) stored else _peakLists[i],
+    ];
     return stored;
   }
 

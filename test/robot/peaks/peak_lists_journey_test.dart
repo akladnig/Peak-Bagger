@@ -6,6 +6,7 @@ import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 import 'package:peak_bagger/services/peak_list_import_service.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
@@ -90,6 +91,41 @@ void main() {
       [(100, 3), (200, 5), (300, 7)],
     );
     expect(tester.widget<Text>(robot.selectedTitle).data, 'Journey List');
+  });
+
+  testWidgets('peak lists journey refreshes selected title after rename', (
+    tester,
+  ) async {
+    final robot = PeakListsRobot(tester);
+    final peakListRepository = PeakListRepository.test(
+      InMemoryPeakListStorage([
+        PeakList(name: 'Abels', peakList: '[]')..peakListId = 1,
+      ]),
+    );
+
+    await robot.pumpApp(
+      filePicker: TestPeakListFilePicker(),
+      repository: peakListRepository,
+    );
+
+    expect(tester.widget<Text>(robot.selectedTitle).data, 'Abels');
+
+    await peakListRepository.save(
+      PeakList(peakListId: 1, name: 'Abels Renamed', peakList: '[]'),
+    );
+    ProviderScope.containerOf(tester.element(robot.summaryPane))
+        .read(peakListRevisionProvider.notifier)
+        .increment();
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<Text>(robot.selectedTitle).data, 'Abels Renamed');
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('peak-lists-row-1')),
+        matching: find.text('Abels Renamed'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('peak lists journey keeps negative peak ids climbed', (
@@ -197,6 +233,9 @@ void main() {
         csvPath: csvPath,
       );
       await peakListRepository.refreshTassyFullPeakList();
+      ProviderScope.containerOf(tester.element(robot.summaryPane))
+          .read(peakListRevisionProvider.notifier)
+          .increment();
       adminRowsByEntity['PeakList'] = peakListRepository
           .getAllPeakLists()
           .map(peakListToAdminRow)
