@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:io' as io;
 
+import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gdal_dart/gdal_dart.dart' show GdalException;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
@@ -1594,8 +1597,7 @@ class MapNotifier extends Notifier<MapState> {
 
   void setRouteDraftMode(RouteMode mode) {
     if (!state.isRouteDrafting ||
-        state.routeDraftMode == mode ||
-        mode == RouteMode.straightLine) {
+        state.routeDraftMode == mode) {
       return;
     }
 
@@ -1767,6 +1769,11 @@ class MapNotifier extends Notifier<MapState> {
       if (!_isActiveRouteDraftRequest(requestId)) {
         return;
       }
+
+      debugPrint(
+        'Route planning fell back to straight line for request $requestId.',
+      );
+
       state = state.copyWith(
         routeDraftCommittedPoints: _appendRouteSegment(
           state.routeDraftCommittedPoints,
@@ -1869,6 +1876,27 @@ class MapNotifier extends Notifier<MapState> {
 
       state = state.copyWith(
         routeDraftElevationSummary: summary,
+        routeDraftElevationLoading: false,
+        clearRouteDraftElevationError: true,
+      );
+    } on GdalException catch (error, stackTrace) {
+      if (!_isActiveRouteDraftElevationRequest(
+        requestId: requestId,
+        geometryVersion: geometryVersion,
+      )) {
+        return;
+      }
+
+      developer.log(
+        'GDAL route elevation sampling failed.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      debugPrint('GDAL route elevation sampling failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      state = state.copyWith(
+        clearRouteDraftElevationSummary: true,
         routeDraftElevationLoading: false,
         clearRouteDraftElevationError: true,
       );

@@ -263,7 +263,8 @@ class GdalDemDataset implements DemDataset {
   );
 
   factory GdalDemDataset.open(String datasetPath) {
-    final gdal = Gdal();
+    final gdal = Gdal(libraryPath: _resolveGdalLibraryPath());
+    _configureGdalDataPaths(gdal);
     final source = gdal.openGeoTiffSource(datasetPath);
     final wgs84 = gdal.spatialReferenceFromEpsg(4326);
     final datasetSrs = source.dataset.spatialReference;
@@ -280,6 +281,64 @@ class GdalDemDataset implements DemDataset {
       source.height,
       source.noDataValue,
     );
+  }
+
+  static String? _resolveGdalLibraryPath() {
+    final configured = Platform.environment['GDAL_LIBRARY_PATH'];
+    if (configured != null && configured.isNotEmpty) {
+      return configured;
+    }
+
+    if (!Platform.isMacOS) {
+      return null;
+    }
+
+    const commonMacOsPaths = <String>[
+      '/opt/homebrew/lib/libgdal.dylib',
+      '/usr/local/lib/libgdal.dylib',
+    ];
+    for (final path in commonMacOsPaths) {
+      if (File(path).existsSync()) {
+        return path;
+      }
+    }
+
+    return null;
+  }
+
+  static void _configureGdalDataPaths(Gdal gdal) {
+    if (!Platform.isMacOS) {
+      return;
+    }
+
+    const commonProjPaths = <String>[
+      '/opt/homebrew/share/proj',
+      '/usr/local/share/proj',
+    ];
+    const commonGdalDataPaths = <String>[
+      '/opt/homebrew/share/gdal',
+      '/usr/local/share/gdal',
+    ];
+
+    final projPath = _firstExistingDirectory(commonProjPaths);
+    if (projPath != null) {
+      gdal.setConfigOption('PROJ_DATA', projPath);
+      gdal.setConfigOption('PROJ_LIB', projPath);
+    }
+
+    final gdalDataPath = _firstExistingDirectory(commonGdalDataPaths);
+    if (gdalDataPath != null) {
+      gdal.setConfigOption('GDAL_DATA', gdalDataPath);
+    }
+  }
+
+  static String? _firstExistingDirectory(List<String> paths) {
+    for (final path in paths) {
+      if (Directory(path).existsSync()) {
+        return path;
+      }
+    }
+    return null;
   }
 
   // Keep native resources alive for the dataset lifetime.

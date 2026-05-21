@@ -343,7 +343,7 @@ class _RouteEditingGroup extends StatelessWidget {
                 label: 'Straight Line',
                 selected: routeDraftMode == RouteMode.straightLine,
                 selectedColor: Color(routeDraftColour),
-                onPressed: null,
+                onPressed: () => onModeSelected(RouteMode.straightLine),
               ),
               const SizedBox(width: 12),
               SizedBox(

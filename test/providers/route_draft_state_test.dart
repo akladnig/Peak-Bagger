@@ -92,6 +92,7 @@ void main() {
     notifier.beginRouteDraft();
     notifier.setRouteDraftName('Test route');
     notifier.setRouteDraftMode(RouteMode.straightLine);
+    expect(container.read(mapProvider).routeDraftMode, RouteMode.straightLine);
     notifier.addRouteDraftMarker(const LatLng(-41.5, 146.5));
 
     notifier.endRouteDraft();

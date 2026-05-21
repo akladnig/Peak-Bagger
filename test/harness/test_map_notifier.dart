@@ -80,8 +80,12 @@ class TestMapNotifier extends MapNotifier {
   Set<int> get correlatedPeakIds => _correlatedPeakIds;
 
   @override
-  void addRouteDraftMarker(LatLng point) {
+  void addRouteDraftMarker(LatLng point, {bool straightLine = false}) {
     if (!state.isRouteDrafting) {
+      return;
+    }
+    if (straightLine) {
+      super.addRouteDraftMarker(point, straightLine: true);
       return;
     }
     if (routePlanningOutcomes.isEmpty) {
