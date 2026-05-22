@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -10,6 +12,7 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
@@ -23,6 +26,8 @@ import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
+import 'package:peak_bagger/services/route_graph_store.dart';
+import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
 import '../harness/test_tasmap_notifier.dart';
 import '../harness/test_tasmap_repository.dart';
@@ -54,14 +59,189 @@ void main() {
     expect(state.routeDraftMode, RouteMode.snapToTrail);
     expect(state.routeDraftName, isEmpty);
     expect(state.routeDraftMarkers, isEmpty);
-    expect(state.selectedLocation, isNull);
+    expect(state.selectedLocation, const LatLng(-41.6, 146.6));
     expect(state.selectedTrackId, isNull);
 
     expect(find.byKey(const Key('route-bottom-sheet')), findsOneWidget);
     expect(find.byKey(const Key('route-name-field')), findsOneWidget);
+    expect(find.text('Tap a point to start routing'), findsOneWidget);
     expect(find.byKey(const Key('route-mode-snap-to-trail')), findsOneWidget);
+    expect(find.byKey(const Key('route-mode-route-to-peak')), findsOneWidget);
     expect(find.byKey(const Key('route-mode-straight-line')), findsOneWidget);
     expect(find.byKey(const Key('route-distance-elevation-group')), findsOneWidget);
+  });
+
+  testWidgets('route to peak stays disabled without a captured peak target', (
+    tester,
+  ) async {
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+    await _pumpMap(tester, notifier);
+
+    await tester.tap(find.byKey(const Key('create-route-fab')));
+    await tester.pumpAndSettle();
+
+    final routeToPeakButton = tester.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const Key('route-mode-route-to-peak')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(routeToPeakButton.onPressed, isNull);
+
+    final snapToTrailButton = tester.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const Key('route-mode-snap-to-trail')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(
+      snapToTrailButton.style?.backgroundColor?.resolve({}),
+      Colors.purple,
+    );
+  });
+
+  testWidgets('route to peak enables from a captured peak popup target', (
+    tester,
+  ) async {
+    final peak = Peak(
+      osmId: 6406,
+      name: 'Bonnet Hill',
+      latitude: -41.5,
+      longitude: 146.5,
+    );
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        peaks: [peak],
+      ),
+    );
+    await _pumpMap(tester, notifier);
+
+    notifier.openPeakInfoPopup(peak);
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('create-route-fab')));
+    await tester.pumpAndSettle();
+
+    final routeState = _container(tester).read(mapProvider);
+    expect(routeState.routeDraftPeak, isNotNull);
+
+    final snapToTrailButton = tester.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const Key('route-mode-snap-to-trail')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(
+      snapToTrailButton.style?.backgroundColor?.resolve({}),
+      Colors.purple,
+    );
+
+    final routeToPeakButton = tester.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const Key('route-mode-route-to-peak')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(routeToPeakButton.onPressed, isNotNull);
+    expect(
+      routeToPeakButton.style?.backgroundColor?.resolve({}),
+      Colors.purple,
+    );
+
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const Key('route-mode-route-to-peak')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    await tester.pump();
+
+    final selectedRouteToPeakButton = tester.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const Key('route-mode-route-to-peak')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(
+      selectedRouteToPeakButton.style?.backgroundColor?.resolve({}),
+      Colors.purple,
+    );
+
+    expect(
+      _container(tester).read(mapProvider).routeDraftMode,
+      RouteMode.routeToPeak,
+    );
+  });
+
+  testWidgets('route to peak enables from a dropped peak marker location', (
+    tester,
+  ) async {
+    final peak = Peak(
+      osmId: 6406,
+      name: 'Bonnet Hill',
+      latitude: -41.5,
+      longitude: 146.5,
+    );
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        peaks: [peak],
+        selectedLocation: const LatLng(-41.5, 146.5),
+      ),
+      routePlanningOutcomes: const [
+        PlannedRouteSegment(
+          points: [
+            LatLng(-41.5, 146.5),
+            LatLng(-41.55, 146.55),
+          ],
+          distanceMeters: 500,
+        ),
+      ],
+    );
+    await _pumpMap(tester, notifier);
+
+    await tester.tap(find.byKey(const Key('create-route-fab')));
+    await tester.pumpAndSettle();
+
+    notifier.addRouteDraftMarker(const LatLng(-41.5, 146.45));
+    await tester.pump();
+
+    final routeState = _container(tester).read(mapProvider);
+    expect(routeState.routeDraftPeakTarget, isNotNull);
+
+    final routeToPeakButton = tester.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const Key('route-mode-route-to-peak')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(routeToPeakButton.onPressed, isNotNull);
+    expect(
+      routeToPeakButton.style?.backgroundColor?.resolve({}),
+      Colors.purple,
+    );
+
+    final snapToTrailButton = tester.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const Key('route-mode-snap-to-trail')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(
+      snapToTrailButton.style?.backgroundColor?.resolve({}),
+      Colors.purple,
+    );
   });
 
   testWidgets('route sheet accepts name input and closes on cancel', (
@@ -324,12 +504,22 @@ void main() {
         distanceMeters: 1234.5,
       ),
     );
+    const routeElevationSampler = _ImmediateRouteElevationSampler(
+      RouteElevationSummary(
+        requestId: 0,
+        geometryVersion: 0,
+        ascent: 0,
+        descent: 0,
+        distance3d: 0,
+      ),
+    );
     final notifier = MapNotifier(
       peakRepository: PeakRepository.test(InMemoryPeakStorage()),
       overpassService: OverpassService(),
       tasmapRepository: tasmapRepository,
       gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
       routeRepository: routeRepository,
+      routeElevationSampler: routeElevationSampler,
       routePlanner: routePlanner,
       peaksBaggedRepository: PeaksBaggedRepository.test(
         InMemoryPeaksBaggedStorage(),
@@ -695,6 +885,7 @@ Future<void> _pumpMap(
     ProviderScope(
       overrides: [
         mapProvider.overrideWith(() => notifier),
+        routeGraphStoreProvider.overrideWithValue(_ReadyRouteGraphStore()),
         routeRepositoryProvider.overrideWithValue(effectiveRouteRepository),
         peakListRepositoryProvider.overrideWithValue(
           PeakListRepository.test(InMemoryPeakListStorage()),
@@ -709,6 +900,20 @@ Future<void> _pumpMap(
   );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
+}
+
+class _ReadyRouteGraphStore implements RouteGraphStore {
+  @override
+  Future<trip_routing.TripService> preload() async => trip_routing.TripService();
+
+  @override
+  Future<trip_routing.TripService> reload() async => trip_routing.TripService();
+
+  @override
+  Future<void> replaceSnapshot(String rawJson) async {}
+
+  @override
+  Future<File> snapshotFile() => throw UnimplementedError();
 }
 
 GpxTrack _track(int id, {List<LatLng>? points}) {

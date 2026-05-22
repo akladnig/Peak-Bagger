@@ -8,6 +8,7 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
@@ -15,6 +16,7 @@ import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 
 import '../harness/test_map_notifier.dart';
+import '../harness/test_ready_route_graph_store.dart';
 import '../harness/test_tasmap_notifier.dart';
 import '../harness/test_tasmap_repository.dart';
 
@@ -471,6 +473,7 @@ Future<void> _pumpMapApp(
     ProviderScope(
       overrides: [
         mapProvider.overrideWith(() => TestMapNotifier(state)),
+        routeGraphStoreProvider.overrideWithValue(TestReadyRouteGraphStore()),
         peakListRepositoryProvider.overrideWithValue(
           PeakListRepository.test(InMemoryPeakListStorage()),
         ),
@@ -500,6 +503,7 @@ Future<void> _pumpMapAppWithNotifier(
     ProviderScope(
       overrides: [
         mapProvider.overrideWith(() => notifier),
+        routeGraphStoreProvider.overrideWithValue(TestReadyRouteGraphStore()),
         peakListRepositoryProvider.overrideWithValue(
           PeakListRepository.test(InMemoryPeakListStorage()),
         ),
@@ -530,6 +534,7 @@ Future<void> _pumpRawMapScreen(
     ProviderScope(
       overrides: [
         mapProvider.overrideWith(() => TestMapNotifier(state)),
+        routeGraphStoreProvider.overrideWithValue(TestReadyRouteGraphStore()),
         peakListRepositoryProvider.overrideWithValue(
           PeakListRepository.test(InMemoryPeakListStorage()),
         ),

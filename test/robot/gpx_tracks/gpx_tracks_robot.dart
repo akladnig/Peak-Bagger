@@ -11,6 +11,7 @@ import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
+import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
@@ -25,6 +26,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../harness/test_map_notifier.dart';
 import '../../harness/test_gpx_file_picker.dart';
+import '../../harness/test_ready_route_graph_store.dart';
 
 class GpxTracksRobot {
   GpxTracksRobot(
@@ -118,6 +120,7 @@ class GpxTracksRobot {
       ProviderScope(
         overrides: [
         mapProvider.overrideWith(() => notifier),
+        routeGraphStoreProvider.overrideWithValue(TestReadyRouteGraphStore()),
         gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
         peakListRepositoryProvider.overrideWithValue(peakListRepository),
         peakRepositoryProvider.overrideWithValue(peakRepository),

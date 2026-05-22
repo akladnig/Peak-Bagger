@@ -66,7 +66,7 @@ enum PeakListSelectionMode { none, allPeaks, specificList }
 
 enum EndDrawerMode { basemaps, peakLists, tracksRoutes }
 
-enum RouteMode { snapToTrail, straightLine }
+enum RouteMode { snapToTrail, straightLine, routeToPeak }
 
 enum RouteDraftStage {
   inactive,
@@ -159,6 +159,7 @@ class MapState {
   final String routeDraftName;
   final String? routeDraftNameError;
   final RouteMode routeDraftMode;
+  final Peak? routeDraftPeak;
   final List<LatLng> routeDraftMarkers;
   final RouteDraftStage routeDraftStage;
   final String? routeDraftError;
@@ -229,6 +230,7 @@ class MapState {
     this.routeDraftName = '',
     this.routeDraftNameError,
     this.routeDraftMode = RouteMode.snapToTrail,
+    this.routeDraftPeak,
     this.routeDraftMarkers = const [],
     this.routeDraftStage = RouteDraftStage.inactive,
     this.routeDraftError,
@@ -279,6 +281,27 @@ class MapState {
 
   Peak? get peakInfoPeak => peakInfo?.peak;
 
+  Peak? get routeDraftPeakTarget {
+    final popupPeak = routeDraftPeak ?? peakInfoPeak;
+    if (popupPeak != null) {
+      return popupPeak;
+    }
+
+    final markerLocation = selectedLocation;
+    if (markerLocation == null) {
+      return null;
+    }
+
+    for (final peak in peaks) {
+      final peakLocation = LatLng(peak.latitude, peak.longitude);
+      if (_distance.as(LengthUnit.Meter, markerLocation, peakLocation) <= 5) {
+        return peak;
+      }
+    }
+
+    return null;
+  }
+
   bool get showMapOverlay => tasmapDisplayMode == TasmapDisplayMode.overlay;
 
   bool get showSelectedMapLayer =>
@@ -316,6 +339,7 @@ class MapState {
     String? routeDraftNameError,
     bool clearRouteDraftNameError = false,
     RouteMode? routeDraftMode,
+    Peak? routeDraftPeak,
     List<LatLng>? routeDraftMarkers,
     RouteDraftStage? routeDraftStage,
     String? routeDraftError,
@@ -331,6 +355,7 @@ class MapState {
     bool? routeDraftElevationLoading,
     String? routeDraftElevationError,
     bool clearRouteDraftElevationError = false,
+    bool clearRouteDraftPeak = false,
     int? routeDraftElevationRequestId,
     int? routeDraftGeometryVersion,
     bool? routeDraftNameFieldFocused,
@@ -411,6 +436,9 @@ class MapState {
           ? null
           : (routeDraftNameError ?? this.routeDraftNameError),
       routeDraftMode: routeDraftMode ?? this.routeDraftMode,
+      routeDraftPeak: clearRouteDraftPeak
+          ? null
+          : (routeDraftPeak ?? this.routeDraftPeak),
       routeDraftMarkers: routeDraftMarkers ?? this.routeDraftMarkers,
       routeDraftStage: routeDraftStage ?? this.routeDraftStage,
       routeDraftError: clearRouteDraftError
@@ -1544,7 +1572,7 @@ class MapNotifier extends Notifier<MapState> {
     state = state.copyWith(basemap: basemap);
   }
 
-  void beginRouteDraft() {
+  void beginRouteDraft({Peak? peakTarget}) {
     if (state.isRouteDrafting) {
       return;
     }
@@ -1555,6 +1583,7 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftName: '',
       routeDraftNameError: 'A Route name must be entered',
       routeDraftMode: RouteMode.snapToTrail,
+      routeDraftPeak: peakTarget,
       routeDraftMarkers: const [],
       routeDraftStage: RouteDraftStage.awaitingStart,
       clearRouteDraftError: true,
@@ -1570,7 +1599,6 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftElevationRequestId: 0,
       routeDraftGeometryVersion: 0,
       routeDraftNameFieldFocused: false,
-      clearSelectedLocation: true,
       clearSelectedTrackId: true,
     );
   }
@@ -1579,7 +1607,8 @@ class MapNotifier extends Notifier<MapState> {
     if (!state.isRouteDrafting &&
         state.routeDraftName.isEmpty &&
         state.routeDraftMarkers.isEmpty &&
-        state.routeDraftMode == RouteMode.snapToTrail) {
+        state.routeDraftMode == RouteMode.snapToTrail &&
+        state.routeDraftPeak == null) {
       return;
     }
 
@@ -1589,6 +1618,7 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftName: '',
       clearRouteDraftNameError: true,
       routeDraftMode: RouteMode.snapToTrail,
+      clearRouteDraftPeak: true,
       routeDraftMarkers: const [],
       routeDraftStage: RouteDraftStage.inactive,
       clearRouteDraftError: true,
@@ -1618,12 +1648,23 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void setRouteDraftMode(RouteMode mode) {
-    if (!state.isRouteDrafting ||
-        state.routeDraftMode == mode) {
+    if (!state.isRouteDrafting || state.routeDraftMode == mode) {
+      return;
+    }
+
+    if (mode == RouteMode.routeToPeak && state.routeDraftPeakTarget == null) {
       return;
     }
 
     state = state.copyWith(routeDraftMode: mode);
+    if (mode == RouteMode.routeToPeak && state.routeDraftPeak == null) {
+      state = state.copyWith(routeDraftPeak: state.routeDraftPeakTarget);
+    }
+    if (mode == RouteMode.routeToPeak &&
+        state.routeDraftMarkers.isNotEmpty &&
+        state.routeDraftStage != RouteDraftStage.routingSegment) {
+      _startRouteDraftToPeakFrom(state.routeDraftMarkers.last);
+    }
   }
 
   void setRouteDraftName(String value) {
@@ -1651,6 +1692,10 @@ class MapNotifier extends Notifier<MapState> {
       case RouteDraftStage.inactive:
         return;
       case RouteDraftStage.awaitingStart:
+        if (state.routeDraftMode == RouteMode.routeToPeak) {
+          _startRouteDraftToPeakFrom(point);
+          return;
+        }
         state = state.copyWith(
           routeDraftMarkers: [point],
           routeDraftStage: RouteDraftStage.awaitingNextPoint,
@@ -1718,6 +1763,47 @@ class MapNotifier extends Notifier<MapState> {
       case RouteDraftStage.routingSegment:
         return;
     }
+  }
+
+  void _startRouteDraftToPeakFrom(LatLng start) {
+    final routeToPeakTarget = state.routeDraftPeakTarget;
+    if (routeToPeakTarget == null) {
+      return;
+    }
+
+    final peakPoint = LatLng(
+      routeToPeakTarget.latitude,
+      routeToPeakTarget.longitude,
+    );
+    if (peakPoint == start) {
+      state = state.copyWith(
+        routeDraftMarkers: [...state.routeDraftMarkers, peakPoint],
+        routeDraftStage: RouteDraftStage.segmentFailure,
+        routeDraftError:
+            'Start and end points must be different to calculate a route.',
+        routeDraftProvisionalPoints: const [],
+      );
+      return;
+    }
+
+    final requestId = state.routeDraftRequestId + 1;
+    final nextMarkers = state.routeDraftMarkers.isEmpty
+        ? [start, peakPoint]
+        : [...state.routeDraftMarkers, peakPoint];
+    state = state.copyWith(
+      routeDraftMarkers: nextMarkers,
+      routeDraftStage: RouteDraftStage.routingSegment,
+      routeDraftProvisionalPoints: [start, peakPoint],
+      clearRouteDraftError: true,
+      routeDraftRequestId: requestId,
+    );
+    unawaited(
+      _planRouteDraftSegment(
+        requestId: requestId,
+        start: start,
+        end: peakPoint,
+      ),
+    );
   }
 
   Future<void> saveRouteDraft() async {
@@ -1794,6 +1880,7 @@ class MapNotifier extends Notifier<MapState> {
       if (!_isActiveRouteDraftRequest(requestId)) {
         return;
       }
+      final resetRouteToPeak = state.routeDraftMode == RouteMode.routeToPeak;
       state = state.copyWith(
         routeDraftCommittedPoints: _appendRouteSegment(
           state.routeDraftCommittedPoints,
@@ -1803,6 +1890,8 @@ class MapNotifier extends Notifier<MapState> {
             state.routeDraftDistanceMeters + segment.distanceMeters,
         routeDraftProvisionalPoints: const [],
         routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftMode: resetRouteToPeak ? RouteMode.snapToTrail : null,
+        clearRouteDraftPeak: resetRouteToPeak,
         clearRouteDraftError: true,
       );
       _resampleRouteDraftElevation();
@@ -1826,6 +1915,7 @@ class MapNotifier extends Notifier<MapState> {
         'Route planning fell back to straight line for request $requestId.',
       );
 
+      final resetRouteToPeak = state.routeDraftMode == RouteMode.routeToPeak;
       state = state.copyWith(
         routeDraftCommittedPoints: _appendRouteSegment(
           state.routeDraftCommittedPoints,
@@ -1836,9 +1926,11 @@ class MapNotifier extends Notifier<MapState> {
               LengthUnit.Meter,
               start,
               end,
-            ),
+        ),
         routeDraftProvisionalPoints: const [],
         routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftMode: resetRouteToPeak ? RouteMode.snapToTrail : null,
+        clearRouteDraftPeak: resetRouteToPeak,
         routeDraftStraightLineFallback: true,
         clearRouteDraftError: true,
       );

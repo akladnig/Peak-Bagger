@@ -43,7 +43,7 @@ void main() {
 
     final state = _container(tester).read(mapProvider);
     expect(state.isRouteDrafting, isTrue);
-    expect(state.selectedLocation, isNull);
+    expect(state.selectedLocation, isNotNull);
     expect(find.byKey(const Key('route-bottom-sheet')), findsOneWidget);
   });
 

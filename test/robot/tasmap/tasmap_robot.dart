@@ -5,11 +5,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/widgets/tasmap_outline_layer.dart';
 
 import '../../harness/test_tasmap_map_notifier.dart';
 import '../../harness/test_tasmap_notifier.dart';
+import '../../harness/test_ready_route_graph_store.dart';
 import '../../harness/test_tasmap_repository.dart';
 
 class TasmapRobot {
@@ -124,6 +126,7 @@ class TasmapRobot {
       ProviderScope(
         overrides: [
           mapProvider.overrideWith(() => mapNotifier),
+          routeGraphStoreProvider.overrideWithValue(TestReadyRouteGraphStore()),
           tasmapStateProvider.overrideWith(() => tasmapNotifier),
           tasmapRepositoryProvider.overrideWithValue(repository),
         ],

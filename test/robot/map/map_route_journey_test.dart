@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
@@ -12,6 +13,85 @@ import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'map_route_robot.dart';
 
 void main() {
+  testWidgets('route journey routes from one tap to the peak marker and saves', (
+    tester,
+  ) async {
+    final robot = MapRouteRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        peaks: [
+          Peak(
+            osmId: 6406,
+            name: 'Bonnet Hill',
+            latitude: -41.5,
+            longitude: 146.5,
+          ),
+        ],
+      ),
+      routePlanningOutcomes: const [
+        PlannedRouteSegment(
+          points: [
+            LatLng(-41.5, 146.5),
+            LatLng(-41.55, 146.55),
+            LatLng(-41.5, 146.5),
+          ],
+          distanceMeters: 1000,
+        ),
+      ],
+      routeElevationOutcomes: const [
+        RouteElevationSummary(
+          requestId: 1,
+          geometryVersion: 1,
+          ascent: 321,
+          descent: 210,
+          distance3d: 1010,
+        ),
+      ],
+    );
+
+    await robot.pumpApp();
+    await robot.openMap();
+    await robot.openPeakPopup(6406);
+    await robot.enterRouteMode();
+
+    expect(robot.routeToPeakButton, findsOneWidget);
+    expect(
+      tester.widget<FilledButton>(
+        find.descendant(
+          of: robot.routeToPeakButton,
+          matching: find.byType(FilledButton),
+        ),
+      ).onPressed,
+      isNotNull,
+    );
+
+    await tester.tap(
+      find.descendant(
+        of: robot.routeToPeakButton,
+        matching: find.byType(FilledButton),
+      ),
+    );
+    await tester.pump();
+    await robot.tapRoutePoint(const Offset(-40, 0));
+
+    expect(robot.routeDistanceText, findsOneWidget);
+    expect(robot.routeAscentText, findsOneWidget);
+    expect(find.text('321 m'), findsOneWidget);
+
+    await robot.enterRouteName('Peak Route');
+    await robot.saveRoute();
+
+    expect(robot.routeBottomSheet, findsNothing);
+    expect(robot.savedRoutes(), hasLength(1));
+    expect(robot.savedRoutes().single.gpxRoute, hasLength(3));
+    expect(robot.savedRoutes().single.ascent, 321);
+    expect(robot.savedRoutes().single.descent, 210);
+    expect(robot.container().read(mapProvider).showRoutes, isTrue);
+  });
+
   testWidgets('route journey drafts two segments and saves the route', (
     tester,
   ) async {
