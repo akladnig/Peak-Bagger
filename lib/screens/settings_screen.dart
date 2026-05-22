@@ -27,10 +27,7 @@ import 'package:peak_bagger/services/tile_cache_download_scope.dart';
 import 'package:peak_bagger/widgets/dialog_helpers.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
-  const SettingsScreen({
-    super.key,
-    this.tileCacheSettingsScreenBuilder,
-  });
+  const SettingsScreen({super.key, this.tileCacheSettingsScreenBuilder});
 
   final WidgetBuilder? tileCacheSettingsScreenBuilder;
 
@@ -71,198 +68,209 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final routeGraphReadiness = ref.watch(routeGraphReadinessProvider);
 
     return Scaffold(
-      body: ListView(
-        key: const Key('settings-scrollable'),
-        children: [
-          ListTile(
-            leading: const Icon(Icons.download),
-            title: const Text('Map Tile Cache'),
-            subtitle: const Text('Download and manage offline map tiles'),
-            trailing: _isDownloading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.chevron_right),
-            onTap: _isDownloading
-                ? null
-                : () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: widget.tileCacheSettingsScreenBuilder ??
-                            (context) => const TileCacheSettingsScreen(),
-                      ),
-                    );
-                  },
-          ),
-          ListTile(
-            key: const Key('refresh-peak-data-tile'),
-            leading: const Icon(Icons.refresh),
-            title: const Text('Refresh Peak Data'),
-            subtitle: const Text('Re-fetch peaks from Overpass API'),
-            trailing: _isRefreshingPeaks
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : null,
-            onTap: _isStatusActionBusy ? null : _confirmRefreshPeakData,
-          ),
-          ListTile(
-            key: const Key('refresh-route-graph-tile'),
-            leading: const Icon(Icons.route),
-            title: const Text('Refresh Route Graph'),
-            subtitle: const Text('Re-fetch route graph snapshot from Overpass'),
-            trailing: _isRefreshingRouteGraph
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : null,
-            onTap: _isStatusActionBusy ? null : _confirmRefreshRouteGraph,
-          ),
-          if (routeGraphReadiness.status == RouteGraphReadinessStatus.failed)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text('Route graph unavailable. Use Refresh Route Graph to retry.'),
+      body: ListTileTheme(
+        data: const ListTileThemeData(
+          dense: true,
+          visualDensity: VisualDensity.compact,
+        ),
+        child: ListView(
+          key: const Key('settings-scrollable'),
+          children: [
+            ListTile(
+              leading: const Icon(Icons.download),
+              title: const Text('Map Tile Cache'),
+              subtitle: const Text('Download and manage offline map tiles'),
+              trailing: _isDownloading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.chevron_right),
+              onTap: _isDownloading
+                  ? null
+                  : () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder:
+                              widget.tileCacheSettingsScreenBuilder ??
+                              (context) => const TileCacheSettingsScreen(),
+                        ),
+                      );
+                    },
             ),
-          ListTile(
-            key: const Key('reset-map-data-tile'),
-            leading: const Icon(Icons.map),
-            title: const Text('Reset Map Data'),
-            subtitle: const Text('Clear and re-import map data'),
-            trailing: _isResettingMaps
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : null,
-            onTap: _isStatusActionBusy ? null : _confirmResetMapData,
-          ),
-          ListTile(
-            key: const Key('reset-track-data-tile'),
-            leading: const Icon(Icons.route),
-            title: const Text('Reset Track Data'),
-            subtitle: const Text(
-              'Wipe track data and rebuild from Tracks and Tracks/Tasmania',
+            ListTile(
+              key: const Key('refresh-peak-data-tile'),
+              leading: const Icon(Icons.refresh),
+              title: const Text('Refresh Peak Data'),
+              subtitle: const Text('Re-fetch peaks from Overpass API'),
+              trailing: _isRefreshingPeaks
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : null,
+              onTap: _isStatusActionBusy ? null : _confirmRefreshPeakData,
             ),
-            trailing: mapState.isLoadingTracks
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : null,
-            onTap: mapState.isLoadingTracks ? null : _confirmResetTrackData,
-          ),
-          ListTile(
-            key: const Key('recalculate-track-statistics-tile'),
-            leading: const Icon(Icons.query_stats),
-            title: const Text('Recalculate Track Statistics'),
-            subtitle: const Text(
-              'Rebuild track statistics and peak correlation from stored GPX XML',
-            ),
-            trailing: mapState.isLoadingTracks
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : null,
-            onTap: mapState.isLoadingTracks
-                ? null
-                : _confirmRecalculateTrackStatistics,
-          ),
-          ListTile(
-            key: const Key('update-tassy-full-peak-list-tile'),
-            leading: const Icon(Icons.sync),
-            title: const Text('Update Tassy Full Peak List'),
-            subtitle: const Text(
-              'Updates the Tassy Full Peak List to include peaks from all other peak lists',
-            ),
-            trailing: _isRefreshingTassyFull
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : null,
-            onTap: _isStatusActionBusy || _isRefreshingTassyFull
-                ? null
-                : _confirmUpdateTassyFullPeakList,
-          ),
-          if (mapState.hasTrackRecoveryIssue)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text('Some tracks need to be rebuilt.'),
-            ),
-          if (mapState.trackOperationStatus != null ||
-              mapState.trackOperationWarning != null ||
-              mapState.trackImportError != null)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (mapState.trackOperationStatus != null)
-                    Text(mapState.trackOperationStatus!),
-                  if (mapState.trackOperationWarning != null) ...[
-                    const SizedBox(height: 8),
-                    Text(mapState.trackOperationWarning!),
-                  ],
-                  if (mapState.trackImportError != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      mapState.trackImportError!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                  ],
-                ],
+            ListTile(
+              key: const Key('refresh-route-graph-tile'),
+              leading: const Icon(Icons.route),
+              title: const Text('Refresh Route Graph'),
+              subtitle: const Text(
+                'Re-fetch route graph snapshot from Overpass',
               ),
+              trailing: _isRefreshingRouteGraph
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : null,
+              onTap: _isStatusActionBusy ? null : _confirmRefreshRouteGraph,
             ),
-          _buildTrackFilterSection(context, filterState),
-          _buildPeakCorrelationSection(context, peakCorrelationState),
-          ListTile(
-            key: const Key('export-peak-data-tile'),
-            leading: const Icon(Icons.upload),
-            title: const Text('Export Peak Data'),
-            subtitle: const Text('Export all peaks to CSV'),
-            trailing: _isExportingPeaks
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : null,
-            onTap: _isStatusActionBusy ? null : _exportPeakData,
-          ),
-          ListTile(
-            key: const Key('export-peak-lists-tile'),
-            leading: const Icon(Icons.list_alt),
-            title: const Text('Export Peak Lists'),
-            subtitle: const Text('Export stored peak lists to CSV'),
-            trailing: _isExportingPeakLists
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : null,
-            onTap: _isStatusActionBusy ? null : _exportPeakLists,
-          ),
-          if (_status.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(_status, key: _statusKey),
+            if (routeGraphReadiness.status == RouteGraphReadinessStatus.failed)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text(
+                  'Route graph unavailable. Use Refresh Route Graph to retry.',
+                ),
+              ),
+            ListTile(
+              key: const Key('reset-map-data-tile'),
+              leading: const Icon(Icons.map),
+              title: const Text('Reset Map Data'),
+              subtitle: const Text('Clear and re-import map data'),
+              trailing: _isResettingMaps
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : null,
+              onTap: _isStatusActionBusy ? null : _confirmResetMapData,
             ),
-        ],
+            ListTile(
+              key: const Key('reset-track-data-tile'),
+              leading: const Icon(Icons.route),
+              title: const Text('Reset Track Data'),
+              subtitle: const Text(
+                'Wipe track data and rebuild from Tracks and Tracks/Tasmania',
+              ),
+              trailing: mapState.isLoadingTracks
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : null,
+              onTap: mapState.isLoadingTracks ? null : _confirmResetTrackData,
+            ),
+            ListTile(
+              key: const Key('recalculate-track-statistics-tile'),
+              leading: const Icon(Icons.query_stats),
+              title: const Text('Recalculate Track Statistics'),
+              subtitle: const Text(
+                'Rebuild track statistics and peak correlation from stored GPX XML',
+              ),
+              trailing: mapState.isLoadingTracks
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : null,
+              onTap: mapState.isLoadingTracks
+                  ? null
+                  : _confirmRecalculateTrackStatistics,
+            ),
+            ListTile(
+              key: const Key('update-tassy-full-peak-list-tile'),
+              leading: const Icon(Icons.sync),
+              title: const Text('Update Tassy Full Peak List'),
+              subtitle: const Text(
+                'Updates the Tassy Full Peak List to include peaks from all other peak lists',
+              ),
+              trailing: _isRefreshingTassyFull
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : null,
+              onTap: _isStatusActionBusy || _isRefreshingTassyFull
+                  ? null
+                  : _confirmUpdateTassyFullPeakList,
+            ),
+            if (mapState.hasTrackRecoveryIssue)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text('Some tracks need to be rebuilt.'),
+              ),
+            if (mapState.trackOperationStatus != null ||
+                mapState.trackOperationWarning != null ||
+                mapState.trackImportError != null)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (mapState.trackOperationStatus != null)
+                      Text(mapState.trackOperationStatus!),
+                    if (mapState.trackOperationWarning != null) ...[
+                      const SizedBox(height: 8),
+                      Text(mapState.trackOperationWarning!),
+                    ],
+                    if (mapState.trackImportError != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        mapState.trackImportError!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            _buildTrackFilterSection(context, filterState),
+            _buildPeakCorrelationSection(context, peakCorrelationState),
+            ListTile(
+              key: const Key('export-peak-data-tile'),
+              leading: const Icon(Icons.upload),
+              title: const Text('Export Peak Data'),
+              subtitle: const Text('Export all peaks to CSV'),
+              trailing: _isExportingPeaks
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : null,
+              onTap: _isStatusActionBusy ? null : _exportPeakData,
+            ),
+            ListTile(
+              key: const Key('export-peak-lists-tile'),
+              leading: const Icon(Icons.list_alt),
+              title: const Text('Export Peak Lists'),
+              subtitle: const Text('Export stored peak lists to CSV'),
+              trailing: _isExportingPeakLists
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : null,
+              onTap: _isStatusActionBusy ? null : _exportPeakLists,
+            ),
+            if (_status.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(_status, key: _statusKey),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -378,10 +386,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     setState(() {
       _isRefreshingRouteGraph = true;
     });
-    _setStatus('Refreshing route graph...', key: const Key('route-graph-refresh-status'));
+    _setStatus(
+      'Refreshing route graph...',
+      key: const Key('route-graph-refresh-status'),
+    );
 
     try {
-      final result = await ref.read(routeGraphRefreshServiceProvider).refreshRouteGraph();
+      final result = await ref
+          .read(routeGraphRefreshServiceProvider)
+          .refreshRouteGraph();
       if (!mounted) {
         return;
       }
@@ -1207,9 +1220,9 @@ class _TileCacheSettingsScreenState
   List<Basemap> _selectedBasemapsInOrder() {
     final selected = _selectedBasemaps.toList(growable: false);
     selected.sort(
-      (a, b) => TileCacheService.storeNames.indexOf(a.name).compareTo(
-            TileCacheService.storeNames.indexOf(b.name),
-          ),
+      (a, b) => TileCacheService.storeNames
+          .indexOf(a.name)
+          .compareTo(TileCacheService.storeNames.indexOf(b.name)),
     );
     return selected;
   }
@@ -1221,7 +1234,8 @@ class _TileCacheSettingsScreenState
         return;
       }
 
-      if (_selectedBasemaps.length == 1 && _selectedBasemaps.contains(basemap)) {
+      if (_selectedBasemaps.length == 1 &&
+          _selectedBasemaps.contains(basemap)) {
         return;
       }
 
@@ -1244,8 +1258,8 @@ class _TileCacheSettingsScreenState
     }
 
     final currentSeries = _selectedMap?.series;
-    final stillExists = currentSeries != null &&
-        maps.any((map) => map.series == currentSeries);
+    final stillExists =
+        currentSeries != null && maps.any((map) => map.series == currentSeries);
     if (stillExists) {
       return;
     }
@@ -1502,7 +1516,10 @@ class _TileCacheSettingsScreenState
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Text('Download'),
-            onTap: _isDownloading || _selectedMap == null || _selectedBasemaps.isEmpty
+            onTap:
+                _isDownloading ||
+                    _selectedMap == null ||
+                    _selectedBasemaps.isEmpty
                 ? null
                 : _startDownload,
           ),
@@ -1568,10 +1585,7 @@ class _TileCacheSettingsScreenState
                 region: region,
                 skipExistingTiles: _skipExistingTiles,
               )
-            : _startForegroundForBasemap(
-                basemap: basemap,
-                region: region,
-              );
+            : _startForegroundForBasemap(basemap: basemap, region: region);
 
         await for (final progress in result.downloadProgress) {
           if (!mounted) return;
@@ -1593,7 +1607,7 @@ class _TileCacheSettingsScreenState
   }
 
   ({Stream<TileEvent> tileEvents, Stream<DownloadProgress> downloadProgress})
-      _startForegroundForBasemap({
+  _startForegroundForBasemap({
     required Basemap basemap,
     required DownloadableRegion region,
   }) {
