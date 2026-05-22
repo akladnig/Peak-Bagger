@@ -506,6 +506,10 @@ final mapPreferencesLoaderProvider =
       return SharedPreferences.getInstance;
     });
 
+final routeElevationSamplerProvider = Provider<RouteElevationSampler>((ref) {
+  return BundledDemRouteElevationSampler();
+});
+
 final gpxTrackRepositoryProvider = Provider<GpxTrackRepository>((ref) {
   return GpxTrackRepository(objectboxStore);
 });
@@ -655,7 +659,7 @@ class MapNotifier extends Notifier<MapState> {
     _routeRepository =
         _injectedRouteRepository ?? ref.read(routeRepositoryProvider);
     _routeElevationSampler =
-        _injectedRouteElevationSampler ?? BundledDemRouteElevationSampler();
+        _injectedRouteElevationSampler ?? ref.read(routeElevationSamplerProvider);
     _routePlanner = _injectedRoutePlanner ?? ref.read(routePlannerProvider);
     _peaksBaggedRepository =
         _injectedPeaksBaggedRepository ?? PeaksBaggedRepository(objectboxStore);
@@ -1731,10 +1735,14 @@ class MapNotifier extends Notifier<MapState> {
         state.routeDraftCommittedPoints,
         growable: false,
       );
+      final pointElevations = await _sampleRoutePointElevationsForSave(
+        committedPoints,
+      );
       final elevationSummary = _routeDraftElevationSummaryForSave();
       final route = Route(
         name: trimmedName,
         gpxRoute: committedPoints,
+        gpxRouteElevations: pointElevations,
         displayRoutePointsByZoom: TrackDisplayCacheBuilder.buildJson([
           committedPoints,
         ]),
@@ -1755,6 +1763,21 @@ class MapNotifier extends Notifier<MapState> {
     } catch (error) {
       state = state.copyWith(isSavingRoute: false);
       _pendingRouteSnackbarMessage = 'Failed to save route: $error';
+    }
+  }
+
+  Future<List<int?>> _sampleRoutePointElevationsForSave(
+    List<LatLng> points,
+  ) async {
+    try {
+      final sampled = await _routeElevationSampler.samplePointElevations(points);
+      return List<int?>.generate(
+        points.length,
+        (index) => index < sampled.length ? sampled[index]?.round() : null,
+        growable: false,
+      );
+    } catch (_) {
+      return List<int?>.filled(points.length, null, growable: false);
     }
   }
 

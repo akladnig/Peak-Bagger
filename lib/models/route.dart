@@ -15,6 +15,9 @@ class Route {
   @Transient()
   List<LatLng> gpxRoute;
 
+  @Transient()
+  List<int?> gpxRouteElevations;
+
   String displayRoutePointsByZoom;
   int colour;
   double distance2d;
@@ -30,6 +33,7 @@ class Route {
     this.id = 0,
     this.name = '',
     List<LatLng>? gpxRoute,
+    List<int?>? gpxRouteElevations,
     this.displayRoutePointsByZoom = '{}',
     this.colour = 0,
     this.distance2d = 0,
@@ -40,12 +44,22 @@ class Route {
     this.endElevation = 0,
     this.lowestElevation = 0,
     this.highestElevation = 0,
-  }) : gpxRoute = List<LatLng>.from(gpxRoute ?? const []);
+  }) : gpxRoute = List<LatLng>.from(gpxRoute ?? const []),
+       gpxRouteElevations = _normalizeElevations(
+         pointCount: (gpxRoute ?? const <LatLng>[]).length,
+         elevations: gpxRouteElevations,
+       );
 
   String get gpxRouteJson => jsonEncode(
-    gpxRoute
-        .map((point) => [point.latitude, point.longitude])
-        .toList(growable: false),
+    List<List<num>>.generate(gpxRoute.length, (index) {
+      final point = gpxRoute[index];
+      final elevation = index < gpxRouteElevations.length
+          ? gpxRouteElevations[index]
+          : null;
+      return elevation == null
+          ? [point.latitude, point.longitude]
+          : [point.latitude, point.longitude, elevation];
+    }, growable: false),
   );
 
   set gpxRouteJson(String value) {
@@ -63,8 +77,9 @@ class Route {
     }
 
     final points = <LatLng>[];
+    final elevations = <int?>[];
     for (final entry in decoded) {
-      if (entry is! List || entry.length != 2) {
+      if (entry is! List || (entry.length != 2 && entry.length != 3)) {
         continue;
       }
 
@@ -75,9 +90,33 @@ class Route {
       }
 
       points.add(LatLng(lat.toDouble(), lng.toDouble()));
+      final rawElevation = entry.length == 3 ? entry[2] : null;
+      elevations.add(rawElevation is num ? rawElevation.round() : null);
     }
 
     gpxRoute = points;
+    gpxRouteElevations = _normalizeElevations(
+      pointCount: points.length,
+      elevations: elevations,
+    );
+  }
+
+  static List<int?> _normalizeElevations({
+    required int pointCount,
+    List<int?>? elevations,
+  }) {
+    if (pointCount == 0) {
+      return const [];
+    }
+    if (elevations == null || elevations.isEmpty) {
+      return List<int?>.filled(pointCount, null, growable: false);
+    }
+
+    return List<int?>.generate(
+      pointCount,
+      (index) => index < elevations.length ? elevations[index] : null,
+      growable: false,
+    );
   }
 
   List<List<LatLng>> getSegmentsForZoom(int zoom) {

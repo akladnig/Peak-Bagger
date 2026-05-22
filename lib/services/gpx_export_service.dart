@@ -1,9 +1,11 @@
 import 'dart:io';
 
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:path/path.dart' as p;
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
+import 'package:peak_bagger/services/track_peak_correlation_service.dart';
 
 class GpxExportException implements Exception {
   const GpxExportException(this.message);
@@ -19,6 +21,13 @@ class GpxExportPlan {
 
   final String path;
   final String contents;
+
+  GpxExportPlan copyWith({String? path, String? contents}) {
+    return GpxExportPlan(
+      path: path ?? this.path,
+      contents: contents ?? this.contents,
+    );
+  }
 }
 
 abstract class GpxExportFileSystem {
@@ -46,26 +55,36 @@ class IoGpxExportFileSystem implements GpxExportFileSystem {
   }
 }
 
-typedef GpxPointElevationResolver = double? Function(LatLng point, int index);
+typedef GpxPointElevationsResolver = Future<List<double?>> Function(
+  List<LatLng> points,
+);
 typedef GpxDirectoryResolver = Directory Function();
+typedef PeakListLoader = List<Peak> Function();
+typedef PeakCorrelationThresholdLoader = Future<int> Function();
 
 class GpxExportService {
   GpxExportService({
     GpxDirectoryResolver? trackDownloadsDirectoryResolver,
     GpxDirectoryResolver? routeExportsDirectoryResolver,
     GpxExportFileSystem? fileSystem,
-    GpxPointElevationResolver? routePointElevationResolver,
+    GpxPointElevationsResolver? routePointElevationsResolver,
+    PeakListLoader? peakListLoader,
+    PeakCorrelationThresholdLoader? peakCorrelationThresholdLoader,
   }) : _trackDownloadsDirectoryResolver =
            trackDownloadsDirectoryResolver ?? _defaultTrackDownloadsDirectory,
        _routeExportsDirectoryResolver =
            routeExportsDirectoryResolver ?? _defaultRouteExportsDirectory,
        _fileSystem = fileSystem ?? const IoGpxExportFileSystem(),
-       _routePointElevationResolver = routePointElevationResolver;
+       _routePointElevationsResolver = routePointElevationsResolver,
+       _peakListLoader = peakListLoader,
+       _peakCorrelationThresholdLoader = peakCorrelationThresholdLoader;
 
   final GpxDirectoryResolver _trackDownloadsDirectoryResolver;
   final GpxDirectoryResolver _routeExportsDirectoryResolver;
   final GpxExportFileSystem _fileSystem;
-  final GpxPointElevationResolver? _routePointElevationResolver;
+  final GpxPointElevationsResolver? _routePointElevationsResolver;
+  final PeakListLoader? _peakListLoader;
+  final PeakCorrelationThresholdLoader? _peakCorrelationThresholdLoader;
 
   GpxExportPlan planTrackExport(GpxTrack track) {
     final stem = _sanitizeTrackStem(track.trackName);
@@ -80,7 +99,7 @@ class GpxExportService {
     );
   }
 
-  GpxExportPlan planRouteExport(app_route.Route route) {
+  Future<GpxExportPlan> planRouteExport(app_route.Route route) async {
     final stem = _sanitizeRouteStem(route.name);
     if (stem.isEmpty) {
       throw const GpxExportException('Route name is required.');
@@ -90,13 +109,36 @@ class GpxExportService {
     }
 
     final directory = _routeExportsDirectoryResolver();
+    final elevations = await _resolveRoutePointElevations(route);
+    final correlatedPeaks = await _resolveCorrelatedPeaks(route);
     return GpxExportPlan(
       path: p.join(directory.path, '$stem.gpx'),
-      contents: _buildRouteGpx(route: route, stem: stem),
+      contents: _buildRouteGpx(
+        route: route,
+        stem: stem,
+        elevations: elevations,
+        correlatedPeaks: correlatedPeaks,
+      ),
     );
   }
 
   bool fileExists(GpxExportPlan plan) => _fileSystem.exists(plan.path);
+
+  GpxExportPlan planNewVersionExport(GpxExportPlan plan) {
+    final directory = p.dirname(plan.path);
+    final extension = p.extension(plan.path);
+    final stem = p.basenameWithoutExtension(plan.path);
+    final baseStem = _stripVersionSuffix(stem);
+
+    var version = 1;
+    while (true) {
+      final candidatePath = p.join(directory, '${baseStem}_$version$extension');
+      if (!_fileSystem.exists(candidatePath)) {
+        return plan.copyWith(path: candidatePath);
+      }
+      version += 1;
+    }
+  }
 
   Future<String> writeExport(GpxExportPlan plan) async {
     await _fileSystem.createDirectory(p.dirname(plan.path));
@@ -104,12 +146,18 @@ class GpxExportService {
     return plan.path;
   }
 
-  String _buildRouteGpx({required app_route.Route route, required String stem}) {
+  String _buildRouteGpx({
+    required app_route.Route route,
+    required String stem,
+    required List<double?> elevations,
+    required List<Peak> correlatedPeaks,
+  }) {
     final buffer = StringBuffer()
       ..write(
         '<gpx version="1.1" creator="peak-bagger" xmlns="http://www.topografix.com/GPX/1/1">',
       )
       ..write('<metadata><author><name>Adrian Kladnig</name></author></metadata>')
+      ..write(_buildWaypointXml(correlatedPeaks))
       ..write('<rte><name>${_escapeXml(stem)}</name>');
 
     for (var index = 0; index < route.gpxRoute.length; index++) {
@@ -117,13 +165,93 @@ class GpxExportService {
       buffer.write(
         '<rtept lat="${_formatCoordinate(point.latitude)}" lon="${_formatCoordinate(point.longitude)}">',
       );
-      final elevation = _routePointElevationResolver?.call(point, index);
+      final elevation = index < elevations.length ? elevations[index] : null;
       if (elevation != null) {
         buffer.write('<ele>${_formatElevation(elevation)}</ele>');
       }
       buffer.write('</rtept>');
     }
 
+    buffer.write('</rte></gpx>');
+    return buffer.toString();
+  }
+
+  String _buildWaypointXml(List<Peak> peaks) {
+    if (peaks.isEmpty) {
+      return '';
+    }
+
+    final buffer = StringBuffer();
+    for (final peak in peaks) {
+      buffer.write(
+        '<wpt lat="${_formatCoordinate(peak.latitude)}" lon="${_formatCoordinate(peak.longitude)}">',
+      );
+      if (peak.elevation != null) {
+        buffer.write('<ele>${peak.elevation!.round()}</ele>');
+      }
+      buffer.write('<name>${_escapeXml(peak.name)}</name></wpt>');
+    }
+    return buffer.toString();
+  }
+
+  Future<List<double?>> _resolveRoutePointElevations(app_route.Route route) async {
+    if (route.gpxRouteElevations.isNotEmpty &&
+        route.gpxRouteElevations.any((value) => value != null)) {
+      return List<double?>.generate(
+        route.gpxRoute.length,
+        (index) => index < route.gpxRouteElevations.length
+            ? route.gpxRouteElevations[index]?.toDouble()
+            : null,
+        growable: false,
+      );
+    }
+
+    final resolver = _routePointElevationsResolver;
+    if (resolver == null) {
+      return List<double?>.filled(route.gpxRoute.length, null, growable: false);
+    }
+
+    try {
+      final elevations = await resolver(route.gpxRoute);
+      if (elevations.length == route.gpxRoute.length) {
+        return elevations;
+      }
+
+      return List<double?>.generate(route.gpxRoute.length, (index) {
+        return index < elevations.length ? elevations[index] : null;
+      }, growable: false);
+    } catch (_) {
+      return List<double?>.filled(route.gpxRoute.length, null, growable: false);
+    }
+  }
+
+  Future<List<Peak>> _resolveCorrelatedPeaks(app_route.Route route) async {
+    final peakListLoader = _peakListLoader;
+    final thresholdLoader = _peakCorrelationThresholdLoader;
+    if (peakListLoader == null || thresholdLoader == null) {
+      return const [];
+    }
+
+    try {
+      final threshold = await thresholdLoader();
+      final correlationService = TrackPeakCorrelationService(
+        peaks: peakListLoader(),
+        thresholdMeters: threshold,
+      );
+      final correlationXml = _buildCorrelationRouteGpx(route.gpxRoute);
+      return correlationService.matchPeaks(correlationXml);
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  String _buildCorrelationRouteGpx(List<LatLng> points) {
+    final buffer = StringBuffer()..write('<gpx><rte>');
+    for (final point in points) {
+      buffer.write(
+        '<rtept lat="${_formatCoordinate(point.latitude)}" lon="${_formatCoordinate(point.longitude)}"></rtept>',
+      );
+    }
     buffer.write('</rte></gpx>');
     return buffer.toString();
   }
@@ -145,6 +273,10 @@ class GpxExportService {
     stem = stem.replaceAll(RegExp(r'^-+|-+$'), '');
     stem = stem.replaceAll(RegExp(r'^\.+|\.+$'), '');
     return stem;
+  }
+
+  String _stripVersionSuffix(String stem) {
+    return stem.replaceFirst(RegExp(r'_(\d+)$'), '');
   }
 
   String _formatCoordinate(double value) {
