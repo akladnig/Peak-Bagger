@@ -22,17 +22,17 @@ Track uses `gpxFile`; route serializes `gpxRoute` to GPX 1.1 with author/elevati
 
 ### Phase 2: Drawer integration
 - **Goal**: wire export UI to current selection state
-- [ ] `lib/widgets/map_tracks_routes_drawer.dart` - bottom export control; disable when no resolvable selection; resolve via `mapProvider` ids + `gpxTrackRepositoryProvider` / `routeRepositoryProvider`; overwrite confirm/cancel; snackbar feedback
-- [ ] `test/widget/map_tracks_routes_drawer_test.dart` - disabled state, track export, route export, unresolved selection disabled, overwrite confirm/cancel, success/failure snackbars
-- [ ] TDD: one red-green slice per behavior: disabled state, track export, route export, overwrite prompt, cancel path, snackbar path
-- [ ] Verify: `flutter analyze && flutter test test/widget/map_tracks_routes_drawer_test.dart`
+- [x] `lib/widgets/map_tracks_routes_drawer.dart` - bottom export control; disable when no resolvable selection; resolve via `mapProvider` ids + `gpxTrackRepositoryProvider` / `routeRepositoryProvider`; overwrite confirm/cancel; snackbar feedback
+- [x] `test/widget/map_tracks_routes_drawer_test.dart` - disabled state, track export, route export, unresolved selection disabled, overwrite confirm/cancel, success/failure snackbars
+- [x] TDD: one red-green slice per behavior: disabled state, track export, route export, overwrite prompt, cancel path, snackbar path
+- [x] Verify: `flutter analyze && flutter test test/widget/map_tracks_routes_drawer_test.dart`
 
 ### Phase 3: Journey regressions
 - **Goal**: critical export flows end to end
-- [ ] `test/robot/map/tr_export_robot.dart` - robot helper for drawer export flow; stable selectors: `tracks-routes-drawer`, `tracks-routes-export-button`, `tracks-routes-export-confirm`, `tracks-routes-export-cancel`
-- [ ] `test/robot/map/tr_export_journey_test.dart` - track + route happy paths; selection -> drawer -> export -> snackbar
-- [ ] TDD: robot journey one assertion at a time; track and route branches; unresolved-selection no-op
-- [ ] Verify: `flutter analyze && flutter test test/robot/map/tr_export_journey_test.dart`
+- [x] `test/robot/map/tr_export_robot.dart` - robot helper for drawer export flow; stable selectors: `tracks-routes-drawer`, `tracks-routes-export-button`, `tracks-routes-export-confirm`, `tracks-routes-export-cancel`
+- [x] `test/robot/map/tr_export_journey_test.dart` - track + route happy paths; selection -> drawer -> export -> snackbar
+- [x] TDD: robot journey one assertion at a time; track and route branches; unresolved-selection no-op
+- [x] Verify: `flutter analyze && flutter test test/robot/map/tr_export_journey_test.dart`
 
 ## Risks / Out of scope
 - **Risks**: GPX escaping/serialization correctness; stale selection drift; overwrite collision handling
