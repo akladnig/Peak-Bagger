@@ -325,6 +325,76 @@ void main() {
     expect(find.byKey(const Key('peak-lists-details-row-200')), findsOneWidget);
   });
 
+  testWidgets(
+    'mini-map drop marker keeps popup open and shows selected location marker',
+    (tester) async {
+      final tasmapRepository = await TestTasmapRepository.create(
+        maps: [
+          Tasmap50k(
+            series: 'TS07',
+            name: 'Test Map',
+            parentSeries: '8211',
+            mgrs100kIds: 'EN',
+            eastingMin: 10000,
+            eastingMax: 20000,
+            northingMin: 60000,
+            northingMax: 70000,
+          ),
+        ],
+      );
+
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Tas Peaks', [200, 300, 100]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+            _buildPeak(200, 'Beta Peak', -42.1, 146.1, elevation: 1100),
+            _buildPeak(300, 'Gamma Peak', -42.2, 146.2, elevation: 1000),
+          ]),
+        ),
+        peaksBaggedRepository: PeaksBaggedRepository.test(
+          InMemoryPeaksBaggedStorage([
+            PeaksBagged(baggedId: 1, peakId: 100, gpxId: 10),
+          ]),
+        ),
+        tasmapRepository: tasmapRepository,
+      );
+
+      await tester.tap(
+        find.byKey(const Key('peak-lists-mini-map-marker-200-unticked')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('peak-lists-mini-map-popup')), findsOneWidget);
+      expect(
+        find.byKey(const Key('peak-lists-selected-location-marker')),
+        findsNothing,
+      );
+
+      await tester.tap(find.byKey(const Key('peak-info-popup-drop-marker')));
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('peak-lists-mini-map'))),
+      );
+      final selectedLocation = container.read(mapProvider).selectedLocation;
+      expect(selectedLocation, isNotNull);
+      expect(selectedLocation!.latitude, closeTo(-42.1, 0.000001));
+      expect(selectedLocation.longitude, closeTo(146.1, 0.000001));
+      expect(find.byKey(const Key('peak-lists-mini-map-popup')), findsOneWidget);
+      expect(
+        find.byKey(const Key('peak-lists-selected-location-marker')),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('hovering a mini-map marker shows hover ring', (tester) async {
     await _pumpPeakListsApp(
       tester,

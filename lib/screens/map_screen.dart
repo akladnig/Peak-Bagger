@@ -1665,6 +1665,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
         child: PeakInfoPopupCard(
           key: const Key('peak-info-popup'),
           content: content,
+          onDropMarker: () {
+            ref
+                .read(mapProvider.notifier)
+                .setSelectedLocation(LatLng(content.peak.latitude, content.peak.longitude));
+          },
           onClose: () {
             ref.read(mapProvider.notifier).closePeakInfoPopup();
           },

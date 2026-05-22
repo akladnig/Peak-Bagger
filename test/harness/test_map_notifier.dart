@@ -7,6 +7,7 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
@@ -16,6 +17,7 @@ import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
+import 'package:peak_bagger/providers/tasmap_provider.dart';
 
 class TestMapNotifier extends MapNotifier {
   TestMapNotifier(
@@ -74,7 +76,12 @@ class TestMapNotifier extends MapNotifier {
   }
 
   @override
-  MapState build() => initialState;
+  MapState build() {
+    ref.listen<int>(peaksBaggedRevisionProvider, (previous, next) {
+      refreshPeakInfoPopupContent();
+    });
+    return initialState;
+  }
 
   @override
   Set<int> get correlatedPeakIds => _correlatedPeakIds;
@@ -224,10 +231,18 @@ class TestMapNotifier extends MapNotifier {
 
     for (final peak in peaks) {
       if (peak.osmId == existing.peak.osmId) {
-        return PeakInfoContent(
+        final resolvedPeaksBaggedRepository =
+            peaksBaggedRepository ??
+            PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage());
+        final resolvedGpxTrackRepository =
+            gpxTrackRepository ??
+            GpxTrackRepository.test(InMemoryGpxTrackStorage());
+        return resolvePeakInfoContent(
           peak: peak,
-          mapName: existing.mapName,
-          listNames: existing.listNames,
+          peakListRepository: ref.read(peakListRepositoryProvider),
+          tasmapRepository: ref.read(tasmapRepositoryProvider),
+          peaksBaggedRepository: resolvedPeaksBaggedRepository,
+          gpxTrackRepository: resolvedGpxTrackRepository,
         );
       }
     }

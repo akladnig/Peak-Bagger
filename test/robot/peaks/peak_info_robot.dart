@@ -9,7 +9,9 @@ import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
+import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 
 import '../../harness/test_map_notifier.dart';
@@ -28,6 +30,10 @@ class PeakInfoRobot {
   Finder get peakInfoPopup => find.byKey(const Key('peak-info-popup'));
   Finder get peakInfoPopupClose =>
       find.byKey(const Key('peak-info-popup-close'));
+  Finder get peakInfoPopupDropMarker =>
+      find.byKey(const Key('peak-info-popup-drop-marker'));
+  Finder get peakListsSelectedLocationMarker =>
+      find.byKey(const Key('peak-lists-selected-location-marker'));
 
   Finder peakMarker(int peakOsmId) => find.byKey(Key('peak-marker-$peakOsmId'));
   Finder peakMarkerHitbox(int peakOsmId) =>
@@ -38,10 +44,17 @@ class PeakInfoRobot {
   Future<void> pumpMap({
     MapState? initialState,
     PeakListRepository? peakListRepository,
+    PeaksBaggedRepository? peaksBaggedRepository,
+    GpxTrackRepository? gpxTrackRepository,
     TasmapRepository? tasmapRepository,
   }) async {
     final resolvedPeakListRepository =
         peakListRepository ?? PeakListRepository.test(InMemoryPeakListStorage());
+    final resolvedPeaksBaggedRepository =
+        peaksBaggedRepository ??
+        PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage());
+    final resolvedGpxTrackRepository =
+        gpxTrackRepository ?? GpxTrackRepository.test(InMemoryGpxTrackStorage());
     final resolvedTasmapRepository =
         tasmapRepository ?? await TestTasmapRepository.create();
     await tester.pumpWidget(
@@ -51,6 +64,10 @@ class PeakInfoRobot {
             () => TestMapNotifier(initialState ?? _defaultMapState()),
           ),
           peakListRepositoryProvider.overrideWithValue(resolvedPeakListRepository),
+          peaksBaggedRepositoryProvider.overrideWithValue(
+            resolvedPeaksBaggedRepository,
+          ),
+          gpxTrackRepositoryProvider.overrideWithValue(resolvedGpxTrackRepository),
           tasmapRepositoryProvider.overrideWithValue(resolvedTasmapRepository),
           tasmapStateProvider.overrideWith(
             () => TestTasmapNotifier(resolvedTasmapRepository),
@@ -84,6 +101,11 @@ class PeakInfoRobot {
 
   Future<void> closePeakPopup() async {
     await tester.tap(peakInfoPopupClose);
+    await tester.pump();
+  }
+
+  Future<void> dropMarkerFromPeakPopup() async {
+    await tester.tap(peakInfoPopupDropMarker);
     await tester.pump();
   }
 

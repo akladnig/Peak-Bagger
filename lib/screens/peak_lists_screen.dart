@@ -20,6 +20,8 @@ import 'map_screen_panels.dart';
 import '../services/peak_list_file_picker.dart';
 import '../services/peak_hover_detector.dart';
 import '../services/peak_list_repository.dart';
+import '../services/gpx_track_repository.dart';
+import '../services/peaks_bagged_repository.dart';
 import '../widgets/dialog_helpers.dart';
 import '../widgets/left_tooltip_fab.dart';
 import '../widgets/peak_list_create_dialog.dart';
@@ -2032,6 +2034,8 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
       peak: tappedPeak,
       peakListRepository: ref.read(peakListRepositoryProvider),
       tasmapRepository: ref.read(tasmapRepositoryProvider),
+      peaksBaggedRepository: _readPeaksBaggedRepository(),
+      gpxTrackRepository: _readGpxTrackRepository(),
     );
     if (!mounted) {
       return;
@@ -2039,6 +2043,22 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
     setState(() {
       _popupContent = content;
     });
+  }
+
+  PeaksBaggedRepository _readPeaksBaggedRepository() {
+    try {
+      return ref.read(peaksBaggedRepositoryProvider);
+    } catch (_) {
+      return PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage());
+    }
+  }
+
+  GpxTrackRepository _readGpxTrackRepository() {
+    try {
+      return ref.read(gpxTrackRepositoryProvider);
+    } catch (_) {
+      return GpxTrackRepository.test(InMemoryGpxTrackStorage());
+    }
   }
 
   int? _findNearestPeakId({
@@ -2070,6 +2090,9 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
   Widget build(BuildContext context) {
     final markerPeaks =
         widget.selectedSummaryRow?.mapPeaks ?? const <_MapPeak>[];
+    final selectedLocation = ref.watch(
+      mapProvider.select((state) => state.selectedLocation),
+    );
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -2138,6 +2161,24 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                                 })
                                 .toList(growable: false),
                       ),
+                      if (selectedLocation != null)
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              key: const Key(
+                                'peak-lists-selected-location-marker',
+                              ),
+                              point: selectedLocation,
+                              width: 40,
+                              height: 40,
+                              child: const Icon(
+                                Icons.my_location,
+                                color: Colors.amber,
+                                size: 32,
+                              ),
+                            ),
+                          ],
+                        ),
                       if (widget.selectedMapPeak != null)
                         CircleLayer(
                           key: const Key(
@@ -2215,6 +2256,16 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                           child: PeakInfoPopupCard(
                             key: const Key('peak-lists-mini-map-popup'),
                             content: _popupContent!,
+                            onDropMarker: () {
+                              ref
+                                  .read(mapProvider.notifier)
+                                  .setSelectedLocation(
+                                    LatLng(
+                                      _popupContent!.peak.latitude,
+                                      _popupContent!.peak.longitude,
+                                    ),
+                                  );
+                            },
                             onClose: _clearPopup,
                           ),
                         ),

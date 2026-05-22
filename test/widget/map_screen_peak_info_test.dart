@@ -4,14 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
+import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
+import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 
 import '../harness/test_map_notifier.dart';
 import '../harness/test_tasmap_notifier.dart';
@@ -392,10 +396,182 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Height: 1234m'), findsOneWidget);
+    expect(find.text('Height: 1,234m'), findsOneWidget);
     expect(find.text('Map: Adamsons'), findsOneWidget);
     expect(find.text('MGRS: 55G DM 80000 95000'), findsOneWidget);
     expect(find.text('Lists: Abels, HWC'), findsOneWidget);
+  });
+
+  testWidgets('peak popup shows drop marker button and my ascents', (
+    tester,
+  ) async {
+    final peaksBaggedRepository = PeaksBaggedRepository.test(
+      InMemoryPeaksBaggedStorage([
+        PeaksBagged(
+          baggedId: 1,
+          peakId: 6406,
+          gpxId: 11,
+          date: DateTime.utc(2026, 5, 16),
+        ),
+        PeaksBagged(
+          baggedId: 2,
+          peakId: 6406,
+          gpxId: 10,
+          date: DateTime.utc(2026, 5, 16),
+        ),
+      ]),
+    );
+    final gpxTrackRepository = GpxTrackRepository.test(
+      InMemoryGpxTrackStorage([
+        GpxTrack(
+          gpxTrackId: 10,
+          contentHash: 'hash-10',
+          trackName: 'Alpha Loop',
+          trackDate: DateTime.utc(2026, 5, 16),
+        ),
+        GpxTrack(
+          gpxTrackId: 11,
+          contentHash: 'hash-11',
+          trackName: 'Beta Loop',
+          trackDate: DateTime.utc(2026, 5, 16),
+        ),
+      ]),
+    );
+
+    await _pumpMap(
+      tester,
+      _mapStateWithPeak(
+        peak: Peak(
+          osmId: 6406,
+          name: 'Bonnet Hill',
+          elevation: 1234,
+          latitude: -43.0,
+          longitude: 147.0,
+        ),
+      ),
+      peaksBaggedRepository: peaksBaggedRepository,
+      gpxTrackRepository: gpxTrackRepository,
+    );
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byTooltip('Close Peak Info'), findsOneWidget);
+    expect(find.byTooltip('Drop a Marker on the Peak'), findsOneWidget);
+    expect(find.byKey(const Key('peak-info-popup-drop-marker')), findsOneWidget);
+    expect(find.text('Height: 1,234m'), findsOneWidget);
+    expect(find.text('My Ascents:'), findsOneWidget);
+    expect(find.text('Alpha Loop (16 May 2026)'), findsOneWidget);
+    expect(find.text('Beta Loop (16 May 2026)'), findsOneWidget);
+  });
+
+  testWidgets('drop marker updates selected location without recentering', (
+    tester,
+  ) async {
+    final peak = Peak(
+      osmId: 6406,
+      name: 'Bonnet Hill',
+      latitude: -43.0,
+      longitude: 147.0,
+    );
+
+    await _pumpMap(
+      tester,
+      _mapStateWithPeak(
+        selectedLocation: const LatLng(-42.5, 146.5),
+        peak: peak,
+      ),
+    );
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final container = ProviderScope.containerOf(tester.element(region));
+    final before = container.read(mapProvider);
+
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byKey(const Key('peak-info-popup-drop-marker')));
+    await tester.pump();
+
+    final after = container.read(mapProvider);
+    expect(after.selectedLocation, isNotNull);
+    expect(after.selectedLocation!.latitude, closeTo(peak.latitude, 1e-9));
+    expect(after.selectedLocation!.longitude, closeTo(peak.longitude, 1e-9));
+    expect(after.center, equals(before.center));
+    expect(after.zoom, equals(before.zoom));
+  });
+
+  testWidgets('open popup refreshes ascent rows when bagged revision changes', (
+    tester,
+  ) async {
+    final peaksBaggedRepository = PeaksBaggedRepository.test(
+      InMemoryPeaksBaggedStorage([
+        PeaksBagged(
+          baggedId: 1,
+          peakId: 6406,
+          gpxId: 10,
+          date: DateTime.utc(2026, 5, 15),
+        ),
+      ]),
+    );
+    final gpxTrackRepository = GpxTrackRepository.test(
+      InMemoryGpxTrackStorage([
+        GpxTrack(
+          gpxTrackId: 10,
+          contentHash: 'hash-10',
+          trackName: 'Old Loop',
+          trackDate: DateTime.utc(2026, 5, 15),
+        ),
+        GpxTrack(
+          gpxTrackId: 11,
+          contentHash: 'hash-11',
+          trackName: 'New Loop',
+          trackDate: DateTime.utc(2026, 5, 16),
+        ),
+      ]),
+    );
+
+    await _pumpMap(
+      tester,
+      _mapStateWithPeak(
+        peak: Peak(
+          osmId: 6406,
+          name: 'Bonnet Hill',
+          latitude: -43.0,
+          longitude: 147.0,
+        ),
+      ),
+      peaksBaggedRepository: peaksBaggedRepository,
+      gpxTrackRepository: gpxTrackRepository,
+    );
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final container = ProviderScope.containerOf(tester.element(region));
+
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Old Loop (15 May 2026)'), findsOneWidget);
+    expect(find.text('New Loop (16 May 2026)'), findsNothing);
+
+    await peaksBaggedRepository.rebuildFromTracks([
+      GpxTrack(
+        gpxTrackId: 11,
+        contentHash: 'hash-11',
+        trackName: 'New Loop',
+        trackDate: DateTime.utc(2026, 5, 16),
+      )..peaks.add(Peak(osmId: 6406, name: 'Bonnet Hill', latitude: -43.0, longitude: 147.0)),
+    ]);
+    container.read(peaksBaggedRevisionProvider.notifier).increment();
+    await tester.pump();
+
+    expect(find.text('Old Loop (15 May 2026)'), findsNothing);
+    expect(find.text('New Loop (16 May 2026)'), findsOneWidget);
+    expect(find.byKey(const Key('peak-info-popup')), findsOneWidget);
   });
 
   testWidgets('peak popup shows non-empty alternate name after title', (
@@ -428,7 +604,7 @@ void main() {
     );
     expect(
       tester.getTopLeft(find.text('Alt Name: Kunanyi foothill')).dy,
-      lessThan(tester.getTopLeft(find.text('Height: 1234m')).dy),
+      lessThan(tester.getTopLeft(find.text('Height: 1,234m')).dy),
     );
   });
 
@@ -665,6 +841,8 @@ Future<void> _pumpMap(
   overrides = const [],
   PeakRepository? peakRepository,
   PeakListRepository? peakListRepository,
+  PeaksBaggedRepository? peaksBaggedRepository,
+  GpxTrackRepository? gpxTrackRepository,
 }) async {
   final tasmapRepository = await TestTasmapRepository.create();
   await tester.pumpWidget(
@@ -675,6 +853,13 @@ Future<void> _pumpMap(
         ),
         peakListRepositoryProvider.overrideWithValue(
           peakListRepository ?? PeakListRepository.test(InMemoryPeakListStorage()),
+        ),
+        peaksBaggedRepositoryProvider.overrideWithValue(
+          peaksBaggedRepository ??
+              PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
+        ),
+        gpxTrackRepositoryProvider.overrideWithValue(
+          gpxTrackRepository ?? GpxTrackRepository.test(InMemoryGpxTrackStorage()),
         ),
         tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
         tasmapStateProvider.overrideWith(() => TestTasmapNotifier(tasmapRepository)),
