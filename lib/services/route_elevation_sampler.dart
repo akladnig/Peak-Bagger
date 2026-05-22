@@ -61,6 +61,8 @@ abstract interface class RouteElevationSampler {
     required int requestId,
     required int geometryVersion,
   });
+
+  Future<List<double?>> samplePointElevations(List<LatLng> points);
 }
 
 class NoopRouteElevationSampler implements RouteElevationSampler {
@@ -76,6 +78,11 @@ class NoopRouteElevationSampler implements RouteElevationSampler {
       requestId: requestId,
       geometryVersion: geometryVersion,
     );
+  }
+
+  @override
+  Future<List<double?>> samplePointElevations(List<LatLng> points) async {
+    return List<double?>.filled(points.length, null, growable: false);
   }
 }
 
@@ -170,6 +177,18 @@ class BundledDemRouteElevationSampler implements RouteElevationSampler {
       requestId: requestId,
       geometryVersion: geometryVersion,
     );
+  }
+
+  @override
+  Future<List<double?>> samplePointElevations(List<LatLng> points) async {
+    if (points.isEmpty) {
+      return const [];
+    }
+
+    final dataset = await (_datasetFuture ??= _openDataset());
+    return points
+        .map((point) => dataset.sampleElevation(point))
+        .toList(growable: false);
   }
 
   Future<DemDataset> _openDataset() async {

@@ -104,6 +104,7 @@ class MapTrackInfoPanel extends StatelessWidget {
     this.track,
     this.route,
     required this.onClose,
+    this.onExport,
     super.key,
   })  : assert(track != null || route != null),
         assert(track == null || route == null);
@@ -111,6 +112,7 @@ class MapTrackInfoPanel extends StatelessWidget {
   final GpxTrack? track;
   final app_route.Route? route;
   final VoidCallback onClose;
+  final VoidCallback? onExport;
 
   @override
   Widget build(BuildContext context) {
@@ -174,9 +176,22 @@ class MapTrackInfoPanel extends StatelessWidget {
                       horizontal: 16,
                       vertical: 12,
                     ),
-                    child: isRoute
-                        ? _buildRouteBody(context, route!)
-                        : _buildTrackBody(context, track!),
+                      child: isRoute
+                          ? _buildRouteBody(context, route!)
+                          : _buildTrackBody(context, track!),
+                  ),
+                ),
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      key: const Key('track-info-panel-export-button'),
+                      onPressed: onExport,
+                      icon: const Icon(Icons.download),
+                      label: const Text('Export'),
+                    ),
                   ),
                 ),
               ],
@@ -206,7 +221,7 @@ class MapTrackInfoPanel extends StatelessWidget {
             Expanded(
               child: _SummaryMetric(
                 label: 'Distance',
-                value: formatDistance(route.distance2d),
+                value: formatDistance(route.distance2d, decimalPlaces: 1),
               ),
             ),
             Expanded(
@@ -267,7 +282,7 @@ class MapTrackInfoPanel extends StatelessWidget {
             Expanded(
               child: _SummaryMetric(
                 label: 'Distance',
-                value: formatDistance(track.distance2d),
+                value: formatDistance(track.distance2d, decimalPlaces: 1),
               ),
             ),
             Expanded(
@@ -303,12 +318,12 @@ class MapTrackInfoPanel extends StatelessWidget {
         if (track.peakCorrelationProcessed && normalizedPeaks.isNotEmpty) ...[
           _LabeledValueRow(
             label: 'Distance to highest peak',
-            value: formatDistance(track.distanceToPeak),
+            value: formatDistance(track.distanceToPeak, decimalPlaces: 1),
           ),
           thinDivider,
           _LabeledValueRow(
             label: 'Distance from highest peak',
-            value: formatDistance(track.distanceFromPeak),
+            value: formatDistance(track.distanceFromPeak, decimalPlaces: 1),
           ),
           const SizedBox(height: 8),
         ],

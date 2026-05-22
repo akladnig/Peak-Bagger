@@ -1,13 +1,18 @@
+import 'dart:ui' show PointerDeviceKind;
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/providers/gpx_export_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/screens/map_screen_panels.dart';
+import 'package:peak_bagger/services/gpx_export_service.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/theme.dart';
@@ -129,7 +134,7 @@ void main() {
     expect(
       find.descendant(
         of: find.ancestor(of: find.text('Distance'), matching: find.byType(Row)).first,
-        matching: find.text('12 km'),
+        matching: find.text('12.4 km'),
       ),
       findsOneWidget,
     );
@@ -158,7 +163,7 @@ void main() {
               matching: find.byType(Row),
             )
             .first,
-        matching: find.text('12 km'),
+        matching: find.text('11.6 km'),
       ),
       findsOneWidget,
     );
@@ -281,12 +286,85 @@ void main() {
       expect(find.text('Second Track'), findsOneWidget);
     },
   );
+
+  testWidgets('export dialog offers New Version and writes suffixed path', (
+    tester,
+  ) async {
+    final track = GpxTrack(
+      gpxTrackId: 10,
+      contentHash: 'hash-10',
+      trackName: 'Ridge Walk',
+      gpxFile: '<gpx></gpx>',
+    );
+    final state = MapState(
+      center: const LatLng(-41.5, 146.5),
+      zoom: 15,
+      basemap: Basemap.tracestrack,
+      showTracks: true,
+      tracks: [track],
+      selectedTrackId: 10,
+    );
+    final exportService = _FakeInfoPanelExportService();
+
+    await _pumpRawMapScreen(
+      tester,
+      state,
+      size: const Size(1600, 900),
+      exportService: exportService,
+    );
+
+    await tester.tap(find.byKey(const Key('track-info-panel-export-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('New Version'), findsOneWidget);
+    expect(
+      find.text(
+        'This file already exists. Do you want to overwrite it or add a new version?',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<Widget>(find.byKey(const Key('tracks-routes-export-new-version'))),
+      isA<OutlinedButton>(),
+    );
+    expect(
+      tester.widget<Widget>(find.byKey(const Key('tracks-routes-export-confirm'))),
+      isA<FilledButton>(),
+    );
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    final hoverTarget = find.byKey(const Key('tracks-routes-export-new-version'));
+    await mouse.addPointer(location: tester.getCenter(hoverTarget));
+    await tester.pump();
+    await mouse.moveTo(tester.getCenter(hoverTarget));
+    await tester.pump();
+
+    expect(
+      tester.widget<Widget>(find.byKey(const Key('tracks-routes-export-new-version'))),
+      isA<FilledButton>(),
+    );
+    expect(
+      tester.widget<Widget>(find.byKey(const Key('tracks-routes-export-confirm'))),
+      isA<OutlinedButton>(),
+    );
+
+    await tester.tap(find.byKey(const Key('tracks-routes-export-new-version')));
+    await tester.pumpAndSettle();
+
+    expect(exportService.lastWrittenPath, '/fake/track/Ridge-Walk_1.gpx');
+    expect(
+      find.textContaining('Exported to /fake/track/Ridge-Walk_1.gpx'),
+      findsOneWidget,
+    );
+  });
 }
 
 Future<void> _pumpRawMapScreen(
   WidgetTester tester,
   MapState state, {
   required Size size,
+  GpxExportService? exportService,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -301,6 +379,8 @@ Future<void> _pumpRawMapScreen(
           PeakListRepository.test(InMemoryPeakListStorage()),
         ),
         gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
+        if (exportService != null)
+          gpxExportServiceProvider.overrideWithValue(exportService),
       ],
       child: const MaterialApp(home: MapScreen()),
     ),
@@ -308,4 +388,23 @@ Future<void> _pumpRawMapScreen(
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
   await tester.pump(const Duration(milliseconds: 100));
+}
+
+final class _FakeInfoPanelExportService extends GpxExportService {
+  _FakeInfoPanelExportService()
+    : super(
+        trackDownloadsDirectoryResolver: () => Directory('/fake/track'),
+        routeExportsDirectoryResolver: () => Directory('/fake/route'),
+      );
+
+  String? lastWrittenPath;
+
+  @override
+  bool fileExists(GpxExportPlan plan) => true;
+
+  @override
+  Future<String> writeExport(GpxExportPlan plan) async {
+    lastWrittenPath = plan.path;
+    return plan.path;
+  }
 }

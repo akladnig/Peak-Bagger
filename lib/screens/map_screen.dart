@@ -24,6 +24,7 @@ import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
+import 'package:peak_bagger/providers/gpx_export_provider.dart';
 import 'package:peak_bagger/services/peak_hover_detector.dart';
 import 'package:peak_bagger/services/route_hover_detector.dart';
 import 'package:peak_bagger/services/track_hover_detector.dart';
@@ -37,6 +38,7 @@ import 'package:peak_bagger/widgets/map_tracks_routes_drawer.dart';
 import 'package:peak_bagger/widgets/map_route_bottom_sheet.dart';
 import 'package:peak_bagger/widgets/map_rebuild_debug_counters.dart';
 import 'package:peak_bagger/widgets/tasmap_polygon_label.dart';
+import 'package:peak_bagger/widgets/dialog_helpers.dart';
 
 import 'map_screen_layers.dart';
 import 'map_screen_panels.dart';
@@ -115,6 +117,59 @@ class _MapScreenState extends ConsumerState<MapScreen>
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {
       _flushPendingCameraPosition();
+    }
+  }
+
+  Future<void> _exportInfoSelection({
+    GpxTrack? track,
+    app_route.Route? route,
+  }) async {
+    final service = ref.read(gpxExportServiceProvider);
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      var plan = track != null
+          ? service.planTrackExport(track)
+          : await service.planRouteExport(route!);
+      if (!mounted) {
+        return;
+      }
+
+      if (service.fileExists(plan)) {
+        final action = await showExportConflictDialog(
+          context: context,
+          title: 'Overwrite Export?',
+          message:
+              'This file already exists. Do you want to overwrite it or add a new version?',
+          cancelKey: 'tracks-routes-export-cancel',
+          overwriteKey: 'tracks-routes-export-confirm',
+          newVersionKey: 'tracks-routes-export-new-version',
+        );
+        if (action == ExportConflictAction.cancel || !mounted) {
+          return;
+        }
+
+        if (action == ExportConflictAction.newVersion) {
+          plan = service.planNewVersionExport(plan);
+        }
+      }
+
+      await service.writeExport(plan);
+      if (!mounted) {
+        return;
+      }
+
+      messenger.showSnackBar(
+        SnackBar(content: Text('Exported to ${plan.path}')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      messenger.showSnackBar(
+        SnackBar(content: Text('Export failed: $error')),
+      );
     }
   }
 
@@ -1427,14 +1482,24 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               width: UiConstants
                                                   .preferredLeftWidth,
                                             )
-                                          : MapTrackInfoPanel(
-                                              track: selectedRoute == null
-                                                  ? selectedTrack
-                                                  : null,
-                                              route: selectedRoute,
-                                              onClose: () {
-                                                final notifier = ref.read(
-                                                  mapProvider.notifier,
+                                           : MapTrackInfoPanel(
+                                               track: selectedRoute == null
+                                                   ? selectedTrack
+                                                   : null,
+                                               route: selectedRoute,
+                                               onExport: () {
+                                                 unawaited(
+                                                   _exportInfoSelection(
+                                                     track: selectedRoute == null
+                                                         ? selectedTrack
+                                                         : null,
+                                                     route: selectedRoute,
+                                                   ),
+                                                 );
+                                               },
+                                               onClose: () {
+                                                 final notifier = ref.read(
+                                                   mapProvider.notifier,
                                                 );
                                                 notifier.clearSelectedTrack();
                                                 notifier.clearSelectedRoute();

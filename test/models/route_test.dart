@@ -18,11 +18,32 @@ void main() {
     ]);
   });
 
+  test('gpxRouteJson round-trips integer elevations and preserves legacy points', () {
+    final route = Route(
+      name: 'Elevated Route',
+      gpxRoute: [const LatLng(-41.1, 145.2), const LatLng(-41.2, 145.3)],
+      gpxRouteElevations: [123, null],
+    );
+
+    final decoded = Route(name: 'Decoded')..gpxRouteJson = route.gpxRouteJson;
+
+    expect(route.gpxRouteJson, '[[-41.1,145.2,123],[-41.2,145.3]]');
+    expect(decoded.gpxRoute, [
+      const LatLng(-41.1, 145.2),
+      const LatLng(-41.2, 145.3),
+    ]);
+    expect(decoded.gpxRouteElevations, [123, isNull]);
+  });
+
   test('gpxRouteJson falls back on malformed input', () {
     final route = Route(name: 'Decoded')
       ..gpxRouteJson = '[[-41.1,145.2],["bad"], [1], [1,2,3], [null, 145.3]]';
 
-    expect(route.gpxRoute, [const LatLng(-41.1, 145.2)]);
+    expect(route.gpxRoute, [
+      const LatLng(-41.1, 145.2),
+      const LatLng(1, 2),
+    ]);
+    expect(route.gpxRouteElevations, [null, 3]);
 
     final empty = Route(name: 'Empty')..gpxRouteJson = 'not-json';
 

@@ -15,60 +15,62 @@ class MapTracksRoutesDrawer extends ConsumerWidget {
 
     return Drawer(
       key: const Key('tracks-routes-drawer'),
-      child: ListView(
-        children: [
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text(
-              'Tracks / Routes',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-          ListTile(
-            title: const Text('Show Tracks'),
-            subtitle: trackAvailability.helperText == null
-                ? null
-                : Text(trackAvailability.helperText!),
-            onTap: trackAvailability.isEnabled
-                ? () {
-                    ref.read(mapProvider.notifier).toggleTracks();
-                  }
-                : null,
-            leading: IgnorePointer(
-              child: Switch.adaptive(
-                key: const Key('show-tracks-switch'),
-                value: showTracks,
-                onChanged: trackAvailability.isEnabled
-                    ? (_) {
-                        ref.read(mapProvider.notifier).toggleTracks();
-                      }
-                    : null,
+      child: SafeArea(
+        child: ListView(
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text(
+                'Tracks / Routes',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
-          ),
-          ListTile(
-            title: const Text('Show Routes'),
-            subtitle: routeAvailability.helperText == null
-                ? null
-                : Text(routeAvailability.helperText!),
-            onTap: routeAvailability.isAvailable
-                ? () {
-                    ref.read(mapProvider.notifier).setShowRoutes(!showRoutes);
-                  }
-                : null,
-            leading: IgnorePointer(
-              child: Switch.adaptive(
-                key: const Key('show-routes-switch'),
-                value: showRoutes,
-                onChanged: routeAvailability.isAvailable
-                    ? (_) {
-                        ref.read(mapProvider.notifier).setShowRoutes(!showRoutes);
-                      }
-                    : null,
+            ListTile(
+              title: const Text('Show Tracks'),
+              subtitle: trackAvailability.helperText == null
+                  ? null
+                  : Text(trackAvailability.helperText!),
+              onTap: trackAvailability.isEnabled
+                  ? () {
+                      ref.read(mapProvider.notifier).toggleTracks();
+                    }
+                  : null,
+              leading: IgnorePointer(
+                child: Switch.adaptive(
+                  key: const Key('show-tracks-switch'),
+                  value: showTracks,
+                  onChanged: trackAvailability.isEnabled
+                      ? (_) {
+                          ref.read(mapProvider.notifier).toggleTracks();
+                        }
+                      : null,
+                ),
               ),
             ),
-          ),
-        ],
+            ListTile(
+              title: const Text('Show Routes'),
+              subtitle: routeAvailability.helperText == null
+                  ? null
+                  : Text(routeAvailability.helperText!),
+              onTap: routeAvailability.isAvailable
+                  ? () {
+                      ref.read(mapProvider.notifier).setShowRoutes(!showRoutes);
+                    }
+                  : null,
+              leading: IgnorePointer(
+                child: Switch.adaptive(
+                  key: const Key('show-routes-switch'),
+                  value: showRoutes,
+                  onChanged: routeAvailability.isAvailable
+                      ? (_) {
+                          ref.read(mapProvider.notifier).setShowRoutes(!showRoutes);
+                        }
+                      : null,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

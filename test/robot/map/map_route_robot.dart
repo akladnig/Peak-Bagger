@@ -201,6 +201,11 @@ class _QueueRouteElevationSampler implements RouteElevationSampler {
     }
     throw Exception('Unexpected queued elevation outcome.');
   }
+
+  @override
+  Future<List<double?>> samplePointElevations(List<LatLng> points) async {
+    return List<double?>.filled(points.length, null, growable: false);
+  }
 }
 
 class _ReadyRouteGraphStore implements RouteGraphStore {

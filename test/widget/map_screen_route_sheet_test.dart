@@ -642,6 +642,11 @@ class _ImmediateRouteElevationSampler implements RouteElevationSampler {
       highestElevation: summary.highestElevation,
     );
   }
+
+  @override
+  Future<List<double?>> samplePointElevations(List<LatLng> points) async {
+    return List<double?>.filled(points.length, null, growable: false);
+  }
 }
 
 class _ControlledRouteElevationSampler implements RouteElevationSampler {
@@ -656,6 +661,11 @@ class _ControlledRouteElevationSampler implements RouteElevationSampler {
     final completer = Completer<RouteElevationSummary>();
     _completers.add(completer);
     return completer.future;
+  }
+
+  @override
+  Future<List<double?>> samplePointElevations(List<LatLng> points) async {
+    return List<double?>.filled(points.length, null, growable: false);
   }
 
   void failNext(Object error) {

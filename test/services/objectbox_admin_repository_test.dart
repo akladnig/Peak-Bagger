@@ -386,6 +386,7 @@ void main() {
         id: 7,
         name: 'Mt Ossa Route',
         gpxRoute: [const LatLng(-41.5, 146.5)],
+        gpxRouteElevations: [456],
         displayRoutePointsByZoom: '{"10":[]}',
         colour: 12,
         distance2d: 12.5,
@@ -401,7 +402,7 @@ void main() {
 
     expect(row.primaryKeyValue, 7);
     expect(row.values['name'], 'Mt Ossa Route');
-    expect(row.values['gpxRouteJson'], '[[-41.5,146.5]]');
+    expect(row.values['gpxRouteJson'], '[[-41.5,146.5,456]]');
     expect(row.values['displayRoutePointsByZoom'], '{"10":[]}');
     expect(row.values['colour'], 12);
     expect(row.values['distance2d'], 12.5);

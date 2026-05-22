@@ -513,6 +513,11 @@ class _ControlledRouteElevationSampler implements RouteElevationSampler {
     return completer.future;
   }
 
+  @override
+  Future<List<double?>> samplePointElevations(List<LatLng> points) async {
+    return List<double?>.filled(points.length, null, growable: false);
+  }
+
   void completeNext(RouteElevationSummary summary) {
     _completers.removeAt(0).complete(summary);
   }
