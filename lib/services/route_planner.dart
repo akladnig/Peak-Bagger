@@ -450,9 +450,48 @@ class TripRoutingRoutePlanner implements RoutePlanner {
     if (!trip.distance.isFinite || trip.distance <= 0) {
       throw const RoutePlanningException('Routing returned an invalid distance.');
     }
-    return PlannedRouteSegment(
-      points: List<LatLng>.from(trip.route, growable: false),
+
+    final segment = _attachEndpoints(
+      start: start,
+      end: end,
+      route: trip.route,
       distanceMeters: trip.distance,
+    );
+    return segment;
+
+  }
+
+  PlannedRouteSegment _attachEndpoints({
+    required LatLng start,
+    required LatLng end,
+    required List<LatLng> route,
+    required double distanceMeters,
+  }) {
+    final points = List<LatLng>.from(route, growable: true);
+
+    if (points.first != start) {
+      distanceMeters += trip_routing.haversineDistance(
+        start.latitude,
+        start.longitude,
+        points.first.latitude,
+        points.first.longitude,
+      );
+      points.insert(0, start);
+    }
+
+    if (points.last != end) {
+      distanceMeters += trip_routing.haversineDistance(
+        points.last.latitude,
+        points.last.longitude,
+        end.latitude,
+        end.longitude,
+      );
+      points.add(end);
+    }
+
+    return PlannedRouteSegment(
+      points: List<LatLng>.unmodifiable(points),
+      distanceMeters: distanceMeters,
     );
   }
 }

@@ -12,7 +12,6 @@ import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/services/route_repository.dart';
-
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
@@ -373,6 +372,69 @@ void main() {
         ),
         0.001,
       ),
+    );
+  });
+
+  test('later segment generic failure still keeps subsequent taps straight', () async {
+    final routePlanner = _ControlledRoutePlanner();
+    final realNotifier = await _buildRouteTestNotifier(routePlanner: routePlanner);
+    final container = ProviderContainer(
+      overrides: [
+        mapProvider.overrideWith(() => realNotifier),
+      ],
+    );
+    addTearDown(container.dispose);
+    final notifier = container.read(mapProvider.notifier);
+    notifier.state = MapState(
+      center: const LatLng(-41.5, 146.5),
+      zoom: 15,
+      basemap: Basemap.tracestrack,
+    );
+
+    const point1 = LatLng(-41.5, 146.5);
+    const point2 = LatLng(-41.6, 146.6);
+    const point3 = LatLng(-41.7, 146.7);
+    const point4 = LatLng(-41.8, 146.8);
+    notifier.beginRouteDraft();
+    notifier.addRouteDraftMarker(point1);
+    notifier.addRouteDraftMarker(point2);
+    await Future<void>.delayed(Duration.zero);
+    routePlanner.completeNext(
+      const PlannedRouteSegment(
+        points: [point1, LatLng(-41.55, 146.55), point2],
+        distanceMeters: 1000,
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    notifier.addRouteDraftMarker(point3);
+    await Future<void>.delayed(Duration.zero);
+    routePlanner.failNext(StateError('Unexpected routing failure.'));
+    await Future<void>.delayed(Duration.zero);
+
+    notifier.addRouteDraftMarker(point4);
+    await Future<void>.delayed(Duration.zero);
+
+    final state = container.read(mapProvider);
+    expect(state.routeDraftStage, RouteDraftStage.awaitingNextPoint);
+    expect(
+      state.routeDraftCommittedPoints,
+      const [
+        point1,
+        LatLng(-41.55, 146.55),
+        point2,
+        point3,
+        point4,
+      ],
+    );
+    expect(state.routeDraftProvisionalPoints, isEmpty);
+    expect(state.routeDraftError, isNull);
+    expect(
+      routePlanner.requests,
+      const [
+        (start: point1, end: point2),
+        (start: point2, end: point3),
+      ],
     );
   });
 

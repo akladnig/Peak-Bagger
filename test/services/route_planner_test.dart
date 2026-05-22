@@ -29,6 +29,47 @@ void main() {
     expect(trip.distance, 1234.5);
   });
 
+  test('trip routing adapter attaches off-track endpoints to the returned route', () async {
+    const start = LatLng(-41.5, 146.5);
+    const end = LatLng(-41.6, 146.6);
+    const snappedStart = LatLng(-41.5005, 146.5005);
+    const midpoint = LatLng(-41.55, 146.55);
+    const snappedEnd = LatLng(-41.5995, 146.5995);
+    final service = _FakeTripService(
+      trip_routing.Trip(
+        route: const [snappedStart, midpoint, snappedEnd],
+        distance: 1234.5,
+        errors: const [],
+      ),
+    );
+    final store = _FakeRouteGraphStore(service);
+    final client = LocalFileTripRoutingClient(routeGraphStore: store);
+    final planner = TripRoutingRoutePlanner(client: client);
+
+    final segment = await planner.planSegment(start: start, end: end);
+
+    expect(segment.points, const [start, snappedStart, midpoint, snappedEnd, end]);
+    expect(
+      segment.distanceMeters,
+      closeTo(
+        1234.5 +
+            trip_routing.haversineDistance(
+              start.latitude,
+              start.longitude,
+              snappedStart.latitude,
+              snappedStart.longitude,
+            ) +
+            trip_routing.haversineDistance(
+              snappedEnd.latitude,
+              snappedEnd.longitude,
+              end.latitude,
+              end.longitude,
+            ),
+        0.001,
+      ),
+    );
+  });
+
   test('trip routing adapter rejects an unusable trip result', () async {
     const start = LatLng(-41.5, 146.5);
     const end = LatLng(-41.6, 146.6);
