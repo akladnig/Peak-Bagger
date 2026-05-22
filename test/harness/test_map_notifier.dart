@@ -95,6 +95,66 @@ class TestMapNotifier extends MapNotifier {
       super.addRouteDraftMarker(point, straightLine: true);
       return;
     }
+    if (state.routeDraftMode == RouteMode.routeToPeak) {
+      final target = state.routeDraftPeak;
+      if (target == null) {
+        return;
+      }
+
+      final peakPoint = LatLng(target.latitude, target.longitude);
+      if (peakPoint == point) {
+        state = state.copyWith(
+          routeDraftMarkers: [point, peakPoint],
+          routeDraftStage: RouteDraftStage.segmentFailure,
+          routeDraftError:
+              'Start and end points must be different to calculate a route.',
+          routeDraftProvisionalPoints: const [],
+        );
+        return;
+      }
+
+      state = state.copyWith(
+        routeDraftMarkers: [point, peakPoint],
+        routeDraftStage: RouteDraftStage.routingSegment,
+        routeDraftProvisionalPoints: [point, peakPoint],
+        clearRouteDraftError: true,
+      );
+
+      if (routePlanningOutcomes.isEmpty) {
+        super.addRouteDraftMarker(point);
+        return;
+      }
+
+      final outcome = routePlanningOutcomes[_routePlanningOutcomeIndex++];
+      if (outcome is PlannedRouteSegment) {
+        state = state.copyWith(
+          routeDraftCommittedPoints: _appendRouteSegment(
+            state.routeDraftCommittedPoints,
+            outcome.points,
+          ),
+          routeDraftDistanceMeters:
+              state.routeDraftDistanceMeters + outcome.distanceMeters,
+          routeDraftProvisionalPoints: const [],
+          routeDraftStage: RouteDraftStage.awaitingNextPoint,
+          routeDraftMode: RouteMode.snapToTrail,
+          clearRouteDraftPeak: true,
+          clearRouteDraftError: true,
+        );
+        return;
+      }
+
+      final message = switch (outcome) {
+        RoutePlanningException(:final message) => message,
+        String() => outcome,
+        _ => 'Failed to calculate route.',
+      };
+      state = state.copyWith(
+        routeDraftStage: RouteDraftStage.segmentFailure,
+        routeDraftError: message,
+        routeDraftProvisionalPoints: const [],
+      );
+      return;
+    }
     if (routePlanningOutcomes.isEmpty) {
       super.addRouteDraftMarker(point);
       return;

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
@@ -41,7 +42,7 @@ void main() {
     expect(state.routeDraftMode, RouteMode.snapToTrail);
     expect(state.routeDraftName, isEmpty);
     expect(state.routeDraftMarkers, isEmpty);
-    expect(state.selectedLocation, isNull);
+    expect(state.selectedLocation, const LatLng(-41.6, 146.6));
     expect(state.selectedTrackId, isNull);
   });
 
@@ -102,6 +103,108 @@ void main() {
     expect(state.routeDraftMode, RouteMode.snapToTrail);
     expect(state.routeDraftName, isEmpty);
     expect(state.routeDraftMarkers, isEmpty);
+  });
+
+  test('route to peak routes the first tap to the captured peak target', () async {
+    final routePlanner = _ControlledRoutePlanner();
+    final realNotifier = await _buildRouteTestNotifier(routePlanner: routePlanner);
+    final container = ProviderContainer(
+      overrides: [
+        mapProvider.overrideWith(() => realNotifier),
+      ],
+    );
+    addTearDown(container.dispose);
+    final notifier = container.read(mapProvider.notifier);
+    notifier.state = MapState(
+      center: const LatLng(-41.5, 146.5),
+      zoom: 15,
+      basemap: Basemap.tracestrack,
+    );
+
+    const start = LatLng(-41.5, 146.5);
+    const peakPoint = LatLng(-41.6, 146.6);
+    final peak = Peak(
+      osmId: 6406,
+      name: 'Bonnet Hill',
+      latitude: peakPoint.latitude,
+      longitude: peakPoint.longitude,
+    );
+
+    notifier.beginRouteDraft(peakTarget: peak);
+    notifier.setRouteDraftMode(RouteMode.routeToPeak);
+    notifier.addRouteDraftMarker(start);
+    await Future<void>.delayed(Duration.zero);
+    routePlanner.completeNext(
+      const PlannedRouteSegment(
+        points: [start, LatLng(-41.55, 146.55), peakPoint],
+        distanceMeters: 1000,
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    final state = container.read(mapProvider);
+    expect(routePlanner.requests, const [(start: start, end: peakPoint)]);
+    expect(state.routeDraftMarkers, const [start, peakPoint]);
+    expect(
+      state.routeDraftCommittedPoints,
+      const [start, LatLng(-41.55, 146.55), peakPoint],
+    );
+    expect(state.routeDraftDistanceMeters, 1000);
+    expect(state.routeDraftMode, RouteMode.snapToTrail);
+    expect(state.routeDraftPeak, isNull);
+  });
+
+  test('route to peak calculates after switching with a start already tapped', () async {
+    final routePlanner = _ControlledRoutePlanner();
+    final realNotifier = await _buildRouteTestNotifier(routePlanner: routePlanner);
+    final container = ProviderContainer(
+      overrides: [
+        mapProvider.overrideWith(() => realNotifier),
+      ],
+    );
+    addTearDown(container.dispose);
+    final notifier = container.read(mapProvider.notifier);
+    notifier.state = MapState(
+      center: const LatLng(-41.5, 146.5),
+      zoom: 15,
+      basemap: Basemap.tracestrack,
+    );
+
+    const start = LatLng(-41.5, 146.5);
+    const peakPoint = LatLng(-41.6, 146.6);
+    final peak = Peak(
+      osmId: 6406,
+      name: 'Bonnet Hill',
+      latitude: peakPoint.latitude,
+      longitude: peakPoint.longitude,
+    );
+
+    notifier.beginRouteDraft(peakTarget: peak);
+    notifier.addRouteDraftMarker(start);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(routePlanner.requests, isEmpty);
+
+    notifier.setRouteDraftMode(RouteMode.routeToPeak);
+    await Future<void>.delayed(Duration.zero);
+    routePlanner.completeNext(
+      const PlannedRouteSegment(
+        points: [start, LatLng(-41.55, 146.55), peakPoint],
+        distanceMeters: 1000,
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    final state = container.read(mapProvider);
+    expect(routePlanner.requests, const [(start: start, end: peakPoint)]);
+    expect(state.routeDraftMarkers, const [start, peakPoint]);
+    expect(
+      state.routeDraftCommittedPoints,
+      const [start, LatLng(-41.55, 146.55), peakPoint],
+    );
+    expect(state.routeDraftDistanceMeters, 1000);
+    expect(state.routeDraftMode, RouteMode.snapToTrail);
+    expect(state.routeDraftPeak, isNull);
   });
 
   test('third tap appends a new routed segment from the current endpoint', () async {

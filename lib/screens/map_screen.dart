@@ -248,12 +248,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final scaffoldContext = _scaffoldKey.currentContext;
     final mapState = ref.read(mapProvider);
     final notifier = ref.read(mapProvider.notifier);
+    final peakTarget = mapState.routeDraftPeakTarget;
 
     if ((scaffoldState?.isEndDrawerOpen ?? false) && scaffoldContext != null) {
       Navigator.of(scaffoldContext).pop();
     }
 
-    if (mapState.peakInfoPeak != null) {
+    if (peakTarget != null) {
       notifier.closePeakInfoPopup();
     }
     if (mapState.showInfoPopup) {
@@ -266,10 +267,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
       notifier.setGotoInputVisible(false);
     }
 
-    notifier.clearSelectedLocation();
     notifier.clearSelectedTrack();
     notifier.clearSelectedRoute();
-    notifier.beginRouteDraft();
+    notifier.beginRouteDraft(peakTarget: peakTarget);
     _mapFocusNode.requestFocus();
   }
 

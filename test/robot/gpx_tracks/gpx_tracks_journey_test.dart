@@ -22,6 +22,7 @@ import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/import_path_helpers.dart';
@@ -715,12 +716,22 @@ void main() {
         distanceMeters: 1234.5,
       ),
     );
+    const routeElevationSampler = _ImmediateRouteElevationSampler(
+      RouteElevationSummary(
+        requestId: 0,
+        geometryVersion: 0,
+        ascent: 0,
+        descent: 0,
+        distance3d: 0,
+      ),
+    );
     final notifier = MapNotifier(
       peakRepository: PeakRepository.test(InMemoryPeakStorage()),
       overpassService: OverpassService(),
       tasmapRepository: tasmapRepository,
       gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
       routeRepository: routeRepository,
+      routeElevationSampler: routeElevationSampler,
       routePlanner: routePlanner,
       peaksBaggedRepository: PeaksBaggedRepository.test(
         InMemoryPeaksBaggedStorage(),
@@ -809,6 +820,36 @@ class _ImmediateRoutePlanner implements RoutePlanner {
     required LatLng end,
   }) async {
     return segment;
+  }
+}
+
+class _ImmediateRouteElevationSampler implements RouteElevationSampler {
+  const _ImmediateRouteElevationSampler(this.summary);
+
+  final RouteElevationSummary summary;
+
+  @override
+  Future<RouteElevationSummary> sampleRoute({
+    required List<LatLng> points,
+    required int requestId,
+    required int geometryVersion,
+  }) async {
+    return RouteElevationSummary(
+      requestId: requestId,
+      geometryVersion: geometryVersion,
+      distance3d: summary.distance3d,
+      ascent: summary.ascent,
+      descent: summary.descent,
+      startElevation: summary.startElevation,
+      endElevation: summary.endElevation,
+      lowestElevation: summary.lowestElevation,
+      highestElevation: summary.highestElevation,
+    );
+  }
+
+  @override
+  Future<List<double?>> samplePointElevations(List<LatLng> points) async {
+    return List<double?>.filled(points.length, null, growable: false);
   }
 }
 

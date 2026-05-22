@@ -12,6 +12,7 @@ import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
+import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
@@ -49,12 +50,15 @@ class MapRouteRobot {
       find.byKey(const Key('map-interaction-region'));
   Finder get createRouteFab => find.byKey(const Key('create-route-fab'));
   Finder get routeSaveButton => find.byKey(const Key('route-save-button'));
+  Finder get routeToPeakButton => find.byKey(const Key('route-mode-route-to-peak'));
   Finder get routeDistanceText => find.byKey(const Key('route-distance-text'));
   Finder get routeAscentText => find.byKey(const Key('route-ascent-text'));
   Finder get routeDescentText => find.byKey(const Key('route-descent-text'));
   Finder get routeElevationErrorText =>
       find.byKey(const Key('route-elevation-error-text'));
   Finder get routeBottomSheet => find.byKey(const Key('route-bottom-sheet'));
+  Finder peakMarkerHitbox(int peakOsmId) =>
+      find.byKey(Key('peak-marker-hitbox-$peakOsmId'));
 
   Future<void> pumpApp() async {
     await tester.binding.setSurfaceSize(const Size(1600, 900));
@@ -85,6 +89,7 @@ class MapRouteRobot {
           peakListRepositoryProvider.overrideWithValue(
             PeakListRepository.test(InMemoryPeakListStorage()),
           ),
+          tasmapRepositoryProvider.overrideWithValue(_tasmapRepository),
         ],
         child: const App(),
       ),
@@ -102,6 +107,11 @@ class MapRouteRobot {
 
   Future<void> enterRouteMode() async {
     await tester.tap(createRouteFab);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> openPeakPopup(int peakOsmId) async {
+    await tester.tap(peakMarkerHitbox(peakOsmId));
     await tester.pumpAndSettle();
   }
 
