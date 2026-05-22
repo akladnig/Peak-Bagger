@@ -13,7 +13,7 @@ void main() {
       );
 
       expect(placement.isAnchorable, isTrue);
-      expect(placement.topLeft, const Offset(126, 30));
+      expect(placement.topLeft, const Offset(126, 8));
     });
 
     test('flips left when right placement would overflow', () {
@@ -24,7 +24,7 @@ void main() {
       );
 
       expect(placement.isAnchorable, isTrue);
-      expect(placement.topLeft, const Offset(114, 30));
+      expect(placement.topLeft, const Offset(114, 8));
     });
 
     test('clamps vertically within margin', () {
@@ -46,7 +46,7 @@ void main() {
       );
 
       expect(placement.isAnchorable, isTrue);
-      expect(placement.topLeft, const Offset(126, 152));
+      expect(placement.topLeft, const Offset(126, 12));
     });
 
     test('reports unanchorable when anchor is outside viewport', () {

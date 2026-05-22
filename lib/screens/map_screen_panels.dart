@@ -794,18 +794,17 @@ class PeakInfoPopupCard extends StatelessWidget {
   const PeakInfoPopupCard({
     required this.content,
     required this.onClose,
+    this.onDropMarker,
     super.key,
   });
 
   final PeakInfoContent content;
   final VoidCallback onClose;
+  final VoidCallback? onDropMarker;
 
   @override
   Widget build(BuildContext context) {
     final peak = content.peak;
-    final elevationText = peak.elevation == null
-        ? '—'
-        : '${peak.elevation!.toStringAsFixed(0)}m';
     final altName = peak.altName.trim();
     final listNames = content.listNames
         .map((name) => name.trim())
@@ -825,67 +824,148 @@ class PeakInfoPopupCard extends StatelessWidget {
         ? mgrsParts.join(' ')
         : null;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.terrain, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    peak.name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
+    return SizedBox(
+      height: UiConstants.peakInfoPopupSize.height,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.terrain, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      peak.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
+                  if (onDropMarker != null) ...[
+                    IconButton(
+                      key: const Key('peak-info-popup-drop-marker'),
+                      tooltip: 'Drop a Marker on the Peak',
+                      icon: const Icon(
+                        Icons.my_location,
+                        color: Colors.amber,
+                        size: 16,
+                      ),
+                      onPressed: onDropMarker,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  IconButton(
+                    key: const Key('peak-info-popup-close'),
+                    tooltip: 'Close Peak Info',
+                    icon: const Icon(Icons.close, size: 16),
+                    onPressed: onClose,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (altName.isNotEmpty) ...[
+                        _PeakInfoLabeledValueRow(
+                          label: 'Alt Name:',
+                          value: altName,
+                        ),
+                        const SizedBox(height: 4),
+                      ],
+                      _PeakInfoLabeledValueRow(
+                        label: 'Height:',
+                        value: peak.elevation == null
+                            ? '—'
+                            : '${formatElevationMetres(peak.elevation!.round())}m',
+                      ),
+                      if (content.ascentRows.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            'My Ascents:',
+                            style: TextStyle(fontSize: 13),
+                          ),
+                        ),
+                        for (final ascent in content.ascentRows)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 12, bottom: 4),
+                            child: Text(
+                              '${ascent.trackLabel} (${ascent.dateText})',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                      ],
+                      if (content.ascentRows.isNotEmpty) const SizedBox(height: 4),
+                      _PeakInfoLabeledValueRow(
+                        label: 'Map:',
+                        value: content.mapName,
+                      ),
+                      if (mgrsText != null) ...[
+                        const SizedBox(height: 4),
+                        _PeakInfoLabeledValueRow(
+                          label: 'MGRS:',
+                          value: mgrsText,
+                          monospaceValue: true,
+                        ),
+                      ],
+                      if (listNames.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        _PeakInfoLabeledValueRow(
+                          label: '$listLabel:',
+                          value: listNames.join(', '),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-                const SizedBox(width: 8),
-                IconButton(
-                  key: const Key('peak-info-popup-close'),
-                  icon: const Icon(Icons.close, size: 16),
-                  onPressed: onClose,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (altName.isNotEmpty) ...[
-              Text('Alt Name: $altName', style: const TextStyle(fontSize: 13)),
-              const SizedBox(height: 4),
-            ],
-            Text(
-              'Height: $elevationText',
-              style: const TextStyle(fontSize: 13),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Map: ${content.mapName}',
-              style: const TextStyle(fontSize: 13),
-            ),
-            if (mgrsText != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                'MGRS: $mgrsText',
-                style: TextStyle(fontSize: 13, fontFamily: 'monospace'),
               ),
             ],
-            if (listNames.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                '$listLabel: ${listNames.join(', ')}',
-                style: const TextStyle(fontSize: 13),
-              ),
-            ],
-          ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _PeakInfoLabeledValueRow extends StatelessWidget {
+  const _PeakInfoLabeledValueRow({
+    required this.label,
+    required this.value,
+    this.monospaceValue = false,
+  });
+
+  final String label;
+  final String value;
+  final bool monospaceValue;
+
+  @override
+  Widget build(BuildContext context) {
+    final baseStyle = Theme.of(context).textTheme.bodySmall;
+    final valueStyle = baseStyle?.copyWith(
+      fontWeight: FontWeight.bold,
+      fontFamily: monospaceValue ? 'monospace' : null,
+    );
+    return Text.rich(
+      TextSpan(
+        style: baseStyle,
+        children: [
+          TextSpan(text: label),
+          TextSpan(text: ' '),
+          TextSpan(text: value, style: valueStyle),
+        ],
       ),
     );
   }

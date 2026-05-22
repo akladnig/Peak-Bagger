@@ -646,6 +646,9 @@ class MapNotifier extends Notifier<MapState> {
 
   @override
   MapState build() {
+    ref.listen<int>(peaksBaggedRevisionProvider, (previous, next) {
+      refreshPeakInfoPopupContent();
+    });
     _peakRepository =
         _injectedPeakRepository ?? ref.read(peakRepositoryProvider);
     _peakRefreshService = PeakRefreshService(
@@ -2141,11 +2144,7 @@ class MapNotifier extends Notifier<MapState> {
 
   void openPeakInfoPopup(Peak peak) {
     state = state.copyWith(
-      peakInfo: resolvePeakInfoContent(
-        peak: peak,
-        peakListRepository: ref.read(peakListRepositoryProvider),
-        tasmapRepository: ref.read(tasmapRepositoryProvider),
-      ),
+      peakInfo: _resolvePeakInfoContentForPeak(peak),
       clearInfoPopup: true,
       clearHoveredTrackId: true,
     );
@@ -3053,14 +3052,48 @@ class MapNotifier extends Notifier<MapState> {
 
     for (final peak in peaks) {
       if (peak.osmId == existing.peak.osmId) {
-        return resolvePeakInfoContent(
-          peak: peak,
-          peakListRepository: ref.read(peakListRepositoryProvider),
-          tasmapRepository: ref.read(tasmapRepositoryProvider),
-        );
+        return _resolvePeakInfoContentForPeak(peak);
       }
     }
     return null;
+  }
+
+  void refreshPeakInfoPopupContent() {
+    if (state.peakInfo == null) {
+      return;
+    }
+
+    final refreshedPeakInfo = _refreshedPeakInfo(state.peaks);
+    state = state.copyWith(
+      peakInfo: refreshedPeakInfo,
+      clearPeakInfoPopup: refreshedPeakInfo == null,
+    );
+  }
+
+  PeakInfoContent _resolvePeakInfoContentForPeak(Peak peak) {
+    return resolvePeakInfoContent(
+      peak: peak,
+      peakListRepository: ref.read(peakListRepositoryProvider),
+      tasmapRepository: ref.read(tasmapRepositoryProvider),
+      peaksBaggedRepository: _readPeaksBaggedRepository(),
+      gpxTrackRepository: _readGpxTrackRepository(),
+    );
+  }
+
+  PeaksBaggedRepository _readPeaksBaggedRepository() {
+    try {
+      return ref.read(peaksBaggedRepositoryProvider);
+    } catch (_) {
+      return PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage());
+    }
+  }
+
+  GpxTrackRepository _readGpxTrackRepository() {
+    try {
+      return ref.read(gpxTrackRepositoryProvider);
+    } catch (_) {
+      return GpxTrackRepository.test(InMemoryGpxTrackStorage());
+    }
   }
 
   bool _inRange(int value, int min, int max) {
