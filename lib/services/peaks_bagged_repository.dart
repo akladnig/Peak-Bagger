@@ -229,12 +229,62 @@ class PeaksBaggedRepository {
             baggedId: nextBaggedId++,
             peakId: peakId,
             gpxId: track.gpxTrackId,
-            date: track.trackDate,
+            date: _dateForTrack(track),
           ),
         );
       }
     }
     return rows;
+  }
+
+  static DateTime? _dateForTrack(GpxTrack track) {
+    final startDateTime = track.startDateTime;
+    if (startDateTime == null) {
+      return track.trackDate;
+    }
+
+    final utc = startDateTime.toUtc();
+    final offset = _australiaEasternOffset(utc);
+    final eastern = utc.add(offset);
+    return DateTime.utc(eastern.year, eastern.month, eastern.day);
+  }
+
+  static Duration _australiaEasternOffset(DateTime utc) {
+    if (_isSydneyDaylightSavingTime(utc)) {
+      return const Duration(hours: 11);
+    }
+
+    return const Duration(hours: 10);
+  }
+
+  static bool _isSydneyDaylightSavingTime(DateTime utc) {
+    final year = utc.year;
+    final dstStartThisYear = _dstStartUtc(year);
+    final dstEndThisYear = _dstEndUtc(year);
+
+    if (!utc.isBefore(dstStartThisYear)) {
+      return utc.isBefore(_dstEndUtc(year + 1));
+    }
+
+    return utc.isBefore(dstEndThisYear);
+  }
+
+  static DateTime _dstStartUtc(int year) {
+    final sunday = _firstSundayOfMonth(year, DateTime.october);
+    return DateTime.utc(year, DateTime.october, sunday, 2)
+        .subtract(const Duration(hours: 10));
+  }
+
+  static DateTime _dstEndUtc(int year) {
+    final sunday = _firstSundayOfMonth(year, DateTime.april);
+    return DateTime.utc(year, DateTime.april, sunday, 3)
+        .subtract(const Duration(hours: 11));
+  }
+
+  static int _firstSundayOfMonth(int year, int month) {
+    final firstDay = DateTime.utc(year, month, 1);
+    final daysUntilSunday = (DateTime.sunday - firstDay.weekday) % 7;
+    return 1 + daysUntilSunday;
   }
 
   static Map<int, DateTime?> _computeLatestAscentDatesByPeakId(

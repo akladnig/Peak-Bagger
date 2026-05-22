@@ -17,7 +17,7 @@ void main() {
                 gpxTrackId: 7,
                 contentHash: 'a',
                 trackName: 'Track 1',
-                trackDate: DateTime.utc(2024, 1, 15),
+                startDateTime: DateTime.utc(2024, 7, 15, 14, 0),
               )
               ..peaks.addAll([
                 Peak(osmId: 22, name: 'Peak B', latitude: -42, longitude: 146),
@@ -30,7 +30,7 @@ void main() {
                 gpxTrackId: 8,
                 contentHash: 'b',
                 trackName: 'Track 2',
-                trackDate: DateTime.utc(2024, 1, 16),
+                startDateTime: DateTime.utc(2024, 1, 15, 13, 0),
               )
               ..peaks.add(
                 Peak(osmId: 11, name: 'Peak A', latitude: -42, longitude: 146),
@@ -43,13 +43,27 @@ void main() {
               .map((row) => (row.baggedId, row.gpxId, row.peakId, row.date))
               .toList(),
           [
-            (1, 7, 11, DateTime.utc(2024, 1, 15)),
-            (2, 7, 22, DateTime.utc(2024, 1, 15)),
+            (1, 7, 11, DateTime.utc(2024, 7, 16)),
+            (2, 7, 22, DateTime.utc(2024, 7, 16)),
             (3, 8, 11, DateTime.utc(2024, 1, 16)),
           ],
         );
       },
     );
+
+    test('deriveRows falls back to trackDate when startDateTime is null', () {
+      final track =
+          GpxTrack(gpxTrackId: 9, contentHash: 'hash', trackName: 'Track')
+            ..trackDate = DateTime.utc(2024, 1, 15)
+            ..peaks.add(
+              Peak(osmId: 33, name: 'Valid Peak', latitude: -42, longitude: 146),
+            );
+
+      final rows = PeaksBaggedRepository.deriveRows([track]);
+
+      expect(rows, hasLength(1));
+      expect(rows.single.date, DateTime.utc(2024, 1, 15));
+    });
 
     test('deriveRows stores null dates and skips invalid ids', () {
       final track =
