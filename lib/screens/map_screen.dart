@@ -869,7 +869,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
           trackCount: state.tracks.length,
           peakInfo: state.peakInfo,
           isRouteDrafting: state.isRouteDrafting,
-          routeDraftMarkers: state.routeDraftMarkers,
+          routeDraftDisplayMarkers: state.routeDraftDisplayMarkers,
           routeDraftCommittedPoints: state.routeDraftCommittedPoints,
           routeDraftProvisionalPoints: state.routeDraftProvisionalPoints,
           routeDraftMode: state.routeDraftMode,
@@ -1328,15 +1328,15 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                             colour: routeChrome.routeDraftColour,
                                           ),
                                         if (routeChrome.isRouteDrafting &&
-                                            routeChrome.routeDraftMarkers
+                                            routeChrome.routeDraftDisplayMarkers
                                                 .isNotEmpty)
                                           MarkerLayer(
                                             key: const Key(
                                               'route-draft-marker-layer',
                                             ),
                                             markers: buildRouteDraftMarkers(
-                                              points:
-                                                  routeChrome.routeDraftMarkers,
+                                              markers:
+                                                  routeChrome.routeDraftDisplayMarkers,
                                               colour:
                                                   routeChrome.routeDraftColour,
                                             ),

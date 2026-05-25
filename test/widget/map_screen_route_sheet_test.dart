@@ -102,7 +102,7 @@ void main() {
     );
     expect(
       snapToTrailButton.style?.backgroundColor?.resolve({}),
-      Colors.purple,
+      Colors.green,
     );
   });
 
@@ -142,7 +142,7 @@ void main() {
     );
     expect(
       snapToTrailButton.style?.backgroundColor?.resolve({}),
-      Colors.purple,
+      Colors.green,
     );
 
     final routeToPeakButton = tester.widget<FilledButton>(
@@ -173,7 +173,7 @@ void main() {
     );
     expect(
       selectedRouteToPeakButton.style?.backgroundColor?.resolve({}),
-      Colors.purple,
+      Colors.green,
     );
 
     expect(
@@ -240,7 +240,64 @@ void main() {
     );
     expect(
       snapToTrailButton.style?.backgroundColor?.resolve({}),
-      Colors.purple,
+      Colors.green,
+    );
+  });
+
+  testWidgets('route mode buttons are disabled while routing a segment', (
+    tester,
+  ) async {
+    final routePlanner = _CompletingRoutePlanner();
+    final tasmapRepository = await TestTasmapRepository.create();
+    final notifier = MapNotifier(
+      peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+      overpassService: OverpassService(),
+      tasmapRepository: tasmapRepository,
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+      routeRepository: RouteRepository.test(InMemoryRouteStorage()),
+      routeElevationSampler: const _ImmediateRouteElevationSampler(
+        RouteElevationSummary(
+          requestId: 0,
+          geometryVersion: 0,
+          ascent: 0,
+          descent: 0,
+          distance3d: 0,
+        ),
+      ),
+      routePlanner: routePlanner,
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage(),
+      ),
+      loadPositionOnBuild: false,
+      loadPeaksOnBuild: false,
+      loadTracksOnBuild: false,
+    );
+    await _pumpMap(
+      tester,
+      notifier,
+      tasmapRepository: tasmapRepository,
+    );
+
+    await tester.tap(find.byKey(const Key('create-route-fab')));
+    await tester.pumpAndSettle();
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region) + const Offset(-40, 0));
+    await tester.pumpAndSettle();
+    await tester.tapAt(tester.getCenter(region) + const Offset(40, 0));
+    await tester.pump();
+
+    FilledButton button(Finder keyFinder) => tester.widget<FilledButton>(
+      find.descendant(of: keyFinder, matching: find.byType(FilledButton)),
+    );
+
+    expect(
+      button(find.byKey(const Key('route-mode-snap-to-trail'))).onPressed,
+      isNull,
+    );
+    expect(
+      button(find.byKey(const Key('route-mode-straight-line'))).onPressed,
+      isNull,
     );
   });
 
@@ -464,8 +521,19 @@ void main() {
     await tester.pump();
     await tester.pump();
 
+    final routedDistance =
+        const Distance().as(
+          LengthUnit.Meter,
+          const LatLng(-41.5, 146.5),
+          const LatLng(-41.55, 146.55),
+        ) +
+        const Distance().as(
+          LengthUnit.Meter,
+          const LatLng(-41.55, 146.55),
+          const LatLng(-41.6, 146.6),
+        );
     expect(find.byKey(const Key('route-distance-text')), findsOneWidget);
-    expect(find.text('1.2 km'), findsOneWidget);
+    expect(find.text('13.9 km'), findsOneWidget);
     expect(find.text('Ascent'), findsOneWidget);
     expect(find.text('432 m'), findsOneWidget);
     expect(find.text('Descent'), findsOneWidget);
@@ -484,7 +552,7 @@ void main() {
     expect(savedRoutes.single.name, 'Ridge Loop');
     expect(savedRoutes.single.colour, 0xFFFF0000);
     expect(savedRoutes.single.gpxRoute, hasLength(3));
-    expect(savedRoutes.single.distance2d, 1234.5);
+    expect(savedRoutes.single.distance2d, closeTo(routedDistance, 0.001));
     expect(savedRoutes.single.displayRoutePointsByZoom, isNot('{}'));
     expect(_container(tester).read(mapProvider).showRoutes, isTrue);
   });
@@ -571,7 +639,32 @@ void main() {
           descent: 75,
         ),
       ),
-      routePlanner: const _FailingRoutePlanner('No path found.'),
+      routePlanner: _QueuedRoutePlanner(
+        [
+          RoutePlanningResult(
+            status: RoutePlanningStatus.routed,
+            points: const [
+              LatLng(-41.5, 146.5),
+              LatLng(-41.55, 146.55),
+              LatLng(-41.6, 146.6),
+            ],
+            distanceMeters: 1234.5,
+            startAnchor: null,
+            endAnchor: null,
+          ),
+          RoutePlanningResult(
+            status: RoutePlanningStatus.noPath,
+            points: const [],
+            distanceMeters: 0,
+            startAnchor: null,
+            endAnchor: const RouteEndpointAnchor(
+              point: LatLng(-41.7, 146.7),
+              type: RouteEndpointAnchorType.node,
+              nodeId: 3,
+            ),
+          ),
+        ],
+      ),
       peaksBaggedRepository: PeaksBaggedRepository.test(
         InMemoryPeaksBaggedStorage(),
       ),
@@ -767,6 +860,37 @@ class _CompletingRoutePlanner implements RoutePlanner {
   final _completer = Completer<PlannedRouteSegment>();
 
   @override
+  Future<RoutePlanningResult> planSegmentResult({
+    required LatLng start,
+    required LatLng end,
+  }) async {
+    try {
+      final segment = await planSegment(start: start, end: end);
+      return RoutePlanningResult(
+        status: RoutePlanningStatus.routed,
+        points: segment.points,
+        distanceMeters: segment.distanceMeters,
+        startAnchor: null,
+        endAnchor: null,
+      );
+    } catch (error) {
+      return RoutePlanningResult(
+        status: RoutePlanningStatus.failed,
+        points: const [],
+        distanceMeters: 0,
+        startAnchor: null,
+        endAnchor: null,
+        errorMessage: '$error',
+      );
+    }
+  }
+
+  @override
+  Future<RouteEndpointProbeResult> probeEndpoint({required LatLng point}) async {
+    return const RouteEndpointProbeResult(isOnTrack: false);
+  }
+
+  @override
   Future<PlannedRouteSegment> planSegment({
     required LatLng start,
     required LatLng end,
@@ -787,6 +911,25 @@ class _ImmediateRoutePlanner implements RoutePlanner {
   final PlannedRouteSegment segment;
 
   @override
+  Future<RoutePlanningResult> planSegmentResult({
+    required LatLng start,
+    required LatLng end,
+  }) async {
+    return RoutePlanningResult(
+      status: RoutePlanningStatus.routed,
+      points: segment.points,
+      distanceMeters: segment.distanceMeters,
+      startAnchor: null,
+      endAnchor: null,
+    );
+  }
+
+  @override
+  Future<RouteEndpointProbeResult> probeEndpoint({required LatLng point}) async {
+    return const RouteEndpointProbeResult(isOnTrack: false);
+  }
+
+  @override
   Future<PlannedRouteSegment> planSegment({
     required LatLng start,
     required LatLng end,
@@ -795,17 +938,40 @@ class _ImmediateRoutePlanner implements RoutePlanner {
   }
 }
 
-class _FailingRoutePlanner implements RoutePlanner {
-  const _FailingRoutePlanner(this.message);
+class _QueuedRoutePlanner implements RoutePlanner {
+  _QueuedRoutePlanner(this._results);
 
-  final String message;
+  final List<RoutePlanningResult> _results;
+  var _index = 0;
+
+  @override
+  Future<RoutePlanningResult> planSegmentResult({
+    required LatLng start,
+    required LatLng end,
+  }) async {
+    return _results[_index++];
+  }
+
+  @override
+  Future<RouteEndpointProbeResult> probeEndpoint({required LatLng point}) async {
+    return const RouteEndpointProbeResult(isOnTrack: false);
+  }
 
   @override
   Future<PlannedRouteSegment> planSegment({
     required LatLng start,
     required LatLng end,
   }) async {
-    throw RoutePlanningException(message);
+    final result = await planSegmentResult(start: start, end: end);
+    if (result.status != RoutePlanningStatus.routed) {
+      throw RoutePlanningException(
+        result.errorMessage ?? 'Routing returned no usable segment.',
+      );
+    }
+    return PlannedRouteSegment(
+      points: result.points,
+      distanceMeters: result.distanceMeters,
+    );
   }
 }
 

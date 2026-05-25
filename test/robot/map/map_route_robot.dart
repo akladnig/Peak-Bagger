@@ -149,21 +149,76 @@ class _QueueRoutePlanner implements RoutePlanner {
   var _index = 0;
 
   @override
-  Future<PlannedRouteSegment> planSegment({
+  Future<RoutePlanningResult> planSegmentResult({
     required LatLng start,
     required LatLng end,
   }) async {
     final outcome = _outcomes[_index++];
-    if (outcome is PlannedRouteSegment) {
+    if (outcome is RoutePlanningResult) {
       return outcome;
     }
+    if (outcome is PlannedRouteSegment) {
+      return RoutePlanningResult(
+        status: RoutePlanningStatus.routed,
+        points: outcome.points,
+        distanceMeters: outcome.distanceMeters,
+        startAnchor: null,
+        endAnchor: null,
+      );
+    }
     if (outcome is RoutePlanningException) {
-      throw outcome;
+      return RoutePlanningResult(
+        status: RoutePlanningStatus.failed,
+        points: const [],
+        distanceMeters: 0,
+        startAnchor: null,
+        endAnchor: null,
+        errorMessage: outcome.message,
+      );
     }
     if (outcome is String) {
-      throw RoutePlanningException(outcome);
+      return RoutePlanningResult(
+        status: RoutePlanningStatus.failed,
+        points: const [],
+        distanceMeters: 0,
+        startAnchor: null,
+        endAnchor: null,
+        errorMessage: outcome,
+      );
     }
-    throw const RoutePlanningException('Unexpected queued route outcome.');
+    return const RoutePlanningResult(
+      status: RoutePlanningStatus.failed,
+      points: [],
+      distanceMeters: 0,
+      startAnchor: null,
+      endAnchor: null,
+      errorMessage: 'Unexpected queued route outcome.',
+    );
+  }
+
+  @override
+  Future<RouteEndpointProbeResult> probeEndpoint({required LatLng point}) async {
+    if (_index < _outcomes.length && _outcomes[_index] is RouteEndpointProbeResult) {
+      return _outcomes[_index++] as RouteEndpointProbeResult;
+    }
+    return const RouteEndpointProbeResult(isOnTrack: false);
+  }
+
+  @override
+  Future<PlannedRouteSegment> planSegment({
+    required LatLng start,
+    required LatLng end,
+  }) async {
+    final result = await planSegmentResult(start: start, end: end);
+    if (result.status != RoutePlanningStatus.routed) {
+      throw RoutePlanningException(
+        result.errorMessage ?? 'Unexpected queued route outcome.',
+      );
+    }
+    return PlannedRouteSegment(
+      points: result.points,
+      distanceMeters: result.distanceMeters,
+    );
   }
 }
 

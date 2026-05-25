@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
+import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/services/route_graph_store.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
@@ -17,6 +18,56 @@ class PlannedRouteSegment {
   final double distanceMeters;
 }
 
+enum RouteEndpointAnchorType { raw, node, edgeProjection }
+
+class RouteEndpointAnchor {
+  const RouteEndpointAnchor({
+    required this.point,
+    required this.type,
+    this.nodeId,
+    this.originalSegmentId,
+  });
+
+  final LatLng point;
+  final RouteEndpointAnchorType type;
+  final int? nodeId;
+  final String? originalSegmentId;
+}
+
+enum RoutePlanningStatus { routed, offTrack, noPath, failed }
+
+class RoutePlanningResult {
+  const RoutePlanningResult({
+    required this.status,
+    required this.points,
+    required this.distanceMeters,
+    required this.startAnchor,
+    required this.endAnchor,
+    this.errorMessage,
+  });
+
+  final RoutePlanningStatus status;
+  final List<LatLng> points;
+  final double distanceMeters;
+  final RouteEndpointAnchor? startAnchor;
+  final RouteEndpointAnchor? endAnchor;
+  final String? errorMessage;
+
+  bool get isRouted => status == RoutePlanningStatus.routed;
+}
+
+class RouteEndpointProbeResult {
+  const RouteEndpointProbeResult({
+    required this.isOnTrack,
+    this.anchor,
+    this.errorMessage,
+  });
+
+  final bool isOnTrack;
+  final RouteEndpointAnchor? anchor;
+  final String? errorMessage;
+}
+
 class RoutePlanningException implements Exception {
   const RoutePlanningException(this.message);
 
@@ -27,6 +78,15 @@ class RoutePlanningException implements Exception {
 }
 
 abstract class RoutePlanner {
+  Future<RoutePlanningResult> planSegmentResult({
+    required LatLng start,
+    required LatLng end,
+  });
+
+  Future<RouteEndpointProbeResult> probeEndpoint({
+    required LatLng point,
+  });
+
   Future<PlannedRouteSegment> planSegment({
     required LatLng start,
     required LatLng end,
@@ -34,12 +94,15 @@ abstract class RoutePlanner {
 }
 
 abstract class TripRoutingClient {
-  Future<trip_routing.Trip> findTotalTrip(
-    List<LatLng> waypoints, {
-    bool preferWalkingPaths = true,
-    bool replaceWaypointsWithBuildingEntrances = false,
-    bool forceIncludeWaypoints = false,
-    double duplicationPenalty = 0.0,
+  Future<trip_routing.AnchoredSegmentResult> findAnchoredSegment({
+    required LatLng start,
+    required LatLng end,
+    required double maxSnapDistanceMeters,
+  });
+
+  Future<trip_routing.EndpointProbeResult> probeEndpointAnchor({
+    required LatLng point,
+    required double maxSnapDistanceMeters,
   });
 }
 
@@ -67,20 +130,26 @@ class TripRoutingServiceClient implements TripRoutingClient {
   final trip_routing.TripService _tripService;
 
   @override
-  Future<trip_routing.Trip> findTotalTrip(
-    List<LatLng> waypoints, {
-    bool preferWalkingPaths = true,
-    bool replaceWaypointsWithBuildingEntrances = false,
-    bool forceIncludeWaypoints = false,
-    double duplicationPenalty = 0.0,
+  Future<trip_routing.AnchoredSegmentResult> findAnchoredSegment({
+    required LatLng start,
+    required LatLng end,
+    required double maxSnapDistanceMeters,
   }) {
-    return _tripService.findTotalTrip(
-      waypoints,
-      preferWalkingPaths: preferWalkingPaths,
-      replaceWaypointsWithBuildingEntrances:
-          replaceWaypointsWithBuildingEntrances,
-      forceIncludeWaypoints: forceIncludeWaypoints,
-      duplicationPenalty: duplicationPenalty,
+    return _tripService.findAnchoredSegment(
+      start: start,
+      end: end,
+      maxSnapDistanceMeters: maxSnapDistanceMeters,
+    );
+  }
+
+  @override
+  Future<trip_routing.EndpointProbeResult> probeEndpointAnchor({
+    required LatLng point,
+    required double maxSnapDistanceMeters,
+  }) {
+    return _tripService.probeEndpointAnchor(
+      point: point,
+      maxSnapDistanceMeters: maxSnapDistanceMeters,
     );
   }
 }
@@ -92,21 +161,28 @@ class LocalFileTripRoutingClient implements TripRoutingClient {
   final RouteGraphStore _routeGraphStore;
 
   @override
-  Future<trip_routing.Trip> findTotalTrip(
-    List<LatLng> waypoints, {
-    bool preferWalkingPaths = true,
-    bool replaceWaypointsWithBuildingEntrances = false,
-    bool forceIncludeWaypoints = false,
-    double duplicationPenalty = 0.0,
+  Future<trip_routing.AnchoredSegmentResult> findAnchoredSegment({
+    required LatLng start,
+    required LatLng end,
+    required double maxSnapDistanceMeters,
   }) async {
     final tripService = await _routeGraphStore.preload();
-    return tripService.findTotalTrip(
-      waypoints,
-      preferWalkingPaths: preferWalkingPaths,
-      replaceWaypointsWithBuildingEntrances:
-          replaceWaypointsWithBuildingEntrances,
-      forceIncludeWaypoints: forceIncludeWaypoints,
-      duplicationPenalty: duplicationPenalty,
+    return tripService.findAnchoredSegment(
+      start: start,
+      end: end,
+      maxSnapDistanceMeters: maxSnapDistanceMeters,
+    );
+  }
+
+  @override
+  Future<trip_routing.EndpointProbeResult> probeEndpointAnchor({
+    required LatLng point,
+    required double maxSnapDistanceMeters,
+  }) async {
+    final tripService = await _routeGraphStore.preload();
+    return tripService.probeEndpointAnchor(
+      point: point,
+      maxSnapDistanceMeters: maxSnapDistanceMeters,
     );
   }
 }
@@ -432,30 +508,136 @@ class TripRoutingRoutePlanner implements RoutePlanner {
 
   final TripRoutingClient _client;
 
+  static const _maxSnapDistanceMeters = RouteConstants.maxSnapDistanceMeters;
+
+  RouteEndpointAnchor? _mapAnchor(trip_routing.EndpointAnchor? anchor) {
+    if (anchor == null) {
+      return null;
+    }
+    return RouteEndpointAnchor(
+      point: anchor.point,
+      type: switch (anchor.type) {
+        trip_routing.EndpointAnchorType.raw => RouteEndpointAnchorType.raw,
+        trip_routing.EndpointAnchorType.node => RouteEndpointAnchorType.node,
+        trip_routing.EndpointAnchorType.edgeProjection =>
+          RouteEndpointAnchorType.edgeProjection,
+      },
+      nodeId: anchor.nodeId,
+      originalSegmentId: anchor.originalSegmentId,
+    );
+  }
+
+  RoutePlanningResult _mapSegmentResult(
+    trip_routing.AnchoredSegmentResult result,
+  ) {
+    final startAnchor = _mapAnchor(result.startAnchor);
+    final endAnchor = _mapAnchor(result.endAnchor);
+    return switch (result.status) {
+      trip_routing.AnchoredSegmentStatus.routed =>
+        result.route.length < 2 ||
+                !result.distance.isFinite ||
+                result.distance <= 0
+            ? RoutePlanningResult(
+                status: RoutePlanningStatus.failed,
+                points: const [],
+                distanceMeters: 0,
+                startAnchor: startAnchor,
+                endAnchor: endAnchor,
+                errorMessage: 'Routing returned no usable segment.',
+              )
+            : RoutePlanningResult(
+                status: RoutePlanningStatus.routed,
+                points: List<LatLng>.unmodifiable(result.route),
+                distanceMeters: result.distance,
+                startAnchor: startAnchor,
+                endAnchor: endAnchor,
+              ),
+      trip_routing.AnchoredSegmentStatus.offTrack => RoutePlanningResult(
+          status: RoutePlanningStatus.offTrack,
+          points: const [],
+          distanceMeters: 0,
+          startAnchor: startAnchor,
+          endAnchor: endAnchor,
+        ),
+      trip_routing.AnchoredSegmentStatus.noPath => RoutePlanningResult(
+          status: RoutePlanningStatus.noPath,
+          points: const [],
+          distanceMeters: 0,
+          startAnchor: startAnchor,
+          endAnchor: endAnchor,
+        ),
+      trip_routing.AnchoredSegmentStatus.failed => RoutePlanningResult(
+          status: RoutePlanningStatus.failed,
+          points: const [],
+          distanceMeters: 0,
+          startAnchor: startAnchor,
+          endAnchor: endAnchor,
+          errorMessage: result.errors.join('\n'),
+        ),
+    };
+  }
+
+  @override
+  Future<RoutePlanningResult> planSegmentResult({
+    required LatLng start,
+    required LatLng end,
+  }) async {
+    try {
+      final result = await _client.findAnchoredSegment(
+        start: start,
+        end: end,
+        maxSnapDistanceMeters: _maxSnapDistanceMeters,
+      );
+      return _mapSegmentResult(result);
+    } catch (error) {
+      return RoutePlanningResult(
+        status: RoutePlanningStatus.failed,
+        points: const [],
+        distanceMeters: 0,
+        startAnchor: null,
+        endAnchor: null,
+        errorMessage: '$error',
+      );
+    }
+  }
+
+  @override
+  Future<RouteEndpointProbeResult> probeEndpoint({required LatLng point}) async {
+    try {
+      final result = await _client.probeEndpointAnchor(
+        point: point,
+        maxSnapDistanceMeters: _maxSnapDistanceMeters,
+      );
+      return RouteEndpointProbeResult(
+        isOnTrack: result.isOnTrack,
+        anchor: _mapAnchor(result.anchor),
+        errorMessage: result.errors.isEmpty ? null : result.errors.join('\n'),
+      );
+    } catch (error) {
+      return RouteEndpointProbeResult(
+        isOnTrack: false,
+        errorMessage: '$error',
+      );
+    }
+  }
+
   @override
   Future<PlannedRouteSegment> planSegment({
     required LatLng start,
     required LatLng end,
   }) async {
-    final trip = await _client.findTotalTrip(
-      [start, end],
-      preferWalkingPaths: true,
-    );
-    if (trip.errors.isNotEmpty) {
-      throw RoutePlanningException(trip.errors.join('\n'));
-    }
-    if (trip.route.length < 2) {
-      throw const RoutePlanningException('Routing returned no usable segment.');
-    }
-    if (!trip.distance.isFinite || trip.distance <= 0) {
-      throw const RoutePlanningException('Routing returned an invalid distance.');
+    final result = await planSegmentResult(start: start, end: end);
+    if (result.status != RoutePlanningStatus.routed) {
+      throw RoutePlanningException(
+        result.errorMessage ?? 'Routing returned no usable segment.',
+      );
     }
 
     final segment = _attachEndpoints(
       start: start,
       end: end,
-      route: trip.route,
-      distanceMeters: trip.distance,
+      route: result.points,
+      distanceMeters: result.distanceMeters,
     );
     return segment;
 

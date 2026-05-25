@@ -815,6 +815,25 @@ class _ImmediateRoutePlanner implements RoutePlanner {
   final PlannedRouteSegment segment;
 
   @override
+  Future<RoutePlanningResult> planSegmentResult({
+    required LatLng start,
+    required LatLng end,
+  }) async {
+    return RoutePlanningResult(
+      status: RoutePlanningStatus.routed,
+      points: segment.points,
+      distanceMeters: segment.distanceMeters,
+      startAnchor: null,
+      endAnchor: null,
+    );
+  }
+
+  @override
+  Future<RouteEndpointProbeResult> probeEndpoint({required LatLng point}) async {
+    return const RouteEndpointProbeResult(isOnTrack: false);
+  }
+
+  @override
   Future<PlannedRouteSegment> planSegment({
     required LatLng start,
     required LatLng end,

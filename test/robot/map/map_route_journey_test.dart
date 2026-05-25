@@ -198,7 +198,17 @@ void main() {
           ],
           distanceMeters: 1000,
         ),
-        RoutePlanningException('No path found.'),
+        RoutePlanningResult(
+          status: RoutePlanningStatus.noPath,
+          points: [],
+          distanceMeters: 0,
+          startAnchor: null,
+          endAnchor: RouteEndpointAnchor(
+            point: LatLng(-41.7, 146.7),
+            type: RouteEndpointAnchorType.node,
+            nodeId: 3,
+          ),
+        ),
       ],
     );
 
@@ -271,6 +281,84 @@ void main() {
     expect(robot.savedRoutes().single.ascent, 0);
     expect(robot.savedRoutes().single.descent, 0);
     expect(robot.savedRoutes().single.distance3d, 0);
+  });
+
+  testWidgets('route journey resumes snapped routing after a rejoin probe', (
+    tester,
+  ) async {
+    final robot = MapRouteRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showTracks: true,
+        tracks: [
+          _routeTrack([
+            const LatLng(-41.5, 146.498283),
+            const LatLng(-41.5, 146.501717),
+          ]),
+        ],
+      ),
+      routePlanningOutcomes: const [
+        PlannedRouteSegment(
+          points: [
+            LatLng(-41.5, 146.5),
+            LatLng(-41.55, 146.55),
+            LatLng(-41.6, 146.6),
+          ],
+          distanceMeters: 1000,
+        ),
+        RoutePlanningResult(
+          status: RoutePlanningStatus.noPath,
+          points: [],
+          distanceMeters: 0,
+          startAnchor: null,
+          endAnchor: RouteEndpointAnchor(
+            point: LatLng(-41.7, 146.7),
+            type: RouteEndpointAnchorType.node,
+            nodeId: 3,
+          ),
+        ),
+        RouteEndpointProbeResult(
+          isOnTrack: true,
+          anchor: RouteEndpointAnchor(
+            point: LatLng(-41.8, 146.8),
+            type: RouteEndpointAnchorType.node,
+            nodeId: 4,
+          ),
+        ),
+        PlannedRouteSegment(
+          points: [
+            LatLng(-41.8, 146.8),
+            LatLng(-41.85, 146.85),
+            LatLng(-41.9, 146.9),
+          ],
+          distanceMeters: 1400,
+        ),
+      ],
+    );
+
+    await robot.pumpApp();
+    await robot.openMap();
+    await robot.enterRouteMode();
+
+    await robot.tapRoutePoint(const Offset(-40, 0));
+    await robot.tapRoutePoint(const Offset(40, 0));
+    await robot.tapRoutePoint(const Offset(80, 0));
+    await robot.tapRoutePoint(const Offset(120, 0));
+    await robot.tapRoutePoint(const Offset(160, 0));
+
+    expect(robot.routeDistanceText, findsOneWidget);
+    expect(robot.container().read(mapProvider).routeDraftMarkers, hasLength(5));
+
+    await robot.enterRouteName('Rejoin Route');
+    await robot.saveRoute();
+
+    expect(robot.routeBottomSheet, findsNothing);
+    expect(robot.savedRoutes(), hasLength(1));
+    expect(robot.savedRoutes().single.gpxRoute.length, greaterThan(6));
+    expect(robot.container().read(mapProvider).showRoutes, isTrue);
   });
 }
 
