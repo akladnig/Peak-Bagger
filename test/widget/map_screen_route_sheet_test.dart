@@ -464,8 +464,19 @@ void main() {
     await tester.pump();
     await tester.pump();
 
+    final routedDistance =
+        const Distance().as(
+          LengthUnit.Meter,
+          const LatLng(-41.5, 146.5),
+          const LatLng(-41.55, 146.55),
+        ) +
+        const Distance().as(
+          LengthUnit.Meter,
+          const LatLng(-41.55, 146.55),
+          const LatLng(-41.6, 146.6),
+        );
     expect(find.byKey(const Key('route-distance-text')), findsOneWidget);
-    expect(find.text('1.2 km'), findsOneWidget);
+    expect(find.text('13.9 km'), findsOneWidget);
     expect(find.text('Ascent'), findsOneWidget);
     expect(find.text('432 m'), findsOneWidget);
     expect(find.text('Descent'), findsOneWidget);
@@ -484,7 +495,7 @@ void main() {
     expect(savedRoutes.single.name, 'Ridge Loop');
     expect(savedRoutes.single.colour, 0xFFFF0000);
     expect(savedRoutes.single.gpxRoute, hasLength(3));
-    expect(savedRoutes.single.distance2d, 1234.5);
+    expect(savedRoutes.single.distance2d, closeTo(routedDistance, 0.001));
     expect(savedRoutes.single.displayRoutePointsByZoom, isNot('{}'));
     expect(_container(tester).read(mapProvider).showRoutes, isTrue);
   });
@@ -571,7 +582,32 @@ void main() {
           descent: 75,
         ),
       ),
-      routePlanner: const _FailingRoutePlanner('No path found.'),
+      routePlanner: _QueuedRoutePlanner(
+        [
+          RoutePlanningResult(
+            status: RoutePlanningStatus.routed,
+            points: const [
+              LatLng(-41.5, 146.5),
+              LatLng(-41.55, 146.55),
+              LatLng(-41.6, 146.6),
+            ],
+            distanceMeters: 1234.5,
+            startAnchor: null,
+            endAnchor: null,
+          ),
+          RoutePlanningResult(
+            status: RoutePlanningStatus.noPath,
+            points: const [],
+            distanceMeters: 0,
+            startAnchor: null,
+            endAnchor: const RouteEndpointAnchor(
+              point: LatLng(-41.7, 146.7),
+              type: RouteEndpointAnchorType.node,
+              nodeId: 3,
+            ),
+          ),
+        ],
+      ),
       peaksBaggedRepository: PeaksBaggedRepository.test(
         InMemoryPeaksBaggedStorage(),
       ),
@@ -845,24 +881,18 @@ class _ImmediateRoutePlanner implements RoutePlanner {
   }
 }
 
-class _FailingRoutePlanner implements RoutePlanner {
-  const _FailingRoutePlanner(this.message);
+class _QueuedRoutePlanner implements RoutePlanner {
+  _QueuedRoutePlanner(this._results);
 
-  final String message;
+  final List<RoutePlanningResult> _results;
+  var _index = 0;
 
   @override
   Future<RoutePlanningResult> planSegmentResult({
     required LatLng start,
     required LatLng end,
   }) async {
-    return RoutePlanningResult(
-      status: RoutePlanningStatus.failed,
-      points: const [],
-      distanceMeters: 0,
-      startAnchor: null,
-      endAnchor: null,
-      errorMessage: message,
-    );
+    return _results[_index++];
   }
 
   @override
@@ -875,7 +905,16 @@ class _FailingRoutePlanner implements RoutePlanner {
     required LatLng start,
     required LatLng end,
   }) async {
-    throw RoutePlanningException(message);
+    final result = await planSegmentResult(start: start, end: end);
+    if (result.status != RoutePlanningStatus.routed) {
+      throw RoutePlanningException(
+        result.errorMessage ?? 'Routing returned no usable segment.',
+      );
+    }
+    return PlannedRouteSegment(
+      points: result.points,
+      distanceMeters: result.distanceMeters,
+    );
   }
 }
 

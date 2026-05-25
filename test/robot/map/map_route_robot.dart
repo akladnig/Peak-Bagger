@@ -153,25 +153,47 @@ class _QueueRoutePlanner implements RoutePlanner {
     required LatLng start,
     required LatLng end,
   }) async {
-    try {
-      final segment = await planSegment(start: start, end: end);
+    final outcome = _outcomes[_index++];
+    if (outcome is RoutePlanningResult) {
+      return outcome;
+    }
+    if (outcome is PlannedRouteSegment) {
       return RoutePlanningResult(
         status: RoutePlanningStatus.routed,
-        points: segment.points,
-        distanceMeters: segment.distanceMeters,
+        points: outcome.points,
+        distanceMeters: outcome.distanceMeters,
         startAnchor: null,
         endAnchor: null,
       );
-    } catch (error) {
+    }
+    if (outcome is RoutePlanningException) {
       return RoutePlanningResult(
         status: RoutePlanningStatus.failed,
         points: const [],
         distanceMeters: 0,
         startAnchor: null,
         endAnchor: null,
-        errorMessage: '$error',
+        errorMessage: outcome.message,
       );
     }
+    if (outcome is String) {
+      return RoutePlanningResult(
+        status: RoutePlanningStatus.failed,
+        points: const [],
+        distanceMeters: 0,
+        startAnchor: null,
+        endAnchor: null,
+        errorMessage: outcome,
+      );
+    }
+    return const RoutePlanningResult(
+      status: RoutePlanningStatus.failed,
+      points: [],
+      distanceMeters: 0,
+      startAnchor: null,
+      endAnchor: null,
+      errorMessage: 'Unexpected queued route outcome.',
+    );
   }
 
   @override
@@ -184,17 +206,16 @@ class _QueueRoutePlanner implements RoutePlanner {
     required LatLng start,
     required LatLng end,
   }) async {
-    final outcome = _outcomes[_index++];
-    if (outcome is PlannedRouteSegment) {
-      return outcome;
+    final result = await planSegmentResult(start: start, end: end);
+    if (result.status != RoutePlanningStatus.routed) {
+      throw RoutePlanningException(
+        result.errorMessage ?? 'Unexpected queued route outcome.',
+      );
     }
-    if (outcome is RoutePlanningException) {
-      throw outcome;
-    }
-    if (outcome is String) {
-      throw RoutePlanningException(outcome);
-    }
-    throw const RoutePlanningException('Unexpected queued route outcome.');
+    return PlannedRouteSegment(
+      points: result.points,
+      distanceMeters: result.distanceMeters,
+    );
   }
 }
 

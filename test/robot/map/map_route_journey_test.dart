@@ -198,7 +198,17 @@ void main() {
           ],
           distanceMeters: 1000,
         ),
-        RoutePlanningException('No path found.'),
+        RoutePlanningResult(
+          status: RoutePlanningStatus.noPath,
+          points: [],
+          distanceMeters: 0,
+          startAnchor: null,
+          endAnchor: RouteEndpointAnchor(
+            point: LatLng(-41.7, 146.7),
+            type: RouteEndpointAnchorType.node,
+            nodeId: 3,
+          ),
+        ),
       ],
     );
 

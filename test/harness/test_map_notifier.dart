@@ -126,14 +126,41 @@ class TestMapNotifier extends MapNotifier {
       }
 
       final outcome = routePlanningOutcomes[_routePlanningOutcomeIndex++];
-      if (outcome is PlannedRouteSegment) {
+      if (outcome is PlannedRouteSegment ||
+          outcome is RoutePlanningResult && outcome.status == RoutePlanningStatus.routed) {
+        final segment = outcome is PlannedRouteSegment
+            ? outcome
+            : PlannedRouteSegment(
+                points: (outcome as RoutePlanningResult).points,
+                distanceMeters: outcome.distanceMeters,
+              );
         state = state.copyWith(
           routeDraftCommittedPoints: _appendRouteSegment(
             state.routeDraftCommittedPoints,
-            outcome.points,
+            segment.points,
           ),
           routeDraftDistanceMeters:
-              state.routeDraftDistanceMeters + outcome.distanceMeters,
+              state.routeDraftDistanceMeters + segment.distanceMeters,
+          routeDraftProvisionalPoints: const [],
+          routeDraftStage: RouteDraftStage.awaitingNextPoint,
+          routeDraftMode: RouteMode.snapToTrail,
+          clearRouteDraftPeak: true,
+          clearRouteDraftError: true,
+        );
+        return;
+      }
+
+      if (outcome is RoutePlanningResult &&
+          (outcome.status == RoutePlanningStatus.offTrack ||
+              outcome.status == RoutePlanningStatus.noPath)) {
+        state = state.copyWith(
+          routeDraftCommittedPoints: _appendRouteSegment(
+            state.routeDraftCommittedPoints,
+            [point, peakPoint],
+          ),
+          routeDraftDistanceMeters:
+              state.routeDraftDistanceMeters +
+              const Distance().as(LengthUnit.Meter, point, peakPoint),
           routeDraftProvisionalPoints: const [],
           routeDraftStage: RouteDraftStage.awaitingNextPoint,
           routeDraftMode: RouteMode.snapToTrail,
@@ -144,6 +171,8 @@ class TestMapNotifier extends MapNotifier {
       }
 
       final message = switch (outcome) {
+        RoutePlanningResult(:final errorMessage) =>
+          errorMessage ?? 'Failed to calculate route.',
         RoutePlanningException(:final message) => message,
         String() => outcome,
         _ => 'Failed to calculate route.',
@@ -200,14 +229,39 @@ class TestMapNotifier extends MapNotifier {
         );
 
         final outcome = routePlanningOutcomes[_routePlanningOutcomeIndex++];
-        if (outcome is PlannedRouteSegment) {
+        if (outcome is PlannedRouteSegment ||
+            outcome is RoutePlanningResult && outcome.status == RoutePlanningStatus.routed) {
+          final segment = outcome is PlannedRouteSegment
+              ? outcome
+              : PlannedRouteSegment(
+                  points: (outcome as RoutePlanningResult).points,
+                  distanceMeters: outcome.distanceMeters,
+                );
           state = state.copyWith(
             routeDraftCommittedPoints: _appendRouteSegment(
               state.routeDraftCommittedPoints,
-              outcome.points,
+              segment.points,
             ),
             routeDraftDistanceMeters:
-                state.routeDraftDistanceMeters + outcome.distanceMeters,
+                state.routeDraftDistanceMeters + segment.distanceMeters,
+            routeDraftProvisionalPoints: const [],
+            routeDraftStage: RouteDraftStage.awaitingNextPoint,
+            clearRouteDraftError: true,
+          );
+          return;
+        }
+
+        if (outcome is RoutePlanningResult &&
+            (outcome.status == RoutePlanningStatus.offTrack ||
+                outcome.status == RoutePlanningStatus.noPath)) {
+          state = state.copyWith(
+            routeDraftCommittedPoints: _appendRouteSegment(
+              state.routeDraftCommittedPoints,
+              [start, point],
+            ),
+            routeDraftDistanceMeters:
+                state.routeDraftDistanceMeters +
+                const Distance().as(LengthUnit.Meter, start, point),
             routeDraftProvisionalPoints: const [],
             routeDraftStage: RouteDraftStage.awaitingNextPoint,
             clearRouteDraftError: true,
@@ -216,6 +270,8 @@ class TestMapNotifier extends MapNotifier {
         }
 
         final message = switch (outcome) {
+          RoutePlanningResult(:final errorMessage) =>
+            errorMessage ?? 'Failed to calculate route.',
           RoutePlanningException(:final message) => message,
           String() => outcome,
           _ => 'Failed to calculate route.',

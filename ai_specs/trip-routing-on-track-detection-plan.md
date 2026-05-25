@@ -37,13 +37,13 @@ Replace sticky straight-line fallback with off-track probe/rejoin state; keep UI
 ### Phase 3: Route Draft State Slice
 
 - **Goal**: control/display marker split; off-track probe, rejoin, snapped-resume transitions
-- [ ] `lib/providers/map_provider.dart` - replace `routeDraftMarkers` + `routeDraftStraightLineFallback` with explicit control-endpoint, display-marker, and off-track probe state; make `setRouteDraftMode(...)` no-op during `routingSegment`
-- [ ] `lib/providers/map_provider.dart` - use `routeDraftControlEndpoints.last` as sole next-start source; keep provisional raw tap marker/line during in-flight requests; move committed endpoints to anchors on resolution; keep route-to-peak visible endpoint at actual peak
-- [ ] `lib/screens/map_screen.dart` - watch/render new display-marker state; preserve existing provisional polyline behavior
-- [ ] `lib/screens/map_screen_layers.dart` - replace bare `List<LatLng>` marker builder with keyed display-marker model; deterministic order/keys across raw/node/projection markers
-- [ ] `test/providers/route_draft_state_test.dart` - TDD: off-track entry without error, repeated off-track/`noPath`, straight rejoin then clear probe state, snapped resume on following segment, route-to-peak one-shot semantics, failed rollback, next-start sourced only from committed control endpoint
-- [ ] `test/harness/test_map_notifier.dart` - limit route-draft use or delegate fully to production notifier; avoid duplicate state-machine logic
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/providers/map_provider.dart` - replace `routeDraftMarkers` + `routeDraftStraightLineFallback` with explicit control-endpoint, display-marker, and off-track probe state; make `setRouteDraftMode(...)` no-op during `routingSegment`
+- [x] `lib/providers/map_provider.dart` - use `routeDraftControlEndpoints.last` as sole next-start source; keep provisional raw tap marker/line during in-flight requests; move committed endpoints to anchors on resolution; keep route-to-peak visible endpoint at actual peak
+- [x] `lib/screens/map_screen.dart` - watch/render new display-marker state; preserve existing provisional polyline behavior
+- [x] `lib/screens/map_screen_layers.dart` - replace bare `List<LatLng>` marker builder with keyed display-marker model; deterministic order/keys across raw/node/projection markers
+- [x] `test/providers/route_draft_state_test.dart` - TDD: off-track entry without error, repeated off-track/`noPath`, straight rejoin then clear probe state, snapped resume on following segment, route-to-peak one-shot semantics, failed rollback, next-start sourced only from committed control endpoint
+- [x] `test/harness/test_map_notifier.dart` - limit route-draft use or delegate fully to production notifier; avoid duplicate state-machine logic
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 4: Route Mode UI And Journeys
 

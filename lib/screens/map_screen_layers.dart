@@ -203,19 +203,21 @@ PolylineLayer buildDraftRoutePolylines({
 }
 
 List<Marker> buildRouteDraftMarkers({
-  required List<LatLng> points,
+  required List<RouteDraftDisplayMarker> markers,
   required int colour,
 }) {
   return [
-    for (var index = 0; index < points.length; index++)
+    for (final marker in markers)
       Marker(
-        key: Key('route-draft-marker-$index'),
-        point: points[index],
+        key: Key('route-draft-marker-${marker.id}'),
+        point: marker.point,
         width: 24,
         height: 24,
         child: Container(
           decoration: BoxDecoration(
-            color: Color(colour),
+            color: Color(colour).withValues(
+              alpha: marker.isCommitted ? 1.0 : 0.85,
+            ),
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white, width: 2),
           ),
