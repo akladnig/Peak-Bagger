@@ -7,6 +7,33 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
 
+enum _RouteModeVisualState { inactive, active, selected }
+
+_RouteModeVisualState _routeModeVisualState({
+  required RouteMode mode,
+  required RouteMode selectedMode,
+  required RouteDraftStage stage,
+  required bool hasPeakTarget,
+}) {
+  final isSelected = selectedMode == mode;
+  final isRouting = stage == RouteDraftStage.routingSegment;
+  final isAvailable = switch (mode) {
+    RouteMode.routeToPeak => hasPeakTarget,
+    RouteMode.snapToTrail || RouteMode.straightLine => true,
+  };
+
+  if (!isAvailable) {
+    return _RouteModeVisualState.inactive;
+  }
+  if (isSelected) {
+    return _RouteModeVisualState.selected;
+  }
+  if (isRouting || isAvailable) {
+    return _RouteModeVisualState.active;
+  }
+  return _RouteModeVisualState.inactive;
+}
+
 class MapRouteBottomSheet extends ConsumerStatefulWidget {
   const MapRouteBottomSheet({super.key});
 
@@ -131,6 +158,7 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
                             routeDraftName: routeDraftName,
                             routeDraftNameError: routeDraftNameError,
                             routeDraftMode: routeMode,
+                            routeDraftStage: routeDraftStage,
                             routeDraftPeak: routeDraftPeakTarget,
                             routeDraftColour: routeDraftColour,
                             routeNameController: _routeNameController,
@@ -302,6 +330,7 @@ class _RouteEditingGroup extends StatelessWidget {
     required this.routeDraftName,
     required this.routeDraftNameError,
     required this.routeDraftMode,
+    required this.routeDraftStage,
     required this.routeDraftPeak,
     required this.routeDraftColour,
     required this.routeNameController,
@@ -313,6 +342,7 @@ class _RouteEditingGroup extends StatelessWidget {
   final String routeDraftName;
   final String? routeDraftNameError;
   final RouteMode routeDraftMode;
+  final RouteDraftStage routeDraftStage;
   final Peak? routeDraftPeak;
   final int routeDraftColour;
   final TextEditingController routeNameController;
@@ -323,7 +353,10 @@ class _RouteEditingGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final routeModeHighlightColor = Colors.purple;
+    final hasPeakTarget = routeDraftPeak != null;
+    final routeModeSelectedColor = Colors.green;
+    final routeModeActiveColor = Colors.purple;
+    final isRouting = routeDraftStage == RouteDraftStage.routingSegment;
 
     return Column(
       key: const Key('route-editing-group'),
@@ -340,11 +373,15 @@ class _RouteEditingGroup extends StatelessWidget {
               _RouteModeButton(
                 key: const Key('route-mode-route-to-peak'),
                 label: 'Route to Peak',
-                selected: routeDraftMode == RouteMode.routeToPeak,
-                selectedColor: routeModeHighlightColor,
-                highlighted: routeDraftPeak != null,
-                highlightedColor: routeModeHighlightColor,
-                onPressed: routeDraftPeak == null
+                visualState: _routeModeVisualState(
+                  mode: RouteMode.routeToPeak,
+                  selectedMode: routeDraftMode,
+                  stage: routeDraftStage,
+                  hasPeakTarget: hasPeakTarget,
+                ),
+                activeColor: routeModeActiveColor,
+                selectedColor: routeModeSelectedColor,
+                onPressed: routeDraftPeak == null || isRouting
                     ? null
                     : () => onModeSelected(RouteMode.routeToPeak),
               ),
@@ -352,17 +389,33 @@ class _RouteEditingGroup extends StatelessWidget {
               _RouteModeButton(
                 key: const Key('route-mode-snap-to-trail'),
                 label: 'Snap to Trail',
-                selected: routeDraftMode == RouteMode.snapToTrail,
-                selectedColor: routeModeHighlightColor,
-                onPressed: () => onModeSelected(RouteMode.snapToTrail),
+                visualState: _routeModeVisualState(
+                  mode: RouteMode.snapToTrail,
+                  selectedMode: routeDraftMode,
+                  stage: routeDraftStage,
+                  hasPeakTarget: hasPeakTarget,
+                ),
+                activeColor: routeModeActiveColor,
+                selectedColor: routeModeSelectedColor,
+                onPressed: isRouting
+                    ? null
+                    : () => onModeSelected(RouteMode.snapToTrail),
               ),
               const SizedBox(width: 8),
               _RouteModeButton(
                 key: const Key('route-mode-straight-line'),
                 label: 'Straight Line',
-                selected: routeDraftMode == RouteMode.straightLine,
-                selectedColor: Color(routeDraftColour),
-                onPressed: () => onModeSelected(RouteMode.straightLine),
+                visualState: _routeModeVisualState(
+                  mode: RouteMode.straightLine,
+                  selectedMode: routeDraftMode,
+                  stage: routeDraftStage,
+                  hasPeakTarget: hasPeakTarget,
+                ),
+                activeColor: routeModeActiveColor,
+                selectedColor: routeModeSelectedColor,
+                onPressed: isRouting
+                    ? null
+                    : () => onModeSelected(RouteMode.straightLine),
               ),
               const SizedBox(width: 12),
               SizedBox(
@@ -411,18 +464,16 @@ class _RouteModeButton extends StatelessWidget {
   const _RouteModeButton({
     super.key,
     required this.label,
-    required this.selected,
+    required this.visualState,
+    required this.activeColor,
     required this.selectedColor,
-    this.highlighted = false,
-    this.highlightedColor,
     required this.onPressed,
   });
 
   final String label;
-  final bool selected;
+  final _RouteModeVisualState visualState;
+  final Color activeColor;
   final Color selectedColor;
-  final bool highlighted;
-  final Color? highlightedColor;
   final VoidCallback? onPressed;
 
   @override
@@ -431,10 +482,12 @@ class _RouteModeButton extends StatelessWidget {
 
     return FilledButton(
       style: FilledButton.styleFrom(
-        backgroundColor: selected || highlighted
-            ? (selected ? selectedColor : highlightedColor ?? selectedColor)
-            : theme.colorScheme.surfaceContainer,
-        foregroundColor: selected || highlighted
+        backgroundColor: switch (visualState) {
+          _RouteModeVisualState.selected => selectedColor,
+          _RouteModeVisualState.active => activeColor,
+          _RouteModeVisualState.inactive => theme.colorScheme.surfaceContainer,
+        },
+        foregroundColor: visualState != _RouteModeVisualState.inactive
             ? Colors.white
             : theme.colorScheme.onSurface,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

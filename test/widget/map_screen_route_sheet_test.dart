@@ -102,7 +102,7 @@ void main() {
     );
     expect(
       snapToTrailButton.style?.backgroundColor?.resolve({}),
-      Colors.purple,
+      Colors.green,
     );
   });
 
@@ -142,7 +142,7 @@ void main() {
     );
     expect(
       snapToTrailButton.style?.backgroundColor?.resolve({}),
-      Colors.purple,
+      Colors.green,
     );
 
     final routeToPeakButton = tester.widget<FilledButton>(
@@ -173,7 +173,7 @@ void main() {
     );
     expect(
       selectedRouteToPeakButton.style?.backgroundColor?.resolve({}),
-      Colors.purple,
+      Colors.green,
     );
 
     expect(
@@ -240,7 +240,64 @@ void main() {
     );
     expect(
       snapToTrailButton.style?.backgroundColor?.resolve({}),
-      Colors.purple,
+      Colors.green,
+    );
+  });
+
+  testWidgets('route mode buttons are disabled while routing a segment', (
+    tester,
+  ) async {
+    final routePlanner = _CompletingRoutePlanner();
+    final tasmapRepository = await TestTasmapRepository.create();
+    final notifier = MapNotifier(
+      peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+      overpassService: OverpassService(),
+      tasmapRepository: tasmapRepository,
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+      routeRepository: RouteRepository.test(InMemoryRouteStorage()),
+      routeElevationSampler: const _ImmediateRouteElevationSampler(
+        RouteElevationSummary(
+          requestId: 0,
+          geometryVersion: 0,
+          ascent: 0,
+          descent: 0,
+          distance3d: 0,
+        ),
+      ),
+      routePlanner: routePlanner,
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage(),
+      ),
+      loadPositionOnBuild: false,
+      loadPeaksOnBuild: false,
+      loadTracksOnBuild: false,
+    );
+    await _pumpMap(
+      tester,
+      notifier,
+      tasmapRepository: tasmapRepository,
+    );
+
+    await tester.tap(find.byKey(const Key('create-route-fab')));
+    await tester.pumpAndSettle();
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region) + const Offset(-40, 0));
+    await tester.pumpAndSettle();
+    await tester.tapAt(tester.getCenter(region) + const Offset(40, 0));
+    await tester.pump();
+
+    FilledButton button(Finder keyFinder) => tester.widget<FilledButton>(
+      find.descendant(of: keyFinder, matching: find.byType(FilledButton)),
+    );
+
+    expect(
+      button(find.byKey(const Key('route-mode-snap-to-trail'))).onPressed,
+      isNull,
+    );
+    expect(
+      button(find.byKey(const Key('route-mode-straight-line'))).onPressed,
+      isNull,
     );
   });
 

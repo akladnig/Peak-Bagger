@@ -198,6 +198,9 @@ class _QueueRoutePlanner implements RoutePlanner {
 
   @override
   Future<RouteEndpointProbeResult> probeEndpoint({required LatLng point}) async {
+    if (_index < _outcomes.length && _outcomes[_index] is RouteEndpointProbeResult) {
+      return _outcomes[_index++] as RouteEndpointProbeResult;
+    }
     return const RouteEndpointProbeResult(isOnTrack: false);
   }
 

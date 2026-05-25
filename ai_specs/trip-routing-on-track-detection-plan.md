@@ -48,11 +48,11 @@ Replace sticky straight-line fallback with off-track probe/rejoin state; keep UI
 ### Phase 4: Route Mode UI And Journeys
 
 - **Goal**: explicit inactive/active/selected buttons; critical snapped-offtrack-rejoin journey covered
-- [ ] `lib/widgets/map_route_bottom_sheet.dart` - add single visual-state mapping helper/enum; render `inactive` default, `active` purple, `selected` green; keep truth table aligned with `routeToPeak` availability and `routingSegment` lock
-- [ ] `test/widget/map_screen_route_sheet_test.dart` - TDD: assert helper-driven styling, selected-state color, disabled `routeToPeak` without target, locked buttons during `routingSegment`
-- [ ] `test/robot/map/map_route_robot.dart` - update queued planner seam for structured `routed/offTrack/noPath/failed` outcomes; keep key-first selectors stable
-- [ ] `test/robot/map/map_route_journey_test.dart` - TDD: snapped -> off-track straight -> rejoin straight -> snapped again; true `failed` does not silently accept a segment
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/widgets/map_route_bottom_sheet.dart` - add single visual-state mapping helper/enum; render `inactive` default, `active` purple, `selected` green; keep truth table aligned with `routeToPeak` availability and `routingSegment` lock
+- [x] `test/widget/map_screen_route_sheet_test.dart` - TDD: assert helper-driven styling, selected-state color, disabled `routeToPeak` without target, locked buttons during `routingSegment`
+- [x] `test/robot/map/map_route_robot.dart` - update queued planner seam for structured `routed/offTrack/noPath/failed` outcomes; keep key-first selectors stable
+- [x] `test/robot/map/map_route_journey_test.dart` - TDD: snapped -> off-track straight -> rejoin straight -> snapped again; true `failed` does not silently accept a segment
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 
