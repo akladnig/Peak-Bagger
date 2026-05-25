@@ -28,11 +28,11 @@ Replace sticky straight-line fallback with off-track probe/rejoin state; keep UI
 ### Phase 2: Planner Adapter Slice
 
 - **Goal**: app-owned structured planner results; no exception-driven off-track path
-- [ ] `lib/core/constants.dart` - add `RouteConstants.maxSnapDistanceMeters = 50`
-- [ ] `lib/services/route_planner.dart` - replace `PlannedRouteSegment`-only success contract with planner result enum/model; add client methods for anchored segment + endpoint probe; always pass max snap distance; map package `routed/offTrack/noPath/failed` into app-owned results
-- [ ] `lib/providers/route_planner_provider.dart` - keep DI at the planner seam with updated client surface
-- [ ] `test/services/route_planner_test.dart` - TDD: each package status maps to correct app result; malformed routed payload still becomes `failed`
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/core/constants.dart` - add `RouteConstants.maxSnapDistanceMeters = 50`
+- [x] `lib/services/route_planner.dart` - replace `PlannedRouteSegment`-only success contract with planner result enum/model; add client methods for anchored segment + endpoint probe; always pass max snap distance; map package `routed/offTrack/noPath/failed` into app-owned results
+- [x] `lib/providers/route_planner_provider.dart` - keep DI at the planner seam with updated client surface
+- [x] `test/services/route_planner_test.dart` - TDD: each package status maps to correct app result; malformed routed payload still becomes `failed`
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Route Draft State Slice
 

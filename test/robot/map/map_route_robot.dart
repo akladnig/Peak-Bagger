@@ -149,6 +149,37 @@ class _QueueRoutePlanner implements RoutePlanner {
   var _index = 0;
 
   @override
+  Future<RoutePlanningResult> planSegmentResult({
+    required LatLng start,
+    required LatLng end,
+  }) async {
+    try {
+      final segment = await planSegment(start: start, end: end);
+      return RoutePlanningResult(
+        status: RoutePlanningStatus.routed,
+        points: segment.points,
+        distanceMeters: segment.distanceMeters,
+        startAnchor: null,
+        endAnchor: null,
+      );
+    } catch (error) {
+      return RoutePlanningResult(
+        status: RoutePlanningStatus.failed,
+        points: const [],
+        distanceMeters: 0,
+        startAnchor: null,
+        endAnchor: null,
+        errorMessage: '$error',
+      );
+    }
+  }
+
+  @override
+  Future<RouteEndpointProbeResult> probeEndpoint({required LatLng point}) async {
+    return const RouteEndpointProbeResult(isOnTrack: false);
+  }
+
+  @override
   Future<PlannedRouteSegment> planSegment({
     required LatLng start,
     required LatLng end,

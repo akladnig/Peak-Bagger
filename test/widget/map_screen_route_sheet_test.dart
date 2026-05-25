@@ -767,6 +767,37 @@ class _CompletingRoutePlanner implements RoutePlanner {
   final _completer = Completer<PlannedRouteSegment>();
 
   @override
+  Future<RoutePlanningResult> planSegmentResult({
+    required LatLng start,
+    required LatLng end,
+  }) async {
+    try {
+      final segment = await planSegment(start: start, end: end);
+      return RoutePlanningResult(
+        status: RoutePlanningStatus.routed,
+        points: segment.points,
+        distanceMeters: segment.distanceMeters,
+        startAnchor: null,
+        endAnchor: null,
+      );
+    } catch (error) {
+      return RoutePlanningResult(
+        status: RoutePlanningStatus.failed,
+        points: const [],
+        distanceMeters: 0,
+        startAnchor: null,
+        endAnchor: null,
+        errorMessage: '$error',
+      );
+    }
+  }
+
+  @override
+  Future<RouteEndpointProbeResult> probeEndpoint({required LatLng point}) async {
+    return const RouteEndpointProbeResult(isOnTrack: false);
+  }
+
+  @override
   Future<PlannedRouteSegment> planSegment({
     required LatLng start,
     required LatLng end,
@@ -787,6 +818,25 @@ class _ImmediateRoutePlanner implements RoutePlanner {
   final PlannedRouteSegment segment;
 
   @override
+  Future<RoutePlanningResult> planSegmentResult({
+    required LatLng start,
+    required LatLng end,
+  }) async {
+    return RoutePlanningResult(
+      status: RoutePlanningStatus.routed,
+      points: segment.points,
+      distanceMeters: segment.distanceMeters,
+      startAnchor: null,
+      endAnchor: null,
+    );
+  }
+
+  @override
+  Future<RouteEndpointProbeResult> probeEndpoint({required LatLng point}) async {
+    return const RouteEndpointProbeResult(isOnTrack: false);
+  }
+
+  @override
   Future<PlannedRouteSegment> planSegment({
     required LatLng start,
     required LatLng end,
@@ -799,6 +849,26 @@ class _FailingRoutePlanner implements RoutePlanner {
   const _FailingRoutePlanner(this.message);
 
   final String message;
+
+  @override
+  Future<RoutePlanningResult> planSegmentResult({
+    required LatLng start,
+    required LatLng end,
+  }) async {
+    return RoutePlanningResult(
+      status: RoutePlanningStatus.failed,
+      points: const [],
+      distanceMeters: 0,
+      startAnchor: null,
+      endAnchor: null,
+      errorMessage: message,
+    );
+  }
+
+  @override
+  Future<RouteEndpointProbeResult> probeEndpoint({required LatLng point}) async {
+    return const RouteEndpointProbeResult(isOnTrack: false);
+  }
 
   @override
   Future<PlannedRouteSegment> planSegment({
