@@ -23,17 +23,17 @@ One-shot `Close Loop` draft action. Reuse current route planner + one-shot route
 ### Phase 2: Route sheet control
 
 - **Goal**: visible action in strip
-- [ ] `./lib/widgets/map_route_bottom_sheet.dart` - add `Close Loop` action between `Out and Back` and name field; `Icons.refresh`; tooltip/key; enablement; narrow scroll
-- [ ] `./test/widget/map_screen_route_sheet_test.dart` - TDD: presence, icon/tooltip, enabled/disabled states, placement, closed-loop disable, narrow viewport scroll
-- [ ] `./test/robot/map/map_route_robot.dart` - add stable selector helper for `Close Loop`
-- [ ] Verify: `flutter analyze` && `flutter test test/widget/map_screen_route_sheet_test.dart`
+- [x] `./lib/widgets/map_route_bottom_sheet.dart` - add `Close Loop` action between `Out and Back` and name field; `Icons.refresh`; tooltip/key; enablement; narrow scroll
+- [x] `./test/widget/map_screen_route_sheet_test.dart` - TDD: presence, icon/tooltip, enabled/disabled states, placement, closed-loop disable, narrow viewport scroll
+- [x] `./test/robot/map/map_route_robot.dart` - add stable selector helper for `Close Loop`
+- [x] Verify: `flutter analyze` && `flutter test test/widget/map_screen_route_sheet_test.dart`
 
 ### Phase 3: End-to-end journey
 
 - **Goal**: visible close-loop save flow
-- [ ] `./test/robot/map/map_route_journey_test.dart` - TDD: build draft -> tap `Close Loop` -> verify draft update -> save -> persisted route
-- [ ] `./test/robot/map/map_route_robot.dart` - drive close-loop tap + assertions with key-first selectors
-- [ ] Verify: `flutter analyze` && `flutter test test/robot/map/map_route_journey_test.dart`
+- [x] `./test/robot/map/map_route_journey_test.dart` - TDD: build draft -> tap `Close Loop` -> verify draft update -> save -> persisted route
+- [x] `./test/robot/map/map_route_robot.dart` - drive close-loop tap + assertions with key-first selectors
+- [x] Verify: `flutter analyze` && `flutter test test/robot/map/map_route_journey_test.dart`
 
 ## Risks / Out of scope
 

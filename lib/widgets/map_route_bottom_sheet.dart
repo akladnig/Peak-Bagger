@@ -174,6 +174,7 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
                             onNameChanged: notifier.setRouteDraftName,
                             onModeSelected: notifier.setRouteDraftMode,
                             onOutAndBack: notifier.applyRouteDraftOutAndBack,
+                            onCloseLoop: notifier.applyRouteDraftCloseLoop,
                           ),
                         ),
                       ),
@@ -350,6 +351,7 @@ class _RouteEditingGroup extends StatelessWidget {
     required this.onNameChanged,
     required this.onModeSelected,
     required this.onOutAndBack,
+    required this.onCloseLoop,
   });
 
   final String routeDraftName;
@@ -366,6 +368,7 @@ class _RouteEditingGroup extends StatelessWidget {
   final ValueChanged<String> onNameChanged;
   final ValueChanged<RouteMode> onModeSelected;
   final VoidCallback onOutAndBack;
+  final VoidCallback onCloseLoop;
 
   @override
   Widget build(BuildContext context) {
@@ -455,6 +458,19 @@ class _RouteEditingGroup extends StatelessWidget {
                     routeDraftStage != RouteDraftStage.routingSegment &&
                     routeDraftStage != RouteDraftStage.segmentFailure,
                 onPressed: onOutAndBack,
+              ),
+              const SizedBox(width: 8),
+              _RouteActionButton(
+                buttonKey: const Key('route-mode-close-loop'),
+                label: 'Close Loop',
+                icon: Icons.refresh,
+                enabled:
+                    routeDraftCommittedPoints.length >= 2 &&
+                    !isClosedLoop &&
+                    !isSavingRoute &&
+                    routeDraftStage != RouteDraftStage.routingSegment &&
+                    routeDraftStage != RouteDraftStage.segmentFailure,
+                onPressed: onCloseLoop,
               ),
               const SizedBox(width: 12),
               SizedBox(

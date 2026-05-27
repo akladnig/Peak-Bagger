@@ -58,6 +58,8 @@ void main() {
     await robot.enterRouteMode();
 
     expect(robot.routeToPeakButton, findsOneWidget);
+    await robot.tapRoutePoint(const Offset(-40, 0));
+
     expect(
       tester.widget<FilledButton>(
         find.descendant(
@@ -74,8 +76,7 @@ void main() {
         matching: find.byType(FilledButton),
       ),
     );
-    await tester.pump();
-    await robot.tapRoutePoint(const Offset(-40, 0));
+    await tester.pumpAndSettle();
 
     expect(robot.routeDistanceText, findsOneWidget);
     expect(robot.routeAscentText, findsOneWidget);
@@ -123,7 +124,7 @@ void main() {
 
     expect(robot.outAndBackButton, findsOneWidget);
     expect(
-      tester.widget<FilledButton>(robot.outAndBackButton).onPressed,
+      tester.widget<FloatingActionButton>(robot.outAndBackButton).onPressed,
       isNotNull,
     );
 
@@ -136,6 +137,83 @@ void main() {
 
     expect(robot.routeBottomSheet, findsNothing);
     expect(robot.savedRoutes(), hasLength(1));
+    expect(robot.savedRoutes().single.routeWaypoints, hasLength(1));
+    expect(robot.savedRoutes().single.routeWaypoints.single.label, 'Waypoint 1');
+    expect(robot.container().read(mapProvider).showRoutes, isTrue);
+  });
+
+  testWidgets('route journey close-loops and saves a waypoint route', (
+    tester,
+  ) async {
+    final robot = MapRouteRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+      routePlanningOutcomes: const [
+        PlannedRouteSegment(
+          points: [
+            LatLng(-41.6, 146.6),
+            LatLng(-41.55, 146.55),
+            LatLng(-41.5, 146.5),
+          ],
+          distanceMeters: 900,
+        ),
+      ],
+      routeElevationOutcomes: const [
+        RouteElevationSummary(
+          requestId: 1,
+          geometryVersion: 1,
+          ascent: 111,
+          descent: 100,
+          distance3d: 1001,
+        ),
+        RouteElevationSummary(
+          requestId: 2,
+          geometryVersion: 2,
+          ascent: 321,
+          descent: 210,
+          distance3d: 1010,
+        ),
+      ],
+    );
+
+    await robot.pumpApp();
+    await robot.openMap();
+    await robot.enterRouteMode();
+
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const Key('route-mode-straight-line')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    await tester.pump();
+
+    await robot.tapRoutePoint(const Offset(-40, 0));
+    await robot.tapRoutePoint(const Offset(40, 0));
+
+    expect(robot.closeLoopButton, findsOneWidget);
+    expect(
+      tester.widget<FloatingActionButton>(robot.closeLoopButton).onPressed,
+      isNotNull,
+    );
+
+    await tester.ensureVisible(robot.closeLoopButton);
+    await tester.tap(robot.closeLoopButton);
+    await tester.pumpAndSettle();
+
+    expect(robot.routeDistanceText, findsOneWidget);
+    expect(find.text('321 m'), findsOneWidget);
+
+    await robot.enterRouteName('Close Loop Route');
+    await robot.saveRoute();
+
+    expect(robot.routeBottomSheet, findsNothing);
+    expect(robot.savedRoutes(), hasLength(1));
+    expect(robot.savedRoutes().single.gpxRoute, hasLength(greaterThan(5)));
     expect(robot.savedRoutes().single.routeWaypoints, hasLength(1));
     expect(robot.savedRoutes().single.routeWaypoints.single.label, 'Waypoint 1');
     expect(robot.container().read(mapProvider).showRoutes, isTrue);
