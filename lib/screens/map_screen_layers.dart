@@ -5,9 +5,11 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
+import 'package:peak_bagger/models/route_marker_display.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
+import 'package:peak_bagger/widgets/route_marker.dart';
 import 'package:peak_bagger/widgets/tasmap_outline_layer.dart';
 import 'package:peak_bagger/widgets/tasmap_polygon_label.dart';
 
@@ -211,16 +213,14 @@ List<Marker> buildRouteDraftMarkers({
       Marker(
         key: Key('route-draft-marker-${marker.id}'),
         point: marker.point,
-        width: 24,
-        height: 24,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Color(colour).withValues(
-              alpha: marker.isCommitted ? 1.0 : 0.85,
-            ),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 2),
-          ),
+        width: RouteUI.markerSize,
+        height: RouteUI.markerSize,
+        child: RouteMarker(
+          kind: marker.kind,
+          color: Color(colour),
+          number: marker.number,
+          size: RouteUI.markerSize,
+          strokeWidth: RouteUI.strokeWidth,
         ),
       ),
   ];

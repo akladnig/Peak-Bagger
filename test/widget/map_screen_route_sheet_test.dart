@@ -27,6 +27,8 @@ import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/route_graph_store.dart';
+import 'package:peak_bagger/models/route_marker_display.dart';
+import 'package:peak_bagger/widgets/route_marker.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
 import '../harness/test_tasmap_notifier.dart';
@@ -148,34 +150,21 @@ void main() {
         matching: find.byType(FilledButton),
       ),
     );
-    expect(routeToPeakButton.onPressed, isNotNull);
-    expect(
-      routeToPeakButton.style?.backgroundColor?.resolve({}),
-      Colors.purple,
-    );
+    expect(routeToPeakButton.onPressed, isNull);
 
-    await tester.tap(
-      find.descendant(
-        of: find.byKey(const Key('route-mode-route-to-peak')),
-        matching: find.byType(FilledButton),
-      ),
-    );
+    notifier.addRouteDraftMarker(const LatLng(-41.5, 146.45));
     await tester.pump();
 
-    final selectedRouteToPeakButton = tester.widget<FilledButton>(
+    final enabledRouteToPeakButton = tester.widget<FilledButton>(
       find.descendant(
         of: find.byKey(const Key('route-mode-route-to-peak')),
         matching: find.byType(FilledButton),
       ),
     );
+    expect(enabledRouteToPeakButton.onPressed, isNotNull);
     expect(
-      selectedRouteToPeakButton.style?.backgroundColor?.resolve({}),
-      Colors.green,
-    );
-
-    expect(
-      _container(tester).read(mapProvider).routeDraftMode,
-      RouteMode.routeToPeak,
+      enabledRouteToPeakButton.style?.backgroundColor?.resolve({}),
+      Colors.purple,
     );
   });
 
@@ -208,6 +197,14 @@ void main() {
     await tester.tap(find.byKey(const Key('create-route-fab')));
     await tester.pumpAndSettle();
 
+    final routeToPeakButtonBeforePoint = tester.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const Key('route-mode-route-to-peak')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(routeToPeakButtonBeforePoint.onPressed, isNull);
+
     notifier.addRouteDraftMarker(const LatLng(-41.5, 146.45));
     await tester.pump();
 
@@ -221,8 +218,19 @@ void main() {
       ),
     );
     expect(routeToPeakButton.onPressed, isNotNull);
+
+    notifier.addRouteDraftMarker(const LatLng(-41.5, 146.45));
+    await tester.pump();
+
+    final enabledRouteToPeakButton = tester.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const Key('route-mode-route-to-peak')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(enabledRouteToPeakButton.onPressed, isNotNull);
     expect(
-      routeToPeakButton.style?.backgroundColor?.resolve({}),
+      enabledRouteToPeakButton.style?.backgroundColor?.resolve({}),
       Colors.purple,
     );
 
@@ -377,6 +385,53 @@ void main() {
     },
   );
 
+  testWidgets(
+    'closed route draft disables both route to peak and out and back', (
+      tester,
+    ) async {
+      final peak = Peak(
+        osmId: 6406,
+        name: 'Bonnet Hill',
+        latitude: -41.5,
+        longitude: 146.5,
+      );
+      final notifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          isRouteDrafting: true,
+          routeDraftPeak: peak,
+          routeDraftStage: RouteDraftStage.awaitingNextPoint,
+          routeDraftMarkers: const [
+            LatLng(-41.5, 146.45),
+            LatLng(-41.5, 146.5),
+            LatLng(-41.5, 146.45),
+          ],
+          routeDraftCommittedPoints: const [
+            LatLng(-41.5, 146.45),
+            LatLng(-41.5, 146.5),
+            LatLng(-41.5, 146.45),
+          ],
+        ),
+      );
+      await _pumpMap(tester, notifier);
+
+      final routeToPeakButton = tester.widget<FilledButton>(
+        find.descendant(
+          of: find.byKey(const Key('route-mode-route-to-peak')),
+          matching: find.byType(FilledButton),
+        ),
+      );
+      expect(routeToPeakButton.onPressed, isNull);
+
+      final outAndBackButton = tester.widget<FloatingActionButton>(
+        find.byKey(const Key('route-mode-out-and-back')),
+      );
+      expect(outAndBackButton.onPressed, isNull);
+    },
+  );
+
   testWidgets('route sheet accepts name input and closes on cancel', (
     tester,
   ) async {
@@ -434,18 +489,120 @@ void main() {
     expect(state.routeDraftMarkers, hasLength(1));
     expect(state.routeDraftMarkers.first.latitude, closeTo(-41.5, 0.000001));
     expect(state.routeDraftMarkers.first.longitude, closeTo(146.5, 0.000001));
+    expect(state.routeDraftDisplayMarkers, hasLength(1));
+    expect(state.routeDraftDisplayMarkers.first.kind, RouteMarkerKind.circle);
     expect(state.selectedLocation, isNull);
     expect(state.selectedTrackId, isNull);
     expect(find.byKey(const Key('route-draft-marker-layer')), findsOneWidget);
     expect(find.byKey(const Key('route-draft-marker-0')), findsOneWidget);
-    final markerContainer = tester.widget<Container>(
+    final routeMarker = tester.widget<RouteMarker>(
       find.descendant(
         of: find.byKey(const Key('route-draft-marker-0')),
-        matching: find.byType(Container),
+        matching: find.byType(RouteMarker),
       ),
     );
-    final decoration = markerContainer.decoration! as BoxDecoration;
-    expect(decoration.color, const Color(0xFFFF0000));
+    expect(routeMarker.kind, RouteMarkerKind.circle);
+    expect(routeMarker.color, const Color(0xFFFF0000));
+    expect(routeMarker.number, isNull);
+  });
+
+  testWidgets('route taps advance to numbered markers and a target', (
+    tester,
+  ) async {
+    final tasmapRepository = await TestTasmapRepository.create();
+    final notifier = MapNotifier(
+      peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+      overpassService: OverpassService(),
+      tasmapRepository: tasmapRepository,
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+      routeRepository: RouteRepository.test(InMemoryRouteStorage()),
+      routeElevationSampler: const _ImmediateRouteElevationSampler(
+        RouteElevationSummary(
+          requestId: 0,
+          geometryVersion: 0,
+          ascent: 0,
+          descent: 0,
+          distance3d: 0,
+        ),
+      ),
+      routePlanner: _QueuedRoutePlanner([
+        const RoutePlanningResult(
+          status: RoutePlanningStatus.routed,
+          points: [LatLng(-41.5, 146.5), LatLng(-41.55, 146.55)],
+          distanceMeters: 500,
+          startAnchor: null,
+          endAnchor: null,
+        ),
+        const RoutePlanningResult(
+          status: RoutePlanningStatus.routed,
+          points: [LatLng(-41.55, 146.55), LatLng(-41.6, 146.6)],
+          distanceMeters: 500,
+          startAnchor: null,
+          endAnchor: null,
+        ),
+      ]),
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage(),
+      ),
+      loadPositionOnBuild: false,
+      loadPeaksOnBuild: false,
+      loadTracksOnBuild: false,
+    );
+    await _pumpMap(tester, notifier, tasmapRepository: tasmapRepository);
+
+    await tester.tap(find.byKey(const Key('create-route-fab')));
+    await tester.pumpAndSettle();
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region) + const Offset(-40, 0));
+    await tester.pumpAndSettle();
+    await tester.tapAt(tester.getCenter(region) + const Offset(40, 0));
+    await tester.pumpAndSettle();
+    await tester.tapAt(tester.getCenter(region) + const Offset(80, 0));
+    await tester.pumpAndSettle();
+
+    final state = _container(tester).read(mapProvider);
+    expect(
+      state.routeDraftDisplayMarkers.map((marker) => marker.kind),
+      [
+        RouteMarkerKind.circle,
+        RouteMarkerKind.numbered,
+        RouteMarkerKind.target,
+      ],
+    );
+    expect(state.routeDraftDisplayMarkers[1].number, 1);
+
+    expect(find.byKey(const Key('route-draft-marker-0')), findsOneWidget);
+    expect(find.byKey(const Key('route-draft-marker-1')), findsOneWidget);
+    expect(find.byKey(const Key('route-draft-marker-2')), findsOneWidget);
+
+    expect(
+      tester.widget<RouteMarker>(
+        find.descendant(
+          of: find.byKey(const Key('route-draft-marker-0')),
+          matching: find.byType(RouteMarker),
+        ),
+      ).kind,
+      RouteMarkerKind.circle,
+    );
+    expect(
+      tester.widget<RouteMarker>(
+        find.descendant(
+          of: find.byKey(const Key('route-draft-marker-1')),
+          matching: find.byType(RouteMarker),
+        ),
+      ).kind,
+      RouteMarkerKind.numbered,
+    );
+    expect(
+      tester.widget<RouteMarker>(
+        find.descendant(
+          of: find.byKey(const Key('route-draft-marker-2')),
+          matching: find.byType(RouteMarker),
+        ),
+      ).kind,
+      RouteMarkerKind.target,
+    );
   });
 
   testWidgets(
@@ -481,6 +638,109 @@ void main() {
       expect(_container(tester).read(mapProvider).selectedLocation, isNull);
     },
   );
+
+  testWidgets('route draft rejects the 100th numbered point inline', (
+    tester,
+  ) async {
+    final tasmapRepository = await TestTasmapRepository.create();
+    final notifier = MapNotifier(
+      peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+      overpassService: OverpassService(),
+      tasmapRepository: tasmapRepository,
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+      routeRepository: RouteRepository.test(InMemoryRouteStorage()),
+      routeElevationSampler: const _ImmediateRouteElevationSampler(
+        RouteElevationSummary(
+          requestId: 0,
+          geometryVersion: 0,
+          ascent: 0,
+          descent: 0,
+          distance3d: 0,
+        ),
+      ),
+      routePlanner: _QueuedRoutePlanner([
+        const RoutePlanningResult(
+          status: RoutePlanningStatus.routed,
+          points: [LatLng(-41.5, 146.5), LatLng(-41.5, 146.95)],
+          distanceMeters: 500,
+          startAnchor: null,
+          endAnchor: null,
+        ),
+      ]),
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage(),
+      ),
+      loadPositionOnBuild: false,
+      loadPeaksOnBuild: false,
+      loadTracksOnBuild: false,
+    );
+    await _pumpMap(tester, notifier, tasmapRepository: tasmapRepository);
+
+    final controlEndpoints = <RouteDraftControlEndpoint>[
+      RouteDraftControlEndpoint(
+        id: 'endpoint-0',
+        point: const LatLng(-41.5, 146.5),
+        kind: RouteDraftEndpointKind.tapped,
+      ),
+      for (var index = 1; index <= 99; index++)
+        RouteDraftControlEndpoint(
+          id: 'endpoint-$index',
+          point: LatLng(-41.5, 146.5 + index * 0.001),
+          kind: RouteDraftEndpointKind.tapped,
+        ),
+      RouteDraftControlEndpoint(
+        id: 'endpoint-100',
+        point: const LatLng(-41.5, 146.9),
+        kind: RouteDraftEndpointKind.tapped,
+      ),
+    ];
+
+    final displayMarkers = [
+      RouteMarkerDisplay(
+        id: 'endpoint-0',
+        point: const LatLng(-41.5, 146.5),
+        kind: RouteMarkerKind.circle,
+      ),
+      for (var index = 1; index <= 99; index++)
+        RouteMarkerDisplay(
+          id: 'endpoint-$index',
+          point: LatLng(-41.5, 146.5 + index * 0.001),
+          kind: RouteMarkerKind.numbered,
+          number: index,
+        ),
+      RouteMarkerDisplay(
+        id: 'endpoint-100',
+        point: const LatLng(-41.5, 146.9),
+        kind: RouteMarkerKind.target,
+      ),
+    ];
+
+    final container = _container(tester);
+    container.read(mapProvider.notifier).state = container.read(mapProvider).copyWith(
+      isRouteDrafting: true,
+      routeDraftName: 'Long Route',
+      routeDraftNameError: null,
+      routeDraftStage: RouteDraftStage.awaitingNextPoint,
+      routeDraftControlEndpoints: controlEndpoints,
+      routeDraftDisplayMarkers: displayMarkers,
+      routeDraftMarkers: controlEndpoints.map((endpoint) => endpoint.point).toList(),
+      routeDraftCommittedPoints: controlEndpoints.map((endpoint) => endpoint.point).toList(),
+      routeDraftDistanceMeters: 1234,
+      routeDraftError: null,
+    );
+    await tester.pump();
+
+    final stateBefore = container.read(mapProvider);
+    container.read(mapProvider.notifier).addRouteDraftMarker(
+      const LatLng(-41.5, 146.95),
+    );
+    await tester.pump();
+
+    final stateAfter = container.read(mapProvider);
+    expect(stateAfter.routeDraftError, 'Peak Bagger only supports a maximum of 99 route points');
+    expect(stateAfter.routeDraftDisplayMarkers, stateBefore.routeDraftDisplayMarkers);
+    expect(find.text('Peak Bagger only supports a maximum of 99 route points'), findsOneWidget);
+  });
 
   testWidgets('blank route name shows inline error and save stays disabled', (
     tester,
