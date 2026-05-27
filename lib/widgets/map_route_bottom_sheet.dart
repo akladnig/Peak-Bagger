@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/core/number_formatters.dart';
@@ -161,10 +162,13 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
                             routeDraftStage: routeDraftStage,
                             routeDraftPeak: routeDraftPeakTarget,
                             routeDraftColour: routeDraftColour,
+                            routeDraftCommittedPoints: routeDraftCommittedPoints,
+                            isSavingRoute: isSavingRoute,
                             routeNameController: _routeNameController,
                             routeNameFocusNode: _routeNameFocusNode,
                             onNameChanged: notifier.setRouteDraftName,
                             onModeSelected: notifier.setRouteDraftMode,
+                            onOutAndBack: notifier.applyRouteDraftOutAndBack,
                           ),
                         ),
                       ),
@@ -333,10 +337,13 @@ class _RouteEditingGroup extends StatelessWidget {
     required this.routeDraftStage,
     required this.routeDraftPeak,
     required this.routeDraftColour,
+    required this.routeDraftCommittedPoints,
+    required this.isSavingRoute,
     required this.routeNameController,
     required this.routeNameFocusNode,
     required this.onNameChanged,
     required this.onModeSelected,
+    required this.onOutAndBack,
   });
 
   final String routeDraftName;
@@ -345,10 +352,13 @@ class _RouteEditingGroup extends StatelessWidget {
   final RouteDraftStage routeDraftStage;
   final Peak? routeDraftPeak;
   final int routeDraftColour;
+  final List<LatLng> routeDraftCommittedPoints;
+  final bool isSavingRoute;
   final TextEditingController routeNameController;
   final FocusNode routeNameFocusNode;
   final ValueChanged<String> onNameChanged;
   final ValueChanged<RouteMode> onModeSelected;
+  final VoidCallback onOutAndBack;
 
   @override
   Widget build(BuildContext context) {
@@ -416,6 +426,17 @@ class _RouteEditingGroup extends StatelessWidget {
                 onPressed: isRouting
                     ? null
                     : () => onModeSelected(RouteMode.straightLine),
+              ),
+              const SizedBox(width: 8),
+              _RouteActionButton(
+                buttonKey: const Key('route-mode-out-and-back'),
+                label: 'Out and Back',
+                icon: Icons.sync_alt,
+                enabled: routeDraftCommittedPoints.length >= 2 &&
+                    !isSavingRoute &&
+                    routeDraftStage != RouteDraftStage.routingSegment &&
+                    routeDraftStage != RouteDraftStage.segmentFailure,
+                onPressed: onOutAndBack,
               ),
               const SizedBox(width: 12),
               SizedBox(
@@ -494,6 +515,44 @@ class _RouteModeButton extends StatelessWidget {
       ),
       onPressed: onPressed,
       child: Text(label),
+    );
+  }
+}
+
+class _RouteActionButton extends StatelessWidget {
+  const _RouteActionButton({
+    required this.buttonKey,
+    required this.label,
+    required this.icon,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final Key buttonKey;
+  final String label;
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Tooltip(
+      message: label,
+      child: FilledButton.icon(
+        key: buttonKey,
+        style: FilledButton.styleFrom(
+          backgroundColor: enabled
+              ? Colors.purple
+              : theme.colorScheme.surfaceContainer,
+          foregroundColor: enabled ? Colors.white : theme.colorScheme.onSurface,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        ),
+        onPressed: enabled ? onPressed : null,
+        icon: Icon(icon, size: 18),
+        label: Text(label),
+      ),
     );
   }
 }

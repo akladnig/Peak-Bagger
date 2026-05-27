@@ -301,6 +301,66 @@ void main() {
     );
   });
 
+  testWidgets('out and back button sits in the route strip and toggles enabled state', (
+    tester,
+  ) async {
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+    await _pumpMap(tester, notifier);
+
+    await tester.tap(find.byKey(const Key('create-route-fab')));
+    await tester.pumpAndSettle();
+
+    final outAndBackKey = find.byKey(const Key('route-mode-out-and-back'));
+    expect(outAndBackKey, findsOneWidget);
+    expect(find.byTooltip('Out and Back'), findsOneWidget);
+
+    FilledButton button(Finder keyFinder) => tester.widget<FilledButton>(keyFinder);
+
+    expect(button(outAndBackKey).onPressed, isNull);
+
+    final straightRect = tester.getRect(find.byKey(const Key('route-mode-straight-line')));
+    final outAndBackRect = tester.getRect(outAndBackKey);
+    final nameRect = tester.getRect(find.byKey(const Key('route-name-field')));
+
+    expect(outAndBackRect.left, greaterThan(straightRect.right));
+    expect(outAndBackRect.right, lessThan(nameRect.left));
+
+    final container = _container(tester);
+    container.read(mapProvider.notifier).state = container.read(mapProvider).copyWith(
+      routeDraftStage: RouteDraftStage.awaitingNextPoint,
+      routeDraftControlEndpoints: const [
+        RouteDraftControlEndpoint(
+          id: 'endpoint-0',
+          point: LatLng(-41.5, 146.5),
+          kind: RouteDraftEndpointKind.tapped,
+        ),
+        RouteDraftControlEndpoint(
+          id: 'endpoint-1',
+          point: LatLng(-41.6, 146.6),
+          kind: RouteDraftEndpointKind.tapped,
+        ),
+      ],
+      routeDraftMarkers: const [
+        LatLng(-41.5, 146.5),
+        LatLng(-41.6, 146.6),
+      ],
+      routeDraftCommittedPoints: const [
+        LatLng(-41.5, 146.5),
+        LatLng(-41.55, 146.55),
+        LatLng(-41.6, 146.6),
+      ],
+    );
+    await tester.pump();
+
+    expect(button(outAndBackKey).onPressed, isNotNull);
+  });
+
   testWidgets('route sheet accepts name input and closes on cancel', (
     tester,
   ) async {

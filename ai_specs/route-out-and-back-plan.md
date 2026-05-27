@@ -37,10 +37,10 @@ Keep Riverpod draft flow; persist metadata on save, serialize later in GPX.
 ### Phase 3: Route sheet control
 
 - **Goal**: add one-shot button in existing strip
-- [ ] `lib/widgets/map_route_bottom_sheet.dart` - add `Out and Back` button, key, tooltip, icon, enable/disable rules
-- [ ] `test/robot/map/map_route_robot.dart` - add stable selector helper for the new control
-- [ ] TDD: button placement, tooltip, icon, enabled state, disabled state, filled-button family
-- [ ] Verify: `flutter analyze && flutter test test/widget/map_screen_route_sheet_test.dart`
+- [x] `lib/widgets/map_route_bottom_sheet.dart` - add `Out and Back` button, key, tooltip, icon, enable/disable rules
+- [x] `test/robot/map/map_route_robot.dart` - add stable selector helper for the new control
+- [x] TDD: button placement, tooltip, icon, enabled state, disabled state, filled-button family
+- [x] Verify: `flutter analyze && flutter test test/widget/map_screen_route_sheet_test.dart`
 
 ### Phase 4: GPX export + journey
 
