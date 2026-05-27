@@ -26,6 +26,7 @@ abstract final class GeoConstants {
 abstract final class GpxConstants {
   static const maxSpeedMetersPerSecond = 12.0;
   static const maxJumpMeters = 2500.0;
+  static const precision = 6;
   static const defaultHampelWindow = 5;
   static const defaultElevationWindow = 5;
   static const defaultPositionWindow = 5;

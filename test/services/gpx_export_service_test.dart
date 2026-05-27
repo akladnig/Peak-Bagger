@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
+import 'package:peak_bagger/models/route_waypoint.dart';
 import 'package:peak_bagger/services/gpx_export_service.dart';
 
 void main() {
@@ -75,8 +76,8 @@ void main() {
         '<gpx version="1.1" creator="peak-bagger" xmlns="http://www.topografix.com/GPX/1/1">'
         '<metadata><author><name>Adrian Kladnig</name></author></metadata>'
         '<rte><name>Route-1</name>'
-        '<rtept lat="-41.50000000" lon="146.50000000"></rtept>'
-        '<rtept lat="-41.60000000" lon="146.60000000"></rtept>'
+        '<rtept lat="-41.500000" lon="146.500000"></rtept>'
+        '<rtept lat="-41.600000" lon="146.600000"></rtept>'
         '</rte></gpx>',
       );
     });
@@ -110,7 +111,7 @@ void main() {
         plan.contents,
         contains(
           '<metadata><author><name>Adrian Kladnig</name></author></metadata>'
-          '<wpt lat="-41.50000000" lon="146.50000000"><ele>1234</ele><name>Peak One</name></wpt>'
+          '<wpt lat="-41.500000" lon="146.500000"><ele>1234</ele><name>Peak One</name></wpt>'
           '<rte><name>Route-1</name>',
         ),
       );
@@ -141,8 +142,59 @@ void main() {
         '<gpx version="1.1" creator="peak-bagger" xmlns="http://www.topografix.com/GPX/1/1">'
         '<metadata><author><name>Adrian Kladnig</name></author></metadata>'
         '<rte><name>Route-2</name>'
-        '<rtept lat="-41.50000000" lon="146.50000000"><ele>123.5</ele></rtept>'
+        '<rtept lat="-41.500000" lon="146.500000"><ele>123.5</ele></rtept>'
         '</rte></gpx>',
+      );
+    });
+
+    test('emits stored route waypoints and suppresses duplicate correlated peaks', () async {
+      final service = GpxExportService(
+        trackDownloadsDirectoryResolver: () => Directory.systemTemp,
+        routeExportsDirectoryResolver: () => Directory.systemTemp,
+        peakListLoader: () => [
+          Peak(
+            osmId: 1,
+            name: 'Peak One',
+            elevation: 1234,
+            latitude: -41.5,
+            longitude: 146.5,
+          ),
+        ],
+        peakCorrelationThresholdLoader: () async => 100,
+      );
+      final route = app_route.Route(
+        name: 'Route 1',
+        gpxRoute: const [
+          LatLng(-41.5, 146.5),
+          LatLng(-41.6, 146.6),
+        ],
+        routeWaypoints: const [
+          RouteWaypoint(
+            latitude: -41.5,
+            longitude: 146.5,
+            label: 'Peak One',
+            sequence: 1,
+            isPeakDerived: true,
+            peakOsmId: 1,
+            peakName: 'Peak One',
+          ),
+          RouteWaypoint(
+            latitude: -41.6,
+            longitude: 146.6,
+            label: 'Waypoint 1',
+            sequence: 2,
+            isPeakDerived: false,
+          ),
+        ],
+      );
+
+      final plan = await service.planRouteExport(route);
+
+      expect(plan.contents, contains('<wpt lat="-41.500000" lon="146.500000"><ele>1234</ele><name>Peak One</name></wpt>'));
+      expect(plan.contents, contains('<wpt lat="-41.600000" lon="146.600000"><name>Waypoint 1</name></wpt>'));
+      expect(
+        RegExp(r'<wpt lat="-41\.500000" lon="146\.500000">').allMatches(plan.contents),
+        hasLength(1),
       );
     });
 

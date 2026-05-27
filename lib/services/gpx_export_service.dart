@@ -2,9 +2,11 @@ import 'dart:io';
 
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/route_waypoint.dart';
 import 'package:path/path.dart' as p;
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
+import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/services/track_peak_correlation_service.dart';
 
 class GpxExportException implements Exception {
@@ -158,6 +160,7 @@ class GpxExportService {
       )
       ..write('<metadata><author><name>Adrian Kladnig</name></author></metadata>')
       ..write(_buildWaypointXml(correlatedPeaks))
+      ..write(_buildRouteWaypointXml(route.routeWaypoints, correlatedPeaks))
       ..write('<rte><name>${_escapeXml(stem)}</name>');
 
     for (var index = 0; index < route.gpxRoute.length; index++) {
@@ -190,6 +193,40 @@ class GpxExportService {
         buffer.write('<ele>${peak.elevation!.round()}</ele>');
       }
       buffer.write('<name>${_escapeXml(peak.name)}</name></wpt>');
+    }
+    return buffer.toString();
+  }
+
+  String _buildRouteWaypointXml(
+    List<RouteWaypoint> waypoints,
+    List<Peak> correlatedPeaks,
+  ) {
+    if (waypoints.isEmpty) {
+      return '';
+    }
+
+    final correlatedKeys = <String>{
+      for (final peak in correlatedPeaks)
+        _normalizedCoordinateKey(peak.latitude, peak.longitude),
+    };
+
+    final buffer = StringBuffer();
+    for (final waypoint in waypoints) {
+      final normalizedKey = _normalizedCoordinateKey(
+        waypoint.latitude,
+        waypoint.longitude,
+      );
+      if (correlatedKeys.contains(normalizedKey)) {
+        continue;
+      }
+
+      buffer.write(
+        '<wpt lat="${_formatCoordinate(waypoint.latitude)}" lon="${_formatCoordinate(waypoint.longitude)}">',
+      );
+      final label = waypoint.isPeakDerived
+          ? (waypoint.peakName ?? waypoint.label)
+          : waypoint.label;
+      buffer.write('<name>${_escapeXml(label)}</name></wpt>');
     }
     return buffer.toString();
   }
@@ -280,7 +317,11 @@ class GpxExportService {
   }
 
   String _formatCoordinate(double value) {
-    return value.toStringAsFixed(8);
+    return value.toStringAsFixed(GpxConstants.precision);
+  }
+
+  String _normalizedCoordinateKey(double latitude, double longitude) {
+    return '${_formatCoordinate(latitude)}|${_formatCoordinate(longitude)}';
   }
 
   String _formatElevation(double value) {

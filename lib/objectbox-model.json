@@ -420,7 +420,7 @@
     },
     {
       "id": "6:3506540890240152030",
-      "lastPropertyId": "13:8747517438538908610",
+      "lastPropertyId": "14:6508459819772890067",
       "name": "Route",
       "properties": [
         {
@@ -487,6 +487,11 @@
         {
           "id": "13:8747517438538908610",
           "name": "gpxRouteJson",
+          "type": 9
+        },
+        {
+          "id": "14:6508459819772890067",
+          "name": "routeWaypointsJson",
           "type": 9
         }
       ],
