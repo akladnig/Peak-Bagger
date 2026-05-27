@@ -7,6 +7,7 @@ This matters because route markers should be visually distinct while staying sim
 Route draft markers are currently rendered in `./lib/screens/map_screen_layers.dart` using a circular container shape.
 The app already uses one-off marker widgets and SVG assets elsewhere, but this change should not introduce three separate marker implementations for route markers.
 Shared marker sizing, font sizing, and stroke constants should live in `./lib/core/constants.dart` inside `RouteUI` so the map layer and marker widget use one source of truth.
+RouteUI should define `markerSize = 20.0`, `markerMinSize = 14.0`, `markerFontSize = 6.0`, `markerNumberedSize = 16.0`, `strokeWidth = 3.0`, and `strokeDarkenAlpha`.
 
 Route marker variants are derived from the current ordered route draft state on each `MapState` update:
 - the first point renders as `circle`
@@ -39,9 +40,11 @@ Primary flow:
 5. A three-or-more-point draft renders as circle + numbered middle points + target.
 6. Peak-derived markers remain unchanged and the numbering skips over them.
 7. Out-and-back drafts render the target above the start circle when both share the same location.
-8. The marker renders with consistent sizing and stroke behavior.
-9. The numbered variant shows a label from 1 to 99.
-10. The marker remains readable and stable at normal map marker sizes.
+8. Route to Peak remains disabled until the first draft point has been placed.
+9. Once a draft has returned to its start point, both Route to Peak and Out and Back are disabled to prevent duplicate loops.
+10. The marker renders with consistent sizing and stroke behavior.
+11. The numbered variant shows a label from 1 to 99.
+12. The marker remains readable and stable at normal map marker sizes.
 </user_flows>
 
 <requirements>
@@ -51,12 +54,12 @@ Primary flow:
 3. The `RouteMarker` API must support at least `kind`, `color`, `number`, `size`, and `strokeWidth`, with the default size, font size, minimum size, stroke width, and stroke darken/alpha value coming from `RouteUI` in `./lib/core/constants.dart`.
 4. The circle variant must render a white-filled circle with a colored stroke.
 5. The target variant must render a target-style marker using a single consistent rendering path, with an outer ring and a centered inner dot on a white background.
-6. The numbered variant must render a filled circle with a darker same-hue stroke and a centered black number from 1 to 99.
+6. The numbered variant must render a filled circle with a darker same-hue stroke and a centered white number from 1 to 99.
 7. The numbered variant must clamp out-of-range values into the visible range `1..99`.
 8. The numbered marker stroke must use a fixed darken/alpha transform value defined in `RouteUI`.
 9. The number text must stay centered and legible at the default marker size.
-10. `RouteUI` must define a minimum supported marker size of `20.0` and a font size of `8.0`.
-11. `RouteUI` must also note that `24.0` is required for a `10.0` font size.
+10. `RouteUI` must define a minimum supported marker size of `14.0` and a font size of `6.0`.
+11. `RouteUI` must also define a numbered-marker size of `16.0` for the numbered variant.
 12. The route marker implementation must use one internal approach for all variants instead of three separate widget classes.
 13. The filled numbered marker stroke must be the same hue as the fill color but visibly darker.
 
@@ -69,7 +72,7 @@ Primary flow:
 17. Small marker sizes must not clip the number label or ring stroke.
 18. Large marker sizes must preserve centered alignment and proportional stroke widths.
 19. If the marker is used on high-density displays, the text and strokes must remain crisp enough for map use.
-20. The shared marker size, minimum size, font size, and stroke width values in `RouteUI` must be reused consistently by every route marker variant.
+20. The shared marker size, numbered-marker size, minimum size, font size, and stroke width values in `RouteUI` must be reused consistently by every route marker variant.
 
 **Validation:**
 21. Add widget coverage for all three marker kinds.
@@ -127,7 +130,8 @@ Test expectations:
 2. Verify the numbered variant renders the correct label for at least one low and one high value.
 3. Verify the circle variant has the white fill and colored stroke.
 4. Verify the target variant has the ring-plus-center-dot structure.
-5. Keep the tests deterministic and focused on the widget API, not on map gestures.
+5. Verify Route to Peak remains disabled until the first draft point exists, and both Route to Peak and Out and Back disable after a closed loop.
+6. Keep the tests deterministic and focused on the widget API, not on map gestures.
 </validation>
 
 <done_when>

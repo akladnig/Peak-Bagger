@@ -9,14 +9,14 @@ Route draft markers refactor. New render-facing marker model + single widget; th
 - **Structure**: layer-first, split across `lib/providers`, `lib/screens`, `lib/widgets`, `test/widget`
 - **State management**: Riverpod
 - **Reference implementations**: `lib/providers/map_provider.dart`, `lib/screens/map_screen_layers.dart`, `test/widget/map_screen_route_sheet_test.dart`
-- **Assumptions/Gaps**: render-facing route marker model added; route draft markers full opacity; 99-point cap applies to numbered route points only
+- **Assumptions/Gaps**: render-facing route marker model added; route draft markers full opacity; 99-point cap applies to numbered route points only; Route to Peak disabled until first point; closed loops disable Route to Peak and Out and Back
 
 ## Plan
 
 ### Phase 1: Marker model + widget
 
 - **Goal**: standalone `RouteMarker` rendering
-- [x] `lib/core/constants.dart` - add `RouteUI.markerSize`, `RouteUI.markerMinSize`, `RouteUI.markerFontSize`, `RouteUI.strokeWidth`, `RouteUI.strokeDarkenAlpha`
+- [x] `lib/core/constants.dart` - add `RouteUI.markerSize`, `RouteUI.markerMinSize`, `RouteUI.markerFontSize`, `RouteUI.markerNumberedSize`, `RouteUI.strokeWidth`, `RouteUI.strokeDarkenAlpha`
 - [x] `lib/models/route_marker_display.dart` - add render-facing marker model for `point`, `kind`, `number`, `isCommitted`
 - [x] `lib/widgets/route_marker.dart` - add `RouteMarker` + `RouteMarkerKind`
 - [x] TDD: circle renders white fill + colored stroke; target renders ring + center dot; numbered clamps to `1..99`
