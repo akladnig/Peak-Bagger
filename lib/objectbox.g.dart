@@ -517,7 +517,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(6, 3506540890240152030),
     name: 'Route',
-    lastPropertyId: const obx_int.IdUid(13, 8747517438538908610),
+    lastPropertyId: const obx_int.IdUid(14, 6508459819772890067),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -595,6 +595,12 @@ final _entities = <obx_int.ModelEntity>[
       obx_int.ModelProperty(
         id: const obx_int.IdUid(13, 8747517438538908610),
         name: 'gpxRouteJson',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(14, 6508459819772890067),
+        name: 'routeWaypointsJson',
         type: 9,
         flags: 0,
       ),
@@ -1323,7 +1329,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
           object.displayRoutePointsByZoom,
         );
         final gpxRouteJsonOffset = fbb.writeString(object.gpxRouteJson);
-        fbb.startTable(14);
+        final routeWaypointsJsonOffset = fbb.writeString(
+          object.routeWaypointsJson,
+        );
+        fbb.startTable(15);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, nameOffset);
         fbb.addOffset(2, displayRoutePointsByZoomOffset);
@@ -1337,6 +1346,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addFloat64(10, object.lowestElevation);
         fbb.addFloat64(11, object.highestElevation);
         fbb.addOffset(12, gpxRouteJsonOffset);
+        fbb.addOffset(13, routeWaypointsJsonOffset);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -1426,7 +1436,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
               )
               ..gpxRouteJson = const fb.StringReader(
                 asciiOptimization: true,
-              ).vTableGet(buffer, rootOffset, 28, '');
+              ).vTableGet(buffer, rootOffset, 28, '')
+              ..routeWaypointsJson = const fb.StringReader(
+                asciiOptimization: true,
+              ).vTableGet(buffer, rootOffset, 30, '');
 
         return object;
       },
@@ -1873,5 +1886,10 @@ class Route_ {
   /// See [Route.gpxRouteJson].
   static final gpxRouteJson = obx.QueryStringProperty<Route>(
     _entities[5].properties[12],
+  );
+
+  /// See [Route.routeWaypointsJson].
+  static final routeWaypointsJson = obx.QueryStringProperty<Route>(
+    _entities[5].properties[13],
   );
 }

@@ -48,6 +48,7 @@ class ObjectBoxSchemaGuard {
       'PeaksBagged.date:${_hasProperty(peaksBagged, 'date')}',
       'Route.name:${_hasProperty(route, 'name')}',
       'Route.gpxRouteJson:${_hasProperty(route, 'gpxRouteJson')}',
+      'Route.routeWaypointsJson:${_hasProperty(route, 'routeWaypointsJson')}',
       'Route.displayRoutePointsByZoom:${_hasProperty(route, 'displayRoutePointsByZoom')}',
       'Route.colour:${_hasProperty(route, 'colour')}',
     ].join('|');

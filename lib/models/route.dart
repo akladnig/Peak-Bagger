@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:objectbox/objectbox.dart';
 
 import '../core/constants.dart';
+import 'route_waypoint.dart';
 
 @Entity()
 class Route {
@@ -17,6 +18,9 @@ class Route {
 
   @Transient()
   List<int?> gpxRouteElevations;
+
+  @Transient()
+  List<RouteWaypoint> routeWaypoints;
 
   String displayRoutePointsByZoom;
   int colour;
@@ -34,6 +38,7 @@ class Route {
     this.name = '',
     List<LatLng>? gpxRoute,
     List<int?>? gpxRouteElevations,
+    List<RouteWaypoint>? routeWaypoints,
     this.displayRoutePointsByZoom = '{}',
     this.colour = 0,
     this.distance2d = 0,
@@ -45,10 +50,11 @@ class Route {
     this.lowestElevation = 0,
     this.highestElevation = 0,
   }) : gpxRoute = List<LatLng>.from(gpxRoute ?? const []),
-       gpxRouteElevations = _normalizeElevations(
-         pointCount: (gpxRoute ?? const <LatLng>[]).length,
-         elevations: gpxRouteElevations,
-       );
+        gpxRouteElevations = _normalizeElevations(
+          pointCount: (gpxRoute ?? const <LatLng>[]).length,
+          elevations: gpxRouteElevations,
+        ),
+        routeWaypoints = List<RouteWaypoint>.from(routeWaypoints ?? const []);
 
   String get gpxRouteJson => jsonEncode(
     List<List<num>>.generate(gpxRoute.length, (index) {
@@ -99,6 +105,35 @@ class Route {
       pointCount: points.length,
       elevations: elevations,
     );
+  }
+
+  String get routeWaypointsJson => jsonEncode(
+    routeWaypoints.map((waypoint) => waypoint.toJson()).toList(growable: false),
+  );
+
+  set routeWaypointsJson(String value) {
+    final dynamic decoded;
+    try {
+      decoded = jsonDecode(value);
+    } catch (_) {
+      routeWaypoints = [];
+      return;
+    }
+
+    if (decoded is! List) {
+      routeWaypoints = [];
+      return;
+    }
+
+    final waypoints = <RouteWaypoint>[];
+    for (final entry in decoded) {
+      final waypoint = RouteWaypoint.fromJson(entry);
+      if (waypoint != null) {
+        waypoints.add(waypoint);
+      }
+    }
+
+    routeWaypoints = waypoints;
   }
 
   static List<int?> _normalizeElevations({

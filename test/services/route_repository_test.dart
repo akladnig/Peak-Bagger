@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/route.dart';
+import 'package:peak_bagger/models/route_waypoint.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 
 void main() {
@@ -33,5 +34,28 @@ void main() {
     expect(updated.id, created.id);
     expect(repository.getAllRoutes(), hasLength(1));
     expect(repository.getAllRoutes().single.name, 'Updated Route');
+  });
+
+  test('route waypoint metadata round-trips through JSON', () {
+    final route = Route(
+      name: 'Waypoint Route',
+      gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.6, 146.6)],
+      routeWaypoints: const [
+        RouteWaypoint(
+          latitude: -41.6,
+          longitude: 146.6,
+          label: 'Waypoint 1',
+          sequence: 1,
+          isPeakDerived: false,
+        ),
+      ],
+    );
+
+    final encoded = route.routeWaypointsJson;
+    final decoded = Route(name: 'Decoded Route')..routeWaypointsJson = encoded;
+
+    expect(encoded, contains('Waypoint 1'));
+    expect(decoded.routeWaypoints, hasLength(1));
+    expect(decoded.routeWaypoints.single, route.routeWaypoints.single);
   });
 }

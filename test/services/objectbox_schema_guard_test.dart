@@ -40,6 +40,7 @@ void main() {
     expect(signature, contains('PeaksBagged.date:'));
     expect(signature, contains('Route.name:'));
     expect(signature, contains('Route.gpxRouteJson:'));
+    expect(signature, contains('Route.routeWaypointsJson:'));
     expect(signature, contains('Route.displayRoutePointsByZoom:'));
     expect(signature, contains('Route.colour:'));
   });
