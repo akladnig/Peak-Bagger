@@ -45,13 +45,13 @@ Keep Riverpod draft flow; persist metadata on save, serialize later in GPX.
 ### Phase 4: GPX export + journey
 
 - **Goal**: export stored waypoints; preserve correlated peak precedence
-- [ ] `lib/core/constants.dart` - add `GpxConstants.precision = 6`
-- [ ] `lib/services/gpx_export_service.dart` - serialize stored waypoints, keep correlated peaks, normalize coords with precision constant
-- [ ] `test/services/gpx_export_service_test.dart` - explicit waypoint XML, peak-name vs generic-label, collision precedence
-- [ ] `test/robot/map/map_route_journey_test.dart` - build route, tap `Out and Back`, save, confirm persisted route
-- [ ] TDD: exported GPX includes stored `<wpt>` entries; correlated peak wins same-coordinate collision
-- [ ] TDD: robot journey completes with stable selectors and no private-helper reach-in
-- [ ] Verify: `flutter analyze && flutter test test/services/gpx_export_service_test.dart test/robot/map/map_route_journey_test.dart`
+- [x] `lib/core/constants.dart` - add `GpxConstants.precision = 6`
+- [x] `lib/services/gpx_export_service.dart` - serialize stored waypoints, keep correlated peaks, normalize coords with precision constant
+- [x] `test/services/gpx_export_service_test.dart` - explicit waypoint XML, peak-name vs generic-label, collision precedence
+- [x] `test/robot/map/map_route_journey_test.dart` - build route, tap `Out and Back`, save, confirm persisted route
+- [x] TDD: exported GPX includes stored `<wpt>` entries; correlated peak wins same-coordinate collision
+- [x] TDD: robot journey completes with stable selectors and no private-helper reach-in
+- [x] Verify: `flutter analyze && flutter test test/services/gpx_export_service_test.dart test/robot/map/map_route_journey_test.dart`
 
 ## Risks / Out of scope
 

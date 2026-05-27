@@ -92,6 +92,55 @@ void main() {
     expect(robot.container().read(mapProvider).showRoutes, isTrue);
   });
 
+  testWidgets('route journey out-and-backs and saves a waypoint route', (
+    tester,
+  ) async {
+    final robot = MapRouteRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+      routePlanningOutcomes: const [],
+      routeElevationOutcomes: const [],
+    );
+
+    await robot.pumpApp();
+    await robot.openMap();
+    await robot.enterRouteMode();
+
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const Key('route-mode-straight-line')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    await tester.pump();
+
+    await robot.tapRoutePoint(const Offset(-40, 0));
+    await robot.tapRoutePoint(const Offset(40, 0));
+
+    expect(robot.outAndBackButton, findsOneWidget);
+    expect(
+      tester.widget<FilledButton>(robot.outAndBackButton).onPressed,
+      isNotNull,
+    );
+
+    await tester.ensureVisible(robot.outAndBackButton);
+    await tester.tap(robot.outAndBackButton);
+    await tester.pumpAndSettle();
+
+    await robot.enterRouteName('Out and Back Route');
+    await robot.saveRoute();
+
+    expect(robot.routeBottomSheet, findsNothing);
+    expect(robot.savedRoutes(), hasLength(1));
+    expect(robot.savedRoutes().single.routeWaypoints, hasLength(1));
+    expect(robot.savedRoutes().single.routeWaypoints.single.label, 'Waypoint 1');
+    expect(robot.container().read(mapProvider).showRoutes, isTrue);
+  });
+
   testWidgets('route journey drafts two segments and saves the route', (
     tester,
   ) async {
