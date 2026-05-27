@@ -61,5 +61,7 @@ void main() {
 
     expect((markers[1].child as RouteMarker).kind, RouteMarkerKind.target);
     expect((markers[2].child as RouteMarker).kind, RouteMarkerKind.numbered);
+    expect(markers[2].width, RouteUI.markerNumberedSize);
+    expect(markers[2].height, RouteUI.markerNumberedSize);
   });
 }

@@ -210,16 +210,22 @@ List<Marker> buildRouteDraftMarkers({
 }) {
   return [
     for (final marker in markers)
-      Marker(
+        Marker(
         key: Key('route-draft-marker-${marker.id}'),
         point: marker.point,
-        width: RouteUI.markerSize,
-        height: RouteUI.markerSize,
+        width: marker.kind == RouteMarkerKind.numbered
+            ? RouteUI.markerNumberedSize
+            : RouteUI.markerSize,
+        height: marker.kind == RouteMarkerKind.numbered
+            ? RouteUI.markerNumberedSize
+            : RouteUI.markerSize,
         child: RouteMarker(
           kind: marker.kind,
           color: Color(colour),
           number: marker.number,
-          size: RouteUI.markerSize,
+          size: marker.kind == RouteMarkerKind.numbered
+              ? RouteUI.markerNumberedSize
+              : RouteUI.markerSize,
           strokeWidth: RouteUI.strokeWidth,
         ),
       ),
