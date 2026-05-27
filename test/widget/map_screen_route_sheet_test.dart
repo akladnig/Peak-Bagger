@@ -68,7 +68,10 @@ void main() {
     expect(find.byKey(const Key('route-mode-snap-to-trail')), findsOneWidget);
     expect(find.byKey(const Key('route-mode-route-to-peak')), findsOneWidget);
     expect(find.byKey(const Key('route-mode-straight-line')), findsOneWidget);
-    expect(find.byKey(const Key('route-distance-elevation-group')), findsOneWidget);
+    expect(
+      find.byKey(const Key('route-distance-elevation-group')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('route to peak stays disabled without a captured peak target', (
@@ -100,10 +103,7 @@ void main() {
         matching: find.byType(FilledButton),
       ),
     );
-    expect(
-      snapToTrailButton.style?.backgroundColor?.resolve({}),
-      Colors.green,
-    );
+    expect(snapToTrailButton.style?.backgroundColor?.resolve({}), Colors.green);
   });
 
   testWidgets('route to peak enables from a captured peak popup target', (
@@ -140,10 +140,7 @@ void main() {
         matching: find.byType(FilledButton),
       ),
     );
-    expect(
-      snapToTrailButton.style?.backgroundColor?.resolve({}),
-      Colors.green,
-    );
+    expect(snapToTrailButton.style?.backgroundColor?.resolve({}), Colors.green);
 
     final routeToPeakButton = tester.widget<FilledButton>(
       find.descendant(
@@ -201,10 +198,7 @@ void main() {
       ),
       routePlanningOutcomes: const [
         PlannedRouteSegment(
-          points: [
-            LatLng(-41.5, 146.5),
-            LatLng(-41.55, 146.55),
-          ],
+          points: [LatLng(-41.5, 146.5), LatLng(-41.55, 146.55)],
           distanceMeters: 500,
         ),
       ],
@@ -238,10 +232,7 @@ void main() {
         matching: find.byType(FilledButton),
       ),
     );
-    expect(
-      snapToTrailButton.style?.backgroundColor?.resolve({}),
-      Colors.green,
-    );
+    expect(snapToTrailButton.style?.backgroundColor?.resolve({}), Colors.green);
   });
 
   testWidgets('route mode buttons are disabled while routing a segment', (
@@ -272,11 +263,7 @@ void main() {
       loadPeaksOnBuild: false,
       loadTracksOnBuild: false,
     );
-    await _pumpMap(
-      tester,
-      notifier,
-      tasmapRepository: tasmapRepository,
-    );
+    await _pumpMap(tester, notifier, tasmapRepository: tasmapRepository);
 
     await tester.tap(find.byKey(const Key('create-route-fab')));
     await tester.pumpAndSettle();
@@ -301,65 +288,94 @@ void main() {
     );
   });
 
-  testWidgets('out and back button sits in the route strip and toggles enabled state', (
-    tester,
-  ) async {
-    final notifier = TestMapNotifier(
-      MapState(
-        center: const LatLng(-41.5, 146.5),
-        zoom: 15,
-        basemap: Basemap.tracestrack,
-      ),
-    );
-    await _pumpMap(tester, notifier);
-
-    await tester.tap(find.byKey(const Key('create-route-fab')));
-    await tester.pumpAndSettle();
-
-    final outAndBackKey = find.byKey(const Key('route-mode-out-and-back'));
-    expect(outAndBackKey, findsOneWidget);
-    expect(find.byTooltip('Out and Back'), findsOneWidget);
-
-    FilledButton button(Finder keyFinder) => tester.widget<FilledButton>(keyFinder);
-
-    expect(button(outAndBackKey).onPressed, isNull);
-
-    final straightRect = tester.getRect(find.byKey(const Key('route-mode-straight-line')));
-    final outAndBackRect = tester.getRect(outAndBackKey);
-    final nameRect = tester.getRect(find.byKey(const Key('route-name-field')));
-
-    expect(outAndBackRect.left, greaterThan(straightRect.right));
-    expect(outAndBackRect.right, lessThan(nameRect.left));
-
-    final container = _container(tester);
-    container.read(mapProvider.notifier).state = container.read(mapProvider).copyWith(
-      routeDraftStage: RouteDraftStage.awaitingNextPoint,
-      routeDraftControlEndpoints: const [
-        RouteDraftControlEndpoint(
-          id: 'endpoint-0',
-          point: LatLng(-41.5, 146.5),
-          kind: RouteDraftEndpointKind.tapped,
+  testWidgets(
+    'out and back button sits in the route strip and toggles enabled state',
+    (tester) async {
+      final notifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
         ),
-        RouteDraftControlEndpoint(
-          id: 'endpoint-1',
-          point: LatLng(-41.6, 146.6),
-          kind: RouteDraftEndpointKind.tapped,
-        ),
-      ],
-      routeDraftMarkers: const [
-        LatLng(-41.5, 146.5),
-        LatLng(-41.6, 146.6),
-      ],
-      routeDraftCommittedPoints: const [
-        LatLng(-41.5, 146.5),
-        LatLng(-41.55, 146.55),
-        LatLng(-41.6, 146.6),
-      ],
-    );
-    await tester.pump();
+      );
+      await _pumpMap(tester, notifier);
 
-    expect(button(outAndBackKey).onPressed, isNotNull);
-  });
+      await tester.tap(find.byKey(const Key('create-route-fab')));
+      await tester.pumpAndSettle();
+
+      final outAndBackKey = find.byKey(const Key('route-mode-out-and-back'));
+      expect(outAndBackKey, findsOneWidget);
+      expect(find.byTooltip('Out and Back'), findsOneWidget);
+      expect(
+        find.descendant(of: outAndBackKey, matching: find.text('Out and Back')),
+        findsNothing,
+      );
+
+      FloatingActionButton button(Finder keyFinder) =>
+          tester.widget<FloatingActionButton>(keyFinder);
+
+      expect(button(outAndBackKey).onPressed, isNull);
+      expect(button(outAndBackKey).shape, isA<CircleBorder>());
+
+      final straightRect = tester.getRect(
+        find.byKey(const Key('route-mode-straight-line')),
+      );
+      final outAndBackRect = tester.getRect(outAndBackKey);
+      final nameRect = tester.getRect(
+        find.byKey(const Key('route-name-field')),
+      );
+
+      expect(outAndBackRect.left, greaterThan(straightRect.right));
+      expect(outAndBackRect.right, lessThan(nameRect.left));
+
+      final container = _container(tester);
+      container.read(mapProvider.notifier).state = container
+          .read(mapProvider)
+          .copyWith(
+            routeDraftStage: RouteDraftStage.awaitingNextPoint,
+            routeDraftControlEndpoints: const [
+              RouteDraftControlEndpoint(
+                id: 'endpoint-0',
+                point: LatLng(-41.5, 146.5),
+                kind: RouteDraftEndpointKind.tapped,
+              ),
+              RouteDraftControlEndpoint(
+                id: 'endpoint-1',
+                point: LatLng(-41.6, 146.6),
+                kind: RouteDraftEndpointKind.tapped,
+              ),
+            ],
+            routeDraftMarkers: const [
+              LatLng(-41.5, 146.5),
+              LatLng(-41.6, 146.6),
+            ],
+            routeDraftCommittedPoints: const [
+              LatLng(-41.5, 146.5),
+              LatLng(-41.55, 146.55),
+              LatLng(-41.6, 146.6),
+            ],
+          );
+      await tester.pump();
+
+      expect(button(outAndBackKey).onPressed, isNotNull);
+      expect(button(outAndBackKey).shape, isA<CircleBorder>());
+
+      container.read(mapProvider.notifier).state = container
+          .read(mapProvider)
+          .copyWith(
+            routeDraftCommittedPoints: const [
+              LatLng(-41.5, 146.5),
+              LatLng(-41.55, 146.55),
+              LatLng(-41.6, 146.6),
+              LatLng(-41.55, 146.55),
+              LatLng(-41.5, 146.5),
+            ],
+          );
+      await tester.pump();
+
+      expect(button(outAndBackKey).onPressed, isNull);
+    },
+  );
 
   testWidgets('route sheet accepts name input and closes on cancel', (
     tester,
@@ -376,7 +392,10 @@ void main() {
     await tester.tap(find.byKey(const Key('create-route-fab')));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byKey(const Key('route-name-field')), 'Ridge Loop');
+    await tester.enterText(
+      find.byKey(const Key('route-name-field')),
+      'Ridge Loop',
+    );
     await tester.pump();
 
     expect(_container(tester).read(mapProvider).routeDraftName, 'Ridge Loop');
@@ -429,38 +448,39 @@ void main() {
     expect(decoration.color, const Color(0xFFFF0000));
   });
 
-  testWidgets('route mode tap on a peak adds a route marker instead of opening popup', (
-    tester,
-  ) async {
-    final notifier = TestMapNotifier(
-      MapState(
-        center: const LatLng(-41.5, 146.5),
-        zoom: 15,
-        basemap: Basemap.tracestrack,
-        peaks: [
-          Peak(
-            osmId: 7001,
-            name: 'Route Peak',
-            latitude: -41.5,
-            longitude: 146.5,
-          ),
-        ],
-      ),
-    );
-    await _pumpMap(tester, notifier);
+  testWidgets(
+    'route mode tap on a peak adds a route marker instead of opening popup',
+    (tester) async {
+      final notifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          peaks: [
+            Peak(
+              osmId: 7001,
+              name: 'Route Peak',
+              latitude: -41.5,
+              longitude: 146.5,
+            ),
+          ],
+        ),
+      );
+      await _pumpMap(tester, notifier);
 
-    await tester.tap(find.byKey(const Key('create-route-fab')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('create-route-fab')));
+      await tester.pumpAndSettle();
 
-    final region = find.byKey(const Key('map-interaction-region'));
-    await tester.tapAt(tester.getCenter(region));
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pumpAndSettle();
+      final region = find.byKey(const Key('map-interaction-region'));
+      await tester.tapAt(tester.getCenter(region));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('route-draft-marker-0')), findsOneWidget);
-    expect(find.byKey(const Key('peak-info-popup')), findsNothing);
-    expect(_container(tester).read(mapProvider).selectedLocation, isNull);
-  });
+      expect(find.byKey(const Key('route-draft-marker-0')), findsOneWidget);
+      expect(find.byKey(const Key('peak-info-popup')), findsNothing);
+      expect(_container(tester).read(mapProvider).selectedLocation, isNull);
+    },
+  );
 
   testWidgets('blank route name shows inline error and save stays disabled', (
     tester,
@@ -510,7 +530,9 @@ void main() {
     expect(find.text('A Route name must be entered'), findsNothing);
   });
 
-  testWidgets('valid route save persists routed geometry and closes sheet', (tester) async {
+  testWidgets('valid route save persists routed geometry and closes sheet', (
+    tester,
+  ) async {
     final routeRepository = RouteRepository.test(InMemoryRouteStorage());
     final tasmapRepository = await TestTasmapRepository.create();
     final routePlanner = _CompletingRoutePlanner();
@@ -600,7 +622,10 @@ void main() {
     expect(find.text('210 m'), findsOneWidget);
     expect(find.byIcon(Icons.arrow_upward), findsOneWidget);
     expect(find.byIcon(Icons.arrow_downward), findsOneWidget);
-    await tester.enterText(find.byKey(const Key('route-name-field')), 'Ridge Loop');
+    await tester.enterText(
+      find.byKey(const Key('route-name-field')),
+      'Ridge Loop',
+    );
     await tester.pump();
 
     await tester.tap(find.byKey(const Key('route-save-button')));
@@ -671,7 +696,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tapAt(tester.getCenter(region) + const Offset(40, 0));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('route-name-field')), 'Failure Route');
+    await tester.enterText(
+      find.byKey(const Key('route-name-field')),
+      'Failure Route',
+    );
     await tester.pump();
 
     await tester.tap(find.byKey(const Key('route-save-button')));
@@ -699,32 +727,30 @@ void main() {
           descent: 75,
         ),
       ),
-      routePlanner: _QueuedRoutePlanner(
-        [
-          RoutePlanningResult(
-            status: RoutePlanningStatus.routed,
-            points: const [
-              LatLng(-41.5, 146.5),
-              LatLng(-41.55, 146.55),
-              LatLng(-41.6, 146.6),
-            ],
-            distanceMeters: 1234.5,
-            startAnchor: null,
-            endAnchor: null,
+      routePlanner: _QueuedRoutePlanner([
+        RoutePlanningResult(
+          status: RoutePlanningStatus.routed,
+          points: const [
+            LatLng(-41.5, 146.5),
+            LatLng(-41.55, 146.55),
+            LatLng(-41.6, 146.6),
+          ],
+          distanceMeters: 1234.5,
+          startAnchor: null,
+          endAnchor: null,
+        ),
+        RoutePlanningResult(
+          status: RoutePlanningStatus.noPath,
+          points: const [],
+          distanceMeters: 0,
+          startAnchor: null,
+          endAnchor: const RouteEndpointAnchor(
+            point: LatLng(-41.7, 146.7),
+            type: RouteEndpointAnchorType.node,
+            nodeId: 3,
           ),
-          RoutePlanningResult(
-            status: RoutePlanningStatus.noPath,
-            points: const [],
-            distanceMeters: 0,
-            startAnchor: null,
-            endAnchor: const RouteEndpointAnchor(
-              point: LatLng(-41.7, 146.7),
-              type: RouteEndpointAnchorType.node,
-              nodeId: 3,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ]),
       peaksBaggedRepository: PeaksBaggedRepository.test(
         InMemoryPeaksBaggedStorage(),
       ),
@@ -732,11 +758,7 @@ void main() {
       loadPeaksOnBuild: false,
       loadTracksOnBuild: false,
     );
-    await _pumpMap(
-      tester,
-      notifier,
-      tasmapRepository: tasmapRepository,
-    );
+    await _pumpMap(tester, notifier, tasmapRepository: tasmapRepository);
 
     await tester.tap(find.byKey(const Key('create-route-fab')));
     await tester.pumpAndSettle();
@@ -749,7 +771,10 @@ void main() {
     await tester.tapAt(tester.getCenter(region) + const Offset(80, 0));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byKey(const Key('route-name-field')), 'Fallback Route');
+    await tester.enterText(
+      find.byKey(const Key('route-name-field')),
+      'Fallback Route',
+    );
     await tester.pump();
 
     expect(find.byKey(const Key('route-distance-text')), findsOneWidget);
@@ -825,95 +850,102 @@ void main() {
     expect(fab, findsNothing);
   });
 
-  testWidgets('route sheet shows elevation loading and error states after routing completes', (
-    tester,
-  ) async {
-    final tasmapRepository = await TestTasmapRepository.create();
-    final routeElevationSampler = _ControlledRouteElevationSampler();
-    final notifier = MapNotifier(
-      peakRepository: PeakRepository.test(InMemoryPeakStorage()),
-      overpassService: OverpassService(),
-      tasmapRepository: tasmapRepository,
-      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
-      routeRepository: RouteRepository.test(InMemoryRouteStorage()),
-      routeElevationSampler: routeElevationSampler,
-      routePlanner: const _ImmediateRoutePlanner(
-        PlannedRouteSegment(
-          points: [
+  testWidgets(
+    'route sheet shows elevation loading and error states after routing completes',
+    (tester) async {
+      final tasmapRepository = await TestTasmapRepository.create();
+      final routeElevationSampler = _ControlledRouteElevationSampler();
+      final notifier = MapNotifier(
+        peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+        overpassService: OverpassService(),
+        tasmapRepository: tasmapRepository,
+        gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+        routeRepository: RouteRepository.test(InMemoryRouteStorage()),
+        routeElevationSampler: routeElevationSampler,
+        routePlanner: const _ImmediateRoutePlanner(
+          PlannedRouteSegment(
+            points: [
+              LatLng(-41.5, 146.5),
+              LatLng(-41.55, 146.55),
+              LatLng(-41.6, 146.6),
+            ],
+            distanceMeters: 1234.5,
+          ),
+        ),
+        peaksBaggedRepository: PeaksBaggedRepository.test(
+          InMemoryPeaksBaggedStorage(),
+        ),
+        loadPositionOnBuild: false,
+        loadPeaksOnBuild: false,
+        loadTracksOnBuild: false,
+      );
+      await _pumpMap(tester, notifier, tasmapRepository: tasmapRepository);
+
+      await tester.tap(find.byKey(const Key('create-route-fab')));
+      await tester.pumpAndSettle();
+
+      final region = find.byKey(const Key('map-interaction-region'));
+      await tester.tapAt(tester.getCenter(region) + const Offset(-40, 0));
+      await tester.pumpAndSettle();
+      await tester.tapAt(tester.getCenter(region) + const Offset(40, 0));
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('route-elevation-loading-text')),
+        findsOneWidget,
+      );
+
+      routeElevationSampler.failNext(Exception('DEM offline'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byKey(const Key('route-distance-text')), findsOneWidget);
+      expect(
+        find.byKey(const Key('route-elevation-loading-text')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('route-elevation-error-text')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Failed to sample elevation'), findsOneWidget);
+      expect(find.text('315 m'), findsNothing);
+      expect(find.text('234 m'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'route sheet uses shared meter and kilometer distance formatting',
+    (tester) async {
+      final notifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          isRouteDrafting: true,
+          routeDraftName: 'Short route',
+          routeDraftStage: RouteDraftStage.awaitingNextPoint,
+          routeDraftCommittedPoints: const [
             LatLng(-41.5, 146.5),
-            LatLng(-41.55, 146.55),
-            LatLng(-41.6, 146.6),
+            LatLng(-41.5005, 146.5005),
           ],
-          distanceMeters: 1234.5,
+          routeDraftDistanceMeters: 850,
+          routeDraftElevationSummary: const RouteElevationSummary(
+            requestId: 1,
+            geometryVersion: 1,
+            ascent: 10,
+            descent: 12,
+          ),
         ),
-      ),
-      peaksBaggedRepository: PeaksBaggedRepository.test(
-        InMemoryPeaksBaggedStorage(),
-      ),
-      loadPositionOnBuild: false,
-      loadPeaksOnBuild: false,
-      loadTracksOnBuild: false,
-    );
-    await _pumpMap(
-      tester,
-      notifier,
-      tasmapRepository: tasmapRepository,
-    );
+      );
+      await _pumpMap(tester, notifier);
 
-    await tester.tap(find.byKey(const Key('create-route-fab')));
-    await tester.pumpAndSettle();
-
-    final region = find.byKey(const Key('map-interaction-region'));
-    await tester.tapAt(tester.getCenter(region) + const Offset(-40, 0));
-    await tester.pumpAndSettle();
-    await tester.tapAt(tester.getCenter(region) + const Offset(40, 0));
-    await tester.pump();
-
-    expect(find.byKey(const Key('route-elevation-loading-text')), findsOneWidget);
-
-    routeElevationSampler.failNext(Exception('DEM offline'));
-    await tester.pump();
-    await tester.pump();
-
-    expect(find.byKey(const Key('route-distance-text')), findsOneWidget);
-    expect(find.byKey(const Key('route-elevation-loading-text')), findsNothing);
-    expect(find.byKey(const Key('route-elevation-error-text')), findsOneWidget);
-    expect(find.textContaining('Failed to sample elevation'), findsOneWidget);
-    expect(find.text('315 m'), findsNothing);
-    expect(find.text('234 m'), findsNothing);
-  });
-
-  testWidgets('route sheet uses shared meter and kilometer distance formatting', (
-    tester,
-  ) async {
-    final notifier = TestMapNotifier(
-      MapState(
-        center: const LatLng(-41.5, 146.5),
-        zoom: 15,
-        basemap: Basemap.tracestrack,
-        isRouteDrafting: true,
-        routeDraftName: 'Short route',
-        routeDraftStage: RouteDraftStage.awaitingNextPoint,
-        routeDraftCommittedPoints: const [
-          LatLng(-41.5, 146.5),
-          LatLng(-41.5005, 146.5005),
-        ],
-        routeDraftDistanceMeters: 850,
-        routeDraftElevationSummary: const RouteElevationSummary(
-          requestId: 1,
-          geometryVersion: 1,
-          ascent: 10,
-          descent: 12,
-        ),
-      ),
-    );
-    await _pumpMap(tester, notifier);
-
-    final distanceText = tester.widget<Text>(
-      find.byKey(const Key('route-distance-text')),
-    );
-    expect(distanceText.data, '850 m');
-  });
+      final distanceText = tester.widget<Text>(
+        find.byKey(const Key('route-distance-text')),
+      );
+      expect(distanceText.data, '850 m');
+    },
+  );
 }
 
 class _CompletingRoutePlanner implements RoutePlanner {
@@ -946,7 +978,9 @@ class _CompletingRoutePlanner implements RoutePlanner {
   }
 
   @override
-  Future<RouteEndpointProbeResult> probeEndpoint({required LatLng point}) async {
+  Future<RouteEndpointProbeResult> probeEndpoint({
+    required LatLng point,
+  }) async {
     return const RouteEndpointProbeResult(isOnTrack: false);
   }
 
@@ -985,7 +1019,9 @@ class _ImmediateRoutePlanner implements RoutePlanner {
   }
 
   @override
-  Future<RouteEndpointProbeResult> probeEndpoint({required LatLng point}) async {
+  Future<RouteEndpointProbeResult> probeEndpoint({
+    required LatLng point,
+  }) async {
     return const RouteEndpointProbeResult(isOnTrack: false);
   }
 
@@ -1013,7 +1049,9 @@ class _QueuedRoutePlanner implements RoutePlanner {
   }
 
   @override
-  Future<RouteEndpointProbeResult> probeEndpoint({required LatLng point}) async {
+  Future<RouteEndpointProbeResult> probeEndpoint({
+    required LatLng point,
+  }) async {
     return const RouteEndpointProbeResult(isOnTrack: false);
   }
 
@@ -1100,11 +1138,11 @@ Future<void> _pumpMap(
   MapNotifier notifier, {
   RouteRepository? routeRepository,
   TasmapRepository? tasmapRepository,
-}
-) async {
-  final effectiveTasmapRepository = tasmapRepository ?? await TestTasmapRepository.create();
-  final effectiveRouteRepository = routeRepository ??
-      RouteRepository.test(InMemoryRouteStorage());
+}) async {
+  final effectiveTasmapRepository =
+      tasmapRepository ?? await TestTasmapRepository.create();
+  final effectiveRouteRepository =
+      routeRepository ?? RouteRepository.test(InMemoryRouteStorage());
   await tester.binding.setSurfaceSize(const Size(1600, 900));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
@@ -1130,7 +1168,8 @@ Future<void> _pumpMap(
 
 class _ReadyRouteGraphStore implements RouteGraphStore {
   @override
-  Future<trip_routing.TripService> preload() async => trip_routing.TripService();
+  Future<trip_routing.TripService> preload() async =>
+      trip_routing.TripService();
 
   @override
   Future<trip_routing.TripService> reload() async => trip_routing.TripService();

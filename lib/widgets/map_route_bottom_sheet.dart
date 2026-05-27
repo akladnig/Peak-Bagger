@@ -71,17 +71,17 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<String>(
-      mapProvider.select((state) => state.routeDraftName),
-      (previous, next) {
-        if (_routeNameController.text != next) {
-          _routeNameController.value = TextEditingValue(
-            text: next,
-            selection: TextSelection.collapsed(offset: next.length),
-          );
-        }
-      },
-    );
+    ref.listen<String>(mapProvider.select((state) => state.routeDraftName), (
+      previous,
+      next,
+    ) {
+      if (_routeNameController.text != next) {
+        _routeNameController.value = TextEditingValue(
+          text: next,
+          selection: TextSelection.collapsed(offset: next.length),
+        );
+      }
+    });
 
     final (
       :routeDraftName,
@@ -145,7 +145,8 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
                           routeDraftStage: routeDraftStage,
                           routeDraftDistanceMeters: routeDraftDistanceMeters,
                           routeDraftError: routeDraftError,
-                          routeDraftElevationSummary: routeDraftElevationSummary,
+                          routeDraftElevationSummary:
+                              routeDraftElevationSummary,
                           routeDraftElevationLoading:
                               routeDraftElevationLoading,
                           routeDraftElevationError: routeDraftElevationError,
@@ -162,7 +163,8 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
                             routeDraftStage: routeDraftStage,
                             routeDraftPeak: routeDraftPeakTarget,
                             routeDraftColour: routeDraftColour,
-                            routeDraftCommittedPoints: routeDraftCommittedPoints,
+                            routeDraftCommittedPoints:
+                                routeDraftCommittedPoints,
                             isSavingRoute: isSavingRoute,
                             routeNameController: _routeNameController,
                             routeNameFocusNode: _routeNameFocusNode,
@@ -173,16 +175,16 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
                         ),
                       ),
                       const SizedBox(width: 12),
-                        _RouteActionsGroup(
-                          onCancel: notifier.endRouteDraft,
-                          onSave: notifier.saveRouteDraft,
-                          canSave:
+                      _RouteActionsGroup(
+                        onCancel: notifier.endRouteDraft,
+                        onSave: notifier.saveRouteDraft,
+                        canSave:
                             routeDraftCommittedPoints.length >= 2 &&
                             routeDraftName.trim().isNotEmpty &&
                             routeDraftStage != RouteDraftStage.routingSegment &&
                             !isSavingRoute,
-                          isSaving: isSavingRoute,
-                        ),
+                        isSaving: isSavingRoute,
+                      ),
                     ],
                   ),
                 ],
@@ -432,7 +434,10 @@ class _RouteEditingGroup extends StatelessWidget {
                 buttonKey: const Key('route-mode-out-and-back'),
                 label: 'Out and Back',
                 icon: Icons.sync_alt,
-                enabled: routeDraftCommittedPoints.length >= 2 &&
+                enabled:
+                    routeDraftCommittedPoints.length >= 2 &&
+                    routeDraftCommittedPoints.first !=
+                        routeDraftCommittedPoints.last &&
                     !isSavingRoute &&
                     routeDraftStage != RouteDraftStage.routingSegment &&
                     routeDraftStage != RouteDraftStage.segmentFailure,
@@ -538,20 +543,23 @@ class _RouteActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Tooltip(
-      message: label,
-      child: FilledButton.icon(
-        key: buttonKey,
-        style: FilledButton.styleFrom(
+    return Semantics(
+      label: label,
+      button: true,
+      enabled: enabled,
+      child: Tooltip(
+        message: label,
+        child: FloatingActionButton.small(
+          key: buttonKey,
+          heroTag: label,
+          shape: const CircleBorder(),
           backgroundColor: enabled
               ? Colors.purple
               : theme.colorScheme.surfaceContainer,
           foregroundColor: enabled ? Colors.white : theme.colorScheme.onSurface,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          onPressed: enabled ? onPressed : null,
+          child: ExcludeSemantics(child: Icon(icon, size: 18)),
         ),
-        onPressed: enabled ? onPressed : null,
-        icon: Icon(icon, size: 18),
-        label: Text(label),
       ),
     );
   }

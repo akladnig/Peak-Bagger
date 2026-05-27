@@ -657,7 +657,8 @@ enum TrackAvailabilityStatus { loading, recoveryDisabled, empty, available }
 class TrackAvailabilityState {
   const TrackAvailabilityState._(this.status);
 
-  const TrackAvailabilityState.loading() : this._(TrackAvailabilityStatus.loading);
+  const TrackAvailabilityState.loading()
+    : this._(TrackAvailabilityStatus.loading);
 
   const TrackAvailabilityState.recoveryDisabled()
     : this._(TrackAvailabilityStatus.recoveryDisabled);
@@ -719,8 +720,8 @@ class MapNotifier extends Notifier<MapState> {
        _injectedTasmapRepository = tasmapRepository,
        _injectedGpxTrackRepository = gpxTrackRepository,
        _injectedRouteRepository = routeRepository,
-        _injectedRouteElevationSampler = routeElevationSampler,
-        _injectedRoutePlanner = routePlanner,
+       _injectedRouteElevationSampler = routeElevationSampler,
+       _injectedRoutePlanner = routePlanner,
        _injectedPeaksBaggedRepository = peaksBaggedRepository,
        _injectedMigrationMarkerStore = migrationMarkerStore,
        _loadPositionOnBuild = loadPositionOnBuild,
@@ -777,7 +778,8 @@ class MapNotifier extends Notifier<MapState> {
     _routeRepository =
         _injectedRouteRepository ?? ref.read(routeRepositoryProvider);
     _routeElevationSampler =
-        _injectedRouteElevationSampler ?? ref.read(routeElevationSamplerProvider);
+        _injectedRouteElevationSampler ??
+        ref.read(routeElevationSamplerProvider);
     _routePlanner = _injectedRoutePlanner ?? ref.read(routePlannerProvider);
     _peaksBaggedRepository =
         _injectedPeaksBaggedRepository ?? PeaksBaggedRepository(objectboxStore);
@@ -1140,18 +1142,18 @@ class MapNotifier extends Notifier<MapState> {
 
       // Move files to managed storage
       for (final item in plan.items) {
-      if (item.shouldPlaceInManagedStorage &&
-          item.plannedManagedRelativePath != null) {
-        try {
-          await _placeFileInManagedStorage(
-            sourcePath: item.sourcePath,
-            relativePath: item.plannedManagedRelativePath!,
-            track: item.track,
-          );
-        } catch (_) {
-          // Placement failed - track is persisted, recovery is pending.
+        if (item.shouldPlaceInManagedStorage &&
+            item.plannedManagedRelativePath != null) {
+          try {
+            await _placeFileInManagedStorage(
+              sourcePath: item.sourcePath,
+              relativePath: item.plannedManagedRelativePath!,
+              track: item.track,
+            );
+          } catch (_) {
+            // Placement failed - track is persisted, recovery is pending.
+          }
         }
-      }
       }
 
       // Refresh tracks from repository
@@ -1167,7 +1169,8 @@ class MapNotifier extends Notifier<MapState> {
 
       state = state.copyWith(
         tracks: allTracks,
-        selectedTrackId: selectedImportedTrack?.gpxTrackId ?? state.selectedTrackId,
+        selectedTrackId:
+            selectedImportedTrack?.gpxTrackId ?? state.selectedTrackId,
         selectedTrackFocusSerial: selectedImportedTrack == null
             ? state.selectedTrackFocusSerial
             : state.selectedTrackFocusSerial + 1,
@@ -1184,10 +1187,7 @@ class MapNotifier extends Notifier<MapState> {
         warningMessage: plan.warningMessage,
       );
     } catch (e) {
-      state = state.copyWith(
-        isLoadingTracks: false,
-        clearHoveredTrackId: true,
-      );
+      state = state.copyWith(isLoadingTracks: false, clearHoveredTrackId: true);
       rethrow;
     }
   }
@@ -1593,7 +1593,8 @@ class MapNotifier extends Notifier<MapState> {
         PendingCameraSelectionBehavior.clear => null,
       },
       clearSelectedLocation:
-          request.selectedLocationBehavior == PendingCameraSelectionBehavior.clear,
+          request.selectedLocationBehavior ==
+          PendingCameraSelectionBehavior.clear,
       selectedPeaks: switch (request.selectedPeaksBehavior) {
         PendingCameraSelectionBehavior.preserve => null,
         PendingCameraSelectionBehavior.replace => request.selectedPeaks,
@@ -1866,13 +1867,15 @@ class MapNotifier extends Notifier<MapState> {
       state.routeDraftCommittedPoints,
       growable: false,
     );
+    if (committedPoints.first == committedPoints.last) {
+      return;
+    }
+
     final controlEndpoints = state.routeDraftControlEndpoints;
     if (controlEndpoints.isEmpty ||
         controlEndpoints.first.point != committedPoints.first ||
         controlEndpoints.last.point != committedPoints.last) {
-      state = state.copyWith(
-        routeDraftError: 'Route draft is inconsistent.',
-      );
+      state = state.copyWith(routeDraftError: 'Route draft is inconsistent.');
       return;
     }
 
@@ -1890,7 +1893,8 @@ class MapNotifier extends Notifier<MapState> {
       stage: RouteDraftStage.awaitingNextPoint,
       provisionalPoints: const [],
       distanceMeters:
-          state.routeDraftDistanceMeters + _polylineDistanceMeters(returnSegment),
+          state.routeDraftDistanceMeters +
+          _polylineDistanceMeters(returnSegment),
       offTrackProbeActive: false,
       clearRouteDraftError: true,
       nextMarkerId: state.routeDraftNextMarkerId + 1,
@@ -1927,8 +1931,7 @@ class MapNotifier extends Notifier<MapState> {
         controlEndpoints.map((endpoint) => endpoint.point),
       ),
       routeDraftStage: stage,
-      routeDraftProvisionalPoints:
-          List<LatLng>.unmodifiable(provisionalPoints),
+      routeDraftProvisionalPoints: List<LatLng>.unmodifiable(provisionalPoints),
       routeDraftDistanceMeters:
           distanceMeters ?? state.routeDraftDistanceMeters,
       routeDraftOffTrackProbeActive:
@@ -1974,11 +1977,7 @@ class MapNotifier extends Notifier<MapState> {
     final movedStart = _movedEndpoint(startEndpoint, startAnchor);
     final movedEnd = keepEndRaw
         ? endEndpoint
-        : _movedEndpoint(
-            endEndpoint,
-            endAnchor,
-            isPeakTarget: endIsPeakTarget,
-          );
+        : _movedEndpoint(endEndpoint, endAnchor, isPeakTarget: endIsPeakTarget);
     return controlEndpoints
         .map((endpoint) {
           if (endpoint.id == movedStart.id) {
@@ -2029,7 +2028,8 @@ class MapNotifier extends Notifier<MapState> {
         stage: RouteDraftStage.awaitingNextPoint,
         provisionalPoints: const [],
         distanceMeters:
-            state.routeDraftDistanceMeters + _polylineDistanceMeters(segmentPoints),
+            state.routeDraftDistanceMeters +
+            _polylineDistanceMeters(segmentPoints),
         offTrackProbeActive: false,
         clearRouteDraftError: true,
       );
@@ -2049,7 +2049,8 @@ class MapNotifier extends Notifier<MapState> {
       stage: RouteDraftStage.awaitingNextPoint,
       provisionalPoints: const [],
       distanceMeters:
-          state.routeDraftDistanceMeters + _polylineDistanceMeters(segmentPoints),
+          state.routeDraftDistanceMeters +
+          _polylineDistanceMeters(segmentPoints),
       offTrackProbeActive: true,
       clearRouteDraftError: true,
     );
@@ -2067,7 +2068,8 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
-    final useStraightLine = straightLine || state.routeDraftMode == RouteMode.straightLine;
+    final useStraightLine =
+        straightLine || state.routeDraftMode == RouteMode.straightLine;
 
     switch (state.routeDraftStage) {
       case RouteDraftStage.inactive:
@@ -2131,11 +2133,15 @@ class MapNotifier extends Notifier<MapState> {
         if (useStraightLine) {
           final segmentPoints = [start.point, point];
           _setRouteDraftControlState(
-            controlEndpoints: [...state.routeDraftControlEndpoints, nextEndpoint],
+            controlEndpoints: [
+              ...state.routeDraftControlEndpoints,
+              nextEndpoint,
+            ],
             stage: RouteDraftStage.awaitingNextPoint,
             provisionalPoints: const [],
             distanceMeters:
-                state.routeDraftDistanceMeters + _polylineDistanceMeters(segmentPoints),
+                state.routeDraftDistanceMeters +
+                _polylineDistanceMeters(segmentPoints),
             offTrackProbeActive: false,
             clearRouteDraftError: true,
             nextMarkerId: state.routeDraftNextMarkerId + 1,
@@ -2217,7 +2223,8 @@ class MapNotifier extends Notifier<MapState> {
         provisionalPoints: const [],
         routeDraftError:
             'Start and end points must be different to calculate a route.',
-        nextMarkerId: state.routeDraftNextMarkerId +
+        nextMarkerId:
+            state.routeDraftNextMarkerId +
             (state.routeDraftControlEndpoints.isEmpty ? 2 : 1),
       );
       return;
@@ -2243,7 +2250,8 @@ class MapNotifier extends Notifier<MapState> {
       provisionalPoints: [startEndpoint.point, peakPoint],
       clearRouteDraftError: true,
       requestId: requestId,
-      nextMarkerId: state.routeDraftNextMarkerId +
+      nextMarkerId:
+          state.routeDraftNextMarkerId +
           (state.routeDraftControlEndpoints.isEmpty ? 2 : 1),
     );
     unawaited(
@@ -2318,7 +2326,11 @@ class MapNotifier extends Notifier<MapState> {
         : LatLng(routeTarget.latitude, routeTarget.longitude);
     final startPoint = state.routeDraftControlEndpoints.first.point;
 
-    for (var index = 1; index < state.routeDraftControlEndpoints.length; index++) {
+    for (
+      var index = 1;
+      index < state.routeDraftControlEndpoints.length;
+      index++
+    ) {
       final endpoint = state.routeDraftControlEndpoints[index];
       final isFinalReturnToStart =
           index == state.routeDraftControlEndpoints.length - 1 &&
@@ -2327,7 +2339,8 @@ class MapNotifier extends Notifier<MapState> {
         continue;
       }
 
-      final isPeakDerived = endpoint.kind == RouteDraftEndpointKind.peakTarget ||
+      final isPeakDerived =
+          endpoint.kind == RouteDraftEndpointKind.peakTarget ||
           (peakPoint != null && endpoint.point == peakPoint);
       if (isPeakDerived && routeTarget != null) {
         waypoints.add(
@@ -2363,7 +2376,9 @@ class MapNotifier extends Notifier<MapState> {
     List<LatLng> points,
   ) async {
     try {
-      final sampled = await _routeElevationSampler.samplePointElevations(points);
+      final sampled = await _routeElevationSampler.samplePointElevations(
+        points,
+      );
       return List<int?>.generate(
         points.length,
         (index) => index < sampled.length ? sampled[index]?.round() : null,
@@ -2414,7 +2429,8 @@ class MapNotifier extends Notifier<MapState> {
           stage: RouteDraftStage.awaitingNextPoint,
           provisionalPoints: const [],
           distanceMeters:
-              state.routeDraftDistanceMeters + _polylineDistanceMeters(segmentPoints),
+              state.routeDraftDistanceMeters +
+              _polylineDistanceMeters(segmentPoints),
           offTrackProbeActive: false,
           clearRouteDraftError: true,
           routeDraftMode: resetRouteToPeak ? RouteMode.snapToTrail : null,
@@ -2430,7 +2446,8 @@ class MapNotifier extends Notifier<MapState> {
         return;
       case RoutePlanningStatus.offTrack:
       case RoutePlanningStatus.noPath:
-        final endPoint = result.status == RoutePlanningStatus.noPath &&
+        final endPoint =
+            result.status == RoutePlanningStatus.noPath &&
                 result.endAnchor != null
             ? result.endAnchor!.point
             : endEndpoint.point;
@@ -2440,7 +2457,8 @@ class MapNotifier extends Notifier<MapState> {
           startAnchor: result.startAnchor,
           endEndpoint: endEndpoint,
           endAnchor: result.endAnchor,
-          keepEndRaw: result.status == RoutePlanningStatus.offTrack || resetRouteToPeak,
+          keepEndRaw:
+              result.status == RoutePlanningStatus.offTrack || resetRouteToPeak,
           endIsPeakTarget: resetRouteToPeak,
         );
         final baseSegmentPoints = [startEndpoint.point, endPoint];
@@ -2452,7 +2470,8 @@ class MapNotifier extends Notifier<MapState> {
           stage: RouteDraftStage.awaitingNextPoint,
           provisionalPoints: const [],
           distanceMeters:
-              state.routeDraftDistanceMeters + _polylineDistanceMeters(segmentPoints),
+              state.routeDraftDistanceMeters +
+              _polylineDistanceMeters(segmentPoints),
           offTrackProbeActive: resetRouteToPeak ? false : true,
           clearRouteDraftError: true,
           routeDraftMode: resetRouteToPeak ? RouteMode.snapToTrail : null,
@@ -2475,8 +2494,7 @@ class MapNotifier extends Notifier<MapState> {
           stage: RouteDraftStage.segmentFailure,
           provisionalPoints: const [],
           offTrackProbeActive: state.routeDraftOffTrackProbeActive,
-          routeDraftError:
-              result.errorMessage ?? 'Failed to calculate route.',
+          routeDraftError: result.errorMessage ?? 'Failed to calculate route.',
         );
         return;
     }
@@ -2619,6 +2637,7 @@ class MapNotifier extends Notifier<MapState> {
         : segment;
     return [...existing, ...nextSegment];
   }
+
   void setEndDrawerMode(EndDrawerMode mode) {
     if (state.endDrawerMode == mode) {
       return;
@@ -2837,7 +2856,9 @@ class MapNotifier extends Notifier<MapState> {
 
     final hasVisibleRoute =
         state.showRoutes &&
-        _routeRepository.getAllRoutes().any((route) => route.id == selectedRouteId);
+        _routeRepository.getAllRoutes().any(
+          (route) => route.id == selectedRouteId,
+        );
     if (!hasVisibleRoute) {
       state = state.copyWith(clearSelectedRouteId: true);
     }
@@ -2859,7 +2880,10 @@ class MapNotifier extends Notifier<MapState> {
   void showTrack(int trackId, {LatLng? selectedLocation}) {
     final track = _gpxTrackRepository.findById(trackId);
     if (track == null) {
-      state = state.copyWith(clearSelectedTrackId: true, clearHoveredTrackId: true);
+      state = state.copyWith(
+        clearSelectedTrackId: true,
+        clearHoveredTrackId: true,
+      );
       return;
     }
 
@@ -2867,7 +2891,8 @@ class MapNotifier extends Notifier<MapState> {
       _showTracksRestoreOverridden = true;
     }
 
-    final tracks = state.tracks.every((existing) => existing.gpxTrackId != trackId)
+    final tracks =
+        state.tracks.every((existing) => existing.gpxTrackId != trackId)
         ? [...state.tracks, track]
         : state.tracks;
 

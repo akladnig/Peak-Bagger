@@ -66,10 +66,10 @@ void main() {
     notifier.addRouteDraftMarker(const LatLng(-41.6, 146.6));
     await Future<void>.delayed(Duration.zero);
 
-    expect(
-      container.read(mapProvider).routeDraftMarkers,
-      [const LatLng(-41.5, 146.5), const LatLng(-41.6, 146.6)],
-    );
+    expect(container.read(mapProvider).routeDraftMarkers, [
+      const LatLng(-41.5, 146.5),
+      const LatLng(-41.6, 146.6),
+    ]);
   });
 
   test('route draft end clears draft state', () async {
@@ -103,217 +103,238 @@ void main() {
     expect(state.routeDraftMarkers, isEmpty);
   });
 
-  test('route to peak routes the first tap to the captured peak target', () async {
-    final routePlanner = _ControlledRoutePlanner();
-    final realNotifier = await _buildRouteTestNotifier(routePlanner: routePlanner);
-    final container = ProviderContainer(
-      overrides: [
-        mapProvider.overrideWith(() => realNotifier),
-      ],
-    );
-    addTearDown(container.dispose);
-    final notifier = container.read(mapProvider.notifier);
-    notifier.state = MapState(
-      center: const LatLng(-41.5, 146.5),
-      zoom: 15,
-      basemap: Basemap.tracestrack,
-    );
+  test(
+    'route to peak routes the first tap to the captured peak target',
+    () async {
+      final routePlanner = _ControlledRoutePlanner();
+      final realNotifier = await _buildRouteTestNotifier(
+        routePlanner: routePlanner,
+      );
+      final container = ProviderContainer(
+        overrides: [mapProvider.overrideWith(() => realNotifier)],
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(mapProvider.notifier);
+      notifier.state = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      );
 
-    const start = LatLng(-41.5, 146.5);
-    const peakPoint = LatLng(-41.6, 146.6);
-    final peak = Peak(
-      osmId: 6406,
-      name: 'Bonnet Hill',
-      latitude: peakPoint.latitude,
-      longitude: peakPoint.longitude,
-    );
+      const start = LatLng(-41.5, 146.5);
+      const peakPoint = LatLng(-41.6, 146.6);
+      final peak = Peak(
+        osmId: 6406,
+        name: 'Bonnet Hill',
+        latitude: peakPoint.latitude,
+        longitude: peakPoint.longitude,
+      );
 
-    notifier.beginRouteDraft(peakTarget: peak);
-    notifier.setRouteDraftMode(RouteMode.routeToPeak);
-    notifier.addRouteDraftMarker(start);
-    await Future<void>.delayed(Duration.zero);
-    routePlanner.completeNext(
-      const PlannedRouteSegment(
-        points: [start, LatLng(-41.55, 146.55), peakPoint],
-        distanceMeters: 1000,
-      ),
-    );
-    await Future<void>.delayed(Duration.zero);
+      notifier.beginRouteDraft(peakTarget: peak);
+      notifier.setRouteDraftMode(RouteMode.routeToPeak);
+      notifier.addRouteDraftMarker(start);
+      await Future<void>.delayed(Duration.zero);
+      routePlanner.completeNext(
+        const PlannedRouteSegment(
+          points: [start, LatLng(-41.55, 146.55), peakPoint],
+          distanceMeters: 1000,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
 
-    final state = container.read(mapProvider);
-    expect(routePlanner.requests, const [(start: start, end: peakPoint)]);
-    expect(state.routeDraftMarkers, const [start, peakPoint]);
-    expect(
-      state.routeDraftCommittedPoints,
-      const [start, LatLng(-41.55, 146.55), peakPoint],
-    );
-    expect(
-      state.routeDraftDistanceMeters,
-      closeTo(
-        const Distance().as(LengthUnit.Meter, start, const LatLng(-41.55, 146.55)) +
-            const Distance().as(
-              LengthUnit.Meter,
-              const LatLng(-41.55, 146.55),
-              peakPoint,
-            ),
-        0.001,
-      ),
-    );
-    expect(state.routeDraftMode, RouteMode.snapToTrail);
-    expect(state.routeDraftPeak, isNull);
-  });
+      final state = container.read(mapProvider);
+      expect(routePlanner.requests, const [(start: start, end: peakPoint)]);
+      expect(state.routeDraftMarkers, const [start, peakPoint]);
+      expect(state.routeDraftCommittedPoints, const [
+        start,
+        LatLng(-41.55, 146.55),
+        peakPoint,
+      ]);
+      expect(
+        state.routeDraftDistanceMeters,
+        closeTo(
+          const Distance().as(
+                LengthUnit.Meter,
+                start,
+                const LatLng(-41.55, 146.55),
+              ) +
+              const Distance().as(
+                LengthUnit.Meter,
+                const LatLng(-41.55, 146.55),
+                peakPoint,
+              ),
+          0.001,
+        ),
+      );
+      expect(state.routeDraftMode, RouteMode.snapToTrail);
+      expect(state.routeDraftPeak, isNull);
+    },
+  );
 
-  test('route to peak calculates after switching with a start already tapped', () async {
-    final routePlanner = _ControlledRoutePlanner();
-    final realNotifier = await _buildRouteTestNotifier(routePlanner: routePlanner);
-    final container = ProviderContainer(
-      overrides: [
-        mapProvider.overrideWith(() => realNotifier),
-      ],
-    );
-    addTearDown(container.dispose);
-    final notifier = container.read(mapProvider.notifier);
-    notifier.state = MapState(
-      center: const LatLng(-41.5, 146.5),
-      zoom: 15,
-      basemap: Basemap.tracestrack,
-    );
+  test(
+    'route to peak calculates after switching with a start already tapped',
+    () async {
+      final routePlanner = _ControlledRoutePlanner();
+      final realNotifier = await _buildRouteTestNotifier(
+        routePlanner: routePlanner,
+      );
+      final container = ProviderContainer(
+        overrides: [mapProvider.overrideWith(() => realNotifier)],
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(mapProvider.notifier);
+      notifier.state = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      );
 
-    const start = LatLng(-41.5, 146.5);
-    const peakPoint = LatLng(-41.6, 146.6);
-    final peak = Peak(
-      osmId: 6406,
-      name: 'Bonnet Hill',
-      latitude: peakPoint.latitude,
-      longitude: peakPoint.longitude,
-    );
+      const start = LatLng(-41.5, 146.5);
+      const peakPoint = LatLng(-41.6, 146.6);
+      final peak = Peak(
+        osmId: 6406,
+        name: 'Bonnet Hill',
+        latitude: peakPoint.latitude,
+        longitude: peakPoint.longitude,
+      );
 
-    notifier.beginRouteDraft(peakTarget: peak);
-    notifier.addRouteDraftMarker(start);
-    await Future<void>.delayed(Duration.zero);
+      notifier.beginRouteDraft(peakTarget: peak);
+      notifier.addRouteDraftMarker(start);
+      await Future<void>.delayed(Duration.zero);
 
-    expect(routePlanner.requests, isEmpty);
+      expect(routePlanner.requests, isEmpty);
 
-    notifier.setRouteDraftMode(RouteMode.routeToPeak);
-    await Future<void>.delayed(Duration.zero);
-    routePlanner.completeNext(
-      const PlannedRouteSegment(
-        points: [start, LatLng(-41.55, 146.55), peakPoint],
-        distanceMeters: 1000,
-      ),
-    );
-    await Future<void>.delayed(Duration.zero);
+      notifier.setRouteDraftMode(RouteMode.routeToPeak);
+      await Future<void>.delayed(Duration.zero);
+      routePlanner.completeNext(
+        const PlannedRouteSegment(
+          points: [start, LatLng(-41.55, 146.55), peakPoint],
+          distanceMeters: 1000,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
 
-    final state = container.read(mapProvider);
-    expect(routePlanner.requests, const [(start: start, end: peakPoint)]);
-    expect(state.routeDraftMarkers, const [start, peakPoint]);
-    expect(
-      state.routeDraftCommittedPoints,
-      const [start, LatLng(-41.55, 146.55), peakPoint],
-    );
-    expect(
-      state.routeDraftDistanceMeters,
-      closeTo(
-        const Distance().as(LengthUnit.Meter, start, const LatLng(-41.55, 146.55)) +
-            const Distance().as(
-              LengthUnit.Meter,
-              const LatLng(-41.55, 146.55),
-              peakPoint,
-            ),
-        0.001,
-      ),
-    );
-    expect(state.routeDraftMode, RouteMode.snapToTrail);
-    expect(state.routeDraftPeak, isNull);
-  });
+      final state = container.read(mapProvider);
+      expect(routePlanner.requests, const [(start: start, end: peakPoint)]);
+      expect(state.routeDraftMarkers, const [start, peakPoint]);
+      expect(state.routeDraftCommittedPoints, const [
+        start,
+        LatLng(-41.55, 146.55),
+        peakPoint,
+      ]);
+      expect(
+        state.routeDraftDistanceMeters,
+        closeTo(
+          const Distance().as(
+                LengthUnit.Meter,
+                start,
+                const LatLng(-41.55, 146.55),
+              ) +
+              const Distance().as(
+                LengthUnit.Meter,
+                const LatLng(-41.55, 146.55),
+                peakPoint,
+              ),
+          0.001,
+        ),
+      );
+      expect(state.routeDraftMode, RouteMode.snapToTrail);
+      expect(state.routeDraftPeak, isNull);
+    },
+  );
 
-  test('third tap appends a new routed segment from the current endpoint', () async {
-    final routePlanner = _ControlledRoutePlanner();
-    final realNotifier = await _buildRouteTestNotifier(routePlanner: routePlanner);
-    final container = ProviderContainer(
-      overrides: [
-        mapProvider.overrideWith(() => realNotifier),
-      ],
-    );
-    addTearDown(container.dispose);
-    final notifier = container.read(mapProvider.notifier);
-    notifier.state = MapState(
-      center: const LatLng(-41.5, 146.5),
-      zoom: 15,
-      basemap: Basemap.tracestrack,
-    );
+  test(
+    'third tap appends a new routed segment from the current endpoint',
+    () async {
+      final routePlanner = _ControlledRoutePlanner();
+      final realNotifier = await _buildRouteTestNotifier(
+        routePlanner: routePlanner,
+      );
+      final container = ProviderContainer(
+        overrides: [mapProvider.overrideWith(() => realNotifier)],
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(mapProvider.notifier);
+      notifier.state = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      );
 
-    const point1 = LatLng(-41.5, 146.5);
-    const point2 = LatLng(-41.6, 146.6);
-    const point3 = LatLng(-41.7, 146.7);
-    notifier.beginRouteDraft();
-    notifier.addRouteDraftMarker(point1);
-    notifier.addRouteDraftMarker(point2);
-    await Future<void>.delayed(Duration.zero);
-    routePlanner.completeNext(
-      const PlannedRouteSegment(
-        points: [point1, LatLng(-41.55, 146.55), point2],
-        distanceMeters: 1000,
-      ),
-    );
-    await Future<void>.delayed(Duration.zero);
+      const point1 = LatLng(-41.5, 146.5);
+      const point2 = LatLng(-41.6, 146.6);
+      const point3 = LatLng(-41.7, 146.7);
+      notifier.beginRouteDraft();
+      notifier.addRouteDraftMarker(point1);
+      notifier.addRouteDraftMarker(point2);
+      await Future<void>.delayed(Duration.zero);
+      routePlanner.completeNext(
+        const PlannedRouteSegment(
+          points: [point1, LatLng(-41.55, 146.55), point2],
+          distanceMeters: 1000,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
 
-    notifier.addRouteDraftMarker(point3);
-    await Future<void>.delayed(Duration.zero);
-    routePlanner.completeNext(
-      const PlannedRouteSegment(
-        points: [point2, LatLng(-41.65, 146.65), point3],
-        distanceMeters: 1200,
-      ),
-    );
-    await Future<void>.delayed(Duration.zero);
+      notifier.addRouteDraftMarker(point3);
+      await Future<void>.delayed(Duration.zero);
+      routePlanner.completeNext(
+        const PlannedRouteSegment(
+          points: [point2, LatLng(-41.65, 146.65), point3],
+          distanceMeters: 1200,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
 
-    final state = container.read(mapProvider);
-    expect(
-      routePlanner.requests,
-      const [
+      final state = container.read(mapProvider);
+      expect(routePlanner.requests, const [
         (start: point1, end: point2),
         (start: point2, end: point3),
-      ],
-    );
-    expect(state.routeDraftMarkers, const [point1, point2, point3]);
-    expect(
-      state.routeDraftCommittedPoints,
-      const [
+      ]);
+      expect(state.routeDraftMarkers, const [point1, point2, point3]);
+      expect(state.routeDraftCommittedPoints, const [
         point1,
         LatLng(-41.55, 146.55),
         point2,
         LatLng(-41.65, 146.65),
         point3,
-      ],
-    );
-    expect(
-      state.routeDraftDistanceMeters,
-      closeTo(
-        const Distance().as(LengthUnit.Meter, point1, const LatLng(-41.55, 146.55)) +
-            const Distance().as(
-              LengthUnit.Meter,
-              const LatLng(-41.55, 146.55),
-              point2,
-            ) +
-            const Distance().as(LengthUnit.Meter, point2, const LatLng(-41.65, 146.65)) +
-            const Distance().as(
-              LengthUnit.Meter,
-              const LatLng(-41.65, 146.65),
-              point3,
-            ),
-        0.001,
-      ),
-    );
-  });
+      ]);
+      expect(
+        state.routeDraftDistanceMeters,
+        closeTo(
+          const Distance().as(
+                LengthUnit.Meter,
+                point1,
+                const LatLng(-41.55, 146.55),
+              ) +
+              const Distance().as(
+                LengthUnit.Meter,
+                const LatLng(-41.55, 146.55),
+                point2,
+              ) +
+              const Distance().as(
+                LengthUnit.Meter,
+                point2,
+                const LatLng(-41.65, 146.65),
+              ) +
+              const Distance().as(
+                LengthUnit.Meter,
+                const LatLng(-41.65, 146.65),
+                point3,
+              ),
+          0.001,
+        ),
+      );
+    },
+  );
 
   test('identical next point is rejected before planner dispatch', () async {
     final routePlanner = _ControlledRoutePlanner();
-    final realNotifier = await _buildRouteTestNotifier(routePlanner: routePlanner);
+    final realNotifier = await _buildRouteTestNotifier(
+      routePlanner: routePlanner,
+    );
     final container = ProviderContainer(
-      overrides: [
-        mapProvider.overrideWith(() => realNotifier),
-      ],
+      overrides: [mapProvider.overrideWith(() => realNotifier)],
     );
     addTearDown(container.dispose);
     final notifier = container.read(mapProvider.notifier);
@@ -335,169 +356,162 @@ void main() {
     expect(state.routeDraftError, isNotNull);
   });
 
-  test('later segment no-path failure keeps subsequent taps straight', () async {
-    final routePlanner = _ControlledRoutePlanner();
-    final realNotifier = await _buildRouteTestNotifier(routePlanner: routePlanner);
-    final container = ProviderContainer(
-      overrides: [
-        mapProvider.overrideWith(() => realNotifier),
-      ],
-    );
-    addTearDown(container.dispose);
-    final notifier = container.read(mapProvider.notifier);
-    notifier.state = MapState(
-      center: const LatLng(-41.5, 146.5),
-      zoom: 15,
-      basemap: Basemap.tracestrack,
-    );
+  test(
+    'later segment no-path failure keeps subsequent taps straight',
+    () async {
+      final routePlanner = _ControlledRoutePlanner();
+      final realNotifier = await _buildRouteTestNotifier(
+        routePlanner: routePlanner,
+      );
+      final container = ProviderContainer(
+        overrides: [mapProvider.overrideWith(() => realNotifier)],
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(mapProvider.notifier);
+      notifier.state = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      );
 
-    const point1 = LatLng(-41.5, 146.5);
-    const point2 = LatLng(-41.6, 146.6);
-    const point3 = LatLng(-41.7, 146.7);
-    const point4 = LatLng(-41.8, 146.8);
-    notifier.beginRouteDraft();
-    notifier.addRouteDraftMarker(point1);
-    notifier.addRouteDraftMarker(point2);
-    await Future<void>.delayed(Duration.zero);
-    routePlanner.completeNext(
-      const PlannedRouteSegment(
-        points: [point1, LatLng(-41.55, 146.55), point2],
-        distanceMeters: 1000,
-      ),
-    );
-    await Future<void>.delayed(Duration.zero);
-
-    notifier.addRouteDraftMarker(point3);
-    await Future<void>.delayed(Duration.zero);
-    routePlanner.completeResult(
-      RoutePlanningResult(
-        status: RoutePlanningStatus.noPath,
-        points: const [],
-        distanceMeters: 0,
-        startAnchor: null,
-        endAnchor: const RouteEndpointAnchor(
-          point: point3,
-          type: RouteEndpointAnchorType.node,
-          nodeId: 3,
+      const point1 = LatLng(-41.5, 146.5);
+      const point2 = LatLng(-41.6, 146.6);
+      const point3 = LatLng(-41.7, 146.7);
+      const point4 = LatLng(-41.8, 146.8);
+      notifier.beginRouteDraft();
+      notifier.addRouteDraftMarker(point1);
+      notifier.addRouteDraftMarker(point2);
+      await Future<void>.delayed(Duration.zero);
+      routePlanner.completeNext(
+        const PlannedRouteSegment(
+          points: [point1, LatLng(-41.55, 146.55), point2],
+          distanceMeters: 1000,
         ),
-      ),
-    );
-    await Future<void>.delayed(Duration.zero);
+      );
+      await Future<void>.delayed(Duration.zero);
 
-    notifier.addRouteDraftMarker(point4);
-    await Future<void>.delayed(Duration.zero);
-    routePlanner.completeProbe(
-      const RouteEndpointProbeResult(isOnTrack: false),
-    );
-    await Future<void>.delayed(Duration.zero);
+      notifier.addRouteDraftMarker(point3);
+      await Future<void>.delayed(Duration.zero);
+      routePlanner.completeResult(
+        RoutePlanningResult(
+          status: RoutePlanningStatus.noPath,
+          points: const [],
+          distanceMeters: 0,
+          startAnchor: null,
+          endAnchor: const RouteEndpointAnchor(
+            point: point3,
+            type: RouteEndpointAnchorType.node,
+            nodeId: 3,
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
 
-    final state = container.read(mapProvider);
-    expect(state.routeDraftStage, RouteDraftStage.awaitingNextPoint);
-    expect(
-      state.routeDraftCommittedPoints,
-      const [
+      notifier.addRouteDraftMarker(point4);
+      await Future<void>.delayed(Duration.zero);
+      routePlanner.completeProbe(
+        const RouteEndpointProbeResult(isOnTrack: false),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final state = container.read(mapProvider);
+      expect(state.routeDraftStage, RouteDraftStage.awaitingNextPoint);
+      expect(state.routeDraftCommittedPoints, const [
         point1,
         LatLng(-41.55, 146.55),
         point2,
         point3,
         point4,
-      ],
-    );
-    expect(state.routeDraftProvisionalPoints, isEmpty);
-    expect(state.routeDraftError, isNull);
-    expect(
-      routePlanner.requests,
-      const [
+      ]);
+      expect(state.routeDraftProvisionalPoints, isEmpty);
+      expect(state.routeDraftError, isNull);
+      expect(routePlanner.requests, const [
         (start: point1, end: point2),
         (start: point2, end: point3),
-      ],
-    );
-    expect(
-      state.routeDraftDistanceMeters,
-      closeTo(
-        const Distance().as(
-          LengthUnit.Meter,
-          point1,
-          const LatLng(-41.55, 146.55),
-        ) + const Distance().as(
-          LengthUnit.Meter,
-          const LatLng(-41.55, 146.55),
-          point2,
-        ) + const Distance().as(
-          LengthUnit.Meter,
-          point2,
-          point3,
-        ) + const Distance().as(
-          LengthUnit.Meter,
-          point3,
-          point4,
+      ]);
+      expect(
+        state.routeDraftDistanceMeters,
+        closeTo(
+          const Distance().as(
+                LengthUnit.Meter,
+                point1,
+                const LatLng(-41.55, 146.55),
+              ) +
+              const Distance().as(
+                LengthUnit.Meter,
+                const LatLng(-41.55, 146.55),
+                point2,
+              ) +
+              const Distance().as(LengthUnit.Meter, point2, point3) +
+              const Distance().as(LengthUnit.Meter, point3, point4),
+          0.001,
         ),
-        0.001,
-      ),
-    );
-  });
+      );
+    },
+  );
 
-  test('later segment generic failure rolls back the provisional endpoint', () async {
-    final routePlanner = _ControlledRoutePlanner();
-    final realNotifier = await _buildRouteTestNotifier(routePlanner: routePlanner);
-    final container = ProviderContainer(
-      overrides: [
-        mapProvider.overrideWith(() => realNotifier),
-      ],
-    );
-    addTearDown(container.dispose);
-    final notifier = container.read(mapProvider.notifier);
-    notifier.state = MapState(
-      center: const LatLng(-41.5, 146.5),
-      zoom: 15,
-      basemap: Basemap.tracestrack,
-    );
+  test(
+    'later segment generic failure rolls back the provisional endpoint',
+    () async {
+      final routePlanner = _ControlledRoutePlanner();
+      final realNotifier = await _buildRouteTestNotifier(
+        routePlanner: routePlanner,
+      );
+      final container = ProviderContainer(
+        overrides: [mapProvider.overrideWith(() => realNotifier)],
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(mapProvider.notifier);
+      notifier.state = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      );
 
-    const point1 = LatLng(-41.5, 146.5);
-    const point2 = LatLng(-41.6, 146.6);
-    const point3 = LatLng(-41.7, 146.7);
-    notifier.beginRouteDraft();
-    notifier.addRouteDraftMarker(point1);
-    notifier.addRouteDraftMarker(point2);
-    await Future<void>.delayed(Duration.zero);
-    routePlanner.completeNext(
-      const PlannedRouteSegment(
-        points: [point1, LatLng(-41.55, 146.55), point2],
-        distanceMeters: 1000,
-      ),
-    );
-    await Future<void>.delayed(Duration.zero);
+      const point1 = LatLng(-41.5, 146.5);
+      const point2 = LatLng(-41.6, 146.6);
+      const point3 = LatLng(-41.7, 146.7);
+      notifier.beginRouteDraft();
+      notifier.addRouteDraftMarker(point1);
+      notifier.addRouteDraftMarker(point2);
+      await Future<void>.delayed(Duration.zero);
+      routePlanner.completeNext(
+        const PlannedRouteSegment(
+          points: [point1, LatLng(-41.55, 146.55), point2],
+          distanceMeters: 1000,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
 
-    notifier.addRouteDraftMarker(point3);
-    await Future<void>.delayed(Duration.zero);
-    routePlanner.failNext(StateError('Unexpected routing failure.'));
-    await Future<void>.delayed(Duration.zero);
+      notifier.addRouteDraftMarker(point3);
+      await Future<void>.delayed(Duration.zero);
+      routePlanner.failNext(StateError('Unexpected routing failure.'));
+      await Future<void>.delayed(Duration.zero);
 
-    final state = container.read(mapProvider);
-    expect(state.routeDraftStage, RouteDraftStage.segmentFailure);
-    expect(
-      state.routeDraftCommittedPoints,
-      const [point1, LatLng(-41.55, 146.55), point2],
-    );
-    expect(state.routeDraftProvisionalPoints, isEmpty);
-    expect(state.routeDraftError, contains('Unexpected routing failure.'));
-    expect(state.routeDraftMarkers, const [point1, point2]);
-    expect(
-      routePlanner.requests,
-      const [
+      final state = container.read(mapProvider);
+      expect(state.routeDraftStage, RouteDraftStage.segmentFailure);
+      expect(state.routeDraftCommittedPoints, const [
+        point1,
+        LatLng(-41.55, 146.55),
+        point2,
+      ]);
+      expect(state.routeDraftProvisionalPoints, isEmpty);
+      expect(state.routeDraftError, contains('Unexpected routing failure.'));
+      expect(state.routeDraftMarkers, const [point1, point2]);
+      expect(routePlanner.requests, const [
         (start: point1, end: point2),
         (start: point2, end: point3),
-      ],
-    );
-  });
+      ]);
+    },
+  );
 
   test('late route result is ignored after cancelling the draft', () async {
     final routePlanner = _ControlledRoutePlanner();
-    final realNotifier = await _buildRouteTestNotifier(routePlanner: routePlanner);
+    final realNotifier = await _buildRouteTestNotifier(
+      routePlanner: routePlanner,
+    );
     final container = ProviderContainer(
-      overrides: [
-        mapProvider.overrideWith(() => realNotifier),
-      ],
+      overrides: [mapProvider.overrideWith(() => realNotifier)],
     );
     addTearDown(container.dispose);
     final notifier = container.read(mapProvider.notifier);
@@ -529,66 +543,69 @@ void main() {
     expect(state.routeDraftMarkers, isEmpty);
   });
 
-  test('committed geometry changes trigger resample and stale elevation results are ignored', () async {
-    final routeElevationSampler = _ControlledRouteElevationSampler();
-    final realNotifier = await _buildRouteTestNotifier(
-      routePlanner: _ControlledRoutePlanner(),
-      routeElevationSampler: routeElevationSampler,
-    );
-    final container = ProviderContainer(
-      overrides: [mapProvider.overrideWith(() => realNotifier)],
-    );
-    addTearDown(container.dispose);
-    final notifier = container.read(mapProvider.notifier);
-    notifier.state = MapState(
-      center: const LatLng(-41.5, 146.5),
-      zoom: 15,
-      basemap: Basemap.tracestrack,
-    );
+  test(
+    'committed geometry changes trigger resample and stale elevation results are ignored',
+    () async {
+      final routeElevationSampler = _ControlledRouteElevationSampler();
+      final realNotifier = await _buildRouteTestNotifier(
+        routePlanner: _ControlledRoutePlanner(),
+        routeElevationSampler: routeElevationSampler,
+      );
+      final container = ProviderContainer(
+        overrides: [mapProvider.overrideWith(() => realNotifier)],
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(mapProvider.notifier);
+      notifier.state = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      );
 
-    const point1 = LatLng(-41.5, 146.5);
-    const point2 = LatLng(-41.6, 146.6);
-    const point3 = LatLng(-41.7, 146.7);
-    notifier.beginRouteDraft();
-    notifier.addRouteDraftMarker(point1);
-    notifier.addRouteDraftMarker(point2, straightLine: true);
-    await Future<void>.delayed(Duration.zero);
+      const point1 = LatLng(-41.5, 146.5);
+      const point2 = LatLng(-41.6, 146.6);
+      const point3 = LatLng(-41.7, 146.7);
+      notifier.beginRouteDraft();
+      notifier.addRouteDraftMarker(point1);
+      notifier.addRouteDraftMarker(point2, straightLine: true);
+      await Future<void>.delayed(Duration.zero);
 
-    expect(routeElevationSampler.requests, hasLength(1));
-    expect(container.read(mapProvider).routeDraftElevationLoading, isTrue);
+      expect(routeElevationSampler.requests, hasLength(1));
+      expect(container.read(mapProvider).routeDraftElevationLoading, isTrue);
 
-    notifier.addRouteDraftMarker(point3, straightLine: true);
-    await Future<void>.delayed(Duration.zero);
+      notifier.addRouteDraftMarker(point3, straightLine: true);
+      await Future<void>.delayed(Duration.zero);
 
-    expect(routeElevationSampler.requests, hasLength(2));
+      expect(routeElevationSampler.requests, hasLength(2));
 
-    routeElevationSampler.completeNext(
-      const RouteElevationSummary(
-        requestId: 1,
-        geometryVersion: 1,
-        ascent: 111,
-        descent: 22,
-      ),
-    );
-    await Future<void>.delayed(Duration.zero);
+      routeElevationSampler.completeNext(
+        const RouteElevationSummary(
+          requestId: 1,
+          geometryVersion: 1,
+          ascent: 111,
+          descent: 22,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
 
-    expect(container.read(mapProvider).routeDraftElevationSummary, isNull);
+      expect(container.read(mapProvider).routeDraftElevationSummary, isNull);
 
-    routeElevationSampler.completeNext(
-      const RouteElevationSummary(
-        requestId: 2,
-        geometryVersion: 2,
-        ascent: 345,
-        descent: 210,
-      ),
-    );
-    await Future<void>.delayed(Duration.zero);
+      routeElevationSampler.completeNext(
+        const RouteElevationSummary(
+          requestId: 2,
+          geometryVersion: 2,
+          ascent: 345,
+          descent: 210,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
 
-    final state = container.read(mapProvider);
-    expect(state.routeDraftElevationLoading, isFalse);
-    expect(state.routeDraftElevationSummary?.ascent, 345);
-    expect(state.routeDraftElevationSummary?.descent, 210);
-  });
+      final state = container.read(mapProvider);
+      expect(state.routeDraftElevationLoading, isFalse);
+      expect(state.routeDraftElevationSummary?.ascent, 345);
+      expect(state.routeDraftElevationSummary?.descent, 210);
+    },
+  );
 
   test('save uses matching elevation summary else zeros', () async {
     final routeRepository = RouteRepository.test(InMemoryRouteStorage());
@@ -682,10 +699,7 @@ void main() {
           kind: RouteDraftEndpointKind.tapped,
         ),
       ],
-      routeDraftMarkers: const [
-        LatLng(-41.5, 146.5),
-        LatLng(-41.6, 146.6),
-      ],
+      routeDraftMarkers: const [LatLng(-41.5, 146.5), LatLng(-41.6, 146.6)],
       routeDraftCommittedPoints: const [
         LatLng(-41.5, 146.5),
         LatLng(-41.55, 146.55),
@@ -706,90 +720,87 @@ void main() {
     expect(state.routeDraftGeometryVersion, 0);
   });
 
-  test('save failure retry recomputes waypoint metadata from current draft', () async {
-    final routeRepository = RouteRepository.test(
-      _FailOnceRouteStorage(InMemoryRouteStorage()),
-    );
-    final realNotifier = await _buildRouteTestNotifier(
-      routePlanner: _ControlledRoutePlanner(),
-      routeRepository: routeRepository,
-      routeElevationSampler: const _ImmediateZeroRouteElevationSampler(),
-    );
-    final container = ProviderContainer(
-      overrides: [mapProvider.overrideWith(() => realNotifier)],
-    );
-    addTearDown(container.dispose);
-    final notifier = container.read(mapProvider.notifier);
-    notifier.state = MapState(
-      center: const LatLng(-41.5, 146.5),
-      zoom: 15,
-      basemap: Basemap.tracestrack,
-      isRouteDrafting: true,
-      routeDraftName: 'Retry route',
-      routeDraftMode: RouteMode.straightLine,
-      routeDraftStage: RouteDraftStage.awaitingNextPoint,
-      routeDraftControlEndpoints: const [
-        RouteDraftControlEndpoint(
-          id: 'endpoint-0',
-          point: LatLng(-41.5, 146.5),
-          kind: RouteDraftEndpointKind.tapped,
-        ),
-        RouteDraftControlEndpoint(
-          id: 'endpoint-1',
-          point: LatLng(-41.6, 146.6),
-          kind: RouteDraftEndpointKind.tapped,
-        ),
-      ],
-      routeDraftMarkers: const [
-        LatLng(-41.5, 146.5),
-        LatLng(-41.6, 146.6),
-      ],
-      routeDraftCommittedPoints: const [
-        LatLng(-41.5, 146.5),
-        LatLng(-41.55, 146.55),
-        LatLng(-41.6, 146.6),
-      ],
-      routeDraftDistanceMeters: 1000,
-    );
+  test(
+    'save failure retry recomputes waypoint metadata from current draft',
+    () async {
+      final routeRepository = RouteRepository.test(
+        _FailOnceRouteStorage(InMemoryRouteStorage()),
+      );
+      final realNotifier = await _buildRouteTestNotifier(
+        routePlanner: _ControlledRoutePlanner(),
+        routeRepository: routeRepository,
+        routeElevationSampler: const _ImmediateZeroRouteElevationSampler(),
+      );
+      final container = ProviderContainer(
+        overrides: [mapProvider.overrideWith(() => realNotifier)],
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(mapProvider.notifier);
+      notifier.state = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        isRouteDrafting: true,
+        routeDraftName: 'Retry route',
+        routeDraftMode: RouteMode.straightLine,
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftControlEndpoints: const [
+          RouteDraftControlEndpoint(
+            id: 'endpoint-0',
+            point: LatLng(-41.5, 146.5),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+          RouteDraftControlEndpoint(
+            id: 'endpoint-1',
+            point: LatLng(-41.6, 146.6),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+        ],
+        routeDraftMarkers: const [LatLng(-41.5, 146.5), LatLng(-41.6, 146.6)],
+        routeDraftCommittedPoints: const [
+          LatLng(-41.5, 146.5),
+          LatLng(-41.55, 146.55),
+          LatLng(-41.6, 146.6),
+        ],
+        routeDraftDistanceMeters: 1000,
+      );
 
-    await notifier.saveRouteDraft();
-    expect(routeRepository.getAllRoutes(), isEmpty);
-    expect(container.read(mapProvider).isRouteDrafting, isTrue);
+      await notifier.saveRouteDraft();
+      expect(routeRepository.getAllRoutes(), isEmpty);
+      expect(container.read(mapProvider).isRouteDrafting, isTrue);
 
-    notifier.state = notifier.state.copyWith(
-      routeDraftControlEndpoints: const [
-        RouteDraftControlEndpoint(
-          id: 'endpoint-0',
-          point: LatLng(-41.5, 146.5),
-          kind: RouteDraftEndpointKind.tapped,
-        ),
-        RouteDraftControlEndpoint(
-          id: 'endpoint-1',
-          point: LatLng(-41.7, 146.7),
-          kind: RouteDraftEndpointKind.tapped,
-        ),
-      ],
-      routeDraftMarkers: const [
-        LatLng(-41.5, 146.5),
-        LatLng(-41.7, 146.7),
-      ],
-      routeDraftCommittedPoints: const [
-        LatLng(-41.5, 146.5),
-        LatLng(-41.55, 146.55),
-        LatLng(-41.7, 146.7),
-      ],
-      routeDraftDistanceMeters: 1200,
-    );
+      notifier.state = notifier.state.copyWith(
+        routeDraftControlEndpoints: const [
+          RouteDraftControlEndpoint(
+            id: 'endpoint-0',
+            point: LatLng(-41.5, 146.5),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+          RouteDraftControlEndpoint(
+            id: 'endpoint-1',
+            point: LatLng(-41.7, 146.7),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+        ],
+        routeDraftMarkers: const [LatLng(-41.5, 146.5), LatLng(-41.7, 146.7)],
+        routeDraftCommittedPoints: const [
+          LatLng(-41.5, 146.5),
+          LatLng(-41.55, 146.55),
+          LatLng(-41.7, 146.7),
+        ],
+        routeDraftDistanceMeters: 1200,
+      );
 
-    await notifier.saveRouteDraft();
+      await notifier.saveRouteDraft();
 
-    final savedRoute = routeRepository.getAllRoutes().single;
-    expect(savedRoute.routeWaypoints, hasLength(1));
-    expect(savedRoute.routeWaypoints.single.latitude, -41.7);
-    expect(savedRoute.routeWaypoints.single.longitude, 146.7);
-    expect(savedRoute.routeWaypoints.single.label, 'Waypoint 1');
-    expect(container.read(mapProvider).isRouteDrafting, isFalse);
-  });
+      final savedRoute = routeRepository.getAllRoutes().single;
+      expect(savedRoute.routeWaypoints, hasLength(1));
+      expect(savedRoute.routeWaypoints.single.latitude, -41.7);
+      expect(savedRoute.routeWaypoints.single.longitude, 146.7);
+      expect(savedRoute.routeWaypoints.single.label, 'Waypoint 1');
+      expect(container.read(mapProvider).isRouteDrafting, isFalse);
+    },
+  );
 
   test('applyRouteDraftOutAndBack mirrors the committed path once', () async {
     final routeElevationSampler = _ControlledRouteElevationSampler();
@@ -821,10 +832,7 @@ void main() {
           kind: RouteDraftEndpointKind.tapped,
         ),
       ],
-      routeDraftMarkers: const [
-        LatLng(-41.5, 146.5),
-        LatLng(-41.6, 146.6),
-      ],
+      routeDraftMarkers: const [LatLng(-41.5, 146.5), LatLng(-41.6, 146.6)],
       routeDraftCommittedPoints: const [
         LatLng(-41.5, 146.5),
         LatLng(-41.55, 146.55),
@@ -837,24 +845,87 @@ void main() {
 
     final state = container.read(mapProvider);
     expect(state.routeDraftMode, RouteMode.straightLine);
-    expect(
-      state.routeDraftCommittedPoints,
-      const [
-        LatLng(-41.5, 146.5),
-        LatLng(-41.55, 146.55),
-        LatLng(-41.6, 146.6),
-        LatLng(-41.55, 146.55),
-        LatLng(-41.5, 146.5),
-      ],
-    );
+    expect(state.routeDraftCommittedPoints, const [
+      LatLng(-41.5, 146.5),
+      LatLng(-41.55, 146.55),
+      LatLng(-41.6, 146.6),
+      LatLng(-41.55, 146.55),
+      LatLng(-41.5, 146.5),
+    ]);
     expect(state.routeDraftControlEndpoints, hasLength(3));
-    expect(state.routeDraftControlEndpoints.last.point, const LatLng(-41.5, 146.5));
+    expect(
+      state.routeDraftControlEndpoints.last.point,
+      const LatLng(-41.5, 146.5),
+    );
     expect(routeElevationSampler.requests, hasLength(1));
     expect(routeElevationSampler.requests.single.requestId, 1);
     expect(routeElevationSampler.requests.single.geometryVersion, 1);
     expect(state.routeDraftGeometryVersion, 1);
     expect(state.routeDraftElevationLoading, isTrue);
   });
+
+  test(
+    'applyRouteDraftOutAndBack is a no-op after the return leg is added',
+    () async {
+      final routeElevationSampler = _ControlledRouteElevationSampler();
+      final realNotifier = await _buildRouteTestNotifier(
+        routePlanner: _ControlledRoutePlanner(),
+        routeElevationSampler: routeElevationSampler,
+      );
+      final container = ProviderContainer(
+        overrides: [mapProvider.overrideWith(() => realNotifier)],
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(mapProvider.notifier);
+      notifier.state = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        isRouteDrafting: true,
+        routeDraftMode: RouteMode.straightLine,
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftControlEndpoints: const [
+          RouteDraftControlEndpoint(
+            id: 'endpoint-0',
+            point: LatLng(-41.5, 146.5),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+          RouteDraftControlEndpoint(
+            id: 'endpoint-1',
+            point: LatLng(-41.6, 146.6),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+        ],
+        routeDraftMarkers: const [LatLng(-41.5, 146.5), LatLng(-41.6, 146.6)],
+        routeDraftCommittedPoints: const [
+          LatLng(-41.5, 146.5),
+          LatLng(-41.55, 146.55),
+          LatLng(-41.6, 146.6),
+        ],
+        routeDraftDistanceMeters: 1000,
+      );
+
+      notifier.applyRouteDraftOutAndBack();
+      final afterFirstApplication = container.read(mapProvider);
+
+      notifier.applyRouteDraftOutAndBack();
+
+      final state = container.read(mapProvider);
+      expect(
+        state.routeDraftCommittedPoints,
+        afterFirstApplication.routeDraftCommittedPoints,
+      );
+      expect(
+        state.routeDraftControlEndpoints,
+        afterFirstApplication.routeDraftControlEndpoints,
+      );
+      expect(
+        state.routeDraftDistanceMeters,
+        afterFirstApplication.routeDraftDistanceMeters,
+      );
+      expect(routeElevationSampler.requests, hasLength(1));
+    },
+  );
 }
 
 Future<MapNotifier> _buildRouteTestNotifier({
@@ -867,7 +938,8 @@ Future<MapNotifier> _buildRouteTestNotifier({
     overpassService: OverpassService(),
     tasmapRepository: await TestTasmapRepository.create(),
     gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
-    routeRepository: routeRepository ?? RouteRepository.test(InMemoryRouteStorage()),
+    routeRepository:
+        routeRepository ?? RouteRepository.test(InMemoryRouteStorage()),
     routeElevationSampler: routeElevationSampler,
     routePlanner: routePlanner,
     peaksBaggedRepository: PeaksBaggedRepository.test(
@@ -896,7 +968,9 @@ class _ControlledRoutePlanner implements RoutePlanner {
   }
 
   @override
-  Future<RouteEndpointProbeResult> probeEndpoint({required LatLng point}) async {
+  Future<RouteEndpointProbeResult> probeEndpoint({
+    required LatLng point,
+  }) async {
     final completer = Completer<RouteEndpointProbeResult>();
     _probeCompleters.add(completer);
     return completer.future;
@@ -971,7 +1045,9 @@ class _ImmediateStraightRoutePlanner implements RoutePlanner {
   }
 
   @override
-  Future<RouteEndpointProbeResult> probeEndpoint({required LatLng point}) async {
+  Future<RouteEndpointProbeResult> probeEndpoint({
+    required LatLng point,
+  }) async {
     return const RouteEndpointProbeResult(isOnTrack: false);
   }
 
@@ -1035,7 +1111,8 @@ class _FailOnceRouteStorage implements RouteStorage {
 }
 
 class _ControlledRouteElevationSampler implements RouteElevationSampler {
-  final requests = <({List<LatLng> points, int requestId, int geometryVersion})>[];
+  final requests =
+      <({List<LatLng> points, int requestId, int geometryVersion})>[];
   final _completers = <Completer<RouteElevationSummary>>[];
 
   @override
@@ -1044,13 +1121,11 @@ class _ControlledRouteElevationSampler implements RouteElevationSampler {
     required int requestId,
     required int geometryVersion,
   }) {
-    requests.add(
-      (
-        points: List<LatLng>.from(points, growable: false),
-        requestId: requestId,
-        geometryVersion: geometryVersion,
-      ),
-    );
+    requests.add((
+      points: List<LatLng>.from(points, growable: false),
+      requestId: requestId,
+      geometryVersion: geometryVersion,
+    ));
     final completer = Completer<RouteElevationSummary>();
     _completers.add(completer);
     return completer.future;
