@@ -1887,27 +1887,149 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
-    final returnSegment = List<LatLng>.from(committedPoints.reversed);
-    final updatedCommittedPoints = _appendRouteSegment(
-      committedPoints,
-      returnSegment,
+    _completeRouteDraftReturnLeg(
+      committedPoints: committedPoints,
+      controlEndpoints: controlEndpoints,
+      returnSegment: List<LatLng>.from(committedPoints.reversed),
+      nextMarkerId: state.routeDraftNextMarkerId + 1,
+      appendReturnEndpoint: true,
     );
+  }
+
+  Future<void> applyRouteDraftCloseLoop() async {
+    if (!state.isRouteDrafting ||
+        state.isSavingRoute ||
+        state.routeDraftStage == RouteDraftStage.routingSegment ||
+        state.routeDraftStage == RouteDraftStage.segmentFailure ||
+        state.routeDraftCommittedPoints.length < 2) {
+      return;
+    }
+
+    final committedPoints = List<LatLng>.from(
+      state.routeDraftCommittedPoints,
+      growable: false,
+    );
+    if (committedPoints.first == committedPoints.last) {
+      return;
+    }
+
+    final controlEndpoints = state.routeDraftControlEndpoints;
+    if (controlEndpoints.isEmpty ||
+        controlEndpoints.first.point != committedPoints.first ||
+        controlEndpoints.last.point != committedPoints.last) {
+      state = state.copyWith(routeDraftError: 'Route draft is inconsistent.');
+      return;
+    }
+
+    final requestId = state.routeDraftRequestId + 1;
     final returnEndpoint = controlEndpoints.first.copyWith(
       id: _routeDraftEndpointId(state.routeDraftNextMarkerId),
     );
+    state = state.copyWith(
+      routeDraftControlEndpoints: [...controlEndpoints, returnEndpoint],
+      routeDraftDisplayMarkers: List<RouteDraftDisplayMarker>.unmodifiable(
+        _buildDisplayMarkers([
+          ...controlEndpoints,
+          returnEndpoint,
+        ], provisionalEndpointId: returnEndpoint.id),
+      ),
+      routeDraftMarkers: List<LatLng>.unmodifiable([
+        ...controlEndpoints.map((endpoint) => endpoint.point),
+        returnEndpoint.point,
+      ]),
+      routeDraftStage: RouteDraftStage.routingSegment,
+      routeDraftProvisionalPoints: [committedPoints.last, committedPoints.first],
+      clearRouteDraftError: true,
+      routeDraftRequestId: requestId,
+      routeDraftNextMarkerId: state.routeDraftNextMarkerId + 1,
+    );
 
+    final result = await _routePlanner.planSegmentResult(
+      start: committedPoints.last,
+      end: committedPoints.first,
+    );
+    if (!_isActiveRouteDraftRequest(requestId)) {
+      return;
+    }
+
+    switch (result.status) {
+      case RoutePlanningStatus.routed:
+        _completeRouteDraftReturnLeg(
+          committedPoints: committedPoints,
+          controlEndpoints: state.routeDraftControlEndpoints,
+          returnSegment: _normalizeCloseLoopSegment(
+            result.points,
+            currentPoint: committedPoints.last,
+            startPoint: committedPoints.first,
+          ),
+          nextMarkerId: null,
+          appendReturnEndpoint: false,
+        );
+        return;
+      case RoutePlanningStatus.noPath:
+        _completeRouteDraftReturnLeg(
+          committedPoints: committedPoints,
+          controlEndpoints: state.routeDraftControlEndpoints,
+          returnSegment: List<LatLng>.from(committedPoints.reversed),
+          nextMarkerId: null,
+          appendReturnEndpoint: false,
+        );
+        return;
+      case RoutePlanningStatus.offTrack:
+        _completeRouteDraftReturnLeg(
+          committedPoints: committedPoints,
+          controlEndpoints: state.routeDraftControlEndpoints,
+          returnSegment: [committedPoints.last, committedPoints.first],
+          nextMarkerId: null,
+          appendReturnEndpoint: false,
+        );
+        return;
+      case RoutePlanningStatus.failed:
+        final updated = List<RouteDraftControlEndpoint>.from(
+          state.routeDraftControlEndpoints,
+        )..removeLast();
+        _setRouteDraftControlState(
+          controlEndpoints: updated,
+          stage: RouteDraftStage.segmentFailure,
+          provisionalPoints: const [],
+          offTrackProbeActive: state.routeDraftOffTrackProbeActive,
+          routeDraftError: result.errorMessage ?? 'Failed to calculate route.',
+        );
+        return;
+    }
+  }
+
+  void _completeRouteDraftReturnLeg({
+    required List<LatLng> committedPoints,
+    required List<RouteDraftControlEndpoint> controlEndpoints,
+    required List<LatLng> returnSegment,
+    required int? nextMarkerId,
+    bool appendReturnEndpoint = true,
+  }) {
+    final updatedControlEndpoints = appendReturnEndpoint
+        ? [
+            ...controlEndpoints,
+            controlEndpoints.first.copyWith(
+              id: _routeDraftEndpointId(nextMarkerId ?? state.routeDraftNextMarkerId),
+            ),
+          ]
+        : controlEndpoints;
     _setRouteDraftControlState(
-      controlEndpoints: [...controlEndpoints, returnEndpoint],
+      controlEndpoints: updatedControlEndpoints,
       stage: RouteDraftStage.awaitingNextPoint,
       provisionalPoints: const [],
       distanceMeters:
-          state.routeDraftDistanceMeters +
-          _polylineDistanceMeters(returnSegment),
+          state.routeDraftDistanceMeters + _polylineDistanceMeters(returnSegment),
       offTrackProbeActive: false,
       clearRouteDraftError: true,
-      nextMarkerId: state.routeDraftNextMarkerId + 1,
+      nextMarkerId: nextMarkerId,
     );
-    state = state.copyWith(routeDraftCommittedPoints: updatedCommittedPoints);
+    state = state.copyWith(
+      routeDraftCommittedPoints: _appendRouteSegment(
+        committedPoints,
+        returnSegment,
+      ),
+    );
     _resampleRouteDraftElevation();
   }
 
@@ -2656,6 +2778,24 @@ class MapNotifier extends Notifier<MapState> {
         ? segment.skip(1)
         : segment;
     return [...existing, ...nextSegment];
+  }
+
+  List<LatLng> _normalizeCloseLoopSegment(
+    List<LatLng> points, {
+    required LatLng currentPoint,
+    required LatLng startPoint,
+  }) {
+    final normalized = List<LatLng>.from(points, growable: true);
+    if (normalized.isEmpty) {
+      return [currentPoint, startPoint];
+    }
+    if (normalized.first != currentPoint) {
+      normalized.insert(0, currentPoint);
+    }
+    if (normalized.last != startPoint) {
+      normalized.add(startPoint);
+    }
+    return List<LatLng>.unmodifiable(normalized);
   }
 
   void setEndDrawerMode(EndDrawerMode mode) {
