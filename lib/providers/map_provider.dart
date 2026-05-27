@@ -10,6 +10,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
+import 'package:peak_bagger/models/route_marker_display.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/route.dart';
@@ -57,6 +58,8 @@ const _peakListSelectionModeKey = 'peak_list_selection_mode';
 const _peakListIdKey = 'peak_list_id';
 const _showTracksKey = 'show_tracks';
 const _showRoutesKey = 'show_routes';
+const _routeDraftMarkerLimitError =
+    'Peak Bagger only supports a maximum of 99 route points';
 
 enum Basemap { tasmapTopo, tasmap50k, tasmap25k, tracestrack, openstreetmap }
 
@@ -77,8 +80,6 @@ enum RouteDraftStage {
 }
 
 enum RouteDraftEndpointKind { tapped, snappedNode, projectedAnchor, peakTarget }
-
-enum RouteDraftDisplayMarkerKind { controlEndpoint }
 
 class RouteDraftControlEndpoint {
   const RouteDraftControlEndpoint({
@@ -114,33 +115,6 @@ class RouteDraftControlEndpoint {
 
   @override
   int get hashCode => Object.hash(id, point, kind);
-}
-
-class RouteDraftDisplayMarker {
-  const RouteDraftDisplayMarker({
-    required this.id,
-    required this.point,
-    required this.kind,
-    required this.isCommitted,
-  });
-
-  final String id;
-  final LatLng point;
-  final RouteDraftDisplayMarkerKind kind;
-  final bool isCommitted;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is RouteDraftDisplayMarker &&
-          runtimeType == other.runtimeType &&
-          id == other.id &&
-          point == other.point &&
-          kind == other.kind &&
-          isCommitted == other.isCommitted;
-
-  @override
-  int get hashCode => Object.hash(id, point, kind, isCommitted);
 }
 
 enum PendingCameraSelectionBehavior { preserve, replace, clear }
@@ -1674,20 +1648,54 @@ class MapNotifier extends Notifier<MapState> {
 
   String _routeDraftEndpointId(int serial) => '$serial';
 
+  int _visibleNumberedRouteMarkerCount(
+    List<RouteDraftControlEndpoint> controlEndpoints,
+  ) {
+    if (controlEndpoints.length < 3) {
+      return 0;
+    }
+
+    var count = 0;
+    for (var index = 1; index < controlEndpoints.length - 1; index++) {
+      if (controlEndpoints[index].kind != RouteDraftEndpointKind.peakTarget) {
+        count += 1;
+      }
+    }
+    return count;
+  }
+
+  bool _hasReachedRouteDraftMarkerLimit() {
+    return state.routeDraftControlEndpoints.length >= 2 &&
+        _visibleNumberedRouteMarkerCount(state.routeDraftControlEndpoints) >= 99;
+  }
+
   List<RouteDraftDisplayMarker> _buildDisplayMarkers(
     List<RouteDraftControlEndpoint> controlEndpoints, {
     String? provisionalEndpointId,
   }) {
-    return controlEndpoints
-        .map(
-          (endpoint) => RouteDraftDisplayMarker(
-            id: endpoint.id,
-            point: endpoint.point,
-            kind: RouteDraftDisplayMarkerKind.controlEndpoint,
-            isCommitted: endpoint.id != provisionalEndpointId,
-          ),
-        )
-        .toList(growable: false);
+    var nextNumber = 1;
+
+    return [
+      for (var index = 0; index < controlEndpoints.length; index++)
+        RouteDraftDisplayMarker(
+          id: controlEndpoints[index].id,
+          point: controlEndpoints[index].point,
+          kind: switch ((index, controlEndpoints[index].kind)) {
+            (0, _) => RouteMarkerKind.circle,
+            (_, RouteDraftEndpointKind.peakTarget) => RouteMarkerKind.target,
+            (_, _) when index == controlEndpoints.length - 1 =>
+              RouteMarkerKind.target,
+            (_, _) => RouteMarkerKind.numbered,
+          },
+          number: switch ((index, controlEndpoints[index].kind)) {
+            (0, _) => null,
+            (_, RouteDraftEndpointKind.peakTarget) => null,
+            (_, _) when index == controlEndpoints.length - 1 => null,
+            (_, _) => nextNumber++,
+          },
+          isCommitted: controlEndpoints[index].id != provisionalEndpointId,
+        ),
+    ];
   }
 
   LatLng? _lastRouteDraftControlPoint() {
@@ -1956,6 +1964,9 @@ class MapNotifier extends Notifier<MapState> {
     RouteEndpointAnchor? anchor, {
     bool isPeakTarget = false,
   }) {
+    if (endpoint.kind == RouteDraftEndpointKind.peakTarget) {
+      return endpoint;
+    }
     if (anchor == null) {
       return endpoint;
     }
@@ -2126,6 +2137,10 @@ class MapNotifier extends Notifier<MapState> {
           );
           return;
         }
+        if (_hasReachedRouteDraftMarkerLimit()) {
+          state = state.copyWith(routeDraftError: _routeDraftMarkerLimitError);
+          return;
+        }
         final nextEndpoint = _createControlEndpoint(
           point: point,
           kind: RouteDraftEndpointKind.tapped,
@@ -2190,6 +2205,11 @@ class MapNotifier extends Notifier<MapState> {
   void _startRouteDraftToPeakFrom(LatLng start) {
     final routeToPeakTarget = state.routeDraftPeakTarget;
     if (routeToPeakTarget == null) {
+      return;
+    }
+
+    if (_hasReachedRouteDraftMarkerLimit()) {
+      state = state.copyWith(routeDraftError: _routeDraftMarkerLimitError);
       return;
     }
 

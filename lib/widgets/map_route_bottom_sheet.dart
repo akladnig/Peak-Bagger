@@ -88,6 +88,7 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
       :routeDraftNameError,
       :routeDraftMode,
       :routeDraftPeakTarget,
+      :routeDraftMarkers,
       :routeDraftCommittedPoints,
       :routeDraftStage,
       :routeDraftDistanceMeters,
@@ -104,6 +105,7 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
           routeDraftNameError: state.routeDraftNameError,
           routeDraftMode: state.routeDraftMode,
           routeDraftPeakTarget: state.routeDraftPeakTarget,
+          routeDraftMarkers: state.routeDraftMarkers,
           routeDraftCommittedPoints: state.routeDraftCommittedPoints,
           routeDraftStage: state.routeDraftStage,
           routeDraftDistanceMeters: state.routeDraftDistanceMeters,
@@ -163,6 +165,7 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
                             routeDraftStage: routeDraftStage,
                             routeDraftPeak: routeDraftPeakTarget,
                             routeDraftColour: routeDraftColour,
+                            routeDraftMarkers: routeDraftMarkers,
                             routeDraftCommittedPoints:
                                 routeDraftCommittedPoints,
                             isSavingRoute: isSavingRoute,
@@ -339,6 +342,7 @@ class _RouteEditingGroup extends StatelessWidget {
     required this.routeDraftStage,
     required this.routeDraftPeak,
     required this.routeDraftColour,
+    required this.routeDraftMarkers,
     required this.routeDraftCommittedPoints,
     required this.isSavingRoute,
     required this.routeNameController,
@@ -354,6 +358,7 @@ class _RouteEditingGroup extends StatelessWidget {
   final RouteDraftStage routeDraftStage;
   final Peak? routeDraftPeak;
   final int routeDraftColour;
+  final List<LatLng> routeDraftMarkers;
   final List<LatLng> routeDraftCommittedPoints;
   final bool isSavingRoute;
   final TextEditingController routeNameController;
@@ -369,6 +374,11 @@ class _RouteEditingGroup extends StatelessWidget {
     final routeModeSelectedColor = Colors.green;
     final routeModeActiveColor = Colors.purple;
     final isRouting = routeDraftStage == RouteDraftStage.routingSegment;
+    final isClosedLoop =
+        routeDraftCommittedPoints.length >= 2 &&
+        routeDraftCommittedPoints.first == routeDraftCommittedPoints.last;
+    final routeToPeakAvailable =
+        hasPeakTarget && routeDraftMarkers.isNotEmpty && !isClosedLoop;
 
     return Column(
       key: const Key('route-editing-group'),
@@ -389,11 +399,14 @@ class _RouteEditingGroup extends StatelessWidget {
                   mode: RouteMode.routeToPeak,
                   selectedMode: routeDraftMode,
                   stage: routeDraftStage,
-                  hasPeakTarget: hasPeakTarget,
+                  hasPeakTarget: routeToPeakAvailable,
                 ),
                 activeColor: routeModeActiveColor,
                 selectedColor: routeModeSelectedColor,
-                onPressed: routeDraftPeak == null || isRouting
+                onPressed: routeDraftPeak == null ||
+                        routeDraftMarkers.isEmpty ||
+                        isClosedLoop ||
+                        isRouting
                     ? null
                     : () => onModeSelected(RouteMode.routeToPeak),
               ),
