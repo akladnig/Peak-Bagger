@@ -312,10 +312,17 @@ void main() {
       await tester.pumpAndSettle();
 
       final outAndBackKey = find.byKey(const Key('route-mode-out-and-back'));
+      final closeLoopKey = find.byKey(const Key('route-mode-close-loop'));
       expect(outAndBackKey, findsOneWidget);
+      expect(closeLoopKey, findsOneWidget);
       expect(find.byTooltip('Out and Back'), findsOneWidget);
+      expect(find.byTooltip('Close Loop'), findsOneWidget);
       expect(
         find.descendant(of: outAndBackKey, matching: find.text('Out and Back')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: closeLoopKey, matching: find.text('Close Loop')),
         findsNothing,
       );
 
@@ -324,17 +331,21 @@ void main() {
 
       expect(button(outAndBackKey).onPressed, isNull);
       expect(button(outAndBackKey).shape, isA<CircleBorder>());
+      expect(button(closeLoopKey).onPressed, isNull);
+      expect(button(closeLoopKey).shape, isA<CircleBorder>());
 
       final straightRect = tester.getRect(
         find.byKey(const Key('route-mode-straight-line')),
       );
       final outAndBackRect = tester.getRect(outAndBackKey);
+      final closeLoopRect = tester.getRect(closeLoopKey);
       final nameRect = tester.getRect(
         find.byKey(const Key('route-name-field')),
       );
 
       expect(outAndBackRect.left, greaterThan(straightRect.right));
-      expect(outAndBackRect.right, lessThan(nameRect.left));
+      expect(closeLoopRect.left, greaterThan(outAndBackRect.right));
+      expect(closeLoopRect.right, lessThan(nameRect.left));
 
       final container = _container(tester);
       container.read(mapProvider.notifier).state = container
@@ -362,11 +373,13 @@ void main() {
               LatLng(-41.55, 146.55),
               LatLng(-41.6, 146.6),
             ],
-          );
+      );
       await tester.pump();
 
       expect(button(outAndBackKey).onPressed, isNotNull);
+      expect(button(closeLoopKey).onPressed, isNotNull);
       expect(button(outAndBackKey).shape, isA<CircleBorder>());
+      expect(button(closeLoopKey).shape, isA<CircleBorder>());
 
       container.read(mapProvider.notifier).state = container
           .read(mapProvider)
@@ -378,12 +391,45 @@ void main() {
               LatLng(-41.55, 146.55),
               LatLng(-41.5, 146.5),
             ],
-          );
+      );
       await tester.pump();
 
       expect(button(outAndBackKey).onPressed, isNull);
+      expect(button(closeLoopKey).onPressed, isNull);
     },
   );
+
+  testWidgets('route strip keeps route name width on a narrow viewport', (
+    tester,
+  ) async {
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+    await _pumpMap(
+      tester,
+      notifier,
+      surfaceSize: const Size(420, 900),
+    );
+
+    await tester.tap(find.byKey(const Key('create-route-fab')));
+    await tester.pumpAndSettle();
+
+    final nameRect = tester.getRect(find.byKey(const Key('route-name-field')));
+    final outAndBackRect = tester.getRect(
+      find.byKey(const Key('route-mode-out-and-back')),
+    );
+    final closeLoopRect = tester.getRect(
+      find.byKey(const Key('route-mode-close-loop')),
+    );
+
+    expect(nameRect.width, 244);
+    expect(outAndBackRect.right, lessThan(closeLoopRect.left));
+    expect(closeLoopRect.right, lessThan(nameRect.left));
+  });
 
   testWidgets(
     'closed route draft disables both route to peak and out and back', (
@@ -1398,12 +1444,13 @@ Future<void> _pumpMap(
   MapNotifier notifier, {
   RouteRepository? routeRepository,
   TasmapRepository? tasmapRepository,
+  Size surfaceSize = const Size(1600, 900),
 }) async {
   final effectiveTasmapRepository =
       tasmapRepository ?? await TestTasmapRepository.create();
   final effectiveRouteRepository =
       routeRepository ?? RouteRepository.test(InMemoryRouteStorage());
-  await tester.binding.setSurfaceSize(const Size(1600, 900));
+  await tester.binding.setSurfaceSize(surfaceSize);
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     ProviderScope(

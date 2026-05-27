@@ -52,6 +52,7 @@ class MapRouteRobot {
   Finder get routeSaveButton => find.byKey(const Key('route-save-button'));
   Finder get routeToPeakButton => find.byKey(const Key('route-mode-route-to-peak'));
   Finder get outAndBackButton => find.byKey(const Key('route-mode-out-and-back'));
+  Finder get closeLoopButton => find.byKey(const Key('route-mode-close-loop'));
   Finder get routeDistanceText => find.byKey(const Key('route-distance-text'));
   Finder get routeAscentText => find.byKey(const Key('route-ascent-text'));
   Finder get routeDescentText => find.byKey(const Key('route-descent-text'));
