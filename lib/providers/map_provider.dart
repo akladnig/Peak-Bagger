@@ -13,6 +13,7 @@ import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/route.dart';
+import 'package:peak_bagger/models/route_waypoint.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/providers/route_planner_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
@@ -1853,6 +1854,51 @@ class MapNotifier extends Notifier<MapState> {
     );
   }
 
+  void applyRouteDraftOutAndBack() {
+    if (!state.isRouteDrafting ||
+        state.isSavingRoute ||
+        state.routeDraftStage == RouteDraftStage.routingSegment ||
+        state.routeDraftCommittedPoints.length < 2) {
+      return;
+    }
+
+    final committedPoints = List<LatLng>.from(
+      state.routeDraftCommittedPoints,
+      growable: false,
+    );
+    final controlEndpoints = state.routeDraftControlEndpoints;
+    if (controlEndpoints.isEmpty ||
+        controlEndpoints.first.point != committedPoints.first ||
+        controlEndpoints.last.point != committedPoints.last) {
+      state = state.copyWith(
+        routeDraftError: 'Route draft is inconsistent.',
+      );
+      return;
+    }
+
+    final returnSegment = List<LatLng>.from(committedPoints.reversed);
+    final updatedCommittedPoints = _appendRouteSegment(
+      committedPoints,
+      returnSegment,
+    );
+    final returnEndpoint = controlEndpoints.first.copyWith(
+      id: _routeDraftEndpointId(state.routeDraftNextMarkerId),
+    );
+
+    _setRouteDraftControlState(
+      controlEndpoints: [...controlEndpoints, returnEndpoint],
+      stage: RouteDraftStage.awaitingNextPoint,
+      provisionalPoints: const [],
+      distanceMeters:
+          state.routeDraftDistanceMeters + _polylineDistanceMeters(returnSegment),
+      offTrackProbeActive: false,
+      clearRouteDraftError: true,
+      nextMarkerId: state.routeDraftNextMarkerId + 1,
+    );
+    state = state.copyWith(routeDraftCommittedPoints: updatedCommittedPoints);
+    _resampleRouteDraftElevation();
+  }
+
   void _setRouteDraftControlState({
     required List<RouteDraftControlEndpoint> controlEndpoints,
     String? provisionalEndpointId,
@@ -2235,6 +2281,7 @@ class MapNotifier extends Notifier<MapState> {
         name: trimmedName,
         gpxRoute: committedPoints,
         gpxRouteElevations: pointElevations,
+        routeWaypoints: _buildRouteDraftWaypointsForSave(),
         displayRoutePointsByZoom: TrackDisplayCacheBuilder.buildJson([
           committedPoints,
         ]),
@@ -2256,6 +2303,60 @@ class MapNotifier extends Notifier<MapState> {
       state = state.copyWith(isSavingRoute: false);
       _pendingRouteSnackbarMessage = 'Failed to save route: $error';
     }
+  }
+
+  List<RouteWaypoint> _buildRouteDraftWaypointsForSave() {
+    if (state.routeDraftControlEndpoints.length < 2) {
+      return const [];
+    }
+
+    final waypoints = <RouteWaypoint>[];
+    var genericWaypointSequence = 1;
+    final routeTarget = state.routeDraftPeakTarget;
+    final peakPoint = routeTarget == null
+        ? null
+        : LatLng(routeTarget.latitude, routeTarget.longitude);
+    final startPoint = state.routeDraftControlEndpoints.first.point;
+
+    for (var index = 1; index < state.routeDraftControlEndpoints.length; index++) {
+      final endpoint = state.routeDraftControlEndpoints[index];
+      final isFinalReturnToStart =
+          index == state.routeDraftControlEndpoints.length - 1 &&
+          endpoint.point == startPoint;
+      if (isFinalReturnToStart) {
+        continue;
+      }
+
+      final isPeakDerived = endpoint.kind == RouteDraftEndpointKind.peakTarget ||
+          (peakPoint != null && endpoint.point == peakPoint);
+      if (isPeakDerived && routeTarget != null) {
+        waypoints.add(
+          RouteWaypoint(
+            latitude: endpoint.point.latitude,
+            longitude: endpoint.point.longitude,
+            label: routeTarget.name,
+            sequence: waypoints.length + 1,
+            isPeakDerived: true,
+            peakOsmId: routeTarget.osmId,
+            peakName: routeTarget.name,
+          ),
+        );
+        continue;
+      }
+
+      waypoints.add(
+        RouteWaypoint(
+          latitude: endpoint.point.latitude,
+          longitude: endpoint.point.longitude,
+          label: 'Waypoint $genericWaypointSequence',
+          sequence: waypoints.length + 1,
+          isPeakDerived: false,
+        ),
+      );
+      genericWaypointSequence += 1;
+    }
+
+    return waypoints;
   }
 
   Future<List<int?>> _sampleRoutePointElevationsForSave(

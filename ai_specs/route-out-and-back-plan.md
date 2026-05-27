@@ -27,12 +27,12 @@ Keep Riverpod draft flow; persist metadata on save, serialize later in GPX.
 ### Phase 2: Draft save + action
 
 - **Goal**: compute metadata on save; mirror outbound geometry once
-- [ ] `lib/providers/map_provider.dart` - add `applyRouteDraftOutAndBack()`, draft validation, geometry mirror, save-time waypoint mapping
-- [ ] `lib/services/route_repository.dart` - no behavior change unless route save wiring needs a seam
-- [ ] TDD: valid draft mirrors committed geometry, bumps geometry/elevation version once, leaves mode unchanged
-- [ ] TDD: invalid/inconsistent draft leaves geometry untouched and surfaces route-draft error
-- [ ] TDD: save failure keeps draft open; retry recomputes metadata from current committed draft state
-- [ ] Verify: `flutter analyze && flutter test test/providers/route_draft_state_test.dart`
+- [x] `lib/providers/map_provider.dart` - add `applyRouteDraftOutAndBack()`, draft validation, geometry mirror, save-time waypoint mapping
+- [x] `lib/services/route_repository.dart` - no behavior change unless route save wiring needs a seam
+- [x] TDD: valid draft mirrors committed geometry, bumps geometry/elevation version once, leaves mode unchanged
+- [x] TDD: invalid/inconsistent draft leaves geometry untouched and surfaces route-draft error
+- [x] TDD: save failure keeps draft open; retry recomputes metadata from current committed draft state
+- [x] Verify: `flutter analyze && flutter test test/providers/route_draft_state_test.dart`
 
 ### Phase 3: Route sheet control
 

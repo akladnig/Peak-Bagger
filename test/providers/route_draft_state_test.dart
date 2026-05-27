@@ -11,6 +11,7 @@ import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
+import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import '../harness/test_tasmap_repository.dart';
 
@@ -651,6 +652,209 @@ void main() {
     expect(savedRoute.descent, 0);
     expect(savedRoute.distance3d, 0);
   });
+
+  test('applyRouteDraftOutAndBack rejects inconsistent draft state', () async {
+    final realNotifier = await _buildRouteTestNotifier(
+      routePlanner: _ControlledRoutePlanner(),
+      routeElevationSampler: const _ImmediateZeroRouteElevationSampler(),
+    );
+    final container = ProviderContainer(
+      overrides: [mapProvider.overrideWith(() => realNotifier)],
+    );
+    addTearDown(container.dispose);
+    final notifier = container.read(mapProvider.notifier);
+    notifier.state = MapState(
+      center: const LatLng(-41.5, 146.5),
+      zoom: 15,
+      basemap: Basemap.tracestrack,
+      isRouteDrafting: true,
+      routeDraftMode: RouteMode.straightLine,
+      routeDraftStage: RouteDraftStage.awaitingNextPoint,
+      routeDraftControlEndpoints: const [
+        RouteDraftControlEndpoint(
+          id: 'endpoint-0',
+          point: LatLng(-41.5, 146.5),
+          kind: RouteDraftEndpointKind.tapped,
+        ),
+        RouteDraftControlEndpoint(
+          id: 'endpoint-1',
+          point: LatLng(-41.6, 146.6),
+          kind: RouteDraftEndpointKind.tapped,
+        ),
+      ],
+      routeDraftMarkers: const [
+        LatLng(-41.5, 146.5),
+        LatLng(-41.6, 146.6),
+      ],
+      routeDraftCommittedPoints: const [
+        LatLng(-41.5, 146.5),
+        LatLng(-41.55, 146.55),
+        LatLng(-41.7, 146.7),
+      ],
+      routeDraftDistanceMeters: 1000,
+    );
+
+    notifier.applyRouteDraftOutAndBack();
+
+    final state = container.read(mapProvider);
+    expect(state.routeDraftCommittedPoints, const [
+      LatLng(-41.5, 146.5),
+      LatLng(-41.55, 146.55),
+      LatLng(-41.7, 146.7),
+    ]);
+    expect(state.routeDraftError, contains('inconsistent'));
+    expect(state.routeDraftGeometryVersion, 0);
+  });
+
+  test('save failure retry recomputes waypoint metadata from current draft', () async {
+    final routeRepository = RouteRepository.test(
+      _FailOnceRouteStorage(InMemoryRouteStorage()),
+    );
+    final realNotifier = await _buildRouteTestNotifier(
+      routePlanner: _ControlledRoutePlanner(),
+      routeRepository: routeRepository,
+      routeElevationSampler: const _ImmediateZeroRouteElevationSampler(),
+    );
+    final container = ProviderContainer(
+      overrides: [mapProvider.overrideWith(() => realNotifier)],
+    );
+    addTearDown(container.dispose);
+    final notifier = container.read(mapProvider.notifier);
+    notifier.state = MapState(
+      center: const LatLng(-41.5, 146.5),
+      zoom: 15,
+      basemap: Basemap.tracestrack,
+      isRouteDrafting: true,
+      routeDraftName: 'Retry route',
+      routeDraftMode: RouteMode.straightLine,
+      routeDraftStage: RouteDraftStage.awaitingNextPoint,
+      routeDraftControlEndpoints: const [
+        RouteDraftControlEndpoint(
+          id: 'endpoint-0',
+          point: LatLng(-41.5, 146.5),
+          kind: RouteDraftEndpointKind.tapped,
+        ),
+        RouteDraftControlEndpoint(
+          id: 'endpoint-1',
+          point: LatLng(-41.6, 146.6),
+          kind: RouteDraftEndpointKind.tapped,
+        ),
+      ],
+      routeDraftMarkers: const [
+        LatLng(-41.5, 146.5),
+        LatLng(-41.6, 146.6),
+      ],
+      routeDraftCommittedPoints: const [
+        LatLng(-41.5, 146.5),
+        LatLng(-41.55, 146.55),
+        LatLng(-41.6, 146.6),
+      ],
+      routeDraftDistanceMeters: 1000,
+    );
+
+    await notifier.saveRouteDraft();
+    expect(routeRepository.getAllRoutes(), isEmpty);
+    expect(container.read(mapProvider).isRouteDrafting, isTrue);
+
+    notifier.state = notifier.state.copyWith(
+      routeDraftControlEndpoints: const [
+        RouteDraftControlEndpoint(
+          id: 'endpoint-0',
+          point: LatLng(-41.5, 146.5),
+          kind: RouteDraftEndpointKind.tapped,
+        ),
+        RouteDraftControlEndpoint(
+          id: 'endpoint-1',
+          point: LatLng(-41.7, 146.7),
+          kind: RouteDraftEndpointKind.tapped,
+        ),
+      ],
+      routeDraftMarkers: const [
+        LatLng(-41.5, 146.5),
+        LatLng(-41.7, 146.7),
+      ],
+      routeDraftCommittedPoints: const [
+        LatLng(-41.5, 146.5),
+        LatLng(-41.55, 146.55),
+        LatLng(-41.7, 146.7),
+      ],
+      routeDraftDistanceMeters: 1200,
+    );
+
+    await notifier.saveRouteDraft();
+
+    final savedRoute = routeRepository.getAllRoutes().single;
+    expect(savedRoute.routeWaypoints, hasLength(1));
+    expect(savedRoute.routeWaypoints.single.latitude, -41.7);
+    expect(savedRoute.routeWaypoints.single.longitude, 146.7);
+    expect(savedRoute.routeWaypoints.single.label, 'Waypoint 1');
+    expect(container.read(mapProvider).isRouteDrafting, isFalse);
+  });
+
+  test('applyRouteDraftOutAndBack mirrors the committed path once', () async {
+    final routeElevationSampler = _ControlledRouteElevationSampler();
+    final realNotifier = await _buildRouteTestNotifier(
+      routePlanner: _ControlledRoutePlanner(),
+      routeElevationSampler: routeElevationSampler,
+    );
+    final container = ProviderContainer(
+      overrides: [mapProvider.overrideWith(() => realNotifier)],
+    );
+    addTearDown(container.dispose);
+    final notifier = container.read(mapProvider.notifier);
+    notifier.state = MapState(
+      center: const LatLng(-41.5, 146.5),
+      zoom: 15,
+      basemap: Basemap.tracestrack,
+      isRouteDrafting: true,
+      routeDraftMode: RouteMode.straightLine,
+      routeDraftStage: RouteDraftStage.awaitingNextPoint,
+      routeDraftControlEndpoints: const [
+        RouteDraftControlEndpoint(
+          id: 'endpoint-0',
+          point: LatLng(-41.5, 146.5),
+          kind: RouteDraftEndpointKind.tapped,
+        ),
+        RouteDraftControlEndpoint(
+          id: 'endpoint-1',
+          point: LatLng(-41.6, 146.6),
+          kind: RouteDraftEndpointKind.tapped,
+        ),
+      ],
+      routeDraftMarkers: const [
+        LatLng(-41.5, 146.5),
+        LatLng(-41.6, 146.6),
+      ],
+      routeDraftCommittedPoints: const [
+        LatLng(-41.5, 146.5),
+        LatLng(-41.55, 146.55),
+        LatLng(-41.6, 146.6),
+      ],
+      routeDraftDistanceMeters: 1000,
+    );
+
+    notifier.applyRouteDraftOutAndBack();
+
+    final state = container.read(mapProvider);
+    expect(state.routeDraftMode, RouteMode.straightLine);
+    expect(
+      state.routeDraftCommittedPoints,
+      const [
+        LatLng(-41.5, 146.5),
+        LatLng(-41.55, 146.55),
+        LatLng(-41.6, 146.6),
+        LatLng(-41.55, 146.55),
+        LatLng(-41.5, 146.5),
+      ],
+    );
+    expect(state.routeDraftControlEndpoints, hasLength(3));
+    expect(state.routeDraftControlEndpoints.last.point, const LatLng(-41.5, 146.5));
+    expect(routeElevationSampler.requests, hasLength(1));
+    expect(routeElevationSampler.requests.single.requestId, 1);
+    expect(routeElevationSampler.requests.single.geometryVersion, 1);
+    expect(state.routeDraftGeometryVersion, 1);
+    expect(state.routeDraftElevationLoading, isTrue);
+  });
 }
 
 Future<MapNotifier> _buildRouteTestNotifier({
@@ -801,6 +1005,32 @@ class _ImmediateZeroRouteElevationSampler implements RouteElevationSampler {
   @override
   Future<List<double?>> samplePointElevations(List<LatLng> points) async {
     return List<double?>.filled(points.length, null, growable: false);
+  }
+}
+
+class _FailOnceRouteStorage implements RouteStorage {
+  _FailOnceRouteStorage(this._delegate);
+
+  final InMemoryRouteStorage _delegate;
+  var _hasFailed = false;
+
+  @override
+  bool delete(int id) => _delegate.delete(id);
+
+  @override
+  List<Route> getAll() => _delegate.getAll();
+
+  @override
+  Route? getById(int id) => _delegate.getById(id);
+
+  @override
+  int save(Route route) {
+    if (!_hasFailed) {
+      _hasFailed = true;
+      throw Exception('write failed');
+    }
+
+    return _delegate.save(route);
   }
 }
 
