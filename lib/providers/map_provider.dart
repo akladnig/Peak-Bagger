@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:io' as io;
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -230,6 +231,9 @@ class MapState {
   final int routeDraftElevationRequestId;
   final int routeDraftGeometryVersion;
   final bool routeDraftNameFieldFocused;
+  final bool routeDraftPeakTargetLocked;
+  final bool routeDraftCanUndo;
+  final bool routeDraftCanRedo;
   final bool syncEnabled;
   final List<Peak> peaks;
   final bool isLoadingPeaks;
@@ -309,6 +313,9 @@ class MapState {
     this.routeDraftElevationRequestId = 0,
     this.routeDraftGeometryVersion = 0,
     this.routeDraftNameFieldFocused = false,
+    this.routeDraftPeakTargetLocked = false,
+    this.routeDraftCanUndo = false,
+    this.routeDraftCanRedo = false,
     this.syncEnabled = true,
     this.peaks = const [],
     this.isLoadingPeaks = false,
@@ -349,6 +356,10 @@ class MapState {
   Peak? get peakInfoPeak => peakInfo?.peak;
 
   Peak? get routeDraftPeakTarget {
+    if (routeDraftPeakTargetLocked) {
+      return null;
+    }
+
     final popupPeak = routeDraftPeak ?? peakInfoPeak;
     if (popupPeak != null) {
       return popupPeak;
@@ -423,6 +434,9 @@ class MapState {
     int? routeDraftElevationRequestId,
     int? routeDraftGeometryVersion,
     bool? routeDraftNameFieldFocused,
+    bool? routeDraftPeakTargetLocked,
+    bool? routeDraftCanUndo,
+    bool? routeDraftCanRedo,
     bool? syncEnabled,
     List<Peak>? peaks,
     bool? isLoadingPeaks,
@@ -546,6 +560,10 @@ class MapState {
           routeDraftGeometryVersion ?? this.routeDraftGeometryVersion,
       routeDraftNameFieldFocused:
           routeDraftNameFieldFocused ?? this.routeDraftNameFieldFocused,
+      routeDraftPeakTargetLocked:
+          routeDraftPeakTargetLocked ?? this.routeDraftPeakTargetLocked,
+      routeDraftCanUndo: routeDraftCanUndo ?? this.routeDraftCanUndo,
+      routeDraftCanRedo: routeDraftCanRedo ?? this.routeDraftCanRedo,
       syncEnabled: syncEnabled ?? this.syncEnabled,
       peaks: peaks ?? this.peaks,
       isLoadingPeaks: isLoadingPeaks ?? this.isLoadingPeaks,
@@ -626,6 +644,36 @@ final mapPreferencesLoaderProvider =
     Provider<Future<SharedPreferences> Function()>((ref) {
       return SharedPreferences.getInstance;
     });
+
+typedef _RouteDraftSnapshot = ({
+  bool isRouteDrafting,
+  bool isSavingRoute,
+  String? routeDraftNameError,
+  RouteMode routeDraftMode,
+  Peak? routeDraftPeak,
+  bool routeDraftPeakTargetLocked,
+  List<RouteDraftControlEndpoint> routeDraftControlEndpoints,
+  List<RouteDraftDisplayMarker> routeDraftDisplayMarkers,
+  List<LatLng> routeDraftMarkers,
+  RouteDraftStage routeDraftStage,
+  String? routeDraftError,
+  int routeDraftColour,
+  List<LatLng> routeDraftCommittedPoints,
+  List<LatLng> routeDraftProvisionalPoints,
+  double routeDraftDistanceMeters,
+  bool routeDraftOffTrackProbeActive,
+  bool routeDraftStraightLineFallback,
+  int routeDraftNextMarkerId,
+  int routeDraftRequestId,
+  RouteElevationSummary? routeDraftElevationSummary,
+  bool routeDraftElevationLoading,
+  String? routeDraftElevationError,
+  int routeDraftElevationRequestId,
+  int routeDraftGeometryVersion,
+  bool routeDraftNameFieldFocused,
+  bool routeDraftCanUndo,
+  bool routeDraftCanRedo,
+});
 
 final routeElevationSamplerProvider = Provider<RouteElevationSampler>((ref) {
   return BundledDemRouteElevationSampler();
@@ -761,6 +809,10 @@ class MapNotifier extends Notifier<MapState> {
   String? _pendingTrackSnackbarMessage;
   String? _pendingStartupBackfillWarningMessage;
   String? _pendingRouteSnackbarMessage;
+  final List<_RouteDraftSnapshot> _routeDraftUndoStack = [];
+  final List<_RouteDraftSnapshot> _routeDraftRedoStack = [];
+  String? _activeRouteDraftDragMarkerId;
+  bool _isRestoringRouteDraftHistory = false;
   bool _isRestoringVisibilityPrefs = false;
   bool _showTracksRestoreOverridden = false;
   bool _showRoutesRestoreOverridden = false;
@@ -1783,10 +1835,146 @@ class MapNotifier extends Notifier<MapState> {
     return distance;
   }
 
+  _RouteDraftSnapshot _captureRouteDraftSnapshot() {
+    return (
+      isRouteDrafting: state.isRouteDrafting,
+      isSavingRoute: state.isSavingRoute,
+      routeDraftNameError: state.routeDraftNameError,
+      routeDraftMode: state.routeDraftMode,
+      routeDraftPeak: state.routeDraftPeak,
+      routeDraftPeakTargetLocked: state.routeDraftPeakTargetLocked,
+      routeDraftControlEndpoints: List<RouteDraftControlEndpoint>.unmodifiable(
+        state.routeDraftControlEndpoints,
+      ),
+      routeDraftDisplayMarkers: List<RouteDraftDisplayMarker>.unmodifiable(
+        state.routeDraftDisplayMarkers,
+      ),
+      routeDraftMarkers: List<LatLng>.unmodifiable(state.routeDraftMarkers),
+      routeDraftStage: state.routeDraftStage,
+      routeDraftError: state.routeDraftError,
+      routeDraftColour: state.routeDraftColour,
+      routeDraftCommittedPoints: List<LatLng>.unmodifiable(
+        state.routeDraftCommittedPoints,
+      ),
+      routeDraftProvisionalPoints: List<LatLng>.unmodifiable(
+        state.routeDraftProvisionalPoints,
+      ),
+      routeDraftDistanceMeters: state.routeDraftDistanceMeters,
+      routeDraftOffTrackProbeActive: state.routeDraftOffTrackProbeActive,
+      routeDraftStraightLineFallback: state.routeDraftStraightLineFallback,
+      routeDraftNextMarkerId: state.routeDraftNextMarkerId,
+      routeDraftRequestId: state.routeDraftRequestId,
+      routeDraftElevationSummary: state.routeDraftElevationSummary,
+      routeDraftElevationLoading: state.routeDraftElevationLoading,
+      routeDraftElevationError: state.routeDraftElevationError,
+      routeDraftElevationRequestId: state.routeDraftElevationRequestId,
+      routeDraftGeometryVersion: state.routeDraftGeometryVersion,
+      routeDraftNameFieldFocused: state.routeDraftNameFieldFocused,
+      routeDraftCanUndo: state.routeDraftCanUndo,
+      routeDraftCanRedo: state.routeDraftCanRedo,
+    );
+  }
+
+  void _syncRouteDraftHistoryAvailability() {
+    state = state.copyWith(
+      routeDraftCanUndo: _routeDraftUndoStack.isNotEmpty,
+      routeDraftCanRedo: _routeDraftRedoStack.isNotEmpty,
+    );
+  }
+
+  void _pushRouteDraftHistory() {
+    if (!state.isRouteDrafting || _isRestoringRouteDraftHistory) {
+      return;
+    }
+
+    _routeDraftUndoStack.add(_captureRouteDraftSnapshot());
+    _routeDraftRedoStack.clear();
+    _syncRouteDraftHistoryAvailability();
+  }
+
+  void _restoreRouteDraftSnapshot(_RouteDraftSnapshot snapshot) {
+    final requestIdFloor = math.max(
+      state.routeDraftRequestId,
+      snapshot.routeDraftRequestId,
+    );
+    final elevationRequestIdFloor = math.max(
+      state.routeDraftElevationRequestId,
+      snapshot.routeDraftElevationRequestId,
+    );
+    final geometryVersionFloor = math.max(
+      state.routeDraftGeometryVersion,
+      snapshot.routeDraftGeometryVersion,
+    );
+
+    _isRestoringRouteDraftHistory = true;
+    try {
+      state = state.copyWith(
+        isRouteDrafting: snapshot.isRouteDrafting,
+        isSavingRoute: snapshot.isSavingRoute,
+        routeDraftNameError: snapshot.routeDraftNameError,
+        routeDraftMode: snapshot.routeDraftMode,
+        routeDraftPeak: snapshot.routeDraftPeak,
+        routeDraftPeakTargetLocked: snapshot.routeDraftPeakTargetLocked,
+        routeDraftControlEndpoints: snapshot.routeDraftControlEndpoints,
+        routeDraftDisplayMarkers: snapshot.routeDraftDisplayMarkers,
+        routeDraftMarkers: snapshot.routeDraftMarkers,
+        routeDraftStage: snapshot.routeDraftStage,
+        routeDraftError: snapshot.routeDraftError,
+        routeDraftColour: snapshot.routeDraftColour,
+        routeDraftCommittedPoints: snapshot.routeDraftCommittedPoints,
+        routeDraftProvisionalPoints: snapshot.routeDraftProvisionalPoints,
+        routeDraftDistanceMeters: snapshot.routeDraftDistanceMeters,
+        routeDraftOffTrackProbeActive: snapshot.routeDraftOffTrackProbeActive,
+        routeDraftStraightLineFallback: snapshot.routeDraftStraightLineFallback,
+        routeDraftNextMarkerId: snapshot.routeDraftNextMarkerId,
+        routeDraftRequestId: requestIdFloor,
+        routeDraftElevationSummary: snapshot.routeDraftElevationSummary,
+        routeDraftElevationLoading: snapshot.routeDraftElevationLoading,
+        routeDraftElevationError: snapshot.routeDraftElevationError,
+        routeDraftElevationRequestId: elevationRequestIdFloor,
+        routeDraftGeometryVersion: geometryVersionFloor,
+        routeDraftNameFieldFocused: snapshot.routeDraftNameFieldFocused,
+        routeDraftCanUndo: snapshot.routeDraftCanUndo,
+        routeDraftCanRedo: snapshot.routeDraftCanRedo,
+      );
+    } finally {
+      _isRestoringRouteDraftHistory = false;
+    }
+
+    _resampleRouteDraftElevation();
+  }
+
+  void undoRouteDraftEdit() {
+    if (!state.isRouteDrafting || _routeDraftUndoStack.isEmpty) {
+      return;
+    }
+
+    _routeDraftRedoStack.add(_captureRouteDraftSnapshot());
+    final snapshot = _routeDraftUndoStack.removeLast();
+    _restoreRouteDraftSnapshot(snapshot);
+    _syncRouteDraftHistoryAvailability();
+  }
+
+  void redoRouteDraftEdit() {
+    if (!state.isRouteDrafting || _routeDraftRedoStack.isEmpty) {
+      return;
+    }
+
+    _routeDraftUndoStack.add(_captureRouteDraftSnapshot());
+    final snapshot = _routeDraftRedoStack.removeLast();
+    _restoreRouteDraftSnapshot(snapshot);
+    _syncRouteDraftHistoryAvailability();
+  }
+
   void beginRouteDraft({Peak? peakTarget}) {
     if (state.isRouteDrafting) {
       return;
     }
+
+    _routeDraftUndoStack.clear();
+    _routeDraftRedoStack.clear();
+    _activeRouteDraftDragMarkerId = null;
+    _syncRouteDraftHistoryAvailability();
 
     state = state.copyWith(
       isRouteDrafting: true,
@@ -1817,6 +2005,9 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftElevationRequestId: 0,
       routeDraftGeometryVersion: 0,
       routeDraftNameFieldFocused: false,
+      routeDraftPeakTargetLocked: false,
+      routeDraftCanUndo: false,
+      routeDraftCanRedo: false,
       clearSelectedTrackId: true,
     );
   }
@@ -1856,7 +2047,14 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftElevationRequestId: 0,
       routeDraftGeometryVersion: 0,
       routeDraftNameFieldFocused: false,
+      routeDraftPeakTargetLocked: false,
+      routeDraftCanUndo: false,
+      routeDraftCanRedo: false,
     );
+    _routeDraftUndoStack.clear();
+    _routeDraftRedoStack.clear();
+    _activeRouteDraftDragMarkerId = null;
+    _syncRouteDraftHistoryAvailability();
   }
 
   String? _validateRouteDraftName(String value) {
@@ -1881,6 +2079,8 @@ class MapNotifier extends Notifier<MapState> {
     if (mode == RouteMode.routeToPeak && state.routeDraftPeakTarget == null) {
       return;
     }
+
+    _pushRouteDraftHistory();
 
     state = state.copyWith(routeDraftMode: mode);
     if (mode == RouteMode.routeToPeak && state.routeDraftPeak == null) {
@@ -1913,6 +2113,8 @@ class MapNotifier extends Notifier<MapState> {
         state.routeDraftCommittedPoints.length < 2) {
       return;
     }
+
+    _pushRouteDraftHistory();
 
     final committedPoints = List<LatLng>.from(
       state.routeDraftCommittedPoints,
@@ -1947,6 +2149,8 @@ class MapNotifier extends Notifier<MapState> {
         state.routeDraftCommittedPoints.length < 2) {
       return;
     }
+
+    _pushRouteDraftHistory();
 
     final committedPoints = List<LatLng>.from(
       state.routeDraftCommittedPoints,
@@ -2252,6 +2456,7 @@ class MapNotifier extends Notifier<MapState> {
         return;
       case RouteDraftStage.awaitingStart:
         if (state.routeDraftMode == RouteMode.routeToPeak) {
+          _pushRouteDraftHistory();
           _startRouteDraftToPeakFrom(point);
           return;
         }
@@ -2259,6 +2464,7 @@ class MapNotifier extends Notifier<MapState> {
           point: point,
           kind: _manualEndpointKindForPoint(point),
         );
+        _pushRouteDraftHistory();
         _setRouteDraftControlState(
           controlEndpoints: [endpoint],
           stage: RouteDraftStage.awaitingNextPoint,
@@ -2267,6 +2473,11 @@ class MapNotifier extends Notifier<MapState> {
           clearRouteDraftError: true,
           nextMarkerId: state.routeDraftNextMarkerId + 1,
         );
+        if (useStraightLine) {
+          state = state.copyWith(
+            routeDraftCommittedPoints: [point],
+          );
+        }
       case RouteDraftStage.awaitingNextPoint:
       case RouteDraftStage.segmentFailure:
         final start = state.routeDraftControlEndpoints.isEmpty
@@ -2277,6 +2488,7 @@ class MapNotifier extends Notifier<MapState> {
             point: point,
             kind: _manualEndpointKindForPoint(point),
           );
+          _pushRouteDraftHistory();
           _setRouteDraftControlState(
             controlEndpoints: [endpoint],
             stage: RouteDraftStage.awaitingNextPoint,
@@ -2292,6 +2504,7 @@ class MapNotifier extends Notifier<MapState> {
             point: point,
             kind: _manualEndpointKindForPoint(point),
           );
+          _pushRouteDraftHistory();
           _setRouteDraftControlState(
             controlEndpoints: [...state.routeDraftControlEndpoints, duplicate],
             stage: RouteDraftStage.segmentFailure,
@@ -2312,6 +2525,7 @@ class MapNotifier extends Notifier<MapState> {
         );
         if (useStraightLine) {
           final segmentPoints = [start.point, point];
+          _pushRouteDraftHistory();
           _setRouteDraftControlState(
             controlEndpoints: [
               ...state.routeDraftControlEndpoints,
@@ -2336,6 +2550,7 @@ class MapNotifier extends Notifier<MapState> {
           return;
         }
         final requestId = state.routeDraftRequestId + 1;
+        _pushRouteDraftHistory();
         _setRouteDraftControlState(
           controlEndpoints: [...state.routeDraftControlEndpoints, nextEndpoint],
           provisionalEndpointId: nextEndpoint.id,
@@ -3061,12 +3276,352 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
+    _pushRouteDraftHistory();
     _insertRouteDraftPointIntoChain(
       segmentIndex: segmentIndex,
       committedSegmentIndex: committedSegmentIndex,
       point: point,
     );
     clearHoveredRouteDraftSegmentPreview();
+  }
+
+  Future<void> deleteRouteDraftMarker(String markerId) async {
+    if (!state.isRouteDrafting ||
+        state.isSavingRoute ||
+        state.routeDraftStage == RouteDraftStage.routingSegment) {
+      return;
+    }
+
+    _activeRouteDraftDragMarkerId = null;
+
+    final controlEndpoints = List<RouteDraftControlEndpoint>.from(
+      state.routeDraftControlEndpoints,
+    );
+    final markerIndex = controlEndpoints.indexWhere(
+      (endpoint) => endpoint.id == markerId,
+    );
+    if (markerIndex == -1) {
+      return;
+    }
+
+    _pushRouteDraftHistory();
+    controlEndpoints.removeAt(markerIndex);
+    final invalidatePeakTarget = _shouldInvalidateRouteDraftPeakTarget(
+      controlEndpoints,
+    );
+    await _rebuildRouteDraftFromControlEndpoints(
+      controlEndpoints,
+      invalidatePeakTarget: invalidatePeakTarget,
+    );
+  }
+
+  void beginRouteDraftMarkerDrag(String markerId) {
+    if (!state.isRouteDrafting ||
+        state.isSavingRoute ||
+        state.routeDraftStage == RouteDraftStage.routingSegment ||
+        state.routeDraftControlEndpoints.every((endpoint) => endpoint.id != markerId)) {
+      return;
+    }
+
+    _pushRouteDraftHistory();
+    _activeRouteDraftDragMarkerId = markerId;
+  }
+
+  Future<void> updateRouteDraftMarkerDrag(String markerId, LatLng point) async {
+    if (_activeRouteDraftDragMarkerId != markerId) {
+      return;
+    }
+
+    await _moveRouteDraftMarker(
+      markerId,
+      point,
+      pushHistory: false,
+      allowWhileRouting: true,
+    );
+  }
+
+  void endRouteDraftMarkerDrag([String? markerId]) {
+    if (markerId != null && _activeRouteDraftDragMarkerId != markerId) {
+      return;
+    }
+
+    _activeRouteDraftDragMarkerId = null;
+  }
+
+  Future<void> moveRouteDraftMarker(String markerId, LatLng point) async {
+    _activeRouteDraftDragMarkerId = null;
+    await _moveRouteDraftMarker(
+      markerId,
+      point,
+      pushHistory: true,
+      allowWhileRouting: false,
+    );
+  }
+
+  Future<void> _moveRouteDraftMarker(
+    String markerId,
+    LatLng point, {
+    required bool pushHistory,
+    required bool allowWhileRouting,
+  }) async {
+    if (!state.isRouteDrafting ||
+        state.isSavingRoute ||
+        (!allowWhileRouting &&
+            state.routeDraftStage == RouteDraftStage.routingSegment)) {
+      return;
+    }
+
+    final controlEndpoints = List<RouteDraftControlEndpoint>.from(
+      state.routeDraftControlEndpoints,
+    );
+    final markerIndex = controlEndpoints.indexWhere(
+      (endpoint) => endpoint.id == markerId,
+    );
+    if (markerIndex == -1 || controlEndpoints[markerIndex].point == point) {
+      return;
+    }
+
+    if (pushHistory) {
+      _pushRouteDraftHistory();
+    }
+    controlEndpoints[markerIndex] = controlEndpoints[markerIndex].copyWith(
+      point: point,
+      kind: _manualEndpointKindForPoint(point),
+    );
+    final invalidatePeakTarget = _shouldInvalidateRouteDraftPeakTarget(
+      controlEndpoints,
+    );
+    await _rebuildRouteDraftFromControlEndpoints(
+      controlEndpoints,
+      invalidatePeakTarget: invalidatePeakTarget,
+    );
+  }
+
+  bool _shouldInvalidateRouteDraftPeakTarget(
+    List<RouteDraftControlEndpoint> controlEndpoints,
+  ) {
+    final routeTarget = state.routeDraftPeakTarget;
+    if (routeTarget == null) {
+      return false;
+    }
+
+    final peakPoint = LatLng(routeTarget.latitude, routeTarget.longitude);
+    return !controlEndpoints.any(
+      (endpoint) =>
+          endpoint.kind == RouteDraftEndpointKind.peakTarget ||
+          endpoint.point == peakPoint,
+    );
+  }
+
+  Future<void> _rebuildRouteDraftFromControlEndpoints(
+    List<RouteDraftControlEndpoint> controlEndpoints, {
+    required bool invalidatePeakTarget,
+  }) async {
+    final requestId = state.routeDraftRequestId + 1;
+    final routeMode =
+        invalidatePeakTarget && state.routeDraftMode == RouteMode.routeToPeak
+        ? RouteMode.snapToTrail
+        : state.routeDraftMode;
+
+    if (controlEndpoints.isEmpty) {
+      state = state.copyWith(
+        routeDraftControlEndpoints: const [],
+        routeDraftDisplayMarkers: const [],
+        routeDraftMarkers: const [],
+        routeDraftStage: RouteDraftStage.awaitingStart,
+        routeDraftCommittedPoints: const [],
+        routeDraftProvisionalPoints: const [],
+        routeDraftDistanceMeters: 0,
+        routeDraftOffTrackProbeActive: false,
+        routeDraftStraightLineFallback: false,
+        clearRouteDraftError: true,
+        routeDraftMode: routeMode,
+        clearRouteDraftPeak: invalidatePeakTarget,
+        routeDraftPeakTargetLocked: invalidatePeakTarget
+            ? true
+            : state.routeDraftPeakTargetLocked,
+        routeDraftRequestId: requestId,
+      );
+      _resampleRouteDraftElevation();
+      return;
+    }
+
+    if (controlEndpoints.length == 1) {
+      state = state.copyWith(
+        routeDraftControlEndpoints: List<RouteDraftControlEndpoint>.unmodifiable(
+          controlEndpoints,
+        ),
+        routeDraftDisplayMarkers: List<RouteDraftDisplayMarker>.unmodifiable(
+          _buildDisplayMarkers(controlEndpoints),
+        ),
+        routeDraftMarkers: List<LatLng>.unmodifiable(
+          controlEndpoints.map((endpoint) => endpoint.point),
+        ),
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftCommittedPoints: [controlEndpoints.single.point],
+        routeDraftProvisionalPoints: const [],
+        routeDraftDistanceMeters: 0,
+        routeDraftOffTrackProbeActive: false,
+        routeDraftStraightLineFallback: false,
+        clearRouteDraftError: true,
+        routeDraftMode: routeMode,
+        clearRouteDraftPeak: invalidatePeakTarget,
+        routeDraftPeakTargetLocked: invalidatePeakTarget
+            ? true
+            : state.routeDraftPeakTargetLocked,
+        routeDraftRequestId: requestId,
+      );
+      _resampleRouteDraftElevation();
+      return;
+    }
+
+    if (routeMode == RouteMode.straightLine) {
+      final committedPoints = List<LatLng>.unmodifiable(
+        controlEndpoints.map((endpoint) => endpoint.point),
+      );
+      state = state.copyWith(
+        routeDraftControlEndpoints: List<RouteDraftControlEndpoint>.unmodifiable(
+          controlEndpoints,
+        ),
+        routeDraftDisplayMarkers: List<RouteDraftDisplayMarker>.unmodifiable(
+          _buildDisplayMarkers(controlEndpoints),
+        ),
+        routeDraftMarkers: List<LatLng>.unmodifiable(
+          controlEndpoints.map((endpoint) => endpoint.point),
+        ),
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftCommittedPoints: committedPoints,
+        routeDraftProvisionalPoints: const [],
+        routeDraftDistanceMeters: _polylineDistanceMeters(committedPoints),
+        routeDraftOffTrackProbeActive: false,
+        routeDraftStraightLineFallback: false,
+        clearRouteDraftError: true,
+        routeDraftMode: routeMode,
+        clearRouteDraftPeak: invalidatePeakTarget,
+        routeDraftPeakTargetLocked: invalidatePeakTarget
+            ? true
+            : state.routeDraftPeakTargetLocked,
+        routeDraftRequestId: requestId,
+      );
+      _resampleRouteDraftElevation();
+      return;
+    }
+
+    state = state.copyWith(
+      routeDraftStage: RouteDraftStage.routingSegment,
+      routeDraftProvisionalPoints: const [],
+      clearRouteDraftError: true,
+      routeDraftMode: routeMode,
+      clearRouteDraftPeak: invalidatePeakTarget,
+      routeDraftPeakTargetLocked: invalidatePeakTarget
+          ? true
+          : state.routeDraftPeakTargetLocked,
+      routeDraftRequestId: requestId,
+    );
+
+    final rebuiltEndpoints = List<RouteDraftControlEndpoint>.from(controlEndpoints);
+    var committedPoints = const <LatLng>[];
+    var distanceMeters = 0.0;
+    var usedFallback = false;
+
+    for (var index = 0; index < rebuiltEndpoints.length - 1; index++) {
+      final startEndpoint = rebuiltEndpoints[index];
+      final endEndpoint = rebuiltEndpoints[index + 1];
+      final result = await _routePlanner.planSegmentResult(
+        start: startEndpoint.point,
+        end: endEndpoint.point,
+      );
+      if (!_isActiveRouteDraftRequest(requestId)) {
+        return;
+      }
+
+      switch (result.status) {
+        case RoutePlanningStatus.routed:
+          rebuiltEndpoints[index] = _movedEndpoint(
+            startEndpoint,
+            result.startAnchor,
+            isPeakTarget:
+                startEndpoint.kind == RouteDraftEndpointKind.peakTarget,
+          );
+          rebuiltEndpoints[index + 1] = _movedEndpoint(
+            endEndpoint,
+            endEndpoint.kind == RouteDraftEndpointKind.peakTarget
+                ? null
+                : result.endAnchor,
+            isPeakTarget: endEndpoint.kind == RouteDraftEndpointKind.peakTarget,
+          );
+          final segmentPoints =
+              rebuiltEndpoints[index + 1].kind == RouteDraftEndpointKind.peakTarget
+              ? _appendPeakTerminalLegIfNeeded(
+                  result.points,
+                  rebuiltEndpoints[index + 1].point,
+                )
+              : result.points;
+          committedPoints = _appendRouteSegment(committedPoints, segmentPoints);
+          distanceMeters += _polylineDistanceMeters(segmentPoints);
+          break;
+        case RoutePlanningStatus.offTrack:
+        case RoutePlanningStatus.noPath:
+          usedFallback = true;
+          rebuiltEndpoints[index] = _movedEndpoint(
+            startEndpoint,
+            result.startAnchor,
+            isPeakTarget:
+                startEndpoint.kind == RouteDraftEndpointKind.peakTarget,
+          );
+          rebuiltEndpoints[index + 1] = switch (result.status) {
+            RoutePlanningStatus.noPath
+                when endEndpoint.kind != RouteDraftEndpointKind.peakTarget =>
+              _movedEndpoint(endEndpoint, result.endAnchor),
+            _ => endEndpoint,
+          };
+          final segmentPoints = _appendPeakTerminalLegIfNeeded(
+            [rebuiltEndpoints[index].point, rebuiltEndpoints[index + 1].point],
+            rebuiltEndpoints[index + 1].point,
+          );
+          committedPoints = _appendRouteSegment(committedPoints, segmentPoints);
+          distanceMeters += _polylineDistanceMeters(segmentPoints);
+          break;
+        case RoutePlanningStatus.failed:
+          state = state.copyWith(
+            routeDraftStage: RouteDraftStage.segmentFailure,
+            routeDraftProvisionalPoints: const [],
+            routeDraftError: result.errorMessage ?? 'Failed to calculate route.',
+            routeDraftMode: routeMode,
+            clearRouteDraftPeak: invalidatePeakTarget,
+            routeDraftPeakTargetLocked: invalidatePeakTarget
+                ? true
+                : state.routeDraftPeakTargetLocked,
+          );
+          return;
+      }
+    }
+
+    state = state.copyWith(
+      routeDraftControlEndpoints: List<RouteDraftControlEndpoint>.unmodifiable(
+        rebuiltEndpoints,
+      ),
+      routeDraftDisplayMarkers: List<RouteDraftDisplayMarker>.unmodifiable(
+        _buildDisplayMarkers(rebuiltEndpoints),
+      ),
+      routeDraftMarkers: List<LatLng>.unmodifiable(
+        rebuiltEndpoints.map((endpoint) => endpoint.point),
+      ),
+      routeDraftStage: RouteDraftStage.awaitingNextPoint,
+      routeDraftCommittedPoints: List<LatLng>.unmodifiable(committedPoints),
+      routeDraftProvisionalPoints: const [],
+      routeDraftDistanceMeters: distanceMeters,
+      routeDraftOffTrackProbeActive: usedFallback,
+      routeDraftStraightLineFallback: usedFallback,
+      clearRouteDraftError: true,
+      routeDraftMode: routeMode,
+      clearRouteDraftPeak: invalidatePeakTarget,
+      routeDraftPeakTargetLocked: invalidatePeakTarget
+          ? true
+          : state.routeDraftPeakTargetLocked,
+      routeDraftRequestId: requestId,
+    );
+    _resampleRouteDraftElevation();
   }
 
   void _insertRouteDraftPointIntoChain({

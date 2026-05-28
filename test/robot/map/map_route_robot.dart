@@ -56,12 +56,20 @@ class MapRouteRobot {
   Finder get routeToPeakButton => find.byKey(const Key('route-mode-route-to-peak'));
   Finder get outAndBackButton => find.byKey(const Key('route-mode-out-and-back'));
   Finder get closeLoopButton => find.byKey(const Key('route-mode-close-loop'));
+  Finder get undoButton => find.byKey(const Key('route-undo-button'));
+  Finder get redoButton => find.byKey(const Key('route-redo-button'));
+  Finder get routeDraftDeletePopup =>
+      find.byKey(const Key('route-draft-delete-popup'));
+  Finder get routeDraftDeleteAction =>
+      find.byKey(const Key('route-draft-delete-action'));
   Finder get routeDistanceText => find.byKey(const Key('route-distance-text'));
   Finder get routeAscentText => find.byKey(const Key('route-ascent-text'));
   Finder get routeDescentText => find.byKey(const Key('route-descent-text'));
   Finder get routeElevationErrorText =>
       find.byKey(const Key('route-elevation-error-text'));
   Finder get routeBottomSheet => find.byKey(const Key('route-bottom-sheet'));
+  Finder routeDraftMarkerHitbox(String markerId) =>
+      find.byKey(Key('route-draft-marker-hitbox-$markerId'));
   Finder peakMarkerHitbox(int peakOsmId) =>
       find.byKey(Key('peak-marker-hitbox-$peakOsmId'));
 
@@ -142,6 +150,41 @@ class MapRouteRobot {
     await _mouseGesture!.up();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
+  }
+
+  Future<void> clickDraftMarker(String markerId) async {
+    await tester.tap(routeDraftMarkerHitbox(markerId));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+  }
+
+  Future<void> dragDraftMarker(String markerId, Offset delta) async {
+    final hitbox = routeDraftMarkerHitbox(markerId);
+    final gesture = await tester.startGesture(tester.getCenter(hitbox));
+    await gesture.moveBy(delta);
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> deleteDraftMarkerFromPopup() async {
+    await tester.tap(routeDraftDeleteAction);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> undoRouteEdit() async {
+    await tester.ensureVisible(undoButton);
+    await tester.pumpAndSettle();
+    await tester.tap(undoButton);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> redoRouteEdit() async {
+    await tester.ensureVisible(redoButton);
+    await tester.pumpAndSettle();
+    await tester.tap(redoButton);
+    await tester.pumpAndSettle();
   }
 
   void expectRouteSegmentPreview(int segmentIndex) {

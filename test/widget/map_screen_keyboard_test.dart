@@ -346,6 +346,71 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('command z shortcuts undo and redo route edits', (tester) async {
+    final notifier = _CountingKeyboardMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        isRouteDrafting: true,
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftCanUndo: true,
+        routeDraftCanRedo: true,
+      ),
+    );
+    await _pumpMapAppWithNotifier(tester, notifier);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyZ);
+    await tester.pump();
+
+    expect(notifier.undoRouteDraftEditCallCount, 1);
+    expect(notifier.redoRouteDraftEditCallCount, 0);
+
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyZ);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyZ);
+    await tester.pump();
+
+    expect(notifier.undoRouteDraftEditCallCount, 1);
+    expect(notifier.redoRouteDraftEditCallCount, 1);
+
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyZ);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+  });
+
+  testWidgets('route name focus blocks command z route shortcuts', (
+    tester,
+  ) async {
+    final notifier = _CountingKeyboardMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        isRouteDrafting: true,
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftCanUndo: true,
+        routeDraftCanRedo: true,
+        routeDraftNameFieldFocused: true,
+      ),
+    );
+    await _pumpMapAppWithNotifier(tester, notifier);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyZ);
+    await tester.pump();
+
+    expect(notifier.undoRouteDraftEditCallCount, 0);
+    expect(notifier.redoRouteDraftEditCallCount, 0);
+
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyZ);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+  });
+
   testWidgets('escape closes drawer before affecting selected track', (
     tester,
   ) async {
@@ -553,6 +618,8 @@ class _CountingKeyboardMapNotifier extends TestMapNotifier {
 
   int acceptCameraIntentCallCount = 0;
   int persistCameraPositionCallCount = 0;
+  int undoRouteDraftEditCallCount = 0;
+  int redoRouteDraftEditCallCount = 0;
 
   @override
   void acceptCameraIntent(PendingCameraRequest request) {
@@ -563,6 +630,18 @@ class _CountingKeyboardMapNotifier extends TestMapNotifier {
   @override
   Future<void> persistCameraPosition() async {
     persistCameraPositionCallCount += 1;
+  }
+
+  @override
+  void undoRouteDraftEdit() {
+    undoRouteDraftEditCallCount += 1;
+    super.undoRouteDraftEdit();
+  }
+
+  @override
+  void redoRouteDraftEdit() {
+    redoRouteDraftEditCallCount += 1;
+    super.redoRouteDraftEdit();
   }
 }
 
