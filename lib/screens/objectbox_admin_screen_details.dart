@@ -1,29 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 import 'package:peak_bagger/services/peak_admin_editor.dart';
+import 'package:peak_bagger/services/route_admin_editor.dart';
 
 class ObjectBoxAdminDetailsPane extends StatelessWidget {
   const ObjectBoxAdminDetailsPane({
     required this.row,
     required this.entity,
+    required this.route,
     required this.isCreatingPeak,
     required this.onClose,
     required this.createOsmId,
     required this.onViewPeakOnMap,
     required this.onViewGpxTrackOnMap,
+    required this.onViewRouteOnMap,
     required this.onPeakSubmit,
+    required this.onRouteSubmit,
     super.key,
   });
 
   final ObjectBoxAdminRow? row;
   final ObjectBoxAdminEntityDescriptor entity;
+  final app_route.Route? route;
   final bool isCreatingPeak;
   final VoidCallback onClose;
   final int createOsmId;
   final void Function(Peak peak) onViewPeakOnMap;
   final void Function(ObjectBoxAdminRow row)? onViewGpxTrackOnMap;
+  final void Function(app_route.Route route)? onViewRouteOnMap;
   final Future<String?> Function(Peak peak) onPeakSubmit;
+  final Future<String?> Function(RouteAdminFormState form) onRouteSubmit;
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +52,19 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
         onClose: onClose,
         onViewPeakOnMap: onViewPeakOnMap,
         onPeakSubmit: onPeakSubmit,
+      );
+    }
+
+    if (entity.name == 'Route' && route != null) {
+      return _RouteAdminDetailsPane(
+        row: row,
+        entity: entity,
+        route: route!,
+        onClose: onClose,
+        onViewRouteOnMap: onViewRouteOnMap == null
+            ? null
+            : () => onViewRouteOnMap!(route!),
+        onRouteSubmit: onRouteSubmit,
       );
     }
 
@@ -604,6 +625,530 @@ class _PeakReadOnlyDetails extends StatelessWidget {
   }
 }
 
+class _RouteAdminDetailsPane extends StatefulWidget {
+  const _RouteAdminDetailsPane({
+    required this.row,
+    required this.entity,
+    required this.route,
+    required this.onClose,
+    required this.onViewRouteOnMap,
+    required this.onRouteSubmit,
+  });
+
+  final ObjectBoxAdminRow? row;
+  final ObjectBoxAdminEntityDescriptor entity;
+  final app_route.Route route;
+  final VoidCallback onClose;
+  final VoidCallback? onViewRouteOnMap;
+  final Future<String?> Function(RouteAdminFormState form) onRouteSubmit;
+
+  @override
+  State<_RouteAdminDetailsPane> createState() => _RouteAdminDetailsPaneState();
+}
+
+class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _descController;
+  late final TextEditingController _colourController;
+  late final TextEditingController _distance2dController;
+  late final TextEditingController _distance3dController;
+  late final TextEditingController _ascentController;
+  late final TextEditingController _descentController;
+  late final TextEditingController _startElevationController;
+  late final TextEditingController _endElevationController;
+  late final TextEditingController _lowestElevationController;
+  late final TextEditingController _highestElevationController;
+  bool _isEditing = false;
+  bool _isSaving = false;
+  String? _submitError;
+  RouteAdminValidationResult _validation = const RouteAdminValidationResult(
+    fieldErrors: {},
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController();
+    _descController = TextEditingController();
+    _colourController = TextEditingController();
+    _distance2dController = TextEditingController();
+    _distance3dController = TextEditingController();
+    _ascentController = TextEditingController();
+    _descentController = TextEditingController();
+    _startElevationController = TextEditingController();
+    _endElevationController = TextEditingController();
+    _lowestElevationController = TextEditingController();
+    _highestElevationController = TextEditingController();
+    _syncFromRoute();
+  }
+
+  @override
+  void didUpdateWidget(covariant _RouteAdminDetailsPane oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.row != widget.row || oldWidget.route.id != widget.route.id) {
+      _syncFromRoute();
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descController.dispose();
+    _colourController.dispose();
+    _distance2dController.dispose();
+    _distance3dController.dispose();
+    _ascentController.dispose();
+    _descentController.dispose();
+    _startElevationController.dispose();
+    _endElevationController.dispose();
+    _lowestElevationController.dispose();
+    _highestElevationController.dispose();
+    super.dispose();
+  }
+
+  void _syncFromRoute() {
+    final form = RouteAdminEditor.normalize(widget.route);
+    _nameController.text = form.name;
+    _descController.text = form.desc;
+    _colourController.text = form.colour;
+    _distance2dController.text = form.distance2d;
+    _distance3dController.text = form.distance3d;
+    _ascentController.text = form.ascent;
+    _descentController.text = form.descent;
+    _startElevationController.text = form.startElevation;
+    _endElevationController.text = form.endElevation;
+    _lowestElevationController.text = form.lowestElevation;
+    _highestElevationController.text = form.highestElevation;
+    _isEditing = false;
+    _isSaving = false;
+    _submitError = null;
+    _validation = const RouteAdminValidationResult(fieldErrors: {});
+  }
+
+  void _startEditing() {
+    setState(() {
+      _isEditing = true;
+      _submitError = null;
+    });
+  }
+
+  RouteAdminFormState _currentFormState() {
+    return RouteAdminFormState(
+      name: _nameController.text,
+      desc: _descController.text,
+      colour: _colourController.text,
+      distance2d: _distance2dController.text,
+      distance3d: _distance3dController.text,
+      ascent: _ascentController.text,
+      descent: _descentController.text,
+      startElevation: _startElevationController.text,
+      endElevation: _endElevationController.text,
+      lowestElevation: _lowestElevationController.text,
+      highestElevation: _highestElevationController.text,
+    );
+  }
+
+  void _updateValidation() {
+    final validation = RouteAdminEditor.validateAndBuild(
+      source: widget.route,
+      form: _currentFormState(),
+    );
+    setState(() {
+      _validation = validation;
+      if (_submitError != null) {
+        _submitError = null;
+      }
+    });
+  }
+
+  Future<void> _submit() async {
+    if (_isSaving) {
+      return;
+    }
+
+    final validation = RouteAdminEditor.validateAndBuild(
+      source: widget.route,
+      form: _currentFormState(),
+    );
+    setState(() {
+      _validation = validation;
+      _submitError = null;
+    });
+    if (!validation.isValid || validation.route == null) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    final error = await widget.onRouteSubmit(_currentFormState());
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = false;
+      _submitError = error;
+      if (error == null) {
+        _isEditing = false;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Route #${objectBoxAdminFormatValue(widget.row!.primaryKeyValue)}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                if (!_isEditing)
+                  IconButton(
+                    key: const Key('objectbox-admin-route-view-on-map'),
+                    tooltip: 'View Route on Main Map',
+                    onPressed: _isSaving ? null : widget.onViewRouteOnMap,
+                    icon: const Icon(Icons.visibility_outlined),
+                  ),
+                if (!_isEditing)
+                  IconButton(
+                    key: const Key('objectbox-admin-route-edit'),
+                    onPressed: _isSaving ? null : _startEditing,
+                    icon: const Icon(Icons.edit),
+                  ),
+                IconButton(
+                  key: const Key('objectbox-admin-details-close'),
+                  onPressed: _isSaving ? null : widget.onClose,
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const Divider(),
+            Expanded(
+              child: _isEditing
+                  ? _RouteEditForm(
+                      route: widget.route,
+                      isSaving: _isSaving,
+                      nameController: _nameController,
+                      descController: _descController,
+                      colourController: _colourController,
+                      distance2dController: _distance2dController,
+                      distance3dController: _distance3dController,
+                      ascentController: _ascentController,
+                      descentController: _descentController,
+                      startElevationController: _startElevationController,
+                      endElevationController: _endElevationController,
+                      lowestElevationController: _lowestElevationController,
+                      highestElevationController: _highestElevationController,
+                      submitError: _submitError,
+                      validation: _validation,
+                      onChanged: _updateValidation,
+                      onSubmit: _submit,
+                    )
+                  : _RouteReadOnlyDetails(
+                      row: widget.row!,
+                      entity: widget.entity,
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RouteReadOnlyDetails extends StatelessWidget {
+  const _RouteReadOnlyDetails({required this.row, required this.entity});
+
+  final ObjectBoxAdminRow row;
+  final ObjectBoxAdminEntityDescriptor entity;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      key: const Key('objectbox-admin-details-list'),
+      itemCount: entity.fields.length,
+      separatorBuilder: (context, index) => const Divider(height: 1),
+      itemBuilder: (context, index) {
+        final field = entity.fields[index];
+        final value = row.values[field.name];
+        return ListTile(
+          dense: true,
+          title: Text(field.name),
+          subtitle: objectBoxAdminDetailsValue(
+            entityName: entity.name,
+            fieldName: field.name,
+            label: field.name,
+            value: value,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RouteEditForm extends StatelessWidget {
+  const _RouteEditForm({
+    required this.route,
+    required this.isSaving,
+    required this.nameController,
+    required this.descController,
+    required this.colourController,
+    required this.distance2dController,
+    required this.distance3dController,
+    required this.ascentController,
+    required this.descentController,
+    required this.startElevationController,
+    required this.endElevationController,
+    required this.lowestElevationController,
+    required this.highestElevationController,
+    required this.submitError,
+    required this.validation,
+    required this.onChanged,
+    required this.onSubmit,
+  });
+
+  final app_route.Route route;
+  final bool isSaving;
+  final TextEditingController nameController;
+  final TextEditingController descController;
+  final TextEditingController colourController;
+  final TextEditingController distance2dController;
+  final TextEditingController distance3dController;
+  final TextEditingController ascentController;
+  final TextEditingController descentController;
+  final TextEditingController startElevationController;
+  final TextEditingController endElevationController;
+  final TextEditingController lowestElevationController;
+  final TextEditingController highestElevationController;
+  final String? submitError;
+  final RouteAdminValidationResult validation;
+  final VoidCallback onChanged;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    final errorColor = Theme.of(context).colorScheme.error;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: ListView(
+            key: const Key('objectbox-admin-route-edit-form'),
+            children: [
+              _buildReadOnlyField(
+                label: 'id',
+                value: route.id.toString(),
+                keyName: 'objectbox-admin-route-id',
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                key: const Key('objectbox-admin-route-name'),
+                controller: nameController,
+                enabled: !isSaving,
+                decoration: InputDecoration(
+                  labelText: 'Name',
+                  border: const OutlineInputBorder(),
+                  errorText: validation.fieldErrors['name'],
+                ),
+                onChanged: (_) => onChanged(),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                key: const Key('objectbox-admin-route-desc'),
+                controller: descController,
+                enabled: !isSaving,
+                decoration: const InputDecoration(
+                  labelText: 'Description',
+                  border: OutlineInputBorder(),
+                ),
+                minLines: 2,
+                maxLines: 4,
+                onChanged: (_) => onChanged(),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                key: const Key('objectbox-admin-route-colour'),
+                controller: colourController,
+                enabled: !isSaving,
+                decoration: InputDecoration(
+                  labelText: 'Colour',
+                  border: const OutlineInputBorder(),
+                  errorText: validation.fieldErrors['colour'],
+                ),
+                keyboardType: TextInputType.number,
+                onChanged: (_) => onChanged(),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                key: const Key('objectbox-admin-route-distance2d'),
+                controller: distance2dController,
+                enabled: !isSaving,
+                decoration: InputDecoration(
+                  labelText: 'Distance 2D',
+                  border: const OutlineInputBorder(),
+                  errorText: validation.fieldErrors['distance2d'],
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (_) => onChanged(),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                key: const Key('objectbox-admin-route-distance3d'),
+                controller: distance3dController,
+                enabled: !isSaving,
+                decoration: InputDecoration(
+                  labelText: 'Distance 3D',
+                  border: const OutlineInputBorder(),
+                  errorText: validation.fieldErrors['distance3d'],
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (_) => onChanged(),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                key: const Key('objectbox-admin-route-ascent'),
+                controller: ascentController,
+                enabled: !isSaving,
+                decoration: InputDecoration(
+                  labelText: 'Ascent',
+                  border: const OutlineInputBorder(),
+                  errorText: validation.fieldErrors['ascent'],
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (_) => onChanged(),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                key: const Key('objectbox-admin-route-descent'),
+                controller: descentController,
+                enabled: !isSaving,
+                decoration: InputDecoration(
+                  labelText: 'Descent',
+                  border: const OutlineInputBorder(),
+                  errorText: validation.fieldErrors['descent'],
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (_) => onChanged(),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                key: const Key('objectbox-admin-route-start-elevation'),
+                controller: startElevationController,
+                enabled: !isSaving,
+                decoration: InputDecoration(
+                  labelText: 'Start Elevation',
+                  border: const OutlineInputBorder(),
+                  errorText: validation.fieldErrors['startElevation'],
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (_) => onChanged(),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                key: const Key('objectbox-admin-route-end-elevation'),
+                controller: endElevationController,
+                enabled: !isSaving,
+                decoration: InputDecoration(
+                  labelText: 'End Elevation',
+                  border: const OutlineInputBorder(),
+                  errorText: validation.fieldErrors['endElevation'],
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (_) => onChanged(),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                key: const Key('objectbox-admin-route-lowest-elevation'),
+                controller: lowestElevationController,
+                enabled: !isSaving,
+                decoration: InputDecoration(
+                  labelText: 'Lowest Elevation',
+                  border: const OutlineInputBorder(),
+                  errorText: validation.fieldErrors['lowestElevation'],
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (_) => onChanged(),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                key: const Key('objectbox-admin-route-highest-elevation'),
+                controller: highestElevationController,
+                enabled: !isSaving,
+                decoration: InputDecoration(
+                  labelText: 'Highest Elevation',
+                  border: const OutlineInputBorder(),
+                  errorText: validation.fieldErrors['highestElevation'],
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (_) => onChanged(),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                dense: true,
+                title: const Text('gpxRouteJson'),
+                subtitle: objectBoxAdminDetailsValue(
+                  entityName: 'Route',
+                  fieldName: 'gpxRouteJson',
+                  label: 'gpxRouteJson',
+                  value: route.gpxRouteJson,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                dense: true,
+                title: const Text('displayRoutePointsByZoom'),
+                subtitle: objectBoxAdminDetailsValue(
+                  entityName: 'Route',
+                  fieldName: 'displayRoutePointsByZoom',
+                  label: 'displayRoutePointsByZoom',
+                  value: route.displayRoutePointsByZoom,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (submitError != null) ...[
+          const SizedBox(height: 8),
+          Text(submitError!, style: TextStyle(color: errorColor)),
+        ],
+        const SizedBox(height: 12),
+        FilledButton(
+          key: const Key('objectbox-admin-route-save'),
+          onPressed: isSaving ? null : onSubmit,
+          child: Text(isSaving ? 'Saving...' : 'Save'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReadOnlyField({
+    required String label,
+    required String value,
+    required String keyName,
+  }) {
+    return TextFormField(
+      key: Key(keyName),
+      initialValue: value,
+      enabled: false,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+      ),
+    );
+  }
+}
+
 Widget objectBoxAdminDetailsValue({
   String? entityName,
   String? fieldName,
@@ -625,6 +1170,12 @@ Widget objectBoxAdminDetailsValue({
           fieldName == 'filteredTrack' ||
           fieldName == 'displayTrackPointsByZoom' ||
           fieldName == 'elevationProfile')) {
+    return SelectableText(formattedValue, maxLines: 5);
+  }
+
+  if (entityName == 'Route' &&
+      (fieldName == 'gpxRouteJson' ||
+          fieldName == 'displayRoutePointsByZoom')) {
     return SelectableText(formattedValue, maxLines: 5);
   }
 

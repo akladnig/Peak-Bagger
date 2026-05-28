@@ -10,11 +10,13 @@ import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
+import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 import 'package:peak_bagger/services/peak_delete_guard.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/route_repository.dart';
 
 import '../../harness/test_map_notifier.dart';
 import '../../harness/test_objectbox_admin_repository.dart';
@@ -53,10 +55,22 @@ class ObjectBoxAdminRobot {
       find.byKey(const Key('objectbox-admin-peak-delete-blocked-close'));
   Finder get peakUpdateSuccessClose =>
       find.byKey(const Key('objectbox-admin-peak-update-success-close'));
+  Finder get routeViewOnMapButton =>
+      find.byKey(const Key('objectbox-admin-route-view-on-map'));
+  Finder get routeEditButton => find.byKey(const Key('objectbox-admin-route-edit'));
+  Finder get routeSaveButton => find.byKey(const Key('objectbox-admin-route-save'));
+  Finder get routeUpdateSuccessClose =>
+      find.byKey(const Key('objectbox-admin-route-update-success-close'));
+  Finder get routeSaveErrorClose =>
+      find.byKey(const Key('objectbox-admin-route-save-error-close'));
   Finder peakDeleteButton(int peakId) =>
       find.byKey(Key('objectbox-admin-peak-delete-$peakId'));
+  Finder routeDeleteButton(int routeId) =>
+      find.byKey(Key('objectbox-admin-route-delete-$routeId'));
   Finder peakField(String fieldName) =>
       find.byKey(Key('objectbox-admin-peak-${_fieldKey(fieldName)}'));
+  Finder routeField(String fieldName) =>
+      find.byKey(Key('objectbox-admin-route-${_fieldKey(fieldName)}'));
 
   String _fieldKey(String fieldName) {
     return fieldName.replaceAllMapped(
@@ -66,10 +80,11 @@ class ObjectBoxAdminRobot {
   }
 
   Future<void> pumpApp({
-    TestObjectBoxAdminRepository? repository,
+    ObjectBoxAdminRepository? repository,
     List<ObjectBoxAdminEntityDescriptor>? entities,
     PeakRepository? peakRepository,
     PeakDeleteGuard? peakDeleteGuard,
+    RouteRepository? routeRepository,
     Size size = const Size(1280, 900),
   }) async {
     await tester.binding.setSurfaceSize(size);
@@ -89,10 +104,14 @@ class ObjectBoxAdminRobot {
               ),
               peakRepository:
                   peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
+              routeRepository: routeRepository,
             ),
           ),
           objectboxAdminRepositoryProvider.overrideWithValue(
             repository ?? TestObjectBoxAdminRepository(entities: entities),
+          ),
+          routeRepositoryProvider.overrideWithValue(
+            routeRepository ?? RouteRepository.test(InMemoryRouteStorage()),
           ),
           if (peakRepository != null)
             peakRepositoryProvider.overrideWithValue(peakRepository),
@@ -132,6 +151,11 @@ class ObjectBoxAdminRobot {
 
   Future<void> startEditingPeak() async {
     await tester.tap(peakEditButton);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> startEditingRoute() async {
+    await tester.tap(routeEditButton);
     await tester.pumpAndSettle();
   }
 
@@ -179,6 +203,11 @@ class ObjectBoxAdminRobot {
     await tester.pumpAndSettle();
   }
 
+  Future<void> submitRouteEdit() async {
+    await tester.tap(routeSaveButton);
+    await tester.pumpAndSettle();
+  }
+
   Future<void> calculatePeakCoordinates() async {
     await tester.tap(peakCalculateButton);
     await tester.pumpAndSettle();
@@ -189,8 +218,31 @@ class ObjectBoxAdminRobot {
     await tester.pumpAndSettle();
   }
 
+  Future<void> deleteRoute(int routeId) async {
+    await tester.tap(routeDeleteButton(routeId));
+    await tester.pumpAndSettle();
+  }
+
   Future<void> closePeakSuccessDialog() async {
     await tester.tap(peakUpdateSuccessClose);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> closeRouteSuccessDialog() async {
+    await tester.tap(routeUpdateSuccessClose);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> viewRouteOnMainMap() async {
+    await tester.tap(routeViewOnMapButton);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> enterRouteField(String fieldName, String value) async {
+    final finder = routeField(fieldName);
+    await tester.tap(finder);
+    await tester.pump();
+    tester.testTextInput.enterText(value);
     await tester.pumpAndSettle();
   }
 

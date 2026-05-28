@@ -628,6 +628,28 @@ class TestMapNotifier extends MapNotifier {
   }
 
   @override
+  void showRoute(int routeId) {
+    final route = routeRepository?.findById(routeId);
+    if (route == null) {
+      state = state.copyWith(
+        clearSelectedRouteId: true,
+        clearSelectedTrackId: true,
+        clearHoveredRouteId: true,
+      );
+      return;
+    }
+
+    state = state.copyWith(
+      selectedRouteId: routeId,
+      clearSelectedTrackId: true,
+      showRoutes: true,
+      clearHoveredRouteId: true,
+      clearGotoMgrs: true,
+      selectedRouteFocusSerial: state.selectedRouteFocusSerial + 1,
+    );
+  }
+
+  @override
   void reconcileSelectedRouteState() {
     final selectedRouteId = state.selectedRouteId;
     if (selectedRouteId == null) {

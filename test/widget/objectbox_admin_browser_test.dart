@@ -6,14 +6,17 @@ import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
+import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
+import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 import 'package:peak_bagger/services/peak_delete_guard.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/route_repository.dart';
 
 import '../harness/test_map_notifier.dart';
 import '../harness/test_objectbox_admin_repository.dart';
@@ -57,7 +60,22 @@ void main() {
   });
 
   testWidgets('admin browser opens Route details pane', (tester) async {
-    await _pumpApp(tester, repository: TestObjectBoxAdminRepository());
+    final routeRepository = RouteRepository.test(
+      InMemoryRouteStorage([
+        app_route.Route(
+          id: 1,
+          name: 'Mt Ossa Route',
+          gpxRoute: const [LatLng(-41.5, 146.5)],
+          displayRoutePointsByZoom: '{}',
+        ),
+      ]),
+    );
+
+    await _pumpApp(
+      tester,
+      repository: TestObjectBoxAdminRepository(),
+      routeRepository: routeRepository,
+    );
 
     await tester.tap(find.byKey(const Key('side-menu-objectbox-admin')));
     await tester.pump();
@@ -73,11 +91,147 @@ void main() {
 
     expect(find.text('Route #1'), findsOneWidget);
     expect(
+      find.byKey(const Key('objectbox-admin-route-view-on-map')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('objectbox-admin-route-edit')),
+      findsOneWidget,
+    );
+    expect(
       find.byKey(const Key('objectbox-admin-details-close')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const Key('objectbox-admin-route-delete-1')),
+      findsOneWidget,
+    );
+    expect(find.text('0x00000000'), findsOneWidget);
     expect(find.text('gpxRouteJson').last, findsOneWidget);
     expect(find.text('displayRoutePointsByZoom').last, findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-route-edit')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('objectbox-admin-route-save')), findsOneWidget);
+    expect(find.byKey(const Key('objectbox-admin-route-name')), findsOneWidget);
+    expect(find.byKey(const Key('objectbox-admin-route-id')), findsOneWidget);
+  });
+
+  testWidgets('route save refreshes the selected row', (tester) async {
+    final routeRepository = RouteRepository.test(
+      InMemoryRouteStorage([
+        app_route.Route(
+          id: 1,
+          name: 'Mt Ossa Route',
+          desc: 'A scenic route',
+          gpxRoute: const [LatLng(-41.5, 146.5)],
+          displayRoutePointsByZoom: '{}',
+          colour: 0,
+          distance2d: 12.5,
+          distance3d: 13.2,
+          ascent: 850,
+          descent: 840,
+          startElevation: 120,
+          endElevation: 1210,
+          lowestElevation: 110,
+          highestElevation: 1600,
+        ),
+      ]),
+    );
+    final repository = _RouteAwareObjectBoxAdminRepository(
+      base: TestObjectBoxAdminRepository(),
+      routeRepository: routeRepository,
+    );
+
+    await _pumpApp(
+      tester,
+      repository: repository,
+      routeRepository: routeRepository,
+    );
+
+    await tester.tap(find.byKey(const Key('side-menu-objectbox-admin')));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-entity-dropdown')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Route').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Mt Ossa Route'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('objectbox-admin-route-edit')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-route-name')),
+      'Updated Route',
+    );
+    await tester.tap(find.byKey(const Key('objectbox-admin-route-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Update Successful'), findsOneWidget);
+    expect(find.text('Updated Route updated.'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const Key('objectbox-admin-route-update-success-close')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(routeRepository.findById(1)?.name, 'Updated Route');
+    expect(find.text('Updated Route'), findsWidgets);
+  });
+
+  testWidgets('route delete refreshes the route table', (tester) async {
+    final routeRepository = RouteRepository.test(
+      InMemoryRouteStorage([
+        app_route.Route(
+          id: 1,
+          name: 'Mt Ossa Route',
+          gpxRoute: const [LatLng(-41.5, 146.5)],
+          displayRoutePointsByZoom: '{}',
+        ),
+      ]),
+    );
+    final repository = _RouteAwareObjectBoxAdminRepository(
+      base: TestObjectBoxAdminRepository(),
+      routeRepository: routeRepository,
+    );
+
+    await _pumpApp(
+      tester,
+      repository: repository,
+      routeRepository: routeRepository,
+    );
+
+    await tester.tap(find.byKey(const Key('side-menu-objectbox-admin')));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-entity-dropdown')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Route').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Mt Ossa Route'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('objectbox-admin-route-delete-1')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete Route?'), findsOneWidget);
+    expect(
+      find.text(
+        'This will permanently delete the Mt Ossa Route. Do you want to proceed?',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('confirm-delete')));
+    await tester.pumpAndSettle();
+
+    expect(routeRepository.findById(1), isNull);
+    expect(find.byKey(const Key('objectbox-admin-route-delete-1')), findsNothing);
   });
 
   testWidgets('Peak delete refresh keeps other selection intact', (
@@ -835,10 +989,11 @@ void main() {
 
 Future<void> _pumpApp(
   WidgetTester tester, {
-  TestObjectBoxAdminRepository? repository,
+  ObjectBoxAdminRepository? repository,
   List<ObjectBoxAdminEntityDescriptor>? entities,
   PeakRepository? peakRepository,
   PeakDeleteGuard? peakDeleteGuard,
+  RouteRepository? routeRepository,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -857,6 +1012,10 @@ Future<void> _pumpApp(
         objectboxAdminRepositoryProvider.overrideWithValue(
           repository ?? TestObjectBoxAdminRepository(entities: entities),
         ),
+        routeRepositoryProvider.overrideWithValue(
+          routeRepository ??
+              RouteRepository.test(InMemoryRouteStorage()),
+        ),
         if (peakRepository != null)
           peakRepositoryProvider.overrideWithValue(peakRepository),
         if (peakDeleteGuard != null)
@@ -874,6 +1033,46 @@ Future<void> _pumpApp(
     ),
   );
   await tester.pump();
+}
+
+class _RouteAwareObjectBoxAdminRepository implements ObjectBoxAdminRepository {
+  _RouteAwareObjectBoxAdminRepository({
+    required this.base,
+    required this.routeRepository,
+  });
+
+  final TestObjectBoxAdminRepository base;
+  final RouteRepository routeRepository;
+
+  @override
+  List<ObjectBoxAdminEntityDescriptor> getEntities() => base.getEntities();
+
+  @override
+  Future<List<ObjectBoxAdminRow>> loadRows(
+    ObjectBoxAdminEntityDescriptor entity, {
+    required String searchQuery,
+    required bool ascending,
+  }) async {
+    if (entity.name == 'Route') {
+      return objectBoxAdminFilterAndSortRows(
+        entity,
+        rows: routeRepository.getAllRoutes().map(routeToAdminRow).toList(),
+        searchQuery: searchQuery,
+        ascending: ascending,
+      );
+    }
+
+    return base.loadRows(
+      entity,
+      searchQuery: searchQuery,
+      ascending: ascending,
+    );
+  }
+
+  @override
+  Future<String> exportGpxFile(ObjectBoxAdminRow row) {
+    return base.exportGpxFile(row);
+  }
 }
 
 Peak _buildPeak({required int id, required int osmId, required String name}) {

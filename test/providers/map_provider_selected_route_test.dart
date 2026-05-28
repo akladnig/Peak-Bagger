@@ -106,6 +106,43 @@ void main() {
       expect(container.read(mapProvider).selectedRouteId, isNull);
       expect(container.read(mapProvider).hoveredRouteId, isNull);
     });
+
+    test('showRoute selects visible route and bumps focus serial', () async {
+      SharedPreferences.setMockInitialValues({'show_routes': true});
+      final routeRepository = RouteRepository.test(
+        InMemoryRouteStorage([_route(1), _route(2)]),
+      );
+      final notifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          showRoutes: true,
+          selectedTrackId: 7,
+        ),
+        routeRepository: routeRepository,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(() => notifier),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.read(mapProvider);
+      await Future<void>.delayed(Duration.zero);
+
+      final focusSerialBefore = container.read(mapProvider).selectedRouteFocusSerial;
+
+      container.read(mapProvider.notifier).showRoute(2);
+
+      expect(container.read(mapProvider).selectedRouteId, 2);
+      expect(container.read(mapProvider).selectedTrackId, isNull);
+      expect(
+        container.read(mapProvider).selectedRouteFocusSerial,
+        focusSerialBefore + 1,
+      );
+    });
   });
 }
 
