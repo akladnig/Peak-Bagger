@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'dart:async';
+import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -45,6 +46,8 @@ class MapRouteRobot {
 
   late final TestTasmapRepository _tasmapRepository;
   late final MapNotifier _mapNotifier;
+  TestGesture? _mouseGesture;
+  bool _mousePointerAdded = false;
 
   Finder get mapInteractionRegion =>
       find.byKey(const Key('map-interaction-region'));
@@ -122,6 +125,33 @@ class MapRouteRobot {
     await tester.pumpAndSettle();
   }
 
+  Future<void> hoverRoutePoint(Offset offset) async {
+    final point = tester.getCenter(mapInteractionRegion) + offset;
+    await _ensureMouse(point);
+    await _mouseGesture!.moveTo(point);
+    await tester.pump();
+  }
+
+  Future<void> clickRoutePoint(Offset offset) async {
+    final point = tester.getCenter(mapInteractionRegion) + offset;
+    await _ensureMouse(point);
+    await _mouseGesture!.moveTo(point);
+    await tester.pump();
+    await _mouseGesture!.down(point);
+    await tester.pump();
+    await _mouseGesture!.up();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+  }
+
+  void expectRouteSegmentPreview(int segmentIndex) {
+    expect(find.byKey(Key('route-draft-segment-hover-$segmentIndex')), findsOneWidget);
+    expect(
+      tester.widget<MouseRegion>(mapInteractionRegion).cursor,
+      SystemMouseCursors.click,
+    );
+  }
+
   Future<void> enterRouteName(String value) async {
     container().read(mapProvider.notifier).setRouteDraftName(value);
     await tester.pump();
@@ -139,8 +169,23 @@ class MapRouteRobot {
   List<app_route.Route> savedRoutes() => routeRepository.getAllRoutes();
 
   Future<void> dispose() async {
+    if (_mouseGesture != null && _mousePointerAdded) {
+      await _mouseGesture!.removePointer();
+      _mousePointerAdded = false;
+    }
     await tester.binding.setSurfaceSize(null);
     await _tasmapRepository.dispose();
+  }
+
+  Future<void> _ensureMouse(Offset location) async {
+    _mouseGesture ??= await tester.createGesture(kind: PointerDeviceKind.mouse);
+    if (_mousePointerAdded) {
+      return;
+    }
+
+    await _mouseGesture!.addPointer(location: location);
+    await tester.pump();
+    _mousePointerAdded = true;
   }
 }
 

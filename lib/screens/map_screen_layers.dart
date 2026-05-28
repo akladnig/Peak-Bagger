@@ -207,29 +207,116 @@ PolylineLayer buildDraftRoutePolylines({
 List<Marker> buildRouteDraftMarkers({
   required List<RouteDraftDisplayMarker> markers,
   required int colour,
+  String? hoveredMarkerId,
+  int? hoveredSegmentIndex,
+  LatLng? hoveredSegmentPoint,
+  ValueChanged<String>? onHoverEnter,
+  ValueChanged<String>? onHoverExit,
 }) {
-  return [
+  final routeMarkers = <Marker>[
     for (final marker in markers)
-        Marker(
+      Marker(
         key: Key('route-draft-marker-${marker.id}'),
         point: marker.point,
-        width: marker.kind == RouteMarkerKind.numbered
-            ? RouteUI.markerNumberedSize
-            : RouteUI.markerSize,
-        height: marker.kind == RouteMarkerKind.numbered
-            ? RouteUI.markerNumberedSize
-            : RouteUI.markerSize,
-        child: RouteMarker(
-          kind: marker.kind,
+        width: _routeDraftMarkerSize(marker.kind, marker.id == hoveredMarkerId),
+        height: _routeDraftMarkerSize(
+          marker.kind,
+          marker.id == hoveredMarkerId,
+        ),
+        child: _RouteDraftMarkerHoverTarget(
+          marker: marker,
           color: Color(colour),
-          number: marker.number,
-          size: marker.kind == RouteMarkerKind.numbered
-              ? RouteUI.markerNumberedSize
-              : RouteUI.markerSize,
-          strokeWidth: RouteUI.strokeWidth,
+          hovered: marker.id == hoveredMarkerId,
+          onHoverEnter: onHoverEnter,
+          onHoverExit: onHoverExit,
         ),
       ),
   ];
+
+  if (hoveredSegmentIndex != null && hoveredSegmentPoint != null) {
+    routeMarkers.add(
+      Marker(
+        key: Key('route-draft-segment-hover-$hoveredSegmentIndex'),
+        point: hoveredSegmentPoint,
+        width: RouteUI.markerNumberedSize,
+        height: RouteUI.markerNumberedSize,
+        child: RouteMarker(
+          kind: RouteMarkerKind.circle,
+          color: Color(colour),
+          size: RouteUI.markerNumberedSize,
+          strokeWidth: RouteUI.strokeWidth,
+        ),
+      ),
+    );
+  }
+
+  return routeMarkers;
+}
+
+double _routeDraftMarkerSize(RouteMarkerKind kind, bool hovered) {
+  final baseSize = switch (kind) {
+    RouteMarkerKind.numbered => RouteUI.markerNumberedSize,
+    RouteMarkerKind.circle || RouteMarkerKind.target => RouteUI.markerSize,
+  };
+  return hovered ? baseSize * RouteUI.markerZoom : baseSize;
+}
+
+class _RouteDraftMarkerHoverTarget extends StatelessWidget {
+  const _RouteDraftMarkerHoverTarget({
+    required this.marker,
+    required this.color,
+    required this.hovered,
+    this.onHoverEnter,
+    this.onHoverExit,
+  });
+
+  final RouteDraftDisplayMarker marker;
+  final Color color;
+  final bool hovered;
+  final ValueChanged<String>? onHoverEnter;
+  final ValueChanged<String>? onHoverExit;
+
+  @override
+  Widget build(BuildContext context) {
+    final markerSize = _routeDraftMarkerSize(marker.kind, hovered);
+    final markerWidget = RouteMarker(
+      kind: marker.kind,
+      color: color,
+      number: marker.number,
+      size: markerSize,
+      strokeWidth: RouteUI.strokeWidth,
+    );
+
+    return MouseRegion(
+      key: Key('route-draft-marker-hitbox-${marker.id}'),
+      onEnter: onHoverEnter == null ? null : (_) => onHoverEnter!(marker.id),
+      onExit: onHoverExit == null ? null : (_) => onHoverExit!(marker.id),
+      child: SizedBox.square(
+        dimension: markerSize,
+        child: hovered
+            ? Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    key: Key('route-draft-marker-hover-${marker.id}'),
+                    width: RouteUI.markerNumberedSize,
+                    height: RouteUI.markerNumberedSize,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: color,
+                        width: RouteUI.strokeWidth,
+                      ),
+                    ),
+                  ),
+                  markerWidget,
+                ],
+              )
+            : markerWidget,
+      ),
+    );
+  }
 }
 
 PolylineLayer buildRoutePolylines(List<app_route.Route> routes, double zoom) {

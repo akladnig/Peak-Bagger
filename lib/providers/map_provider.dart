@@ -233,6 +233,9 @@ class MapState {
   final int selectedMapFocusSerial;
   final int selectedTrackFocusSerial;
   final int? hoveredRouteId;
+  final String? hoveredRouteDraftMarkerId;
+  final int? hoveredRouteDraftSegmentIndex;
+  final LatLng? hoveredRouteDraftSegmentPoint;
   final List<GpxTrack> tracks;
   final bool showTracks;
   final bool showRoutes;
@@ -308,6 +311,9 @@ class MapState {
     this.selectedMapFocusSerial = 0,
     this.selectedTrackFocusSerial = 0,
     this.hoveredRouteId,
+    this.hoveredRouteDraftMarkerId,
+    this.hoveredRouteDraftSegmentIndex,
+    this.hoveredRouteDraftSegmentPoint,
     this.tracks = const [],
     this.showTracks = false,
     this.showRoutes = false,
@@ -447,6 +453,11 @@ class MapState {
     bool clearHoveredTrackId = false,
     int? hoveredRouteId,
     bool clearHoveredRouteId = false,
+    String? hoveredRouteDraftMarkerId,
+    bool clearHoveredRouteDraftMarkerId = false,
+    int? hoveredRouteDraftSegmentIndex,
+    bool clearHoveredRouteDraftSegmentPreview = false,
+    LatLng? hoveredRouteDraftSegmentPoint,
     int? selectedTrackId,
     bool clearSelectedTrackId = false,
     int? selectedRouteId,
@@ -546,6 +557,17 @@ class MapState {
       hoveredRouteId: clearHoveredRouteId
           ? null
           : (hoveredRouteId ?? this.hoveredRouteId),
+      hoveredRouteDraftMarkerId: clearHoveredRouteDraftMarkerId
+          ? null
+          : (hoveredRouteDraftMarkerId ?? this.hoveredRouteDraftMarkerId),
+      hoveredRouteDraftSegmentIndex: clearHoveredRouteDraftSegmentPreview
+          ? null
+          : (hoveredRouteDraftSegmentIndex ??
+                this.hoveredRouteDraftSegmentIndex),
+      hoveredRouteDraftSegmentPoint: clearHoveredRouteDraftSegmentPreview
+          ? null
+          : (hoveredRouteDraftSegmentPoint ??
+                this.hoveredRouteDraftSegmentPoint),
       tracks: tracks ?? this.tracks,
       showTracks: showTracks ?? this.showTracks,
       showRoutes: showRoutes ?? this.showRoutes,
@@ -1757,6 +1779,9 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftNameError: 'A Route name must be entered',
       routeDraftMode: RouteMode.snapToTrail,
       routeDraftPeak: peakTarget,
+      clearHoveredRouteId: true,
+      clearHoveredRouteDraftMarkerId: true,
+      clearHoveredRouteDraftSegmentPreview: true,
       routeDraftControlEndpoints: const [],
       routeDraftDisplayMarkers: const [],
       routeDraftMarkers: const [],
@@ -1796,6 +1821,8 @@ class MapNotifier extends Notifier<MapState> {
       clearRouteDraftNameError: true,
       routeDraftMode: RouteMode.snapToTrail,
       clearRouteDraftPeak: true,
+      clearHoveredRouteDraftMarkerId: true,
+      clearHoveredRouteDraftSegmentPreview: true,
       routeDraftControlEndpoints: const [],
       routeDraftDisplayMarkers: const [],
       routeDraftMarkers: const [],
@@ -2970,6 +2997,92 @@ class MapNotifier extends Notifier<MapState> {
 
   void clearHoveredTrack() {
     state = state.copyWith(clearHoveredTrackId: true);
+  }
+
+  void setHoveredRouteDraftMarkerId(String? markerId) {
+    if (markerId == null) {
+      clearHoveredRouteDraftMarker();
+      return;
+    }
+    state = state.copyWith(hoveredRouteDraftMarkerId: markerId);
+  }
+
+  void clearHoveredRouteDraftMarker([String? markerId]) {
+    if (markerId != null && state.hoveredRouteDraftMarkerId != markerId) {
+      return;
+    }
+    state = state.copyWith(clearHoveredRouteDraftMarkerId: true);
+  }
+
+  void setHoveredRouteDraftSegmentPreview({
+    required int segmentIndex,
+    required LatLng point,
+  }) {
+    if (!state.isRouteDrafting) {
+      return;
+    }
+
+    state = state.copyWith(
+      hoveredRouteDraftSegmentIndex: segmentIndex,
+      hoveredRouteDraftSegmentPoint: point,
+    );
+  }
+
+  void clearHoveredRouteDraftSegmentPreview() {
+    state = state.copyWith(clearHoveredRouteDraftSegmentPreview: true);
+  }
+
+  void commitHoveredRouteDraftSegmentPreview() {
+    final segmentIndex = state.hoveredRouteDraftSegmentIndex;
+    final point = state.hoveredRouteDraftSegmentPoint;
+    if (!state.isRouteDrafting || segmentIndex == null || point == null) {
+      return;
+    }
+
+    _insertRouteDraftPointIntoChain(segmentIndex: segmentIndex, point: point);
+    clearHoveredRouteDraftSegmentPreview();
+  }
+
+  void _insertRouteDraftPointIntoChain({
+    required int segmentIndex,
+    required LatLng point,
+  }) {
+    final controlEndpoints = List<RouteDraftControlEndpoint>.from(
+      state.routeDraftControlEndpoints,
+    );
+    if (segmentIndex < 0 || segmentIndex >= controlEndpoints.length - 1) {
+      return;
+    }
+
+    final insertedEndpoint = _createControlEndpoint(
+      point: point,
+      kind: RouteDraftEndpointKind.peakTarget,
+      id: _routeDraftEndpointId(state.routeDraftNextMarkerId),
+    );
+    controlEndpoints.insert(segmentIndex + 1, insertedEndpoint);
+
+    final committedPoints = List<LatLng>.from(state.routeDraftCommittedPoints);
+    if (segmentIndex + 1 <= committedPoints.length) {
+      committedPoints.insert(segmentIndex + 1, point);
+    } else {
+      committedPoints.add(point);
+    }
+
+    state = state.copyWith(
+      routeDraftControlEndpoints: List<RouteDraftControlEndpoint>.unmodifiable(
+        controlEndpoints,
+      ),
+      routeDraftDisplayMarkers: List<RouteDraftDisplayMarker>.unmodifiable(
+        _buildDisplayMarkers(controlEndpoints),
+      ),
+      routeDraftMarkers: List<LatLng>.unmodifiable(
+        controlEndpoints.map((endpoint) => endpoint.point),
+      ),
+      routeDraftCommittedPoints: List<LatLng>.unmodifiable(committedPoints),
+      routeDraftNextMarkerId: state.routeDraftNextMarkerId + 1,
+      routeDraftGeometryVersion: state.routeDraftGeometryVersion + 1,
+    );
+    _resampleRouteDraftElevation();
   }
 
   Future<void> deleteTrack(int trackId) async {

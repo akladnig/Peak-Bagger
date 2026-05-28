@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/route_marker_display.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
@@ -140,6 +141,86 @@ void main() {
     expect(robot.savedRoutes().single.routeWaypoints, hasLength(1));
     expect(robot.savedRoutes().single.routeWaypoints.single.label, 'Waypoint 1');
     expect(robot.container().read(mapProvider).showRoutes, isTrue);
+  });
+
+  testWidgets('route journey previews a segment and inserts it on click', (
+    tester,
+  ) async {
+    final robot = MapRouteRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showRoutes: true,
+        isRouteDrafting: true,
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftNextMarkerId: 3,
+        routeDraftControlEndpoints: const [
+          RouteDraftControlEndpoint(
+            id: '0',
+            point: LatLng(-41.5, 146.47),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+          RouteDraftControlEndpoint(
+            id: '1',
+            point: LatLng(-41.5, 146.53),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+          RouteDraftControlEndpoint(
+            id: '2',
+            point: LatLng(-41.5, 146.57),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+        ],
+        routeDraftDisplayMarkers: const [
+          RouteDraftDisplayMarker(
+            id: '0',
+            point: LatLng(-41.5, 146.47),
+            kind: RouteMarkerKind.circle,
+          ),
+          RouteDraftDisplayMarker(
+            id: '1',
+            point: LatLng(-41.5, 146.53),
+            kind: RouteMarkerKind.numbered,
+            number: 1,
+          ),
+          RouteDraftDisplayMarker(
+            id: '2',
+            point: LatLng(-41.5, 146.57),
+            kind: RouteMarkerKind.target,
+          ),
+        ],
+        routeDraftMarkers: const [
+          LatLng(-41.5, 146.47),
+          LatLng(-41.5, 146.53),
+          LatLng(-41.5, 146.57),
+        ],
+        routeDraftCommittedPoints: const [
+          LatLng(-41.5, 146.47),
+          LatLng(-41.5, 146.53),
+          LatLng(-41.5, 146.57),
+        ],
+      ),
+      routePlanningOutcomes: const [],
+      routeElevationOutcomes: const [],
+    );
+
+    await robot.pumpApp();
+    await robot.openMap();
+
+    await robot.hoverRoutePoint(const Offset(0, 0));
+    robot.expectRouteSegmentPreview(0);
+
+    await robot.clickRoutePoint(const Offset(0, 0));
+
+    final state = robot.container().read(mapProvider);
+    expect(state.hoveredRouteDraftSegmentIndex, isNull);
+    expect(state.routeDraftControlEndpoints, hasLength(4));
+    expect(state.routeDraftDisplayMarkers, hasLength(4));
+    expect(state.routeDraftDisplayMarkers[1].kind, RouteMarkerKind.target);
+    expect(state.routeDraftDisplayMarkers[3].kind, RouteMarkerKind.target);
+    expect(find.byKey(const Key('route-draft-segment-hover-0')), findsNothing);
   });
 
   testWidgets('route journey close-loops and saves a waypoint route', (

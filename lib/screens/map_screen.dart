@@ -18,6 +18,7 @@ import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/route_marker_display.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
@@ -277,6 +278,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
     if (_isPointerDown) {
       return SystemMouseCursors.grabbing;
     }
+    if (mapState.hoveredRouteDraftMarkerId != null ||
+        mapState.hoveredRouteDraftSegmentIndex != null) {
+      return SystemMouseCursors.click;
+    }
     if (mapState.hoveredTrackId != null || mapState.hoveredRouteId != null) {
       return SystemMouseCursors.click;
     }
@@ -311,6 +316,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
     List<app_route.Route> routes,
   ) {
     final notifier = ref.read(mapProvider.notifier);
+
+    if (ref.read(mapProvider).isRouteDrafting) {
+      notifier.clearHoveredRoute();
+      return;
+    }
 
     if (_isPointerDown || !mapState.showRoutes) {
       notifier.clearHoveredRoute();
@@ -440,6 +450,19 @@ class _MapScreenState extends ConsumerState<MapScreen>
   ) {
     final notifier = ref.read(mapProvider.notifier);
     notifier.setCursorMgrs(location);
+    if (ref.read(mapProvider).isRouteDrafting) {
+      final hoveredDraftMarker = _handleRouteDraftMarkerHover(
+        localPosition,
+        mapState,
+      );
+      if (hoveredDraftMarker) {
+        notifier.clearHoveredRouteDraftSegmentPreview();
+      } else {
+        _handleRouteDraftSegmentHover(localPosition, mapState);
+      }
+      notifier.clearHoveredRoute();
+      return;
+    }
     if (_handlePeakHover(localPosition, mapState, peaks)) {
       notifier.clearHoveredTrack();
       notifier.clearHoveredRoute();
@@ -488,6 +511,111 @@ class _MapScreenState extends ConsumerState<MapScreen>
       candidates: candidates,
     );
     notifier.setHoveredTrackId(result.hoveredTrackId);
+  }
+
+  bool _handleRouteDraftMarkerHover(Offset localPosition, MapState mapState) {
+    final notifier = ref.read(mapProvider.notifier);
+
+    if (!mapState.isRouteDrafting || mapState.routeDraftDisplayMarkers.isEmpty) {
+      notifier.clearHoveredRouteDraftMarker();
+      return false;
+    }
+
+    final camera = _mapController.camera;
+    if (camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      notifier.clearHoveredRouteDraftMarker();
+      return false;
+    }
+
+    String? hoveredMarkerId;
+    double? bestDistance;
+
+    for (final marker in mapState.routeDraftDisplayMarkers) {
+      final screenPosition = camera.latLngToScreenOffset(marker.point);
+      final baseSize = switch (marker.kind) {
+        RouteMarkerKind.numbered => RouteUI.markerNumberedSize,
+        RouteMarkerKind.circle || RouteMarkerKind.target => RouteUI.markerSize,
+      };
+      final radius = baseSize * RouteUI.markerZoom * 4;
+      final distance = (localPosition - screenPosition).distance;
+      if (distance > radius) {
+        continue;
+      }
+      if (bestDistance == null || distance < bestDistance) {
+        bestDistance = distance;
+        hoveredMarkerId = marker.id;
+      }
+    }
+
+    if (hoveredMarkerId == null) {
+      notifier.clearHoveredRouteDraftMarker();
+      return false;
+    } else {
+      notifier.setHoveredRouteDraftMarkerId(hoveredMarkerId);
+      return true;
+    }
+  }
+
+  void _handleRouteDraftSegmentHover(Offset localPosition, MapState mapState) {
+    final notifier = ref.read(mapProvider.notifier);
+
+    if (!mapState.isRouteDrafting || mapState.routeDraftDisplayMarkers.length < 2) {
+      notifier.clearHoveredRouteDraftSegmentPreview();
+      return;
+    }
+
+    final camera = _mapController.camera;
+    if (camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      notifier.clearHoveredRouteDraftSegmentPreview();
+      return;
+    }
+
+    int? bestSegmentIndex;
+    LatLng? bestPoint;
+    double? bestDistance;
+
+    for (var index = 0; index < mapState.routeDraftDisplayMarkers.length - 1; index++) {
+      final start = camera.latLngToScreenOffset(
+        mapState.routeDraftDisplayMarkers[index].point,
+      );
+      final end = camera.latLngToScreenOffset(
+        mapState.routeDraftDisplayMarkers[index + 1].point,
+      );
+      final closest = _closestPointOnSegment(localPosition, start, end);
+      final distance = (localPosition - closest).distance;
+      if (distance > 12) {
+        continue;
+      }
+      if (bestDistance == null || distance < bestDistance) {
+        bestDistance = distance;
+        bestSegmentIndex = index;
+        bestPoint = camera.screenOffsetToLatLng(closest);
+      }
+    }
+
+    if (bestSegmentIndex == null || bestPoint == null) {
+      notifier.clearHoveredRouteDraftSegmentPreview();
+      return;
+    }
+
+    notifier.setHoveredRouteDraftSegmentPreview(
+      segmentIndex: bestSegmentIndex,
+      point: bestPoint,
+    );
+  }
+
+  Offset _closestPointOnSegment(Offset point, Offset start, Offset end) {
+    final delta = end - start;
+    final lengthSquared = delta.dx * delta.dx + delta.dy * delta.dy;
+    if (lengthSquared == 0) {
+      return start;
+    }
+
+    final projection =
+        ((point.dx - start.dx) * delta.dx + (point.dy - start.dy) * delta.dy) /
+        lengthSquared;
+    final t = projection.clamp(0.0, 1.0);
+    return Offset(start.dx + delta.dx * t, start.dy + delta.dy * t);
   }
 
   List<TrackHoverCandidate> _buildTrackHoverCandidates(
@@ -875,6 +1003,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
           routeDraftMode: state.routeDraftMode,
           routeDraftColour: state.routeDraftColour,
           routeDraftNameFieldFocused: state.routeDraftNameFieldFocused,
+          hoveredRouteDraftMarkerId: state.hoveredRouteDraftMarkerId,
+          hoveredRouteDraftSegmentIndex: state.hoveredRouteDraftSegmentIndex,
+          hoveredRouteDraftSegmentPoint: state.hoveredRouteDraftSegmentPoint,
         ),
       ),
     );
@@ -1128,6 +1259,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                     notifier.clearHoveredPeak();
                                     notifier.clearHoveredTrack();
                                     notifier.clearHoveredRoute();
+                                    notifier.clearHoveredRouteDraftMarker();
+                                    notifier.clearHoveredRouteDraftSegmentPreview();
                                   },
                                   child: Listener(
                                     behavior: HitTestBehavior.translucent,
@@ -1161,6 +1294,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                           _isPointerDown = true;
                                           _pointerDownPosition =
                                               event.localPosition;
+                                          ref
+                                              .read(mapProvider.notifier)
+                                              .clearHoveredRouteDraftMarker();
                                           _primaryClickPending =
                                               event.kind ==
                                                   PointerDeviceKind.mouse &&
@@ -1194,6 +1330,16 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                 event.localPosition,
                                               );
                                           if (routeChrome.isRouteDrafting) {
+                                            final draftState = ref.read(
+                                              mapProvider,
+                                            );
+                                            if (draftState
+                                                    .hoveredRouteDraftSegmentIndex !=
+                                                null) {
+                                              notifier
+                                                  .commitHoveredRouteDraftSegmentPreview();
+                                              return;
+                                            }
                                             notifier.addRouteDraftMarker(
                                               tappedLocation,
                                               straightLine:
@@ -1271,6 +1417,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                           ref
                                               .read(mapProvider.notifier)
                                               .clearHoveredRoute();
+                                          ref
+                                              .read(mapProvider.notifier)
+                                              .clearHoveredRouteDraftMarker();
+                                          ref
+                                              .read(mapProvider.notifier)
+                                              .clearHoveredRouteDraftSegmentPreview();
                                         },
                                         onPointerHover: (event, point) {
                                           _handleMapHover(
@@ -1339,6 +1491,18 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                   routeChrome.routeDraftDisplayMarkers,
                                               colour:
                                                   routeChrome.routeDraftColour,
+                                              hoveredMarkerId:
+                                                  routeChrome.hoveredRouteDraftMarkerId,
+                                              hoveredSegmentIndex:
+                                                  routeChrome.hoveredRouteDraftSegmentIndex,
+                                              hoveredSegmentPoint:
+                                                  routeChrome.hoveredRouteDraftSegmentPoint,
+                                              onHoverEnter: ref
+                                                  .read(mapProvider.notifier)
+                                                  .setHoveredRouteDraftMarkerId,
+                                              onHoverExit: ref
+                                                  .read(mapProvider.notifier)
+                                                  .clearHoveredRouteDraftMarker,
                                             ),
                                           ),
                                         if (mapState.selectedPeaks.isNotEmpty)
