@@ -212,6 +212,13 @@ List<Marker> buildRouteDraftMarkers({
   LatLng? hoveredSegmentPoint,
   ValueChanged<String>? onHoverEnter,
   ValueChanged<String>? onHoverExit,
+  ValueChanged<String>? onPointerDown,
+  void Function(String, Offset delta)? onPointerMove,
+  ValueChanged<String>? onPointerUp,
+  ValueChanged<String>? onTap,
+  ValueChanged<String>? onPanStart,
+  void Function(String, Offset delta)? onPanUpdate,
+  ValueChanged<String>? onPanEnd,
 }) {
   final routeMarkers = <Marker>[
     for (final marker in markers)
@@ -229,6 +236,13 @@ List<Marker> buildRouteDraftMarkers({
           hovered: marker.id == hoveredMarkerId,
           onHoverEnter: onHoverEnter,
           onHoverExit: onHoverExit,
+          onPointerDown: onPointerDown,
+          onPointerMove: onPointerMove,
+          onPointerUp: onPointerUp,
+          onTap: onTap,
+          onPanStart: onPanStart,
+          onPanUpdate: onPanUpdate,
+          onPanEnd: onPanEnd,
         ),
       ),
   ];
@@ -268,6 +282,13 @@ class _RouteDraftMarkerHoverTarget extends StatelessWidget {
     required this.hovered,
     this.onHoverEnter,
     this.onHoverExit,
+    this.onPointerDown,
+    this.onPointerMove,
+    this.onPointerUp,
+    this.onTap,
+    this.onPanStart,
+    this.onPanUpdate,
+    this.onPanEnd,
   });
 
   final RouteDraftDisplayMarker marker;
@@ -275,6 +296,13 @@ class _RouteDraftMarkerHoverTarget extends StatelessWidget {
   final bool hovered;
   final ValueChanged<String>? onHoverEnter;
   final ValueChanged<String>? onHoverExit;
+  final ValueChanged<String>? onPointerDown;
+  final void Function(String, Offset delta)? onPointerMove;
+  final ValueChanged<String>? onPointerUp;
+  final ValueChanged<String>? onTap;
+  final ValueChanged<String>? onPanStart;
+  final void Function(String, Offset delta)? onPanUpdate;
+  final ValueChanged<String>? onPanEnd;
 
   @override
   Widget build(BuildContext context) {
@@ -291,29 +319,47 @@ class _RouteDraftMarkerHoverTarget extends StatelessWidget {
       key: Key('route-draft-marker-hitbox-${marker.id}'),
       onEnter: onHoverEnter == null ? null : (_) => onHoverEnter!(marker.id),
       onExit: onHoverExit == null ? null : (_) => onHoverExit!(marker.id),
-      child: SizedBox.square(
-        dimension: markerSize,
-        child: hovered
-            ? Stack(
-                alignment: Alignment.center,
-                children: [
-                  Container(
-                    key: Key('route-draft-marker-hover-${marker.id}'),
-                    width: RouteUI.markerNumberedSize,
-                    height: RouteUI.markerNumberedSize,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: color,
-                        width: RouteUI.strokeWidth,
+      child: Listener(
+        onPointerDown: onPointerDown == null ? null : (_) => onPointerDown!(marker.id),
+        onPointerMove: onPointerMove == null
+            ? null
+            : (event) => onPointerMove!(marker.id, event.delta),
+        onPointerUp: onPointerUp == null ? null : (_) => onPointerUp!(marker.id),
+        onPointerCancel: onPointerUp == null ? null : (_) => onPointerUp!(marker.id),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap == null ? null : () => onTap!(marker.id),
+          onPanStart: onPanStart == null ? null : (_) => onPanStart!(marker.id),
+          onPanUpdate: onPanUpdate == null
+              ? null
+              : (details) => onPanUpdate!(marker.id, details.delta),
+          onPanEnd: onPanEnd == null ? null : (_) => onPanEnd!(marker.id),
+          onPanCancel: onPanEnd == null ? null : () => onPanEnd!(marker.id),
+          child: SizedBox.square(
+            dimension: markerSize,
+            child: hovered
+                ? Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        key: Key('route-draft-marker-hover-${marker.id}'),
+                        width: RouteUI.markerNumberedSize,
+                        height: RouteUI.markerNumberedSize,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: color,
+                            width: RouteUI.strokeWidth,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  markerWidget,
-                ],
-              )
-            : markerWidget,
+                      markerWidget,
+                    ],
+                  )
+                : markerWidget,
+          ),
+        ),
       ),
     );
   }

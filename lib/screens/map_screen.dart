@@ -17,6 +17,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
+import 'package:peak_bagger/models/route_marker_display.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
@@ -95,6 +96,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
   bool _isPointerDown = false;
   Offset? _pointerDownPosition;
   bool _primaryClickPending = false;
+  bool _routeDraftMarkerTapConsumed = false;
+  String? _routeDraftDeletePopupMarkerId;
+  int? _routeDraftDeletePopupViewportRevision;
+  String? _pendingRouteDraftDragMarkerId;
+  double _pendingRouteDraftDragDistance = 0;
+  String? _draggingRouteDraftMarkerId;
+  Offset? _draggingRouteDraftMarkerScreenOffset;
   LatLng? _trackpadGestureCenter;
   double? _trackpadGestureZoom;
   Timer? _scrollTimer;
@@ -244,6 +252,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
       _mapFocusNode.requestFocus();
       return true;
     }
+    if (_routeDraftDeletePopupMarkerId != null) {
+      _dismissRouteDraftMarkerDeletePopup();
+      return true;
+    }
     if (mapState.peakInfoPeak != null) {
       notifier.closePeakInfoPopup();
       return true;
@@ -288,15 +300,144 @@ class _MapScreenState extends ConsumerState<MapScreen>
     notifier.clearSelectedTrack();
     notifier.clearSelectedRoute();
     notifier.beginRouteDraft(peakTarget: peakTarget);
+    _dismissRouteDraftMarkerDeletePopup();
     _mapFocusNode.requestFocus();
+  }
+
+  void _consumeRouteDraftMarkerTap(String markerId) {
+    _routeDraftMarkerTapConsumed = true;
+    _pendingRouteDraftDragMarkerId = markerId;
+    _pendingRouteDraftDragDistance = 0;
+    if (_routeDraftDeletePopupMarkerId != markerId) {
+      _dismissRouteDraftMarkerDeletePopup();
+    }
+  }
+
+  void _trackRouteDraftMarkerDrag(String markerId, Offset delta) {
+    if (_pendingRouteDraftDragMarkerId != markerId &&
+        _draggingRouteDraftMarkerId != markerId) {
+      return;
+    }
+
+    _routeDraftMarkerTapConsumed = true;
+    if (_draggingRouteDraftMarkerId == null) {
+      _pendingRouteDraftDragDistance += delta.distance;
+      if (_pendingRouteDraftDragDistance <= 5) {
+        return;
+      }
+      _startRouteDraftMarkerDrag(markerId);
+    }
+
+    _updateRouteDraftMarkerDrag(markerId, delta);
+  }
+
+  void _finishRouteDraftMarkerInteraction(String markerId) {
+    if (_draggingRouteDraftMarkerId == markerId) {
+      _endRouteDraftMarkerDrag(markerId);
+    }
+    if (_pendingRouteDraftDragMarkerId == markerId) {
+      _pendingRouteDraftDragMarkerId = null;
+      _pendingRouteDraftDragDistance = 0;
+    }
+  }
+
+  void _openRouteDraftMarkerDeletePopup(String markerId) {
+    setState(() {
+      _routeDraftDeletePopupMarkerId = markerId;
+      _routeDraftDeletePopupViewportRevision = _viewportUiRevision.value;
+    });
+    _mapFocusNode.requestFocus();
+  }
+
+  void _dismissRouteDraftMarkerDeletePopup() {
+    if (_routeDraftDeletePopupMarkerId == null &&
+        _routeDraftDeletePopupViewportRevision == null) {
+      return;
+    }
+
+    setState(() {
+      _routeDraftDeletePopupMarkerId = null;
+      _routeDraftDeletePopupViewportRevision = null;
+    });
+  }
+
+  void _startRouteDraftMarkerDrag(String markerId) {
+    final mapState = ref.read(mapProvider);
+    if (!mapState.isRouteDrafting ||
+        mapState.isSavingRoute ||
+        mapState.routeDraftStage == RouteDraftStage.routingSegment) {
+      return;
+    }
+
+    RouteDraftDisplayMarker? marker;
+    for (final candidate in mapState.routeDraftDisplayMarkers) {
+      if (candidate.id == markerId) {
+        marker = candidate;
+        break;
+      }
+    }
+    final camera = _mapController.camera;
+    if (marker == null || camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      return;
+    }
+
+    _routeDraftMarkerTapConsumed = true;
+    _dismissRouteDraftMarkerDeletePopup();
+    _pendingRouteDraftDragMarkerId = null;
+    _pendingRouteDraftDragDistance = 0;
+    _draggingRouteDraftMarkerId = markerId;
+    _draggingRouteDraftMarkerScreenOffset = camera.latLngToScreenOffset(
+      marker.point,
+    );
+    ref.read(mapProvider.notifier).beginRouteDraftMarkerDrag(markerId);
+    _bumpViewportUiRevision();
+  }
+
+  void _updateRouteDraftMarkerDrag(String markerId, Offset delta) {
+    if (_draggingRouteDraftMarkerId != markerId ||
+        _draggingRouteDraftMarkerScreenOffset == null) {
+      return;
+    }
+
+    _routeDraftMarkerTapConsumed = true;
+    final nextScreenOffset = _draggingRouteDraftMarkerScreenOffset! + delta;
+    _draggingRouteDraftMarkerScreenOffset = nextScreenOffset;
+    final point = _mapController.camera.screenOffsetToLatLng(nextScreenOffset);
+    unawaited(
+      ref.read(mapProvider.notifier).updateRouteDraftMarkerDrag(markerId, point),
+    );
+    _bumpViewportUiRevision();
+  }
+
+  void _endRouteDraftMarkerDrag(String markerId) {
+    if (_draggingRouteDraftMarkerId != markerId) {
+      return;
+    }
+
+    _draggingRouteDraftMarkerId = null;
+    _draggingRouteDraftMarkerScreenOffset = null;
+    _pendingRouteDraftDragMarkerId = null;
+    _pendingRouteDraftDragDistance = 0;
+    ref.read(mapProvider.notifier).endRouteDraftMarkerDrag(markerId);
+    _bumpViewportUiRevision();
+  }
+
+  Future<void> _deleteRouteDraftMarker(String markerId) async {
+    _dismissRouteDraftMarkerDeletePopup();
+    await ref.read(mapProvider.notifier).deleteRouteDraftMarker(markerId);
+    if (mounted) {
+      _mapFocusNode.requestFocus();
+    }
   }
 
   MouseCursor _mouseCursor(MapState mapState) {
     if (_isPointerDown) {
       return SystemMouseCursors.grabbing;
     }
-    if (mapState.hoveredRouteDraftMarkerId != null ||
-        mapState.hoveredRouteDraftSegmentIndex != null) {
+    if (mapState.hoveredRouteDraftMarkerId != null) {
+      return SystemMouseCursors.grab;
+    }
+    if (mapState.hoveredRouteDraftSegmentIndex != null) {
       return SystemMouseCursors.click;
     }
     if (mapState.hoveredTrackId != null || mapState.hoveredRouteId != null) {
@@ -959,6 +1100,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
   void _applyContinuousMotionSideEffects({required double zoom}) {
     final mapState = ref.read(mapProvider);
     final notifier = ref.read(mapProvider.notifier);
+    if (_routeDraftDeletePopupMarkerId != null) {
+      _dismissRouteDraftMarkerDeletePopup();
+    }
     if (mapState.cursorMgrs != null) {
       notifier.clearCursorMgrs();
     }
@@ -1074,6 +1218,40 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<({
+      bool isRouteDrafting,
+      List<RouteDraftDisplayMarker> routeDraftDisplayMarkers,
+      int routeDraftRequestId,
+    })>(
+      mapProvider.select(
+        (state) => (
+          isRouteDrafting: state.isRouteDrafting,
+          routeDraftDisplayMarkers: state.routeDraftDisplayMarkers,
+          routeDraftRequestId: state.routeDraftRequestId,
+        ),
+      ),
+      (previous, next) {
+        final popupMarkerId = _routeDraftDeletePopupMarkerId;
+        if (popupMarkerId == null) {
+          return;
+        }
+
+        final markerStillVisible = next.routeDraftDisplayMarkers.any(
+          (marker) => marker.id == popupMarkerId,
+        );
+        if (!next.isRouteDrafting ||
+            !markerStillVisible ||
+            previous?.routeDraftDisplayMarkers != next.routeDraftDisplayMarkers ||
+            previous?.routeDraftRequestId != next.routeDraftRequestId) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _dismissRouteDraftMarkerDeletePopup();
+            }
+          });
+        }
+      },
+    );
+
     MapRebuildDebugCounters.recordRouteRootBuild();
     final routeChrome = ref.watch(
       mapProvider.select(
@@ -1150,6 +1328,23 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
             if (event is KeyDownEvent && mapState.peakInfoPeak != null) {
               notifier.closePeakInfoPopup();
+            }
+
+            if (mapState.isRouteDrafting &&
+                event is KeyDownEvent &&
+                (HardwareKeyboard.instance.isMetaPressed ||
+                    HardwareKeyboard.instance.isControlPressed) &&
+                key == LogicalKeyboardKey.keyZ &&
+                mapState.routeDraftStage != RouteDraftStage.routingSegment &&
+                !mapState.isSavingRoute) {
+              if (HardwareKeyboard.instance.isShiftPressed) {
+                if (mapState.routeDraftCanRedo) {
+                  notifier.redoRouteDraftEdit();
+                }
+              } else if (mapState.routeDraftCanUndo) {
+                notifier.undoRouteDraftEdit();
+              }
+              return KeyEventResult.handled;
             }
 
             // Close popup on any key press (except I which toggles it)
@@ -1341,6 +1536,34 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                 break;
                               }
                             }
+                            final routeDraftDisplayMarkers =
+                                _draggingRouteDraftMarkerId == null ||
+                                    _draggingRouteDraftMarkerScreenOffset == null
+                                ? routeChrome.routeDraftDisplayMarkers
+                                : routeChrome.routeDraftDisplayMarkers
+                                      .map(
+                                        (marker) => marker.id ==
+                                                _draggingRouteDraftMarkerId
+                                            ? marker.copyWith(
+                                                point: _mapController.camera
+                                                    .screenOffsetToLatLng(
+                                                      _draggingRouteDraftMarkerScreenOffset!,
+                                                    ),
+                                              )
+                                            : marker,
+                                      )
+                                      .toList(growable: false);
+                            final routeDraftMarkerInteractionActive =
+                                _pendingRouteDraftDragMarkerId != null ||
+                                _draggingRouteDraftMarkerId != null;
+                            var interactionFlags =
+                                InteractiveFlag.all &
+                                ~InteractiveFlag.rotate &
+                                ~InteractiveFlag.pinchMove &
+                                ~InteractiveFlag.pinchZoom;
+                            if (routeDraftMarkerInteractionActive) {
+                              interactionFlags &= ~InteractiveFlag.drag;
+                            }
 
                             return Stack(
                               children: [
@@ -1371,14 +1594,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                       options: MapOptions(
                                         initialCenter: mapState.center,
                                         initialZoom: mapState.zoom,
-                                        interactionOptions:
-                                            const InteractionOptions(
-                                              flags:
-                                                  InteractiveFlag.all &
-                                                  ~InteractiveFlag.rotate &
-                                                  ~InteractiveFlag.pinchMove &
-                                                  ~InteractiveFlag.pinchZoom,
-                                            ),
+                                        interactionOptions: InteractionOptions(
+                                          flags: interactionFlags,
+                                        ),
                                         onMapReady: _handleMapReady,
                                         onSecondaryTap: (tapPosition, point) {
                                           if (!routeChrome.isRouteDrafting) {
@@ -1387,6 +1605,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                         },
                                         onPointerDown: (event, point) {
                                           _mapFocusNode.requestFocus();
+                                          _dismissRouteDraftMarkerDeletePopup();
                                           _isPointerDown = true;
                                           _pointerDownPosition =
                                               event.localPosition;
@@ -1426,6 +1645,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                 event.localPosition,
                                               );
                                           if (routeChrome.isRouteDrafting) {
+                                            if (_routeDraftMarkerTapConsumed) {
+                                              _routeDraftMarkerTapConsumed = false;
+                                              return;
+                                            }
                                             final draftState = ref.read(
                                               mapProvider,
                                             );
@@ -1584,7 +1807,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                             ),
                                             markers: buildRouteDraftMarkers(
                                               markers:
-                                                  routeChrome.routeDraftDisplayMarkers,
+                                                  routeDraftDisplayMarkers,
                                               colour:
                                                   routeChrome.routeDraftColour,
                                               hoveredMarkerId:
@@ -1599,6 +1822,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               onHoverExit: ref
                                                   .read(mapProvider.notifier)
                                                   .clearHoveredRouteDraftMarker,
+                                              onPointerDown:
+                                                  _consumeRouteDraftMarkerTap,
+                                              onPointerMove:
+                                                  _trackRouteDraftMarkerDrag,
+                                              onPointerUp:
+                                                  _finishRouteDraftMarkerInteraction,
+                                              onTap:
+                                                  _openRouteDraftMarkerDeletePopup,
                                             ),
                                           ),
                                         if (mapState.selectedPeaks.isNotEmpty)
@@ -1876,6 +2107,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
                   ),
                 if (routeChrome.peakInfo != null)
                   _buildPeakInfoPopup(context, routeChrome.peakInfo!),
+                if (_routeDraftDeletePopupMarkerId != null)
+                  _buildRouteDraftDeletePopup(
+                    context,
+                    routeChrome.routeDraftDisplayMarkers,
+                  ),
               ],
             ),
           ),
@@ -1933,6 +2169,72 @@ class _MapScreenState extends ConsumerState<MapScreen>
           onClose: () {
             ref.read(mapProvider.notifier).closePeakInfoPopup();
           },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRouteDraftDeletePopup(
+    BuildContext context,
+    List<RouteDraftDisplayMarker> markers,
+  ) {
+    const popupSize = Size(220, 116);
+    final markerId = _routeDraftDeletePopupMarkerId;
+    final viewportRevision = _routeDraftDeletePopupViewportRevision;
+    if (markerId == null || viewportRevision != _viewportUiRevision.value) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _dismissRouteDraftMarkerDeletePopup();
+        }
+      });
+      return const SizedBox.shrink();
+    }
+
+    RouteDraftDisplayMarker? marker;
+    for (final candidate in markers) {
+      if (candidate.id == markerId) {
+        marker = candidate;
+        break;
+      }
+    }
+    if (marker == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _dismissRouteDraftMarkerDeletePopup();
+        }
+      });
+      return const SizedBox.shrink();
+    }
+
+    final placement = resolvePeakInfoPopupPlacement(
+      anchorScreenOffset: _screenOffsetForRouteDraftMarker(marker.point),
+      viewportSize: MediaQuery.of(context).size,
+      popupSize: popupSize,
+      markerSize: switch (marker.kind) {
+        RouteMarkerKind.numbered => RouteUI.markerNumberedSize,
+        RouteMarkerKind.circle || RouteMarkerKind.target => RouteUI.markerSize,
+      },
+    );
+    if (!placement.isAnchorable) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _dismissRouteDraftMarkerDeletePopup();
+        }
+      });
+      return const SizedBox.shrink();
+    }
+
+    return Positioned(
+      left: placement.topLeft.dx,
+      top: placement.topLeft.dy,
+      child: SizedBox(
+        width: popupSize.width,
+        child: RouteDraftMarkerDeletePopupCard(
+          key: const Key('route-draft-delete-popup'),
+          onDelete: () {
+            unawaited(_deleteRouteDraftMarker(markerId));
+          },
+          onClose: _dismissRouteDraftMarkerDeletePopup,
         ),
       ),
     );
@@ -2071,6 +2373,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
       return const Offset(0, 0);
     }
     return camera.latLngToScreenOffset(LatLng(peak.latitude, peak.longitude));
+  }
+
+  Offset _screenOffsetForRouteDraftMarker(LatLng point) {
+    final camera = _mapController.camera;
+    if (camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      return const Offset(0, 0);
+    }
+    return camera.latLngToScreenOffset(point);
   }
 
   void _handleMapReady() {

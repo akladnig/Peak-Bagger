@@ -98,6 +98,8 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
       :routeDraftElevationError,
       :routeDraftColour,
       :isSavingRoute,
+      :routeDraftCanUndo,
+      :routeDraftCanRedo,
     ) = ref.watch(
       mapProvider.select(
         (state) => (
@@ -115,6 +117,8 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
           routeDraftElevationError: state.routeDraftElevationError,
           routeDraftColour: state.routeDraftColour,
           isSavingRoute: state.isSavingRoute,
+          routeDraftCanUndo: state.routeDraftCanUndo,
+          routeDraftCanRedo: state.routeDraftCanRedo,
         ),
       ),
     );
@@ -175,6 +179,10 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
                             onModeSelected: notifier.setRouteDraftMode,
                             onOutAndBack: notifier.applyRouteDraftOutAndBack,
                             onCloseLoop: notifier.applyRouteDraftCloseLoop,
+                            onUndo: notifier.undoRouteDraftEdit,
+                            onRedo: notifier.redoRouteDraftEdit,
+                            canUndo: routeDraftCanUndo,
+                            canRedo: routeDraftCanRedo,
                           ),
                         ),
                       ),
@@ -352,6 +360,10 @@ class _RouteEditingGroup extends StatelessWidget {
     required this.onModeSelected,
     required this.onOutAndBack,
     required this.onCloseLoop,
+    required this.onUndo,
+    required this.onRedo,
+    required this.canUndo,
+    required this.canRedo,
   });
 
   final String routeDraftName;
@@ -369,6 +381,10 @@ class _RouteEditingGroup extends StatelessWidget {
   final ValueChanged<RouteMode> onModeSelected;
   final VoidCallback onOutAndBack;
   final VoidCallback onCloseLoop;
+  final VoidCallback onUndo;
+  final VoidCallback onRedo;
+  final bool canUndo;
+  final bool canRedo;
 
   @override
   Widget build(BuildContext context) {
@@ -471,6 +487,22 @@ class _RouteEditingGroup extends StatelessWidget {
                     routeDraftStage != RouteDraftStage.routingSegment &&
                     routeDraftStage != RouteDraftStage.segmentFailure,
                 onPressed: onCloseLoop,
+              ),
+              const SizedBox(width: 8),
+              _RouteActionButton(
+                buttonKey: const Key('route-undo-button'),
+                label: 'Undo (⌘ Z)',
+                icon: Icons.undo,
+                enabled: canUndo && !isRouting && !isSavingRoute,
+                onPressed: onUndo,
+              ),
+              const SizedBox(width: 8),
+              _RouteActionButton(
+                buttonKey: const Key('route-redo-button'),
+                label: 'Redo (⌘ ⇧ Z)',
+                icon: Icons.redo,
+                enabled: canRedo && !isRouting && !isSavingRoute,
+                onPressed: onRedo,
               ),
               const SizedBox(width: 12),
               SizedBox(
@@ -578,14 +610,21 @@ class _RouteActionButton extends StatelessWidget {
       enabled: enabled,
       child: Tooltip(
         message: label,
-        child: FloatingActionButton.small(
+        child: FilledButton(
           key: buttonKey,
-          heroTag: label,
-          shape: const CircleBorder(),
-          backgroundColor: enabled
-              ? Colors.purple
-              : theme.colorScheme.surfaceContainer,
-          foregroundColor: enabled ? Colors.white : theme.colorScheme.onSurface,
+          style: FilledButton.styleFrom(
+            minimumSize: const Size.square(40),
+            padding: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            backgroundColor: enabled
+                ? Colors.purple
+                : theme.colorScheme.surfaceContainer,
+            foregroundColor: enabled
+                ? Colors.white
+                : theme.colorScheme.onSurface,
+          ),
           onPressed: enabled ? onPressed : null,
           child: ExcludeSemantics(child: Icon(icon, size: 18)),
         ),

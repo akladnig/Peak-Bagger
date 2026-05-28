@@ -125,7 +125,7 @@ void main() {
 
     expect(robot.outAndBackButton, findsOneWidget);
     expect(
-      tester.widget<FloatingActionButton>(robot.outAndBackButton).onPressed,
+      tester.widget<FilledButton>(robot.outAndBackButton).onPressed,
       isNotNull,
     );
 
@@ -286,7 +286,7 @@ void main() {
 
     expect(robot.closeLoopButton, findsOneWidget);
     expect(
-      tester.widget<FloatingActionButton>(robot.closeLoopButton).onPressed,
+      tester.widget<FilledButton>(robot.closeLoopButton).onPressed,
       isNotNull,
     );
 
@@ -385,6 +385,74 @@ void main() {
     expect(robot.savedRoutes().single.ascent, 654);
     expect(robot.savedRoutes().single.descent, 432);
     expect(robot.savedRoutes().single.distance3d, 2222);
+    expect(robot.container().read(mapProvider).showRoutes, isTrue);
+  });
+
+  testWidgets('route journey edits a draft with drag delete undo redo and saves', (
+    tester,
+  ) async {
+    final robot = MapRouteRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+      routePlanningOutcomes: const [],
+      routeElevationOutcomes: const [],
+    );
+
+    await robot.pumpApp();
+    await robot.openMap();
+    await robot.enterRouteMode();
+
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const Key('route-mode-straight-line')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    await tester.pump();
+
+    await robot.tapRoutePoint(const Offset(-60, 0));
+    await robot.tapRoutePoint(const Offset(0, 0));
+    await robot.tapRoutePoint(const Offset(60, 0));
+
+    final originalMiddlePoint = robot.container().read(mapProvider).routeDraftMarkers[1];
+    await robot.dragDraftMarker('1', const Offset(30, 0));
+
+    final movedState = robot.container().read(mapProvider);
+    expect(robot.routeDraftDeletePopup, findsNothing);
+    expect(movedState.routeDraftMarkers, hasLength(3));
+    expect(movedState.routeDraftMarkers[1], isNot(originalMiddlePoint));
+
+    final movedMiddlePoint = movedState.routeDraftMarkers[1];
+    await robot.clickDraftMarker('1');
+
+    expect(robot.routeDraftDeletePopup, findsOneWidget);
+
+    await robot.deleteDraftMarkerFromPopup();
+
+    final deletedState = robot.container().read(mapProvider);
+    expect(deletedState.routeDraftMarkers, hasLength(2));
+
+    await robot.undoRouteEdit();
+
+    final restoredState = robot.container().read(mapProvider);
+    expect(restoredState.routeDraftMarkers, hasLength(3));
+    expect(restoredState.routeDraftMarkers[1], movedMiddlePoint);
+
+    await robot.redoRouteEdit();
+
+    final redoneState = robot.container().read(mapProvider);
+    expect(redoneState.routeDraftMarkers, hasLength(2));
+
+    await robot.enterRouteName('Edited Robot Route');
+    await robot.saveRoute();
+
+    expect(robot.routeBottomSheet, findsNothing);
+    expect(robot.savedRoutes(), hasLength(1));
+    expect(robot.savedRoutes().single.gpxRoute, hasLength(2));
     expect(robot.container().read(mapProvider).showRoutes, isTrue);
   });
 

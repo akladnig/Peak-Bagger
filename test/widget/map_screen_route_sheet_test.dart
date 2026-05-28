@@ -168,6 +168,56 @@ void main() {
     );
   });
 
+  testWidgets('route to peak disables after editing the peak-target marker', (
+    tester,
+  ) async {
+    final peak = Peak(
+      osmId: 6406,
+      name: 'Bonnet Hill',
+      latitude: -41.5,
+      longitude: 146.5,
+    );
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        peaks: [peak],
+        selectedLocation: const LatLng(-41.5, 146.5),
+      ),
+    );
+    await _pumpMap(tester, notifier);
+
+    await tester.tap(find.byKey(const Key('create-route-fab')));
+    await tester.pumpAndSettle();
+
+    notifier.addRouteDraftMarker(const LatLng(-41.5, 146.45));
+    await tester.pump();
+
+    final routeToPeakButton = tester.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const Key('route-mode-route-to-peak')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(routeToPeakButton.onPressed, isNotNull);
+
+    await notifier.moveRouteDraftMarker('0', const LatLng(-41.52, 146.47));
+    await tester.pump();
+
+    final disabledRouteToPeakButton = tester.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const Key('route-mode-route-to-peak')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(disabledRouteToPeakButton.onPressed, isNull);
+
+    final routeState = _container(tester).read(mapProvider);
+    expect(routeState.routeDraftPeakTargetLocked, isTrue);
+    expect(routeState.routeDraftPeakTarget, isNull);
+  });
+
   testWidgets('route to peak enables from a dropped peak marker location', (
     tester,
   ) async {
@@ -280,7 +330,7 @@ void main() {
     await tester.tapAt(tester.getCenter(region) + const Offset(-40, 0));
     await tester.pumpAndSettle();
     await tester.tapAt(tester.getCenter(region) + const Offset(40, 0));
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     FilledButton button(Finder keyFinder) => tester.widget<FilledButton>(
       find.descendant(of: keyFinder, matching: find.byType(FilledButton)),
@@ -313,10 +363,16 @@ void main() {
 
       final outAndBackKey = find.byKey(const Key('route-mode-out-and-back'));
       final closeLoopKey = find.byKey(const Key('route-mode-close-loop'));
+      final undoKey = find.byKey(const Key('route-undo-button'));
+      final redoKey = find.byKey(const Key('route-redo-button'));
       expect(outAndBackKey, findsOneWidget);
       expect(closeLoopKey, findsOneWidget);
+      expect(undoKey, findsOneWidget);
+      expect(redoKey, findsOneWidget);
       expect(find.byTooltip('Out and Back'), findsOneWidget);
       expect(find.byTooltip('Close Loop'), findsOneWidget);
+      expect(find.byTooltip('Undo (⌘ Z)'), findsOneWidget);
+      expect(find.byTooltip('Redo (⌘ ⇧ Z)'), findsOneWidget);
       expect(
         find.descendant(of: outAndBackKey, matching: find.text('Out and Back')),
         findsNothing,
@@ -326,13 +382,15 @@ void main() {
         findsNothing,
       );
 
-      FloatingActionButton button(Finder keyFinder) =>
-          tester.widget<FloatingActionButton>(keyFinder);
+      final container = _container(tester);
+      FilledButton button(Finder keyFinder) => tester.widget<FilledButton>(keyFinder);
 
       expect(button(outAndBackKey).onPressed, isNull);
-      expect(button(outAndBackKey).shape, isA<CircleBorder>());
+      expect(button(outAndBackKey).style?.shape?.resolve({}), isA<RoundedRectangleBorder>());
       expect(button(closeLoopKey).onPressed, isNull);
-      expect(button(closeLoopKey).shape, isA<CircleBorder>());
+      expect(button(closeLoopKey).style?.shape?.resolve({}), isA<RoundedRectangleBorder>());
+      expect(button(undoKey).onPressed, isNull);
+      expect(button(redoKey).onPressed, isNull);
 
       final straightRect = tester.getRect(
         find.byKey(const Key('route-mode-straight-line')),
@@ -347,7 +405,14 @@ void main() {
       expect(closeLoopRect.left, greaterThan(outAndBackRect.right));
       expect(closeLoopRect.right, lessThan(nameRect.left));
 
-      final container = _container(tester);
+      container.read(mapProvider.notifier).state = container
+          .read(mapProvider)
+          .copyWith(routeDraftCanUndo: true, routeDraftCanRedo: true);
+      await tester.pump();
+
+      expect(button(undoKey).onPressed, isNotNull);
+      expect(button(redoKey).onPressed, isNotNull);
+
       container.read(mapProvider.notifier).state = container
           .read(mapProvider)
           .copyWith(
@@ -378,8 +443,8 @@ void main() {
 
       expect(button(outAndBackKey).onPressed, isNotNull);
       expect(button(closeLoopKey).onPressed, isNotNull);
-      expect(button(outAndBackKey).shape, isA<CircleBorder>());
-      expect(button(closeLoopKey).shape, isA<CircleBorder>());
+      expect(button(outAndBackKey).style?.shape?.resolve({}), isA<RoundedRectangleBorder>());
+      expect(button(closeLoopKey).style?.shape?.resolve({}), isA<RoundedRectangleBorder>());
 
       container.read(mapProvider.notifier).state = container
           .read(mapProvider)
@@ -391,7 +456,7 @@ void main() {
               LatLng(-41.55, 146.55),
               LatLng(-41.5, 146.5),
             ],
-      );
+          );
       await tester.pump();
 
       expect(button(outAndBackKey).onPressed, isNull);
@@ -471,7 +536,7 @@ void main() {
       );
       expect(routeToPeakButton.onPressed, isNull);
 
-      final outAndBackButton = tester.widget<FloatingActionButton>(
+      final outAndBackButton = tester.widget<FilledButton>(
         find.byKey(const Key('route-mode-out-and-back')),
       );
       expect(outAndBackButton.onPressed, isNull);
@@ -605,6 +670,7 @@ void main() {
     await tester.tapAt(tester.getCenter(region) + const Offset(40, 0));
     await tester.pumpAndSettle();
     await tester.tapAt(tester.getCenter(region) + const Offset(80, 0));
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.pumpAndSettle();
 
     final state = _container(tester).read(mapProvider);
@@ -892,7 +958,7 @@ void main() {
     await tester.tapAt(tester.getCenter(region) + const Offset(-40, 0));
     await tester.pumpAndSettle();
     await tester.tapAt(tester.getCenter(region) + const Offset(40, 0));
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byKey(const Key('route-loading-text')), findsOneWidget);
 
@@ -1075,6 +1141,7 @@ void main() {
     await tester.tapAt(tester.getCenter(region) + const Offset(40, 0));
     await tester.pumpAndSettle();
     await tester.tapAt(tester.getCenter(region) + const Offset(80, 0));
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -1194,7 +1261,7 @@ void main() {
       await tester.tapAt(tester.getCenter(region) + const Offset(-40, 0));
       await tester.pumpAndSettle();
       await tester.tapAt(tester.getCenter(region) + const Offset(40, 0));
-      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
       expect(
         find.byKey(const Key('route-elevation-loading-text')),

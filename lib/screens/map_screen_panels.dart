@@ -940,6 +940,63 @@ class PeakInfoPopupCard extends StatelessWidget {
   }
 }
 
+class RouteDraftMarkerDeletePopupCard extends StatelessWidget {
+  const RouteDraftMarkerDeletePopupCard({
+    required this.onDelete,
+    required this.onClose,
+    super.key,
+  });
+
+  final VoidCallback onDelete;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Edit Point',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ),
+                IconButton(
+                  key: const Key('route-draft-delete-popup-close'),
+                  tooltip: 'Close point actions',
+                  icon: const Icon(Icons.close, size: 16),
+                  onPressed: onClose,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              key: const Key('route-draft-delete-action'),
+              onPressed: onDelete,
+              style: TextButton.styleFrom(
+                foregroundColor: theme.colorScheme.error,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              ),
+              icon: const Icon(Icons.delete_forever),
+              label: const Text('Delete Point'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _PeakInfoLabeledValueRow extends StatelessWidget {
   const _PeakInfoLabeledValueRow({
     required this.label,

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -238,6 +239,207 @@ void main() {
 
     final container = ProviderScope.containerOf(tester.element(mapRegion));
     expect(container.read(mapProvider).hoveredRouteId, 1);
+  });
+
+  testWidgets('clicking a draft marker opens the delete popup without adding a point', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({'show_routes': true});
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+    final tasmapRepository = await TestTasmapRepository.create();
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        isRouteDrafting: true,
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftMode: RouteMode.straightLine,
+        routeDraftNextMarkerId: 1,
+        routeDraftControlEndpoints: const [
+          RouteDraftControlEndpoint(
+            id: '0',
+            point: LatLng(-41.5, 146.5),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+        ],
+        routeDraftDisplayMarkers: const [
+          RouteDraftDisplayMarker(
+            id: '0',
+            point: LatLng(-41.5, 146.5),
+            kind: RouteMarkerKind.circle,
+          ),
+        ],
+        routeDraftMarkers: const [LatLng(-41.5, 146.5)],
+        routeDraftCommittedPoints: const [LatLng(-41.5, 146.5)],
+      ),
+      routeRepository: routeRepository,
+    );
+
+    await _pumpMapScreen(
+      tester,
+      notifier,
+      routeRepository,
+      tasmapRepository: tasmapRepository,
+    );
+
+    await tester.tap(find.byKey(const Key('route-draft-marker-hitbox-0')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+    expect(find.byKey(const Key('route-draft-delete-popup')), findsOneWidget);
+    expect(find.byKey(const Key('route-draft-delete-action')), findsOneWidget);
+    expect(container.read(mapProvider).routeDraftMarkers, const [
+      LatLng(-41.5, 146.5),
+    ]);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+
+    expect(find.byKey(const Key('route-draft-delete-popup')), findsNothing);
+    expect(container.read(mapProvider).routeDraftMarkers, const [
+      LatLng(-41.5, 146.5),
+    ]);
+  });
+
+  testWidgets('delete popup action removes the selected draft marker', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({'show_routes': true});
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+    final tasmapRepository = await TestTasmapRepository.create();
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        isRouteDrafting: true,
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftMode: RouteMode.straightLine,
+        routeDraftNextMarkerId: 1,
+        routeDraftControlEndpoints: const [
+          RouteDraftControlEndpoint(
+            id: '0',
+            point: LatLng(-41.5, 146.5),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+        ],
+        routeDraftDisplayMarkers: const [
+          RouteDraftDisplayMarker(
+            id: '0',
+            point: LatLng(-41.5, 146.5),
+            kind: RouteMarkerKind.circle,
+          ),
+        ],
+        routeDraftMarkers: const [LatLng(-41.5, 146.5)],
+        routeDraftCommittedPoints: const [LatLng(-41.5, 146.5)],
+      ),
+      routeRepository: routeRepository,
+    );
+
+    await _pumpMapScreen(
+      tester,
+      notifier,
+      routeRepository,
+      tasmapRepository: tasmapRepository,
+    );
+
+    await tester.tap(find.byKey(const Key('route-draft-marker-hitbox-0')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byKey(const Key('route-draft-delete-action')));
+    await tester.pump();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+    expect(find.byKey(const Key('route-draft-delete-popup')), findsNothing);
+    expect(container.read(mapProvider).routeDraftMarkers, isEmpty);
+    expect(container.read(mapProvider).routeDraftStage, RouteDraftStage.awaitingStart);
+  });
+
+  testWidgets('dragging a draft marker moves it without opening the delete popup', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({'show_routes': true});
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+    final tasmapRepository = await TestTasmapRepository.create();
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        isRouteDrafting: true,
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftMode: RouteMode.straightLine,
+        routeDraftNextMarkerId: 2,
+        routeDraftControlEndpoints: const [
+          RouteDraftControlEndpoint(
+            id: '0',
+            point: LatLng(-41.5, 146.5),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+          RouteDraftControlEndpoint(
+            id: '1',
+            point: LatLng(-41.5, 146.53),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+        ],
+        routeDraftDisplayMarkers: const [
+          RouteDraftDisplayMarker(
+            id: '0',
+            point: LatLng(-41.5, 146.5),
+            kind: RouteMarkerKind.circle,
+          ),
+          RouteDraftDisplayMarker(
+            id: '1',
+            point: LatLng(-41.5, 146.53),
+            kind: RouteMarkerKind.target,
+          ),
+        ],
+        routeDraftMarkers: const [
+          LatLng(-41.5, 146.5),
+          LatLng(-41.5, 146.53),
+        ],
+        routeDraftCommittedPoints: const [
+          LatLng(-41.5, 146.5),
+          LatLng(-41.5, 146.53),
+        ],
+      ),
+      routeRepository: routeRepository,
+    );
+
+    await _pumpMapScreen(
+      tester,
+      notifier,
+      routeRepository,
+      tasmapRepository: tasmapRepository,
+    );
+
+    final markerHitbox = find.byKey(const Key('route-draft-marker-hitbox-1'));
+    final markerShell = find.byKey(const Key('route-draft-marker-1'));
+    final originalCenter = tester.getCenter(markerShell);
+    final gesture = await tester.startGesture(tester.getCenter(markerHitbox));
+    await gesture.moveBy(const Offset(30, 0));
+    await tester.pump();
+
+    final draggedCenter = tester.getCenter(markerShell);
+    expect(draggedCenter.dx, closeTo(originalCenter.dx + 30, 1));
+    expect(draggedCenter.dy, closeTo(originalCenter.dy, 1));
+
+    await gesture.up();
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+    expect(find.byKey(const Key('route-draft-delete-popup')), findsNothing);
+    expect(container.read(mapProvider).routeDraftMarkers[1], isNot(const LatLng(-41.5, 146.53)));
   });
 
   testWidgets('route drafting previews a segment and inserts on click', (
