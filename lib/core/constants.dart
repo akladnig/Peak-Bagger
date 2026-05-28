@@ -100,6 +100,7 @@ abstract final class RouteUI {
   static const markerMinSize = 14.0;
   static const markerFontSize = 6.0;
   static const markerNumberedSize = 16.0;
+  static const markerZoom = 1.2;
   static const strokeWidth = 3.0;
   static const strokeDarkenAlpha = 0.32;
 

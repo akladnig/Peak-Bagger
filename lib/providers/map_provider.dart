@@ -51,6 +51,16 @@ export 'package:peak_bagger/services/peak_info_content_resolver.dart';
 
 const _distance = Distance();
 
+Peak? _peakAtPoint(Iterable<Peak> peaks, LatLng point) {
+  for (final peak in peaks) {
+    final peakLocation = LatLng(peak.latitude, peak.longitude);
+    if (_distance.as(LengthUnit.Meter, point, peakLocation) <= 5) {
+      return peak;
+    }
+  }
+  return null;
+}
+
 const _latKey = 'map_position_lat';
 const _lngKey = 'map_position_lng';
 const _zoomKey = 'map_zoom';
@@ -233,6 +243,10 @@ class MapState {
   final int selectedMapFocusSerial;
   final int selectedTrackFocusSerial;
   final int? hoveredRouteId;
+  final String? hoveredRouteDraftMarkerId;
+  final int? hoveredRouteDraftSegmentIndex;
+  final int? hoveredRouteDraftCommittedSegmentIndex;
+  final LatLng? hoveredRouteDraftSegmentPoint;
   final List<GpxTrack> tracks;
   final bool showTracks;
   final bool showRoutes;
@@ -308,6 +322,10 @@ class MapState {
     this.selectedMapFocusSerial = 0,
     this.selectedTrackFocusSerial = 0,
     this.hoveredRouteId,
+    this.hoveredRouteDraftMarkerId,
+    this.hoveredRouteDraftSegmentIndex,
+    this.hoveredRouteDraftCommittedSegmentIndex,
+    this.hoveredRouteDraftSegmentPoint,
     this.tracks = const [],
     this.showTracks = false,
     this.showRoutes = false,
@@ -341,14 +359,7 @@ class MapState {
       return null;
     }
 
-    for (final peak in peaks) {
-      final peakLocation = LatLng(peak.latitude, peak.longitude);
-      if (_distance.as(LengthUnit.Meter, markerLocation, peakLocation) <= 5) {
-        return peak;
-      }
-    }
-
-    return null;
+    return _peakAtPoint(peaks, markerLocation);
   }
 
   bool get showMapOverlay => tasmapDisplayMode == TasmapDisplayMode.overlay;
@@ -447,6 +458,12 @@ class MapState {
     bool clearHoveredTrackId = false,
     int? hoveredRouteId,
     bool clearHoveredRouteId = false,
+    String? hoveredRouteDraftMarkerId,
+    bool clearHoveredRouteDraftMarkerId = false,
+    int? hoveredRouteDraftSegmentIndex,
+    int? hoveredRouteDraftCommittedSegmentIndex,
+    bool clearHoveredRouteDraftSegmentPreview = false,
+    LatLng? hoveredRouteDraftSegmentPoint,
     int? selectedTrackId,
     bool clearSelectedTrackId = false,
     int? selectedRouteId,
@@ -546,6 +563,21 @@ class MapState {
       hoveredRouteId: clearHoveredRouteId
           ? null
           : (hoveredRouteId ?? this.hoveredRouteId),
+      hoveredRouteDraftMarkerId: clearHoveredRouteDraftMarkerId
+          ? null
+          : (hoveredRouteDraftMarkerId ?? this.hoveredRouteDraftMarkerId),
+      hoveredRouteDraftSegmentIndex: clearHoveredRouteDraftSegmentPreview
+          ? null
+          : (hoveredRouteDraftSegmentIndex ??
+                this.hoveredRouteDraftSegmentIndex),
+      hoveredRouteDraftCommittedSegmentIndex: clearHoveredRouteDraftSegmentPreview
+          ? null
+          : (hoveredRouteDraftCommittedSegmentIndex ??
+                this.hoveredRouteDraftCommittedSegmentIndex),
+      hoveredRouteDraftSegmentPoint: clearHoveredRouteDraftSegmentPreview
+          ? null
+          : (hoveredRouteDraftSegmentPoint ??
+                this.hoveredRouteDraftSegmentPoint),
       tracks: tracks ?? this.tracks,
       showTracks: showTracks ?? this.showTracks,
       showRoutes: showRoutes ?? this.showRoutes,
@@ -1646,6 +1678,12 @@ class MapNotifier extends Notifier<MapState> {
     );
   }
 
+  RouteDraftEndpointKind _manualEndpointKindForPoint(LatLng point) {
+    return _peakAtPoint(state.peaks, point) == null
+        ? RouteDraftEndpointKind.tapped
+        : RouteDraftEndpointKind.peakTarget;
+  }
+
   String _routeDraftEndpointId(int serial) => '$serial';
 
   int _visibleNumberedRouteMarkerCount(
@@ -1757,6 +1795,9 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftNameError: 'A Route name must be entered',
       routeDraftMode: RouteMode.snapToTrail,
       routeDraftPeak: peakTarget,
+      clearHoveredRouteId: true,
+      clearHoveredRouteDraftMarkerId: true,
+      clearHoveredRouteDraftSegmentPreview: true,
       routeDraftControlEndpoints: const [],
       routeDraftDisplayMarkers: const [],
       routeDraftMarkers: const [],
@@ -1796,6 +1837,8 @@ class MapNotifier extends Notifier<MapState> {
       clearRouteDraftNameError: true,
       routeDraftMode: RouteMode.snapToTrail,
       clearRouteDraftPeak: true,
+      clearHoveredRouteDraftMarkerId: true,
+      clearHoveredRouteDraftSegmentPreview: true,
       routeDraftControlEndpoints: const [],
       routeDraftDisplayMarkers: const [],
       routeDraftMarkers: const [],
@@ -2214,7 +2257,7 @@ class MapNotifier extends Notifier<MapState> {
         }
         final endpoint = _createControlEndpoint(
           point: point,
-          kind: RouteDraftEndpointKind.tapped,
+          kind: _manualEndpointKindForPoint(point),
         );
         _setRouteDraftControlState(
           controlEndpoints: [endpoint],
@@ -2232,7 +2275,7 @@ class MapNotifier extends Notifier<MapState> {
         if (start == null) {
           final endpoint = _createControlEndpoint(
             point: point,
-            kind: RouteDraftEndpointKind.tapped,
+            kind: _manualEndpointKindForPoint(point),
           );
           _setRouteDraftControlState(
             controlEndpoints: [endpoint],
@@ -2247,7 +2290,7 @@ class MapNotifier extends Notifier<MapState> {
         if (start.point == point) {
           final duplicate = _createControlEndpoint(
             point: point,
-            kind: RouteDraftEndpointKind.tapped,
+            kind: _manualEndpointKindForPoint(point),
           );
           _setRouteDraftControlState(
             controlEndpoints: [...state.routeDraftControlEndpoints, duplicate],
@@ -2265,7 +2308,7 @@ class MapNotifier extends Notifier<MapState> {
         }
         final nextEndpoint = _createControlEndpoint(
           point: point,
-          kind: RouteDraftEndpointKind.tapped,
+          kind: _manualEndpointKindForPoint(point),
         );
         if (useStraightLine) {
           final segmentPoints = [start.point, point];
@@ -2970,6 +3013,105 @@ class MapNotifier extends Notifier<MapState> {
 
   void clearHoveredTrack() {
     state = state.copyWith(clearHoveredTrackId: true);
+  }
+
+  void setHoveredRouteDraftMarkerId(String? markerId) {
+    if (markerId == null) {
+      clearHoveredRouteDraftMarker();
+      return;
+    }
+    state = state.copyWith(hoveredRouteDraftMarkerId: markerId);
+  }
+
+  void clearHoveredRouteDraftMarker([String? markerId]) {
+    if (markerId != null && state.hoveredRouteDraftMarkerId != markerId) {
+      return;
+    }
+    state = state.copyWith(clearHoveredRouteDraftMarkerId: true);
+  }
+
+  void setHoveredRouteDraftSegmentPreview({
+    required int segmentIndex,
+    required int committedSegmentIndex,
+    required LatLng point,
+  }) {
+    if (!state.isRouteDrafting) {
+      return;
+    }
+
+    state = state.copyWith(
+      hoveredRouteDraftSegmentIndex: segmentIndex,
+      hoveredRouteDraftCommittedSegmentIndex: committedSegmentIndex,
+      hoveredRouteDraftSegmentPoint: point,
+    );
+  }
+
+  void clearHoveredRouteDraftSegmentPreview() {
+    state = state.copyWith(clearHoveredRouteDraftSegmentPreview: true);
+  }
+
+  void commitHoveredRouteDraftSegmentPreview() {
+    final segmentIndex = state.hoveredRouteDraftSegmentIndex;
+    final committedSegmentIndex = state.hoveredRouteDraftCommittedSegmentIndex;
+    final point = state.hoveredRouteDraftSegmentPoint;
+    if (!state.isRouteDrafting ||
+        segmentIndex == null ||
+        committedSegmentIndex == null ||
+        point == null) {
+      return;
+    }
+
+    _insertRouteDraftPointIntoChain(
+      segmentIndex: segmentIndex,
+      committedSegmentIndex: committedSegmentIndex,
+      point: point,
+    );
+    clearHoveredRouteDraftSegmentPreview();
+  }
+
+  void _insertRouteDraftPointIntoChain({
+    required int segmentIndex,
+    required int committedSegmentIndex,
+    required LatLng point,
+  }) {
+    final controlEndpoints = List<RouteDraftControlEndpoint>.from(
+      state.routeDraftControlEndpoints,
+    );
+    if (segmentIndex < 0 || segmentIndex >= controlEndpoints.length - 1) {
+      return;
+    }
+
+    final insertedEndpoint = _createControlEndpoint(
+      point: point,
+      kind: RouteDraftEndpointKind.projectedAnchor,
+      id: _routeDraftEndpointId(state.routeDraftNextMarkerId),
+    );
+    controlEndpoints.insert(segmentIndex + 1, insertedEndpoint);
+
+    final committedPoints = List<LatLng>.from(state.routeDraftCommittedPoints);
+    if (committedSegmentIndex >= 0 && committedSegmentIndex < committedPoints.length) {
+      committedPoints.insert(committedSegmentIndex + 1, point);
+    } else if (segmentIndex + 1 <= committedPoints.length) {
+      committedPoints.insert(segmentIndex + 1, point);
+    } else {
+      committedPoints.add(point);
+    }
+
+    state = state.copyWith(
+      routeDraftControlEndpoints: List<RouteDraftControlEndpoint>.unmodifiable(
+        controlEndpoints,
+      ),
+      routeDraftDisplayMarkers: List<RouteDraftDisplayMarker>.unmodifiable(
+        _buildDisplayMarkers(controlEndpoints),
+      ),
+      routeDraftMarkers: List<LatLng>.unmodifiable(
+        controlEndpoints.map((endpoint) => endpoint.point),
+      ),
+      routeDraftCommittedPoints: List<LatLng>.unmodifiable(committedPoints),
+      routeDraftNextMarkerId: state.routeDraftNextMarkerId + 1,
+      routeDraftGeometryVersion: state.routeDraftGeometryVersion + 1,
+    );
+    _resampleRouteDraftElevation();
   }
 
   Future<void> deleteTrack(int trackId) async {

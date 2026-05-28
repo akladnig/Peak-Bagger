@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/route_marker_display.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
@@ -242,6 +243,106 @@ void main() {
       expect(state.routeDraftPeak, isNull);
     },
   );
+
+  test('adding a point after a routed peak keeps the peak marker as target', () async {
+    final routePlanner = _ControlledRoutePlanner();
+    final realNotifier = await _buildRouteTestNotifier(
+      routePlanner: routePlanner,
+    );
+    final container = ProviderContainer(
+      overrides: [mapProvider.overrideWith(() => realNotifier)],
+    );
+    addTearDown(container.dispose);
+    final notifier = container.read(mapProvider.notifier);
+    notifier.state = MapState(
+      center: const LatLng(-41.5, 146.5),
+      zoom: 15,
+      basemap: Basemap.tracestrack,
+    );
+
+    const start = LatLng(-41.5, 146.5);
+    const peakPoint = LatLng(-41.6, 146.6);
+    const nextPoint = LatLng(-41.7, 146.7);
+    final peak = Peak(
+      osmId: 6406,
+      name: 'Bonnet Hill',
+      latitude: peakPoint.latitude,
+      longitude: peakPoint.longitude,
+    );
+
+    notifier.beginRouteDraft(peakTarget: peak);
+    notifier.setRouteDraftMode(RouteMode.routeToPeak);
+    notifier.addRouteDraftMarker(start);
+    await Future<void>.delayed(Duration.zero);
+    routePlanner.completeNext(
+      const PlannedRouteSegment(
+        points: [start, LatLng(-41.55, 146.55), peakPoint],
+        distanceMeters: 1000,
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    notifier.addRouteDraftMarker(nextPoint);
+    await Future<void>.delayed(Duration.zero);
+    routePlanner.completeNext(
+      const PlannedRouteSegment(
+        points: [peakPoint, LatLng(-41.65, 146.65), nextPoint],
+        distanceMeters: 1000,
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    final state = container.read(mapProvider);
+    expect(state.routeDraftDisplayMarkers, hasLength(3));
+    expect(state.routeDraftDisplayMarkers[0].kind, RouteMarkerKind.circle);
+    expect(state.routeDraftDisplayMarkers[1].kind, RouteMarkerKind.target);
+    expect(state.routeDraftDisplayMarkers[1].number, isNull);
+    expect(state.routeDraftDisplayMarkers[2].kind, RouteMarkerKind.target);
+  });
+
+  test('manually adding a point on a peak keeps it as a peak marker', () async {
+    final realNotifier = await _buildRouteTestNotifier(
+      routePlanner: const _ImmediateStraightRoutePlanner(),
+      routeElevationSampler: const _ImmediateZeroRouteElevationSampler(),
+    );
+    final container = ProviderContainer(
+      overrides: [mapProvider.overrideWith(() => realNotifier)],
+    );
+    addTearDown(container.dispose);
+    final notifier = container.read(mapProvider.notifier);
+    const start = LatLng(-41.5, 146.5);
+    const peakPoint = LatLng(-41.6, 146.6);
+    const nextPoint = LatLng(-41.7, 146.7);
+    notifier.state = MapState(
+      center: start,
+      zoom: 15,
+      basemap: Basemap.tracestrack,
+      peaks: [
+        Peak(
+          osmId: 6406,
+          name: 'Bonnet Hill',
+          latitude: peakPoint.latitude,
+          longitude: peakPoint.longitude,
+        ),
+      ],
+    );
+
+    notifier.beginRouteDraft();
+    notifier.addRouteDraftMarker(start, straightLine: true);
+    notifier.addRouteDraftMarker(peakPoint, straightLine: true);
+    notifier.addRouteDraftMarker(nextPoint, straightLine: true);
+
+    final state = container.read(mapProvider);
+    expect(state.routeDraftControlEndpoints, hasLength(3));
+    expect(
+      state.routeDraftControlEndpoints[1].kind,
+      RouteDraftEndpointKind.peakTarget,
+    );
+    expect(state.routeDraftDisplayMarkers[0].kind, RouteMarkerKind.circle);
+    expect(state.routeDraftDisplayMarkers[1].kind, RouteMarkerKind.target);
+    expect(state.routeDraftDisplayMarkers[1].number, isNull);
+    expect(state.routeDraftDisplayMarkers[2].kind, RouteMarkerKind.target);
+  });
 
   test(
     'third tap appends a new routed segment from the current endpoint',
