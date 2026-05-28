@@ -18,7 +18,6 @@ import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/peak.dart';
-import 'package:peak_bagger/models/route_marker_display.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
@@ -46,6 +45,20 @@ import 'map_screen_panels.dart';
 
 class DismissSurfaceIntent extends Intent {
   const DismissSurfaceIntent();
+}
+
+class _RouteDraftHoverCandidate {
+  const _RouteDraftHoverCandidate({
+    required this.controlSegmentIndex,
+    required this.committedSegmentIndex,
+    required this.start,
+    required this.end,
+  });
+
+  final int controlSegmentIndex;
+  final int committedSegmentIndex;
+  final Offset start;
+  final Offset end;
 }
 
 class MapScreen extends ConsumerStatefulWidget {
@@ -529,16 +542,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
     String? hoveredMarkerId;
     double? bestDistance;
+    const hoverThreshold = PeakHoverDetector.threshold;
 
     for (final marker in mapState.routeDraftDisplayMarkers) {
       final screenPosition = camera.latLngToScreenOffset(marker.point);
-      final baseSize = switch (marker.kind) {
-        RouteMarkerKind.numbered => RouteUI.markerNumberedSize,
-        RouteMarkerKind.circle || RouteMarkerKind.target => RouteUI.markerSize,
-      };
-      final radius = baseSize * RouteUI.markerZoom * 4;
       final distance = (localPosition - screenPosition).distance;
-      if (distance > radius) {
+      if (distance > hoverThreshold) {
         continue;
       }
       if (bestDistance == null || distance < bestDistance) {
@@ -559,7 +568,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
   void _handleRouteDraftSegmentHover(Offset localPosition, MapState mapState) {
     final notifier = ref.read(mapProvider.notifier);
 
-    if (!mapState.isRouteDrafting || mapState.routeDraftDisplayMarkers.length < 2) {
+    if (!mapState.isRouteDrafting ||
+        mapState.routeDraftControlEndpoints.length < 2 ||
+        mapState.routeDraftCommittedPoints.length < 2) {
       notifier.clearHoveredRouteDraftSegmentPreview();
       return;
     }
@@ -570,38 +581,108 @@ class _MapScreenState extends ConsumerState<MapScreen>
       return;
     }
 
+    final candidates = _buildRouteDraftHoverCandidates(mapState, camera);
+    if (candidates.isEmpty) {
+      notifier.clearHoveredRouteDraftSegmentPreview();
+      return;
+    }
+
     int? bestSegmentIndex;
+    int? bestCommittedSegmentIndex;
     LatLng? bestPoint;
     double? bestDistance;
 
-    for (var index = 0; index < mapState.routeDraftDisplayMarkers.length - 1; index++) {
-      final start = camera.latLngToScreenOffset(
-        mapState.routeDraftDisplayMarkers[index].point,
+    for (final candidate in candidates) {
+      final closest = _closestPointOnSegment(
+        localPosition,
+        candidate.start,
+        candidate.end,
       );
-      final end = camera.latLngToScreenOffset(
-        mapState.routeDraftDisplayMarkers[index + 1].point,
-      );
-      final closest = _closestPointOnSegment(localPosition, start, end);
       final distance = (localPosition - closest).distance;
       if (distance > 12) {
         continue;
       }
       if (bestDistance == null || distance < bestDistance) {
         bestDistance = distance;
-        bestSegmentIndex = index;
+        bestSegmentIndex = candidate.controlSegmentIndex;
+        bestCommittedSegmentIndex = candidate.committedSegmentIndex;
         bestPoint = camera.screenOffsetToLatLng(closest);
       }
     }
 
-    if (bestSegmentIndex == null || bestPoint == null) {
+    if (bestSegmentIndex == null ||
+        bestCommittedSegmentIndex == null ||
+        bestPoint == null) {
       notifier.clearHoveredRouteDraftSegmentPreview();
       return;
     }
 
     notifier.setHoveredRouteDraftSegmentPreview(
       segmentIndex: bestSegmentIndex,
+      committedSegmentIndex: bestCommittedSegmentIndex,
       point: bestPoint,
     );
+  }
+
+  List<_RouteDraftHoverCandidate> _buildRouteDraftHoverCandidates(
+    MapState mapState,
+    MapCamera camera,
+  ) {
+    final controlEndpoints = mapState.routeDraftControlEndpoints;
+    final committedPoints = mapState.routeDraftCommittedPoints;
+    if (controlEndpoints.length < 2 || committedPoints.length < 2) {
+      return const [];
+    }
+
+    final candidates = <_RouteDraftHoverCandidate>[];
+    var committedSearchStart = 0;
+
+    for (var controlIndex = 0; controlIndex < controlEndpoints.length - 1; controlIndex++) {
+      final startIndex = _indexOfCommittedRoutePoint(
+        committedPoints,
+        controlEndpoints[controlIndex].point,
+        startAt: committedSearchStart,
+      );
+      if (startIndex == -1 || startIndex >= committedPoints.length - 1) {
+        continue;
+      }
+
+      final endIndex = _indexOfCommittedRoutePoint(
+        committedPoints,
+        controlEndpoints[controlIndex + 1].point,
+        startAt: startIndex + 1,
+      );
+      if (endIndex == -1 || endIndex <= startIndex) {
+        continue;
+      }
+
+      for (var committedIndex = startIndex; committedIndex < endIndex; committedIndex++) {
+        candidates.add(
+          _RouteDraftHoverCandidate(
+            controlSegmentIndex: controlIndex,
+            committedSegmentIndex: committedIndex,
+            start: camera.latLngToScreenOffset(committedPoints[committedIndex]),
+            end: camera.latLngToScreenOffset(committedPoints[committedIndex + 1]),
+          ),
+        );
+      }
+      committedSearchStart = endIndex;
+    }
+
+    return candidates;
+  }
+
+  int _indexOfCommittedRoutePoint(
+    List<LatLng> points,
+    LatLng target, {
+    required int startAt,
+  }) {
+    for (var index = startAt; index < points.length; index++) {
+      if (points[index] == target) {
+        return index;
+      }
+    }
+    return -1;
   }
 
   Offset _closestPointOnSegment(Offset point, Offset start, Offset end) {

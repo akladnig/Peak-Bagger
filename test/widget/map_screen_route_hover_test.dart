@@ -96,6 +96,102 @@ void main() {
     expect(find.byKey(const Key('route-draft-marker-hover-0')), findsNothing);
   });
 
+  testWidgets('route drafting only hovers a draft marker within the marker', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({'show_routes': true});
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+    final tasmapRepository = await TestTasmapRepository.create();
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showRoutes: true,
+        isRouteDrafting: true,
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftNextMarkerId: 3,
+        routeDraftControlEndpoints: const [
+          RouteDraftControlEndpoint(
+            id: '0',
+            point: LatLng(-41.5, 146.47),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+          RouteDraftControlEndpoint(
+            id: '1',
+            point: LatLng(-41.5, 146.53),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+          RouteDraftControlEndpoint(
+            id: '2',
+            point: LatLng(-41.5, 146.57),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+        ],
+        routeDraftDisplayMarkers: const [
+          RouteDraftDisplayMarker(
+            id: '0',
+            point: LatLng(-41.5, 146.47),
+            kind: RouteMarkerKind.circle,
+          ),
+          RouteDraftDisplayMarker(
+            id: '1',
+            point: LatLng(-41.5, 146.53),
+            kind: RouteMarkerKind.numbered,
+            number: 1,
+          ),
+          RouteDraftDisplayMarker(
+            id: '2',
+            point: LatLng(-41.5, 146.57),
+            kind: RouteMarkerKind.target,
+          ),
+        ],
+        routeDraftMarkers: const [
+          LatLng(-41.5, 146.47),
+          LatLng(-41.5, 146.53),
+          LatLng(-41.5, 146.57),
+        ],
+        routeDraftCommittedPoints: const [
+          LatLng(-41.5, 146.47),
+          LatLng(-41.5, 146.53),
+          LatLng(-41.5, 146.57),
+        ],
+        routeDraftProvisionalPoints: const [],
+      ),
+      routeRepository: routeRepository,
+    );
+
+    await _pumpMapScreen(
+      tester,
+      notifier,
+      routeRepository,
+      tasmapRepository: tasmapRepository,
+    );
+
+    final mapRegion = find.byKey(const Key('map-interaction-region'));
+    final markerHitbox = find.byKey(const Key('route-draft-marker-hitbox-0'));
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(() async {
+      await gesture.removePointer();
+    });
+
+    await gesture.addPointer(
+      location: tester.getTopLeft(mapRegion) - const Offset(20, 20),
+    );
+    await tester.pump();
+    await gesture.moveTo(tester.getCenter(markerHitbox));
+    await tester.pump();
+
+    final container = ProviderScope.containerOf(tester.element(mapRegion));
+    expect(container.read(mapProvider).hoveredRouteDraftMarkerId, '0');
+
+    await gesture.moveTo(tester.getCenter(markerHitbox) + const Offset(0, 15));
+    await tester.pump();
+
+    expect(container.read(mapProvider).hoveredRouteDraftMarkerId, isNull);
+    expect(find.byKey(const Key('route-draft-marker-hover-0')), findsNothing);
+  });
+
   testWidgets('normal map hover still selects a visible route', (tester) async {
     SharedPreferences.setMockInitialValues({'show_routes': true});
     final route = app_route.Route(
@@ -239,9 +335,89 @@ void main() {
     expect(afterCommit.hoveredRouteDraftSegmentIndex, isNull);
     expect(afterCommit.routeDraftControlEndpoints, hasLength(4));
     expect(afterCommit.routeDraftDisplayMarkers, hasLength(4));
-    expect(afterCommit.routeDraftDisplayMarkers[1].kind, RouteMarkerKind.target);
+    expect(afterCommit.routeDraftDisplayMarkers[1].kind, RouteMarkerKind.numbered);
+    expect(afterCommit.routeDraftDisplayMarkers[1].number, 1);
+    expect(afterCommit.routeDraftDisplayMarkers[2].kind, RouteMarkerKind.numbered);
+    expect(afterCommit.routeDraftDisplayMarkers[2].number, 2);
     expect(afterCommit.routeDraftDisplayMarkers[3].kind, RouteMarkerKind.target);
     expect(find.byKey(const Key('route-draft-segment-hover-0')), findsNothing);
+  });
+
+  testWidgets('route drafting previews along the committed route path', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({'show_routes': true});
+    const a = LatLng(-41.51, 146.47);
+    const b = LatLng(-41.5, 146.5);
+    const c = LatLng(-41.51, 146.53);
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+    final notifier = TestMapNotifier(
+      MapState(
+        center: b,
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showRoutes: true,
+        isRouteDrafting: true,
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftNextMarkerId: 2,
+        routeDraftControlEndpoints: const [
+          RouteDraftControlEndpoint(
+            id: '0',
+            point: a,
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+          RouteDraftControlEndpoint(
+            id: '1',
+            point: c,
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+        ],
+        routeDraftDisplayMarkers: const [
+          RouteDraftDisplayMarker(
+            id: '0',
+            point: a,
+            kind: RouteMarkerKind.circle,
+          ),
+          RouteDraftDisplayMarker(
+            id: '1',
+            point: c,
+            kind: RouteMarkerKind.target,
+          ),
+        ],
+        routeDraftMarkers: const [a, c],
+        routeDraftCommittedPoints: const [a, b, c],
+        routeDraftProvisionalPoints: const [],
+      ),
+      routeRepository: routeRepository,
+    );
+
+    await _pumpMapScreen(
+      tester,
+      notifier,
+      routeRepository,
+      tasmapRepository: await TestTasmapRepository.create(),
+    );
+
+    final mapRegion = find.byKey(const Key('map-interaction-region'));
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(() async {
+      await gesture.removePointer();
+    });
+    await gesture.addPointer(
+      location: tester.getTopLeft(mapRegion) - const Offset(20, 20),
+    );
+    await tester.pump();
+    await gesture.moveTo(tester.getCenter(mapRegion));
+    await tester.pump();
+
+    final container = ProviderScope.containerOf(tester.element(mapRegion));
+    final hoveredPoint = container.read(mapProvider).hoveredRouteDraftSegmentPoint;
+
+    expect(container.read(mapProvider).hoveredRouteDraftSegmentIndex, 0);
+    expect(find.byKey(const Key('route-draft-segment-hover-0')), findsOneWidget);
+    expect(hoveredPoint, isNotNull);
+    expect(hoveredPoint!.latitude, closeTo(b.latitude, 0.0002));
+    expect(hoveredPoint.longitude, closeTo(b.longitude, 0.0002));
   });
 }
 

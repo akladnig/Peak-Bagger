@@ -211,6 +211,11 @@ void main() {
 
     await robot.hoverRoutePoint(const Offset(0, 0));
     robot.expectRouteSegmentPreview(0);
+    await robot.hoverRoutePoint(const Offset(200, 200));
+    expect(find.byKey(const Key('route-draft-segment-hover-0')), findsNothing);
+
+    await robot.hoverRoutePoint(const Offset(0, 0));
+    robot.expectRouteSegmentPreview(0);
 
     await robot.clickRoutePoint(const Offset(0, 0));
 
@@ -218,7 +223,10 @@ void main() {
     expect(state.hoveredRouteDraftSegmentIndex, isNull);
     expect(state.routeDraftControlEndpoints, hasLength(4));
     expect(state.routeDraftDisplayMarkers, hasLength(4));
-    expect(state.routeDraftDisplayMarkers[1].kind, RouteMarkerKind.target);
+    expect(state.routeDraftDisplayMarkers[1].kind, RouteMarkerKind.numbered);
+    expect(state.routeDraftDisplayMarkers[1].number, 1);
+    expect(state.routeDraftDisplayMarkers[2].kind, RouteMarkerKind.numbered);
+    expect(state.routeDraftDisplayMarkers[2].number, 2);
     expect(state.routeDraftDisplayMarkers[3].kind, RouteMarkerKind.target);
     expect(find.byKey(const Key('route-draft-segment-hover-0')), findsNothing);
   });

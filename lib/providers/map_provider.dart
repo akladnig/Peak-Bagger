@@ -235,6 +235,7 @@ class MapState {
   final int? hoveredRouteId;
   final String? hoveredRouteDraftMarkerId;
   final int? hoveredRouteDraftSegmentIndex;
+  final int? hoveredRouteDraftCommittedSegmentIndex;
   final LatLng? hoveredRouteDraftSegmentPoint;
   final List<GpxTrack> tracks;
   final bool showTracks;
@@ -313,6 +314,7 @@ class MapState {
     this.hoveredRouteId,
     this.hoveredRouteDraftMarkerId,
     this.hoveredRouteDraftSegmentIndex,
+    this.hoveredRouteDraftCommittedSegmentIndex,
     this.hoveredRouteDraftSegmentPoint,
     this.tracks = const [],
     this.showTracks = false,
@@ -456,6 +458,7 @@ class MapState {
     String? hoveredRouteDraftMarkerId,
     bool clearHoveredRouteDraftMarkerId = false,
     int? hoveredRouteDraftSegmentIndex,
+    int? hoveredRouteDraftCommittedSegmentIndex,
     bool clearHoveredRouteDraftSegmentPreview = false,
     LatLng? hoveredRouteDraftSegmentPoint,
     int? selectedTrackId,
@@ -564,6 +567,10 @@ class MapState {
           ? null
           : (hoveredRouteDraftSegmentIndex ??
                 this.hoveredRouteDraftSegmentIndex),
+      hoveredRouteDraftCommittedSegmentIndex: clearHoveredRouteDraftSegmentPreview
+          ? null
+          : (hoveredRouteDraftCommittedSegmentIndex ??
+                this.hoveredRouteDraftCommittedSegmentIndex),
       hoveredRouteDraftSegmentPoint: clearHoveredRouteDraftSegmentPreview
           ? null
           : (hoveredRouteDraftSegmentPoint ??
@@ -3016,6 +3023,7 @@ class MapNotifier extends Notifier<MapState> {
 
   void setHoveredRouteDraftSegmentPreview({
     required int segmentIndex,
+    required int committedSegmentIndex,
     required LatLng point,
   }) {
     if (!state.isRouteDrafting) {
@@ -3024,6 +3032,7 @@ class MapNotifier extends Notifier<MapState> {
 
     state = state.copyWith(
       hoveredRouteDraftSegmentIndex: segmentIndex,
+      hoveredRouteDraftCommittedSegmentIndex: committedSegmentIndex,
       hoveredRouteDraftSegmentPoint: point,
     );
   }
@@ -3034,17 +3043,26 @@ class MapNotifier extends Notifier<MapState> {
 
   void commitHoveredRouteDraftSegmentPreview() {
     final segmentIndex = state.hoveredRouteDraftSegmentIndex;
+    final committedSegmentIndex = state.hoveredRouteDraftCommittedSegmentIndex;
     final point = state.hoveredRouteDraftSegmentPoint;
-    if (!state.isRouteDrafting || segmentIndex == null || point == null) {
+    if (!state.isRouteDrafting ||
+        segmentIndex == null ||
+        committedSegmentIndex == null ||
+        point == null) {
       return;
     }
 
-    _insertRouteDraftPointIntoChain(segmentIndex: segmentIndex, point: point);
+    _insertRouteDraftPointIntoChain(
+      segmentIndex: segmentIndex,
+      committedSegmentIndex: committedSegmentIndex,
+      point: point,
+    );
     clearHoveredRouteDraftSegmentPreview();
   }
 
   void _insertRouteDraftPointIntoChain({
     required int segmentIndex,
+    required int committedSegmentIndex,
     required LatLng point,
   }) {
     final controlEndpoints = List<RouteDraftControlEndpoint>.from(
@@ -3056,13 +3074,15 @@ class MapNotifier extends Notifier<MapState> {
 
     final insertedEndpoint = _createControlEndpoint(
       point: point,
-      kind: RouteDraftEndpointKind.peakTarget,
+      kind: RouteDraftEndpointKind.projectedAnchor,
       id: _routeDraftEndpointId(state.routeDraftNextMarkerId),
     );
     controlEndpoints.insert(segmentIndex + 1, insertedEndpoint);
 
     final committedPoints = List<LatLng>.from(state.routeDraftCommittedPoints);
-    if (segmentIndex + 1 <= committedPoints.length) {
+    if (committedSegmentIndex >= 0 && committedSegmentIndex < committedPoints.length) {
+      committedPoints.insert(committedSegmentIndex + 1, point);
+    } else if (segmentIndex + 1 <= committedPoints.length) {
       committedPoints.insert(segmentIndex + 1, point);
     } else {
       committedPoints.add(point);
