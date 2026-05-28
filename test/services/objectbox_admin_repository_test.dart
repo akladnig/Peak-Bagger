@@ -126,6 +126,7 @@ void main() {
       containsAll([
         'id',
         'name',
+        'desc',
         'gpxRouteJson',
         'displayRoutePointsByZoom',
         'colour',
@@ -385,6 +386,7 @@ void main() {
       Route(
         id: 7,
         name: 'Mt Ossa Route',
+        desc: 'A scenic route',
         gpxRoute: [const LatLng(-41.5, 146.5)],
         gpxRouteElevations: [456],
         displayRoutePointsByZoom: '{"10":[]}',
@@ -402,6 +404,7 @@ void main() {
 
     expect(row.primaryKeyValue, 7);
     expect(row.values['name'], 'Mt Ossa Route');
+    expect(row.values['desc'], 'A scenic route');
     expect(row.values['gpxRouteJson'], '[[-41.5,146.5,456]]');
     expect(row.values['displayRoutePointsByZoom'], '{"10":[]}');
     expect(row.values['colour'], 12);

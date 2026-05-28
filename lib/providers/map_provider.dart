@@ -38,6 +38,7 @@ import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/grid_reference_parser.dart';
 import 'package:peak_bagger/services/migration_marker_store.dart';
+import 'package:peak_bagger/services/geo.dart';
 import 'package:xml/xml.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
@@ -1250,6 +1251,155 @@ class MapNotifier extends Notifier<MapState> {
     }
   }
 
+  Future<GpxImportResult<GpxRouteImportItem>> importRouteFiles({
+    required Map<String, String> pathToEditedNames,
+  }) async {
+    if (state.isLoadingTracks) {
+      throw Exception('Import already in progress');
+    }
+
+    state = state.copyWith(
+      isLoadingTracks: true,
+      clearTrackImportError: true,
+      clearTrackOperationStatus: true,
+      clearTrackOperationWarning: true,
+      clearHoveredTrackId: true,
+      clearSelectedTrackId: true,
+      clearSelectedRouteId: true,
+    );
+
+    try {
+      final importer = GpxImporter();
+      final addedItems = <GpxRouteImportItem>[];
+      var errorCount = 0;
+
+      for (final entry in pathToEditedNames.entries) {
+        final route = importer.parseRouteFile(entry.key);
+        if (route == null) {
+          errorCount += 1;
+          continue;
+        }
+
+        final editedName = entry.value.trim();
+        if (editedName.isNotEmpty) {
+          route.name = editedName;
+        }
+
+        route.colour = 0xFFFF0000;
+
+        await _enrichImportedRoute(route);
+
+        final savedRoute = _routeRepository.saveRoute(route);
+        addedItems.add(GpxRouteImportItem(route: savedRoute));
+      }
+
+      if (addedItems.isNotEmpty) {
+        ref.read(routeRevisionProvider.notifier).increment();
+      }
+
+      final importedRoute = addedItems.isNotEmpty ? addedItems.first.route : null;
+      final statusMessage = addedItems.isEmpty
+          ? 'No routes were imported'
+          : 'Imported ${addedItems.length} route(s), errors $errorCount';
+      _pendingRouteSnackbarMessage = statusMessage;
+      state = state.copyWith(
+        isLoadingTracks: false,
+        showRoutes: addedItems.isNotEmpty ? true : state.showRoutes,
+        selectedRouteId: importedRoute?.id ?? state.selectedRouteId,
+        clearSelectedTrackId: true,
+        clearHoveredTrackId: true,
+      );
+
+      return GpxImportResult<GpxRouteImportItem>(
+        items: addedItems,
+        addedCount: addedItems.length,
+        unchangedCount: 0,
+        nonTasmanianCount: 0,
+        errorCount: errorCount,
+        warningMessage: null,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoadingTracks: false,
+        trackImportError: 'Failed to import routes: $e',
+        clearHoveredTrackId: true,
+        clearSelectedTrackId: true,
+        clearSelectedRouteId: true,
+      );
+      rethrow;
+    }
+  }
+
+  Future<void> _enrichImportedRoute(Route route) async {
+    if (route.gpxRoute.isEmpty) {
+      return;
+    }
+
+    route.distance2d = _polylineDistanceMeters(route.gpxRoute).roundToDouble();
+
+    final fallbackElevations = List<int?>.from(route.gpxRouteElevations);
+    try {
+      final sampledElevations = await _routeElevationSampler.samplePointElevations(
+        route.gpxRoute,
+      );
+      if (sampledElevations.isNotEmpty) {
+        final mergedElevations = List<int?>.generate(
+          route.gpxRoute.length,
+          (index) {
+            final sampledElevation = index < sampledElevations.length
+                ? sampledElevations[index]
+                : null;
+            if (sampledElevation != null) {
+              return sampledElevation.round();
+            }
+            return index < fallbackElevations.length ? fallbackElevations[index] : null;
+          },
+          growable: false,
+        );
+
+        if (mergedElevations.any((elevation) => elevation != null)) {
+          route.gpxRouteElevations = mergedElevations;
+        }
+      }
+    } catch (_) {
+      // Keep file elevations if point sampling is unavailable.
+    }
+
+    try {
+      final summary = await _routeElevationSampler.sampleRoute(
+        points: route.gpxRoute,
+        requestId: 0,
+        geometryVersion: 0,
+      );
+      route.distance3d = summary.distance3d;
+      route.ascent = summary.ascent;
+      route.descent = summary.descent;
+      route.startElevation = summary.startElevation;
+      route.endElevation = summary.endElevation;
+      route.lowestElevation = summary.lowestElevation;
+      route.highestElevation = summary.highestElevation;
+      return;
+    } catch (_) {
+      // Fall back to elevations parsed from the GPX file.
+    }
+
+    final fallbackSummary = _routeSummaryFromElevations(
+      route.gpxRoute,
+      route.gpxRouteElevations,
+    );
+    if (fallbackSummary == null) {
+      return;
+    }
+
+    route.distance3d = fallbackSummary.distance3d;
+    route.ascent = fallbackSummary.ascent;
+    route.descent = fallbackSummary.descent;
+    route.startElevation = fallbackSummary.startElevation;
+    route.endElevation = fallbackSummary.endElevation;
+    route.lowestElevation = fallbackSummary.lowestElevation;
+    route.highestElevation = fallbackSummary.highestElevation;
+  }
+
   Future<void> _placeFileInManagedStorage({
     required String sourcePath,
     required String relativePath,
@@ -1833,6 +1983,59 @@ class MapNotifier extends Notifier<MapState> {
       );
     }
     return distance;
+  }
+
+  _RouteSummary? _routeSummaryFromElevations(
+    List<LatLng> points,
+    List<int?> elevations,
+  ) {
+    if (points.length < 2 || elevations.isEmpty) {
+      return null;
+    }
+
+    final elevationSamples = elevations.map((value) => value?.toDouble()).toList(
+      growable: false,
+    );
+    final filteredElevations = elevationSamples.whereType<double>().toList(
+      growable: false,
+    );
+    if (filteredElevations.isEmpty) {
+      return null;
+    }
+
+    var distance3d = 0.0;
+    for (var index = 1; index < points.length; index++) {
+      final distance2d = _distance.as(
+        LengthUnit.Meter,
+        points[index - 1],
+        points[index],
+      );
+      final previousElevation = index - 1 < elevationSamples.length
+          ? elevationSamples[index - 1]
+          : null;
+      final currentElevation = index < elevationSamples.length
+          ? elevationSamples[index]
+          : null;
+      if (previousElevation == null || currentElevation == null) {
+        distance3d += distance2d;
+      } else {
+        final elevationDelta = currentElevation - previousElevation;
+        distance3d += math.sqrt(
+          distance2d * distance2d + elevationDelta * elevationDelta,
+        );
+      }
+    }
+
+    final uphillDownhill = calculateUphillDownhill(elevationSamples);
+    return _RouteSummary(
+      distance3d: distance3d.roundToDouble(),
+      ascent: uphillDownhill.uphill.roundToDouble(),
+      descent: uphillDownhill.downhill.roundToDouble(),
+      startElevation: filteredElevations.first.roundToDouble(),
+      endElevation: filteredElevations.last.roundToDouble(),
+      lowestElevation: filteredElevations.reduce(math.min).roundToDouble(),
+      highestElevation: filteredElevations.reduce(math.max).roundToDouble(),
+    );
   }
 
   _RouteDraftSnapshot _captureRouteDraftSnapshot() {
@@ -4612,4 +4815,24 @@ class MapNotifier extends Notifier<MapState> {
       return value >= min || value <= max;
     }
   }
+}
+
+class _RouteSummary {
+  const _RouteSummary({
+    required this.distance3d,
+    required this.ascent,
+    required this.descent,
+    required this.startElevation,
+    required this.endElevation,
+    required this.lowestElevation,
+    required this.highestElevation,
+  });
+
+  final double distance3d;
+  final double ascent;
+  final double descent;
+  final double startElevation;
+  final double endElevation;
+  final double lowestElevation;
+  final double highestElevation;
 }

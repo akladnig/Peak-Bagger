@@ -1,10 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/services/gpx_file_picker.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
-import 'package:peak_bagger/widgets/gpx_track_import_dialog.dart';
+import 'package:peak_bagger/widgets/gpx_import_dialog.dart';
 
 Future<GpxTrackImportResult> fakeImportRunner({
+  required bool importAsRoute,
   required Map<String, String> pathToEditedNames,
 }) async {
   return const GpxTrackImportResult(
@@ -17,7 +20,7 @@ Future<GpxTrackImportResult> fakeImportRunner({
 }
 
 void main() {
-  group('GpxTrackImportDialog', () {
+  group('GpxImportDialog', () {
     testWidgets('shows "No files selected" when empty', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -27,8 +30,9 @@ void main() {
                 child: const Text('Open'),
                 onPressed: () => showDialog(
                   context: context,
-                  builder: (_) => GpxTrackImportDialog(
+                  builder: (_) => GpxImportDialog(
                     filePicker: _FakeGpxFilePicker(),
+                    importAsRoute: false,
                     onImport: fakeImportRunner,
                   ),
                 ),
@@ -53,8 +57,9 @@ void main() {
                 child: const Text('Open'),
                 onPressed: () => showDialog(
                   context: context,
-                  builder: (_) => GpxTrackImportDialog(
+                  builder: (_) => GpxImportDialog(
                     filePicker: _FakeGpxFilePicker(),
+                    importAsRoute: false,
                     onImport: fakeImportRunner,
                   ),
                 ),
@@ -67,7 +72,55 @@ void main() {
       await tester.tap(find.byType(ElevatedButton));
       await tester.pumpAndSettle();
 
-      expect(find.text('Import GPX Track(s)'), findsOneWidget);
+      expect(find.text('Import GPX File(s)'), findsOneWidget);
+    });
+
+    testWidgets('route mode shows route copy and toggle', (tester) async {
+      final tempDir = Directory.systemTemp.createTempSync('gpx-import-dialog');
+      addTearDown(() => tempDir.deleteSync(recursive: true));
+      final file = File('${tempDir.path}/route-test.gpx')
+        ..writeAsStringSync('<gpx><trk><name>Route Test</name></trk></gpx>');
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                child: const Text('Open'),
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (_) => GpxImportDialog(
+                    filePicker: _FakeSelectedGpxFilePicker([file.path]),
+                    importAsRoute: true,
+                    onImport: fakeImportRunner,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('gpx-import-select-files')));
+      await tester.pumpAndSettle();
+
+      final routeSwitch = find.descendant(
+        of: find.byKey(const Key('gpx-import-as-route')),
+        matching: find.byType(Switch),
+      );
+      expect(tester.widget<Switch>(routeSwitch).value, isTrue);
+
+      await tester.tap(routeSwitch);
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<Switch>(routeSwitch).value, isFalse);
+
+      await tester.tap(routeSwitch);
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<Switch>(routeSwitch).value, isTrue);
+
     });
 
     testWidgets('Import button disabled when no files selected', (
@@ -81,8 +134,9 @@ void main() {
                 child: const Text('Open'),
                 onPressed: () => showDialog(
                   context: context,
-                  builder: (_) => GpxTrackImportDialog(
+                  builder: (_) => GpxImportDialog(
                     filePicker: _FakeGpxFilePicker(),
+                    importAsRoute: false,
                     onImport: fakeImportRunner,
                   ),
                 ),
@@ -96,7 +150,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final importButton = tester.widget<FilledButton>(
-        find.byKey(const Key('gpx-track-import-button')),
+        find.byKey(const Key('gpx-import-button')),
       );
       expect(importButton.onPressed, isNull);
     });
@@ -110,8 +164,9 @@ void main() {
                 child: const Text('Open'),
                 onPressed: () => showDialog(
                   context: context,
-                  builder: (_) => GpxTrackImportDialog(
+                  builder: (_) => GpxImportDialog(
                     filePicker: _FakeGpxFilePicker(),
+                    importAsRoute: false,
                     onImport: fakeImportRunner,
                   ),
                 ),
@@ -124,7 +179,7 @@ void main() {
       await tester.tap(find.byType(ElevatedButton));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('gpx-track-select-files')), findsOneWidget);
+      expect(find.byKey(const Key('gpx-import-select-files')), findsOneWidget);
       expect(find.text('Select GPX Files'), findsOneWidget);
     });
 
@@ -137,8 +192,9 @@ void main() {
                 child: const Text('Open'),
                 onPressed: () => showDialog(
                   context: context,
-                  builder: (_) => GpxTrackImportDialog(
+                  builder: (_) => GpxImportDialog(
                     filePicker: _FakeGpxFilePicker(),
+                    importAsRoute: false,
                     onImport: fakeImportRunner,
                   ),
                 ),
@@ -151,10 +207,10 @@ void main() {
       await tester.tap(find.byType(ElevatedButton));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const Key('gpx-track-import-cancel')));
+      await tester.tap(find.byKey(const Key('gpx-import-cancel')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Import GPX Track(s)'), findsNothing);
+      expect(find.text('Import GPX File(s)'), findsNothing);
     });
 
     testWidgets('shows file picker button', (tester) async {
@@ -166,8 +222,9 @@ void main() {
                 child: const Text('Open'),
                 onPressed: () => showDialog(
                   context: context,
-                  builder: (_) => GpxTrackImportDialog(
+                  builder: (_) => GpxImportDialog(
                     filePicker: _FakeGpxFilePicker(),
+                    importAsRoute: false,
                     onImport: fakeImportRunner,
                   ),
                 ),
@@ -180,7 +237,7 @@ void main() {
       await tester.tap(find.byType(ElevatedButton));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('gpx-track-select-files')), findsOneWidget);
+      expect(find.byKey(const Key('gpx-import-select-files')), findsOneWidget);
     });
   });
 }
@@ -188,6 +245,18 @@ void main() {
 class _FakeGpxFilePicker implements GpxFilePicker {
   @override
   Future<List<String>?> pickGpxFiles() async => null;
+
+  @override
+  Future<String> resolveImportRoot() async => '/tmp';
+}
+
+class _FakeSelectedGpxFilePicker implements GpxFilePicker {
+  _FakeSelectedGpxFilePicker(this.paths);
+
+  final List<String> paths;
+
+  @override
+  Future<List<String>?> pickGpxFiles() async => paths;
 
   @override
   Future<String> resolveImportRoot() async => '/tmp';

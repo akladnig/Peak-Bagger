@@ -1,4 +1,5 @@
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/route.dart';
 
 /// Importer-facing plan returned by the selective-import API.
 ///
@@ -35,9 +36,31 @@ class GpxTrackImportPlanItem {
   final bool shouldPlaceInManagedStorage;
 }
 
+abstract class GpxImportItem {
+  const GpxImportItem();
+}
+
+/// A single track in the final import result.
+class GpxTrackImportItem extends GpxImportItem {
+  const GpxTrackImportItem({
+    required this.track,
+  });
+
+  final GpxTrack track;
+}
+
+/// A single route in the final import result.
+class GpxRouteImportItem extends GpxImportItem {
+  const GpxRouteImportItem({
+    required this.route,
+  });
+
+  final Route route;
+}
+
 /// Provider-facing result returned by MapNotifier after persistence and placement.
-class GpxTrackImportResult {
-  const GpxTrackImportResult({
+class GpxImportResult<TItem extends GpxImportItem> {
+  const GpxImportResult({
     required this.items,
     required this.addedCount,
     required this.unchangedCount,
@@ -46,7 +69,7 @@ class GpxTrackImportResult {
     this.warningMessage,
   });
 
-  final List<GpxTrackImportItem> items;
+  final List<TItem> items;
   final int addedCount;
   final int unchangedCount;
   final int nonTasmanianCount;
@@ -54,11 +77,4 @@ class GpxTrackImportResult {
   final String? warningMessage;
 }
 
-/// A single track in the final import result.
-class GpxTrackImportItem {
-  const GpxTrackImportItem({
-    required this.track,
-  });
-
-  final GpxTrack track;
-}
+typedef GpxTrackImportResult = GpxImportResult<GpxTrackImportItem>;

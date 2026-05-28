@@ -8,12 +8,14 @@ import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/services/import_path_helpers.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/migration_marker_store.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/route_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../harness/test_tasmap_repository.dart';
@@ -146,6 +148,53 @@ void main() {
     expect(notifier.state.tracks, hasLength(1));
     expect(notifier.state.selectedTrackId, 7);
     expect(notifier.state.selectedTrackFocusSerial, focusSerialBefore);
+  });
+
+  test('route import saves a route and selects it', () async {
+    SharedPreferences.setMockInitialValues({});
+
+    final importDir = Directory.systemTemp.createTempSync('gpx-route-import');
+    addTearDown(() => importDir.deleteSync(recursive: true));
+    final gpxFile = File('${importDir.path}/selected-route.gpx')
+      ..writeAsStringSync(_selectedRouteGpx);
+
+    final tasmapRepository = await TestTasmapRepository.create();
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+    final container = ProviderContainer(
+      overrides: [
+        mapProvider.overrideWith(
+          () => MapNotifier(
+            peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+            overpassService: OverpassService(),
+            tasmapRepository: tasmapRepository,
+            gpxTrackRepository: TestWritableGpxTrackRepository(),
+            routeRepository: routeRepository,
+            peaksBaggedRepository: PeaksBaggedRepository.test(
+              InMemoryPeaksBaggedStorage(),
+            ),
+            migrationMarkerStore: const MigrationMarkerStore(),
+            loadPositionOnBuild: false,
+            loadPeaksOnBuild: false,
+            loadTracksOnBuild: false,
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(mapProvider.notifier);
+    final result = await notifier.importRouteFiles(
+      pathToEditedNames: {gpxFile.path: 'Selected Route'},
+    );
+
+    expect(result.addedCount, 1);
+    expect(result.items.single.route.name, 'Selected Route');
+    expect(result.items.single.route.colour, 0xFFFF0000);
+    expect(routeRepository.getAllRoutes(), hasLength(1));
+    expect(routeRepository.getAllRoutes().single.colour, 0xFFFF0000);
+    expect(notifier.state.showRoutes, isTrue);
+    expect(notifier.state.selectedRouteId, routeRepository.getAllRoutes().single.id);
+    expect(container.read(routeRevisionProvider), 1);
   });
 
   test('deleteTrack clears bagged summaries for removed tracks', () async {
@@ -293,5 +342,19 @@ const _nonTasmanianTrackGpx = '''
       <trkpt lat="-30.1" lon="150.1"><time>2024-01-15T09:00:00Z</time></trkpt>
     </trkseg>
   </trk>
+</gpx>
+''';
+
+const _selectedRouteGpx = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <rte>
+    <name>Original Route</name>
+    <rtept lat="-41.5" lon="146.5"><ele>123.4</ele></rtept>
+    <rtept lat="-41.6" lon="146.6"></rtept>
+  </rte>
+  <wpt lat="-41.55" lon="146.55">
+    <name>Waypoint A</name>
+  </wpt>
 </gpx>
 ''';

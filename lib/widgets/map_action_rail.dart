@@ -9,8 +9,7 @@ import '../core/constants.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/services/gpx_file_picker.dart';
-import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
-import 'package:peak_bagger/widgets/gpx_track_import_dialog.dart';
+import 'package:peak_bagger/widgets/gpx_import_dialog.dart';
 import 'package:peak_bagger/widgets/left_tooltip_fab.dart';
 import 'package:peak_bagger/widgets/map_rebuild_debug_counters.dart';
 
@@ -77,7 +76,7 @@ class MapActionRail extends ConsumerWidget {
                       sortOrder: 0,
                       children: [
                         LeftTooltipFab(
-                          message: 'Import Track',
+                          message: 'Import GPX',
                           child: FloatingActionButton.small(
                             key: const Key('import-tracks-fab'),
                             heroTag: 'import',
@@ -424,18 +423,27 @@ class MapActionRail extends ConsumerWidget {
   Future<void> _showGpxImportDialog(BuildContext context, WidgetRef ref) async {
     final filePicker = ref.read(gpxFilePickerProvider);
 
-    await showDialog<GpxTrackImportResult>(
+    await showDialog<dynamic>(
       context: context,
       builder: (dialogContext) {
         return Dialog(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 320, maxHeight: 360),
-            child: GpxTrackImportDialog(
+            child: GpxImportDialog(
               filePicker: filePicker,
-              onImport: ({required Map<String, String> pathToEditedNames}) {
-                return ref
-                    .read(mapProvider.notifier)
-                    .importGpxFiles(pathToEditedNames: pathToEditedNames);
+              importAsRoute: false,
+              onImport: ({
+                required bool importAsRoute,
+                required Map<String, String> pathToEditedNames,
+              }) {
+                final notifier = ref.read(mapProvider.notifier);
+                return importAsRoute
+                    ? notifier.importRouteFiles(
+                        pathToEditedNames: pathToEditedNames,
+                      )
+                    : notifier.importGpxFiles(
+                        pathToEditedNames: pathToEditedNames,
+                      );
               },
             ),
           ),

@@ -35,6 +35,15 @@ class GpxFilterConfig {
     positionWindow: GpxConstants.defaultPositionWindow,
   );
 
+  static const routeDefaults = GpxFilterConfig(
+    hampelWindow: RouteUI.defaultHampelWindow,
+    outlierFilter: GpxTrackOutlierFilter.hampel,
+    elevationSmoother: GpxTrackElevationSmoother.none,
+    elevationWindow: RouteUI.defaultElevationWindow,
+    positionSmoother: GpxTrackPositionSmoother.kalman,
+    positionWindow: RouteUI.defaultPositionWindow,
+  );
+
   final int hampelWindow;
   final GpxTrackOutlierFilter outlierFilter;
   final GpxTrackElevationSmoother elevationSmoother;

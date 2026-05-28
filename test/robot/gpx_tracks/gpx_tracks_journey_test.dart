@@ -18,6 +18,7 @@ import 'package:peak_bagger/screens/dashboard_screen.dart';
 import 'package:peak_bagger/screens/peak_lists_screen.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
+import 'package:peak_bagger/services/migration_marker_store.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
@@ -807,6 +808,60 @@ void main() {
     expect(restartContainer.read(mapProvider).showRoutes, isTrue);
     expect(find.byType(PolylineLayer), findsOneWidget);
   });
+
+  testWidgets('import route selects the imported route', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final tempRoot = Directory.systemTemp.createTempSync('gpx-route-import');
+    addTearDown(() => tempRoot.deleteSync(recursive: true));
+    final routePath = '${tempRoot.path}/selected-route-import.gpx';
+    File(routePath).writeAsStringSync(_selectedRouteGpx);
+
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+    final tasmapRepository = await TestTasmapRepository.create();
+    final notifier = MapNotifier(
+      peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+      overpassService: OverpassService(),
+      tasmapRepository: tasmapRepository,
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+      routeRepository: routeRepository,
+      routeElevationSampler: const _ImmediateRouteElevationSampler(
+        RouteElevationSummary(requestId: 0, geometryVersion: 0),
+      ),
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage(),
+      ),
+      migrationMarkerStore: const MigrationMarkerStore(),
+      loadPositionOnBuild: false,
+      loadPeaksOnBuild: false,
+      loadTracksOnBuild: false,
+    );
+    final robot = GpxTracksRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+      notifier: notifier,
+      tasmapRepository: tasmapRepository,
+      routeRepository: routeRepository,
+    );
+    addTearDown(robot.dispose);
+    await robot.pumpApp();
+
+    final result = await robot.notifier.importRouteFiles(
+      pathToEditedNames: {routePath: 'Selected Route'},
+    );
+    await tester.pumpAndSettle();
+
+    expect(result.addedCount, 1);
+    expect(routeRepository.getAllRoutes(), hasLength(1));
+    expect(
+      robot.notifier.state.selectedRouteId,
+      routeRepository.getAllRoutes().single.id,
+    );
+    expect(robot.notifier.state.showRoutes, isTrue);
+  });
 }
 
 class _ImmediateRoutePlanner implements RoutePlanner {
@@ -950,6 +1005,17 @@ const _selectedTrackGpx = '''
       <trkpt lat="-43.0" lon="147.01"><time>2024-01-15T09:00:00Z</time></trkpt>
     </trkseg>
   </trk>
+</gpx>
+''';
+
+const _selectedRouteGpx = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <rte>
+    <name>Selected Route</name>
+    <rtept lat="-41.5" lon="146.5"></rtept>
+    <rtept lat="-41.6" lon="146.6"></rtept>
+  </rte>
 </gpx>
 ''';
 
