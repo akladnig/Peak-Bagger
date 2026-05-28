@@ -5,12 +5,15 @@ import 'package:crypto/crypto.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:xml/xml.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/route.dart' as app_route;
+import 'package:peak_bagger/models/route_waypoint.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/services/gpx_track_filter.dart';
 import 'package:peak_bagger/services/gpx_track_repair_service.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
+import 'package:peak_bagger/services/gpx_filter.dart';
 
 import '../core/constants.dart';
 
@@ -260,6 +263,48 @@ class GpxImporter {
     }
   }
 
+  app_route.Route? parseRouteFile(String filePath) {
+    try {
+      final file = File(filePath);
+      if (!file.existsSync()) {
+        return null;
+      }
+
+      final content = file.readAsStringSync();
+      final doc = XmlDocument.parse(content);
+      final result = const GpxFilter().filter(
+        content,
+        config: GpxFilterConfig.routeDefaults,
+      );
+      if (result.filteredSegments.isEmpty) {
+        return null;
+      }
+
+      final routePoints = result.filteredSegments
+          .expand((segment) => segment)
+          .toList(growable: false);
+      if (routePoints.length < 2) {
+        return null;
+      }
+
+      final route = app_route.Route(
+        name: result.name ?? _extractRouteName(doc, filePath),
+        desc: result.desc ?? _extractRouteDesc(doc, filePath) ?? '',
+        gpxRoute: routePoints.map((point) => point.location).toList(growable: false),
+        gpxRouteElevations: routePoints
+            .map((point) => point.ele?.round())
+            .toList(growable: false),
+        routeWaypoints: _extractRouteWaypoints(doc),
+        displayRoutePointsByZoom: TrackDisplayCacheBuilder.buildJson(
+          result.displaySegments,
+        ),
+      );
+      return route;
+    } catch (_) {
+      return null;
+    }
+  }
+
   bool _hasInterpolatedSegment(XmlDocument doc) {
     return doc.findAllElements('trkseg').any((segment) {
       final typeElement = segment.getElement('type');
@@ -311,6 +356,63 @@ class GpxImporter {
     }
 
     return segments;
+  }
+
+  List<RouteWaypoint> _extractRouteWaypoints(XmlDocument doc) {
+    final waypoints = <RouteWaypoint>[];
+    var sequence = 1;
+
+    for (final wpt in doc.findAllElements('wpt')) {
+      final latStr = wpt.getAttribute('lat');
+      final lonStr = wpt.getAttribute('lon');
+      if (latStr == null || lonStr == null) {
+        continue;
+      }
+
+      final lat = double.tryParse(latStr);
+      final lon = double.tryParse(lonStr);
+      if (lat == null || lon == null) {
+        continue;
+      }
+
+      final label = wpt.getElement('name')?.innerText.trim();
+      waypoints.add(
+        RouteWaypoint(
+          latitude: lat,
+          longitude: lon,
+          label: label == null || label.isEmpty ? 'Waypoint $sequence' : label,
+          sequence: sequence,
+          isPeakDerived: false,
+        ),
+      );
+      sequence += 1;
+    }
+
+    return waypoints;
+  }
+
+  String _extractRouteName(XmlDocument doc, String filePath) {
+    final routeElement = doc.findAllElements('rte').firstOrNull;
+    final nameElement = routeElement?.getElement('name');
+    if (nameElement != null) {
+      final text = nameElement.innerText.trim();
+      if (text.isNotEmpty) {
+        return text;
+      }
+    }
+    return _basenameWithoutExtension(filePath);
+  }
+
+  String? _extractRouteDesc(XmlDocument doc, String filePath) {
+    final routeElement = doc.findAllElements('rte').firstOrNull;
+    final descElement = routeElement?.getElement('desc');
+    if (descElement != null) {
+      final text = descElement.innerText.trim();
+      if (text.isNotEmpty) {
+        return text;
+      }
+    }
+    return null;
   }
 
   String _extractTrackName(XmlDocument doc, String filePath) {

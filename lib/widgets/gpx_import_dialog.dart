@@ -5,47 +5,91 @@ import 'package:flutter/services.dart';
 import 'package:xml/xml.dart';
 
 import 'package:peak_bagger/services/gpx_file_picker.dart';
-import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
 import 'dialog_helpers.dart';
 
-typedef GpxTrackImportRunner =
-    Future<GpxTrackImportResult> Function({
-      required Map<String, String> pathToEditedNames,
-    });
+typedef GpxImportRunner = Future<dynamic> Function({
+  required bool importAsRoute,
+  required Map<String, String> pathToEditedNames,
+});
 
-class GpxTrackImportDialog extends StatefulWidget {
-  const GpxTrackImportDialog({
+typedef GpxTrackImportRunner = GpxImportRunner;
+
+class GpxImportDialog extends StatefulWidget {
+  const GpxImportDialog({
     required this.filePicker,
     required this.onImport,
+    required this.importAsRoute,
     super.key,
   });
 
   final GpxFilePicker filePicker;
-  final GpxTrackImportRunner onImport;
+  final bool importAsRoute;
+  final GpxImportRunner onImport;
 
   @override
-  State<GpxTrackImportDialog> createState() => _GpxTrackImportDialogState();
+  State<GpxImportDialog> createState() => _GpxImportDialogState();
 }
 
-class _GpxTrackImportDialogState extends State<GpxTrackImportDialog> {
+typedef GpxTrackImportDialog = GpxImportDialog;
+
+class _GpxImportDialogState extends State<GpxImportDialog> {
   final List<_SelectedFile> _selectedFiles = [];
   bool _isImporting = false;
   Map<String, String> _nameErrors = {};
 
+  late bool _importAsRoute;
+
+  @override
+  void initState() {
+    super.initState();
+    _importAsRoute = widget.importAsRoute;
+  }
+
+  @override
+  void dispose() {
+    for (final file in _selectedFiles) {
+      file.nameController.dispose();
+    }
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      key: const Key('gpx-track-import-dialog'),
-      title: const Text('Import GPX Track(s)'),
+      key: const Key('gpx-import-dialog'),
+      title: const Text('Import GPX File(s)'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             FilledButton.tonal(
-              key: const Key('gpx-track-select-files'),
+              key: const Key('gpx-import-select-files'),
               onPressed: _isImporting ? null : _selectFiles,
               child: const Text('Select GPX Files'),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              key: const Key('gpx-import-as-route'),
+              children: [
+                Expanded(
+                  child: Text(
+                    'Import as Route',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+                Switch(
+                  value: _importAsRoute,
+                  onChanged: _isImporting
+                      ? null
+                      : (value) {
+                          setState(() {
+                            _importAsRoute = value;
+                            _nameErrors = {};
+                          });
+                        },
+                ),
+              ],
             ),
             if (_selectedFiles.isNotEmpty) ...[
               const SizedBox(height: 16),
@@ -74,16 +118,16 @@ class _GpxTrackImportDialogState extends State<GpxTrackImportDialog> {
       ),
       actions: [
         TextButton(
-          key: const Key('gpx-track-import-cancel'),
+          key: const Key('gpx-import-cancel'),
           onPressed: _isImporting ? null : () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
         FilledButton(
-          key: const Key('gpx-track-import-button'),
+          key: const Key('gpx-import-button'),
           onPressed: _selectedFiles.isEmpty || _isImporting ? null : _import,
           child: _isImporting
               ? const SizedBox(
-                  key: Key('gpx-track-import-progress'),
+                  key: Key('gpx-import-progress'),
                   width: 16,
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
@@ -98,16 +142,16 @@ class _GpxTrackImportDialogState extends State<GpxTrackImportDialog> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        key: Key('gpx-track-row-$index'),
+        key: Key('gpx-import-row-$index'),
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: TextField(
-              key: Key('gpx-track-name-field-$index'),
+              key: Key('gpx-import-name-field-$index'),
               controller: file.nameController,
               enabled: !_isImporting,
               decoration: InputDecoration(
-                labelText: 'Track Name',
+                labelText: _importAsRoute ? 'Route Name' : 'Track Name',
                 errorText: _nameErrors[file.path],
                 helperText: _basename(file.path),
                 helperMaxLines: 1,
@@ -149,6 +193,13 @@ class _GpxTrackImportDialogState extends State<GpxTrackImportDialog> {
               nameController: TextEditingController(text: prefilledName),
             ),
           );
+        }
+      }
+
+      final newPaths = newFiles.map((file) => file.path).toSet();
+      for (final file in _selectedFiles) {
+        if (!newPaths.contains(file.path)) {
+          file.nameController.dispose();
         }
       }
 
@@ -203,11 +254,12 @@ class _GpxTrackImportDialogState extends State<GpxTrackImportDialog> {
     // Validate all names
     final errors = <String, String>{};
     final pathToEditedNames = <String, String>{};
+    final nameLabel = _importAsRoute ? 'route' : 'track';
 
     for (final file in _selectedFiles) {
       final name = file.nameController.text.trim();
       if (name.isEmpty) {
-        errors[file.path] = 'A track name is required';
+        errors[file.path] = 'A $nameLabel name is required';
       } else {
         pathToEditedNames[file.path] = name;
       }
@@ -227,6 +279,7 @@ class _GpxTrackImportDialogState extends State<GpxTrackImportDialog> {
     final rootNavigator = Navigator.of(context, rootNavigator: true);
     try {
       final result = await widget.onImport(
+        importAsRoute: _importAsRoute,
         pathToEditedNames: pathToEditedNames,
       );
       if (!mounted) return;
@@ -252,19 +305,19 @@ class _GpxTrackImportDialogState extends State<GpxTrackImportDialog> {
 
   Future<void> _showResultDialog(
     BuildContext dialogContext,
-    GpxTrackImportResult result,
+    dynamic result,
   ) {
     return showSingleActionDialog(
       context: dialogContext,
       title: 'Import Complete',
-      closeKey: 'gpx-track-import-result-close',
+      closeKey: 'gpx-import-result-close',
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${result.addedCount} track(s) added',
-            key: const Key('gpx-track-import-summary'),
+            '${result.addedCount} ${_importAsRoute ? 'route(s)' : 'track(s)'} added',
+            key: const Key('gpx-import-summary'),
           ),
           if (result.unchangedCount > 0)
             Text('${result.unchangedCount} unchanged'),
@@ -284,7 +337,7 @@ class _GpxTrackImportDialogState extends State<GpxTrackImportDialog> {
     return showSingleActionDialog(
       context: dialogContext,
       title: 'Import Failed',
-      closeKey: 'gpx-track-import-error-close',
+      closeKey: 'gpx-import-error-close',
       content: Text(error),
     );
   }

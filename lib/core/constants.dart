@@ -103,6 +103,9 @@ abstract final class RouteUI {
   static const markerZoom = 1.2;
   static const strokeWidth = 3.0;
   static const strokeDarkenAlpha = 0.32;
+  static const defaultHampelWindow = 5;
+  static const defaultElevationWindow = 5;
+  static const defaultPositionWindow = 3;
 
   // 24.0 is required for a 10.0 font size.
 }

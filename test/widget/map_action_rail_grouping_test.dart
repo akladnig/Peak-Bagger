@@ -39,7 +39,7 @@ void main() {
 
     expect(
       _messagesFor(find.byKey(const Key('map-action-tools-group')), tester),
-      containsAll(<String>['Import Track', 'Create Route']),
+      containsAll(<String>['Import GPX', 'Create Route']),
     );
     expect(
       _messagesFor(find.byKey(const Key('map-action-view-group')), tester),

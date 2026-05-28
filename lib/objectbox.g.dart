@@ -517,7 +517,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(6, 3506540890240152030),
     name: 'Route',
-    lastPropertyId: const obx_int.IdUid(14, 6508459819772890067),
+    lastPropertyId: const obx_int.IdUid(15, 7267278234167446456),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -601,6 +601,12 @@ final _entities = <obx_int.ModelEntity>[
       obx_int.ModelProperty(
         id: const obx_int.IdUid(14, 6508459819772890067),
         name: 'routeWaypointsJson',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(15, 7267278234167446456),
+        name: 'desc',
         type: 9,
         flags: 0,
       ),
@@ -1332,7 +1338,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final routeWaypointsJsonOffset = fbb.writeString(
           object.routeWaypointsJson,
         );
-        fbb.startTable(15);
+        final descOffset = fbb.writeString(object.desc);
+        fbb.startTable(16);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, nameOffset);
         fbb.addOffset(2, displayRoutePointsByZoomOffset);
@@ -1347,6 +1354,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addFloat64(11, object.highestElevation);
         fbb.addOffset(12, gpxRouteJsonOffset);
         fbb.addOffset(13, routeWaypointsJsonOffset);
+        fbb.addOffset(14, descOffset);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -1362,6 +1370,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final nameParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 6, '');
+        final descParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 32, '');
         final displayRoutePointsByZoomParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 8, '');
@@ -1423,6 +1434,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
             Route(
                 id: idParam,
                 name: nameParam,
+                desc: descParam,
                 displayRoutePointsByZoom: displayRoutePointsByZoomParam,
                 colour: colourParam,
                 distance2d: distance2dParam,
@@ -1891,5 +1903,10 @@ class Route_ {
   /// See [Route.routeWaypointsJson].
   static final routeWaypointsJson = obx.QueryStringProperty<Route>(
     _entities[5].properties[13],
+  );
+
+  /// See [Route.desc].
+  static final desc = obx.QueryStringProperty<Route>(
+    _entities[5].properties[14],
   );
 }

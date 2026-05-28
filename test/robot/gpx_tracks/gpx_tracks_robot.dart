@@ -74,10 +74,14 @@ class GpxTracksRobot {
   Finder get dashboardMyAscentsCard =>
       find.byKey(const Key('dashboard-card-my-ascents'));
   Finder get importResultSummary =>
-      find.byKey(const Key('gpx-track-import-summary'));
+      find.byKey(const Key('gpx-import-summary'));
   Finder get importResultClose =>
-      find.byKey(const Key('gpx-track-import-result-close'));
-  Finder get importSelectedRow => find.byKey(const Key('gpx-track-row-0'));
+      find.byKey(const Key('gpx-import-result-close'));
+  Finder get importAsRouteSwitch => find.descendant(
+    of: find.byKey(const Key('gpx-import-as-route')),
+    matching: find.byType(Switch),
+  );
+  Finder get importSelectedRow => find.byKey(const Key('gpx-import-row-0'));
   Finder get peakMarkerLayer => find.byKey(const Key('peak-marker-layer'));
   Finder get recalcStatsTile =>
       find.byKey(const Key('recalculate-track-statistics-tile'));
@@ -217,13 +221,33 @@ class GpxTracksRobot {
   }
 
   Future<void> selectImportFiles() async {
-    await tester.tap(find.byKey(const Key('gpx-track-select-files')));
+    final selectFilesButton = find.byKey(const Key('gpx-import-select-files'));
+    await tester.ensureVisible(selectFilesButton);
+    await tester.pumpAndSettle();
+    await tester.tap(selectFilesButton, warnIfMissed: false);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
   }
 
+  Future<void> setImportAsRoute(bool value) async {
+    for (var attempt = 0; attempt < 3; attempt++) {
+      final currentValue = tester.widget<Switch>(importAsRouteSwitch).value;
+      if (currentValue == value) {
+        return;
+      }
+
+      await tester.ensureVisible(importAsRouteSwitch);
+      await tester.pumpAndSettle();
+      await tester.tap(importAsRouteSwitch, warnIfMissed: false);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+
+    expect(tester.widget<Switch>(importAsRouteSwitch).value, value);
+  }
+
   Future<void> confirmImport() async {
-    await tester.tap(find.byKey(const Key('gpx-track-import-button')));
+    await tester.tap(find.byKey(const Key('gpx-import-button')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
   }
@@ -234,7 +258,24 @@ class GpxTracksRobot {
     await waitForImportSelection();
     for (var i = 0; i < 50; i++) {
       final importButton = tester.widget<FilledButton>(
-        find.byKey(const Key('gpx-track-import-button')),
+        find.byKey(const Key('gpx-import-button')),
+      );
+      if (importButton.onPressed != null) {
+        break;
+      }
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await confirmImport();
+  }
+
+  Future<void> importSelectedRouteFiles() async {
+    await openImportDialog();
+    await setImportAsRoute(true);
+    await selectImportFiles();
+    await waitForImportSelection();
+    for (var i = 0; i < 50; i++) {
+      final importButton = tester.widget<FilledButton>(
+        find.byKey(const Key('gpx-import-button')),
       );
       if (importButton.onPressed != null) {
         break;
@@ -262,6 +303,15 @@ class GpxTracksRobot {
     }
   }
 
+  Future<void> waitForRouteImportResult() async {
+    for (var i = 0; i < 50; i++) {
+      if (notifier.state.selectedRouteId != null) {
+        return;
+      }
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+
   Future<void> closeImportResult() async {
     await tester.tap(importResultClose);
     await tester.pump(const Duration(milliseconds: 300));
@@ -280,7 +330,7 @@ class GpxTracksRobot {
   }
 
   void expectImportDialogVisible() {
-    expect(find.byKey(const Key('gpx-track-import-dialog')), findsOneWidget);
+    expect(find.byKey(const Key('gpx-import-dialog')), findsOneWidget);
   }
 
   void expectImportResultSummary(String text) {

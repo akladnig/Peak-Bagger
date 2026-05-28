@@ -1959,13 +1959,19 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                     ),
                                   ),
                                 ),
-                                if (selectedTrack == null)
+                                if (
+                                  selectedTrack == null &&
+                                      selectedRoute == null
+                                )
                                   Positioned(
                                     left: 16,
                                     top: 16,
                                     child: MapMgrsReadout(mgrs: displayMgrs),
                                   ),
-                                if (selectedTrack == null)
+                                if (
+                                  selectedTrack == null &&
+                                      selectedRoute == null
+                                )
                                   Positioned(
                                     left: 16,
                                     bottom: 16,

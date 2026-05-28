@@ -13,6 +13,8 @@ class Route {
 
   String name;
 
+  String desc;
+
   @Transient()
   List<LatLng> gpxRoute;
 
@@ -36,6 +38,7 @@ class Route {
   Route({
     this.id = 0,
     this.name = '',
+    this.desc = '',
     List<LatLng>? gpxRoute,
     List<int?>? gpxRouteElevations,
     List<RouteWaypoint>? routeWaypoints,

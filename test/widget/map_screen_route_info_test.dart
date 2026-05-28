@@ -80,6 +80,8 @@ void main() {
     expect(container.read(mapProvider).selectedTrackId, isNull);
     expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
     expect(find.text('Visible Route'), findsOneWidget);
+    expect(find.byKey(const Key('map-mgrs-readout')), findsNothing);
+    expect(find.byKey(const Key('map-zoom-readout')), findsNothing);
 
     await tester.tap(find.byKey(const Key('track-info-panel-close')));
     await tester.pumpAndSettle();

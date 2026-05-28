@@ -542,6 +542,7 @@ ObjectBoxAdminRow routeToAdminRow(Route route) {
     values: {
       'id': route.id,
       'name': route.name,
+      'desc': route.desc,
       'gpxRouteJson': route.gpxRouteJson,
       'displayRoutePointsByZoom': route.displayRoutePointsByZoom,
       'colour': route.colour,
