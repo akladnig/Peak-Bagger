@@ -193,9 +193,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
         return;
       }
 
-      messenger.showSnackBar(
-        SnackBar(content: Text('Export failed: $error')),
-      );
+      messenger.showSnackBar(SnackBar(content: Text('Export failed: $error')));
     }
   }
 
@@ -402,10 +400,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _routeDraftMarkerTapConsumed = true;
     final nextScreenOffset = _draggingRouteDraftMarkerScreenOffset! + delta;
     _draggingRouteDraftMarkerScreenOffset = nextScreenOffset;
-    final point = _mapController.camera.screenOffsetToLatLng(nextScreenOffset);
-    unawaited(
-      ref.read(mapProvider.notifier).updateRouteDraftMarkerDrag(markerId, point),
-    );
     _bumpViewportUiRevision();
   }
 
@@ -414,11 +408,17 @@ class _MapScreenState extends ConsumerState<MapScreen>
       return;
     }
 
+    final screenOffset = _draggingRouteDraftMarkerScreenOffset;
     _draggingRouteDraftMarkerId = null;
     _draggingRouteDraftMarkerScreenOffset = null;
     _pendingRouteDraftDragMarkerId = null;
     _pendingRouteDraftDragDistance = 0;
-    ref.read(mapProvider.notifier).endRouteDraftMarkerDrag(markerId);
+    if (screenOffset != null) {
+      final point = _mapController.camera.screenOffsetToLatLng(screenOffset);
+      unawaited(
+        ref.read(mapProvider.notifier).moveRouteDraftMarker(markerId, point),
+      );
+    }
     _bumpViewportUiRevision();
   }
 
@@ -674,7 +674,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
   bool _handleRouteDraftMarkerHover(Offset localPosition, MapState mapState) {
     final notifier = ref.read(mapProvider.notifier);
 
-    if (!mapState.isRouteDrafting || mapState.routeDraftDisplayMarkers.isEmpty) {
+    if (!mapState.isRouteDrafting ||
+        mapState.routeDraftDisplayMarkers.isEmpty) {
       notifier.clearHoveredRouteDraftMarker();
       return false;
     }
@@ -791,7 +792,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final candidates = <_RouteDraftHoverCandidate>[];
     var committedSearchStart = 0;
 
-    for (var controlIndex = 0; controlIndex < controlEndpoints.length - 1; controlIndex++) {
+    for (
+      var controlIndex = 0;
+      controlIndex < controlEndpoints.length - 1;
+      controlIndex++
+    ) {
       final startIndex = _indexOfCommittedRoutePoint(
         committedPoints,
         controlEndpoints[controlIndex].point,
@@ -810,13 +815,19 @@ class _MapScreenState extends ConsumerState<MapScreen>
         continue;
       }
 
-      for (var committedIndex = startIndex; committedIndex < endIndex; committedIndex++) {
+      for (
+        var committedIndex = startIndex;
+        committedIndex < endIndex;
+        committedIndex++
+      ) {
         candidates.add(
           _RouteDraftHoverCandidate(
             controlSegmentIndex: controlIndex,
             committedSegmentIndex: committedIndex,
             start: camera.latLngToScreenOffset(committedPoints[committedIndex]),
-            end: camera.latLngToScreenOffset(committedPoints[committedIndex + 1]),
+            end: camera.latLngToScreenOffset(
+              committedPoints[committedIndex + 1],
+            ),
             startsAtControlEndpoint: committedIndex == startIndex,
             endsAtControlEndpoint: committedIndex + 1 == endIndex,
           ),
@@ -1218,11 +1229,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<({
-      bool isRouteDrafting,
-      List<RouteDraftDisplayMarker> routeDraftDisplayMarkers,
-      int routeDraftRequestId,
-    })>(
+    ref.listen<
+      ({
+        bool isRouteDrafting,
+        List<RouteDraftDisplayMarker> routeDraftDisplayMarkers,
+        int routeDraftRequestId,
+      })
+    >(
       mapProvider.select(
         (state) => (
           isRouteDrafting: state.isRouteDrafting,
@@ -1241,7 +1254,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
         );
         if (!next.isRouteDrafting ||
             !markerStillVisible ||
-            previous?.routeDraftDisplayMarkers != next.routeDraftDisplayMarkers ||
+            previous?.routeDraftDisplayMarkers !=
+                next.routeDraftDisplayMarkers ||
             previous?.routeDraftRequestId != next.routeDraftRequestId) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
@@ -1477,9 +1491,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     });
                     final routeDraftVisibility = ref.watch(
                       mapProvider.select(
-                        (state) => (
-                          isRouteDrafting: state.isRouteDrafting,
-                        ),
+                        (state) => (isRouteDrafting: state.isRouteDrafting),
                       ),
                     );
                     final routeSnackbarMessage = ref
@@ -1493,7 +1505,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                         );
                       });
                     }
-                    if (_wasRouteDrafting && !routeDraftVisibility.isRouteDrafting) {
+                    if (_wasRouteDrafting &&
+                        !routeDraftVisibility.isRouteDrafting) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         if (!mounted) return;
                         _mapFocusNode.requestFocus();
@@ -1538,11 +1551,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
                             }
                             final routeDraftDisplayMarkers =
                                 _draggingRouteDraftMarkerId == null ||
-                                    _draggingRouteDraftMarkerScreenOffset == null
+                                    _draggingRouteDraftMarkerScreenOffset ==
+                                        null
                                 ? routeChrome.routeDraftDisplayMarkers
                                 : routeChrome.routeDraftDisplayMarkers
                                       .map(
-                                        (marker) => marker.id ==
+                                        (marker) =>
+                                            marker.id ==
                                                 _draggingRouteDraftMarkerId
                                             ? marker.copyWith(
                                                 point: _mapController.camera
@@ -1579,7 +1594,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                     notifier.clearHoveredTrack();
                                     notifier.clearHoveredRoute();
                                     notifier.clearHoveredRouteDraftMarker();
-                                    notifier.clearHoveredRouteDraftSegmentPreview();
+                                    notifier
+                                        .clearHoveredRouteDraftSegmentPreview();
                                   },
                                   child: Listener(
                                     behavior: HitTestBehavior.translucent,
@@ -1646,7 +1662,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               );
                                           if (routeChrome.isRouteDrafting) {
                                             if (_routeDraftMarkerTapConsumed) {
-                                              _routeDraftMarkerTapConsumed = false;
+                                              _routeDraftMarkerTapConsumed =
+                                                  false;
                                               return;
                                             }
                                             final draftState = ref.read(
@@ -1792,30 +1809,31 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                           ),
                                         if (routeChrome.isRouteDrafting)
                                           buildDraftRoutePolylines(
-                                            committedPoints:
-                                                routeChrome.routeDraftCommittedPoints,
-                                            provisionalPoints:
-                                                routeChrome.routeDraftProvisionalPoints,
-                                            colour: routeChrome.routeDraftColour,
+                                            committedPoints: routeChrome
+                                                .routeDraftCommittedPoints,
+                                            provisionalPoints: routeChrome
+                                                .routeDraftProvisionalPoints,
+                                            colour:
+                                                routeChrome.routeDraftColour,
                                           ),
                                         if (routeChrome.isRouteDrafting &&
-                                            routeChrome.routeDraftDisplayMarkers
+                                            routeChrome
+                                                .routeDraftDisplayMarkers
                                                 .isNotEmpty)
                                           MarkerLayer(
                                             key: const Key(
                                               'route-draft-marker-layer',
                                             ),
                                             markers: buildRouteDraftMarkers(
-                                              markers:
-                                                  routeDraftDisplayMarkers,
+                                              markers: routeDraftDisplayMarkers,
                                               colour:
                                                   routeChrome.routeDraftColour,
-                                              hoveredMarkerId:
-                                                  routeChrome.hoveredRouteDraftMarkerId,
-                                              hoveredSegmentIndex:
-                                                  routeChrome.hoveredRouteDraftSegmentIndex,
-                                              hoveredSegmentPoint:
-                                                  routeChrome.hoveredRouteDraftSegmentPoint,
+                                              hoveredMarkerId: routeChrome
+                                                  .hoveredRouteDraftMarkerId,
+                                              hoveredSegmentIndex: routeChrome
+                                                  .hoveredRouteDraftSegmentIndex,
+                                              hoveredSegmentPoint: routeChrome
+                                                  .hoveredRouteDraftSegmentPoint,
                                               onHoverEnter: ref
                                                   .read(mapProvider.notifier)
                                                   .setHoveredRouteDraftMarkerId,
@@ -1960,37 +1978,40 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                   child: AnimatedSlide(
                                     duration: const Duration(milliseconds: 200),
                                     curve: Curves.easeOut,
-                                    offset: selectedTrack == null && selectedRoute == null
+                                    offset:
+                                        selectedTrack == null &&
+                                            selectedRoute == null
                                         ? const Offset(-1.1, 0)
                                         : Offset.zero,
                                     child: IgnorePointer(
                                       ignoring:
                                           selectedTrack == null &&
                                           selectedRoute == null,
-                                      child: selectedRoute == null &&
+                                      child:
+                                          selectedRoute == null &&
                                               selectedTrack == null
                                           ? const SizedBox(
                                               width: UiConstants
                                                   .preferredLeftWidth,
                                             )
-                                           : MapTrackInfoPanel(
-                                               track: selectedRoute == null
-                                                   ? selectedTrack
-                                                   : null,
-                                               route: selectedRoute,
-                                               onExport: () {
-                                                 unawaited(
-                                                   _exportInfoSelection(
-                                                     track: selectedRoute == null
-                                                         ? selectedTrack
-                                                         : null,
-                                                     route: selectedRoute,
-                                                   ),
-                                                 );
-                                               },
-                                               onClose: () {
-                                                 final notifier = ref.read(
-                                                   mapProvider.notifier,
+                                          : MapTrackInfoPanel(
+                                              track: selectedRoute == null
+                                                  ? selectedTrack
+                                                  : null,
+                                              route: selectedRoute,
+                                              onExport: () {
+                                                unawaited(
+                                                  _exportInfoSelection(
+                                                    track: selectedRoute == null
+                                                        ? selectedTrack
+                                                        : null,
+                                                    route: selectedRoute,
+                                                  ),
+                                                );
+                                              },
+                                              onClose: () {
+                                                final notifier = ref.read(
+                                                  mapProvider.notifier,
                                                 );
                                                 notifier.clearSelectedTrack();
                                                 notifier.clearSelectedRoute();
@@ -2164,7 +2185,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
           onDropMarker: () {
             ref
                 .read(mapProvider.notifier)
-                .setSelectedLocation(LatLng(content.peak.latitude, content.peak.longitude));
+                .setSelectedLocation(
+                  LatLng(content.peak.latitude, content.peak.longitude),
+                );
           },
           onClose: () {
             ref.read(mapProvider.notifier).closePeakInfoPopup();
