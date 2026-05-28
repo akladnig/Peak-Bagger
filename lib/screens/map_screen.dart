@@ -53,12 +53,16 @@ class _RouteDraftHoverCandidate {
     required this.committedSegmentIndex,
     required this.start,
     required this.end,
+    required this.startsAtControlEndpoint,
+    required this.endsAtControlEndpoint,
   });
 
   final int controlSegmentIndex;
   final int committedSegmentIndex;
   final Offset start;
   final Offset end;
+  final bool startsAtControlEndpoint;
+  final bool endsAtControlEndpoint;
 }
 
 class MapScreen extends ConsumerStatefulWidget {
@@ -591,6 +595,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     int? bestCommittedSegmentIndex;
     LatLng? bestPoint;
     double? bestDistance;
+    final endpointExclusionRadius = RouteUI.markerSize * RouteUI.markerZoom / 2;
 
     for (final candidate in candidates) {
       final closest = _closestPointOnSegment(
@@ -598,6 +603,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
         candidate.start,
         candidate.end,
       );
+      if (candidate.startsAtControlEndpoint &&
+          (closest - candidate.start).distance < endpointExclusionRadius) {
+        continue;
+      }
+      if (candidate.endsAtControlEndpoint &&
+          (closest - candidate.end).distance < endpointExclusionRadius) {
+        continue;
+      }
       final distance = (localPosition - closest).distance;
       if (distance > 12) {
         continue;
@@ -663,6 +676,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
             committedSegmentIndex: committedIndex,
             start: camera.latLngToScreenOffset(committedPoints[committedIndex]),
             end: camera.latLngToScreenOffset(committedPoints[committedIndex + 1]),
+            startsAtControlEndpoint: committedIndex == startIndex,
+            endsAtControlEndpoint: committedIndex + 1 == endIndex,
           ),
         );
       }

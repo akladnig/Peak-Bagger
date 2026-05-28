@@ -51,6 +51,16 @@ export 'package:peak_bagger/services/peak_info_content_resolver.dart';
 
 const _distance = Distance();
 
+Peak? _peakAtPoint(Iterable<Peak> peaks, LatLng point) {
+  for (final peak in peaks) {
+    final peakLocation = LatLng(peak.latitude, peak.longitude);
+    if (_distance.as(LengthUnit.Meter, point, peakLocation) <= 5) {
+      return peak;
+    }
+  }
+  return null;
+}
+
 const _latKey = 'map_position_lat';
 const _lngKey = 'map_position_lng';
 const _zoomKey = 'map_zoom';
@@ -349,14 +359,7 @@ class MapState {
       return null;
     }
 
-    for (final peak in peaks) {
-      final peakLocation = LatLng(peak.latitude, peak.longitude);
-      if (_distance.as(LengthUnit.Meter, markerLocation, peakLocation) <= 5) {
-        return peak;
-      }
-    }
-
-    return null;
+    return _peakAtPoint(peaks, markerLocation);
   }
 
   bool get showMapOverlay => tasmapDisplayMode == TasmapDisplayMode.overlay;
@@ -1675,6 +1678,12 @@ class MapNotifier extends Notifier<MapState> {
     );
   }
 
+  RouteDraftEndpointKind _manualEndpointKindForPoint(LatLng point) {
+    return _peakAtPoint(state.peaks, point) == null
+        ? RouteDraftEndpointKind.tapped
+        : RouteDraftEndpointKind.peakTarget;
+  }
+
   String _routeDraftEndpointId(int serial) => '$serial';
 
   int _visibleNumberedRouteMarkerCount(
@@ -2248,7 +2257,7 @@ class MapNotifier extends Notifier<MapState> {
         }
         final endpoint = _createControlEndpoint(
           point: point,
-          kind: RouteDraftEndpointKind.tapped,
+          kind: _manualEndpointKindForPoint(point),
         );
         _setRouteDraftControlState(
           controlEndpoints: [endpoint],
@@ -2266,7 +2275,7 @@ class MapNotifier extends Notifier<MapState> {
         if (start == null) {
           final endpoint = _createControlEndpoint(
             point: point,
-            kind: RouteDraftEndpointKind.tapped,
+            kind: _manualEndpointKindForPoint(point),
           );
           _setRouteDraftControlState(
             controlEndpoints: [endpoint],
@@ -2281,7 +2290,7 @@ class MapNotifier extends Notifier<MapState> {
         if (start.point == point) {
           final duplicate = _createControlEndpoint(
             point: point,
-            kind: RouteDraftEndpointKind.tapped,
+            kind: _manualEndpointKindForPoint(point),
           );
           _setRouteDraftControlState(
             controlEndpoints: [...state.routeDraftControlEndpoints, duplicate],
@@ -2299,7 +2308,7 @@ class MapNotifier extends Notifier<MapState> {
         }
         final nextEndpoint = _createControlEndpoint(
           point: point,
-          kind: RouteDraftEndpointKind.tapped,
+          kind: _manualEndpointKindForPoint(point),
         );
         if (useStraightLine) {
           final segmentPoints = [start.point, point];
