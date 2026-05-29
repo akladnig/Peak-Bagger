@@ -34,10 +34,7 @@ class GpxFilter {
 
   static const _distance = Distance();
 
-  GpxFilterResult filter(
-    String rawGpxXml, {
-    required GpxFilterConfig config,
-  }) {
+  GpxFilterResult filter(String rawGpxXml, {required GpxFilterConfig config}) {
     try {
       final document = XmlDocument.parse(rawGpxXml);
       final sourceKind = _hasTrackGeometry(document)
@@ -132,9 +129,8 @@ class GpxFilter {
   List<List<LatLng>> _segmentsToLocations(List<List<GpxPointSample>> segments) {
     return segments
         .map(
-          (segment) => segment
-              .map((point) => point.location)
-              .toList(growable: false),
+          (segment) =>
+              segment.map((point) => point.location).toList(growable: false),
         )
         .toList(growable: false);
   }
@@ -182,11 +178,7 @@ class GpxFilter {
       return points;
     }
 
-    if (points.every((point) => point.time != null)) {
-      return points;
-    }
-
-    return points;
+    return points.where((point) => point.time != null).toList(growable: false);
   }
 
   List<GpxPointSample> _rejectImpossiblePoints(List<GpxPointSample> points) {
@@ -251,7 +243,9 @@ class GpxFilter {
       elevations.sort();
       final median = _medianOfSorted(elevations);
       final deviations =
-          elevations.map((value) => (value - median).abs()).toList(growable: false)
+          elevations
+              .map((value) => (value - median).abs())
+              .toList(growable: false)
             ..sort();
       final mad = _medianOfSorted(deviations);
       if (mad == 0) {
@@ -546,7 +540,9 @@ class GpxFilter {
     String elementName,
     GpxPointSourceKind sourceKind,
   ) {
-    final containerName = sourceKind == GpxPointSourceKind.track ? 'trk' : 'rte';
+    final containerName = sourceKind == GpxPointSourceKind.track
+        ? 'trk'
+        : 'rte';
     final container = document.findAllElements(containerName).firstOrNull;
     final text = container?.getElement(elementName)?.innerText.trim();
     return text == null || text.isEmpty ? null : text;
