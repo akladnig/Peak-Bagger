@@ -469,7 +469,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Height: 1,234m'), findsOneWidget);
+      expect(find.text('Height: 1234m'), findsOneWidget);
     expect(find.text('Map: Adamsons'), findsOneWidget);
     expect(find.text('MGRS: 55G DM 80000 95000'), findsOneWidget);
     expect(find.text('Lists: Abels, HWC'), findsOneWidget);
@@ -534,7 +534,7 @@ void main() {
     expect(find.byTooltip('Close Peak Info'), findsOneWidget);
     expect(find.byTooltip('Drop a Marker on the Peak'), findsOneWidget);
     expect(find.byKey(const Key('peak-info-popup-drop-marker')), findsOneWidget);
-    expect(find.text('Height: 1,234m'), findsOneWidget);
+    expect(find.text('Height: 1234m'), findsOneWidget);
     expect(find.text('My Ascents:'), findsOneWidget);
     expect(find.text('Alpha Loop (16 May 2026)'), findsOneWidget);
     expect(find.text('Beta Loop (16 May 2026)'), findsOneWidget);
@@ -677,7 +677,7 @@ void main() {
     );
     expect(
       tester.getTopLeft(find.text('Alt Name: Kunanyi foothill')).dy,
-      lessThan(tester.getTopLeft(find.text('Height: 1,234m')).dy),
+      lessThan(tester.getTopLeft(find.text('Height: 1234m')).dy),
     );
   });
 

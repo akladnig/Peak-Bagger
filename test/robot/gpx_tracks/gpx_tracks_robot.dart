@@ -456,12 +456,14 @@ class GpxTracksRobot {
   }
 
   List<String> peakMarkerAssetNames() {
-    final markerLayer = tester.widget<MarkerLayer>(peakMarkerLayer);
-    return markerLayer.markers.map((marker) {
-      final child = marker.child;
-      final visualMarker = child is KeyedSubtree ? child.child : child;
-      return (visualMarker as SvgPicture).bytesLoader.toString();
-    }).toList();
+    return tester.widgetList<SvgPicture>(
+      find.descendant(
+        of: peakMarkerLayer,
+        matching: find.byType(SvgPicture),
+      ),
+    )
+        .map((svg) => svg.bytesLoader.toString())
+        .toList(growable: false);
   }
 
   List<int> peakMarkerIds() {
