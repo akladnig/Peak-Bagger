@@ -91,6 +91,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
   GpxTrack? _pendingSelectedTrack;
   int? _pendingSelectedTrackSerial;
   int? _appliedSelectedTrackSerial;
+  app_route.Route? _pendingSelectedRoute;
+  int? _pendingSelectedRouteSerial;
+  int? _appliedSelectedRouteSerial;
   int? _pendingCameraRequestSerial;
   int? _appliedCameraRequestSerial;
   bool _isPointerDown = false;
@@ -1520,6 +1523,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     );
                     _queueSelectedMapZoom(mapState);
                     _queueSelectedTrackZoom(mapState);
+                    _queueSelectedRouteZoom(mapState, routes);
                     _queueCameraRequest(mapState);
 
                     return LayoutBuilder(
@@ -2538,6 +2542,37 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _tryZoomPendingSelectedTrack();
   }
 
+  void _queueSelectedRouteZoom(MapState mapState, List<app_route.Route> routes) {
+    final selectedRouteId = mapState.selectedRouteId;
+    if (selectedRouteId == null || !mapState.showRoutes) {
+      _pendingSelectedRoute = null;
+      _pendingSelectedRouteSerial = null;
+      return;
+    }
+
+    app_route.Route? selectedRoute;
+    for (final route in routes) {
+      if (route.id == selectedRouteId) {
+        selectedRoute = route;
+        break;
+      }
+    }
+    if (selectedRoute == null) {
+      _pendingSelectedRoute = null;
+      _pendingSelectedRouteSerial = null;
+      return;
+    }
+
+    final nextSerial = mapState.selectedRouteFocusSerial;
+    if (_appliedSelectedRouteSerial == nextSerial) {
+      return;
+    }
+
+    _pendingSelectedRoute = selectedRoute;
+    _pendingSelectedRouteSerial = nextSerial;
+    _tryZoomPendingSelectedRoute();
+  }
+
   void _tryZoomPendingSelectedMap() {
     final selectedMap = _pendingSelectedMap;
     final selectedMapSerial = _pendingSelectedMapSerial;
@@ -2564,6 +2599,21 @@ class _MapScreenState extends ConsumerState<MapScreen>
         return;
       }
       _zoomToTrackExtent(selectedTrack, focusSerial: selectedTrackSerial);
+    });
+  }
+
+  void _tryZoomPendingSelectedRoute() {
+    final selectedRoute = _pendingSelectedRoute;
+    final selectedRouteSerial = _pendingSelectedRouteSerial;
+    if (!_mapReady || selectedRoute == null || selectedRouteSerial == null) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _zoomToRouteExtent(selectedRoute, focusSerial: selectedRouteSerial);
     });
   }
 
@@ -2631,6 +2681,81 @@ class _MapScreenState extends ConsumerState<MapScreen>
     }
   }
 
+  void _zoomToRouteExtent(
+    app_route.Route route, {
+    int attempt = 0,
+    int? focusSerial,
+  }) {
+    if (focusSerial != null && _pendingSelectedRouteSerial != focusSerial) {
+      return;
+    }
+    if (_mapController.camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      if (attempt < 6) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _zoomToRouteExtent(
+              route,
+              attempt: attempt + 1,
+              focusSerial: focusSerial,
+            );
+          }
+        });
+      }
+      return;
+    }
+
+    final points = route.gpxRoute;
+    if (points.isEmpty) {
+      _applyAcceptedCameraMove(
+        PendingCameraRequest(
+          center: _mapController.camera.center,
+          zoom: _mapController.camera.zoom,
+          serial: focusSerial ?? 0,
+        ),
+      );
+      _markSelectedRouteZoomApplied(focusSerial);
+      return;
+    }
+
+    if (points.length == 1) {
+      _applyAcceptedCameraMove(
+        PendingCameraRequest(
+          center: points.single,
+          zoom: MapConstants.defaultMapZoom,
+          serial: focusSerial ?? 0,
+        ),
+      );
+      _markSelectedRouteZoomApplied(focusSerial);
+      return;
+    }
+
+    try {
+      final bounds = LatLngBounds.fromPoints(points);
+      final cameraFit = CameraFit.bounds(
+        bounds: bounds,
+        padding: const EdgeInsets.all(50),
+      );
+      _applyAcceptedCameraFit(
+        PendingCameraRequest(
+          center: _mapController.camera.center,
+          zoom: _mapController.camera.zoom,
+          serial: focusSerial ?? 0,
+        ),
+        () => _mapController.fitCamera(cameraFit),
+      );
+      _markSelectedRouteZoomApplied(focusSerial);
+    } catch (_) {
+      _applyAcceptedCameraMove(
+        PendingCameraRequest(
+          center: points.first,
+          zoom: MapConstants.defaultMapZoom,
+          serial: focusSerial ?? 0,
+        ),
+      );
+      _markSelectedRouteZoomApplied(focusSerial);
+    }
+  }
+
   void _markSelectedTrackZoomApplied(int? focusSerial) {
     if (focusSerial == null) {
       return;
@@ -2639,6 +2764,17 @@ class _MapScreenState extends ConsumerState<MapScreen>
     if (_pendingSelectedTrackSerial == focusSerial) {
       _pendingSelectedTrack = null;
       _pendingSelectedTrackSerial = null;
+    }
+  }
+
+  void _markSelectedRouteZoomApplied(int? focusSerial) {
+    if (focusSerial == null) {
+      return;
+    }
+    _appliedSelectedRouteSerial = focusSerial;
+    if (_pendingSelectedRouteSerial == focusSerial) {
+      _pendingSelectedRoute = null;
+      _pendingSelectedRouteSerial = null;
     }
   }
 }

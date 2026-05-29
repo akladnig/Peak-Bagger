@@ -45,7 +45,7 @@ class ObjectBoxAdminDataGrid extends StatelessWidget {
         .toList(growable: false);
     final primaryField = tableFields.firstWhere((field) => field.isPrimaryName);
     final showActionsColumn =
-        (entity.name == 'Peak' || entity.name == 'GpxTrack') &&
+        (entity.name == 'Peak' || entity.name == 'GpxTrack' || entity.name == 'Route') &&
         onDeletePressed != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -275,6 +275,8 @@ class ObjectBoxAdminDataRowTile extends StatelessWidget {
                     key: Key(
                       entityName == 'GpxTrack'
                           ? 'objectbox-admin-gpx-track-delete-${row.primaryKeyValue}'
+                          : entityName == 'Route'
+                          ? 'objectbox-admin-route-delete-${row.primaryKeyValue}'
                           : 'objectbox-admin-peak-delete-${row.primaryKeyValue}',
                     ),
                     tooltip: 'Delete',

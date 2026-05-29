@@ -247,6 +247,7 @@ class MapState {
   final String mapSearchQuery;
   final int selectedMapFocusSerial;
   final int selectedTrackFocusSerial;
+  final int selectedRouteFocusSerial;
   final int? hoveredRouteId;
   final String? hoveredRouteDraftMarkerId;
   final int? hoveredRouteDraftSegmentIndex;
@@ -329,6 +330,7 @@ class MapState {
     this.mapSearchQuery = '',
     this.selectedMapFocusSerial = 0,
     this.selectedTrackFocusSerial = 0,
+    this.selectedRouteFocusSerial = 0,
     this.hoveredRouteId,
     this.hoveredRouteDraftMarkerId,
     this.hoveredRouteDraftSegmentIndex,
@@ -450,6 +452,7 @@ class MapState {
     String? mapSearchQuery,
     int? selectedMapFocusSerial,
     int? selectedTrackFocusSerial,
+    int? selectedRouteFocusSerial,
     List<GpxTrack>? tracks,
     bool? showTracks,
     bool? showRoutes,
@@ -579,6 +582,8 @@ class MapState {
           selectedMapFocusSerial ?? this.selectedMapFocusSerial,
       selectedTrackFocusSerial:
           selectedTrackFocusSerial ?? this.selectedTrackFocusSerial,
+      selectedRouteFocusSerial:
+          selectedRouteFocusSerial ?? this.selectedRouteFocusSerial,
       hoveredRouteId: clearHoveredRouteId
           ? null
           : (hoveredRouteId ?? this.hoveredRouteId),
@@ -3983,6 +3988,27 @@ class MapNotifier extends Notifier<MapState> {
     state = state.copyWith(
       selectedRouteId: routeId,
       clearSelectedTrackId: true,
+    );
+  }
+
+  void showRoute(int routeId) {
+    final route = _routeRepository.findById(routeId);
+    if (route == null) {
+      state = state.copyWith(
+        clearSelectedRouteId: true,
+        clearSelectedTrackId: true,
+        clearHoveredRouteId: true,
+      );
+      return;
+    }
+
+    state = state.copyWith(
+      selectedRouteId: routeId,
+      clearSelectedTrackId: true,
+      showRoutes: true,
+      clearHoveredRouteId: true,
+      clearGotoMgrs: true,
+      selectedRouteFocusSerial: state.selectedRouteFocusSerial + 1,
     );
   }
 

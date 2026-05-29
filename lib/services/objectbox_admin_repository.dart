@@ -629,6 +629,10 @@ String objectBoxAdminFormatFieldValue({
     return _formatDurationHms(value.toInt());
   }
 
+  if (entityName == 'Route' && fieldName == 'colour' && value is int) {
+    return _formatHexColour(value);
+  }
+
   return objectBoxAdminFormatValue(value);
 }
 
@@ -723,4 +727,8 @@ String _formatDurationHms(int millis) {
   final minutesText = minutes.toString().padLeft(2, '0');
   final secondsText = seconds.toString().padLeft(2, '0');
   return '$hoursText:$minutesText:$secondsText';
+}
+
+String _formatHexColour(int value) {
+  return '0x${value.toUnsigned(32).toRadixString(16).padLeft(8, '0').toUpperCase()}';
 }

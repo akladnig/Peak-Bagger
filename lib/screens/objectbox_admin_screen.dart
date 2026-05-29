@@ -6,13 +6,16 @@ import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
+import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen_controls.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen_details.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen_states.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen_table.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 import 'package:peak_bagger/services/peak_delete_guard.dart';
+import 'package:peak_bagger/services/route_admin_editor.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/widgets/dialog_helpers.dart';
 
 class ObjectBoxAdminScreen extends ConsumerStatefulWidget {
@@ -264,6 +267,16 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     router.go('/map');
   }
 
+  void _viewRouteOnMainMap(app_route.Route route) {
+    final repository = ref.read(routeRepositoryProvider);
+    if (repository.findById(route.id) == null) {
+      return;
+    }
+
+    ref.read(mapProvider.notifier).showRoute(route.id);
+    router.go('/map');
+  }
+
   void _viewPeakOnMainMap(Peak peak) {
     final location = LatLng(peak.latitude, peak.longitude);
     final mapNotifier = ref.read(mapProvider.notifier);
@@ -362,6 +375,109 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
 
     repository.deleteTrack(trackId);
     await mapNotifier.deleteTrack(trackId);
+    await notifier.refresh(
+      keepSelectedRowPrimaryKey: keepSelectedRowPrimaryKey,
+    );
+  }
+
+  Future<String?> _saveRoute(RouteAdminFormState form) async {
+    final repository = ref.read(routeRepositoryProvider);
+    final notifier = ref.read(objectboxAdminProvider.notifier);
+    final currentState = ref.read(objectboxAdminProvider);
+    final selectedRow = currentState.selectedRow;
+    if (selectedRow == null) {
+      return 'Failed to save Route: no selected row';
+    }
+
+    final routeId = selectedRow.primaryKeyValue as int;
+    final existing = repository.findById(routeId);
+    if (existing == null) {
+      return 'Failed to save Route: route not found';
+    }
+
+    final validation = RouteAdminEditor.validateAndBuild(
+      source: existing,
+      form: form,
+    );
+    if (!validation.isValid || validation.route == null) {
+      return 'Failed to save Route: invalid form';
+    }
+
+    try {
+      final savedRoute = repository.saveRoute(validation.route!);
+      ref.read(routeRevisionProvider.notifier).increment();
+      if (!mounted) {
+        return null;
+      }
+
+      await notifier.refresh(keepSelectedRowPrimaryKey: savedRoute.id);
+      if (!mounted) {
+        return null;
+      }
+
+      await showSingleActionDialog(
+        context: context,
+        title: 'Update Successful',
+        content: Text('${savedRoute.name} updated.'),
+        closeKey: 'objectbox-admin-route-update-success-close',
+      );
+      return null;
+    } catch (error, stackTrace) {
+      logObjectBoxAdminError(
+        error,
+        stackTrace,
+        'Route save failed for ${existing.name}',
+      );
+      if (!mounted) {
+        return 'Failed to save Route: $error';
+      }
+
+      await showSingleActionDialog(
+        context: context,
+        title: 'Save Failed',
+        content: Text('Failed to save Route: $error'),
+        closeKey: 'objectbox-admin-route-save-error-close',
+      );
+      return 'Failed to save Route: $error';
+    }
+  }
+
+  Future<void> _deleteRoute(ObjectBoxAdminRow row) async {
+    final repository = ref.read(routeRepositoryProvider);
+    final notifier = ref.read(objectboxAdminProvider.notifier);
+    final routeId = row.primaryKeyValue as int;
+    final routeName = repository.findById(routeId)?.name ??
+        (row.values['name']?.toString().trim().isNotEmpty == true
+            ? row.values['name']!.toString().trim()
+            : 'Route');
+
+    final confirmed = await showDangerConfirmDialog(
+      context: context,
+      title: 'Delete Route?',
+      message:
+          'This will permanently delete the $routeName. Do you want to proceed?',
+      cancelKey: 'cancel-delete',
+      cancelLabel: 'Cancel',
+      confirmKey: 'confirm-delete',
+      confirmLabel: 'Delete',
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    final currentState = ref.read(objectboxAdminProvider);
+    final keepSelectedRowPrimaryKey =
+        currentState.selectedRow?.primaryKeyValue == row.primaryKeyValue
+        ? null
+        : currentState.selectedRow?.primaryKeyValue;
+
+    repository.deleteRoute(routeId);
+    ref.read(routeRevisionProvider.notifier).increment();
+    if (!mounted) {
+      return;
+    }
+
     await notifier.refresh(
       keepSelectedRowPrimaryKey: keepSelectedRowPrimaryKey,
     );
@@ -538,6 +654,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
                 row: null,
                 entity: entity,
                 isCreatingPeak: true,
+                route: null,
                 createOsmId: createOsmId,
                 onClose: () {
                   setState(() {
@@ -547,7 +664,9 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
                 },
                 onViewPeakOnMap: _viewPeakOnMainMap,
                 onViewGpxTrackOnMap: _viewGpxTrackOnMainMap,
+                onViewRouteOnMap: _viewRouteOnMainMap,
                 onPeakSubmit: _savePeak,
+                onRouteSubmit: _saveRoute,
               ),
             ),
           ],
@@ -589,6 +708,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
             onDeletePressed: switch (entity.name) {
               'Peak' => _deletePeak,
               'GpxTrack' => _deleteGpxTrack,
+              'Route' => _deleteRoute,
               _ => null,
             },
           ),
@@ -599,12 +719,19 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
           child: ObjectBoxAdminDetailsPane(
             row: state.selectedRow,
             entity: entity,
+            route: entity.name == 'Route' && state.selectedRow != null
+                ? ref
+                      .read(routeRepositoryProvider)
+                      .findById(state.selectedRow!.primaryKeyValue as int)
+                : null,
             isCreatingPeak: false,
             createOsmId: 0,
             onClose: notifier.clearSelection,
             onViewPeakOnMap: _viewPeakOnMainMap,
             onViewGpxTrackOnMap: _viewGpxTrackOnMainMap,
+            onViewRouteOnMap: _viewRouteOnMainMap,
             onPeakSubmit: _savePeak,
+            onRouteSubmit: _saveRoute,
           ),
         ),
       ],

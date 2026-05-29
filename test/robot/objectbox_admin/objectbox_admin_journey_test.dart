@@ -7,12 +7,14 @@ import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
+import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 import 'package:peak_bagger/services/peak_delete_guard.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/route_repository.dart';
 
 import '../../harness/test_objectbox_admin_repository.dart';
 import 'objectbox_admin_robot.dart';
@@ -91,6 +93,97 @@ void main() {
       find.byKey(const Key('objectbox-admin-details-close')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('admin shell routes, edits, and deletes a Route row', (
+    tester,
+  ) async {
+    final robot = ObjectBoxAdminRobot(tester);
+    final route = app_route.Route(
+      id: 1,
+      name: 'Mt Ossa Route',
+      desc: 'A scenic route',
+      gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.6, 146.6)],
+      displayRoutePointsByZoom: '{}',
+      colour: 0,
+      distance2d: 12.5,
+      distance3d: 13.2,
+      ascent: 850,
+      descent: 840,
+      startElevation: 120,
+      endElevation: 1210,
+      lowestElevation: 110,
+      highestElevation: 1600,
+    );
+    final routeRepository = RouteRepository.test(
+      InMemoryRouteStorage([route]),
+    );
+    final objectboxRepository = _RouteAwareObjectBoxAdminRepository(
+      base: TestObjectBoxAdminRepository(),
+      routeRepository: routeRepository,
+    );
+
+    await robot.pumpApp(
+      repository: objectboxRepository,
+      routeRepository: routeRepository,
+    );
+
+    await robot.openAdminFromMenu();
+    await tester.tap(robot.entityDropdown);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Route').last);
+    await tester.pumpAndSettle();
+
+    await robot.selectRow('Mt Ossa Route');
+    await robot.viewRouteOnMainMap();
+
+    expect(
+      find.descendant(of: robot.appBarTitle, matching: find.text('Map')),
+      findsOneWidget,
+    );
+    final mapContainer = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shared-app-bar'))),
+    );
+    expect(mapContainer.read(mapProvider).selectedRouteId, 1);
+    expect(mapContainer.read(mapProvider).selectedTrackId, isNull);
+    expect(mapContainer.read(mapProvider).showRoutes, isTrue);
+
+    await robot.openAdminFromMenu();
+    await robot.selectRow('Mt Ossa Route');
+    await robot.startEditingRoute();
+    await robot.enterRouteField('name', 'Updated Route');
+    await robot.submitRouteEdit();
+
+    expect(find.text('Update Successful'), findsOneWidget);
+    expect(find.text('Updated Route updated.'), findsOneWidget);
+
+    await robot.closeRouteSuccessDialog();
+    expect(routeRepository.findById(1)?.name, 'Updated Route');
+    expect(find.text('Updated Route'), findsWidgets);
+
+    await robot.deleteRoute(1);
+    expect(find.text('Delete Route?'), findsOneWidget);
+    expect(
+      find.text(
+        'This will permanently delete the Updated Route. Do you want to proceed?',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('confirm-delete')));
+    await tester.pumpAndSettle();
+
+    expect(routeRepository.findById(1), isNull);
+    expect(find.byKey(const Key('objectbox-admin-route-delete-1')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('nav-map')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(of: robot.appBarTitle, matching: find.text('Map')),
+      findsOneWidget,
+    );
+    expect(mapContainer.read(mapProvider).selectedRouteId, isNull);
   });
 
   testWidgets(
@@ -434,6 +527,46 @@ class _MutablePeakRepository extends PeakRepository {
 
     _rowsByEntity['Peak'] = _peaks.map(_peakRow).toList(growable: false);
     return PeakSaveResult(peak: saved);
+  }
+}
+
+class _RouteAwareObjectBoxAdminRepository implements ObjectBoxAdminRepository {
+  _RouteAwareObjectBoxAdminRepository({
+    required this.base,
+    required this.routeRepository,
+  });
+
+  final TestObjectBoxAdminRepository base;
+  final RouteRepository routeRepository;
+
+  @override
+  List<ObjectBoxAdminEntityDescriptor> getEntities() => base.getEntities();
+
+  @override
+  Future<List<ObjectBoxAdminRow>> loadRows(
+    ObjectBoxAdminEntityDescriptor entity, {
+    required String searchQuery,
+    required bool ascending,
+  }) async {
+    if (entity.name == 'Route') {
+      return objectBoxAdminFilterAndSortRows(
+        entity,
+        rows: routeRepository.getAllRoutes().map(routeToAdminRow).toList(),
+        searchQuery: searchQuery,
+        ascending: ascending,
+      );
+    }
+
+    return base.loadRows(
+      entity,
+      searchQuery: searchQuery,
+      ascending: ascending,
+    );
+  }
+
+  @override
+  Future<String> exportGpxFile(ObjectBoxAdminRow row) {
+    return base.exportGpxFile(row);
   }
 }
 
