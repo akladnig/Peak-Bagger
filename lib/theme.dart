@@ -1,6 +1,81 @@
 import 'package:flutter/material.dart';
+import 'package:peak_bagger/core/constants.dart';
 
 const thinDivider = Divider(height: 0, color: Color(0xff7b7b7b));
+
+class OutlinedText extends StatelessWidget {
+  const OutlinedText({
+    required this.text,
+    super.key,
+    this.style,
+    this.textAlign = TextAlign.center,
+    this.maxLines,
+    this.overflow = TextOverflow.clip,
+    this.softWrap = true,
+  });
+
+  final String text;
+  final TextStyle? style;
+  final TextAlign textAlign;
+  final int? maxLines;
+  final TextOverflow overflow;
+  final bool softWrap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final baseStyle = style ?? theme.textTheme.bodySmall ?? const TextStyle();
+    final fillStyle = baseStyle.copyWith(color: theme.colorScheme.surface);
+    final outlineStyle = baseStyle.copyWith(
+      foreground: Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.0
+        ..color = theme.colorScheme.onSurface,
+    );
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Text(
+          text,
+          textAlign: textAlign,
+          maxLines: maxLines,
+          overflow: overflow,
+          softWrap: softWrap,
+          style: outlineStyle,
+        ),
+        Text(
+          text,
+          textAlign: textAlign,
+          maxLines: maxLines,
+          overflow: overflow,
+          softWrap: softWrap,
+          style: fillStyle,
+        ),
+      ],
+    );
+  }
+}
+
+double peakMarkerLabelMaxWidth(BuildContext context) {
+  final theme = Theme.of(context);
+  final style = theme.textTheme.bodySmall ?? const TextStyle();
+  final text = 'M' * MapConstants.peakInfoLabelMaxCharacters;
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textDirection: Directionality.of(context),
+    maxLines: 1,
+  )..layout();
+  return painter.width.ceilToDouble();
+}
+
+TextStyle peakMarkerLabelTextStyle(BuildContext context) {
+  return Theme.of(context).textTheme.bodySmall?.copyWith(
+        fontSize: 10,
+        fontStyle: FontStyle.italic,
+      ) ??
+      const TextStyle(fontSize: 10, fontStyle: FontStyle.italic);
+}
 
 class CatppuccinColors {
   static ThemeData get dark => _createDarkTheme();

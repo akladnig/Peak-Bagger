@@ -10,6 +10,8 @@ abstract final class MapConstants {
   static const cameraEpsilon = 0.000001;
   static const searchRadiusMeters = 100.0;
   static const peakMinZoom = 8;
+  static const peakInfoMinZoom = 12.0;
+  static const peakInfoLabelMaxCharacters = 20;
   static const peakMaxZoom = 18;
   static const trackMinZoom = 6;
   static const trackMaxZoom = 18;

@@ -21,11 +21,11 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
-          body: SizedBox(
-            width: 420,
-            height: 320,
-            child: LatestWalkCard(tracks: []),
-          ),
+            body: SizedBox(
+              width: 420,
+              height: 320,
+              child: LatestWalkCard(tracks: [], showPeakInfo: false),
+            ),
         ),
       ),
     );
@@ -59,7 +59,7 @@ void main() {
           body: SizedBox(
             width: 420,
             height: 320,
-            child: LatestWalkCard(tracks: tracks),
+            child: LatestWalkCard(tracks: tracks, showPeakInfo: false),
           ),
         ),
       ),
@@ -96,6 +96,7 @@ void main() {
             width: 420,
             height: 320,
             child: LatestWalkCard(
+              showPeakInfo: false,
               tracks: [
                 _track(
                   10,
@@ -160,6 +161,7 @@ void main() {
             width: 420,
             height: 320,
             child: LatestWalkCard(
+              showPeakInfo: true,
               tracks: [
                 _track(
                   10,
@@ -178,6 +180,7 @@ void main() {
         ),
       ),
     );
+    await tester.pumpAndSettle();
 
     final markerLayer = tester.widget<MarkerLayer>(find.byType(MarkerLayer));
     expect(markerLayer.markers, hasLength(1));
@@ -186,6 +189,8 @@ void main() {
       markerLayer.markers.single.point,
       const LatLng(-41.45, 146.55),
     );
+    expect(find.byKey(const Key('peak-marker-name-501')), findsOneWidget);
+    expect(find.byKey(const Key('peak-marker-height-501')), findsOneWidget);
   });
 
   testWidgets('frames one-point tracks with default zoom', (tester) async {
@@ -196,6 +201,7 @@ void main() {
             width: 420,
             height: 320,
             child: LatestWalkCard(
+              showPeakInfo: false,
               tracks: [
                 _track(
                   10,
@@ -225,6 +231,7 @@ void main() {
             width: 420,
             height: 320,
             child: LatestWalkCard(
+              showPeakInfo: false,
               tracks: [
                 _track(
                   10,
@@ -246,6 +253,50 @@ void main() {
     final map = tester.widget<FlutterMap>(find.byType(FlutterMap));
     expect(map.options.initialCameraFit, isNotNull);
     expect(find.byType(PolylineLayer), findsOneWidget);
+  });
+
+  testWidgets('adds extra bounds padding when peak info is shown', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 420,
+            height: 320,
+            child: LatestWalkCard(
+              showPeakInfo: true,
+              tracks: [
+                _track(
+                  10,
+                  DateTime.utc(2026, 5, 14, 10),
+                  segments: [
+                    [const LatLng(-41.5, 146.5), const LatLng(-41.4, 146.6)],
+                  ],
+                  peaks: [
+                    Peak(
+                      osmId: 501,
+                      name: 'Alpha Peak',
+                      latitude: -41.45,
+                      longitude: 146.55,
+                    ),
+                  ],
+                  peakCorrelationProcessed: true,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final map = tester.widget<FlutterMap>(find.byType(FlutterMap));
+    final fit = map.options.initialCameraFit! as FitBounds;
+
+    expect(fit.padding.left, greaterThan(24));
+    expect(fit.padding.right, greaterThan(24));
+    expect(fit.padding.bottom, greaterThan(24));
+    expect(fit.padding.top, 24);
   });
 }
 

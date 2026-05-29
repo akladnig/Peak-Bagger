@@ -7,6 +7,7 @@ import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_csv_export_provider.dart';
+import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_list_csv_export_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
@@ -64,6 +65,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final mapState = ref.watch(mapProvider);
     final filterState = ref.watch(gpxFilterSettingsProvider);
+    final showPeakInfo = ref.watch(peakMarkerInfoSettingsProvider);
     final peakCorrelationState = ref.watch(peakCorrelationSettingsProvider);
     final routeGraphReadiness = ref.watch(routeGraphReadinessProvider);
 
@@ -236,6 +238,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             _buildTrackFilterSection(context, filterState),
             _buildPeakCorrelationSection(context, peakCorrelationState),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: ListTile(
+                title: const Text('Show Peak Info'),
+                trailing: Switch(
+                  key: const Key('show-peak-info-switch'),
+                  value: showPeakInfo,
+                  onChanged: (value) {
+                    unawaited(
+                      ref
+                          .read(peakMarkerInfoSettingsProvider.notifier)
+                          .setShowPeakInfo(value),
+                    );
+                  },
+                ),
+                onTap: () {
+                  unawaited(
+                    ref
+                        .read(peakMarkerInfoSettingsProvider.notifier)
+                        .setShowPeakInfo(!showPeakInfo),
+                  );
+                },
+              ),
+            ),
             ListTile(
               key: const Key('export-peak-data-tile'),
               leading: const Icon(Icons.upload),

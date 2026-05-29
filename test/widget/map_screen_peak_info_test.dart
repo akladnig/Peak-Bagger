@@ -10,12 +10,14 @@ import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/theme.dart';
 
 import '../harness/test_map_notifier.dart';
 import '../harness/test_tasmap_notifier.dart';
@@ -41,6 +43,77 @@ void main() {
     expect(container.read(mapProvider).hoveredPeakId, 6406);
     expect(tester.widget<MouseRegion>(region).cursor, SystemMouseCursors.click);
     expect(find.byKey(const Key('peak-marker-hover-6406')), findsOneWidget);
+    expect(find.byKey(const Key('peak-marker-name-6406')), findsNothing);
+    expect(find.byKey(const Key('peak-marker-height-6406')), findsNothing);
+  });
+
+  testWidgets('peak markers render info labels when enabled', (tester) async {
+    await _pumpMap(
+      tester,
+      _mapStateWithPeak(
+        peak: Peak(
+          osmId: 6406,
+          name: 'Bonnet Hill',
+          elevation: 1234,
+          latitude: -43.0,
+          longitude: 147.0,
+        ),
+      ),
+      overrides: [
+        peakMarkerInfoSettingsProvider.overrideWith(
+          () => _StaticPeakMarkerInfoNotifier(true),
+        ),
+      ],
+    );
+
+    expect(find.byKey(const Key('peak-marker-name-6406')), findsOneWidget);
+    expect(find.byKey(const Key('peak-marker-height-6406')), findsOneWidget);
+    expect(
+      tester.widget<OutlinedText>(find.byKey(const Key('peak-marker-name-6406'))),
+      isA<OutlinedText>()
+          .having((widget) => widget.maxLines, 'maxLines', 2)
+          .having((widget) => widget.overflow, 'overflow', TextOverflow.ellipsis),
+    );
+    expect(
+      tester.widget<OutlinedText>(find.byKey(const Key('peak-marker-height-6406'))),
+      isA<OutlinedText>()
+          .having((widget) => widget.maxLines, 'maxLines', 1)
+          .having((widget) => widget.overflow, 'overflow', TextOverflow.ellipsis),
+    );
+  });
+
+  testWidgets('peak marker labels cap width and ellipsize long names', (
+    tester,
+  ) async {
+    await _pumpMap(
+      tester,
+      _mapStateWithPeak(
+        peak: Peak(
+          osmId: 6406,
+          name: 'A very long peak name that should wrap neatly',
+          elevation: 1234,
+          latitude: -43.0,
+          longitude: 147.0,
+        ),
+      ),
+      overrides: [
+        peakMarkerInfoSettingsProvider.overrideWith(
+          () => _StaticPeakMarkerInfoNotifier(true),
+        ),
+      ],
+    );
+
+    final labelsFinder = find.byKey(const Key('peak-marker-labels-6406'));
+    expect(labelsFinder, findsOneWidget);
+
+    final labelsWidth = tester.getSize(labelsFinder).width;
+    expect(labelsWidth, lessThanOrEqualTo(peakMarkerLabelMaxWidth(tester.element(labelsFinder))));
+
+    final nameWidget = tester.widget<OutlinedText>(
+      find.byKey(const Key('peak-marker-name-6406')),
+    );
+    expect(nameWidget.maxLines, 2);
+    expect(nameWidget.overflow, TextOverflow.ellipsis);
   });
 
   testWidgets('clicking a peak opens peak popup without selecting location', (
@@ -903,4 +976,13 @@ class _ThrowingPeakListStorage extends InMemoryPeakListStorage {
   List<PeakList> getAll() {
     throw StateError('boom');
   }
+}
+
+class _StaticPeakMarkerInfoNotifier extends PeakMarkerInfoSettingsNotifier {
+  _StaticPeakMarkerInfoNotifier(this.value);
+
+  final bool value;
+
+  @override
+  bool build() => value;
 }
