@@ -86,7 +86,7 @@ void main() {
     await r.clickPeak(6406);
     r.expectPeakPopupWithLines([
       'Bonnet Hill',
-      'Height: 1,234m',
+      'Height: 1234 m',
       'Map: Adamsons',
       'MGRS: 55G DM 80000 95000',
       'List: Abels',
@@ -142,7 +142,7 @@ void main() {
     await r.clickPeak(6406);
     r.expectPeakPopupWithLines([
       'Bonnet Hill',
-      'Height: 1,234m',
+      'Height: 1234 m',
       'Map: Adamsons',
       'MGRS: 55G DM 80000 95000',
       'Lists: Abels, HWC',
@@ -237,7 +237,7 @@ void main() {
       await r.clickPeak(6406);
       r.expectPeakPopupWithLines([
         'Bonnet Hill',
-        'Height: 1,234m',
+        'Height: 1234 m',
         'My Ascents:',
         'Alpha Loop (16 May 2026)',
         'Beta Loop (15 May 2026)',

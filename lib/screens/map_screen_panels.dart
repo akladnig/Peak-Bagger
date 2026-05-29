@@ -901,7 +901,7 @@ class PeakInfoPopupCard extends StatelessWidget {
                         label: 'Height:',
                         value: peak.elevation == null
                             ? '—'
-                            : '${formatElevationMetres(peak.elevation!.round())}m',
+                            : formatElevation(peak.elevation!),
                       ),
                       if (content.ascentRows.isNotEmpty) ...[
                         const SizedBox(height: 4),
