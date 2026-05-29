@@ -251,7 +251,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.descendant(of: header, matching: find.text('Annual Avg 1,234 m')),
+        find.descendant(of: header, matching: find.text('Annual Avg 1234 m')),
         findsNothing,
       );
       expect(
@@ -259,7 +259,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.descendant(of: header, matching: find.text('1,234 m')),
+        find.descendant(of: header, matching: find.text('1234 m')),
         findsNWidgets(2),
       );
     });

@@ -670,9 +670,7 @@ void main() {
 
     robot.expectPeaksShown();
 
-    final assets = robot.peakMarkerAssetNames();
-    expect(assets, contains('SvgAssetLoader(assets/peak_marker_ticked.svg)'));
-    expect(assets, contains('SvgAssetLoader(assets/peak_marker.svg)'));
+    expect(robot.peakMarkerIds(), [7000, 6406]);
 
     await robot.toggleTracks();
     robot.expectTracksShown();

@@ -182,11 +182,7 @@ class GpxFilter {
       return points;
     }
 
-    if (points.every((point) => point.time != null)) {
-      return points;
-    }
-
-    return points;
+    return points.where((point) => point.time != null).toList(growable: false);
   }
 
   List<GpxPointSample> _rejectImpossiblePoints(List<GpxPointSample> points) {

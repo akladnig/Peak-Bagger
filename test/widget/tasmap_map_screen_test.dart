@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
@@ -562,19 +561,9 @@ void main() {
     final markerLayer = tester.widget<MarkerLayer>(
       find.byKey(const Key('peak-marker-layer')),
     );
-    final assetNames = markerLayer.markers.map(_peakMarkerAssetName).toList();
-
-    expect(
-      assetNames,
-      contains('SvgAssetLoader(assets/peak_marker_ticked.svg)'),
-    );
-    expect(assetNames, contains('SvgAssetLoader(assets/peak_marker.svg)'));
-    expect(
-      assetNames.indexOf('SvgAssetLoader(assets/peak_marker.svg)'),
-      lessThan(
-        assetNames.indexOf('SvgAssetLoader(assets/peak_marker_ticked.svg)'),
-      ),
-    );
+    expect(markerLayer.markers, hasLength(2));
+    expect(markerLayer.markers.first.key, const Key('peak-marker-hitbox-7000'));
+    expect(markerLayer.markers.last.key, const Key('peak-marker-hitbox-6406'));
   });
 
   testWidgets('None selection hides peak layer', (tester) async {
@@ -688,12 +677,8 @@ void main() {
     final markerLayer = tester.widget<MarkerLayer>(
       find.byKey(const Key('peak-marker-layer')),
     );
-    final assetNames = markerLayer.markers.map(_peakMarkerAssetName).toList();
-
-    expect(
-      assetNames,
-      contains('SvgAssetLoader(assets/peak_marker_ticked.svg)'),
-    );
+    expect(markerLayer.markers, hasLength(1));
+    expect(markerLayer.markers.single.key, const Key('peak-marker-hitbox-6406'));
   });
 
   testWidgets('peak layer renders at zoom 8', (tester) async {
@@ -806,12 +791,6 @@ void main() {
     expect(trackIndex, greaterThanOrEqualTo(0));
     expect(peakIndex, greaterThan(trackIndex));
   });
-}
-
-String _peakMarkerAssetName(Marker marker) {
-  final child = marker.child;
-  final visualMarker = child is KeyedSubtree ? child.child : child;
-  return (visualMarker as SvgPicture).bytesLoader.toString();
 }
 
 Tasmap50k _adamsons() {

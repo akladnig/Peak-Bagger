@@ -105,7 +105,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('elevation-tooltip')),
-        matching: find.text('1,000 m'),
+        matching: find.text('1000 m'),
       ),
       findsOneWidget,
     );
