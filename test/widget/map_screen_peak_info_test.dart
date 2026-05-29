@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
@@ -153,24 +154,25 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(container.read(mapProvider).peakInfoPeak?.osmId, 6406);
 
-    container.read(mapProvider.notifier).selectPeakList(PeakListSelectionMode.none);
+    container
+        .read(mapProvider.notifier)
+        .selectPeakList(PeakListSelectionMode.none);
     await tester.pump();
     expect(container.read(mapProvider).peakInfoPeak, isNull);
     expect(container.read(mapProvider).hoveredPeakId, isNull);
 
-    container.read(mapProvider.notifier).selectPeakList(
-      PeakListSelectionMode.allPeaks,
-    );
+    container
+        .read(mapProvider.notifier)
+        .selectPeakList(PeakListSelectionMode.allPeaks);
     await tester.pump();
     await tester.tapAt(center);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(container.read(mapProvider).peakInfoPeak?.osmId, 6406);
 
-    container.read(mapProvider.notifier).requestCameraMove(
-      center: const LatLng(-43.0, 147.0),
-      zoom: 7,
-    );
+    container
+        .read(mapProvider.notifier)
+        .requestCameraMove(center: const LatLng(-43.0, 147.0), zoom: 7);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     expect(container.read(mapProvider).peakInfoPeak, isNull);
@@ -460,7 +462,14 @@ void main() {
 
     expect(find.byTooltip('Close Peak Info'), findsOneWidget);
     expect(find.byTooltip('Drop a Marker on the Peak'), findsOneWidget);
-    expect(find.byKey(const Key('peak-info-popup-drop-marker')), findsOneWidget);
+    expect(
+      find.byKey(const Key('peak-info-popup-drop-marker')),
+      findsOneWidget,
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('peak-info-popup'))).height,
+      lessThan(UiConstants.peakInfoPopupSize.height),
+    );
     expect(find.text('Height: 1,234m'), findsOneWidget);
     expect(find.text('My Ascents:'), findsOneWidget);
     expect(find.text('Alpha Loop (16 May 2026)'), findsOneWidget);
@@ -502,6 +511,7 @@ void main() {
     expect(after.selectedLocation!.longitude, closeTo(peak.longitude, 1e-9));
     expect(after.center, equals(before.center));
     expect(after.zoom, equals(before.zoom));
+    expect(find.byKey(const Key('peak-info-popup')), findsNothing);
   });
 
   testWidgets('open popup refreshes ascent rows when bagged revision changes', (
@@ -560,11 +570,19 @@ void main() {
 
     await peaksBaggedRepository.rebuildFromTracks([
       GpxTrack(
-        gpxTrackId: 11,
-        contentHash: 'hash-11',
-        trackName: 'New Loop',
-        trackDate: DateTime.utc(2026, 5, 16),
-      )..peaks.add(Peak(osmId: 6406, name: 'Bonnet Hill', latitude: -43.0, longitude: 147.0)),
+          gpxTrackId: 11,
+          contentHash: 'hash-11',
+          trackName: 'New Loop',
+          trackDate: DateTime.utc(2026, 5, 16),
+        )
+        ..peaks.add(
+          Peak(
+            osmId: 6406,
+            name: 'Bonnet Hill',
+            latitude: -43.0,
+            longitude: 147.0,
+          ),
+        ),
     ]);
     container.read(peaksBaggedRevisionProvider.notifier).increment();
     await tester.pump();
@@ -644,9 +662,8 @@ void main() {
   });
 
   testWidgets(
-    'peak popup hides whitespace-only MGRS and keeps lat lng map fallback', (
-      tester,
-    ) async {
+    'peak popup hides whitespace-only MGRS and keeps lat lng map fallback',
+    (tester) async {
       final tasmapRepository = await TestTasmapRepository.create();
       final mapCenter = tasmapRepository.getMapCenter(
         tasmapRepository.getAllMaps().first,
@@ -711,44 +728,48 @@ void main() {
     expect(find.textContaining('List(s):'), findsNothing);
   });
 
-  testWidgets('select peaks FAB opens drawer and none/all peaks update markers', (
-    tester,
-  ) async {
-    await _pumpMap(tester, _mapStateWithPeak());
+  testWidgets(
+    'select peaks FAB opens drawer and none/all peaks update markers',
+    (tester) async {
+      await _pumpMap(tester, _mapStateWithPeak());
 
-    final region = find.byKey(const Key('map-interaction-region'));
-    final container = ProviderScope.containerOf(tester.element(region));
+      final region = find.byKey(const Key('map-interaction-region'));
+      final container = ProviderScope.containerOf(tester.element(region));
 
-    expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
+      expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
 
-    final showPeaksFab = find.byKey(const Key('show-peaks-fab'));
-    await tester.ensureVisible(showPeaksFab);
-    await tester.pumpAndSettle();
-    await tester.tap(showPeaksFab);
-    await tester.pumpAndSettle();
+      final showPeaksFab = find.byKey(const Key('show-peaks-fab'));
+      await tester.ensureVisible(showPeaksFab);
+      await tester.pumpAndSettle();
+      await tester.tap(showPeaksFab);
+      await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('peak-lists-drawer')), findsOneWidget);
-    expect(find.text('Peak Lists'), findsOneWidget);
+      expect(find.byKey(const Key('peak-lists-drawer')), findsOneWidget);
+      expect(find.text('Peak Lists'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('peak-list-item-None')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('peak-list-item-None')));
+      await tester.pumpAndSettle();
 
-    expect(container.read(mapProvider).peakListSelectionMode, PeakListSelectionMode.none);
-    expect(find.byKey(const Key('peak-marker-layer')), findsNothing);
+      expect(
+        container.read(mapProvider).peakListSelectionMode,
+        PeakListSelectionMode.none,
+      );
+      expect(find.byKey(const Key('peak-marker-layer')), findsNothing);
 
-    await tester.ensureVisible(showPeaksFab);
-    await tester.pumpAndSettle();
-    await tester.tap(showPeaksFab);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('peak-list-item-All Peaks')));
-    await tester.pumpAndSettle();
+      await tester.ensureVisible(showPeaksFab);
+      await tester.pumpAndSettle();
+      await tester.tap(showPeaksFab);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('peak-list-item-All Peaks')));
+      await tester.pumpAndSettle();
 
-    expect(
-      container.read(mapProvider).peakListSelectionMode,
-      PeakListSelectionMode.allPeaks,
-    );
-    expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
-  });
+      expect(
+        container.read(mapProvider).peakListSelectionMode,
+        PeakListSelectionMode.allPeaks,
+      );
+      expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
+    },
+  );
 
   testWidgets('drawer sorts valid lists and specific selection filters peaks', (
     tester,
@@ -852,17 +873,21 @@ Future<void> _pumpMap(
           () => TestMapNotifier(state, peakRepository: peakRepository),
         ),
         peakListRepositoryProvider.overrideWithValue(
-          peakListRepository ?? PeakListRepository.test(InMemoryPeakListStorage()),
+          peakListRepository ??
+              PeakListRepository.test(InMemoryPeakListStorage()),
         ),
         peaksBaggedRepositoryProvider.overrideWithValue(
           peaksBaggedRepository ??
               PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
         ),
         gpxTrackRepositoryProvider.overrideWithValue(
-          gpxTrackRepository ?? GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+          gpxTrackRepository ??
+              GpxTrackRepository.test(InMemoryGpxTrackStorage()),
         ),
         tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
-        tasmapStateProvider.overrideWith(() => TestTasmapNotifier(tasmapRepository)),
+        tasmapStateProvider.overrideWith(
+          () => TestTasmapNotifier(tasmapRepository),
+        ),
       ],
       child: ProviderScope(
         overrides: [...overrides],

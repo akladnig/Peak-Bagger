@@ -1963,19 +1963,15 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                     ),
                                   ),
                                 ),
-                                if (
-                                  selectedTrack == null &&
-                                      selectedRoute == null
-                                )
+                                if (selectedTrack == null &&
+                                    selectedRoute == null)
                                   Positioned(
                                     left: 16,
                                     top: 16,
                                     child: MapMgrsReadout(mgrs: displayMgrs),
                                   ),
-                                if (
-                                  selectedTrack == null &&
-                                      selectedRoute == null
-                                )
+                                if (selectedTrack == null &&
+                                    selectedRoute == null)
                                   Positioned(
                                     left: 16,
                                     bottom: 16,
@@ -2193,11 +2189,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
           key: const Key('peak-info-popup'),
           content: content,
           onDropMarker: () {
-            ref
-                .read(mapProvider.notifier)
-                .setSelectedLocation(
-                  LatLng(content.peak.latitude, content.peak.longitude),
-                );
+            final notifier = ref.read(mapProvider.notifier);
+            notifier.setSelectedLocation(
+              LatLng(content.peak.latitude, content.peak.longitude),
+            );
+            notifier.closePeakInfoPopup();
           },
           onClose: () {
             ref.read(mapProvider.notifier).closePeakInfoPopup();
@@ -2542,7 +2538,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _tryZoomPendingSelectedTrack();
   }
 
-  void _queueSelectedRouteZoom(MapState mapState, List<app_route.Route> routes) {
+  void _queueSelectedRouteZoom(
+    MapState mapState,
+    List<app_route.Route> routes,
+  ) {
     final selectedRouteId = mapState.selectedRouteId;
     if (selectedRouteId == null || !mapState.showRoutes) {
       _pendingSelectedRoute = null;

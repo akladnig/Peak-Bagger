@@ -106,8 +106,8 @@ class MapTrackInfoPanel extends StatelessWidget {
     required this.onClose,
     this.onExport,
     super.key,
-  })  : assert(track != null || route != null),
-        assert(track == null || route == null);
+  }) : assert(track != null || route != null),
+       assert(track == null || route == null);
 
   final GpxTrack? track;
   final app_route.Route? route;
@@ -151,7 +151,9 @@ class MapTrackInfoPanel extends StatelessWidget {
                           ),
                           IconButton(
                             key: const Key('track-info-panel-close'),
-                            tooltip: isRoute ? 'Close route info' : 'Close track info',
+                            tooltip: isRoute
+                                ? 'Close route info'
+                                : 'Close track info',
                             onPressed: onClose,
                             icon: const Icon(Icons.close),
                           ),
@@ -162,7 +164,12 @@ class MapTrackInfoPanel extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(formatTrackDate(track!.trackDate)),
-                            Text(formatTrackTimeRange(track!.startDateTime, track!.endDateTime)),
+                            Text(
+                              formatTrackTimeRange(
+                                track!.startDateTime,
+                                track!.endDateTime,
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -176,9 +183,9 @@ class MapTrackInfoPanel extends StatelessWidget {
                       horizontal: 16,
                       vertical: 12,
                     ),
-                      child: isRoute
-                          ? _buildRouteBody(context, route!)
-                          : _buildTrackBody(context, track!),
+                    child: isRoute
+                        ? _buildRouteBody(context, route!)
+                        : _buildTrackBody(context, track!),
                   ),
                 ),
                 const Divider(height: 1),
@@ -203,7 +210,9 @@ class MapTrackInfoPanel extends StatelessWidget {
   }
 
   String _trackName(GpxTrack track) {
-    return track.trackName.trim().isEmpty ? 'Unnamed Track' : track.trackName.trim();
+    return track.trackName.trim().isEmpty
+        ? 'Unnamed Track'
+        : track.trackName.trim();
   }
 
   String _routeName(app_route.Route route) {
@@ -824,12 +833,15 @@ class PeakInfoPopupCard extends StatelessWidget {
         ? mgrsParts.join(' ')
         : null;
 
-    return SizedBox(
-      height: UiConstants.peakInfoPopupSize.height,
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: UiConstants.peakInfoPopupSize.height,
+      ),
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -872,7 +884,8 @@ class PeakInfoPopupCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-              Expanded(
+              Flexible(
+                fit: FlexFit.loose,
                 child: SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -908,7 +921,8 @@ class PeakInfoPopupCard extends StatelessWidget {
                             ),
                           ),
                       ],
-                      if (content.ascentRows.isNotEmpty) const SizedBox(height: 4),
+                      if (content.ascentRows.isNotEmpty)
+                        const SizedBox(height: 4),
                       _PeakInfoLabeledValueRow(
                         label: 'Map:',
                         value: content.mapName,
@@ -964,10 +978,7 @@ class RouteDraftMarkerDeletePopupCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    'Edit Point',
-                    style: theme.textTheme.titleSmall,
-                  ),
+                  child: Text('Edit Point', style: theme.textTheme.titleSmall),
                 ),
                 IconButton(
                   key: const Key('route-draft-delete-popup-close'),
