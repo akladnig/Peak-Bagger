@@ -145,18 +145,20 @@ void main() {
       '1',
     );
     expect(
-      tester.widget<Text>(find.byKey(const Key('peak-lists-percentage-1')))
+      tester
+          .widget<Text>(find.byKey(const Key('peak-lists-percentage-1')))
           .data,
       '50%',
     );
 
     await peaksBaggedRepository.rebuildFromTracks([
       GpxTrack(
-        gpxTrackId: 10,
-        contentHash: 'hash-10',
-        trackName: 'Track 10',
-        trackDate: DateTime.utc(2026, 5, 15),
-      )..peaks.addAll([
+          gpxTrackId: 10,
+          contentHash: 'hash-10',
+          trackName: 'Track 10',
+          trackDate: DateTime.utc(2026, 5, 15),
+        )
+        ..peaks.addAll([
           _buildPeak(100, 'Alpha Peak', -42.0, 146.0),
           _buildPeak(200, 'Beta Peak', -42.1, 146.1),
         ]),
@@ -171,7 +173,8 @@ void main() {
       '2',
     );
     expect(
-      tester.widget<Text>(find.byKey(const Key('peak-lists-percentage-1')))
+      tester
+          .widget<Text>(find.byKey(const Key('peak-lists-percentage-1')))
           .data,
       '100%',
     );
@@ -202,7 +205,9 @@ void main() {
 
     expect(find.text('Alpha Peak'), findsWidgets);
 
-    await peakRepository.save(_buildPeak(100, 'Renamed Peak', -42.0, 146.0, elevation: 1200));
+    await peakRepository.save(
+      _buildPeak(100, 'Renamed Peak', -42.0, 146.0, elevation: 1200),
+    );
     ProviderScope.containerOf(
       tester.element(find.byKey(const Key('peak-lists-summary-pane'))),
     ).read(peakRevisionProvider.notifier).increment();
@@ -258,7 +263,9 @@ void main() {
     expect(find.text('Tinderbox Hill'), findsWidgets);
   });
 
-  testWidgets('tapping a mini-map marker opens peak info popup', (tester) async {
+  testWidgets('tapping a mini-map marker opens peak info popup', (
+    tester,
+  ) async {
     final tasmapRepository = await TestTasmapRepository.create(
       maps: [
         Tasmap50k(
@@ -297,7 +304,9 @@ void main() {
       tasmapRepository: tasmapRepository,
     );
 
-    await tester.tap(find.byKey(const Key('peak-lists-mini-map-marker-200-unticked')));
+    await tester.tap(
+      find.byKey(const Key('peak-lists-mini-map-marker-200-unticked')),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-lists-mini-map-popup')), findsOneWidget);
@@ -310,17 +319,21 @@ void main() {
           )
           .first,
     );
-    final highlightedDecoration = highlightedRowContainer.decoration as BoxDecoration?;
+    final highlightedDecoration =
+        highlightedRowContainer.decoration as BoxDecoration?;
     expect(highlightedDecoration, isNotNull);
     expect(
       highlightedDecoration!.color,
-      Theme.of(tester.element(find.byKey(const Key('peak-lists-details-pane'))))
-          .colorScheme
-          .primaryContainer,
+      Theme.of(
+        tester.element(find.byKey(const Key('peak-lists-details-pane'))),
+      ).colorScheme.primaryContainer,
     );
     expect(highlightedDecoration.border, isA<Border>());
 
-    await tester.tapAt(tester.getTopLeft(find.byKey(const Key('peak-lists-mini-map'))) + const Offset(10, 10));
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(const Key('peak-lists-mini-map'))) +
+          const Offset(10, 10),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-lists-mini-map-popup')), findsNothing);
@@ -328,7 +341,7 @@ void main() {
   });
 
   testWidgets(
-    'mini-map drop marker keeps popup open and shows selected location marker',
+    'mini-map drop marker closes popup and shows selected location marker',
     (tester) async {
       final tasmapRepository = await TestTasmapRepository.create(
         maps: [
@@ -373,7 +386,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('peak-lists-mini-map-popup')), findsOneWidget);
+      expect(
+        find.byKey(const Key('peak-lists-mini-map-popup')),
+        findsOneWidget,
+      );
       expect(
         find.byKey(const Key('peak-lists-selected-location-marker')),
         findsNothing,
@@ -389,7 +405,7 @@ void main() {
       expect(selectedLocation, isNotNull);
       expect(selectedLocation!.latitude, closeTo(-42.1, 0.000001));
       expect(selectedLocation.longitude, closeTo(146.1, 0.000001));
-      expect(find.byKey(const Key('peak-lists-mini-map-popup')), findsOneWidget);
+      expect(find.byKey(const Key('peak-lists-mini-map-popup')), findsNothing);
       expect(
         find.byKey(const Key('peak-lists-selected-location-marker')),
         findsOneWidget,
@@ -464,7 +480,9 @@ void main() {
       ),
     );
 
-    final marker = find.byKey(const Key('peak-lists-mini-map-marker-200-unticked'));
+    final marker = find.byKey(
+      const Key('peak-lists-mini-map-marker-200-unticked'),
+    );
     final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
     addTearDown(gesture.removePointer);
 
@@ -538,9 +556,9 @@ void main() {
     expect(rowDecoration, isNotNull);
     expect(
       rowDecoration!.color,
-      Theme.of(tester.element(find.byKey(const Key('peak-lists-details-pane'))))
-          .colorScheme
-          .primaryContainer,
+      Theme.of(
+        tester.element(find.byKey(const Key('peak-lists-details-pane'))),
+      ).colorScheme.primaryContainer,
     );
     expect(rowDecoration.border, isA<Border>());
     expect(rowCenter.dy, closeTo(cardCenter.dy, 120));
@@ -611,7 +629,8 @@ void main() {
           .descendant(of: selectedRowFinder, matching: find.byType(Container))
           .first,
     );
-    final selectedRowDecoration = selectedRowContainer.decoration as BoxDecoration?;
+    final selectedRowDecoration =
+        selectedRowContainer.decoration as BoxDecoration?;
     expect(selectedRowDecoration, isNotNull);
     expect(selectedRowDecoration!.color, isNotNull);
     expect(
@@ -723,12 +742,15 @@ void main() {
 
     final tassyFull = peakListRepository.findByName('Tassy Full');
     expect(tassyFull, isNotNull);
-    expect(find.byKey(Key('peak-lists-row-${tassyFull!.peakListId}')), findsOneWidget);
+    expect(
+      find.byKey(Key('peak-lists-row-${tassyFull!.peakListId}')),
+      findsOneWidget,
+    );
     expect(find.text('Tassy Full'), findsOneWidget);
     expect(
-      decodePeakListItems(tassyFull.peakList)
-          .map((item) => (item.peakOsmId, item.points))
-          .toList(),
+      decodePeakListItems(
+        tassyFull.peakList,
+      ).map((item) => (item.peakOsmId, item.points)).toList(),
       [(100, 3), (200, 5), (300, 7)],
     );
   });
@@ -1002,7 +1024,8 @@ void main() {
     final selectedRowContainer = tester.widget<Container>(
       find.byKey(const Key('peak-lists-row-decoration-1')),
     );
-    final selectedRowDecoration = selectedRowContainer.decoration as BoxDecoration?;
+    final selectedRowDecoration =
+        selectedRowContainer.decoration as BoxDecoration?;
     expect(selectedRowDecoration, isNotNull);
     expect(selectedRowDecoration!.color, isNotNull);
     expect(selectedRowDecoration.border, isA<Border>());
@@ -1611,48 +1634,51 @@ void main() {
     expect(find.byKey(const Key('peak-lists-empty-message')), findsOneWidget);
   });
 
-  testWidgets('deleting active list bumps revision and reconciles map selection', (
-    tester,
-  ) async {
-    final repository = PeakListRepository.test(
-      InMemoryPeakListStorage(_buildLists(['Abels', 'Bravo'])),
-    );
-    final mapNotifier = TestMapNotifier(
-      MapState(
-        center: const LatLng(-41.5, 146.5),
-        zoom: 15,
-        basemap: Basemap.tracestrack,
-        peakListSelectionMode: PeakListSelectionMode.specificList,
-        selectedPeakListId: 2,
-      ),
-    );
+  testWidgets(
+    'deleting active list bumps revision and reconciles map selection',
+    (tester) async {
+      final repository = PeakListRepository.test(
+        InMemoryPeakListStorage(_buildLists(['Abels', 'Bravo'])),
+      );
+      final mapNotifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          peakListSelectionMode: PeakListSelectionMode.specificList,
+          selectedPeakListId: 2,
+        ),
+      );
 
-    await _pumpPeakListsApp(
-      tester,
-      filePicker: TestPeakListFilePicker(),
-      repository: repository,
-      mapNotifier: mapNotifier,
-    );
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: repository,
+        mapNotifier: mapNotifier,
+      );
 
-    final container = ProviderScope.containerOf(
-      tester.element(find.byKey(const Key('peak-lists-summary-pane'))),
-    );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('peak-lists-summary-pane'))),
+      );
 
-    tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-2'))).onTap!();
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const Key('peak-lists-delete-2')));
-    await tester.tap(find.byKey(const Key('peak-lists-delete-2')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('confirm-delete')));
-    await tester.pumpAndSettle();
+      tester
+          .widget<InkWell>(find.byKey(const Key('peak-lists-row-2')))
+          .onTap!();
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('peak-lists-delete-2')));
+      await tester.tap(find.byKey(const Key('peak-lists-delete-2')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('confirm-delete')));
+      await tester.pumpAndSettle();
 
-    expect(container.read(peakListRevisionProvider), 1);
-    expect(
-      container.read(mapProvider).peakListSelectionMode,
-      PeakListSelectionMode.allPeaks,
-    );
-    expect(container.read(mapProvider).selectedPeakListId, isNull);
-  });
+      expect(container.read(peakListRevisionProvider), 1);
+      expect(
+        container.read(mapProvider).peakListSelectionMode,
+        PeakListSelectionMode.allPeaks,
+      );
+      expect(container.read(mapProvider).selectedPeakListId, isNull);
+    },
+  );
 
   testWidgets('import fab opens dialog and cancel closes it', (tester) async {
     await _pumpPeakListsApp(

@@ -86,7 +86,7 @@ void main() {
     await r.clickPeak(6406);
     r.expectPeakPopupWithLines([
       'Bonnet Hill',
-      'Height: 1234m',
+      'Height: 1234 m',
       'Map: Adamsons',
       'MGRS: 55G DM 80000 95000',
       'List: Abels',
@@ -142,7 +142,7 @@ void main() {
     await r.clickPeak(6406);
     r.expectPeakPopupWithLines([
       'Bonnet Hill',
-      'Height: 1234m',
+      'Height: 1234 m',
       'Map: Adamsons',
       'MGRS: 55G DM 80000 95000',
       'Lists: Abels, HWC',
@@ -167,88 +167,93 @@ void main() {
     },
   );
 
-  testWidgets('peak info journey drop marker keeps popup open and updates selection', (
-    tester,
-  ) async {
-    final tasmapRepository = await TestTasmapRepository.create();
-    final peakListRepository = PeakListRepository.test(InMemoryPeakListStorage());
-    final peaksBaggedRepository = PeaksBaggedRepository.test(
-      InMemoryPeaksBaggedStorage([
-        PeaksBagged(baggedId: 1, peakId: 6406, gpxId: 10, date: DateTime.utc(2026, 5, 16)),
-        PeaksBagged(baggedId: 2, peakId: 6406, gpxId: 11, date: DateTime.utc(2026, 5, 15)),
-      ]),
-    );
-    final gpxTrackRepository = GpxTrackRepository.test(
-      InMemoryGpxTrackStorage([
-        GpxTrack(
-          gpxTrackId: 10,
-          contentHash: 'hash-10',
-          trackName: 'Alpha Loop',
-          trackDate: DateTime.utc(2026, 5, 16),
-        ),
-        GpxTrack(
-          gpxTrackId: 11,
-          contentHash: 'hash-11',
-          trackName: 'Beta Loop',
-          trackDate: DateTime.utc(2026, 5, 15),
-        ),
-      ]),
-    );
-    final r = PeakInfoRobot(tester);
-    addTearDown(r.dispose);
-
-    await r.pumpMap(
-      initialState: MapState(
-        center: const LatLng(-43.0, 147.0),
-        zoom: 15,
-        basemap: Basemap.tracestrack,
-        peaks: [
-          Peak(
-            osmId: 6406,
-            name: 'Bonnet Hill',
-            elevation: 1234,
-            latitude: -43.0,
-            longitude: 147.0,
-            gridZoneDesignator: '55G',
-            mgrs100kId: 'DM',
-            easting: '80000',
-            northing: '95000',
+  testWidgets(
+    'peak info journey drop marker closes popup and updates selection',
+    (tester) async {
+      final tasmapRepository = await TestTasmapRepository.create();
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+      );
+      final peaksBaggedRepository = PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage([
+          PeaksBagged(
+            baggedId: 1,
+            peakId: 6406,
+            gpxId: 10,
+            date: DateTime.utc(2026, 5, 16),
           ),
-        ],
-      ),
-      peakListRepository: peakListRepository,
-      peaksBaggedRepository: peaksBaggedRepository,
-      gpxTrackRepository: gpxTrackRepository,
-      tasmapRepository: tasmapRepository,
-    );
+          PeaksBagged(
+            baggedId: 2,
+            peakId: 6406,
+            gpxId: 11,
+            date: DateTime.utc(2026, 5, 15),
+          ),
+        ]),
+      );
+      final gpxTrackRepository = GpxTrackRepository.test(
+        InMemoryGpxTrackStorage([
+          GpxTrack(
+            gpxTrackId: 10,
+            contentHash: 'hash-10',
+            trackName: 'Alpha Loop',
+            trackDate: DateTime.utc(2026, 5, 16),
+          ),
+          GpxTrack(
+            gpxTrackId: 11,
+            contentHash: 'hash-11',
+            trackName: 'Beta Loop',
+            trackDate: DateTime.utc(2026, 5, 15),
+          ),
+        ]),
+      );
+      final r = PeakInfoRobot(tester);
+      addTearDown(r.dispose);
 
-    await r.clickPeak(6406);
-    r.expectPeakPopupWithLines([
-      'Bonnet Hill',
-      'Height: 1234m',
-      'My Ascents:',
-      'Alpha Loop (16 May 2026)',
-      'Beta Loop (15 May 2026)',
-      'Map: Adamsons',
-      'MGRS: 55G DM 80000 95000',
-    ]);
+      await r.pumpMap(
+        initialState: MapState(
+          center: const LatLng(-43.0, 147.0),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          peaks: [
+            Peak(
+              osmId: 6406,
+              name: 'Bonnet Hill',
+              elevation: 1234,
+              latitude: -43.0,
+              longitude: 147.0,
+              gridZoneDesignator: '55G',
+              mgrs100kId: 'DM',
+              easting: '80000',
+              northing: '95000',
+            ),
+          ],
+        ),
+        peakListRepository: peakListRepository,
+        peaksBaggedRepository: peaksBaggedRepository,
+        gpxTrackRepository: gpxTrackRepository,
+        tasmapRepository: tasmapRepository,
+      );
 
-    await r.dropMarkerFromPeakPopup();
+      await r.clickPeak(6406);
+      r.expectPeakPopupWithLines([
+        'Bonnet Hill',
+        'Height: 1234 m',
+        'My Ascents:',
+        'Alpha Loop (16 May 2026)',
+        'Beta Loop (15 May 2026)',
+        'Map: Adamsons',
+        'MGRS: 55G DM 80000 95000',
+      ]);
 
-    final state = ProviderScope.containerOf(
-      tester.element(r.peakInfoPopup),
-    ).read(mapProvider);
-    expect(state.selectedLocation, isNotNull);
-    expect(state.selectedLocation!.latitude, closeTo(-43.0, 0.000001));
-    expect(state.selectedLocation!.longitude, closeTo(147.0, 0.000001));
-    r.expectPeakPopupWithLines([
-      'Bonnet Hill',
-      'Height: 1234m',
-      'My Ascents:',
-      'Alpha Loop (16 May 2026)',
-      'Beta Loop (15 May 2026)',
-      'Map: Adamsons',
-      'MGRS: 55G DM 80000 95000',
-    ]);
-  });
+      await r.dropMarkerFromPeakPopup();
+
+      final state = ProviderScope.containerOf(
+        tester.element(r.mapInteractionRegion),
+      ).read(mapProvider);
+      expect(state.selectedLocation, isNotNull);
+      expect(state.selectedLocation!.latitude, closeTo(-43.0, 0.000001));
+      expect(state.selectedLocation!.longitude, closeTo(147.0, 0.000001));
+      r.expectNoPeakPopup();
+    },
+  );
 }
