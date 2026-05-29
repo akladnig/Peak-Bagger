@@ -14,7 +14,8 @@ String formatDistance(double value, {int decimalPlaces = 0}) {
   return '${(roundedMeters / 1000).toStringAsFixed(decimalPlaces)} km';
 }
 
-String formatElevation(double value) => '${value.round()} m';
+String formatElevation(double value, {bool showUnits = true}) =>
+    showUnits ? '${value.round()} m' : '${value.round()}';
 
 String formatAscent(double? value) {
   if (value == null) {

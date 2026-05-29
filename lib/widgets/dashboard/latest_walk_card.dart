@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
@@ -9,11 +11,17 @@ import '../../providers/map_provider.dart';
 import '../../screens/map_screen_layers.dart';
 import '../../services/latest_walk_summary.dart';
 import '../../services/tile_cache_service.dart';
+import '../../theme.dart';
 
 class LatestWalkCard extends StatefulWidget {
-  const LatestWalkCard({super.key, required this.tracks});
+  const LatestWalkCard({
+    super.key,
+    required this.tracks,
+    required this.showPeakInfo,
+  });
 
   final List<GpxTrack> tracks;
+  final bool showPeakInfo;
 
   @override
   State<LatestWalkCard> createState() => _LatestWalkCardState();
@@ -63,6 +71,7 @@ class _LatestWalkCardState extends State<LatestWalkCard> {
               summary: summary,
               selectedIndex: selectedIndex,
               trackCount: orderedTracks.length,
+              showPeakInfo: widget.showPeakInfo,
               onPrevious: () => _selectTrack(orderedTracks[selectedIndex + 1].gpxTrackId),
               onNext: () => _selectTrack(orderedTracks[selectedIndex - 1].gpxTrackId),
             ),
@@ -119,6 +128,7 @@ class _LatestWalkContent extends StatelessWidget {
     required this.summary,
     required this.selectedIndex,
     required this.trackCount,
+    required this.showPeakInfo,
     required this.onPrevious,
     required this.onNext,
   });
@@ -126,6 +136,7 @@ class _LatestWalkContent extends StatelessWidget {
   final LatestWalkSummary summary;
   final int selectedIndex;
   final int trackCount;
+  final bool showPeakInfo;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
 
@@ -200,7 +211,10 @@ class _LatestWalkContent extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Expanded(
-            child: _LatestWalkMiniMap(summary: summary),
+            child: _LatestWalkMiniMap(
+              summary: summary,
+              showPeakInfo: showPeakInfo,
+            ),
           ),
         ],
       ),
@@ -209,9 +223,13 @@ class _LatestWalkContent extends StatelessWidget {
 }
 
 class _LatestWalkMiniMap extends StatelessWidget {
-  const _LatestWalkMiniMap({required this.summary});
+  const _LatestWalkMiniMap({
+    required this.summary,
+    required this.showPeakInfo,
+  });
 
   final LatestWalkSummary summary;
+  final bool showPeakInfo;
 
   static final _tickedPeakMarker = SvgPicture.asset(
     'assets/peak_marker_ticked.svg',
@@ -240,7 +258,7 @@ class _LatestWalkMiniMap extends StatelessWidget {
         : MapOptions(
             initialCameraFit: CameraFit.bounds(
               bounds: LatLngBounds.fromPoints(points),
-              padding: const EdgeInsets.all(24),
+              padding: _cameraFitPadding(context),
             ),
             interactionOptions: const InteractionOptions(
               flags: InteractiveFlag.none,
@@ -298,7 +316,8 @@ class _LatestWalkMiniMap extends StatelessWidget {
                 MarkerLayer(
                   markers: buildPeakMarkers(
                     peaks: trackPeaks,
-                    zoom: 0,
+                    zoom: MapConstants.peakInfoMinZoom,
+                    showPeakInfo: showPeakInfo,
                     correlatedPeakIds: correlatedPeakIds,
                     tickedPeakMarker: _tickedPeakMarker,
                     untickedPeakMarker: _untickedPeakMarker,
@@ -311,6 +330,11 @@ class _LatestWalkMiniMap extends StatelessWidget {
       ),
     );
   }
+}
+
+EdgeInsets _cameraFitPadding(BuildContext context) {
+  final sidePadding = math.max(24.0, peakMarkerLabelMaxWidth(context) / 2 + 8);
+  return EdgeInsets.fromLTRB(sidePadding, 24, sidePadding, 64);
 }
 
 TileProvider buildLatestWalkTileProvider({required bool cacheAvailable}) {

@@ -14,6 +14,7 @@ import '../models/peaks_bagged.dart';
 import '../providers/peak_list_provider.dart';
 import '../providers/peak_list_selection_provider.dart';
 import '../providers/map_provider.dart';
+import '../providers/peak_marker_info_settings_provider.dart';
 import '../providers/peak_provider.dart';
 import '../providers/tasmap_provider.dart';
 import 'map_screen_panels.dart';
@@ -2093,6 +2094,7 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
     final selectedLocation = ref.watch(
       mapProvider.select((state) => state.selectedLocation),
     );
+    final showPeakInfo = ref.watch(peakMarkerInfoSettingsProvider);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -2129,9 +2131,10 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                             buildPeakMarkers(
                                   peaks: [
                                     for (final peak in markerPeaks) peak.peak,
-                                  ],
-                                  zoom: 0,
-                                  correlatedPeakIds: {
+                                ],
+                                zoom: 0,
+                                showPeakInfo: showPeakInfo,
+                                correlatedPeakIds: {
                                     for (final peak in markerPeaks.where(
                                       (peak) => peak.isClimbed,
                                     ))

@@ -22,6 +22,7 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
@@ -1487,6 +1488,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 Consumer(
                   builder: (context, ref, child) {
                     final mapState = ref.watch(mapProvider);
+                    final showPeakInfo = ref.watch(peakMarkerInfoSettingsProvider);
                     final filteredPeaks = ref.watch(filteredPeaksProvider);
                     final routes = ref.watch(routeListProvider);
                     ref.listen(routeListProvider, (previous, next) {
@@ -1908,6 +1910,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                             markers: buildPeakMarkers(
                                               peaks: filteredPeaks,
                                               zoom: mapState.zoom,
+                                              showPeakInfo: showPeakInfo,
                                               correlatedPeakIds: ref
                                                   .read(mapProvider.notifier)
                                                   .correlatedPeakIds,

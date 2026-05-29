@@ -16,6 +16,7 @@ import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
@@ -25,6 +26,7 @@ import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/widgets/peak_list_import_dialog.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../harness/test_peak_list_file_picker.dart';
 import '../harness/test_map_notifier.dart';
@@ -394,6 +396,50 @@ void main() {
       );
     },
   );
+
+  testWidgets('mini-map stays icon only when peak info is enabled', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Tas Peaks', [200, 300, 100]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+          _buildPeak(200, 'Beta Peak', -42.1, 146.1, elevation: 1100),
+          _buildPeak(300, 'Gamma Peak', -42.2, 146.2, elevation: 1000),
+        ]),
+      ),
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage([
+          PeaksBagged(baggedId: 1, peakId: 100, gpxId: 10),
+        ]),
+      ),
+    );
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('peak-lists-mini-map'))),
+    );
+    await container
+        .read(peakMarkerInfoSettingsProvider.notifier)
+        .setShowPeakInfo(true);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+
+    expect(
+      find.byKey(const Key('peak-lists-mini-map-marker-200-unticked')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('peak-marker-name-200')), findsNothing);
+    expect(find.byKey(const Key('peak-marker-height-200')), findsNothing);
+  });
 
   testWidgets('hovering a mini-map marker shows hover ring', (tester) async {
     await _pumpPeakListsApp(

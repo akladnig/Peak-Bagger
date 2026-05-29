@@ -14,6 +14,8 @@ import 'package:peak_bagger/widgets/tasmap_outline_layer.dart';
 import 'package:peak_bagger/widgets/tasmap_polygon_label.dart';
 
 import '../core/constants.dart';
+import '../core/number_formatters.dart';
+import '../theme.dart';
 
 String mapTileUrl(Basemap basemap) {
   switch (basemap) {
@@ -87,6 +89,7 @@ List<Polygon> buildAllMapRectangles(TasmapRepository repo) {
 List<Marker> buildPeakMarkers({
   required List<Peak> peaks,
   required double zoom,
+  required bool showPeakInfo,
   required Set<int> correlatedPeakIds,
   required SvgPicture tickedPeakMarker,
   required SvgPicture untickedPeakMarker,
@@ -114,8 +117,51 @@ List<Marker> buildPeakMarkers({
       point: LatLng(peak.latitude, peak.longitude),
       width: isHovered ? 32 : 20,
       height: isHovered ? 32 : 20,
-      child: isHovered
-          ? Stack(
+      child: _PeakMarkerContent(
+        peak: peak,
+        markerChild: keyedMarkerChild,
+        hovered: isHovered,
+        showPeakInfo: showPeakInfo && zoom >= MapConstants.peakInfoMinZoom,
+      ),
+    );
+    if (correlatedPeakIds.contains(peak.osmId)) {
+      tickedMarkers.add(marker);
+    } else {
+      untickedMarkers.add(marker);
+    }
+  }
+
+  return [...untickedMarkers, ...tickedMarkers];
+}
+
+class _PeakMarkerContent extends StatelessWidget {
+  const _PeakMarkerContent({
+    required this.peak,
+    required this.markerChild,
+    required this.hovered,
+    required this.showPeakInfo,
+  });
+
+  final Peak peak;
+  final Widget markerChild;
+  final bool hovered;
+  final bool showPeakInfo;
+
+  @override
+  Widget build(BuildContext context) {
+    final markerSize = hovered ? 32.0 : 20.0;
+    final labelTop = markerSize;
+    final labelWidth = peakMarkerLabelMaxWidth(context);
+
+    return SizedBox(
+      width: markerSize,
+      height: markerSize,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          if (hovered)
+            Stack(
               key: Key('peak-marker-hover-${peak.osmId}'),
               alignment: Alignment.center,
               children: [
@@ -127,19 +173,65 @@ List<Marker> buildPeakMarkers({
                     border: Border.all(color: Colors.amber, width: 3),
                   ),
                 ),
-                SizedBox(width: 20, height: 20, child: keyedMarkerChild),
+                SizedBox.square(dimension: 20, child: markerChild),
               ],
             )
-          : keyedMarkerChild,
+          else
+            SizedBox.square(dimension: 20, child: markerChild),
+          if (showPeakInfo)
+            Positioned(
+              top: labelTop,
+              left: (markerSize - labelWidth) / 2,
+              width: labelWidth,
+              child: _PeakMarkerLabels(peak: peak),
+            ),
+        ],
+      ),
     );
-    if (correlatedPeakIds.contains(peak.osmId)) {
-      tickedMarkers.add(marker);
-    } else {
-      untickedMarkers.add(marker);
-    }
   }
+}
 
-  return [...untickedMarkers, ...tickedMarkers];
+class _PeakMarkerLabels extends StatelessWidget {
+  const _PeakMarkerLabels({required this.peak});
+
+  final Peak peak;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxWidth = peakMarkerLabelMaxWidth(context);
+    final name = peak.name.trim().isEmpty ? '—' : peak.name.trim();
+    final height = peak.elevation == null
+        ? '—'
+        : formatElevation(peak.elevation!.toDouble(), showUnits: false);
+    final labelStyle = peakMarkerLabelTextStyle(context);
+
+    return ConstrainedBox(
+      key: Key('peak-marker-labels-${peak.osmId}'),
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          OutlinedText(
+            key: Key('peak-marker-name-${peak.osmId}'),
+            text: name,
+            style: labelStyle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+          OutlinedText(
+            key: Key('peak-marker-height-${peak.osmId}'),
+            text: height,
+            style: labelStyle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 List<TasmapPolygonLabelEntry> buildOverlayLabelEntries(
