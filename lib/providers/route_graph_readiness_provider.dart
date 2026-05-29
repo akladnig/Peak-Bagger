@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/services/route_graph_store.dart';
 
@@ -36,12 +34,9 @@ final routeGraphReadinessProvider = NotifierProvider<
 >(RouteGraphReadinessNotifier.new);
 
 class RouteGraphReadinessNotifier extends Notifier<RouteGraphReadinessState> {
-  bool _bootstrapStarted = false;
-
   @override
   RouteGraphReadinessState build() {
-    _ensureBootstrapStarted();
-    return const RouteGraphReadinessState.preloading();
+    return const RouteGraphReadinessState.ready();
   }
 
   void markReady() {
@@ -60,26 +55,4 @@ class RouteGraphReadinessNotifier extends Notifier<RouteGraphReadinessState> {
     state = RouteGraphReadinessState.failed(error);
   }
 
-  void _ensureBootstrapStarted() {
-    if (_bootstrapStarted) {
-      return;
-    }
-
-    _bootstrapStarted = true;
-    unawaited(_bootstrap());
-  }
-
-  Future<void> _bootstrap() async {
-    state = const RouteGraphReadinessState.preloading();
-    try {
-      await ref.read(routeGraphStoreProvider).preload();
-      if (ref.mounted) {
-        state = const RouteGraphReadinessState.ready();
-      }
-    } catch (error) {
-      if (ref.mounted) {
-        state = RouteGraphReadinessState.failed(error.toString());
-      }
-    }
-  }
 }

@@ -19,7 +19,7 @@ import '../harness/test_tasmap_notifier.dart';
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
-  testWidgets('refresh route graph cancel is a no-op', (tester) async {
+  testWidgets('validate route graph snapshot cancel is a no-op', (tester) async {
     final repository = await TestTasmapRepository.create();
     final notifier = TestPeakNotifier(_baseState());
 
@@ -29,7 +29,6 @@ void main() {
           mapProvider.overrideWith(() => notifier),
           tasmapStateProvider.overrideWith(() => TestTasmapNotifier(repository)),
           tasmapRepositoryProvider.overrideWithValue(repository),
-          routeGraphStoreProvider.overrideWithValue(_ReadyRouteGraphStore()),
         ],
         child: const App(),
       ),
@@ -43,7 +42,7 @@ void main() {
     await tester.tap(find.byKey(const Key('refresh-route-graph-tile')));
     await tester.pump();
 
-    expect(find.text('Refresh Route Graph?'), findsOneWidget);
+    expect(find.text('Validate Route Graph Snapshot?'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('route-graph-refresh-cancel')));
     await tester.pump();
@@ -51,7 +50,7 @@ void main() {
     expect(find.byKey(const Key('route-graph-refresh-status')), findsNothing);
   });
 
-  testWidgets('refresh route graph shows loading state', (tester) async {
+  testWidgets('validate route graph snapshot shows loading state', (tester) async {
     final repository = await TestTasmapRepository.create();
     final completer = Completer<RouteGraphRefreshResult>();
     final notifier = TestPeakNotifier(_baseState());
@@ -63,7 +62,6 @@ void main() {
           mapProvider.overrideWith(() => notifier),
           tasmapStateProvider.overrideWith(() => TestTasmapNotifier(repository)),
           tasmapRepositoryProvider.overrideWithValue(repository),
-          routeGraphStoreProvider.overrideWithValue(_ReadyRouteGraphStore()),
           routeGraphRefreshServiceProvider.overrideWithValue(service),
         ],
         child: const App(),
@@ -96,13 +94,13 @@ void main() {
     expect(
       find.descendant(
         of: resultDialog,
-        matching: find.text('2 route graph elements imported'),
+        matching: find.text('Route graph snapshot validated.'),
       ),
       findsOneWidget,
     );
   });
 
-  testWidgets('refresh route graph shows result dialog', (tester) async {
+  testWidgets('validate route graph snapshot shows result dialog', (tester) async {
     final repository = await TestTasmapRepository.create();
     final notifier = TestPeakNotifier(_baseState());
     final service = _TestRouteGraphRefreshService(
@@ -115,7 +113,6 @@ void main() {
           mapProvider.overrideWith(() => notifier),
           tasmapStateProvider.overrideWith(() => TestTasmapNotifier(repository)),
           tasmapRepositoryProvider.overrideWithValue(repository),
-          routeGraphStoreProvider.overrideWithValue(_ReadyRouteGraphStore()),
           routeGraphRefreshServiceProvider.overrideWithValue(service),
         ],
         child: const App(),
@@ -138,21 +135,21 @@ void main() {
     expect(
       find.descendant(
         of: resultDialog,
-        matching: find.text('Route Graph Refreshed'),
+        matching: find.text('Route Graph Snapshot Validated'),
       ),
       findsOneWidget,
     );
     expect(
       find.descendant(
         of: resultDialog,
-        matching: find.text('12 route graph elements imported'),
+        matching: find.text('Route graph snapshot validated.'),
       ),
       findsOneWidget,
     );
     expect(find.byKey(const Key('route-graph-refresh-result-close')), findsOneWidget);
   });
 
-  testWidgets('refresh route graph shows failure dialog', (tester) async {
+  testWidgets('validate route graph snapshot shows failure dialog', (tester) async {
     final repository = await TestTasmapRepository.create();
     final notifier = TestPeakNotifier(_baseState());
     final service = _TestRouteGraphRefreshService(
@@ -167,7 +164,6 @@ void main() {
           mapProvider.overrideWith(() => notifier),
           tasmapStateProvider.overrideWith(() => TestTasmapNotifier(repository)),
           tasmapRepositoryProvider.overrideWithValue(repository),
-          routeGraphStoreProvider.overrideWithValue(_ReadyRouteGraphStore()),
           routeGraphRefreshServiceProvider.overrideWithValue(service),
         ],
         child: const App(),
@@ -189,7 +185,7 @@ void main() {
     expect(
       find.descendant(
         of: failureDialog,
-        matching: find.text('Route Graph Refresh Failed'),
+        matching: find.text('Route Graph Snapshot Validation Failed'),
       ),
       findsOneWidget,
     );
@@ -198,6 +194,20 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const Key('route-graph-refresh-error-close')), findsOneWidget);
+    expect(
+      _container(tester).read(routeGraphReadinessProvider).status,
+      RouteGraphReadinessStatus.failed,
+    );
+
+    await tester.tap(find.byKey(const Key('route-graph-refresh-error-close')));
+    await tester.pump();
+
+    expect(
+      find.text(
+        'Route graph unavailable. Use Validate Route Graph Snapshot to retry.',
+      ),
+      findsOneWidget,
+    );
   });
 }
 
@@ -209,7 +219,20 @@ MapState _baseState() {
   );
 }
 
-class _ReadyRouteGraphStore implements RouteGraphStore {
+class _TestRouteGraphRefreshService extends RouteGraphRefreshService {
+  _TestRouteGraphRefreshService(this._handler) : super(_NoopRouteGraphStore());
+
+  final Future<RouteGraphRefreshResult> Function() _handler;
+  int refreshCallCount = 0;
+
+  @override
+  Future<RouteGraphRefreshResult> refreshRouteGraph() {
+    refreshCallCount += 1;
+    return _handler();
+  }
+}
+
+class _NoopRouteGraphStore implements RouteGraphStore {
   @override
   Future<trip_routing.TripService> preload() async => trip_routing.TripService();
 
@@ -223,16 +246,8 @@ class _ReadyRouteGraphStore implements RouteGraphStore {
   Future<File> snapshotFile() => throw UnimplementedError();
 }
 
-class _TestRouteGraphRefreshService extends RouteGraphRefreshService {
-  _TestRouteGraphRefreshService(this._handler)
-      : super(_ReadyRouteGraphStore());
-
-  final Future<RouteGraphRefreshResult> Function() _handler;
-  int refreshCallCount = 0;
-
-  @override
-  Future<RouteGraphRefreshResult> refreshRouteGraph() {
-    refreshCallCount += 1;
-    return _handler();
-  }
+ProviderContainer _container(WidgetTester tester) {
+  return ProviderScope.containerOf(
+    tester.element(find.byKey(const Key('settings-scrollable'))),
+  );
 }

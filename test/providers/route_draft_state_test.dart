@@ -976,7 +976,7 @@ void main() {
   );
 
   test(
-    'later segment generic failure rolls back the provisional endpoint',
+    'later segment generic failure keeps the failed endpoint editable',
     () async {
       final routePlanner = _ControlledRoutePlanner();
       final realNotifier = await _buildRouteTestNotifier(
@@ -1022,7 +1022,7 @@ void main() {
       ]);
       expect(state.routeDraftProvisionalPoints, isEmpty);
       expect(state.routeDraftError, contains('Unexpected routing failure.'));
-      expect(state.routeDraftMarkers, const [point1, point2]);
+      expect(state.routeDraftMarkers, const [point1, point2, point3]);
       expect(routePlanner.requests, const [
         (start: point1, end: point2),
         (start: point2, end: point3),

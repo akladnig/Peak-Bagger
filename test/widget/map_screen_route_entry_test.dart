@@ -47,7 +47,7 @@ void main() {
     expect(find.byKey(const Key('route-bottom-sheet')), findsOneWidget);
   });
 
-  testWidgets('create route stays disabled until preload completes', (
+  testWidgets('create route stays enabled while preload is pending', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -62,7 +62,7 @@ void main() {
     final fab = tester.widget<FloatingActionButton>(
       find.byKey(const Key('create-route-fab')),
     );
-    expect(fab.onPressed, isNull);
+    expect(fab.onPressed, isNotNull);
 
     completer.complete(trip_routing.TripService());
     await tester.pumpAndSettle();
@@ -73,20 +73,19 @@ void main() {
     expect(enabledFab.onPressed, isNotNull);
   });
 
-  testWidgets('failed preload keeps create route disabled', (tester) async {
+  testWidgets('store failures do not disable route creation', (tester) async {
     SharedPreferences.setMockInitialValues({});
-    final store = _FailedRouteGraphStore();
+    final store = _ExplodingRouteGraphStore();
     final notifier = await _buildRealNotifier();
     await _pumpApp(tester, notifier, routeGraphStore: store);
 
     router.go('/map');
     await tester.pumpAndSettle();
-    await tester.pump();
 
     final fab = tester.widget<FloatingActionButton>(
       find.byKey(const Key('create-route-fab')),
     );
-    expect(fab.onPressed, isNull);
+    expect(fab.onPressed, isNotNull);
   });
 
   testWidgets('route draft survives branch navigation in the current session', (
@@ -381,14 +380,16 @@ class _DeferredRouteGraphStore implements RouteGraphStore {
   Future<File> snapshotFile() => throw UnimplementedError();
 }
 
-class _FailedRouteGraphStore implements RouteGraphStore {
+class _ExplodingRouteGraphStore implements RouteGraphStore {
   @override
-  Future<trip_routing.TripService> preload() async {
-    throw const RouteGraphLoadException('failed');
+  Future<trip_routing.TripService> preload() {
+    throw UnimplementedError('preload should not be called');
   }
 
   @override
-  Future<trip_routing.TripService> reload() => preload();
+  Future<trip_routing.TripService> reload() {
+    throw UnimplementedError('reload should not be called');
+  }
 
   @override
   Future<void> replaceSnapshot(String rawJson) async {}

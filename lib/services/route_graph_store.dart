@@ -6,38 +6,41 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
+import 'route_graph_errors.dart';
+
+export 'route_graph_errors.dart';
+
 const _bundledRouteGraphAsset = 'assets/highway.json';
 const _routeGraphDirectoryName = 'route_graph';
 const _routeGraphSnapshotName = 'highway.json';
 
-class RouteGraphLoadException implements Exception {
-  const RouteGraphLoadException(this.message);
+class RouteGraphStore {
+  Future<trip_routing.TripService> preload() async {
+    throw const RouteGraphLoadException('Preload is not implemented.');
+  }
 
-  final String message;
+  Future<trip_routing.TripService> reload() async {
+    return preload();
+  }
 
-  @override
-  String toString() => message;
+  Future<void> replaceSnapshot(String rawJson) async {
+    throw const RouteGraphLoadException('Snapshot replacement is not supported.');
+  }
+
+  Future<File> snapshotFile() async {
+    throw const RouteGraphLoadException('Snapshot persistence is not supported.');
+  }
 }
 
-abstract class RouteGraphStore {
-  Future<trip_routing.TripService> preload();
-
-  Future<trip_routing.TripService> reload();
-
-  Future<void> replaceSnapshot(String rawJson);
-
-  Future<File> snapshotFile();
-}
-
-class BundledRouteGraphStore implements RouteGraphStore {
+class BundledRouteGraphStore extends RouteGraphStore {
   BundledRouteGraphStore({
     Future<Directory> Function()? supportDirectoryLoader,
     Future<String> Function(String assetPath)? assetLoader,
     trip_routing.TripService Function()? tripServiceFactory,
     this.assetPath = _bundledRouteGraphAsset,
-  }) : _supportDirectoryLoader = supportDirectoryLoader ?? getApplicationSupportDirectory,
-       _assetLoader = assetLoader ?? rootBundle.loadString,
-       _tripServiceFactory = tripServiceFactory ?? trip_routing.TripService.new;
+  })  : _supportDirectoryLoader = supportDirectoryLoader ?? getApplicationSupportDirectory,
+        _assetLoader = assetLoader ?? rootBundle.loadString,
+        _tripServiceFactory = tripServiceFactory ?? trip_routing.TripService.new;
 
   final Future<Directory> Function() _supportDirectoryLoader;
   final Future<String> Function(String assetPath) _assetLoader;

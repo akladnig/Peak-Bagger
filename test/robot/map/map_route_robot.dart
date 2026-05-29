@@ -238,12 +238,17 @@ class _QueueRoutePlanner implements RoutePlanner {
   final List<Object> _outcomes;
   var _index = 0;
 
+  Future<Object?> _nextOutcome() async {
+    final outcome = _outcomes[_index++];
+    return outcome is Future ? await outcome : outcome;
+  }
+
   @override
   Future<RoutePlanningResult> planSegmentResult({
     required LatLng start,
     required LatLng end,
   }) async {
-    final outcome = _outcomes[_index++];
+    final outcome = await _nextOutcome();
     if (outcome is RoutePlanningResult) {
       return outcome;
     }
@@ -288,8 +293,30 @@ class _QueueRoutePlanner implements RoutePlanner {
 
   @override
   Future<RouteEndpointProbeResult> probeEndpoint({required LatLng point}) async {
-    if (_index < _outcomes.length && _outcomes[_index] is RouteEndpointProbeResult) {
-      return _outcomes[_index++] as RouteEndpointProbeResult;
+    if (_index >= _outcomes.length) {
+      return const RouteEndpointProbeResult(isOnTrack: false);
+    }
+
+    final outcome = await _nextOutcome();
+    if (outcome is RouteEndpointProbeResult) {
+      return outcome;
+    }
+    if (outcome is RoutePlanningResult) {
+      return RouteEndpointProbeResult(
+        isOnTrack: outcome.status == RoutePlanningStatus.routed,
+        anchor: outcome.startAnchor,
+        errorMessage: outcome.errorMessage,
+        failureKind: outcome.failureKind,
+      );
+    }
+    if (outcome is PlannedRouteSegment) {
+      return RouteEndpointProbeResult(
+        isOnTrack: true,
+        anchor: RouteEndpointAnchor(
+          point: point,
+          type: RouteEndpointAnchorType.raw,
+        ),
+      );
     }
     return const RouteEndpointProbeResult(isOnTrack: false);
   }
