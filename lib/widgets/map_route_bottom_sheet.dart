@@ -7,6 +7,7 @@ import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
+import 'package:peak_bagger/services/route_planner.dart';
 
 enum _RouteModeVisualState { inactive, active, selected }
 
@@ -93,6 +94,7 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
       :routeDraftStage,
       :routeDraftDistanceMeters,
       :routeDraftError,
+      :routeDraftFailureKind,
       :routeDraftElevationSummary,
       :routeDraftElevationLoading,
       :routeDraftElevationError,
@@ -112,6 +114,7 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
           routeDraftStage: state.routeDraftStage,
           routeDraftDistanceMeters: state.routeDraftDistanceMeters,
           routeDraftError: state.routeDraftError,
+          routeDraftFailureKind: state.routeDraftFailureKind,
           routeDraftElevationSummary: state.routeDraftElevationSummary,
           routeDraftElevationLoading: state.routeDraftElevationLoading,
           routeDraftElevationError: state.routeDraftElevationError,
@@ -151,11 +154,13 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
                           routeDraftStage: routeDraftStage,
                           routeDraftDistanceMeters: routeDraftDistanceMeters,
                           routeDraftError: routeDraftError,
+                          routeDraftFailureKind: routeDraftFailureKind,
                           routeDraftElevationSummary:
                               routeDraftElevationSummary,
                           routeDraftElevationLoading:
                               routeDraftElevationLoading,
                           routeDraftElevationError: routeDraftElevationError,
+                          onRetry: notifier.retryRouteDraftSegment,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -214,17 +219,21 @@ class _DistanceElevationGroup extends StatelessWidget {
     required this.routeDraftStage,
     required this.routeDraftDistanceMeters,
     required this.routeDraftError,
+    required this.routeDraftFailureKind,
     required this.routeDraftElevationSummary,
     required this.routeDraftElevationLoading,
     required this.routeDraftElevationError,
+    required this.onRetry,
   });
 
   final RouteDraftStage routeDraftStage;
   final double routeDraftDistanceMeters;
   final String? routeDraftError;
+  final RoutePlanningFailureKind routeDraftFailureKind;
   final RouteElevationSummary? routeDraftElevationSummary;
   final bool routeDraftElevationLoading;
   final String? routeDraftElevationError;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -246,12 +255,27 @@ class _DistanceElevationGroup extends StatelessWidget {
             style: theme.textTheme.bodyMedium,
           )
         else if (routeDraftError != null)
-          Text(
-            routeDraftError!,
-            key: const Key('route-error-text'),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.error,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                routeDraftError!,
+                key: const Key('route-error-text'),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+              if (routeDraftStage == RouteDraftStage.segmentFailure &&
+                  routeDraftFailureKind ==
+                      RoutePlanningFailureKind.routeGraphLoad) ...[
+                const SizedBox(height: 8),
+                FilledButton.tonal(
+                  key: const Key('route-retry-button'),
+                  onPressed: onRetry,
+                  child: const Text('Retry'),
+                ),
+              ],
+            ],
           )
         else if (routeDraftDistanceMeters > 0)
           Wrap(

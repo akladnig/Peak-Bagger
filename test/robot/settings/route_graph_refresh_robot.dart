@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
-import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/route_graph_refresh_service.dart';
@@ -56,7 +55,6 @@ class RouteGraphRefreshRobot {
           mapProvider.overrideWith(() => notifier),
           tasmapStateProvider.overrideWith(() => tasmapNotifier),
           tasmapRepositoryProvider.overrideWithValue(repository),
-          routeGraphStoreProvider.overrideWithValue(_ReadyRouteGraphStore()),
           routeGraphRefreshServiceProvider.overrideWithValue(service),
         ],
         child: const App(),
@@ -91,7 +89,7 @@ class RouteGraphRefreshRobot {
   }
 
   void expectConfirmDialogVisible() {
-    expect(find.text('Refresh Route Graph?'), findsOneWidget);
+    expect(find.text('Validate Route Graph Snapshot?'), findsOneWidget);
   }
 
   void expectStatusVisible(String expected) {
@@ -99,12 +97,12 @@ class RouteGraphRefreshRobot {
     expect(text.data, expected);
   }
 
-  void expectResultVisible(int elementCount) {
-    expect(find.text('Route Graph Refreshed'), findsOneWidget);
+  void expectResultVisible() {
+    expect(find.text('Route Graph Snapshot Validated'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byType(AlertDialog),
-        matching: find.text('$elementCount route graph elements imported'),
+        matching: find.text('Route graph snapshot validated.'),
       ),
       findsOneWidget,
     );
@@ -112,7 +110,7 @@ class RouteGraphRefreshRobot {
   }
 
   void expectFailureVisible(String contains) {
-    expect(find.text('Route Graph Refresh Failed'), findsOneWidget);
+    expect(find.text('Route Graph Snapshot Validation Failed'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byType(AlertDialog),
@@ -124,7 +122,7 @@ class RouteGraphRefreshRobot {
   }
 }
 
-class _ReadyRouteGraphStore implements RouteGraphStore {
+class ReadyRouteGraphStore implements RouteGraphStore {
   @override
   Future<trip_routing.TripService> preload() async => trip_routing.TripService();
 

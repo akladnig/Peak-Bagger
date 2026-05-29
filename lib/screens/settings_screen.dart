@@ -118,10 +118,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ListTile(
               key: const Key('refresh-route-graph-tile'),
               leading: const Icon(Icons.route),
-              title: const Text('Refresh Route Graph'),
-              subtitle: const Text(
-                'Re-fetch route graph snapshot from Overpass',
-              ),
+              title: const Text('Validate Route Graph Snapshot'),
+              subtitle: const Text('Validate the bundled route graph snapshot'),
               trailing: _isRefreshingRouteGraph
                   ? const SizedBox(
                       width: 20,
@@ -135,7 +133,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Text(
-                  'Route graph unavailable. Use Refresh Route Graph to retry.',
+                  'Route graph unavailable. Use Validate Route Graph Snapshot to retry.',
                 ),
               ),
             ListTile(
@@ -396,13 +394,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _confirmRefreshRouteGraph() async {
     final confirmed = await showDangerConfirmDialog(
       context: context,
-      title: 'Refresh Route Graph?',
+      title: 'Validate Route Graph Snapshot?',
       message:
-          'This will overwrite the current route graph snapshot. Do you want to proceed?',
+          'This will validate the bundled route graph snapshot. Do you want to proceed?',
       cancelKey: 'route-graph-refresh-cancel',
       cancelLabel: 'Cancel',
       confirmKey: 'route-graph-refresh-confirm',
-      confirmLabel: 'Refresh',
+      confirmLabel: 'Validate',
     );
 
     if (confirmed != true || !mounted) {
@@ -413,7 +411,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _isRefreshingRouteGraph = true;
     });
     _setStatus(
-      'Refreshing route graph...',
+      'Validating route graph snapshot...',
       key: const Key('route-graph-refresh-status'),
     );
 
@@ -427,7 +425,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
       ref.read(routeGraphReadinessProvider.notifier).markReady();
       _setStatus(
-        '${result.elementCount} route graph elements imported',
+        '${result.elementCount} route graph elements validated',
         key: const Key('route-graph-refresh-status'),
       );
 
@@ -441,8 +439,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         return;
       }
 
+      ref.read(routeGraphReadinessProvider.notifier).markFailed('$error');
       _setStatus(
-        'Error refreshing route graph: $error',
+        'Error validating route graph snapshot: $error',
         key: const Key('route-graph-refresh-status'),
       );
       await _showRouteGraphRefreshFailure(error.toString());
@@ -785,15 +784,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     await showSingleActionDialog(
       context: context,
-      title: 'Route Graph Refreshed',
+      title: 'Route Graph Snapshot Validated',
       closeKey: 'route-graph-refresh-result-close',
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('${result.elementCount} route graph elements imported'),
-        ],
-      ),
+      content: const Text('Route graph snapshot validated.'),
     );
   }
 
@@ -804,7 +797,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     await showSingleActionDialog(
       context: context,
-      title: 'Route Graph Refresh Failed',
+      title: 'Route Graph Snapshot Validation Failed',
       closeKey: 'route-graph-refresh-error-close',
       content: Text(error),
     );

@@ -1,20 +1,16 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/route_graph_refresh_service.dart';
-import 'package:peak_bagger/services/route_graph_store.dart';
-import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
 import '../../harness/test_peak_notifier.dart';
 import '../../harness/test_tasmap_repository.dart';
 import 'route_graph_refresh_robot.dart';
 
 void main() {
-  testWidgets('refresh route graph flow returns success', (tester) async {
+  testWidgets('validate route graph snapshot flow returns success', (tester) async {
     final repository = await TestTasmapRepository.create();
     final robot = RouteGraphRefreshRobot(
       tester,
@@ -30,7 +26,7 @@ void main() {
     robot.expectConfirmDialogVisible();
 
     await robot.confirmRefresh();
-    robot.expectResultVisible(3);
+    robot.expectResultVisible();
 
     router.go('/map');
     await robot.tester.pumpAndSettle();
@@ -41,7 +37,7 @@ void main() {
     expect(button.onPressed, isNotNull);
   });
 
-  testWidgets('refresh route graph flow shows failure dialog', (tester) async {
+  testWidgets('validate route graph snapshot flow shows failure dialog', (tester) async {
     final repository = await TestTasmapRepository.create();
     final robot = RouteGraphRefreshRobot(
       tester,
@@ -72,24 +68,10 @@ MapState _baseState() {
 }
 
 class _TestRouteGraphRefreshService extends RouteGraphRefreshService {
-  _TestRouteGraphRefreshService(this._handler) : super(_NoopRouteGraphStore());
+  _TestRouteGraphRefreshService(this._handler) : super(ReadyRouteGraphStore());
 
   final Future<RouteGraphRefreshResult> Function() _handler;
 
   @override
   Future<RouteGraphRefreshResult> refreshRouteGraph() => _handler();
-}
-
-class _NoopRouteGraphStore implements RouteGraphStore {
-  @override
-  Future<trip_routing.TripService> preload() async => trip_routing.TripService();
-
-  @override
-  Future<trip_routing.TripService> reload() async => trip_routing.TripService();
-
-  @override
-  Future<void> replaceSnapshot(String rawJson) async {}
-
-  @override
-  Future<File> snapshotFile() => throw UnimplementedError();
 }

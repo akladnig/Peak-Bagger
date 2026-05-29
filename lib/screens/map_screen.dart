@@ -23,7 +23,6 @@ import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
-import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/providers/gpx_export_provider.dart';
@@ -1301,8 +1300,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
         ),
       ),
     );
-    final routeGraphReadiness = ref.watch(routeGraphReadinessProvider);
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (routeChrome.showPeakSearch && !_searchFocusNode.hasFocus) {
         _searchFocusNode.requestFocus();
@@ -2048,9 +2045,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     child: MapRouteBottomSheet(),
                   ),
                 MapActionRail(
-                  onCreateRoute: routeGraphReadiness.isReady
-                      ? _beginRouteDraft
-                      : null,
+                  onCreateRoute: _beginRouteDraft,
                 ),
                 if (routeChrome.showPeakSearch)
                   Positioned(

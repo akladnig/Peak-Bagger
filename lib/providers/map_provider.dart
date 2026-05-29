@@ -218,6 +218,7 @@ class MapState {
   final List<LatLng> routeDraftMarkers;
   final RouteDraftStage routeDraftStage;
   final String? routeDraftError;
+  final RoutePlanningFailureKind routeDraftFailureKind;
   final int routeDraftColour;
   final List<LatLng> routeDraftCommittedPoints;
   final List<LatLng> routeDraftProvisionalPoints;
@@ -301,6 +302,7 @@ class MapState {
     this.routeDraftMarkers = const [],
     this.routeDraftStage = RouteDraftStage.inactive,
     this.routeDraftError,
+    this.routeDraftFailureKind = RoutePlanningFailureKind.generic,
     this.routeDraftColour = 0xFFFF0000,
     this.routeDraftCommittedPoints = const [],
     this.routeDraftProvisionalPoints = const [],
@@ -419,6 +421,7 @@ class MapState {
     List<LatLng>? routeDraftMarkers,
     RouteDraftStage? routeDraftStage,
     String? routeDraftError,
+    RoutePlanningFailureKind? routeDraftFailureKind,
     bool clearRouteDraftError = false,
     int? routeDraftColour,
     List<LatLng>? routeDraftCommittedPoints,
@@ -536,6 +539,8 @@ class MapState {
       routeDraftError: clearRouteDraftError
           ? null
           : (routeDraftError ?? this.routeDraftError),
+      routeDraftFailureKind:
+          routeDraftFailureKind ?? this.routeDraftFailureKind,
       routeDraftColour: routeDraftColour ?? this.routeDraftColour,
       routeDraftCommittedPoints:
           routeDraftCommittedPoints ?? this.routeDraftCommittedPoints,
@@ -663,6 +668,7 @@ typedef _RouteDraftSnapshot = ({
   List<LatLng> routeDraftMarkers,
   RouteDraftStage routeDraftStage,
   String? routeDraftError,
+  RoutePlanningFailureKind routeDraftFailureKind,
   int routeDraftColour,
   List<LatLng> routeDraftCommittedPoints,
   List<LatLng> routeDraftProvisionalPoints,
@@ -2060,6 +2066,7 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftMarkers: List<LatLng>.unmodifiable(state.routeDraftMarkers),
       routeDraftStage: state.routeDraftStage,
       routeDraftError: state.routeDraftError,
+      routeDraftFailureKind: state.routeDraftFailureKind,
       routeDraftColour: state.routeDraftColour,
       routeDraftCommittedPoints: List<LatLng>.unmodifiable(
         state.routeDraftCommittedPoints,
@@ -2128,6 +2135,7 @@ class MapNotifier extends Notifier<MapState> {
         routeDraftMarkers: snapshot.routeDraftMarkers,
         routeDraftStage: snapshot.routeDraftStage,
         routeDraftError: snapshot.routeDraftError,
+        routeDraftFailureKind: snapshot.routeDraftFailureKind,
         routeDraftColour: snapshot.routeDraftColour,
         routeDraftCommittedPoints: snapshot.routeDraftCommittedPoints,
         routeDraftProvisionalPoints: snapshot.routeDraftProvisionalPoints,
@@ -2336,7 +2344,10 @@ class MapNotifier extends Notifier<MapState> {
     if (controlEndpoints.isEmpty ||
         controlEndpoints.first.point != committedPoints.first ||
         controlEndpoints.last.point != committedPoints.last) {
-      state = state.copyWith(routeDraftError: 'Route draft is inconsistent.');
+      state = state.copyWith(
+        routeDraftError: 'Route draft is inconsistent.',
+        routeDraftFailureKind: RoutePlanningFailureKind.generic,
+      );
       return;
     }
 
@@ -2372,7 +2383,10 @@ class MapNotifier extends Notifier<MapState> {
     if (controlEndpoints.isEmpty ||
         controlEndpoints.first.point != committedPoints.first ||
         controlEndpoints.last.point != committedPoints.last) {
-      state = state.copyWith(routeDraftError: 'Route draft is inconsistent.');
+      state = state.copyWith(
+        routeDraftError: 'Route draft is inconsistent.',
+        routeDraftFailureKind: RoutePlanningFailureKind.generic,
+      );
       return;
     }
 
@@ -2440,15 +2454,13 @@ class MapNotifier extends Notifier<MapState> {
         );
         return;
       case RoutePlanningStatus.failed:
-        final updated = List<RouteDraftControlEndpoint>.from(
-          state.routeDraftControlEndpoints,
-        )..removeLast();
         _setRouteDraftControlState(
-          controlEndpoints: updated,
+          controlEndpoints: state.routeDraftControlEndpoints,
           stage: RouteDraftStage.segmentFailure,
           provisionalPoints: const [],
           offTrackProbeActive: state.routeDraftOffTrackProbeActive,
           routeDraftError: result.errorMessage ?? 'Failed to calculate route.',
+          routeDraftFailureKind: result.failureKind,
         );
         return;
     }
@@ -2497,6 +2509,8 @@ class MapNotifier extends Notifier<MapState> {
     bool? offTrackProbeActive,
     String? routeDraftError,
     bool clearRouteDraftError = false,
+    RoutePlanningFailureKind routeDraftFailureKind =
+        RoutePlanningFailureKind.generic,
     RouteMode? routeDraftMode,
     bool clearRouteDraftPeak = false,
     int? requestId,
@@ -2525,6 +2539,7 @@ class MapNotifier extends Notifier<MapState> {
           offTrackProbeActive ?? state.routeDraftOffTrackProbeActive,
       routeDraftError: routeDraftError,
       clearRouteDraftError: clearRouteDraftError,
+      routeDraftFailureKind: routeDraftFailureKind,
       routeDraftMode: routeDraftMode,
       clearRouteDraftPeak: clearRouteDraftPeak,
       routeDraftRequestId: requestId,
@@ -2588,16 +2603,14 @@ class MapNotifier extends Notifier<MapState> {
     if (!_isActiveRouteDraftRequest(requestId)) {
       return;
     }
-    if (probe.errorMessage != null) {
-      final updated = List<RouteDraftControlEndpoint>.from(
-        state.routeDraftControlEndpoints,
-      )..removeLast();
+      if (probe.errorMessage != null) {
       _setRouteDraftControlState(
-        controlEndpoints: updated,
+        controlEndpoints: state.routeDraftControlEndpoints,
         stage: RouteDraftStage.segmentFailure,
         provisionalPoints: const [],
         offTrackProbeActive: state.routeDraftOffTrackProbeActive,
         routeDraftError: probe.errorMessage,
+        routeDraftFailureKind: probe.failureKind,
       );
       return;
     }
@@ -2707,7 +2720,7 @@ class MapNotifier extends Notifier<MapState> {
           );
           return;
         }
-        if (start.point == point) {
+      if (start.point == point) {
           final duplicate = _createControlEndpoint(
             point: point,
             kind: _manualEndpointKindForPoint(point),
@@ -2724,7 +2737,10 @@ class MapNotifier extends Notifier<MapState> {
           return;
         }
         if (_hasReachedRouteDraftMarkerLimit()) {
-          state = state.copyWith(routeDraftError: _routeDraftMarkerLimitError);
+          state = state.copyWith(
+            routeDraftError: _routeDraftMarkerLimitError,
+            routeDraftFailureKind: RoutePlanningFailureKind.generic,
+          );
           return;
         }
         final nextEndpoint = _createControlEndpoint(
@@ -2797,7 +2813,10 @@ class MapNotifier extends Notifier<MapState> {
     }
 
     if (_hasReachedRouteDraftMarkerLimit()) {
-      state = state.copyWith(routeDraftError: _routeDraftMarkerLimitError);
+      state = state.copyWith(
+        routeDraftError: _routeDraftMarkerLimitError,
+        routeDraftFailureKind: RoutePlanningFailureKind.generic,
+      );
       return;
     }
 
@@ -2919,6 +2938,22 @@ class MapNotifier extends Notifier<MapState> {
       state = state.copyWith(isSavingRoute: false);
       _pendingRouteSnackbarMessage = 'Failed to save route: $error';
     }
+  }
+
+  void retryRouteDraftSegment() {
+    if (!state.isRouteDrafting ||
+        state.routeDraftStage != RouteDraftStage.segmentFailure ||
+        state.routeDraftFailureKind != RoutePlanningFailureKind.routeGraphLoad ||
+        state.routeDraftControlEndpoints.length < 2) {
+      return;
+    }
+
+    unawaited(
+      _rebuildRouteDraftFromControlEndpoints(
+        List<RouteDraftControlEndpoint>.from(state.routeDraftControlEndpoints),
+        invalidatePeakTarget: false,
+      ),
+    );
   }
 
   List<RouteWaypoint> _buildRouteDraftWaypointsForSave() {
@@ -3094,15 +3129,13 @@ class MapNotifier extends Notifier<MapState> {
         _resampleRouteDraftElevation();
         return;
       case RoutePlanningStatus.failed:
-        final updated = List<RouteDraftControlEndpoint>.from(
-          state.routeDraftControlEndpoints,
-        )..removeLast();
         _setRouteDraftControlState(
-          controlEndpoints: updated,
+          controlEndpoints: state.routeDraftControlEndpoints,
           stage: RouteDraftStage.segmentFailure,
           provisionalPoints: const [],
           offTrackProbeActive: state.routeDraftOffTrackProbeActive,
           routeDraftError: result.errorMessage ?? 'Failed to calculate route.',
+          routeDraftFailureKind: result.failureKind,
         );
         return;
     }
