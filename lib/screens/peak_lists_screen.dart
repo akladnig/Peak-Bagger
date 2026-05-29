@@ -1463,8 +1463,8 @@ class _PeakDetailsTableCardState extends State<_PeakDetailsTableCard> {
                                       ),
                                       child: Container(
                                         key: _rowKeyFor(row.peakId),
-                                        decoration: row.peakId ==
-                                                widget.selectedPeakId
+                                        decoration:
+                                            row.peakId == widget.selectedPeakId
                                             ? _selectedRowDecoration(context)
                                             : null,
                                         child: InkWell(
@@ -2131,10 +2131,10 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                             buildPeakMarkers(
                                   peaks: [
                                     for (final peak in markerPeaks) peak.peak,
-                                ],
-                                zoom: 0,
-                                showPeakInfo: showPeakInfo,
-                                correlatedPeakIds: {
+                                  ],
+                                  zoom: 0,
+                                  showPeakInfo: showPeakInfo,
+                                  correlatedPeakIds: {
                                     for (final peak in markerPeaks.where(
                                       (peak) => peak.isClimbed,
                                     ))
@@ -2268,6 +2268,7 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                                       _popupContent!.peak.longitude,
                                     ),
                                   );
+                              _clearPopup();
                             },
                             onClose: _clearPopup,
                           ),
