@@ -233,7 +233,7 @@ class MapTrackInfoPanel extends StatelessWidget {
             Expanded(
               child: _SummaryMetric(
                 label: 'Descent',
-                value: formatElevation(route.descent),
+                value: formatElevation(route.descent.round()),
               ),
             ),
           ],
@@ -248,22 +248,22 @@ class MapTrackInfoPanel extends StatelessWidget {
         thinDivider,
         _LabeledValueRow(
           label: 'Start Elevation',
-          value: formatElevation(route.startElevation),
+          value: formatElevation(route.startElevation.round()),
         ),
         thinDivider,
         _LabeledValueRow(
           label: 'End Elevation',
-          value: formatElevation(route.endElevation),
+          value: formatElevation(route.endElevation.round()),
         ),
         thinDivider,
         _LabeledValueRow(
           label: 'Max Elevation',
-          value: formatElevation(route.highestElevation),
+          value: formatElevation(route.highestElevation.round()),
         ),
         thinDivider,
         _LabeledValueRow(
           label: 'Min Elevation',
-          value: formatElevation(route.lowestElevation),
+          value: formatElevation(route.lowestElevation.round()),
         ),
       ],
     );
@@ -337,22 +337,22 @@ class MapTrackInfoPanel extends StatelessWidget {
         thinDivider,
         _LabeledValueRow(
           label: 'Start Elevation',
-          value: formatElevation(track.startElevation),
+          value: formatElevation(track.startElevation.round()),
         ),
         thinDivider,
         _LabeledValueRow(
           label: 'End Elevation',
-          value: formatElevation(track.endElevation),
+          value: formatElevation(track.endElevation.round()),
         ),
         thinDivider,
         _LabeledValueRow(
           label: 'Max Elevation',
-          value: formatElevation(track.highestElevation),
+          value: formatElevation(track.highestElevation.round()),
         ),
         thinDivider,
         _LabeledValueRow(
           label: 'Min Elevation',
-          value: formatElevation(track.lowestElevation),
+          value: formatElevation(track.lowestElevation.round()),
         ),
         const SizedBox(height: 20),
         const _SectionTitle(title: 'Time'),
@@ -884,12 +884,12 @@ class PeakInfoPopupCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                       ],
-                      _PeakInfoLabeledValueRow(
-                        label: 'Height:',
-                        value: peak.elevation == null
-                            ? '—'
-                            : '${formatElevationMetres(peak.elevation!.round())}m',
-                      ),
+                        _PeakInfoLabeledValueRow(
+                          label: 'Height:',
+                          value: peak.elevation == null
+                              ? '—'
+                              : '${formatElevation(peak.elevation!.round(), showUnits: false)}m',
+                        ),
                       if (content.ascentRows.isNotEmpty) ...[
                         const SizedBox(height: 4),
                         const Padding(

@@ -332,7 +332,7 @@ class _ElevationMetric extends StatelessWidget {
         Text(label, style: theme.textTheme.bodySmall),
         const SizedBox(width: 4),
         Text(
-          '${formatElevationMetres(value)} m',
+          formatElevation(value),
           key: valueKey,
           style: theme.textTheme.bodySmall?.copyWith(
             fontWeight: FontWeight.w700,

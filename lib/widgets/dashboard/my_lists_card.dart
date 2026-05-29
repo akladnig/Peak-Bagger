@@ -151,13 +151,13 @@ class _MyListsTableRow extends StatelessWidget {
             style: headerStyle?.copyWith(fontWeight: FontWeight.w600),
           ),
           _MyListsTableCell(
-            label: formatCount(row.totalPeaks.toDouble()),
+            label: formatCount(row.totalPeaks),
             flex: 2,
             textAlign: TextAlign.end,
             style: rowStyle,
           ),
           _MyListsTableCell(
-            label: formatCount(row.climbed.toDouble()),
+            label: formatCount(row.climbed),
             flex: 2,
             textAlign: TextAlign.end,
             style: rowStyle,
@@ -169,7 +169,7 @@ class _MyListsTableRow extends StatelessWidget {
             style: rowStyle,
           ),
           _MyListsTableCell(
-            label: formatCount(row.unclimbed.toDouble()),
+            label: formatCount(row.unclimbed),
             flex: 2,
             textAlign: TextAlign.end,
             style: rowStyle,

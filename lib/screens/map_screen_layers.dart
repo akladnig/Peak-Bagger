@@ -202,7 +202,7 @@ class _PeakMarkerLabels extends StatelessWidget {
     final name = peak.name.trim().isEmpty ? '—' : peak.name.trim();
     final height = peak.elevation == null
         ? '—'
-        : formatElevation(peak.elevation!.toDouble(), showUnits: false);
+        : formatElevation(peak.elevation!.round(), showUnits: false);
     final labelStyle = peakMarkerLabelTextStyle(context);
 
     return ConstrainedBox(

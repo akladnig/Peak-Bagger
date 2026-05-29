@@ -8,9 +8,9 @@ typedef ElevationDisplayMode = SummaryDisplayMode;
 List<String> formatElevationTooltipValues(
   SummaryBucket bucket,
   SummaryBucket? secondaryBucket,
-) => ['${formatElevationMetres(bucket.roundedValue)} m'];
+) => [formatElevation(bucket.roundedValue)];
 
-String formatElevationAxisLabel(double value) => formatElevation(value);
+String formatElevationAxisLabel(double value) => formatElevation(value.round());
 
 String formatElevationTooltipTitle(
   SummaryBucket bucket,

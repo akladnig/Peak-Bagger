@@ -48,4 +48,4 @@ class ElevationCard extends StatelessWidget {
 }
 
 String _formatHeaderValue(double value) =>
-    '${formatElevationMetres(value.round())} m';
+    formatElevation(value.round());

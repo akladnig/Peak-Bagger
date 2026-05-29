@@ -552,4 +552,4 @@ class _DashboardCardHeaderBodyPlaceholder extends StatelessWidget {
   }
 }
 
-String _formatCountValue(double value) => formatElevationMetres(value.round());
+String _formatCountValue(double value) => formatCount(value.round());

@@ -119,7 +119,7 @@ class MyAscentsSummaryService {
         : peakNameText;
     final elevationText = peak?.elevation == null
         ? 'Unknown'
-        : formatElevation(peak!.elevation!);
+        : formatElevation(peak!.elevation!.round());
 
     return MyAscentsRow(
       baggedId: baggedRow.baggedId,

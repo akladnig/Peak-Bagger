@@ -36,7 +36,7 @@ class PeaksBaggedCard extends StatelessWidget {
       tooltipValueTexts: _tooltipValueTexts,
       headerValueText: _formatHeaderValue,
       barSeriesStyle: SummaryBarSeriesStyle.stacked,
-      yAxisLabelText: formatCount,
+      yAxisLabelText: (value) => formatCount(value.round()),
     );
 
     return KeyedSubtree(
@@ -53,15 +53,15 @@ class PeaksBaggedCard extends StatelessWidget {
   }
 }
 
-String _formatHeaderValue(double value) => formatCount(value);
+String _formatHeaderValue(double value) => formatCount(value.round());
 
 List<String> _tooltipValueTexts(
   SummaryBucket bucket,
   SummaryBucket? secondaryBucket,
 ) {
   return [
-    'Total climbs: ${formatElevationMetres(bucket.value.round())}',
+    'Total climbs: ${formatCount(bucket.value.round())}',
     if (secondaryBucket != null)
-      'New peaks: ${formatElevationMetres(secondaryBucket.value.round())}',
+      'New peaks: ${formatCount(secondaryBucket.value.round())}',
   ];
 }
