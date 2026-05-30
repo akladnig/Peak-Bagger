@@ -7,6 +7,8 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/models/route.dart';
+import 'package:peak_bagger/models/route_graph_chunk.dart';
+import 'package:peak_bagger/models/route_graph_manifest.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 
@@ -25,6 +27,8 @@ void main() {
       'PeakList',
       'PeaksBagged',
       'Route',
+      'RouteGraphChunk',
+      'RouteGraphManifest',
     ]);
     expect(entities.first.primaryKeyField, 'id');
     expect(entities.first.primaryNameField, 'name');
@@ -119,10 +123,27 @@ void main() {
       entities[4].fields.map((field) => field.name),
       containsAll(['baggedId', 'peakId', 'gpxId', 'date']),
     );
-    expect(entities.last.primaryKeyField, 'id');
-    expect(entities.last.primaryNameField, 'name');
     expect(
-      entities.last.fields.map((field) => field.name),
+      entities[6].fields.map((field) => field.name),
+      containsAll([
+        'id',
+        'recordKey',
+        'chunkKey',
+        'generation',
+        'minLat',
+        'minLon',
+        'maxLat',
+        'maxLon',
+        'elementCount',
+        'payloadJson',
+      ]),
+    );
+    expect(entities[6].primaryKeyField, 'id');
+    expect(entities[6].primaryNameField, 'chunkKey');
+    expect(entities[5].primaryKeyField, 'id');
+    expect(entities[5].primaryNameField, 'name');
+    expect(
+      entities[5].fields.map((field) => field.name),
       containsAll([
         'id',
         'name',
@@ -140,6 +161,54 @@ void main() {
         'highestElevation',
       ]),
     );
+    expect(entities.last.primaryKeyField, 'id');
+    expect(entities.last.primaryNameField, 'readinessState');
+  });
+
+  test('routeGraphChunkToAdminRow exposes chunk metadata', () {
+    final row = routeGraphChunkToAdminRow(
+      RouteGraphChunk(
+        id: 42,
+        recordKey: '7|0_0',
+        chunkKey: '0_0',
+        generation: 7,
+        minLat: -42,
+        minLon: 146,
+        maxLat: -41,
+        maxLon: 147,
+        elementCount: 3,
+        payloadJson: '{"elements":[]}',
+      ),
+    );
+
+    expect(row.primaryKeyValue, 42);
+    expect(row.values['recordKey'], '7|0_0');
+    expect(row.values['chunkKey'], '0_0');
+    expect(row.values['generation'], 7);
+    expect(row.values['payloadJson'], '{"elements":[]}');
+  });
+
+  test('routeGraphManifestToAdminRow exposes manifest metadata', () {
+    final row = routeGraphManifestToAdminRow(
+      RouteGraphManifest(
+        id: RouteGraphManifest.manifestId,
+        sourceHash: 'source-hash',
+        schemaVersion: 'route-graph-v1',
+        activeGeneration: 7,
+        importedAt: DateTime.utc(2025, 1, 2, 3, 4),
+        chunkCount: 1,
+        nodeCount: 2,
+        edgeCount: 1,
+        readinessState: RouteGraphManifest.readinessReady,
+        lastError: 'none',
+      ),
+    );
+
+    expect(row.primaryKeyValue, RouteGraphManifest.manifestId);
+    expect(row.values['sourceHash'], 'source-hash');
+    expect(row.values['schemaVersion'], 'route-graph-v1');
+    expect(row.values['readinessState'], RouteGraphManifest.readinessReady);
+    expect(row.values['lastError'], 'none');
   });
 
   test('filter/sort helper matches entity names case-insensitively', () {

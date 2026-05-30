@@ -7,6 +7,8 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/models/route.dart';
+import 'package:peak_bagger/models/route_graph_chunk.dart';
+import 'package:peak_bagger/models/route_graph_manifest.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/services/peak_admin_editor.dart';
 import 'package:peak_bagger/objectbox.g.dart';
@@ -66,6 +68,16 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
       'GpxTrack' => _loadTrackRows(store, trimmedQuery, ascending),
       'PeaksBagged' => _loadPeaksBaggedRows(store, trimmedQuery, ascending),
       'Route' => _loadRouteRows(store, trimmedQuery, ascending),
+      'RouteGraphChunk' => _loadRouteGraphChunkRows(
+        store,
+        trimmedQuery,
+        ascending,
+      ),
+      'RouteGraphManifest' => _loadRouteGraphManifestRows(
+        store,
+        trimmedQuery,
+        ascending,
+      ),
       _ => <ObjectBoxAdminRow>[],
     };
 
@@ -158,6 +170,8 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
       'Tasmap50k' => 'name',
       'GpxTrack' => 'trackName',
       'PeaksBagged' => 'gpxId',
+      'RouteGraphChunk' => 'chunkKey',
+      'RouteGraphManifest' => 'readinessState',
       _ => 'name',
     };
   }
@@ -367,6 +381,51 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
 
     return filtered.map(routeToAdminRow).toList(growable: false);
   }
+
+  List<ObjectBoxAdminRow> _loadRouteGraphChunkRows(
+    Store store,
+    String query,
+    bool ascending,
+  ) {
+    final box = store.box<RouteGraphChunk>();
+    final items = box.getAll();
+    final filtered = query.isEmpty
+        ? items
+        : items.where((chunk) {
+            return chunk.chunkKey.toLowerCase().contains(query) ||
+                chunk.recordKey.toLowerCase().contains(query) ||
+                chunk.payloadJson.toLowerCase().contains(query);
+          }).toList();
+
+    filtered.sort(
+      (a, b) => ascending ? a.id.compareTo(b.id) : b.id.compareTo(a.id),
+    );
+
+    return filtered.map(routeGraphChunkToAdminRow).toList(growable: false);
+  }
+
+  List<ObjectBoxAdminRow> _loadRouteGraphManifestRows(
+    Store store,
+    String query,
+    bool ascending,
+  ) {
+    final box = store.box<RouteGraphManifest>();
+    final items = box.getAll();
+    final filtered = query.isEmpty
+        ? items
+        : items.where((manifest) {
+            return manifest.sourceHash.toLowerCase().contains(query) ||
+                manifest.schemaVersion.toLowerCase().contains(query) ||
+                manifest.readinessState.toLowerCase().contains(query) ||
+                (manifest.lastError?.toLowerCase().contains(query) ?? false);
+          }).toList();
+
+    filtered.sort(
+      (a, b) => ascending ? a.id.compareTo(b.id) : b.id.compareTo(a.id),
+    );
+
+    return filtered.map(routeGraphManifestToAdminRow).toList(growable: false);
+  }
 }
 
 ObjectBoxAdminRow peakToAdminRow(Peak peak) {
@@ -554,6 +613,42 @@ ObjectBoxAdminRow routeToAdminRow(Route route) {
       'endElevation': route.endElevation,
       'lowestElevation': route.lowestElevation,
       'highestElevation': route.highestElevation,
+    },
+  );
+}
+
+ObjectBoxAdminRow routeGraphChunkToAdminRow(RouteGraphChunk chunk) {
+  return ObjectBoxAdminRow(
+    primaryKeyValue: chunk.id,
+    values: {
+      'id': chunk.id,
+      'recordKey': chunk.recordKey,
+      'chunkKey': chunk.chunkKey,
+      'generation': chunk.generation,
+      'minLat': chunk.minLat,
+      'minLon': chunk.minLon,
+      'maxLat': chunk.maxLat,
+      'maxLon': chunk.maxLon,
+      'elementCount': chunk.elementCount,
+      'payloadJson': chunk.payloadJson,
+    },
+  );
+}
+
+ObjectBoxAdminRow routeGraphManifestToAdminRow(RouteGraphManifest manifest) {
+  return ObjectBoxAdminRow(
+    primaryKeyValue: manifest.id,
+    values: {
+      'id': manifest.id,
+      'sourceHash': manifest.sourceHash,
+      'schemaVersion': manifest.schemaVersion,
+      'activeGeneration': manifest.activeGeneration,
+      'importedAt': manifest.importedAt,
+      'chunkCount': manifest.chunkCount,
+      'nodeCount': manifest.nodeCount,
+      'edgeCount': manifest.edgeCount,
+      'readinessState': manifest.readinessState,
+      'lastError': manifest.lastError,
     },
   );
 }
