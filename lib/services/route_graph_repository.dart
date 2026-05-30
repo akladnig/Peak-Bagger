@@ -62,12 +62,14 @@ class ObjectBoxRouteGraphStorage implements RouteGraphStorage {
     : _store = store,
       _manifestBox = store.box<RouteGraphManifest>(),
       _chunkBox = store.box<RouteGraphChunk>(),
-      _wayIndexBox = store.box<RouteGraphWayIndex>();
+      _wayIndexBox = store.box<RouteGraphWayIndex>(),
+      _trailDisplayChunkBox = store.box<RouteGraphTrailDisplayChunk>();
 
   final Store _store;
   final Box<RouteGraphManifest> _manifestBox;
   final Box<RouteGraphChunk> _chunkBox;
   final Box<RouteGraphWayIndex> _wayIndexBox;
+  final Box<RouteGraphTrailDisplayChunk> _trailDisplayChunkBox;
 
   @override
   RouteGraphManifest? activeManifest() {
@@ -106,7 +108,21 @@ class ObjectBoxRouteGraphStorage implements RouteGraphStorage {
 
   @override
   List<RouteGraphTrailDisplayChunk> activeTrailDisplayChunks() {
-    return const [];
+    final manifest = activeManifest();
+    if (manifest == null || !manifest.hasActiveGeneration) {
+      return const [];
+    }
+
+    final query = _trailDisplayChunkBox
+        .query(
+          RouteGraphTrailDisplayChunk_.generation.equals(
+            manifest.activeGeneration,
+          ),
+        )
+        .build();
+    final rows = query.find();
+    query.close();
+    return rows;
   }
 
   @override
@@ -137,12 +153,28 @@ class ObjectBoxRouteGraphStorage implements RouteGraphStorage {
         if (staleWayIds.isNotEmpty) {
           _wayIndexBox.removeMany(staleWayIds);
         }
+
+        final staleTrailDisplayQuery = _trailDisplayChunkBox
+            .query(
+              RouteGraphTrailDisplayChunk_.generation.notEquals(
+                manifest.activeGeneration,
+              ),
+            )
+            .build();
+        final staleTrailDisplayIds = staleTrailDisplayQuery.findIds();
+        staleTrailDisplayQuery.close();
+        if (staleTrailDisplayIds.isNotEmpty) {
+          _trailDisplayChunkBox.removeMany(staleTrailDisplayIds);
+        }
       }
       if (chunks.isNotEmpty) {
         _chunkBox.putMany(chunks);
       }
       if (wayIndexRows.isNotEmpty) {
         _wayIndexBox.putMany(wayIndexRows);
+      }
+      if (trailDisplayChunks.isNotEmpty) {
+        _trailDisplayChunkBox.putMany(trailDisplayChunks);
       }
     });
   }
@@ -158,6 +190,7 @@ class ObjectBoxRouteGraphStorage implements RouteGraphStorage {
   Future<void> clearAll() async {
     _chunkBox.removeAll();
     _wayIndexBox.removeAll();
+    _trailDisplayChunkBox.removeAll();
     _manifestBox.remove(RouteGraphManifest.manifestId);
   }
 }

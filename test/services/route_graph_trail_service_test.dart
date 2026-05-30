@@ -130,4 +130,52 @@ void main() {
 
     expect(trails, isEmpty);
   });
+
+  test('buildVisibleTrails fails closed when a cache row is malformed', () {
+    final repository = RouteGraphRepository.test(
+      InMemoryRouteGraphStorage(
+        manifest: RouteGraphManifest(
+          activeGeneration: 1,
+          readinessState: RouteGraphManifest.readinessReady,
+        ),
+        chunks: [
+          RouteGraphChunk(
+            recordKey: '1|0_0',
+            chunkKey: '0_0',
+            generation: 1,
+            minLat: -42,
+            minLon: 146,
+            maxLat: -41,
+            maxLon: 147,
+            elementCount: 0,
+            payloadJson: '{"elements":[]}',
+          ),
+        ],
+        trailDisplayChunks: [
+          RouteGraphTrailDisplayChunk(
+            recordKey: RouteGraphTrailDisplayChunk.recordKeyFor(
+              generation: 1,
+              cacheZoom: 15,
+              chunkKey: '0_0',
+            ),
+            generation: 1,
+            cacheZoom: 15,
+            chunkKey: '0_0',
+            payloadJson: '{"bad":"payload"}',
+          ),
+        ],
+      ),
+    );
+
+    final service = RouteGraphTrailService(RouteGraphQueryService(repository));
+    final trails = service.buildVisibleTrails(
+      minLat: -42,
+      minLon: 146,
+      maxLat: -41,
+      maxLon: 147,
+      zoom: 15,
+    );
+
+    expect(trails, isEmpty);
+  });
 }

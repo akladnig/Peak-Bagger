@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
@@ -699,6 +701,67 @@ void main() {
 
     expect(find.byKey(const Key('trail-polyline-layer')), findsNothing);
     expect(robot.container().read(mapProvider).showTrails, isFalse);
+  });
+
+  testWidgets('trail journey switches to the refreshed cached generation', (
+    tester,
+  ) async {
+    final store = TrailRouteGraphStore();
+    final robot = MapRouteRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+      routePlanningOutcomes: const [],
+      routeElevationOutcomes: const [],
+      routeGraphStore: store,
+    );
+
+    await robot.pumpApp();
+    await robot.openMap();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('show-trails-fab')));
+    await tester.pumpAndSettle();
+
+    PolylineLayer layer = tester.widget(
+      find.byKey(const Key('trail-polyline-layer')),
+    );
+    expect(layer.polylines.first.points, const [
+      LatLng(-41.5, 146.5),
+      LatLng(-41.55, 146.55),
+    ]);
+
+    await store.replaceVisibleTrailGeneration(const [
+      LatLng(-41.5, 146.5),
+      LatLng(-41.525, 146.525),
+      LatLng(-41.55, 146.55),
+    ]);
+    await tester.drag(robot.mapInteractionRegion, const Offset(-60, 20));
+    await tester.pumpAndSettle();
+
+    layer = tester.widget(find.byKey(const Key('trail-polyline-layer')));
+    expect(layer.polylines.first.points, const [
+      LatLng(-41.5, 146.5),
+      LatLng(-41.525, 146.525),
+      LatLng(-41.55, 146.55),
+    ]);
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(robot.mapInteractionRegion),
+      kind: PointerDeviceKind.trackpad,
+    );
+    await gesture.panZoomUpdate(
+      tester.getCenter(robot.mapInteractionRegion),
+      pan: const Offset(0, 120),
+    );
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('trail-polyline-layer')), findsOneWidget);
   });
 }
 

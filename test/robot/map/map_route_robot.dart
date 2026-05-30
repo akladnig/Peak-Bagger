@@ -29,6 +29,7 @@ import 'package:peak_bagger/services/route_graph_store.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
 import '../../harness/test_tasmap_repository.dart';
@@ -453,31 +454,50 @@ class TrailRouteGraphStore implements RouteGraphStore, RouteGraphRepositoryProvi
             ),
           ],
           trailDisplayChunks: [
-            RouteGraphTrailDisplayChunk(
-              recordKey: RouteGraphTrailDisplayChunk.recordKeyFor(
-                generation: 1,
-                cacheZoom: 15,
-                chunkKey: '0_0',
-              ),
-              generation: 1,
-              cacheZoom: 15,
-              chunkKey: '0_0',
-              payloadJson: RouteGraphTrailDisplayChunk.encodeWays([
-                const RouteGraphTrailDisplayWay(
-                  osmWayId: 10,
-                  points: [
-                    LatLng(-41.5, 146.5),
-                    LatLng(-41.55, 146.55),
-                  ],
-                ),
-              ]),
-            ),
+            ..._trailDisplayChunksForGeneration(1, const [
+              LatLng(-41.5, 146.5),
+              LatLng(-41.55, 146.55),
+            ]),
           ],
         ),
       );
 
   @override
   final RouteGraphRepository repository;
+
+  Future<void> replaceVisibleTrailGeneration(List<LatLng> points) async {
+    final nextGeneration = repository.activeGeneration + 1;
+    await repository.writePreparedGeneration(
+      RouteGraphPreparedGeneration(
+        generation: nextGeneration,
+        sourceHash: 'trail-generation-$nextGeneration',
+        schemaVersion: repository.manifest?.schemaVersion ?? 'route-graph-v2',
+        importedAt: DateTime.utc(2026),
+        chunkCount: 1,
+        nodeCount: points.length,
+        edgeCount: 1,
+        chunks: [
+          RouteGraphChunk(
+            recordKey: '$nextGeneration|0_0',
+            chunkKey: '0_0',
+            generation: nextGeneration,
+            minLat: -42.0,
+            minLon: 146.0,
+            maxLat: -41.0,
+            maxLon: 147.0,
+            elementCount: 0,
+            payloadJson: '{"elements":[]}',
+          ),
+        ],
+        wayIndexRows: const [],
+        trailDisplayChunks: _trailDisplayChunksForGeneration(
+          nextGeneration,
+          points,
+        ),
+      ),
+      pruneStaleGenerations: true,
+    );
+  }
 
   @override
   Future<trip_routing.TripService> preload() async {
@@ -494,6 +514,32 @@ class TrailRouteGraphStore implements RouteGraphStore, RouteGraphRepositoryProvi
 
   @override
   Future<File> snapshotFile() => throw UnimplementedError();
+}
+
+List<RouteGraphTrailDisplayChunk> _trailDisplayChunksForGeneration(
+  int generation,
+  List<LatLng> points,
+) {
+  return [
+    for (
+      var zoom = TrackDisplayCacheBuilder.minZoom;
+      zoom <= TrackDisplayCacheBuilder.maxZoom;
+      zoom++
+    )
+      RouteGraphTrailDisplayChunk(
+        recordKey: RouteGraphTrailDisplayChunk.recordKeyFor(
+          generation: generation,
+          cacheZoom: zoom,
+          chunkKey: '0_0',
+        ),
+        generation: generation,
+        cacheZoom: zoom,
+        chunkKey: '0_0',
+        payloadJson: RouteGraphTrailDisplayChunk.encodeWays([
+          RouteGraphTrailDisplayWay(osmWayId: 10, points: points),
+        ]),
+      ),
+  ];
 }
 
 class _ReadyRouteGraphReadinessNotifier extends RouteGraphReadinessNotifier {

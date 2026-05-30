@@ -100,6 +100,62 @@ void main() {
     expect(repository.activeTrailDisplayChunks().single.generation, 2);
   });
 
+  test('writePreparedGeneration prunes stale trail display rows', () async {
+    final storage = InMemoryRouteGraphStorage(
+      manifest: RouteGraphManifest(
+        sourceHash: 'old',
+        schemaVersion: 'route-graph-v2',
+        activeGeneration: 1,
+        importedAt: DateTime.utc(2024),
+        chunkCount: 1,
+        nodeCount: 1,
+        edgeCount: 1,
+        readinessState: RouteGraphManifest.readinessReady,
+      ),
+      trailDisplayChunks: [
+        _trailDisplayChunk(generation: 1, cacheZoom: 15, chunkKey: '0_0'),
+      ],
+    );
+    final repository = RouteGraphRepository.test(storage);
+
+    await repository.writePreparedGeneration(
+      RouteGraphPreparedGeneration(
+        generation: 2,
+        sourceHash: 'new',
+        schemaVersion: 'route-graph-v2',
+        importedAt: DateTime.utc(2025),
+        chunkCount: 1,
+        nodeCount: 2,
+        edgeCount: 1,
+        chunks: const [],
+        wayIndexRows: const [],
+        trailDisplayChunks: [
+          _trailDisplayChunk(generation: 2, cacheZoom: 15, chunkKey: '1_1'),
+        ],
+      ),
+      pruneStaleGenerations: true,
+    );
+
+    await storage.replaceGeneration(
+      manifest: RouteGraphManifest(
+        sourceHash: 'old',
+        schemaVersion: 'route-graph-v2',
+        activeGeneration: 1,
+        importedAt: DateTime.utc(2024),
+        chunkCount: 0,
+        nodeCount: 0,
+        edgeCount: 0,
+        readinessState: RouteGraphManifest.readinessReady,
+      ),
+      chunks: const [],
+      wayIndexRows: const [],
+      trailDisplayChunks: const [],
+      pruneStaleGenerations: false,
+    );
+
+    expect(storage.activeTrailDisplayChunks(), isEmpty);
+  });
+
   test('buildTripServiceForActiveGeneration loads active payloads', () async {
     final storage = InMemoryRouteGraphStorage(
       manifest: RouteGraphManifest(

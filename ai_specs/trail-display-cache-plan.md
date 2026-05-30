@@ -47,17 +47,17 @@ Persist zoom+chunk trail display cache at import time. Render overlay from cache
 ### Phase 3: ObjectBox Persistence + Journey Hardening
 
 - **Goal**: production persistence, pruning, user-journey confidence
-- [ ] `lib/services/route_graph_repository.dart` - add ObjectBox box/query/prune support for trail cache rows; align with in-memory behavior
-- [ ] `lib/objectbox.g.dart` - regenerate ObjectBox bindings after entity addition
-- [ ] `test/services/route_graph_repository_test.dart` - assert stale-generation prune removes trail cache rows with chunks/way rows
-- [ ] `test/services/route_graph_query_service_test.dart` - add malformed cache row, missing zoom row, overlap edge cases
-- [ ] `test/robot/map/map_route_journey_test.dart` - seed cache-row-backed trail store; keep selectors `show-trails-fab`, `show-trails-switch`, `trail-polyline-layer`
-- [ ] `test/robot/map/map_route_robot.dart` - update fake route-graph store fixtures/seams for trail cache rows; deterministic generation state
-- [ ] TDD: ObjectBox active-generation reads and stale-generation pruning include trail cache rows; then implement production storage
-- [ ] TDD: malformed cache payload fails closed for trails only; then implement decode guard
-- [ ] TDD: robot journey toggles, pans, zooms, refreshes with cached overlay path only; then update fixtures/seams
-- [ ] Robot journey tests + selectors/seams for critical flows: trail toggle, pan, zoom, refresh; fake store seeds cache rows directly; avoid async flake via deterministic readiness/store state
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/services/route_graph_repository.dart` - add ObjectBox box/query/prune support for trail cache rows; align with in-memory behavior
+- [x] `lib/objectbox.g.dart` - regenerate ObjectBox bindings after entity addition
+- [x] `test/services/route_graph_repository_test.dart` - assert stale-generation prune removes trail cache rows with chunks/way rows
+- [x] `test/services/route_graph_query_service_test.dart` - add malformed cache row, missing zoom row, overlap edge cases
+- [x] `test/robot/map/map_route_journey_test.dart` - seed cache-row-backed trail store; keep selectors `show-trails-fab`, `show-trails-switch`, `trail-polyline-layer`
+- [x] `test/robot/map/map_route_robot.dart` - update fake route-graph store fixtures/seams for trail cache rows; deterministic generation state
+- [x] TDD: ObjectBox active-generation reads and stale-generation pruning include trail cache rows; then implement production storage
+- [x] TDD: malformed cache payload fails closed for trails only; then implement decode guard
+- [x] TDD: robot journey toggles, pans, zooms, refreshes with cached overlay path only; then update fixtures/seams
+- [x] Robot journey tests + selectors/seams for critical flows: trail toggle, pan, zoom, refresh; fake store seeds cache rows directly; avoid async flake via deterministic readiness/store state
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 
