@@ -21,6 +21,7 @@ import 'models/peaks_bagged.dart';
 import 'models/route.dart';
 import 'models/route_graph_chunk.dart';
 import 'models/route_graph_manifest.dart';
+import 'models/route_graph_way_index.dart';
 import 'models/tasmap50k.dart';
 
 export 'package:objectbox/objectbox.dart'; // so that callers only have to import this file
@@ -757,6 +758,126 @@ final _entities = <obx_int.ModelEntity>[
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
   ),
+  obx_int.ModelEntity(
+    id: const obx_int.IdUid(9, 7206587872972155691),
+    name: 'RouteGraphWayIndex',
+    lastPropertyId: const obx_int.IdUid(16, 8218973595292904004),
+    flags: 0,
+    properties: <obx_int.ModelProperty>[
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(1, 443872081856852457),
+        name: 'id',
+        type: 6,
+        flags: 129,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(2, 8740285009668479209),
+        name: 'recordKey',
+        type: 9,
+        flags: 2080,
+        indexId: const obx_int.IdUid(4, 6245894765064343651),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(3, 7771898020658441888),
+        name: 'generation',
+        type: 6,
+        flags: 8,
+        indexId: const obx_int.IdUid(5, 5438526232553354638),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(4, 2107571599242027657),
+        name: 'chunkKey',
+        type: 9,
+        flags: 2048,
+        indexId: const obx_int.IdUid(6, 4453574097210365444),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(5, 5624145145932228172),
+        name: 'osmWayId',
+        type: 6,
+        flags: 8,
+        indexId: const obx_int.IdUid(7, 8874830724970828136),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(6, 232566106986568028),
+        name: 'highway',
+        type: 9,
+        flags: 2048,
+        indexId: const obx_int.IdUid(8, 6870510557970833435),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(7, 6609313452380556519),
+        name: 'surface',
+        type: 9,
+        flags: 2048,
+        indexId: const obx_int.IdUid(9, 5425780077425005528),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(8, 3016050586232872511),
+        name: 'footway',
+        type: 9,
+        flags: 2048,
+        indexId: const obx_int.IdUid(10, 8396615452003065703),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(9, 2575002113050661287),
+        name: 'foot',
+        type: 9,
+        flags: 2048,
+        indexId: const obx_int.IdUid(11, 7369659444779405127),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(10, 1283776695175041702),
+        name: 'route',
+        type: 9,
+        flags: 2048,
+        indexId: const obx_int.IdUid(12, 1484381592932965134),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(11, 2636483900223481184),
+        name: 'access',
+        type: 9,
+        flags: 2048,
+        indexId: const obx_int.IdUid(13, 6657326188302950051),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(12, 5542982211169047235),
+        name: 'name',
+        type: 9,
+        flags: 2048,
+        indexId: const obx_int.IdUid(14, 7822155739681887078),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(13, 5910877470453541317),
+        name: 'normalizedName',
+        type: 9,
+        flags: 2048,
+        indexId: const obx_int.IdUid(15, 7055560742538121566),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(14, 7913366029637209172),
+        name: 'lengthMeters',
+        type: 6,
+        flags: 8,
+        indexId: const obx_int.IdUid(16, 9056274443209376134),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(15, 9004938176759168094),
+        name: 'tagCount',
+        type: 6,
+        flags: 8,
+        indexId: const obx_int.IdUid(17, 6932016565344639744),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(16, 8218973595292904004),
+        name: 'tagsJson',
+        type: 9,
+        flags: 0,
+      ),
+    ],
+    relations: <obx_int.ModelRelation>[],
+    backlinks: <obx_int.ModelBacklink>[],
+  ),
 ];
 
 /// Shortcut for [obx.Store.new] that passes [getObjectBoxModel] and for Flutter
@@ -802,8 +923,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
     // Typically, this is done with `dart run build_runner build`.
     generatorVersion: obx_int.GeneratorVersion.v2025_12_16,
     entities: _entities,
-    lastEntityId: const obx_int.IdUid(8, 1444775778480771967),
-    lastIndexId: const obx_int.IdUid(3, 2629505412358106755),
+    lastEntityId: const obx_int.IdUid(9, 7206587872972155691),
+    lastIndexId: const obx_int.IdUid(17, 6932016565344639744),
     lastRelationId: const obx_int.IdUid(1, 8194382659905112901),
     lastSequenceId: const obx_int.IdUid(0, 0),
     retiredEntityUids: const [],
@@ -1793,6 +1914,150 @@ obx_int.ModelDefinition getObjectBoxModel() {
         return object;
       },
     ),
+    RouteGraphWayIndex: obx_int.EntityDefinition<RouteGraphWayIndex>(
+      model: _entities[8],
+      toOneRelations: (RouteGraphWayIndex object) => [],
+      toManyRelations: (RouteGraphWayIndex object) => {},
+      getId: (RouteGraphWayIndex object) => object.id,
+      setId: (RouteGraphWayIndex object, int id) {
+        object.id = id;
+      },
+      objectToFB: (RouteGraphWayIndex object, fb.Builder fbb) {
+        final recordKeyOffset = fbb.writeString(object.recordKey);
+        final chunkKeyOffset = fbb.writeString(object.chunkKey);
+        final highwayOffset = object.highway == null
+            ? null
+            : fbb.writeString(object.highway!);
+        final surfaceOffset = object.surface == null
+            ? null
+            : fbb.writeString(object.surface!);
+        final footwayOffset = object.footway == null
+            ? null
+            : fbb.writeString(object.footway!);
+        final footOffset = object.foot == null
+            ? null
+            : fbb.writeString(object.foot!);
+        final routeOffset = object.route == null
+            ? null
+            : fbb.writeString(object.route!);
+        final accessOffset = object.access == null
+            ? null
+            : fbb.writeString(object.access!);
+        final nameOffset = object.name == null
+            ? null
+            : fbb.writeString(object.name!);
+        final normalizedNameOffset = object.normalizedName == null
+            ? null
+            : fbb.writeString(object.normalizedName!);
+        final tagsJsonOffset = fbb.writeString(object.tagsJson);
+        fbb.startTable(17);
+        fbb.addInt64(0, object.id);
+        fbb.addOffset(1, recordKeyOffset);
+        fbb.addInt64(2, object.generation);
+        fbb.addOffset(3, chunkKeyOffset);
+        fbb.addInt64(4, object.osmWayId);
+        fbb.addOffset(5, highwayOffset);
+        fbb.addOffset(6, surfaceOffset);
+        fbb.addOffset(7, footwayOffset);
+        fbb.addOffset(8, footOffset);
+        fbb.addOffset(9, routeOffset);
+        fbb.addOffset(10, accessOffset);
+        fbb.addOffset(11, nameOffset);
+        fbb.addOffset(12, normalizedNameOffset);
+        fbb.addInt64(13, object.lengthMeters);
+        fbb.addInt64(14, object.tagCount);
+        fbb.addOffset(15, tagsJsonOffset);
+        fbb.finish(fbb.endTable());
+        return object.id;
+      },
+      objectFromFB: (obx.Store store, ByteData fbData) {
+        final buffer = fb.BufferContext(fbData);
+        final rootOffset = buffer.derefObject(0);
+        final idParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          4,
+          0,
+        );
+        final recordKeyParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 6, '');
+        final generationParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          8,
+          0,
+        );
+        final chunkKeyParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 10, '');
+        final osmWayIdParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          12,
+          0,
+        );
+        final highwayParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 14);
+        final surfaceParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 16);
+        final footwayParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 18);
+        final footParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 20);
+        final routeParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 22);
+        final accessParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 24);
+        final nameParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 26);
+        final normalizedNameParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 28);
+        final lengthMetersParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          30,
+          0,
+        );
+        final tagCountParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          32,
+          0,
+        );
+        final tagsJsonParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 34, '');
+        final object = RouteGraphWayIndex(
+          id: idParam,
+          recordKey: recordKeyParam,
+          generation: generationParam,
+          chunkKey: chunkKeyParam,
+          osmWayId: osmWayIdParam,
+          highway: highwayParam,
+          surface: surfaceParam,
+          footway: footwayParam,
+          foot: footParam,
+          route: routeParam,
+          access: accessParam,
+          name: nameParam,
+          normalizedName: normalizedNameParam,
+          lengthMeters: lengthMetersParam,
+          tagCount: tagCountParam,
+          tagsJson: tagsJsonParam,
+        );
+
+        return object;
+      },
+    ),
   };
 
   return obx_int.ModelDefinition(model, bindings);
@@ -2351,5 +2616,88 @@ class RouteGraphManifest_ {
   /// See [RouteGraphManifest.lastError].
   static final lastError = obx.QueryStringProperty<RouteGraphManifest>(
     _entities[7].properties[9],
+  );
+}
+
+/// [RouteGraphWayIndex] entity fields to define ObjectBox queries.
+class RouteGraphWayIndex_ {
+  /// See [RouteGraphWayIndex.id].
+  static final id = obx.QueryIntegerProperty<RouteGraphWayIndex>(
+    _entities[8].properties[0],
+  );
+
+  /// See [RouteGraphWayIndex.recordKey].
+  static final recordKey = obx.QueryStringProperty<RouteGraphWayIndex>(
+    _entities[8].properties[1],
+  );
+
+  /// See [RouteGraphWayIndex.generation].
+  static final generation = obx.QueryIntegerProperty<RouteGraphWayIndex>(
+    _entities[8].properties[2],
+  );
+
+  /// See [RouteGraphWayIndex.chunkKey].
+  static final chunkKey = obx.QueryStringProperty<RouteGraphWayIndex>(
+    _entities[8].properties[3],
+  );
+
+  /// See [RouteGraphWayIndex.osmWayId].
+  static final osmWayId = obx.QueryIntegerProperty<RouteGraphWayIndex>(
+    _entities[8].properties[4],
+  );
+
+  /// See [RouteGraphWayIndex.highway].
+  static final highway = obx.QueryStringProperty<RouteGraphWayIndex>(
+    _entities[8].properties[5],
+  );
+
+  /// See [RouteGraphWayIndex.surface].
+  static final surface = obx.QueryStringProperty<RouteGraphWayIndex>(
+    _entities[8].properties[6],
+  );
+
+  /// See [RouteGraphWayIndex.footway].
+  static final footway = obx.QueryStringProperty<RouteGraphWayIndex>(
+    _entities[8].properties[7],
+  );
+
+  /// See [RouteGraphWayIndex.foot].
+  static final foot = obx.QueryStringProperty<RouteGraphWayIndex>(
+    _entities[8].properties[8],
+  );
+
+  /// See [RouteGraphWayIndex.route].
+  static final route = obx.QueryStringProperty<RouteGraphWayIndex>(
+    _entities[8].properties[9],
+  );
+
+  /// See [RouteGraphWayIndex.access].
+  static final access = obx.QueryStringProperty<RouteGraphWayIndex>(
+    _entities[8].properties[10],
+  );
+
+  /// See [RouteGraphWayIndex.name].
+  static final name = obx.QueryStringProperty<RouteGraphWayIndex>(
+    _entities[8].properties[11],
+  );
+
+  /// See [RouteGraphWayIndex.normalizedName].
+  static final normalizedName = obx.QueryStringProperty<RouteGraphWayIndex>(
+    _entities[8].properties[12],
+  );
+
+  /// See [RouteGraphWayIndex.lengthMeters].
+  static final lengthMeters = obx.QueryIntegerProperty<RouteGraphWayIndex>(
+    _entities[8].properties[13],
+  );
+
+  /// See [RouteGraphWayIndex.tagCount].
+  static final tagCount = obx.QueryIntegerProperty<RouteGraphWayIndex>(
+    _entities[8].properties[14],
+  );
+
+  /// See [RouteGraphWayIndex.tagsJson].
+  static final tagsJson = obx.QueryStringProperty<RouteGraphWayIndex>(
+    _entities[8].properties[15],
   );
 }

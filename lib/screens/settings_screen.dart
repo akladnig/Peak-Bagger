@@ -439,12 +439,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         return;
       }
 
-      ref.read(routeGraphReadinessProvider.notifier).markFailed('$error');
+      final displayError = _routeGraphRefreshFailureMessage('$error');
+      ref.read(routeGraphReadinessProvider.notifier).markFailed(displayError);
       _setStatus(
-        'Error refreshing route graph: $error',
+        'Error refreshing route graph: $displayError',
         key: const Key('route-graph-refresh-status'),
       );
-      await _showRouteGraphRefreshFailure(error.toString());
+      await _showRouteGraphRefreshFailure(displayError);
     } finally {
       if (mounted) {
         setState(() {
@@ -801,6 +802,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       closeKey: 'route-graph-refresh-error-close',
       content: Text(error),
     );
+  }
+
+  String _routeGraphRefreshFailureMessage(String error) {
+    final lower = error.toLowerCase();
+    if (lower.contains('dbfull') ||
+        lower.contains('obx_error code 10101') ||
+        lower.contains('object put failed')) {
+      return 'ObjectBox database is full. Restart after increasing maxDBSizeInKB, then refresh Route Graph again.';
+    }
+    return error;
   }
 
   Future<void> _showPeakRefreshFailure(String error) async {

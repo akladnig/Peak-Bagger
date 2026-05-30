@@ -29,6 +29,7 @@ void main() {
       'Route',
       'RouteGraphChunk',
       'RouteGraphManifest',
+      'RouteGraphWayIndex',
     ]);
     expect(entities.first.primaryKeyField, 'id');
     expect(entities.first.primaryNameField, 'name');
@@ -162,7 +163,7 @@ void main() {
       ]),
     );
     expect(entities.last.primaryKeyField, 'id');
-    expect(entities.last.primaryNameField, 'readinessState');
+    expect(entities.last.primaryNameField, 'name');
   });
 
   test('routeGraphChunkToAdminRow exposes chunk metadata', () {

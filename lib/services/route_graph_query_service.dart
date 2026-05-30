@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
 import 'package:peak_bagger/models/route_graph_chunk.dart';
+import 'package:peak_bagger/models/route_graph_way_index.dart';
 
 import 'route_graph_errors.dart';
 import 'route_graph_repository.dart';
@@ -16,6 +17,19 @@ class RouteGraphQueryService {
 
   final RouteGraphRepository _repository;
   final double bufferMeters;
+
+  List<RouteGraphWayIndex> queryWays(RouteGraphWayQuery query) {
+    final rows = _repository.activeWayIndexRows();
+    return rows.where((row) => _matchesWayQuery(row, query)).toList(growable: false);
+  }
+
+  List<String> chunkKeysForWays(RouteGraphWayQuery query) {
+    final keys = <String>{};
+    for (final row in queryWays(query)) {
+      keys.add(row.chunkKey);
+    }
+    return keys.toList(growable: false);
+  }
 
   List<RouteGraphChunk> queryChunksForBounds({
     required double minLat,
@@ -197,6 +211,81 @@ class RouteGraphQueryService {
     );
     return service;
   }
+
+  bool _matchesWayQuery(RouteGraphWayIndex row, RouteGraphWayQuery query) {
+    if (query.include.any((filter) => !_matchesTagFilter(row, filter))) {
+      return false;
+    }
+
+    if (query.exclude.any((filter) => _matchesTagFilter(row, filter))) {
+      return false;
+    }
+
+    final nameContains = query.nameContains;
+    if (nameContains != null && nameContains.isNotEmpty) {
+      final normalizedName = row.normalizedName;
+      if (normalizedName == null || !normalizedName.contains(nameContains.toLowerCase())) {
+        return false;
+      }
+    }
+
+    final minLengthMeters = query.minLengthMeters;
+    if (minLengthMeters != null && row.lengthMeters < minLengthMeters) {
+      return false;
+    }
+
+    final maxLengthMeters = query.maxLengthMeters;
+    if (maxLengthMeters != null && row.lengthMeters > maxLengthMeters) {
+      return false;
+    }
+
+    final minTagCount = query.minTagCount;
+    if (minTagCount != null && row.tagCount < minTagCount) {
+      return false;
+    }
+
+    return true;
+  }
+
+  bool _matchesTagFilter(RouteGraphWayIndex row, TagFilter filter) {
+    final value = switch (filter.key) {
+      'highway' => row.highway,
+      'surface' => row.surface,
+      'footway' => row.footway,
+      'foot' => row.foot,
+      'route' => row.route,
+      'access' => row.access,
+      'name' => row.name,
+      _ => throw RouteGraphLoadException('Unsupported route way tag filter: ${filter.key}'),
+    };
+
+    return value == filter.value;
+  }
+}
+
+class TagFilter {
+  const TagFilter({required this.key, required this.value});
+
+  final String key;
+  final String value;
+}
+
+class RouteGraphWayQuery {
+  const RouteGraphWayQuery({
+    this.include = const [],
+    this.exclude = const [],
+    this.nameContains,
+    this.minLengthMeters,
+    this.maxLengthMeters,
+    this.minTagCount,
+  });
+
+  final List<TagFilter> include;
+  final List<TagFilter> exclude;
+  final String? nameContains;
+  final int? minLengthMeters;
+  final int? maxLengthMeters;
+  final int? minTagCount;
 }
 
 Map<String, dynamic> _mergeChunksIntoPayload(List<RouteGraphChunk> chunks) {
