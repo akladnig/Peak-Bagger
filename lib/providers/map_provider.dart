@@ -71,6 +71,7 @@ const _peakListSelectionModeKey = 'peak_list_selection_mode';
 const _peakListIdKey = 'peak_list_id';
 const _showTracksKey = 'show_tracks';
 const _showRoutesKey = 'show_routes';
+const _showTrailsKey = 'show_trails';
 const _routeDraftMarkerLimitError =
     'Peak Bagger only supports a maximum of 99 route points';
 
@@ -258,6 +259,7 @@ class MapState {
   final List<GpxTrack> tracks;
   final bool showTracks;
   final bool showRoutes;
+  final bool showTrails;
   final PeakListSelectionMode peakListSelectionMode;
   final int? selectedPeakListId;
   final EndDrawerMode endDrawerMode;
@@ -342,6 +344,7 @@ class MapState {
     this.tracks = const [],
     this.showTracks = false,
     this.showRoutes = false,
+    this.showTrails = false,
     this.peakListSelectionMode = PeakListSelectionMode.allPeaks,
     this.selectedPeakListId,
     this.endDrawerMode = EndDrawerMode.basemaps,
@@ -460,6 +463,7 @@ class MapState {
     List<GpxTrack>? tracks,
     bool? showTracks,
     bool? showRoutes,
+    bool? showTrails,
     PeakListSelectionMode? peakListSelectionMode,
     int? selectedPeakListId,
     bool clearSelectedPeakListId = false,
@@ -611,6 +615,7 @@ class MapState {
       tracks: tracks ?? this.tracks,
       showTracks: showTracks ?? this.showTracks,
       showRoutes: showRoutes ?? this.showRoutes,
+      showTrails: showTrails ?? this.showTrails,
       peakListSelectionMode:
           peakListSelectionMode ?? this.peakListSelectionMode,
       selectedPeakListId: clearSelectedPeakListId
@@ -829,6 +834,7 @@ class MapNotifier extends Notifier<MapState> {
   bool _isRestoringVisibilityPrefs = false;
   bool _showTracksRestoreOverridden = false;
   bool _showRoutesRestoreOverridden = false;
+  bool _showTrailsRestoreOverridden = false;
   Set<int> get correlatedPeakIds => buildCorrelatedPeakIds(state.tracks);
 
   @override
@@ -886,9 +892,11 @@ class MapNotifier extends Notifier<MapState> {
       final prefs = await _prefsLoader();
       final showTracks = prefs.getBool(_showTracksKey) ?? false;
       final showRoutes = prefs.getBool(_showRoutesKey) ?? false;
+      final showTrails = prefs.getBool(_showTrailsKey) ?? false;
       state = state.copyWith(
         showTracks: _showTracksRestoreOverridden ? null : showTracks,
         showRoutes: _showRoutesRestoreOverridden ? null : showRoutes,
+        showTrails: _showTrailsRestoreOverridden ? null : showTrails,
       );
     } catch (_) {
       // Continue with defaults on read failure.
@@ -3310,6 +3318,7 @@ class MapNotifier extends Notifier<MapState> {
       final prefs = await _prefsLoader();
       await prefs.setBool(_showTracksKey, state.showTracks);
       await prefs.setBool(_showRoutesKey, state.showRoutes);
+      await prefs.setBool(_showTrailsKey, state.showTrails);
     } catch (_) {
       // Continue without saving.
     }
@@ -3328,6 +3337,21 @@ class MapNotifier extends Notifier<MapState> {
       clearHoveredRouteId: !value,
     );
     persistTracksRoutesVisibility();
+  }
+
+  void setShowTrails(bool value) {
+    if (state.showTrails == value) {
+      return;
+    }
+    if (_isRestoringVisibilityPrefs) {
+      _showTrailsRestoreOverridden = true;
+    }
+    state = state.copyWith(showTrails: value);
+    persistTracksRoutesVisibility();
+  }
+
+  void toggleTrails() {
+    setShowTrails(!state.showTrails);
   }
 
   void selectPeakList(PeakListSelectionMode mode, {int? peakListId}) {
