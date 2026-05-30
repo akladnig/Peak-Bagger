@@ -1,18 +1,16 @@
-import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/services.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
+import 'package:peak_bagger/services/route_graph_import_service.dart';
+import 'package:peak_bagger/services/route_graph_repository.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
 import 'route_graph_errors.dart';
 
 export 'route_graph_errors.dart';
 
-const _bundledRouteGraphAsset = 'assets/highway.json';
-const _routeGraphDirectoryName = 'route_graph';
-const _routeGraphSnapshotName = 'highway.json';
+abstract class RouteGraphRepositoryProvider {
+  RouteGraphRepository? get repository;
+}
 
 class RouteGraphStore {
   Future<trip_routing.TripService> preload() async {
@@ -32,20 +30,19 @@ class RouteGraphStore {
   }
 }
 
-class BundledRouteGraphStore extends RouteGraphStore {
-  BundledRouteGraphStore({
-    Future<Directory> Function()? supportDirectoryLoader,
-    Future<String> Function(String assetPath)? assetLoader,
-    trip_routing.TripService Function()? tripServiceFactory,
-    this.assetPath = _bundledRouteGraphAsset,
-  })  : _supportDirectoryLoader = supportDirectoryLoader ?? getApplicationSupportDirectory,
-        _assetLoader = assetLoader ?? rootBundle.loadString,
-        _tripServiceFactory = tripServiceFactory ?? trip_routing.TripService.new;
+class ObjectBoxRouteGraphStore extends RouteGraphStore
+    implements RouteGraphRepositoryProvider {
+  ObjectBoxRouteGraphStore({
+    required RouteGraphRepository repository,
+    required RouteGraphImportService importService,
+  }) : _repository = repository,
+        _importService = importService;
 
-  final Future<Directory> Function() _supportDirectoryLoader;
-  final Future<String> Function(String assetPath) _assetLoader;
-  final trip_routing.TripService Function() _tripServiceFactory;
-  final String assetPath;
+  final RouteGraphRepository _repository;
+  final RouteGraphImportService _importService;
+
+  @override
+  RouteGraphRepository get repository => _repository;
 
   Future<trip_routing.TripService>? _serviceFuture;
 
@@ -56,7 +53,7 @@ class BundledRouteGraphStore extends RouteGraphStore {
       return cached;
     }
 
-    final loading = _loadService();
+    final loading = _loadService(allowBootstrap: true);
     final wrapped = loading.then((service) {
       _serviceFuture = Future.value(service);
       return service;
@@ -70,7 +67,7 @@ class BundledRouteGraphStore extends RouteGraphStore {
 
   @override
   Future<trip_routing.TripService> reload() {
-    final loading = _loadService();
+    final loading = _loadService(allowBootstrap: false, forceRefresh: true);
     final wrapped = loading.then((service) {
       _serviceFuture = Future.value(service);
       return service;
@@ -82,70 +79,26 @@ class BundledRouteGraphStore extends RouteGraphStore {
 
   @override
   Future<void> replaceSnapshot(String rawJson) async {
-    final decodedJson = _decodeSnapshot(rawJson);
-    final validationService = _tripServiceFactory();
-    try {
-      await validationService.loadOverpassJson(
-        decodedJson,
-        preferWalkingPaths: true,
-        source: assetPath,
-      );
-    } catch (error) {
-      throw _normalizeError(error);
-    }
-
-    final file = await snapshotFile();
-    final tempFile = File('${file.path}.tmp.${DateTime.now().microsecondsSinceEpoch}');
-    await tempFile.parent.create(recursive: true);
-    await tempFile.writeAsString(rawJson, flush: true);
-    await tempFile.rename(file.path);
+    await _importService.importRawJson(rawJson, bootstrap: false);
+    _serviceFuture = null;
   }
 
   @override
   Future<File> snapshotFile() async {
-    final supportDir = await _supportDirectoryLoader();
-    final graphDir = Directory(p.join(supportDir.path, _routeGraphDirectoryName));
-    await graphDir.create(recursive: true);
-    return File(p.join(graphDir.path, _routeGraphSnapshotName));
+    throw const RouteGraphLoadException('Route graph snapshot persistence is not supported.');
   }
 
-  Future<trip_routing.TripService> _loadService() async {
-    final file = await snapshotFile();
-    if (!await file.exists()) {
-      final rawAsset = await _assetLoader(assetPath);
-      await file.writeAsString(rawAsset, flush: true);
+  Future<trip_routing.TripService> _loadService({
+    required bool allowBootstrap,
+    bool forceRefresh = false,
+  }) async {
+    if (forceRefresh) {
+      await _importService.refreshFromBundledAsset();
+    } else if (allowBootstrap) {
+      await _importService.bootstrapIfNeeded();
     }
 
-    final rawJson = await file.readAsString();
-    final decodedJson = _decodeSnapshot(rawJson);
-    final tripService = _tripServiceFactory();
-    try {
-      await tripService.loadOverpassJson(
-        decodedJson,
-        preferWalkingPaths: true,
-        source: file.path,
-      );
-    } catch (error) {
-      throw _normalizeError(error);
-    }
-    return tripService;
-  }
-
-  Map<String, dynamic> _decodeSnapshot(String rawJson) {
-    try {
-      final decodedJson = jsonDecode(rawJson);
-      if (decodedJson is! Map<String, dynamic>) {
-        throw const RouteGraphLoadException(
-          'Expected decoded Overpass JSON object.',
-        );
-      }
-      return decodedJson;
-    } catch (error) {
-      if (error is RouteGraphLoadException) {
-        rethrow;
-      }
-      throw RouteGraphLoadException('Failed to decode route graph snapshot: $error');
-    }
+    return _repository.buildTripServiceForActiveGeneration();
   }
 
   Object _normalizeError(Object error) {

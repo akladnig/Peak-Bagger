@@ -89,7 +89,7 @@ class RouteGraphRefreshRobot {
   }
 
   void expectConfirmDialogVisible() {
-    expect(find.text('Validate Route Graph Snapshot?'), findsOneWidget);
+    expect(find.text('Refresh Route Graph?'), findsOneWidget);
   }
 
   void expectStatusVisible(String expected) {
@@ -98,11 +98,11 @@ class RouteGraphRefreshRobot {
   }
 
   void expectResultVisible() {
-    expect(find.text('Route Graph Snapshot Validated'), findsOneWidget);
+    expect(find.text('Route Graph Refreshed'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byType(AlertDialog),
-        matching: find.text('Route graph snapshot validated.'),
+        matching: find.textContaining('route graph elements refreshed.'),
       ),
       findsOneWidget,
     );
@@ -110,7 +110,7 @@ class RouteGraphRefreshRobot {
   }
 
   void expectFailureVisible(String contains) {
-    expect(find.text('Route Graph Snapshot Validation Failed'), findsOneWidget);
+    expect(find.text('Route Graph Refresh Failed'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byType(AlertDialog),

@@ -1,5 +1,7 @@
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/core/constants.dart';
+import 'package:peak_bagger/services/route_graph_query_service.dart';
+import 'package:peak_bagger/services/route_graph_repository.dart';
 import 'package:peak_bagger/services/route_graph_store.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
@@ -156,10 +158,57 @@ class TripRoutingServiceClient implements TripRoutingClient {
 }
 
 class LocalFileTripRoutingClient implements TripRoutingClient {
-  LocalFileTripRoutingClient({RouteGraphStore? routeGraphStore})
-    : _routeGraphStore = routeGraphStore ?? BundledRouteGraphStore();
+  LocalFileTripRoutingClient({
+    RouteGraphStore? routeGraphStore,
+    RouteGraphQueryService? routeGraphQueryService,
+  })  : _routeGraphStore =
+            routeGraphStore ??
+            (throw UnimplementedError('routeGraphStore is required')),
+        _injectedRouteGraphQueryService = routeGraphQueryService;
 
   final RouteGraphStore _routeGraphStore;
+  final RouteGraphQueryService? _injectedRouteGraphQueryService;
+  RouteGraphQueryService? _queryService;
+
+  RouteGraphQueryService? get _routeGraphQueryService {
+    final injected = _injectedRouteGraphQueryService;
+    if (injected != null) {
+      return injected;
+    }
+
+    final repository = _repositoryForStore(_routeGraphStore);
+    if (repository == null) {
+      return null;
+    }
+    return _queryService ??= RouteGraphQueryService(repository);
+  }
+
+  RouteGraphRepository? _repositoryForStore(RouteGraphStore store) {
+    final provider =
+        store is RouteGraphRepositoryProvider ? store as RouteGraphRepositoryProvider : null;
+    return provider?.repository;
+  }
+
+  Future<trip_routing.TripService> _tripServiceForRoute({
+    required LatLng start,
+    required LatLng end,
+  }) {
+    final queryService = _routeGraphQueryService;
+    if (queryService != null) {
+      return queryService.buildTripServiceForRoute(start: start, end: end);
+    }
+    return _routeGraphStore.preload();
+  }
+
+  Future<trip_routing.TripService> _tripServiceForPoint({
+    required LatLng point,
+  }) {
+    final queryService = _routeGraphQueryService;
+    if (queryService != null) {
+      return queryService.buildTripServiceForPoint(point: point);
+    }
+    return _routeGraphStore.preload();
+  }
 
   @override
   Future<trip_routing.AnchoredSegmentResult> findAnchoredSegment({
@@ -167,7 +216,7 @@ class LocalFileTripRoutingClient implements TripRoutingClient {
     required LatLng end,
     required double maxSnapDistanceMeters,
   }) async {
-    final tripService = await _routeGraphStore.preload();
+    final tripService = await _tripServiceForRoute(start: start, end: end);
     return tripService.findAnchoredSegment(
       start: start,
       end: end,
@@ -180,7 +229,7 @@ class LocalFileTripRoutingClient implements TripRoutingClient {
     required LatLng point,
     required double maxSnapDistanceMeters,
   }) async {
-    final tripService = await _routeGraphStore.preload();
+    final tripService = await _tripServiceForPoint(point: point);
     return tripService.probeEndpointAnchor(
       point: point,
       maxSnapDistanceMeters: maxSnapDistanceMeters,

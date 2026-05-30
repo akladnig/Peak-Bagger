@@ -10,7 +10,7 @@ import '../../harness/test_tasmap_repository.dart';
 import 'route_graph_refresh_robot.dart';
 
 void main() {
-  testWidgets('validate route graph snapshot flow returns success', (tester) async {
+  testWidgets('refresh route graph flow returns success', (tester) async {
     final repository = await TestTasmapRepository.create();
     final robot = RouteGraphRefreshRobot(
       tester,
@@ -37,7 +37,7 @@ void main() {
     expect(button.onPressed, isNotNull);
   });
 
-  testWidgets('validate route graph snapshot flow shows failure dialog', (tester) async {
+  testWidgets('refresh route graph flow shows failure dialog', (tester) async {
     final repository = await TestTasmapRepository.create();
     final robot = RouteGraphRefreshRobot(
       tester,

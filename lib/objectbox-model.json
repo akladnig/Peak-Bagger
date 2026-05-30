@@ -501,10 +501,130 @@
         }
       ],
       "relations": []
+    },
+    {
+      "id": "7:596705519527760639",
+      "lastPropertyId": "10:3398479501893264143",
+      "name": "RouteGraphChunk",
+      "properties": [
+        {
+          "id": "1:1469808838581828297",
+          "name": "id",
+          "type": 6,
+          "flags": 129
+        },
+        {
+          "id": "2:1793741707318597188",
+          "name": "recordKey",
+          "indexId": "3:2629505412358106755",
+          "type": 9,
+          "flags": 2080
+        },
+        {
+          "id": "3:6967455734301465955",
+          "name": "chunkKey",
+          "type": 9
+        },
+        {
+          "id": "4:7872400213766686598",
+          "name": "generation",
+          "type": 6
+        },
+        {
+          "id": "5:4727494534911280573",
+          "name": "minLat",
+          "type": 8
+        },
+        {
+          "id": "6:8640538855355177463",
+          "name": "minLon",
+          "type": 8
+        },
+        {
+          "id": "7:5465738688593217615",
+          "name": "maxLat",
+          "type": 8
+        },
+        {
+          "id": "8:7005453871542192813",
+          "name": "maxLon",
+          "type": 8
+        },
+        {
+          "id": "9:6216780808421857277",
+          "name": "elementCount",
+          "type": 6
+        },
+        {
+          "id": "10:3398479501893264143",
+          "name": "payloadJson",
+          "type": 9
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "8:1444775778480771967",
+      "lastPropertyId": "10:8758350155907503563",
+      "name": "RouteGraphManifest",
+      "properties": [
+        {
+          "id": "1:2436359711993750832",
+          "name": "id",
+          "type": 6,
+          "flags": 129
+        },
+        {
+          "id": "2:6092638898341522512",
+          "name": "sourceHash",
+          "type": 9
+        },
+        {
+          "id": "3:7324269441776161543",
+          "name": "schemaVersion",
+          "type": 9
+        },
+        {
+          "id": "4:4707116018081072653",
+          "name": "activeGeneration",
+          "type": 6
+        },
+        {
+          "id": "5:4633208416782374128",
+          "name": "importedAt",
+          "type": 10
+        },
+        {
+          "id": "6:6538104877462276138",
+          "name": "chunkCount",
+          "type": 6
+        },
+        {
+          "id": "7:7093348560738932483",
+          "name": "nodeCount",
+          "type": 6
+        },
+        {
+          "id": "8:2221664074292599462",
+          "name": "edgeCount",
+          "type": 6
+        },
+        {
+          "id": "9:7697351082653749625",
+          "name": "readinessState",
+          "type": 9
+        },
+        {
+          "id": "10:8758350155907503563",
+          "name": "lastError",
+          "type": 9
+        }
+      ],
+      "relations": []
     }
   ],
-  "lastEntityId": "6:3506540890240152030",
-  "lastIndexId": "2:7211080441040466135",
+  "lastEntityId": "8:1444775778480771967",
+  "lastIndexId": "3:2629505412358106755",
   "lastRelationId": "1:8194382659905112901",
   "lastSequenceId": "0:0",
   "modelVersion": 5,

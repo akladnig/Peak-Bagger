@@ -1,91 +1,155 @@
-import 'dart:io';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:peak_bagger/services/route_graph_import_service.dart';
+import 'package:peak_bagger/services/route_graph_repository.dart';
 import 'package:peak_bagger/services/route_graph_store.dart';
-import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
 void main() {
-  test('preload seeds the bundled snapshot and caches the service', () async {
-    final supportDir = await Directory.systemTemp.createTemp('route-graph-store');
-    addTearDown(() => supportDir.delete(recursive: true));
-
-    final service = _FakeTripService();
-    final store = BundledRouteGraphStore(
-      supportDirectoryLoader: () async => supportDir,
-      assetLoader: (_) async => '{"elements": [{"type": "node", "id": 1}]}',
-      tripServiceFactory: () => service,
+  test('preload seeds and caches the route graph service', () async {
+    var rawJson = _fixture;
+    var assetCalls = 0;
+    final repository = RouteGraphRepository.test(InMemoryRouteGraphStorage());
+    final importService = RouteGraphImportService(
+      repository,
+      assetLoader: (_) async {
+        assetCalls += 1;
+        return rawJson;
+      },
+      generationPreparer: _syncGenerationPreparer,
+    );
+    final store = ObjectBoxRouteGraphStore(
+      repository: repository,
+      importService: importService,
     );
 
-    final loadedService = await store.preload();
+    final first = await store.preload();
+    final second = await store.preload();
 
-    expect(identical(loadedService, service), isTrue);
-    expect(service.loadCallCount, 1);
-
-    final snapshot = await store.snapshotFile();
-    expect(await snapshot.exists(), isTrue);
-    expect(await snapshot.readAsString(), contains('elements'));
+    expect(identical(first, second), isTrue);
+    expect(assetCalls, 1);
   });
 
-  test('replaceSnapshot validates before writing', () async {
-    final supportDir = await Directory.systemTemp.createTemp('route-graph-store');
-    addTearDown(() => supportDir.delete(recursive: true));
-
-    final service = _FakeTripService();
-    final store = BundledRouteGraphStore(
-      supportDirectoryLoader: () async => supportDir,
-      assetLoader: (_) async => '{"elements": [{"type": "node", "id": 1}]}',
-      tripServiceFactory: () => service,
+  test('reload refreshes the cached route graph service', () async {
+    var rawJson = _fixture;
+    var assetCalls = 0;
+    final repository = RouteGraphRepository.test(InMemoryRouteGraphStorage());
+    final importService = RouteGraphImportService(
+      repository,
+      assetLoader: (_) async {
+        assetCalls += 1;
+        return rawJson;
+      },
+      generationPreparer: _syncGenerationPreparer,
+    );
+    final store = ObjectBoxRouteGraphStore(
+      repository: repository,
+      importService: importService,
     );
 
-    final snapshot = await store.snapshotFile();
-    await snapshot.writeAsString('{"elements": [{"type": "node", "id": 1}]}');
+    final first = await store.preload();
+    rawJson = _alternateFixture;
+    final refreshed = await store.reload();
+
+    expect(identical(first, refreshed), isFalse);
+    expect(assetCalls, 2);
+    expect(repository.manifest?.activeGeneration, 2);
+  });
+
+  test('preload keeps the first-launch failure cached as a failure state', () async {
+    var assetCalls = 0;
+    final repository = RouteGraphRepository.test(InMemoryRouteGraphStorage());
+    final importService = RouteGraphImportService(
+      repository,
+      assetLoader: (_) async {
+        assetCalls += 1;
+        return 'not-json';
+      },
+      generationPreparer: _syncGenerationPreparer,
+    );
+    final store = ObjectBoxRouteGraphStore(
+      repository: repository,
+      importService: importService,
+    );
+
+    await expectLater(() => store.preload(), throwsA(isA<RouteGraphLoadException>()));
+    await expectLater(() => store.preload(), throwsA(isA<RouteGraphLoadException>()));
+
+    expect(assetCalls, 1);
+    expect(repository.manifest?.isFailed, isTrue);
+  });
+
+  test('replaceSnapshot validates raw json before writing', () async {
+    final repository = RouteGraphRepository.test(InMemoryRouteGraphStorage());
+    final importService = RouteGraphImportService(
+      repository,
+      assetLoader: (_) async => _fixture,
+      generationPreparer: _syncGenerationPreparer,
+    );
+    final store = ObjectBoxRouteGraphStore(
+      repository: repository,
+      importService: importService,
+    );
+
+    await store.preload();
+    final cached = await store.preload();
+    expect(cached, isNotNull);
 
     await expectLater(
       () => store.replaceSnapshot('not-json'),
       throwsA(isA<RouteGraphLoadException>()),
     );
 
-    expect(await snapshot.readAsString(), contains('"id": 1'));
-  });
-
-  test('reload keeps the previous cache when the snapshot breaks', () async {
-    final supportDir = await Directory.systemTemp.createTemp('route-graph-store');
-    addTearDown(() => supportDir.delete(recursive: true));
-
-    final service = _FakeTripService();
-    final store = BundledRouteGraphStore(
-      supportDirectoryLoader: () async => supportDir,
-      assetLoader: (_) async => '{"elements": [{"type": "node", "id": 1}]}',
-      tripServiceFactory: () => service,
-    );
-
-    final firstService = await store.preload();
-    final snapshot = await store.snapshotFile();
-    await snapshot.writeAsString('{"elements": [{"type": "node", "id": 1}]}');
-
-    await snapshot.writeAsString('not-json');
-
-    await expectLater(
-      () => store.reload(),
-      throwsA(isA<RouteGraphLoadException>()),
-    );
-
-    final secondService = await store.preload();
-    expect(identical(firstService, secondService), isTrue);
-    expect(service.loadCallCount, 1);
+    expect(repository.manifest?.activeGeneration, 1);
   });
 }
 
-class _FakeTripService extends trip_routing.TripService {
-  int loadCallCount = 0;
-
-  @override
-  Future<void> loadOverpassJson(
-    Map<String, dynamic> json, {
-    bool preferWalkingPaths = true,
-    int minIslandSize = 0,
-    String source = 'custom',
-  }) async {
-    loadCallCount += 1;
+Future<Map<String, Object?>> _syncGenerationPreparer(
+  String rawJson,
+  String schemaVersion,
+  int generation,
+) async {
+  final decoded = jsonDecode(rawJson);
+  if (decoded is! Map<String, dynamic>) {
+    throw const RouteGraphLoadException('Expected top-level route graph object.');
   }
+
+  return {
+    'generation': generation,
+    'sourceHash': rawJson.hashCode.toString(),
+    'schemaVersion': schemaVersion,
+    'importedAtMillis': DateTime.utc(2025).millisecondsSinceEpoch,
+    'chunkCount': 1,
+    'nodeCount': 2,
+    'edgeCount': 1,
+    'chunks': [
+      {
+        'recordKey': '$generation|0_0',
+        'chunkKey': '0_0',
+        'generation': generation,
+        'minLat': -42.0,
+        'minLon': 146.0,
+        'maxLat': -41.0,
+        'maxLon': 147.0,
+        'elementCount': 3,
+        'payloadJson': jsonEncode(decoded),
+      },
+    ],
+  };
 }
+
+const _fixture = '''
+{"elements":[
+  {"type":"node","id":1,"lat":-42.0,"lon":146.0},
+  {"type":"node","id":2,"lat":-42.01,"lon":146.01},
+  {"type":"way","id":10,"nodes":[1,2],"tags":{"highway":"path"}}
+]}
+''';
+
+const _alternateFixture = '''
+{"elements":[
+  {"type":"node","id":11,"lat":-42.1,"lon":146.1},
+  {"type":"node","id":12,"lat":-42.11,"lon":146.11},
+  {"type":"way","id":20,"nodes":[11,12],"tags":{"highway":"path"}}
+]}
+''';
