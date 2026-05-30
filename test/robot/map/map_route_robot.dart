@@ -10,6 +10,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/models/route_graph_chunk.dart';
 import 'package:peak_bagger/models/route_graph_manifest.dart';
+import 'package:peak_bagger/models/route_graph_trail_display_chunk.dart';
 import 'package:peak_bagger/models/route_graph_way_index.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/providers/map_provider.dart';
@@ -449,6 +450,27 @@ class TrailRouteGraphStore implements RouteGraphStore, RouteGraphRepositoryProvi
               lengthMeters: 120,
               tagCount: 1,
               tagsJson: '{}',
+            ),
+          ],
+          trailDisplayChunks: [
+            RouteGraphTrailDisplayChunk(
+              recordKey: RouteGraphTrailDisplayChunk.recordKeyFor(
+                generation: 1,
+                cacheZoom: 15,
+                chunkKey: '0_0',
+              ),
+              generation: 1,
+              cacheZoom: 15,
+              chunkKey: '0_0',
+              payloadJson: RouteGraphTrailDisplayChunk.encodeWays([
+                const RouteGraphTrailDisplayWay(
+                  osmWayId: 10,
+                  points: [
+                    LatLng(-41.5, 146.5),
+                    LatLng(-41.55, 146.55),
+                  ],
+                ),
+              ]),
             ),
           ],
         ),

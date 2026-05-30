@@ -1,9 +1,11 @@
 import 'dart:math' as math;
 
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/core/constants.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
 import 'package:peak_bagger/models/route_graph_chunk.dart';
+import 'package:peak_bagger/models/route_graph_trail_display_chunk.dart';
 import 'package:peak_bagger/models/route_graph_way_index.dart';
 
 import 'route_graph_errors.dart';
@@ -74,6 +76,38 @@ class RouteGraphQueryService {
       maxLon: maxLon,
       extraBufferMeters: extraBufferMeters,
     ).where((chunk) => trailChunkKeys.contains(chunk.chunkKey)).toList(growable: false);
+  }
+
+  List<RouteGraphTrailDisplayChunk> queryTrailDisplayChunksForBounds({
+    required double minLat,
+    required double minLon,
+    required double maxLat,
+    required double maxLon,
+    required double zoom,
+    double? extraBufferMeters,
+  }) {
+    final visibleChunkKeys = queryChunksForBounds(
+      minLat: minLat,
+      minLon: minLon,
+      maxLat: maxLat,
+      maxLon: maxLon,
+      extraBufferMeters: extraBufferMeters,
+    ).map((chunk) => chunk.chunkKey).toSet();
+    if (visibleChunkKeys.isEmpty) {
+      return const [];
+    }
+
+    final cacheZoom = zoom.round().clamp(
+      MapConstants.trackMinZoom,
+      MapConstants.trackMaxZoom,
+    );
+    return _repository
+        .activeTrailDisplayChunks()
+        .where(
+          (row) => row.cacheZoom == cacheZoom &&
+              visibleChunkKeys.contains(row.chunkKey),
+        )
+        .toList(growable: false);
   }
 
   List<RouteGraphChunk> queryChunksForRoute({

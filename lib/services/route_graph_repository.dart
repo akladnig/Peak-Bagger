@@ -1,5 +1,6 @@
 import 'package:peak_bagger/models/route_graph_chunk.dart';
 import 'package:peak_bagger/models/route_graph_manifest.dart';
+import 'package:peak_bagger/models/route_graph_trail_display_chunk.dart';
 import 'package:peak_bagger/models/route_graph_way_index.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
@@ -17,6 +18,7 @@ class RouteGraphPreparedGeneration {
     required this.edgeCount,
     required this.chunks,
     required this.wayIndexRows,
+    this.trailDisplayChunks = const [],
   });
 
   final int generation;
@@ -28,6 +30,7 @@ class RouteGraphPreparedGeneration {
   final int edgeCount;
   final List<RouteGraphChunk> chunks;
   final List<RouteGraphWayIndex> wayIndexRows;
+  final List<RouteGraphTrailDisplayChunk> trailDisplayChunks;
 
   int get elementCount => nodeCount + edgeCount;
 }
@@ -39,10 +42,13 @@ abstract class RouteGraphStorage {
 
   List<RouteGraphWayIndex> activeWayIndexRows();
 
+  List<RouteGraphTrailDisplayChunk> activeTrailDisplayChunks();
+
   Future<void> replaceGeneration({
     required RouteGraphManifest manifest,
     required List<RouteGraphChunk> chunks,
     required List<RouteGraphWayIndex> wayIndexRows,
+    required List<RouteGraphTrailDisplayChunk> trailDisplayChunks,
     required bool pruneStaleGenerations,
   });
 
@@ -99,10 +105,16 @@ class ObjectBoxRouteGraphStorage implements RouteGraphStorage {
   }
 
   @override
+  List<RouteGraphTrailDisplayChunk> activeTrailDisplayChunks() {
+    return const [];
+  }
+
+  @override
   Future<void> replaceGeneration({
     required RouteGraphManifest manifest,
     required List<RouteGraphChunk> chunks,
     required List<RouteGraphWayIndex> wayIndexRows,
+    required List<RouteGraphTrailDisplayChunk> trailDisplayChunks,
     required bool pruneStaleGenerations,
   }) async {
     _store.runInTransaction(TxMode.write, () {
@@ -155,14 +167,19 @@ class InMemoryRouteGraphStorage implements RouteGraphStorage {
     RouteGraphManifest? manifest,
     List<RouteGraphChunk> chunks = const [],
     List<RouteGraphWayIndex> wayIndexRows = const [],
+    List<RouteGraphTrailDisplayChunk> trailDisplayChunks = const [],
   })
     : _manifest = manifest,
       _chunks = List<RouteGraphChunk>.from(chunks),
-      _wayIndexRows = List<RouteGraphWayIndex>.from(wayIndexRows);
+      _wayIndexRows = List<RouteGraphWayIndex>.from(wayIndexRows),
+      _trailDisplayChunks = List<RouteGraphTrailDisplayChunk>.from(
+        trailDisplayChunks,
+      );
 
   RouteGraphManifest? _manifest;
   List<RouteGraphChunk> _chunks;
   List<RouteGraphWayIndex> _wayIndexRows;
+  List<RouteGraphTrailDisplayChunk> _trailDisplayChunks;
 
   @override
   RouteGraphManifest? activeManifest() => _manifest;
@@ -190,10 +207,22 @@ class InMemoryRouteGraphStorage implements RouteGraphStorage {
   }
 
   @override
+  List<RouteGraphTrailDisplayChunk> activeTrailDisplayChunks() {
+    final manifest = _manifest;
+    if (manifest == null || !manifest.hasActiveGeneration) {
+      return const [];
+    }
+    return _trailDisplayChunks
+        .where((row) => row.generation == manifest.activeGeneration)
+        .toList(growable: false);
+  }
+
+  @override
   Future<void> replaceGeneration({
     required RouteGraphManifest manifest,
     required List<RouteGraphChunk> chunks,
     required List<RouteGraphWayIndex> wayIndexRows,
+    required List<RouteGraphTrailDisplayChunk> trailDisplayChunks,
     required bool pruneStaleGenerations,
   }) async {
     _manifest = manifest;
@@ -202,9 +231,13 @@ class InMemoryRouteGraphStorage implements RouteGraphStorage {
       _wayIndexRows = wayIndexRows
           .where((row) => row.generation == manifest.activeGeneration)
           .toList(growable: false);
+      _trailDisplayChunks = trailDisplayChunks
+          .where((row) => row.generation == manifest.activeGeneration)
+          .toList(growable: false);
     } else {
       _chunks = [..._chunks, ...chunks];
       _wayIndexRows = [..._wayIndexRows, ...wayIndexRows];
+      _trailDisplayChunks = [..._trailDisplayChunks, ...trailDisplayChunks];
     }
   }
 
@@ -218,6 +251,7 @@ class InMemoryRouteGraphStorage implements RouteGraphStorage {
     _manifest = null;
     _chunks = [];
     _wayIndexRows = [];
+    _trailDisplayChunks = [];
   }
 }
 
@@ -248,6 +282,10 @@ class RouteGraphRepository {
 
   List<RouteGraphWayIndex> activeWayIndexRows() => _storage.activeWayIndexRows();
 
+  List<RouteGraphTrailDisplayChunk> activeTrailDisplayChunks() {
+    return _storage.activeTrailDisplayChunks();
+  }
+
   Future<void> writePreparedGeneration(
     RouteGraphPreparedGeneration generation, {
     required bool pruneStaleGenerations,
@@ -267,6 +305,7 @@ class RouteGraphRepository {
       manifest: manifest,
       chunks: generation.chunks,
       wayIndexRows: generation.wayIndexRows,
+      trailDisplayChunks: generation.trailDisplayChunks,
       pruneStaleGenerations: pruneStaleGenerations,
     );
   }

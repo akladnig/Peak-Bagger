@@ -1,16 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/route_graph_chunk.dart';
 import 'package:peak_bagger/models/route_graph_manifest.dart';
-import 'package:peak_bagger/models/route_graph_way_index.dart';
+import 'package:peak_bagger/models/route_graph_trail_display_chunk.dart';
 import 'package:peak_bagger/services/route_graph_query_service.dart';
 import 'package:peak_bagger/services/route_graph_repository.dart';
 import 'package:peak_bagger/services/route_graph_trail_service.dart';
 import 'package:peak_bagger/theme.dart';
 
 void main() {
-  test('buildVisibleTrails decodes route-graph trail geometry', () {
+  test('buildVisibleTrails reads cached trail geometry and dedupes overlap', () {
     final repository = RouteGraphRepository.test(
       InMemoryRouteGraphStorage(
         manifest: RouteGraphManifest(
@@ -26,26 +26,59 @@ void main() {
             minLon: 146,
             maxLat: -41,
             maxLon: 147,
-            elementCount: 3,
-            payloadJson: '''
-              {"elements":[
-                {"type":"node","id":1,"lat":-41.5,"lon":146.5},
-                {"type":"node","id":2,"lat":-41.6,"lon":146.6},
-                {"type":"way","id":10,"nodes":[1,2],"tags":{"highway":"path"}}
-              ]}
-            ''',
+            elementCount: 0,
+            payloadJson: '{"elements":[]}',
+          ),
+          RouteGraphChunk(
+            recordKey: '1|0_1',
+            chunkKey: '0_1',
+            generation: 1,
+            minLat: -42,
+            minLon: 146,
+            maxLat: -41,
+            maxLon: 147,
+            elementCount: 0,
+            payloadJson: '{"elements":[]}',
           ),
         ],
-        wayIndexRows: [
-          RouteGraphWayIndex(
-            recordKey: '1|0_0|10',
+        trailDisplayChunks: [
+          RouteGraphTrailDisplayChunk(
+            recordKey: RouteGraphTrailDisplayChunk.recordKeyFor(
+              generation: 1,
+              cacheZoom: 15,
+              chunkKey: '0_0',
+            ),
             generation: 1,
+            cacheZoom: 15,
             chunkKey: '0_0',
-            osmWayId: 10,
-            highway: 'path',
-            lengthMeters: 120,
-            tagCount: 1,
-            tagsJson: '{}',
+            payloadJson: RouteGraphTrailDisplayChunk.encodeWays([
+              const RouteGraphTrailDisplayWay(
+                osmWayId: 10,
+                points: [
+                  LatLng(-41.5, 146.5),
+                  LatLng(-41.6, 146.6),
+                ],
+              ),
+            ]),
+          ),
+          RouteGraphTrailDisplayChunk(
+            recordKey: RouteGraphTrailDisplayChunk.recordKeyFor(
+              generation: 1,
+              cacheZoom: 15,
+              chunkKey: '0_1',
+            ),
+            generation: 1,
+            cacheZoom: 15,
+            chunkKey: '0_1',
+            payloadJson: RouteGraphTrailDisplayChunk.encodeWays([
+              const RouteGraphTrailDisplayWay(
+                osmWayId: 10,
+                points: [
+                  LatLng(-41.5, 146.5),
+                  LatLng(-41.6, 146.6),
+                ],
+              ),
+            ]),
           ),
         ],
       ),
@@ -57,6 +90,7 @@ void main() {
       minLon: 146,
       maxLat: -41,
       maxLon: 147,
+      zoom: 15,
     );
 
     expect(trails, hasLength(2));
@@ -80,19 +114,7 @@ void main() {
           activeGeneration: 1,
           readinessState: RouteGraphManifest.readinessReady,
         ),
-        chunks: [
-          RouteGraphChunk(
-            recordKey: '1|0_0',
-            chunkKey: '0_0',
-            generation: 1,
-            minLat: -42,
-            minLon: 146,
-            maxLat: -41,
-            maxLon: 147,
-            elementCount: 1,
-            payloadJson: '{"elements":[]}',
-          ),
-        ],
+        chunks: const [],
         wayIndexRows: const [],
       ),
     );
@@ -103,6 +125,7 @@ void main() {
       minLon: 146,
       maxLat: -41,
       maxLon: 147,
+      zoom: 15,
     );
 
     expect(trails, isEmpty);
