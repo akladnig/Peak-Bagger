@@ -8,6 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
+import 'package:peak_bagger/models/route_graph_chunk.dart';
+import 'package:peak_bagger/models/route_graph_manifest.dart';
+import 'package:peak_bagger/models/route_graph_way_index.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
@@ -20,6 +23,7 @@ import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/route_graph_repository.dart';
 import 'package:peak_bagger/services/route_graph_store.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
@@ -35,6 +39,7 @@ class MapRouteRobot {
     required this.routePlanningOutcomes,
     this.routeElevationOutcomes = const [],
     RouteRepository? routeRepository,
+    this.routeGraphStore,
   }) : routeRepository =
             routeRepository ?? RouteRepository.test(InMemoryRouteStorage());
 
@@ -43,6 +48,7 @@ class MapRouteRobot {
   final List<Object> routePlanningOutcomes;
   final List<Object> routeElevationOutcomes;
   final RouteRepository routeRepository;
+  final RouteGraphStore? routeGraphStore;
 
   late final TestTasmapRepository _tasmapRepository;
   late final MapNotifier _mapNotifier;
@@ -97,7 +103,12 @@ class MapRouteRobot {
       ProviderScope(
         overrides: [
           mapProvider.overrideWith(() => _mapNotifier),
-          routeGraphStoreProvider.overrideWithValue(_ReadyRouteGraphStore()),
+          routeGraphReadinessProvider.overrideWith(
+            () => _ReadyRouteGraphReadinessNotifier(),
+          ),
+          routeGraphStoreProvider.overrideWithValue(
+            routeGraphStore ?? _ReadyRouteGraphStore(),
+          ),
           routeRepositoryProvider.overrideWithValue(routeRepository),
           peakListRepositoryProvider.overrideWithValue(
             PeakListRepository.test(InMemoryPeakListStorage()),
@@ -402,4 +413,79 @@ class _ReadyRouteGraphStore implements RouteGraphStore {
 
   @override
   Future<File> snapshotFile() => throw UnimplementedError();
+}
+
+class TrailRouteGraphStore implements RouteGraphStore, RouteGraphRepositoryProvider {
+  TrailRouteGraphStore()
+    : repository = RouteGraphRepository.test(
+        InMemoryRouteGraphStorage(
+          manifest: RouteGraphManifest(
+            activeGeneration: 1,
+            readinessState: RouteGraphManifest.readinessReady,
+          ),
+          chunks: [
+            RouteGraphChunk(
+              recordKey: '1|0_0',
+              chunkKey: '0_0',
+              generation: 1,
+              minLat: -42.0,
+              minLon: 146.0,
+              maxLat: -41.0,
+              maxLon: 147.0,
+              elementCount: 3,
+              payloadJson: '{"elements":[{"type":"node","id":1,"lat":-41.5,"lon":146.5},{"type":"node","id":2,"lat":-41.55,"lon":146.55},{"type":"way","id":10,"nodes":[1,2],"tags":{"highway":"path"}}]}',
+            ),
+          ],
+          wayIndexRows: [
+            RouteGraphWayIndex(
+              recordKey: '1|0_0|10',
+              generation: 1,
+              chunkKey: '0_0',
+              osmWayId: 10,
+              highway: 'path',
+              access: 'public',
+              name: 'Trail',
+              normalizedName: 'trail',
+              lengthMeters: 120,
+              tagCount: 1,
+              tagsJson: '{}',
+            ),
+          ],
+        ),
+      );
+
+  @override
+  final RouteGraphRepository repository;
+
+  @override
+  Future<trip_routing.TripService> preload() async {
+    return trip_routing.TripService();
+  }
+
+  @override
+  Future<trip_routing.TripService> reload() async {
+    return trip_routing.TripService();
+  }
+
+  @override
+  Future<void> replaceSnapshot(String rawJson) async {}
+
+  @override
+  Future<File> snapshotFile() => throw UnimplementedError();
+}
+
+class _ReadyRouteGraphReadinessNotifier extends RouteGraphReadinessNotifier {
+  @override
+  RouteGraphReadinessState build() {
+    return const RouteGraphReadinessState.ready();
+  }
+
+  @override
+  void markPreloading() {}
+
+  @override
+  void markReady() {}
+
+  @override
+  void markFailed(String error) {}
 }

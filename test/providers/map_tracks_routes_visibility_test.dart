@@ -46,6 +46,7 @@ void main() {
     final state = container.read(mapProvider);
     expect(state.showTracks, isFalse);
     expect(state.showRoutes, isFalse);
+    expect(state.showTrails, isFalse);
   });
 
   test('first user toggle wins over pending visibility restore for that flag', () async {
@@ -82,12 +83,14 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     notifier.setShowRoutes(true);
+    notifier.setShowTrails(true);
     completer.complete(prefs);
     await Future<void>.delayed(Duration.zero);
     await Future<void>.delayed(Duration.zero);
 
     expect(container.read(mapProvider).showRoutes, isTrue);
     expect(container.read(mapProvider).showTracks, isFalse);
+    expect(container.read(mapProvider).showTrails, isTrue);
   });
 
   test('stored visibility combination restores before later dataset changes', () async {
@@ -124,6 +127,7 @@ void main() {
     final state = container.read(mapProvider);
     expect(state.showTracks, isTrue);
     expect(state.showRoutes, isTrue);
+    expect(state.showTrails, isFalse);
   });
 
   test('turning routes off does not mutate track selection state', () async {

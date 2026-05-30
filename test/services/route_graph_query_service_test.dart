@@ -140,6 +140,164 @@ void main() {
     expect(rows.single.chunkKey, '0_0');
     expect(rows.single.osmWayId, 10);
   });
+
+  test('queryTrailWays applies the exact trail source filter', () {
+    final service = RouteGraphQueryService(
+      RouteGraphRepository.test(
+        InMemoryRouteGraphStorage(
+          manifest: _manifest,
+          wayIndexRows: [
+            _wayRow(
+              recordKey: '1|0_0|10',
+              chunkKey: '0_0',
+              osmWayId: 10,
+              highway: 'path',
+              access: 'public',
+              name: 'Trail',
+              normalizedName: 'trail',
+              lengthMeters: 600,
+              tagCount: 2,
+            ),
+            _wayRow(
+              recordKey: '1|0_0|11',
+              chunkKey: '0_0',
+              osmWayId: 11,
+              highway: 'footway',
+              access: 'public',
+              surface: 'gravel',
+              name: 'Long Footway',
+              normalizedName: 'long footway',
+              lengthMeters: 501,
+              tagCount: 2,
+            ),
+            _wayRow(
+              recordKey: '1|0_0|12',
+              chunkKey: '0_0',
+              osmWayId: 12,
+              highway: 'footway',
+              access: 'public',
+              name: 'Short Footway',
+              normalizedName: 'short footway',
+              lengthMeters: 500,
+              tagCount: 2,
+            ),
+            _wayRow(
+              recordKey: '1|0_0|13',
+              chunkKey: '0_0',
+              osmWayId: 13,
+              highway: 'path',
+              access: 'private',
+              name: 'Private Path',
+              normalizedName: 'private path',
+              lengthMeters: 800,
+              tagCount: 2,
+            ),
+            _wayRow(
+              recordKey: '1|0_0|14',
+              chunkKey: '0_0',
+              osmWayId: 14,
+              highway: 'path',
+              access: 'public',
+              surface: 'concrete',
+              name: 'Concrete Path',
+              normalizedName: 'concrete path',
+              lengthMeters: 800,
+              tagCount: 2,
+            ),
+            _wayRow(
+              recordKey: '1|0_0|15',
+              chunkKey: '0_0',
+              osmWayId: 15,
+              highway: 'path',
+              access: 'public',
+              footway: 'sidewalk',
+              name: 'Sidewalk Path',
+              normalizedName: 'sidewalk path',
+              lengthMeters: 800,
+              tagCount: 2,
+            ),
+            _wayRow(
+              recordKey: '1|0_0|16',
+              chunkKey: '0_0',
+              osmWayId: 16,
+              highway: 'path',
+              access: 'public',
+              foot: 'no',
+              name: 'No Foot Path',
+              normalizedName: 'no foot path',
+              lengthMeters: 800,
+              tagCount: 2,
+            ),
+            _wayRow(
+              recordKey: '1|0_0|17',
+              chunkKey: '0_0',
+              osmWayId: 17,
+              highway: 'path',
+              access: 'public',
+              route: 'mtb',
+              name: 'MTB Route',
+              normalizedName: 'mtb route',
+              lengthMeters: 800,
+              tagCount: 2,
+            ),
+            _wayRow(
+              recordKey: '1|0_0|18',
+              chunkKey: '0_0',
+              osmWayId: 18,
+              highway: 'track',
+              access: 'public',
+              name: 'Track',
+              normalizedName: 'track',
+              lengthMeters: 800,
+              tagCount: 2,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final rows = service.queryTrailWays();
+
+    expect(rows.map((row) => row.osmWayId), [10, 11]);
+  });
+
+  test('queryTrailMergedPayloadsForBounds merges trail chunks only', () {
+    final service = RouteGraphQueryService(
+      RouteGraphRepository.test(
+        InMemoryRouteGraphStorage(
+          manifest: _manifest,
+          chunks: [
+            _chunk('1|0_0', '0_0', -42.0, 146.0, -41.0, 147.0, payloadJson: _payload),
+            _chunk('1|2_2', '2_2', -35.0, 140.0, -34.0, 141.0, payloadJson: _payload),
+          ],
+          wayIndexRows: [
+            _wayRow(
+              recordKey: '1|0_0|10',
+              chunkKey: '0_0',
+              osmWayId: 10,
+              highway: 'path',
+              access: 'public',
+              name: 'Trail',
+              normalizedName: 'trail',
+              lengthMeters: 600,
+              tagCount: 2,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final payloads = service.queryTrailMergedPayloadsForBounds(
+      minLat: -41.8,
+      minLon: 146.2,
+      maxLat: -41.2,
+      maxLon: 146.8,
+    );
+
+    expect(payloads, hasLength(1));
+    final elements = payloads.single['elements'] as List;
+    expect(elements, hasLength(3));
+  });
 }
 
 final _manifest = RouteGraphManifest(
@@ -189,6 +347,10 @@ RouteGraphWayIndex _wayRow({
   required int osmWayId,
   required String highway,
   required String access,
+  String? surface,
+  String? footway,
+  String? foot,
+  String? route,
   required String name,
   required String normalizedName,
   required int lengthMeters,
@@ -200,6 +362,10 @@ RouteGraphWayIndex _wayRow({
     chunkKey: chunkKey,
     osmWayId: osmWayId,
     highway: highway,
+    surface: surface,
+    footway: footway,
+    foot: foot,
+    route: route,
     access: access,
     name: name,
     normalizedName: normalizedName,

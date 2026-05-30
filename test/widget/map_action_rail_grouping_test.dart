@@ -48,6 +48,7 @@ void main() {
         'Show Map Grid',
         'Select Peak List',
         'Show Tracks/Routes (T)',
+        'Show Trails',
       ]),
     );
     expect(
@@ -93,6 +94,14 @@ void main() {
     await tester.tap(infoFab);
     await tester.pump();
     expect(container.read(mapProvider).showInfoPopup, isTrue);
+
+    final showTrailsFab = find.byKey(const Key('show-trails-fab'));
+    await tester.ensureVisible(showTrailsFab);
+    await tester.pumpAndSettle();
+    await tester.tap(showTrailsFab);
+    await tester.pump();
+    expect(container.read(mapProvider).showTrails, isTrue);
+    expect(find.byKey(const Key('tracks-routes-drawer')), findsNothing);
 
     final showTracksFab = find.byKey(const Key('show-tracks-fab'));
     await tester.ensureVisible(showTracksFab);

@@ -27,6 +27,8 @@ import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/providers/gpx_export_provider.dart';
 import 'package:peak_bagger/services/peak_hover_detector.dart';
+import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
+import 'package:peak_bagger/providers/route_graph_trail_provider.dart';
 import 'package:peak_bagger/services/route_hover_detector.dart';
 import 'package:peak_bagger/services/track_hover_detector.dart';
 import 'package:peak_bagger/services/map_trackpad_gesture_classifier.dart';
@@ -1498,11 +1500,31 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 Consumer(
                   builder: (context, ref, child) {
                     final mapState = ref.watch(mapProvider);
+                    final routeGraphReady = ref.watch(
+                      routeGraphReadinessProvider.select(
+                        (state) => state.isReady,
+                      ),
+                    );
+                    final trailService = ref.watch(
+                      routeGraphTrailServiceProvider,
+                    );
                     final showPeakInfo = ref.watch(
                       peakMarkerInfoSettingsProvider,
                     );
                     final filteredPeaks = ref.watch(filteredPeaksProvider);
                     final routes = ref.watch(routeListProvider);
+                    ref.listen<bool>(
+                      mapProvider.select((state) => state.showTrails),
+                      (previous, next) {
+                        if (next && next != previous && mounted && _mapReady) {
+                          unawaited(
+                            _mapNotifier.prefetchRouteGraphVisibleBounds(
+                              _mapController.camera.visibleBounds,
+                            ),
+                          );
+                        }
+                      },
+                    );
                     ref.listen(routeListProvider, (previous, next) {
                       _mapNotifier.reconcileSelectedRouteState();
                     });
@@ -1552,6 +1574,22 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                 mapState.currentMgrs;
                             final displayZoom =
                                 _liveCamera?.zoom ?? mapState.zoom;
+                            final trailPolylines = mapState.showTrails &&
+                                    routeGraphReady &&
+                                    trailService != null &&
+                                    _mapController.camera.nonRotatedSize !=
+                                        MapCamera.kImpossibleSize
+                                ? trailService.buildVisibleTrails(
+                                    minLat: _mapController.camera.visibleBounds
+                                        .south,
+                                    minLon: _mapController.camera.visibleBounds
+                                        .west,
+                                    maxLat: _mapController.camera.visibleBounds
+                                        .north,
+                                    maxLon: _mapController.camera.visibleBounds
+                                        .east,
+                                  )
+                                : const <Polyline>[];
                             GpxTrack? selectedTrack;
                             for (final track in mapState.tracks) {
                               if (track.gpxTrackId ==
@@ -1830,6 +1868,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               ),
                                             ],
                                           ),
+                                        if (trailPolylines.isNotEmpty)
+                                          buildTrailPolylines(trailPolylines),
                                         if (routeChrome.isRouteDrafting)
                                           buildDraftRoutePolylines(
                                             committedPoints: routeChrome
@@ -2435,6 +2475,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _tryApplyPendingCameraRequest();
     _tryZoomPendingSelectedMap();
     _tryZoomPendingSelectedTrack();
+    if (ref.read(mapProvider).showTrails) {
+      unawaited(
+        _mapNotifier.prefetchRouteGraphVisibleBounds(
+          _mapController.camera.visibleBounds,
+        ),
+      );
+    }
   }
 
   void _queueCameraRequest(MapState mapState) {
