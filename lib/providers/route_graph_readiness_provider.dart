@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/services/route_graph_store.dart';
 
 final routeGraphStoreProvider = Provider<RouteGraphStore>((ref) {
-  return BundledRouteGraphStore();
+  throw UnimplementedError('routeGraphStoreProvider must be overridden');
 });
 
 enum RouteGraphReadinessStatus { preloading, ready, failed }
@@ -39,6 +39,14 @@ class RouteGraphReadinessNotifier extends Notifier<RouteGraphReadinessState> {
     return const RouteGraphReadinessState.ready();
   }
 
+  void markPreloading() {
+    if (!ref.mounted) {
+      return;
+    }
+
+    state = const RouteGraphReadinessState.preloading();
+  }
+
   void markReady() {
     if (!ref.mounted) {
       return;
@@ -56,3 +64,15 @@ class RouteGraphReadinessNotifier extends Notifier<RouteGraphReadinessState> {
   }
 
 }
+
+final routeGraphBootstrapProvider = FutureProvider<void>((ref) async {
+  final readiness = ref.read(routeGraphReadinessProvider.notifier);
+  readiness.markPreloading();
+
+  try {
+    await ref.read(routeGraphStoreProvider).preload();
+    readiness.markReady();
+  } catch (error) {
+    readiness.markFailed('$error');
+  }
+});

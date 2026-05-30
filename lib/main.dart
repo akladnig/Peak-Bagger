@@ -10,9 +10,13 @@ import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/objectbox_schema_guard.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
+import 'package:peak_bagger/services/route_graph_import_service.dart';
+import 'package:peak_bagger/services/route_graph_repository.dart';
+import 'package:peak_bagger/services/route_graph_store.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
+import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
 
 late final Store objectboxStore;
@@ -37,6 +41,12 @@ void main() async {
   );
   final peakListRepo = PeakListRepository(objectboxStore);
   final overpassService = OverpassService();
+  final routeGraphRepository = RouteGraphRepository.objectBox(objectboxStore);
+  final routeGraphImportService = RouteGraphImportService(routeGraphRepository);
+  final routeGraphStore = ObjectBoxRouteGraphStore(
+    repository: routeGraphRepository,
+    importService: routeGraphImportService,
+  );
   final tasmapRepo = TasmapRepository(objectboxStore);
   try {
     await tasmapRepo.loadFromCsvIfEmpty('assets/tasmap50k.csv');
@@ -58,6 +68,7 @@ void main() async {
         peakListRepositoryProvider.overrideWithValue(peakListRepo),
         overpassServiceProvider.overrideWithValue(overpassService),
         tasmapRepositoryProvider.overrideWithValue(tasmapRepo),
+        routeGraphStoreProvider.overrideWithValue(routeGraphStore),
         objectboxAdminRepositoryProvider.overrideWithValue(
           ObjectBoxAdminRepositoryImpl(store: objectboxStore),
         ),

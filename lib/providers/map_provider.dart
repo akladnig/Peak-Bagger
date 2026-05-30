@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gdal_dart/gdal_dart.dart' show GdalException;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
@@ -4585,6 +4586,24 @@ class MapNotifier extends Notifier<MapState> {
         mapSuggestions: [],
         mapSearchQuery: '',
       );
+    }
+  }
+
+  Future<void> prefetchRouteGraphVisibleBounds(LatLngBounds bounds) async {
+    final queryService = ref.read(routeGraphQueryServiceProvider);
+    if (queryService == null) {
+      return;
+    }
+
+    try {
+      await queryService.prefetchBounds(
+        minLat: bounds.south,
+        minLon: bounds.west,
+        maxLat: bounds.north,
+        maxLon: bounds.east,
+      );
+    } catch (_) {
+      // Prefetch is best-effort only.
     }
   }
 

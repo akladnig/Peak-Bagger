@@ -6,16 +6,16 @@ import 'package:peak_bagger/services/route_graph_store.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
 void main() {
-  test('refreshRouteGraph preloads the bundled route graph', () async {
+  test('refreshRouteGraph reloads the bundled route graph', () async {
     final store = _FakeRouteGraphStore();
     final service = RouteGraphRefreshService(store);
     final result = await service.refreshRouteGraph();
 
     expect(result.elementCount, 0);
-    expect(store.preloadCallCount, 1);
+    expect(store.reloadCallCount, 1);
   });
 
-  test('refreshRouteGraph rejects preload failures', () async {
+  test('refreshRouteGraph rejects reload failures', () async {
     final service = RouteGraphRefreshService(_ThrowingRouteGraphStore());
 
     await expectLater(
@@ -26,16 +26,18 @@ void main() {
 }
 
 class _FakeRouteGraphStore implements RouteGraphStore {
-  int preloadCallCount = 0;
+  int reloadCallCount = 0;
 
   @override
   Future<trip_routing.TripService> preload() async {
-    preloadCallCount += 1;
     return trip_routing.TripService();
   }
 
   @override
-  Future<trip_routing.TripService> reload() async => preload();
+  Future<trip_routing.TripService> reload() async {
+    reloadCallCount += 1;
+    return trip_routing.TripService();
+  }
 
   @override
   Future<void> replaceSnapshot(String rawJson) async {}

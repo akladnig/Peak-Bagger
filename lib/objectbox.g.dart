@@ -19,6 +19,8 @@ import 'models/peak.dart';
 import 'models/peak_list.dart';
 import 'models/peaks_bagged.dart';
 import 'models/route.dart';
+import 'models/route_graph_chunk.dart';
+import 'models/route_graph_manifest.dart';
 import 'models/tasmap50k.dart';
 
 export 'package:objectbox/objectbox.dart'; // so that callers only have to import this file
@@ -614,6 +616,147 @@ final _entities = <obx_int.ModelEntity>[
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
   ),
+  obx_int.ModelEntity(
+    id: const obx_int.IdUid(7, 596705519527760639),
+    name: 'RouteGraphChunk',
+    lastPropertyId: const obx_int.IdUid(10, 3398479501893264143),
+    flags: 0,
+    properties: <obx_int.ModelProperty>[
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(1, 1469808838581828297),
+        name: 'id',
+        type: 6,
+        flags: 129,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(2, 1793741707318597188),
+        name: 'recordKey',
+        type: 9,
+        flags: 2080,
+        indexId: const obx_int.IdUid(3, 2629505412358106755),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(3, 6967455734301465955),
+        name: 'chunkKey',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(4, 7872400213766686598),
+        name: 'generation',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(5, 4727494534911280573),
+        name: 'minLat',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(6, 8640538855355177463),
+        name: 'minLon',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(7, 5465738688593217615),
+        name: 'maxLat',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(8, 7005453871542192813),
+        name: 'maxLon',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(9, 6216780808421857277),
+        name: 'elementCount',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(10, 3398479501893264143),
+        name: 'payloadJson',
+        type: 9,
+        flags: 0,
+      ),
+    ],
+    relations: <obx_int.ModelRelation>[],
+    backlinks: <obx_int.ModelBacklink>[],
+  ),
+  obx_int.ModelEntity(
+    id: const obx_int.IdUid(8, 1444775778480771967),
+    name: 'RouteGraphManifest',
+    lastPropertyId: const obx_int.IdUid(10, 8758350155907503563),
+    flags: 0,
+    properties: <obx_int.ModelProperty>[
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(1, 2436359711993750832),
+        name: 'id',
+        type: 6,
+        flags: 129,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(2, 6092638898341522512),
+        name: 'sourceHash',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(3, 7324269441776161543),
+        name: 'schemaVersion',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(4, 4707116018081072653),
+        name: 'activeGeneration',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(5, 4633208416782374128),
+        name: 'importedAt',
+        type: 10,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(6, 6538104877462276138),
+        name: 'chunkCount',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(7, 7093348560738932483),
+        name: 'nodeCount',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(8, 2221664074292599462),
+        name: 'edgeCount',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(9, 7697351082653749625),
+        name: 'readinessState',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(10, 8758350155907503563),
+        name: 'lastError',
+        type: 9,
+        flags: 0,
+      ),
+    ],
+    relations: <obx_int.ModelRelation>[],
+    backlinks: <obx_int.ModelBacklink>[],
+  ),
 ];
 
 /// Shortcut for [obx.Store.new] that passes [getObjectBoxModel] and for Flutter
@@ -659,8 +802,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
     // Typically, this is done with `dart run build_runner build`.
     generatorVersion: obx_int.GeneratorVersion.v2025_12_16,
     entities: _entities,
-    lastEntityId: const obx_int.IdUid(6, 3506540890240152030),
-    lastIndexId: const obx_int.IdUid(2, 7211080441040466135),
+    lastEntityId: const obx_int.IdUid(8, 1444775778480771967),
+    lastIndexId: const obx_int.IdUid(3, 2629505412358106755),
     lastRelationId: const obx_int.IdUid(1, 8194382659905112901),
     lastSequenceId: const obx_int.IdUid(0, 0),
     retiredEntityUids: const [],
@@ -1456,6 +1599,200 @@ obx_int.ModelDefinition getObjectBoxModel() {
         return object;
       },
     ),
+    RouteGraphChunk: obx_int.EntityDefinition<RouteGraphChunk>(
+      model: _entities[6],
+      toOneRelations: (RouteGraphChunk object) => [],
+      toManyRelations: (RouteGraphChunk object) => {},
+      getId: (RouteGraphChunk object) => object.id,
+      setId: (RouteGraphChunk object, int id) {
+        object.id = id;
+      },
+      objectToFB: (RouteGraphChunk object, fb.Builder fbb) {
+        final recordKeyOffset = fbb.writeString(object.recordKey);
+        final chunkKeyOffset = fbb.writeString(object.chunkKey);
+        final payloadJsonOffset = fbb.writeString(object.payloadJson);
+        fbb.startTable(11);
+        fbb.addInt64(0, object.id);
+        fbb.addOffset(1, recordKeyOffset);
+        fbb.addOffset(2, chunkKeyOffset);
+        fbb.addInt64(3, object.generation);
+        fbb.addFloat64(4, object.minLat);
+        fbb.addFloat64(5, object.minLon);
+        fbb.addFloat64(6, object.maxLat);
+        fbb.addFloat64(7, object.maxLon);
+        fbb.addInt64(8, object.elementCount);
+        fbb.addOffset(9, payloadJsonOffset);
+        fbb.finish(fbb.endTable());
+        return object.id;
+      },
+      objectFromFB: (obx.Store store, ByteData fbData) {
+        final buffer = fb.BufferContext(fbData);
+        final rootOffset = buffer.derefObject(0);
+        final idParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          4,
+          0,
+        );
+        final recordKeyParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 6, '');
+        final chunkKeyParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 8, '');
+        final generationParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          10,
+          0,
+        );
+        final minLatParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          12,
+          0,
+        );
+        final minLonParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          14,
+          0,
+        );
+        final maxLatParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          16,
+          0,
+        );
+        final maxLonParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          18,
+          0,
+        );
+        final elementCountParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          20,
+          0,
+        );
+        final payloadJsonParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 22, '');
+        final object = RouteGraphChunk(
+          id: idParam,
+          recordKey: recordKeyParam,
+          chunkKey: chunkKeyParam,
+          generation: generationParam,
+          minLat: minLatParam,
+          minLon: minLonParam,
+          maxLat: maxLatParam,
+          maxLon: maxLonParam,
+          elementCount: elementCountParam,
+          payloadJson: payloadJsonParam,
+        );
+
+        return object;
+      },
+    ),
+    RouteGraphManifest: obx_int.EntityDefinition<RouteGraphManifest>(
+      model: _entities[7],
+      toOneRelations: (RouteGraphManifest object) => [],
+      toManyRelations: (RouteGraphManifest object) => {},
+      getId: (RouteGraphManifest object) => object.id,
+      setId: (RouteGraphManifest object, int id) {
+        object.id = id;
+      },
+      objectToFB: (RouteGraphManifest object, fb.Builder fbb) {
+        final sourceHashOffset = fbb.writeString(object.sourceHash);
+        final schemaVersionOffset = fbb.writeString(object.schemaVersion);
+        final readinessStateOffset = fbb.writeString(object.readinessState);
+        final lastErrorOffset = object.lastError == null
+            ? null
+            : fbb.writeString(object.lastError!);
+        fbb.startTable(11);
+        fbb.addInt64(0, object.id);
+        fbb.addOffset(1, sourceHashOffset);
+        fbb.addOffset(2, schemaVersionOffset);
+        fbb.addInt64(3, object.activeGeneration);
+        fbb.addInt64(4, object.importedAt?.millisecondsSinceEpoch);
+        fbb.addInt64(5, object.chunkCount);
+        fbb.addInt64(6, object.nodeCount);
+        fbb.addInt64(7, object.edgeCount);
+        fbb.addOffset(8, readinessStateOffset);
+        fbb.addOffset(9, lastErrorOffset);
+        fbb.finish(fbb.endTable());
+        return object.id;
+      },
+      objectFromFB: (obx.Store store, ByteData fbData) {
+        final buffer = fb.BufferContext(fbData);
+        final rootOffset = buffer.derefObject(0);
+        final importedAtValue = const fb.Int64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          12,
+        );
+        final idParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          4,
+          0,
+        );
+        final sourceHashParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 6, '');
+        final schemaVersionParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 8, '');
+        final activeGenerationParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          10,
+          0,
+        );
+        final importedAtParam = importedAtValue == null
+            ? null
+            : DateTime.fromMillisecondsSinceEpoch(importedAtValue, isUtc: true);
+        final chunkCountParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          14,
+          0,
+        );
+        final nodeCountParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          16,
+          0,
+        );
+        final edgeCountParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          18,
+          0,
+        );
+        final readinessStateParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 20, '');
+        final lastErrorParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 22);
+        final object = RouteGraphManifest(
+          id: idParam,
+          sourceHash: sourceHashParam,
+          schemaVersion: schemaVersionParam,
+          activeGeneration: activeGenerationParam,
+          importedAt: importedAtParam,
+          chunkCount: chunkCountParam,
+          nodeCount: nodeCountParam,
+          edgeCount: edgeCountParam,
+          readinessState: readinessStateParam,
+          lastError: lastErrorParam,
+        );
+
+        return object;
+      },
+    ),
   };
 
   return obx_int.ModelDefinition(model, bindings);
@@ -1908,5 +2245,111 @@ class Route_ {
   /// See [Route.desc].
   static final desc = obx.QueryStringProperty<Route>(
     _entities[5].properties[14],
+  );
+}
+
+/// [RouteGraphChunk] entity fields to define ObjectBox queries.
+class RouteGraphChunk_ {
+  /// See [RouteGraphChunk.id].
+  static final id = obx.QueryIntegerProperty<RouteGraphChunk>(
+    _entities[6].properties[0],
+  );
+
+  /// See [RouteGraphChunk.recordKey].
+  static final recordKey = obx.QueryStringProperty<RouteGraphChunk>(
+    _entities[6].properties[1],
+  );
+
+  /// See [RouteGraphChunk.chunkKey].
+  static final chunkKey = obx.QueryStringProperty<RouteGraphChunk>(
+    _entities[6].properties[2],
+  );
+
+  /// See [RouteGraphChunk.generation].
+  static final generation = obx.QueryIntegerProperty<RouteGraphChunk>(
+    _entities[6].properties[3],
+  );
+
+  /// See [RouteGraphChunk.minLat].
+  static final minLat = obx.QueryDoubleProperty<RouteGraphChunk>(
+    _entities[6].properties[4],
+  );
+
+  /// See [RouteGraphChunk.minLon].
+  static final minLon = obx.QueryDoubleProperty<RouteGraphChunk>(
+    _entities[6].properties[5],
+  );
+
+  /// See [RouteGraphChunk.maxLat].
+  static final maxLat = obx.QueryDoubleProperty<RouteGraphChunk>(
+    _entities[6].properties[6],
+  );
+
+  /// See [RouteGraphChunk.maxLon].
+  static final maxLon = obx.QueryDoubleProperty<RouteGraphChunk>(
+    _entities[6].properties[7],
+  );
+
+  /// See [RouteGraphChunk.elementCount].
+  static final elementCount = obx.QueryIntegerProperty<RouteGraphChunk>(
+    _entities[6].properties[8],
+  );
+
+  /// See [RouteGraphChunk.payloadJson].
+  static final payloadJson = obx.QueryStringProperty<RouteGraphChunk>(
+    _entities[6].properties[9],
+  );
+}
+
+/// [RouteGraphManifest] entity fields to define ObjectBox queries.
+class RouteGraphManifest_ {
+  /// See [RouteGraphManifest.id].
+  static final id = obx.QueryIntegerProperty<RouteGraphManifest>(
+    _entities[7].properties[0],
+  );
+
+  /// See [RouteGraphManifest.sourceHash].
+  static final sourceHash = obx.QueryStringProperty<RouteGraphManifest>(
+    _entities[7].properties[1],
+  );
+
+  /// See [RouteGraphManifest.schemaVersion].
+  static final schemaVersion = obx.QueryStringProperty<RouteGraphManifest>(
+    _entities[7].properties[2],
+  );
+
+  /// See [RouteGraphManifest.activeGeneration].
+  static final activeGeneration = obx.QueryIntegerProperty<RouteGraphManifest>(
+    _entities[7].properties[3],
+  );
+
+  /// See [RouteGraphManifest.importedAt].
+  static final importedAt = obx.QueryDateProperty<RouteGraphManifest>(
+    _entities[7].properties[4],
+  );
+
+  /// See [RouteGraphManifest.chunkCount].
+  static final chunkCount = obx.QueryIntegerProperty<RouteGraphManifest>(
+    _entities[7].properties[5],
+  );
+
+  /// See [RouteGraphManifest.nodeCount].
+  static final nodeCount = obx.QueryIntegerProperty<RouteGraphManifest>(
+    _entities[7].properties[6],
+  );
+
+  /// See [RouteGraphManifest.edgeCount].
+  static final edgeCount = obx.QueryIntegerProperty<RouteGraphManifest>(
+    _entities[7].properties[7],
+  );
+
+  /// See [RouteGraphManifest.readinessState].
+  static final readinessState = obx.QueryStringProperty<RouteGraphManifest>(
+    _entities[7].properties[8],
+  );
+
+  /// See [RouteGraphManifest.lastError].
+  static final lastError = obx.QueryStringProperty<RouteGraphManifest>(
+    _entities[7].properties[9],
   );
 }

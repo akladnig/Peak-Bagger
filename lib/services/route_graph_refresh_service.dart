@@ -18,15 +18,21 @@ class RouteGraphRefreshService {
 
   Future<RouteGraphRefreshResult> refreshRouteGraph() async {
     try {
-      await _store.preload();
-      return const RouteGraphRefreshResult(elementCount: 0);
+      await _store.reload();
+      final repository = _store is RouteGraphRepositoryProvider
+          ? (_store as RouteGraphRepositoryProvider).repository
+          : null;
+      final manifest = repository?.manifest;
+      return RouteGraphRefreshResult(
+        elementCount: (manifest?.nodeCount ?? 0) + (manifest?.edgeCount ?? 0),
+      );
     } catch (error, stackTrace) {
       developer.log(
-        'Route graph validation failed.',
+        'Route graph refresh failed.',
         error: error,
         stackTrace: stackTrace,
       );
-      throw RouteGraphLoadException('Failed to validate route graph snapshot: $error');
+      throw RouteGraphLoadException('Failed to refresh route graph: $error');
     }
   }
 }

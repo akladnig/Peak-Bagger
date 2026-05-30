@@ -109,6 +109,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   LatLng? _trackpadGestureCenter;
   double? _trackpadGestureZoom;
   Timer? _scrollTimer;
+  Timer? _routeGraphPrefetchTimer;
   double _scrollDx = 0;
   double _scrollDy = 0;
   _LiveCameraState? _liveCamera;
@@ -1134,6 +1135,17 @@ class _MapScreenState extends ConsumerState<MapScreen>
     }
   }
 
+  void _scheduleRouteGraphPrefetch(LatLngBounds bounds) {
+    _routeGraphPrefetchTimer?.cancel();
+    _routeGraphPrefetchTimer = Timer(const Duration(milliseconds: 150), () {
+      if (!mounted) {
+        return;
+      }
+
+      unawaited(_mapNotifier.prefetchRouteGraphVisibleBounds(bounds));
+    });
+  }
+
   bool _commitLiveCameraToCanonicalState() {
     final liveCamera = _liveCamera;
     if (liveCamera == null || liveCamera.token != _cameraIntentToken) {
@@ -1223,6 +1235,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _flushPendingCameraPosition();
     WidgetsBinding.instance.removeObserver(this);
     _scrollTimer?.cancel();
+    _routeGraphPrefetchTimer?.cancel();
     _gotoFocusNode.dispose();
     _searchFocusNode.dispose();
     _mapFocusNode.dispose();
@@ -1780,6 +1793,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                 _updateContinuousCamera(
                                                   center: position.center,
                                                   zoom: position.zoom,
+                                                );
+                                                _scheduleRouteGraphPrefetch(
+                                                  _mapController
+                                                      .camera
+                                                      .visibleBounds,
                                                 );
                                               }
                                             },

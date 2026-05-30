@@ -2,6 +2,9 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/route_graph_chunk.dart';
+import 'package:peak_bagger/models/route_graph_manifest.dart';
+import 'package:peak_bagger/services/route_graph_repository.dart';
 import 'package:peak_bagger/services/route_graph_store.dart';
 import 'package:peak_bagger/services/route_planner.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
@@ -54,6 +57,55 @@ void main() {
     expect(service.recordedProbeRequests, const [(point: end, maxSnapDistanceMeters: 50)]);
     expect(anchored.status, trip_routing.AnchoredSegmentStatus.routed);
     expect(probe.isOnTrack, isTrue);
+  });
+
+  test('local file client routes from repository-backed chunks without preload', () async {
+    const start = LatLng(-41.5, 146.5);
+    const end = LatLng(-41.6, 146.6);
+    final repository = RouteGraphRepository.test(
+      InMemoryRouteGraphStorage(
+        manifest: RouteGraphManifest(
+          sourceHash: 'hash',
+          schemaVersion: 'route-graph-v1',
+          activeGeneration: 1,
+          importedAt: DateTime.utc(2025),
+          chunkCount: 1,
+          nodeCount: 2,
+          edgeCount: 1,
+          readinessState: RouteGraphManifest.readinessReady,
+        ),
+        chunks: [
+          RouteGraphChunk(
+            recordKey: '1|0_0',
+            chunkKey: '0_0',
+            generation: 1,
+            minLat: -42.0,
+            minLon: 146.0,
+            maxLat: -41.0,
+            maxLon: 147.0,
+            elementCount: 3,
+            payloadJson: '''
+            {"elements":[
+              {"type":"node","id":1,"lat":-41.5,"lon":146.5},
+              {"type":"node","id":2,"lat":-41.6,"lon":146.6},
+              {"type":"way","id":10,"nodes":[1,2],"tags":{"highway":"path"}}
+            ]}
+            ''',
+          ),
+        ],
+      ),
+    );
+    final store = _FakeRouteGraphStore(_FakeTripService(), repository: repository);
+    final client = LocalFileTripRoutingClient(routeGraphStore: store);
+
+    final anchored = await client.findAnchoredSegment(
+      start: start,
+      end: end,
+      maxSnapDistanceMeters: 50,
+    );
+
+    expect(store.preloadCallCount, 0);
+    expect(anchored.status, trip_routing.AnchoredSegmentStatus.routed);
   });
 
   test('planner maps routed result into app-owned routed result', () async {
@@ -288,10 +340,12 @@ class _FakeTripRoutingClient implements TripRoutingClient {
   }
 }
 
-class _FakeRouteGraphStore implements RouteGraphStore {
-  _FakeRouteGraphStore(this.service);
+class _FakeRouteGraphStore implements RouteGraphStore, RouteGraphRepositoryProvider {
+  _FakeRouteGraphStore(this.service, {this.repository});
 
   final _FakeTripService service;
+  @override
+  final RouteGraphRepository? repository;
   int preloadCallCount = 0;
 
   @override
@@ -328,9 +382,19 @@ class _ThrowingRouteGraphStore implements RouteGraphStore {
 
 class _FakeTripService extends trip_routing.TripService {
   _FakeTripService({
-    required this.anchoredResult,
-    required this.probeResult,
-  });
+    trip_routing.AnchoredSegmentResult? anchoredResult,
+    trip_routing.EndpointProbeResult? probeResult,
+  })  : anchoredResult = anchoredResult ??
+            const trip_routing.AnchoredSegmentResult(
+              status: trip_routing.AnchoredSegmentStatus.failed,
+              route: [],
+              distance: 0,
+              errors: ['Missing fake anchored result'],
+            ),
+        probeResult = probeResult ??
+            const trip_routing.EndpointProbeResult(
+              isOnTrack: false,
+            );
 
   final trip_routing.AnchoredSegmentResult anchoredResult;
   final trip_routing.EndpointProbeResult probeResult;

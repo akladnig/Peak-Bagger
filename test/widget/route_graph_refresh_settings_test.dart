@@ -19,7 +19,7 @@ import '../harness/test_tasmap_notifier.dart';
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
-  testWidgets('validate route graph snapshot cancel is a no-op', (tester) async {
+  testWidgets('refresh route graph cancel is a no-op', (tester) async {
     final repository = await TestTasmapRepository.create();
     final notifier = TestPeakNotifier(_baseState());
 
@@ -42,7 +42,7 @@ void main() {
     await tester.tap(find.byKey(const Key('refresh-route-graph-tile')));
     await tester.pump();
 
-    expect(find.text('Validate Route Graph Snapshot?'), findsOneWidget);
+     expect(find.text('Refresh Route Graph?'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('route-graph-refresh-cancel')));
     await tester.pump();
@@ -50,7 +50,7 @@ void main() {
     expect(find.byKey(const Key('route-graph-refresh-status')), findsNothing);
   });
 
-  testWidgets('validate route graph snapshot shows loading state', (tester) async {
+  testWidgets('refresh route graph shows loading state', (tester) async {
     final repository = await TestTasmapRepository.create();
     final completer = Completer<RouteGraphRefreshResult>();
     final notifier = TestPeakNotifier(_baseState());
@@ -94,13 +94,13 @@ void main() {
     expect(
       find.descendant(
         of: resultDialog,
-        matching: find.text('Route graph snapshot validated.'),
+        matching: find.text('2 route graph elements refreshed.'),
       ),
       findsOneWidget,
     );
   });
 
-  testWidgets('validate route graph snapshot shows result dialog', (tester) async {
+  testWidgets('refresh route graph shows result dialog', (tester) async {
     final repository = await TestTasmapRepository.create();
     final notifier = TestPeakNotifier(_baseState());
     final service = _TestRouteGraphRefreshService(
@@ -135,21 +135,21 @@ void main() {
     expect(
       find.descendant(
         of: resultDialog,
-        matching: find.text('Route Graph Snapshot Validated'),
+        matching: find.text('Route Graph Refreshed'),
       ),
       findsOneWidget,
     );
     expect(
       find.descendant(
         of: resultDialog,
-        matching: find.text('Route graph snapshot validated.'),
+        matching: find.text('12 route graph elements refreshed.'),
       ),
       findsOneWidget,
     );
     expect(find.byKey(const Key('route-graph-refresh-result-close')), findsOneWidget);
   });
 
-  testWidgets('validate route graph snapshot shows failure dialog', (tester) async {
+  testWidgets('refresh route graph shows failure dialog', (tester) async {
     final repository = await TestTasmapRepository.create();
     final notifier = TestPeakNotifier(_baseState());
     final service = _TestRouteGraphRefreshService(
@@ -185,7 +185,7 @@ void main() {
     expect(
       find.descendant(
         of: failureDialog,
-        matching: find.text('Route Graph Snapshot Validation Failed'),
+        matching: find.text('Route Graph Refresh Failed'),
       ),
       findsOneWidget,
     );
@@ -204,7 +204,7 @@ void main() {
 
     expect(
       find.text(
-        'Route graph unavailable. Use Validate Route Graph Snapshot to retry.',
+        'Route graph unavailable. Use Refresh Route Graph to retry.',
       ),
       findsOneWidget,
     );
