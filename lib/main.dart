@@ -21,12 +21,14 @@ import 'package:peak_bagger/services/tile_cache_service.dart';
 
 late final Store objectboxStore;
 
+const _objectBoxMaxDbSizeInKB = 8 * 1024 * 1024;
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await TileCacheService.initialize();
 
-  final store = await openStore();
+  final store = await openStore(maxDBSizeInKB: _objectBoxMaxDbSizeInKB);
   try {
     await ObjectBoxSchemaGuard().verify();
     objectboxStore = store;

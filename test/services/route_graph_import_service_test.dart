@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/route_graph_manifest.dart';
+import 'package:peak_bagger/models/route_graph_way_index.dart';
 import 'package:peak_bagger/services/route_graph_errors.dart';
 import 'package:peak_bagger/services/route_graph_import_service.dart';
 import 'package:peak_bagger/services/route_graph_repository.dart';
@@ -80,6 +81,35 @@ void main() {
     expect(repository.manifest?.activeGeneration, 1);
     expect(repository.manifest?.readinessState, RouteGraphManifest.readinessReady);
   });
+
+  test('bootstrapIfNeeded persists indexed way rows for hot tags', () async {
+    final repository = RouteGraphRepository.test(InMemoryRouteGraphStorage());
+    final service = RouteGraphImportService(
+      repository,
+      assetLoader: (_) async => _richFixture,
+    );
+
+    await service.bootstrapIfNeeded();
+
+    expect(repository.activeWayIndexRows(), hasLength(2));
+    expect(
+      repository.activeWayIndexRows().map((row) => row.chunkKey).toSet(),
+      hasLength(2),
+    );
+    for (final row in repository.activeWayIndexRows()) {
+      expect(row.recordKey, RouteGraphWayIndex.recordKeyFor(generation: 1, chunkKey: row.chunkKey, osmWayId: 10));
+      expect(row.highway, 'footway');
+      expect(row.surface, 'gravel');
+      expect(row.footway, 'sidewalk');
+      expect(row.foot, 'no');
+      expect(row.route, 'mtb');
+      expect(row.access, 'private');
+      expect(row.name, 'Tassy Paths');
+      expect(row.normalizedName, 'tassy paths');
+      expect(row.tagCount, 7);
+      expect(row.lengthMeters, greaterThan(0));
+    }
+  });
 }
 
 Future<Map<String, Object?>> _syncGenerationPreparer(
@@ -121,5 +151,13 @@ const _fixture = '''
   {"type":"node","id":1,"lat":-42.0,"lon":146.0},
   {"type":"node","id":2,"lat":-42.01,"lon":146.01},
   {"type":"way","id":10,"nodes":[1,2],"tags":{"highway":"path"}}
+]}
+''';
+
+const _richFixture = '''
+{"elements":[
+  {"type":"node","id":1,"lat":-42.0,"lon":146.0},
+  {"type":"node","id":2,"lat":-42.01,"lon":146.01},
+  {"type":"way","id":10,"nodes":[1,2],"tags":{"highway":"footway","surface":"gravel","footway":"sidewalk","foot":"no","route":"mtb","access":"private","name":"Tassy Paths"}}
 ]}
 ''';

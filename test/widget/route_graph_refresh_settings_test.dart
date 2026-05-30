@@ -209,6 +209,57 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('refresh route graph shows db full guidance', (tester) async {
+    final repository = await TestTasmapRepository.create();
+    final notifier = TestPeakNotifier(_baseState());
+    final service = _TestRouteGraphRefreshService(
+      () async {
+        throw StateError(
+          'DbFull exception: object put failed: Could not put (OBX_ERROR code 10101)',
+        );
+      },
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(() => notifier),
+          tasmapStateProvider.overrideWith(() => TestTasmapNotifier(repository)),
+          tasmapRepositoryProvider.overrideWithValue(repository),
+          routeGraphRefreshServiceProvider.overrideWithValue(service),
+        ],
+        child: const App(),
+      ),
+    );
+    await tester.pump();
+
+    router.go('/settings');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.byKey(const Key('refresh-route-graph-tile')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('route-graph-refresh-confirm')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final failureDialog = find.byType(AlertDialog);
+    expect(
+      find.descendant(
+        of: failureDialog,
+        matching: find.text('Route Graph Refresh Failed'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: failureDialog,
+        matching: find.textContaining('ObjectBox database is full'),
+      ),
+      findsOneWidget,
+    );
+  });
 }
 
 MapState _baseState() {

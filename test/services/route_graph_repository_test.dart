@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/route_graph_chunk.dart';
 import 'package:peak_bagger/models/route_graph_manifest.dart';
+import 'package:peak_bagger/models/route_graph_way_index.dart';
 import 'package:peak_bagger/services/route_graph_repository.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
@@ -30,6 +31,17 @@ void main() {
           payloadJson: '{"elements": []}',
         ),
       ],
+      wayIndexRows: [
+        RouteGraphWayIndex(
+          recordKey: RouteGraphWayIndex.recordKeyFor(generation: 1, chunkKey: '0_0', osmWayId: 10),
+          generation: 1,
+          chunkKey: '0_0',
+          osmWayId: 10,
+          lengthMeters: 10,
+          tagCount: 1,
+          tagsJson: '{"highway":"path"}',
+        ),
+      ],
     );
     final repository = RouteGraphRepository.test(storage);
 
@@ -55,6 +67,17 @@ void main() {
             payloadJson: '{"elements": []}',
           ),
         ],
+        wayIndexRows: [
+          RouteGraphWayIndex(
+            recordKey: RouteGraphWayIndex.recordKeyFor(generation: 2, chunkKey: '1_1', osmWayId: 11),
+            generation: 2,
+            chunkKey: '1_1',
+            osmWayId: 11,
+            lengthMeters: 11,
+            tagCount: 2,
+            tagsJson: '{"highway":"path"}',
+          ),
+        ],
       ),
       pruneStaleGenerations: true,
     );
@@ -63,6 +86,8 @@ void main() {
     expect(repository.manifest?.readinessState, RouteGraphManifest.readinessReady);
     expect(repository.activeChunks(), hasLength(1));
     expect(repository.activeChunks().single.generation, 2);
+    expect(repository.activeWayIndexRows(), hasLength(1));
+    expect(repository.activeWayIndexRows().single.generation, 2);
   });
 
   test('buildTripServiceForActiveGeneration loads active payloads', () async {
@@ -94,6 +119,17 @@ void main() {
             {"type":"way","id":10,"nodes":[1,2],"tags":{"highway":"path"}}
           ]}
           ''',
+        ),
+      ],
+      wayIndexRows: [
+        RouteGraphWayIndex(
+          recordKey: RouteGraphWayIndex.recordKeyFor(generation: 7, chunkKey: '0_0', osmWayId: 10),
+          generation: 7,
+          chunkKey: '0_0',
+          osmWayId: 10,
+          lengthMeters: 10,
+          tagCount: 1,
+          tagsJson: '{"highway":"path"}',
         ),
       ],
     );

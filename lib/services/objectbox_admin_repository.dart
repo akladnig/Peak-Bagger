@@ -9,6 +9,7 @@ import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/models/route_graph_chunk.dart';
 import 'package:peak_bagger/models/route_graph_manifest.dart';
+import 'package:peak_bagger/models/route_graph_way_index.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/services/peak_admin_editor.dart';
 import 'package:peak_bagger/objectbox.g.dart';
@@ -69,6 +70,11 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
       'PeaksBagged' => _loadPeaksBaggedRows(store, trimmedQuery, ascending),
       'Route' => _loadRouteRows(store, trimmedQuery, ascending),
       'RouteGraphChunk' => _loadRouteGraphChunkRows(
+        store,
+        trimmedQuery,
+        ascending,
+      ),
+      'RouteGraphWayIndex' => _loadRouteGraphWayIndexRows(
         store,
         trimmedQuery,
         ascending,
@@ -171,6 +177,7 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
       'GpxTrack' => 'trackName',
       'PeaksBagged' => 'gpxId',
       'RouteGraphChunk' => 'chunkKey',
+      'RouteGraphWayIndex' => 'name',
       'RouteGraphManifest' => 'readinessState',
       _ => 'name',
     };
@@ -402,6 +409,63 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
     );
 
     return filtered.map(routeGraphChunkToAdminRow).toList(growable: false);
+  }
+
+  List<ObjectBoxAdminRow> _loadRouteGraphWayIndexRows(
+    Store store,
+    String query,
+    bool ascending,
+  ) {
+    final box = store.box<RouteGraphWayIndex>();
+    final items = box.getAll();
+    final filtered = query.isEmpty
+        ? items
+        : items.where((row) {
+            final values = [
+              row.recordKey,
+              row.chunkKey,
+              row.highway,
+              row.surface,
+              row.footway,
+              row.foot,
+              row.route,
+              row.access,
+              row.name,
+              row.normalizedName,
+              row.tagsJson,
+            ].map((value) => value?.toLowerCase()).whereType<String>();
+            return values.any((value) => value.contains(query));
+          }).toList();
+
+    filtered.sort(
+      (a, b) => ascending ? a.id.compareTo(b.id) : b.id.compareTo(a.id),
+    );
+
+    return filtered
+        .map(
+          (row) => ObjectBoxAdminRow(
+            primaryKeyValue: row.id,
+            values: {
+              'id': row.id,
+              'recordKey': row.recordKey,
+              'generation': row.generation,
+              'chunkKey': row.chunkKey,
+              'osmWayId': row.osmWayId,
+              'highway': row.highway,
+              'surface': row.surface,
+              'footway': row.footway,
+              'foot': row.foot,
+              'route': row.route,
+              'access': row.access,
+              'name': row.name,
+              'normalizedName': row.normalizedName,
+              'lengthMeters': row.lengthMeters,
+              'tagCount': row.tagCount,
+              'tagsJson': row.tagsJson,
+            },
+          ),
+        )
+        .toList(growable: false);
   }
 
   List<ObjectBoxAdminRow> _loadRouteGraphManifestRows(

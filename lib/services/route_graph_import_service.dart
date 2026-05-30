@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import 'package:peak_bagger/models/route_graph_chunk.dart';
 import 'package:peak_bagger/models/route_graph_manifest.dart';
+import 'package:peak_bagger/models/route_graph_way_index.dart';
 
 import 'route_graph_errors.dart';
 import 'route_graph_repository.dart';
@@ -212,17 +213,18 @@ Map<String, Object?> _prepareGeneration(
     }
   }
 
-  final chunks = _buildChunks(nodeMap, wayMaps, generation);
+  final prepared = _buildChunksAndWayIndexRows(nodeMap, wayMaps, generation);
 
   return {
     'generation': generation,
     'sourceHash': sha256.convert(utf8.encode(rawJson)).toString(),
     'schemaVersion': schemaVersion,
     'importedAtMillis': DateTime.now().toUtc().millisecondsSinceEpoch,
-    'chunkCount': chunks.length,
+    'chunkCount': prepared.chunks.length,
     'nodeCount': nodeCount,
     'edgeCount': edgeCount,
-    'chunks': chunks,
+    'chunks': prepared.chunks,
+    'wayIndexRows': prepared.wayIndexRows,
   };
 }
 
@@ -231,6 +233,8 @@ RouteGraphPreparedGeneration _preparedGenerationFromMap(Map<String, Object?> map
   if (chunksRaw is! List) {
     throw const RouteGraphLoadException('Prepared route graph missing chunks.');
   }
+
+  final wayIndexRowsRaw = map['wayIndexRows'];
 
   final chunks = chunksRaw.map((entry) {
     if (entry is! Map) {
@@ -251,6 +255,33 @@ RouteGraphPreparedGeneration _preparedGenerationFromMap(Map<String, Object?> map
     );
   }).toList(growable: false);
 
+  final wayIndexRows = wayIndexRowsRaw is List
+      ? wayIndexRowsRaw.map((entry) {
+          if (entry is! Map) {
+            throw const RouteGraphLoadException('Prepared way index payload must be a map.');
+          }
+
+          final typed = Map<String, Object?>.from(entry);
+          return RouteGraphWayIndex(
+            recordKey: typed['recordKey'] as String,
+            generation: typed['generation'] as int,
+            chunkKey: typed['chunkKey'] as String,
+            osmWayId: typed['osmWayId'] as int,
+            highway: typed['highway'] as String?,
+            surface: typed['surface'] as String?,
+            footway: typed['footway'] as String?,
+            foot: typed['foot'] as String?,
+            route: typed['route'] as String?,
+            access: typed['access'] as String?,
+            name: typed['name'] as String?,
+            normalizedName: typed['normalizedName'] as String?,
+            lengthMeters: (typed['lengthMeters'] as num).round(),
+            tagCount: typed['tagCount'] as int,
+            tagsJson: typed['tagsJson'] as String,
+          );
+        }).toList(growable: false)
+      : const <RouteGraphWayIndex>[];
+
   return RouteGraphPreparedGeneration(
     generation: map['generation'] as int,
     sourceHash: map['sourceHash'] as String,
@@ -263,15 +294,17 @@ RouteGraphPreparedGeneration _preparedGenerationFromMap(Map<String, Object?> map
     nodeCount: map['nodeCount'] as int,
     edgeCount: map['edgeCount'] as int,
     chunks: chunks,
+    wayIndexRows: wayIndexRows,
   );
 }
 
-List<Map<String, Object?>> _buildChunks(
+_PreparedRouteGraphRows _buildChunksAndWayIndexRows(
   Map<int, Map<String, dynamic>> nodeMap,
   List<Map<String, dynamic>> ways,
   int generation,
 ) {
   final builders = <String, _ChunkBuilder>{};
+  final wayIndexRows = <Map<String, Object?>>[];
 
   for (final way in ways) {
     final nodeIds = _readNodeIds(way['nodes']);
@@ -283,7 +316,15 @@ List<Map<String, Object?>> _buildChunks(
       continue;
     }
 
+    final tagsRaw = way['tags'];
+    if (tagsRaw is! Map) {
+      continue;
+    }
+    final tags = Map<String, dynamic>.from(tagsRaw);
+
     final bounds = _geometryBounds(nodes);
+    final lengthMeters = _geometryLengthMeters(nodes);
+    final tagCount = _scalarTagCount(tags);
     final minCellX = _cellIndex(bounds.minX - _overlapMeters);
     final maxCellX = _cellIndex(bounds.maxX + _overlapMeters);
     final minCellY = _cellIndex(bounds.minY - _overlapMeters);
@@ -304,13 +345,24 @@ List<Map<String, Object?>> _buildChunks(
           ),
         );
         builder.addWay(way, nodeMap, nodeIds);
+        wayIndexRows.add(
+          _buildWayIndexRow(
+            way: way,
+            tags: tags,
+            generation: generation,
+            chunkKey: chunkKey,
+            lengthMeters: lengthMeters,
+            tagCount: tagCount,
+          ),
+        );
       }
     }
   }
 
-  return builders.values
-      .map((builder) => builder.toMap())
-      .toList(growable: false);
+  return _PreparedRouteGraphRows(
+    chunks: builders.values.map((builder) => builder.toMap()).toList(growable: false),
+    wayIndexRows: wayIndexRows,
+  );
 }
 
 int _cellIndex(double meters) => (meters / _gridSizeMeters).floor();
@@ -448,6 +500,99 @@ class _ChunkBuilder {
       'payloadJson': jsonEncode(payload),
     };
   }
+}
+
+class _PreparedRouteGraphRows {
+  _PreparedRouteGraphRows({
+    required this.chunks,
+    required this.wayIndexRows,
+  });
+
+  final List<Map<String, Object?>> chunks;
+  final List<Map<String, Object?>> wayIndexRows;
+}
+
+Map<String, Object?> _buildWayIndexRow({
+  required Map<String, dynamic> way,
+  required Map<String, dynamic> tags,
+  required int generation,
+  required String chunkKey,
+  required int lengthMeters,
+  required int tagCount,
+}) {
+  final wayId = _readInt(way['id']);
+  if (wayId == null) {
+    throw const RouteGraphLoadException('Route graph way is missing OSM identity.');
+  }
+
+  final name = _readOptionalTagString(tags['name']);
+  final normalizedName = name?.toLowerCase();
+
+  return {
+    'recordKey': RouteGraphWayIndex.recordKeyFor(
+      generation: generation,
+      chunkKey: chunkKey,
+      osmWayId: wayId,
+    ),
+    'generation': generation,
+    'chunkKey': chunkKey,
+    'osmWayId': wayId,
+    'highway': _readOptionalTagString(tags['highway']),
+    'surface': _readOptionalTagString(tags['surface']),
+    'footway': _readOptionalTagString(tags['footway']),
+    'foot': _readOptionalTagString(tags['foot']),
+    'route': _readOptionalTagString(tags['route']),
+    'access': _readOptionalTagString(tags['access']),
+    'name': name,
+    'normalizedName': normalizedName,
+    'lengthMeters': lengthMeters,
+    'tagCount': tagCount,
+    'tagsJson': jsonEncode(tags),
+  };
+}
+
+String? _readOptionalTagString(dynamic value) {
+  if (value is! String) {
+    return null;
+  }
+  final trimmed = value.trim();
+  return trimmed.isEmpty ? null : trimmed;
+}
+
+int _scalarTagCount(Map<String, dynamic> tags) {
+  var count = 0;
+  for (final entry in tags.entries) {
+    final value = entry.value;
+    if (value == null) {
+      continue;
+    }
+    if (value is String && value.isEmpty) {
+      continue;
+    }
+    if (value is Map || value is List) {
+      continue;
+    }
+    count += 1;
+  }
+  return count;
+}
+
+int _geometryLengthMeters(List<Map<String, dynamic>> nodes) {
+  if (nodes.length < 2) {
+    return 0;
+  }
+
+  var total = 0.0;
+  var previous = _project(nodes.first['lat'] as double, nodes.first['lon'] as double);
+  for (final node in nodes.skip(1)) {
+    final projected = _project(node['lat'] as double, node['lon'] as double);
+    final dx = projected.x - previous.x;
+    final dy = projected.y - previous.y;
+    total += math.sqrt(dx * dx + dy * dy);
+    previous = projected;
+  }
+
+  return total.round();
 }
 
 double _unprojectX(double x) => x * 180.0 / (_earthRadiusMeters * math.pi);
