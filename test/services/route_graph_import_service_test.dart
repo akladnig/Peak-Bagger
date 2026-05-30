@@ -1,11 +1,14 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/route_graph_manifest.dart';
+import 'package:peak_bagger/models/route_graph_trail_display_chunk.dart';
 import 'package:peak_bagger/models/route_graph_way_index.dart';
 import 'package:peak_bagger/services/route_graph_errors.dart';
 import 'package:peak_bagger/services/route_graph_import_service.dart';
 import 'package:peak_bagger/services/route_graph_repository.dart';
+import 'package:peak_bagger/services/track_display_cache_builder.dart';
 
 void main() {
   test('bootstrapIfNeeded imports once and reuses the active generation', () async {
@@ -29,6 +32,40 @@ void main() {
     expect(repository.manifest?.activeGeneration, 1);
     expect(repository.manifest?.readinessState, RouteGraphManifest.readinessReady);
     expect(repository.activeChunks(), isNotEmpty);
+  });
+
+  test('bootstrapIfNeeded rebuilds when active schema version mismatches', () async {
+    var rawJsonCalls = 0;
+    final repository = RouteGraphRepository.test(
+      InMemoryRouteGraphStorage(
+        manifest: RouteGraphManifest(
+          sourceHash: 'old',
+          schemaVersion: 'route-graph-v1',
+          activeGeneration: 1,
+          importedAt: DateTime.utc(2024),
+          chunkCount: 1,
+          nodeCount: 2,
+          edgeCount: 1,
+          readinessState: RouteGraphManifest.readinessReady,
+        ),
+      ),
+    );
+    final service = RouteGraphImportService(
+      repository,
+      assetLoader: (_) async {
+        rawJsonCalls += 1;
+        return _fixture;
+      },
+      generationPreparer: _syncGenerationPreparer,
+    );
+
+    final outcome = await service.bootstrapIfNeeded();
+
+    expect(outcome.imported, isTrue);
+    expect(outcome.reusedExisting, isFalse);
+    expect(rawJsonCalls, 1);
+    expect(repository.manifest?.activeGeneration, 2);
+    expect(repository.manifest?.schemaVersion, service.schemaVersion);
   });
 
   test('bootstrapIfNeeded persists first-launch failure and stops retrying', () async {
@@ -70,6 +107,7 @@ void main() {
 
     await service.bootstrapIfNeeded();
     expect(repository.manifest?.activeGeneration, 1);
+    expect(repository.activeTrailDisplayChunks(), isNotEmpty);
 
     rawJson = 'not-json';
 
@@ -80,6 +118,7 @@ void main() {
 
     expect(repository.manifest?.activeGeneration, 1);
     expect(repository.manifest?.readinessState, RouteGraphManifest.readinessReady);
+    expect(repository.activeTrailDisplayChunks(), isNotEmpty);
   });
 
   test('bootstrapIfNeeded persists indexed way rows for hot tags', () async {
@@ -109,6 +148,40 @@ void main() {
       expect(row.tagCount, 7);
       expect(row.lengthMeters, greaterThan(0));
     }
+  });
+
+  test('bootstrapIfNeeded creates trail cache rows for matching ways at each zoom', () async {
+    final repository = RouteGraphRepository.test(InMemoryRouteGraphStorage());
+    final service = RouteGraphImportService(
+      repository,
+      assetLoader: (_) async => _trailFixture,
+    );
+
+    await service.bootstrapIfNeeded();
+
+    final rows = repository.activeTrailDisplayChunks();
+    expect(rows, isNotEmpty);
+    expect(
+      rows.map((row) => row.cacheZoom).toSet(),
+      {
+        for (
+          var zoom = TrackDisplayCacheBuilder.minZoom;
+          zoom <= TrackDisplayCacheBuilder.maxZoom;
+          zoom++
+        )
+          zoom,
+      },
+    );
+
+    final cachedWayIds = rows
+        .expand((row) => row.decodeWays())
+        .map((way) => way.osmWayId)
+        .toSet();
+    expect(cachedWayIds.contains(10), isTrue);
+    expect(cachedWayIds.contains(11), isTrue);
+    expect(cachedWayIds.contains(12), isFalse);
+    expect(cachedWayIds.contains(13), isFalse);
+    expect(cachedWayIds.contains(14), isFalse);
   });
 }
 
@@ -143,6 +216,27 @@ Map<String, Object?> _prepare(String rawJson, String schemaVersion, int generati
         'payloadJson': _fixture,
       },
     ],
+    'trailDisplayChunks': [
+      {
+        'recordKey': RouteGraphTrailDisplayChunk.recordKeyFor(
+          generation: generation,
+          cacheZoom: TrackDisplayCacheBuilder.minZoom,
+          chunkKey: '0_0',
+        ),
+        'generation': generation,
+        'cacheZoom': TrackDisplayCacheBuilder.minZoom,
+        'chunkKey': '0_0',
+        'payloadJson': RouteGraphTrailDisplayChunk.encodeWays([
+          const RouteGraphTrailDisplayWay(
+            osmWayId: 10,
+            points: [
+              LatLng(-42.0, 146.0),
+              LatLng(-42.01, 146.01),
+            ],
+          ),
+        ]),
+      },
+    ],
   };
 }
 
@@ -159,5 +253,21 @@ const _richFixture = '''
   {"type":"node","id":1,"lat":-42.0,"lon":146.0},
   {"type":"node","id":2,"lat":-42.01,"lon":146.01},
   {"type":"way","id":10,"nodes":[1,2],"tags":{"highway":"footway","surface":"gravel","footway":"sidewalk","foot":"no","route":"mtb","access":"private","name":"Tassy Paths"}}
+]}
+''';
+
+const _trailFixture = '''
+{"elements":[
+  {"type":"node","id":1,"lat":-42.0000,"lon":146.0000},
+  {"type":"node","id":2,"lat":-41.9940,"lon":146.0000},
+  {"type":"node","id":3,"lat":-41.9880,"lon":146.0000},
+  {"type":"node","id":4,"lat":-41.9820,"lon":146.0000},
+  {"type":"node","id":5,"lat":-41.9760,"lon":146.0000},
+  {"type":"node","id":6,"lat":-41.9700,"lon":146.0000},
+  {"type":"way","id":10,"nodes":[1,2],"tags":{"highway":"path","name":"Public Path"}},
+  {"type":"way","id":11,"nodes":[1,6],"tags":{"highway":"footway","name":"Long Footway"}},
+  {"type":"way","id":12,"nodes":[1,6],"tags":{"highway":"path","access":"private","name":"Private Path"}},
+  {"type":"way","id":13,"nodes":[1,6],"tags":{"highway":"track","name":"Track"}},
+  {"type":"way","id":14,"nodes":[1,6],"tags":{"highway":"path","surface":"concrete","name":"Concrete Path"}}
 ]}
 ''';

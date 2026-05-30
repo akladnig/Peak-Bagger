@@ -34,15 +34,15 @@ Persist zoom+chunk trail display cache at import time. Render overlay from cache
 ### Phase 2: Import Build + Schema Enforcement
 
 - **Goal**: generate cache rows during import; force rebuild on schema mismatch
-- [ ] `lib/services/track_display_cache_builder.dart` - extract pure simplifier/encoder only if reuse stays small; else copy minimal logic into route-graph import
-- [ ] `lib/services/route_graph_import_service.dart` - bump schema version; reject mismatched active manifest in `bootstrapIfNeeded()`; build trail cache rows during generation prep
-- [ ] `lib/services/route_graph_import_service.dart` - extend prepared-generation map parsing for trail cache rows; fail import on cache-build errors
-- [ ] `lib/services/route_graph_query_service.dart` - keep trail source filter canonical; reuse filter for import-time selection if practical
-- [ ] `test/services/route_graph_import_service_test.dart` - cover filter inclusion/exclusion, per-zoom row creation, schema mismatch rebuild, refresh failure retention
-- [ ] TDD: importer prepares trail cache rows only for allowed trail ways across supported zooms; then implement builder path
-- [ ] TDD: bootstrap reuses only matching schema version, otherwise rebuilds; then implement schema guard
-- [ ] TDD: import failure in trail cache generation aborts activation and preserves prior active generation; then implement failure path
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/services/track_display_cache_builder.dart` - extract pure simplifier/encoder only if reuse stays small; else copy minimal logic into route-graph import
+- [x] `lib/services/route_graph_import_service.dart` - bump schema version; reject mismatched active manifest in `bootstrapIfNeeded()`; build trail cache rows during generation prep
+- [x] `lib/services/route_graph_import_service.dart` - extend prepared-generation map parsing for trail cache rows; fail import on cache-build errors
+- [x] `lib/services/route_graph_query_service.dart` - keep trail source filter canonical; reuse filter for import-time selection if practical
+- [x] `test/services/route_graph_import_service_test.dart` - cover filter inclusion/exclusion, per-zoom row creation, schema mismatch rebuild, refresh failure retention
+- [x] TDD: importer prepares trail cache rows only for allowed trail ways across supported zooms; then implement builder path
+- [x] TDD: bootstrap reuses only matching schema version, otherwise rebuilds; then implement schema guard
+- [x] TDD: import failure in trail cache generation aborts activation and preserves prior active generation; then implement failure path
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: ObjectBox Persistence + Journey Hardening
 

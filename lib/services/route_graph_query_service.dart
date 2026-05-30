@@ -346,27 +346,43 @@ class RouteGraphQueryService {
   }
 
   bool _isTrailWayRow(RouteGraphWayIndex row) {
-    if (_isTrailExcluded(row)) {
-      return false;
-    }
+    return isRouteGraphTrailWayMetadata(
+      highway: row.highway,
+      surface: row.surface,
+      footway: row.footway,
+      foot: row.foot,
+      route: row.route,
+      access: row.access,
+      lengthMeters: row.lengthMeters,
+      tagCount: row.tagCount,
+    );
+  }
+}
 
-    if (row.highway == 'path') {
-      return true;
-    }
-
-    return row.highway == 'footway' &&
-        row.lengthMeters > 500 &&
-        row.tagCount > 1;
+bool isRouteGraphTrailWayMetadata({
+  required String? highway,
+  required String? surface,
+  required String? footway,
+  required String? foot,
+  required String? route,
+  required String? access,
+  required int lengthMeters,
+  required int tagCount,
+}) {
+  if (access == 'private' ||
+      <String>{'concrete', 'asphalt', 'paved', 'paving_stones'}
+          .contains(surface) ||
+      footway == 'sidewalk' ||
+      foot == 'no' ||
+      route == 'mtb') {
+    return false;
   }
 
-  bool _isTrailExcluded(RouteGraphWayIndex row) {
-    return row.access == 'private' ||
-        <String>{'concrete', 'asphalt', 'paved', 'paving_stones'}
-            .contains(row.surface) ||
-        row.footway == 'sidewalk' ||
-        row.foot == 'no' ||
-        row.route == 'mtb';
+  if (highway == 'path') {
+    return true;
   }
+
+  return highway == 'footway' && lengthMeters > 500 && tagCount > 1;
 }
 
 class TagFilter {
