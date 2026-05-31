@@ -1,8 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/route_graph_chunk.dart';
 import 'package:peak_bagger/models/route_graph_manifest.dart';
-import 'package:peak_bagger/models/route_graph_trail_display_chunk.dart';
 import 'package:peak_bagger/models/route_graph_way_index.dart';
 import 'package:peak_bagger/services/route_graph_repository.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
@@ -44,9 +42,6 @@ void main() {
           tagsJson: '{"highway":"path"}',
         ),
       ],
-      trailDisplayChunks: [
-        _trailDisplayChunk(generation: 1, cacheZoom: 15, chunkKey: '0_0'),
-      ],
     );
     final repository = RouteGraphRepository.test(storage);
 
@@ -83,9 +78,6 @@ void main() {
             tagsJson: '{"highway":"path"}',
           ),
         ],
-        trailDisplayChunks: [
-          _trailDisplayChunk(generation: 2, cacheZoom: 15, chunkKey: '1_1'),
-        ],
       ),
       pruneStaleGenerations: true,
     );
@@ -96,64 +88,6 @@ void main() {
     expect(repository.activeChunks().single.generation, 2);
     expect(repository.activeWayIndexRows(), hasLength(1));
     expect(repository.activeWayIndexRows().single.generation, 2);
-    expect(repository.activeTrailDisplayChunks(), hasLength(1));
-    expect(repository.activeTrailDisplayChunks().single.generation, 2);
-  });
-
-  test('writePreparedGeneration prunes stale trail display rows', () async {
-    final storage = InMemoryRouteGraphStorage(
-      manifest: RouteGraphManifest(
-        sourceHash: 'old',
-        schemaVersion: 'route-graph-v2',
-        activeGeneration: 1,
-        importedAt: DateTime.utc(2024),
-        chunkCount: 1,
-        nodeCount: 1,
-        edgeCount: 1,
-        readinessState: RouteGraphManifest.readinessReady,
-      ),
-      trailDisplayChunks: [
-        _trailDisplayChunk(generation: 1, cacheZoom: 15, chunkKey: '0_0'),
-      ],
-    );
-    final repository = RouteGraphRepository.test(storage);
-
-    await repository.writePreparedGeneration(
-      RouteGraphPreparedGeneration(
-        generation: 2,
-        sourceHash: 'new',
-        schemaVersion: 'route-graph-v2',
-        importedAt: DateTime.utc(2025),
-        chunkCount: 1,
-        nodeCount: 2,
-        edgeCount: 1,
-        chunks: const [],
-        wayIndexRows: const [],
-        trailDisplayChunks: [
-          _trailDisplayChunk(generation: 2, cacheZoom: 15, chunkKey: '1_1'),
-        ],
-      ),
-      pruneStaleGenerations: true,
-    );
-
-    await storage.replaceGeneration(
-      manifest: RouteGraphManifest(
-        sourceHash: 'old',
-        schemaVersion: 'route-graph-v2',
-        activeGeneration: 1,
-        importedAt: DateTime.utc(2024),
-        chunkCount: 0,
-        nodeCount: 0,
-        edgeCount: 0,
-        readinessState: RouteGraphManifest.readinessReady,
-      ),
-      chunks: const [],
-      wayIndexRows: const [],
-      trailDisplayChunks: const [],
-      pruneStaleGenerations: false,
-    );
-
-    expect(storage.activeTrailDisplayChunks(), isEmpty);
   });
 
   test('buildTripServiceForActiveGeneration loads active payloads', () async {
@@ -205,30 +139,4 @@ void main() {
 
     expect(service, isA<trip_routing.TripService>());
   });
-}
-
-RouteGraphTrailDisplayChunk _trailDisplayChunk({
-  required int generation,
-  required int cacheZoom,
-  required String chunkKey,
-}) {
-  return RouteGraphTrailDisplayChunk(
-    recordKey: RouteGraphTrailDisplayChunk.recordKeyFor(
-      generation: generation,
-      cacheZoom: cacheZoom,
-      chunkKey: chunkKey,
-    ),
-    generation: generation,
-    cacheZoom: cacheZoom,
-    chunkKey: chunkKey,
-    payloadJson: RouteGraphTrailDisplayChunk.encodeWays([
-      const RouteGraphTrailDisplayWay(
-        osmWayId: 10,
-        points: [
-          LatLng(-42.0, 146.0),
-          LatLng(-42.01, 146.01),
-        ],
-      ),
-    ]),
-  );
 }

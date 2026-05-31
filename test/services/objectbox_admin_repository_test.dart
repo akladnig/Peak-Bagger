@@ -30,7 +30,6 @@ void main() {
       'RouteGraphChunk',
       'RouteGraphManifest',
       'RouteGraphWayIndex',
-      'RouteGraphTrailDisplayChunk',
     ]);
     expect(entities.first.primaryKeyField, 'id');
     expect(entities.first.primaryNameField, 'name');

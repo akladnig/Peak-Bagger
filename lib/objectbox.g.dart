@@ -21,7 +21,6 @@ import 'models/peaks_bagged.dart';
 import 'models/route.dart';
 import 'models/route_graph_chunk.dart';
 import 'models/route_graph_manifest.dart';
-import 'models/route_graph_trail_display_chunk.dart';
 import 'models/route_graph_way_index.dart';
 import 'models/tasmap50k.dart';
 
@@ -879,56 +878,6 @@ final _entities = <obx_int.ModelEntity>[
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
   ),
-  obx_int.ModelEntity(
-    id: const obx_int.IdUid(10, 6059948320416146250),
-    name: 'RouteGraphTrailDisplayChunk',
-    lastPropertyId: const obx_int.IdUid(6, 7689183445842674669),
-    flags: 0,
-    properties: <obx_int.ModelProperty>[
-      obx_int.ModelProperty(
-        id: const obx_int.IdUid(1, 4554691679847495489),
-        name: 'id',
-        type: 6,
-        flags: 129,
-      ),
-      obx_int.ModelProperty(
-        id: const obx_int.IdUid(2, 3068832968782807046),
-        name: 'recordKey',
-        type: 9,
-        flags: 2080,
-        indexId: const obx_int.IdUid(18, 1118203870652404234),
-      ),
-      obx_int.ModelProperty(
-        id: const obx_int.IdUid(3, 5073002466263635198),
-        name: 'generation',
-        type: 6,
-        flags: 8,
-        indexId: const obx_int.IdUid(19, 8396529678208824924),
-      ),
-      obx_int.ModelProperty(
-        id: const obx_int.IdUid(4, 3986380455666052632),
-        name: 'cacheZoom',
-        type: 6,
-        flags: 8,
-        indexId: const obx_int.IdUid(20, 8805275054975868171),
-      ),
-      obx_int.ModelProperty(
-        id: const obx_int.IdUid(5, 5320267107048684954),
-        name: 'chunkKey',
-        type: 9,
-        flags: 2048,
-        indexId: const obx_int.IdUid(21, 5356499526039797575),
-      ),
-      obx_int.ModelProperty(
-        id: const obx_int.IdUid(6, 7689183445842674669),
-        name: 'payloadJson',
-        type: 9,
-        flags: 0,
-      ),
-    ],
-    relations: <obx_int.ModelRelation>[],
-    backlinks: <obx_int.ModelBacklink>[],
-  ),
 ];
 
 /// Shortcut for [obx.Store.new] that passes [getObjectBoxModel] and for Flutter
@@ -974,8 +923,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
     // Typically, this is done with `dart run build_runner build`.
     generatorVersion: obx_int.GeneratorVersion.v2025_12_16,
     entities: _entities,
-    lastEntityId: const obx_int.IdUid(10, 6059948320416146250),
-    lastIndexId: const obx_int.IdUid(21, 5356499526039797575),
+    lastEntityId: const obx_int.IdUid(9, 7206587872972155691),
+    lastIndexId: const obx_int.IdUid(17, 6932016565344639744),
     lastRelationId: const obx_int.IdUid(1, 8194382659905112901),
     lastSequenceId: const obx_int.IdUid(0, 0),
     retiredEntityUids: const [],
@@ -2109,71 +2058,6 @@ obx_int.ModelDefinition getObjectBoxModel() {
         return object;
       },
     ),
-    RouteGraphTrailDisplayChunk:
-        obx_int.EntityDefinition<RouteGraphTrailDisplayChunk>(
-          model: _entities[9],
-          toOneRelations: (RouteGraphTrailDisplayChunk object) => [],
-          toManyRelations: (RouteGraphTrailDisplayChunk object) => {},
-          getId: (RouteGraphTrailDisplayChunk object) => object.id,
-          setId: (RouteGraphTrailDisplayChunk object, int id) {
-            object.id = id;
-          },
-          objectToFB: (RouteGraphTrailDisplayChunk object, fb.Builder fbb) {
-            final recordKeyOffset = fbb.writeString(object.recordKey);
-            final chunkKeyOffset = fbb.writeString(object.chunkKey);
-            final payloadJsonOffset = fbb.writeString(object.payloadJson);
-            fbb.startTable(7);
-            fbb.addInt64(0, object.id);
-            fbb.addOffset(1, recordKeyOffset);
-            fbb.addInt64(2, object.generation);
-            fbb.addInt64(3, object.cacheZoom);
-            fbb.addOffset(4, chunkKeyOffset);
-            fbb.addOffset(5, payloadJsonOffset);
-            fbb.finish(fbb.endTable());
-            return object.id;
-          },
-          objectFromFB: (obx.Store store, ByteData fbData) {
-            final buffer = fb.BufferContext(fbData);
-            final rootOffset = buffer.derefObject(0);
-            final idParam = const fb.Int64Reader().vTableGet(
-              buffer,
-              rootOffset,
-              4,
-              0,
-            );
-            final recordKeyParam = const fb.StringReader(
-              asciiOptimization: true,
-            ).vTableGet(buffer, rootOffset, 6, '');
-            final generationParam = const fb.Int64Reader().vTableGet(
-              buffer,
-              rootOffset,
-              8,
-              0,
-            );
-            final cacheZoomParam = const fb.Int64Reader().vTableGet(
-              buffer,
-              rootOffset,
-              10,
-              0,
-            );
-            final chunkKeyParam = const fb.StringReader(
-              asciiOptimization: true,
-            ).vTableGet(buffer, rootOffset, 12, '');
-            final payloadJsonParam = const fb.StringReader(
-              asciiOptimization: true,
-            ).vTableGet(buffer, rootOffset, 14, '');
-            final object = RouteGraphTrailDisplayChunk(
-              id: idParam,
-              recordKey: recordKeyParam,
-              generation: generationParam,
-              cacheZoom: cacheZoomParam,
-              chunkKey: chunkKeyParam,
-              payloadJson: payloadJsonParam,
-            );
-
-            return object;
-          },
-        ),
   };
 
   return obx_int.ModelDefinition(model, bindings);
@@ -2816,40 +2700,4 @@ class RouteGraphWayIndex_ {
   static final tagsJson = obx.QueryStringProperty<RouteGraphWayIndex>(
     _entities[8].properties[15],
   );
-}
-
-/// [RouteGraphTrailDisplayChunk] entity fields to define ObjectBox queries.
-class RouteGraphTrailDisplayChunk_ {
-  /// See [RouteGraphTrailDisplayChunk.id].
-  static final id = obx.QueryIntegerProperty<RouteGraphTrailDisplayChunk>(
-    _entities[9].properties[0],
-  );
-
-  /// See [RouteGraphTrailDisplayChunk.recordKey].
-  static final recordKey = obx.QueryStringProperty<RouteGraphTrailDisplayChunk>(
-    _entities[9].properties[1],
-  );
-
-  /// See [RouteGraphTrailDisplayChunk.generation].
-  static final generation =
-      obx.QueryIntegerProperty<RouteGraphTrailDisplayChunk>(
-        _entities[9].properties[2],
-      );
-
-  /// See [RouteGraphTrailDisplayChunk.cacheZoom].
-  static final cacheZoom =
-      obx.QueryIntegerProperty<RouteGraphTrailDisplayChunk>(
-        _entities[9].properties[3],
-      );
-
-  /// See [RouteGraphTrailDisplayChunk.chunkKey].
-  static final chunkKey = obx.QueryStringProperty<RouteGraphTrailDisplayChunk>(
-    _entities[9].properties[4],
-  );
-
-  /// See [RouteGraphTrailDisplayChunk.payloadJson].
-  static final payloadJson =
-      obx.QueryStringProperty<RouteGraphTrailDisplayChunk>(
-        _entities[9].properties[5],
-      );
 }

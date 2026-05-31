@@ -1588,7 +1588,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                         .north,
                                     maxLon: _mapController.camera.visibleBounds
                                         .east,
-                                    zoom: displayZoom,
                                   )
                                 : const <Polyline>[];
                             GpxTrack? selectedTrack;

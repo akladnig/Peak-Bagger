@@ -1,11 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:latlong2/latlong.dart';
-import 'package:peak_bagger/core/constants.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
 import 'package:peak_bagger/models/route_graph_chunk.dart';
-import 'package:peak_bagger/models/route_graph_trail_display_chunk.dart';
 import 'package:peak_bagger/models/route_graph_way_index.dart';
 
 import 'route_graph_errors.dart';
@@ -76,38 +74,6 @@ class RouteGraphQueryService {
       maxLon: maxLon,
       extraBufferMeters: extraBufferMeters,
     ).where((chunk) => trailChunkKeys.contains(chunk.chunkKey)).toList(growable: false);
-  }
-
-  List<RouteGraphTrailDisplayChunk> queryTrailDisplayChunksForBounds({
-    required double minLat,
-    required double minLon,
-    required double maxLat,
-    required double maxLon,
-    required double zoom,
-    double? extraBufferMeters,
-  }) {
-    final visibleChunkKeys = queryChunksForBounds(
-      minLat: minLat,
-      minLon: minLon,
-      maxLat: maxLat,
-      maxLon: maxLon,
-      extraBufferMeters: extraBufferMeters,
-    ).map((chunk) => chunk.chunkKey).toSet();
-    if (visibleChunkKeys.isEmpty) {
-      return const [];
-    }
-
-    final cacheZoom = zoom.round().clamp(
-      MapConstants.trackMinZoom,
-      MapConstants.trackMaxZoom,
-    );
-    return _repository
-        .activeTrailDisplayChunks()
-        .where(
-          (row) => row.cacheZoom == cacheZoom &&
-              visibleChunkKeys.contains(row.chunkKey),
-        )
-        .toList(growable: false);
   }
 
   List<RouteGraphChunk> queryChunksForRoute({
@@ -346,43 +312,27 @@ class RouteGraphQueryService {
   }
 
   bool _isTrailWayRow(RouteGraphWayIndex row) {
-    return isRouteGraphTrailWayMetadata(
-      highway: row.highway,
-      surface: row.surface,
-      footway: row.footway,
-      foot: row.foot,
-      route: row.route,
-      access: row.access,
-      lengthMeters: row.lengthMeters,
-      tagCount: row.tagCount,
-    );
-  }
-}
+    if (_isTrailExcluded(row)) {
+      return false;
+    }
 
-bool isRouteGraphTrailWayMetadata({
-  required String? highway,
-  required String? surface,
-  required String? footway,
-  required String? foot,
-  required String? route,
-  required String? access,
-  required int lengthMeters,
-  required int tagCount,
-}) {
-  if (access == 'private' ||
-      <String>{'concrete', 'asphalt', 'paved', 'paving_stones'}
-          .contains(surface) ||
-      footway == 'sidewalk' ||
-      foot == 'no' ||
-      route == 'mtb') {
-    return false;
+    if (row.highway == 'path') {
+      return true;
+    }
+
+    return row.highway == 'footway' &&
+        row.lengthMeters > 500 &&
+        row.tagCount > 1;
   }
 
-  if (highway == 'path') {
-    return true;
+  bool _isTrailExcluded(RouteGraphWayIndex row) {
+    return row.access == 'private' ||
+        <String>{'concrete', 'asphalt', 'paved', 'paving_stones'}
+            .contains(row.surface) ||
+        row.footway == 'sidewalk' ||
+        row.foot == 'no' ||
+        row.route == 'mtb';
   }
-
-  return highway == 'footway' && lengthMeters > 500 && tagCount > 1;
 }
 
 class TagFilter {

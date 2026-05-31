@@ -738,57 +738,10 @@
         }
       ],
       "relations": []
-    },
-    {
-      "id": "10:6059948320416146250",
-      "lastPropertyId": "6:7689183445842674669",
-      "name": "RouteGraphTrailDisplayChunk",
-      "properties": [
-        {
-          "id": "1:4554691679847495489",
-          "name": "id",
-          "type": 6,
-          "flags": 129
-        },
-        {
-          "id": "2:3068832968782807046",
-          "name": "recordKey",
-          "indexId": "18:1118203870652404234",
-          "type": 9,
-          "flags": 2080
-        },
-        {
-          "id": "3:5073002466263635198",
-          "name": "generation",
-          "indexId": "19:8396529678208824924",
-          "type": 6,
-          "flags": 8
-        },
-        {
-          "id": "4:3986380455666052632",
-          "name": "cacheZoom",
-          "indexId": "20:8805275054975868171",
-          "type": 6,
-          "flags": 8
-        },
-        {
-          "id": "5:5320267107048684954",
-          "name": "chunkKey",
-          "indexId": "21:5356499526039797575",
-          "type": 9,
-          "flags": 2048
-        },
-        {
-          "id": "6:7689183445842674669",
-          "name": "payloadJson",
-          "type": 9
-        }
-      ],
-      "relations": []
     }
   ],
-  "lastEntityId": "10:6059948320416146250",
-  "lastIndexId": "21:5356499526039797575",
+  "lastEntityId": "9:7206587872972155691",
+  "lastIndexId": "17:6932016565344639744",
   "lastRelationId": "1:8194382659905112901",
   "lastSequenceId": "0:0",
   "modelVersion": 5,
