@@ -4,13 +4,17 @@ import 'dart:math' as math;
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
+import 'package:latlong2/latlong.dart';
 
 import 'package:peak_bagger/models/route_graph_chunk.dart';
 import 'package:peak_bagger/models/route_graph_manifest.dart';
+import 'package:peak_bagger/models/route_graph_trail_display_chunk.dart';
 import 'package:peak_bagger/models/route_graph_way_index.dart';
 
 import 'route_graph_errors.dart';
+import 'route_graph_query_service.dart';
 import 'route_graph_repository.dart';
+import 'track_display_cache_builder.dart';
 
 typedef RouteGraphAssetLoader = Future<String> Function(String assetPath);
 typedef RouteGraphGenerationPreparer = Future<Map<String, Object?>> Function(
@@ -87,7 +91,7 @@ class RouteGraphImportService {
             generationPreparer ?? _prepareGenerationInBackground;
 
   static const _bundledRouteGraphAsset = 'assets/highway.json';
-  static const _schemaVersion = 'route-graph-v1';
+  static const _schemaVersion = 'route-graph-v2';
 
   final RouteGraphRepository _repository;
   final RouteGraphAssetLoader _assetLoader;
@@ -97,7 +101,8 @@ class RouteGraphImportService {
 
   Future<RouteGraphImportOutcome> bootstrapIfNeeded() async {
     final manifest = _repository.manifest;
-    if (manifest?.hasActiveGeneration == true) {
+    if (manifest?.hasActiveGeneration == true &&
+        manifest?.schemaVersion == schemaVersion) {
       return RouteGraphImportOutcome.reused(manifest!);
     }
 
@@ -225,6 +230,7 @@ Map<String, Object?> _prepareGeneration(
     'edgeCount': edgeCount,
     'chunks': prepared.chunks,
     'wayIndexRows': prepared.wayIndexRows,
+    'trailDisplayChunks': prepared.trailDisplayChunks,
   };
 }
 
@@ -235,6 +241,7 @@ RouteGraphPreparedGeneration _preparedGenerationFromMap(Map<String, Object?> map
   }
 
   final wayIndexRowsRaw = map['wayIndexRows'];
+  final trailDisplayChunksRaw = map['trailDisplayChunks'];
 
   final chunks = chunksRaw.map((entry) {
     if (entry is! Map) {
@@ -282,6 +289,25 @@ RouteGraphPreparedGeneration _preparedGenerationFromMap(Map<String, Object?> map
         }).toList(growable: false)
       : const <RouteGraphWayIndex>[];
 
+  final trailDisplayChunks = trailDisplayChunksRaw is List
+      ? trailDisplayChunksRaw.map((entry) {
+          if (entry is! Map) {
+            throw const RouteGraphLoadException(
+              'Prepared trail display payload must be a map.',
+            );
+          }
+
+          final typed = Map<String, Object?>.from(entry);
+          return RouteGraphTrailDisplayChunk(
+            recordKey: typed['recordKey'] as String,
+            generation: typed['generation'] as int,
+            cacheZoom: typed['cacheZoom'] as int,
+            chunkKey: typed['chunkKey'] as String,
+            payloadJson: typed['payloadJson'] as String,
+          );
+        }).toList(growable: false)
+      : const <RouteGraphTrailDisplayChunk>[];
+
   return RouteGraphPreparedGeneration(
     generation: map['generation'] as int,
     sourceHash: map['sourceHash'] as String,
@@ -295,6 +321,7 @@ RouteGraphPreparedGeneration _preparedGenerationFromMap(Map<String, Object?> map
     edgeCount: map['edgeCount'] as int,
     chunks: chunks,
     wayIndexRows: wayIndexRows,
+    trailDisplayChunks: trailDisplayChunks,
   );
 }
 
@@ -304,6 +331,7 @@ _PreparedRouteGraphRows _buildChunksAndWayIndexRows(
   int generation,
 ) {
   final builders = <String, _ChunkBuilder>{};
+  final trailDisplayBuilders = <String, _TrailDisplayChunkBuilder>{};
   final wayIndexRows = <Map<String, Object?>>[];
 
   for (final way in ways) {
@@ -321,10 +349,23 @@ _PreparedRouteGraphRows _buildChunksAndWayIndexRows(
       continue;
     }
     final tags = Map<String, dynamic>.from(tagsRaw);
+    final wayId = _readInt(way['id']);
+    if (wayId == null) {
+      throw const RouteGraphLoadException(
+        'Route graph way is missing OSM identity.',
+      );
+    }
 
     final bounds = _geometryBounds(nodes);
     final lengthMeters = _geometryLengthMeters(nodes);
     final tagCount = _scalarTagCount(tags);
+    final trailWaysByZoom = _buildTrailWaysByZoom(
+      osmWayId: wayId,
+      nodes: nodes,
+      tags: tags,
+      lengthMeters: lengthMeters,
+      tagCount: tagCount,
+    );
     final minCellX = _cellIndex(bounds.minX - _overlapMeters);
     final maxCellX = _cellIndex(bounds.maxX + _overlapMeters);
     final minCellY = _cellIndex(bounds.minY - _overlapMeters);
@@ -355,6 +396,21 @@ _PreparedRouteGraphRows _buildChunksAndWayIndexRows(
             tagCount: tagCount,
           ),
         );
+        for (final entry in trailWaysByZoom.entries) {
+          final recordKey = RouteGraphTrailDisplayChunk.recordKeyFor(
+            generation: generation,
+            cacheZoom: entry.key,
+            chunkKey: chunkKey,
+          );
+          trailDisplayBuilders.putIfAbsent(
+            recordKey,
+            () => _TrailDisplayChunkBuilder(
+              generation: generation,
+              cacheZoom: entry.key,
+              chunkKey: chunkKey,
+            ),
+          ).addWay(entry.value);
+        }
       }
     }
   }
@@ -362,7 +418,51 @@ _PreparedRouteGraphRows _buildChunksAndWayIndexRows(
   return _PreparedRouteGraphRows(
     chunks: builders.values.map((builder) => builder.toMap()).toList(growable: false),
     wayIndexRows: wayIndexRows,
+    trailDisplayChunks: trailDisplayBuilders.values
+        .map((builder) => builder.toMap())
+        .toList(growable: false),
   );
+}
+
+Map<int, RouteGraphTrailDisplayWay> _buildTrailWaysByZoom({
+  required int osmWayId,
+  required List<Map<String, dynamic>> nodes,
+  required Map<String, dynamic> tags,
+  required int lengthMeters,
+  required int tagCount,
+}) {
+  if (!isRouteGraphTrailWayMetadata(
+    highway: _readOptionalTagString(tags['highway']),
+    surface: _readOptionalTagString(tags['surface']),
+    footway: _readOptionalTagString(tags['footway']),
+    foot: _readOptionalTagString(tags['foot']),
+    route: _readOptionalTagString(tags['route']),
+    access: _readOptionalTagString(tags['access']),
+    lengthMeters: lengthMeters,
+    tagCount: tagCount,
+  )) {
+    return const {};
+  }
+
+  final points = nodes
+      .map((node) => LatLng(node['lat'] as double, node['lon'] as double))
+      .toList(growable: false);
+  final simplifiedWays = <int, RouteGraphTrailDisplayWay>{};
+  for (
+    var zoom = TrackDisplayCacheBuilder.minZoom;
+    zoom <= TrackDisplayCacheBuilder.maxZoom;
+    zoom++
+  ) {
+    final simplifiedPoints = simplifyDisplaySegmentForZoom(points, zoom);
+    if (simplifiedPoints.length < 2) {
+      continue;
+    }
+    simplifiedWays[zoom] = RouteGraphTrailDisplayWay(
+      osmWayId: osmWayId,
+      points: simplifiedPoints,
+    );
+  }
+  return simplifiedWays;
 }
 
 int _cellIndex(double meters) => (meters / _gridSizeMeters).floor();
@@ -502,14 +602,47 @@ class _ChunkBuilder {
   }
 }
 
+class _TrailDisplayChunkBuilder {
+  _TrailDisplayChunkBuilder({
+    required this.generation,
+    required this.cacheZoom,
+    required this.chunkKey,
+  });
+
+  final int generation;
+  final int cacheZoom;
+  final String chunkKey;
+  final List<RouteGraphTrailDisplayWay> _ways = [];
+
+  void addWay(RouteGraphTrailDisplayWay way) {
+    _ways.add(way);
+  }
+
+  Map<String, Object?> toMap() {
+    return {
+      'recordKey': RouteGraphTrailDisplayChunk.recordKeyFor(
+        generation: generation,
+        cacheZoom: cacheZoom,
+        chunkKey: chunkKey,
+      ),
+      'generation': generation,
+      'cacheZoom': cacheZoom,
+      'chunkKey': chunkKey,
+      'payloadJson': RouteGraphTrailDisplayChunk.encodeWays(_ways),
+    };
+  }
+}
+
 class _PreparedRouteGraphRows {
   _PreparedRouteGraphRows({
     required this.chunks,
     required this.wayIndexRows,
+    required this.trailDisplayChunks,
   });
 
   final List<Map<String, Object?>> chunks;
   final List<Map<String, Object?>> wayIndexRows;
+  final List<Map<String, Object?>> trailDisplayChunks;
 }
 
 Map<String, Object?> _buildWayIndexRow({
