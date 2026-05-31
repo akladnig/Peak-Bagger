@@ -61,6 +61,36 @@ void main() {
     ]);
   });
 
+  testWidgets('map screen shows trails while route graph is preloading', (
+    tester,
+  ) async {
+    final repository = await TestTasmapRepository.create();
+    final mapNotifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15.6,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    await _pumpMapScreen(
+      tester,
+      mapNotifier: mapNotifier,
+      routeGraphStore: _TrailCacheRouteGraphStore(),
+      tasmapRepository: repository,
+      readinessOverride: () => _PreloadingRouteGraphReadinessNotifier(),
+    );
+
+    mapNotifier.setShowTrails(true);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final layer = tester.widget<PolylineLayer>(
+      find.byKey(const Key('trail-polyline-layer')),
+    );
+    expect(layer.polylines, hasLength(2));
+  });
+
   testWidgets('map screen hides trails when route graph is not ready', (
     tester,
   ) async {
@@ -106,7 +136,9 @@ Future<void> _pumpMapScreen(
           PeakListRepository.test(InMemoryPeakListStorage()),
         ),
         tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
-        tasmapStateProvider.overrideWith(() => TestTasmapNotifier(tasmapRepository)),
+        tasmapStateProvider.overrideWith(
+          () => TestTasmapNotifier(tasmapRepository),
+        ),
         gpxTrackRepositoryProvider.overrideWithValue(
           GpxTrackRepository.test(InMemoryGpxTrackStorage()),
         ),
@@ -156,10 +188,7 @@ class _TrailCacheRouteGraphStore
               payloadJson: RouteGraphTrailDisplayChunk.encodeWays([
                 const RouteGraphTrailDisplayWay(
                   osmWayId: 10,
-                  points: [
-                    LatLng(-41.5, 146.5),
-                    LatLng(-41.6, 146.6),
-                  ],
+                  points: [LatLng(-41.5, 146.5), LatLng(-41.6, 146.6)],
                 ),
               ]),
             ),
@@ -191,7 +220,11 @@ class _TrailCacheRouteGraphStore
   final RouteGraphRepository repository;
 
   @override
-  Future<trip_routing.TripService> preload() async => trip_routing.TripService();
+  Future<void> bootstrapData() async {}
+
+  @override
+  Future<trip_routing.TripService> preload() async =>
+      trip_routing.TripService();
 
   @override
   Future<trip_routing.TripService> reload() async => trip_routing.TripService();
@@ -207,5 +240,13 @@ class _FailedRouteGraphReadinessNotifier extends RouteGraphReadinessNotifier {
   @override
   RouteGraphReadinessState build() {
     return const RouteGraphReadinessState.failed('route graph unavailable');
+  }
+}
+
+class _PreloadingRouteGraphReadinessNotifier
+    extends RouteGraphReadinessNotifier {
+  @override
+  RouteGraphReadinessState build() {
+    return const RouteGraphReadinessState.preloading();
   }
 }

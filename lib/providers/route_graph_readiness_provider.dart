@@ -8,10 +8,7 @@ final routeGraphStoreProvider = Provider<RouteGraphStore>((ref) {
 enum RouteGraphReadinessStatus { preloading, ready, failed }
 
 class RouteGraphReadinessState {
-  const RouteGraphReadinessState._({
-    required this.status,
-    this.error,
-  });
+  const RouteGraphReadinessState._({required this.status, this.error});
 
   const RouteGraphReadinessState.preloading()
     : this._(status: RouteGraphReadinessStatus.preloading);
@@ -28,10 +25,10 @@ class RouteGraphReadinessState {
   bool get isReady => status == RouteGraphReadinessStatus.ready;
 }
 
-final routeGraphReadinessProvider = NotifierProvider<
-  RouteGraphReadinessNotifier,
-  RouteGraphReadinessState
->(RouteGraphReadinessNotifier.new);
+final routeGraphReadinessProvider =
+    NotifierProvider<RouteGraphReadinessNotifier, RouteGraphReadinessState>(
+      RouteGraphReadinessNotifier.new,
+    );
 
 class RouteGraphReadinessNotifier extends Notifier<RouteGraphReadinessState> {
   @override
@@ -62,7 +59,6 @@ class RouteGraphReadinessNotifier extends Notifier<RouteGraphReadinessState> {
 
     state = RouteGraphReadinessState.failed(error);
   }
-
 }
 
 final routeGraphBootstrapProvider = FutureProvider<void>((ref) async {
@@ -70,7 +66,7 @@ final routeGraphBootstrapProvider = FutureProvider<void>((ref) async {
   readiness.markPreloading();
 
   try {
-    await ref.read(routeGraphStoreProvider).preload();
+    await ref.read(routeGraphStoreProvider).bootstrapData();
     readiness.markReady();
   } catch (error) {
     readiness.markFailed('$error');

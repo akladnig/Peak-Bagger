@@ -9,6 +9,7 @@ import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/models/route_graph_chunk.dart';
 import 'package:peak_bagger/models/route_graph_manifest.dart';
+import 'package:peak_bagger/models/route_graph_trail_display_chunk.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 
@@ -164,7 +165,7 @@ void main() {
       ]),
     );
     expect(entities.last.primaryKeyField, 'id');
-    expect(entities.last.primaryNameField, 'name');
+    expect(entities.last.primaryNameField, 'recordKey');
   });
 
   test('routeGraphChunkToAdminRow exposes chunk metadata', () {
@@ -212,6 +213,29 @@ void main() {
     expect(row.values['readinessState'], RouteGraphManifest.readinessReady);
     expect(row.values['lastError'], 'none');
   });
+
+  test(
+    'routeGraphTrailDisplayChunkToAdminRow exposes trail display metadata',
+    () {
+      final row = routeGraphTrailDisplayChunkToAdminRow(
+        RouteGraphTrailDisplayChunk(
+          id: 12,
+          recordKey: '7|15|0_0',
+          generation: 7,
+          cacheZoom: 15,
+          chunkKey: '0_0',
+          payloadJson: '[]',
+        ),
+      );
+
+      expect(row.primaryKeyValue, 12);
+      expect(row.values['recordKey'], '7|15|0_0');
+      expect(row.values['generation'], 7);
+      expect(row.values['cacheZoom'], 15);
+      expect(row.values['chunkKey'], '0_0');
+      expect(row.values['payloadJson'], '[]');
+    },
+  );
 
   test('filter/sort helper matches entity names case-insensitively', () {
     const entity = ObjectBoxAdminEntityDescriptor(

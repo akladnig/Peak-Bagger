@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 
+import 'package:peak_bagger/models/route_graph_trail_display_chunk.dart';
 import 'package:peak_bagger/services/route_graph_query_service.dart';
 import 'package:peak_bagger/theme.dart';
 
@@ -8,6 +9,8 @@ class RouteGraphTrailService {
   RouteGraphTrailService(this._queryService);
 
   final RouteGraphQueryService _queryService;
+  String? _lastVisibleChunkKey;
+  List<Polyline> _lastVisiblePolylines = const [];
 
   List<Polyline> buildVisibleTrails({
     required double minLat,
@@ -24,7 +27,14 @@ class RouteGraphTrailService {
       zoom: zoom,
     );
     if (chunks.isEmpty) {
+      _lastVisibleChunkKey = null;
+      _lastVisiblePolylines = const [];
       return const [];
+    }
+
+    final visibleChunkKey = _visibleChunkKeyFor(chunks);
+    if (_lastVisibleChunkKey == visibleChunkKey) {
+      return _lastVisiblePolylines;
     }
 
     final ways = <int, Polyline>{};
@@ -34,10 +44,7 @@ class RouteGraphTrailService {
           if (way.points.length < 2) {
             continue;
           }
-          ways.putIfAbsent(
-            way.osmWayId,
-            () => Polyline(points: way.points),
-          );
+          ways.putIfAbsent(way.osmWayId, () => Polyline(points: way.points));
         }
       }
     } on FormatException {
@@ -45,8 +52,8 @@ class RouteGraphTrailService {
     }
 
     final polylines = <Polyline>[];
+    final style = _styleFor();
     for (final way in ways.values) {
-      final style = _styleFor();
       polylines.addAll([
         Polyline(
           points: way.points,
@@ -65,7 +72,15 @@ class RouteGraphTrailService {
       ]);
     }
 
+    _lastVisibleChunkKey = visibleChunkKey;
+    _lastVisiblePolylines = polylines;
     return polylines;
+  }
+
+  String _visibleChunkKeyFor(List<RouteGraphTrailDisplayChunk> chunks) {
+    final keys = chunks.map((chunk) => chunk.recordKey).toList(growable: false)
+      ..sort();
+    return keys.join(',');
   }
 }
 

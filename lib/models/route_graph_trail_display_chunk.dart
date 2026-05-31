@@ -22,6 +22,9 @@ class RouteGraphTrailDisplayChunk {
 
   String payloadJson;
 
+  @Transient()
+  List<RouteGraphTrailDisplayWay>? decodedWaysCache;
+
   RouteGraphTrailDisplayChunk({
     this.id = 0,
     required this.recordKey,
@@ -40,6 +43,11 @@ class RouteGraphTrailDisplayChunk {
   }
 
   List<RouteGraphTrailDisplayWay> decodeWays() {
+    final cached = decodedWaysCache;
+    if (cached != null) {
+      return cached;
+    }
+
     final decoded = jsonDecode(payloadJson);
     if (decoded is! List) {
       throw const FormatException(
@@ -47,27 +55,31 @@ class RouteGraphTrailDisplayChunk {
       );
     }
 
-    return decoded.map((entry) {
-      if (entry is! Map) {
-        throw const FormatException(
-          'Trail display chunk way payload must be a JSON object.',
-        );
-      }
+    final ways = decoded
+        .map((entry) {
+          if (entry is! Map) {
+            throw const FormatException(
+              'Trail display chunk way payload must be a JSON object.',
+            );
+          }
 
-      final typed = Map<String, dynamic>.from(entry);
-      final osmWayId = typed['osmWayId'];
-      final points = typed['points'];
-      if (osmWayId is! int || points is! List) {
-        throw const FormatException(
-          'Trail display chunk way payload missing required fields.',
-        );
-      }
+          final typed = Map<String, dynamic>.from(entry);
+          final osmWayId = typed['osmWayId'];
+          final points = typed['points'];
+          if (osmWayId is! int || points is! List) {
+            throw const FormatException(
+              'Trail display chunk way payload missing required fields.',
+            );
+          }
 
-      return RouteGraphTrailDisplayWay(
-        osmWayId: osmWayId,
-        points: _decodePoints(points),
-      );
-    }).toList(growable: false);
+          return RouteGraphTrailDisplayWay(
+            osmWayId: osmWayId,
+            points: _decodePoints(points),
+          );
+        })
+        .toList(growable: false);
+    decodedWaysCache = ways;
+    return ways;
   }
 
   static String encodeWays(List<RouteGraphTrailDisplayWay> ways) {

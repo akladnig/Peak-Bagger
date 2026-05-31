@@ -46,6 +46,12 @@ class GpxTrack {
   int trackColour;
   bool peakCorrelationProcessed;
 
+  @Transient()
+  Map<int, List<List<LatLng>>>? _decodedDisplayTrackPointsByZoomCache;
+
+  @Transient()
+  String? _decodedDisplayTrackPointsByZoomSource;
+
   GpxTrack({
     this.gpxTrackId = 0,
     required this.contentHash,
@@ -155,11 +161,14 @@ class GpxTrack {
   }
 
   List<List<LatLng>> getSegmentsForZoom(int zoom) {
-    final caches = decodeDisplayTrackPointsByZoom(displayTrackPointsByZoom);
+    final caches = _displayTrackPointsCache();
     if (caches.isEmpty) {
       return const [];
     }
-    final clampedZoom = zoom.clamp(MapConstants.trackMinZoom, MapConstants.trackMaxZoom);
+    final clampedZoom = zoom.clamp(
+      MapConstants.trackMinZoom,
+      MapConstants.trackMaxZoom,
+    );
     return caches[clampedZoom] ?? const [];
   }
 
@@ -172,7 +181,7 @@ class GpxTrack {
       return false;
     }
 
-    final caches = decodeDisplayTrackPointsByZoom(displayTrackPointsByZoom);
+    final caches = _displayTrackPointsCache();
     if (caches.isEmpty) {
       return false;
     }
@@ -184,6 +193,18 @@ class GpxTrack {
     }
 
     return true;
+  }
+
+  Map<int, List<List<LatLng>>> _displayTrackPointsCache() {
+    if (_decodedDisplayTrackPointsByZoomSource == displayTrackPointsByZoom &&
+        _decodedDisplayTrackPointsByZoomCache != null) {
+      return _decodedDisplayTrackPointsByZoomCache!;
+    }
+
+    final caches = decodeDisplayTrackPointsByZoom(displayTrackPointsByZoom);
+    _decodedDisplayTrackPointsByZoomSource = displayTrackPointsByZoom;
+    _decodedDisplayTrackPointsByZoomCache = caches;
+    return caches;
   }
 
   static Map<int, List<List<LatLng>>> decodeDisplayTrackPointsByZoom(

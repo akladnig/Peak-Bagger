@@ -13,6 +13,10 @@ abstract class RouteGraphRepositoryProvider {
 }
 
 class RouteGraphStore {
+  Future<void> bootstrapData() async {
+    await preload();
+  }
+
   Future<trip_routing.TripService> preload() async {
     throw const RouteGraphLoadException('Preload is not implemented.');
   }
@@ -22,11 +26,15 @@ class RouteGraphStore {
   }
 
   Future<void> replaceSnapshot(String rawJson) async {
-    throw const RouteGraphLoadException('Snapshot replacement is not supported.');
+    throw const RouteGraphLoadException(
+      'Snapshot replacement is not supported.',
+    );
   }
 
   Future<File> snapshotFile() async {
-    throw const RouteGraphLoadException('Snapshot persistence is not supported.');
+    throw const RouteGraphLoadException(
+      'Snapshot persistence is not supported.',
+    );
   }
 }
 
@@ -36,7 +44,7 @@ class ObjectBoxRouteGraphStore extends RouteGraphStore
     required RouteGraphRepository repository,
     required RouteGraphImportService importService,
   }) : _repository = repository,
-        _importService = importService;
+       _importService = importService;
 
   final RouteGraphRepository _repository;
   final RouteGraphImportService _importService;
@@ -47,6 +55,11 @@ class ObjectBoxRouteGraphStore extends RouteGraphStore
   Future<trip_routing.TripService>? _serviceFuture;
 
   @override
+  Future<void> bootstrapData() async {
+    await _importService.bootstrapIfNeeded();
+  }
+
+  @override
   Future<trip_routing.TripService> preload() {
     final cached = _serviceFuture;
     if (cached != null) {
@@ -54,13 +67,15 @@ class ObjectBoxRouteGraphStore extends RouteGraphStore
     }
 
     final loading = _loadService(allowBootstrap: true);
-    final wrapped = loading.then((service) {
-      _serviceFuture = Future.value(service);
-      return service;
-    }).catchError((error, stackTrace) {
-      _serviceFuture = null;
-      Error.throwWithStackTrace(_normalizeError(error), stackTrace);
-    });
+    final wrapped = loading
+        .then((service) {
+          _serviceFuture = Future.value(service);
+          return service;
+        })
+        .catchError((error, stackTrace) {
+          _serviceFuture = null;
+          Error.throwWithStackTrace(_normalizeError(error), stackTrace);
+        });
     _serviceFuture = wrapped;
     return wrapped;
   }
@@ -68,12 +83,14 @@ class ObjectBoxRouteGraphStore extends RouteGraphStore
   @override
   Future<trip_routing.TripService> reload() {
     final loading = _loadService(allowBootstrap: false, forceRefresh: true);
-    final wrapped = loading.then((service) {
-      _serviceFuture = Future.value(service);
-      return service;
-    }).catchError((error, stackTrace) {
-      Error.throwWithStackTrace(_normalizeError(error), stackTrace);
-    });
+    final wrapped = loading
+        .then((service) {
+          _serviceFuture = Future.value(service);
+          return service;
+        })
+        .catchError((error, stackTrace) {
+          Error.throwWithStackTrace(_normalizeError(error), stackTrace);
+        });
     return wrapped;
   }
 
@@ -85,7 +102,9 @@ class ObjectBoxRouteGraphStore extends RouteGraphStore
 
   @override
   Future<File> snapshotFile() async {
-    throw const RouteGraphLoadException('Route graph snapshot persistence is not supported.');
+    throw const RouteGraphLoadException(
+      'Route graph snapshot persistence is not supported.',
+    );
   }
 
   Future<trip_routing.TripService> _loadService({

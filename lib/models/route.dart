@@ -35,6 +35,12 @@ class Route {
   double lowestElevation;
   double highestElevation;
 
+  @Transient()
+  Map<int, List<List<LatLng>>>? _decodedDisplayRoutePointsByZoomCache;
+
+  @Transient()
+  String? _decodedDisplayRoutePointsByZoomSource;
+
   Route({
     this.id = 0,
     this.name = '',
@@ -53,11 +59,11 @@ class Route {
     this.lowestElevation = 0,
     this.highestElevation = 0,
   }) : gpxRoute = List<LatLng>.from(gpxRoute ?? const []),
-        gpxRouteElevations = _normalizeElevations(
-          pointCount: (gpxRoute ?? const <LatLng>[]).length,
-          elevations: gpxRouteElevations,
-        ),
-        routeWaypoints = List<RouteWaypoint>.from(routeWaypoints ?? const []);
+       gpxRouteElevations = _normalizeElevations(
+         pointCount: (gpxRoute ?? const <LatLng>[]).length,
+         elevations: gpxRouteElevations,
+       ),
+       routeWaypoints = List<RouteWaypoint>.from(routeWaypoints ?? const []);
 
   String get gpxRouteJson => jsonEncode(
     List<List<num>>.generate(gpxRoute.length, (index) {
@@ -158,17 +164,36 @@ class Route {
   }
 
   List<List<LatLng>> getSegmentsForZoom(int zoom) {
-    final caches = decodeDisplayRoutePointsByZoom(displayRoutePointsByZoom);
+    final caches = _displayRoutePointsCache();
     if (caches.isEmpty) {
-      return gpxRoute.isEmpty ? const [] : [List<LatLng>.unmodifiable(gpxRoute)];
+      return gpxRoute.isEmpty
+          ? const []
+          : [List<LatLng>.unmodifiable(gpxRoute)];
     }
 
-    final clampedZoom = zoom.clamp(MapConstants.trackMinZoom, MapConstants.trackMaxZoom);
+    final clampedZoom = zoom.clamp(
+      MapConstants.trackMinZoom,
+      MapConstants.trackMaxZoom,
+    );
     final segments = caches[clampedZoom];
     if (segments == null || segments.isEmpty) {
-      return gpxRoute.isEmpty ? const [] : [List<LatLng>.unmodifiable(gpxRoute)];
+      return gpxRoute.isEmpty
+          ? const []
+          : [List<LatLng>.unmodifiable(gpxRoute)];
     }
     return segments;
+  }
+
+  Map<int, List<List<LatLng>>> _displayRoutePointsCache() {
+    if (_decodedDisplayRoutePointsByZoomSource == displayRoutePointsByZoom &&
+        _decodedDisplayRoutePointsByZoomCache != null) {
+      return _decodedDisplayRoutePointsByZoomCache!;
+    }
+
+    final caches = decodeDisplayRoutePointsByZoom(displayRoutePointsByZoom);
+    _decodedDisplayRoutePointsByZoomSource = displayRoutePointsByZoom;
+    _decodedDisplayRoutePointsByZoomCache = caches;
+    return caches;
   }
 
   static Map<int, List<List<LatLng>>> decodeDisplayRoutePointsByZoom(

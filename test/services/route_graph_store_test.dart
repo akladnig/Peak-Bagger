@@ -1,11 +1,40 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/route_graph_trail_display_chunk.dart';
 import 'package:peak_bagger/services/route_graph_import_service.dart';
 import 'package:peak_bagger/services/route_graph_repository.dart';
 import 'package:peak_bagger/services/route_graph_store.dart';
+import 'package:peak_bagger/services/track_display_cache_builder.dart';
 
 void main() {
+  test('bootstrapData seeds the route graph before service preload', () async {
+    var rawJson = _fixture;
+    var assetCalls = 0;
+    final repository = RouteGraphRepository.test(InMemoryRouteGraphStorage());
+    final importService = RouteGraphImportService(
+      repository,
+      assetLoader: (_) async {
+        assetCalls += 1;
+        return rawJson;
+      },
+      generationPreparer: _syncGenerationPreparer,
+    );
+    final store = ObjectBoxRouteGraphStore(
+      repository: repository,
+      importService: importService,
+    );
+
+    await store.bootstrapData();
+    expect(repository.manifest?.activeGeneration, 1);
+
+    await store.preload();
+
+    expect(assetCalls, 1);
+    expect(repository.manifest?.activeGeneration, 1);
+  });
+
   test('preload seeds and caches the route graph service', () async {
     var rawJson = _fixture;
     var assetCalls = 0;
@@ -56,28 +85,37 @@ void main() {
     expect(repository.manifest?.activeGeneration, 2);
   });
 
-  test('preload keeps the first-launch failure cached as a failure state', () async {
-    var assetCalls = 0;
-    final repository = RouteGraphRepository.test(InMemoryRouteGraphStorage());
-    final importService = RouteGraphImportService(
-      repository,
-      assetLoader: (_) async {
-        assetCalls += 1;
-        return 'not-json';
-      },
-      generationPreparer: _syncGenerationPreparer,
-    );
-    final store = ObjectBoxRouteGraphStore(
-      repository: repository,
-      importService: importService,
-    );
+  test(
+    'preload keeps the first-launch failure cached as a failure state',
+    () async {
+      var assetCalls = 0;
+      final repository = RouteGraphRepository.test(InMemoryRouteGraphStorage());
+      final importService = RouteGraphImportService(
+        repository,
+        assetLoader: (_) async {
+          assetCalls += 1;
+          return 'not-json';
+        },
+        generationPreparer: _syncGenerationPreparer,
+      );
+      final store = ObjectBoxRouteGraphStore(
+        repository: repository,
+        importService: importService,
+      );
 
-    await expectLater(() => store.preload(), throwsA(isA<RouteGraphLoadException>()));
-    await expectLater(() => store.preload(), throwsA(isA<RouteGraphLoadException>()));
+      await expectLater(
+        () => store.preload(),
+        throwsA(isA<RouteGraphLoadException>()),
+      );
+      await expectLater(
+        () => store.preload(),
+        throwsA(isA<RouteGraphLoadException>()),
+      );
 
-    expect(assetCalls, 1);
-    expect(repository.manifest?.isFailed, isTrue);
-  });
+      expect(assetCalls, 1);
+      expect(repository.manifest?.isFailed, isTrue);
+    },
+  );
 
   test('replaceSnapshot validates raw json before writing', () async {
     final repository = RouteGraphRepository.test(InMemoryRouteGraphStorage());
@@ -111,7 +149,9 @@ Future<Map<String, Object?>> _syncGenerationPreparer(
 ) async {
   final decoded = jsonDecode(rawJson);
   if (decoded is! Map<String, dynamic>) {
-    throw const RouteGraphLoadException('Expected top-level route graph object.');
+    throw const RouteGraphLoadException(
+      'Expected top-level route graph object.',
+    );
   }
 
   return {
@@ -133,6 +173,24 @@ Future<Map<String, Object?>> _syncGenerationPreparer(
         'maxLon': 147.0,
         'elementCount': 3,
         'payloadJson': jsonEncode(decoded),
+      },
+    ],
+    'trailDisplayChunks': [
+      {
+        'recordKey': RouteGraphTrailDisplayChunk.recordKeyFor(
+          generation: generation,
+          cacheZoom: TrackDisplayCacheBuilder.minZoom,
+          chunkKey: '0_0',
+        ),
+        'generation': generation,
+        'cacheZoom': TrackDisplayCacheBuilder.minZoom,
+        'chunkKey': '0_0',
+        'payloadJson': RouteGraphTrailDisplayChunk.encodeWays([
+          const RouteGraphTrailDisplayWay(
+            osmWayId: 10,
+            points: [LatLng(-42.0, 146.0), LatLng(-42.01, 146.01)],
+          ),
+        ]),
       },
     ],
   };

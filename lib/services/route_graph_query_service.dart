@@ -19,10 +19,14 @@ class RouteGraphQueryService {
 
   final RouteGraphRepository _repository;
   final double bufferMeters;
+  int? _trailDisplayIndexGeneration;
+  Map<int, Map<String, RouteGraphTrailDisplayChunk>>? _trailDisplayIndex;
 
   List<RouteGraphWayIndex> queryWays(RouteGraphWayQuery query) {
     final rows = _repository.activeWayIndexRows();
-    return rows.where((row) => _matchesWayQuery(row, query)).toList(growable: false);
+    return rows
+        .where((row) => _matchesWayQuery(row, query))
+        .toList(growable: false);
   }
 
   List<RouteGraphWayIndex> queryTrailWays() {
@@ -54,7 +58,10 @@ class RouteGraphQueryService {
       maxLon: maxLon,
     ).expand(extraBufferMeters ?? bufferMeters);
 
-    return _repository.activeChunks().where(expanded.intersects).toList(growable: false);
+    return _repository
+        .activeChunks()
+        .where(expanded.intersects)
+        .toList(growable: false);
   }
 
   List<RouteGraphChunk> queryTrailChunksForBounds({
@@ -70,12 +77,14 @@ class RouteGraphQueryService {
     }
 
     return queryChunksForBounds(
-      minLat: minLat,
-      minLon: minLon,
-      maxLat: maxLat,
-      maxLon: maxLon,
-      extraBufferMeters: extraBufferMeters,
-    ).where((chunk) => trailChunkKeys.contains(chunk.chunkKey)).toList(growable: false);
+          minLat: minLat,
+          minLon: minLon,
+          maxLat: maxLat,
+          maxLon: maxLon,
+          extraBufferMeters: extraBufferMeters,
+        )
+        .where((chunk) => trailChunkKeys.contains(chunk.chunkKey))
+        .toList(growable: false);
   }
 
   List<RouteGraphTrailDisplayChunk> queryTrailDisplayChunksForBounds({
@@ -101,13 +110,19 @@ class RouteGraphQueryService {
       MapConstants.trackMinZoom,
       MapConstants.trackMaxZoom,
     );
-    return _repository
-        .activeTrailDisplayChunks()
-        .where(
-          (row) => row.cacheZoom == cacheZoom &&
-              visibleChunkKeys.contains(row.chunkKey),
-        )
-        .toList(growable: false);
+    final rowsByChunkKey = _trailDisplayRowsForZoom(cacheZoom);
+    if (rowsByChunkKey.isEmpty) {
+      return const [];
+    }
+
+    final rows = <RouteGraphTrailDisplayChunk>[];
+    for (final chunkKey in visibleChunkKeys) {
+      final row = rowsByChunkKey[chunkKey];
+      if (row != null) {
+        rows.add(row);
+      }
+    }
+    return rows;
   }
 
   List<RouteGraphChunk> queryChunksForRoute({
@@ -307,7 +322,8 @@ class RouteGraphQueryService {
     final nameContains = query.nameContains;
     if (nameContains != null && nameContains.isNotEmpty) {
       final normalizedName = row.normalizedName;
-      if (normalizedName == null || !normalizedName.contains(nameContains.toLowerCase())) {
+      if (normalizedName == null ||
+          !normalizedName.contains(nameContains.toLowerCase())) {
         return false;
       }
     }
@@ -339,7 +355,9 @@ class RouteGraphQueryService {
       'route' => row.route,
       'access' => row.access,
       'name' => row.name,
-      _ => throw RouteGraphLoadException('Unsupported route way tag filter: ${filter.key}'),
+      _ => throw RouteGraphLoadException(
+        'Unsupported route way tag filter: ${filter.key}',
+      ),
     };
 
     return value == filter.value;
@@ -357,6 +375,23 @@ class RouteGraphQueryService {
       tagCount: row.tagCount,
     );
   }
+
+  Map<String, RouteGraphTrailDisplayChunk> _trailDisplayRowsForZoom(int zoom) {
+    final generation = _repository.activeGeneration;
+    if (_trailDisplayIndexGeneration != generation ||
+        _trailDisplayIndex == null) {
+      final nextIndex = <int, Map<String, RouteGraphTrailDisplayChunk>>{};
+      for (final row in _repository.activeTrailDisplayChunks()) {
+        (nextIndex[row.cacheZoom] ??=
+                <String, RouteGraphTrailDisplayChunk>{})[row.chunkKey] =
+            row;
+      }
+      _trailDisplayIndexGeneration = generation;
+      _trailDisplayIndex = nextIndex;
+    }
+
+    return _trailDisplayIndex?[zoom] ?? const {};
+  }
 }
 
 bool isRouteGraphTrailWayMetadata({
@@ -370,8 +405,12 @@ bool isRouteGraphTrailWayMetadata({
   required int tagCount,
 }) {
   if (access == 'private' ||
-      <String>{'concrete', 'asphalt', 'paved', 'paving_stones'}
-          .contains(surface) ||
+      <String>{
+        'concrete',
+        'asphalt',
+        'paved',
+        'paving_stones',
+      }.contains(surface) ||
       footway == 'sidewalk' ||
       foot == 'no' ||
       route == 'mtb') {
@@ -417,7 +456,9 @@ Map<String, dynamic> _mergeChunksIntoPayload(List<RouteGraphChunk> chunks) {
     final payload = chunk.decodePayload();
     final elements = payload['elements'];
     if (elements is! List) {
-      throw const RouteGraphLoadException('Route graph chunk payload missing elements.');
+      throw const RouteGraphLoadException(
+        'Route graph chunk payload missing elements.',
+      );
     }
 
     for (final element in elements) {
@@ -429,7 +470,9 @@ Map<String, dynamic> _mergeChunksIntoPayload(List<RouteGraphChunk> chunks) {
       final type = typed['type'];
       final id = typed['id'];
       if (type is! String || id is! int) {
-        throw const RouteGraphLoadException('Route graph chunk element is missing OSM identity.');
+        throw const RouteGraphLoadException(
+          'Route graph chunk element is missing OSM identity.',
+        );
       }
 
       uniqueElements.putIfAbsent('$type:$id', () => typed);
@@ -485,6 +528,9 @@ double _metersToLatitudeDegrees(double meters) => meters / 111320.0;
 
 double _metersToLongitudeDegrees(double meters, double latitude) {
   final cosLat = math.cos(latitude * math.pi / 180.0).abs();
-  final denominator = math.max(111320.0 * (cosLat < 1e-6 ? 1e-6 : cosLat), 1e-6);
+  final denominator = math.max(
+    111320.0 * (cosLat < 1e-6 ? 1e-6 : cosLat),
+    1e-6,
+  );
   return meters / denominator;
 }

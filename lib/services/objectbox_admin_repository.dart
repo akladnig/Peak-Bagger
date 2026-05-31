@@ -9,6 +9,7 @@ import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/models/route_graph_chunk.dart';
 import 'package:peak_bagger/models/route_graph_manifest.dart';
+import 'package:peak_bagger/models/route_graph_trail_display_chunk.dart';
 import 'package:peak_bagger/models/route_graph_way_index.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/services/peak_admin_editor.dart';
@@ -75,6 +76,11 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
         ascending,
       ),
       'RouteGraphWayIndex' => _loadRouteGraphWayIndexRows(
+        store,
+        trimmedQuery,
+        ascending,
+      ),
+      'RouteGraphTrailDisplayChunk' => _loadRouteGraphTrailDisplayChunkRows(
         store,
         trimmedQuery,
         ascending,
@@ -178,6 +184,7 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
       'PeaksBagged' => 'gpxId',
       'RouteGraphChunk' => 'chunkKey',
       'RouteGraphWayIndex' => 'name',
+      'RouteGraphTrailDisplayChunk' => 'recordKey',
       'RouteGraphManifest' => 'readinessState',
       _ => 'name',
     };
@@ -468,6 +475,30 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
         .toList(growable: false);
   }
 
+  List<ObjectBoxAdminRow> _loadRouteGraphTrailDisplayChunkRows(
+    Store store,
+    String query,
+    bool ascending,
+  ) {
+    final box = store.box<RouteGraphTrailDisplayChunk>();
+    final items = box.getAll();
+    final filtered = query.isEmpty
+        ? items
+        : items.where((row) {
+            return row.recordKey.toLowerCase().contains(query) ||
+                row.chunkKey.toLowerCase().contains(query) ||
+                row.payloadJson.toLowerCase().contains(query);
+          }).toList();
+
+    filtered.sort(
+      (a, b) => ascending ? a.id.compareTo(b.id) : b.id.compareTo(a.id),
+    );
+
+    return filtered
+        .map(routeGraphTrailDisplayChunkToAdminRow)
+        .toList(growable: false);
+  }
+
   List<ObjectBoxAdminRow> _loadRouteGraphManifestRows(
     Store store,
     String query,
@@ -713,6 +744,22 @@ ObjectBoxAdminRow routeGraphManifestToAdminRow(RouteGraphManifest manifest) {
       'edgeCount': manifest.edgeCount,
       'readinessState': manifest.readinessState,
       'lastError': manifest.lastError,
+    },
+  );
+}
+
+ObjectBoxAdminRow routeGraphTrailDisplayChunkToAdminRow(
+  RouteGraphTrailDisplayChunk chunk,
+) {
+  return ObjectBoxAdminRow(
+    primaryKeyValue: chunk.id,
+    values: {
+      'id': chunk.id,
+      'recordKey': chunk.recordKey,
+      'generation': chunk.generation,
+      'cacheZoom': chunk.cacheZoom,
+      'chunkKey': chunk.chunkKey,
+      'payloadJson': chunk.payloadJson,
     },
   );
 }

@@ -119,6 +119,18 @@ class _MapScreenState extends ConsumerState<MapScreen>
   final _viewportUiRevision = ValueNotifier<int>(0);
   Timer? _pendingCameraSaveTimer;
   bool _hasPendingCameraSave = false;
+  int? _cachedTrackHoverViewportRevision;
+  int? _cachedTrackHoverDisplayZoom;
+  List<GpxTrack>? _cachedTrackHoverTracks;
+  List<TrackHoverCandidate>? _cachedTrackHoverCandidates;
+  int? _cachedPeakHoverViewportRevision;
+  List<Peak>? _cachedPeakHoverPeaks;
+  Set<int>? _cachedPeakHoverCorrelatedPeakIds;
+  List<PeakHoverCandidate>? _cachedPeakHoverCandidates;
+  int? _cachedRouteHoverViewportRevision;
+  int? _cachedRouteHoverDisplayZoom;
+  List<app_route.Route>? _cachedRouteHoverRoutes;
+  List<RouteHoverCandidate>? _cachedRouteHoverCandidates;
   static final _tickedPeakMarker = SvgPicture.asset(
     'assets/peak_marker_ticked.svg',
   );
@@ -436,20 +448,26 @@ class _MapScreenState extends ConsumerState<MapScreen>
     }
   }
 
-  MouseCursor _mouseCursor(MapState mapState) {
+  MouseCursor _mouseCursor({
+    required String? hoveredRouteDraftMarkerId,
+    required int? hoveredRouteDraftSegmentIndex,
+    required int? hoveredTrackId,
+    required int? hoveredRouteId,
+    required int? hoveredPeakId,
+  }) {
     if (_isPointerDown) {
       return SystemMouseCursors.grabbing;
     }
-    if (mapState.hoveredRouteDraftMarkerId != null) {
+    if (hoveredRouteDraftMarkerId != null) {
       return SystemMouseCursors.grab;
     }
-    if (mapState.hoveredRouteDraftSegmentIndex != null) {
+    if (hoveredRouteDraftSegmentIndex != null) {
       return SystemMouseCursors.click;
     }
-    if (mapState.hoveredTrackId != null || mapState.hoveredRouteId != null) {
+    if (hoveredTrackId != null || hoveredRouteId != null) {
       return SystemMouseCursors.click;
     }
-    if (mapState.hoveredPeakId != null) {
+    if (hoveredPeakId != null) {
       return SystemMouseCursors.click;
     }
     return SystemMouseCursors.grab;
@@ -550,6 +568,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
     MapCamera camera,
   ) {
     final correlatedPeakIds = ref.read(mapProvider.notifier).correlatedPeakIds;
+    final viewportRevision = _viewportUiRevision.value;
+    if (_cachedPeakHoverCandidates != null &&
+        _cachedPeakHoverViewportRevision == viewportRevision &&
+        identical(_cachedPeakHoverPeaks, peaks) &&
+        identical(_cachedPeakHoverCorrelatedPeakIds, correlatedPeakIds)) {
+      return _cachedPeakHoverCandidates!;
+    }
+
     final untickedCandidates = <PeakHoverCandidate>[];
     final tickedCandidates = <PeakHoverCandidate>[];
 
@@ -567,7 +593,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
       }
     }
 
-    return [...untickedCandidates, ...tickedCandidates];
+    final candidates = [...untickedCandidates, ...tickedCandidates];
+    _cachedPeakHoverViewportRevision = viewportRevision;
+    _cachedPeakHoverPeaks = peaks;
+    _cachedPeakHoverCorrelatedPeakIds = correlatedPeakIds;
+    _cachedPeakHoverCandidates = candidates;
+    return candidates;
   }
 
   List<RouteHoverCandidate> _buildRouteHoverCandidates(
@@ -578,6 +609,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
       MapConstants.trackMinZoom,
       MapConstants.trackMaxZoom,
     );
+    final viewportRevision = _viewportUiRevision.value;
+    if (_cachedRouteHoverCandidates != null &&
+        _cachedRouteHoverViewportRevision == viewportRevision &&
+        _cachedRouteHoverDisplayZoom == displayZoom &&
+        identical(_cachedRouteHoverRoutes, routes)) {
+      return _cachedRouteHoverCandidates!;
+    }
+
     final candidates = <RouteHoverCandidate>[];
 
     for (final route in routes) {
@@ -602,6 +641,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
       }
     }
 
+    _cachedRouteHoverViewportRevision = viewportRevision;
+    _cachedRouteHoverDisplayZoom = displayZoom;
+    _cachedRouteHoverRoutes = routes;
+    _cachedRouteHoverCandidates = candidates;
     return candidates;
   }
 
@@ -880,6 +923,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
       MapConstants.peakMinZoom,
       MapConstants.peakMaxZoom,
     );
+    final viewportRevision = _viewportUiRevision.value;
+    if (_cachedTrackHoverCandidates != null &&
+        _cachedTrackHoverViewportRevision == viewportRevision &&
+        _cachedTrackHoverDisplayZoom == displayZoom &&
+        identical(_cachedTrackHoverTracks, mapState.tracks)) {
+      return _cachedTrackHoverCandidates!;
+    }
+
     final candidates = <TrackHoverCandidate>[];
 
     for (final track in mapState.tracks) {
@@ -907,6 +958,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
       }
     }
 
+    _cachedTrackHoverViewportRevision = viewportRevision;
+    _cachedTrackHoverDisplayZoom = displayZoom;
+    _cachedTrackHoverTracks = mapState.tracks;
+    _cachedTrackHoverCandidates = candidates;
     return candidates;
   }
 
@@ -1138,6 +1193,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
   }
 
   void _scheduleRouteGraphPrefetch(LatLngBounds bounds) {
+    if (!_shouldPrefetchRouteGraph()) {
+      _routeGraphPrefetchTimer?.cancel();
+      return;
+    }
+
     _routeGraphPrefetchTimer?.cancel();
     _routeGraphPrefetchTimer = Timer(const Duration(milliseconds: 150), () {
       if (!mounted) {
@@ -1146,6 +1206,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
       unawaited(_mapNotifier.prefetchRouteGraphVisibleBounds(bounds));
     });
+  }
+
+  bool _shouldPrefetchRouteGraph([MapState? mapState]) {
+    final MapState currentState = mapState ?? ref.read(mapProvider);
+    return currentState.showTrails ||
+        (currentState.isRouteDrafting &&
+            currentState.routeDraftMode != RouteMode.straightLine);
   }
 
   bool _commitLiveCameraToCanonicalState() {
@@ -1499,10 +1566,40 @@ class _MapScreenState extends ConsumerState<MapScreen>
               children: [
                 Consumer(
                   builder: (context, ref, child) {
-                    final mapState = ref.watch(mapProvider);
-                    final routeGraphReady = ref.watch(
+                    final mapScene = ref.watch(
+                      mapProvider.select(
+                        (state) => (
+                          center: state.center,
+                          zoom: state.zoom,
+                          basemap: state.basemap,
+                          selectedLocation: state.selectedLocation,
+                          showInfoPopup: state.showInfoPopup,
+                          peakInfoPeak: state.peakInfoPeak,
+                          selectedPeaks: state.selectedPeaks,
+                          selectedMap: state.selectedMap,
+                          showSelectedMapLayer: state.showSelectedMapLayer,
+                          showMapOverlay: state.showMapOverlay,
+                          showRoutes: state.showRoutes,
+                          showTracks: state.showTracks,
+                          showTrails: state.showTrails,
+                          showPeaks: state.showPeaks,
+                          hasTrackRecoveryIssue: state.hasTrackRecoveryIssue,
+                          tracks: state.tracks,
+                          selectedTrackId: state.selectedTrackId,
+                          selectedRouteId: state.selectedRouteId,
+                          selectedMapFocusSerial: state.selectedMapFocusSerial,
+                          selectedTrackFocusSerial:
+                              state.selectedTrackFocusSerial,
+                          selectedRouteFocusSerial:
+                              state.selectedRouteFocusSerial,
+                          pendingCameraRequest: state.pendingCameraRequest,
+                        ),
+                      ),
+                    );
+                    final routeGraphAvailable = ref.watch(
                       routeGraphReadinessProvider.select(
-                        (state) => state.isReady,
+                        (state) =>
+                            state.status != RouteGraphReadinessStatus.failed,
                       ),
                     );
                     final trailService = ref.watch(
@@ -1557,6 +1654,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                         (state) => state.tasmapRevision,
                       ),
                     );
+                    final mapState = ref.read(mapProvider);
                     _queueSelectedMapZoom(mapState);
                     _queueSelectedTrackZoom(mapState);
                     _queueSelectedRouteZoom(mapState, routes);
@@ -1567,41 +1665,46 @@ class _MapScreenState extends ConsumerState<MapScreen>
                         return ValueListenableBuilder<int>(
                           valueListenable: _viewportUiRevision,
                           builder: (context, _, child) {
-                            final displayMgrs =
-                                mapState.cursorMgrs ??
-                                mapState.gotoMgrs ??
-                                _liveCamera?.mgrs ??
-                                mapState.currentMgrs;
                             final displayZoom =
-                                _liveCamera?.zoom ?? mapState.zoom;
-                            final trailPolylines = mapState.showTrails &&
-                                    routeGraphReady &&
+                                _liveCamera?.zoom ?? mapScene.zoom;
+                            final trailPolylines =
+                                mapScene.showTrails &&
+                                    routeGraphAvailable &&
+                                    _mapReady &&
                                     trailService != null &&
                                     _mapController.camera.nonRotatedSize !=
                                         MapCamera.kImpossibleSize
                                 ? trailService.buildVisibleTrails(
-                                    minLat: _mapController.camera.visibleBounds
+                                    minLat: _mapController
+                                        .camera
+                                        .visibleBounds
                                         .south,
-                                    minLon: _mapController.camera.visibleBounds
+                                    minLon: _mapController
+                                        .camera
+                                        .visibleBounds
                                         .west,
-                                    maxLat: _mapController.camera.visibleBounds
+                                    maxLat: _mapController
+                                        .camera
+                                        .visibleBounds
                                         .north,
-                                    maxLon: _mapController.camera.visibleBounds
+                                    maxLon: _mapController
+                                        .camera
+                                        .visibleBounds
                                         .east,
                                     zoom: displayZoom,
                                   )
                                 : const <Polyline>[];
                             GpxTrack? selectedTrack;
-                            for (final track in mapState.tracks) {
+                            for (final track in mapScene.tracks) {
                               if (track.gpxTrackId ==
-                                  mapState.selectedTrackId) {
+                                  mapScene.selectedTrackId) {
                                 selectedTrack = track;
                                 break;
                               }
                             }
                             app_route.Route? selectedRoute;
                             for (final route in routes) {
-                              if (route.id == mapState.selectedRouteId) {
+                              if (route.id == mapScene.selectedRouteId) {
                                 selectedRoute = route;
                                 break;
                               }
@@ -1639,20 +1742,50 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
                             return Stack(
                               children: [
-                                MouseRegion(
-                                  key: const Key('map-interaction-region'),
-                                  cursor: _mouseCursor(mapState),
-                                  onExit: (_) {
-                                    final notifier = ref.read(
-                                      mapProvider.notifier,
+                                Consumer(
+                                  builder: (context, ref, child) {
+                                    final cursorState = ref.watch(
+                                      mapProvider.select(
+                                        (state) => (
+                                          hoveredRouteDraftMarkerId:
+                                              state.hoveredRouteDraftMarkerId,
+                                          hoveredRouteDraftSegmentIndex: state
+                                              .hoveredRouteDraftSegmentIndex,
+                                          hoveredTrackId: state.hoveredTrackId,
+                                          hoveredRouteId: state.hoveredRouteId,
+                                          hoveredPeakId: state.hoveredPeakId,
+                                        ),
+                                      ),
                                     );
-                                    notifier.clearCursorMgrs();
-                                    notifier.clearHoveredPeak();
-                                    notifier.clearHoveredTrack();
-                                    notifier.clearHoveredRoute();
-                                    notifier.clearHoveredRouteDraftMarker();
-                                    notifier
-                                        .clearHoveredRouteDraftSegmentPreview();
+                                    return MouseRegion(
+                                      key: const Key('map-interaction-region'),
+                                      cursor: _mouseCursor(
+                                        hoveredRouteDraftMarkerId: cursorState
+                                            .hoveredRouteDraftMarkerId,
+                                        hoveredRouteDraftSegmentIndex:
+                                            cursorState
+                                                .hoveredRouteDraftSegmentIndex,
+                                        hoveredTrackId:
+                                            cursorState.hoveredTrackId,
+                                        hoveredRouteId:
+                                            cursorState.hoveredRouteId,
+                                        hoveredPeakId:
+                                            cursorState.hoveredPeakId,
+                                      ),
+                                      onExit: (_) {
+                                        final notifier = ref.read(
+                                          mapProvider.notifier,
+                                        );
+                                        notifier.clearCursorMgrs();
+                                        notifier.clearHoveredPeak();
+                                        notifier.clearHoveredTrack();
+                                        notifier.clearHoveredRoute();
+                                        notifier.clearHoveredRouteDraftMarker();
+                                        notifier
+                                            .clearHoveredRouteDraftSegmentPreview();
+                                      },
+                                      child: child!,
+                                    );
                                   },
                                   child: Listener(
                                     behavior: HitTestBehavior.translucent,
@@ -1665,8 +1798,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                     child: FlutterMap(
                                       mapController: _mapController,
                                       options: MapOptions(
-                                        initialCenter: mapState.center,
-                                        initialZoom: mapState.zoom,
+                                        initialCenter: mapScene.center,
+                                        initialZoom: mapScene.zoom,
                                         interactionOptions: InteractionOptions(
                                           flags: interactionFlags,
                                         ),
@@ -1766,7 +1899,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                           _handleTrackHover(
                                             event.localPosition,
                                             tappedLocation,
-                                            mapState,
+                                            ref.read(mapProvider),
                                           );
                                           if (primaryClickPending ||
                                               event.kind !=
@@ -1821,7 +1954,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                           _handleMapHover(
                                             event.localPosition,
                                             point,
-                                            mapState,
+                                            ref.read(mapProvider),
                                             filteredPeaks,
                                             routes,
                                           );
@@ -1844,21 +1977,21 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                       children: [
                                         TileLayer(
                                           urlTemplate: mapTileUrl(
-                                            mapState.basemap,
+                                            mapScene.basemap,
                                           ),
                                           userAgentPackageName:
                                               'com.peak_bagger.app',
                                           tileProvider:
                                               _buildTileProviderForBasemap(
-                                                mapState.basemap,
+                                                mapScene.basemap,
                                               ),
                                         ),
-                                        if (mapState.selectedLocation != null)
+                                        if (mapScene.selectedLocation != null)
                                           MarkerLayer(
                                             markers: [
                                               Marker(
                                                 point:
-                                                    mapState.selectedLocation!,
+                                                    mapScene.selectedLocation!,
                                                 width: 40,
                                                 height: 40,
                                                 child: const Icon(
@@ -1914,9 +2047,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                   _openRouteDraftMarkerDeletePopup,
                                             ),
                                           ),
-                                        if (mapState.selectedPeaks.isNotEmpty)
+                                        if (mapScene.selectedPeaks.isNotEmpty)
                                           CircleLayer(
-                                            circles: mapState.selectedPeaks.map(
+                                            circles: mapScene.selectedPeaks.map(
                                               (peak) {
                                                 return CircleMarker(
                                                   point: LatLng(
@@ -1933,12 +2066,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               },
                                             ).toList(),
                                           ),
-                                        if (mapState.showSelectedMapLayer)
+                                        if (mapScene.showSelectedMapLayer)
                                           buildMapRectangle(
                                             ref.read(tasmapRepositoryProvider),
-                                            mapState.selectedMap!,
+                                            mapScene.selectedMap!,
                                           ),
-                                        if (mapState.showMapOverlay)
+                                        if (mapScene.showMapOverlay)
                                           PolygonLayer(
                                             key: const Key('tasmap-layer'),
                                             polygons: buildAllMapRectangles(
@@ -1947,40 +2080,53 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               ),
                                             ),
                                           ),
-                                        if (mapState.showRoutes)
+                                        if (mapScene.showRoutes)
                                           buildRoutePolylines(
                                             routes,
-                                            mapState.zoom,
+                                            mapScene.zoom,
                                           ),
-                                        if (mapState.showTracks)
+                                        if (mapScene.showTracks)
                                           buildTrackPolylines(
-                                            mapState.tracks,
-                                            mapState.zoom,
+                                            mapScene.tracks,
+                                            mapScene.zoom,
                                             selectedTrackId:
-                                                mapState.selectedTrackId,
+                                                mapScene.selectedTrackId,
                                           ),
-                                        if (mapState.showPeaks &&
+                                        if (mapScene.showPeaks &&
                                             filteredPeaks.isNotEmpty &&
-                                            mapState.zoom >=
+                                            mapScene.zoom >=
                                                 MapConstants.peakMinZoom)
-                                          MarkerLayer(
-                                            key: const Key('peak-marker-layer'),
-                                            markers: buildPeakMarkers(
-                                              peaks: filteredPeaks,
-                                              zoom: mapState.zoom,
-                                              showPeakInfo: showPeakInfo,
-                                              correlatedPeakIds: ref
-                                                  .read(mapProvider.notifier)
-                                                  .correlatedPeakIds,
-                                              tickedPeakMarker:
-                                                  _tickedPeakMarker,
-                                              untickedPeakMarker:
-                                                  _untickedPeakMarker,
-                                              hoveredPeakId:
-                                                  mapState.hoveredPeakId,
-                                            ),
+                                          Consumer(
+                                            builder: (context, ref, child) {
+                                              final hoveredPeakId = ref.watch(
+                                                mapProvider.select(
+                                                  (state) =>
+                                                      state.hoveredPeakId,
+                                                ),
+                                              );
+                                              return MarkerLayer(
+                                                key: const Key(
+                                                  'peak-marker-layer',
+                                                ),
+                                                markers: buildPeakMarkers(
+                                                  peaks: filteredPeaks,
+                                                  zoom: mapScene.zoom,
+                                                  showPeakInfo: showPeakInfo,
+                                                  correlatedPeakIds: ref
+                                                      .read(
+                                                        mapProvider.notifier,
+                                                      )
+                                                      .correlatedPeakIds,
+                                                  tickedPeakMarker:
+                                                      _tickedPeakMarker,
+                                                  untickedPeakMarker:
+                                                      _untickedPeakMarker,
+                                                  hoveredPeakId: hoveredPeakId,
+                                                ),
+                                              );
+                                            },
                                           ),
-                                        if (mapState.showSelectedMapLayer)
+                                        if (mapScene.showSelectedMapLayer)
                                           TasmapPolygonLabelLayer(
                                             key: const Key(
                                               'tasmap-label-layer',
@@ -1994,14 +2140,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                   ref.read(
                                                     tasmapRepositoryProvider,
                                                   ),
-                                                  mapState.selectedMap!,
-                                                  mapState.zoom,
+                                                  mapScene.selectedMap!,
+                                                  mapScene.zoom,
                                                   Theme.of(
                                                     context,
                                                   ).colorScheme.onSurface,
                                                 ),
                                           ),
-                                        if (mapState.showMapOverlay)
+                                        if (mapScene.showMapOverlay)
                                           TasmapPolygonLabelLayer(
                                             key: const Key(
                                               'tasmap-label-layer',
@@ -2014,7 +2160,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               ref.read(
                                                 tasmapRepositoryProvider,
                                               ),
-                                              mapState.zoom,
+                                              mapScene.zoom,
                                               Theme.of(
                                                 context,
                                               ).colorScheme.onSurface,
@@ -2029,7 +2175,27 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                   Positioned(
                                     left: 16,
                                     top: 16,
-                                    child: MapMgrsReadout(mgrs: displayMgrs),
+                                    child: Consumer(
+                                      builder: (context, ref, child) {
+                                        final mgrsState = ref.watch(
+                                          mapProvider.select(
+                                            (state) => (
+                                              cursorMgrs: state.cursorMgrs,
+                                              gotoMgrs: state.gotoMgrs,
+                                              currentMgrs: state.currentMgrs,
+                                            ),
+                                          ),
+                                        );
+                                        final displayMgrs =
+                                            mgrsState.cursorMgrs ??
+                                            mgrsState.gotoMgrs ??
+                                            _liveCamera?.mgrs ??
+                                            mgrsState.currentMgrs;
+                                        return MapMgrsReadout(
+                                          mgrs: displayMgrs,
+                                        );
+                                      },
+                                    ),
                                   ),
                                 if (selectedTrack == null &&
                                     selectedRoute == null)
@@ -2103,9 +2269,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     bottom: 0,
                     child: MapRouteBottomSheet(),
                   ),
-                MapActionRail(
-                  onCreateRoute: _beginRouteDraft,
-                ),
+                MapActionRail(onCreateRoute: _beginRouteDraft),
                 if (routeChrome.showPeakSearch)
                   Positioned(
                     right: 72,

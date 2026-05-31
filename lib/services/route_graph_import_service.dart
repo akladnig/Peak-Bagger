@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:isolate';
 import 'dart:math' as math;
 
@@ -17,11 +18,12 @@ import 'route_graph_repository.dart';
 import 'track_display_cache_builder.dart';
 
 typedef RouteGraphAssetLoader = Future<String> Function(String assetPath);
-typedef RouteGraphGenerationPreparer = Future<Map<String, Object?>> Function(
-  String rawJson,
-  String schemaVersion,
-  int generation,
-);
+typedef RouteGraphGenerationPreparer =
+    Future<Map<String, Object?>> Function(
+      String rawJson,
+      String schemaVersion,
+      int generation,
+    );
 
 const _gridSizeMeters = 5000.0;
 const _overlapMeters = 1000.0;
@@ -87,11 +89,11 @@ class RouteGraphImportService {
     this.assetPath = _bundledRouteGraphAsset,
     this.schemaVersion = _schemaVersion,
   }) : _assetLoader = assetLoader ?? rootBundle.loadString,
-        _generationPreparer =
-            generationPreparer ?? _prepareGenerationInBackground;
+       _generationPreparer =
+           generationPreparer ?? _prepareGenerationInBackground;
 
   static const _bundledRouteGraphAsset = 'assets/highway.json';
-  static const _schemaVersion = 'route-graph-v2';
+  static const _schemaVersion = 'route-graph-v4';
 
   final RouteGraphRepository _repository;
   final RouteGraphAssetLoader _assetLoader;
@@ -101,10 +103,16 @@ class RouteGraphImportService {
 
   Future<RouteGraphImportOutcome> bootstrapIfNeeded() async {
     final manifest = _repository.manifest;
-    if (manifest?.hasActiveGeneration == true &&
-        manifest?.schemaVersion == schemaVersion) {
+    if (_canReusePreparedGeneration(manifest)) {
+      developer.log(
+        'Reusing route graph generation ${manifest!.activeGeneration} '
+        'for schema $schemaVersion.',
+        name: 'RouteGraphImportService',
+      );
       return RouteGraphImportOutcome.reused(manifest!);
     }
+
+    _logBootstrapRebuildReason(manifest);
 
     if (_repository.hasBootstrapFailure) {
       throw RouteGraphLoadException(
@@ -140,6 +148,11 @@ class RouteGraphImportService {
         prepared,
         pruneStaleGenerations: true,
       );
+      developer.log(
+        'Imported route graph generation ${prepared.generation} '
+        'with ${prepared.trailDisplayChunks.length} trail display chunks.',
+        name: 'RouteGraphImportService',
+      );
       return RouteGraphImportOutcome.imported(
         generation: prepared.generation,
         sourceHash: prepared.sourceHash,
@@ -158,6 +171,32 @@ class RouteGraphImportService {
       throw RouteGraphLoadException('Failed to import route graph: $error');
     }
   }
+
+  bool _canReusePreparedGeneration(RouteGraphManifest? manifest) {
+    if (manifest?.hasActiveGeneration != true ||
+        manifest?.schemaVersion != schemaVersion) {
+      return false;
+    }
+
+    // Older prepared generations may be missing persisted trail display rows.
+    // Rebuild those once during bootstrap so the map overlay is usable.
+    return _repository.activeTrailDisplayChunks().isNotEmpty;
+  }
+
+  void _logBootstrapRebuildReason(RouteGraphManifest? manifest) {
+    final message = switch (manifest) {
+      null => 'Bootstrapping route graph: no active generation found.',
+      _ when !manifest.hasActiveGeneration =>
+        'Bootstrapping route graph: no usable active generation found.',
+      _ when manifest.schemaVersion != schemaVersion =>
+        'Bootstrapping route graph: schema changed from '
+            '${manifest.schemaVersion} to $schemaVersion.',
+      _ =>
+        'Bootstrapping route graph: active generation '
+            '${manifest.activeGeneration} is missing trail display chunks.',
+    };
+    developer.log(message, name: 'RouteGraphImportService');
+  }
 }
 
 Future<Map<String, Object?>> _prepareGenerationInBackground(
@@ -165,7 +204,9 @@ Future<Map<String, Object?>> _prepareGenerationInBackground(
   String schemaVersion,
   int generation,
 ) async {
-  return Isolate.run(() => _prepareGeneration(rawJson, schemaVersion, generation));
+  return Isolate.run(
+    () => _prepareGeneration(rawJson, schemaVersion, generation),
+  );
 }
 
 Map<String, Object?> _prepareGeneration(
@@ -175,7 +216,9 @@ Map<String, Object?> _prepareGeneration(
 ) {
   final decoded = jsonDecode(rawJson);
   if (decoded is! Map<String, dynamic>) {
-    throw const RouteGraphLoadException('Expected top-level route graph object.');
+    throw const RouteGraphLoadException(
+      'Expected top-level route graph object.',
+    );
   }
 
   final elements = decoded['elements'];
@@ -210,7 +253,10 @@ Map<String, Object?> _prepareGeneration(
         break;
       case 'way':
         final tags = typed['tags'];
-        if (tags is Map && tags['highway'] != null && tags['area'] != 'yes' && tags['place'] != 'square') {
+        if (tags is Map &&
+            tags['highway'] != null &&
+            tags['area'] != 'yes' &&
+            tags['place'] != 'square') {
           wayMaps.add(typed);
           edgeCount += 1;
         }
@@ -234,7 +280,9 @@ Map<String, Object?> _prepareGeneration(
   };
 }
 
-RouteGraphPreparedGeneration _preparedGenerationFromMap(Map<String, Object?> map) {
+RouteGraphPreparedGeneration _preparedGenerationFromMap(
+  Map<String, Object?> map,
+) {
   final chunksRaw = map['chunks'];
   if (chunksRaw is! List) {
     throw const RouteGraphLoadException('Prepared route graph missing chunks.');
@@ -243,69 +291,79 @@ RouteGraphPreparedGeneration _preparedGenerationFromMap(Map<String, Object?> map
   final wayIndexRowsRaw = map['wayIndexRows'];
   final trailDisplayChunksRaw = map['trailDisplayChunks'];
 
-  final chunks = chunksRaw.map((entry) {
-    if (entry is! Map) {
-      throw const RouteGraphLoadException('Prepared chunk payload must be a map.');
-    }
+  final chunks = chunksRaw
+      .map((entry) {
+        if (entry is! Map) {
+          throw const RouteGraphLoadException(
+            'Prepared chunk payload must be a map.',
+          );
+        }
 
-    final typed = Map<String, Object?>.from(entry);
-    return RouteGraphChunk(
-      recordKey: typed['recordKey'] as String,
-      chunkKey: typed['chunkKey'] as String,
-      generation: typed['generation'] as int,
-      minLat: (typed['minLat'] as num).toDouble(),
-      minLon: (typed['minLon'] as num).toDouble(),
-      maxLat: (typed['maxLat'] as num).toDouble(),
-      maxLon: (typed['maxLon'] as num).toDouble(),
-      elementCount: typed['elementCount'] as int,
-      payloadJson: typed['payloadJson'] as String,
-    );
-  }).toList(growable: false);
+        final typed = Map<String, Object?>.from(entry);
+        return RouteGraphChunk(
+          recordKey: typed['recordKey'] as String,
+          chunkKey: typed['chunkKey'] as String,
+          generation: typed['generation'] as int,
+          minLat: (typed['minLat'] as num).toDouble(),
+          minLon: (typed['minLon'] as num).toDouble(),
+          maxLat: (typed['maxLat'] as num).toDouble(),
+          maxLon: (typed['maxLon'] as num).toDouble(),
+          elementCount: typed['elementCount'] as int,
+          payloadJson: typed['payloadJson'] as String,
+        );
+      })
+      .toList(growable: false);
 
   final wayIndexRows = wayIndexRowsRaw is List
-      ? wayIndexRowsRaw.map((entry) {
-          if (entry is! Map) {
-            throw const RouteGraphLoadException('Prepared way index payload must be a map.');
-          }
+      ? wayIndexRowsRaw
+            .map((entry) {
+              if (entry is! Map) {
+                throw const RouteGraphLoadException(
+                  'Prepared way index payload must be a map.',
+                );
+              }
 
-          final typed = Map<String, Object?>.from(entry);
-          return RouteGraphWayIndex(
-            recordKey: typed['recordKey'] as String,
-            generation: typed['generation'] as int,
-            chunkKey: typed['chunkKey'] as String,
-            osmWayId: typed['osmWayId'] as int,
-            highway: typed['highway'] as String?,
-            surface: typed['surface'] as String?,
-            footway: typed['footway'] as String?,
-            foot: typed['foot'] as String?,
-            route: typed['route'] as String?,
-            access: typed['access'] as String?,
-            name: typed['name'] as String?,
-            normalizedName: typed['normalizedName'] as String?,
-            lengthMeters: (typed['lengthMeters'] as num).round(),
-            tagCount: typed['tagCount'] as int,
-            tagsJson: typed['tagsJson'] as String,
-          );
-        }).toList(growable: false)
+              final typed = Map<String, Object?>.from(entry);
+              return RouteGraphWayIndex(
+                recordKey: typed['recordKey'] as String,
+                generation: typed['generation'] as int,
+                chunkKey: typed['chunkKey'] as String,
+                osmWayId: typed['osmWayId'] as int,
+                highway: typed['highway'] as String?,
+                surface: typed['surface'] as String?,
+                footway: typed['footway'] as String?,
+                foot: typed['foot'] as String?,
+                route: typed['route'] as String?,
+                access: typed['access'] as String?,
+                name: typed['name'] as String?,
+                normalizedName: typed['normalizedName'] as String?,
+                lengthMeters: (typed['lengthMeters'] as num).round(),
+                tagCount: typed['tagCount'] as int,
+                tagsJson: typed['tagsJson'] as String,
+              );
+            })
+            .toList(growable: false)
       : const <RouteGraphWayIndex>[];
 
   final trailDisplayChunks = trailDisplayChunksRaw is List
-      ? trailDisplayChunksRaw.map((entry) {
-          if (entry is! Map) {
-            throw const RouteGraphLoadException(
-              'Prepared trail display payload must be a map.',
-            );
-          }
+      ? trailDisplayChunksRaw
+            .map((entry) {
+              if (entry is! Map) {
+                throw const RouteGraphLoadException(
+                  'Prepared trail display payload must be a map.',
+                );
+              }
 
-          final typed = Map<String, Object?>.from(entry);
-          return RouteGraphTrailDisplayChunk(
-            recordKey: typed['recordKey'] as String,
-            generation: typed['generation'] as int,
-            cacheZoom: typed['cacheZoom'] as int,
-            chunkKey: typed['chunkKey'] as String,
-            payloadJson: typed['payloadJson'] as String,
-          );
-        }).toList(growable: false)
+              final typed = Map<String, Object?>.from(entry);
+              return RouteGraphTrailDisplayChunk(
+                recordKey: typed['recordKey'] as String,
+                generation: typed['generation'] as int,
+                cacheZoom: typed['cacheZoom'] as int,
+                chunkKey: typed['chunkKey'] as String,
+                payloadJson: typed['payloadJson'] as String,
+              );
+            })
+            .toList(growable: false)
       : const <RouteGraphTrailDisplayChunk>[];
 
   return RouteGraphPreparedGeneration(
@@ -402,21 +460,25 @@ _PreparedRouteGraphRows _buildChunksAndWayIndexRows(
             cacheZoom: entry.key,
             chunkKey: chunkKey,
           );
-          trailDisplayBuilders.putIfAbsent(
-            recordKey,
-            () => _TrailDisplayChunkBuilder(
-              generation: generation,
-              cacheZoom: entry.key,
-              chunkKey: chunkKey,
-            ),
-          ).addWay(entry.value);
+          trailDisplayBuilders
+              .putIfAbsent(
+                recordKey,
+                () => _TrailDisplayChunkBuilder(
+                  generation: generation,
+                  cacheZoom: entry.key,
+                  chunkKey: chunkKey,
+                ),
+              )
+              .addWay(entry.value);
         }
       }
     }
   }
 
   return _PreparedRouteGraphRows(
-    chunks: builders.values.map((builder) => builder.toMap()).toList(growable: false),
+    chunks: builders.values
+        .map((builder) => builder.toMap())
+        .toList(growable: false),
     wayIndexRows: wayIndexRows,
     trailDisplayChunks: trailDisplayBuilders.values
         .map((builder) => builder.toMap())
@@ -488,9 +550,9 @@ _ProjectedBounds _geometryBounds(List<Map<String, dynamic>> nodes) {
 
 ({double x, double y}) _project(double lat, double lon) {
   final x = _earthRadiusMeters * lon * math.pi / 180.0;
-  final y = _earthRadiusMeters * math.log(
-    math.tan(math.pi / 4.0 + lat * math.pi / 360.0),
-  );
+  final y =
+      _earthRadiusMeters *
+      math.log(math.tan(math.pi / 4.0 + lat * math.pi / 360.0));
   return (x: x, y: y);
 }
 
@@ -655,7 +717,9 @@ Map<String, Object?> _buildWayIndexRow({
 }) {
   final wayId = _readInt(way['id']);
   if (wayId == null) {
-    throw const RouteGraphLoadException('Route graph way is missing OSM identity.');
+    throw const RouteGraphLoadException(
+      'Route graph way is missing OSM identity.',
+    );
   }
 
   final name = _readOptionalTagString(tags['name']);
@@ -716,7 +780,10 @@ int _geometryLengthMeters(List<Map<String, dynamic>> nodes) {
   }
 
   var total = 0.0;
-  var previous = _project(nodes.first['lat'] as double, nodes.first['lon'] as double);
+  var previous = _project(
+    nodes.first['lat'] as double,
+    nodes.first['lon'] as double,
+  );
   for (final node in nodes.skip(1)) {
     final projected = _project(node['lat'] as double, node['lon'] as double);
     final dx = projected.x - previous.x;

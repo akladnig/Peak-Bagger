@@ -137,7 +137,9 @@ class ObjectBoxRouteGraphStorage implements RouteGraphStorage {
       _manifestBox.put(manifest);
       if (pruneStaleGenerations) {
         final staleQuery = _chunkBox
-            .query(RouteGraphChunk_.generation.notEquals(manifest.activeGeneration))
+            .query(
+              RouteGraphChunk_.generation.notEquals(manifest.activeGeneration),
+            )
             .build();
         final staleIds = staleQuery.findIds();
         staleQuery.close();
@@ -146,7 +148,11 @@ class ObjectBoxRouteGraphStorage implements RouteGraphStorage {
         }
 
         final staleWayQuery = _wayIndexBox
-            .query(RouteGraphWayIndex_.generation.notEquals(manifest.activeGeneration))
+            .query(
+              RouteGraphWayIndex_.generation.notEquals(
+                manifest.activeGeneration,
+              ),
+            )
             .build();
         final staleWayIds = staleWayQuery.findIds();
         staleWayQuery.close();
@@ -201,13 +207,12 @@ class InMemoryRouteGraphStorage implements RouteGraphStorage {
     List<RouteGraphChunk> chunks = const [],
     List<RouteGraphWayIndex> wayIndexRows = const [],
     List<RouteGraphTrailDisplayChunk> trailDisplayChunks = const [],
-  })
-    : _manifest = manifest,
-      _chunks = List<RouteGraphChunk>.from(chunks),
-      _wayIndexRows = List<RouteGraphWayIndex>.from(wayIndexRows),
-      _trailDisplayChunks = List<RouteGraphTrailDisplayChunk>.from(
-        trailDisplayChunks,
-      );
+  }) : _manifest = manifest,
+       _chunks = List<RouteGraphChunk>.from(chunks),
+       _wayIndexRows = List<RouteGraphWayIndex>.from(wayIndexRows),
+       _trailDisplayChunks = List<RouteGraphTrailDisplayChunk>.from(
+         trailDisplayChunks,
+       );
 
   RouteGraphManifest? _manifest;
   List<RouteGraphChunk> _chunks;
@@ -260,7 +265,9 @@ class InMemoryRouteGraphStorage implements RouteGraphStorage {
   }) async {
     _manifest = manifest;
     if (pruneStaleGenerations) {
-      _chunks = chunks.where((chunk) => chunk.generation == manifest.activeGeneration).toList(growable: false);
+      _chunks = chunks
+          .where((chunk) => chunk.generation == manifest.activeGeneration)
+          .toList(growable: false);
       _wayIndexRows = wayIndexRows
           .where((row) => row.generation == manifest.activeGeneration)
           .toList(growable: false);
@@ -297,6 +304,10 @@ class RouteGraphRepository {
   RouteGraphRepository.test(RouteGraphStorage storage) : _storage = storage;
 
   final RouteGraphStorage _storage;
+  int? _cachedGeneration;
+  List<RouteGraphChunk>? _cachedChunks;
+  List<RouteGraphWayIndex>? _cachedWayIndexRows;
+  List<RouteGraphTrailDisplayChunk>? _cachedTrailDisplayChunks;
 
   RouteGraphManifest? get manifest => _storage.activeManifest();
 
@@ -306,23 +317,48 @@ class RouteGraphRepository {
 
   bool get hasBootstrapFailure {
     final manifest = this.manifest;
-    return manifest != null && manifest.isFailed && manifest.activeGeneration == 0;
+    return manifest != null &&
+        manifest.isFailed &&
+        manifest.activeGeneration == 0;
   }
 
   int get activeGeneration => manifest?.activeGeneration ?? 0;
 
-  List<RouteGraphChunk> activeChunks() => _storage.activeChunks();
+  List<RouteGraphChunk> activeChunks() {
+    if (!_hasUsableActiveGeneration()) {
+      _invalidateActiveCaches();
+      return const [];
+    }
 
-  List<RouteGraphWayIndex> activeWayIndexRows() => _storage.activeWayIndexRows();
+    _ensureCacheGeneration();
+    return _cachedChunks ??= _storage.activeChunks();
+  }
+
+  List<RouteGraphWayIndex> activeWayIndexRows() {
+    if (!_hasUsableActiveGeneration()) {
+      _invalidateActiveCaches();
+      return const [];
+    }
+
+    _ensureCacheGeneration();
+    return _cachedWayIndexRows ??= _storage.activeWayIndexRows();
+  }
 
   List<RouteGraphTrailDisplayChunk> activeTrailDisplayChunks() {
-    return _storage.activeTrailDisplayChunks();
+    if (!_hasUsableActiveGeneration()) {
+      _invalidateActiveCaches();
+      return const [];
+    }
+
+    _ensureCacheGeneration();
+    return _cachedTrailDisplayChunks ??= _storage.activeTrailDisplayChunks();
   }
 
   Future<void> writePreparedGeneration(
     RouteGraphPreparedGeneration generation, {
     required bool pruneStaleGenerations,
   }) async {
+    _invalidateActiveCaches();
     final manifest = RouteGraphManifest(
       sourceHash: generation.sourceHash,
       schemaVersion: generation.schemaVersion,
@@ -348,6 +384,7 @@ class RouteGraphRepository {
     required String schemaVersion,
     required String error,
   }) async {
+    _invalidateActiveCaches();
     final manifest = RouteGraphManifest(
       sourceHash: sourceHash,
       schemaVersion: schemaVersion,
@@ -365,12 +402,18 @@ class RouteGraphRepository {
   Future<trip_routing.TripService> buildTripServiceForActiveGeneration() async {
     final manifest = this.manifest;
     if (manifest == null || !manifest.hasActiveGeneration) {
-      throw const RouteGraphLoadException('No usable route graph generation is active.');
+      throw const RouteGraphLoadException(
+        'No usable route graph generation is active.',
+      );
     }
 
-    final payloads = activeChunks().map((chunk) => chunk.decodePayload()).toList(growable: false);
+    final payloads = activeChunks()
+        .map((chunk) => chunk.decodePayload())
+        .toList(growable: false);
     if (payloads.isEmpty) {
-      throw const RouteGraphLoadException('No usable route graph chunks are active.');
+      throw const RouteGraphLoadException(
+        'No usable route graph chunks are active.',
+      );
     }
 
     final service = trip_routing.TripService();
@@ -382,5 +425,32 @@ class RouteGraphRepository {
     return service;
   }
 
-  Future<void> clearAll() => _storage.clearAll();
+  Future<void> clearAll() {
+    _invalidateActiveCaches();
+    return _storage.clearAll();
+  }
+
+  bool _hasUsableActiveGeneration() {
+    final activeManifest = manifest;
+    return activeManifest != null && activeManifest.hasActiveGeneration;
+  }
+
+  void _ensureCacheGeneration() {
+    final generation = activeGeneration;
+    if (_cachedGeneration == generation) {
+      return;
+    }
+
+    _cachedGeneration = generation;
+    _cachedChunks = null;
+    _cachedWayIndexRows = null;
+    _cachedTrailDisplayChunks = null;
+  }
+
+  void _invalidateActiveCaches() {
+    _cachedGeneration = null;
+    _cachedChunks = null;
+    _cachedWayIndexRows = null;
+    _cachedTrailDisplayChunks = null;
+  }
 }

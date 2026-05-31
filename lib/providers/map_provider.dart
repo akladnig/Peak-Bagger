@@ -604,7 +604,8 @@ class MapState {
           ? null
           : (hoveredRouteDraftSegmentIndex ??
                 this.hoveredRouteDraftSegmentIndex),
-      hoveredRouteDraftCommittedSegmentIndex: clearHoveredRouteDraftSegmentPreview
+      hoveredRouteDraftCommittedSegmentIndex:
+          clearHoveredRouteDraftSegmentPreview
           ? null
           : (hoveredRouteDraftCommittedSegmentIndex ??
                 this.hoveredRouteDraftCommittedSegmentIndex),
@@ -1317,7 +1318,9 @@ class MapNotifier extends Notifier<MapState> {
         ref.read(routeRevisionProvider.notifier).increment();
       }
 
-      final importedRoute = addedItems.isNotEmpty ? addedItems.first.route : null;
+      final importedRoute = addedItems.isNotEmpty
+          ? addedItems.first.route
+          : null;
       final statusMessage = addedItems.isEmpty
           ? 'No routes were imported'
           : 'Imported ${addedItems.length} route(s), errors $errorCount';
@@ -1359,23 +1362,22 @@ class MapNotifier extends Notifier<MapState> {
 
     final fallbackElevations = List<int?>.from(route.gpxRouteElevations);
     try {
-      final sampledElevations = await _routeElevationSampler.samplePointElevations(
-        route.gpxRoute,
-      );
+      final sampledElevations = await _routeElevationSampler
+          .samplePointElevations(route.gpxRoute);
       if (sampledElevations.isNotEmpty) {
-        final mergedElevations = List<int?>.generate(
-          route.gpxRoute.length,
-          (index) {
-            final sampledElevation = index < sampledElevations.length
-                ? sampledElevations[index]
-                : null;
-            if (sampledElevation != null) {
-              return sampledElevation.round();
-            }
-            return index < fallbackElevations.length ? fallbackElevations[index] : null;
-          },
-          growable: false,
-        );
+        final mergedElevations = List<int?>.generate(route.gpxRoute.length, (
+          index,
+        ) {
+          final sampledElevation = index < sampledElevations.length
+              ? sampledElevations[index]
+              : null;
+          if (sampledElevation != null) {
+            return sampledElevation.round();
+          }
+          return index < fallbackElevations.length
+              ? fallbackElevations[index]
+              : null;
+        }, growable: false);
 
         if (mergedElevations.any((elevation) => elevation != null)) {
           route.gpxRouteElevations = mergedElevations;
@@ -1926,7 +1928,8 @@ class MapNotifier extends Notifier<MapState> {
 
   bool _hasReachedRouteDraftMarkerLimit() {
     return state.routeDraftControlEndpoints.length >= 2 &&
-        _visibleNumberedRouteMarkerCount(state.routeDraftControlEndpoints) >= 99;
+        _visibleNumberedRouteMarkerCount(state.routeDraftControlEndpoints) >=
+            99;
   }
 
   List<RouteDraftDisplayMarker> _buildDisplayMarkers(
@@ -2013,9 +2016,9 @@ class MapNotifier extends Notifier<MapState> {
       return null;
     }
 
-    final elevationSamples = elevations.map((value) => value?.toDouble()).toList(
-      growable: false,
-    );
+    final elevationSamples = elevations
+        .map((value) => value?.toDouble())
+        .toList(growable: false);
     final filteredElevations = elevationSamples.whereType<double>().toList(
       growable: false,
     );
@@ -2416,7 +2419,10 @@ class MapNotifier extends Notifier<MapState> {
         returnEndpoint.point,
       ]),
       routeDraftStage: RouteDraftStage.routingSegment,
-      routeDraftProvisionalPoints: [committedPoints.last, committedPoints.first],
+      routeDraftProvisionalPoints: [
+        committedPoints.last,
+        committedPoints.first,
+      ],
       clearRouteDraftError: true,
       routeDraftRequestId: requestId,
       routeDraftNextMarkerId: state.routeDraftNextMarkerId + 1,
@@ -2486,7 +2492,9 @@ class MapNotifier extends Notifier<MapState> {
         ? [
             ...controlEndpoints,
             controlEndpoints.first.copyWith(
-              id: _routeDraftEndpointId(nextMarkerId ?? state.routeDraftNextMarkerId),
+              id: _routeDraftEndpointId(
+                nextMarkerId ?? state.routeDraftNextMarkerId,
+              ),
             ),
           ]
         : controlEndpoints;
@@ -2495,7 +2503,8 @@ class MapNotifier extends Notifier<MapState> {
       stage: RouteDraftStage.awaitingNextPoint,
       provisionalPoints: const [],
       distanceMeters:
-          state.routeDraftDistanceMeters + _polylineDistanceMeters(returnSegment),
+          state.routeDraftDistanceMeters +
+          _polylineDistanceMeters(returnSegment),
       offTrackProbeActive: false,
       clearRouteDraftError: true,
       nextMarkerId: nextMarkerId,
@@ -2612,7 +2621,7 @@ class MapNotifier extends Notifier<MapState> {
     if (!_isActiveRouteDraftRequest(requestId)) {
       return;
     }
-      if (probe.errorMessage != null) {
+    if (probe.errorMessage != null) {
       _setRouteDraftControlState(
         controlEndpoints: state.routeDraftControlEndpoints,
         stage: RouteDraftStage.segmentFailure,
@@ -2704,9 +2713,7 @@ class MapNotifier extends Notifier<MapState> {
           nextMarkerId: state.routeDraftNextMarkerId + 1,
         );
         if (useStraightLine) {
-          state = state.copyWith(
-            routeDraftCommittedPoints: [point],
-          );
+          state = state.copyWith(routeDraftCommittedPoints: [point]);
         }
       case RouteDraftStage.awaitingNextPoint:
       case RouteDraftStage.segmentFailure:
@@ -2729,7 +2736,7 @@ class MapNotifier extends Notifier<MapState> {
           );
           return;
         }
-      if (start.point == point) {
+        if (start.point == point) {
           final duplicate = _createControlEndpoint(
             point: point,
             kind: _manualEndpointKindForPoint(point),
@@ -2952,7 +2959,8 @@ class MapNotifier extends Notifier<MapState> {
   void retryRouteDraftSegment() {
     if (!state.isRouteDrafting ||
         state.routeDraftStage != RouteDraftStage.segmentFailure ||
-        state.routeDraftFailureKind != RoutePlanningFailureKind.routeGraphLoad ||
+        state.routeDraftFailureKind !=
+            RoutePlanningFailureKind.routeGraphLoad ||
         state.routeDraftControlEndpoints.length < 2) {
       return;
     }
@@ -3428,7 +3436,11 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void setCursorMgrs(LatLng location) {
-    state = state.copyWith(cursorMgrs: _convertToMgrs(location));
+    final mgrs = _convertToMgrs(location);
+    if (state.cursorMgrs == mgrs) {
+      return;
+    }
+    state = state.copyWith(cursorMgrs: mgrs);
   }
 
   void setSelectedLocation(LatLng location) {
@@ -3457,6 +3469,9 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void clearCursorMgrs() {
+    if (state.cursorMgrs == null) {
+      return;
+    }
     state = state.copyWith(clearCursorMgrs: true);
   }
 
@@ -3465,10 +3480,16 @@ class MapNotifier extends Notifier<MapState> {
       clearHoveredPeak();
       return;
     }
+    if (state.hoveredPeakId == peakId) {
+      return;
+    }
     state = state.copyWith(hoveredPeakId: peakId);
   }
 
   void clearHoveredPeak() {
+    if (state.hoveredPeakId == null) {
+      return;
+    }
     state = state.copyWith(clearHoveredPeakId: true);
   }
 
@@ -3489,10 +3510,16 @@ class MapNotifier extends Notifier<MapState> {
       clearHoveredTrack();
       return;
     }
+    if (state.hoveredTrackId == trackId) {
+      return;
+    }
     state = state.copyWith(hoveredTrackId: trackId);
   }
 
   void clearHoveredTrack() {
+    if (state.hoveredTrackId == null) {
+      return;
+    }
     state = state.copyWith(clearHoveredTrackId: true);
   }
 
@@ -3501,11 +3528,17 @@ class MapNotifier extends Notifier<MapState> {
       clearHoveredRouteDraftMarker();
       return;
     }
+    if (state.hoveredRouteDraftMarkerId == markerId) {
+      return;
+    }
     state = state.copyWith(hoveredRouteDraftMarkerId: markerId);
   }
 
   void clearHoveredRouteDraftMarker([String? markerId]) {
     if (markerId != null && state.hoveredRouteDraftMarkerId != markerId) {
+      return;
+    }
+    if (state.hoveredRouteDraftMarkerId == null) {
       return;
     }
     state = state.copyWith(clearHoveredRouteDraftMarkerId: true);
@@ -3520,6 +3553,12 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
+    if (state.hoveredRouteDraftSegmentIndex == segmentIndex &&
+        state.hoveredRouteDraftCommittedSegmentIndex == committedSegmentIndex &&
+        state.hoveredRouteDraftSegmentPoint == point) {
+      return;
+    }
+
     state = state.copyWith(
       hoveredRouteDraftSegmentIndex: segmentIndex,
       hoveredRouteDraftCommittedSegmentIndex: committedSegmentIndex,
@@ -3528,6 +3567,11 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void clearHoveredRouteDraftSegmentPreview() {
+    if (state.hoveredRouteDraftSegmentIndex == null &&
+        state.hoveredRouteDraftCommittedSegmentIndex == null &&
+        state.hoveredRouteDraftSegmentPoint == null) {
+      return;
+    }
     state = state.copyWith(clearHoveredRouteDraftSegmentPreview: true);
   }
 
@@ -3585,7 +3629,9 @@ class MapNotifier extends Notifier<MapState> {
     if (!state.isRouteDrafting ||
         state.isSavingRoute ||
         state.routeDraftStage == RouteDraftStage.routingSegment ||
-        state.routeDraftControlEndpoints.every((endpoint) => endpoint.id != markerId)) {
+        state.routeDraftControlEndpoints.every(
+          (endpoint) => endpoint.id != markerId,
+        )) {
       return;
     }
 
@@ -3714,9 +3760,8 @@ class MapNotifier extends Notifier<MapState> {
 
     if (controlEndpoints.length == 1) {
       state = state.copyWith(
-        routeDraftControlEndpoints: List<RouteDraftControlEndpoint>.unmodifiable(
-          controlEndpoints,
-        ),
+        routeDraftControlEndpoints:
+            List<RouteDraftControlEndpoint>.unmodifiable(controlEndpoints),
         routeDraftDisplayMarkers: List<RouteDraftDisplayMarker>.unmodifiable(
           _buildDisplayMarkers(controlEndpoints),
         ),
@@ -3746,9 +3791,8 @@ class MapNotifier extends Notifier<MapState> {
         controlEndpoints.map((endpoint) => endpoint.point),
       );
       state = state.copyWith(
-        routeDraftControlEndpoints: List<RouteDraftControlEndpoint>.unmodifiable(
-          controlEndpoints,
-        ),
+        routeDraftControlEndpoints:
+            List<RouteDraftControlEndpoint>.unmodifiable(controlEndpoints),
         routeDraftDisplayMarkers: List<RouteDraftDisplayMarker>.unmodifiable(
           _buildDisplayMarkers(controlEndpoints),
         ),
@@ -3785,7 +3829,9 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftRequestId: requestId,
     );
 
-    final rebuiltEndpoints = List<RouteDraftControlEndpoint>.from(controlEndpoints);
+    final rebuiltEndpoints = List<RouteDraftControlEndpoint>.from(
+      controlEndpoints,
+    );
     var committedPoints = const <LatLng>[];
     var distanceMeters = 0.0;
     var usedFallback = false;
@@ -3817,7 +3863,8 @@ class MapNotifier extends Notifier<MapState> {
             isPeakTarget: endEndpoint.kind == RouteDraftEndpointKind.peakTarget,
           );
           final segmentPoints =
-              rebuiltEndpoints[index + 1].kind == RouteDraftEndpointKind.peakTarget
+              rebuiltEndpoints[index + 1].kind ==
+                  RouteDraftEndpointKind.peakTarget
               ? _appendPeakTerminalLegIfNeeded(
                   result.points,
                   rebuiltEndpoints[index + 1].point,
@@ -3841,10 +3888,10 @@ class MapNotifier extends Notifier<MapState> {
               _movedEndpoint(endEndpoint, result.endAnchor),
             _ => endEndpoint,
           };
-          final segmentPoints = _appendPeakTerminalLegIfNeeded(
-            [rebuiltEndpoints[index].point, rebuiltEndpoints[index + 1].point],
+          final segmentPoints = _appendPeakTerminalLegIfNeeded([
+            rebuiltEndpoints[index].point,
             rebuiltEndpoints[index + 1].point,
-          );
+          ], rebuiltEndpoints[index + 1].point);
           committedPoints = _appendRouteSegment(committedPoints, segmentPoints);
           distanceMeters += _polylineDistanceMeters(segmentPoints);
           break;
@@ -3852,7 +3899,8 @@ class MapNotifier extends Notifier<MapState> {
           state = state.copyWith(
             routeDraftStage: RouteDraftStage.segmentFailure,
             routeDraftProvisionalPoints: const [],
-            routeDraftError: result.errorMessage ?? 'Failed to calculate route.',
+            routeDraftError:
+                result.errorMessage ?? 'Failed to calculate route.',
             routeDraftMode: routeMode,
             clearRouteDraftPeak: invalidatePeakTarget,
             routeDraftPeakTargetLocked: invalidatePeakTarget
@@ -3910,7 +3958,8 @@ class MapNotifier extends Notifier<MapState> {
     controlEndpoints.insert(segmentIndex + 1, insertedEndpoint);
 
     final committedPoints = List<LatLng>.from(state.routeDraftCommittedPoints);
-    if (committedSegmentIndex >= 0 && committedSegmentIndex < committedPoints.length) {
+    if (committedSegmentIndex >= 0 &&
+        committedSegmentIndex < committedPoints.length) {
       committedPoints.insert(committedSegmentIndex + 1, point);
     } else if (segmentIndex + 1 <= committedPoints.length) {
       committedPoints.insert(segmentIndex + 1, point);
@@ -4075,10 +4124,16 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void setHoveredRouteId(int? routeId) {
+    if (state.hoveredRouteId == routeId) {
+      return;
+    }
     state = state.copyWith(hoveredRouteId: routeId);
   }
 
   void clearHoveredRoute() {
+    if (state.hoveredRouteId == null) {
+      return;
+    }
     state = state.copyWith(hoveredRouteId: null);
   }
 

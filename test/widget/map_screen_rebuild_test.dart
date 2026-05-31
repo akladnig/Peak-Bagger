@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -43,6 +44,38 @@ void main() {
     expect(MapRebuildDebugCounters.actionRailBuilds, actionRailBuilds);
 
     await gesture.up();
+  });
+
+  testWidgets('peak hover does not rebuild route root or action rail', (
+    tester,
+  ) async {
+    MapRebuildDebugCounters.reset();
+    await _pumpMapApp(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        peaks: [
+          Peak(osmId: 1, name: 'Peak A', latitude: -41.5, longitude: 146.5),
+        ],
+      ),
+    );
+
+    final routeRootBuilds = MapRebuildDebugCounters.routeRootBuilds;
+    final actionRailBuilds = MapRebuildDebugCounters.actionRailBuilds;
+    final region = find.byKey(const Key('map-interaction-region'));
+    final center = tester.getCenter(region);
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(gesture.removePointer);
+
+    await gesture.addPointer(location: center);
+    await tester.pump();
+    await gesture.moveTo(center);
+    await tester.pump();
+
+    expect(MapRebuildDebugCounters.routeRootBuilds, routeRootBuilds);
+    expect(MapRebuildDebugCounters.actionRailBuilds, actionRailBuilds);
   });
 
   test('filteredPeaksProvider ignores camera-only updates', () {
@@ -91,11 +124,15 @@ void main() {
     );
     addTearDown(sub.close);
 
-    expect(container.read(filteredPeaksProvider).map((peak) => peak.osmId), [1]);
+    expect(container.read(filteredPeaksProvider).map((peak) => peak.osmId), [
+      1,
+    ]);
 
     notifier.updatePosition(const LatLng(-41.4, 146.4), 13);
 
-    expect(container.read(filteredPeaksProvider).map((peak) => peak.osmId), [1]);
+    expect(container.read(filteredPeaksProvider).map((peak) => peak.osmId), [
+      1,
+    ]);
     expect(notifications, 1);
   });
 }
