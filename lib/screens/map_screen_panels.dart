@@ -89,7 +89,7 @@ class MapZoomReadout extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
-        'zoom: ${zoom.toStringAsFixed(0)}',
+        'zoom: ${formatCount(zoom.round())}',
         style: TextStyle(
           fontSize: 12,
           color: Theme.of(context).colorScheme.onSurface,
@@ -758,7 +758,7 @@ class MapInfoPopupCard extends StatelessWidget {
                   if (infoPeakElevation != null) ...[
                     const Text(' '),
                     Text(
-                      '${infoPeakElevation!.toStringAsFixed(0)}m',
+                      formatCompactElevation(infoPeakElevation!),
                       style: const TextStyle(fontSize: 13),
                     ),
                   ],

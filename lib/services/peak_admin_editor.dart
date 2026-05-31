@@ -1,5 +1,6 @@
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
+import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/models/geo_areas.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
@@ -335,10 +336,6 @@ class PeakAdminEditor {
         northing: peak.northing,
       ),
     );
-  }
-
-  static String formatCoordinate(double value) {
-    return value.toStringAsFixed(6);
   }
 
   static String _formatOptionalNumber(double? value) {

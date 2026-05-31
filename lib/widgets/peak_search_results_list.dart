@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/number_formatters.dart';
 import '../models/peak.dart';
 import '../theme.dart';
 
@@ -65,8 +66,6 @@ class PeakSearchResultsList extends StatelessWidget {
   }
 
   String _heightFor(Peak peak) {
-    return peak.elevation != null
-        ? '${peak.elevation!.toStringAsFixed(0)} m'
-        : '—';
+    return peak.elevation != null ? formatElevation(peak.elevation!.round()) : '—';
   }
 }

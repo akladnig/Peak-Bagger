@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:developer' as developer;
 
 import 'package:path_provider/path_provider.dart';
+import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
@@ -12,7 +13,6 @@ import 'package:peak_bagger/models/route_graph_manifest.dart';
 import 'package:peak_bagger/models/route_graph_trail_display_chunk.dart';
 import 'package:peak_bagger/models/route_graph_way_index.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
-import 'package:peak_bagger/services/peak_admin_editor.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:objectbox/internal.dart' as obx_int;
 
@@ -823,7 +823,7 @@ String objectBoxAdminFormatFieldValue({
   if (entityName == 'Peak' &&
       (fieldName == 'latitude' || fieldName == 'longitude') &&
       value is num) {
-    return PeakAdminEditor.formatCoordinate(value.toDouble());
+    return formatCoordinate(value.toDouble());
   }
 
   if (entityName == 'GpxTrack' &&

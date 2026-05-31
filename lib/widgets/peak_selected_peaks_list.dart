@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../core/number_formatters.dart';
 import '../models/peak.dart';
 
 class PeakSelectedPeaksList extends StatelessWidget {
@@ -240,7 +241,7 @@ class _PeakSelectedRowState extends State<_PeakSelectedRow> {
     if (elevation == null) {
       return '—';
     }
-    return '${elevation.round()}m';
+    return formatCompactElevation(elevation);
   }
 }
 

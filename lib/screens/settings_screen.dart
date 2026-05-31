@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
+import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_csv_export_provider.dart';
@@ -1416,7 +1417,7 @@ class _TileCacheSettingsScreenState
                           builder: (ctx, snap) {
                             if (!snap.hasData) return const Text('-');
                             return Text(
-                              '${snap.data!.size.toStringAsFixed(1)} KiB',
+                              formatFileSizeKiB(snap.data!.size),
                             );
                           },
                         ),
@@ -1621,7 +1622,7 @@ class _TileCacheSettingsScreenState
           if (!mounted) return;
           setState(
             () => _status =
-                '${basemap.name}: ${progress.successfulTilesCount} downloaded, ${progress.existingTilesCount} skipped (${progress.percentageProgress.toStringAsFixed(1)}%)',
+                '${basemap.name}: ${formatCount(progress.successfulTilesCount)} downloaded, ${formatCount(progress.existingTilesCount)} skipped (${formatPercentage(progress.percentageProgress)})',
           );
         }
       }

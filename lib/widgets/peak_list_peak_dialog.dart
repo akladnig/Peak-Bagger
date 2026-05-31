@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../core/constants.dart';
+import '../core/number_formatters.dart';
 
 import '../models/gpx_track.dart';
 import '../models/peak.dart';
@@ -273,9 +274,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
     final membershipsLabel = memberships.isEmpty ? '—' : memberships.join(', ');
     final elevationLabel = peak.elevation == null
         ? '—'
-        : peak.elevation == peak.elevation!.roundToDouble()
-        ? '${peak.elevation!.round()}m'
-        : '${peak.elevation!.toStringAsFixed(1)}m';
+        : formatCompactElevation(peak.elevation!);
     final resolvedMap = _resolveMap(peak);
 
     return Column(
@@ -482,7 +481,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
       peak.easting,
       peak.northing,
     ].where((part) => part.trim().isNotEmpty).join(' ');
-    return '$mgrsValue (${peak.latitude.toStringAsFixed(5)}, ${peak.longitude.toStringAsFixed(5)})';
+    return '$mgrsValue ${formatCoordinatePair(peak.latitude, peak.longitude)}';
   }
 
   Tasmap50k? _resolveMap(Peak peak) {

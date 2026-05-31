@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../core/constants.dart';
+import '../core/number_formatters.dart';
 import '../models/geo_areas.dart';
 import '../models/peak.dart';
 import '../models/peak_list.dart';
@@ -2527,10 +2528,7 @@ class _PeakDetailRow {
     if (elevation == null) {
       return '';
     }
-    if (elevation == elevation!.roundToDouble()) {
-      return '${elevation!.round()}m';
-    }
-    return '${elevation!.toStringAsFixed(1)}m';
+    return formatCompactElevation(elevation!);
   }
 
   String get ascentDateLabel {

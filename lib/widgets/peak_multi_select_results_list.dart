@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/number_formatters.dart';
 import '../models/peak.dart';
 
 class PeakMultiSelectResultsList extends StatelessWidget {
@@ -174,6 +175,6 @@ class _PeakSearchResultRow extends StatelessWidget {
     if (elevation == null) {
       return '—';
     }
-    return '${elevation.round()}m';
+    return formatCompactElevation(elevation);
   }
 }

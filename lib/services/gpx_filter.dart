@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/core/constants.dart';
+import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:xml/xml.dart';
 
@@ -477,8 +478,12 @@ class GpxFilter {
                       builder.element(
                         'trkpt',
                         attributes: {
-                          'lat': point.lat.toStringAsFixed(8),
-                          'lon': point.lon.toStringAsFixed(8),
+                          'lat': formatCoordinate(
+                            point.lat,
+                          ),
+                          'lon': formatCoordinate(
+                            point.lon,
+                          ),
                         },
                         nest: () {
                           if (point.ele != null) {
@@ -516,8 +521,8 @@ class GpxFilter {
                 builder.element(
                   'rtept',
                   attributes: {
-                    'lat': point.lat.toStringAsFixed(8),
-                    'lon': point.lon.toStringAsFixed(8),
+                    'lat': formatCoordinate(point.lat),
+                    'lon': formatCoordinate(point.lon),
                   },
                   nest: () {
                     if (point.ele != null) {
