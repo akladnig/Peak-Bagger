@@ -104,15 +104,17 @@ class RouteGraphImportService {
   Future<RouteGraphImportOutcome> bootstrapIfNeeded() async {
     final manifest = _repository.manifest;
     if (_canReusePreparedGeneration(manifest)) {
+      final reusableManifest = manifest;
+      if (reusableManifest == null) {
+        throw StateError('Prepared generation manifest is missing.');
+      }
       developer.log(
-        'Reusing route graph generation ${manifest!.activeGeneration} '
+        'Reusing route graph generation ${reusableManifest.activeGeneration} '
         'for schema $schemaVersion.',
         name: 'RouteGraphImportService',
       );
-      return RouteGraphImportOutcome.reused(manifest!);
+      return RouteGraphImportOutcome.reused(reusableManifest);
     }
-
-    _logBootstrapRebuildReason(manifest);
 
     if (_repository.hasBootstrapFailure) {
       throw RouteGraphLoadException(
@@ -181,21 +183,6 @@ class RouteGraphImportService {
     // Older prepared generations may be missing persisted trail display rows.
     // Rebuild those once during bootstrap so the map overlay is usable.
     return _repository.activeTrailDisplayChunks().isNotEmpty;
-  }
-
-  void _logBootstrapRebuildReason(RouteGraphManifest? manifest) {
-    final message = switch (manifest) {
-      null => 'Bootstrapping route graph: no active generation found.',
-      _ when !manifest.hasActiveGeneration =>
-        'Bootstrapping route graph: no usable active generation found.',
-      _ when manifest.schemaVersion != schemaVersion =>
-        'Bootstrapping route graph: schema changed from '
-            '${manifest.schemaVersion} to $schemaVersion.',
-      _ =>
-        'Bootstrapping route graph: active generation '
-            '${manifest.activeGeneration} is missing trail display chunks.',
-    };
-    developer.log(message, name: 'RouteGraphImportService');
   }
 }
 

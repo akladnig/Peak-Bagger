@@ -1,5 +1,3 @@
-import 'dart:developer' as developer;
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
@@ -26,12 +24,7 @@ class RouteGraphRefreshService {
       return RouteGraphRefreshResult(
         elementCount: (manifest?.nodeCount ?? 0) + (manifest?.edgeCount ?? 0),
       );
-    } catch (error, stackTrace) {
-      developer.log(
-        'Route graph refresh failed.',
-        error: error,
-        stackTrace: stackTrace,
-      );
+    } catch (error) {
       throw RouteGraphLoadException('Failed to refresh route graph: $error');
     }
   }
