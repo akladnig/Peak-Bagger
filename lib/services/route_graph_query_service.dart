@@ -23,13 +23,6 @@ class RouteGraphQueryService {
     return rows.where((row) => _matchesWayQuery(row, query)).toList(growable: false);
   }
 
-  List<RouteGraphWayIndex> queryTrailWays() {
-    return _repository
-        .activeWayIndexRows()
-        .where(_isTrailWayRow)
-        .toList(growable: false);
-  }
-
   List<String> chunkKeysForWays(RouteGraphWayQuery query) {
     final keys = <String>{};
     for (final row in queryWays(query)) {
@@ -53,27 +46,6 @@ class RouteGraphQueryService {
     ).expand(extraBufferMeters ?? bufferMeters);
 
     return _repository.activeChunks().where(expanded.intersects).toList(growable: false);
-  }
-
-  List<RouteGraphChunk> queryTrailChunksForBounds({
-    required double minLat,
-    required double minLon,
-    required double maxLat,
-    required double maxLon,
-    double? extraBufferMeters,
-  }) {
-    final trailChunkKeys = queryTrailWays().map((row) => row.chunkKey).toSet();
-    if (trailChunkKeys.isEmpty) {
-      return const [];
-    }
-
-    return queryChunksForBounds(
-      minLat: minLat,
-      minLon: minLon,
-      maxLat: maxLat,
-      maxLon: maxLon,
-      extraBufferMeters: extraBufferMeters,
-    ).where((chunk) => trailChunkKeys.contains(chunk.chunkKey)).toList(growable: false);
   }
 
   List<RouteGraphChunk> queryChunksForRoute({
@@ -112,27 +84,6 @@ class RouteGraphQueryService {
     double? extraBufferMeters,
   }) {
     final chunks = queryChunksForBounds(
-      minLat: minLat,
-      minLon: minLon,
-      maxLat: maxLat,
-      maxLon: maxLon,
-      extraBufferMeters: extraBufferMeters,
-    );
-    if (chunks.isEmpty) {
-      return const [];
-    }
-
-    return [_mergeChunksIntoPayload(chunks)];
-  }
-
-  List<Map<String, dynamic>> queryTrailMergedPayloadsForBounds({
-    required double minLat,
-    required double minLon,
-    required double maxLat,
-    required double maxLon,
-    double? extraBufferMeters,
-  }) {
-    final chunks = queryTrailChunksForBounds(
       minLat: minLat,
       minLon: minLon,
       maxLat: maxLat,
@@ -309,29 +260,6 @@ class RouteGraphQueryService {
     };
 
     return value == filter.value;
-  }
-
-  bool _isTrailWayRow(RouteGraphWayIndex row) {
-    if (_isTrailExcluded(row)) {
-      return false;
-    }
-
-    if (row.highway == 'path') {
-      return true;
-    }
-
-    return row.highway == 'footway' &&
-        row.lengthMeters > 500 &&
-        row.tagCount > 1;
-  }
-
-  bool _isTrailExcluded(RouteGraphWayIndex row) {
-    return row.access == 'private' ||
-        <String>{'concrete', 'asphalt', 'paved', 'paving_stones'}
-            .contains(row.surface) ||
-        row.footway == 'sidewalk' ||
-        row.foot == 'no' ||
-        row.route == 'mtb';
   }
 }
 

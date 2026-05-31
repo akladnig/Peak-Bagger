@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
-import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 
 class MapTracksRoutesDrawer extends ConsumerWidget {
@@ -11,11 +10,8 @@ class MapTracksRoutesDrawer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final showTracks = ref.watch(mapProvider.select((state) => state.showTracks));
     final showRoutes = ref.watch(mapProvider.select((state) => state.showRoutes));
-    final showTrails = ref.watch(mapProvider.select((state) => state.showTrails));
     final trackAvailability = ref.watch(trackAvailabilityProvider);
     final routeAvailability = ref.watch(routeAvailabilityProvider);
-    final routeGraphReadiness = ref.watch(routeGraphReadinessProvider);
-    final trailsEnabled = routeGraphReadiness.status != RouteGraphReadinessStatus.failed;
 
     return Drawer(
       key: const Key('tracks-routes-drawer'),
@@ -68,34 +64,6 @@ class MapTracksRoutesDrawer extends ConsumerWidget {
                   onChanged: routeAvailability.isAvailable
                       ? (_) {
                           ref.read(mapProvider.notifier).setShowRoutes(!showRoutes);
-                        }
-                      : null,
-                ),
-              ),
-            ),
-            ListTile(
-              title: const Text('Show Trails'),
-              subtitle: routeGraphReadiness.status ==
-                      RouteGraphReadinessStatus.failed
-                  ? const Text(
-                      'Route graph unavailable. Use Refresh Route Graph to retry.',
-                    )
-                  : routeGraphReadiness.status ==
-                        RouteGraphReadinessStatus.preloading
-                      ? const Text('Loading route graph...')
-                      : null,
-              onTap: trailsEnabled
-                  ? () {
-                      ref.read(mapProvider.notifier).toggleTrails();
-                    }
-                  : null,
-              leading: IgnorePointer(
-                child: Switch.adaptive(
-                  key: const Key('show-trails-switch'),
-                  value: showTrails,
-                  onChanged: trailsEnabled
-                      ? (_) {
-                          ref.read(mapProvider.notifier).toggleTrails();
                         }
                       : null,
                 ),

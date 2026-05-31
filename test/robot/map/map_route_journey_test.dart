@@ -644,62 +644,6 @@ void main() {
     expect(robot.savedRoutes().single.gpxRoute.length, greaterThan(6));
     expect(robot.container().read(mapProvider).showRoutes, isTrue);
   });
-
-  testWidgets('trail journey enables the trail overlay from the map rail', (
-    tester,
-  ) async {
-    final robot = MapRouteRobot(
-      tester,
-      MapState(
-        center: const LatLng(-41.5, 146.5),
-        zoom: 15,
-        basemap: Basemap.tracestrack,
-      ),
-      routePlanningOutcomes: const [],
-      routeElevationOutcomes: const [],
-      routeGraphStore: TrailRouteGraphStore(),
-    );
-
-    await robot.pumpApp();
-    await robot.openMap();
-    await tester.pumpAndSettle();
-
-    final showTrailsFab = find.byKey(const Key('show-trails-fab'));
-    await tester.ensureVisible(showTrailsFab);
-    for (var i = 0; i < 20; i++) {
-      if (tester.widget<FloatingActionButton>(showTrailsFab).onPressed != null) {
-        break;
-      }
-      await tester.pump(const Duration(milliseconds: 50));
-    }
-    expect(tester.widget<FloatingActionButton>(showTrailsFab).onPressed, isNotNull);
-    await tester.tap(showTrailsFab);
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const Key('trail-polyline-layer')), findsOneWidget);
-    expect(robot.container().read(mapProvider).showTrails, isTrue);
-
-    final showTracksFab = find.byKey(const Key('show-tracks-fab'));
-    await tester.ensureVisible(showTracksFab);
-    await tester.pumpAndSettle();
-    await tester.tap(showTracksFab);
-    await tester.pumpAndSettle();
-
-    final trailsSwitch = find.byKey(const Key('show-trails-switch'));
-    expect(tester.widget<Switch>(trailsSwitch).value, isTrue);
-    expect(find.byKey(const Key('tracks-routes-drawer')), findsOneWidget);
-
-    await tester.drag(robot.mapInteractionRegion, const Offset(-60, 20));
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const Key('trail-polyline-layer')), findsOneWidget);
-
-    await tester.tap(trailsSwitch);
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const Key('trail-polyline-layer')), findsNothing);
-    expect(robot.container().read(mapProvider).showTrails, isFalse);
-  });
 }
 
 GpxTrack _routeTrack(List<LatLng> points) {

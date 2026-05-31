@@ -7,7 +7,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../core/constants.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
-import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/services/gpx_file_picker.dart';
 import 'package:peak_bagger/widgets/gpx_import_dialog.dart';
@@ -52,11 +51,6 @@ class MapActionRail extends ConsumerWidget {
           hasTrackRecoveryIssue: state.hasTrackRecoveryIssue,
           isRouteDrafting: state.isRouteDrafting,
         ),
-      ),
-    );
-    final routeGraphReady = ref.watch(
-      routeGraphReadinessProvider.select(
-        (state) => state.status != RouteGraphReadinessStatus.failed,
       ),
     );
     ref.watch(routeAvailabilityProvider);
@@ -236,25 +230,6 @@ class MapActionRail extends ConsumerWidget {
                             color: (isLoadingTracks || hasTrackRecoveryIssue)
                                 ? Colors.red
                                 : Theme.of(context).colorScheme.onSurface,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: UiConstants.railSpacing),
-                      LeftTooltipFab(
-                        message: 'Show Trails',
-                        child: FloatingActionButton.small(
-                          key: const Key('show-trails-fab'),
-                          heroTag: 'trails',
-                          backgroundColor:
-                              Theme.of(context).colorScheme.surface,
-                          onPressed: routeGraphReady
-                              ? () {
-                                  ref.read(mapProvider.notifier).toggleTrails();
-                                }
-                              : null,
-                          child: Icon(
-                            Icons.hiking_outlined,
-                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
                       ),

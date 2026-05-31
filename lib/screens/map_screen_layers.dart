@@ -549,10 +549,3 @@ PolylineLayer buildTrackPolylines(
     ],
   );
 }
-
-PolylineLayer buildTrailPolylines(List<Polyline> polylines) {
-  return PolylineLayer(
-    key: const Key('trail-polyline-layer'),
-    polylines: polylines,
-  );
-}
