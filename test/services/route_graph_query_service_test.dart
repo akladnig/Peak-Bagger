@@ -246,6 +246,7 @@ void main() {
               chunkKey: '0_0',
               osmWayId: 18,
               highway: 'track',
+              surface: 'earth',
               access: 'public',
               name: 'Track',
               normalizedName: 'track',
@@ -259,7 +260,7 @@ void main() {
 
     final rows = service.queryTrailWays();
 
-    expect(rows.map((row) => row.osmWayId), [10, 11]);
+    expect(rows.map((row) => row.osmWayId), [10, 11, 18]);
   });
 
   test('queryTrailMergedPayloadsForBounds merges trail chunks only', () {

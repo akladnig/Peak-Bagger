@@ -421,6 +421,10 @@ bool isRouteGraphTrailWayMetadata({
     return true;
   }
 
+  if (highway == 'track' && surface == 'earth') {
+    return true;
+  }
+
   return highway == 'footway' && lengthMeters > 500 && tagCount > 1;
 }
 
