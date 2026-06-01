@@ -119,6 +119,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
   final _viewportUiRevision = ValueNotifier<int>(0);
   Timer? _pendingCameraSaveTimer;
   bool _hasPendingCameraSave = false;
+  String? _dragFrozenReadoutMgrs;
+  String? _dragFrozenReadoutMapName;
   int? _cachedTrackHoverViewportRevision;
   int? _cachedTrackHoverDisplayZoom;
   List<GpxTrack>? _cachedTrackHoverTracks;
@@ -1837,6 +1839,30 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               event.localPosition;
                                           if (event.kind ==
                                               PointerDeviceKind.mouse) {
+                                            final mgrsState = ref.read(
+                                              mapProvider.select(
+                                                (state) => (
+                                                  cursorMgrs: state.cursorMgrs,
+                                                  gotoMgrs: state.gotoMgrs,
+                                                  currentMgrs:
+                                                      state.currentMgrs,
+                                                ),
+                                              ),
+                                            );
+                                            final frozenMgrs =
+                                                mgrsState.cursorMgrs ??
+                                                mgrsState.gotoMgrs ??
+                                                _liveCamera?.mgrs ??
+                                                mgrsState.currentMgrs;
+                                            _dragFrozenReadoutMgrs =
+                                                frozenMgrs;
+                                            _dragFrozenReadoutMapName =
+                                                _mapNotifier.mapNameForMgrs(
+                                                  frozenMgrs,
+                                                );
+                                          }
+                                          if (event.kind ==
+                                              PointerDeviceKind.mouse) {
                                             ref
                                                 .read(mapProvider.notifier)
                                                 .setCursorMgrs(point);
@@ -1864,6 +1890,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                           _pointerDownPosition = null;
                                           _primaryClickPending = false;
                                           _bumpViewportUiRevision();
+                                          _dragFrozenReadoutMgrs = null;
+                                          _dragFrozenReadoutMapName = null;
                                           if (event.kind ==
                                               PointerDeviceKind.mouse) {
                                             ref
@@ -1965,6 +1993,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                           _isPointerDown = false;
                                           _pointerDownPosition = null;
                                           _bumpViewportUiRevision();
+                                          _dragFrozenReadoutMgrs = null;
+                                          _dragFrozenReadoutMapName = null;
                                           _flushPendingCameraPosition();
                                           ref
                                               .read(mapProvider.notifier)
@@ -2226,17 +2256,25 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                           ),
                                         );
                                         final displayMgrs =
-                                            mgrsState.cursorMgrs ??
-                                            mgrsState.gotoMgrs ??
-                                            _liveCamera?.mgrs ??
-                                            mgrsState.currentMgrs;
-                                        final mapName = _mapNotifier
-                                            .mapNameForMgrs(
-                                              mgrsState.cursorMgrs ??
-                                                  mgrsState.gotoMgrs ??
-                                                  _liveCamera?.mgrs ??
-                                                  mgrsState.currentMgrs,
-                                            );
+                                            _isPointerDown &&
+                                                    _dragFrozenReadoutMgrs !=
+                                                        null
+                                                ? _dragFrozenReadoutMgrs!
+                                                : mgrsState.cursorMgrs ??
+                                                    mgrsState.gotoMgrs ??
+                                                    _liveCamera?.mgrs ??
+                                                    mgrsState.currentMgrs;
+                                        final mapName =
+                                            _isPointerDown &&
+                                                    _dragFrozenReadoutMapName !=
+                                                        null
+                                                ? _dragFrozenReadoutMapName!
+                                                : _mapNotifier.mapNameForMgrs(
+                                                    mgrsState.cursorMgrs ??
+                                                        mgrsState.gotoMgrs ??
+                                                        _liveCamera?.mgrs ??
+                                                        mgrsState.currentMgrs,
+                                                  );
                                         return MapMgrsReadout(
                                           mapName: mapName,
                                           mgrs: displayMgrs,
