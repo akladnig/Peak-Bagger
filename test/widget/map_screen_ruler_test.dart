@@ -23,6 +23,8 @@ void main() {
     expect(find.byKey(const Key('map-zoom-readout')), findsOneWidget);
     expect(find.byKey(const Key('map-ruler-distance-text')), findsOneWidget);
     expect(find.byKey(const Key('map-ruler-bar')), findsOneWidget);
+    expect(find.byKey(const Key('map-ruler-left-cap')), findsOneWidget);
+    expect(find.byKey(const Key('map-ruler-right-cap')), findsOneWidget);
     expect(find.byKey(const Key('map-ruler-zoom-text')), findsOneWidget);
     expect(
       find.text(formatDistance(selection.distanceMeters.toDouble())),
@@ -34,8 +36,54 @@ void main() {
       closeTo(selection.barWidth, 0.1),
     );
     expect(
-      tester.widget<Text>(find.byKey(const Key('map-ruler-zoom-text'))).textAlign,
-      TextAlign.right,
+      tester
+          .widget<Text>(find.byKey(const Key('map-ruler-zoom-text')))
+          .textAlign,
+      TextAlign.center,
+    );
+    expect(
+      tester
+          .widget<Text>(find.byKey(const Key('map-ruler-distance-text')))
+          .textAlign,
+      TextAlign.center,
+    );
+    expect(
+      tester.getCenter(find.byKey(const Key('map-ruler-distance-text'))).dx,
+      closeTo(tester.getCenter(find.byKey(const Key('map-ruler-bar'))).dx, 0.1),
+    );
+    expect(
+      tester.getCenter(find.byKey(const Key('map-ruler-zoom-text'))).dx,
+      closeTo(tester.getCenter(find.byKey(const Key('map-ruler-bar'))).dx, 0.1),
+    );
+    expect(
+      tester.getCenter(find.byKey(const Key('map-ruler-distance-text'))).dy,
+      lessThan(
+        tester.getCenter(find.byKey(const Key('map-ruler-left-cap'))).dy,
+      ),
+    );
+    expect(
+      tester.getTopLeft(find.byKey(const Key('map-ruler-distance-text'))).dy,
+      closeTo(
+        tester.getTopLeft(find.byKey(const Key('map-ruler-left-cap'))).dy,
+        0.1,
+      ),
+    );
+    expect(
+      tester.getTopLeft(find.byKey(const Key('map-ruler-zoom-text'))).dy -
+          tester.getBottomLeft(find.byKey(const Key('map-ruler-bar'))).dy,
+      closeTo(0, 0.1),
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('map-ruler-left-cap'))).height,
+      greaterThan(
+        tester.getSize(find.byKey(const Key('map-ruler-bar'))).height,
+      ),
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('map-ruler-right-cap'))).height,
+      greaterThan(
+        tester.getSize(find.byKey(const Key('map-ruler-bar'))).height,
+      ),
     );
   });
 }

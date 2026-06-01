@@ -18,6 +18,11 @@ abstract final class MapConstants {
   static const clearPeakInfo = 8;
   static const mapGridBorderWidth = 2.0;
   static const mapMgrsGridBorderWidth = 1.0;
+  static const showMgrsGridBorderLabelBackground = false;
+  static const mapMgrsGridBorderLabelWidth = 28.0;
+  static const mapMgrsGridBorderLabelHeight = 20.0;
+  static const mapMgrsGridBorderLabelTrimGap = 2.0;
+  static const mapMgrsGridBorderLabelRightInset = 64.0;
   static const mapMgrsGridTenKilometerThreshold = 3;
   static const mapMgrsGridHundredKilometerThreshold = 30;
   static const mapRulerMinBarWidth = 96.0;
@@ -26,7 +31,7 @@ abstract final class MapConstants {
   static const mapRulerVerticalPadding = 4.0;
   static const mapRulerDistanceGap = 6.0;
   static const mapRulerBarHeight = 2.0;
-  static const mapRulerTrailingWidth = 64.0;
+  static const mapRulerEndCapHeight = 20.0;
   static const mapRulerBorderRadius = 4.0;
 }
 
@@ -109,7 +114,7 @@ abstract final class DemConstants {
 }
 
 abstract final class RouteUI {
-  static const width = 3.0;
+  static const width = 2.0;
   static const markerSize = 20.0;
   static const markerMinSize = 14.0;
   static const markerFontSize = 6.0;

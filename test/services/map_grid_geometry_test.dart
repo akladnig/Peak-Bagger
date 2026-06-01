@@ -64,6 +64,122 @@ void main() {
     );
   });
 
+  test('trims gridlines away from border labels when requested', () {
+    final visibleBounds = _boundsFromUtm(
+      westEasting: 440000,
+      eastEasting: 445000,
+      southNorthing: 5399000,
+      northNorthing: 5404000,
+    );
+
+    final untrimmed = buildMapMgrsGridGeometry(
+      visibleBounds: visibleBounds,
+      interval: MapMgrsGridInterval.oneKilometer,
+    );
+    final trimmed = buildMapMgrsGridGeometry(
+      visibleBounds: visibleBounds,
+      interval: MapMgrsGridInterval.oneKilometer,
+      verticalLabelInsetMeters: 1000,
+      horizontalLabelWestInsetMeters: 1000,
+      horizontalLabelEastInsetMeters: 1000,
+    );
+
+    expect(
+      trimmed.lines.first.first.latitude,
+      greaterThan(untrimmed.lines.first.first.latitude),
+    );
+    expect(
+      trimmed.lines.first.last.latitude,
+      lessThan(untrimmed.lines.first.last.latitude),
+    );
+    expect(
+      trimmed.labels.first.anchor.latitude,
+      lessThan(trimmed.lines.first.first.latitude),
+    );
+    expect(
+      trimmed.labels[1].anchor.latitude,
+      greaterThan(trimmed.lines.first.last.latitude),
+    );
+  });
+
+  test('trims the east side of horizontal gridlines independently', () {
+    final visibleBounds = _boundsFromUtm(
+      westEasting: 440000,
+      eastEasting: 445000,
+      southNorthing: 5399000,
+      northNorthing: 5404000,
+    );
+
+    final untrimmed = buildMapMgrsGridGeometry(
+      visibleBounds: visibleBounds,
+      interval: MapMgrsGridInterval.oneKilometer,
+    );
+    final trimmed = buildMapMgrsGridGeometry(
+      visibleBounds: visibleBounds,
+      interval: MapMgrsGridInterval.oneKilometer,
+      horizontalLabelEastInsetMeters: 1000,
+    );
+
+    final untrimmedHorizontal = untrimmed.lines.firstWhere(
+      (line) =>
+          (line.last.longitude - line.first.longitude).abs() >
+          (line.last.latitude - line.first.latitude).abs(),
+    );
+    final trimmedHorizontal = trimmed.lines.firstWhere(
+      (line) =>
+          (line.last.longitude - line.first.longitude).abs() >
+          (line.last.latitude - line.first.latitude).abs(),
+    );
+
+    expect(
+      trimmedHorizontal.last.longitude,
+      lessThan(untrimmedHorizontal.last.longitude),
+    );
+    expect(
+      trimmedHorizontal.first.longitude,
+      equals(untrimmedHorizontal.first.longitude),
+    );
+  });
+
+  test('trims the eastmost vertical easting away from the FAB rail', () {
+    final visibleBounds = _boundsFromUtm(
+      westEasting: 440000,
+      eastEasting: 445000,
+      southNorthing: 5399000,
+      northNorthing: 5404000,
+    );
+
+    final untrimmed = buildMapMgrsGridGeometry(
+      visibleBounds: visibleBounds,
+      interval: MapMgrsGridInterval.oneKilometer,
+    );
+    final trimmed = buildMapMgrsGridGeometry(
+      visibleBounds: visibleBounds,
+      interval: MapMgrsGridInterval.oneKilometer,
+      verticalLineRightInsetMeters: 1000,
+    );
+
+    final untrimmedVertical = untrimmed.lines
+        .where(
+          (line) =>
+              (line.last.latitude - line.first.latitude).abs() >
+              (line.last.longitude - line.first.longitude).abs(),
+        )
+        .reduce((a, b) => a.first.longitude > b.first.longitude ? a : b);
+    final trimmedVertical = trimmed.lines
+        .where(
+          (line) =>
+              (line.last.latitude - line.first.latitude).abs() >
+              (line.last.longitude - line.first.longitude).abs(),
+        )
+        .reduce((a, b) => a.first.longitude > b.first.longitude ? a : b);
+
+    expect(
+      trimmedVertical.first.longitude,
+      lessThan(untrimmedVertical.first.longitude),
+    );
+  });
+
   test('fails closed for unusable bounds', () {
     final geometry = buildMapMgrsGridGeometry(
       visibleBounds: LatLngBounds(

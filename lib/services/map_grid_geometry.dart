@@ -29,11 +29,27 @@ class MapMgrsGridGeometry {
   bool get isEmpty => lines.isEmpty && labels.isEmpty;
 }
 
+class _MapMgrsGridLine {
+  const _MapMgrsGridLine({
+    required this.points,
+    required this.startAnchor,
+    required this.endAnchor,
+  });
+
+  final List<LatLng> points;
+  final LatLng startAnchor;
+  final LatLng endAnchor;
+}
+
 const _lineSampleCount = 16;
 
 MapMgrsGridGeometry buildMapMgrsGridGeometry({
   required LatLngBounds visibleBounds,
   required MapMgrsGridInterval interval,
+  double verticalLabelInsetMeters = 0,
+  double verticalLineRightInsetMeters = 0,
+  double horizontalLabelWestInsetMeters = 0,
+  double horizontalLabelEastInsetMeters = 0,
 }) {
   if (!_hasUsableBounds(visibleBounds)) {
     return const MapMgrsGridGeometry();
@@ -47,18 +63,10 @@ MapMgrsGridGeometry buildMapMgrsGridGeometry({
       LatLng(visibleBounds.north, visibleBounds.east),
     ];
     final utmCorners = corners.map(_utmFromLatLng).toList(growable: false);
-    final minEasting = utmCorners
-        .map((utm) => utm.easting)
-        .reduce(math.min);
-    final maxEasting = utmCorners
-        .map((utm) => utm.easting)
-        .reduce(math.max);
-    final minNorthing = utmCorners
-        .map((utm) => utm.northing)
-        .reduce(math.min);
-    final maxNorthing = utmCorners
-        .map((utm) => utm.northing)
-        .reduce(math.max);
+    final minEasting = utmCorners.map((utm) => utm.easting).reduce(math.min);
+    final maxEasting = utmCorners.map((utm) => utm.easting).reduce(math.max);
+    final minNorthing = utmCorners.map((utm) => utm.northing).reduce(math.min);
+    final maxNorthing = utmCorners.map((utm) => utm.northing).reduce(math.max);
     final centerLongitude = (visibleBounds.west + visibleBounds.east) / 2;
     final zoneNumber = _utmZoneNumberForLongitude(centerLongitude);
     final lines = <List<LatLng>>[];
@@ -66,8 +74,15 @@ MapMgrsGridGeometry buildMapMgrsGridGeometry({
     final intervalMeters = interval.meters;
 
     final startEasting = _alignedStart(minEasting, intervalMeters);
-    final endEasting = _alignedEnd(maxEasting, intervalMeters);
-    for (var easting = startEasting; easting <= endEasting; easting += intervalMeters) {
+    final endEasting = _alignedEnd(
+      maxEasting - verticalLineRightInsetMeters,
+      intervalMeters,
+    );
+    for (
+      var easting = startEasting;
+      easting <= endEasting;
+      easting += intervalMeters
+    ) {
       final line = _buildVerticalLine(
         easting: easting.toDouble(),
         minNorthing: minNorthing,
@@ -75,23 +90,24 @@ MapMgrsGridGeometry buildMapMgrsGridGeometry({
         zoneNumber: zoneNumber,
         southLatitude: visibleBounds.south,
         northLatitude: visibleBounds.north,
+        labelInsetMeters: verticalLabelInsetMeters,
       );
-      if (line.isEmpty) {
+      if (line.points.isEmpty) {
         continue;
       }
-      lines.add(line);
+      lines.add(line.points);
       if (interval == MapMgrsGridInterval.oneKilometer) {
         final label = _twoDigitGridLabel(easting);
         labels.add(
           MapGridBorderLabel(
-            anchor: line.first,
+            anchor: line.startAnchor,
             label: label,
             side: MapGridLabelSide.bottom,
           ),
         );
         labels.add(
           MapGridBorderLabel(
-            anchor: line.last,
+            anchor: line.endAnchor,
             label: label,
             side: MapGridLabelSide.top,
           ),
@@ -101,9 +117,11 @@ MapMgrsGridGeometry buildMapMgrsGridGeometry({
 
     final startNorthing = _alignedStart(minNorthing, intervalMeters);
     final endNorthing = _alignedEnd(maxNorthing, intervalMeters);
-    for (var northing = startNorthing;
-        northing <= endNorthing;
-        northing += intervalMeters) {
+    for (
+      var northing = startNorthing;
+      northing <= endNorthing;
+      northing += intervalMeters
+    ) {
       final line = _buildHorizontalLine(
         northing: northing.toDouble(),
         minEasting: minEasting,
@@ -113,23 +131,25 @@ MapMgrsGridGeometry buildMapMgrsGridGeometry({
         northLatitude: visibleBounds.north,
         minNorthing: minNorthing,
         maxNorthing: maxNorthing,
+        westLabelInsetMeters: horizontalLabelWestInsetMeters,
+        eastLabelInsetMeters: horizontalLabelEastInsetMeters,
       );
-      if (line.isEmpty) {
+      if (line.points.isEmpty) {
         continue;
       }
-      lines.add(line);
+      lines.add(line.points);
       if (interval == MapMgrsGridInterval.oneKilometer) {
         final label = _twoDigitGridLabel(northing);
         labels.add(
           MapGridBorderLabel(
-            anchor: line.first,
+            anchor: line.startAnchor,
             label: label,
             side: MapGridLabelSide.left,
           ),
         );
         labels.add(
           MapGridBorderLabel(
-            anchor: line.last,
+            anchor: line.endAnchor,
             label: label,
             side: MapGridLabelSide.right,
           ),
@@ -158,18 +178,24 @@ int _alignedStart(double value, int intervalMeters) =>
 int _alignedEnd(double value, int intervalMeters) =>
     (value / intervalMeters).floor() * intervalMeters;
 
-List<LatLng> _buildVerticalLine({
+_MapMgrsGridLine _buildVerticalLine({
   required double easting,
   required double minNorthing,
   required double maxNorthing,
   required int zoneNumber,
   required double southLatitude,
   required double northLatitude,
+  required double labelInsetMeters,
 }) {
+  final inset = labelInsetMeters
+      .clamp(0.0, (maxNorthing - minNorthing) / 2)
+      .toDouble();
   final points = <LatLng>[];
+  final lineSouthNorthing = minNorthing + inset;
+  final lineNorthNorthing = maxNorthing - inset;
   for (var i = 0; i < _lineSampleCount; i++) {
     final t = i / (_lineSampleCount - 1);
-    final northing = _lerp(minNorthing, maxNorthing, t);
+    final northing = _lerp(lineSouthNorthing, lineNorthNorthing, t);
     final latitudeGuess = _lerp(southLatitude, northLatitude, t);
     points.add(
       _latLngFromUtm(
@@ -180,10 +206,25 @@ List<LatLng> _buildVerticalLine({
       ),
     );
   }
-  return points;
+
+  return _MapMgrsGridLine(
+    points: points,
+    startAnchor: _latLngFromUtm(
+      easting: easting,
+      northing: minNorthing,
+      zoneNumber: zoneNumber,
+      zoneLetter: _utmZoneLetterForLatitude(southLatitude),
+    ),
+    endAnchor: _latLngFromUtm(
+      easting: easting,
+      northing: maxNorthing,
+      zoneNumber: zoneNumber,
+      zoneLetter: _utmZoneLetterForLatitude(northLatitude),
+    ),
+  );
 }
 
-List<LatLng> _buildHorizontalLine({
+_MapMgrsGridLine _buildHorizontalLine({
   required double northing,
   required double minEasting,
   required double maxEasting,
@@ -192,7 +233,15 @@ List<LatLng> _buildHorizontalLine({
   required double northLatitude,
   required double minNorthing,
   required double maxNorthing,
+  required double westLabelInsetMeters,
+  required double eastLabelInsetMeters,
 }) {
+  final westInset = westLabelInsetMeters
+      .clamp(0.0, (maxEasting - minEasting) / 2)
+      .toDouble();
+  final eastInset = eastLabelInsetMeters
+      .clamp(0.0, (maxEasting - minEasting) / 2)
+      .toDouble();
   final points = <LatLng>[];
   final latitudeGuess = _lerp(
     southLatitude,
@@ -202,9 +251,11 @@ List<LatLng> _buildHorizontalLine({
         : (northing - minNorthing) / (maxNorthing - minNorthing),
   ).clamp(southLatitude, northLatitude).toDouble();
   final zoneLetter = _utmZoneLetterForLatitude(latitudeGuess);
+  final lineWestEasting = minEasting + westInset;
+  final lineEastEasting = maxEasting - eastInset;
   for (var i = 0; i < _lineSampleCount; i++) {
     final t = i / (_lineSampleCount - 1);
-    final easting = _lerp(minEasting, maxEasting, t);
+    final easting = _lerp(lineWestEasting, lineEastEasting, t);
     points.add(
       _latLngFromUtm(
         easting: easting,
@@ -214,7 +265,22 @@ List<LatLng> _buildHorizontalLine({
       ),
     );
   }
-  return points;
+
+  return _MapMgrsGridLine(
+    points: points,
+    startAnchor: _latLngFromUtm(
+      easting: minEasting,
+      northing: northing,
+      zoneNumber: zoneNumber,
+      zoneLetter: zoneLetter,
+    ),
+    endAnchor: _latLngFromUtm(
+      easting: maxEasting,
+      northing: northing,
+      zoneNumber: zoneNumber,
+      zoneLetter: zoneLetter,
+    ),
+  );
 }
 
 double _lerp(double start, double end, double t) => start + (end - start) * t;

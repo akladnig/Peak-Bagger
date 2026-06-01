@@ -85,11 +85,12 @@ class MapZoomReadout extends StatelessWidget {
   Widget build(BuildContext context) {
     final selection = selectMapRulerScale(zoom: zoom, latitude: latitude);
     final distanceLabel = formatDistance(selection.distanceMeters.toDouble());
-    final boxWidth =
-        selection.barWidth +
-        MapConstants.mapRulerDistanceGap +
-        MapConstants.mapRulerTrailingWidth;
-
+    final boxTopInset =
+        MapConstants.mapRulerHorizontalPadding >
+            MapConstants.mapRulerVerticalPadding
+        ? MapConstants.mapRulerHorizontalPadding -
+              MapConstants.mapRulerVerticalPadding
+        : 0.0;
     return Container(
       key: const Key('map-zoom-readout'),
       padding: const EdgeInsets.symmetric(
@@ -101,41 +102,76 @@ class MapZoomReadout extends StatelessWidget {
         borderRadius: BorderRadius.circular(MapConstants.mapRulerBorderRadius),
       ),
       child: SizedBox(
-        width: boxWidth,
-        child: Row(
+        width: selection.barWidth,
+        child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            SizedBox(
-              width: selection.barWidth,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    distanceLabel,
-                    key: const Key('map-ruler-distance-text'),
-                    style: mapRulerTextStyle(context),
-                  ),
-                  const SizedBox(height: 2),
-                  Container(
-                    key: const Key('map-ruler-bar'),
-                    width: selection.barWidth,
-                    height: MapConstants.mapRulerBarHeight,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ],
+            Padding(
+              padding: EdgeInsets.only(top: boxTopInset),
+              child: SizedBox(
+                width: selection.barWidth,
+                height: MapConstants.mapRulerEndCapHeight,
+                child: Stack(
+                  children: [
+                    Positioned(
+                      left: 0,
+                      bottom: 0,
+                      child: Container(
+                        key: const Key('map-ruler-left-cap'),
+                        width: MapConstants.mapRulerBarHeight,
+                        height: MapConstants.mapRulerEndCapHeight,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        key: const Key('map-ruler-right-cap'),
+                        width: MapConstants.mapRulerBarHeight,
+                        height: MapConstants.mapRulerEndCapHeight,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        key: const Key('map-ruler-bar'),
+                        height: MapConstants.mapRulerBarHeight,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      child: Text(
+                        distanceLabel,
+                        key: const Key('map-ruler-distance-text'),
+                        textAlign: TextAlign.center,
+                        textHeightBehavior: const TextHeightBehavior(
+                          applyHeightToFirstAscent: false,
+                          applyHeightToLastDescent: false,
+                        ),
+                        style: mapRulerTextStyle(context),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(width: MapConstants.mapRulerDistanceGap),
-            SizedBox(
-              width: MapConstants.mapRulerTrailingWidth,
-              child: Text(
-                'zoom: ${formatCount(zoom.round())}',
-                key: const Key('map-ruler-zoom-text'),
-                textAlign: TextAlign.right,
-                style: mapRulerTextStyle(context),
+            Text(
+              'zoom: ${formatCount(zoom.round())}',
+              key: const Key('map-ruler-zoom-text'),
+              textAlign: TextAlign.center,
+              textHeightBehavior: const TextHeightBehavior(
+                applyHeightToFirstAscent: false,
+                applyHeightToLastDescent: false,
               ),
+              style: mapRulerTextStyle(context),
             ),
           ],
         ),
