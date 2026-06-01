@@ -1301,7 +1301,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
   @override
   void dispose() {
-    _flushPendingCameraPosition();
+    _pendingCameraSaveTimer?.cancel();
+    _pendingCameraSaveTimer = null;
+    _hasPendingCameraSave = false;
+    _liveCamera = null;
     WidgetsBinding.instance.removeObserver(this);
     _scrollTimer?.cancel();
     _routeGraphPrefetchTimer?.cancel();
@@ -2213,7 +2216,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                             mgrsState.gotoMgrs ??
                                             _liveCamera?.mgrs ??
                                             mgrsState.currentMgrs;
+                                        final mapName = _mapNotifier
+                                            .mapNameForMgrs(
+                                              _liveCamera?.mgrs ??
+                                                  mgrsState.currentMgrs,
+                                            );
                                         return MapMgrsReadout(
+                                          mapName: mapName,
                                           mgrs: displayMgrs,
                                         );
                                       },

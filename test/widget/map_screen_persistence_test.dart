@@ -6,10 +6,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/migration_marker_store.dart';
@@ -28,6 +30,7 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         mapProvider.overrideWith(() => notifier),
+        tasmapRepositoryProvider.overrideWithValue(notifier.tasmapRepository),
         peakListRepositoryProvider.overrideWithValue(
           PeakListRepository.test(InMemoryPeakListStorage()),
         ),
@@ -98,6 +101,7 @@ void main() {
       tester.element(find.byKey(const Key('shared-app-bar'))),
     );
     final initialMgrs = container.read(mapProvider).currentMgrs;
+    final initialDisplayMgrs = _formatMgrs(initialMgrs);
 
     final gesture = await tester.startGesture(tester.getCenter(region));
     await gesture.moveBy(const Offset(80, 0));
@@ -105,9 +109,40 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(container.read(mapProvider).currentMgrs, initialMgrs);
-    expect(_mgrsReadoutText(tester), isNot(initialMgrs));
+    expect(_mgrsReadoutMapName(tester), isNotEmpty);
+    expect(_mgrsReadoutText(tester), isNot(initialDisplayMgrs));
+    expect(_mgrsReadoutText(tester), isNot(contains('\n')));
+    expect(_mgrsReadoutText(tester), contains('55G '));
 
     await gesture.up();
+  });
+
+  testWidgets('map readout resolves the center map name', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final repo = await TestTasmapRepository.create();
+    final map = repo.getAllMaps().first;
+    final midpoint = mgrs.Mgrs.toPoint(
+      '55G${map.mgrsMid} ${map.eastingMid.toString().padLeft(5, '0')} '
+      '${map.northingMid.toString().padLeft(5, '0')}',
+    );
+    final center = LatLng(midpoint[1], midpoint[0]);
+    final notifier = await _buildCountingNotifier();
+    await _pumpApp(tester, notifier);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shared-app-bar'))),
+    );
+    container.read(mapProvider.notifier).updatePosition(
+      center,
+      container.read(mapProvider).zoom,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final currentMgrs = container.read(mapProvider).currentMgrs;
+    final expectedName =
+        repo.findByMgrsCodeAndCoordinates(currentMgrs)?.name ?? 'Unknown';
+    expect(_mgrsReadoutMapName(tester), expectedName);
   });
 
   testWidgets('drag debounce commits fewer canonical syncs than motion updates', (
@@ -350,12 +385,30 @@ Future<void> _drainAsync() async {
 }
 
 String _mgrsReadoutText(WidgetTester tester) {
-  final readout = find.descendant(
+  final textFinder = find.descendant(
+    of: find.byKey(const Key('map-mgrs-readout')),
+    matching: find.byType(Text),
+  );
+  final texts = tester.widgetList<Text>(textFinder).toList(growable: false);
+  return texts.single.data ?? '';
+}
+
+String _mgrsReadoutMapName(WidgetTester tester) {
+  final richTextFinder = find.descendant(
     of: find.byKey(const Key('map-mgrs-readout')),
     matching: find.byType(RichText),
   );
-  final richText = tester.widget<RichText>(readout);
-  return richText.text.toPlainText();
+  final richTexts = tester.widgetList<RichText>(richTextFinder).toList(growable: false);
+  return richTexts.first.text.toPlainText();
+}
+
+String _formatMgrs(String mgrs) {
+  final lines = mgrs.split('\n');
+  if (lines.length < 2 || lines[0].length < 5) {
+    return mgrs.replaceFirst('\n', ' ');
+  }
+
+  return '${lines[0].substring(0, 3)} ${lines[0].substring(3)} ${lines[1]}';
 }
 
 class _CountingMapNotifier extends MapNotifier {

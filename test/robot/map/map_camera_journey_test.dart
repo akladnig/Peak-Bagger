@@ -59,6 +59,20 @@ void main() {
 
     expect(find.byKey(const Key('map-mgrs-readout')), findsOneWidget);
     expect(find.byKey(const Key('map-zoom-readout')), findsOneWidget);
+    expect(
+      tester
+          .widgetList<RichText>(
+            find.descendant(
+              of: find.byKey(const Key('map-mgrs-readout')),
+              matching: find.byType(RichText),
+            ),
+          )
+          .first
+          .text
+          .toPlainText(),
+      isNotEmpty,
+    );
+    expect(find.textContaining('55G '), findsOneWidget);
     expect(MapRebuildDebugCounters.routeRootBuilds, routeRootBuilds);
     expect(MapRebuildDebugCounters.actionRailBuilds, actionRailBuilds);
 

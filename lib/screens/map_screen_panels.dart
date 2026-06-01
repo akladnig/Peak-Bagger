@@ -57,8 +57,13 @@ PeakInfoPopupPlacement resolvePeakInfoPopupPlacement({
 }
 
 class MapMgrsReadout extends StatelessWidget {
-  const MapMgrsReadout({required this.mgrs, super.key});
+  const MapMgrsReadout({
+    required this.mapName,
+    required this.mgrs,
+    super.key,
+  });
 
+  final String mapName;
   final String mgrs;
 
   @override
@@ -70,7 +75,30 @@ class MapMgrsReadout extends StatelessWidget {
         color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(4),
       ),
-      child: _MapMgrsText(mgrs: mgrs),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RichText(
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            text: TextSpan(
+              text: mapName,
+              style: (Theme.of(context).textTheme.bodySmall ?? const TextStyle())
+                  .copyWith(fontWeight: FontWeight.bold),
+            ),
+          ),
+          Text(
+            _formatMgrs(mgrs),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: (Theme.of(context).textTheme.bodySmall ?? const TextStyle())
+                .copyWith(
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1120,53 +1148,11 @@ class _PeakInfoLabeledValueRow extends StatelessWidget {
   }
 }
 
-class _MapMgrsText extends StatelessWidget {
-  const _MapMgrsText({required this.mgrs});
-
-  final String mgrs;
-
-  @override
-  Widget build(BuildContext context) {
-    final lines = mgrs.split('\n');
-    if (lines.length < 2) {
-      return Text(mgrs, style: _textStyle(context));
-    }
-
-    final firstLine = lines[0];
-    final secondLine = lines[1];
-    final parts = secondLine.split(' ');
-    if (parts.length < 2) {
-      return Text(mgrs, style: _textStyle(context));
-    }
-
-    final easting = parts[0];
-    final northing = parts[1];
-
-    return RichText(
-      text: TextSpan(
-        style: _textStyle(context),
-        children: [
-          TextSpan(text: '$firstLine\n'),
-          TextSpan(
-            text: easting.substring(0, 3),
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          TextSpan(text: '${easting.substring(3)} '),
-          TextSpan(
-            text: northing.substring(0, 3),
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          TextSpan(text: northing.substring(3)),
-        ],
-      ),
-    );
+String _formatMgrs(String mgrs) {
+  final lines = mgrs.split('\n');
+  if (lines.length < 2 || lines[0].length < 5) {
+    return mgrs.replaceFirst('\n', ' ');
   }
 
-  TextStyle _textStyle(BuildContext context) {
-    return TextStyle(
-      fontFamily: 'monospace',
-      fontSize: 12,
-      color: Theme.of(context).colorScheme.onSurface,
-    );
-  }
+  return '${lines[0].substring(0, 3)} ${lines[0].substring(3)} ${lines[1]}';
 }
