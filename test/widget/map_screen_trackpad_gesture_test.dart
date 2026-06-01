@@ -256,10 +256,7 @@ void main() {
 
 double _zoomReadoutValue(WidgetTester tester) {
   final text = tester.widget<Text>(
-    find.descendant(
-      of: find.byKey(const Key('map-zoom-readout')),
-      matching: find.byType(Text),
-    ),
+    find.byKey(const Key('map-ruler-zoom-text')),
   );
   return double.parse(text.data!.replaceFirst('zoom: ', ''));
 }

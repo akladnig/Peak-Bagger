@@ -2223,7 +2223,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                   Positioned(
                                     left: 16,
                                     bottom: 16,
-                                    child: MapZoomReadout(zoom: displayZoom),
+                                    child: MapZoomReadout(
+                                      zoom: displayZoom,
+                                      latitude: mapScene.center.latitude,
+                                    ),
                                   ),
                                 Positioned(
                                   left: 16,

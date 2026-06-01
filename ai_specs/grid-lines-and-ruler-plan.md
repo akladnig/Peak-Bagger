@@ -42,18 +42,18 @@ Phase 1: state/geometry slice; Phase 2: labeling/grid polish; Phase 3: ruler UI 
 ### Phase 3: Ruler UI And Journeys
 
 - **Goal**: replace zoom chip; lock user-visible behavior + journeys
-- [ ] `lib/screens/map_screen_panels.dart` - replace `MapZoomReadout` body with ruler UI; preserve outer key `map-zoom-readout`; right-align zoom text
-- [ ] `lib/screens/map_screen.dart` - keep ruler placement + hidden route/track-info states identical to old readout
-- [ ] `test/services/map_ruler_scale_test.dart` - cover step selection, width band, clamp behavior
-- [ ] `test/services/map_grid_geometry_test.dart` - cover interval/label seams, invalid-frame fail-closed behavior
-- [ ] `test/widget/tasmap_display_mode_test.dart` - update for new grid-visibility contract + tooltip sequence
-- [ ] `test/widget/map_screen_layers_test.dart` - cover layer keys/tokens/switching
-- [ ] `test/widget/map_screen_ruler_test.dart` - cover preserved key, layout, right-aligned zoom, hidden route/track-info states
-- [ ] `test/robot/map/map_grid_robot.dart` - add key-first robot helpers/selectors
-- [ ] `test/robot/map/map_grid_and_ruler_journey_test.dart` - cover FAB cycle + live readout/grid journey; deterministic harness only
-- [ ] TDD: ruler widget preserves key + visibility contract before visual polish
-- [ ] Robot journey tests + selectors/seams for critical flows
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/screens/map_screen_panels.dart` - replace `MapZoomReadout` body with ruler UI; preserve outer key `map-zoom-readout`; right-align zoom text
+- [x] `lib/screens/map_screen.dart` - keep ruler placement + hidden route/track-info states identical to old readout
+- [x] `test/services/map_ruler_scale_test.dart` - cover step selection, width band, clamp behavior
+- [x] `test/services/map_grid_geometry_test.dart` - cover interval/label seams, invalid-frame fail-closed behavior
+- [x] `test/widget/tasmap_display_mode_test.dart` - update for new grid-visibility contract + tooltip sequence
+- [x] `test/widget/map_screen_layers_test.dart` - cover layer keys/tokens/switching
+- [x] `test/widget/map_screen_ruler_test.dart` - cover preserved key, layout, right-aligned zoom, hidden route/track-info states
+- [x] `test/robot/map/map_grid_robot.dart` - add key-first robot helpers/selectors
+- [x] `test/robot/map/map_grid_and_ruler_journey_test.dart` - cover FAB cycle + live readout/grid journey; deterministic harness only
+- [x] TDD: ruler widget preserves key + visibility contract before visual polish
+- [x] Robot journey tests + selectors/seams for critical flows
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 
