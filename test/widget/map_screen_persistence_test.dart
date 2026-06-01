@@ -117,29 +117,30 @@ void main() {
     await gesture.up();
   });
 
-  testWidgets('map readout resolves the center map name', (tester) async {
+  testWidgets('map readout resolves the cursor map name', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final repo = await TestTasmapRepository.create();
     final map = repo.getAllMaps().first;
-    final midpoint = mgrs.Mgrs.toPoint(
-      '55G${map.mgrsMid} ${map.eastingMid.toString().padLeft(5, '0')} '
-      '${map.northingMid.toString().padLeft(5, '0')}',
-    );
-    final center = LatLng(midpoint[1], midpoint[0]);
     final notifier = await _buildCountingNotifier();
     await _pumpApp(tester, notifier);
 
     final container = ProviderScope.containerOf(
       tester.element(find.byKey(const Key('shared-app-bar'))),
     );
+    final cursorPoint = mgrs.Mgrs.toPoint(
+      '55G${map.mgrsMid} ${map.eastingMid.toString().padLeft(5, '0')} '
+      '${map.northingMid.toString().padLeft(5, '0')}',
+    );
+    final cursorLatLng = LatLng(cursorPoint[1], cursorPoint[0]);
     container.read(mapProvider.notifier).updatePosition(
-      center,
+      cursorLatLng,
       container.read(mapProvider).zoom,
     );
+    container.read(mapProvider.notifier).setCursorMgrs(cursorLatLng);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    final currentMgrs = container.read(mapProvider).currentMgrs;
+    final currentMgrs = container.read(mapProvider).cursorMgrs!;
     final expectedName =
         repo.findByMgrsCodeAndCoordinates(currentMgrs)?.name ?? 'Unknown';
     expect(_mgrsReadoutMapName(tester), expectedName);

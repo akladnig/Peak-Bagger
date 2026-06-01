@@ -2218,7 +2218,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                             mgrsState.currentMgrs;
                                         final mapName = _mapNotifier
                                             .mapNameForMgrs(
-                                              _liveCamera?.mgrs ??
+                                              mgrsState.cursorMgrs ??
+                                                  mgrsState.gotoMgrs ??
+                                                  _liveCamera?.mgrs ??
                                                   mgrsState.currentMgrs,
                                             );
                                         return MapMgrsReadout(
