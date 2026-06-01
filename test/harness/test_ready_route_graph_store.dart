@@ -5,6 +5,9 @@ import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
 class TestReadyRouteGraphStore implements RouteGraphStore {
   @override
+  Future<void> bootstrapData() async {}
+
+  @override
   Future<trip_routing.TripService> preload() async => trip_routing.TripService();
 
   @override

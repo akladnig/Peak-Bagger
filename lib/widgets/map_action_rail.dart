@@ -45,12 +45,13 @@ class MapActionRail extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     MapRebuildDebugCounters.recordActionRailBuild();
-    final (:isLoadingTracks, :hasTrackRecoveryIssue, :isRouteDrafting) = ref.watch(
+    final (:isLoadingTracks, :hasTrackRecoveryIssue, :isRouteDrafting, :mapGridTooltip) = ref.watch(
       mapProvider.select(
         (state) => (
           isLoadingTracks: state.isLoadingTracks,
           hasTrackRecoveryIssue: state.hasTrackRecoveryIssue,
           isRouteDrafting: state.isRouteDrafting,
+          mapGridTooltip: state.mapGridTooltipMessage,
         ),
       ),
     );
@@ -176,7 +177,7 @@ class MapActionRail extends ConsumerWidget {
                       ),
                       const SizedBox(height: UiConstants.railSpacing),
                       LeftTooltipFab(
-                        message: 'Show Map Grid',
+                        message: mapGridTooltip,
                         child: FloatingActionButton.small(
                           key: const Key('grid-map-fab'),
                           heroTag: 'grid',

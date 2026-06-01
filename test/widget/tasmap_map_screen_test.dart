@@ -150,7 +150,7 @@ void main() {
       notifier.state.center.longitude,
       moreOrLessEquals(expectedCenter.longitude, epsilon: 0.001),
     );
-    expect(find.byType(TasmapOutlineLayer), findsOneWidget);
+    expect(find.byType(TasmapOutlineLayer), findsNothing);
   });
 
   testWidgets('selected track fits to extent on mount', (tester) async {
@@ -780,12 +780,11 @@ void main() {
 
     await tester.pump();
 
-    final flutterMap = tester.widget<FlutterMap>(find.byType(FlutterMap));
-    final children = flutterMap.children;
-    final trackIndex = children.indexWhere((child) => child is PolylineLayer);
-    final peakIndex = children.indexWhere(
-      (child) =>
-          child is MarkerLayer && child.key == const Key('peak-marker-layer'),
+    final widgets = tester.allWidgets.toList(growable: false);
+    final trackIndex = widgets.indexWhere((widget) => widget is PolylineLayer);
+    final peakIndex = widgets.indexWhere(
+      (widget) =>
+          widget is MarkerLayer && widget.key == const Key('peak-marker-layer'),
     );
 
     expect(trackIndex, greaterThanOrEqualTo(0));

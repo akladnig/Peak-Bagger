@@ -405,6 +405,9 @@ class _QueueRouteElevationSampler implements RouteElevationSampler {
 
 class _ReadyRouteGraphStore implements RouteGraphStore {
   @override
+  Future<void> bootstrapData() async {}
+
+  @override
   Future<trip_routing.TripService> preload() async => trip_routing.TripService();
 
   @override
@@ -418,6 +421,9 @@ class _ReadyRouteGraphStore implements RouteGraphStore {
 }
 
 class TrailRouteGraphStore implements RouteGraphStore, RouteGraphRepositoryProvider {
+  @override
+  Future<void> bootstrapData() async {}
+
   TrailRouteGraphStore()
     : repository = RouteGraphRepository.test(
         InMemoryRouteGraphStorage(

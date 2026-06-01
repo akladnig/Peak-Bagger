@@ -9,6 +9,7 @@ import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/services/map_ruler_scale.dart';
 import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/peak_search_results_list.dart';
 
@@ -75,24 +76,104 @@ class MapMgrsReadout extends StatelessWidget {
 }
 
 class MapZoomReadout extends StatelessWidget {
-  const MapZoomReadout({required this.zoom, super.key});
+  const MapZoomReadout({required this.zoom, required this.latitude, super.key});
 
   final double zoom;
+  final double latitude;
 
   @override
   Widget build(BuildContext context) {
+    final selection = selectMapRulerScale(zoom: zoom, latitude: latitude);
+    final distanceLabel = formatDistance(selection.distanceMeters.toDouble());
+    final boxTopInset =
+        MapConstants.mapRulerHorizontalPadding >
+            MapConstants.mapRulerVerticalPadding
+        ? MapConstants.mapRulerHorizontalPadding -
+              MapConstants.mapRulerVerticalPadding
+        : 0.0;
     return Container(
       key: const Key('map-zoom-readout'),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: MapConstants.mapRulerHorizontalPadding,
+        vertical: MapConstants.mapRulerVerticalPadding,
+      ),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(MapConstants.mapRulerBorderRadius),
       ),
-      child: Text(
-        'zoom: ${formatCount(zoom.round())}',
-        style: TextStyle(
-          fontSize: 12,
-          color: Theme.of(context).colorScheme.onSurface,
+      child: SizedBox(
+        width: selection.barWidth,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Padding(
+              padding: EdgeInsets.only(top: boxTopInset),
+              child: SizedBox(
+                width: selection.barWidth,
+                height: MapConstants.mapRulerEndCapHeight,
+                child: Stack(
+                  children: [
+                    Positioned(
+                      left: 0,
+                      bottom: 0,
+                      child: Container(
+                        key: const Key('map-ruler-left-cap'),
+                        width: MapConstants.mapRulerBarHeight,
+                        height: MapConstants.mapRulerEndCapHeight,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        key: const Key('map-ruler-right-cap'),
+                        width: MapConstants.mapRulerBarHeight,
+                        height: MapConstants.mapRulerEndCapHeight,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        key: const Key('map-ruler-bar'),
+                        height: MapConstants.mapRulerBarHeight,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      child: Text(
+                        distanceLabel,
+                        key: const Key('map-ruler-distance-text'),
+                        textAlign: TextAlign.center,
+                        textHeightBehavior: const TextHeightBehavior(
+                          applyHeightToFirstAscent: false,
+                          applyHeightToLastDescent: false,
+                        ),
+                        style: mapRulerTextStyle(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Text(
+              'zoom: ${formatCount(zoom.round())}',
+              key: const Key('map-ruler-zoom-text'),
+              textAlign: TextAlign.center,
+              textHeightBehavior: const TextHeightBehavior(
+                applyHeightToFirstAscent: false,
+                applyHeightToLastDescent: false,
+              ),
+              style: mapRulerTextStyle(context),
+            ),
+          ],
         ),
       ),
     );

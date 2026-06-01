@@ -8,6 +8,8 @@ import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/route_marker_display.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/services/map_grid_geometry.dart';
+import 'package:peak_bagger/services/map_ruler_scale.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/widgets/route_marker.dart';
 import 'package:peak_bagger/widgets/tasmap_outline_layer.dart';
@@ -77,13 +79,156 @@ List<Polygon> buildAllMapRectangles(TasmapRepository repo) {
       Polygon(
         points: points,
         color: Colors.transparent,
-        borderColor: Colors.blue,
-        borderStrokeWidth: 2,
+        borderColor: mapGridColour,
+        borderStrokeWidth: MapConstants.mapGridBorderWidth,
       ),
     );
   }
 
   return polygons;
+}
+
+MapMgrsGridGeometry buildVisibleMgrsGridGeometry({
+  required LatLngBounds visibleBounds,
+  required double zoom,
+  required double latitude,
+}) {
+  final rulerScale = selectMapRulerScale(zoom: zoom, latitude: latitude);
+  final interval = mapMgrsGridIntervalForRulerMeters(rulerScale.distanceMeters);
+  final metersPerPixel = mapMetersPerPixel(zoom: zoom, latitude: latitude);
+  final verticalLabelInsetMeters =
+      MapConstants.showMgrsGridBorderLabelBackground ||
+          interval != MapMgrsGridInterval.oneKilometer
+      ? 0.0
+      : (MapConstants.mapMgrsGridBorderLabelHeight +
+                MapConstants.mapMgrsGridBorderLabelTrimGap) *
+            metersPerPixel;
+  final horizontalLabelInsetMeters =
+      MapConstants.showMgrsGridBorderLabelBackground ||
+          interval != MapMgrsGridInterval.oneKilometer
+      ? 0.0
+      : (MapConstants.mapMgrsGridBorderLabelWidth +
+                MapConstants.mapMgrsGridBorderLabelTrimGap) *
+            metersPerPixel;
+  final horizontalLabelRightInsetMeters =
+      MapConstants.showMgrsGridBorderLabelBackground ||
+          interval != MapMgrsGridInterval.oneKilometer
+      ? 0.0
+      : (MapConstants.mapMgrsGridBorderLabelRightInset +
+                MapConstants.mapMgrsGridBorderLabelWidth +
+                MapConstants.mapMgrsGridBorderLabelTrimGap) *
+            metersPerPixel;
+  final verticalLineRightInsetMeters =
+      interval != MapMgrsGridInterval.oneKilometer
+      ? 0.0
+      : (MapConstants.mapMgrsGridBorderLabelRightInset +
+                MapConstants.mapMgrsGridBorderLabelWidth +
+                MapConstants.mapMgrsGridBorderLabelTrimGap) *
+            metersPerPixel;
+  return buildMapMgrsGridGeometry(
+    visibleBounds: visibleBounds,
+    interval: interval,
+    verticalLabelInsetMeters: verticalLabelInsetMeters,
+    verticalLineRightInsetMeters: verticalLineRightInsetMeters,
+    horizontalLabelWestInsetMeters: horizontalLabelInsetMeters,
+    horizontalLabelEastInsetMeters: horizontalLabelRightInsetMeters,
+  );
+}
+
+PolylineLayer buildMgrsGridLayer(MapMgrsGridGeometry geometry) {
+  return PolylineLayer(
+    key: const Key('mgrs-grid-layer'),
+    polylines: [
+      for (final line in geometry.lines)
+        Polyline(
+          points: line,
+          color: mapGridColour,
+          strokeWidth: MapConstants.mapMgrsGridBorderWidth,
+        ),
+    ],
+  );
+}
+
+class MapMgrsGridLabelLayer extends StatelessWidget {
+  const MapMgrsGridLabelLayer({required this.labels, super.key});
+
+  final List<MapGridBorderLabel> labels;
+
+  @override
+  Widget build(BuildContext context) {
+    final camera = MapCamera.of(context);
+    final widgets = <Widget>[];
+
+    for (final label in labels) {
+      final offset = camera.latLngToScreenOffset(label.anchor);
+      if (!offset.dx.isFinite || !offset.dy.isFinite) {
+        continue;
+      }
+      widgets.add(_MapMgrsGridBorderLabelWidget(label: label, offset: offset));
+    }
+
+    return MobileLayerTransformer(
+      child: Stack(key: const Key('mgrs-grid-label-layer'), children: widgets),
+    );
+  }
+}
+
+class _MapMgrsGridBorderLabelWidget extends StatelessWidget {
+  const _MapMgrsGridBorderLabelWidget({
+    required this.label,
+    required this.offset,
+  });
+
+  final MapGridBorderLabel label;
+  final Offset offset;
+
+  @override
+  Widget build(BuildContext context) {
+    final left = switch (label.side) {
+      MapGridLabelSide.left => 0.0,
+      MapGridLabelSide.right => null,
+      MapGridLabelSide.top || MapGridLabelSide.bottom =>
+        offset.dx - MapConstants.mapMgrsGridBorderLabelWidth / 2,
+    };
+    final right = label.side == MapGridLabelSide.right
+        ? MapConstants.mapMgrsGridBorderLabelRightInset
+        : null;
+    final top = switch (label.side) {
+      MapGridLabelSide.top => 0.0,
+      MapGridLabelSide.bottom => null,
+      MapGridLabelSide.left || MapGridLabelSide.right =>
+        offset.dy - MapConstants.mapMgrsGridBorderLabelHeight / 2,
+    };
+    final bottom = label.side == MapGridLabelSide.bottom ? 0.0 : null;
+
+    return Positioned(
+      left: left,
+      right: right,
+      top: top,
+      bottom: bottom,
+      child: IgnorePointer(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: MapConstants.showMgrsGridBorderLabelBackground
+                ? Theme.of(context).colorScheme.surface.withValues(alpha: 0.8)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            child: Text(
+              label.label,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+                color: mapGridColour,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 List<Marker> buildPeakMarkers({
@@ -412,12 +557,18 @@ class _RouteDraftMarkerHoverTarget extends StatelessWidget {
       onEnter: onHoverEnter == null ? null : (_) => onHoverEnter!(marker.id),
       onExit: onHoverExit == null ? null : (_) => onHoverExit!(marker.id),
       child: Listener(
-        onPointerDown: onPointerDown == null ? null : (_) => onPointerDown!(marker.id),
+        onPointerDown: onPointerDown == null
+            ? null
+            : (_) => onPointerDown!(marker.id),
         onPointerMove: onPointerMove == null
             ? null
             : (event) => onPointerMove!(marker.id, event.delta),
-        onPointerUp: onPointerUp == null ? null : (_) => onPointerUp!(marker.id),
-        onPointerCancel: onPointerUp == null ? null : (_) => onPointerUp!(marker.id),
+        onPointerUp: onPointerUp == null
+            ? null
+            : (_) => onPointerUp!(marker.id),
+        onPointerCancel: onPointerUp == null
+            ? null
+            : (_) => onPointerUp!(marker.id),
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onTap == null ? null : () => onTap!(marker.id),

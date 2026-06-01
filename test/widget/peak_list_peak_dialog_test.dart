@@ -119,7 +119,7 @@ void main() {
       'Alpha, Zeta',
     );
     expect(
-      find.text('55G AB 12345 54321 (-41.00000, 146.00000)'),
+      find.text('55G AB 12345 54321 (-41.000000, 146.000000)'),
       findsOneWidget,
     );
     expect(find.byKey(const Key('peak-list-peak-map-link')), findsOneWidget);

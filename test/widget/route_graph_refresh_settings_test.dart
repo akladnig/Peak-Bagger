@@ -285,6 +285,9 @@ class _TestRouteGraphRefreshService extends RouteGraphRefreshService {
 
 class _NoopRouteGraphStore implements RouteGraphStore {
   @override
+  Future<void> bootstrapData() async {}
+
+  @override
   Future<trip_routing.TripService> preload() async => trip_routing.TripService();
 
   @override

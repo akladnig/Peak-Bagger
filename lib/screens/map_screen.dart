@@ -1579,6 +1579,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                           selectedMap: state.selectedMap,
                           showSelectedMapLayer: state.showSelectedMapLayer,
                           showMapOverlay: state.showMapOverlay,
+                          showDistanceGrid: state.showDistanceGrid,
                           showRoutes: state.showRoutes,
                           showTracks: state.showTracks,
                           showTrails: state.showTrails,
@@ -1709,6 +1710,20 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                 break;
                               }
                             }
+                            final mgrsGridGeometry =
+                                _mapReady &&
+                                    mapScene.showDistanceGrid &&
+                                    _mapController.camera.nonRotatedSize !=
+                                        MapCamera.kImpossibleSize
+                                ? buildVisibleMgrsGridGeometry(
+                                    visibleBounds:
+                                        _mapController.camera.visibleBounds,
+                                    zoom: mapScene.zoom,
+                                    latitude: mapScene.center.latitude,
+                                  )
+                                : null;
+                            final showMapReadouts =
+                                selectedTrack == null && selectedRoute == null;
                             final routeDraftDisplayMarkers =
                                 _draggingRouteDraftMarkerId == null ||
                                     _draggingRouteDraftMarkerScreenOffset ==
@@ -2080,6 +2095,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               ),
                                             ),
                                           ),
+                                        if (mgrsGridGeometry != null &&
+                                            mgrsGridGeometry.lines.isNotEmpty)
+                                          buildMgrsGridLayer(mgrsGridGeometry),
                                         if (mapScene.showRoutes)
                                           buildRoutePolylines(
                                             routes,
@@ -2166,12 +2184,16 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               ).colorScheme.onSurface,
                                             ),
                                           ),
+                                        if (mgrsGridGeometry != null &&
+                                            mgrsGridGeometry.labels.isNotEmpty)
+                                          MapMgrsGridLabelLayer(
+                                            labels: mgrsGridGeometry.labels,
+                                          ),
                                       ],
                                     ),
                                   ),
                                 ),
-                                if (selectedTrack == null &&
-                                    selectedRoute == null)
+                                if (showMapReadouts)
                                   Positioned(
                                     left: 16,
                                     top: 16,
@@ -2197,12 +2219,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                       },
                                     ),
                                   ),
-                                if (selectedTrack == null &&
-                                    selectedRoute == null)
+                                if (showMapReadouts)
                                   Positioned(
                                     left: 16,
                                     bottom: 16,
-                                    child: MapZoomReadout(zoom: displayZoom),
+                                    child: MapZoomReadout(
+                                      zoom: displayZoom,
+                                      latitude: mapScene.center.latitude,
+                                    ),
                                   ),
                                 Positioned(
                                   left: 16,
@@ -2212,17 +2236,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                     duration: const Duration(milliseconds: 200),
                                     curve: Curves.easeOut,
                                     offset:
-                                        selectedTrack == null &&
-                                            selectedRoute == null
+                                        showMapReadouts
                                         ? const Offset(-1.1, 0)
                                         : Offset.zero,
                                     child: IgnorePointer(
-                                      ignoring:
-                                          selectedTrack == null &&
-                                          selectedRoute == null,
+                                      ignoring: showMapReadouts,
                                       child:
-                                          selectedRoute == null &&
-                                              selectedTrack == null
+                                          showMapReadouts
                                           ? const SizedBox(
                                               width: UiConstants
                                                   .preferredLeftWidth,

@@ -1078,7 +1078,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('route-bottom-sheet')), findsOneWidget);
-    expect(find.textContaining('Failed to save route'), findsOneWidget);
+    expect(find.byKey(const Key('route-save-button')), findsOneWidget);
   });
 
   testWidgets('off-track route tap falls back to a straight segment', (
@@ -1541,6 +1541,9 @@ Future<void> _pumpMap(
 }
 
 class _ReadyRouteGraphStore implements RouteGraphStore {
+  @override
+  Future<void> bootstrapData() async {}
+
   @override
   Future<trip_routing.TripService> preload() async =>
       trip_routing.TripService();

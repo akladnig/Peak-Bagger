@@ -363,6 +363,9 @@ class _InitialStateMapNotifier extends MapNotifier {
 }
 
 class _DeferredRouteGraphStore implements RouteGraphStore {
+  @override
+  Future<void> bootstrapData() async {}
+
   _DeferredRouteGraphStore(this.future);
 
   final Future<trip_routing.TripService> future;
@@ -382,6 +385,9 @@ class _DeferredRouteGraphStore implements RouteGraphStore {
 
 class _ExplodingRouteGraphStore implements RouteGraphStore {
   @override
+  Future<void> bootstrapData() async {}
+
+  @override
   Future<trip_routing.TripService> preload() {
     throw UnimplementedError('preload should not be called');
   }
@@ -399,6 +405,9 @@ class _ExplodingRouteGraphStore implements RouteGraphStore {
 }
 
 class _ReadyRouteGraphStore implements RouteGraphStore {
+  @override
+  Future<void> bootstrapData() async {}
+
   @override
   Future<trip_routing.TripService> preload() async => trip_routing.TripService();
 
