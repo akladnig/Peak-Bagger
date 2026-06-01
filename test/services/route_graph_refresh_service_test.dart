@@ -26,6 +26,9 @@ void main() {
 }
 
 class _FakeRouteGraphStore implements RouteGraphStore {
+  @override
+  Future<void> bootstrapData() async {}
+
   int reloadCallCount = 0;
 
   @override
@@ -47,6 +50,9 @@ class _FakeRouteGraphStore implements RouteGraphStore {
 }
 
 class _ThrowingRouteGraphStore implements RouteGraphStore {
+  @override
+  Future<void> bootstrapData() async {}
+
   @override
   Future<trip_routing.TripService> preload() async {
     throw const RouteGraphLoadException('failed');

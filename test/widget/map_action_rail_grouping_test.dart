@@ -45,7 +45,7 @@ void main() {
       _messagesFor(find.byKey(const Key('map-action-view-group')), tester),
       containsAll(<String>[
         'Select Basemaps',
-        'Show Map Grid',
+        'Show Map and MGRS Grid',
         'Select Peak List',
         'Show Tracks/Routes (T)',
         'Show Trails',
@@ -86,7 +86,10 @@ void main() {
     final gridFab = find.byKey(const Key('grid-map-fab'));
     await tester.tap(gridFab);
     await tester.pump();
-    expect(container.read(mapProvider).tasmapDisplayMode, TasmapDisplayMode.none);
+    expect(
+      container.read(mapProvider).gridVisibility,
+      MapGridVisibility.mapGridAndDistanceGrid,
+    );
 
     final infoFab = find.byKey(const Key('map-info-fab'));
     await tester.ensureVisible(infoFab);

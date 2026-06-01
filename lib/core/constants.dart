@@ -164,3 +164,9 @@ abstract final class ChartUI {
   static const strokeColorSelected = Color(0x00000000);
   static const strokeWidth = 2.0;
 }
+  static const mapGridBorderWidth = 2.0;
+  static const mapMgrsGridBorderWidth = 1.0;
+  static const mapMgrsGridTenKilometerThreshold = 3;
+  static const mapMgrsGridHundredKilometerThreshold = 30;
+  static const mapRulerMinBarWidth = 96.0;
+  static const mapRulerMaxBarWidth = 160.0;

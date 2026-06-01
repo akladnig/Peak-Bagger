@@ -79,6 +79,8 @@ enum Basemap { tasmapTopo, tasmap50k, tasmap25k, tracestrack, openstreetmap }
 
 enum TasmapDisplayMode { overlay, none, selectedMap }
 
+enum MapGridVisibility { hidden, mapGridOnly, mapGridAndDistanceGrid }
+
 enum PeakListSelectionMode { none, allPeaks, specificList }
 
 enum EndDrawerMode { basemaps, peakLists, tracksRoutes }
@@ -246,6 +248,7 @@ class MapState {
   final List<Peak> selectedPeaks;
   final Tasmap50k? selectedMap;
   final TasmapDisplayMode tasmapDisplayMode;
+  final MapGridVisibility gridVisibility;
   final List<Tasmap50k> mapSuggestions;
   final String mapSearchQuery;
   final int selectedMapFocusSerial;
@@ -331,6 +334,7 @@ class MapState {
     this.selectedPeaks = const [],
     this.selectedMap,
     this.tasmapDisplayMode = TasmapDisplayMode.none,
+    MapGridVisibility? gridVisibility,
     this.mapSuggestions = const [],
     this.mapSearchQuery = '',
     this.selectedMapFocusSerial = 0,
@@ -360,7 +364,11 @@ class MapState {
     this.selectedRouteId,
     this.pendingCameraRequest,
     this.cameraRequestSerial = 0,
-  });
+  }) : gridVisibility =
+           gridVisibility ??
+           (tasmapDisplayMode == TasmapDisplayMode.none
+               ? MapGridVisibility.hidden
+               : MapGridVisibility.mapGridOnly);
 
   Peak? get peakInfoPeak => peakInfo?.peak;
 
@@ -382,10 +390,21 @@ class MapState {
     return _peakAtPoint(peaks, markerLocation);
   }
 
-  bool get showMapOverlay => tasmapDisplayMode == TasmapDisplayMode.overlay;
+  bool get showMapGrid => gridVisibility != MapGridVisibility.hidden;
+
+  bool get showMapOverlay => showMapGrid && selectedMap == null;
 
   bool get showSelectedMapLayer =>
-      tasmapDisplayMode == TasmapDisplayMode.selectedMap && selectedMap != null;
+      showMapGrid && selectedMap != null;
+
+  bool get showDistanceGrid =>
+      gridVisibility == MapGridVisibility.mapGridAndDistanceGrid;
+
+  String get mapGridTooltipMessage => switch (gridVisibility) {
+    MapGridVisibility.hidden => 'Show Map Grid',
+    MapGridVisibility.mapGridOnly => 'Show Map and MGRS Grid',
+    MapGridVisibility.mapGridAndDistanceGrid => 'Hide Grids',
+  };
 
   bool get showPeaks => peakListSelectionMode != PeakListSelectionMode.none;
 
@@ -455,6 +474,7 @@ class MapState {
     List<Peak>? selectedPeaks,
     Tasmap50k? selectedMap,
     TasmapDisplayMode? tasmapDisplayMode,
+    MapGridVisibility? gridVisibility,
     List<Tasmap50k>? mapSuggestions,
     String? mapSearchQuery,
     int? selectedMapFocusSerial,
@@ -586,6 +606,7 @@ class MapState {
       selectedPeaks: selectedPeaks ?? this.selectedPeaks,
       selectedMap: selectedMap ?? this.selectedMap,
       tasmapDisplayMode: tasmapDisplayMode ?? this.tasmapDisplayMode,
+      gridVisibility: gridVisibility ?? this.gridVisibility,
       mapSuggestions: mapSuggestions ?? this.mapSuggestions,
       mapSearchQuery: mapSearchQuery ?? this.mapSearchQuery,
       selectedMapFocusSerial:
@@ -4696,20 +4717,33 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void toggleMapOverlay() {
-    cycleTasmapDisplayMode();
+    cycleMapGridVisibility();
   }
 
-  void cycleTasmapDisplayMode() {
-    final nextMode = switch (state.tasmapDisplayMode) {
-      TasmapDisplayMode.overlay => TasmapDisplayMode.none,
-      TasmapDisplayMode.none =>
+  void cycleMapGridVisibility() {
+    final nextVisibility = switch (state.gridVisibility) {
+      MapGridVisibility.hidden => MapGridVisibility.mapGridOnly,
+      MapGridVisibility.mapGridOnly =>
+        MapGridVisibility.mapGridAndDistanceGrid,
+      MapGridVisibility.mapGridAndDistanceGrid => MapGridVisibility.hidden,
+    };
+
+    final nextMode = switch (nextVisibility) {
+      MapGridVisibility.hidden => TasmapDisplayMode.none,
+      MapGridVisibility.mapGridOnly =>
         state.selectedMap == null
             ? TasmapDisplayMode.overlay
             : TasmapDisplayMode.selectedMap,
-      TasmapDisplayMode.selectedMap => TasmapDisplayMode.overlay,
+      MapGridVisibility.mapGridAndDistanceGrid =>
+        state.selectedMap == null
+            ? TasmapDisplayMode.overlay
+            : TasmapDisplayMode.selectedMap,
     };
 
-    state = state.copyWith(tasmapDisplayMode: nextMode);
+    state = state.copyWith(
+      gridVisibility: nextVisibility,
+      tasmapDisplayMode: nextMode,
+    );
   }
 
   void clearGotoMgrs() {

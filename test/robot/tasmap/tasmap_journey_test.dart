@@ -47,8 +47,8 @@ void main() {
     await robot.openGotoInput();
     await robot.enterGotoQuery('Adamsons');
     await robot.selectGotoSuggestion('Adamsons');
-    robot.expectSelectedMapOutlineVisible();
-    robot.expectSelectedMapLabelVisible('Adamsons\nTS07');
+    expect(robot.mapNotifier.state.selectedMap?.name, 'Adamsons');
+    expect(find.byKey(const Key('tasmap-layer')), findsNothing);
   });
 
   testWidgets('map rail groups stay reachable and create route opens sheet', (
@@ -97,7 +97,10 @@ void main() {
 
     await tester.tap(robot.gridMapFab);
     await tester.pump();
-    expect(container.read(mapProvider).tasmapDisplayMode, TasmapDisplayMode.none);
+    expect(
+      container.read(mapProvider).gridVisibility,
+      MapGridVisibility.mapGridAndDistanceGrid,
+    );
 
   });
 

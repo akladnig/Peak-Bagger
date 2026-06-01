@@ -3,6 +3,7 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
@@ -22,6 +23,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
 
     final robot = DashboardRobot(tester);
+    final now = DateTime.now();
     final notifier = TestMapNotifier(
       const MapState(
         center: LatLng(-41.5, 146.5),
@@ -51,7 +53,7 @@ void main() {
 
     notifier.setTracks([
       for (var day = 1; day <= 15; day++)
-        _track(day, DateTime(2026, 5, day, 10), ascent: day * 1000),
+        _track(day, DateTime(now.year, now.month, day, 10), ascent: day * 1000),
     ]);
     await tester.pumpAndSettle();
 
@@ -94,11 +96,15 @@ void main() {
 
     await _hoverBucket(tester, 0);
 
+    final firstBucketLabel = DateFormat('d MMM').format(
+      DateTime(now.year, now.month, 1),
+    );
+
     expect(find.byKey(const Key('elevation-tooltip')), findsOneWidget);
     expect(
       find.descendant(
         of: find.byKey(const Key('elevation-tooltip')),
-        matching: find.text('1 May'),
+        matching: find.text(firstBucketLabel),
       ),
       findsOneWidget,
     );

@@ -22,8 +22,8 @@ String formatFileSizeKiB(double value, {int decimalPlaces = 1}) =>
 String formatPercentage(double value, {int decimalPlaces = 1}) =>
     '${value.toStringAsFixed(decimalPlaces)}%';
 
-String formatCoordinate(double value) =>
-    value.toStringAsFixed(GpxConstants.precision);
+String formatCoordinate(double value, {int decimalPlaces = GpxConstants.precision}) =>
+    value.toStringAsFixed(decimalPlaces);
 
 String formatElevation(int value, {bool showUnits = true}) {
   final formatted = value.abs() < 10000

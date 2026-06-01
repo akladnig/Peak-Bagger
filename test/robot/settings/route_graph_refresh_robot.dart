@@ -124,6 +124,9 @@ class RouteGraphRefreshRobot {
 
 class ReadyRouteGraphStore implements RouteGraphStore {
   @override
+  Future<void> bootstrapData() async {}
+
+  @override
   Future<trip_routing.TripService> preload() async => trip_routing.TripService();
 
   @override

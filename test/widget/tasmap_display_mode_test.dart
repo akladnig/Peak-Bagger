@@ -4,12 +4,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/widgets/left_tooltip_fab.dart';
 import 'package:peak_bagger/widgets/map_action_rail.dart';
 
 import '../harness/test_map_notifier.dart';
 
 void main() {
-  testWidgets('Grid cycles Tasmap display modes', (tester) async {
+  testWidgets('grid cycles visibility states without forcing selected map visible', (
+    tester,
+  ) async {
     final selectedMap = _tasmapMap();
 
     await tester.pumpWidget(
@@ -22,7 +25,6 @@ void main() {
                 zoom: 12,
                 basemap: Basemap.tracestrack,
                 selectedMap: selectedMap,
-                tasmapDisplayMode: TasmapDisplayMode.overlay,
               ),
             ),
           ),
@@ -36,37 +38,61 @@ void main() {
     await tester.pump();
 
     final gridFab = find.byKey(const Key('grid-map-fab'));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(MapActionRail)),
+    );
+    expect(
+      container.read(mapProvider).gridVisibility,
+      MapGridVisibility.hidden,
+    );
+    expect(_tooltipMessageFor(gridFab, tester), 'Show Map Grid');
+
     await tester.ensureVisible(gridFab);
     await tester.pumpAndSettle();
     await tester.tap(gridFab);
     await tester.pump();
+    expect(
+      container.read(mapProvider).gridVisibility,
+      MapGridVisibility.mapGridOnly,
+    );
+    expect(
+      container.read(mapProvider).tasmapDisplayMode,
+      TasmapDisplayMode.selectedMap,
+    );
+    expect(_tooltipMessageFor(gridFab, tester), 'Show Map and MGRS Grid');
 
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(MapActionRail)),
+    await tester.ensureVisible(gridFab);
+    await tester.pumpAndSettle();
+    await tester.tap(gridFab);
+    await tester.pump();
+    expect(
+      container.read(mapProvider).gridVisibility,
+      MapGridVisibility.mapGridAndDistanceGrid,
+    );
+    expect(_tooltipMessageFor(gridFab, tester), 'Hide Grids');
+
+    await tester.ensureVisible(gridFab);
+    await tester.pumpAndSettle();
+    await tester.tap(gridFab);
+    await tester.pump();
+    expect(
+      container.read(mapProvider).gridVisibility,
+      MapGridVisibility.hidden,
     );
     expect(
       container.read(mapProvider).tasmapDisplayMode,
       TasmapDisplayMode.none,
     );
-
-    await tester.ensureVisible(gridFab);
-    await tester.pumpAndSettle();
-    await tester.tap(gridFab);
-    await tester.pump();
-    expect(
-      container.read(mapProvider).tasmapDisplayMode,
-      TasmapDisplayMode.selectedMap,
-    );
-
-    await tester.ensureVisible(gridFab);
-    await tester.pumpAndSettle();
-    await tester.tap(gridFab);
-    await tester.pump();
-    expect(
-      container.read(mapProvider).tasmapDisplayMode,
-      TasmapDisplayMode.overlay,
-    );
+    expect(_tooltipMessageFor(gridFab, tester), 'Show Map Grid');
   });
+}
+
+String _tooltipMessageFor(Finder fab, WidgetTester tester) {
+  return tester
+      .widget<LeftTooltipFab>(
+        find.ancestor(of: fab, matching: find.byType(LeftTooltipFab)),
+      )
+      .message;
 }
 
 Tasmap50k _tasmapMap() {

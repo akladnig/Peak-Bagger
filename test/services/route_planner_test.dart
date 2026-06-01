@@ -341,6 +341,9 @@ class _FakeTripRoutingClient implements TripRoutingClient {
 }
 
 class _FakeRouteGraphStore implements RouteGraphStore, RouteGraphRepositoryProvider {
+  @override
+  Future<void> bootstrapData() async {}
+
   _FakeRouteGraphStore(this.service, {this.repository});
 
   final _FakeTripService service;
@@ -365,6 +368,9 @@ class _FakeRouteGraphStore implements RouteGraphStore, RouteGraphRepositoryProvi
 }
 
 class _ThrowingRouteGraphStore implements RouteGraphStore {
+  @override
+  Future<void> bootstrapData() async {}
+
   @override
   Future<trip_routing.TripService> preload() async {
     throw const RouteGraphLoadException('route graph unavailable');

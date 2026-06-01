@@ -1709,6 +1709,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                 break;
                               }
                             }
+                            final showMapReadouts =
+                                selectedTrack == null && selectedRoute == null;
                             final routeDraftDisplayMarkers =
                                 _draggingRouteDraftMarkerId == null ||
                                     _draggingRouteDraftMarkerScreenOffset ==
@@ -2170,8 +2172,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                     ),
                                   ),
                                 ),
-                                if (selectedTrack == null &&
-                                    selectedRoute == null)
+                                if (showMapReadouts)
                                   Positioned(
                                     left: 16,
                                     top: 16,
@@ -2197,8 +2198,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                       },
                                     ),
                                   ),
-                                if (selectedTrack == null &&
-                                    selectedRoute == null)
+                                if (showMapReadouts)
                                   Positioned(
                                     left: 16,
                                     bottom: 16,
@@ -2212,17 +2212,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                     duration: const Duration(milliseconds: 200),
                                     curve: Curves.easeOut,
                                     offset:
-                                        selectedTrack == null &&
-                                            selectedRoute == null
+                                        showMapReadouts
                                         ? const Offset(-1.1, 0)
                                         : Offset.zero,
                                     child: IgnorePointer(
-                                      ignoring:
-                                          selectedTrack == null &&
-                                          selectedRoute == null,
+                                      ignoring: showMapReadouts,
                                       child:
-                                          selectedRoute == null &&
-                                              selectedTrack == null
+                                          showMapReadouts
                                           ? const SizedBox(
                                               width: UiConstants
                                                   .preferredLeftWidth,

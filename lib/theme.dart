@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:peak_bagger/core/constants.dart';
 
 const thinDivider = Divider(height: 0, color: Color(0xff7b7b7b));
+const mapGridColour = Colors.blue;
 
 class TrailDisplayTheme {
   static const Color baseColor = Color(0xFF5E9B5B);
   static const Color overlayColor = Color(0xFF000000);
-  static const double baseStrokeWidth = 4.2;
-  static const double overlayStrokeWidth = 1.8;
+  static const double baseStrokeWidth = 3.5;
+  static const double overlayStrokeWidth = 1.5;
   static const List<double> overlayDashSegments = [10, 6];
 }
 
