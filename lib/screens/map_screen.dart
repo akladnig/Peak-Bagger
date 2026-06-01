@@ -1579,6 +1579,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                           selectedMap: state.selectedMap,
                           showSelectedMapLayer: state.showSelectedMapLayer,
                           showMapOverlay: state.showMapOverlay,
+                          showDistanceGrid: state.showDistanceGrid,
                           showRoutes: state.showRoutes,
                           showTracks: state.showTracks,
                           showTrails: state.showTrails,
@@ -1709,6 +1710,18 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                 break;
                               }
                             }
+                            final mgrsGridGeometry =
+                                _mapReady &&
+                                    mapScene.showDistanceGrid &&
+                                    _mapController.camera.nonRotatedSize !=
+                                        MapCamera.kImpossibleSize
+                                ? buildVisibleMgrsGridGeometry(
+                                    visibleBounds:
+                                        _mapController.camera.visibleBounds,
+                                    zoom: mapScene.zoom,
+                                    latitude: mapScene.center.latitude,
+                                  )
+                                : null;
                             final showMapReadouts =
                                 selectedTrack == null && selectedRoute == null;
                             final routeDraftDisplayMarkers =
@@ -2082,6 +2095,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               ),
                                             ),
                                           ),
+                                        if (mgrsGridGeometry != null &&
+                                            mgrsGridGeometry.lines.isNotEmpty)
+                                          buildMgrsGridLayer(mgrsGridGeometry),
                                         if (mapScene.showRoutes)
                                           buildRoutePolylines(
                                             routes,
@@ -2167,6 +2183,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                 context,
                                               ).colorScheme.onSurface,
                                             ),
+                                          ),
+                                        if (mgrsGridGeometry != null &&
+                                            mgrsGridGeometry.labels.isNotEmpty)
+                                          MapMgrsGridLabelLayer(
+                                            labels: mgrsGridGeometry.labels,
                                           ),
                                       ],
                                     ),

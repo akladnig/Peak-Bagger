@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/core/constants.dart';
+import 'package:peak_bagger/theme.dart';
 
 class TasmapOutlineLayer extends StatelessWidget {
   const TasmapOutlineLayer({
@@ -25,8 +27,8 @@ class TasmapOutlineLayer extends StatelessWidget {
           Polygon(
             points: points,
             color: Colors.transparent,
-            borderColor: Colors.blue,
-            borderStrokeWidth: 2,
+            borderColor: mapGridColour,
+            borderStrokeWidth: MapConstants.mapGridBorderWidth,
           ),
         ],
       ),

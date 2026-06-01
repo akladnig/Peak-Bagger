@@ -29,15 +29,15 @@ Phase 1: state/geometry slice; Phase 2: labeling/grid polish; Phase 3: ruler UI 
 ### Phase 2: MGRS Grid Geometry
 
 - **Goal**: viewport geometry + border labels; map rendering complete
-- [ ] `lib/services/map_grid_geometry.dart` - pure viewport geometry builder for `1 km` / `10 km` / `100 km` lines + `1 km` border-label data
-- [ ] `lib/screens/map_screen_layers.dart` - add distance-grid layer builders; use shared color/width constants; reuse existing layer-key patterns
-- [ ] `lib/screens/map_screen.dart` - render keyed distance-grid layer only in `mapGridAndDistanceGrid`; preserve existing Tasmap polygon/label behavior
-- [ ] `lib/theme.dart` - add `mapGridColour` shared token
-- [ ] `lib/widgets/tasmap_outline_layer.dart` - swap hard-coded border color/width to shared tokens
-- [ ] TDD: geometry emits correct interval for viewport/ruler combo; fail closed on invalid bounds/camera
-- [ ] TDD: `1 km` labels only; eastings top/bottom; northings left/right; 2-digit only; none for `10 km` / `100 km`
-- [ ] TDD: selected-map fallback vs overlay fallback preserved while grids visible
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/services/map_grid_geometry.dart` - pure viewport geometry builder for `1 km` / `10 km` / `100 km` lines + `1 km` border-label data
+- [x] `lib/screens/map_screen_layers.dart` - add distance-grid layer builders; use shared color/width constants; reuse existing layer-key patterns
+- [x] `lib/screens/map_screen.dart` - render keyed distance-grid layer only in `mapGridAndDistanceGrid`; preserve existing Tasmap polygon/label behavior
+- [x] `lib/theme.dart` - add `mapGridColour` shared token
+- [x] `lib/widgets/tasmap_outline_layer.dart` - swap hard-coded border color/width to shared tokens
+- [x] TDD: geometry emits correct interval for viewport/ruler combo; fail closed on invalid bounds/camera
+- [x] TDD: `1 km` labels only; eastings top/bottom; northings left/right; 2-digit only; none for `10 km` / `100 km`
+- [x] TDD: selected-map fallback vs overlay fallback preserved while grids visible
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Ruler UI And Journeys
 
