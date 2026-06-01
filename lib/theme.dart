@@ -12,11 +12,11 @@ TextStyle mapRulerTextStyle(BuildContext context) {
 }
 
 class TrailDisplayTheme {
-  static const Color baseColor = Color(0xFF5E9B5B);
+  static const Color baseColor = Color(0xFF52C66F);
   static const Color overlayColor = Color(0xFF000000);
-  static const double baseStrokeWidth = 3.5;
-  static const double overlayStrokeWidth = 1.5;
-  static const List<double> overlayDashSegments = [10, 6];
+  static const double baseStrokeWidth = 4;
+  static const double overlayStrokeWidth = 1;
+  static const List<double> overlayDashSegments = [8, 6];
 }
 
 class OutlinedText extends StatelessWidget {
