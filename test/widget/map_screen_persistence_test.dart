@@ -89,30 +89,27 @@ void main() {
     await gesture.up();
   });
 
-  testWidgets('drag updates live MGRS before canonical provider sync', (
-    tester,
-  ) async {
+  testWidgets('mouse drag freezes the readout at drag start', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final notifier = await _buildCountingNotifier();
     await _pumpApp(tester, notifier);
 
     final region = find.byKey(const Key('map-interaction-region'));
-    final container = ProviderScope.containerOf(
-      tester.element(find.byKey(const Key('shared-app-bar'))),
+    final gesture = await tester.startGesture(
+      tester.getCenter(region),
+      kind: PointerDeviceKind.mouse,
     );
-    final initialMgrs = container.read(mapProvider).currentMgrs;
-    final initialDisplayMgrs = _formatMgrs(initialMgrs);
+    await tester.pump();
+    final frozenDisplayMgrs = _mgrsReadoutText(tester);
 
-    final gesture = await tester.startGesture(tester.getCenter(region));
     await gesture.moveBy(const Offset(80, 0));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(container.read(mapProvider).currentMgrs, initialMgrs);
+    expect(_mgrsReadoutText(tester), frozenDisplayMgrs);
     expect(_mgrsReadoutMapName(tester), isNotEmpty);
-    expect(_mgrsReadoutText(tester), isNot(initialDisplayMgrs));
-    expect(_mgrsReadoutText(tester), isNot(contains('\n')));
-    expect(_mgrsReadoutText(tester), contains('55G '));
+    expect(frozenDisplayMgrs, isNot(contains('\n')));
+    expect(frozenDisplayMgrs, contains('55G '));
 
     await gesture.up();
   });
@@ -401,15 +398,6 @@ String _mgrsReadoutMapName(WidgetTester tester) {
   );
   final richTexts = tester.widgetList<RichText>(richTextFinder).toList(growable: false);
   return richTexts.first.text.toPlainText();
-}
-
-String _formatMgrs(String mgrs) {
-  final lines = mgrs.split('\n');
-  if (lines.length < 2 || lines[0].length < 5) {
-    return mgrs.replaceFirst('\n', ' ');
-  }
-
-  return '${lines[0].substring(0, 3)} ${lines[0].substring(3)} ${lines[1]}';
 }
 
 class _CountingMapNotifier extends MapNotifier {

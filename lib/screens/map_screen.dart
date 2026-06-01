@@ -656,6 +656,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
     List<app_route.Route> routes,
   ) {
     final notifier = ref.read(mapProvider.notifier);
+    if (_isPointerDown) {
+      return;
+    }
     notifier.setCursorMgrs(location);
     if (ref.read(mapProvider).isRouteDrafting) {
       final hoveredDraftMarker = _handleRouteDraftMarkerHover(
@@ -692,7 +695,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
     MapState mapState,
   ) {
     final notifier = ref.read(mapProvider.notifier);
-    notifier.setCursorMgrs(location);
 
     if (_isPointerDown ||
         !mapState.showTracks ||
@@ -1175,7 +1177,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     if (_routeDraftDeletePopupMarkerId != null) {
       _dismissRouteDraftMarkerDeletePopup();
     }
-    if (mapState.cursorMgrs != null) {
+    if (!_isPointerDown && mapState.cursorMgrs != null) {
       notifier.clearCursorMgrs();
     }
     if (mapState.hoveredPeakId != null) {
@@ -1833,6 +1835,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                           _isPointerDown = true;
                                           _pointerDownPosition =
                                               event.localPosition;
+                                          if (event.kind ==
+                                              PointerDeviceKind.mouse) {
+                                            ref
+                                                .read(mapProvider.notifier)
+                                                .setCursorMgrs(point);
+                                          }
                                           ref
                                               .read(mapProvider.notifier)
                                               .clearHoveredRouteDraftMarker();
@@ -1856,6 +1864,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                           _pointerDownPosition = null;
                                           _primaryClickPending = false;
                                           _bumpViewportUiRevision();
+                                          if (event.kind ==
+                                              PointerDeviceKind.mouse) {
+                                            ref
+                                                .read(mapProvider.notifier)
+                                                .setCursorMgrs(point);
+                                          }
                                           if (moved) {
                                             _flushPendingCameraPosition();
                                             return;
