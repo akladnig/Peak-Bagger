@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -6,7 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../core/constants.dart';
 import '../core/number_formatters.dart';
-import '../theme.dart';
+import '../widgets/dashboard_chart_chrome.dart';
 import '../services/elevation_profile_series_builder.dart';
 
 enum ElevationProfileAxisMode { distance, time }
@@ -17,11 +18,15 @@ class ElevationProfileChart extends StatefulWidget {
     required this.series,
     this.isLoading = false,
     this.errorText,
+    this.minElevation,
+    this.maxElevation,
   });
 
   final ElevationProfileSeries series;
   final bool isLoading;
   final String? errorText;
+  final double? minElevation;
+  final double? maxElevation;
 
   @override
   State<ElevationProfileChart> createState() => _ElevationProfileChartState();
@@ -42,36 +47,22 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final series = widget.series;
     final hasUsablePoints = series.hasUsableElevation;
 
-    return Card(
+    return Column(
       key: const Key('elevation-profile-chart'),
-      margin: EdgeInsets.zero,
-      elevation: 0,
-      color: theme.colorScheme.surface,
-      shape: RoundedRectangleBorder(borderRadius: DashboardUI.cardBorderRadius),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Text('Elevation profile', style: theme.textTheme.titleSmall),
-                const Spacer(),
-                if (hasUsablePoints) _buildAxisChips(context),
-              ],
-            ),
-            const SizedBox(height: 12),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 150),
-              child: _buildStateBody(context, hasUsablePoints),
-            ),
-          ],
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 150),
+          child: _buildStateBody(context, hasUsablePoints),
         ),
-      ),
+        if (hasUsablePoints) ...[
+          const SizedBox(height: 12),
+          Center(child: _buildAxisChips(context)),
+        ],
+      ],
     );
   }
 
@@ -135,28 +126,154 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
       );
     }
 
-    return SizedBox(height: 220, child: LineChart(_buildChartData(context)));
+    final axisRange = _axisRange(
+      widget.series.samples,
+      minElevation: widget.minElevation,
+      maxElevation: widget.maxElevation,
+    );
+    final yAxisEntries = [
+      DashboardChartYAxisLabelEntry(
+        text: formatElevation(axisRange.maxY.round(), showUnits: false),
+        fractionFromTop: 0,
+      ),
+      DashboardChartYAxisLabelEntry(
+        text: formatElevation(
+          (axisRange.minY + (axisRange.step * 3)).round(),
+          showUnits: false,
+        ),
+        fractionFromTop: 0.25,
+      ),
+      DashboardChartYAxisLabelEntry(
+        text: formatElevation(
+          (axisRange.minY + (axisRange.step * 2)).round(),
+          showUnits: false,
+        ),
+        fractionFromTop: 0.5,
+      ),
+      DashboardChartYAxisLabelEntry(
+        text: formatElevation(
+          (axisRange.minY + axisRange.step).round(),
+          showUnits: false,
+        ),
+        fractionFromTop: 0.75,
+      ),
+    ];
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: dashboardChartSurfaceColor(Theme.of(context)),
+        borderRadius: DashboardUI.cardBorderRadius,
+      ),
+      child: SizedBox(
+        height: 220,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final series = widget.series;
+            final axisMode = _supportsTimeAxis &&
+                    _axisMode == ElevationProfileAxisMode.time
+                ? ElevationProfileAxisMode.time
+                : ElevationProfileAxisMode.distance;
+            final segments = _segmentsForAxis(axisMode, series.samples);
+            final minX = _minX(axisMode, series.samples);
+            final maxX = _maxX(axisMode, series.samples, minX);
+            final xGuideValues = _xGuideValues(minX, maxX);
+            final chart = LineChart(
+              _buildChartData(
+                context,
+                axisRange,
+                axisMode: axisMode,
+                xGuideValues: xGuideValues,
+                segments: segments,
+                minX: minX,
+                maxX: maxX,
+              ),
+            );
+
+            if (constraints.maxWidth < 120) {
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: chart),
+                    const SizedBox(height: 4),
+                    SizedBox(
+                      height: 24,
+                      child: _buildXAxisLabels(
+                        context,
+                        axisMode: axisMode,
+                        xGuideValues: xGuideValues,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: _yAxisRailWidth(
+                    context: context,
+                    entries: yAxisEntries,
+                  ),
+                  child: DashboardChartYAxisLabels(
+                    entries: yAxisEntries,
+                    textAlign: TextAlign.right,
+                    padding: EdgeInsets.zero,
+                    bottomInset: 28,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: chart),
+                        const SizedBox(height: 4),
+                        SizedBox(
+                          height: 24,
+                          child: _buildXAxisLabels(
+                            context,
+                            axisMode: axisMode,
+                            xGuideValues: xGuideValues,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
   }
 
-  LineChartData _buildChartData(BuildContext context) {
+  LineChartData _buildChartData(
+    BuildContext context,
+    _ElevationAxisRange axisRange,
+    {
+    required ElevationProfileAxisMode axisMode,
+    required List<double> xGuideValues,
+    required List<List<FlSpot>> segments,
+    required double minX,
+    required double maxX,
+  }) {
     final theme = Theme.of(context);
-    final series = widget.series;
-    final axisMode =
-        _supportsTimeAxis && _axisMode == ElevationProfileAxisMode.time
-        ? ElevationProfileAxisMode.time
-        : ElevationProfileAxisMode.distance;
-
-    final segments = _segmentsForAxis(axisMode, series.samples);
-    final minX = _minX(axisMode, series.samples);
-    final maxX = _maxX(axisMode, series.samples, minX);
-    final maxY = _maxY(series.samples);
-    final xInterval = _axisInterval(minX, maxX);
-    final yInterval = maxY / 4;
+    final minY = axisRange.minY;
+    final maxY = axisRange.maxY;
+    final yGuideValues = _horizontalGuideValues(minY, maxY);
 
     return LineChartData(
+      backgroundColor: dashboardChartSurfaceColor(theme),
       minX: minX,
       maxX: maxX,
-      minY: 0,
+      minY: minY,
       maxY: maxY,
       lineBarsData: [
         for (final segment in segments)
@@ -165,25 +282,14 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
             isCurved: false,
             color: theme.colorScheme.primary,
             barWidth: ChartUI.barWidth,
-            dotData: FlDotData(
-              show: true,
-              getDotPainter: (spot, percent, barData, index) {
-                return FlDotCirclePainter(
-                  radius: ChartUI.radius,
-                  color: theme.colorScheme.surfaceContainer,
-                  strokeColor: theme.colorScheme.primary,
-                  strokeWidth: ChartUI.strokeWidth,
-                );
-              },
-            ),
+            dotData: const FlDotData(show: false),
           ),
       ],
       titlesData: FlTitlesData(
         leftTitles: AxisTitles(
           sideTitles: SideTitles(
-            showTitles: true,
-            reservedSize: 56,
-            interval: yInterval,
+            showTitles: false,
+            reservedSize: 0,
             getTitlesWidget: (value, meta) {
               return SideTitleWidget(
                 meta: meta,
@@ -197,18 +303,8 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
         ),
         bottomTitles: AxisTitles(
           sideTitles: SideTitles(
-            showTitles: true,
-            reservedSize: 32,
-            interval: xInterval,
-            getTitlesWidget: (value, meta) {
-              return SideTitleWidget(
-                meta: meta,
-                child: Text(
-                  _formatXAxisLabel(value, axisMode),
-                  style: theme.textTheme.labelSmall,
-                ),
-              );
-            },
+            showTitles: false,
+            reservedSize: 0,
           ),
         ),
         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -216,24 +312,36 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
           sideTitles: SideTitles(showTitles: false),
         ),
       ),
-      gridData: FlGridData(
-        show: true,
-        drawVerticalLine: false,
-        horizontalInterval: yInterval,
-        checkToShowHorizontalLine: (value) => value > 0 && value < maxY,
-        getDrawingHorizontalLine: (value) => FlLine(
-          color: _guideColor(),
-          strokeWidth: 1,
-          dashArray: const [8, 4],
-        ),
-      ),
+      gridData: const FlGridData(show: false),
       extraLinesData: ExtraLinesData(
         extraLinesOnTop: true,
+        verticalLines: [
+          for (var index = 0; index < xGuideValues.length; index++)
+            VerticalLine(
+              x: xGuideValues[index],
+              color: index == 0
+                  ? dashboardChartAxisColor()
+                  : dashboardChartGuideColor(),
+              strokeWidth: index == 0 ? 1.5 : 1,
+              dashArray: index == 0 ? null : const [8, 4],
+            ),
+        ],
         horizontalLines: [
-          HorizontalLine(y: 0, color: _axisColor(), strokeWidth: 1.5),
           HorizontalLine(
-            y: maxY,
-            color: _guideColor(),
+            y: yGuideValues.first,
+            color: dashboardChartAxisColor(),
+            strokeWidth: 1.5,
+          ),
+          for (final y in yGuideValues.skip(1).take(3))
+            HorizontalLine(
+              y: y,
+              color: dashboardChartGuideColor(),
+              strokeWidth: 1,
+              dashArray: const [8, 4],
+            ),
+          HorizontalLine(
+            y: yGuideValues.last,
+            color: dashboardChartGuideColor(),
             strokeWidth: 1,
             dashArray: const [8, 4],
           ),
@@ -242,6 +350,28 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
       borderData: FlBorderData(show: false),
       lineTouchData: LineTouchData(
         enabled: true,
+        getTouchedSpotIndicator: (barData, spotIndexes) {
+          return spotIndexes
+              .map(
+                  (spotIndex) => TouchedSpotIndicatorData(
+                  FlLine(
+                    color: theme.colorScheme.primary,
+                    strokeWidth: ChartUI.hoverLineStrokeWidth,
+                  ),
+                  FlDotData(
+                    getDotPainter: (spot, percent, bar, index) {
+                      return FlDotCirclePainter(
+                        radius: ChartUI.radiusTouched,
+                        color: theme.colorScheme.primary,
+                        strokeColor: theme.colorScheme.primary,
+                        strokeWidth: 0,
+                      );
+                    },
+                  ),
+                ),
+              )
+              .toList(growable: false);
+        },
         touchTooltipData: LineTouchTooltipData(
           getTooltipItems: (spots) {
             return spots
@@ -337,29 +467,153 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
     return values;
   }
 
-  double _maxY(List<ElevationProfileSample> samples) {
+  List<double> _xGuideValues(double minX, double maxX) {
+    final span = maxX - minX;
+    return List<double>.unmodifiable([
+      minX,
+      minX + (span * 0.25),
+      minX + (span * 0.5),
+      minX + (span * 0.75),
+      maxX,
+    ]);
+  }
+
+  List<double> _horizontalGuideValues(double minY, double maxY) {
+    final span = maxY - minY;
+    return List<double>.unmodifiable([
+      minY,
+      minY + (span * 0.25),
+      minY + (span * 0.5),
+      minY + (span * 0.75),
+      maxY,
+    ]);
+  }
+
+  _ElevationAxisRange _axisRange(
+    List<ElevationProfileSample> samples, {
+    double? minElevation,
+    double? maxElevation,
+  }) {
     final values = [
       for (final sample in samples)
         if (sample.elevationMeters != null) sample.elevationMeters!,
     ];
     if (values.isEmpty) {
-      return 1;
+      return const _ElevationAxisRange(minY: 0, maxY: 1, step: 1);
     }
-    final maxY = values.reduce(math.max);
-    return maxY <= 0 ? 1 : maxY;
+
+    final rawMin = minElevation ?? values.reduce(math.min);
+    final rawMax = maxElevation ?? values.reduce(math.max);
+    final place = _elevationPlace(rawMax.abs());
+    var minY = (rawMin / place).roundToDouble() * place;
+    var maxY = (rawMax / place).ceilToDouble() * place;
+    if (maxY <= minY) {
+      maxY = minY + (place * 4);
+    }
+
+    return _ElevationAxisRange(
+      minY: minY,
+      maxY: maxY,
+      step: (maxY - minY) / 4,
+    );
   }
 
-  double _axisInterval(double minX, double maxX) {
-    final span = maxX - minX;
-    if (span <= 0) {
-      return 1;
+  double _elevationPlace(double n) {
+    if (n < 100) {
+      return 10;
     }
-    return span / 4;
+
+    final exponent = (math.log(n) / math.ln10).floor() - 1;
+    return math.pow(10.0, exponent).toDouble();
+  }
+
+  double _yAxisRailWidth({
+    required BuildContext context,
+    required List<DashboardChartYAxisLabelEntry> entries,
+  }) {
+    final textDirection = Directionality.of(context);
+    final style = Theme.of(context).textTheme.labelSmall?.copyWith(
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    var maxWidth = 0.0;
+    for (final entry in entries) {
+      final painter = TextPainter(
+        text: TextSpan(text: entry.text, style: style),
+        maxLines: 1,
+        textDirection: textDirection,
+      )..layout();
+      if (painter.width > maxWidth) {
+        maxWidth = painter.width;
+      }
+    }
+
+    return maxWidth + 1;
+  }
+
+  Widget _buildXAxisLabels(
+    BuildContext context, {
+    required ElevationProfileAxisMode axisMode,
+    required List<double> xGuideValues,
+  }) {
+    final theme = Theme.of(context);
+    final style = theme.textTheme.labelSmall?.copyWith(
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final textDirection = Directionality.of(context);
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            for (var index = 0; index < xGuideValues.length; index++)
+              Positioned(
+                left: _xAxisLabelLeft(
+                  totalWidth: constraints.maxWidth,
+                  fractionFromLeft: index / (xGuideValues.length - 1),
+                  labelText: _formatXAxisLabel(xGuideValues[index], axisMode),
+                  labelStyle: style,
+                  textDirection: textDirection,
+                ),
+                top: 0,
+                child: Text(
+                  _formatXAxisLabel(xGuideValues[index], axisMode),
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.visible,
+                  style: style,
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  double _xAxisLabelLeft({
+    required double totalWidth,
+    required double fractionFromLeft,
+    required String labelText,
+    required TextStyle? labelStyle,
+    required ui.TextDirection textDirection,
+  }) {
+    final painter = TextPainter(
+      text: TextSpan(text: labelText, style: labelStyle),
+      maxLines: 1,
+      textDirection: textDirection,
+    )..layout();
+
+    final width = painter.width;
+    final rawLeft = (totalWidth * fractionFromLeft) - (width / 2);
+    return rawLeft.clamp(0.0, math.max(0.0, totalWidth - width)).toDouble();
   }
 
   String _formatXAxisLabel(double value, ElevationProfileAxisMode axisMode) {
     return switch (axisMode) {
-      ElevationProfileAxisMode.distance => formatDistance(value),
+      ElevationProfileAxisMode.distance => formatDistance(
+        value,
+        decimalPlaces: 1,
+      ),
       ElevationProfileAxisMode.time => DateFormat(
         'HH:mm',
       ).format(DateTime.fromMillisecondsSinceEpoch(value.round())),
@@ -397,12 +651,14 @@ class _ElevationProfileStateMessage extends StatelessWidget {
   }
 }
 
-Color _guideColor() {
-  final baseColor = thinDivider.color ?? const Color(0xff7b7b7b);
-  return baseColor.withValues(alpha: baseColor.a * 0.2);
-}
+class _ElevationAxisRange {
+  const _ElevationAxisRange({
+    required this.minY,
+    required this.maxY,
+    required this.step,
+  });
 
-Color _axisColor() {
-  final baseColor = thinDivider.color ?? const Color(0xff7b7b7b);
-  return baseColor.withValues(alpha: baseColor.a * 0.9);
+  final double minY;
+  final double maxY;
+  final double step;
 }
