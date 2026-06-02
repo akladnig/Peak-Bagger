@@ -108,8 +108,20 @@ void main() {
             gpxFile: '<gpx></gpx>',
           )
           ..peaks.addAll([
-            Peak(osmId: 2, name: 'beta', latitude: 0, longitude: 0),
-            Peak(osmId: 1, name: '', latitude: 0, longitude: 0),
+            Peak(
+              osmId: 2,
+              name: 'beta',
+              elevation: 1377,
+              latitude: 0,
+              longitude: 0,
+            ),
+            Peak(
+              osmId: 1,
+              name: '',
+              elevation: 1022,
+              latitude: 0,
+              longitude: 0,
+            ),
           ]);
 
     await tester.pumpWidget(
@@ -169,6 +181,8 @@ void main() {
     );
     expect(find.text('Unknown Peak'), findsOneWidget);
     expect(find.text('beta'), findsOneWidget);
+    expect(find.text('1377 m'), findsOneWidget);
+    expect(find.text('1022 m'), findsOneWidget);
     expect(find.text('Elevation'), findsOneWidget);
     expect(find.text('Start Elevation'), findsOneWidget);
     expect(find.text('100 m'), findsOneWidget);
