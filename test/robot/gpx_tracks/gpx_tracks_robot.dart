@@ -42,14 +42,17 @@ class GpxTracksRobot {
     this.prefsLoader,
     this.surfaceSize = const Size(1600, 900),
   }) : notifier = notifier ?? TestMapNotifier(initialState),
-        peakListRepository =
-            peakListRepository ?? PeakListRepository.test(InMemoryPeakListStorage()),
-        peakRepository =
-            peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
-        peaksBaggedRepository =
-            peaksBaggedRepository ?? PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
-        routeRepository = routeRepository ?? RouteRepository.test(InMemoryRouteStorage()),
-        gpxFilePicker = gpxFilePicker ?? FakeGpxFilePicker();
+       peakListRepository =
+           peakListRepository ??
+           PeakListRepository.test(InMemoryPeakListStorage()),
+       peakRepository =
+           peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
+       peaksBaggedRepository =
+           peaksBaggedRepository ??
+           PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
+       routeRepository =
+           routeRepository ?? RouteRepository.test(InMemoryRouteStorage()),
+       gpxFilePicker = gpxFilePicker ?? FakeGpxFilePicker();
 
   final WidgetTester tester;
   final MapState initialState;
@@ -66,15 +69,15 @@ class GpxTracksRobot {
   bool _mouseAdded = false;
 
   Finder get showTracksFab => find.byKey(const Key('show-tracks-fab'));
-  Finder get tracksRoutesDrawer => find.byKey(const Key('tracks-routes-drawer'));
+  Finder get tracksRoutesDrawer =>
+      find.byKey(const Key('tracks-routes-drawer'));
   Finder get importFab => find.byKey(const Key('import-tracks-fab'));
   Finder get infoFab => find.byKey(const Key('map-info-fab'));
   Finder get showPeaksFab => find.byKey(const Key('show-peaks-fab'));
   Finder get peakListsDrawer => find.byKey(const Key('peak-lists-drawer'));
   Finder get dashboardMyAscentsCard =>
       find.byKey(const Key('dashboard-card-my-ascents'));
-  Finder get importResultSummary =>
-      find.byKey(const Key('gpx-import-summary'));
+  Finder get importResultSummary => find.byKey(const Key('gpx-import-summary'));
   Finder get importResultClose =>
       find.byKey(const Key('gpx-import-result-close'));
   Finder get importAsRouteSwitch => find.descendant(
@@ -123,19 +126,21 @@ class GpxTracksRobot {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-        mapProvider.overrideWith(() => notifier),
-        routeGraphStoreProvider.overrideWithValue(TestReadyRouteGraphStore()),
-        gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
-        peakListRepositoryProvider.overrideWithValue(peakListRepository),
-        peakRepositoryProvider.overrideWithValue(peakRepository),
-        peaksBaggedRepositoryProvider.overrideWithValue(peaksBaggedRepository),
-        routeRepositoryProvider.overrideWithValue(routeRepository),
-        if (prefsLoader != null)
-          mapPreferencesLoaderProvider.overrideWithValue(prefsLoader!),
-        if (tasmapRepository != null)
-          tasmapRepositoryProvider.overrideWithValue(tasmapRepository!),
-        gpxFilePickerProvider.overrideWithValue(gpxFilePicker),
-      ],
+          mapProvider.overrideWith(() => notifier),
+          routeGraphStoreProvider.overrideWithValue(TestReadyRouteGraphStore()),
+          gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
+          peakListRepositoryProvider.overrideWithValue(peakListRepository),
+          peakRepositoryProvider.overrideWithValue(peakRepository),
+          peaksBaggedRepositoryProvider.overrideWithValue(
+            peaksBaggedRepository,
+          ),
+          routeRepositoryProvider.overrideWithValue(routeRepository),
+          if (prefsLoader != null)
+            mapPreferencesLoaderProvider.overrideWithValue(prefsLoader!),
+          if (tasmapRepository != null)
+            tasmapRepositoryProvider.overrideWithValue(tasmapRepository!),
+          gpxFilePickerProvider.overrideWithValue(gpxFilePicker),
+        ],
         child: const App(),
       ),
     );
@@ -456,12 +461,13 @@ class GpxTracksRobot {
   }
 
   List<String> peakMarkerAssetNames() {
-    return tester.widgetList<SvgPicture>(
-      find.descendant(
-        of: peakMarkerLayer,
-        matching: find.byType(SvgPicture),
-      ),
-    )
+    return tester
+        .widgetList<SvgPicture>(
+          find.descendant(
+            of: peakMarkerLayer,
+            matching: find.byType(SvgPicture),
+          ),
+        )
         .map((svg) => svg.bytesLoader.toString())
         .toList(growable: false);
   }

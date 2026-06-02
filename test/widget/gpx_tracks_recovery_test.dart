@@ -13,48 +13,49 @@ import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import '../harness/test_map_notifier.dart';
 
 void main() {
-  testWidgets('recovery state shows banner and disables track switch in drawer', (
-    tester,
-  ) async {
-    final state = MapState(
-      center: const LatLng(-41.5, 146.5),
-      zoom: 10,
-      basemap: Basemap.tracestrack,
-      hasTrackRecoveryIssue: true,
-      tracks: [
-        GpxTrack(contentHash: '', trackName: 'Broken Track', trackDate: null),
-      ],
-    );
+  testWidgets(
+    'recovery state shows banner and disables track switch in drawer',
+    (tester) async {
+      final state = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 10,
+        basemap: Basemap.tracestrack,
+        hasTrackRecoveryIssue: true,
+        tracks: [
+          GpxTrack(contentHash: '', trackName: 'Broken Track', trackDate: null),
+        ],
+      );
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [mapProvider.overrideWith(() => TestMapNotifier(state))],
-        child: const App(),
-      ),
-    );
-    await tester.pump();
-    router.go('/map');
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [mapProvider.overrideWith(() => TestMapNotifier(state))],
+          child: const App(),
+        ),
+      );
+      await tester.pump();
+      router.go('/map');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('Some tracks need to be rebuilt.'), findsWidgets);
+      expect(find.text('Some tracks need to be rebuilt.'), findsWidgets);
 
-    final showTracksFab = tester.widget<FloatingActionButton>(
-      find.byKey(const Key('show-tracks-fab')),
-    );
-    final importFab = tester.widget<FloatingActionButton>(
-      find.byKey(const Key('import-tracks-fab')),
-    );
+      final showTracksFab = tester.widget<FloatingActionButton>(
+        find.byKey(const Key('show-tracks-fab')),
+      );
+      final importFab = tester.widget<FloatingActionButton>(
+        find.byKey(const Key('import-tracks-fab')),
+      );
 
-    expect(showTracksFab.onPressed, isNotNull);
-    expect(importFab.onPressed, isNull);
+      expect(showTracksFab.onPressed, isNotNull);
+      expect(importFab.onPressed, isNull);
 
-    await tester.tap(find.byKey(const Key('show-tracks-fab')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('show-tracks-fab')));
+      await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('tracks-routes-drawer')), findsOneWidget);
-    expect(find.text('Tracks unavailable during recovery'), findsOneWidget);
-  });
+      expect(find.byKey(const Key('tracks-routes-drawer')), findsOneWidget);
+      expect(find.text('Tracks unavailable during recovery'), findsOneWidget);
+    },
+  );
 
   testWidgets('hovering a visible track sets hover state and clears on exit', (
     tester,
@@ -153,9 +154,7 @@ void main() {
     await gesture.removePointer();
   });
 
-  testWidgets('hidden tracks disable hover detection', (
-    tester,
-  ) async {
+  testWidgets('hidden tracks disable hover detection', (tester) async {
     final hiddenState = _mapStateWithVisibleTrack(showTracks: false);
     await _pumpMapApp(tester, hiddenState);
 
