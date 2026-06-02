@@ -45,6 +45,60 @@ void main() {
     expect(find.byKey(const Key('peak-marker-hover-6406')), findsOneWidget);
     expect(find.byKey(const Key('peak-marker-name-6406')), findsNothing);
     expect(find.byKey(const Key('peak-marker-height-6406')), findsNothing);
+    expect(find.byKey(const Key('peak-info-popup')), findsOneWidget);
+    expect(find.text('Bonnet Hill'), findsOneWidget);
+  });
+
+  testWidgets('hovering away closes transient peak popup', (tester) async {
+    await _pumpMap(tester, _mapStateWithPeak());
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final container = ProviderScope.containerOf(tester.element(region));
+    final center = tester.getCenter(region);
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(gesture.removePointer);
+
+    await gesture.addPointer(location: center);
+    await tester.pump();
+    await gesture.moveTo(center);
+    await tester.pump();
+
+    expect(find.byKey(const Key('peak-info-popup')), findsOneWidget);
+
+    await gesture.moveTo(center + const Offset(100, 0));
+    await tester.pump();
+
+    expect(container.read(mapProvider).hoveredPeakId, isNull);
+    expect(find.byKey(const Key('peak-info-popup')), findsNothing);
+  });
+
+  testWidgets('clicking a hovered peak pins the popup', (tester) async {
+    await _pumpMap(tester, _mapStateWithPeak());
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final container = ProviderScope.containerOf(tester.element(region));
+    final center = tester.getCenter(region);
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(gesture.removePointer);
+
+    await gesture.addPointer(location: center);
+    await tester.pump();
+    await gesture.moveTo(center);
+    await tester.pump();
+
+    await gesture.down(center);
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(container.read(mapProvider).isPeakInfoPinned, isTrue);
+
+    await gesture.moveTo(center + const Offset(100, 0));
+    await tester.pump();
+
+    expect(find.byKey(const Key('peak-info-popup')), findsOneWidget);
+    expect(container.read(mapProvider).peakInfoPeak?.osmId, 6406);
   });
 
   testWidgets('peak markers render info labels when enabled', (tester) async {

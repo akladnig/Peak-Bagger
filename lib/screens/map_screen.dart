@@ -480,17 +480,16 @@ class _MapScreenState extends ConsumerState<MapScreen>
     MapState mapState,
     List<Peak> peaks,
   ) {
-    final notifier = ref.read(mapProvider.notifier);
-
     if (_isPointerDown ||
         !mapState.showPeaks ||
         mapState.zoom < MapConstants.peakMinZoom) {
-      notifier.clearHoveredPeak();
+      ref.read(mapProvider.notifier).clearHoveredPeak();
+      ref.read(mapProvider.notifier).closeHoveredPeakInfoPopup();
       return false;
     }
 
     final peak = _hitTestPeak(localPosition, mapState, peaks);
-    notifier.setHoveredPeakId(peak?.osmId);
+    ref.read(mapProvider.notifier).setHoveredPeakId(peak?.osmId);
     return peak != null;
   }
 
@@ -555,13 +554,16 @@ class _MapScreenState extends ConsumerState<MapScreen>
     );
     final peakId = result.hoveredPeakId;
     if (peakId == null) {
+      ref.read(mapProvider.notifier).closeHoveredPeakInfoPopup();
       return null;
     }
     for (final peak in peaks) {
       if (peak.osmId == peakId) {
+        ref.read(mapProvider.notifier).openHoveredPeakInfoPopup(peak);
         return peak;
       }
     }
+    ref.read(mapProvider.notifier).closeHoveredPeakInfoPopup();
     return null;
   }
 
@@ -1375,7 +1377,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
           infoPeakElevation: state.infoPeakElevation,
           hasTrackRecoveryIssue: state.hasTrackRecoveryIssue,
           trackCount: state.tracks.length,
-          peakInfo: state.peakInfo,
           isRouteDrafting: state.isRouteDrafting,
           routeDraftDisplayMarkers: state.routeDraftDisplayMarkers,
           routeDraftCommittedPoints: state.routeDraftCommittedPoints,
@@ -2438,8 +2439,17 @@ class _MapScreenState extends ConsumerState<MapScreen>
                       },
                     ),
                   ),
-                if (routeChrome.peakInfo != null)
-                  _buildPeakInfoPopup(context, routeChrome.peakInfo!),
+                Consumer(
+                  builder: (context, ref, child) {
+                    final peakInfo = ref.watch(
+                      mapProvider.select((state) => state.peakInfo),
+                    );
+                    if (peakInfo == null) {
+                      return const SizedBox.shrink();
+                    }
+                    return _buildPeakInfoPopup(context, peakInfo);
+                  },
+                ),
                 if (_routeDraftDeletePopupMarkerId != null)
                   _buildRouteDraftDeletePopup(
                     context,
@@ -2487,13 +2497,15 @@ class _MapScreenState extends ConsumerState<MapScreen>
     }
 
     return Positioned(
-      left: placement.topLeft.dx,
+      left: placement.topLeft.dx -
+          (placement.bridgeOnLeft ? PeakInfoPopupSurface.bridgeWidth : 0),
       top: placement.topLeft.dy,
       child: SizedBox(
-        width: UiConstants.peakInfoPopupSize.width,
-        child: PeakInfoPopupCard(
-          key: const Key('peak-info-popup'),
+        width: UiConstants.peakInfoPopupSize.width +
+            PeakInfoPopupSurface.bridgeWidth,
+        child: PeakInfoPopupSurface(
           content: content,
+          bridgeOnLeft: placement.bridgeOnLeft,
           onDropMarker: () {
             final notifier = ref.read(mapProvider.notifier);
             notifier.setSelectedLocation(

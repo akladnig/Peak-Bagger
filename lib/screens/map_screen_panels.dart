@@ -19,10 +19,12 @@ class PeakInfoPopupPlacement {
   const PeakInfoPopupPlacement({
     required this.topLeft,
     required this.isAnchorable,
+    required this.bridgeOnLeft,
   });
 
   final Offset topLeft;
   final bool isAnchorable;
+  final bool bridgeOnLeft;
 }
 
 PeakInfoPopupPlacement resolvePeakInfoPopupPlacement({
@@ -52,9 +54,12 @@ PeakInfoPopupPlacement resolvePeakInfoPopupPlacement({
     viewportSize.height - popupSize.height - margin,
   );
 
+  final bridgeOnLeft = left >= anchorScreenOffset.dx;
+
   return PeakInfoPopupPlacement(
     topLeft: Offset(left.toDouble(), top.toDouble()),
     isAnchorable: isAnchorable,
+    bridgeOnLeft: bridgeOnLeft,
   );
 }
 
@@ -1107,6 +1112,47 @@ class PeakInfoPopupCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class PeakInfoPopupSurface extends StatelessWidget {
+  const PeakInfoPopupSurface({
+    required this.content,
+    required this.onClose,
+    this.onDropMarker,
+    required this.bridgeOnLeft,
+    super.key,
+  });
+
+  static const bridgeWidth = 12.0;
+
+  final PeakInfoContent content;
+  final VoidCallback onClose;
+  final VoidCallback? onDropMarker;
+  final bool bridgeOnLeft;
+
+  @override
+  Widget build(BuildContext context) {
+    final popupWidth = UiConstants.peakInfoPopupSize.width;
+    final totalWidth = popupWidth + bridgeWidth;
+
+    return MouseRegion(
+      child: SizedBox(
+        width: totalWidth,
+        child: Align(
+          alignment: bridgeOnLeft ? Alignment.centerRight : Alignment.centerLeft,
+          child: SizedBox(
+            width: popupWidth,
+            child: PeakInfoPopupCard(
+              key: const Key('peak-info-popup'),
+              content: content,
+              onClose: onClose,
+              onDropMarker: onDropMarker,
+            ),
           ),
         ),
       ),
