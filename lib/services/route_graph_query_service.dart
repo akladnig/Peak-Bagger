@@ -421,7 +421,7 @@ bool isRouteGraphTrailWayMetadata({
     return true;
   }
 
-  if (highway == 'track' && surface == 'earth') {
+  if (highway == 'track' && ((surface == 'earth') || (surface == 'dirt'))) {
     return true;
   }
 
