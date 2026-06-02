@@ -6,10 +6,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/migration_marker_store.dart';
@@ -28,6 +30,7 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         mapProvider.overrideWith(() => notifier),
+        tasmapRepositoryProvider.overrideWithValue(notifier.tasmapRepository),
         peakListRepositoryProvider.overrideWithValue(
           PeakListRepository.test(InMemoryPeakListStorage()),
         ),
@@ -86,28 +89,58 @@ void main() {
     await gesture.up();
   });
 
-  testWidgets('drag updates live MGRS before canonical provider sync', (
-    tester,
-  ) async {
+  testWidgets('mouse drag freezes the readout at drag start', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final notifier = await _buildCountingNotifier();
     await _pumpApp(tester, notifier);
 
     final region = find.byKey(const Key('map-interaction-region'));
-    final container = ProviderScope.containerOf(
-      tester.element(find.byKey(const Key('shared-app-bar'))),
+    final gesture = await tester.startGesture(
+      tester.getCenter(region),
+      kind: PointerDeviceKind.mouse,
     );
-    final initialMgrs = container.read(mapProvider).currentMgrs;
+    await tester.pump();
+    final frozenDisplayMgrs = _mgrsReadoutText(tester);
 
-    final gesture = await tester.startGesture(tester.getCenter(region));
     await gesture.moveBy(const Offset(80, 0));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(container.read(mapProvider).currentMgrs, initialMgrs);
-    expect(_mgrsReadoutText(tester), isNot(initialMgrs));
+    expect(_mgrsReadoutText(tester), frozenDisplayMgrs);
+    expect(_mgrsReadoutMapName(tester), isNotEmpty);
+    expect(frozenDisplayMgrs, isNot(contains('\n')));
+    expect(frozenDisplayMgrs, contains('55G '));
 
     await gesture.up();
+  });
+
+  testWidgets('map readout resolves the cursor map name', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final repo = await TestTasmapRepository.create();
+    final map = repo.getAllMaps().first;
+    final notifier = await _buildCountingNotifier();
+    await _pumpApp(tester, notifier);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shared-app-bar'))),
+    );
+    final cursorPoint = mgrs.Mgrs.toPoint(
+      '55G${map.mgrsMid} ${map.eastingMid.toString().padLeft(5, '0')} '
+      '${map.northingMid.toString().padLeft(5, '0')}',
+    );
+    final cursorLatLng = LatLng(cursorPoint[1], cursorPoint[0]);
+    container.read(mapProvider.notifier).updatePosition(
+      cursorLatLng,
+      container.read(mapProvider).zoom,
+    );
+    container.read(mapProvider.notifier).setCursorMgrs(cursorLatLng);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final currentMgrs = container.read(mapProvider).cursorMgrs!;
+    final expectedName =
+        repo.findByMgrsCodeAndCoordinates(currentMgrs)?.name ?? 'Unknown';
+    expect(_mgrsReadoutMapName(tester), expectedName);
   });
 
   testWidgets('drag debounce commits fewer canonical syncs than motion updates', (
@@ -350,12 +383,21 @@ Future<void> _drainAsync() async {
 }
 
 String _mgrsReadoutText(WidgetTester tester) {
-  final readout = find.descendant(
+  final textFinder = find.descendant(
+    of: find.byKey(const Key('map-mgrs-readout')),
+    matching: find.byType(Text),
+  );
+  final texts = tester.widgetList<Text>(textFinder).toList(growable: false);
+  return texts.single.data ?? '';
+}
+
+String _mgrsReadoutMapName(WidgetTester tester) {
+  final richTextFinder = find.descendant(
     of: find.byKey(const Key('map-mgrs-readout')),
     matching: find.byType(RichText),
   );
-  final richText = tester.widget<RichText>(readout);
-  return richText.text.toPlainText();
+  final richTexts = tester.widgetList<RichText>(richTextFinder).toList(growable: false);
+  return richTexts.first.text.toPlainText();
 }
 
 class _CountingMapNotifier extends MapNotifier {

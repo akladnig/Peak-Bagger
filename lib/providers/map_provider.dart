@@ -857,6 +857,18 @@ class MapNotifier extends Notifier<MapState> {
   bool _showTracksRestoreOverridden = false;
   bool _showRoutesRestoreOverridden = false;
   bool _showTrailsRestoreOverridden = false;
+
+  TasmapRepository get tasmapRepository =>
+      _injectedTasmapRepository ?? _tasmapRepository;
+
+  String mapNameForMgrs(String mgrsText) {
+    try {
+      return _tasmapRepository.findByMgrsCodeAndCoordinates(mgrsText)?.name ??
+          'Unknown';
+    } catch (_) {
+      return 'Unknown';
+    }
+  }
   Set<int> get correlatedPeakIds => buildCorrelatedPeakIds(state.tracks);
 
   @override
