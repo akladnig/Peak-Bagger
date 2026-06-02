@@ -12,6 +12,8 @@ import '../services/elevation_profile_series_builder.dart';
 
 enum ElevationProfileAxisMode { distance, time }
 
+enum _DistanceAxisUnit { meters, kilometers }
+
 class ElevationProfileChart extends StatefulWidget {
   const ElevationProfileChart({
     super.key,
@@ -157,6 +159,7 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
         ),
         fractionFromTop: 0.75,
       ),
+      const DashboardChartYAxisLabelEntry(text: 'm', fractionFromTop: 1),
     ];
 
     return DecoratedBox(
@@ -169,19 +172,21 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final series = widget.series;
-            final axisMode = _supportsTimeAxis &&
-                    _axisMode == ElevationProfileAxisMode.time
+            final axisMode =
+                _supportsTimeAxis && _axisMode == ElevationProfileAxisMode.time
                 ? ElevationProfileAxisMode.time
                 : ElevationProfileAxisMode.distance;
             final segments = _segmentsForAxis(axisMode, series.samples);
             final minX = _minX(axisMode, series.samples);
             final maxX = _maxX(axisMode, series.samples, minX);
+            final distanceAxisUnit = _distanceAxisUnit(maxX);
             final xGuideValues = _xGuideValues(minX, maxX);
             final chart = LineChart(
               _buildChartData(
                 context,
                 axisRange,
                 axisMode: axisMode,
+                distanceAxisUnit: distanceAxisUnit,
                 xGuideValues: xGuideValues,
                 segments: segments,
                 minX: minX,
@@ -202,6 +207,7 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
                       child: _buildXAxisLabels(
                         context,
                         axisMode: axisMode,
+                        distanceAxisUnit: distanceAxisUnit,
                         xGuideValues: xGuideValues,
                       ),
                     ),
@@ -239,6 +245,7 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
                           child: _buildXAxisLabels(
                             context,
                             axisMode: axisMode,
+                            distanceAxisUnit: distanceAxisUnit,
                             xGuideValues: xGuideValues,
                           ),
                         ),
@@ -256,9 +263,9 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
 
   LineChartData _buildChartData(
     BuildContext context,
-    _ElevationAxisRange axisRange,
-    {
+    _ElevationAxisRange axisRange, {
     required ElevationProfileAxisMode axisMode,
+    required _DistanceAxisUnit distanceAxisUnit,
     required List<double> xGuideValues,
     required List<List<FlSpot>> segments,
     required double minX,
@@ -302,10 +309,7 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
           ),
         ),
         bottomTitles: AxisTitles(
-          sideTitles: SideTitles(
-            showTitles: false,
-            reservedSize: 0,
-          ),
+          sideTitles: SideTitles(showTitles: false, reservedSize: 0),
         ),
         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         rightTitles: const AxisTitles(
@@ -353,7 +357,7 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
         getTouchedSpotIndicator: (barData, spotIndexes) {
           return spotIndexes
               .map(
-                  (spotIndex) => TouchedSpotIndicatorData(
+                (spotIndex) => TouchedSpotIndicatorData(
                   FlLine(
                     color: theme.colorScheme.primary,
                     strokeWidth: ChartUI.hoverLineStrokeWidth,
@@ -377,7 +381,7 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
             return spots
                 .map((spot) {
                   return LineTooltipItem(
-                    '${_formatXAxisLabel(spot.x, axisMode)}\n${formatElevation(spot.y.round())}',
+                    '${_formatXAxisLabel(spot.x, axisMode, distanceAxisUnit: distanceAxisUnit)}\n${formatElevation(spot.y.round())}',
                     (theme.textTheme.labelSmall ?? const TextStyle()).copyWith(
                       color: theme.colorScheme.onSurface,
                     ),
@@ -511,11 +515,7 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
       maxY = minY + (place * 4);
     }
 
-    return _ElevationAxisRange(
-      minY: minY,
-      maxY: maxY,
-      step: (maxY - minY) / 4,
-    );
+    return _ElevationAxisRange(minY: minY, maxY: maxY, step: (maxY - minY) / 4);
   }
 
   double _elevationPlace(double n) {
@@ -553,6 +553,7 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
   Widget _buildXAxisLabels(
     BuildContext context, {
     required ElevationProfileAxisMode axisMode,
+    required _DistanceAxisUnit distanceAxisUnit,
     required List<double> xGuideValues,
   }) {
     final theme = Theme.of(context);
@@ -571,13 +572,23 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
                 left: _xAxisLabelLeft(
                   totalWidth: constraints.maxWidth,
                   fractionFromLeft: index / (xGuideValues.length - 1),
-                  labelText: _formatXAxisLabel(xGuideValues[index], axisMode),
+                  labelText: _formatXAxisLabel(
+                    xGuideValues[index],
+                    axisMode,
+                    distanceAxisUnit: distanceAxisUnit,
+                    showUnits: index == 0,
+                  ),
                   labelStyle: style,
                   textDirection: textDirection,
                 ),
                 top: 0,
                 child: Text(
-                  _formatXAxisLabel(xGuideValues[index], axisMode),
+                  _formatXAxisLabel(
+                    xGuideValues[index],
+                    axisMode,
+                    distanceAxisUnit: distanceAxisUnit,
+                    showUnits: index == 0,
+                  ),
                   maxLines: 1,
                   softWrap: false,
                   overflow: TextOverflow.visible,
@@ -608,15 +619,47 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
     return rawLeft.clamp(0.0, math.max(0.0, totalWidth - width)).toDouble();
   }
 
-  String _formatXAxisLabel(double value, ElevationProfileAxisMode axisMode) {
+  String _formatXAxisLabel(
+    double value,
+    ElevationProfileAxisMode axisMode, {
+    required _DistanceAxisUnit distanceAxisUnit,
+    bool showUnits = false,
+  }) {
     return switch (axisMode) {
-      ElevationProfileAxisMode.distance => formatDistance(
+      ElevationProfileAxisMode.distance => _formatDistanceAxisLabel(
         value,
-        decimalPlaces: 1,
+        distanceAxisUnit: distanceAxisUnit,
+        showUnits: showUnits,
       ),
       ElevationProfileAxisMode.time => DateFormat(
         'HH:mm',
       ).format(DateTime.fromMillisecondsSinceEpoch(value.round())),
+    };
+  }
+
+  _DistanceAxisUnit _distanceAxisUnit(double maxX) {
+    return maxX >= 1000
+        ? _DistanceAxisUnit.kilometers
+        : _DistanceAxisUnit.meters;
+  }
+
+  String _formatDistanceAxisLabel(
+    double value, {
+    required _DistanceAxisUnit distanceAxisUnit,
+    required bool showUnits,
+  }) {
+    final label = switch (distanceAxisUnit) {
+      _DistanceAxisUnit.meters => value.round().toString(),
+      _DistanceAxisUnit.kilometers => (value / 1000).toStringAsFixed(1),
+    };
+
+    if (!showUnits) {
+      return label;
+    }
+
+    return switch (distanceAxisUnit) {
+      _DistanceAxisUnit.meters => 'm',
+      _DistanceAxisUnit.kilometers => 'km',
     };
   }
 }

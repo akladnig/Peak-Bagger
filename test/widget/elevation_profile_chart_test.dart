@@ -81,7 +81,10 @@ void main() {
     expect(lineChart.data.extraLinesData.verticalLines, hasLength(5));
     expect(lineChart.data.extraLinesData.verticalLines.first.x, 0);
     expect(lineChart.data.extraLinesData.verticalLines.last.x, 17000);
-    expect(find.text('17.0 km'), findsOneWidget);
+    expect(find.text('m'), findsOneWidget);
+    expect(find.text('km'), findsOneWidget);
+    expect(find.text('17.0'), findsOneWidget);
+    expect(find.text('17.0 km'), findsNothing);
 
     final bar = lineChart.data.lineBarsData.single;
     expect(bar.dotData.show, isFalse);
@@ -110,12 +113,7 @@ void main() {
 ]
 ''');
 
-    await _pumpChart(
-      tester,
-      series,
-      minElevation: 1022,
-      maxElevation: 1377,
-    );
+    await _pumpChart(tester, series, minElevation: 1022, maxElevation: 1377);
 
     final lineChart = tester.widget<LineChart>(find.byType(LineChart));
     expect(lineChart.data.minY, 1000);
