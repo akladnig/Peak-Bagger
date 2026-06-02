@@ -87,6 +87,8 @@ enum EndDrawerMode { basemaps, peakLists, tracksRoutes }
 
 enum RouteMode { snapToTrail, straightLine, routeToPeak }
 
+enum PeakInfoPopupMode { hover, pinned }
+
 enum RouteDraftStage {
   inactive,
   awaitingStart,
@@ -274,6 +276,7 @@ class MapState {
   final String? trackOperationWarning;
   final int? hoveredPeakId;
   final PeakInfoContent? peakInfo;
+  final PeakInfoPopupMode? peakInfoPopupMode;
   final int? hoveredTrackId;
   final int? selectedTrackId;
   final int? selectedRouteId;
@@ -361,6 +364,7 @@ class MapState {
     this.trackOperationWarning,
     this.hoveredPeakId,
     this.peakInfo,
+    this.peakInfoPopupMode,
     this.hoveredTrackId,
     this.selectedTrackId,
     this.selectedRouteId,
@@ -373,6 +377,12 @@ class MapState {
                : MapGridVisibility.mapGridOnly);
 
   Peak? get peakInfoPeak => peakInfo?.peak;
+
+  bool get isPeakInfoPinned =>
+      peakInfo != null && peakInfoPopupMode == PeakInfoPopupMode.pinned;
+
+  bool get isPeakInfoHovered =>
+      peakInfo != null && peakInfoPopupMode == PeakInfoPopupMode.hover;
 
   Peak? get routeDraftPeakTarget {
     if (routeDraftPeakTargetLocked) {
@@ -503,6 +513,7 @@ class MapState {
     int? hoveredPeakId,
     bool clearHoveredPeakId = false,
     PeakInfoContent? peakInfo,
+    PeakInfoPopupMode? peakInfoPopupMode,
     bool clearPeakInfoPopup = false,
     int? hoveredTrackId,
     bool clearHoveredTrackId = false,
@@ -667,6 +678,9 @@ class MapState {
           ? null
           : (hoveredPeakId ?? this.hoveredPeakId),
       peakInfo: clearPeakInfoPopup ? null : (peakInfo ?? this.peakInfo),
+      peakInfoPopupMode: clearPeakInfoPopup
+          ? null
+          : (peakInfoPopupMode ?? this.peakInfoPopupMode),
       hoveredTrackId: clearHoveredTrackId
           ? null
           : (hoveredTrackId ?? this.hoveredTrackId),
@@ -3578,12 +3592,34 @@ class MapNotifier extends Notifier<MapState> {
   void openPeakInfoPopup(Peak peak) {
     state = state.copyWith(
       peakInfo: _resolvePeakInfoContentForPeak(peak),
+      peakInfoPopupMode: PeakInfoPopupMode.pinned,
       clearInfoPopup: true,
       clearHoveredTrackId: true,
     );
   }
 
+  void openHoveredPeakInfoPopup(Peak peak) {
+    if (state.peakInfoPeak?.osmId == peak.osmId && state.isPeakInfoPinned) {
+      return;
+    }
+    if (state.peakInfoPeak?.osmId == peak.osmId && state.isPeakInfoHovered) {
+      return;
+    }
+    state = state.copyWith(
+      peakInfo: _resolvePeakInfoContentForPeak(peak),
+      peakInfoPopupMode: PeakInfoPopupMode.hover,
+      clearInfoPopup: true,
+    );
+  }
+
   void closePeakInfoPopup() {
+    state = state.copyWith(clearPeakInfoPopup: true, clearHoveredPeakId: true);
+  }
+
+  void closeHoveredPeakInfoPopup() {
+    if (!state.isPeakInfoHovered) {
+      return;
+    }
     state = state.copyWith(clearPeakInfoPopup: true, clearHoveredPeakId: true);
   }
 
@@ -5035,13 +5071,22 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   PeakInfoContent _resolvePeakInfoContentForPeak(Peak peak) {
-    return resolvePeakInfoContent(
-      peak: peak,
-      peakListRepository: ref.read(peakListRepositoryProvider),
-      tasmapRepository: ref.read(tasmapRepositoryProvider),
-      peaksBaggedRepository: _readPeaksBaggedRepository(),
-      gpxTrackRepository: _readGpxTrackRepository(),
-    );
+    try {
+      return resolvePeakInfoContent(
+        peak: peak,
+        peakListRepository: ref.read(peakListRepositoryProvider),
+        tasmapRepository: ref.read(tasmapRepositoryProvider),
+        peaksBaggedRepository: _readPeaksBaggedRepository(),
+        gpxTrackRepository: _readGpxTrackRepository(),
+      );
+    } catch (_) {
+      return PeakInfoContent(
+        peak: peak,
+        mapName: 'Unknown',
+        listNames: const [],
+        ascentRows: const [],
+      );
+    }
   }
 
   PeaksBaggedRepository _readPeaksBaggedRepository() {

@@ -87,6 +87,20 @@ class PeakInfoRobot {
     await tester.pump();
   }
 
+  Future<void> hoverPopup() async {
+    final point = tester.getCenter(peakInfoPopup);
+    await _ensureMouse(point);
+    await _mouseGesture!.moveTo(point);
+    await tester.pump();
+  }
+
+  Future<void> hoverAwayFromPeak() async {
+    final point = tester.getCenter(mapInteractionRegion) + const Offset(100, 0);
+    await _ensureMouse(point);
+    await _mouseGesture!.moveTo(point);
+    await tester.pump();
+  }
+
   Future<void> clickPeak(int peakOsmId) async {
     final point = tester.getCenter(mapInteractionRegion);
     await _ensureMouse(point);

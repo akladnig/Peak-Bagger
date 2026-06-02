@@ -26,6 +26,21 @@ void main() {
     await r.hoverPeak(6406);
 
     r.expectPeakHover(6406);
+    r.expectPeakPopupWithContent('Bonnet Hill');
+  });
+
+  testWidgets('peak info journey popup stays open while hovered', (
+    tester,
+  ) async {
+    final r = PeakInfoRobot(tester);
+    addTearDown(r.dispose);
+
+    await r.pumpMap();
+
+    await r.hoverPeak(6406);
+    await r.hoverPopup();
+
+    r.expectPeakPopupWithContent('Bonnet Hill');
   });
 
   testWidgets('peak info journey click opens popup content and close button', (
@@ -40,6 +55,37 @@ void main() {
     r.expectPeakPopupWithContent('Bonnet Hill');
 
     await r.closePeakPopup();
+    r.expectNoPeakPopup();
+  });
+
+  testWidgets('peak info journey click pins hovered popup', (tester) async {
+    final r = PeakInfoRobot(tester);
+    addTearDown(r.dispose);
+
+    await r.pumpMap();
+
+    await r.hoverPeak(6406);
+    await r.clickPeak(6406);
+    await r.hoverAwayFromPeak();
+
+    final container = ProviderScope.containerOf(
+      tester.element(r.mapInteractionRegion),
+    );
+    expect(container.read(mapProvider).isPeakInfoPinned, isTrue);
+    r.expectPeakPopupWithContent('Bonnet Hill');
+  });
+
+  testWidgets('peak info journey hover away closes transient popup', (
+    tester,
+  ) async {
+    final r = PeakInfoRobot(tester);
+    addTearDown(r.dispose);
+
+    await r.pumpMap();
+
+    await r.hoverPeak(6406);
+    await r.hoverAwayFromPeak();
+
     r.expectNoPeakPopup();
   });
 
