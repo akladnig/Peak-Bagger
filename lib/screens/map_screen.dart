@@ -1854,8 +1854,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                 mgrsState.gotoMgrs ??
                                                 _liveCamera?.mgrs ??
                                                 mgrsState.currentMgrs;
-                                            _dragFrozenReadoutMgrs =
-                                                frozenMgrs;
+                                            _dragFrozenReadoutMgrs = frozenMgrs;
                                             _dragFrozenReadoutMapName =
                                                 _mapNotifier.mapNameForMgrs(
                                                   frozenMgrs,
@@ -2244,51 +2243,54 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                   Positioned(
                                     left: 16,
                                     top: 16,
-                                    child: Consumer(
-                                      builder: (context, ref, child) {
-                                        final mgrsState = ref.watch(
-                                          mapProvider.select(
-                                            (state) => (
-                                              cursorMgrs: state.cursorMgrs,
-                                              gotoMgrs: state.gotoMgrs,
-                                              currentMgrs: state.currentMgrs,
+                                    child: IgnorePointer(
+                                      child: Consumer(
+                                        builder: (context, ref, child) {
+                                          final mgrsState = ref.watch(
+                                            mapProvider.select(
+                                              (state) => (
+                                                cursorMgrs: state.cursorMgrs,
+                                                gotoMgrs: state.gotoMgrs,
+                                                currentMgrs: state.currentMgrs,
+                                              ),
                                             ),
-                                          ),
-                                        );
-                                        final displayMgrs =
-                                            _isPointerDown &&
-                                                    _dragFrozenReadoutMgrs !=
-                                                        null
-                                                ? _dragFrozenReadoutMgrs!
-                                                : mgrsState.cursorMgrs ??
+                                          );
+                                          final displayMgrs =
+                                              _isPointerDown &&
+                                                  _dragFrozenReadoutMgrs != null
+                                              ? _dragFrozenReadoutMgrs!
+                                              : mgrsState.cursorMgrs ??
                                                     mgrsState.gotoMgrs ??
                                                     _liveCamera?.mgrs ??
                                                     mgrsState.currentMgrs;
-                                        final mapName =
-                                            _isPointerDown &&
-                                                    _dragFrozenReadoutMapName !=
-                                                        null
-                                                ? _dragFrozenReadoutMapName!
-                                                : _mapNotifier.mapNameForMgrs(
-                                                    mgrsState.cursorMgrs ??
-                                                        mgrsState.gotoMgrs ??
-                                                        _liveCamera?.mgrs ??
-                                                        mgrsState.currentMgrs,
-                                                  );
-                                        return MapMgrsReadout(
-                                          mapName: mapName,
-                                          mgrs: displayMgrs,
-                                        );
-                                      },
+                                          final mapName =
+                                              _isPointerDown &&
+                                                  _dragFrozenReadoutMapName !=
+                                                      null
+                                              ? _dragFrozenReadoutMapName!
+                                              : _mapNotifier.mapNameForMgrs(
+                                                  mgrsState.cursorMgrs ??
+                                                      mgrsState.gotoMgrs ??
+                                                      _liveCamera?.mgrs ??
+                                                      mgrsState.currentMgrs,
+                                                );
+                                          return MapMgrsReadout(
+                                            mapName: mapName,
+                                            mgrs: displayMgrs,
+                                          );
+                                        },
+                                      ),
                                     ),
                                   ),
                                 if (showMapReadouts)
                                   Positioned(
                                     left: 16,
                                     bottom: 16,
-                                    child: MapZoomReadout(
-                                      zoom: displayZoom,
-                                      latitude: mapScene.center.latitude,
+                                    child: IgnorePointer(
+                                      child: MapZoomReadout(
+                                        zoom: displayZoom,
+                                        latitude: mapScene.center.latitude,
+                                      ),
                                     ),
                                   ),
                                 Positioned(
@@ -2298,14 +2300,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                   child: AnimatedSlide(
                                     duration: const Duration(milliseconds: 200),
                                     curve: Curves.easeOut,
-                                    offset:
-                                        showMapReadouts
+                                    offset: showMapReadouts
                                         ? const Offset(-1.1, 0)
                                         : Offset.zero,
                                     child: IgnorePointer(
                                       ignoring: showMapReadouts,
-                                      child:
-                                          showMapReadouts
+                                      child: showMapReadouts
                                           ? const SizedBox(
                                               width: UiConstants
                                                   .preferredLeftWidth,
