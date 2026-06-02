@@ -1795,18 +1795,27 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                         hoveredPeakId:
                                             cursorState.hoveredPeakId,
                                       ),
-                                      onExit: (_) {
-                                        final notifier = ref.read(
-                                          mapProvider.notifier,
-                                        );
-                                        notifier.clearCursorMgrs();
-                                        notifier.clearHoveredPeak();
-                                        notifier.clearHoveredTrack();
-                                        notifier.clearHoveredRoute();
-                                        notifier.clearHoveredRouteDraftMarker();
-                                        notifier
-                                            .clearHoveredRouteDraftSegmentPreview();
-                                      },
+                                        onExit: (event) {
+                                          final mapState = ref.read(mapProvider);
+                                          final notifier = ref.read(
+                                            mapProvider.notifier,
+                                          );
+                                          if (mapState.isPeakInfoHovered &&
+                                              mapState.peakInfoPeak != null &&
+                                              !_peakInfoPopupBounds(
+                                                context,
+                                                mapState.peakInfoPeak!,
+                                              ).contains(event.localPosition)) {
+                                            notifier.closeHoveredPeakInfoPopup();
+                                          }
+                                          notifier.clearCursorMgrs();
+                                          notifier.clearHoveredPeak();
+                                          notifier.clearHoveredTrack();
+                                          notifier.clearHoveredRoute();
+                                          notifier.clearHoveredRouteDraftMarker();
+                                          notifier
+                                              .clearHoveredRouteDraftSegmentPreview();
+                                        },
                                       child: child!,
                                     );
                                   },
@@ -2720,6 +2729,22 @@ class _MapScreenState extends ConsumerState<MapScreen>
       return const Offset(0, 0);
     }
     return camera.latLngToScreenOffset(LatLng(peak.latitude, peak.longitude));
+  }
+
+  Rect _peakInfoPopupBounds(BuildContext context, Peak peak) {
+    final placement = resolvePeakInfoPopupPlacement(
+      anchorScreenOffset: _screenOffsetForPeak(peak),
+      viewportSize: MediaQuery.of(context).size,
+      popupSize: UiConstants.peakInfoPopupSize,
+    );
+    final left = placement.topLeft.dx -
+        (placement.bridgeOnLeft ? PeakInfoPopupSurface.bridgeWidth : 0);
+    return Rect.fromLTWH(
+      left,
+      placement.topLeft.dy,
+      UiConstants.peakInfoPopupSize.width + PeakInfoPopupSurface.bridgeWidth,
+      UiConstants.peakInfoPopupSize.height,
+    );
   }
 
   Offset _screenOffsetForRouteDraftMarker(LatLng point) {

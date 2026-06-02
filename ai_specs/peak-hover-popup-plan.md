@@ -28,14 +28,14 @@ Keep click-popup behavior; add transient hover mode first, then harden edge case
 ### Phase 2: Interaction hardening + journey coverage
 
 - **Goal**: stabilize pointer transitions and preserve existing map interaction rules
-- [ ] `lib/screens/map_screen.dart` - clear transient popup on drag, route-draft mode, peak layer hidden, zoom below threshold, anchor invalidation, map exit without popup hover
-- [ ] `lib/providers/map_provider.dart` - ensure reload/peak removal/route-draft entry close transient or pinned popup consistently
-- [ ] TDD: `test/widget/map_screen_peak_info_test.dart` - pointer transfer marker -> popup keeps transient popup open; leaving popup closes it; background click still selects location and clears popup
-- [ ] `test/robot/peaks/peak_info_robot.dart` - add hover-popup journey helpers for marker, popup, and background transitions
-- [ ] `test/robot/peaks/peak_info_journey_test.dart` - TDD: hover shows popup; popup remains while hovered; click pins; move away closes transient-only case
-- [ ] Stable selectors: reuse `map-interaction-region`, `peak-marker-hitbox-<osmId>`, `peak-marker-hover-<osmId>`, `peak-info-popup`, `peak-info-popup-close`; add a popup hover-region key only if needed
-- [ ] Deterministic seams: existing in-memory repositories + test notifier overrides; avoid tile/network assertions
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/screens/map_screen.dart` - clear transient popup on drag, route-draft mode, peak layer hidden, zoom below threshold, anchor invalidation, map exit without popup hover
+- [x] `lib/providers/map_provider.dart` - ensure reload/peak removal/route-draft entry close transient or pinned popup consistently
+- [x] TDD: `test/widget/map_screen_peak_info_test.dart` - pointer transfer marker -> popup keeps transient popup open; leaving popup closes it; background click still selects location and clears popup
+- [x] `test/robot/peaks/peak_info_robot.dart` - add hover-popup journey helpers for marker, popup, and background transitions
+- [x] `test/robot/peaks/peak_info_journey_test.dart` - TDD: hover shows popup; popup remains while hovered; click pins; move away closes transient-only case
+- [x] Stable selectors: reuse `map-interaction-region`, `peak-marker-hitbox-<osmId>`, `peak-marker-hover-<osmId>`, `peak-info-popup`, `peak-info-popup-close`; add a popup hover-region key only if needed
+- [x] Deterministic seams: existing in-memory repositories + test notifier overrides; avoid tile/network assertions
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

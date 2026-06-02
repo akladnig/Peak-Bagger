@@ -72,6 +72,27 @@ void main() {
     expect(find.byKey(const Key('peak-info-popup')), findsNothing);
   });
 
+  testWidgets('leaving the map closes transient peak popup', (tester) async {
+    await _pumpMap(tester, _mapStateWithPeak());
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final center = tester.getCenter(region);
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(gesture.removePointer);
+
+    await gesture.addPointer(location: center);
+    await tester.pump();
+    await gesture.moveTo(center);
+    await tester.pump();
+
+    expect(find.byKey(const Key('peak-info-popup')), findsOneWidget);
+
+    await gesture.moveTo(tester.getTopLeft(region) - const Offset(20, 20));
+    await tester.pump();
+
+    expect(find.byKey(const Key('peak-info-popup')), findsNothing);
+  });
+
   testWidgets('clicking a hovered peak pins the popup', (tester) async {
     await _pumpMap(tester, _mapStateWithPeak());
 
