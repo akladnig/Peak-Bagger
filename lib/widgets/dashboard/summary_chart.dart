@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants.dart';
 import '../../core/date_formatters.dart';
 import '../../services/summary_card_service.dart';
-import '../../theme.dart';
+import '../dashboard_chart_chrome.dart';
 
 enum SummaryBarSeriesStyle { stacked, grouped }
 
@@ -114,10 +114,17 @@ class _SummaryChartState extends State<SummaryChart> {
                     bottom: 28,
                     width: yAxisLabelWidth,
                     child: IgnorePointer(
-                      child: _YAxisLabels(
-                        keyPrefix: widget.keyPrefix,
-                        chartMaxY: chartMaxY,
-                        yAxisLabelText: widget.yAxisLabelText,
+                      child: DashboardChartYAxisLabels(
+                        entries: [
+                          for (var index = 0; index <= 4; index++)
+                            DashboardChartYAxisLabelEntry(
+                              key: Key('${widget.keyPrefix}-y-axis-label-$index'),
+                              text: widget.yAxisLabelText(
+                                chartMaxY - ((chartMaxY / 4) * index),
+                              ),
+                              fractionFromTop: index / 4,
+                            ),
+                        ],
                       ),
                     ),
                   ),
@@ -127,11 +134,11 @@ class _SummaryChartState extends State<SummaryChart> {
                     top: 20,
                     bottom: 28,
                     child: IgnorePointer(
-                      child: ColoredBox(
-                        key: Key('${widget.keyPrefix}-y-axis-separator'),
-                        color: _axisColor(),
-                        child: const SizedBox(width: 1),
-                      ),
+                        child: ColoredBox(
+                          key: Key('${widget.keyPrefix}-y-axis-separator'),
+                          color: dashboardChartAxisColor(),
+                          child: const SizedBox(width: 1),
+                        ),
                     ),
                   ),
                   Positioned(
@@ -424,41 +431,18 @@ BarChartRodData _seriesRod({
 }
 
 FlGridData _summaryGridData(double chartMaxY) {
-  final interval = chartMaxY / 4;
-
-  return FlGridData(
-    show: true,
-    drawVerticalLine: false,
-    horizontalInterval: interval,
-    checkToShowHorizontalLine: (value) => value > 0 && value < chartMaxY,
-    getDrawingHorizontalLine: (value) =>
-        FlLine(color: _guideColor(), strokeWidth: 1, dashArray: [8, 4]),
+  return dashboardChartGridData(
+    minY: 0,
+    maxY: chartMaxY,
+    horizontalInterval: chartMaxY / 4,
   );
 }
 
 ExtraLinesData _summaryExtraLinesData(double chartMaxY) {
-  return ExtraLinesData(
-    extraLinesOnTop: true,
-    horizontalLines: [
-      HorizontalLine(y: 0, color: _axisColor(), strokeWidth: 1.5),
-      HorizontalLine(
-        y: chartMaxY,
-        color: _guideColor(),
-        strokeWidth: 1,
-        dashArray: [8, 4],
-      ),
-    ],
+  return dashboardChartExtraLinesData(
+    minY: 0,
+    maxY: chartMaxY,
   );
-}
-
-Color _guideColor() {
-  final baseColor = thinDivider.color ?? const Color(0xff7b7b7b);
-  return baseColor.withValues(alpha: baseColor.a * 0.2);
-}
-
-Color _axisColor() {
-  final baseColor = thinDivider.color ?? const Color(0xff7b7b7b);
-  return baseColor.withValues(alpha: baseColor.a * 0.9);
 }
 
 class _SummaryLineChart extends StatelessWidget {
@@ -504,7 +488,7 @@ class _SummaryLineChart extends StatelessWidget {
                     radius: isSelected
                         ? ChartUI.radiusSelected
                         : ChartUI.radius,
-                    color: theme.colorScheme.surfaceContainer,
+                    color: dashboardChartSurfaceColor(theme),
                     strokeColor: isSelected
                         ? ChartUI.colourSelected
                         : ChartUI.colour,
@@ -527,7 +511,7 @@ class _SummaryLineChart extends StatelessWidget {
                 final isSelected = index == selectedBucketIndex;
                 return FlDotCirclePainter(
                   radius: isSelected ? ChartUI.radiusSelected : ChartUI.radius,
-                  color: theme.colorScheme.surfaceContainer,
+                  color: dashboardChartSurfaceColor(theme),
                   strokeColor: isSelected
                       ? theme.colorScheme.tertiary
                       : theme.colorScheme.primary,
@@ -550,78 +534,6 @@ class _SummaryLineChart extends StatelessWidget {
       ),
     );
   }
-}
-
-class _YAxisLabels extends StatelessWidget {
-  const _YAxisLabels({
-    required this.keyPrefix,
-    required this.chartMaxY,
-    required this.yAxisLabelText,
-  });
-
-  final String keyPrefix;
-  final double chartMaxY;
-  final String Function(double value) yAxisLabelText;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final labelValues = _yAxisLabelValues(chartMaxY);
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final textDirection = Directionality.of(context);
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            for (var index = 0; index <= 4; index++)
-              Positioned(
-                left: 0,
-                right: 4,
-                top: _yAxisLabelTop(
-                  index: index,
-                  chartHeight: constraints.maxHeight,
-                  labelStyle: theme.textTheme.labelSmall,
-                  labelText: yAxisLabelText(labelValues[index]),
-                  textDirection: textDirection,
-                ),
-                child: Text(
-                  yAxisLabelText(labelValues[index]),
-                  key: Key('$keyPrefix-y-axis-label-$index'),
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall,
-                  textAlign: TextAlign.right,
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-List<double> _yAxisLabelValues(double chartMaxY) {
-  final interval = chartMaxY / 4;
-  return [for (var index = 0; index <= 4; index++) chartMaxY - (interval * index)];
-}
-
-double _yAxisLabelTop({
-  required int index,
-  required double chartHeight,
-  required TextStyle? labelStyle,
-  required String labelText,
-  required TextDirection textDirection,
-}) {
-  final painter = TextPainter(
-    text: TextSpan(text: labelText, style: labelStyle),
-    maxLines: 1,
-    textDirection: textDirection,
-  )..layout();
-
-  final interval = chartHeight / 4;
-  return (interval * index) - (painter.height / 2);
 }
 
 class _BottomAxisLabels extends StatelessWidget {
@@ -666,7 +578,7 @@ class _BottomAxisLabels extends StatelessWidget {
                       top: 0,
                       bottom: 0,
                       child: ColoredBox(
-                        color: _guideColor(),
+                        color: dashboardChartGuideColor(),
                         child: const SizedBox(width: 1),
                       ),
                     ),
@@ -780,7 +692,7 @@ class _VerticalLabelGuides extends StatelessWidget {
                       height: double.infinity,
                       child: CustomPaint(
                         painter: _DashedVerticalLinePainter(
-                          color: _guideColor(),
+                          color: dashboardChartGuideColor(),
                         ),
                       ),
                     )

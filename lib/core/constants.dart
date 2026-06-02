@@ -175,6 +175,8 @@ abstract final class ChartUI {
   static const barWidth = 2.0;
   static const radius = 3.0;
   static const radiusSelected = 5.0;
+  static const radiusTouched = 4.0;
+  static const hoverLineStrokeWidth = 4.0;
   static const colour = Color(0xFF2E7D32);
   static const colourSelected = Color(0xD92E7D32);
   static const strokeColor = Color(0x00000000);

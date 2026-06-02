@@ -6,8 +6,10 @@ import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/services/elevation_profile_series_builder.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
+import 'package:peak_bagger/widgets/elevation_profile_chart.dart';
 
 enum _RouteModeVisualState { inactive, active, selected }
 
@@ -98,6 +100,7 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
       :routeDraftElevationSummary,
       :routeDraftElevationLoading,
       :routeDraftElevationError,
+      :routeDraftPointElevations,
       :routeDraftColour,
       :isSavingRoute,
       :routeDraftCanUndo,
@@ -118,6 +121,7 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
           routeDraftElevationSummary: state.routeDraftElevationSummary,
           routeDraftElevationLoading: state.routeDraftElevationLoading,
           routeDraftElevationError: state.routeDraftElevationError,
+          routeDraftPointElevations: state.routeDraftPointElevations,
           routeDraftColour: state.routeDraftColour,
           isSavingRoute: state.isSavingRoute,
           routeDraftCanUndo: state.routeDraftCanUndo,
@@ -160,6 +164,8 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
                           routeDraftElevationLoading:
                               routeDraftElevationLoading,
                           routeDraftElevationError: routeDraftElevationError,
+                          routeDraftCommittedPoints: routeDraftCommittedPoints,
+                          routeDraftPointElevations: routeDraftPointElevations,
                           onRetry: notifier.retryRouteDraftSegment,
                         ),
                       ),
@@ -223,6 +229,8 @@ class _DistanceElevationGroup extends StatelessWidget {
     required this.routeDraftElevationSummary,
     required this.routeDraftElevationLoading,
     required this.routeDraftElevationError,
+    required this.routeDraftCommittedPoints,
+    required this.routeDraftPointElevations,
     required this.onRetry,
   });
 
@@ -233,6 +241,8 @@ class _DistanceElevationGroup extends StatelessWidget {
   final RouteElevationSummary? routeDraftElevationSummary;
   final bool routeDraftElevationLoading;
   final String? routeDraftElevationError;
+  final List<LatLng> routeDraftCommittedPoints;
+  final List<double?> routeDraftPointElevations;
   final VoidCallback onRetry;
 
   @override
@@ -319,7 +329,22 @@ class _DistanceElevationGroup extends StatelessWidget {
                 ),
               ],
             ],
-          )
+          ),
+        if (routeDraftDistanceMeters > 0) ...[
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevationProfileChart(
+              series: ElevationProfileSeriesBuilder.fromRoutePoints(
+                points: routeDraftCommittedPoints,
+                elevations: routeDraftPointElevations,
+              ),
+              isLoading:
+                  routeDraftElevationLoading && routeDraftPointElevations.isEmpty,
+              errorText: routeDraftElevationError,
+            ),
+          ),
+        ]
         else
           Text(
             'Tap a point to start routing',

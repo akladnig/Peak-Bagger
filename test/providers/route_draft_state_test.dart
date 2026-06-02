@@ -1129,6 +1129,8 @@ void main() {
       expect(state.routeDraftElevationLoading, isFalse);
       expect(state.routeDraftElevationSummary?.ascent, 345);
       expect(state.routeDraftElevationSummary?.descent, 210);
+      expect(state.routeDraftPointElevations, hasLength(3));
+      expect(state.routeDraftPointElevations, everyElement(isNotNull));
     },
   );
 
@@ -1234,6 +1236,8 @@ void main() {
     );
 
     notifier.applyRouteDraftOutAndBack();
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
 
     final state = container.read(mapProvider);
     expect(state.routeDraftCommittedPoints, const [
@@ -1367,6 +1371,8 @@ void main() {
     );
 
     notifier.applyRouteDraftOutAndBack();
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
 
     final state = container.read(mapProvider);
     expect(state.routeDraftMode, RouteMode.straightLine);
@@ -1431,6 +1437,7 @@ void main() {
       );
 
       notifier.applyRouteDraftOutAndBack();
+      await Future<void>.delayed(Duration.zero);
       final afterFirstApplication = container.read(mapProvider);
 
       notifier.applyRouteDraftOutAndBack();
@@ -1516,6 +1523,7 @@ void main() {
       ),
     );
     await closeLoop;
+    await Future<void>.delayed(Duration.zero);
 
     final state = container.read(mapProvider);
     expect(routePlanner.requests, const [
@@ -1608,6 +1616,7 @@ void main() {
       ),
     );
     await closeLoop;
+    await Future<void>.delayed(Duration.zero);
 
     final state = container.read(mapProvider);
     expect(state.routeDraftCommittedPoints, const [
@@ -1684,6 +1693,7 @@ void main() {
       ),
     );
     await closeLoop;
+    await Future<void>.delayed(Duration.zero);
 
     final state = container.read(mapProvider);
     expect(state.routeDraftCommittedPoints, const [
@@ -2031,7 +2041,11 @@ class _ImmediateZeroRouteElevationSampler implements RouteElevationSampler {
 
   @override
   Future<List<double?>> samplePointElevations(List<LatLng> points) async {
-    return List<double?>.filled(points.length, null, growable: false);
+    return List<double?>.generate(
+      points.length,
+      (index) => 100.0 + (index * 10),
+      growable: false,
+    );
   }
 }
 
@@ -2084,7 +2098,11 @@ class _ControlledRouteElevationSampler implements RouteElevationSampler {
 
   @override
   Future<List<double?>> samplePointElevations(List<LatLng> points) async {
-    return List<double?>.filled(points.length, null, growable: false);
+    return List<double?>.generate(
+      points.length,
+      (index) => 100.0 + index,
+      growable: false,
+    );
   }
 
   void completeNext(RouteElevationSummary summary) {
