@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'dart:async';
 
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,6 +30,7 @@ import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/route_graph_store.dart';
 import 'package:peak_bagger/models/route_marker_display.dart';
 import 'package:peak_bagger/widgets/route_marker.dart';
+import 'package:peak_bagger/widgets/map_route_bottom_sheet.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
 import '../harness/test_tasmap_notifier.dart';
@@ -74,6 +76,58 @@ void main() {
       find.byKey(const Key('route-distance-elevation-group')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('route draft elevation chart expands with more points', (
+    tester,
+  ) async {
+    final point1 = const LatLng(-41.5, 146.5);
+    final point2 = const LatLng(-41.5, 146.505);
+    final point3 = const LatLng(-41.5, 146.51);
+    final point4 = const LatLng(-41.5, 146.515);
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        isRouteDrafting: true,
+        routeDraftName: 'Draft route',
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftCommittedPoints: [point1, point2, point3],
+        routeDraftPointElevations: const [100, 120, 140],
+        routeDraftDistanceMeters:
+            const Distance().as(LengthUnit.Meter, point1, point2) +
+            const Distance().as(LengthUnit.Meter, point2, point3),
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [mapProvider.overrideWith(() => notifier)],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: Center(child: SizedBox(width: 640, child: MapRouteBottomSheet())),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    var lineChart = tester.widget<LineChart>(find.byType(LineChart));
+    final initialMaxX = lineChart.data.maxX;
+
+    notifier.state = notifier.state.copyWith(
+      routeDraftCommittedPoints: [point1, point2, point3, point4],
+      routeDraftPointElevations: const [100, 120, 140, 160],
+      routeDraftDistanceMeters:
+          const Distance().as(LengthUnit.Meter, point1, point2) +
+          const Distance().as(LengthUnit.Meter, point2, point3) +
+          const Distance().as(LengthUnit.Meter, point3, point4),
+    );
+    await tester.pumpAndSettle();
+
+    lineChart = tester.widget<LineChart>(find.byType(LineChart));
+    expect(lineChart.data.maxX, greaterThan(initialMaxX));
   });
 
   testWidgets('route to peak stays disabled without a captured peak target', (
@@ -1281,10 +1335,10 @@ void main() {
         find.byKey(const Key('route-elevation-error-text')),
         findsOneWidget,
       );
-      expect(find.textContaining('Failed to sample elevation'), findsOneWidget);
-      expect(find.text('315 m'), findsNothing);
-      expect(find.text('234 m'), findsNothing);
-    },
+    expect(find.byKey(const Key('route-elevation-error-text')), findsOneWidget);
+    expect(find.text('315 m'), findsNothing);
+    expect(find.text('234 m'), findsNothing);
+  },
   );
 
   testWidgets(

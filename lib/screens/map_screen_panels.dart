@@ -356,6 +356,17 @@ class MapTrackInfoPanel extends StatelessWidget {
         const SizedBox(height: 20),
         const _SectionTitle(title: 'Elevation'),
         thinDivider,
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: ElevationProfileChart(
+            series: ElevationProfileSeriesBuilder.fromRoutePoints(
+              points: route.gpxRoute,
+              elevations: route.gpxRouteElevations,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
         _LabeledValueRow(
           label: 'Total Ascent',
           value: formatAscent(route.ascent),
@@ -445,6 +456,18 @@ class MapTrackInfoPanel extends StatelessWidget {
         const SizedBox(height: 20),
         const _SectionTitle(title: 'Elevation'),
         thinDivider,
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: ElevationProfileChart(
+            series: ElevationProfileSeriesBuilder.fromTrackProfileJson(
+              track.elevationProfile,
+            ),
+            minElevation: track.lowestElevation,
+            maxElevation: track.highestElevation,
+          ),
+        ),
+        const SizedBox(height: 16),
         _LabeledValueRow(
           label: 'Total Ascent',
           value: formatAscent(track.ascent),
@@ -468,12 +491,6 @@ class MapTrackInfoPanel extends StatelessWidget {
         _LabeledValueRow(
           label: 'Min Elevation',
           value: formatElevation(track.lowestElevation.round()),
-        ),
-        const SizedBox(height: 16),
-        ElevationProfileChart(
-          series: ElevationProfileSeriesBuilder.fromTrackProfileJson(
-            track.elevationProfile,
-          ),
         ),
         const SizedBox(height: 20),
         const _SectionTitle(title: 'Time'),

@@ -9,6 +9,8 @@ void main() {
     final track = GpxTrack(
       contentHash: 'hash',
       trackName: 'Test Track',
+      lowestElevation: 1022,
+      highestElevation: 1377,
       elevationProfile: '''
 [
   {"distanceMeters":0,"elevationMeters":100,"timeLocal":"2024-01-15T08:00:00.000"},
@@ -33,6 +35,10 @@ void main() {
     );
 
     expect(find.byKey(const Key('elevation-profile-chart')), findsOneWidget);
-    expect(find.byType(ElevationProfileChart), findsOneWidget);
+    final chart = tester.widget<ElevationProfileChart>(
+      find.byType(ElevationProfileChart),
+    );
+    expect(chart.minElevation, track.lowestElevation);
+    expect(chart.maxElevation, track.highestElevation);
   });
 }

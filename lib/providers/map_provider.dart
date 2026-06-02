@@ -234,6 +234,7 @@ class MapState {
   final RouteElevationSummary? routeDraftElevationSummary;
   final bool routeDraftElevationLoading;
   final String? routeDraftElevationError;
+  final List<double?> routeDraftPointElevations;
   final int routeDraftElevationRequestId;
   final int routeDraftGeometryVersion;
   final bool routeDraftNameFieldFocused;
@@ -320,6 +321,7 @@ class MapState {
     this.routeDraftElevationSummary,
     this.routeDraftElevationLoading = false,
     this.routeDraftElevationError,
+    this.routeDraftPointElevations = const [],
     this.routeDraftElevationRequestId = 0,
     this.routeDraftGeometryVersion = 0,
     this.routeDraftNameFieldFocused = false,
@@ -459,6 +461,8 @@ class MapState {
     bool? routeDraftElevationLoading,
     String? routeDraftElevationError,
     bool clearRouteDraftElevationError = false,
+    List<double?>? routeDraftPointElevations,
+    bool clearRouteDraftPointElevations = false,
     bool clearRouteDraftPeak = false,
     int? routeDraftElevationRequestId,
     int? routeDraftGeometryVersion,
@@ -588,6 +592,9 @@ class MapState {
       routeDraftElevationError: clearRouteDraftElevationError
           ? null
           : (routeDraftElevationError ?? this.routeDraftElevationError),
+      routeDraftPointElevations: clearRouteDraftPointElevations
+          ? const []
+          : (routeDraftPointElevations ?? this.routeDraftPointElevations),
       routeDraftElevationRequestId:
           routeDraftElevationRequestId ?? this.routeDraftElevationRequestId,
       routeDraftGeometryVersion:
@@ -708,6 +715,7 @@ typedef _RouteDraftSnapshot = ({
   RouteElevationSummary? routeDraftElevationSummary,
   bool routeDraftElevationLoading,
   String? routeDraftElevationError,
+  List<double?> routeDraftPointElevations,
   int routeDraftElevationRequestId,
   int routeDraftGeometryVersion,
   bool routeDraftNameFieldFocused,
@@ -2127,6 +2135,9 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftElevationSummary: state.routeDraftElevationSummary,
       routeDraftElevationLoading: state.routeDraftElevationLoading,
       routeDraftElevationError: state.routeDraftElevationError,
+      routeDraftPointElevations: List<double?>.unmodifiable(
+        state.routeDraftPointElevations,
+      ),
       routeDraftElevationRequestId: state.routeDraftElevationRequestId,
       routeDraftGeometryVersion: state.routeDraftGeometryVersion,
       routeDraftNameFieldFocused: state.routeDraftNameFieldFocused,
@@ -2192,6 +2203,7 @@ class MapNotifier extends Notifier<MapState> {
         routeDraftElevationSummary: snapshot.routeDraftElevationSummary,
         routeDraftElevationLoading: snapshot.routeDraftElevationLoading,
         routeDraftElevationError: snapshot.routeDraftElevationError,
+        routeDraftPointElevations: snapshot.routeDraftPointElevations,
         routeDraftElevationRequestId: elevationRequestIdFloor,
         routeDraftGeometryVersion: geometryVersionFloor,
         routeDraftNameFieldFocused: snapshot.routeDraftNameFieldFocused,
@@ -2263,6 +2275,7 @@ class MapNotifier extends Notifier<MapState> {
       clearRouteDraftElevationSummary: true,
       routeDraftElevationLoading: false,
       clearRouteDraftElevationError: true,
+      clearRouteDraftPointElevations: true,
       routeDraftElevationRequestId: 0,
       routeDraftGeometryVersion: 0,
       routeDraftNameFieldFocused: false,
@@ -2305,6 +2318,7 @@ class MapNotifier extends Notifier<MapState> {
       clearRouteDraftElevationSummary: true,
       routeDraftElevationLoading: false,
       clearRouteDraftElevationError: true,
+      clearRouteDraftPointElevations: true,
       routeDraftElevationRequestId: 0,
       routeDraftGeometryVersion: 0,
       routeDraftNameFieldFocused: false,
@@ -3082,6 +3096,23 @@ class MapNotifier extends Notifier<MapState> {
     }
   }
 
+  Future<List<double?>> _sampleRoutePointElevationsForDraft(
+    List<LatLng> points,
+  ) async {
+    try {
+      final sampled = await _routeElevationSampler.samplePointElevations(
+        points,
+      );
+      return List<double?>.generate(
+        points.length,
+        (index) => index < sampled.length ? sampled[index] : null,
+        growable: false,
+      );
+    } catch (_) {
+      return List<double?>.filled(points.length, null, growable: false);
+    }
+  }
+
   Future<void> _planRouteDraftSegment({
     required int requestId,
     required RouteDraftControlEndpoint startEndpoint,
@@ -3216,6 +3247,7 @@ class MapNotifier extends Notifier<MapState> {
         clearRouteDraftElevationSummary: true,
         routeDraftElevationLoading: false,
         clearRouteDraftElevationError: true,
+        clearRouteDraftPointElevations: true,
       );
       return;
     }
@@ -3231,6 +3263,7 @@ class MapNotifier extends Notifier<MapState> {
       clearRouteDraftElevationSummary: true,
       routeDraftElevationLoading: true,
       clearRouteDraftElevationError: true,
+      clearRouteDraftPointElevations: true,
       routeDraftElevationRequestId: requestId,
       routeDraftGeometryVersion: geometryVersion,
     );
@@ -3249,6 +3282,18 @@ class MapNotifier extends Notifier<MapState> {
     required int requestId,
     required int geometryVersion,
   }) async {
+    final sampledPointElevations = await _sampleRoutePointElevationsForDraft(
+      points,
+    );
+    if (!_isActiveRouteDraftElevationRequest(
+      requestId: requestId,
+      geometryVersion: geometryVersion,
+    )) {
+      return;
+    }
+
+    state = state.copyWith(routeDraftPointElevations: sampledPointElevations);
+
     try {
       final summary = await _routeElevationSampler.sampleRoute(
         points: points,
@@ -3308,6 +3353,10 @@ class MapNotifier extends Notifier<MapState> {
     required int requestId,
     required int geometryVersion,
   }) {
+    if (!ref.mounted) {
+      return false;
+    }
+
     return state.isRouteDrafting &&
         state.routeDraftElevationRequestId == requestId &&
         state.routeDraftGeometryVersion == geometryVersion;
