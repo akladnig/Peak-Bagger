@@ -9,9 +9,11 @@ import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/services/elevation_profile_series_builder.dart';
 import 'package:peak_bagger/services/map_ruler_scale.dart';
 import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/peak_search_results_list.dart';
+import 'package:peak_bagger/widgets/elevation_profile_chart.dart';
 
 class PeakInfoPopupPlacement {
   const PeakInfoPopupPlacement({
@@ -57,11 +59,7 @@ PeakInfoPopupPlacement resolvePeakInfoPopupPlacement({
 }
 
 class MapMgrsReadout extends StatelessWidget {
-  const MapMgrsReadout({
-    required this.mapName,
-    required this.mgrs,
-    super.key,
-  });
+  const MapMgrsReadout({required this.mapName, required this.mgrs, super.key});
 
   final String mapName;
   final String mgrs;
@@ -84,8 +82,9 @@ class MapMgrsReadout extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             text: TextSpan(
               text: mapName,
-              style: (Theme.of(context).textTheme.bodySmall ?? const TextStyle())
-                  .copyWith(fontWeight: FontWeight.bold),
+              style:
+                  (Theme.of(context).textTheme.bodySmall ?? const TextStyle())
+                      .copyWith(fontWeight: FontWeight.bold),
             ),
           ),
           Text(
@@ -93,9 +92,7 @@ class MapMgrsReadout extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: (Theme.of(context).textTheme.bodySmall ?? const TextStyle())
-                .copyWith(
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
+                .copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
           ),
         ],
       ),
@@ -471,6 +468,12 @@ class MapTrackInfoPanel extends StatelessWidget {
         _LabeledValueRow(
           label: 'Min Elevation',
           value: formatElevation(track.lowestElevation.round()),
+        ),
+        const SizedBox(height: 16),
+        ElevationProfileChart(
+          series: ElevationProfileSeriesBuilder.fromTrackProfileJson(
+            track.elevationProfile,
+          ),
         ),
         const SizedBox(height: 20),
         const _SectionTitle(title: 'Time'),
