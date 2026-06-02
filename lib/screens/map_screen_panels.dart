@@ -396,7 +396,7 @@ class MapTrackInfoPanel extends StatelessWidget {
   }
 
   Widget _buildTrackBody(BuildContext context, GpxTrack track) {
-    final normalizedPeaks = normalizeTrackPeakNames(track.peaks);
+    final normalizedPeaks = normalizeTrackPeaks(track.peaks);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -430,10 +430,27 @@ class MapTrackInfoPanel extends StatelessWidget {
         thinDivider,
         const SizedBox(height: 6),
         if (normalizedPeaks.isNotEmpty) ...[
-          for (final peakName in normalizedPeaks)
+          for (final peak in normalizedPeaks)
             Padding(
               padding: const EdgeInsets.only(bottom: 4),
-              child: Text(peakName),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _displayPeakName(peak),
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    peak.elevation != null
+                        ? formatElevation(peak.elevation!.round())
+                        : '—',
+                  ),
+                ],
+              ),
             ),
           const SizedBox(height: 2),
         ] else ...[
@@ -623,20 +640,34 @@ String formatDuration(int? millis) {
   return '${totalMinutes}m';
 }
 
-List<String> normalizeTrackPeakNames(Iterable<Peak> peaks) {
+List<Peak> normalizeTrackPeaks(Iterable<Peak> peaks) {
   final seenPeakIds = <int>{};
-  final displayNames = <String>[];
+  final displayPeaks = <Peak>[];
   for (final peak in peaks) {
     if (!seenPeakIds.add(peak.osmId)) {
       continue;
     }
-    final trimmed = peak.name.trim();
-    displayNames.add(trimmed.isEmpty ? 'Unknown Peak' : trimmed);
+    displayPeaks.add(peak);
   }
-  displayNames.sort(
-    (left, right) => left.toLowerCase().compareTo(right.toLowerCase()),
-  );
-  return displayNames;
+  displayPeaks.sort((left, right) {
+    final nameComparison = _displayPeakName(
+      left,
+    ).toLowerCase().compareTo(_displayPeakName(right).toLowerCase());
+    if (nameComparison != 0) {
+      return nameComparison;
+    }
+    return left.osmId.compareTo(right.osmId);
+  });
+  return displayPeaks;
+}
+
+String _displayPeakName(Peak peak) {
+  final trimmed = peak.name.trim();
+  return trimmed.isEmpty ? 'Unknown Peak' : trimmed;
+}
+
+List<String> normalizeTrackPeakNames(Iterable<Peak> peaks) {
+  return normalizeTrackPeaks(peaks).map(_displayPeakName).toList();
 }
 
 class MapPeakSearchPanel extends StatelessWidget {
