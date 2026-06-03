@@ -4177,7 +4177,9 @@ class MapNotifier extends Notifier<MapState> {
   void selectTrack(int trackId) {
     final hasVisibleTrack =
         state.showTracks &&
-        state.tracks.any((track) => track.gpxTrackId == trackId);
+        state.tracks.any(
+          (track) => track.gpxTrackId == trackId && track.visible,
+        );
     if (!hasVisibleTrack) {
       return;
     }
@@ -4197,14 +4199,9 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
-    if (_isRestoringVisibilityPrefs) {
-      _showTracksRestoreOverridden = true;
-    }
+    setTrackVisibility(trackId, true);
 
-    final tracks =
-        state.tracks.every((existing) => existing.gpxTrackId != trackId)
-        ? [...state.tracks, track]
-        : state.tracks;
+    final tracks = _upsertTrackInState(track);
 
     state = state.copyWith(
       tracks: tracks,
@@ -4218,6 +4215,26 @@ class MapNotifier extends Notifier<MapState> {
     );
   }
 
+  void setTrackVisibility(int trackId, bool visible) {
+    final track = _gpxTrackRepository.findById(trackId);
+    if (track == null || track.visible == visible) {
+      return;
+    }
+
+    if (_isRestoringVisibilityPrefs) {
+      _showTracksRestoreOverridden = true;
+    }
+
+    track.visible = visible;
+    _gpxTrackRepository.saveTrack(track);
+
+    final tracks = _upsertTrackInState(track);
+    state = state.copyWith(
+      tracks: tracks,
+      clearHoveredTrackId: !visible && state.hoveredTrackId == trackId,
+    );
+  }
+
   void clearSelectedTrack() {
     state = state.copyWith(clearSelectedTrackId: true);
   }
@@ -4225,7 +4242,9 @@ class MapNotifier extends Notifier<MapState> {
   void selectRoute(int routeId) {
     final hasVisibleRoute =
         state.showRoutes &&
-        _routeRepository.getAllRoutes().any((route) => route.id == routeId);
+        _routeRepository.getAllRoutes().any(
+          (route) => route.id == routeId && route.visible,
+        );
     if (!hasVisibleRoute) {
       return;
     }
@@ -4247,6 +4266,8 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
+    setRouteVisibility(routeId, true);
+
     state = state.copyWith(
       selectedRouteId: routeId,
       clearSelectedTrackId: true,
@@ -4255,6 +4276,25 @@ class MapNotifier extends Notifier<MapState> {
       clearGotoMgrs: true,
       selectedRouteFocusSerial: state.selectedRouteFocusSerial + 1,
     );
+  }
+
+  void setRouteVisibility(int routeId, bool visible) {
+    final route = _routeRepository.findById(routeId);
+    if (route == null || route.visible == visible) {
+      return;
+    }
+
+    if (_isRestoringVisibilityPrefs) {
+      _showRoutesRestoreOverridden = true;
+    }
+
+    route.visible = visible;
+    _routeRepository.saveRoute(route);
+    ref.read(routeRevisionProvider.notifier).increment();
+
+    if (!visible && state.hoveredRouteId == routeId) {
+      state = state.copyWith(clearHoveredRouteId: true);
+    }
   }
 
   void clearSelectedRoute() {
@@ -4273,6 +4313,26 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
     state = state.copyWith(hoveredRouteId: null);
+  }
+
+  List<GpxTrack> _upsertTrackInState(GpxTrack track) {
+    final updatedTracks = <GpxTrack>[];
+    var replaced = false;
+
+    for (final existing in state.tracks) {
+      if (existing.gpxTrackId == track.gpxTrackId) {
+        updatedTracks.add(track);
+        replaced = true;
+      } else {
+        updatedTracks.add(existing);
+      }
+    }
+
+    if (!replaced) {
+      updatedTracks.add(track);
+    }
+
+    return List<GpxTrack>.unmodifiable(updatedTracks);
   }
 
   (LatLng?, String?) parseGridReference(String input) {

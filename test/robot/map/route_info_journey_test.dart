@@ -27,37 +27,48 @@ void main() {
 
     robot.expectSelectedRoute(1);
     robot.expectRoutePanelVisible('Robot Route');
+    robot.expectRoutePolylineVisible(true);
+
+    await robot.toggleRouteVisibility();
+
+    robot.expectRoutePanelVisible('Robot Route');
+    robot.expectRoutePolylineVisible(false);
+
+    await robot.toggleRouteVisibility();
+
+    robot.expectRoutePolylineVisible(true);
 
     await robot.closeRoutePanel();
 
     robot.expectRoutePanelHidden();
   });
 
-  testWidgets('route journey clears stale selection when the route disappears', (
-    tester,
-  ) async {
-    final route = routeFixture(id: 1, name: 'Stale Route');
-    final repository = RouteRepository.test(InMemoryRouteStorage([route]));
-    final robot = RouteInfoRobot(
-      tester,
-      MapState(
-        center: const LatLng(-41.5, 146.5),
-        zoom: 15,
-        basemap: Basemap.tracestrack,
-        showRoutes: true,
-      ),
-      routeRepository: repository,
-    );
+  testWidgets(
+    'route journey clears stale selection when the route disappears',
+    (tester) async {
+      final route = routeFixture(id: 1, name: 'Stale Route');
+      final repository = RouteRepository.test(InMemoryRouteStorage([route]));
+      final robot = RouteInfoRobot(
+        tester,
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          showRoutes: true,
+        ),
+        routeRepository: repository,
+      );
 
-    await robot.pumpApp();
-    await robot.hoverRoute();
-    await robot.clickRoute();
+      await robot.pumpApp();
+      await robot.hoverRoute();
+      await robot.clickRoute();
 
-    robot.expectSelectedRoute(1);
-    robot.expectRoutePanelVisible('Stale Route');
+      robot.expectSelectedRoute(1);
+      robot.expectRoutePanelVisible('Stale Route');
 
-    await robot.deleteRouteAndRefresh(1);
+      await robot.deleteRouteAndRefresh(1);
 
-    robot.expectRoutePanelHidden();
-  });
+      robot.expectRoutePanelHidden();
+    },
+  );
 }

@@ -8,6 +8,7 @@ import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
@@ -39,7 +40,7 @@ class TestMapNotifier extends MapNotifier {
     this.routeSaveErrorMessage,
     Set<int> correlatedPeakIds = const {},
   }) : _correlatedPeakIds = correlatedPeakIds,
-        _startupBackfillWarningMessage = startupBackfillWarningMessage;
+       _startupBackfillWarningMessage = startupBackfillWarningMessage;
 
   final MapState initialState;
   final String rescanStatus;
@@ -73,6 +74,46 @@ class TestMapNotifier extends MapNotifier {
     if (peaksBaggedRepository != null) {
       unawaited(peaksBaggedRepository!.rebuildFromTracks(tracks));
     }
+  }
+
+  @override
+  void setRouteVisibility(int routeId, bool visible) {
+    final repository = routeRepository;
+    if (repository == null) {
+      return;
+    }
+
+    final route = repository.findById(routeId);
+    if (route == null || route.visible == visible) {
+      return;
+    }
+
+    route.visible = visible;
+    repository.saveRoute(route);
+    ref.read(routeRevisionProvider.notifier).increment();
+  }
+
+  @override
+  void setTrackVisibility(int trackId, bool visible) {
+    final repository = gpxTrackRepository;
+    if (repository != null) {
+      final track = repository.findById(trackId);
+      if (track != null && track.visible != visible) {
+        track.visible = visible;
+        repository.saveTrack(track);
+      }
+    }
+
+    state = state.copyWith(
+      tracks: [
+        for (final existing in state.tracks)
+          if (existing.gpxTrackId == trackId)
+            existing..visible = visible
+          else
+            existing,
+      ],
+      clearHoveredTrackId: !visible && state.hoveredTrackId == trackId,
+    );
   }
 
   @override
@@ -127,7 +168,8 @@ class TestMapNotifier extends MapNotifier {
 
       final outcome = routePlanningOutcomes[_routePlanningOutcomeIndex++];
       if (outcome is PlannedRouteSegment ||
-          outcome is RoutePlanningResult && outcome.status == RoutePlanningStatus.routed) {
+          outcome is RoutePlanningResult &&
+              outcome.status == RoutePlanningStatus.routed) {
         final segment = outcome is PlannedRouteSegment
             ? outcome
             : PlannedRouteSegment(
@@ -230,7 +272,8 @@ class TestMapNotifier extends MapNotifier {
 
         final outcome = routePlanningOutcomes[_routePlanningOutcomeIndex++];
         if (outcome is PlannedRouteSegment ||
-            outcome is RoutePlanningResult && outcome.status == RoutePlanningStatus.routed) {
+            outcome is RoutePlanningResult &&
+                outcome.status == RoutePlanningStatus.routed) {
           final segment = outcome is PlannedRouteSegment
               ? outcome
               : PlannedRouteSegment(
@@ -333,7 +376,8 @@ class TestMapNotifier extends MapNotifier {
       );
     }
 
-    final remainingTracks = gpxTrackRepository?.getAllTracks() ?? remainingVisibleTracks;
+    final remainingTracks =
+        gpxTrackRepository?.getAllTracks() ?? remainingVisibleTracks;
     if (peaksBaggedRepository != null) {
       await peaksBaggedRepository!.syncFromTracks(remainingTracks);
     }
@@ -438,7 +482,8 @@ class TestMapNotifier extends MapNotifier {
         PendingCameraSelectionBehavior.clear => null,
       },
       clearSelectedLocation:
-          request.selectedLocationBehavior == PendingCameraSelectionBehavior.clear,
+          request.selectedLocationBehavior ==
+          PendingCameraSelectionBehavior.clear,
       selectedPeaks: switch (request.selectedPeaksBehavior) {
         PendingCameraSelectionBehavior.preserve => null,
         PendingCameraSelectionBehavior.replace => request.selectedPeaks,
@@ -476,7 +521,9 @@ class TestMapNotifier extends MapNotifier {
   Future<void> saveRouteDraft() async {
     final trimmedName = state.routeDraftName.trim();
     if (trimmedName.isEmpty || state.routeDraftCommittedPoints.length < 2) {
-      state = state.copyWith(routeDraftNameError: 'A Route name must be entered');
+      state = state.copyWith(
+        routeDraftNameError: 'A Route name must be entered',
+      );
       return;
     }
     if (routeSaveErrorMessage != null) {
@@ -492,10 +539,7 @@ class TestMapNotifier extends MapNotifier {
           growable: false,
         ),
         displayRoutePointsByZoom: TrackDisplayCacheBuilder.buildJson([
-          List<LatLng>.from(
-            state.routeDraftCommittedPoints,
-            growable: false,
-          ),
+          List<LatLng>.from(state.routeDraftCommittedPoints, growable: false),
         ]),
         colour: state.routeDraftColour,
         distance2d: state.routeDraftDistanceMeters,
@@ -592,7 +636,10 @@ class TestMapNotifier extends MapNotifier {
   void showTrack(int trackId, {LatLng? selectedLocation}) {
     final track = gpxTrackRepository?.findById(trackId);
     if (gpxTrackRepository != null && track == null) {
-      state = state.copyWith(clearSelectedTrackId: true, clearHoveredTrackId: true);
+      state = state.copyWith(
+        clearSelectedTrackId: true,
+        clearHoveredTrackId: true,
+      );
       return;
     }
 
@@ -658,7 +705,9 @@ class TestMapNotifier extends MapNotifier {
 
     final hasVisibleRoute =
         state.showRoutes &&
-        routeRepository?.getAllRoutes().any((route) => route.id == selectedRouteId) ==
+        routeRepository?.getAllRoutes().any(
+              (route) => route.id == selectedRouteId,
+            ) ==
             true;
     if (!hasVisibleRoute) {
       state = state.copyWith(clearSelectedRouteId: true);
@@ -766,10 +815,7 @@ class TestMapNotifier extends MapNotifier {
   }
 }
 
-List<LatLng> _appendRouteSegment(
-  List<LatLng> existing,
-  List<LatLng> segment,
-) {
+List<LatLng> _appendRouteSegment(List<LatLng> existing, List<LatLng> segment) {
   if (existing.isEmpty) {
     return List<LatLng>.from(segment, growable: false);
   }

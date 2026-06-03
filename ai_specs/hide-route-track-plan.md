@@ -34,27 +34,27 @@ Persist via ObjectBox; map filters hidden items; panel can re-show them.
 ### Phase 2: Filter map layers
 
 - **Goal**: hidden items stop rendering/hover/zoom; show actions restore visibility
-- [ ] `lib/screens/map_screen_layers.dart` - skip hidden routes/tracks in polyline builders
-- [ ] `lib/screens/map_screen.dart` - filter hover candidates; skip hidden items in zoom queue; pass visibility-aware routes/tracks into panel flow
-- [ ] `lib/providers/map_provider.dart` - add visibility setters; `showRoute`/`showTrack` restore `visible=true`; `selectRoute`/`selectTrack` reject hidden items; route write increments revision
-- [ ] `test/providers/map_provider_selected_route_test.dart` - hidden route no-select; showRoute restores
-- [ ] `test/providers/map_provider_selected_track_test.dart` - hidden track no-select; showTrack restores
-- [ ] `test/widget/map_screen_route_info_test.dart` - panel state stays sane when route hidden/shown
-- [ ] `test/widget/map_screen_track_info_test.dart` - panel state stays sane when track hidden/shown
-- [ ] TDD: hidden route/track omitted from draw + hover + zoom; visible restore path reselects and refocuses
-- [ ] Verify: `flutter analyze && flutter test test/providers/map_provider_selected_route_test.dart test/providers/map_provider_selected_track_test.dart test/widget/map_screen_route_info_test.dart test/widget/map_screen_track_info_test.dart`
+- [x] `lib/screens/map_screen_layers.dart` - skip hidden routes/tracks in polyline builders
+- [x] `lib/screens/map_screen.dart` - filter hover candidates; skip hidden items in zoom queue; pass visibility-aware routes/tracks into panel flow
+- [x] `lib/providers/map_provider.dart` - add visibility setters; `showRoute`/`showTrack` restore `visible=true`; `selectRoute`/`selectTrack` reject hidden items; route write increments revision
+- [x] `test/providers/map_provider_selected_route_test.dart` - hidden route no-select; showRoute restores
+- [x] `test/providers/map_provider_selected_track_test.dart` - hidden track no-select; showTrack restores
+- [x] `test/widget/map_screen_route_info_test.dart` - panel state stays sane when route hidden/shown
+- [x] `test/widget/map_screen_track_info_test.dart` - panel state stays sane when track hidden/shown
+- [x] TDD: hidden route/track omitted from draw + hover + zoom; visible restore path reselects and refocuses
+- [x] Verify: `flutter analyze && flutter test test/providers/map_provider_selected_route_test.dart test/providers/map_provider_selected_track_test.dart test/widget/map_screen_route_info_test.dart test/widget/map_screen_track_info_test.dart`
 
 ### Phase 3: Shared panel + journeys
 
 - **Goal**: bottom-row switch in shared panel; end-to-end hide/show journeys
-- [ ] `lib/screens/map_screen_panels.dart` - add visibility row, shared switch key, callback prop
-- [ ] `lib/screens/map_screen.dart` - wire panel callback to route/track visibility setters; keep panel open on hide
-- [ ] `test/widget/map_route_info_panel_test.dart` - route row text, key, alignment, toggle state
-- [ ] `test/widget/map_track_info_panel_test.dart` - track row text, key, alignment, toggle state
-- [ ] `test/robot/map/route_info_robot.dart` / `test/robot/map/route_info_journey_test.dart` - hide/show route journey; stable selectors
-- [ ] `test/robot/gpx_tracks/gpx_tracks_robot.dart` / `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - hide/show track journey; stable selectors
-- [ ] TDD: panel row copy + right-aligned switch -> toggle persists -> hidden item stays selectable in panel -> robot journey covers both entities
-- [ ] Verify: `flutter analyze && flutter test test/widget/map_route_info_panel_test.dart test/widget/map_track_info_panel_test.dart test/robot/map/route_info_journey_test.dart test/robot/gpx_tracks/gpx_tracks_journey_test.dart`
+- [x] `lib/screens/map_screen_panels.dart` - add visibility row, shared switch key, callback prop
+- [x] `lib/screens/map_screen.dart` - wire panel callback to route/track visibility setters; keep panel open on hide
+- [x] `test/widget/map_route_info_panel_test.dart` - route row text, key, alignment, toggle state
+- [x] `test/widget/map_track_info_panel_test.dart` - track row text, key, alignment, toggle state
+- [x] `test/robot/map/route_info_robot.dart` / `test/robot/map/route_info_journey_test.dart` - hide/show route journey; stable selectors
+- [x] `test/robot/gpx_tracks/gpx_tracks_robot.dart` / `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - hide/show track journey; stable selectors
+- [x] TDD: panel row copy + right-aligned switch -> toggle persists -> hidden item stays selectable in panel -> robot journey covers both entities
+- [x] Verify: `flutter analyze && flutter test test/widget/map_route_info_panel_test.dart test/widget/map_track_info_panel_test.dart test/robot/map/route_info_journey_test.dart test/robot/gpx_tracks/gpx_tracks_journey_test.dart`
 
 ## Risks / Out of scope
 

@@ -624,6 +624,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final candidates = <RouteHoverCandidate>[];
 
     for (final route in routes) {
+      if (!route.visible) {
+        continue;
+      }
       try {
         final projectedSegments = <List<Offset>>[];
         for (final segment in route.getSegmentsForZoom(displayZoom)) {
@@ -940,6 +943,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final candidates = <TrackHoverCandidate>[];
 
     for (final track in mapState.tracks) {
+      if (!track.visible) {
+        continue;
+      }
       try {
         final projectedSegments = <List<Offset>>[];
         for (final segment in track.getSegmentsForZoom(displayZoom)) {
@@ -1795,27 +1801,27 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                         hoveredPeakId:
                                             cursorState.hoveredPeakId,
                                       ),
-                                        onExit: (event) {
-                                          final mapState = ref.read(mapProvider);
-                                          final notifier = ref.read(
-                                            mapProvider.notifier,
-                                          );
-                                          if (mapState.isPeakInfoHovered &&
-                                              mapState.peakInfoPeak != null &&
-                                              !_peakInfoPopupBounds(
-                                                context,
-                                                mapState.peakInfoPeak!,
-                                              ).contains(event.localPosition)) {
-                                            notifier.closeHoveredPeakInfoPopup();
-                                          }
-                                          notifier.clearCursorMgrs();
-                                          notifier.clearHoveredPeak();
-                                          notifier.clearHoveredTrack();
-                                          notifier.clearHoveredRoute();
-                                          notifier.clearHoveredRouteDraftMarker();
-                                          notifier
-                                              .clearHoveredRouteDraftSegmentPreview();
-                                        },
+                                      onExit: (event) {
+                                        final mapState = ref.read(mapProvider);
+                                        final notifier = ref.read(
+                                          mapProvider.notifier,
+                                        );
+                                        if (mapState.isPeakInfoHovered &&
+                                            mapState.peakInfoPeak != null &&
+                                            !_peakInfoPopupBounds(
+                                              context,
+                                              mapState.peakInfoPeak!,
+                                            ).contains(event.localPosition)) {
+                                          notifier.closeHoveredPeakInfoPopup();
+                                        }
+                                        notifier.clearCursorMgrs();
+                                        notifier.clearHoveredPeak();
+                                        notifier.clearHoveredTrack();
+                                        notifier.clearHoveredRoute();
+                                        notifier.clearHoveredRouteDraftMarker();
+                                        notifier
+                                            .clearHoveredRouteDraftSegmentPreview();
+                                      },
                                       child: child!,
                                     );
                                   },
@@ -2325,6 +2331,26 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                   ? selectedTrack
                                                   : null,
                                               route: selectedRoute,
+                                              onVisibilityChanged: (visible) {
+                                                final notifier = ref.read(
+                                                  mapProvider.notifier,
+                                                );
+                                                if (selectedRoute != null) {
+                                                  notifier.setRouteVisibility(
+                                                    selectedRoute.id,
+                                                    visible,
+                                                  );
+                                                  return;
+                                                }
+                                                final trackId =
+                                                    selectedTrack?.gpxTrackId;
+                                                if (trackId != null) {
+                                                  notifier.setTrackVisibility(
+                                                    trackId,
+                                                    visible,
+                                                  );
+                                                }
+                                              },
                                               onExport: () {
                                                 unawaited(
                                                   _exportInfoSelection(
@@ -2506,11 +2532,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
     }
 
     return Positioned(
-      left: placement.topLeft.dx -
+      left:
+          placement.topLeft.dx -
           (placement.bridgeOnLeft ? PeakInfoPopupSurface.bridgeWidth : 0),
       top: placement.topLeft.dy,
       child: SizedBox(
-        width: UiConstants.peakInfoPopupSize.width +
+        width:
+            UiConstants.peakInfoPopupSize.width +
             PeakInfoPopupSurface.bridgeWidth,
         child: PeakInfoPopupSurface(
           content: content,
@@ -2737,7 +2765,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
       viewportSize: MediaQuery.of(context).size,
       popupSize: UiConstants.peakInfoPopupSize,
     );
-    final left = placement.topLeft.dx -
+    final left =
+        placement.topLeft.dx -
         (placement.bridgeOnLeft ? PeakInfoPopupSurface.bridgeWidth : 0);
     return Rect.fromLTWH(
       left,
@@ -2867,7 +2896,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
     GpxTrack? selectedTrack;
     for (final track in mapState.tracks) {
-      if (track.gpxTrackId == selectedTrackId) {
+      if (track.gpxTrackId == selectedTrackId && track.visible) {
         selectedTrack = track;
         break;
       }
@@ -2901,7 +2930,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
     app_route.Route? selectedRoute;
     for (final route in routes) {
-      if (route.id == selectedRouteId) {
+      if (route.id == selectedRouteId && route.visible) {
         selectedRoute = route;
         break;
       }

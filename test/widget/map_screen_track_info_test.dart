@@ -20,6 +20,31 @@ import 'package:peak_bagger/theme.dart';
 import '../harness/test_map_notifier.dart';
 
 void main() {
+  testWidgets('hidden selected track still shows the shared panel', (
+    tester,
+  ) async {
+    final track = GpxTrack(
+      gpxTrackId: 10,
+      contentHash: 'hash-10',
+      trackName: 'Hidden Track',
+      visible: false,
+      gpxFile: '<gpx></gpx>',
+    );
+    final state = MapState(
+      center: const LatLng(-41.5, 146.5),
+      zoom: 15,
+      basemap: Basemap.tracestrack,
+      showTracks: true,
+      tracks: [track],
+      selectedTrackId: 10,
+    );
+
+    await _pumpRawMapScreen(tester, state, size: const Size(1600, 900));
+
+    expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
+    expect(find.text('Hidden Track'), findsOneWidget);
+  });
+
   testWidgets('selected track renders panel at desktop width', (tester) async {
     final track = GpxTrack(
       gpxTrackId: 10,

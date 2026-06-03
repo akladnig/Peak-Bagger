@@ -616,6 +616,9 @@ PolylineLayer buildRoutePolylines(List<app_route.Route> routes, double zoom) {
   );
 
   for (final route in routes) {
+    if (!route.visible) {
+      continue;
+    }
     try {
       for (final segment in route.getSegmentsForZoom(displayZoom)) {
         if (segment.isEmpty) {
@@ -643,7 +646,10 @@ PolylineLayer buildRoutePolylines(List<app_route.Route> routes, double zoom) {
     }
   }
 
-  return PolylineLayer(polylines: polylines);
+  return PolylineLayer(
+    key: const Key('route-polyline-layer'),
+    polylines: polylines,
+  );
 }
 
 PolylineLayer buildTrackPolylines(
@@ -660,6 +666,9 @@ PolylineLayer buildTrackPolylines(
   );
 
   for (final track in tracks) {
+    if (!track.visible) {
+      continue;
+    }
     final isSelected = track.gpxTrackId == selectedTrackId;
     final color = Color(track.trackColour);
     final trackColor = selectedTrackId == null || isSelected
@@ -693,6 +702,7 @@ PolylineLayer buildTrackPolylines(
   }
 
   return PolylineLayer(
+    key: const Key('track-polyline-layer'),
     polylines: [
       ...polylines,
       ...selectedBasePolylines,

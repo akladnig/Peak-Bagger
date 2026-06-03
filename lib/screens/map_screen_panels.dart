@@ -215,6 +215,7 @@ class MapTrackInfoPanel extends StatelessWidget {
     this.track,
     this.route,
     required this.onClose,
+    this.onVisibilityChanged,
     this.onExport,
     super.key,
   }) : assert(track != null || route != null),
@@ -223,6 +224,7 @@ class MapTrackInfoPanel extends StatelessWidget {
   final GpxTrack? track;
   final app_route.Route? route;
   final VoidCallback onClose;
+  final ValueChanged<bool>? onVisibilityChanged;
   final VoidCallback? onExport;
 
   @override
@@ -295,8 +297,16 @@ class MapTrackInfoPanel extends StatelessWidget {
                       vertical: 12,
                     ),
                     child: isRoute
-                        ? _buildRouteBody(context, route!)
-                        : _buildTrackBody(context, track!),
+                        ? _buildRouteBody(
+                            context,
+                            route!,
+                            onVisibilityChanged: onVisibilityChanged,
+                          )
+                        : _buildTrackBody(
+                            context,
+                            track!,
+                            onVisibilityChanged: onVisibilityChanged,
+                          ),
                   ),
                 ),
                 const Divider(height: 1),
@@ -330,7 +340,11 @@ class MapTrackInfoPanel extends StatelessWidget {
     return route.name.trim().isEmpty ? 'Unnamed Route' : route.name.trim();
   }
 
-  Widget _buildRouteBody(BuildContext context, app_route.Route route) {
+  Widget _buildRouteBody(
+    BuildContext context,
+    app_route.Route route, {
+    required ValueChanged<bool>? onVisibilityChanged,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -396,11 +410,24 @@ class MapTrackInfoPanel extends StatelessWidget {
           label: 'Min Elevation',
           value: formatElevation(route.lowestElevation.round()),
         ),
+        const SizedBox(height: 20),
+        _VisibilityToggleRow(
+          key: const Key('track-info-panel-visibility-row'),
+          label: route.visible
+              ? 'Hide this route on the map'
+              : 'Show this route on the map',
+          visible: route.visible,
+          onChanged: onVisibilityChanged,
+        ),
       ],
     );
   }
 
-  Widget _buildTrackBody(BuildContext context, GpxTrack track) {
+  Widget _buildTrackBody(
+    BuildContext context,
+    GpxTrack track, {
+    required ValueChanged<bool>? onVisibilityChanged,
+  }) {
     final normalizedPeaks = normalizeTrackPeaks(track.peaks);
 
     return Column(
@@ -535,6 +562,52 @@ class MapTrackInfoPanel extends StatelessWidget {
         _LabeledValueRow(
           label: 'Paused Time',
           value: formatDuration(track.pausedTime),
+        ),
+        const SizedBox(height: 20),
+        _VisibilityToggleRow(
+          key: const Key('track-info-panel-visibility-row'),
+          label: track.visible
+              ? 'Hide this track on the map'
+              : 'Show this track on the map',
+          visible: track.visible,
+          onChanged: onVisibilityChanged,
+        ),
+      ],
+    );
+  }
+}
+
+class _VisibilityToggleRow extends StatelessWidget {
+  const _VisibilityToggleRow({
+    super.key,
+    required this.label,
+    required this.visible,
+    required this.onChanged,
+  });
+
+  final String label;
+  final bool visible;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Switch(
+          key: const Key('track-info-panel-visibility-switch'),
+          value: visible,
+          onChanged: onChanged,
         ),
       ],
     );
@@ -1144,7 +1217,9 @@ class PeakInfoPopupSurface extends StatelessWidget {
       child: SizedBox(
         width: totalWidth,
         child: Align(
-          alignment: bridgeOnLeft ? Alignment.centerRight : Alignment.centerLeft,
+          alignment: bridgeOnLeft
+              ? Alignment.centerRight
+              : Alignment.centerLeft,
           child: SizedBox(
             width: popupWidth,
             child: PeakInfoPopupCard(

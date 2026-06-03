@@ -115,6 +115,8 @@ class GpxTracksRobot {
   Finder get trackInfoPanel => find.byKey(const Key('track-info-panel'));
   Finder get trackInfoPanelClose =>
       find.byKey(const Key('track-info-panel-close'));
+  Finder get visibilitySwitch =>
+      find.byKey(const Key('track-info-panel-visibility-switch'));
 
   Future<void> pumpApp() async {
     await tester.binding.setSurfaceSize(surfaceSize);
@@ -580,6 +582,20 @@ class GpxTracksRobot {
   Future<void> closeTrackInfoPanel() async {
     await tester.tap(trackInfoPanelClose);
     await tester.pumpAndSettle();
+  }
+
+  Future<void> toggleTrackVisibility() async {
+    await tester.ensureVisible(visibilitySwitch);
+    await tester.pumpAndSettle();
+    await tester.tap(visibilitySwitch, warnIfMissed: false);
+    await tester.pumpAndSettle();
+  }
+
+  void expectTrackPolylineVisible(bool visible) {
+    final layer = tester.widget<PolylineLayer>(
+      find.byKey(const Key('track-polyline-layer')),
+    );
+    expect(layer.polylines, visible ? isNotEmpty : isEmpty);
   }
 
   void expectNoSelectedTrack() {

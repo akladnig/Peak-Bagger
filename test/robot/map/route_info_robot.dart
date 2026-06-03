@@ -1,6 +1,7 @@
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -37,6 +38,8 @@ class RouteInfoRobot {
   Finder get routeInfoPanel => find.byKey(const Key('track-info-panel'));
   Finder get routeInfoPanelClose =>
       find.byKey(const Key('track-info-panel-close'));
+  Finder get visibilitySwitch =>
+      find.byKey(const Key('track-info-panel-visibility-switch'));
 
   Future<void> pumpApp() async {
     await tester.binding.setSurfaceSize(surfaceSize);
@@ -45,7 +48,10 @@ class RouteInfoRobot {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          mapProvider.overrideWith(() => TestMapNotifier(initialState, routeRepository: routeRepository)),
+          mapProvider.overrideWith(
+            () =>
+                TestMapNotifier(initialState, routeRepository: routeRepository),
+          ),
           routeRepositoryProvider.overrideWithValue(routeRepository),
           peakListRepositoryProvider.overrideWithValue(
             PeakListRepository.test(InMemoryPeakListStorage()),
@@ -88,6 +94,20 @@ class RouteInfoRobot {
     await tester.pumpAndSettle();
   }
 
+  Future<void> toggleRouteVisibility() async {
+    await tester.ensureVisible(visibilitySwitch);
+    await tester.pumpAndSettle();
+    await tester.tap(visibilitySwitch, warnIfMissed: false);
+    await tester.pumpAndSettle();
+  }
+
+  void expectRoutePolylineVisible(bool visible) {
+    final layer = tester.widget<PolylineLayer>(
+      find.byKey(const Key('route-polyline-layer')),
+    );
+    expect(layer.polylines, visible ? isNotEmpty : isEmpty);
+  }
+
   Future<void> deleteRouteAndRefresh(int routeId) async {
     routeRepository.deleteRoute(routeId);
     container().read(routeRevisionProvider.notifier).increment();
@@ -102,10 +122,7 @@ class RouteInfoRobot {
 
   void expectRoutePanelHidden() {
     expect(routeInfoPanel, findsNothing);
-    expect(
-      container().read(mapProvider).selectedRouteId,
-      isNull,
-    );
+    expect(container().read(mapProvider).selectedRouteId, isNull);
   }
 
   void expectSelectedRoute(int routeId) {
@@ -134,17 +151,11 @@ class RouteInfoRobot {
   }
 }
 
-app_route.Route routeFixture({
-  int id = 1,
-  String? name,
-}) {
+app_route.Route routeFixture({int id = 1, String? name}) {
   return app_route.Route(
     id: id,
     name: name ?? 'Route $id',
-    gpxRoute: [
-      const LatLng(-41.5, 146.49),
-      const LatLng(-41.5, 146.51),
-    ],
+    gpxRoute: [const LatLng(-41.5, 146.49), const LatLng(-41.5, 146.51)],
     distance2d: 17450,
     ascent: 912,
     descent: 456,
