@@ -20,6 +20,8 @@ class TrackStartupDecision {
 class MigrationMarkerStore {
   static const migrationKey = 'track_optimization_migration_v1_complete';
   static const peaksBaggedBackfillKey = 'peaks_bagged_backfill_v1_complete';
+  static const itemVisibilityBackfillKey =
+      'item_visibility_backfill_v1_complete';
 
   const MigrationMarkerStore({
     Future<SharedPreferences> Function()? loadPreferences,
@@ -45,6 +47,16 @@ class MigrationMarkerStore {
   Future<void> markPeaksBaggedBackfillComplete() async {
     final preferences = await _loadPreferences();
     await preferences.setBool(peaksBaggedBackfillKey, true);
+  }
+
+  Future<bool> isItemVisibilityBackfillMarked() async {
+    final preferences = await _loadPreferences();
+    return preferences.getBool(itemVisibilityBackfillKey) ?? false;
+  }
+
+  Future<void> markItemVisibilityBackfillComplete() async {
+    final preferences = await _loadPreferences();
+    await preferences.setBool(itemVisibilityBackfillKey, true);
   }
 
   static TrackStartupDecision decideStartupAction({

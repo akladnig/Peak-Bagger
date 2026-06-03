@@ -19,6 +19,7 @@ void main() {
     expect(repository.getAllRoutes().single.id, saved.id);
     expect(repository.getAllRoutes().single.name, 'Created Route');
     expect(repository.getAllRoutes().single.desc, 'Created route description');
+    expect(repository.getAllRoutes().single.visible, isTrue);
   });
 
   test('saveRoute preserves id on update', () {
@@ -39,6 +40,24 @@ void main() {
     expect(repository.getAllRoutes(), hasLength(1));
     expect(repository.getAllRoutes().single.name, 'Updated Route');
     expect(repository.getAllRoutes().single.desc, 'Updated route description');
+    expect(repository.getAllRoutes().single.visible, isTrue);
+  });
+
+  test('saveRoute preserves visible on update', () {
+    final repository = RouteRepository.test(InMemoryRouteStorage());
+    final created = repository.saveRoute(
+      Route(
+        name: 'Visible Route',
+        desc: 'Visible route description',
+        gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.6, 146.6)],
+      ),
+    );
+
+    created.visible = false;
+    final updated = repository.saveRoute(created);
+
+    expect(updated.visible, isFalse);
+    expect(repository.getAllRoutes().single.visible, isFalse);
   });
 
   test('route waypoint metadata round-trips through JSON', () {

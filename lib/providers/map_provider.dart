@@ -23,6 +23,7 @@ import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/import_path_helpers.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
+import 'package:peak_bagger/services/item_visibility_backfill_service.dart';
 import 'package:peak_bagger/services/gpx_track_repair_service.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
@@ -866,6 +867,7 @@ class MapNotifier extends Notifier<MapState> {
   late final RoutePlanner _routePlanner;
   late final PeaksBaggedRepository _peaksBaggedRepository;
   late final MigrationMarkerStore _migrationMarkerStore;
+  late final ItemVisibilityBackfillService _itemVisibilityBackfillService;
   late final Future<SharedPreferences> Function() _prefsLoader;
   bool _recoverySnackbarShown = false;
   String? _pendingTrackSnackbarMessage;
@@ -918,6 +920,11 @@ class MapNotifier extends Notifier<MapState> {
         _injectedPeaksBaggedRepository ?? PeaksBaggedRepository(objectboxStore);
     _migrationMarkerStore =
         _injectedMigrationMarkerStore ?? const MigrationMarkerStore();
+    _itemVisibilityBackfillService = ItemVisibilityBackfillService(
+      routeRepository: _routeRepository,
+      gpxTrackRepository: _gpxTrackRepository,
+      migrationMarkerStore: _migrationMarkerStore,
+    );
     _prefsLoader = ref.read(mapPreferencesLoaderProvider);
     Future.microtask(_runStartupLoad);
     return MapState(
@@ -930,6 +937,7 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   Future<void> _runStartupLoad() async {
+    await _backfillItemVisibility();
     await _restoreVisibilityPrefs();
     if (_loadPositionOnBuild) {
       await _loadPosition();
@@ -939,6 +947,18 @@ class MapNotifier extends Notifier<MapState> {
     }
     if (_loadTracksOnBuild) {
       await _loadTracks();
+    }
+  }
+
+  Future<void> _backfillItemVisibility() async {
+    try {
+      final changed = await _itemVisibilityBackfillService.backfillVisibleItems();
+      if (changed) {
+        ref.read(routeRevisionProvider.notifier).increment();
+      }
+    } catch (e) {
+      _pendingStartupBackfillWarningMessage =
+          'Failed to restore route/track visibility: $e';
     }
   }
 

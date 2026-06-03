@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
@@ -10,6 +11,7 @@ import 'package:peak_bagger/services/migration_marker_store.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/route_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../harness/test_tasmap_repository.dart';
@@ -47,6 +49,90 @@ void main() {
     expect(state.showTracks, isFalse);
     expect(state.showRoutes, isFalse);
     expect(state.showTrails, isFalse);
+  });
+
+  test('startup backfill restores hidden routes and tracks once', () async {
+    SharedPreferences.setMockInitialValues({});
+    final tasmapRepository = await TestTasmapRepository.create();
+    final routeStorage = _CountingRouteStorage([
+      Route(
+        id: 7,
+        name: 'Hidden Route',
+        visible: false,
+        gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.6, 146.6)],
+      ),
+    ]);
+    final trackStorage = _CountingGpxTrackStorage([
+      GpxTrack(
+        gpxTrackId: 11,
+        contentHash: 'hash-11',
+        trackName: 'Hidden Track',
+        visible: false,
+        gpxFile: '<gpx></gpx>',
+      ),
+    ]);
+    final routeRepository = RouteRepository.test(routeStorage);
+    final trackRepository = GpxTrackRepository.test(trackStorage);
+
+    final container = ProviderContainer(
+      overrides: [
+        mapProvider.overrideWith(
+          () => MapNotifier(
+            peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+            overpassService: OverpassService(),
+            tasmapRepository: tasmapRepository,
+            gpxTrackRepository: trackRepository,
+            routeRepository: routeRepository,
+            peaksBaggedRepository: PeaksBaggedRepository.test(
+              InMemoryPeaksBaggedStorage(),
+            ),
+            migrationMarkerStore: const MigrationMarkerStore(),
+            loadPositionOnBuild: false,
+            loadPeaksOnBuild: false,
+            loadTracksOnBuild: false,
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    container.read(mapProvider.notifier);
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(routeRepository.getAllRoutes().single.visible, isTrue);
+    expect(trackRepository.getAllTracks().single.visible, isTrue);
+    expect(routeStorage.saveCount, 1);
+    expect(trackStorage.saveCount, 1);
+
+    final secondContainer = ProviderContainer(
+      overrides: [
+        mapProvider.overrideWith(
+          () => MapNotifier(
+            peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+            overpassService: OverpassService(),
+            tasmapRepository: tasmapRepository,
+            gpxTrackRepository: trackRepository,
+            routeRepository: routeRepository,
+            peaksBaggedRepository: PeaksBaggedRepository.test(
+              InMemoryPeaksBaggedStorage(),
+            ),
+            migrationMarkerStore: const MigrationMarkerStore(),
+            loadPositionOnBuild: false,
+            loadPeaksOnBuild: false,
+            loadTracksOnBuild: false,
+          ),
+        ),
+      ],
+    );
+    addTearDown(secondContainer.dispose);
+
+    secondContainer.read(mapProvider.notifier);
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(routeStorage.saveCount, 1);
+    expect(trackStorage.saveCount, 1);
   });
 
   test('first user toggle wins over pending visibility restore for that flag', () async {
@@ -233,4 +319,47 @@ void main() {
     expect(state.selectedTrackId, isNull);
     expect(state.hoveredTrackId, isNull);
   });
+}
+
+class _CountingRouteStorage implements RouteStorage {
+  _CountingRouteStorage([List<Route> routes = const []])
+      : _storage = InMemoryRouteStorage(routes);
+
+  final InMemoryRouteStorage _storage;
+  int saveCount = 0;
+
+  @override
+  Route? getById(int id) => _storage.getById(id);
+
+  @override
+  List<Route> getAll() => _storage.getAll();
+
+  @override
+  int save(Route route) {
+    saveCount += 1;
+    return _storage.save(route);
+  }
+
+  @override
+  bool delete(int id) => _storage.delete(id);
+}
+
+class _CountingGpxTrackStorage implements GpxTrackStorage {
+  _CountingGpxTrackStorage([List<GpxTrack> tracks = const []])
+      : _storage = InMemoryGpxTrackStorage(tracks);
+
+  final InMemoryGpxTrackStorage _storage;
+  int saveCount = 0;
+
+  @override
+  GpxTrack? getById(int id) => _storage.getById(id);
+
+  @override
+  List<GpxTrack> getAll() => _storage.getAll();
+
+  @override
+  int save(GpxTrack track) {
+    saveCount += 1;
+    return _storage.save(track);
+  }
 }
