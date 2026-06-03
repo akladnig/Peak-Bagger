@@ -10,20 +10,17 @@ final peakListRevisionProvider = NotifierProvider<PeakListRevisionNotifier, int>
   PeakListRevisionNotifier.new,
 );
 
-final peakListsProvider = Provider<List<PeakList>>((ref) {
-  ref.watch(peakListRevisionProvider);
-  try {
-    final repo = ref.watch(peakListRepositoryProvider);
-    return repo.getAllPeakLists();
-  } catch (error, stackTrace) {
-    developer.log(
-      'Failed to load peak lists.',
-      error: error,
-      stackTrace: stackTrace,
-      name: 'peak_list_selection_provider',
+final peakListsLoadProvider =
+    NotifierProvider<PeakListsLoadNotifier, PeakListsLoadState>(
+      PeakListsLoadNotifier.new,
     );
-    return const [];
-  }
+
+final peakListsProvider = Provider<List<PeakList>>((ref) {
+  return ref.watch(peakListsLoadProvider).peakLists;
+});
+
+final peakListsLoadFailedProvider = Provider<bool>((ref) {
+  return ref.watch(peakListsLoadProvider).failed;
 });
 
 final filteredPeaksProvider = Provider<List<Peak>>((ref) {
@@ -91,5 +88,41 @@ class PeakListRevisionNotifier extends Notifier<int> {
 
   void increment() {
     state += 1;
+  }
+}
+
+class PeakListsLoadState {
+  const PeakListsLoadState._({required this.peakLists, required this.failed});
+
+  const PeakListsLoadState.success(List<PeakList> peakLists)
+    : this._(peakLists: peakLists, failed: false);
+
+  const PeakListsLoadState.failure(List<PeakList> peakLists)
+    : this._(peakLists: peakLists, failed: true);
+
+  final List<PeakList> peakLists;
+  final bool failed;
+}
+
+class PeakListsLoadNotifier extends Notifier<PeakListsLoadState> {
+  List<PeakList> _cachedPeakLists = const [];
+
+  @override
+  PeakListsLoadState build() {
+    ref.watch(peakListRevisionProvider);
+    try {
+      final repo = ref.read(peakListRepositoryProvider);
+      final peakLists = repo.getAllPeakLists();
+      _cachedPeakLists = peakLists;
+      return PeakListsLoadState.success(peakLists);
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to load peak lists.',
+        error: error,
+        stackTrace: stackTrace,
+        name: 'peak_list_selection_provider',
+      );
+      return PeakListsLoadState.failure(_cachedPeakLists);
+    }
   }
 }

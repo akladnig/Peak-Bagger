@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
@@ -134,6 +135,39 @@ void main() {
       PeakListSelectionMode.none,
     );
     expect(container.read(mapProvider).selectedPeakListId, isNull);
+  });
+
+  test('repository failure during reconcile preserves specific-list selection', () async {
+    final container = ProviderContainer(
+      overrides: [
+        mapProvider.overrideWith(
+          () => _InitialStateMapNotifier(
+            MapState(
+              center: const LatLng(-41.5, 146.5),
+              zoom: 15,
+              basemap: Basemap.tracestrack,
+              peakListSelectionMode: PeakListSelectionMode.specificList,
+              selectedPeakListIds: {7},
+              previousSpecificPeakListIds: {7},
+            ),
+          ),
+        ),
+        peakListRepositoryProvider.overrideWithValue(
+          PeakListRepository.test(_ThrowingPeakListStorage()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    container.read(mapProvider.notifier).reconcileSelectedPeakList();
+    await _drainAsync();
+
+    expect(
+      container.read(mapProvider).peakListSelectionMode,
+      PeakListSelectionMode.specificList,
+    );
+    expect(container.read(mapProvider).selectedPeakListIds, {7});
+    expect(container.read(mapProvider).previousSpecificPeakListIds, {7});
   });
 
   test('peak list selection save does not rewrite camera prefs', () async {
@@ -279,5 +313,12 @@ class _FakeImportService extends PeakListImportService {
       warningEntries: [],
       logEntries: [],
     );
+  }
+}
+
+class _ThrowingPeakListStorage extends InMemoryPeakListStorage {
+  @override
+  List<PeakList> getAll() {
+    throw StateError('boom');
   }
 }

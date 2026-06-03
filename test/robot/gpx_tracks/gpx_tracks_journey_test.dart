@@ -748,7 +748,8 @@ void main() {
     await robot.toggleTracks();
     robot.expectTracksShown();
 
-    await robot.selectNoPeaks();
+    await robot.selectSpecificPeakList('Alpha');
+    await robot.selectSpecificPeakList('Alpha');
     robot.expectPeaksHidden();
 
     await robot.selectAllPeaks();

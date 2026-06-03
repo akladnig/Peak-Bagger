@@ -31,16 +31,17 @@ Approach: thin state slice first, then drawer UI, then shell chrome + robot cove
 ### Phase 2: Failure-Aware List Loading + Drawer UI
 
 - **Goal**: working multi-select drawer; decodable lists visible; failure state non-destructive
-- [ ] `lib/providers/peak_list_selection_provider.dart` - add failure-aware list-loading seam/status object so success-empty and repository-failure diverge cleanly
-- [ ] `lib/widgets/map_peak_lists_drawer.dart` - convert single-select tiles to switch rows with `IgnorePointer` + row tap parity; keep drawer open on toggle
-- [ ] `lib/widgets/map_peak_lists_drawer.dart` - remove `None` row; add `All Peaks` master row/switch; show all decodable lists including `0 renderable peaks`; skip malformed lists only
-- [ ] `lib/widgets/map_peak_lists_drawer.dart` - show unavailable message + `All Peaks` control on repository failure; add required stable keys
-- [ ] `test/widget/map_screen_peak_info_test.dart` - migrate drawer assertions from old `None` tile / name keys to switch-row keys and open-drawer persistence behavior
-- [ ] `test/providers/map_peak_list_selection_persistence_test.dart` - cover repository-failure preservation / no destructive normalization path if provider seam lives here
-- [ ] TDD: drawer shows zero-renderable-count decodable rows, malformed rows skipped
-- [ ] TDD: toggling a specific list while `All Peaks` is active exits `All Peaks` and updates remembered snapshot
+- [x] `lib/providers/peak_list_selection_provider.dart` - add failure-aware list-loading seam/status object so success-empty and repository-failure diverge cleanly
+- [x] `lib/widgets/map_peak_lists_drawer.dart` - convert single-select tiles to switch rows with `IgnorePointer` + row tap parity; keep drawer open on toggle
+- [x] `lib/widgets/map_peak_lists_drawer.dart` - remove `None` row; add `All Peaks` master row/switch; show all decodable lists including `0 renderable peaks`; skip malformed lists only
+- [x] `lib/widgets/map_peak_lists_drawer.dart` - show unavailable message + `All Peaks` control on repository failure; add required stable keys
+- [x] `test/widget/map_screen_peak_info_test.dart` - migrate drawer assertions from old `None` tile / name keys to switch-row keys and open-drawer persistence behavior
+- [x] `test/providers/map_peak_list_selection_persistence_test.dart` - cover repository-failure preservation / no destructive normalization path if provider seam lives here
+- [x] TDD: drawer shows zero-renderable-count decodable rows, malformed rows skipped
+- [x] TDD: toggling a specific list while `All Peaks` is active exits `All Peaks` and updates remembered snapshot
 - [ ] TDD: repository failure keeps active selection/chips intact and shows `Key('peak-list-selection-unavailable-message')`
-- [ ] Verify: `flutter analyze` && `flutter test`
+  Blocker: chip-strip assertions land with Phase 3 app-bar work; Phase 2 covers selection preservation state and unavailable-message drawer behavior only.
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: App-Bar Chip Strip + Journey Coverage
 
