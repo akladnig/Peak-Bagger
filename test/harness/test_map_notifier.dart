@@ -662,7 +662,9 @@ class TestMapNotifier extends MapNotifier {
   void selectRoute(int routeId) {
     final hasVisibleRoute =
         state.showRoutes &&
-        routeRepository?.getAllRoutes().any((route) => route.id == routeId) ==
+        routeRepository?.getAllRoutes().any(
+              (route) => route.id == routeId && route.visible,
+            ) ==
             true;
     if (!hasVisibleRoute) {
       return;
@@ -671,6 +673,7 @@ class TestMapNotifier extends MapNotifier {
     state = state.copyWith(
       selectedRouteId: routeId,
       clearSelectedTrackId: true,
+      selectedRouteFocusSerial: state.selectedRouteFocusSerial + 1,
     );
   }
 

@@ -72,32 +72,41 @@ void main() {
       },
     );
 
-    test('invalid selectTrack is no-op and valid visible id sticks', () {
-      final initialState = MapState(
-        center: const LatLng(-41.5, 146.5),
-        zoom: 15,
-        basemap: Basemap.tracestrack,
-        showTracks: true,
-        tracks: [_track(1), _track(2)],
-        selectedTrackId: 1,
-      );
-      final container = ProviderContainer(
-        overrides: [
-          mapProvider.overrideWith(
-            () => _InitialStateMapNotifier(initialState),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
+    test(
+      'invalid selectTrack is no-op and visible selection bumps focus each time',
+      () {
+        final initialState = MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          showTracks: true,
+          tracks: [_track(1), _track(2)],
+          selectedTrackId: 1,
+        );
+        final container = ProviderContainer(
+          overrides: [
+            mapProvider.overrideWith(
+              () => _InitialStateMapNotifier(initialState),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
 
-      final notifier = container.read(mapProvider.notifier);
+        final notifier = container.read(mapProvider.notifier);
 
-      notifier.selectTrack(999);
-      expect(container.read(mapProvider).selectedTrackId, 1);
+        notifier.selectTrack(999);
+        expect(container.read(mapProvider).selectedTrackId, 1);
+        expect(container.read(mapProvider).selectedTrackFocusSerial, 0);
 
-      notifier.selectTrack(2);
-      expect(container.read(mapProvider).selectedTrackId, 2);
-    });
+        notifier.selectTrack(2);
+        expect(container.read(mapProvider).selectedTrackId, 2);
+        expect(container.read(mapProvider).selectedTrackFocusSerial, 1);
+
+        notifier.selectTrack(2);
+        expect(container.read(mapProvider).selectedTrackId, 2);
+        expect(container.read(mapProvider).selectedTrackFocusSerial, 2);
+      },
+    );
 
     test('reconcileSelectedTrackState clears stale selected id', () {
       final initialState = MapState(

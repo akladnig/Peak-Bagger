@@ -2185,6 +2185,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                           buildRoutePolylines(
                                             routes,
                                             mapScene.zoom,
+                                            selectedRouteId:
+                                                mapScene.selectedRouteId,
                                           ),
                                         if (mapScene.showTracks)
                                           buildTrackPolylines(
@@ -3104,6 +3106,43 @@ class _MapScreenState extends ConsumerState<MapScreen>
     });
   }
 
+  EdgeInsets _selectedPathFitPadding() {
+    const overlayGap = 24.0;
+    const outerInset = 16.0;
+    const minVisibleWidth = 160.0;
+    const minVisibleHeight = 120.0;
+    final viewPadding =
+        MediaQuery.maybeOf(context)?.viewPadding ?? EdgeInsets.zero;
+    final viewportSize = _mapController.camera.nonRotatedSize;
+
+    var left = outerInset + UiConstants.preferredLeftWidth + overlayGap;
+    var right =
+        RouterConstants.themeActionRightInset +
+        UiConstants.actionsColumnWidth +
+        overlayGap +
+        viewPadding.right;
+    var top = outerInset + overlayGap + viewPadding.top;
+    var bottom = outerInset + overlayGap + viewPadding.bottom;
+
+    final horizontalPadding = left + right;
+    final maxHorizontalPadding = viewportSize.width - minVisibleWidth;
+    if (maxHorizontalPadding > 0 && horizontalPadding > maxHorizontalPadding) {
+      final scale = maxHorizontalPadding / horizontalPadding;
+      left *= scale;
+      right *= scale;
+    }
+
+    final verticalPadding = top + bottom;
+    final maxVerticalPadding = viewportSize.height - minVisibleHeight;
+    if (maxVerticalPadding > 0 && verticalPadding > maxVerticalPadding) {
+      final scale = maxVerticalPadding / verticalPadding;
+      top *= scale;
+      bottom *= scale;
+    }
+
+    return EdgeInsets.fromLTRB(left, top, right, bottom);
+  }
+
   void _zoomToTrackExtent(GpxTrack track, {int attempt = 0, int? focusSerial}) {
     if (focusSerial != null && _pendingSelectedTrackSerial != focusSerial) {
       return;
@@ -3145,7 +3184,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
       final bounds = LatLngBounds.fromPoints(points);
       final cameraFit = CameraFit.bounds(
         bounds: bounds,
-        padding: const EdgeInsets.all(50),
+        padding: _selectedPathFitPadding(),
       );
       _applyAcceptedCameraFit(
         PendingCameraRequest(
@@ -3220,7 +3259,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
       final bounds = LatLngBounds.fromPoints(points);
       final cameraFit = CameraFit.bounds(
         bounds: bounds,
-        padding: const EdgeInsets.all(50),
+        padding: _selectedPathFitPadding(),
       );
       _applyAcceptedCameraFit(
         PendingCameraRequest(

@@ -28,14 +28,9 @@ void main() {
       id: 1,
       name: 'Hidden Route',
       visible: false,
-      gpxRoute: const [
-        LatLng(-41.5, 146.49),
-        LatLng(-41.5, 146.51),
-      ],
+      gpxRoute: const [LatLng(-41.5, 146.49), LatLng(-41.5, 146.51)],
     );
-    final routeRepository = RouteRepository.test(
-      InMemoryRouteStorage([route]),
-    );
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage([route]));
     final notifier = TestMapNotifier(
       MapState(
         center: const LatLng(-41.5, 146.5),
@@ -47,7 +42,12 @@ void main() {
       routeRepository: routeRepository,
     );
 
-    await _pumpRawMapScreen(tester, notifier, routeRepository, size: const Size(1600, 900));
+    await _pumpRawMapScreen(
+      tester,
+      notifier,
+      routeRepository,
+      size: const Size(1600, 900),
+    );
 
     expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
     expect(find.text('Hidden Route'), findsOneWidget);
@@ -60,10 +60,7 @@ void main() {
     final route = app_route.Route(
       id: 1,
       name: 'Visible Route',
-      gpxRoute: [
-        const LatLng(-41.5, 146.49),
-        const LatLng(-41.5, 146.51),
-      ],
+      gpxRoute: [const LatLng(-41.5, 146.2), const LatLng(-41.5, 146.8)],
       distance2d: 17450,
       ascent: 912,
       descent: 456,
@@ -72,9 +69,7 @@ void main() {
       highestElevation: 320,
       lowestElevation: 90,
     );
-    final routeRepository = RouteRepository.test(
-      InMemoryRouteStorage([route]),
-    );
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage([route]));
     final notifier = TestMapNotifier(
       MapState(
         center: const LatLng(-41.5, 146.5),
@@ -85,7 +80,12 @@ void main() {
       routeRepository: routeRepository,
     );
 
-    await _pumpRawMapScreen(tester, notifier, routeRepository, size: const Size(1600, 900));
+    await _pumpRawMapScreen(
+      tester,
+      notifier,
+      routeRepository,
+      size: const Size(1600, 900),
+    );
 
     final mapRegion = find.byKey(const Key('map-interaction-region'));
     final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -98,7 +98,9 @@ void main() {
     await tester.pump();
 
     expect(
-      ProviderScope.containerOf(tester.element(mapRegion)).read(mapProvider).hoveredRouteId,
+      ProviderScope.containerOf(
+        tester.element(mapRegion),
+      ).read(mapProvider).hoveredRouteId,
       1,
     );
 
@@ -110,10 +112,12 @@ void main() {
     final container = ProviderScope.containerOf(tester.element(mapRegion));
     expect(container.read(mapProvider).selectedRouteId, 1);
     expect(container.read(mapProvider).selectedTrackId, isNull);
+    expect(container.read(mapProvider).selectedRouteFocusSerial, 1);
     expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
     expect(find.text('Visible Route'), findsOneWidget);
     expect(find.byKey(const Key('map-mgrs-readout')), findsNothing);
     expect(find.byKey(const Key('map-zoom-readout')), findsNothing);
+    expect(container.read(mapProvider).center.longitude, lessThan(146.5));
 
     await tester.tap(find.byKey(const Key('track-info-panel-close')));
     await tester.pumpAndSettle();
@@ -129,10 +133,7 @@ void main() {
     final route = app_route.Route(
       id: 1,
       name: 'Visible Route',
-      gpxRoute: const [
-        LatLng(-41.5, 146.49),
-        LatLng(-41.5, 146.51),
-      ],
+      gpxRoute: const [LatLng(-41.5, 146.49), LatLng(-41.5, 146.51)],
       distance2d: 17450,
     );
     final track = GpxTrack(
@@ -144,9 +145,7 @@ void main() {
         const [LatLng(-41.5, 146.49), LatLng(-41.5, 146.51)],
       ]),
     );
-    final routeRepository = RouteRepository.test(
-      InMemoryRouteStorage([route]),
-    );
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage([route]));
     final notifier = TestMapNotifier(
       MapState(
         center: const LatLng(-41.5, 146.5),
@@ -160,7 +159,12 @@ void main() {
       routeRepository: routeRepository,
     );
 
-    await _pumpRawMapScreen(tester, notifier, routeRepository, size: const Size(1600, 900));
+    await _pumpRawMapScreen(
+      tester,
+      notifier,
+      routeRepository,
+      size: const Size(1600, 900),
+    );
 
     final mapRegion = find.byKey(const Key('map-interaction-region'));
     final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -183,7 +187,9 @@ void main() {
     expect(find.text('Visible Track'), findsOneWidget);
   });
 
-  testWidgets('shared route panel shows metrics and omits time', (tester) async {
+  testWidgets('shared route panel shows metrics and omits time', (
+    tester,
+  ) async {
     final route = app_route.Route(
       id: 1,
       name: '',

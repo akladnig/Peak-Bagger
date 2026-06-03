@@ -608,8 +608,14 @@ class _RouteDraftMarkerHoverTarget extends StatelessWidget {
   }
 }
 
-PolylineLayer buildRoutePolylines(List<app_route.Route> routes, double zoom) {
+PolylineLayer buildRoutePolylines(
+  List<app_route.Route> routes,
+  double zoom, {
+  int? selectedRouteId,
+}) {
   final polylines = <Polyline>[];
+  final selectedBasePolylines = <Polyline>[];
+  final selectedOverlayPolylines = <Polyline>[];
   final displayZoom = zoom.round().clamp(
     MapConstants.trackMinZoom,
     MapConstants.trackMaxZoom,
@@ -619,36 +625,79 @@ PolylineLayer buildRoutePolylines(List<app_route.Route> routes, double zoom) {
     if (!route.visible) {
       continue;
     }
+    final isSelected = route.id == selectedRouteId;
+    final color = Color(route.colour);
+    final routeColor = selectedRouteId == null || isSelected
+        ? color
+        : color.withValues(alpha: 0.6);
     try {
       for (final segment in route.getSegmentsForZoom(displayZoom)) {
         if (segment.isEmpty) {
           continue;
         }
-        polylines.add(
-          Polyline(
-            points: segment,
-            color: Color(route.colour),
-            strokeWidth: RouteUI.width,
-          ),
-        );
+        if (isSelected) {
+          selectedBasePolylines.add(
+            Polyline(
+              points: segment,
+              color: routeColor,
+              strokeWidth: 4.0,
+              borderStrokeWidth: 2.0,
+              borderColor: const Color(0x66000000),
+            ),
+          );
+          selectedOverlayPolylines.add(
+            Polyline(points: segment, color: Colors.white, strokeWidth: 0.6),
+          );
+        } else {
+          polylines.add(
+            Polyline(
+              points: segment,
+              color: routeColor,
+              strokeWidth: RouteUI.width,
+            ),
+          );
+        }
       }
     } catch (_) {
       if (route.gpxRoute.isEmpty) {
         continue;
       }
-      polylines.add(
-        Polyline(
-          points: route.gpxRoute,
-          color: Color(route.colour),
-          strokeWidth: RouteUI.width,
-        ),
-      );
+      if (isSelected) {
+        selectedBasePolylines.add(
+          Polyline(
+            points: route.gpxRoute,
+            color: routeColor,
+            strokeWidth: 4.0,
+            borderStrokeWidth: 2.0,
+            borderColor: const Color(0x66000000),
+          ),
+        );
+        selectedOverlayPolylines.add(
+          Polyline(
+            points: route.gpxRoute,
+            color: Colors.white,
+            strokeWidth: 0.6,
+          ),
+        );
+      } else {
+        polylines.add(
+          Polyline(
+            points: route.gpxRoute,
+            color: routeColor,
+            strokeWidth: RouteUI.width,
+          ),
+        );
+      }
     }
   }
 
   return PolylineLayer(
     key: const Key('route-polyline-layer'),
-    polylines: polylines,
+    polylines: [
+      ...polylines,
+      ...selectedBasePolylines,
+      ...selectedOverlayPolylines,
+    ],
   );
 }
 

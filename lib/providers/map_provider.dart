@@ -112,8 +112,7 @@ const _lngKey = 'map_position_lng';
 const _zoomKey = 'map_zoom';
 const _peakListSelectionModeV2Key = 'peak_list_selection_mode_v2';
 const _peakListSelectedIdsV2Key = 'peak_list_selected_ids_v2';
-const _peakListPreviousSpecificIdsV2Key =
-    'peak_list_previous_specific_ids_v2';
+const _peakListPreviousSpecificIdsV2Key = 'peak_list_previous_specific_ids_v2';
 const _legacyPeakListSelectionModeKey = 'peak_list_selection_mode';
 const _legacyPeakListIdKey = 'peak_list_id';
 const _showTracksKey = 'show_tracks';
@@ -455,8 +454,7 @@ class MapState {
 
   bool get showMapOverlay => showMapGrid && selectedMap == null;
 
-  bool get showSelectedMapLayer =>
-      showMapGrid && selectedMap != null;
+  bool get showSelectedMapLayer => showMapGrid && selectedMap != null;
 
   bool get showDistanceGrid =>
       gridVisibility == MapGridVisibility.mapGridAndDistanceGrid;
@@ -469,9 +467,8 @@ class MapState {
 
   bool get showPeaks => peakListSelectionMode != PeakListSelectionMode.none;
 
-  int? get selectedPeakListId => selectedPeakListIds.length == 1
-      ? selectedPeakListIds.first
-      : null;
+  int? get selectedPeakListId =>
+      selectedPeakListIds.length == 1 ? selectedPeakListIds.first : null;
 
   LatLng? get cameraRequestCenter => pendingCameraRequest?.center;
 
@@ -956,6 +953,7 @@ class MapNotifier extends Notifier<MapState> {
       return 'Unknown';
     }
   }
+
   Set<int> get correlatedPeakIds => buildCorrelatedPeakIds(state.tracks);
 
   @override
@@ -1015,7 +1013,8 @@ class MapNotifier extends Notifier<MapState> {
 
   Future<void> _backfillItemVisibility() async {
     try {
-      final changed = await _itemVisibilityBackfillService.backfillVisibleItems();
+      final changed = await _itemVisibilityBackfillService
+          .backfillVisibleItems();
       if (changed) {
         ref.read(routeRevisionProvider.notifier).increment();
       }
@@ -1933,13 +1932,12 @@ class MapNotifier extends Notifier<MapState> {
     final mode = state.peakListSelectionMode;
     final selectedPeakListIds = state.selectedPeakListIds;
     final previousSpecificPeakListIds = state.previousSpecificPeakListIds;
-    _peakListSelectionPersistChain = _peakListSelectionPersistChain.then((_) async {
+    _peakListSelectionPersistChain = _peakListSelectionPersistChain.then((
+      _,
+    ) async {
       try {
         final prefs = await _prefsLoader();
-        await prefs.setString(
-          _peakListSelectionModeV2Key,
-          mode.name,
-        );
+        await prefs.setString(_peakListSelectionModeV2Key, mode.name);
         await prefs.setString(
           _peakListSelectedIdsV2Key,
           _encodePeakListIds(selectedPeakListIds),
@@ -3634,7 +3632,8 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
-    final snapshot = state.peakListSelectionMode == PeakListSelectionMode.specificList
+    final snapshot =
+        state.peakListSelectionMode == PeakListSelectionMode.specificList
         ? state.selectedPeakListIds
         : null;
     _updatePeakListSelection(
@@ -4373,6 +4372,7 @@ class MapNotifier extends Notifier<MapState> {
     state = state.copyWith(
       selectedTrackId: trackId,
       clearSelectedRouteId: true,
+      selectedTrackFocusSerial: state.selectedTrackFocusSerial + 1,
     );
   }
 
@@ -4439,6 +4439,7 @@ class MapNotifier extends Notifier<MapState> {
     state = state.copyWith(
       selectedRouteId: routeId,
       clearSelectedTrackId: true,
+      selectedRouteFocusSerial: state.selectedRouteFocusSerial + 1,
     );
   }
 
@@ -5087,8 +5088,7 @@ class MapNotifier extends Notifier<MapState> {
   void cycleMapGridVisibility() {
     final nextVisibility = switch (state.gridVisibility) {
       MapGridVisibility.hidden => MapGridVisibility.mapGridOnly,
-      MapGridVisibility.mapGridOnly =>
-        MapGridVisibility.mapGridAndDistanceGrid,
+      MapGridVisibility.mapGridOnly => MapGridVisibility.mapGridAndDistanceGrid,
       MapGridVisibility.mapGridAndDistanceGrid => MapGridVisibility.hidden,
     };
 
