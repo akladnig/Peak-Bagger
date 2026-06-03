@@ -889,7 +889,27 @@ void main() {
   testWidgets(
     'select peaks FAB opens drawer and none/all peaks update markers',
     (tester) async {
-      await _pumpMap(tester, _mapStateWithPeak());
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(
+            name: 'Alpha',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 6406, points: 1),
+            ]),
+          )..peakListId = 1,
+          PeakList(
+            name: 'Zero',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 9999, points: 1),
+            ]),
+          )..peakListId = 4,
+        ]),
+      );
+      await _pumpMap(
+        tester,
+        _mapStateWithPeak(),
+        peakListRepository: peakListRepository,
+      );
 
       final region = find.byKey(const Key('map-interaction-region'));
       final container = ProviderScope.containerOf(tester.element(region));
@@ -905,7 +925,9 @@ void main() {
       expect(find.byKey(const Key('peak-lists-drawer')), findsOneWidget);
       expect(find.text('Peak Lists'), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('peak-list-item-None')));
+      await tester.tap(find.byKey(const Key('peak-list-item-Alpha')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('peak-list-item-Alpha')));
       await tester.pumpAndSettle();
 
       expect(
@@ -914,10 +936,6 @@ void main() {
       );
       expect(find.byKey(const Key('peak-marker-layer')), findsNothing);
 
-      await tester.ensureVisible(showPeaksFab);
-      await tester.pumpAndSettle();
-      await tester.tap(showPeaksFab);
-      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('peak-list-item-All Peaks')));
       await tester.pumpAndSettle();
 
@@ -948,6 +966,12 @@ void main() {
             const PeakListItem(peakOsmId: 6406, points: 1),
           ]),
         )..peakListId = 1,
+        PeakList(
+          name: 'Zero',
+          peakList: encodePeakListItems([
+            const PeakListItem(peakOsmId: 9999, points: 1),
+          ]),
+        )..peakListId = 4,
       ]),
     );
 
@@ -982,9 +1006,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-list-item-Alpha')), findsOneWidget);
+    expect(find.byKey(const Key('peak-list-item-Zero')), findsOneWidget);
     expect(find.byKey(const Key('peak-list-item-Zulu')), findsOneWidget);
     expect(find.byKey(const Key('peak-list-item-Broken')), findsNothing);
     expect(find.text('1 renderable peak'), findsNWidgets(2));
+    expect(find.text('0 renderable peaks'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('peak-list-item-Alpha')));
     await tester.pumpAndSettle();
@@ -993,7 +1019,7 @@ void main() {
     expect(find.byKey(const Key('peak-marker-hitbox-7000')), findsNothing);
   });
 
-  testWidgets('drawer shows none and all peaks only on repository error', (
+  testWidgets('drawer shows all peaks and unavailable message on repository error', (
     tester,
   ) async {
     await _pumpMap(
@@ -1008,8 +1034,11 @@ void main() {
     await tester.tap(showPeaksFab);
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('peak-list-item-None')), findsOneWidget);
     expect(find.byKey(const Key('peak-list-item-All Peaks')), findsOneWidget);
+    expect(
+      find.byKey(const Key('peak-list-selection-unavailable-message')),
+      findsOneWidget,
+    );
     expect(find.textContaining('renderable peak'), findsNothing);
   });
 }

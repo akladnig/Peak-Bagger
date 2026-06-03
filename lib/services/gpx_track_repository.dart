@@ -5,6 +5,8 @@ abstract class GpxTrackStorage {
   GpxTrack? getById(int id);
 
   List<GpxTrack> getAll();
+
+  int save(GpxTrack track);
 }
 
 class ObjectBoxGpxTrackStorage implements GpxTrackStorage {
@@ -15,6 +17,9 @@ class ObjectBoxGpxTrackStorage implements GpxTrackStorage {
   int get count => _box.count();
 
   int put(GpxTrack track) => _box.put(track);
+
+  @override
+  int save(GpxTrack track) => put(track);
 
   bool remove(int id) => _box.remove(id);
 
@@ -51,6 +56,26 @@ class InMemoryGpxTrackStorage implements GpxTrackStorage {
   List<GpxTrack> getAll() {
     return List<GpxTrack>.unmodifiable(_tracks);
   }
+
+  @override
+  int save(GpxTrack track) {
+    if (track.gpxTrackId == 0) {
+      track.gpxTrackId = _tracks.fold<int>(1, (maxId, existing) {
+        final candidate = existing.gpxTrackId + 1;
+        return candidate > maxId ? candidate : maxId;
+      });
+    }
+
+    for (var index = 0; index < _tracks.length; index++) {
+      if (_tracks[index].gpxTrackId == track.gpxTrackId) {
+        _tracks[index] = track;
+        return track.gpxTrackId;
+      }
+    }
+
+    _tracks.add(track);
+    return track.gpxTrackId;
+  }
 }
 
 class GpxTrackRepository {
@@ -59,6 +84,12 @@ class GpxTrackRepository {
   GpxTrackRepository(Store store) : _storage = ObjectBoxGpxTrackStorage(store.box<GpxTrack>());
 
   GpxTrackRepository.test(GpxTrackStorage storage) : _storage = storage;
+
+  GpxTrack saveTrack(GpxTrack track) {
+    final id = _storage.save(track);
+    track.gpxTrackId = id;
+    return track;
+  }
 
   int putTrack(GpxTrack track) {
     if (_storage case final ObjectBoxGpxTrackStorage storage) {

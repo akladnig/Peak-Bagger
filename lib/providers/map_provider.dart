@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert' as convert;
 import 'dart:developer' as developer;
 import 'dart:io' as io;
 import 'dart:math' as math;
@@ -23,6 +24,7 @@ import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/import_path_helpers.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
+import 'package:peak_bagger/services/item_visibility_backfill_service.dart';
 import 'package:peak_bagger/services/gpx_track_repair_service.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
@@ -64,11 +66,56 @@ Peak? _peakAtPoint(Iterable<Peak> peaks, LatLng point) {
   return null;
 }
 
+Set<int> _immutablePeakListIds(Iterable<int> values) {
+  return Set<int>.unmodifiable(values.toSet());
+}
+
+bool _samePeakListIds(Set<int> left, Set<int> right) {
+  if (left.length != right.length) {
+    return false;
+  }
+  for (final value in left) {
+    if (!right.contains(value)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+String _encodePeakListIds(Iterable<int> values) {
+  final sorted = values.toSet().toList()..sort();
+  return convert.jsonEncode(sorted);
+}
+
+Set<int>? _decodePeakListIds(String? payload) {
+  if (payload == null) {
+    return const <int>{};
+  }
+
+  final decoded = convert.jsonDecode(payload);
+  if (decoded is! List) {
+    return null;
+  }
+
+  final ids = <int>{};
+  for (final entry in decoded) {
+    if (entry is! int) {
+      return null;
+    }
+    ids.add(entry);
+  }
+  return _immutablePeakListIds(ids);
+}
+
 const _latKey = 'map_position_lat';
 const _lngKey = 'map_position_lng';
 const _zoomKey = 'map_zoom';
-const _peakListSelectionModeKey = 'peak_list_selection_mode';
-const _peakListIdKey = 'peak_list_id';
+const _peakListSelectionModeV2Key = 'peak_list_selection_mode_v2';
+const _peakListSelectedIdsV2Key = 'peak_list_selected_ids_v2';
+const _peakListPreviousSpecificIdsV2Key =
+    'peak_list_previous_specific_ids_v2';
+const _legacyPeakListSelectionModeKey = 'peak_list_selection_mode';
+const _legacyPeakListIdKey = 'peak_list_id';
 const _showTracksKey = 'show_tracks';
 const _showRoutesKey = 'show_routes';
 const _showTrailsKey = 'show_trails';
@@ -267,7 +314,8 @@ class MapState {
   final bool showRoutes;
   final bool showTrails;
   final PeakListSelectionMode peakListSelectionMode;
-  final int? selectedPeakListId;
+  final Set<int> selectedPeakListIds;
+  final Set<int> previousSpecificPeakListIds;
   final EndDrawerMode endDrawerMode;
   final bool isLoadingTracks;
   final String? trackImportError;
@@ -355,7 +403,8 @@ class MapState {
     this.showRoutes = false,
     this.showTrails = false,
     this.peakListSelectionMode = PeakListSelectionMode.allPeaks,
-    this.selectedPeakListId,
+    this.selectedPeakListIds = const <int>{},
+    this.previousSpecificPeakListIds = const <int>{},
     this.endDrawerMode = EndDrawerMode.basemaps,
     this.isLoadingTracks = false,
     this.trackImportError,
@@ -419,6 +468,10 @@ class MapState {
   };
 
   bool get showPeaks => peakListSelectionMode != PeakListSelectionMode.none;
+
+  int? get selectedPeakListId => selectedPeakListIds.length == 1
+      ? selectedPeakListIds.first
+      : null;
 
   LatLng? get cameraRequestCenter => pendingCameraRequest?.center;
 
@@ -499,8 +552,10 @@ class MapState {
     bool? showRoutes,
     bool? showTrails,
     PeakListSelectionMode? peakListSelectionMode,
-    int? selectedPeakListId,
-    bool clearSelectedPeakListId = false,
+    Set<int>? selectedPeakListIds,
+    bool clearSelectedPeakListIds = false,
+    Set<int>? previousSpecificPeakListIds,
+    bool clearPreviousSpecificPeakListIds = false,
     EndDrawerMode? endDrawerMode,
     bool? isLoadingTracks,
     String? trackImportError,
@@ -658,9 +713,16 @@ class MapState {
       showTrails: showTrails ?? this.showTrails,
       peakListSelectionMode:
           peakListSelectionMode ?? this.peakListSelectionMode,
-      selectedPeakListId: clearSelectedPeakListId
-          ? null
-          : (selectedPeakListId ?? this.selectedPeakListId),
+      selectedPeakListIds: clearSelectedPeakListIds
+          ? const <int>{}
+          : selectedPeakListIds == null
+          ? this.selectedPeakListIds
+          : _immutablePeakListIds(selectedPeakListIds),
+      previousSpecificPeakListIds: clearPreviousSpecificPeakListIds
+          ? const <int>{}
+          : previousSpecificPeakListIds == null
+          ? this.previousSpecificPeakListIds
+          : _immutablePeakListIds(previousSpecificPeakListIds),
       endDrawerMode: endDrawerMode ?? this.endDrawerMode,
       isLoadingTracks: isLoadingTracks ?? this.isLoadingTracks,
       trackImportError: clearTrackImportError
@@ -818,6 +880,8 @@ Set<int> buildCorrelatedPeakIds(Iterable<GpxTrack> tracks) {
 }
 
 class MapNotifier extends Notifier<MapState> {
+  Future<void> _peakListSelectionPersistChain = Future<void>.value();
+
   MapNotifier({
     PeakRepository? peakRepository,
     OverpassService? overpassService,
@@ -866,6 +930,7 @@ class MapNotifier extends Notifier<MapState> {
   late final RoutePlanner _routePlanner;
   late final PeaksBaggedRepository _peaksBaggedRepository;
   late final MigrationMarkerStore _migrationMarkerStore;
+  late final ItemVisibilityBackfillService _itemVisibilityBackfillService;
   late final Future<SharedPreferences> Function() _prefsLoader;
   bool _recoverySnackbarShown = false;
   String? _pendingTrackSnackbarMessage;
@@ -918,6 +983,11 @@ class MapNotifier extends Notifier<MapState> {
         _injectedPeaksBaggedRepository ?? PeaksBaggedRepository(objectboxStore);
     _migrationMarkerStore =
         _injectedMigrationMarkerStore ?? const MigrationMarkerStore();
+    _itemVisibilityBackfillService = ItemVisibilityBackfillService(
+      routeRepository: _routeRepository,
+      gpxTrackRepository: _gpxTrackRepository,
+      migrationMarkerStore: _migrationMarkerStore,
+    );
     _prefsLoader = ref.read(mapPreferencesLoaderProvider);
     Future.microtask(_runStartupLoad);
     return MapState(
@@ -930,6 +1000,7 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   Future<void> _runStartupLoad() async {
+    await _backfillItemVisibility();
     await _restoreVisibilityPrefs();
     if (_loadPositionOnBuild) {
       await _loadPosition();
@@ -939,6 +1010,18 @@ class MapNotifier extends Notifier<MapState> {
     }
     if (_loadTracksOnBuild) {
       await _loadTracks();
+    }
+  }
+
+  Future<void> _backfillItemVisibility() async {
+    try {
+      final changed = await _itemVisibilityBackfillService.backfillVisibleItems();
+      if (changed) {
+        ref.read(routeRevisionProvider.notifier).increment();
+      }
+    } catch (e) {
+      _pendingStartupBackfillWarningMessage =
+          'Failed to restore route/track visibility: $e';
     }
   }
 
@@ -1772,9 +1855,14 @@ class MapNotifier extends Notifier<MapState> {
       final lng = prefs.getDouble(_lngKey);
       final zoom = prefs.getDouble(_zoomKey);
       final peakListSelectionMode = _parsePeakListSelectionMode(
-        prefs.getString(_peakListSelectionModeKey),
+        prefs.getString(_peakListSelectionModeV2Key),
       );
-      final selectedPeakListId = prefs.getInt(_peakListIdKey);
+      final selectedPeakListIds = _decodePeakListIds(
+        prefs.getString(_peakListSelectedIdsV2Key),
+      );
+      final previousSpecificPeakListIds = _decodePeakListIds(
+        prefs.getString(_peakListPreviousSpecificIdsV2Key),
+      );
 
       if (lat != null && lng != null && zoom != null) {
         final location = LatLng(lat, lng);
@@ -1787,11 +1875,23 @@ class MapNotifier extends Notifier<MapState> {
         );
       }
 
+      if (selectedPeakListIds == null || previousSpecificPeakListIds == null) {
+        developer.log(
+          'Resetting corrupt v2 peak list selection prefs.',
+          name: 'map_provider',
+        );
+        state = state.copyWith(
+          peakListSelectionMode: PeakListSelectionMode.allPeaks,
+          clearSelectedPeakListIds: true,
+          clearPreviousSpecificPeakListIds: true,
+        );
+        return;
+      }
+
       state = state.copyWith(
         peakListSelectionMode: peakListSelectionMode,
-        selectedPeakListId: selectedPeakListId,
-        clearSelectedPeakListId:
-            peakListSelectionMode != PeakListSelectionMode.specificList,
+        selectedPeakListIds: selectedPeakListIds,
+        previousSpecificPeakListIds: previousSpecificPeakListIds,
       );
       reconcileSelectedPeakList();
     } catch (e) {
@@ -1830,21 +1930,31 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   Future<void> persistPeakListSelection() async {
-    try {
-      final prefs = await _prefsLoader();
-      await prefs.setString(
-        _peakListSelectionModeKey,
-        state.peakListSelectionMode.name,
-      );
-      if (state.peakListSelectionMode == PeakListSelectionMode.specificList &&
-          state.selectedPeakListId != null) {
-        await prefs.setInt(_peakListIdKey, state.selectedPeakListId!);
-      } else {
-        await prefs.remove(_peakListIdKey);
+    final mode = state.peakListSelectionMode;
+    final selectedPeakListIds = state.selectedPeakListIds;
+    final previousSpecificPeakListIds = state.previousSpecificPeakListIds;
+    _peakListSelectionPersistChain = _peakListSelectionPersistChain.then((_) async {
+      try {
+        final prefs = await _prefsLoader();
+        await prefs.setString(
+          _peakListSelectionModeV2Key,
+          mode.name,
+        );
+        await prefs.setString(
+          _peakListSelectedIdsV2Key,
+          _encodePeakListIds(selectedPeakListIds),
+        );
+        await prefs.setString(
+          _peakListPreviousSpecificIdsV2Key,
+          _encodePeakListIds(previousSpecificPeakListIds),
+        );
+        await prefs.remove(_legacyPeakListSelectionModeKey);
+        await prefs.remove(_legacyPeakListIdKey);
+      } catch (e) {
+        // Continue without saving
       }
-    } catch (e) {
-      // Continue without saving
-    }
+    });
+    await _peakListSelectionPersistChain;
   }
 
   PeakListSelectionMode _parsePeakListSelectionMode(String? value) {
@@ -3463,22 +3573,103 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
-    final nextPeakListId = mode == PeakListSelectionMode.specificList
-        ? peakListId
+    switch (mode) {
+      case PeakListSelectionMode.none:
+        _updatePeakListSelection(
+          mode: PeakListSelectionMode.none,
+          selectedPeakListIds: const <int>{},
+        );
+      case PeakListSelectionMode.allPeaks:
+        setAllPeaksSelected(true);
+      case PeakListSelectionMode.specificList:
+        _updatePeakListSelection(
+          mode: PeakListSelectionMode.specificList,
+          selectedPeakListIds: {peakListId!},
+          previousSpecificPeakListIds: {peakListId},
+        );
+    }
+  }
+
+  void togglePeakListSelection(int peakListId) {
+    if (state.peakListSelectionMode == PeakListSelectionMode.allPeaks) {
+      _updatePeakListSelection(
+        mode: PeakListSelectionMode.specificList,
+        selectedPeakListIds: {peakListId},
+        previousSpecificPeakListIds: {peakListId},
+      );
+      return;
+    }
+
+    final nextSelectedPeakListIds = Set<int>.of(state.selectedPeakListIds);
+    if (!nextSelectedPeakListIds.add(peakListId)) {
+      nextSelectedPeakListIds.remove(peakListId);
+    }
+
+    if (nextSelectedPeakListIds.isEmpty) {
+      _updatePeakListSelection(
+        mode: PeakListSelectionMode.none,
+        selectedPeakListIds: const <int>{},
+      );
+      return;
+    }
+
+    _updatePeakListSelection(
+      mode: PeakListSelectionMode.specificList,
+      selectedPeakListIds: nextSelectedPeakListIds,
+      previousSpecificPeakListIds: nextSelectedPeakListIds,
+    );
+  }
+
+  void setAllPeaksSelected(bool value) {
+    if (!value) {
+      if (state.peakListSelectionMode != PeakListSelectionMode.allPeaks ||
+          state.previousSpecificPeakListIds.isEmpty) {
+        return;
+      }
+      _updatePeakListSelection(
+        mode: PeakListSelectionMode.specificList,
+        selectedPeakListIds: state.previousSpecificPeakListIds,
+        previousSpecificPeakListIds: state.previousSpecificPeakListIds,
+      );
+      return;
+    }
+
+    final snapshot = state.peakListSelectionMode == PeakListSelectionMode.specificList
+        ? state.selectedPeakListIds
         : null;
+    _updatePeakListSelection(
+      mode: PeakListSelectionMode.allPeaks,
+      selectedPeakListIds: const <int>{},
+      previousSpecificPeakListIds: snapshot,
+    );
+  }
+
+  void _updatePeakListSelection({
+    required PeakListSelectionMode mode,
+    required Set<int> selectedPeakListIds,
+    Set<int>? previousSpecificPeakListIds,
+  }) {
+    final nextSelectedPeakListIds = _immutablePeakListIds(selectedPeakListIds);
+    final nextPreviousSpecificPeakListIds = previousSpecificPeakListIds == null
+        ? state.previousSpecificPeakListIds
+        : _immutablePeakListIds(previousSpecificPeakListIds);
     if (state.peakListSelectionMode == mode &&
-        state.selectedPeakListId == nextPeakListId) {
+        _samePeakListIds(state.selectedPeakListIds, nextSelectedPeakListIds) &&
+        _samePeakListIds(
+          state.previousSpecificPeakListIds,
+          nextPreviousSpecificPeakListIds,
+        )) {
       return;
     }
 
     state = state.copyWith(
       peakListSelectionMode: mode,
-      selectedPeakListId: nextPeakListId,
-      clearSelectedPeakListId: mode != PeakListSelectionMode.specificList,
+      selectedPeakListIds: nextSelectedPeakListIds,
+      previousSpecificPeakListIds: nextPreviousSpecificPeakListIds,
       clearPeakInfoPopup: true,
       clearHoveredPeakId: true,
     );
-    persistPeakListSelection();
+    unawaited(persistPeakListSelection());
   }
 
   void reconcileSelectedPeakList() {
@@ -3486,33 +3677,49 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
-    final peakListId = state.selectedPeakListId;
-    if (peakListId == null) {
-      _resetToAllPeaks();
+    if (state.selectedPeakListIds.isEmpty) {
+      _resetToNoPeaks();
       return;
     }
 
-    final peakList = ref.read(peakListRepositoryProvider).findById(peakListId);
-    if (peakList == null) {
-      _resetToAllPeaks();
-      return;
-    }
-
+    final repo = ref.read(peakListRepositoryProvider);
+    List<PeakList> peakLists;
     try {
-      decodePeakListItems(peakList.peakList);
+      peakLists = repo.getAllPeakLists();
     } catch (_) {
-      _resetToAllPeaks();
+      return;
+    }
+
+    final validPeakListIds = <int>{};
+    for (final peakList in peakLists) {
+      if (!state.selectedPeakListIds.contains(peakList.peakListId)) {
+        continue;
+      }
+      try {
+        decodePeakListItems(peakList.peakList);
+        validPeakListIds.add(peakList.peakListId);
+      } catch (_) {}
+    }
+
+    if (validPeakListIds.isEmpty) {
+      _resetToNoPeaks();
+      return;
+    }
+
+    if (!_samePeakListIds(validPeakListIds, state.selectedPeakListIds)) {
+      _updatePeakListSelection(
+        mode: PeakListSelectionMode.specificList,
+        selectedPeakListIds: validPeakListIds,
+        previousSpecificPeakListIds: validPeakListIds,
+      );
     }
   }
 
-  void _resetToAllPeaks() {
-    state = state.copyWith(
-      peakListSelectionMode: PeakListSelectionMode.allPeaks,
-      clearSelectedPeakListId: true,
-      clearPeakInfoPopup: true,
-      clearHoveredPeakId: true,
+  void _resetToNoPeaks() {
+    _updatePeakListSelection(
+      mode: PeakListSelectionMode.none,
+      selectedPeakListIds: const <int>{},
     );
-    persistPeakListSelection();
   }
 
   void centerOnLocation(LatLng location) {
@@ -4157,7 +4364,9 @@ class MapNotifier extends Notifier<MapState> {
   void selectTrack(int trackId) {
     final hasVisibleTrack =
         state.showTracks &&
-        state.tracks.any((track) => track.gpxTrackId == trackId);
+        state.tracks.any(
+          (track) => track.gpxTrackId == trackId && track.visible,
+        );
     if (!hasVisibleTrack) {
       return;
     }
@@ -4177,14 +4386,9 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
-    if (_isRestoringVisibilityPrefs) {
-      _showTracksRestoreOverridden = true;
-    }
+    setTrackVisibility(trackId, true);
 
-    final tracks =
-        state.tracks.every((existing) => existing.gpxTrackId != trackId)
-        ? [...state.tracks, track]
-        : state.tracks;
+    final tracks = _upsertTrackInState(track);
 
     state = state.copyWith(
       tracks: tracks,
@@ -4198,6 +4402,26 @@ class MapNotifier extends Notifier<MapState> {
     );
   }
 
+  void setTrackVisibility(int trackId, bool visible) {
+    final track = _gpxTrackRepository.findById(trackId);
+    if (track == null || track.visible == visible) {
+      return;
+    }
+
+    if (_isRestoringVisibilityPrefs) {
+      _showTracksRestoreOverridden = true;
+    }
+
+    track.visible = visible;
+    _gpxTrackRepository.saveTrack(track);
+
+    final tracks = _upsertTrackInState(track);
+    state = state.copyWith(
+      tracks: tracks,
+      clearHoveredTrackId: !visible && state.hoveredTrackId == trackId,
+    );
+  }
+
   void clearSelectedTrack() {
     state = state.copyWith(clearSelectedTrackId: true);
   }
@@ -4205,7 +4429,9 @@ class MapNotifier extends Notifier<MapState> {
   void selectRoute(int routeId) {
     final hasVisibleRoute =
         state.showRoutes &&
-        _routeRepository.getAllRoutes().any((route) => route.id == routeId);
+        _routeRepository.getAllRoutes().any(
+          (route) => route.id == routeId && route.visible,
+        );
     if (!hasVisibleRoute) {
       return;
     }
@@ -4227,6 +4453,8 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
+    setRouteVisibility(routeId, true);
+
     state = state.copyWith(
       selectedRouteId: routeId,
       clearSelectedTrackId: true,
@@ -4235,6 +4463,25 @@ class MapNotifier extends Notifier<MapState> {
       clearGotoMgrs: true,
       selectedRouteFocusSerial: state.selectedRouteFocusSerial + 1,
     );
+  }
+
+  void setRouteVisibility(int routeId, bool visible) {
+    final route = _routeRepository.findById(routeId);
+    if (route == null || route.visible == visible) {
+      return;
+    }
+
+    if (_isRestoringVisibilityPrefs) {
+      _showRoutesRestoreOverridden = true;
+    }
+
+    route.visible = visible;
+    _routeRepository.saveRoute(route);
+    ref.read(routeRevisionProvider.notifier).increment();
+
+    if (!visible && state.hoveredRouteId == routeId) {
+      state = state.copyWith(clearHoveredRouteId: true);
+    }
   }
 
   void clearSelectedRoute() {
@@ -4253,6 +4500,26 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
     state = state.copyWith(hoveredRouteId: null);
+  }
+
+  List<GpxTrack> _upsertTrackInState(GpxTrack track) {
+    final updatedTracks = <GpxTrack>[];
+    var replaced = false;
+
+    for (final existing in state.tracks) {
+      if (existing.gpxTrackId == track.gpxTrackId) {
+        updatedTracks.add(track);
+        replaced = true;
+      } else {
+        updatedTracks.add(existing);
+      }
+    }
+
+    if (!replaced) {
+      updatedTracks.add(track);
+    }
+
+    return List<GpxTrack>.unmodifiable(updatedTracks);
   }
 
   (LatLng?, String?) parseGridReference(String input) {

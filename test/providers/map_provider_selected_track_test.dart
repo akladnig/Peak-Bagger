@@ -8,11 +8,70 @@ import 'package:peak_bagger/services/migration_marker_store.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/route_repository.dart';
 
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
   group('selected track contract', () {
+    test(
+      'hidden track is not selectable until showTrack restores it',
+      () async {
+        final tasmapRepository = await TestTasmapRepository.create();
+        final trackRepository = GpxTrackRepository.test(
+          InMemoryGpxTrackStorage([
+            _trackWithVisibility(1, visible: false),
+            _track(2),
+          ]),
+        );
+        final container = ProviderContainer(
+          overrides: [
+            mapProvider.overrideWith(
+              () => MapNotifier(
+                peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+                overpassService: OverpassService(),
+                tasmapRepository: tasmapRepository,
+                gpxTrackRepository: trackRepository,
+                routeRepository: RouteRepository.test(InMemoryRouteStorage()),
+                peaksBaggedRepository: PeaksBaggedRepository.test(
+                  InMemoryPeaksBaggedStorage(),
+                ),
+                migrationMarkerStore: const MigrationMarkerStore(),
+                loadPositionOnBuild: false,
+                loadPeaksOnBuild: false,
+                loadTracksOnBuild: false,
+              ),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final notifier = container.read(mapProvider.notifier);
+        notifier.state = MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          showTracks: true,
+          tracks: [_trackWithVisibility(1, visible: false), _track(2)],
+        );
+
+        notifier.selectTrack(1);
+        expect(container.read(mapProvider).selectedTrackId, isNull);
+
+        final focusSerialBefore = container
+            .read(mapProvider)
+            .selectedTrackFocusSerial;
+        notifier.showTrack(1);
+
+        expect(container.read(mapProvider).selectedTrackId, 1);
+        expect(trackRepository.findById(1)?.visible, isTrue);
+        expect(
+          container.read(mapProvider).selectedTrackFocusSerial,
+          focusSerialBefore + 1,
+        );
+      },
+    );
+
     test('invalid selectTrack is no-op and valid visible id sticks', () {
       final initialState = MapState(
         center: const LatLng(-41.5, 146.5),
@@ -24,7 +83,9 @@ void main() {
       );
       final container = ProviderContainer(
         overrides: [
-          mapProvider.overrideWith(() => _InitialStateMapNotifier(initialState)),
+          mapProvider.overrideWith(
+            () => _InitialStateMapNotifier(initialState),
+          ),
         ],
       );
       addTearDown(container.dispose);
@@ -49,7 +110,9 @@ void main() {
       );
       final container = ProviderContainer(
         overrides: [
-          mapProvider.overrideWith(() => _InitialStateMapNotifier(initialState)),
+          mapProvider.overrideWith(
+            () => _InitialStateMapNotifier(initialState),
+          ),
         ],
       );
       addTearDown(container.dispose);
@@ -59,52 +122,60 @@ void main() {
       expect(container.read(mapProvider).selectedTrackId, isNull);
     });
 
-    test('showTrack repository miss clears selection and does not bump focus', () async {
-      final repository = await TestTasmapRepository.create();
-      final gpxRepository = GpxTrackRepository.test(
-        InMemoryGpxTrackStorage([_track(1)]),
-      );
-      final container = ProviderContainer(
-        overrides: [
-          mapProvider.overrideWith(
-            () => MapNotifier(
-              peakRepository: PeakRepository.test(InMemoryPeakStorage()),
-              overpassService: OverpassService(),
-              tasmapRepository: repository,
-              gpxTrackRepository: gpxRepository,
-              peaksBaggedRepository: PeaksBaggedRepository.test(
-                InMemoryPeaksBaggedStorage(),
+    test(
+      'showTrack repository miss clears selection and does not bump focus',
+      () async {
+        final repository = await TestTasmapRepository.create();
+        final gpxRepository = GpxTrackRepository.test(
+          InMemoryGpxTrackStorage([_track(1)]),
+        );
+        final container = ProviderContainer(
+          overrides: [
+            mapProvider.overrideWith(
+              () => MapNotifier(
+                peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+                overpassService: OverpassService(),
+                tasmapRepository: repository,
+                gpxTrackRepository: gpxRepository,
+                peaksBaggedRepository: PeaksBaggedRepository.test(
+                  InMemoryPeaksBaggedStorage(),
+                ),
+                migrationMarkerStore: const MigrationMarkerStore(),
+                loadPositionOnBuild: false,
+                loadPeaksOnBuild: false,
+                loadTracksOnBuild: false,
               ),
-              migrationMarkerStore: const MigrationMarkerStore(),
-              loadPositionOnBuild: false,
-              loadPeaksOnBuild: false,
-              loadTracksOnBuild: false,
             ),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
+          ],
+        );
+        addTearDown(container.dispose);
 
-      final notifier = container.read(mapProvider.notifier);
+        final notifier = container.read(mapProvider.notifier);
 
-      notifier.showTrack(1);
-      expect(container.read(mapProvider).selectedTrackId, 1);
-      expect(container.read(mapProvider).selectedTrackFocusSerial, 1);
+        notifier.showTrack(1);
+        expect(container.read(mapProvider).selectedTrackId, 1);
+        expect(container.read(mapProvider).selectedTrackFocusSerial, 1);
 
-      notifier.showTrack(999);
+        notifier.showTrack(999);
 
-      final state = container.read(mapProvider);
-      expect(state.selectedTrackId, isNull);
-      expect(state.selectedTrackFocusSerial, 1);
-    });
+        final state = container.read(mapProvider);
+        expect(state.selectedTrackId, isNull);
+        expect(state.selectedTrackFocusSerial, 1);
+      },
+    );
   });
 }
 
 GpxTrack _track(int id) {
+  return _trackWithVisibility(id, visible: true);
+}
+
+GpxTrack _trackWithVisibility(int id, {required bool visible}) {
   return GpxTrack(
     gpxTrackId: id,
     contentHash: 'hash-$id',
     trackName: 'Track $id',
+    visible: visible,
     gpxFile: '<gpx></gpx>',
   );
 }

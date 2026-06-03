@@ -467,7 +467,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(showPeaksFab);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('peak-list-item-None')));
+    notifier.selectPeakList(PeakListSelectionMode.none);
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-marker-layer')), findsNothing);
@@ -609,7 +609,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(showPeaksFab);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('peak-list-item-None')));
+    final container = ProviderScope.containerOf(tester.element(find.byType(MapScreen)));
+    container.read(mapProvider.notifier).selectPeakList(PeakListSelectionMode.none);
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-marker-layer')), findsNothing);

@@ -52,10 +52,7 @@ void main() {
             trackDate: DateTime(2024, 1, 15),
             gpxFile: '<gpx></gpx>',
             displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
-              [
-                const LatLng(-42.1234, 146.1234),
-                const LatLng(-42.2234, 146.2234),
-              ],
+              [const LatLng(-41.5, 146.49), const LatLng(-41.5, 146.51)],
             ]),
           ),
         ],
@@ -71,6 +68,79 @@ void main() {
 
     await robot.toggleTracks();
     robot.expectTracksShown();
+  });
+
+  testWidgets('track journey hides and shows from the shared panel', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showTracks: true,
+        tracks: [
+          GpxTrack(
+            gpxTrackId: 1,
+            contentHash: 'hash',
+            trackName: 'Robot Track',
+            gpxFile: '<gpx></gpx>',
+            displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
+              [const LatLng(-41.5, 146.49), const LatLng(-41.5, 146.51)],
+            ]),
+          ),
+        ],
+      ),
+    );
+
+    final robot = GpxTracksRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showTracks: true,
+        tracks: [
+          GpxTrack(
+            gpxTrackId: 1,
+            contentHash: 'hash',
+            trackName: 'Robot Track',
+            gpxFile: '<gpx></gpx>',
+            displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
+              [
+                const LatLng(-42.1234, 146.1234),
+                const LatLng(-42.2234, 146.2234),
+              ],
+            ]),
+          ),
+        ],
+      ),
+      notifier: notifier,
+    );
+    addTearDown(robot.dispose);
+
+    await robot.pumpApp();
+    await robot.hoverTrack();
+    robot.expectHoveredTrack(1);
+    await robot.clickHoveredTrack();
+
+    robot.expectSelectedTrack(1);
+    robot.expectTrackInfoPanelVisible('Robot Track');
+    robot.expectTrackPolylineVisible(true);
+
+    await robot.toggleTrackVisibility();
+
+    robot.expectTrackInfoPanelVisible('Robot Track');
+    robot.expectTrackPolylineVisible(false);
+
+    await robot.toggleTrackVisibility();
+
+    robot.expectTrackPolylineVisible(true);
+
+    await robot.closeTrackInfoPanel();
+    robot.expectNoTrackInfoPanel();
   });
 
   testWidgets('import refreshes dashboard and peak list counts', (
@@ -173,7 +243,8 @@ void main() {
       '1',
     );
     expect(
-      tester.widget<Text>(find.byKey(const Key('peak-lists-percentage-1')))
+      tester
+          .widget<Text>(find.byKey(const Key('peak-lists-percentage-1')))
           .data,
       '50%',
     );
@@ -254,7 +325,6 @@ void main() {
     expect(notifier.state.selectedTrackId, 1);
     expect(notifier.state.tracks, hasLength(1));
     expect(notifier.state.tracks.single.trackName, 'Selected Track');
-
   });
 
   testWidgets('hovering visible track updates hover state then clears', (
@@ -492,17 +562,20 @@ void main() {
     );
 
     expect(
-      tester.widget<DropdownButtonFormField<int>>(robot.hampelWindowField)
+      tester
+          .widget<DropdownButtonFormField<int>>(robot.hampelWindowField)
           .onChanged,
       isNull,
     );
     expect(
-      tester.widget<DropdownButtonFormField<int>>(robot.elevationWindowField)
+      tester
+          .widget<DropdownButtonFormField<int>>(robot.elevationWindowField)
           .onChanged,
       isNull,
     );
     expect(
-      tester.widget<DropdownButtonFormField<int>>(robot.positionWindowField)
+      tester
+          .widget<DropdownButtonFormField<int>>(robot.positionWindowField)
           .onChanged,
       isNull,
     );
@@ -675,14 +748,24 @@ void main() {
     await robot.toggleTracks();
     robot.expectTracksShown();
 
-    await robot.selectNoPeaks();
+    await robot.selectSpecificPeakList('Alpha');
+    await robot.selectSpecificPeakList('Alpha');
     robot.expectPeaksHidden();
+    expect(robot.peakListChipNone, findsOneWidget);
 
     await robot.selectAllPeaks();
     robot.expectPeaksShown();
+    expect(robot.peakListChipAllPeaks, findsOneWidget);
 
     await robot.selectSpecificPeakList('Alpha');
     expect(robot.peakMarkerIds(), [6406]);
+    expect(robot.peakListChip(1), findsOneWidget);
+
+    await robot.openSettings();
+    expect(robot.peakListChip(1), findsOneWidget);
+    router.go('/map');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
     final container = ProviderScope.containerOf(
       tester.element(robot.mapInteractionRegion),
@@ -694,14 +777,12 @@ void main() {
 
     expect(
       container.read(mapProvider).peakListSelectionMode,
-      PeakListSelectionMode.allPeaks,
+      PeakListSelectionMode.none,
     );
-    expect(robot.peakMarkerIds(), [7000, 6406]);
+    robot.expectPeaksHidden();
   });
 
-  testWidgets('save route keeps routes visible across restart', (
-    tester,
-  ) async {
+  testWidgets('save route keeps routes visible across restart', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final routeRepository = RouteRepository.test(InMemoryRouteStorage());
     final tasmapRepository = await TestTasmapRepository.create();
@@ -761,7 +842,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tapAt(tester.getCenter(region) + const Offset(40, 0));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('route-name-field')), 'Restart Route');
+    await tester.enterText(
+      find.byKey(const Key('route-name-field')),
+      'Restart Route',
+    );
     await tester.pump();
     await tester.tap(find.byKey(const Key('route-save-button')));
     await tester.pumpAndSettle();
@@ -882,7 +966,9 @@ class _ImmediateRoutePlanner implements RoutePlanner {
   }
 
   @override
-  Future<RouteEndpointProbeResult> probeEndpoint({required LatLng point}) async {
+  Future<RouteEndpointProbeResult> probeEndpoint({
+    required LatLng point,
+  }) async {
     return const RouteEndpointProbeResult(isOnTrack: false);
   }
 
@@ -967,8 +1053,9 @@ class _ImportingTestMapNotifier extends TestMapNotifier {
       state = state.copyWith(
         tracks: importedItems.map((item) => item.track).toList(growable: false),
         showTracks: importedItems.isNotEmpty,
-        selectedTrackId:
-            importedItems.isNotEmpty ? importedItems.first.track.gpxTrackId : null,
+        selectedTrackId: importedItems.isNotEmpty
+            ? importedItems.first.track.gpxTrackId
+            : null,
         selectedTrackFocusSerial: importedItems.isEmpty
             ? state.selectedTrackFocusSerial
             : state.selectedTrackFocusSerial + 1,
@@ -984,10 +1071,7 @@ class _ImportingTestMapNotifier extends TestMapNotifier {
         errorCount: 0,
       );
     } catch (error) {
-      state = state.copyWith(
-        isLoadingTracks: false,
-        clearHoveredTrackId: true,
-      );
+      state = state.copyWith(isLoadingTracks: false, clearHoveredTrackId: true);
       rethrow;
     }
   }

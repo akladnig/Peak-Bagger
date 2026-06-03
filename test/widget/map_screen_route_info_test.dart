@@ -21,6 +21,38 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../harness/test_map_notifier.dart';
 
 void main() {
+  testWidgets('hidden selected route still shows the shared panel', (
+    tester,
+  ) async {
+    final route = app_route.Route(
+      id: 1,
+      name: 'Hidden Route',
+      visible: false,
+      gpxRoute: const [
+        LatLng(-41.5, 146.49),
+        LatLng(-41.5, 146.51),
+      ],
+    );
+    final routeRepository = RouteRepository.test(
+      InMemoryRouteStorage([route]),
+    );
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showRoutes: true,
+        selectedRouteId: 1,
+      ),
+      routeRepository: routeRepository,
+    );
+
+    await _pumpRawMapScreen(tester, notifier, routeRepository, size: const Size(1600, 900));
+
+    expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
+    expect(find.text('Hidden Route'), findsOneWidget);
+  });
+
   testWidgets('route selection opens shared panel and close clears route', (
     tester,
   ) async {

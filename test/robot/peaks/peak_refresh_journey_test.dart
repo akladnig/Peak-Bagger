@@ -111,7 +111,7 @@ void main() {
         zoom: 15,
         basemap: Basemap.tracestrack,
         peakListSelectionMode: PeakListSelectionMode.specificList,
-        selectedPeakListId: 999,
+        selectedPeakListIds: {999},
       ),
       repository,
       TestPeakNotifier(
@@ -120,7 +120,7 @@ void main() {
           zoom: 15,
           basemap: Basemap.tracestrack,
           peakListSelectionMode: PeakListSelectionMode.specificList,
-          selectedPeakListId: 999,
+          selectedPeakListIds: {999},
         ),
       ),
     );
@@ -131,7 +131,7 @@ void main() {
 
     await robot.confirmUpdateTassyFull();
     robot.expectUpdateTassyFullResultVisible(added: 1, updated: 1);
-    expect(robot.notifier.state.peakListSelectionMode, PeakListSelectionMode.allPeaks);
+    expect(robot.notifier.state.peakListSelectionMode, PeakListSelectionMode.none);
     expect(robot.notifier.state.selectedPeakListId, isNull);
     expect(
       decodePeakListItems(repository.findByName('Tassy Full')!.peakList)

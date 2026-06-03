@@ -897,7 +897,7 @@ void main() {
         zoom: 15,
         basemap: Basemap.tracestrack,
         peakListSelectionMode: PeakListSelectionMode.specificList,
-        selectedPeakListId: 1,
+        selectedPeakListIds: {1},
       ),
     );
 
@@ -968,7 +968,7 @@ void main() {
         zoom: 15,
         basemap: Basemap.tracestrack,
         peakListSelectionMode: PeakListSelectionMode.specificList,
-        selectedPeakListId: 1,
+        selectedPeakListIds: {1},
       ),
     );
 
@@ -1045,7 +1045,7 @@ void main() {
           zoom: 15,
           basemap: Basemap.tracestrack,
           peakListSelectionMode: PeakListSelectionMode.specificList,
-          selectedPeakListId: 1,
+          selectedPeakListIds: {1},
         ),
       );
 

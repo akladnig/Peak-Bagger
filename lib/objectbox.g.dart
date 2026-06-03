@@ -280,7 +280,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(3, 8449374379554926112),
     name: 'GpxTrack',
-    lastPropertyId: const obx_int.IdUid(32, 1741998931807441846),
+    lastPropertyId: const obx_int.IdUid(33, 5662316491761993386),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -445,6 +445,12 @@ final _entities = <obx_int.ModelEntity>[
         type: 9,
         flags: 0,
       ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(33, 5662316491761993386),
+        name: 'visible',
+        type: 1,
+        flags: 0,
+      ),
     ],
     relations: <obx_int.ModelRelation>[
       obx_int.ModelRelation(
@@ -521,7 +527,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(6, 3506540890240152030),
     name: 'Route',
-    lastPropertyId: const obx_int.IdUid(15, 7267278234167446456),
+    lastPropertyId: const obx_int.IdUid(16, 8462861869933376021),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -612,6 +618,12 @@ final _entities = <obx_int.ModelEntity>[
         id: const obx_int.IdUid(15, 7267278234167446456),
         name: 'desc',
         type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(16, 8462861869933376021),
+        name: 'visible',
+        type: 1,
         flags: 0,
       ),
     ],
@@ -1319,7 +1331,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final elevationProfileOffset = fbb.writeString(object.elevationProfile);
         final filteredTrackOffset = fbb.writeString(object.filteredTrack);
         final gpxFileRepairedOffset = fbb.writeString(object.gpxFileRepaired);
-        fbb.startTable(33);
+        fbb.startTable(34);
         fbb.addInt64(0, object.gpxTrackId);
         fbb.addOffset(2, trackNameOffset);
         fbb.addInt64(3, object.startDateTime?.millisecondsSinceEpoch);
@@ -1347,6 +1359,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addInt64(27, object.restingTime);
         fbb.addInt64(28, object.pausedTime);
         fbb.addOffset(29, gpxFileRepairedOffset);
+        fbb.addBool(32, object.visible);
         fbb.finish(fbb.endTable());
         return object.gpxTrackId;
       },
@@ -1495,6 +1508,12 @@ obx_int.ModelDefinition getObjectBoxModel() {
           18,
           0,
         );
+        final visibleParam = const fb.BoolReader().vTableGet(
+          buffer,
+          rootOffset,
+          68,
+          false,
+        );
         final peakCorrelationProcessedParam = const fb.BoolReader().vTableGet(
           buffer,
           rootOffset,
@@ -1528,6 +1547,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
           restingTime: restingTimeParam,
           pausedTime: pausedTimeParam,
           trackColour: trackColourParam,
+          visible: visibleParam,
           peakCorrelationProcessed: peakCorrelationProcessedParam,
         );
         obx_int.InternalToManyAccess.setRelInfo<GpxTrack>(
@@ -1654,7 +1674,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
           object.routeWaypointsJson,
         );
         final descOffset = fbb.writeString(object.desc);
-        fbb.startTable(16);
+        fbb.startTable(17);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, nameOffset);
         fbb.addOffset(2, displayRoutePointsByZoomOffset);
@@ -1670,6 +1690,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addOffset(12, gpxRouteJsonOffset);
         fbb.addOffset(13, routeWaypointsJsonOffset);
         fbb.addOffset(14, descOffset);
+        fbb.addBool(15, object.visible);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -1696,6 +1717,12 @@ obx_int.ModelDefinition getObjectBoxModel() {
           rootOffset,
           10,
           0,
+        );
+        final visibleParam = const fb.BoolReader().vTableGet(
+          buffer,
+          rootOffset,
+          34,
+          false,
         );
         final distance2dParam = const fb.Float64Reader().vTableGet(
           buffer,
@@ -1752,6 +1779,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
                 desc: descParam,
                 displayRoutePointsByZoom: displayRoutePointsByZoomParam,
                 colour: colourParam,
+                visible: visibleParam,
                 distance2d: distance2dParam,
                 distance3d: distance3dParam,
                 ascent: ascentParam,
@@ -2506,6 +2534,11 @@ class GpxTrack_ {
     _entities[2].properties[26],
   );
 
+  /// See [GpxTrack.visible].
+  static final visible = obx.QueryBooleanProperty<GpxTrack>(
+    _entities[2].properties[27],
+  );
+
   /// see [GpxTrack.peaks]
   static final peaks = obx.QueryRelationToMany<GpxTrack, Peak>(
     _entities[2].relations[0],
@@ -2626,6 +2659,11 @@ class Route_ {
   /// See [Route.desc].
   static final desc = obx.QueryStringProperty<Route>(
     _entities[5].properties[14],
+  );
+
+  /// See [Route.visible].
+  static final visible = obx.QueryBooleanProperty<Route>(
+    _entities[5].properties[15],
   );
 }
 

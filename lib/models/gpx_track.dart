@@ -44,6 +44,7 @@ class GpxTrack {
   int? restingTime;
   int? pausedTime;
   int trackColour;
+  bool visible;
   bool peakCorrelationProcessed;
 
   @Transient()
@@ -79,6 +80,7 @@ class GpxTrack {
     this.restingTime,
     this.pausedTime,
     this.trackColour = 0xFFa726bc,
+    this.visible = true,
     this.peakCorrelationProcessed = false,
   });
 
@@ -117,6 +119,7 @@ class GpxTrack {
       restingTime: map['restingTime'] as int?,
       pausedTime: map['pausedTime'] as int?,
       trackColour: map['trackColour'] as int? ?? 0xFFa726bc,
+      visible: map['visible'] as bool? ?? true,
       peakCorrelationProcessed:
           map['peakCorrelationProcessed'] as bool? ?? false,
     );
@@ -150,6 +153,7 @@ class GpxTrack {
       'restingTime': restingTime,
       'pausedTime': pausedTime,
       'trackColour': trackColour,
+      'visible': visible,
       'peakCorrelationProcessed': peakCorrelationProcessed,
     };
   }

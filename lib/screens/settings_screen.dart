@@ -1359,6 +1359,7 @@ class _TileCacheSettingsScreenState
         ],
       ),
       body: ListView(
+        key: const Key('tile-cache-scrollable'),
         children: [
           const Padding(
             padding: EdgeInsets.all(16),

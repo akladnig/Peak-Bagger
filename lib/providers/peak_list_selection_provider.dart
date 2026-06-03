@@ -10,20 +10,50 @@ final peakListRevisionProvider = NotifierProvider<PeakListRevisionNotifier, int>
   PeakListRevisionNotifier.new,
 );
 
-final peakListsProvider = Provider<List<PeakList>>((ref) {
-  ref.watch(peakListRevisionProvider);
-  try {
-    final repo = ref.watch(peakListRepositoryProvider);
-    return repo.getAllPeakLists();
-  } catch (error, stackTrace) {
-    developer.log(
-      'Failed to load peak lists.',
-      error: error,
-      stackTrace: stackTrace,
-      name: 'peak_list_selection_provider',
+final peakListsLoadProvider =
+    NotifierProvider<PeakListsLoadNotifier, PeakListsLoadState>(
+      PeakListsLoadNotifier.new,
     );
-    return const [];
-  }
+
+final peakListsProvider = Provider<List<PeakList>>((ref) {
+  return ref.watch(peakListsLoadProvider).peakLists;
+});
+
+final peakListsLoadFailedProvider = Provider<bool>((ref) {
+  return ref.watch(peakListsLoadProvider).failed;
+});
+
+final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((ref) {
+  final peakListSelectionMode = ref.watch(
+    mapProvider.select((state) => state.peakListSelectionMode),
+  );
+  final selectedPeakListIds = ref.watch(
+    mapProvider.select((state) => state.selectedPeakListIds),
+  );
+  final peakLists = ref.watch(peakListsProvider);
+  final labelsById = {
+    for (final peakList in peakLists) peakList.peakListId: peakList.name,
+  };
+
+  return switch (peakListSelectionMode) {
+    PeakListSelectionMode.none => const PeakListSelectionSummary(
+      chips: [PeakListSelectionChip.none()],
+    ),
+    PeakListSelectionMode.allPeaks => const PeakListSelectionSummary(
+      chips: [PeakListSelectionChip.allPeaks()],
+    ),
+    PeakListSelectionMode.specificList => PeakListSelectionSummary(
+      chips: [
+        for (final peakListId in selectedPeakListIds)
+          PeakListSelectionChip.list(
+            peakListId: peakListId,
+            label: labelsById[peakListId] ?? 'List #$peakListId',
+          ),
+      ]..sort((left, right) {
+          return left.label.toLowerCase().compareTo(right.label.toLowerCase());
+        }),
+    ),
+  };
 });
 
 final filteredPeaksProvider = Provider<List<Peak>>((ref) {
@@ -31,8 +61,8 @@ final filteredPeaksProvider = Provider<List<Peak>>((ref) {
   final peakListSelectionMode = ref.watch(
     mapProvider.select((state) => state.peakListSelectionMode),
   );
-  final selectedPeakListId = ref.watch(
-    mapProvider.select((state) => state.selectedPeakListId),
+  final selectedPeakListIds = ref.watch(
+    mapProvider.select((state) => state.selectedPeakListIds),
   );
   final peakLists = ref.watch(peakListsProvider);
 
@@ -42,7 +72,7 @@ final filteredPeaksProvider = Provider<List<Peak>>((ref) {
     PeakListSelectionMode.specificList => _filterSpecificListPeaks(
       peaks: peaks,
       peakLists: peakLists,
-      peakListId: selectedPeakListId,
+      peakListIds: selectedPeakListIds,
     ),
   };
 });
@@ -50,40 +80,39 @@ final filteredPeaksProvider = Provider<List<Peak>>((ref) {
 List<Peak> _filterSpecificListPeaks({
   required List<Peak> peaks,
   required List<PeakList> peakLists,
-  required int? peakListId,
+  required Set<int> peakListIds,
 }) {
-  if (peakListId == null) {
-    return peaks;
+  if (peakListIds.isEmpty) {
+    return const [];
   }
 
-  PeakList? peakList;
+  final selectedPeakOsmIds = <int>{};
+  var resolvedListCount = 0;
   for (final candidate in peakLists) {
-    if (candidate.peakListId == peakListId) {
-      peakList = candidate;
-      break;
+    if (!peakListIds.contains(candidate.peakListId)) {
+      continue;
+    }
+    resolvedListCount += 1;
+    try {
+      final items = decodePeakListItems(candidate.peakList);
+      selectedPeakOsmIds.addAll(items.map((item) => item.peakOsmId));
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to decode selected peak list ${candidate.peakListId}.',
+        error: error,
+        stackTrace: stackTrace,
+        name: 'peak_list_selection_provider',
+      );
     }
   }
-  if (peakList == null) {
+
+  if (resolvedListCount == 0) {
     return peaks;
   }
 
-  try {
-    final items = decodePeakListItems(peakList.peakList);
-    final osmIds = items
-        .map((item) => item.peakOsmId)
-        .toSet();
-    return peaks
-        .where((peak) => osmIds.contains(peak.osmId))
-        .toList(growable: false);
-  } catch (error, stackTrace) {
-    developer.log(
-      'Failed to decode selected peak list ${peakList.peakListId}.',
-      error: error,
-      stackTrace: stackTrace,
-      name: 'peak_list_selection_provider',
-    );
-    return peaks;
-  }
+  return peaks
+      .where((peak) => selectedPeakOsmIds.contains(peak.osmId))
+      .toList(growable: false);
 }
 
 class PeakListRevisionNotifier extends Notifier<int> {
@@ -92,5 +121,67 @@ class PeakListRevisionNotifier extends Notifier<int> {
 
   void increment() {
     state += 1;
+  }
+}
+
+class PeakListsLoadState {
+  const PeakListsLoadState._({required this.peakLists, required this.failed});
+
+  const PeakListsLoadState.success(List<PeakList> peakLists)
+    : this._(peakLists: peakLists, failed: false);
+
+  const PeakListsLoadState.failure(List<PeakList> peakLists)
+    : this._(peakLists: peakLists, failed: true);
+
+  final List<PeakList> peakLists;
+  final bool failed;
+}
+
+class PeakListSelectionSummary {
+  const PeakListSelectionSummary({required this.chips});
+
+  final List<PeakListSelectionChip> chips;
+}
+
+class PeakListSelectionChip {
+  const PeakListSelectionChip._({required this.label, this.peakListId});
+
+  const PeakListSelectionChip.allPeaks() : this._(label: 'All Peaks');
+
+  const PeakListSelectionChip.none() : this._(label: 'None');
+
+  const PeakListSelectionChip.list({
+    required int peakListId,
+    required String label,
+  }) : this._(label: label, peakListId: peakListId);
+
+  final String label;
+  final int? peakListId;
+
+  bool get isAllPeaks => peakListId == null && label == 'All Peaks';
+
+  bool get isNone => peakListId == null && label == 'None';
+}
+
+class PeakListsLoadNotifier extends Notifier<PeakListsLoadState> {
+  List<PeakList> _cachedPeakLists = const [];
+
+  @override
+  PeakListsLoadState build() {
+    ref.watch(peakListRevisionProvider);
+    try {
+      final repo = ref.read(peakListRepositoryProvider);
+      final peakLists = repo.getAllPeakLists();
+      _cachedPeakLists = peakLists;
+      return PeakListsLoadState.success(peakLists);
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to load peak lists.',
+        error: error,
+        stackTrace: stackTrace,
+        name: 'peak_list_selection_provider',
+      );
+      return PeakListsLoadState.failure(_cachedPeakLists);
+    }
   }
 }

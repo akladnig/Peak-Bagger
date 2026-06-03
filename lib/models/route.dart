@@ -26,6 +26,7 @@ class Route {
 
   String displayRoutePointsByZoom;
   int colour;
+  bool visible;
   double distance2d;
   double distance3d;
   double ascent;
@@ -50,6 +51,7 @@ class Route {
     List<RouteWaypoint>? routeWaypoints,
     this.displayRoutePointsByZoom = '{}',
     this.colour = 0,
+    this.visible = true,
     this.distance2d = 0,
     this.distance3d = 0,
     this.ascent = 0,

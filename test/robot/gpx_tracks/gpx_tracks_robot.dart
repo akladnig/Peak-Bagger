@@ -75,6 +75,18 @@ class GpxTracksRobot {
   Finder get infoFab => find.byKey(const Key('map-info-fab'));
   Finder get showPeaksFab => find.byKey(const Key('show-peaks-fab'));
   Finder get peakListsDrawer => find.byKey(const Key('peak-lists-drawer'));
+  Finder get peakListSelectionSummary =>
+      find.byKey(const Key('peak-list-selection-summary'));
+  Finder get peakListAllPeaksRow =>
+      find.byKey(const Key('peak-list-selection-all-peaks-row'));
+  Finder get peakListAllPeaksSwitch =>
+      find.byKey(const Key('peak-list-selection-all-peaks-switch'));
+  Finder get peakListChipAllPeaks =>
+      find.byKey(const Key('peak-list-selection-chip-all-peaks'));
+  Finder get peakListChipNone =>
+      find.byKey(const Key('peak-list-selection-chip-none'));
+  Finder get peakListUnavailableMessage =>
+      find.byKey(const Key('peak-list-selection-unavailable-message'));
   Finder get dashboardMyAscentsCard =>
       find.byKey(const Key('dashboard-card-my-ascents'));
   Finder get importResultSummary => find.byKey(const Key('gpx-import-summary'));
@@ -115,6 +127,8 @@ class GpxTracksRobot {
   Finder get trackInfoPanel => find.byKey(const Key('track-info-panel'));
   Finder get trackInfoPanelClose =>
       find.byKey(const Key('track-info-panel-close'));
+  Finder get visibilitySwitch =>
+      find.byKey(const Key('track-info-panel-visibility-switch'));
 
   Future<void> pumpApp() async {
     await tester.binding.setSurfaceSize(surfaceSize);
@@ -195,6 +209,18 @@ class GpxTracksRobot {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('peak-list-item-All Peaks')));
     await tester.pumpAndSettle();
+  }
+
+  Finder peakListRow(int peakListId) {
+    return find.byKey(Key('peak-list-selection-row-$peakListId'));
+  }
+
+  Finder peakListSwitch(int peakListId) {
+    return find.byKey(Key('peak-list-selection-switch-$peakListId'));
+  }
+
+  Finder peakListChip(int peakListId) {
+    return find.byKey(Key('peak-list-selection-chip-$peakListId'));
   }
 
   Future<void> selectSpecificPeakList(String name) async {
@@ -580,6 +606,20 @@ class GpxTracksRobot {
   Future<void> closeTrackInfoPanel() async {
     await tester.tap(trackInfoPanelClose);
     await tester.pumpAndSettle();
+  }
+
+  Future<void> toggleTrackVisibility() async {
+    await tester.ensureVisible(visibilitySwitch);
+    await tester.pumpAndSettle();
+    await tester.tap(visibilitySwitch, warnIfMissed: false);
+    await tester.pumpAndSettle();
+  }
+
+  void expectTrackPolylineVisible(bool visible) {
+    final layer = tester.widget<PolylineLayer>(
+      find.byKey(const Key('track-polyline-layer')),
+    );
+    expect(layer.polylines, visible ? isNotEmpty : isEmpty);
   }
 
   void expectNoSelectedTrack() {

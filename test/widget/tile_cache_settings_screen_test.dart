@@ -55,7 +55,10 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const Key('tile-cache-basemap-chip-openstreetmap')),
       200,
-      scrollable: find.byType(Scrollable).last,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('tile-cache-scrollable')),
+        matching: find.byType(Scrollable),
+      ).first,
     );
     await tester.pumpAndSettle();
     expect(
@@ -79,7 +82,10 @@ void main() {
       isTrue,
     );
     await tester.drag(
-      find.byType(Scrollable).last,
+      find.descendant(
+        of: find.byKey(const Key('tile-cache-scrollable')),
+        matching: find.byType(Scrollable),
+      ).first,
       const Offset(0, -800),
     );
     await tester.pumpAndSettle();
@@ -92,7 +98,10 @@ void main() {
       findsOneWidget,
     );
     await tester.drag(
-      find.byType(Scrollable).last,
+      find.descendant(
+        of: find.byKey(const Key('tile-cache-scrollable')),
+        matching: find.byType(Scrollable),
+      ).first,
       const Offset(0, -800),
     );
     await tester.pumpAndSettle();
@@ -139,7 +148,13 @@ void main() {
     await tester.tap(find.widgetWithText(ListTile, 'Map Tile Cache'));
     await tester.pumpAndSettle();
 
-    await tester.drag(find.byType(Scrollable).last, const Offset(0, -1200));
+    await tester.drag(
+      find.descendant(
+        of: find.byKey(const Key('tile-cache-scrollable')),
+        matching: find.byType(Scrollable),
+      ).first,
+      const Offset(0, -1200),
+    );
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -215,7 +230,13 @@ void main() {
     await tester.tap(find.widgetWithText(ListTile, 'Map Tile Cache'));
     await tester.pumpAndSettle();
 
-    await tester.drag(find.byType(Scrollable).last, const Offset(0, -1200));
+    await tester.drag(
+      find.descendant(
+        of: find.byKey(const Key('tile-cache-scrollable')),
+        matching: find.byType(Scrollable),
+      ).first,
+      const Offset(0, -1200),
+    );
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -274,7 +295,13 @@ void main() {
     await tester.tap(find.widgetWithText(ListTile, 'Map Tile Cache'));
     await tester.pumpAndSettle();
 
-    await tester.drag(find.byType(Scrollable).last, const Offset(0, -1200));
+    await tester.drag(
+      find.descendant(
+        of: find.byKey(const Key('tile-cache-scrollable')),
+        matching: find.byType(Scrollable),
+      ).first,
+      const Offset(0, -1200),
+    );
     await tester.pumpAndSettle();
 
     expect(
