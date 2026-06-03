@@ -72,7 +72,7 @@ void main() {
     );
 
     test(
-      'invalid selectRoute is no-op and valid visible id clears track',
+      'invalid selectRoute is no-op and visible selection clears track then bumps focus',
       () async {
         SharedPreferences.setMockInitialValues({'show_routes': true});
         final routeRepository = RouteRepository.test(
@@ -100,10 +100,16 @@ void main() {
 
         mapNotifier.selectRoute(999);
         expect(container.read(mapProvider).selectedRouteId, isNull);
+        expect(container.read(mapProvider).selectedRouteFocusSerial, 0);
 
         mapNotifier.selectRoute(2);
         expect(container.read(mapProvider).selectedRouteId, 2);
         expect(container.read(mapProvider).selectedTrackId, isNull);
+        expect(container.read(mapProvider).selectedRouteFocusSerial, 1);
+
+        mapNotifier.selectRoute(2);
+        expect(container.read(mapProvider).selectedRouteId, 2);
+        expect(container.read(mapProvider).selectedRouteFocusSerial, 2);
       },
     );
 

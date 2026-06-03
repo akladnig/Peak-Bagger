@@ -15,6 +15,7 @@ import 'package:peak_bagger/screens/map_screen_panels.dart';
 import 'package:peak_bagger/services/gpx_export_service.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/theme.dart';
 
 import '../harness/test_map_notifier.dart';
@@ -77,6 +78,50 @@ void main() {
     expect(find.text('Ridge Walk'), findsOneWidget);
     expect(find.byKey(const Key('map-mgrs-readout')), findsNothing);
     expect(find.byKey(const Key('map-zoom-readout')), findsNothing);
+  });
+
+  testWidgets('track click selects and refits into the visible map lane', (
+    tester,
+  ) async {
+    final track = GpxTrack(
+      gpxTrackId: 10,
+      contentHash: 'hash-10',
+      trackName: 'Ridge Walk',
+      gpxFile: '<gpx></gpx>',
+      displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
+        const [LatLng(-41.5, 146.2), LatLng(-41.5, 146.8)],
+      ]),
+    );
+    final state = MapState(
+      center: const LatLng(-41.5, 146.5),
+      zoom: 15,
+      basemap: Basemap.tracestrack,
+      showTracks: true,
+      tracks: [track],
+    );
+
+    await _pumpRawMapScreen(tester, state, size: const Size(1600, 900));
+
+    final mapRegion = find.byKey(const Key('map-interaction-region'));
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(() async {
+      await gesture.removePointer();
+    });
+    await gesture.addPointer(location: tester.getCenter(mapRegion));
+    await tester.pump();
+    await gesture.moveTo(tester.getCenter(mapRegion));
+    await tester.pump();
+
+    await gesture.down(tester.getCenter(mapRegion));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(tester.element(mapRegion));
+    expect(container.read(mapProvider).selectedTrackId, 10);
+    expect(container.read(mapProvider).selectedTrackFocusSerial, 1);
+    expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
+    expect(container.read(mapProvider).center.longitude, lessThan(146.5));
   });
 
   testWidgets('close button clears selected track and hides panel', (
@@ -170,7 +215,9 @@ void main() {
     expect(find.text('Distance'), findsOneWidget);
     expect(
       find.descendant(
-        of: find.ancestor(of: find.text('Distance'), matching: find.byType(Row)).first,
+        of: find
+            .ancestor(of: find.text('Distance'), matching: find.byType(Row))
+            .first,
         matching: find.text('12.4 km'),
       ),
       findsOneWidget,
@@ -363,28 +410,38 @@ void main() {
       findsOneWidget,
     );
     expect(
-      tester.widget<Widget>(find.byKey(const Key('tracks-routes-export-new-version'))),
+      tester.widget<Widget>(
+        find.byKey(const Key('tracks-routes-export-new-version')),
+      ),
       isA<OutlinedButton>(),
     );
     expect(
-      tester.widget<Widget>(find.byKey(const Key('tracks-routes-export-confirm'))),
+      tester.widget<Widget>(
+        find.byKey(const Key('tracks-routes-export-confirm')),
+      ),
       isA<FilledButton>(),
     );
 
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     addTearDown(mouse.removePointer);
-    final hoverTarget = find.byKey(const Key('tracks-routes-export-new-version'));
+    final hoverTarget = find.byKey(
+      const Key('tracks-routes-export-new-version'),
+    );
     await mouse.addPointer(location: tester.getCenter(hoverTarget));
     await tester.pump();
     await mouse.moveTo(tester.getCenter(hoverTarget));
     await tester.pump();
 
     expect(
-      tester.widget<Widget>(find.byKey(const Key('tracks-routes-export-new-version'))),
+      tester.widget<Widget>(
+        find.byKey(const Key('tracks-routes-export-new-version')),
+      ),
       isA<FilledButton>(),
     );
     expect(
-      tester.widget<Widget>(find.byKey(const Key('tracks-routes-export-confirm'))),
+      tester.widget<Widget>(
+        find.byKey(const Key('tracks-routes-export-confirm')),
+      ),
       isA<OutlinedButton>(),
     );
 
