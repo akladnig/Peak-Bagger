@@ -30,11 +30,11 @@ void main() {
               center: const LatLng(-41.5, 146.5),
               zoom: 15,
               basemap: Basemap.tracestrack,
-              peakListSelectionMode: PeakListSelectionMode.specificList,
-              selectedPeakListId: 999,
+                peakListSelectionMode: PeakListSelectionMode.specificList,
+                selectedPeakListIds: {999},
+              ),
             ),
           ),
-        ),
         peakListRepositoryProvider.overrideWithValue(repository),
       ],
     );
@@ -47,7 +47,7 @@ void main() {
     );
 
     expect(container.read(peakListRevisionProvider), 1);
-    expect(container.read(mapProvider).peakListSelectionMode, PeakListSelectionMode.allPeaks);
+    expect(container.read(mapProvider).peakListSelectionMode, PeakListSelectionMode.none);
     expect(container.read(mapProvider).selectedPeakListId, isNull);
     expect(
       decodePeakListItems(repository.findByName('Tassy Full')!.peakList)
@@ -77,11 +77,11 @@ void main() {
               center: const LatLng(-41.5, 146.5),
               zoom: 15,
               basemap: Basemap.tracestrack,
-              peakListSelectionMode: PeakListSelectionMode.specificList,
-              selectedPeakListId: 999,
+                peakListSelectionMode: PeakListSelectionMode.specificList,
+                selectedPeakListIds: {999},
+              ),
             ),
           ),
-        ),
         peakListRepositoryProvider.overrideWithValue(repository),
       ],
     );

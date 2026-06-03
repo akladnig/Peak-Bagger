@@ -1646,7 +1646,7 @@ void main() {
           zoom: 15,
           basemap: Basemap.tracestrack,
           peakListSelectionMode: PeakListSelectionMode.specificList,
-          selectedPeakListId: 2,
+          selectedPeakListIds: {2},
         ),
       );
 
@@ -1674,7 +1674,7 @@ void main() {
       expect(container.read(peakListRevisionProvider), 1);
       expect(
         container.read(mapProvider).peakListSelectionMode,
-        PeakListSelectionMode.allPeaks,
+        PeakListSelectionMode.none,
       );
       expect(container.read(mapProvider).selectedPeakListId, isNull);
     },

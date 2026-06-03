@@ -767,9 +767,9 @@ void main() {
 
     expect(
       container.read(mapProvider).peakListSelectionMode,
-      PeakListSelectionMode.allPeaks,
+      PeakListSelectionMode.none,
     );
-    expect(robot.peakMarkerIds(), [7000, 6406]);
+    robot.expectPeaksHidden();
   });
 
   testWidgets('save route keeps routes visible across restart', (tester) async {

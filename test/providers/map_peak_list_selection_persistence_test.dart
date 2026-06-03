@@ -15,7 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
-  test('startup normalizes stale persisted specific list to all peaks', () async {
+  test('startup ignores legacy peak list prefs and keeps default all peaks', () async {
     SharedPreferences.setMockInitialValues({
       'map_position_lat': -43.0,
       'map_position_lng': 147.0,
@@ -59,8 +59,48 @@ void main() {
     expect(container.read(mapProvider).selectedPeakListId, isNull);
 
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getString('peak_list_selection_mode'), 'allPeaks');
-    expect(prefs.getInt('peak_list_id'), isNull);
+    expect(prefs.getString('peak_list_selection_mode'), 'specificList');
+    expect(prefs.getInt('peak_list_id'), 99);
+  });
+
+  test('startup resets corrupt v2 payloads to default all peaks', () async {
+    SharedPreferences.setMockInitialValues({
+      'peak_list_selection_mode_v2': 'specificList',
+      'peak_list_selected_ids_v2': '{oops}',
+      'peak_list_previous_specific_ids_v2': '[7]',
+    });
+
+    final tasmapRepository = await TestTasmapRepository.create();
+    final container = ProviderContainer(
+      overrides: [
+        peakListRepositoryProvider.overrideWithValue(
+          PeakListRepository.test(InMemoryPeakListStorage()),
+        ),
+        mapProvider.overrideWith(
+          () => MapNotifier(
+            peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+            overpassService: OverpassService(),
+            tasmapRepository: tasmapRepository,
+            gpxTrackRepository: GpxTrackRepository.test(
+              InMemoryGpxTrackStorage(),
+            ),
+            peaksBaggedRepository: PeaksBaggedRepository.test(
+              InMemoryPeaksBaggedStorage(),
+            ),
+            loadPeaksOnBuild: false,
+            loadTracksOnBuild: false,
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    container.read(mapProvider.notifier);
+    await _drainAsync();
+
+    expect(container.read(mapProvider).peakListSelectionMode, PeakListSelectionMode.allPeaks);
+    expect(container.read(mapProvider).selectedPeakListIds, isEmpty);
+    expect(container.read(mapProvider).previousSpecificPeakListIds, isEmpty);
   });
 
   test('import runner bumps revision and reconciles selected list', () async {
@@ -73,7 +113,7 @@ void main() {
               zoom: 15,
               basemap: Basemap.tracestrack,
               peakListSelectionMode: PeakListSelectionMode.specificList,
-              selectedPeakListId: 7,
+              selectedPeakListIds: {7},
             ),
           ),
         ),
@@ -91,7 +131,7 @@ void main() {
     expect(container.read(peakListRevisionProvider), 1);
     expect(
       container.read(mapProvider).peakListSelectionMode,
-      PeakListSelectionMode.allPeaks,
+      PeakListSelectionMode.none,
     );
     expect(container.read(mapProvider).selectedPeakListId, isNull);
   });
@@ -131,8 +171,49 @@ void main() {
     expect(prefs.getDouble('map_position_lat'), -43.0);
     expect(prefs.getDouble('map_position_lng'), 147.0);
     expect(prefs.getDouble('map_zoom'), 12.0);
-    expect(prefs.getString('peak_list_selection_mode'), 'specificList');
-    expect(prefs.getInt('peak_list_id'), 7);
+    expect(prefs.getString('peak_list_selection_mode_v2'), 'specificList');
+    expect(prefs.getString('peak_list_selected_ids_v2'), '[7]');
+    expect(prefs.getString('peak_list_previous_specific_ids_v2'), '[7]');
+  });
+
+  test('rapid toggles persist the final v2 selection state', () async {
+    SharedPreferences.setMockInitialValues({});
+    final tasmapRepository = await TestTasmapRepository.create();
+
+    final container = ProviderContainer(
+      overrides: [
+        mapProvider.overrideWith(
+          () => MapNotifier(
+            peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+            overpassService: OverpassService(),
+            tasmapRepository: tasmapRepository,
+            gpxTrackRepository: GpxTrackRepository.test(
+              InMemoryGpxTrackStorage(),
+            ),
+            peaksBaggedRepository: PeaksBaggedRepository.test(
+              InMemoryPeaksBaggedStorage(),
+            ),
+            loadPeaksOnBuild: false,
+            loadTracksOnBuild: false,
+          ),
+        ),
+        peakListRepositoryProvider.overrideWithValue(
+          PeakListRepository.test(InMemoryPeakListStorage()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(mapProvider.notifier);
+    await _drainAsync();
+    notifier.selectPeakList(PeakListSelectionMode.specificList, peakListId: 7);
+    notifier.selectPeakList(PeakListSelectionMode.specificList, peakListId: 8);
+    await _drainAsync();
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('peak_list_selection_mode_v2'), 'specificList');
+    expect(prefs.getString('peak_list_selected_ids_v2'), '[8]');
+    expect(prefs.getString('peak_list_previous_specific_ids_v2'), '[8]');
   });
 }
 
@@ -153,19 +234,27 @@ class _InitialStateMapNotifier extends MapNotifier {
   @override
   Future<void> persistPeakListSelection() async {
     final mode = state.peakListSelectionMode;
-    final selectedPeakListId = state.selectedPeakListId;
+    final selectedPeakListIds = state.selectedPeakListIds;
+    final previousSpecificPeakListIds = state.previousSpecificPeakListIds;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
-      'peak_list_selection_mode',
+      'peak_list_selection_mode_v2',
       mode.name,
     );
-    if (mode == PeakListSelectionMode.specificList &&
-        selectedPeakListId != null) {
-      await prefs.setInt('peak_list_id', selectedPeakListId);
-    } else {
-      await prefs.remove('peak_list_id');
-    }
+    await prefs.setString(
+      'peak_list_selected_ids_v2',
+      _sortedIdsJson(selectedPeakListIds),
+    );
+    await prefs.setString(
+      'peak_list_previous_specific_ids_v2',
+      _sortedIdsJson(previousSpecificPeakListIds),
+    );
   }
+}
+
+String _sortedIdsJson(Set<int> ids) {
+  final sorted = ids.toList()..sort();
+  return '[${sorted.join(',')}]';
 }
 
 class _FakeImportService extends PeakListImportService {

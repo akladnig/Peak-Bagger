@@ -31,8 +31,8 @@ final filteredPeaksProvider = Provider<List<Peak>>((ref) {
   final peakListSelectionMode = ref.watch(
     mapProvider.select((state) => state.peakListSelectionMode),
   );
-  final selectedPeakListId = ref.watch(
-    mapProvider.select((state) => state.selectedPeakListId),
+  final selectedPeakListIds = ref.watch(
+    mapProvider.select((state) => state.selectedPeakListIds),
   );
   final peakLists = ref.watch(peakListsProvider);
 
@@ -42,7 +42,7 @@ final filteredPeaksProvider = Provider<List<Peak>>((ref) {
     PeakListSelectionMode.specificList => _filterSpecificListPeaks(
       peaks: peaks,
       peakLists: peakLists,
-      peakListId: selectedPeakListId,
+      peakListIds: selectedPeakListIds,
     ),
   };
 });
@@ -50,40 +50,39 @@ final filteredPeaksProvider = Provider<List<Peak>>((ref) {
 List<Peak> _filterSpecificListPeaks({
   required List<Peak> peaks,
   required List<PeakList> peakLists,
-  required int? peakListId,
+  required Set<int> peakListIds,
 }) {
-  if (peakListId == null) {
-    return peaks;
+  if (peakListIds.isEmpty) {
+    return const [];
   }
 
-  PeakList? peakList;
+  final selectedPeakOsmIds = <int>{};
+  var resolvedListCount = 0;
   for (final candidate in peakLists) {
-    if (candidate.peakListId == peakListId) {
-      peakList = candidate;
-      break;
+    if (!peakListIds.contains(candidate.peakListId)) {
+      continue;
+    }
+    resolvedListCount += 1;
+    try {
+      final items = decodePeakListItems(candidate.peakList);
+      selectedPeakOsmIds.addAll(items.map((item) => item.peakOsmId));
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to decode selected peak list ${candidate.peakListId}.',
+        error: error,
+        stackTrace: stackTrace,
+        name: 'peak_list_selection_provider',
+      );
     }
   }
-  if (peakList == null) {
+
+  if (resolvedListCount == 0) {
     return peaks;
   }
 
-  try {
-    final items = decodePeakListItems(peakList.peakList);
-    final osmIds = items
-        .map((item) => item.peakOsmId)
-        .toSet();
-    return peaks
-        .where((peak) => osmIds.contains(peak.osmId))
-        .toList(growable: false);
-  } catch (error, stackTrace) {
-    developer.log(
-      'Failed to decode selected peak list ${peakList.peakListId}.',
-      error: error,
-      stackTrace: stackTrace,
-      name: 'peak_list_selection_provider',
-    );
-    return peaks;
-  }
+  return peaks
+      .where((peak) => selectedPeakOsmIds.contains(peak.osmId))
+      .toList(growable: false);
 }
 
 class PeakListRevisionNotifier extends Notifier<int> {

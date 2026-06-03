@@ -9,7 +9,7 @@ import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 
 void main() {
-  test('filteredPeaksProvider returns only matching peaks for specific list', () {
+  test('filteredPeaksProvider returns union of matching peaks for specific lists', () {
     final peakListRepository = PeakListRepository.test(
       InMemoryPeakListStorage([
         PeakList(
@@ -18,6 +18,12 @@ void main() {
             const PeakListItem(peakOsmId: 6406, points: 1),
           ]),
         )..peakListId = 7,
+        PeakList(
+          name: 'Bravo',
+          peakList: encodePeakListItems([
+            const PeakListItem(peakOsmId: 7000, points: 1),
+          ]),
+        )..peakListId = 8,
       ]),
     );
 
@@ -44,7 +50,7 @@ void main() {
                 ),
               ],
               peakListSelectionMode: PeakListSelectionMode.specificList,
-              selectedPeakListId: 7,
+              selectedPeakListIds: {7, 8},
             ),
           ),
         ),
@@ -55,7 +61,7 @@ void main() {
 
     final filteredPeaks = container.read(filteredPeaksProvider);
 
-    expect(filteredPeaks.map((peak) => peak.osmId).toList(), [6406]);
+    expect(filteredPeaks.map((peak) => peak.osmId).toList(), [6406, 7000]);
   });
 
   test(
@@ -84,7 +90,7 @@ void main() {
                   ),
                 ],
                 peakListSelectionMode: PeakListSelectionMode.specificList,
-                selectedPeakListId: 7,
+                selectedPeakListIds: {7},
               ),
             ),
           ),

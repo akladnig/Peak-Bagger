@@ -103,7 +103,7 @@ void main() {
         basemap: Basemap.tracestrack,
         peaks: [peakA, peakB],
         peakListSelectionMode: PeakListSelectionMode.specificList,
-        selectedPeakListId: 42,
+        selectedPeakListIds: {42},
       ),
     );
     final container = ProviderContainer(
