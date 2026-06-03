@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/theme_provider.dart';
 import 'package:peak_bagger/screens/dashboard_screen.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/screens/peak_lists_screen.dart';
 import 'package:peak_bagger/screens/settings_screen.dart';
+import 'package:peak_bagger/widgets/peak_list_selection_summary.dart';
 import 'package:peak_bagger/widgets/side_menu.dart';
 
 import 'core/constants.dart';
@@ -277,6 +279,12 @@ GoRouter createRouter() {
                   ),
                 ),
                 actions: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: PeakListSelectionSummaryStrip(
+                      summary: ref.watch(peakListSelectionSummaryProvider),
+                    ),
+                  ),
                   Padding(
                     padding: const EdgeInsets.only(
                       right: RouterConstants.themeActionRightInset,

@@ -20,7 +20,10 @@ void main() {
     tester,
   ) async {
     Finder tile(String key) => find.byKey(Key(key), skipOffstage: false);
-    final settingsScrollable = find.byType(Scrollable).last;
+    final settingsScrollable = find.descendant(
+      of: find.byKey(const Key('settings-scrollable')),
+      matching: find.byType(Scrollable),
+    );
 
     final repository = await TestTasmapRepository.create();
     final completer = Completer<PeakCsvExportResult>();
@@ -126,7 +129,10 @@ void main() {
 
   testWidgets('export peak data shows failure state', (tester) async {
     Finder tile(String key) => find.byKey(Key(key), skipOffstage: false);
-    final settingsScrollable = find.byType(Scrollable).last;
+    final settingsScrollable = find.descendant(
+      of: find.byKey(const Key('settings-scrollable')),
+      matching: find.byType(Scrollable),
+    );
 
     final repository = await TestTasmapRepository.create();
     final notifier = TestPeakNotifier(

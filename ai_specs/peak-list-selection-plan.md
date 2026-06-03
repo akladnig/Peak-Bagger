@@ -39,23 +39,22 @@ Approach: thin state slice first, then drawer UI, then shell chrome + robot cove
 - [x] `test/providers/map_peak_list_selection_persistence_test.dart` - cover repository-failure preservation / no destructive normalization path if provider seam lives here
 - [x] TDD: drawer shows zero-renderable-count decodable rows, malformed rows skipped
 - [x] TDD: toggling a specific list while `All Peaks` is active exits `All Peaks` and updates remembered snapshot
-- [ ] TDD: repository failure keeps active selection/chips intact and shows `Key('peak-list-selection-unavailable-message')`
-  Blocker: chip-strip assertions land with Phase 3 app-bar work; Phase 2 covers selection preservation state and unavailable-message drawer behavior only.
+- [x] TDD: repository failure keeps active selection/chips intact and shows `Key('peak-list-selection-unavailable-message')`
 - [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: App-Bar Chip Strip + Journey Coverage
 
 - **Goal**: route-global summary strip; selectors stable; critical user flow proven
-- [ ] `lib/providers/peak_list_selection_provider.dart` - expose summary model for chip strip with rendered-label ordering and fallback labels like `List #<id>`
-- [ ] `lib/router.dart` - add read-only chip strip immediately before `Key('app-bar-theme-action')`; preserve theme toggle visibility with horizontal scrolling
-- [ ] `lib/widgets/peak_list_selection_summary.dart` - optional small presentation-only chip-strip widget if `router.dart` becomes crowded
-- [ ] `test/widget/map_peak_list_selection_test.dart` - add focused shell-chip coverage if extending `map_screen_peak_info_test.dart` becomes noisy
-- [ ] `test/robot/gpx_tracks/gpx_tracks_robot.dart` - add key-first helpers for new drawer rows/switches, chip strip, unavailable message
-- [ ] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - extend journey for multi-select, `All Peaks`, restore previous set, `none`, chip-strip sync across route changes
-- [ ] TDD: chip strip always exists; `allPeaks` and `none` show exactly one chip; `specificList` shows one chip per selected list
-- [ ] TDD: chip ordering uses rendered label; unresolved labels fall back deterministically without stale chips after normalization
-- [ ] Robot journey tests + selectors/seams for critical flows
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/providers/peak_list_selection_provider.dart` - expose summary model for chip strip with rendered-label ordering and fallback labels like `List #<id>`
+- [x] `lib/router.dart` - add read-only chip strip immediately before `Key('app-bar-theme-action')`; preserve theme toggle visibility with horizontal scrolling
+- [x] `lib/widgets/peak_list_selection_summary.dart` - optional small presentation-only chip-strip widget if `router.dart` becomes crowded
+- [x] `test/widget/map_peak_list_selection_test.dart` - add focused shell-chip coverage if extending `map_screen_peak_info_test.dart` becomes noisy
+- [x] `test/robot/gpx_tracks/gpx_tracks_robot.dart` - add key-first helpers for new drawer rows/switches, chip strip, unavailable message
+- [x] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - extend journey for multi-select, `All Peaks`, restore previous set, `none`, chip-strip sync across route changes
+- [x] TDD: chip strip always exists; `allPeaks` and `none` show exactly one chip; `specificList` shows one chip per selected list
+- [x] TDD: chip ordering uses rendered label; unresolved labels fall back deterministically without stale chips after normalization
+- [x] Robot journey tests + selectors/seams for critical flows
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

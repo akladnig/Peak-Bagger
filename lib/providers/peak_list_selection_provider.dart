@@ -23,6 +23,39 @@ final peakListsLoadFailedProvider = Provider<bool>((ref) {
   return ref.watch(peakListsLoadProvider).failed;
 });
 
+final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((ref) {
+  final peakListSelectionMode = ref.watch(
+    mapProvider.select((state) => state.peakListSelectionMode),
+  );
+  final selectedPeakListIds = ref.watch(
+    mapProvider.select((state) => state.selectedPeakListIds),
+  );
+  final peakLists = ref.watch(peakListsProvider);
+  final labelsById = {
+    for (final peakList in peakLists) peakList.peakListId: peakList.name,
+  };
+
+  return switch (peakListSelectionMode) {
+    PeakListSelectionMode.none => const PeakListSelectionSummary(
+      chips: [PeakListSelectionChip.none()],
+    ),
+    PeakListSelectionMode.allPeaks => const PeakListSelectionSummary(
+      chips: [PeakListSelectionChip.allPeaks()],
+    ),
+    PeakListSelectionMode.specificList => PeakListSelectionSummary(
+      chips: [
+        for (final peakListId in selectedPeakListIds)
+          PeakListSelectionChip.list(
+            peakListId: peakListId,
+            label: labelsById[peakListId] ?? 'List #$peakListId',
+          ),
+      ]..sort((left, right) {
+          return left.label.toLowerCase().compareTo(right.label.toLowerCase());
+        }),
+    ),
+  };
+});
+
 final filteredPeaksProvider = Provider<List<Peak>>((ref) {
   final peaks = ref.watch(mapProvider.select((state) => state.peaks));
   final peakListSelectionMode = ref.watch(
@@ -102,6 +135,32 @@ class PeakListsLoadState {
 
   final List<PeakList> peakLists;
   final bool failed;
+}
+
+class PeakListSelectionSummary {
+  const PeakListSelectionSummary({required this.chips});
+
+  final List<PeakListSelectionChip> chips;
+}
+
+class PeakListSelectionChip {
+  const PeakListSelectionChip._({required this.label, this.peakListId});
+
+  const PeakListSelectionChip.allPeaks() : this._(label: 'All Peaks');
+
+  const PeakListSelectionChip.none() : this._(label: 'None');
+
+  const PeakListSelectionChip.list({
+    required int peakListId,
+    required String label,
+  }) : this._(label: label, peakListId: peakListId);
+
+  final String label;
+  final int? peakListId;
+
+  bool get isAllPeaks => peakListId == null && label == 'All Peaks';
+
+  bool get isNone => peakListId == null && label == 'None';
 }
 
 class PeakListsLoadNotifier extends Notifier<PeakListsLoadState> {

@@ -75,6 +75,18 @@ class GpxTracksRobot {
   Finder get infoFab => find.byKey(const Key('map-info-fab'));
   Finder get showPeaksFab => find.byKey(const Key('show-peaks-fab'));
   Finder get peakListsDrawer => find.byKey(const Key('peak-lists-drawer'));
+  Finder get peakListSelectionSummary =>
+      find.byKey(const Key('peak-list-selection-summary'));
+  Finder get peakListAllPeaksRow =>
+      find.byKey(const Key('peak-list-selection-all-peaks-row'));
+  Finder get peakListAllPeaksSwitch =>
+      find.byKey(const Key('peak-list-selection-all-peaks-switch'));
+  Finder get peakListChipAllPeaks =>
+      find.byKey(const Key('peak-list-selection-chip-all-peaks'));
+  Finder get peakListChipNone =>
+      find.byKey(const Key('peak-list-selection-chip-none'));
+  Finder get peakListUnavailableMessage =>
+      find.byKey(const Key('peak-list-selection-unavailable-message'));
   Finder get dashboardMyAscentsCard =>
       find.byKey(const Key('dashboard-card-my-ascents'));
   Finder get importResultSummary => find.byKey(const Key('gpx-import-summary'));
@@ -197,6 +209,18 @@ class GpxTracksRobot {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('peak-list-item-All Peaks')));
     await tester.pumpAndSettle();
+  }
+
+  Finder peakListRow(int peakListId) {
+    return find.byKey(Key('peak-list-selection-row-$peakListId'));
+  }
+
+  Finder peakListSwitch(int peakListId) {
+    return find.byKey(Key('peak-list-selection-switch-$peakListId'));
+  }
+
+  Finder peakListChip(int peakListId) {
+    return find.byKey(Key('peak-list-selection-chip-$peakListId'));
   }
 
   Future<void> selectSpecificPeakList(String name) async {

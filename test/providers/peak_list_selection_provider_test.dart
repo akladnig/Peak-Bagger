@@ -111,6 +111,36 @@ void main() {
       expect(container.read(peakListsProvider), isEmpty);
     },
   );
+
+  test('summary provider orders chips by rendered label with fallback labels', () {
+    final peakListRepository = PeakListRepository.test(
+      InMemoryPeakListStorage([
+        PeakList(name: 'Zulu', peakList: '[]')..peakListId = 2,
+      ]),
+    );
+
+    final container = ProviderContainer(
+      overrides: [
+        mapProvider.overrideWith(
+          () => _TestMapNotifier(
+            MapState(
+              center: const LatLng(-41.5, 146.5),
+              zoom: 15,
+              basemap: Basemap.tracestrack,
+              peakListSelectionMode: PeakListSelectionMode.specificList,
+              selectedPeakListIds: {2, 9},
+            ),
+          ),
+        ),
+        peakListRepositoryProvider.overrideWithValue(peakListRepository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final summary = container.read(peakListSelectionSummaryProvider);
+
+    expect(summary.chips.map((chip) => chip.label).toList(), ['List #9', 'Zulu']);
+  });
 }
 
 class _TestMapNotifier extends MapNotifier {

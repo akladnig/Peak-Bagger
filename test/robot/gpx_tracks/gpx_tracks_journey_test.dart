@@ -751,12 +751,21 @@ void main() {
     await robot.selectSpecificPeakList('Alpha');
     await robot.selectSpecificPeakList('Alpha');
     robot.expectPeaksHidden();
+    expect(robot.peakListChipNone, findsOneWidget);
 
     await robot.selectAllPeaks();
     robot.expectPeaksShown();
+    expect(robot.peakListChipAllPeaks, findsOneWidget);
 
     await robot.selectSpecificPeakList('Alpha');
     expect(robot.peakMarkerIds(), [6406]);
+    expect(robot.peakListChip(1), findsOneWidget);
+
+    await robot.openSettings();
+    expect(robot.peakListChip(1), findsOneWidget);
+    router.go('/map');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
     final container = ProviderScope.containerOf(
       tester.element(robot.mapInteractionRegion),
