@@ -7,11 +7,15 @@ class ElevationProfileSample {
     required this.distanceMeters,
     required this.elevationMeters,
     this.timeLocal,
+    this.segmentIndex,
+    this.pointIndex,
   });
 
   final double distanceMeters;
   final double? elevationMeters;
   final DateTime? timeLocal;
+  final int? segmentIndex;
+  final int? pointIndex;
 }
 
 class ElevationProfileSeries {
@@ -82,6 +86,8 @@ abstract final class ElevationProfileSeriesBuilder {
           distanceMeters: distanceMeters,
           elevationMeters: elevationMeters,
           timeLocal: timeLocal,
+          segmentIndex: _asInt(entry['segmentIndex']),
+          pointIndex: _asInt(entry['pointIndex']),
         ),
       );
     }
@@ -140,5 +146,9 @@ abstract final class ElevationProfileSeriesBuilder {
     } catch (_) {
       return null;
     }
+  }
+
+  static int? _asInt(Object? value) {
+    return value is int ? value : null;
   }
 }

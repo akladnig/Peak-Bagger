@@ -22,6 +22,7 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/map_chart_hover_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
@@ -31,6 +32,7 @@ import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/route_graph_trail_provider.dart';
 import 'package:peak_bagger/services/route_hover_detector.dart';
 import 'package:peak_bagger/services/track_hover_detector.dart';
+import 'package:peak_bagger/services/map_chart_hover_resolver.dart';
 import 'package:peak_bagger/services/map_trackpad_gesture_classifier.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
 import '../core/constants.dart';
@@ -40,6 +42,7 @@ import 'package:peak_bagger/widgets/map_peak_lists_drawer.dart';
 import 'package:peak_bagger/widgets/map_tracks_routes_drawer.dart';
 import 'package:peak_bagger/widgets/map_route_bottom_sheet.dart';
 import 'package:peak_bagger/widgets/map_rebuild_debug_counters.dart';
+import 'package:peak_bagger/widgets/map_chart_hover_marker.dart';
 import 'package:peak_bagger/widgets/tasmap_polygon_label.dart';
 import 'package:peak_bagger/widgets/dialog_helpers.dart';
 
@@ -77,9 +80,12 @@ class MapScreen extends ConsumerStatefulWidget {
 
 class _MapScreenState extends ConsumerState<MapScreen>
     with WidgetsBindingObserver {
+  static const _chartHoverResolver = MapChartHoverResolver();
+
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   late final MapController _mapController;
   late final MapNotifier _mapNotifier;
+  late final MapChartHoverNotifier _mapChartHoverNotifier;
   final _gotoController = TextEditingController();
   final _gotoFocusNode = FocusNode();
   final _searchFocusNode = FocusNode();
@@ -147,6 +153,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     WidgetsBinding.instance.addObserver(this);
     _mapController = MapController();
     _mapNotifier = ref.read(mapProvider.notifier);
+    _mapChartHoverNotifier = ref.read(mapChartHoverProvider.notifier);
     _searchFocusNode.addListener(_onSearchFocusChange);
     _gotoFocusNode.addListener(_onGotoFocusChange);
     Future.microtask(() {
@@ -1313,6 +1320,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
   @override
   void dispose() {
+    _mapChartHoverNotifier.clear();
     _pendingCameraSaveTimer?.cancel();
     _pendingCameraSaveTimer = null;
     _hasPendingCameraSave = false;
@@ -1640,6 +1648,19 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     ref.listen(routeListProvider, (previous, next) {
                       _mapNotifier.reconcileSelectedRouteState();
                     });
+                    ref.listen<({int? selectedRouteId, int? selectedTrackId})>(
+                      mapProvider.select(
+                        (state) => (
+                          selectedRouteId: state.selectedRouteId,
+                          selectedTrackId: state.selectedTrackId,
+                        ),
+                      ),
+                      (previous, next) {
+                        if (previous != next) {
+                          ref.read(mapChartHoverProvider.notifier).clear();
+                        }
+                      },
+                    );
                     final routeDraftVisibility = ref.watch(
                       mapProvider.select(
                         (state) => (isRouteDrafting: state.isRouteDrafting),
@@ -2251,6 +2272,20 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                           MapMgrsGridLabelLayer(
                                             labels: mgrsGridGeometry.labels,
                                           ),
+                                        Consumer(
+                                          builder: (context, ref, child) {
+                                            final chartHoverPoint = ref.watch(
+                                              mapChartHoverProvider,
+                                            );
+                                            if (chartHoverPoint == null) {
+                                              return const SizedBox.shrink();
+                                            }
+
+                                            return buildChartHoverMarkerLayer(
+                                              chartHoverPoint,
+                                            );
+                                          },
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -2331,6 +2366,74 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                   ? selectedTrack
                                                   : null,
                                               route: selectedRoute,
+                                              onElevationProfileHoverChanged:
+                                                  (hoverSample) {
+                                                    final hoverNotifier = ref
+                                                        .read(
+                                                          mapChartHoverProvider
+                                                              .notifier,
+                                                        );
+                                                    if (hoverSample == null) {
+                                                      hoverNotifier.clear();
+                                                      return;
+                                                    }
+
+                                                    final currentState = ref
+                                                        .read(mapProvider);
+                                                    if (selectedRoute != null) {
+                                                      if (currentState
+                                                              .selectedRouteId !=
+                                                          selectedRoute.id) {
+                                                        hoverNotifier.clear();
+                                                        return;
+                                                      }
+
+                                                      final point =
+                                                          _chartHoverResolver
+                                                              .resolveRouteHover(
+                                                                route:
+                                                                    selectedRoute,
+                                                                hoverSample:
+                                                                    hoverSample,
+                                                              );
+                                                      if (point == null) {
+                                                        hoverNotifier.clear();
+                                                      } else {
+                                                        hoverNotifier.show(
+                                                          point,
+                                                        );
+                                                      }
+                                                      return;
+                                                    }
+
+                                                    final track = selectedTrack;
+                                                    if (track != null) {
+                                                      if (currentState
+                                                              .selectedTrackId !=
+                                                          track.gpxTrackId) {
+                                                        hoverNotifier.clear();
+                                                        return;
+                                                      }
+
+                                                      final point =
+                                                          _chartHoverResolver
+                                                              .resolveTrackHover(
+                                                                track: track,
+                                                                hoverSample:
+                                                                    hoverSample,
+                                                              );
+                                                      if (point == null) {
+                                                        hoverNotifier.clear();
+                                                      } else {
+                                                        hoverNotifier.show(
+                                                          point,
+                                                        );
+                                                      }
+                                                      return;
+                                                    }
+
+                                                    hoverNotifier.clear();
+                                                  },
                                               onVisibilityChanged: (visible) {
                                                 final notifier = ref.read(
                                                   mapProvider.notifier,
@@ -2367,6 +2470,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                 );
                                                 notifier.clearSelectedTrack();
                                                 notifier.clearSelectedRoute();
+                                                ref
+                                                    .read(
+                                                      mapChartHoverProvider
+                                                          .notifier,
+                                                    )
+                                                    .clear();
                                                 _mapFocusNode.requestFocus();
                                               },
                                             ),

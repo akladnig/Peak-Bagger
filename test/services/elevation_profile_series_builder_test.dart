@@ -13,10 +13,14 @@ void main() {
 ''');
 
     expect(series.samples, hasLength(3));
+    expect(series.samples[0].segmentIndex, 0);
+    expect(series.samples[0].pointIndex, 0);
     expect(series.samples[0].distanceMeters, 0);
     expect(series.samples[0].elevationMeters, 100);
     expect(series.samples[0].timeLocal, DateTime(2024, 1, 15, 8));
     expect(series.samples[1].elevationMeters, isNull);
+    expect(series.samples[2].segmentIndex, 1);
+    expect(series.samples[2].pointIndex, 0);
     expect(series.samples[2].distanceMeters, 42.25);
     expect(series.samples[2].elevationMeters, 120);
     expect(series.supportsTimeAxis, isTrue);

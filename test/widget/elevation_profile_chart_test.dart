@@ -1,3 +1,5 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -133,6 +135,58 @@ void main() {
     );
     expect(timeChip.onSelected, isNull);
   });
+
+  testWidgets('reports hovered samples and clears on exit', (tester) async {
+    final hoverEvents = <ElevationProfileChartHoverSample?>[];
+    final series = ElevationProfileSeriesBuilder.fromTrackProfileJson('''
+[
+  {"segmentIndex":0,"pointIndex":0,"distanceMeters":0,"elevationMeters":100,"timeLocal":"2024-01-15T08:00:00.000"},
+  {"segmentIndex":0,"pointIndex":1,"distanceMeters":5,"elevationMeters":null,"timeLocal":null},
+  {"segmentIndex":1,"pointIndex":0,"distanceMeters":10,"elevationMeters":120,"timeLocal":"2024-01-15T08:10:00.000"}
+]
+''');
+
+    await _pumpChart(
+      tester,
+      series,
+      onHoverChanged: hoverEvents.add,
+    );
+
+    final chart = find.byType(LineChart);
+    final chartRect = tester.getRect(chart);
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(() async {
+      await gesture.removePointer();
+    });
+
+    await gesture.addPointer(location: chartRect.topLeft - const Offset(20, 20));
+    await tester.pump();
+
+    await gesture.moveTo(
+      Offset(chartRect.left + (chartRect.width * 0.12), chartRect.center.dy),
+    );
+    await tester.pump();
+
+    expect(hoverEvents.last, isNotNull);
+    expect(hoverEvents.last!.sampleIndex, 0);
+    expect(hoverEvents.last!.sample.segmentIndex, 0);
+    expect(hoverEvents.last!.sample.pointIndex, 0);
+
+    await gesture.moveTo(
+      Offset(chartRect.right - 1, chartRect.center.dy),
+    );
+    await tester.pump();
+
+    expect(hoverEvents.last, isNotNull);
+    expect(hoverEvents.last!.sampleIndex, 2);
+    expect(hoverEvents.last!.sample.segmentIndex, 1);
+    expect(hoverEvents.last!.sample.pointIndex, 0);
+
+    await gesture.moveTo(chartRect.bottomRight + const Offset(20, 20));
+    await tester.pump();
+
+    expect(hoverEvents.last, isNull);
+  });
 }
 
 Future<void> _pumpChart(
@@ -142,6 +196,7 @@ Future<void> _pumpChart(
   String? errorText,
   double? minElevation,
   double? maxElevation,
+  ValueChanged<ElevationProfileChartHoverSample?>? onHoverChanged,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -155,6 +210,7 @@ Future<void> _pumpChart(
               errorText: errorText,
               minElevation: minElevation,
               maxElevation: maxElevation,
+              onHoverChanged: onHoverChanged,
             ),
           ),
         ),
