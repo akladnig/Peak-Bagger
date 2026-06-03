@@ -217,6 +217,7 @@ class MapTrackInfoPanel extends StatelessWidget {
     required this.onClose,
     this.onVisibilityChanged,
     this.onExport,
+    this.onElevationProfileHoverChanged,
     super.key,
   }) : assert(track != null || route != null),
        assert(track == null || route == null);
@@ -226,6 +227,8 @@ class MapTrackInfoPanel extends StatelessWidget {
   final VoidCallback onClose;
   final ValueChanged<bool>? onVisibilityChanged;
   final VoidCallback? onExport;
+  final ValueChanged<ElevationProfileChartHoverSample?>?
+  onElevationProfileHoverChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -383,6 +386,7 @@ class MapTrackInfoPanel extends StatelessWidget {
               points: route.gpxRoute,
               elevations: route.gpxRouteElevations,
             ),
+            onHoverChanged: onElevationProfileHoverChanged,
           ),
         ),
         const SizedBox(height: 16),
@@ -514,6 +518,7 @@ class MapTrackInfoPanel extends StatelessWidget {
             ),
             minElevation: track.lowestElevation,
             maxElevation: track.highestElevation,
+            onHoverChanged: onElevationProfileHoverChanged,
           ),
         ),
         const SizedBox(height: 16),

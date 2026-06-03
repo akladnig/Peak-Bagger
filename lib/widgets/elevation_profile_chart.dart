@@ -14,6 +14,20 @@ enum ElevationProfileAxisMode { distance, time }
 
 enum _DistanceAxisUnit { meters, kilometers }
 
+class ElevationProfileChartHoverSample {
+  const ElevationProfileChartHoverSample({
+    required this.sampleIndex,
+    required this.sample,
+    required this.xValue,
+    required this.axisMode,
+  });
+
+  final int sampleIndex;
+  final ElevationProfileSample sample;
+  final double xValue;
+  final ElevationProfileAxisMode axisMode;
+}
+
 class ElevationProfileChart extends StatefulWidget {
   const ElevationProfileChart({
     super.key,
@@ -22,6 +36,7 @@ class ElevationProfileChart extends StatefulWidget {
     this.errorText,
     this.minElevation,
     this.maxElevation,
+    this.onHoverChanged,
   });
 
   final ElevationProfileSeries series;
@@ -29,6 +44,7 @@ class ElevationProfileChart extends StatefulWidget {
   final String? errorText;
   final double? minElevation;
   final double? maxElevation;
+  final ValueChanged<ElevationProfileChartHoverSample?>? onHoverChanged;
 
   @override
   State<ElevationProfileChart> createState() => _ElevationProfileChartState();
@@ -177,6 +193,7 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
                 ? ElevationProfileAxisMode.time
                 : ElevationProfileAxisMode.distance;
             final segments = _segmentsForAxis(axisMode, series.samples);
+            final hoverSamples = _hoverSamplesForAxis(axisMode, series.samples);
             final minX = _minX(axisMode, series.samples);
             final maxX = _maxX(axisMode, series.samples, minX);
             final distanceAxisUnit = _distanceAxisUnit(maxX);
@@ -189,8 +206,10 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
                 distanceAxisUnit: distanceAxisUnit,
                 xGuideValues: xGuideValues,
                 segments: segments,
+                hoverSamples: hoverSamples,
                 minX: minX,
                 maxX: maxX,
+                onHoverChanged: widget.onHoverChanged,
               ),
             );
 
@@ -267,9 +286,11 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
     required ElevationProfileAxisMode axisMode,
     required _DistanceAxisUnit distanceAxisUnit,
     required List<double> xGuideValues,
-    required List<List<FlSpot>> segments,
+    required List<_ChartSegment> segments,
+    required List<_ChartSample> hoverSamples,
     required double minX,
     required double maxX,
+    required ValueChanged<ElevationProfileChartHoverSample?>? onHoverChanged,
   }) {
     final theme = Theme.of(context);
     final minY = axisRange.minY;
@@ -285,7 +306,7 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
       lineBarsData: [
         for (final segment in segments)
           LineChartBarData(
-            spots: segment,
+            spots: segment.spots,
             isCurved: false,
             color: theme.colorScheme.primary,
             barWidth: ChartUI.barWidth,
@@ -354,6 +375,31 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
       borderData: FlBorderData(show: false),
       lineTouchData: LineTouchData(
         enabled: true,
+        handleBuiltInTouches: true,
+        touchCallback: onHoverChanged == null
+            ? null
+            : (event, response) {
+                if (event is FlPointerExitEvent) {
+                  onHoverChanged(null);
+                  return;
+                }
+
+                final xValue = response?.touchChartCoordinate.dx;
+                if (xValue == null || !event.isInterestedForInteractions) {
+                  onHoverChanged(null);
+                  return;
+                }
+
+                onHoverChanged(
+                  _hoverSampleForXValue(
+                    axisMode: axisMode,
+                    xValue: xValue,
+                    samples: hoverSamples,
+                    minX: minX,
+                    maxX: maxX,
+                  ),
+                );
+              },
         getTouchedSpotIndicator: (barData, spotIndexes) {
           return spotIndexes
               .map(
@@ -394,21 +440,29 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
     );
   }
 
-  List<List<FlSpot>> _segmentsForAxis(
+  List<_ChartSegment> _segmentsForAxis(
     ElevationProfileAxisMode axisMode,
     List<ElevationProfileSample> samples,
   ) {
-    final segments = <List<FlSpot>>[];
-    var current = <FlSpot>[];
+    final segments = <_ChartSegment>[];
+    var currentSpots = <FlSpot>[];
+    var currentSampleIndices = <int>[];
 
     void flush() {
-      if (current.isNotEmpty) {
-        segments.add(List<FlSpot>.unmodifiable(current));
-        current = <FlSpot>[];
+      if (currentSpots.isNotEmpty) {
+        segments.add(
+          _ChartSegment(
+            spots: List<FlSpot>.unmodifiable(currentSpots),
+            sampleIndices: List<int>.unmodifiable(currentSampleIndices),
+          ),
+        );
+        currentSpots = <FlSpot>[];
+        currentSampleIndices = <int>[];
       }
     }
 
-    for (final sample in samples) {
+    for (var index = 0; index < samples.length; index++) {
+      final sample = samples[index];
       final x = switch (axisMode) {
         ElevationProfileAxisMode.distance => sample.distanceMeters,
         ElevationProfileAxisMode.time =>
@@ -419,11 +473,107 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
         flush();
         continue;
       }
-      current.add(FlSpot(x, y));
+      currentSpots.add(FlSpot(x, y));
+      currentSampleIndices.add(index);
     }
 
     flush();
     return segments;
+  }
+
+  ElevationProfileChartHoverSample? _hoverSampleFor(
+    LineTouchResponse? response,
+    List<_ChartSegment> segments,
+  ) {
+    final lineBarSpots = response?.lineBarSpots;
+    if (lineBarSpots == null || lineBarSpots.isEmpty) {
+      return null;
+    }
+
+    for (final touchedSpot in lineBarSpots) {
+      final barIndex = touchedSpot.barIndex;
+      if (barIndex < 0 || barIndex >= segments.length) {
+        continue;
+      }
+
+      final segment = segments[barIndex];
+      final spotIndex = touchedSpot.spotIndex;
+      if (spotIndex < 0 || spotIndex >= segment.sampleIndices.length) {
+        continue;
+      }
+
+      final sampleIndex = segment.sampleIndices[spotIndex];
+      return ElevationProfileChartHoverSample(
+        sampleIndex: sampleIndex,
+        sample: widget.series.samples[sampleIndex],
+        xValue: switch (_axisMode) {
+          ElevationProfileAxisMode.distance =>
+            widget.series.samples[sampleIndex].distanceMeters,
+          ElevationProfileAxisMode.time =>
+            widget.series.samples[sampleIndex].timeLocal?.millisecondsSinceEpoch
+                .toDouble() ??
+            widget.series.samples[sampleIndex].distanceMeters,
+        },
+        axisMode: _axisMode,
+      );
+    }
+
+    return null;
+  }
+
+  List<_ChartSample> _hoverSamplesForAxis(
+    ElevationProfileAxisMode axisMode,
+    List<ElevationProfileSample> samples,
+  ) {
+    final hoverSamples = <_ChartSample>[];
+    for (var index = 0; index < samples.length; index++) {
+      final sample = samples[index];
+      final x = switch (axisMode) {
+        ElevationProfileAxisMode.distance => sample.distanceMeters,
+        ElevationProfileAxisMode.time =>
+          sample.timeLocal?.millisecondsSinceEpoch.toDouble(),
+      };
+      if (x == null || sample.elevationMeters == null) {
+        continue;
+      }
+      hoverSamples.add(_ChartSample(sampleIndex: index, x: x));
+    }
+    return hoverSamples;
+  }
+
+  ElevationProfileChartHoverSample? _hoverSampleForXValue({
+    required ElevationProfileAxisMode axisMode,
+    required double xValue,
+    required List<_ChartSample> samples,
+    required double minX,
+    required double maxX,
+  }) {
+    if (samples.isEmpty || maxX <= minX) {
+      return null;
+    }
+
+    final clampedXValue = xValue.clamp(minX, maxX);
+    _ChartSample? bestSample;
+    var bestDistance = double.infinity;
+
+    for (final sample in samples) {
+      final distance = (sample.x - clampedXValue).abs();
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestSample = sample;
+      }
+    }
+
+    if (bestSample == null) {
+      return null;
+    }
+
+    return ElevationProfileChartHoverSample(
+      sampleIndex: bestSample.sampleIndex,
+      sample: widget.series.samples[bestSample.sampleIndex],
+      xValue: clampedXValue,
+      axisMode: axisMode,
+    );
   }
 
   double _minX(
@@ -662,6 +812,20 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
       _DistanceAxisUnit.kilometers => 'km',
     };
   }
+}
+
+class _ChartSegment {
+  const _ChartSegment({required this.spots, required this.sampleIndices});
+
+  final List<FlSpot> spots;
+  final List<int> sampleIndices;
+}
+
+class _ChartSample {
+  const _ChartSample({required this.sampleIndex, required this.x});
+
+  final int sampleIndex;
+  final double x;
 }
 
 class _ElevationProfileStateMessage extends StatelessWidget {

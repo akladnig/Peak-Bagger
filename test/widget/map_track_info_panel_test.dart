@@ -1,3 +1,6 @@
+import 'dart:ui' show PointerDeviceKind;
+
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
@@ -40,6 +43,56 @@ void main() {
     );
     expect(chart.minElevation, track.lowestElevation);
     expect(chart.maxElevation, track.highestElevation);
+  });
+
+  testWidgets('forwards track chart hover samples', (tester) async {
+    final hoverEvents = <ElevationProfileChartHoverSample?>[];
+    final track = GpxTrack(
+      contentHash: 'hash',
+      trackName: 'Test Track',
+      lowestElevation: 1022,
+      highestElevation: 1377,
+      elevationProfile: '''
+[
+  {"segmentIndex":0,"pointIndex":0,"distanceMeters":0,"elevationMeters":100,"timeLocal":"2024-01-15T08:00:00.000"},
+  {"segmentIndex":0,"pointIndex":1,"distanceMeters":12,"elevationMeters":null,"timeLocal":null},
+  {"segmentIndex":1,"pointIndex":0,"distanceMeters":24,"elevationMeters":120,"timeLocal":"2024-01-15T08:10:00.000"}
+]
+''',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 600,
+            child: MapTrackInfoPanel(
+              track: track,
+              onClose: () {},
+              onExport: () {},
+              onElevationProfileHoverChanged: hoverEvents.add,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final chart = find.byType(LineChart);
+    final chartRect = tester.getRect(chart);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+
+    await mouse.addPointer(location: chartRect.topLeft - const Offset(20, 20));
+    await tester.pump();
+    await mouse.moveTo(
+      Offset(chartRect.left + (chartRect.width * 0.85), chartRect.center.dy),
+    );
+    await tester.pump();
+
+    expect(hoverEvents.last, isNotNull);
+    expect(hoverEvents.last!.sampleIndex, 2);
+    expect(hoverEvents.last!.sample.segmentIndex, 1);
+    expect(hoverEvents.last!.sample.pointIndex, 0);
   });
 
   testWidgets('renders a visibility row for a track', (tester) async {

@@ -4,6 +4,11 @@ import 'package:peak_bagger/core/constants.dart';
 const thinDivider = Divider(height: 0, color: Color(0xff7b7b7b));
 const mapGridColour = Colors.blue;
 
+class MapChartHoverDotTheme {
+  static const Color color = Color(0xFF12B886);
+  static const double size = 14;
+}
+
 TextStyle mapRulerTextStyle(BuildContext context) {
   return TextStyle(
     fontSize: 12,
