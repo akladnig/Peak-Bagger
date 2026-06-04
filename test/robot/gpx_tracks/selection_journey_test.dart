@@ -89,4 +89,62 @@ void main() {
     robot.expectNoSelectedTrack();
     robot.expectNoTrackInfoPanel();
   });
+
+  testWidgets('background click does not select a merely nearby track', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+
+    final robot = GpxTracksRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showTracks: true,
+        tracks: [
+          GpxTrack(
+            gpxTrackId: 7,
+            contentHash: 'hash',
+            trackName: 'Hover Track',
+            gpxFile: '<gpx></gpx>',
+            displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
+              [const LatLng(-41.5, 146.49), const LatLng(-41.5, 146.51)],
+            ]),
+          ),
+        ],
+      ),
+      notifier: TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          showTracks: true,
+          tracks: [
+            GpxTrack(
+              gpxTrackId: 7,
+              contentHash: 'hash',
+              trackName: 'Hover Track',
+              gpxFile: '<gpx></gpx>',
+              displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
+                [const LatLng(-41.5, 146.49), const LatLng(-41.5, 146.51)],
+              ]),
+            ),
+          ],
+        ),
+      ),
+    );
+    addTearDown(robot.dispose);
+    await robot.pumpApp();
+
+    robot.expectNoSelectedTrack();
+    await robot.moveMouseAway();
+    robot.expectNoHoveredTrack();
+
+    await robot.clickMapBackground();
+
+    robot.expectNoSelectedTrack();
+    robot.expectNoHoveredTrack();
+    robot.expectNoTrackInfoPanel();
+  });
 }

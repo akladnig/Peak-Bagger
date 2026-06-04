@@ -72,3 +72,16 @@ final routeGraphBootstrapProvider = FutureProvider<void>((ref) async {
     readiness.markFailed('$error');
   }
 });
+
+final routeGraphRepositoryProviderAvailableProvider = Provider<bool>((ref) {
+  try {
+    final store = ref.read(routeGraphStoreProvider);
+    if (store is! RouteGraphRepositoryProvider) {
+      return false;
+    }
+    final repository = (store as RouteGraphRepositoryProvider).repository;
+    return repository != null && repository.hasUsableActiveGeneration;
+  } catch (_) {
+    return false;
+  }
+});

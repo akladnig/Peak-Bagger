@@ -658,6 +658,7 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
   late final TextEditingController _endElevationController;
   late final TextEditingController _lowestElevationController;
   late final TextEditingController _highestElevationController;
+  bool _visible = true;
   bool _isEditing = false;
   bool _isSaving = false;
   String? _submitError;
@@ -719,6 +720,7 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
     _endElevationController.text = form.endElevation;
     _lowestElevationController.text = form.lowestElevation;
     _highestElevationController.text = form.highestElevation;
+    _visible = form.visible;
     _isEditing = false;
     _isSaving = false;
     _submitError = null;
@@ -736,6 +738,7 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
     return RouteAdminFormState(
       name: _nameController.text,
       desc: _descController.text,
+      visible: _visible,
       colour: _colourController.text,
       distance2d: _distance2dController.text,
       distance3d: _distance3dController.text,
@@ -845,6 +848,7 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
                       distance3dController: _distance3dController,
                       ascentController: _ascentController,
                       descentController: _descentController,
+                      visible: _visible,
                       startElevationController: _startElevationController,
                       endElevationController: _endElevationController,
                       lowestElevationController: _lowestElevationController,
@@ -852,6 +856,12 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
                       submitError: _submitError,
                       validation: _validation,
                       onChanged: _updateValidation,
+                      onVisibleChanged: (value) {
+                        setState(() {
+                          _visible = value;
+                        });
+                        _updateValidation();
+                      },
                       onSubmit: _submit,
                     )
                   : _RouteReadOnlyDetails(
@@ -907,6 +917,7 @@ class _RouteEditForm extends StatelessWidget {
     required this.distance3dController,
     required this.ascentController,
     required this.descentController,
+    required this.visible,
     required this.startElevationController,
     required this.endElevationController,
     required this.lowestElevationController,
@@ -914,6 +925,7 @@ class _RouteEditForm extends StatelessWidget {
     required this.submitError,
     required this.validation,
     required this.onChanged,
+    required this.onVisibleChanged,
     required this.onSubmit,
   });
 
@@ -926,6 +938,7 @@ class _RouteEditForm extends StatelessWidget {
   final TextEditingController distance3dController;
   final TextEditingController ascentController;
   final TextEditingController descentController;
+  final bool visible;
   final TextEditingController startElevationController;
   final TextEditingController endElevationController;
   final TextEditingController lowestElevationController;
@@ -933,6 +946,7 @@ class _RouteEditForm extends StatelessWidget {
   final String? submitError;
   final RouteAdminValidationResult validation;
   final VoidCallback onChanged;
+  final ValueChanged<bool> onVisibleChanged;
   final VoidCallback onSubmit;
 
   @override
@@ -975,6 +989,13 @@ class _RouteEditForm extends StatelessWidget {
                 minLines: 2,
                 maxLines: 4,
                 onChanged: (_) => onChanged(),
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                key: const Key('objectbox-admin-route-visible'),
+                title: const Text('Visible'),
+                value: visible,
+                onChanged: isSaving ? null : onVisibleChanged,
               ),
               const SizedBox(height: 8),
               TextFormField(

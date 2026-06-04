@@ -20,6 +20,7 @@ import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/route_marker_display.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
+import 'package:peak_bagger/providers/drive_eta_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/map_chart_hover_provider.dart';
@@ -34,6 +35,9 @@ import 'package:peak_bagger/services/route_hover_detector.dart';
 import 'package:peak_bagger/services/track_hover_detector.dart';
 import 'package:peak_bagger/services/map_chart_hover_resolver.dart';
 import 'package:peak_bagger/services/map_trackpad_gesture_classifier.dart';
+import 'package:peak_bagger/services/live_location_service.dart';
+import 'package:peak_bagger/services/open_route_service.dart';
+import 'package:peak_bagger/services/route_graph_drive_eta_hit_service.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
 import '../core/constants.dart';
 import 'package:peak_bagger/widgets/map_action_rail.dart';
@@ -107,6 +111,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   bool _isPointerDown = false;
   Offset? _pointerDownPosition;
   bool _primaryClickPending = false;
+  bool _driveEtaClickConsumed = false;
   bool _routeDraftMarkerTapConsumed = false;
   String? _routeDraftDeletePopupMarkerId;
   int? _routeDraftDeletePopupViewportRevision;
@@ -139,6 +144,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   int? _cachedRouteHoverDisplayZoom;
   List<app_route.Route>? _cachedRouteHoverRoutes;
   List<RouteHoverCandidate>? _cachedRouteHoverCandidates;
+  int _driveEtaRequestId = 0;
   static final _tickedPeakMarker = SvgPicture.asset(
     'assets/peak_marker_ticked.svg',
   );
@@ -281,6 +287,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
       _dismissRouteDraftMarkerDeletePopup();
       return true;
     }
+    if (mapState.driveEtaPopup != null) {
+      notifier.closeDriveEtaPopup();
+      return true;
+    }
     if (mapState.peakInfoPeak != null) {
       notifier.closePeakInfoPopup();
       return true;
@@ -311,6 +321,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
     if (peakTarget != null) {
       notifier.closePeakInfoPopup();
+    }
+    if (mapState.driveEtaPopup != null) {
+      notifier.closeDriveEtaPopup();
     }
     if (mapState.showInfoPopup) {
       notifier.toggleInfoPopup();
@@ -449,6 +462,113 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _bumpViewportUiRevision();
   }
 
+  Future<bool> _handleDriveEtaClick({
+    required Offset localPosition,
+    required LatLng tappedLocation,
+    required int? hoveredTrackId,
+    required int? hoveredRouteId,
+  }) async {
+    if (hoveredTrackId != null ||
+        hoveredRouteId != null ||
+        !mounted) {
+      return false;
+    }
+
+    try {
+      final notifier = ref.read(mapProvider.notifier);
+      final hitService = ref.read(routeGraphDriveEtaHitServiceProvider);
+      if (hitService == null) {
+        return false;
+      }
+
+      final hitResult = hitService.hitTest(
+        pointerPosition: localPosition,
+        camera: _mapController.camera,
+        tappedLocation: tappedLocation,
+      );
+      switch (hitResult.status) {
+        case RouteGraphDriveEtaHitStatus.noHit:
+          return false;
+        case RouteGraphDriveEtaHitStatus.unavailable:
+          _driveEtaClickConsumed = true;
+          notifier.openDriveEtaPopupError(
+            requestId: ++_driveEtaRequestId,
+            anchor: tappedLocation,
+            title: 'Drive ETA',
+            message: hitResult.message ?? 'Route graph data is unavailable.',
+          );
+          return true;
+        case RouteGraphDriveEtaHitStatus.hit:
+          final requestId = ++_driveEtaRequestId;
+          final title = hitResult.wayName?.trim().isNotEmpty == true
+              ? hitResult.wayName!.trim()
+              : 'Drive ETA';
+          _driveEtaClickConsumed = true;
+          notifier.showDriveEtaPopupLoading(
+            requestId: requestId,
+            anchor: hitResult.snappedPoint!,
+            title: title,
+          );
+          unawaited(
+            _resolveDriveEta(
+              requestId: requestId,
+              destination: hitResult.snappedPoint!,
+            ),
+          );
+          return true;
+      }
+    } catch (error, stackTrace) {
+      debugPrintStack(
+        label: 'Drive ETA preparation failed: $error',
+        stackTrace: stackTrace,
+      );
+      _driveEtaClickConsumed = true;
+      ref.read(mapProvider.notifier).openDriveEtaPopupError(
+        requestId: ++_driveEtaRequestId,
+        anchor: tappedLocation,
+        title: 'Drive ETA',
+        message: 'Route graph data is unavailable.',
+      );
+      return true;
+    }
+  }
+
+  Future<void> _resolveDriveEta({
+    required int requestId,
+    required LatLng destination,
+  }) async {
+    try {
+      final locationService = ref.read(liveLocationServiceProvider);
+      final openRouteService = ref.read(openRouteServiceProvider);
+      final origin = await locationService.getCurrentLocation();
+      final summary = await openRouteService.fetchDrivingSummary(
+        origin: origin,
+        destination: destination,
+      );
+      if (!mounted) {
+        return;
+      }
+      ref.read(mapProvider.notifier).showDriveEtaPopupSuccess(
+        requestId: requestId,
+        distanceMeters: summary.distanceMeters,
+        durationSeconds: summary.durationSeconds,
+      );
+    } catch (error, stackTrace) {
+      debugPrintStack(label: 'Drive ETA failed: $error', stackTrace: stackTrace);
+      if (!mounted) {
+        return;
+      }
+      ref.read(mapProvider.notifier).showDriveEtaPopupError(
+        requestId: requestId,
+        message: switch (error) {
+          LiveLocationException(:final message) => message,
+          OpenRouteServiceException(:final message) => message,
+          _ => 'Drive ETA unavailable.',
+        },
+      );
+    }
+  }
+
   Future<void> _deleteRouteDraftMarker(String markerId) async {
     _dismissRouteDraftMarkerDeletePopup();
     await ref.read(mapProvider.notifier).deleteRouteDraftMarker(markerId);
@@ -534,6 +654,31 @@ class _MapScreenState extends ConsumerState<MapScreen>
       candidates: candidates,
     );
     notifier.setHoveredRouteId(result.hoveredRouteId);
+  }
+
+  int? _hitTestRouteId(
+    Offset localPosition,
+    MapState mapState,
+    List<app_route.Route> routes,
+  ) {
+    if (!mapState.showRoutes) {
+      return null;
+    }
+
+    final camera = _mapController.camera;
+    if (camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      return null;
+    }
+
+    final candidates = _buildRouteHoverCandidates(routes, camera);
+    if (candidates.isEmpty) {
+      return null;
+    }
+
+    return RouteHoverDetector.findHoveredRoute(
+      pointerPosition: localPosition,
+      candidates: candidates,
+    ).hoveredRouteId;
   }
 
   Peak? _hitTestPeak(
@@ -734,6 +879,27 @@ class _MapScreenState extends ConsumerState<MapScreen>
       candidates: candidates,
     );
     notifier.setHoveredTrackId(result.hoveredTrackId);
+  }
+
+  int? _hitTestTrackId(Offset localPosition, MapState mapState) {
+    if (!mapState.showTracks || mapState.hasTrackRecoveryIssue) {
+      return null;
+    }
+
+    final camera = _mapController.camera;
+    if (camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      return null;
+    }
+
+    final candidates = _buildTrackHoverCandidates(mapState, camera);
+    if (candidates.isEmpty) {
+      return null;
+    }
+
+    return TrackHoverDetector.findHoveredTrack(
+      pointerPosition: localPosition,
+      candidates: candidates,
+    ).hoveredTrackId;
   }
 
   bool _handleRouteDraftMarkerHover(Offset localPosition, MapState mapState) {
@@ -1874,6 +2040,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                           _isPointerDown = true;
                                           _pointerDownPosition =
                                               event.localPosition;
+                                          _driveEtaClickConsumed = false;
                                           if (event.kind ==
                                               PointerDeviceKind.mouse) {
                                             final mgrsState = ref.read(
@@ -1913,7 +2080,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                   kPrimaryMouseButton;
                                           _bumpViewportUiRevision();
                                         },
-                                        onPointerUp: (event, point) {
+                                        onPointerUp: (event, point) async {
                                           final primaryClickPending =
                                               _primaryClickPending;
                                           final moved =
@@ -1981,6 +2148,63 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                             );
                                             return;
                                           }
+                                          notifier.clearHoveredPeak();
+                                          if (ref
+                                              .read(mapProvider)
+                                              .showInfoPopup) {
+                                            notifier.toggleInfoPopup();
+                                          }
+                                          if (event.kind !=
+                                              PointerDeviceKind.mouse) {
+                                            _handleTrackHover(
+                                              event.localPosition,
+                                              tappedLocation,
+                                              ref.read(mapProvider),
+                                            );
+                                          }
+                                          final clickTrackId = _hitTestTrackId(
+                                            event.localPosition,
+                                            ref.read(mapProvider),
+                                          );
+                                          final clickRouteId = _hitTestRouteId(
+                                            event.localPosition,
+                                            ref.read(mapProvider),
+                                            routes,
+                                          );
+                                          final previousSelectedLocation = ref
+                                              .read(mapProvider)
+                                              .selectedLocation;
+                                          final previousDriveEtaRequestId = ref
+                                              .read(mapProvider)
+                                              .driveEtaPopup
+                                              ?.requestId;
+                                          if (clickTrackId == null &&
+                                              clickRouteId == null) {
+                                            final etaConsumed = await _handleDriveEtaClick(
+                                              localPosition: event.localPosition,
+                                              tappedLocation: tappedLocation,
+                                              hoveredTrackId: clickTrackId,
+                                              hoveredRouteId: clickRouteId,
+                                            );
+                                            if (etaConsumed) {
+                                              return;
+                                            }
+                                          }
+                                          final currentDriveEtaRequestId = ref
+                                              .read(mapProvider)
+                                              .driveEtaPopup
+                                              ?.requestId;
+                                          if (currentDriveEtaRequestId != null &&
+                                              currentDriveEtaRequestId !=
+                                                  previousDriveEtaRequestId) {
+                                            return;
+                                          }
+                                          if (clickTrackId == null) {
+                                            notifier.clearHoveredTrack();
+                                          }
+                                          if (clickRouteId == null) {
+                                            notifier.clearHoveredRoute();
+                                          }
                                           if (ref
                                                   .read(mapProvider)
                                                   .peakInfoPeak !=
@@ -1988,41 +2212,53 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                             notifier.closePeakInfoPopup();
                                           }
                                           if (ref
-                                              .read(mapProvider)
-                                              .showInfoPopup) {
-                                            notifier.toggleInfoPopup();
+                                                  .read(mapProvider)
+                                                  .driveEtaPopup !=
+                                              null) {
+                                            notifier.closeDriveEtaPopup();
                                           }
-                                          _handleTrackHover(
-                                            event.localPosition,
-                                            tappedLocation,
-                                            ref.read(mapProvider),
-                                          );
-                                          if (primaryClickPending ||
-                                              event.kind !=
-                                                  PointerDeviceKind.mouse) {
-                                            notifier.setSelectedLocation(
-                                              tappedLocation,
-                                            );
+                                          if (!_driveEtaClickConsumed &&
+                                              ref
+                                                      .read(mapProvider)
+                                                      .driveEtaPopup ==
+                                                  null) {
+                                            if (primaryClickPending &&
+                                                clickTrackId != null) {
+                                              notifier.setSelectedLocation(
+                                                tappedLocation,
+                                              );
+                                              notifier.selectTrack(
+                                                clickTrackId,
+                                              );
+                                            } else if (primaryClickPending &&
+                                                clickRouteId != null) {
+                                              notifier.setSelectedLocation(
+                                                tappedLocation,
+                                              );
+                                              notifier.selectRoute(
+                                                clickRouteId,
+                                              );
+                                            } else if (primaryClickPending) {
+                                              notifier.setSelectedLocation(
+                                                tappedLocation,
+                                              );
+                                              notifier.clearSelectedRoute();
+                                              notifier.clearSelectedTrack();
+                                            } else if (event.kind !=
+                                                PointerDeviceKind.mouse) {
+                                              notifier.setSelectedLocation(
+                                                tappedLocation,
+                                              );
+                                            }
                                           }
-                                          final hoveredTrackId = ref
-                                              .read(mapProvider)
-                                              .hoveredTrackId;
-                                          final hoveredRouteId = ref
-                                              .read(mapProvider)
-                                              .hoveredRouteId;
-                                          if (primaryClickPending &&
-                                              hoveredTrackId != null) {
-                                            notifier.selectTrack(
-                                              hoveredTrackId,
+                                          if (_driveEtaClickConsumed &&
+                                              ref
+                                                      .read(mapProvider)
+                                                      .selectedLocation !=
+                                                  previousSelectedLocation) {
+                                            notifier.restoreSelectedLocation(
+                                              previousSelectedLocation,
                                             );
-                                          } else if (primaryClickPending &&
-                                              hoveredRouteId != null) {
-                                            notifier.selectRoute(
-                                              hoveredRouteId,
-                                            );
-                                          } else if (primaryClickPending) {
-                                            notifier.clearSelectedRoute();
-                                            notifier.clearSelectedTrack();
                                           }
                                         },
                                         onPointerCancel: (event, point) {
@@ -2587,6 +2823,17 @@ class _MapScreenState extends ConsumerState<MapScreen>
                   ),
                 Consumer(
                   builder: (context, ref, child) {
+                    final driveEtaPopup = ref.watch(
+                      mapProvider.select((state) => state.driveEtaPopup),
+                    );
+                    if (driveEtaPopup == null) {
+                      return const SizedBox.shrink();
+                    }
+                    return _buildDriveEtaPopup(context, driveEtaPopup);
+                  },
+                ),
+                Consumer(
+                  builder: (context, ref, child) {
                     final peakInfo = ref.watch(
                       mapProvider.select((state) => state.peakInfo),
                     );
@@ -2663,6 +2910,41 @@ class _MapScreenState extends ConsumerState<MapScreen>
           },
           onClose: () {
             ref.read(mapProvider.notifier).closePeakInfoPopup();
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDriveEtaPopup(BuildContext context, DriveEtaPopupState popup) {
+    final placement = resolvePeakInfoPopupPlacement(
+      anchorScreenOffset: _screenOffsetForLatLng(popup.anchor),
+      viewportSize: MediaQuery.of(context).size,
+      popupSize: UiConstants.peakInfoPopupSize,
+    );
+    if (!placement.isAnchorable) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ref.read(mapProvider.notifier).closeDriveEtaPopup();
+        }
+      });
+      return const SizedBox.shrink();
+    }
+
+    return Positioned(
+      left:
+          placement.topLeft.dx -
+          (placement.bridgeOnLeft ? PeakInfoPopupSurface.bridgeWidth : 0),
+      top: placement.topLeft.dy,
+      child: SizedBox(
+        width:
+            UiConstants.peakInfoPopupSize.width +
+            PeakInfoPopupSurface.bridgeWidth,
+        child: DriveEtaPopupSurface(
+          state: popup,
+          bridgeOnLeft: placement.bridgeOnLeft,
+          onClose: () {
+            ref.read(mapProvider.notifier).closeDriveEtaPopup();
           },
         ),
       ),
@@ -2868,6 +3150,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
       return const Offset(0, 0);
     }
     return camera.latLngToScreenOffset(LatLng(peak.latitude, peak.longitude));
+  }
+
+  Offset _screenOffsetForLatLng(LatLng point) {
+    final camera = _mapController.camera;
+    if (camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      return const Offset(0, 0);
+    }
+    return camera.latLngToScreenOffset(point);
   }
 
   Rect _peakInfoPopupBounds(BuildContext context, Peak peak) {

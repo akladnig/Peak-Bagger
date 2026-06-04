@@ -38,6 +38,7 @@ void main() {
       form: const RouteAdminFormState(
         name: 'Updated Route',
         desc: 'Updated description',
+        visible: false,
         colour: '0x00000002',
         distance2d: '20.5',
         distance3d: '21.5',
@@ -55,6 +56,7 @@ void main() {
     expect(result.route!.id, 7);
     expect(result.route!.name, 'Updated Route');
     expect(result.route!.desc, 'Updated description');
+    expect(result.route!.visible, isFalse);
     expect(result.route!.colour, 2);
     expect(result.route!.distance2d, 20.5);
     expect(result.route!.distance3d, 21.5);

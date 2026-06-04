@@ -6,6 +6,7 @@ class RouteAdminFormState {
   const RouteAdminFormState({
     required this.name,
     required this.desc,
+    required this.visible,
     required this.colour,
     required this.distance2d,
     required this.distance3d,
@@ -19,6 +20,7 @@ class RouteAdminFormState {
 
   final String name;
   final String desc;
+  final bool visible;
   final String colour;
   final String distance2d;
   final String distance3d;
@@ -32,6 +34,7 @@ class RouteAdminFormState {
   RouteAdminFormState copyWith({
     String? name,
     String? desc,
+    bool? visible,
     String? colour,
     String? distance2d,
     String? distance3d,
@@ -45,6 +48,7 @@ class RouteAdminFormState {
     return RouteAdminFormState(
       name: name ?? this.name,
       desc: desc ?? this.desc,
+      visible: visible ?? this.visible,
       colour: colour ?? this.colour,
       distance2d: distance2d ?? this.distance2d,
       distance3d: distance3d ?? this.distance3d,
@@ -75,6 +79,7 @@ class RouteAdminEditor {
     return RouteAdminFormState(
       name: route.name,
       desc: route.desc,
+      visible: route.visible,
       colour: _formatHexColour(route.colour),
       distance2d: route.distance2d.toString(),
       distance3d: route.distance3d.toString(),
@@ -152,6 +157,7 @@ class RouteAdminEditor {
       id: source.id,
       name: name,
       desc: form.desc,
+      visible: form.visible,
       gpxRoute: List<LatLng>.from(source.gpxRoute, growable: false),
       gpxRouteElevations: List<int?>.from(
         source.gpxRouteElevations,

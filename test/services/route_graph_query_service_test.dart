@@ -263,6 +263,117 @@ void main() {
     expect(rows.map((row) => row.osmWayId), [10, 11, 18]);
   });
 
+  test('queryDriveEtaWaysForBounds applies the drive ETA filter', () {
+    final service = RouteGraphQueryService(
+      RouteGraphRepository.test(
+        InMemoryRouteGraphStorage(
+          manifest: _manifest,
+          chunks: [_chunk('1|0_0', '0_0', -42.0, 146.0, -41.0, 147.0)],
+          wayIndexRows: [
+            _wayRow(
+              recordKey: '1|0_0|10',
+              chunkKey: '0_0',
+              osmWayId: 10,
+              highway: 'service',
+              access: 'public',
+              name: 'Allowed Service Road',
+              normalizedName: 'allowed service road',
+              lengthMeters: 300,
+              tagCount: 2,
+            ),
+            _wayRow(
+              recordKey: '1|0_0|14',
+              chunkKey: '0_0',
+              osmWayId: 14,
+              highway: 'primary',
+              access: 'public',
+              name: 'Allowed Primary Road',
+              normalizedName: 'allowed primary road',
+              lengthMeters: 300,
+              tagCount: 2,
+            ),
+            _wayRow(
+              recordKey: '1|0_0|15',
+              chunkKey: '0_0',
+              osmWayId: 15,
+              highway: 'primary_link',
+              access: 'public',
+              name: 'Allowed Primary Link',
+              normalizedName: 'allowed primary link',
+              lengthMeters: 300,
+              tagCount: 2,
+            ),
+            _wayRow(
+              recordKey: '1|0_0|16',
+              chunkKey: '0_0',
+              osmWayId: 16,
+              highway: 'tertiary_link',
+              access: 'public',
+              name: 'Allowed Tertiary Link',
+              normalizedName: 'allowed tertiary link',
+              lengthMeters: 300,
+              tagCount: 2,
+            ),
+            _wayRow(
+              recordKey: '1|0_0|17',
+              chunkKey: '0_0',
+              osmWayId: 17,
+              highway: 'living_street',
+              access: 'public',
+              name: 'Allowed Living Street',
+              normalizedName: 'allowed living street',
+              lengthMeters: 300,
+              tagCount: 2,
+            ),
+            _wayRow(
+              recordKey: '1|0_0|11',
+              chunkKey: '0_0',
+              osmWayId: 11,
+              highway: 'track',
+              surface: 'earth',
+              access: 'public',
+              name: 'Earth Track',
+              normalizedName: 'earth track',
+              lengthMeters: 300,
+              tagCount: 2,
+            ),
+            _wayRow(
+              recordKey: '1|0_0|12',
+              chunkKey: '0_0',
+              osmWayId: 12,
+              highway: 'service',
+              access: 'private',
+              name: 'Private Road',
+              normalizedName: 'private road',
+              lengthMeters: 300,
+              tagCount: 2,
+            ),
+            _wayRow(
+              recordKey: '1|0_0|13',
+              chunkKey: '0_0',
+              osmWayId: 13,
+              highway: 'path',
+              access: 'public',
+              name: 'Walking Path',
+              normalizedName: 'walking path',
+              lengthMeters: 300,
+              tagCount: 2,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final rows = service.queryDriveEtaWaysForBounds(
+      minLat: -41.8,
+      minLon: 146.2,
+      maxLat: -41.2,
+      maxLon: 146.8,
+    );
+
+    expect(rows.map((row) => row.osmWayId), [10, 14, 15, 16, 17]);
+  });
+
   test('queryTrailMergedPayloadsForBounds merges trail chunks only', () {
     final service = RouteGraphQueryService(
       RouteGraphRepository.test(

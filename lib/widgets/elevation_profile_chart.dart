@@ -481,46 +481,6 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
     return segments;
   }
 
-  ElevationProfileChartHoverSample? _hoverSampleFor(
-    LineTouchResponse? response,
-    List<_ChartSegment> segments,
-  ) {
-    final lineBarSpots = response?.lineBarSpots;
-    if (lineBarSpots == null || lineBarSpots.isEmpty) {
-      return null;
-    }
-
-    for (final touchedSpot in lineBarSpots) {
-      final barIndex = touchedSpot.barIndex;
-      if (barIndex < 0 || barIndex >= segments.length) {
-        continue;
-      }
-
-      final segment = segments[barIndex];
-      final spotIndex = touchedSpot.spotIndex;
-      if (spotIndex < 0 || spotIndex >= segment.sampleIndices.length) {
-        continue;
-      }
-
-      final sampleIndex = segment.sampleIndices[spotIndex];
-      return ElevationProfileChartHoverSample(
-        sampleIndex: sampleIndex,
-        sample: widget.series.samples[sampleIndex],
-        xValue: switch (_axisMode) {
-          ElevationProfileAxisMode.distance =>
-            widget.series.samples[sampleIndex].distanceMeters,
-          ElevationProfileAxisMode.time =>
-            widget.series.samples[sampleIndex].timeLocal?.millisecondsSinceEpoch
-                .toDouble() ??
-            widget.series.samples[sampleIndex].distanceMeters,
-        },
-        axisMode: _axisMode,
-      );
-    }
-
-    return null;
-  }
-
   List<_ChartSample> _hoverSamplesForAxis(
     ElevationProfileAxisMode axisMode,
     List<ElevationProfileSample> samples,
