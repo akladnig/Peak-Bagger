@@ -44,7 +44,7 @@ void main() {
     await robot.enterRouteName('Cold Start Route');
     await robot.saveRoute();
 
-    expect(robot.routeBottomSheet, findsNothing);
+    robot.expectRouteDraftOverlaysHidden();
     expect(robot.savedRoutes(), hasLength(1));
   });
 

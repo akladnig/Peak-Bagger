@@ -70,16 +70,29 @@ class MapRouteRobot {
       find.byKey(const Key('route-draft-delete-popup'));
   Finder get routeDraftDeleteAction =>
       find.byKey(const Key('route-draft-delete-action'));
+  Finder get routeGraphOverlayRoot =>
+      find.byKey(const Key('route-graph-overlay-root'));
+  Finder get routeControlsOverlayRoot =>
+      find.byKey(const Key('route-controls-overlay-root'));
   Finder get routeDistanceText => find.byKey(const Key('route-distance-text'));
   Finder get routeAscentText => find.byKey(const Key('route-ascent-text'));
   Finder get routeDescentText => find.byKey(const Key('route-descent-text'));
   Finder get routeElevationErrorText =>
       find.byKey(const Key('route-elevation-error-text'));
-  Finder get routeBottomSheet => find.byKey(const Key('route-bottom-sheet'));
   Finder routeDraftMarkerHitbox(String markerId) =>
       find.byKey(Key('route-draft-marker-hitbox-$markerId'));
   Finder peakMarkerHitbox(int peakOsmId) =>
       find.byKey(Key('peak-marker-hitbox-$peakOsmId'));
+
+  void expectRouteDraftOverlaysVisible() {
+    expect(routeGraphOverlayRoot, findsOneWidget);
+    expect(routeControlsOverlayRoot, findsOneWidget);
+  }
+
+  void expectRouteDraftOverlaysHidden() {
+    expect(routeGraphOverlayRoot, findsNothing);
+    expect(routeControlsOverlayRoot, findsNothing);
+  }
 
   Future<void> pumpApp() async {
     await tester.binding.setSurfaceSize(const Size(1600, 900));
@@ -133,6 +146,21 @@ class MapRouteRobot {
 
   Future<void> enterRouteMode() async {
     await tester.tap(createRouteFab);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> selectRouteMode(RouteMode mode) async {
+    container().read(mapProvider.notifier).setRouteDraftMode(mode);
+    await tester.pump();
+  }
+
+  Future<void> applyOutAndBack() async {
+    container().read(mapProvider.notifier).applyRouteDraftOutAndBack();
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> applyCloseLoop() async {
+    container().read(mapProvider.notifier).applyRouteDraftCloseLoop();
     await tester.pumpAndSettle();
   }
 

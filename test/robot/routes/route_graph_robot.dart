@@ -29,7 +29,8 @@ class RouteGraphRobot {
   Finder get routeErrorText => find.byKey(const Key('route-error-text'));
   Finder get routeRetryButton => find.byKey(const Key('route-retry-button'));
   Finder get routeDistanceText => find.byKey(const Key('route-distance-text'));
-  Finder get routeBottomSheet => find.byKey(const Key('route-bottom-sheet'));
+  Finder get routeGraphOverlayRoot => _robot.routeGraphOverlayRoot;
+  Finder get routeControlsOverlayRoot => _robot.routeControlsOverlayRoot;
   Finder get routeSaveButton => find.byKey(const Key('route-save-button'));
 
   Future<void> pumpApp() => _robot.pumpApp();
@@ -43,6 +44,12 @@ class RouteGraphRobot {
   Future<void> enterRouteName(String value) => _robot.enterRouteName(value);
 
   Future<void> saveRoute() => _robot.saveRoute();
+
+  void expectRouteDraftOverlaysVisible() =>
+      _robot.expectRouteDraftOverlaysVisible();
+
+  void expectRouteDraftOverlaysHidden() =>
+      _robot.expectRouteDraftOverlaysHidden();
 
   Future<void> tapRetry() async {
     await tester.tap(routeRetryButton);

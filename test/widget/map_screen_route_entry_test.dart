@@ -28,6 +28,18 @@ import 'package:trip_routing/trip_routing.dart' as trip_routing;
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
+  final routeGraphOverlayRoot = find.byKey(
+    const Key('route-graph-overlay-root'),
+  );
+  final routeControlsOverlayRoot = find.byKey(
+    const Key('route-controls-overlay-root'),
+  );
+
+  void expectRouteDraftOverlaysVisible() {
+    expect(routeGraphOverlayRoot, findsOneWidget);
+    expect(routeControlsOverlayRoot, findsOneWidget);
+  }
+
   testWidgets('create route opens the draft sheet from the map shell', (
     tester,
   ) async {
@@ -44,7 +56,7 @@ void main() {
     final state = _container(tester).read(mapProvider);
     expect(state.isRouteDrafting, isTrue);
     expect(state.selectedLocation, isNotNull);
-    expect(find.byKey(const Key('route-bottom-sheet')), findsOneWidget);
+    expectRouteDraftOverlaysVisible();
   });
 
   testWidgets('create route stays enabled while preload is pending', (
@@ -108,7 +120,7 @@ void main() {
 
     final state = _container(tester).read(mapProvider);
     expect(state.isRouteDrafting, isTrue);
-    expect(find.byKey(const Key('route-bottom-sheet')), findsOneWidget);
+    expectRouteDraftOverlaysVisible();
   });
 
   testWidgets('hidden-branch requestCameraMove preserves selected location and peaks', (

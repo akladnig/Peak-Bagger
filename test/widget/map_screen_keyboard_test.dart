@@ -20,6 +20,18 @@ import '../harness/test_ready_route_graph_store.dart';
 import '../harness/test_tasmap_notifier.dart';
 import '../harness/test_tasmap_repository.dart';
 
+final routeGraphOverlayRoot = find.byKey(
+  const Key('route-graph-overlay-root'),
+);
+final routeControlsOverlayRoot = find.byKey(
+  const Key('route-controls-overlay-root'),
+);
+
+void expectRouteDraftOverlaysVisible() {
+  expect(routeGraphOverlayRoot, findsOneWidget);
+  expect(routeControlsOverlayRoot, findsOneWidget);
+}
+
 void main() {
   testWidgets('keyboard zoom shortcut commits once immediately', (tester) async {
     final notifier = _CountingKeyboardMapNotifier(
@@ -340,7 +352,7 @@ void main() {
 
     expect(container.read(mapProvider).routeDraftNameFieldFocused, isTrue);
     expect(find.byKey(const Key('basemaps-drawer')), findsNothing);
-    expect(find.byKey(const Key('route-bottom-sheet')), findsOneWidget);
+    expectRouteDraftOverlaysVisible();
 
     await tester.tap(find.byKey(const Key('route-cancel-button')));
     await tester.pumpAndSettle();
@@ -499,7 +511,7 @@ void main() {
 
     expect(find.text('Basemaps'), findsNothing);
     expect(container.read(mapProvider).isRouteDrafting, isTrue);
-    expect(find.byKey(const Key('route-bottom-sheet')), findsOneWidget);
+    expectRouteDraftOverlaysVisible();
   });
 
   testWidgets('tapping the map sets the selected marker', (tester) async {

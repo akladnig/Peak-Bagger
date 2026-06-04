@@ -38,6 +38,23 @@ import '../harness/test_tasmap_repository.dart';
 import '../harness/test_map_notifier.dart';
 
 void main() {
+  final routeGraphOverlayRoot = find.byKey(
+    const Key('route-graph-overlay-root'),
+  );
+  final routeControlsOverlayRoot = find.byKey(
+    const Key('route-controls-overlay-root'),
+  );
+
+  void expectRouteDraftOverlaysVisible() {
+    expect(routeGraphOverlayRoot, findsOneWidget);
+    expect(routeControlsOverlayRoot, findsOneWidget);
+  }
+
+  void expectRouteDraftOverlaysHidden() {
+    expect(routeGraphOverlayRoot, findsNothing);
+    expect(routeControlsOverlayRoot, findsNothing);
+  }
+
   testWidgets('create route opens draft sheet and clears selection state', (
     tester,
   ) async {
@@ -66,7 +83,7 @@ void main() {
     expect(state.selectedLocation, const LatLng(-41.6, 146.6));
     expect(state.selectedTrackId, isNull);
 
-    expect(find.byKey(const Key('route-bottom-sheet')), findsOneWidget);
+    expectRouteDraftOverlaysVisible();
     expect(find.byKey(const Key('route-name-field')), findsOneWidget);
     expect(find.text('Tap a point to start routing'), findsOneWidget);
     expect(find.byKey(const Key('route-mode-snap-to-trail')), findsOneWidget);
@@ -106,7 +123,9 @@ void main() {
         overrides: [mapProvider.overrideWith(() => notifier)],
         child: const MaterialApp(
           home: Scaffold(
-            body: Center(child: SizedBox(width: 640, child: MapRouteBottomSheet())),
+            body: Center(
+              child: SizedBox(width: 640, child: RouteDraftGraphOverlay()),
+            ),
           ),
         ),
       ),
@@ -627,7 +646,7 @@ void main() {
     expect(state.isRouteDrafting, isFalse);
     expect(state.routeDraftName, isEmpty);
     expect(state.routeDraftMarkers, isEmpty);
-    expect(find.byKey(const Key('route-bottom-sheet')), findsNothing);
+    expectRouteDraftOverlaysHidden();
   });
 
   testWidgets('route taps append temporary markers and stay isolated', (
@@ -1057,7 +1076,7 @@ void main() {
     await tester.tap(find.byKey(const Key('route-save-button')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('route-bottom-sheet')), findsNothing);
+    expectRouteDraftOverlaysHidden();
     final savedRoutes = routeRepository.getAllRoutes();
     expect(savedRoutes, hasLength(1));
     expect(savedRoutes.single.name, 'Ridge Loop');
@@ -1131,7 +1150,7 @@ void main() {
     await tester.tap(find.byKey(const Key('route-save-button')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('route-bottom-sheet')), findsOneWidget);
+    expectRouteDraftOverlaysVisible();
     expect(find.byKey(const Key('route-save-button')), findsOneWidget);
   });
 
@@ -1273,7 +1292,7 @@ void main() {
     await tester.tap(fab);
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('route-bottom-sheet')), findsOneWidget);
+    expectRouteDraftOverlaysVisible();
     expect(fab, findsNothing);
   });
 

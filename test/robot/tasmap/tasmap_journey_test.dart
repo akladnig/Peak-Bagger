@@ -90,7 +90,8 @@ void main() {
     expect(container.read(mapProvider).showInfoPopup, isFalse);
     expect(container.read(mapProvider).showPeakSearch, isFalse);
     expect(container.read(mapProvider).isRouteDrafting, isTrue);
-    expect(find.byKey(const Key('route-bottom-sheet')), findsOneWidget);
+    expect(find.byKey(const Key('route-graph-overlay-root')), findsOneWidget);
+    expect(find.byKey(const Key('route-controls-overlay-root')), findsOneWidget);
     expect(robot.mapActionToolsGroup, findsNothing);
     expect(robot.mapActionLocationGroup, findsNothing);
     expect(robot.createRouteFab, findsNothing);

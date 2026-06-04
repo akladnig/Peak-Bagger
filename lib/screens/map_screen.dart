@@ -132,6 +132,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
   bool _hasPendingCameraSave = false;
   String? _dragFrozenReadoutMgrs;
   String? _dragFrozenReadoutMapName;
+  OverlayEntry? _routeGraphOverlayEntry;
+  bool _routeDraftOverlayVisible = false;
+  bool _routeDraftOverlaySyncScheduled = false;
   int? _cachedTrackHoverViewportRevision;
   int? _cachedTrackHoverDisplayZoom;
   List<GpxTrack>? _cachedTrackHoverTracks;
@@ -468,9 +471,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     required int? hoveredTrackId,
     required int? hoveredRouteId,
   }) async {
-    if (hoveredTrackId != null ||
-        hoveredRouteId != null ||
-        !mounted) {
+    if (hoveredTrackId != null || hoveredRouteId != null || !mounted) {
       return false;
     }
 
@@ -523,12 +524,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
         stackTrace: stackTrace,
       );
       _driveEtaClickConsumed = true;
-      ref.read(mapProvider.notifier).openDriveEtaPopupError(
-        requestId: ++_driveEtaRequestId,
-        anchor: tappedLocation,
-        title: 'Drive ETA',
-        message: 'Route graph data is unavailable.',
-      );
+      ref
+          .read(mapProvider.notifier)
+          .openDriveEtaPopupError(
+            requestId: ++_driveEtaRequestId,
+            anchor: tappedLocation,
+            title: 'Drive ETA',
+            message: 'Route graph data is unavailable.',
+          );
       return true;
     }
   }
@@ -548,24 +551,31 @@ class _MapScreenState extends ConsumerState<MapScreen>
       if (!mounted) {
         return;
       }
-      ref.read(mapProvider.notifier).showDriveEtaPopupSuccess(
-        requestId: requestId,
-        distanceMeters: summary.distanceMeters,
-        durationSeconds: summary.durationSeconds,
-      );
+      ref
+          .read(mapProvider.notifier)
+          .showDriveEtaPopupSuccess(
+            requestId: requestId,
+            distanceMeters: summary.distanceMeters,
+            durationSeconds: summary.durationSeconds,
+          );
     } catch (error, stackTrace) {
-      debugPrintStack(label: 'Drive ETA failed: $error', stackTrace: stackTrace);
+      debugPrintStack(
+        label: 'Drive ETA failed: $error',
+        stackTrace: stackTrace,
+      );
       if (!mounted) {
         return;
       }
-      ref.read(mapProvider.notifier).showDriveEtaPopupError(
-        requestId: requestId,
-        message: switch (error) {
-          LiveLocationException(:final message) => message,
-          OpenRouteServiceException(:final message) => message,
-          _ => 'Drive ETA unavailable.',
-        },
-      );
+      ref
+          .read(mapProvider.notifier)
+          .showDriveEtaPopupError(
+            requestId: requestId,
+            message: switch (error) {
+              LiveLocationException(:final message) => message,
+              OpenRouteServiceException(:final message) => message,
+              _ => 'Drive ETA unavailable.',
+            },
+          );
     }
   }
 
@@ -1487,6 +1497,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   @override
   void dispose() {
     _mapChartHoverNotifier.clear();
+    _removeRouteDraftOverlays();
     _pendingCameraSaveTimer?.cancel();
     _pendingCameraSaveTimer = null;
     _hasPendingCameraSave = false;
@@ -1499,6 +1510,60 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _mapFocusNode.dispose();
     _viewportUiRevision.dispose();
     super.dispose();
+  }
+
+  void _scheduleRouteDraftOverlaySync(bool isRouteDrafting) {
+    if (_routeDraftOverlaySyncScheduled) {
+      return;
+    }
+
+    final overlaysReady = _routeGraphOverlayEntry != null;
+    if (isRouteDrafting == _routeDraftOverlayVisible &&
+        (isRouteDrafting ? overlaysReady : !_routeDraftOverlayVisible)) {
+      return;
+    }
+
+    _routeDraftOverlaySyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _routeDraftOverlaySyncScheduled = false;
+      if (!mounted) {
+        return;
+      }
+      _syncRouteDraftOverlays(
+        isRouteDrafting: ref.read(mapProvider).isRouteDrafting,
+      );
+    });
+  }
+
+  void _syncRouteDraftOverlays({required bool isRouteDrafting}) {
+    final overlay = Overlay.maybeOf(context, rootOverlay: true);
+    if (overlay == null) {
+      return;
+    }
+
+    if (!isRouteDrafting) {
+      _removeRouteDraftOverlays();
+      return;
+    }
+
+    _routeDraftOverlayVisible = true;
+    if (_routeGraphOverlayEntry == null) {
+      _routeGraphOverlayEntry = OverlayEntry(
+        builder: (context) => const Positioned(
+          key: Key('route-graph-overlay-root'),
+          left: UiConstants.sideMenuColumnWidth + 32,
+          bottom: 16,
+          child: RouteDraftGraphOverlay(),
+        ),
+      );
+      overlay.insert(_routeGraphOverlayEntry!);
+    }
+  }
+
+  void _removeRouteDraftOverlays() {
+    _routeGraphOverlayEntry?.remove();
+    _routeGraphOverlayEntry = null;
+    _routeDraftOverlayVisible = false;
   }
 
   @override
@@ -1850,6 +1915,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                         _mapFocusNode.requestFocus();
                       });
                     }
+                    _scheduleRouteDraftOverlaySync(
+                      routeDraftVisibility.isRouteDrafting,
+                    );
                     _wasRouteDrafting = routeDraftVisibility.isRouteDrafting;
                     ref.watch(
                       tasmapStateProvider.select(
@@ -2180,12 +2248,15 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               ?.requestId;
                                           if (clickTrackId == null &&
                                               clickRouteId == null) {
-                                            final etaConsumed = await _handleDriveEtaClick(
-                                              localPosition: event.localPosition,
-                                              tappedLocation: tappedLocation,
-                                              hoveredTrackId: clickTrackId,
-                                              hoveredRouteId: clickRouteId,
-                                            );
+                                            final etaConsumed =
+                                                await _handleDriveEtaClick(
+                                                  localPosition:
+                                                      event.localPosition,
+                                                  tappedLocation:
+                                                      tappedLocation,
+                                                  hoveredTrackId: clickTrackId,
+                                                  hoveredRouteId: clickRouteId,
+                                                );
                                             if (etaConsumed) {
                                               return;
                                             }
@@ -2194,7 +2265,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               .read(mapProvider)
                                               .driveEtaPopup
                                               ?.requestId;
-                                          if (currentDriveEtaRequestId != null &&
+                                          if (currentDriveEtaRequestId !=
+                                                  null &&
                                               currentDriveEtaRequestId !=
                                                   previousDriveEtaRequestId) {
                                             return;
@@ -2574,7 +2646,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                 if (showMapReadouts)
                                   Positioned(
                                     left: 16,
-                                    bottom: 16,
+                                    bottom: routeChrome.isRouteDrafting
+                                        ? 16 + RouteConstants.sheetHeight + 16
+                                        : 16,
                                     child: IgnorePointer(
                                       child: MapZoomReadout(
                                         zoom: displayZoom,
@@ -2728,14 +2802,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     );
                   },
                 ),
+                MapActionRail(onCreateRoute: _beginRouteDraft),
                 if (routeChrome.isRouteDrafting)
                   const Positioned(
-                    left: 0,
-                    right: 88,
-                    bottom: 0,
-                    child: MapRouteBottomSheet(),
+                    key: Key('route-controls-overlay-root'),
+                    right: UiConstants.actionsColumnWidth,
+                    bottom: 16,
+                    child: RouteDraftControlsOverlay(),
                   ),
-                MapActionRail(onCreateRoute: _beginRouteDraft),
                 if (routeChrome.showPeakSearch)
                   Positioned(
                     right: 72,
