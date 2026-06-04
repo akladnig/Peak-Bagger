@@ -481,10 +481,14 @@ bool isRouteGraphDriveEtaWayMetadata({
 }
 
 const _driveEtaAllowedHighways = <String>{
+  'primary',
+  'primary_link',
   'secondary',
+  'tertiary_link',
   'tertiary',
   'unclassified',
   'residential',
+  'living_street',
   'motorway',
   'motorway_link',
   'service',

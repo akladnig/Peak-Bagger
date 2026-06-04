@@ -282,6 +282,50 @@ void main() {
               tagCount: 2,
             ),
             _wayRow(
+              recordKey: '1|0_0|14',
+              chunkKey: '0_0',
+              osmWayId: 14,
+              highway: 'primary',
+              access: 'public',
+              name: 'Allowed Primary Road',
+              normalizedName: 'allowed primary road',
+              lengthMeters: 300,
+              tagCount: 2,
+            ),
+            _wayRow(
+              recordKey: '1|0_0|15',
+              chunkKey: '0_0',
+              osmWayId: 15,
+              highway: 'primary_link',
+              access: 'public',
+              name: 'Allowed Primary Link',
+              normalizedName: 'allowed primary link',
+              lengthMeters: 300,
+              tagCount: 2,
+            ),
+            _wayRow(
+              recordKey: '1|0_0|16',
+              chunkKey: '0_0',
+              osmWayId: 16,
+              highway: 'tertiary_link',
+              access: 'public',
+              name: 'Allowed Tertiary Link',
+              normalizedName: 'allowed tertiary link',
+              lengthMeters: 300,
+              tagCount: 2,
+            ),
+            _wayRow(
+              recordKey: '1|0_0|17',
+              chunkKey: '0_0',
+              osmWayId: 17,
+              highway: 'living_street',
+              access: 'public',
+              name: 'Allowed Living Street',
+              normalizedName: 'allowed living street',
+              lengthMeters: 300,
+              tagCount: 2,
+            ),
+            _wayRow(
               recordKey: '1|0_0|11',
               chunkKey: '0_0',
               osmWayId: 11,
@@ -327,7 +371,7 @@ void main() {
       maxLon: 146.8,
     );
 
-    expect(rows.map((row) => row.osmWayId), [10]);
+    expect(rows.map((row) => row.osmWayId), [10, 14, 15, 16, 17]);
   });
 
   test('queryTrailMergedPayloadsForBounds merges trail chunks only', () {
