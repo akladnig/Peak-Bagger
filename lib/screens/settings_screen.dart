@@ -7,6 +7,7 @@ import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
+import 'package:peak_bagger/providers/open_route_service_api_key_provider.dart';
 import 'package:peak_bagger/providers/peak_csv_export_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_list_csv_export_provider.dart';
@@ -66,6 +67,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final mapState = ref.watch(mapProvider);
     final filterState = ref.watch(gpxFilterSettingsProvider);
+    final openRouteServiceApiKey = ref.watch(openRouteServiceApiKeyProvider);
     final showPeakInfo = ref.watch(peakMarkerInfoSettingsProvider);
     final peakCorrelationState = ref.watch(peakCorrelationSettingsProvider);
     final routeGraphReadiness = ref.watch(routeGraphReadinessProvider);
@@ -101,6 +103,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       );
                     },
+            ),
+            ListTile(
+              key: const Key('open-route-service-api-key-tile'),
+              leading: const Icon(Icons.key),
+              title: const Text('OpenRouteService API Key'),
+              subtitle: Text(_describeOpenRouteServiceApiKey(openRouteServiceApiKey)),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _editOpenRouteServiceApiKey,
             ),
             ListTile(
               key: const Key('refresh-peak-data-tile'),
@@ -314,6 +324,46 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       setState(() {
         _status = '';
       });
+    }
+  }
+
+  Future<void> _editOpenRouteServiceApiKey() async {
+    final controller = TextEditingController(
+      text: ref.read(openRouteServiceApiKeyProvider),
+    );
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('OpenRouteService API Key'),
+          content: TextField(
+            key: const Key('open-route-service-api-key-field'),
+            controller: controller,
+            decoration: const InputDecoration(
+              labelText: 'API key',
+              border: OutlineInputBorder(),
+            ),
+            maxLines: 2,
+          ),
+          actions: [
+            TextButton(
+              key: const Key('open-route-service-api-key-cancel'),
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              key: const Key('open-route-service-api-key-save'),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+    if (shouldSave == true) {
+      await ref
+          .read(openRouteServiceApiKeyProvider.notifier)
+          .setApiKey(controller.text.trim());
     }
   }
 
@@ -1138,6 +1188,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   String _describeFilterConfig(GpxFilterConfig config) {
     return 'Outlier Filter: ${_describeOutlierFilter(config.outlierFilter)} • Elevation smoother: ${_describeElevationSmoother(config.elevationSmoother)} • Position smoother: ${_describePositionSmoother(config.positionSmoother)}';
+  }
+
+  String _describeOpenRouteServiceApiKey(String value) {
+    if (value.trim().isEmpty) {
+      return 'Not configured';
+    }
+    if (value.length <= 8) {
+      return 'Configured';
+    }
+    final suffix = value.substring(value.length - 4);
+    return 'Configured (...$suffix)';
   }
 
   String _describeOutlierFilter(GpxTrackOutlierFilter value) {

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:peak_bagger/providers/open_route_service_api_key_provider.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/route_planner_provider.dart';
 import 'package:peak_bagger/services/live_location_service.dart';
@@ -12,7 +13,7 @@ final liveLocationServiceProvider = Provider<LiveLocationService>((ref) {
 
 final openRouteServiceProvider = Provider<OpenRouteService>((ref) {
   return HttpOpenRouteService(
-    apiKey: const String.fromEnvironment('OPENROUTESERVICE_API_KEY'),
+    apiKey: ref.watch(openRouteServiceApiKeyProvider),
   );
 });
 
