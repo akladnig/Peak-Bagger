@@ -47,6 +47,16 @@ class GpxTrackStatistics {
 
 class GpxTrackStatisticsCalculator {
   static const _distance = Distance();
+  static const _entryNetDisplacementMeters = 5.0;
+  static const _entryMaxRadiusMeters = 10.0;
+  static const _entryPathLengthMeters = 15.0;
+  static const _entrySpeedMetersPerSecond = 0.2;
+  static const _exitNetDisplacementMeters = 8.0;
+  static const _exitMaxRadiusMeters = 12.0;
+  static const _exitPathLengthMeters = 20.0;
+  static const _exitSpeedMetersPerSecond = 0.3;
+  static const _minimumRestDurationSeconds = 60;
+  static const _exitFailureCountToClose = 2;
 
   GpxTrackStatistics calculate(String gpxXml) {
     try {
@@ -297,8 +307,7 @@ class GpxTrackStatisticsCalculator {
     ) {
       final segment = parseableSegments[segmentIndex];
       if (segment.length >= 2) {
-        var inRestCluster = false;
-        var restClusterSeconds = 0;
+        restingDurationSeconds += _calculateRestingDuration(segment);
 
         for (
           var pointIndex = 0;
@@ -315,34 +324,6 @@ class GpxTrackStatisticsCalculator {
           }
 
           totalDurationSeconds += dtSeconds;
-
-          final distanceMeters = _distance.as(
-            LengthUnit.Meter,
-            current.location,
-            next.location,
-          );
-          final speedMetersPerSecond = distanceMeters / dtSeconds;
-          final isRestCandidate = inRestCluster
-              ? speedMetersPerSecond <= 0.5 && distanceMeters <= 10
-              : speedMetersPerSecond <= 0.3 && distanceMeters <= 10;
-
-          if (isRestCandidate) {
-            inRestCluster = true;
-            restClusterSeconds += dtSeconds;
-            continue;
-          }
-
-          if (inRestCluster) {
-            if (restClusterSeconds >= 60) {
-              restingDurationSeconds += restClusterSeconds;
-            }
-            restClusterSeconds = 0;
-            inRestCluster = false;
-          }
-        }
-
-        if (inRestCluster && restClusterSeconds >= 60) {
-          restingDurationSeconds += restClusterSeconds;
         }
       }
 
@@ -368,6 +349,158 @@ class GpxTrackStatisticsCalculator {
       movingTime: totalTimeMillis - restingTime,
       restingTime: restingTime,
       pausedTime: pausedTime,
+    );
+  }
+
+  int _calculateRestingDuration(List<_TrackPoint> segment) {
+    final clusterPoints = <_TrackPoint>[segment.first];
+    var clusterActive = false;
+    var exitFailureCount = 0;
+    var restingDurationSeconds = 0;
+
+    for (var pointIndex = 0; pointIndex < segment.length - 1; pointIndex++) {
+      final current = segment[pointIndex];
+      final next = segment[pointIndex + 1];
+      final dtSeconds = next.timeUtc!.difference(current.timeUtc!).inSeconds;
+      if (dtSeconds <= 0) {
+        continue;
+      }
+
+      final candidatePoints = [...clusterPoints, next];
+      final candidateMetrics = _stationaryMetrics(candidatePoints);
+
+      if (!clusterActive) {
+        if (_meetsEntryThresholds(candidateMetrics)) {
+          clusterPoints.add(next);
+          if (candidateMetrics.durationSeconds >= _minimumRestDurationSeconds) {
+            clusterActive = true;
+            exitFailureCount = 0;
+          }
+        } else {
+          clusterPoints
+            ..clear()
+            ..add(next);
+          clusterActive = false;
+          exitFailureCount = 0;
+        }
+        continue;
+      }
+
+      if (_meetsExitThresholds(candidateMetrics)) {
+        clusterPoints.add(next);
+        exitFailureCount = 0;
+        continue;
+      }
+
+      exitFailureCount += 1;
+      if (exitFailureCount < _exitFailureCountToClose) {
+        clusterPoints.add(next);
+        continue;
+      }
+
+      restingDurationSeconds += candidateMetrics.durationSeconds - dtSeconds;
+      clusterPoints
+        ..clear()
+        ..add(next);
+      clusterActive = false;
+      exitFailureCount = 0;
+    }
+
+    if (clusterActive) {
+      final clusterDurationSeconds = _stationaryMetrics(clusterPoints).durationSeconds;
+      if (clusterDurationSeconds >= _minimumRestDurationSeconds) {
+        restingDurationSeconds += clusterDurationSeconds;
+      }
+    }
+
+    return restingDurationSeconds;
+  }
+
+  bool _meetsEntryThresholds(_StationaryClusterMetrics metrics) {
+    return metrics.netDisplacementMeters <= _entryNetDisplacementMeters &&
+        metrics.maxRadiusMeters <= _entryMaxRadiusMeters &&
+        metrics.cumulativePathLengthMeters <= _entryPathLengthMeters &&
+        metrics.maxSpeedMetersPerSecond <= _entrySpeedMetersPerSecond;
+  }
+
+  bool _meetsExitThresholds(_StationaryClusterMetrics metrics) {
+    return metrics.netDisplacementMeters <= _exitNetDisplacementMeters &&
+        metrics.maxRadiusMeters <= _exitMaxRadiusMeters &&
+        metrics.cumulativePathLengthMeters <= _exitPathLengthMeters &&
+        metrics.maxSpeedMetersPerSecond <= _exitSpeedMetersPerSecond;
+  }
+
+  _StationaryClusterMetrics _stationaryMetrics(List<_TrackPoint> points) {
+    if (points.isEmpty) {
+      return const _StationaryClusterMetrics(
+        durationSeconds: 0,
+        netDisplacementMeters: 0,
+        maxRadiusMeters: 0,
+        cumulativePathLengthMeters: 0,
+        maxSpeedMetersPerSecond: 0,
+      );
+    }
+
+    final first = points.first;
+    final last = points.last;
+    final durationSeconds = last.timeUtc!.difference(first.timeUtc!).inSeconds;
+
+    var pathLengthMeters = 0.0;
+    var maxSpeedMetersPerSecond = 0.0;
+    var latSum = 0.0;
+    var lngSum = 0.0;
+
+    for (final point in points) {
+      latSum += point.location.latitude;
+      lngSum += point.location.longitude;
+    }
+
+    final centroid = LatLng(latSum / points.length, lngSum / points.length);
+
+    var maxRadiusMeters = 0.0;
+    for (var i = 0; i < points.length; i++) {
+      final point = points[i];
+      final radiusMeters = _distance.as(
+        LengthUnit.Meter,
+        centroid,
+        point.location,
+      );
+      maxRadiusMeters = math.max(maxRadiusMeters, radiusMeters);
+
+      if (i == 0) {
+        continue;
+      }
+
+      final previous = points[i - 1];
+      final dtSeconds = point.timeUtc!.difference(previous.timeUtc!).inSeconds;
+      if (dtSeconds <= 0) {
+        continue;
+      }
+
+      final legDistanceMeters = _distance.as(
+        LengthUnit.Meter,
+        previous.location,
+        point.location,
+      );
+      pathLengthMeters += legDistanceMeters;
+      maxSpeedMetersPerSecond = math.max(
+        maxSpeedMetersPerSecond,
+        legDistanceMeters / dtSeconds,
+      );
+    }
+
+    final netDisplacementMeters = _distance.as(
+      LengthUnit.Meter,
+      first.location,
+      last.location,
+    );
+
+    return _StationaryClusterMetrics(
+      durationSeconds: durationSeconds,
+      netDisplacementMeters: netDisplacementMeters,
+      maxRadiusMeters: maxRadiusMeters,
+      cumulativePathLengthMeters: pathLengthMeters,
+      maxSpeedMetersPerSecond: maxSpeedMetersPerSecond,
     );
   }
 
@@ -475,6 +608,22 @@ class _TrackPoint {
   final double? elevation;
   final DateTime? timeUtc;
   final DateTime? timeLocal;
+}
+
+class _StationaryClusterMetrics {
+  const _StationaryClusterMetrics({
+    required this.durationSeconds,
+    required this.netDisplacementMeters,
+    required this.maxRadiusMeters,
+    required this.cumulativePathLengthMeters,
+    required this.maxSpeedMetersPerSecond,
+  });
+
+  final int durationSeconds;
+  final double netDisplacementMeters;
+  final double maxRadiusMeters;
+  final double cumulativePathLengthMeters;
+  final double maxSpeedMetersPerSecond;
 }
 
 class _TimeStats {

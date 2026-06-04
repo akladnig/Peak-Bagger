@@ -1303,6 +1303,116 @@ void main() {
       },
     );
 
+    test('does not count slow walking as rest', () {
+      final gpx = _statsGpx('Slow Walk', [
+        [
+          _StatsPoint(-42.0, 146.0, 100, DateTime.utc(2024, 1, 15, 8, 0, 0)),
+          _StatsPoint(
+            -41.999964,
+            146.0,
+            100,
+            DateTime.utc(2024, 1, 15, 8, 0, 30),
+          ),
+          _StatsPoint(
+            -41.999928,
+            146.0,
+            100,
+            DateTime.utc(2024, 1, 15, 8, 1, 0),
+          ),
+          _StatsPoint(
+            -41.999892,
+            146.0,
+            100,
+            DateTime.utc(2024, 1, 15, 8, 1, 30),
+          ),
+        ],
+      ]);
+
+      final stats = calculator.calculate(gpx);
+
+      expect(stats.totalTimeMillis, 90000);
+      expect(stats.restingTime, 0);
+      expect(stats.movingTime, 90000);
+    });
+
+    test('counts jitter inside a true stop as rest', () {
+      final gpx = _statsGpx('Jitter Stop', [
+        [
+          _StatsPoint(-42.0, 146.0, 100, DateTime.utc(2024, 1, 15, 8, 0, 0)),
+          _StatsPoint(
+            -42.000010,
+            146.000008,
+            100,
+            DateTime.utc(2024, 1, 15, 8, 0, 30),
+          ),
+          _StatsPoint(
+            -41.999995,
+            146.000014,
+            100,
+            DateTime.utc(2024, 1, 15, 8, 1, 0),
+          ),
+          _StatsPoint(
+            -42.000008,
+            146.000006,
+            100,
+            DateTime.utc(2024, 1, 15, 8, 1, 30),
+          ),
+        ],
+      ]);
+
+      final stats = calculator.calculate(gpx);
+
+      expect(stats.restingTime, 90000);
+      expect(stats.movingTime, 0);
+    });
+
+    test('uses hysteresis to avoid flapping at the boundary', () {
+      final gpx = _statsGpx('Boundary Stop', [
+        [
+          _StatsPoint(-42.0, 146.0, 100, DateTime.utc(2024, 1, 15, 8, 0, 0)),
+          _StatsPoint(-42.0, 146.0, 100, DateTime.utc(2024, 1, 15, 8, 0, 30)),
+          _StatsPoint(-42.0, 146.0, 100, DateTime.utc(2024, 1, 15, 8, 1, 0)),
+          _StatsPoint(
+            -41.999920,
+            146.0,
+            100,
+            DateTime.utc(2024, 1, 15, 8, 1, 30),
+          ),
+          _StatsPoint(
+            -41.999840,
+            146.0,
+            100,
+            DateTime.utc(2024, 1, 15, 8, 2, 0),
+          ),
+        ],
+      ]);
+
+      final stats = calculator.calculate(gpx);
+
+      expect(stats.totalTimeMillis, 120000);
+      expect(stats.restingTime, 90000);
+      expect(stats.movingTime, 30000);
+    });
+
+    test('matches the Acropolis paused and rest targets', () {
+      final gpx = File('test/fixtures/acropolis_(10-03-2025).gpx')
+          .readAsStringSync();
+      final stats = calculator.calculate(gpx);
+
+      expect(stats.pausedTime, 29 * 60 * 1000);
+      expect(stats.restingTime, 25 * 60 * 1000 + 5 * 1000);
+      expect(stats.restingTime + stats.pausedTime, 54 * 60 * 1000 + 5 * 1000);
+    });
+
+    test('matches the Mt Wellington Loop stopped-time target', () {
+      final gpx = File('test/fixtures/mt-wellington-loop_(04-03-2025).gpx')
+          .readAsStringSync();
+      final stats = calculator.calculate(gpx);
+
+      expect(stats.restingTime, 38 * 60 * 1000 + 20 * 1000);
+      expect(stats.pausedTime, 0);
+    });
+
     test(
       'skips missing timestamps and keeps remaining parseable intervals',
       () {
