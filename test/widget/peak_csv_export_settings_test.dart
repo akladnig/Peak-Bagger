@@ -20,11 +20,6 @@ void main() {
     tester,
   ) async {
     Finder tile(String key) => find.byKey(Key(key), skipOffstage: false);
-    final settingsScrollable = find.descendant(
-      of: find.byKey(const Key('settings-scrollable')),
-      matching: find.byType(Scrollable),
-    );
-
     final repository = await TestTasmapRepository.create();
     final completer = Completer<PeakCsvExportResult>();
     var exportCalls = 0;
@@ -63,8 +58,14 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const Key('export-peak-data-tile')),
       200,
-      scrollable: settingsScrollable,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('settings-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
+    await tester.pump();
 
     await tester.tap(find.byKey(const Key('export-peak-data-tile')));
     await tester.pump();
@@ -73,8 +74,14 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const Key('peak-export-status')),
       200,
-      scrollable: settingsScrollable,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('settings-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
+    await tester.pump();
 
     expect(exportCalls, 1);
     expect(
@@ -129,11 +136,6 @@ void main() {
 
   testWidgets('export peak data shows failure state', (tester) async {
     Finder tile(String key) => find.byKey(Key(key), skipOffstage: false);
-    final settingsScrollable = find.descendant(
-      of: find.byKey(const Key('settings-scrollable')),
-      matching: find.byType(Scrollable),
-    );
-
     final repository = await TestTasmapRepository.create();
     final notifier = TestPeakNotifier(
       MapState(
@@ -167,8 +169,14 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const Key('export-peak-data-tile')),
       200,
-      scrollable: settingsScrollable,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('settings-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
+    await tester.pump();
 
     await tester.tap(find.byKey(const Key('export-peak-data-tile')));
     await tester.pump();
@@ -177,8 +185,14 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const Key('peak-export-status')),
       200,
-      scrollable: settingsScrollable,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('settings-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
+    await tester.pump();
 
     expect(find.byKey(const Key('peak-export-status')), findsOneWidget);
     expect(find.textContaining('Export failed:'), findsOneWidget);

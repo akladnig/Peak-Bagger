@@ -16,6 +16,18 @@ void main() {
 
     await _pumpSettingsScreen(tester);
 
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('theme-mode-toggle-tile')),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('settings-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pump();
+
     expect(find.byKey(const Key('theme-mode-toggle-tile')), findsOneWidget);
     expect(find.byKey(const Key('theme-mode-toggle-switch')), findsOneWidget);
     expect(find.text('Theme'), findsOneWidget);
@@ -26,6 +38,18 @@ void main() {
     SharedPreferences.setMockInitialValues({});
 
     await _pumpSettingsScreen(tester);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('theme-mode-toggle-tile')),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('settings-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pump();
 
     expect(
       tester.widget<Switch>(find.byKey(const Key('theme-mode-toggle-switch'))).value,

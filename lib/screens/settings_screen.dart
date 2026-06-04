@@ -85,20 +85,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           key: const Key('settings-scrollable'),
           children: [
             ListTile(
-              key: const Key('theme-mode-toggle-tile'),
-              leading: const Icon(Icons.dark_mode),
-              title: const Text('Theme'),
-              subtitle: Text(
-                isDarkTheme ? 'Dark mode enabled' : 'Light mode enabled',
-              ),
-              trailing: Switch(
-                key: const Key('theme-mode-toggle-switch'),
-                value: isDarkTheme,
-                onChanged: (_) => ref.read(themeModeProvider.notifier).toggleTheme(),
-              ),
-              onTap: () => ref.read(themeModeProvider.notifier).toggleTheme(),
-            ),
-            ListTile(
               leading: const Icon(Icons.download),
               title: const Text('Map Tile Cache'),
               subtitle: const Text('Download and manage offline map tiles'),
@@ -260,9 +246,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                     ],
                   ],
-                ),
               ),
+            ),
             _buildTrackFilterSection(context, filterState),
+            ListTile(
+              key: const Key('theme-mode-toggle-tile'),
+              leading: const Icon(Icons.dark_mode),
+              title: const Text('Theme'),
+              subtitle: Text(
+                isDarkTheme ? 'Dark mode enabled' : 'Light mode enabled',
+              ),
+              trailing: Switch(
+                key: const Key('theme-mode-toggle-switch'),
+                value: isDarkTheme,
+                onChanged: (_) => ref.read(themeModeProvider.notifier).toggleTheme(),
+              ),
+              onTap: () => ref.read(themeModeProvider.notifier).toggleTheme(),
+            ),
             _buildPeakCorrelationSection(context, peakCorrelationState),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

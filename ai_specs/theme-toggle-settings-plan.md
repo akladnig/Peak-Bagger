@@ -10,14 +10,14 @@ Keep provider/persistence unchanged; just relocate UI + coverage.
 - **Structure**: screen-driven Flutter app; shell routes + settings list in `lib/screens`
 - **State management**: Riverpod `themeModeProvider` (`ThemeModeNotifier` + SharedPreferences)
 - **Reference implementations**: `lib/router.dart`, `lib/screens/settings_screen.dart`, `lib/providers/theme_provider.dart`, `test/widget/gpx_tracks_shell_test.dart`, `test/widget/open_route_service_settings_test.dart`
-- **Assumptions/Gaps**: binary dark/light toggle only; place near top of Settings; no system-mode UI change
+- **Assumptions/Gaps**: binary dark/light toggle only; place after track filter section to preserve above-the-fold layout; no system-mode UI change
 
 ## Plan
 
 ### Phase 1: Settings control
 
 - **Goal**: expose theme toggle inside settings
-- [x] `lib/screens/settings_screen.dart` - add theme row near top; read `themeModeProvider`; switch/tap toggles `toggleTheme()`; add stable key
+- [x] `lib/screens/settings_screen.dart` - add theme row after track filter section; read `themeModeProvider`; switch/tap toggles `toggleTheme()`; add stable key
 - [x] `test/widget/settings_screen_theme_test.dart` - TDD: row visible; tap flips mode; persisted mode reflected after pump/rebuild
 - [x] Verify: `flutter analyze` && `flutter test test/widget/settings_screen_theme_test.dart`
 
