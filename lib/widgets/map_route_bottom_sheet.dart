@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
@@ -38,15 +40,92 @@ _RouteModeVisualState _routeModeVisualState({
   return _RouteModeVisualState.inactive;
 }
 
-class MapRouteBottomSheet extends ConsumerStatefulWidget {
-  const MapRouteBottomSheet({super.key});
+class RouteDraftGraphOverlay extends ConsumerWidget {
+  const RouteDraftGraphOverlay({super.key});
 
   @override
-  ConsumerState<MapRouteBottomSheet> createState() =>
-      _MapRouteBottomSheetState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final (
+      :routeDraftStage,
+      :routeDraftDistanceMeters,
+      :routeDraftError,
+      :routeDraftFailureKind,
+      :routeDraftElevationSummary,
+      :routeDraftElevationLoading,
+      :routeDraftElevationError,
+      :routeDraftCommittedPoints,
+      :routeDraftPointElevations,
+    ) = ref.watch(
+      mapProvider.select(
+        (state) => (
+          routeDraftStage: state.routeDraftStage,
+          routeDraftDistanceMeters: state.routeDraftDistanceMeters,
+          routeDraftError: state.routeDraftError,
+          routeDraftFailureKind: state.routeDraftFailureKind,
+          routeDraftElevationSummary: state.routeDraftElevationSummary,
+          routeDraftElevationLoading: state.routeDraftElevationLoading,
+          routeDraftElevationError: state.routeDraftElevationError,
+          routeDraftCommittedPoints: state.routeDraftCommittedPoints,
+          routeDraftPointElevations: state.routeDraftPointElevations,
+        ),
+      ),
+    );
+
+    final theme = Theme.of(context);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = math.max(
+          320.0,
+          math.min(420.0, constraints.maxWidth * 0.35),
+        ).toDouble();
+
+        return Align(
+          alignment: Alignment.bottomLeft,
+          child: SizedBox(
+            width: width,
+            height: RouteConstants.sheetHeight,
+            child: Material(
+              elevation: 10,
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(20),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: _DistanceElevationGroup(
+                    routeDraftStage: routeDraftStage,
+                    routeDraftDistanceMeters: routeDraftDistanceMeters,
+                    routeDraftError: routeDraftError,
+                    routeDraftFailureKind: routeDraftFailureKind,
+                    routeDraftElevationSummary: routeDraftElevationSummary,
+                    routeDraftElevationLoading: routeDraftElevationLoading,
+                    routeDraftElevationError: routeDraftElevationError,
+                    routeDraftCommittedPoints: routeDraftCommittedPoints,
+                    routeDraftPointElevations: routeDraftPointElevations,
+                    onRetry:
+                        ref.read(mapProvider.notifier).retryRouteDraftSegment,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
-class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
+class RouteDraftControlsOverlay extends ConsumerStatefulWidget {
+  const RouteDraftControlsOverlay({super.key});
+
+  @override
+  ConsumerState<RouteDraftControlsOverlay> createState() =>
+      _RouteDraftControlsOverlayState();
+}
+
+class _RouteDraftControlsOverlayState
+    extends ConsumerState<RouteDraftControlsOverlay> {
   late final FocusNode _routeNameFocusNode;
   late final TextEditingController _routeNameController;
   late final MapNotifier _notifier;
@@ -94,13 +173,6 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
       :routeDraftMarkers,
       :routeDraftCommittedPoints,
       :routeDraftStage,
-      :routeDraftDistanceMeters,
-      :routeDraftError,
-      :routeDraftFailureKind,
-      :routeDraftElevationSummary,
-      :routeDraftElevationLoading,
-      :routeDraftElevationError,
-      :routeDraftPointElevations,
       :routeDraftColour,
       :isSavingRoute,
       :routeDraftCanUndo,
@@ -115,13 +187,6 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
           routeDraftMarkers: state.routeDraftMarkers,
           routeDraftCommittedPoints: state.routeDraftCommittedPoints,
           routeDraftStage: state.routeDraftStage,
-          routeDraftDistanceMeters: state.routeDraftDistanceMeters,
-          routeDraftError: state.routeDraftError,
-          routeDraftFailureKind: state.routeDraftFailureKind,
-          routeDraftElevationSummary: state.routeDraftElevationSummary,
-          routeDraftElevationLoading: state.routeDraftElevationLoading,
-          routeDraftElevationError: state.routeDraftElevationError,
-          routeDraftPointElevations: state.routeDraftPointElevations,
           routeDraftColour: state.routeDraftColour,
           isSavingRoute: state.isSavingRoute,
           routeDraftCanUndo: state.routeDraftCanUndo,
@@ -135,83 +200,51 @@ class _MapRouteBottomSheetState extends ConsumerState<MapRouteBottomSheet> {
     final routeMode = routeDraftMode;
 
     return Material(
-      key: const Key('route-bottom-sheet'),
       elevation: 10,
       color: theme.colorScheme.surface,
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      borderRadius: BorderRadius.circular(20),
       child: SafeArea(
         top: false,
-        child: SizedBox(
-          height: RouteConstants.sheetHeight,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: _DistanceElevationGroup(
-                          routeDraftStage: routeDraftStage,
-                          routeDraftDistanceMeters: routeDraftDistanceMeters,
-                          routeDraftError: routeDraftError,
-                          routeDraftFailureKind: routeDraftFailureKind,
-                          routeDraftElevationSummary:
-                              routeDraftElevationSummary,
-                          routeDraftElevationLoading:
-                              routeDraftElevationLoading,
-                          routeDraftElevationError: routeDraftElevationError,
-                          routeDraftCommittedPoints: routeDraftCommittedPoints,
-                          routeDraftPointElevations: routeDraftPointElevations,
-                          onRetry: notifier.retryRouteDraftSegment,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 3,
-                        child: Center(
-                          child: _RouteEditingGroup(
-                            routeDraftName: routeDraftName,
-                            routeDraftNameError: routeDraftNameError,
-                            routeDraftMode: routeMode,
-                            routeDraftStage: routeDraftStage,
-                            routeDraftPeak: routeDraftPeakTarget,
-                            routeDraftColour: routeDraftColour,
-                            routeDraftMarkers: routeDraftMarkers,
-                            routeDraftCommittedPoints:
-                                routeDraftCommittedPoints,
-                            isSavingRoute: isSavingRoute,
-                            routeNameController: _routeNameController,
-                            routeNameFocusNode: _routeNameFocusNode,
-                            onNameChanged: notifier.setRouteDraftName,
-                            onModeSelected: notifier.setRouteDraftMode,
-                            onOutAndBack: notifier.applyRouteDraftOutAndBack,
-                            onCloseLoop: notifier.applyRouteDraftCloseLoop,
-                            onUndo: notifier.undoRouteDraftEdit,
-                            onRedo: notifier.redoRouteDraftEdit,
-                            canUndo: routeDraftCanUndo,
-                            canRedo: routeDraftCanRedo,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      _RouteActionsGroup(
-                        onCancel: notifier.endRouteDraft,
-                        onSave: notifier.saveRouteDraft,
-                        canSave:
-                            routeDraftCommittedPoints.length >= 2 &&
-                            routeDraftName.trim().isNotEmpty &&
-                            routeDraftStage != RouteDraftStage.routingSegment &&
-                            !isSavingRoute,
-                        isSaving: isSavingRoute,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _RouteEditingGroup(
+                  routeDraftName: routeDraftName,
+                  routeDraftNameError: routeDraftNameError,
+                  routeDraftMode: routeMode,
+                  routeDraftStage: routeDraftStage,
+                  routeDraftPeak: routeDraftPeakTarget,
+                  routeDraftColour: routeDraftColour,
+                  routeDraftMarkers: routeDraftMarkers,
+                  routeDraftCommittedPoints: routeDraftCommittedPoints,
+                  isSavingRoute: isSavingRoute,
+                  routeNameController: _routeNameController,
+                  routeNameFocusNode: _routeNameFocusNode,
+                  onNameChanged: notifier.setRouteDraftName,
+                  onModeSelected: notifier.setRouteDraftMode,
+                  onOutAndBack: notifier.applyRouteDraftOutAndBack,
+                  onCloseLoop: notifier.applyRouteDraftCloseLoop,
+                  onUndo: notifier.undoRouteDraftEdit,
+                  onRedo: notifier.redoRouteDraftEdit,
+                  canUndo: routeDraftCanUndo,
+                  canRedo: routeDraftCanRedo,
+                ),
+                const SizedBox(width: 12),
+                _RouteActionsGroup(
+                  onCancel: notifier.endRouteDraft,
+                  onSave: notifier.saveRouteDraft,
+                  canSave:
+                      routeDraftCommittedPoints.length >= 2 &&
+                      routeDraftName.trim().isNotEmpty &&
+                      routeDraftStage != RouteDraftStage.routingSegment &&
+                      !isSavingRoute,
+                  isSaving: isSavingRoute,
+                ),
+              ],
             ),
           ),
         ),
@@ -448,146 +481,135 @@ class _RouteEditingGroup extends StatelessWidget {
     final routeToPeakAvailable =
         hasPeakTarget && routeDraftMarkers.isNotEmpty && !isClosedLoop;
 
-    return Column(
+    return Row(
       key: const Key('route-editing-group'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
+        Wrap(
+          spacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _RouteModeButton(
+              key: const Key('route-mode-straight-line'),
+              label: 'Straight Line',
+              visualState: _routeModeVisualState(
+                mode: RouteMode.straightLine,
+                selectedMode: routeDraftMode,
+                stage: routeDraftStage,
+                hasPeakTarget: hasPeakTarget,
+              ),
+              activeColor: routeModeActiveColor,
+              selectedColor: routeModeSelectedColor,
+              onPressed: isRouting
+                  ? null
+                  : () => onModeSelected(RouteMode.straightLine),
+            ),
+            _RouteActionButton(
+              buttonKey: const Key('route-mode-out-and-back'),
+              label: 'Out and Back',
+              icon: Icons.sync_alt,
+              enabled:
+                  routeDraftCommittedPoints.length >= 2 &&
+                  routeDraftCommittedPoints.first !=
+                      routeDraftCommittedPoints.last &&
+                  !isSavingRoute &&
+                  routeDraftStage != RouteDraftStage.routingSegment &&
+                  routeDraftStage != RouteDraftStage.segmentFailure,
+              onPressed: onOutAndBack,
+            ),
+            _RouteActionButton(
+              buttonKey: const Key('route-mode-close-loop'),
+              label: 'Close Loop',
+              icon: Icons.refresh,
+              enabled:
+                  routeDraftCommittedPoints.length >= 2 &&
+                  !isClosedLoop &&
+                  !isSavingRoute &&
+                  routeDraftStage != RouteDraftStage.routingSegment &&
+                  routeDraftStage != RouteDraftStage.segmentFailure,
+              onPressed: onCloseLoop,
+            ),
+            _RouteModeButton(
+              key: const Key('route-mode-route-to-peak'),
+              label: 'Route to Peak',
+              visualState: _routeModeVisualState(
+                mode: RouteMode.routeToPeak,
+                selectedMode: routeDraftMode,
+                stage: routeDraftStage,
+                hasPeakTarget: routeToPeakAvailable,
+              ),
+              activeColor: routeModeActiveColor,
+              selectedColor: routeModeSelectedColor,
+              onPressed: routeDraftPeak == null ||
+                      routeDraftMarkers.isEmpty ||
+                      isClosedLoop ||
+                      isRouting
+                  ? null
+                  : () => onModeSelected(RouteMode.routeToPeak),
+            ),
+            _RouteModeButton(
+              key: const Key('route-mode-snap-to-trail'),
+              label: 'Snap to Trail',
+              visualState: _routeModeVisualState(
+                mode: RouteMode.snapToTrail,
+                selectedMode: routeDraftMode,
+                stage: routeDraftStage,
+                hasPeakTarget: hasPeakTarget,
+              ),
+              activeColor: routeModeActiveColor,
+              selectedColor: routeModeSelectedColor,
+              onPressed: isRouting
+                  ? null
+                  : () => onModeSelected(RouteMode.snapToTrail),
+            ),
+            _RouteActionButton(
+              buttonKey: const Key('route-undo-button'),
+              label: 'Undo (⌘ Z)',
+              icon: Icons.undo,
+              enabled: canUndo && !isRouting && !isSavingRoute,
+              onPressed: onUndo,
+            ),
+            _RouteActionButton(
+              buttonKey: const Key('route-redo-button'),
+              label: 'Redo (⌘ ⇧ Z)',
+              icon: Icons.redo,
+              enabled: canRedo && !isRouting && !isSavingRoute,
+              onPressed: onRedo,
+            ),
+          ],
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 244,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Routing Mode:', style: theme.textTheme.titleSmall),
-              const SizedBox(width: 8),
-              _RouteModeButton(
-                key: const Key('route-mode-route-to-peak'),
-                label: 'Route to Peak',
-                visualState: _routeModeVisualState(
-                  mode: RouteMode.routeToPeak,
-                  selectedMode: routeDraftMode,
-                  stage: routeDraftStage,
-                  hasPeakTarget: routeToPeakAvailable,
-                ),
-                activeColor: routeModeActiveColor,
-                selectedColor: routeModeSelectedColor,
-                onPressed: routeDraftPeak == null ||
-                        routeDraftMarkers.isEmpty ||
-                        isClosedLoop ||
-                        isRouting
-                    ? null
-                    : () => onModeSelected(RouteMode.routeToPeak),
-              ),
-              const SizedBox(width: 8),
-              _RouteModeButton(
-                key: const Key('route-mode-snap-to-trail'),
-                label: 'Snap to Trail',
-                visualState: _routeModeVisualState(
-                  mode: RouteMode.snapToTrail,
-                  selectedMode: routeDraftMode,
-                  stage: routeDraftStage,
-                  hasPeakTarget: hasPeakTarget,
-                ),
-                activeColor: routeModeActiveColor,
-                selectedColor: routeModeSelectedColor,
-                onPressed: isRouting
-                    ? null
-                    : () => onModeSelected(RouteMode.snapToTrail),
-              ),
-              const SizedBox(width: 8),
-              _RouteModeButton(
-                key: const Key('route-mode-straight-line'),
-                label: 'Straight Line',
-                visualState: _routeModeVisualState(
-                  mode: RouteMode.straightLine,
-                  selectedMode: routeDraftMode,
-                  stage: routeDraftStage,
-                  hasPeakTarget: hasPeakTarget,
-                ),
-                activeColor: routeModeActiveColor,
-                selectedColor: routeModeSelectedColor,
-                onPressed: isRouting
-                    ? null
-                    : () => onModeSelected(RouteMode.straightLine),
-              ),
-              const SizedBox(width: 8),
-              _RouteActionButton(
-                buttonKey: const Key('route-mode-out-and-back'),
-                label: 'Out and Back',
-                icon: Icons.sync_alt,
-                enabled:
-                    routeDraftCommittedPoints.length >= 2 &&
-                    routeDraftCommittedPoints.first !=
-                        routeDraftCommittedPoints.last &&
-                    !isSavingRoute &&
-                    routeDraftStage != RouteDraftStage.routingSegment &&
-                    routeDraftStage != RouteDraftStage.segmentFailure,
-                onPressed: onOutAndBack,
-              ),
-              const SizedBox(width: 8),
-              _RouteActionButton(
-                buttonKey: const Key('route-mode-close-loop'),
-                label: 'Close Loop',
-                icon: Icons.refresh,
-                enabled:
-                    routeDraftCommittedPoints.length >= 2 &&
-                    !isClosedLoop &&
-                    !isSavingRoute &&
-                    routeDraftStage != RouteDraftStage.routingSegment &&
-                    routeDraftStage != RouteDraftStage.segmentFailure,
-                onPressed: onCloseLoop,
-              ),
-              const SizedBox(width: 8),
-              _RouteActionButton(
-                buttonKey: const Key('route-undo-button'),
-                label: 'Undo (⌘ Z)',
-                icon: Icons.undo,
-                enabled: canUndo && !isRouting && !isSavingRoute,
-                onPressed: onUndo,
-              ),
-              const SizedBox(width: 8),
-              _RouteActionButton(
-                buttonKey: const Key('route-redo-button'),
-                label: 'Redo (⌘ ⇧ Z)',
-                icon: Icons.redo,
-                enabled: canRedo && !isRouting && !isSavingRoute,
-                onPressed: onRedo,
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 244,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextFormField(
-                      key: const Key('route-name-field'),
-                      controller: routeNameController,
-                      focusNode: routeNameFocusNode,
-                      onChanged: onNameChanged,
-                      maxLines: 1,
-                      textAlignVertical: TextAlignVertical.center,
-                      decoration: const InputDecoration(
-                        hintText: 'Route name',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                      ),
-                    ),
-                    if (routeDraftNameError != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        routeDraftNameError!,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.error,
-                        ),
-                      ),
-                    ],
-                  ],
+              TextFormField(
+                key: const Key('route-name-field'),
+                controller: routeNameController,
+                focusNode: routeNameFocusNode,
+                onChanged: onNameChanged,
+                maxLines: 1,
+                textAlignVertical: TextAlignVertical.center,
+                decoration: const InputDecoration(
+                  hintText: 'Route name',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                 ),
               ),
+              if (routeDraftNameError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  routeDraftNameError!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+              ],
             ],
           ),
         ),

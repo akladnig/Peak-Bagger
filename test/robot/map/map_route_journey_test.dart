@@ -73,13 +73,7 @@ void main() {
       isNotNull,
     );
 
-    await tester.tap(
-      find.descendant(
-        of: robot.routeToPeakButton,
-        matching: find.byType(FilledButton),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await robot.selectRouteMode(RouteMode.routeToPeak);
 
     expect(robot.routeDistanceText, findsOneWidget);
     expect(robot.routeAscentText, findsOneWidget);
@@ -88,7 +82,7 @@ void main() {
     await robot.enterRouteName('Peak Route');
     await robot.saveRoute();
 
-    expect(robot.routeBottomSheet, findsNothing);
+    robot.expectRouteDraftOverlaysHidden();
     expect(robot.savedRoutes(), hasLength(1));
     expect(robot.savedRoutes().single.gpxRoute, hasLength(3));
     expect(robot.savedRoutes().single.ascent, 321);
@@ -114,13 +108,7 @@ void main() {
     await robot.openMap();
     await robot.enterRouteMode();
 
-    await tester.tap(
-      find.descendant(
-        of: find.byKey(const Key('route-mode-straight-line')),
-        matching: find.byType(FilledButton),
-      ),
-    );
-    await tester.pump();
+    await robot.selectRouteMode(RouteMode.straightLine);
 
     await robot.tapRoutePoint(const Offset(-40, 0));
     await robot.tapRoutePoint(const Offset(40, 0));
@@ -131,14 +119,12 @@ void main() {
       isNotNull,
     );
 
-    await tester.ensureVisible(robot.outAndBackButton);
-    await tester.tap(robot.outAndBackButton);
-    await tester.pumpAndSettle();
+    await robot.applyOutAndBack();
 
     await robot.enterRouteName('Out and Back Route');
     await robot.saveRoute();
 
-    expect(robot.routeBottomSheet, findsNothing);
+    robot.expectRouteDraftOverlaysHidden();
     expect(robot.savedRoutes(), hasLength(1));
     expect(robot.savedRoutes().single.routeWaypoints, hasLength(1));
     expect(robot.savedRoutes().single.routeWaypoints.single.label, 'Waypoint 1');
@@ -275,13 +261,7 @@ void main() {
     await robot.openMap();
     await robot.enterRouteMode();
 
-    await tester.tap(
-      find.descendant(
-        of: find.byKey(const Key('route-mode-straight-line')),
-        matching: find.byType(FilledButton),
-      ),
-    );
-    await tester.pump();
+    await robot.selectRouteMode(RouteMode.straightLine);
 
     await robot.tapRoutePoint(const Offset(-40, 0));
     await robot.tapRoutePoint(const Offset(40, 0));
@@ -292,9 +272,7 @@ void main() {
       isNotNull,
     );
 
-    await tester.ensureVisible(robot.closeLoopButton);
-    await tester.tap(robot.closeLoopButton);
-    await tester.pumpAndSettle();
+    await robot.applyCloseLoop();
 
     expect(robot.routeDistanceText, findsOneWidget);
     expect(find.text('321 m'), findsOneWidget);
@@ -302,7 +280,7 @@ void main() {
     await robot.enterRouteName('Close Loop Route');
     await robot.saveRoute();
 
-    expect(robot.routeBottomSheet, findsNothing);
+    robot.expectRouteDraftOverlaysHidden();
     expect(robot.savedRoutes(), hasLength(1));
     expect(robot.savedRoutes().single.gpxRoute, hasLength(greaterThan(5)));
     expect(robot.savedRoutes().single.routeWaypoints, hasLength(1));
@@ -366,7 +344,7 @@ void main() {
     await robot.pumpApp();
     await robot.openMap();
     await robot.enterRouteMode();
-    expect(robot.routeBottomSheet, findsOneWidget);
+    robot.expectRouteDraftOverlaysVisible();
 
     await robot.tapRoutePoint(const Offset(-40, 0));
     await robot.tapRoutePoint(const Offset(40, 0));
@@ -381,7 +359,7 @@ void main() {
     await robot.enterRouteName('Robot Route');
     await robot.saveRoute();
 
-    expect(robot.routeBottomSheet, findsNothing);
+    robot.expectRouteDraftOverlaysHidden();
     expect(robot.savedRoutes(), hasLength(1));
     expect(robot.savedRoutes().single.gpxRoute, hasLength(5));
     expect(robot.savedRoutes().single.ascent, 654);
@@ -408,13 +386,7 @@ void main() {
     await robot.openMap();
     await robot.enterRouteMode();
 
-    await tester.tap(
-      find.descendant(
-        of: find.byKey(const Key('route-mode-straight-line')),
-        matching: find.byType(FilledButton),
-      ),
-    );
-    await tester.pump();
+    await robot.selectRouteMode(RouteMode.straightLine);
 
     await robot.tapRoutePoint(const Offset(-60, 0));
     await robot.tapRoutePoint(const Offset(0, 0));
@@ -452,7 +424,7 @@ void main() {
     await robot.enterRouteName('Edited Robot Route');
     await robot.saveRoute();
 
-    expect(robot.routeBottomSheet, findsNothing);
+    robot.expectRouteDraftOverlaysHidden();
     expect(robot.savedRoutes(), hasLength(1));
     expect(robot.savedRoutes().single.gpxRoute, hasLength(2));
     expect(robot.container().read(mapProvider).showRoutes, isTrue);
@@ -513,7 +485,7 @@ void main() {
     await robot.enterRouteName('Fallback Route');
     await robot.saveRoute();
 
-    expect(robot.routeBottomSheet, findsNothing);
+    robot.expectRouteDraftOverlaysHidden();
     expect(robot.savedRoutes(), hasLength(1));
     expect(robot.savedRoutes().single.gpxRoute.length, greaterThan(4));
     expect(robot.container().read(mapProvider).showRoutes, isTrue);
@@ -562,7 +534,7 @@ void main() {
     await robot.enterRouteName('Pending Route');
     await robot.saveRoute();
 
-    expect(robot.routeBottomSheet, findsNothing);
+    robot.expectRouteDraftOverlaysHidden();
     expect(robot.savedRoutes(), hasLength(1));
     expect(robot.savedRoutes().single.ascent, 0);
     expect(robot.savedRoutes().single.descent, 0);
@@ -641,7 +613,7 @@ void main() {
     await robot.enterRouteName('Rejoin Route');
     await robot.saveRoute();
 
-    expect(robot.routeBottomSheet, findsNothing);
+    robot.expectRouteDraftOverlaysHidden();
     expect(robot.savedRoutes(), hasLength(1));
     expect(robot.savedRoutes().single.gpxRoute.length, greaterThan(6));
     expect(robot.container().read(mapProvider).showRoutes, isTrue);
