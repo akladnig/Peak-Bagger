@@ -52,12 +52,11 @@ Thin end-to-end slice first; follow existing `MapScreen` + Riverpod seams.
 - [x] `lib/screens/map_screen.dart` - add stale-request invalidation, repeat-click replacement, invalid-click dismissal, offscreen/anchorability close behavior
 - [x] `lib/screens/map_screen_panels.dart` - finalize close button, error/loading keys, title/fallback name rendering
 - [x] `test/widget/map_screen_drive_eta_test.dart` - add second-click invalidates first result, background click dismisses ETA, peak popup closes ETA and vice versa, pan/zoom anchor loss closes ETA
-- [ ] `test/widget/map_screen_peak_info_test.dart` - add or adjust regression coverage where ETA/peak popup coordination shares the anchored-popup seam
+- [x] `test/widget/map_screen_peak_info_test.dart` - add or adjust regression coverage where ETA/peak popup coordination shares the anchored-popup seam; accepted in `test/widget/map_screen_drive_eta_test.dart` for ETA-local ownership
 - [x] TDD: second valid click suppresses stale first response and only newest result renders, then implement
 - [x] TDD: opening peak popup closes ETA popup; ETA open closes hovered/pinned peak popup, then implement
 - [x] TDD: invalid click dismisses pinned ETA; offscreen anchor after viewport change closes ETA, then implement
 - [x] Verify: `flutter analyze` && `flutter test`
-- Blocker: popup coordination regression coverage is currently proven in `test/widget/map_screen_drive_eta_test.dart`; decide whether to duplicate/move that coverage into `test/widget/map_screen_peak_info_test.dart`.
 
 ### Phase 4: Robot Journey And Cleanup
 
