@@ -15,6 +15,7 @@ import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
+import 'package:peak_bagger/providers/theme_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/screens/map_screen_layers.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
@@ -71,6 +72,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final showPeakInfo = ref.watch(peakMarkerInfoSettingsProvider);
     final peakCorrelationState = ref.watch(peakCorrelationSettingsProvider);
     final routeGraphReadiness = ref.watch(routeGraphReadinessProvider);
+    final themeMode = ref.watch(themeModeProvider);
+    final isDarkTheme = themeMode == ThemeMode.dark;
 
     return Scaffold(
       body: ListTileTheme(
@@ -81,6 +84,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: ListView(
           key: const Key('settings-scrollable'),
           children: [
+            ListTile(
+              key: const Key('theme-mode-toggle-tile'),
+              leading: const Icon(Icons.dark_mode),
+              title: const Text('Theme'),
+              subtitle: Text(
+                isDarkTheme ? 'Dark mode enabled' : 'Light mode enabled',
+              ),
+              trailing: Switch(
+                key: const Key('theme-mode-toggle-switch'),
+                value: isDarkTheme,
+                onChanged: (_) => ref.read(themeModeProvider.notifier).toggleTheme(),
+              ),
+              onTap: () => ref.read(themeModeProvider.notifier).toggleTheme(),
+            ),
             ListTile(
               leading: const Icon(Icons.download),
               title: const Text('Map Tile Cache'),
