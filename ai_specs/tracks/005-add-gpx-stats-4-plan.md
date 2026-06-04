@@ -34,10 +34,10 @@ Replace GPX rest detection with a stationary-window heuristic. Keep `pausedTime`
 ### Phase 3: Admin + journey checks
 
 - **Goal**: keep inspection and existing journeys green
-- [ ] `test/services/objectbox_admin_repository_test.dart` - refresh time-field expectations if numeric values changed
-- [ ] `test/widget/objectbox_admin_browser_test.dart` - refresh admin browser expectations if numeric values changed
-- [ ] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - keep import/reset/recalc journeys green; update numeric assertions only if needed
-- [ ] Verify: `flutter analyze && flutter test`
+- [x] `test/services/objectbox_admin_repository_test.dart` - refresh time-field expectations for the Acropolis-style values
+- [x] `test/widget/objectbox_admin_browser_test.dart` - refresh admin browser expectations for the Acropolis-style values
+- [x] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - keep import/reset/recalc journeys green; update numeric assertions to the Acropolis-style values
+- [x] Verify: `flutter analyze && flutter test`
 
 ## Risks / Out of scope
 
