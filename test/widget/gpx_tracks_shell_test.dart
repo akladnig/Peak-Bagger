@@ -277,30 +277,17 @@ void main() {
   });
 
   testWidgets(
-    'shell theme action stays in app bar and aligns with map fab lane',
+    'shell app bar no longer shows theme action',
     (tester) async {
       await _pumpApp(tester, TestMapNotifier(_baseState()));
 
       expect(find.byKey(const Key('shared-app-bar')), findsOneWidget);
-      expect(find.byKey(const Key('app-bar-theme-action')), findsOneWidget);
-      expect(
-        find.descendant(
-          of: find.byKey(const Key('shared-app-bar')),
-          matching: find.byKey(const Key('app-bar-theme-action')),
-        ),
-        findsOneWidget,
-      );
-
-      final themeAction = tester.getCenter(
-        find.byKey(const Key('app-bar-theme-action')),
-      );
       final searchFabKey = find.byKey(const Key('search-peaks-fab'));
       await tester.ensureVisible(searchFabKey);
       await tester.pumpAndSettle();
-      final mapInfoFab = tester.getCenter(find.byKey(const Key('map-info-fab')));
 
-      expect(themeAction.dx, mapInfoFab.dx);
-      expect(themeAction.dy, lessThan(mapInfoFab.dy));
+      expect(find.byKey(const Key('app-bar-theme-action')), findsNothing);
+      expect(find.byKey(const Key('map-info-fab')), findsOneWidget);
     },
   );
 }

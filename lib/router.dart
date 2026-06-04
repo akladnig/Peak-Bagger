@@ -4,7 +4,6 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
-import 'package:peak_bagger/providers/theme_provider.dart';
 import 'package:peak_bagger/screens/dashboard_screen.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
@@ -103,8 +102,6 @@ GoRouter createRouter() {
       builder: (context, state, navigationShell) {
         return Consumer(
           builder: (context, ref, _) {
-            final themeMode = ref.watch(themeModeProvider);
-            final isDark = themeMode == ThemeMode.dark;
             final currentDestination = shellDestinations.firstWhere(
               (destination) =>
                   destination.branchIndex == navigationShell.currentIndex,
@@ -283,19 +280,6 @@ GoRouter createRouter() {
                     padding: const EdgeInsets.only(right: 8),
                     child: PeakListSelectionSummaryStrip(
                       summary: ref.watch(peakListSelectionSummaryProvider),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      right: RouterConstants.themeActionRightInset,
-                    ),
-                    child: IconButton(
-                      key: const Key('app-bar-theme-action'),
-                      tooltip: 'Toggle theme',
-                      onPressed: () {
-                        ref.read(themeModeProvider.notifier).toggleTheme();
-                      },
-                      icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
                     ),
                   ),
                 ],
