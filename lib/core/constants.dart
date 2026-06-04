@@ -13,6 +13,7 @@ abstract final class MapConstants {
   static const peakInfoMinZoom = 12.0;
   static const peakInfoLabelMaxCharacters = 20;
   static const peakMaxZoom = 18;
+  static const driveEtaMinZoom = 6.0;
   static const trackMinZoom = 6;
   static const trackMaxZoom = 18;
   static const clearPeakInfo = 8;
@@ -65,7 +66,7 @@ abstract final class RouterConstants {
 }
 
 abstract final class RouteConstants {
-  static const sheetHeight = 200.0;
+  static const sheetHeight = 340.0;
   static const maxSnapDistanceMeters = 50.0;
 }
 

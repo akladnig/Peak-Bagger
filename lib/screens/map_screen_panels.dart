@@ -1240,6 +1240,136 @@ class PeakInfoPopupSurface extends StatelessWidget {
   }
 }
 
+class DriveEtaPopupSurface extends StatelessWidget {
+  const DriveEtaPopupSurface({
+    required this.state,
+    required this.onClose,
+    required this.bridgeOnLeft,
+    super.key,
+  });
+
+  final DriveEtaPopupState state;
+  final VoidCallback onClose;
+  final bool bridgeOnLeft;
+
+  @override
+  Widget build(BuildContext context) {
+    final popupWidth = UiConstants.peakInfoPopupSize.width;
+    final totalWidth = popupWidth + PeakInfoPopupSurface.bridgeWidth;
+
+    return MouseRegion(
+      child: SizedBox(
+        width: totalWidth,
+        child: Align(
+          alignment: bridgeOnLeft
+              ? Alignment.centerRight
+              : Alignment.centerLeft,
+          child: SizedBox(
+            width: popupWidth,
+            child: DriveEtaPopupCard(state: state, onClose: onClose),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class DriveEtaPopupCard extends StatelessWidget {
+  const DriveEtaPopupCard({
+    required this.state,
+    required this.onClose,
+    super.key,
+  });
+
+  final DriveEtaPopupState state;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: UiConstants.peakInfoPopupSize.height),
+      child: Card(
+        key: const Key('drive-eta-popup-root'),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.directions_car, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      state.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    key: const Key('drive-eta-popup-close'),
+                    tooltip: 'Close drive ETA',
+                    icon: const Icon(Icons.close, size: 16),
+                    onPressed: onClose,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Flexible(
+                fit: FlexFit.loose,
+                child: switch (state.status) {
+                  DriveEtaPopupStatus.loading => const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Calculating Route',
+                      key: Key('drive-eta-popup-loading'),
+                    ),
+                  ),
+                  DriveEtaPopupStatus.error => Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      state.errorMessage ?? 'Drive ETA unavailable.',
+                      key: const Key('drive-eta-popup-error'),
+                    ),
+                  ),
+                  DriveEtaPopupStatus.success => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _DriveEtaLabeledValueRow(
+                        key: const Key('drive-eta-popup-duration-row'),
+                        label: 'Duration:',
+                        value: formatDuration(
+                          (state.durationSeconds ?? 0) *
+                              Duration.millisecondsPerSecond,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      _DriveEtaLabeledValueRow(
+                        key: const Key('drive-eta-popup-distance-row'),
+                        label: 'Distance:',
+                        value: formatDistance(
+                          state.distanceMeters ?? 0,
+                          decimalPlaces: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class RouteDraftMarkerDeletePopupCard extends StatelessWidget {
   const RouteDraftMarkerDeletePopupCard({
     required this.onDelete,
@@ -1319,6 +1449,36 @@ class _PeakInfoLabeledValueRow extends StatelessWidget {
           TextSpan(text: label),
           TextSpan(text: ' '),
           TextSpan(text: value, style: valueStyle),
+        ],
+      ),
+    );
+  }
+}
+
+class _DriveEtaLabeledValueRow extends StatelessWidget {
+  const _DriveEtaLabeledValueRow({
+    required this.label,
+    required this.value,
+    super.key,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text.rich(
+      TextSpan(
+        style: Theme.of(context).textTheme.bodySmall,
+        children: [
+          TextSpan(text: label),
+          const TextSpan(text: ' '),
+          TextSpan(
+            text: value,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ],
       ),
     );

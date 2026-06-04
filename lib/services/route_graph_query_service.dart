@@ -36,6 +36,38 @@ class RouteGraphQueryService {
         .toList(growable: false);
   }
 
+  List<RouteGraphWayIndex> queryDriveEtaWaysForBounds({
+    required double minLat,
+    required double minLon,
+    required double maxLat,
+    required double maxLon,
+    double? extraBufferMeters,
+  }) {
+    final visibleChunkKeys = queryChunksForBounds(
+      minLat: minLat,
+      minLon: minLon,
+      maxLat: maxLat,
+      maxLon: maxLon,
+      extraBufferMeters: extraBufferMeters,
+    ).map((chunk) => chunk.chunkKey).toSet();
+    if (visibleChunkKeys.isEmpty) {
+      return const [];
+    }
+
+    return _repository
+        .activeWayIndexRows()
+        .where(
+          (row) =>
+              visibleChunkKeys.contains(row.chunkKey) &&
+              isRouteGraphDriveEtaWayMetadata(
+                highway: row.highway,
+                surface: row.surface,
+                access: row.access,
+              ),
+        )
+        .toList(growable: false);
+  }
+
   List<String> chunkKeysForWays(RouteGraphWayQuery query) {
     final keys = <String>{};
     for (final row in queryWays(query)) {
@@ -427,6 +459,40 @@ bool isRouteGraphTrailWayMetadata({
 
   return highway == 'footway' && lengthMeters > 500 && tagCount > 1;
 }
+
+bool isRouteGraphDriveEtaWayMetadata({
+  required String? highway,
+  required String? surface,
+  required String? access,
+}) {
+  if (access == 'private') {
+    return false;
+  }
+
+  if (highway == null || !_driveEtaAllowedHighways.contains(highway)) {
+    return false;
+  }
+
+  if (highway == 'track' && (surface == 'earth' || surface == 'dirt')) {
+    return false;
+  }
+
+  return true;
+}
+
+const _driveEtaAllowedHighways = <String>{
+  'secondary',
+  'tertiary',
+  'unclassified',
+  'residential',
+  'motorway',
+  'motorway_link',
+  'service',
+  'trunk',
+  'secondary_link',
+  'trunk_link',
+  'track',
+};
 
 class TagFilter {
   const TagFilter({required this.key, required this.value});

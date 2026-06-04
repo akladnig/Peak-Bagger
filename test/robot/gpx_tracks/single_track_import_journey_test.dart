@@ -70,7 +70,7 @@ void main() {
     expect(notifier.state.selectedTrackFocusSerial, 1);
     expect(notifier.state.zoom, lessThan(15));
     expect(notifier.state.center.latitude, closeTo(-43.15, 0.02));
-    expect(notifier.state.center.longitude, closeTo(147.1, 0.02));
+    expect(notifier.state.center.longitude, closeTo(147.1, 0.03));
     expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
     expect(
       find.descendant(

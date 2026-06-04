@@ -135,6 +135,57 @@ enum RouteMode { snapToTrail, straightLine, routeToPeak }
 
 enum PeakInfoPopupMode { hover, pinned }
 
+enum DriveEtaPopupStatus { loading, success, error }
+
+class DriveEtaPopupState {
+  const DriveEtaPopupState({
+    required this.requestId,
+    required this.anchor,
+    required this.title,
+    required this.status,
+    this.distanceMeters,
+    this.durationSeconds,
+    this.errorMessage,
+  });
+
+  final int requestId;
+  final LatLng anchor;
+  final String title;
+  final DriveEtaPopupStatus status;
+  final double? distanceMeters;
+  final int? durationSeconds;
+  final String? errorMessage;
+
+  DriveEtaPopupState copyWith({
+    int? requestId,
+    LatLng? anchor,
+    String? title,
+    DriveEtaPopupStatus? status,
+    double? distanceMeters,
+    int? durationSeconds,
+    String? errorMessage,
+    bool clearDistanceMeters = false,
+    bool clearDurationSeconds = false,
+    bool clearErrorMessage = false,
+  }) {
+    return DriveEtaPopupState(
+      requestId: requestId ?? this.requestId,
+      anchor: anchor ?? this.anchor,
+      title: title ?? this.title,
+      status: status ?? this.status,
+      distanceMeters: clearDistanceMeters
+          ? null
+          : (distanceMeters ?? this.distanceMeters),
+      durationSeconds: clearDurationSeconds
+          ? null
+          : (durationSeconds ?? this.durationSeconds),
+      errorMessage: clearErrorMessage
+          ? null
+          : (errorMessage ?? this.errorMessage),
+    );
+  }
+}
+
 enum RouteDraftStage {
   inactive,
   awaitingStart,
@@ -324,6 +375,7 @@ class MapState {
   final int? hoveredPeakId;
   final PeakInfoContent? peakInfo;
   final PeakInfoPopupMode? peakInfoPopupMode;
+  final DriveEtaPopupState? driveEtaPopup;
   final int? hoveredTrackId;
   final int? selectedTrackId;
   final int? selectedRouteId;
@@ -413,6 +465,7 @@ class MapState {
     this.hoveredPeakId,
     this.peakInfo,
     this.peakInfoPopupMode,
+    this.driveEtaPopup,
     this.hoveredTrackId,
     this.selectedTrackId,
     this.selectedRouteId,
@@ -431,6 +484,8 @@ class MapState {
 
   bool get isPeakInfoHovered =>
       peakInfo != null && peakInfoPopupMode == PeakInfoPopupMode.hover;
+
+  bool get hasDriveEtaPopup => driveEtaPopup != null;
 
   Peak? get routeDraftPeakTarget {
     if (routeDraftPeakTargetLocked) {
@@ -567,6 +622,8 @@ class MapState {
     PeakInfoContent? peakInfo,
     PeakInfoPopupMode? peakInfoPopupMode,
     bool clearPeakInfoPopup = false,
+    DriveEtaPopupState? driveEtaPopup,
+    bool clearDriveEtaPopup = false,
     int? hoveredTrackId,
     bool clearHoveredTrackId = false,
     int? hoveredRouteId,
@@ -740,6 +797,9 @@ class MapState {
       peakInfoPopupMode: clearPeakInfoPopup
           ? null
           : (peakInfoPopupMode ?? this.peakInfoPopupMode),
+      driveEtaPopup: clearDriveEtaPopup
+          ? null
+          : (driveEtaPopup ?? this.driveEtaPopup),
       hoveredTrackId: clearHoveredTrackId
           ? null
           : (hoveredTrackId ?? this.hoveredTrackId),
@@ -3753,6 +3813,15 @@ class MapNotifier extends Notifier<MapState> {
     );
   }
 
+  void restoreSelectedLocation(LatLng? location) {
+    state = state.copyWith(
+      selectedLocation: location,
+      clearSelectedLocation: location == null,
+      cursorMgrs: location == null ? state.cursorMgrs : _convertToMgrs(location),
+      syncEnabled: false,
+    );
+  }
+
   void enableSync() {
     state = state.copyWith(syncEnabled: true);
   }
@@ -3799,6 +3868,7 @@ class MapNotifier extends Notifier<MapState> {
     state = state.copyWith(
       peakInfo: _resolvePeakInfoContentForPeak(peak),
       peakInfoPopupMode: PeakInfoPopupMode.pinned,
+      clearDriveEtaPopup: true,
       clearInfoPopup: true,
       clearHoveredTrackId: true,
     );
@@ -3814,8 +3884,93 @@ class MapNotifier extends Notifier<MapState> {
     state = state.copyWith(
       peakInfo: _resolvePeakInfoContentForPeak(peak),
       peakInfoPopupMode: PeakInfoPopupMode.hover,
+      clearDriveEtaPopup: true,
       clearInfoPopup: true,
     );
+  }
+
+  void showDriveEtaPopupLoading({
+    required int requestId,
+    required LatLng anchor,
+    required String title,
+  }) {
+    state = state.copyWith(
+      driveEtaPopup: DriveEtaPopupState(
+        requestId: requestId,
+        anchor: anchor,
+        title: title,
+        status: DriveEtaPopupStatus.loading,
+      ),
+      clearPeakInfoPopup: true,
+      clearInfoPopup: true,
+      clearHoveredPeakId: true,
+    );
+  }
+
+  void showDriveEtaPopupSuccess({
+    required int requestId,
+    required double distanceMeters,
+    required int durationSeconds,
+  }) {
+    final popup = state.driveEtaPopup;
+    if (popup == null || popup.requestId != requestId) {
+      return;
+    }
+
+    state = state.copyWith(
+      driveEtaPopup: popup.copyWith(
+        status: DriveEtaPopupStatus.success,
+        distanceMeters: distanceMeters,
+        durationSeconds: durationSeconds,
+        clearErrorMessage: true,
+      ),
+    );
+  }
+
+  void openDriveEtaPopupError({
+    required int requestId,
+    required LatLng anchor,
+    required String title,
+    required String message,
+  }) {
+    state = state.copyWith(
+      driveEtaPopup: DriveEtaPopupState(
+        requestId: requestId,
+        anchor: anchor,
+        title: title,
+        status: DriveEtaPopupStatus.error,
+        errorMessage: message,
+      ),
+      clearPeakInfoPopup: true,
+      clearInfoPopup: true,
+      clearHoveredPeakId: true,
+    );
+  }
+
+  void showDriveEtaPopupError({
+    required int requestId,
+    required String message,
+  }) {
+    final popup = state.driveEtaPopup;
+    if (popup == null || popup.requestId != requestId) {
+      return;
+    }
+
+    state = state.copyWith(
+      driveEtaPopup: popup.copyWith(
+        status: DriveEtaPopupStatus.error,
+        errorMessage: message,
+        clearDistanceMeters: true,
+        clearDurationSeconds: true,
+      ),
+    );
+  }
+
+  void closeDriveEtaPopup() {
+    if (state.driveEtaPopup == null) {
+      return;
+    }
+    state = state.copyWith(clearDriveEtaPopup: true);
   }
 
   void closePeakInfoPopup() {
