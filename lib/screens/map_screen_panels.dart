@@ -1286,84 +1286,79 @@ class DriveEtaPopupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: UiConstants.peakInfoPopupSize.height),
-      child: Card(
-        key: const Key('drive-eta-popup-root'),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.directions_car, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      state.title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
+    return Card(
+      key: const Key('drive-eta-popup-root'),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.directions_car, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    state.title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
                     ),
                   ),
-                  IconButton(
-                    key: const Key('drive-eta-popup-close'),
-                    tooltip: 'Close drive ETA',
-                    icon: const Icon(Icons.close, size: 16),
-                    onPressed: onClose,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
+                ),
+                IconButton(
+                  key: const Key('drive-eta-popup-close'),
+                  tooltip: 'Close drive ETA',
+                  icon: const Icon(Icons.close, size: 16),
+                  onPressed: onClose,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            switch (state.status) {
+              DriveEtaPopupStatus.loading => const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Calculating Route',
+                  key: Key('drive-eta-popup-loading'),
+                ),
+              ),
+              DriveEtaPopupStatus.error => Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  state.errorMessage ?? 'Drive ETA unavailable.',
+                  key: const Key('drive-eta-popup-error'),
+                ),
+              ),
+              DriveEtaPopupStatus.success => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _DriveEtaLabeledValueRow(
+                    key: const Key('drive-eta-popup-duration-row'),
+                    label: 'Duration:',
+                    value: formatDuration(
+                      (state.durationSeconds ?? 0) *
+                          Duration.millisecondsPerSecond,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  _DriveEtaLabeledValueRow(
+                    key: const Key('drive-eta-popup-distance-row'),
+                    label: 'Distance:',
+                    value: formatDistance(
+                      state.distanceMeters ?? 0,
+                      decimalPlaces: 1,
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Flexible(
-                fit: FlexFit.loose,
-                child: switch (state.status) {
-                  DriveEtaPopupStatus.loading => const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Calculating Route',
-                      key: Key('drive-eta-popup-loading'),
-                    ),
-                  ),
-                  DriveEtaPopupStatus.error => Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      state.errorMessage ?? 'Drive ETA unavailable.',
-                      key: const Key('drive-eta-popup-error'),
-                    ),
-                  ),
-                  DriveEtaPopupStatus.success => Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _DriveEtaLabeledValueRow(
-                        key: const Key('drive-eta-popup-duration-row'),
-                        label: 'Duration:',
-                        value: formatDuration(
-                          (state.durationSeconds ?? 0) *
-                              Duration.millisecondsPerSecond,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      _DriveEtaLabeledValueRow(
-                        key: const Key('drive-eta-popup-distance-row'),
-                        label: 'Distance:',
-                        value: formatDistance(
-                          state.distanceMeters ?? 0,
-                          decimalPlaces: 1,
-                        ),
-                      ),
-                    ],
-                  ),
-                },
-              ),
-            ],
-          ),
+            },
+          ],
         ),
       ),
     );

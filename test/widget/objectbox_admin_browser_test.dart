@@ -168,6 +168,17 @@ void main() {
       find.byKey(const Key('objectbox-admin-route-name')),
       'Updated Route',
     );
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('objectbox-admin-route-visible')),
+      200,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('objectbox-admin-route-edit-form')),
+        matching: find.byType(Scrollable),
+      ).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('objectbox-admin-route-visible')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('objectbox-admin-route-save')));
     await tester.pumpAndSettle();
 
@@ -180,6 +191,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(routeRepository.findById(1)?.name, 'Updated Route');
+    expect(routeRepository.findById(1)?.visible, isFalse);
     expect(find.text('Updated Route'), findsWidgets);
   });
 

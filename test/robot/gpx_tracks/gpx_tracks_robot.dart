@@ -547,6 +547,7 @@ class GpxTracksRobot {
     await tester.pump();
     await _mouseGesture!.up();
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
   }
 
   Future<void> zoomMapWithTrackpad() async {

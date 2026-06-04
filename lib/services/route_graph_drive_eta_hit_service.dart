@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -123,35 +122,7 @@ class RouteGraphDriveEtaHitService {
     }
 
     if (bestCandidate == null) {
-      _HitCandidate? geographicCandidate;
-      for (final way in ways) {
-        for (var index = 0; index < way.points.length - 1; index++) {
-          final projection = _projectGeoPoint(
-            tappedLocation,
-            way.points[index],
-            way.points[index + 1],
-          );
-          if (projection.distanceMeters > MapConstants.searchRadiusMeters) {
-            continue;
-          }
-          if (geographicCandidate == null ||
-              projection.distanceMeters < geographicCandidate.distance) {
-            geographicCandidate = _HitCandidate(
-              distance: projection.distanceMeters,
-              snappedPoint: _interpolateLatLng(
-                way.points[index],
-                way.points[index + 1],
-                projection.t,
-              ),
-              way: way,
-            );
-          }
-        }
-      }
-      if (geographicCandidate == null) {
-        return const RouteGraphDriveEtaHitResult.noHit();
-      }
-      bestCandidate = geographicCandidate;
+      return const RouteGraphDriveEtaHitResult.noHit();
     }
 
     return RouteGraphDriveEtaHitResult.hit(
@@ -279,13 +250,6 @@ class _ProjectionResult {
   final double t;
 }
 
-class _GeoProjectionResult {
-  const _GeoProjectionResult({required this.distanceMeters, required this.t});
-
-  final double distanceMeters;
-  final double t;
-}
-
 _ProjectionResult _project(Offset point, Offset start, Offset end) {
   final delta = end - start;
   final lengthSquared = delta.dx * delta.dx + delta.dy * delta.dy;
@@ -306,35 +270,4 @@ LatLng _interpolateLatLng(LatLng start, LatLng end, double t) {
     start.latitude + (end.latitude - start.latitude) * t,
     start.longitude + (end.longitude - start.longitude) * t,
   );
-}
-
-_GeoProjectionResult _projectGeoPoint(LatLng point, LatLng start, LatLng end) {
-  final referenceLatitude = point.latitude * (3.141592653589793 / 180.0);
-  final metersPerLat = 111320.0;
-  final metersPerLon = 111320.0 * math.cos(referenceLatitude);
-
-  final px = point.longitude * metersPerLon;
-  final py = point.latitude * metersPerLat;
-  final sx = start.longitude * metersPerLon;
-  final sy = start.latitude * metersPerLat;
-  final ex = end.longitude * metersPerLon;
-  final ey = end.latitude * metersPerLat;
-  final dx = ex - sx;
-  final dy = ey - sy;
-  final lengthSquared = dx * dx + dy * dy;
-  if (lengthSquared == 0) {
-    final distance = math.sqrt((px - sx) * (px - sx) + (py - sy) * (py - sy));
-    return _GeoProjectionResult(distanceMeters: distance, t: 0);
-  }
-
-  final projection = ((px - sx) * dx + (py - sy) * dy) / lengthSquared;
-  final t = projection.clamp(0.0, 1.0);
-  final closestX = sx + dx * t;
-  final closestY = sy + dy * t;
-  final distance =
-      math.sqrt(
-        (px - closestX) * (px - closestX) +
-            (py - closestY) * (py - closestY),
-      );
-  return _GeoProjectionResult(distanceMeters: distance, t: t);
 }

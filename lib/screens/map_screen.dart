@@ -656,6 +656,31 @@ class _MapScreenState extends ConsumerState<MapScreen>
     notifier.setHoveredRouteId(result.hoveredRouteId);
   }
 
+  int? _hitTestRouteId(
+    Offset localPosition,
+    MapState mapState,
+    List<app_route.Route> routes,
+  ) {
+    if (!mapState.showRoutes) {
+      return null;
+    }
+
+    final camera = _mapController.camera;
+    if (camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      return null;
+    }
+
+    final candidates = _buildRouteHoverCandidates(routes, camera);
+    if (candidates.isEmpty) {
+      return null;
+    }
+
+    return RouteHoverDetector.findHoveredRoute(
+      pointerPosition: localPosition,
+      candidates: candidates,
+    ).hoveredRouteId;
+  }
+
   Peak? _hitTestPeak(
     Offset localPosition,
     MapState mapState,
@@ -854,6 +879,27 @@ class _MapScreenState extends ConsumerState<MapScreen>
       candidates: candidates,
     );
     notifier.setHoveredTrackId(result.hoveredTrackId);
+  }
+
+  int? _hitTestTrackId(Offset localPosition, MapState mapState) {
+    if (!mapState.showTracks || mapState.hasTrackRecoveryIssue) {
+      return null;
+    }
+
+    final camera = _mapController.camera;
+    if (camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      return null;
+    }
+
+    final candidates = _buildTrackHoverCandidates(mapState, camera);
+    if (candidates.isEmpty) {
+      return null;
+    }
+
+    return TrackHoverDetector.findHoveredTrack(
+      pointerPosition: localPosition,
+      candidates: candidates,
+    ).hoveredTrackId;
   }
 
   bool _handleRouteDraftMarkerHover(Offset localPosition, MapState mapState) {
@@ -2102,22 +2148,29 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                             );
                                             return;
                                           }
+                                          notifier.clearHoveredPeak();
                                           if (ref
                                               .read(mapProvider)
                                               .showInfoPopup) {
                                             notifier.toggleInfoPopup();
                                           }
-                                          _handleTrackHover(
+                                          if (event.kind !=
+                                              PointerDeviceKind.mouse) {
+                                            _handleTrackHover(
+                                              event.localPosition,
+                                              tappedLocation,
+                                              ref.read(mapProvider),
+                                            );
+                                          }
+                                          final clickTrackId = _hitTestTrackId(
                                             event.localPosition,
-                                            tappedLocation,
                                             ref.read(mapProvider),
                                           );
-                                          final hoveredTrackId = ref
-                                              .read(mapProvider)
-                                              .hoveredTrackId;
-                                          final hoveredRouteId = ref
-                                              .read(mapProvider)
-                                              .hoveredRouteId;
+                                          final clickRouteId = _hitTestRouteId(
+                                            event.localPosition,
+                                            ref.read(mapProvider),
+                                            routes,
+                                          );
                                           final previousSelectedLocation = ref
                                               .read(mapProvider)
                                               .selectedLocation;
@@ -2125,13 +2178,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               .read(mapProvider)
                                               .driveEtaPopup
                                               ?.requestId;
-                                          if (hoveredTrackId == null &&
-                                              hoveredRouteId == null) {
+                                          if (clickTrackId == null &&
+                                              clickRouteId == null) {
                                             final etaConsumed = await _handleDriveEtaClick(
                                               localPosition: event.localPosition,
                                               tappedLocation: tappedLocation,
-                                              hoveredTrackId: hoveredTrackId,
-                                              hoveredRouteId: hoveredRouteId,
+                                              hoveredTrackId: clickTrackId,
+                                              hoveredRouteId: clickRouteId,
                                             );
                                             if (etaConsumed) {
                                               return;
@@ -2145,6 +2198,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               currentDriveEtaRequestId !=
                                                   previousDriveEtaRequestId) {
                                             return;
+                                          }
+                                          if (clickTrackId == null) {
+                                            notifier.clearHoveredTrack();
+                                          }
+                                          if (clickRouteId == null) {
+                                            notifier.clearHoveredRoute();
                                           }
                                           if (ref
                                                   .read(mapProvider)
@@ -2164,20 +2223,20 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                       .driveEtaPopup ==
                                                   null) {
                                             if (primaryClickPending &&
-                                                hoveredTrackId != null) {
+                                                clickTrackId != null) {
                                               notifier.setSelectedLocation(
                                                 tappedLocation,
                                               );
                                               notifier.selectTrack(
-                                                hoveredTrackId,
+                                                clickTrackId,
                                               );
                                             } else if (primaryClickPending &&
-                                                hoveredRouteId != null) {
+                                                clickRouteId != null) {
                                               notifier.setSelectedLocation(
                                                 tappedLocation,
                                               );
                                               notifier.selectRoute(
-                                                hoveredRouteId,
+                                                clickRouteId,
                                               );
                                             } else if (primaryClickPending) {
                                               notifier.setSelectedLocation(

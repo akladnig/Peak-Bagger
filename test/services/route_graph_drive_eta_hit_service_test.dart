@@ -54,6 +54,25 @@ void main() {
     expect(result.status, RouteGraphDriveEtaHitStatus.noHit);
   });
 
+  test('hitTest still rejects pointer miss even when tapped location is on the road', () {
+    final service = RouteGraphDriveEtaHitService(_queryServiceWithRoad());
+    final camera = MapCamera(
+      crs: const Epsg3857(),
+      center: const LatLng(-41.5, 146.5),
+      zoom: 15,
+      rotation: 0,
+      nonRotatedSize: const Size(800, 600),
+    );
+
+    final result = service.hitTest(
+      pointerPosition: const Offset(0, 0),
+      camera: camera,
+      tappedLocation: const LatLng(-41.5, 146.5),
+    );
+
+    expect(result.status, RouteGraphDriveEtaHitStatus.noHit);
+  });
+
   test('hitTest returns noHit below drive ETA zoom gate', () {
     final service = RouteGraphDriveEtaHitService(_queryServiceWithRoad());
     final camera = MapCamera(
