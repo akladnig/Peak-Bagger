@@ -35,7 +35,6 @@ void main() {
     expect(find.byKey(const Key('peak-list-selection-summary')), findsOneWidget);
     expect(find.byKey(const Key('peak-list-selection-chip-1')), findsOneWidget);
     expect(find.byKey(const Key('peak-list-selection-chip-2')), findsOneWidget);
-    expect(find.byKey(const Key('app-bar-theme-action')), findsOneWidget);
   });
 
   testWidgets('all peaks and none show exactly one special chip', (tester) async {
@@ -86,7 +85,6 @@ void main() {
     );
 
     expect(find.byKey(const Key('peak-list-selection-summary')), findsOneWidget);
-    expect(find.byKey(const Key('app-bar-theme-action')), findsOneWidget);
   });
 }
 

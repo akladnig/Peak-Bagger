@@ -24,10 +24,10 @@ Keep provider/persistence unchanged; just relocate UI + coverage.
 ### Phase 2: Shell cleanup
 
 - **Goal**: remove app-bar theme action; preserve shell layout
-- [ ] `lib/router.dart` - drop `themeModeProvider`/`isDark` app-bar action and related padding; keep summary strip intact
-- [ ] `test/widget/gpx_tracks_shell_test.dart` - TDD: shared app bar no longer exposes `app-bar-theme-action`; existing shell assertions stay green
-- [ ] `test/widget/map_peak_list_selection_test.dart` - remove stale theme-action expectation from app-bar summary coverage
-- [ ] Verify: `flutter analyze` && `flutter test test/widget/gpx_tracks_shell_test.dart test/widget/map_peak_list_selection_test.dart`
+- [x] `lib/router.dart` - drop `themeModeProvider`/`isDark` app-bar action and related padding; keep summary strip intact
+- [x] `test/widget/gpx_tracks_shell_test.dart` - TDD: shared app bar no longer exposes `app-bar-theme-action`; existing shell assertions stay green
+- [x] `test/widget/map_peak_list_selection_test.dart` - remove stale theme-action expectation from app-bar summary coverage
+- [x] Verify: `flutter analyze` && `flutter test test/widget/gpx_tracks_shell_test.dart test/widget/map_peak_list_selection_test.dart`
 
 ## Risks / Out of scope
 
