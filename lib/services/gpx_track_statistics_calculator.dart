@@ -50,12 +50,12 @@ class GpxTrackStatisticsCalculator {
   static const _entryNetDisplacementMeters = 5.0;
   static const _entryMaxRadiusMeters = 10.0;
   static const _entryPathLengthMeters = 15.0;
-  static const _entrySpeedMetersPerSecond = 0.2;
+  static const _entrySpeedMetersPerSecond = 0.12;
   static const _exitNetDisplacementMeters = 8.0;
   static const _exitMaxRadiusMeters = 12.0;
   static const _exitPathLengthMeters = 20.0;
   static const _exitSpeedMetersPerSecond = 0.3;
-  static const _minimumRestDurationSeconds = 60;
+  static const _minimumRestDurationSeconds = 15;
   static const _exitFailureCountToClose = 2;
 
   GpxTrackStatistics calculate(String gpxXml) {
@@ -477,11 +477,7 @@ class GpxTrackStatisticsCalculator {
         continue;
       }
 
-      final legDistanceMeters = _distance.as(
-        LengthUnit.Meter,
-        previous.location,
-        point.location,
-      );
+      final legDistanceMeters = _segmentDistanceMeters(previous, point);
       pathLengthMeters += legDistanceMeters;
       maxSpeedMetersPerSecond = math.max(
         maxSpeedMetersPerSecond,
@@ -489,11 +485,7 @@ class GpxTrackStatisticsCalculator {
       );
     }
 
-    final netDisplacementMeters = _distance.as(
-      LengthUnit.Meter,
-      first.location,
-      last.location,
-    );
+    final netDisplacementMeters = _segmentDistanceMeters(first, last);
 
     return _StationaryClusterMetrics(
       durationSeconds: durationSeconds,
@@ -501,6 +493,29 @@ class GpxTrackStatisticsCalculator {
       maxRadiusMeters: maxRadiusMeters,
       cumulativePathLengthMeters: pathLengthMeters,
       maxSpeedMetersPerSecond: maxSpeedMetersPerSecond,
+    );
+  }
+
+  double _segmentDistanceMeters(_TrackPoint left, _TrackPoint right) {
+    final horizontalMeters = _distance.as(
+      LengthUnit.Meter,
+      left.location,
+      right.location,
+    );
+    final leftElevation = left.elevation;
+    final rightElevation = right.elevation;
+    if (leftElevation == null || rightElevation == null) {
+      return horizontalMeters;
+    }
+
+    final elevationDelta = leftElevation - rightElevation;
+    if (elevationDelta == 0) {
+      return horizontalMeters;
+    }
+
+    return math.sqrt(
+      horizontalMeters * horizontalMeters +
+          elevationDelta * elevationDelta,
     );
   }
 

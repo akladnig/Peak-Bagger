@@ -1335,6 +1335,38 @@ void main() {
       expect(stats.movingTime, 90000);
     });
 
+    test('does not count steep vertical ascent as rest', () {
+      final gpx = _statsGpx('Steep Ascent', [
+        [
+          _StatsPoint(-42.0, 146.0, 100, DateTime.utc(2024, 1, 15, 8, 0, 0)),
+          _StatsPoint(-42.0, 146.0, 120, DateTime.utc(2024, 1, 15, 8, 0, 30)),
+          _StatsPoint(-42.0, 146.0, 140, DateTime.utc(2024, 1, 15, 8, 1, 0)),
+          _StatsPoint(-42.0, 146.0, 160, DateTime.utc(2024, 1, 15, 8, 1, 30)),
+        ],
+      ]);
+
+      final stats = calculator.calculate(gpx);
+
+      expect(stats.totalTimeMillis, 90000);
+      expect(stats.restingTime, 0);
+      expect(stats.movingTime, 90000);
+    });
+
+    test('counts a short micro rest', () {
+      final gpx = _statsGpx('Micro Rest', [
+        [
+          _StatsPoint(-42.0, 146.0, 100, DateTime.utc(2024, 1, 15, 8, 0, 0)),
+          _StatsPoint(-42.0, 146.0, 100, DateTime.utc(2024, 1, 15, 8, 0, 15)),
+        ],
+      ]);
+
+      final stats = calculator.calculate(gpx);
+
+      expect(stats.totalTimeMillis, 15000);
+      expect(stats.restingTime, 15000);
+      expect(stats.movingTime, 0);
+    });
+
     test('counts jitter inside a true stop as rest', () {
       final gpx = _statsGpx('Jitter Stop', [
         [
