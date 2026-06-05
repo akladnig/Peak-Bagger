@@ -14,6 +14,16 @@ class RouteHoverResult {
   final double? distance;
 }
 
+class RouteHoverCandidateMatch {
+  const RouteHoverCandidateMatch({
+    required this.routeId,
+    required this.distance,
+  });
+
+  final int routeId;
+  final double distance;
+}
+
 class RouteHoverDetector {
   static const threshold = 8.0;
 
@@ -21,10 +31,27 @@ class RouteHoverDetector {
     required Offset pointerPosition,
     required List<RouteHoverCandidate> candidates,
   }) {
-    int? hoveredRouteId;
-    double? bestDistance;
+    final matches = findHoveredRouteCandidates(
+      pointerPosition: pointerPosition,
+      candidates: candidates,
+    );
+    final hoveredRouteId = matches.isEmpty ? null : matches.first.routeId;
+    final bestDistance = matches.isEmpty ? null : matches.first.distance;
+
+    return RouteHoverResult(
+      hoveredRouteId: hoveredRouteId,
+      distance: bestDistance,
+    );
+  }
+
+  static List<RouteHoverCandidateMatch> findHoveredRouteCandidates({
+    required Offset pointerPosition,
+    required List<RouteHoverCandidate> candidates,
+  }) {
+    final matches = <RouteHoverCandidateMatch>[];
 
     for (final candidate in candidates) {
+      double? bestDistance;
       for (final segment in candidate.segments) {
         if (segment.length < 2) {
           continue;
@@ -41,16 +68,28 @@ class RouteHoverDetector {
           }
           if (bestDistance == null || distance < bestDistance) {
             bestDistance = distance;
-            hoveredRouteId = candidate.routeId;
           }
         }
       }
+
+      if (bestDistance != null) {
+        matches.add(
+          RouteHoverCandidateMatch(
+            routeId: candidate.routeId,
+            distance: bestDistance,
+          ),
+        );
+      }
     }
 
-    return RouteHoverResult(
-      hoveredRouteId: hoveredRouteId,
-      distance: bestDistance,
-    );
+    matches.sort((left, right) {
+      final distanceComparison = left.distance.compareTo(right.distance);
+      if (distanceComparison != 0) {
+        return distanceComparison;
+      }
+      return left.routeId.compareTo(right.routeId);
+    });
+    return List<RouteHoverCandidateMatch>.unmodifiable(matches);
   }
 
   static double _distanceToSegment(Offset point, Offset start, Offset end) {

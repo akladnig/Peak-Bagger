@@ -14,6 +14,16 @@ class TrackHoverResult {
   final double? distance;
 }
 
+class TrackHoverCandidateMatch {
+  const TrackHoverCandidateMatch({
+    required this.trackId,
+    required this.distance,
+  });
+
+  final int trackId;
+  final double distance;
+}
+
 class TrackHoverDetector {
   static const threshold = 8.0;
 
@@ -21,10 +31,27 @@ class TrackHoverDetector {
     required Offset pointerPosition,
     required List<TrackHoverCandidate> candidates,
   }) {
-    int? hoveredTrackId;
-    double? bestDistance;
+    final matches = findHoveredTrackCandidates(
+      pointerPosition: pointerPosition,
+      candidates: candidates,
+    );
+    final hoveredTrackId = matches.isEmpty ? null : matches.first.trackId;
+    final bestDistance = matches.isEmpty ? null : matches.first.distance;
+
+    return TrackHoverResult(
+      hoveredTrackId: hoveredTrackId,
+      distance: bestDistance,
+    );
+  }
+
+  static List<TrackHoverCandidateMatch> findHoveredTrackCandidates({
+    required Offset pointerPosition,
+    required List<TrackHoverCandidate> candidates,
+  }) {
+    final matches = <TrackHoverCandidateMatch>[];
 
     for (final candidate in candidates) {
+      double? bestDistance;
       for (final segment in candidate.segments) {
         if (segment.length < 2) {
           continue;
@@ -41,16 +68,28 @@ class TrackHoverDetector {
           }
           if (bestDistance == null || distance < bestDistance) {
             bestDistance = distance;
-            hoveredTrackId = candidate.trackId;
           }
         }
       }
+
+      if (bestDistance != null) {
+        matches.add(
+          TrackHoverCandidateMatch(
+            trackId: candidate.trackId,
+            distance: bestDistance,
+          ),
+        );
+      }
     }
 
-    return TrackHoverResult(
-      hoveredTrackId: hoveredTrackId,
-      distance: bestDistance,
-    );
+    matches.sort((left, right) {
+      final distanceComparison = left.distance.compareTo(right.distance);
+      if (distanceComparison != 0) {
+        return distanceComparison;
+      }
+      return left.trackId.compareTo(right.trackId);
+    });
+    return List<TrackHoverCandidateMatch>.unmodifiable(matches);
   }
 
   static double _distanceToSegment(Offset point, Offset start, Offset end) {
