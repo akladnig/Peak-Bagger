@@ -2,6 +2,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/services/tile_cache_download_scope.dart';
 
@@ -39,6 +40,23 @@ void main() {
     expect(region.originalRegion, isA<CustomPolygonRegion>());
     expect(region.originalRegion.outline, points);
   });
+
+  test(
+    'buildLowZoomWarmupRegion covers Tasmania bounds at zooms 0 through 7',
+    () {
+      final region = buildLowZoomTileCacheWarmupRegion(options: TileLayer());
+
+      expect(region.minZoom, lowZoomTileCacheWarmupMinZoom);
+      expect(region.maxZoom, lowZoomTileCacheWarmupMaxZoom);
+      expect(region.originalRegion.outline, const [
+        LatLng(GeoConstants.tasmaniaLatMin, GeoConstants.tasmaniaLngMin),
+        LatLng(GeoConstants.tasmaniaLatMin, GeoConstants.tasmaniaLngMax),
+        LatLng(GeoConstants.tasmaniaLatMax, GeoConstants.tasmaniaLngMax),
+        LatLng(GeoConstants.tasmaniaLatMax, GeoConstants.tasmaniaLngMin),
+        LatLng(GeoConstants.tasmaniaLatMin, GeoConstants.tasmaniaLngMin),
+      ]);
+    },
+  );
 }
 
 Tasmap50k _map({required String name, String series = 'TS07'}) {

@@ -1,17 +1,28 @@
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 
-typedef TileCacheDownloadStarter = ({
-  Stream<TileEvent> tileEvents,
-  Stream<DownloadProgress> downloadProgress,
-}) Function({
-  required Basemap basemap,
-  required DownloadableRegion region,
-  required bool skipExistingTiles,
-});
+const lowZoomTileCacheWarmupMinZoom = 0;
+const lowZoomTileCacheWarmupMaxZoom = 7;
+
+const lowZoomTileCacheWarmupPolygonPoints = <LatLng>[
+  LatLng(GeoConstants.tasmaniaLatMin, GeoConstants.tasmaniaLngMin),
+  LatLng(GeoConstants.tasmaniaLatMin, GeoConstants.tasmaniaLngMax),
+  LatLng(GeoConstants.tasmaniaLatMax, GeoConstants.tasmaniaLngMax),
+  LatLng(GeoConstants.tasmaniaLatMax, GeoConstants.tasmaniaLngMin),
+  LatLng(GeoConstants.tasmaniaLatMin, GeoConstants.tasmaniaLngMin),
+];
+
+typedef TileCacheDownloadStarter =
+    ({Stream<TileEvent> tileEvents, Stream<DownloadProgress> downloadProgress})
+    Function({
+      required Basemap basemap,
+      required DownloadableRegion region,
+      required bool skipExistingTiles,
+    });
 
 List<Tasmap50k> sortTileCacheMapsByName(Iterable<Tasmap50k> maps) {
   final sorted = maps.toList(growable: false);
@@ -54,10 +65,18 @@ DownloadableRegion<CustomPolygonRegion> buildTileCacheDownloadRegion({
     );
   }
 
-  return CustomPolygonRegion(List<LatLng>.unmodifiable(polygonPoints))
-      .toDownloadable(
-        minZoom: minZoom,
-        maxZoom: maxZoom,
-        options: options,
-      );
+  return CustomPolygonRegion(
+    List<LatLng>.unmodifiable(polygonPoints),
+  ).toDownloadable(minZoom: minZoom, maxZoom: maxZoom, options: options);
+}
+
+DownloadableRegion<CustomPolygonRegion> buildLowZoomTileCacheWarmupRegion({
+  required TileLayer options,
+}) {
+  return buildTileCacheDownloadRegion(
+    polygonPoints: lowZoomTileCacheWarmupPolygonPoints,
+    minZoom: lowZoomTileCacheWarmupMinZoom,
+    maxZoom: lowZoomTileCacheWarmupMaxZoom,
+    options: options,
+  );
 }
