@@ -555,13 +555,13 @@ void main() {
             gpxTrackId: 7,
             contentHash: 'hash',
             trackName: 'Mt Ossa',
-            trackDate: DateTime.utc(2024, 1, 15),
-            startDateTime: DateTime.utc(2024, 1, 15, 1, 0),
-            endDateTime: DateTime.utc(2024, 1, 15, 2, 30),
-            totalTimeMillis: 5400000,
-            movingTime: 4800000,
-            restingTime: 300000,
-            pausedTime: 90000,
+            trackDate: DateTime.utc(2025, 3, 10),
+            startDateTime: DateTime.utc(2025, 3, 10, 8, 0),
+            endDateTime: DateTime.utc(2025, 3, 10, 8, 54, 35),
+            totalTimeMillis: 3275000,
+            movingTime: 30000,
+            restingTime: 1505000,
+            pausedTime: 1740000,
             gpxFileRepaired: '<gpx><trkseg /></gpx>',
             peakCorrelationProcessed: true,
           )
@@ -572,13 +572,13 @@ void main() {
 
     final row = gpxTrackToAdminRow(track);
 
-    expect(row.values['trackDate'], DateTime.utc(2024, 1, 15));
-    expect(row.values['startDateTime'], DateTime.utc(2024, 1, 15, 1, 0));
-    expect(row.values['endDateTime'], DateTime.utc(2024, 1, 15, 2, 30));
-    expect(row.values['totalTimeMillis'], 5400000);
-    expect(row.values['movingTime'], 4800000);
-    expect(row.values['restingTime'], 300000);
-    expect(row.values['pausedTime'], 90000);
+    expect(row.values['trackDate'], DateTime.utc(2025, 3, 10));
+    expect(row.values['startDateTime'], DateTime.utc(2025, 3, 10, 8, 0));
+    expect(row.values['endDateTime'], DateTime.utc(2025, 3, 10, 8, 54, 35));
+    expect(row.values['totalTimeMillis'], 3275000);
+    expect(row.values['movingTime'], 30000);
+    expect(row.values['restingTime'], 1505000);
+    expect(row.values['pausedTime'], 1740000);
     expect(row.values['gpxFileRepaired'], '<gpx><trkseg /></gpx>');
     expect(row.values['peakCorrelationProcessed'], isTrue);
     expect(row.values['peaks'], ['Peak A (11)', 'Peak B (22)']);

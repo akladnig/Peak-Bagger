@@ -903,12 +903,12 @@ void main() {
               'trackName': 'Mt Anne',
               'filteredTrack':
                   '<gpx><trk><trkseg><trkpt lat="-42.12340000" lon="146.12340000"/></trkseg></trk></gpx>',
-              'startDateTime': DateTime.utc(2024, 1, 15, 1, 0),
-              'endDateTime': DateTime.utc(2024, 1, 15, 2, 30),
-              'totalTimeMillis': 5400000,
-              'movingTime': 4800000,
-              'restingTime': 300000,
-              'pausedTime': 90000,
+              'startDateTime': DateTime.utc(2025, 3, 10, 8, 0),
+              'endDateTime': DateTime.utc(2025, 3, 10, 8, 54, 35),
+              'totalTimeMillis': 3275000,
+              'movingTime': 30000,
+              'restingTime': 1505000,
+              'pausedTime': 1740000,
             },
           ),
         ],
@@ -950,7 +950,7 @@ void main() {
                   .subtitle
               as SelectableText)
           .data,
-      '01:30:00',
+      '00:54:35',
     );
 
     await tester.scrollUntilVisible(
@@ -964,7 +964,7 @@ void main() {
                   .subtitle
               as SelectableText)
           .data,
-      '01:20:00',
+      '00:00:30',
     );
 
     await tester.scrollUntilVisible(
@@ -980,7 +980,7 @@ void main() {
                   .subtitle
               as SelectableText)
           .data,
-      '00:05:00',
+      '00:25:05',
     );
 
     await tester.scrollUntilVisible(
@@ -994,7 +994,7 @@ void main() {
                   .subtitle
               as SelectableText)
           .data,
-      '00:01:30',
+      '00:29:00',
     );
   });
 }

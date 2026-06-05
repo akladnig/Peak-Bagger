@@ -244,4 +244,64 @@ void main() {
       );
     },
   );
+
+  test('importTracks preserves Acropolis paused and rest targets', () async {
+    final tempDir = await Directory.systemTemp.createTemp('gpx-import-acropolis');
+    addTearDown(() async {
+      if (tempDir.existsSync()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
+    final tasmaniaDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+    final source = File('${tracksDir.path}/acropolis_(10-03-2025).gpx');
+    await source.writeAsString(
+      File('test/fixtures/acropolis_(10-03-2025).gpx').readAsStringSync(),
+    );
+
+    final importer = GpxImporter(
+      tracksFolder: tracksDir.path,
+      tasmaniaFolder: tasmaniaDir.path,
+    );
+
+    final result = await importer.importTracks(includeTasmaniaFolder: false);
+
+    expect(result.importedCount, 1);
+    expect(result.warning, isNull);
+    expect(result.tracks.single.restingTime, 25 * 60 * 1000 + 5 * 1000);
+    expect(result.tracks.single.pausedTime, 29 * 60 * 1000);
+    expect(result.tracks.single.movingTime, 30 * 1000);
+  });
+
+  test('importTracks preserves Mt Wellington Loop stopped time', () async {
+    final tempDir = await Directory.systemTemp.createTemp(
+      'gpx-import-mt-wellington',
+    );
+    addTearDown(() async {
+      if (tempDir.existsSync()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
+    final tasmaniaDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+    final source = File('${tracksDir.path}/mt-wellington-loop_(04-03-2025).gpx');
+    await source.writeAsString(
+      File('test/fixtures/mt-wellington-loop_(04-03-2025).gpx')
+          .readAsStringSync(),
+    );
+
+    final importer = GpxImporter(
+      tracksFolder: tracksDir.path,
+      tasmaniaFolder: tasmaniaDir.path,
+    );
+
+    final result = await importer.importTracks(includeTasmaniaFolder: false);
+
+    expect(result.importedCount, 1);
+    expect(result.warning, isNull);
+    expect(result.tracks.single.restingTime, 38 * 60 * 1000 + 20 * 1000);
+    expect(result.tracks.single.pausedTime, 0);
+  });
 }
