@@ -126,7 +126,7 @@ void main() {
     expect(find.byKey(const Key('track-info-panel')), findsNothing);
   });
 
-  testWidgets('track click replaces an existing route selection', (
+  testWidgets('track chooser selection replaces an existing route selection', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({'show_routes': true});
@@ -179,6 +179,20 @@ void main() {
     await gesture.down(tester.getCenter(mapRegion));
     await tester.pump();
     await gesture.up();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('track-route-chooser-popup')), findsOneWidget);
+    expect(
+      find.byKey(const Key('track-route-chooser-row-track-2')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('track-route-chooser-row-route-1')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('track-route-chooser-row-track-2')));
     await tester.pumpAndSettle();
 
     final container = ProviderScope.containerOf(tester.element(mapRegion));

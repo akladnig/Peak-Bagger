@@ -1,5 +1,8 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:latlong2/latlong.dart' show LatLng;
 
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/core/date_formatters.dart';
@@ -579,6 +582,292 @@ class MapTrackInfoPanel extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+enum TrackRouteChooserItemKind { track, route }
+
+class TrackRouteChooserItem {
+  const TrackRouteChooserItem.track({
+    required this.track,
+    required this.segments,
+  }) : kind = TrackRouteChooserItemKind.track,
+       route = null;
+
+  const TrackRouteChooserItem.route({
+    required this.route,
+    required this.segments,
+  }) : kind = TrackRouteChooserItemKind.route,
+       track = null;
+
+  final TrackRouteChooserItemKind kind;
+  final GpxTrack? track;
+  final app_route.Route? route;
+  final List<List<LatLng>> segments;
+
+  int get id => kind == TrackRouteChooserItemKind.track
+      ? track!.gpxTrackId
+      : route!.id;
+
+  String get displayName => switch (kind) {
+    TrackRouteChooserItemKind.track => _chooserTrackName(track!),
+    TrackRouteChooserItemKind.route => _chooserRouteName(route!),
+  };
+
+  String get subtitle => switch (kind) {
+    TrackRouteChooserItemKind.track =>
+      'Track • ${formatDistance(track!.distance2d, decimalPlaces: 1)} • ${formatTrackDate(track!.trackDate)} • ${formatDuration(track!.totalTimeMillis)}',
+    TrackRouteChooserItemKind.route =>
+      'Route • ${formatDistance(route!.distance2d, decimalPlaces: 1)}',
+  };
+
+  Color get color => switch (kind) {
+    TrackRouteChooserItemKind.track => Color(track!.trackColour),
+    TrackRouteChooserItemKind.route => route!.colour == 0
+        ? const Color(0xFF4C8BF5)
+        : Color(route!.colour),
+  };
+}
+
+class TrackRouteChooserPopup extends StatelessWidget {
+  const TrackRouteChooserPopup({
+    required this.items,
+    required this.onSelected,
+    required this.onClose,
+    super.key,
+  });
+
+  static const width = 392.0;
+  static const maxHeight = 320.0;
+
+  final List<TrackRouteChooserItem> items;
+  final ValueChanged<TrackRouteChooserItem> onSelected;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      key: const Key('track-route-chooser-popup'),
+      margin: EdgeInsets.zero,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: width, maxHeight: maxHeight),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                IconButton(
+                  key: const Key('track-route-chooser-close'),
+                  tooltip: 'Close chooser',
+                  onPressed: onClose,
+                  icon: const Icon(Icons.close, size: 18),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 8),
+              ],
+            ),
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                itemCount: items.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  return _TrackRouteChooserRow(
+                    item: item,
+                    onTap: () => onSelected(item),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _chooserTrackName(GpxTrack track) {
+  return track.trackName.trim().isEmpty ? 'Unnamed Track' : track.trackName.trim();
+}
+
+String _chooserRouteName(app_route.Route route) {
+  return route.name.trim().isEmpty ? 'Unnamed Route' : route.name.trim();
+}
+
+class _TrackRouteChooserRow extends StatelessWidget {
+  const _TrackRouteChooserRow({required this.item, required this.onTap});
+
+  final TrackRouteChooserItem item;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        key: Key('track-route-chooser-row-${item.kind.name}-${item.id}'),
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(
+                key: Key('track-route-chooser-thumbnail-${item.kind.name}-${item.id}'),
+                width: 44,
+                height: 44,
+                child: _TrackRouteChooserThumbnail(item: item),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      item.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      item.subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TrackRouteChooserThumbnail extends StatelessWidget {
+  const _TrackRouteChooserThumbnail({required this.item});
+
+  final TrackRouteChooserItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (item.segments.isEmpty) {
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+        ),
+        child: CustomPaint(
+          painter: _TrackRouteChooserThumbnailPainter(
+            segments: item.segments,
+            color: item.color,
+            background: theme.colorScheme.surface,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TrackRouteChooserThumbnailPainter extends CustomPainter {
+  const _TrackRouteChooserThumbnailPainter({
+    required this.segments,
+    required this.color,
+    required this.background,
+  });
+
+  final List<List<LatLng>> segments;
+  final Color color;
+  final Color background;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) {
+      return;
+    }
+
+    final fillPaint = Paint()
+      ..color = background
+      ..style = PaintingStyle.fill;
+    canvas.drawRect(Offset.zero & size, fillPaint);
+
+    final points = segments
+        .expand((segment) => segment)
+        .toList(growable: false);
+    if (points.length < 2) {
+      return;
+    }
+
+    final lats = points.map((point) => point.latitude).toList(growable: false);
+    final lngs = points.map((point) => point.longitude).toList(growable: false);
+    final minLat = lats.reduce((left, right) => left < right ? left : right);
+    final maxLat = lats.reduce((left, right) => left > right ? left : right);
+    final minLng = lngs.reduce((left, right) => left < right ? left : right);
+    final maxLng = lngs.reduce((left, right) => left > right ? left : right);
+
+    final latSpan = math.max((maxLat - minLat).abs(), 0.000001);
+    final lngSpan = math.max((maxLng - minLng).abs(), 0.000001);
+    final padding = 6.0;
+    final usableWidth = (size.width - padding * 2).clamp(1.0, double.infinity);
+    final usableHeight = (size.height - padding * 2).clamp(1.0, double.infinity);
+    final scale = math.min(usableWidth / lngSpan, usableHeight / latSpan);
+    final pathPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final path = Path();
+    for (final segment in segments) {
+      if (segment.length < 2) {
+        continue;
+      }
+      for (var i = 0; i < segment.length; i++) {
+        final point = segment[i];
+        final dx = padding + (point.longitude - minLng) * scale;
+        final dy = size.height - padding - (point.latitude - minLat) * scale;
+        if (i == 0) {
+          path.moveTo(dx, dy);
+        } else {
+          path.lineTo(dx, dy);
+        }
+      }
+    }
+    canvas.drawPath(path, pathPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TrackRouteChooserThumbnailPainter oldDelegate) {
+    return oldDelegate.segments != segments ||
+        oldDelegate.color != color ||
+        oldDelegate.background != background;
   }
 }
 

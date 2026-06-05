@@ -15,6 +15,7 @@ import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_repair_service.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
+import 'package:peak_bagger/services/route_hover_detector.dart';
 import 'package:peak_bagger/services/migration_marker_store.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
@@ -129,6 +130,74 @@ void main() {
       expect(nearer.distance, closeTo(2, 0.001));
       expect(tie.hoveredTrackId, 3);
       expect(tie.distance, closeTo(4, 0.001));
+    });
+
+    test('returns all hovered tracks sorted by distance then id', () {
+      final matches = TrackHoverDetector.findHoveredTrackCandidates(
+        pointerPosition: const Offset(10, 10),
+        candidates: const [
+          TrackHoverCandidate(
+            trackId: 4,
+            segments: [
+              [Offset(0, 6), Offset(20, 6)],
+            ],
+          ),
+          TrackHoverCandidate(
+            trackId: 2,
+            segments: [
+              [Offset(0, 8), Offset(20, 8)],
+            ],
+          ),
+          TrackHoverCandidate(
+            trackId: 7,
+            segments: [
+              [Offset(0, 14), Offset(20, 14)],
+            ],
+          ),
+        ],
+      );
+
+      expect(matches.map((match) => match.trackId), [2, 4, 7]);
+      expect(matches.map((match) => match.distance), [
+        closeTo(2, 0.001),
+        closeTo(4, 0.001),
+        closeTo(4, 0.001),
+      ]);
+    });
+  });
+
+  group('RouteHoverDetector', () {
+    test('returns all hovered routes sorted by distance then id', () {
+      final matches = RouteHoverDetector.findHoveredRouteCandidates(
+        pointerPosition: const Offset(10, 10),
+        candidates: const [
+          RouteHoverCandidate(
+            routeId: 9,
+            segments: [
+              [Offset(0, 14), Offset(20, 14)],
+            ],
+          ),
+          RouteHoverCandidate(
+            routeId: 3,
+            segments: [
+              [Offset(0, 8), Offset(20, 8)],
+            ],
+          ),
+          RouteHoverCandidate(
+            routeId: 5,
+            segments: [
+              [Offset(0, 6), Offset(20, 6)],
+            ],
+          ),
+        ],
+      );
+
+      expect(matches.map((match) => match.routeId), [3, 5, 9]);
+      expect(matches.map((match) => match.distance), [
+        closeTo(2, 0.001),
+        closeTo(4, 0.001),
+        closeTo(4, 0.001),
+      ]);
     });
   });
 

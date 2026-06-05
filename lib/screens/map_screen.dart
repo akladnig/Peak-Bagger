@@ -115,6 +115,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
   bool _routeDraftMarkerTapConsumed = false;
   String? _routeDraftDeletePopupMarkerId;
   int? _routeDraftDeletePopupViewportRevision;
+  List<TrackRouteChooserItem>? _trackRouteChooserItems;
+  Offset? _trackRouteChooserAnchor;
+  int? _trackRouteChooserViewportRevision;
+  bool _trackRouteChooserSuppressReopen = false;
   String? _pendingRouteDraftDragMarkerId;
   double _pendingRouteDraftDragDistance = 0;
   String? _draggingRouteDraftMarkerId;
@@ -290,6 +294,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
       _dismissRouteDraftMarkerDeletePopup();
       return true;
     }
+    if (_trackRouteChooserItems != null) {
+      _dismissTrackRouteChooser(suppressReopen: true);
+      return true;
+    }
     if (mapState.driveEtaPopup != null) {
       notifier.closeDriveEtaPopup();
       return true;
@@ -340,6 +348,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
     notifier.clearSelectedTrack();
     notifier.clearSelectedRoute();
+    _dismissTrackRouteChooser(suppressReopen: true);
     notifier.beginRouteDraft(peakTarget: peakTarget);
     _dismissRouteDraftMarkerDeletePopup();
     _mapFocusNode.requestFocus();
@@ -400,6 +409,51 @@ class _MapScreenState extends ConsumerState<MapScreen>
       _routeDraftDeletePopupMarkerId = null;
       _routeDraftDeletePopupViewportRevision = null;
     });
+  }
+
+  void _openTrackRouteChooser({
+    required Offset anchor,
+    required List<TrackRouteChooserItem> items,
+  }) {
+    final notifier = ref.read(mapProvider.notifier);
+    notifier.clearHoveredPeak();
+    notifier.clearHoveredTrack();
+    notifier.clearHoveredRoute();
+    setState(() {
+      _trackRouteChooserAnchor = anchor;
+      _trackRouteChooserItems = items;
+      _trackRouteChooserViewportRevision = _viewportUiRevision.value;
+      _trackRouteChooserSuppressReopen = false;
+    });
+  }
+
+  void _dismissTrackRouteChooser({bool suppressReopen = false}) {
+    if (_trackRouteChooserItems == null &&
+        _trackRouteChooserAnchor == null &&
+        _trackRouteChooserViewportRevision == null &&
+        (!suppressReopen || !_trackRouteChooserSuppressReopen)) {
+      return;
+    }
+
+    setState(() {
+      _trackRouteChooserAnchor = null;
+      _trackRouteChooserItems = null;
+      _trackRouteChooserViewportRevision = null;
+      _trackRouteChooserSuppressReopen = suppressReopen;
+    });
+  }
+
+  void _selectTrackRouteChooserItem(TrackRouteChooserItem item) {
+    final notifier = ref.read(mapProvider.notifier);
+    _dismissTrackRouteChooser(suppressReopen: true);
+    switch (item.kind) {
+      case TrackRouteChooserItemKind.track:
+        notifier.selectTrack(item.track!.gpxTrackId);
+        break;
+      case TrackRouteChooserItemKind.route:
+        notifier.selectRoute(item.route!.id);
+        break;
+    }
   }
 
   void _startRouteDraftMarkerDrag(String markerId) {
@@ -817,6 +871,104 @@ class _MapScreenState extends ConsumerState<MapScreen>
     return candidates;
   }
 
+  List<TrackRouteChooserItem> _buildTrackRouteChooserItems({
+    required Offset localPosition,
+    required MapState mapState,
+    required List<app_route.Route> routes,
+  }) {
+    final camera = _mapController.camera;
+    if (camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      return const [];
+    }
+
+    final displayZoom = mapState.zoom.round().clamp(
+      MapConstants.trackMinZoom,
+      MapConstants.trackMaxZoom,
+    );
+    final List<TrackHoverCandidateMatch> trackMatches =
+        mapState.showTracks && !mapState.hasTrackRecoveryIssue
+        ? TrackHoverDetector.findHoveredTrackCandidates(
+            pointerPosition: localPosition,
+            candidates: _buildTrackHoverCandidates(mapState, camera),
+          )
+        : <TrackHoverCandidateMatch>[];
+    final routeMatches = RouteHoverDetector.findHoveredRouteCandidates(
+      pointerPosition: localPosition,
+      candidates: _buildRouteHoverCandidates(routes, camera),
+    );
+
+    final trackById = {
+      for (final track in mapState.tracks) track.gpxTrackId: track,
+    };
+    final routeById = {for (final route in routes) route.id: route};
+
+    final items = <TrackRouteChooserItem>[];
+    for (final match in trackMatches) {
+      final track = trackById[match.trackId];
+      if (track == null || !track.visible) {
+        continue;
+      }
+      items.add(
+        TrackRouteChooserItem.track(
+          track: track,
+          segments: track.getSegmentsForZoom(displayZoom),
+        ),
+      );
+    }
+
+    for (final match in routeMatches) {
+      final route = routeById[match.routeId];
+      if (route == null || !route.visible) {
+        continue;
+      }
+      items.add(
+        TrackRouteChooserItem.route(
+          route: route,
+          segments: route.getSegmentsForZoom(displayZoom),
+        ),
+      );
+    }
+
+    items.sort((left, right) {
+      if (left.kind != right.kind) {
+        return left.kind == TrackRouteChooserItemKind.track ? -1 : 1;
+      }
+
+      if (left.kind == TrackRouteChooserItemKind.track) {
+        final leftDate = left.track!.trackDate;
+        final rightDate = right.track!.trackDate;
+        if (leftDate == null && rightDate != null) {
+          return 1;
+        }
+        if (leftDate != null && rightDate == null) {
+          return -1;
+        }
+        if (leftDate != null && rightDate != null) {
+          final dateComparison = rightDate.compareTo(leftDate);
+          if (dateComparison != 0) {
+            return dateComparison;
+          }
+        }
+        return left.track!.gpxTrackId.compareTo(right.track!.gpxTrackId);
+      }
+
+      final leftName = _chooserRouteName(left.route!);
+      final rightName = _chooserRouteName(right.route!);
+      final nameComparison = leftName.compareTo(rightName);
+      if (nameComparison != 0) {
+        return nameComparison;
+      }
+      return left.route!.id.compareTo(right.route!.id);
+    });
+
+    return List<TrackRouteChooserItem>.unmodifiable(items);
+  }
+
+  String _chooserRouteName(app_route.Route route) {
+    final trimmed = route.name.trim();
+    return trimmed.isEmpty ? 'Unnamed Route' : trimmed;
+  }
+
   void _handleMapHover(
     Offset localPosition,
     LatLng location,
@@ -825,7 +977,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     List<app_route.Route> routes,
   ) {
     final notifier = ref.read(mapProvider.notifier);
-    if (_isPointerDown) {
+    if (_isPointerDown || _trackRouteChooserItems != null) {
       return;
     }
     notifier.setCursorMgrs(location);
@@ -840,11 +992,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
         _handleRouteDraftSegmentHover(localPosition, mapState);
       }
       notifier.clearHoveredRoute();
+      _dismissTrackRouteChooser(suppressReopen: true);
       return;
     }
     if (_handlePeakHover(localPosition, mapState, peaks)) {
       notifier.clearHoveredTrack();
       notifier.clearHoveredRoute();
+      _dismissTrackRouteChooser(suppressReopen: true);
       return;
     }
     _handleTrackHover(localPosition, location, mapState);
@@ -1369,6 +1523,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final notifier = ref.read(mapProvider.notifier);
     if (_routeDraftDeletePopupMarkerId != null) {
       _dismissRouteDraftMarkerDeletePopup();
+    }
+    if (_trackRouteChooserItems != null) {
+      _dismissTrackRouteChooser(suppressReopen: true);
     }
     if (!_isPointerDown && mapState.cursorMgrs != null) {
       notifier.clearCursorMgrs();
@@ -2246,6 +2403,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               .read(mapProvider)
                                               .driveEtaPopup
                                               ?.requestId;
+                                          if (_trackRouteChooserItems != null) {
+                                            _dismissTrackRouteChooser(
+                                              suppressReopen: true,
+                                            );
+                                          }
                                           if (clickTrackId == null &&
                                               clickRouteId == null) {
                                             final etaConsumed =
@@ -2269,6 +2431,22 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                   null &&
                                               currentDriveEtaRequestId !=
                                                   previousDriveEtaRequestId) {
+                                            return;
+                                          }
+                                          final chooserItems =
+                                              _buildTrackRouteChooserItems(
+                                                localPosition:
+                                                    event.localPosition,
+                                                routes: routes,
+                                                mapState: ref.read(mapProvider),
+                                              );
+                                          if (chooserItems.length > 1) {
+                                            notifier.clearHoveredTrack();
+                                            notifier.clearHoveredRoute();
+                                            _openTrackRouteChooser(
+                                              anchor: event.localPosition,
+                                              items: chooserItems,
+                                            );
                                             return;
                                           }
                                           if (clickTrackId == null) {
@@ -2922,6 +3100,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     context,
                     routeChrome.routeDraftDisplayMarkers,
                   ),
+                if (_trackRouteChooserItems != null)
+                  _buildTrackRouteChooserPopup(context),
               ],
             ),
           ),
@@ -3086,6 +3266,52 @@ class _MapScreenState extends ConsumerState<MapScreen>
             unawaited(_deleteRouteDraftMarker(markerId));
           },
           onClose: _dismissRouteDraftMarkerDeletePopup,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTrackRouteChooserPopup(BuildContext context) {
+    final items = _trackRouteChooserItems;
+    final anchor = _trackRouteChooserAnchor;
+    final viewportRevision = _trackRouteChooserViewportRevision;
+    if (items == null ||
+        anchor == null ||
+        viewportRevision != _viewportUiRevision.value) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _dismissTrackRouteChooser(suppressReopen: true);
+        }
+      });
+      return const SizedBox.shrink();
+    }
+
+    final placement = resolvePeakInfoPopupPlacement(
+      anchorScreenOffset: anchor,
+      viewportSize: MediaQuery.of(context).size,
+      popupSize: const Size(
+        TrackRouteChooserPopup.width,
+        TrackRouteChooserPopup.maxHeight,
+      ),
+    );
+    if (!placement.isAnchorable) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _dismissTrackRouteChooser(suppressReopen: true);
+        }
+      });
+      return const SizedBox.shrink();
+    }
+
+    return Positioned(
+      left: placement.topLeft.dx,
+      top: placement.topLeft.dy,
+      child: MouseRegion(
+        onExit: (_) => _dismissTrackRouteChooser(suppressReopen: true),
+        child: TrackRouteChooserPopup(
+          items: items,
+          onSelected: _selectTrackRouteChooserItem,
+          onClose: _dismissTrackRouteChooser,
         ),
       ),
     );
