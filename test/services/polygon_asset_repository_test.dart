@@ -27,6 +27,7 @@ void main() {
     );
 
     expect(result.isSuccess, isFalse);
+    expect(result.error, contains('assets/polygons/broken.poly'));
     expect(result.error, contains('invalid coordinate line'));
   });
 
@@ -40,7 +41,8 @@ void main() {
             'assets/polygons/tasmania.poly',
             'assets/peak_marker.svg',
           ]),
-          'assets/polygons/alpha.poly' => 'none\n1\n0 0\n1 0\n1 1\n0 0\nEND\nEND\n',
+          'assets/polygons/alpha.poly' =>
+            'none\n1\n0 0\n1 0\n1 1\n0 0\nEND\nEND\n',
           'assets/polygons/tasmania.poly' => tasmania,
           _ => throw StateError('Unexpected asset: $assetPath'),
         };
