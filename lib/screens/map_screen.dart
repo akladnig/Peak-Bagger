@@ -88,6 +88,7 @@ class MapScreen extends ConsumerStatefulWidget {
 class _MapScreenState extends ConsumerState<MapScreen>
     with WidgetsBindingObserver {
   static const _chartHoverResolver = MapChartHoverResolver();
+  static String _identityUrlTransformer(String url) => url;
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   late final MapController _mapController;
@@ -155,6 +156,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
   int? _cachedRouteHoverDisplayZoom;
   List<app_route.Route>? _cachedRouteHoverRoutes;
   List<RouteHoverCandidate>? _cachedRouteHoverCandidates;
+  Basemap? _cachedTileProviderBasemap;
+  TileProvider? _cachedTileProvider;
   int _driveEtaRequestId = 0;
   static final _tickedPeakMarker = SvgPicture.asset(
     'assets/peak_marker_ticked.svg',
@@ -2324,7 +2327,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               mapProvider.select(
                                                 (state) => (
                                                   cursorMgrs: state.cursorMgrs,
-                                                  cursorPoint: state.cursorPoint,
+                                                  cursorPoint:
+                                                      state.cursorPoint,
                                                   gotoMgrs: state.gotoMgrs,
                                                   currentMgrs:
                                                       state.currentMgrs,
@@ -3173,21 +3177,27 @@ class _MapScreenState extends ConsumerState<MapScreen>
   }
 
   TileProvider _buildTileProviderForBasemap(Basemap basemap) {
-    if (TileCacheService.getStoreForBasemap(basemap) == null) {
-      return NetworkTileProvider();
+    final cachedProvider = _cachedTileProvider;
+    if (_cachedTileProviderBasemap == basemap && cachedProvider != null) {
+      return cachedProvider;
     }
 
-    return FMTCTileProvider(
-      urlTransformer: (url) => url,
-      stores: {
-        'openstreetmap': BrowseStoreStrategy.readUpdateCreate,
-        'tracestrack': BrowseStoreStrategy.readUpdateCreate,
-        'tasmapTopo': BrowseStoreStrategy.readUpdateCreate,
-        'tasmap50k': BrowseStoreStrategy.readUpdateCreate,
-        'tasmap25k': BrowseStoreStrategy.readUpdateCreate,
-      },
-      loadingStrategy: BrowseLoadingStrategy.cacheFirst,
-    );
+    final previousProvider = cachedProvider;
+    final nextProvider = TileCacheService.getStoreForBasemap(basemap) == null
+        ? NetworkTileProvider()
+        : FMTCTileProvider(
+            stores: {basemap.name: BrowseStoreStrategy.readUpdateCreate},
+            loadingStrategy: BrowseLoadingStrategy.cacheFirst,
+            recordHitsAndMisses: false,
+            urlTransformer: _identityUrlTransformer,
+          );
+
+    _cachedTileProviderBasemap = basemap;
+    _cachedTileProvider = nextProvider;
+    if (previousProvider != null) {
+      previousProvider.dispose();
+    }
+    return nextProvider;
   }
 
   Widget _buildPeakInfoPopup(BuildContext context, PeakInfoContent content) {

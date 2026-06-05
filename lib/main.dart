@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/app.dart';
@@ -27,6 +29,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await TileCacheService.initialize();
+  unawaited(TileCacheService.ensureLowZoomWarmup());
 
   final store = await openStore(maxDBSizeInKB: _objectBoxMaxDbSizeInKB);
   try {
