@@ -29,15 +29,15 @@ Small vertical slices: containment first, parser/repository split second.
 ### Phase 2: Parser Extraction + Repository Delegation
 
 - **Goal**: pure parser + unchanged asset-loading surface
-- [ ] `lib/services/polygon_geometry.dart` - add generic polygon parse result and pure `.poly` parser returning generic polygon data
-- [ ] `lib/services/polygon_asset_repository.dart` - delegate parsing to `polygon_geometry.dart`; keep manifest loading, asset reads, logging, `MapPolygonAsset` wrapping
-- [ ] `test/services/polygon_geometry_test.dart` - add malformed parser cases and Tasmania inside/outside regression via parsed vertices
-- [ ] `test/services/polygon_asset_repository_test.dart` - retain repository-layer coverage; update for delegation/wrapping split if needed
-- [ ] TDD: valid Tasmania `.poly` parses into generic vertices -> implement parser happy path
-- [ ] TDD: malformed coordinate line, missing `END`, empty ring, extra ring fail with typed result -> implement parser failures
-- [ ] TDD: repository wraps parsed polygon data into `MapPolygonAsset` and still filters manifest entries -> refactor repository after parser is green
-- [ ] TDD: parsed Tasmania vertices contain `(-42.896016, 147.237306)` and exclude `(-33.865143, 151.209900)` -> prove parser + containment interop
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/services/polygon_geometry.dart` - add generic polygon parse result and pure `.poly` parser returning generic polygon data
+- [x] `lib/services/polygon_asset_repository.dart` - delegate parsing to `polygon_geometry.dart`; keep manifest loading, asset reads, logging, `MapPolygonAsset` wrapping
+- [x] `test/services/polygon_geometry_test.dart` - add malformed parser cases and Tasmania inside/outside regression via parsed vertices
+- [x] `test/services/polygon_asset_repository_test.dart` - retain repository-layer coverage; update for delegation/wrapping split if needed
+- [x] TDD: valid Tasmania `.poly` parses into generic vertices -> implement parser happy path
+- [x] TDD: malformed coordinate line, missing `END`, empty ring, extra ring fail with typed result -> implement parser failures
+- [x] TDD: repository wraps parsed polygon data into `MapPolygonAsset` and still filters manifest entries -> refactor repository after parser is green
+- [x] TDD: parsed Tasmania vertices contain `(-42.896016, 147.237306)` and exclude `(-33.865143, 151.209900)` -> prove parser + containment interop
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/services/polygon_geometry.dart';
@@ -85,4 +87,61 @@ void main() {
       throwsArgumentError,
     );
   });
+
+  test('parses the bundled tasmania polygon into generic vertices', () async {
+    final contents = await File('assets/polygons/tasmania.poly').readAsString();
+
+    final result = parsePolygonText(contents);
+
+    expect(result.isSuccess, isTrue);
+    expect(result.polygon!.name, 'none');
+    expect(result.polygon!.vertices, hasLength(9));
+    expect(result.polygon!.vertices.first, const LatLng(-56.86236, 152.8587));
+  });
+
+  test('rejects malformed polygon text inputs', () {
+    final malformedCoordinate = parsePolygonText(
+      'none\n1\ninvalid line\nEND\nEND\n',
+    );
+    final missingEnd = parsePolygonText('none\n1\n0 0\n1 0\n1 1\n');
+    final emptyRing = parsePolygonText('none\n1\nEND\nEND\n');
+    final extraRing = parsePolygonText(
+      'none\n1\n0 0\n1 0\n1 1\n0 0\nEND\n2\n2 2\nEND\nEND\n',
+    );
+
+    expect(malformedCoordinate.isSuccess, isFalse);
+    expect(malformedCoordinate.error, contains('invalid coordinate line'));
+    expect(missingEnd.isSuccess, isFalse);
+    expect(missingEnd.error, contains('missing the end of the first ring'));
+    expect(emptyRing.isSuccess, isFalse);
+    expect(emptyRing.error, contains('complete ring'));
+    expect(extraRing.isSuccess, isFalse);
+    expect(extraRing.error, contains('unsupported additional rings'));
+  });
+
+  test(
+    'parsed tasmania vertices interoperate with containment checks',
+    () async {
+      final contents = await File(
+        'assets/polygons/tasmania.poly',
+      ).readAsString();
+      final result = parsePolygonText(contents);
+
+      expect(result.isSuccess, isTrue);
+      expect(
+        polygonContainsPoint(
+          const LatLng(-42.896016, 147.237306),
+          result.polygon!.vertices,
+        ),
+        isTrue,
+      );
+      expect(
+        polygonContainsPoint(
+          const LatLng(-33.865143, 151.209900),
+          result.polygon!.vertices,
+        ),
+        isFalse,
+      );
+    },
+  );
 }
