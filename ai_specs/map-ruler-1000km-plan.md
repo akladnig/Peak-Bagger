@@ -17,7 +17,7 @@ Approach: extend ruler-step selection through `50,000,000` m using the existing 
 ### Phase 1: Low-Zoom Ruler Fix
 
 - **Goal**: readable ruler at far zoom-out; minimal scope
-- [x] `lib/services/map_ruler_scale.dart` - extend supported ruler steps with `1000000`, `2000000`, `3000000`, `5000000`, `10000000`, `20000000`, `30000000`, `50000000`; preserve largest-in-band selection; leave `mapMgrsGridIntervalForRulerMeters` capped at `hundredKilometers`
+- [x] `lib/services/map_ruler_scale.dart` - extend supported ruler steps with `200000`, `300000`, `500000`, `1000000`, `2000000`, `3000000`, `5000000`, `10000000`, `20000000`, `30000000`, `50000000`; preserve largest-in-band selection; leave `mapMgrsGridIntervalForRulerMeters` capped at `hundredKilometers`
 - [x] `test/services/map_ruler_scale_test.dart` - TDD: large-step ladder is selectable at low zooms; far zoom-out prefers larger steps instead of clamping to undersized `100000` m; keep `3 km` / `30 km` grid-threshold coverage intact
 - [x] `test/widget/map_screen_ruler_test.dart` - TDD: `MapZoomReadout` shows a large-scale label from the new ladder for low-zoom cases that previously rendered too-small labels
 - [x] Verify: `flutter analyze` && `flutter test test/services/map_ruler_scale_test.dart test/widget/map_screen_ruler_test.dart`

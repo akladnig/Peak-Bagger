@@ -41,9 +41,18 @@ void main() {
   });
 
   test('ruler selection keeps scaling up at far zoom levels', () {
+    final midScaleSelection = selectMapRulerScale(zoom: 6, latitude: -41.5);
     final tasmaniaSelection = selectMapRulerScale(zoom: 2, latitude: -41.5);
     final worldSelection = selectMapRulerScale(zoom: -1, latitude: 0);
 
+    expect(midScaleSelection.distanceMeters, 200000);
+    expect(
+      midScaleSelection.barWidth,
+      inInclusiveRange(
+        MapConstants.mapRulerMinBarWidth,
+        MapConstants.mapRulerMaxBarWidth,
+      ),
+    );
     expect(tasmaniaSelection.distanceMeters, 3000000);
     expect(
       tasmaniaSelection.barWidth,
