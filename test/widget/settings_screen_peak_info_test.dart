@@ -43,5 +43,20 @@ void main() {
     );
 
     expect(find.text('Show Peak Info', skipOffstage: false), findsOneWidget);
+    expect(
+      find.text(
+        'Toggles the display of the peak name and height',
+        skipOffstage: false,
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('show-peak-info-tile'), skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('show-peak-info-icon'), skipOffstage: false),
+      findsOneWidget,
+    );
   });
 }

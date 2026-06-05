@@ -269,7 +269,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: ListTile(
+                key: const Key('show-peak-info-tile'),
+                leading: const Icon(
+                  Icons.info_outline,
+                  key: Key('show-peak-info-icon'),
+                ),
                 title: const Text('Show Peak Info'),
+                subtitle: const Text(
+                  'Toggles the display of the peak name and height',
+                ),
                 trailing: Switch(
                   key: const Key('show-peak-info-switch'),
                   value: showPeakInfo,
