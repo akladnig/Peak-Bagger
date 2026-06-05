@@ -2324,9 +2324,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               mapProvider.select(
                                                 (state) => (
                                                   cursorMgrs: state.cursorMgrs,
+                                                  cursorPoint: state.cursorPoint,
                                                   gotoMgrs: state.gotoMgrs,
                                                   currentMgrs:
                                                       state.currentMgrs,
+                                                  center: state.center,
                                                 ),
                                               ),
                                             );
@@ -2337,8 +2339,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                 mgrsState.currentMgrs;
                                             _dragFrozenReadoutMgrs = frozenMgrs;
                                             _dragFrozenReadoutMapName =
-                                                _mapNotifier.mapNameForMgrs(
-                                                  frozenMgrs,
+                                                _readoutMapName(
+                                                  cursorPoint:
+                                                      mgrsState.cursorPoint,
+                                                  gotoMgrs: mgrsState.gotoMgrs,
+                                                  currentCenter:
+                                                      mgrsState.center,
                                                 );
                                           }
                                           if (event.kind ==
@@ -2842,8 +2848,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                             mapProvider.select(
                                               (state) => (
                                                 cursorMgrs: state.cursorMgrs,
+                                                cursorPoint: state.cursorPoint,
                                                 gotoMgrs: state.gotoMgrs,
                                                 currentMgrs: state.currentMgrs,
+                                                center: state.center,
                                               ),
                                             ),
                                           );
@@ -2860,11 +2868,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                   _dragFrozenReadoutMapName !=
                                                       null
                                               ? _dragFrozenReadoutMapName!
-                                              : _mapNotifier.mapNameForMgrs(
-                                                  mgrsState.cursorMgrs ??
-                                                      mgrsState.gotoMgrs ??
-                                                      _liveCamera?.mgrs ??
-                                                      mgrsState.currentMgrs,
+                                              : _readoutMapName(
+                                                  cursorPoint:
+                                                      mgrsState.cursorPoint,
+                                                  gotoMgrs: mgrsState.gotoMgrs,
+                                                  currentCenter:
+                                                      mgrsState.center,
                                                 );
                                           return MapMgrsReadout(
                                             mapName: mapName,
@@ -3535,13 +3544,29 @@ class _MapScreenState extends ConsumerState<MapScreen>
     // TODO: Implement GPS location
   }
 
+  String _readoutMapName({
+    required LatLng? cursorPoint,
+    required String? gotoMgrs,
+    required LatLng currentCenter,
+  }) {
+    if (cursorPoint != null) {
+      return _mapNotifier.mapNameForPoint(cursorPoint);
+    }
+    if (gotoMgrs != null) {
+      return _mapNotifier.mapNameForMgrs(gotoMgrs);
+    }
+    final liveCamera = _liveCamera;
+    if (liveCamera != null) {
+      return _mapNotifier.mapNameForPoint(liveCamera.center);
+    }
+    return _mapNotifier.mapNameForPoint(currentCenter);
+  }
+
   String _mapNameForPeak(Peak peak) {
     try {
       return ref
               .read(tasmapRepositoryProvider)
-              .findByMgrsCodeAndCoordinates(
-                '${peak.gridZoneDesignator}${peak.mgrs100kId}${peak.easting}${peak.northing}',
-              )
+              .findByPoint(LatLng(peak.latitude, peak.longitude))
               ?.name ??
           'Unknown';
     } catch (_) {

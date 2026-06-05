@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
@@ -136,19 +137,7 @@ void main() {
 Future<void> _pumpMapApp(WidgetTester tester, MapState state) async {
   final tasmapRepository = await TestTasmapRepository.create(
     maps: [
-      Tasmap50k(
-        series: 'TS01',
-        name: 'Resolved Map',
-        parentSeries: 'P1',
-        mgrs100kIds: 'AB',
-        eastingMin: 12000,
-        eastingMax: 13000,
-        northingMin: 54000,
-        northingMax: 55000,
-        mgrsMid: 'AB',
-        eastingMid: 12500,
-        northingMid: 54500,
-      ),
+      _resolvedMap(),
     ],
   );
 
@@ -222,4 +211,39 @@ MapState _mapStateWithUnknownHeightPeak() {
       ),
     ],
   );
+}
+
+Tasmap50k _resolvedMap() {
+  const center = LatLng(-43.0, 147.0);
+  final vertices = [
+    LatLng(center.latitude + 0.05, center.longitude - 0.05),
+    LatLng(center.latitude + 0.05, center.longitude + 0.05),
+    LatLng(center.latitude - 0.05, center.longitude + 0.05),
+    LatLng(center.latitude - 0.05, center.longitude - 0.05),
+  ];
+  final pointStrings = vertices.map(_pointString).toList(growable: false);
+  final mgrsCodes = pointStrings
+      .map((point) => point.substring(0, 2))
+      .toSet()
+      .join(' ');
+  return Tasmap50k(
+    series: 'TS01',
+    name: 'Resolved Map',
+    parentSeries: 'P1',
+    mgrs100kIds: mgrsCodes,
+    eastingMin: 0,
+    eastingMax: 99999,
+    northingMin: 0,
+    northingMax: 99999,
+    p1: pointStrings[0],
+    p2: pointStrings[1],
+    p3: pointStrings[2],
+    p4: pointStrings[3],
+  );
+}
+
+String _pointString(LatLng point) {
+  return mgrs.Mgrs.forward([point.longitude, point.latitude], 5)
+      .replaceAll(RegExp(r'[\n\s]'), '')
+      .substring(3);
 }

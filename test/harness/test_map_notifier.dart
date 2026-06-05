@@ -580,10 +580,19 @@ class TestMapNotifier extends MapNotifier {
   @override
   void toggleInfoPopup() {
     final isVisible = state.showInfoPopup;
+    if (isVisible) {
+      state = state.copyWith(clearInfoPopup: true);
+      return;
+    }
+
+    final mapName =
+        ref.read(tasmapRepositoryProvider).findByPoint(state.center)?.name ??
+        'Outside Tasmania 50k coverage';
     state = state.copyWith(
-      showInfoPopup: !isVisible,
-      clearInfoPopup: isVisible,
-      clearPeakInfoPopup: !isVisible,
+      showInfoPopup: true,
+      infoMapName: mapName,
+      infoMgrs: state.currentMgrs,
+      clearPeakInfoPopup: true,
     );
   }
 

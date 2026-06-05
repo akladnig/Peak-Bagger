@@ -135,10 +135,32 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    final currentMgrs = container.read(mapProvider).cursorMgrs!;
-    final expectedName =
-        repo.findByMgrsCodeAndCoordinates(currentMgrs)?.name ?? 'Unknown';
-    expect(_mgrsReadoutMapName(tester), expectedName);
+    final state = container.read(mapProvider);
+    expect(state.cursorPoint, cursorLatLng);
+    expect(state.cursorMgrs, isNotNull);
+    expect(_mgrsReadoutMapName(tester), map.name);
+  });
+
+  testWidgets('clearing cursor readout clears cursor point too', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final notifier = await _buildCountingNotifier();
+    await _pumpApp(tester, notifier);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shared-app-bar'))),
+    );
+    const cursorLatLng = LatLng(-42.9, 147.1);
+    container.read(mapProvider.notifier).setCursorMgrs(cursorLatLng);
+    await tester.pump();
+
+    expect(container.read(mapProvider).cursorPoint, cursorLatLng);
+
+    container.read(mapProvider.notifier).clearCursorMgrs();
+    await tester.pump();
+
+    final state = container.read(mapProvider);
+    expect(state.cursorMgrs, isNull);
+    expect(state.cursorPoint, isNull);
   });
 
   testWidgets('map readouts ignore pointer events', (tester) async {

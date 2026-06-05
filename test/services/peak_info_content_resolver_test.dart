@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
@@ -85,15 +87,16 @@ void main() {
     );
     final tasmapRepository = await TestTasmapRepository.create(
       maps: [
-        Tasmap50k(
+        _polygonMap(
+          id: 1,
           series: 'TS07',
           name: 'Test Map',
-          parentSeries: '8211',
-          mgrs100kIds: 'EN',
-          eastingMin: 10000,
-          eastingMax: 20000,
-          northingMin: 60000,
-          northingMax: 70000,
+          vertices: const [
+            LatLng(-41.9500, 145.9500),
+            LatLng(-41.9500, 146.0500),
+            LatLng(-42.0500, 146.0500),
+            LatLng(-42.0500, 145.9500),
+          ],
         ),
       ],
     );
@@ -158,6 +161,45 @@ void main() {
 
     expect(content.ascentRows, isEmpty);
   });
+}
+
+Tasmap50k _polygonMap({
+  required int id,
+  required String series,
+  required String name,
+  required List<LatLng> vertices,
+}) {
+  final pointStrings = vertices.map(_pointString).toList(growable: false);
+  final mgrsCodes = pointStrings
+      .map((point) => point.substring(0, 2))
+      .toSet()
+      .join(' ');
+
+  return Tasmap50k(
+    id: id,
+    series: series,
+    name: name,
+    parentSeries: 'parent',
+    mgrs100kIds: mgrsCodes,
+    eastingMin: 0,
+    eastingMax: 99999,
+    northingMin: 0,
+    northingMax: 99999,
+    p1: _pointAt(pointStrings, 0),
+    p2: _pointAt(pointStrings, 1),
+    p3: _pointAt(pointStrings, 2),
+    p4: _pointAt(pointStrings, 3),
+  );
+}
+
+String _pointAt(List<String> points, int index) {
+  return index < points.length ? points[index] : '';
+}
+
+String _pointString(LatLng point) {
+  return mgrs.Mgrs.forward([point.longitude, point.latitude], 5)
+      .replaceAll(RegExp(r'[\n\s]'), '')
+      .substring(3);
 }
 
 class _ThrowingPeaksBaggedStorage implements PeaksBaggedStorage {

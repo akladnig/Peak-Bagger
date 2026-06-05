@@ -29,6 +29,17 @@ void main() {
     expect(polygonContainsPoint(const LatLng(0, 0), square), isTrue);
   });
 
+  test('counts points on a shared vertical boundary as inside', () {
+    final rectangle = const [
+      LatLng(0, 0),
+      LatLng(0, 2),
+      LatLng(2, 2),
+      LatLng(2, 0),
+    ];
+
+    expect(polygonContainsPoint(const LatLng(1, 2), rectangle), isTrue);
+  });
+
   test('treats open and explicitly closed rings identically', () {
     final openRing = const [
       LatLng(0, 0),

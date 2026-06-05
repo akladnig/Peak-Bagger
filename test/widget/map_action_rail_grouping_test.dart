@@ -7,12 +7,15 @@ import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
+import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/widgets/left_tooltip_fab.dart';
 import 'package:peak_bagger/widgets/map_action_rail.dart';
 import 'package:peak_bagger/widgets/map_tracks_routes_drawer.dart';
 
 import '../harness/test_map_notifier.dart';
+import '../harness/test_tasmap_notifier.dart';
+import '../harness/test_tasmap_repository.dart';
 
 void main() {
   testWidgets('grouped rail renders icon-only copy and SVG placeholder', (
@@ -192,6 +195,7 @@ void main() {
 }
 
 Future<void> _pumpRail(WidgetTester tester, TestMapNotifier notifier) async {
+  final tasmapRepository = await TestTasmapRepository.create();
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -199,6 +203,8 @@ Future<void> _pumpRail(WidgetTester tester, TestMapNotifier notifier) async {
         routeRepositoryProvider.overrideWithValue(
           RouteRepository.test(InMemoryRouteStorage()),
         ),
+        tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
+        tasmapStateProvider.overrideWith(() => TestTasmapNotifier(tasmapRepository)),
       ],
       child: MaterialApp(
         home: Scaffold(

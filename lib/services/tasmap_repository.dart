@@ -6,10 +6,12 @@ import 'package:mgrs_dart/mgrs_dart.dart' as mgrs_dart;
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/services/csv_importer.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
+import 'package:peak_bagger/services/polygon_geometry.dart';
 import '../objectbox.g.dart';
 
 class TasmapRepository {
   final Box<Tasmap50k> _box;
+  List<_TasmapLookupEntry>? _lookupEntries;
 
   TasmapRepository(Store store) : _box = store.box<Tasmap50k>();
 
@@ -113,27 +115,34 @@ class TasmapRepository {
         .toList();
   }
 
-  Tasmap50k? findByMgrsCodeAndCoordinates(String mgrsString) {
-    // MGRS format: "55GEN\n19400 50699" or "55GEN1940050699"
-    // Remove newlines and spaces to get continuous format
-    final cleaned = mgrsString.replaceAll(RegExp(r'[\n\s]'), '');
+  Tasmap50k? findByPoint(LatLng point) {
+    final candidates = _candidateEntriesForPoint(point);
+    final matches = <_TasmapLookupEntry>[];
 
-    if (cleaned.length < 10) return null;
-
-    final code = cleaned.substring(3, 5);
-    final easting = int.tryParse(cleaned.substring(5, 10)) ?? 0;
-    final northing = int.tryParse(cleaned.substring(10)) ?? 0;
-
-    final maps = findByMgrs100kId(code);
-
-    for (final map in maps) {
-      bool validEasting = _inRange(easting, map.eastingMin, map.eastingMax);
-      bool validNorthing = _inRange(northing, map.northingMin, map.northingMax);
-      if (validEasting && validNorthing) {
-        return map;
+    for (final candidate in candidates) {
+      try {
+        if (polygonContainsPoint(point, candidate.points)) {
+          matches.add(candidate);
+        }
+      } on ArgumentError {
+        // Ignore malformed polygons when resolving coverage.
       }
     }
-    return null;
+
+    if (matches.isEmpty) {
+      return null;
+    }
+
+    matches.sort(_compareLookupEntries);
+    return matches.first.map;
+  }
+
+  Tasmap50k? findByMgrsCodeAndCoordinates(String mgrsString) {
+    final point = _mgrsStringToLatLng(mgrsString);
+    if (point == null) {
+      return null;
+    }
+    return findByPoint(point);
   }
 
   bool _inRange(int value, int min, int max) {
@@ -155,6 +164,7 @@ class TasmapRepository {
 
   Future<void> addMaps(List<Tasmap50k> maps) async {
     _box.putMany(maps);
+    _invalidateLookupEntries();
   }
 
   Future<TasmapCsvImportResult?> loadFromCsvIfEmpty(String csvPath) async {
@@ -165,6 +175,7 @@ class TasmapRepository {
     final result = await CsvImporter.importFromCsv(csvPath);
     if (result.maps.isNotEmpty) {
       _box.putMany(result.maps);
+      _invalidateLookupEntries();
     }
 
     await _appendImportLogEntries([
@@ -176,10 +187,12 @@ class TasmapRepository {
 
   Future<TasmapCsvImportResult> clearAndReloadFromCsv(String csvPath) async {
     _box.removeAll();
+    _invalidateLookupEntries();
 
     final result = await CsvImporter.importFromCsv(csvPath);
     if (result.maps.isNotEmpty) {
       _box.putMany(result.maps);
+      _invalidateLookupEntries();
     }
 
     await _appendImportLogEntries([
@@ -191,6 +204,7 @@ class TasmapRepository {
 
   Future<void> clearAll() async {
     _box.removeAll();
+    _invalidateLookupEntries();
   }
 
   bool isEmpty() {
@@ -228,4 +242,113 @@ class TasmapRepository {
       return null;
     }
   }
+
+  List<_TasmapLookupEntry> _entries() {
+    return _lookupEntries ??= _box
+        .getAll()
+        .map(
+          (map) => _TasmapLookupEntry(
+            map: map,
+            points: List<LatLng>.unmodifiable(getMapPolygonPoints(map)),
+            mgrsCodes: Set<String>.from(map.mgrs100kIdList),
+            nameLower: map.name.toLowerCase(),
+            seriesLower: map.series.toLowerCase(),
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  List<_TasmapLookupEntry> _candidateEntriesForPoint(LatLng point) {
+    final entries = _entries();
+    final mgrsPoint = _pointToMgrsPoint(point);
+    if (mgrsPoint == null) {
+      return entries;
+    }
+
+    final codeMatches = entries
+        .where((entry) => entry.mgrsCodes.contains(mgrsPoint.code))
+        .toList(growable: false);
+    final base = codeMatches.isEmpty ? entries : codeMatches;
+    final rangeMatches = base
+        .where(
+          (entry) =>
+              _inRange(mgrsPoint.easting, entry.map.eastingMin, entry.map.eastingMax) &&
+              _inRange(
+                mgrsPoint.northing,
+                entry.map.northingMin,
+                entry.map.northingMax,
+              ),
+        )
+        .toList(growable: false);
+    return rangeMatches.isEmpty ? base : rangeMatches;
+  }
+
+  LatLng? _mgrsStringToLatLng(String mgrsString) {
+    final cleaned = mgrsString.replaceAll(RegExp(r'[\n\s]'), '');
+    if (cleaned.length < 15) {
+      return null;
+    }
+
+    final fullMgrs = '${cleaned.substring(0, 5)} ${cleaned.substring(5, 10)} ${cleaned.substring(10)}';
+    try {
+      final coords = mgrs_dart.Mgrs.toPoint(fullMgrs);
+      return LatLng(coords[1], coords[0]);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  ({String code, int easting, int northing})? _pointToMgrsPoint(LatLng point) {
+    try {
+      final cleaned = mgrs_dart.Mgrs.forward([point.longitude, point.latitude], 5)
+          .replaceAll(RegExp(r'[\n\s]'), '');
+      if (cleaned.length < 15) {
+        return null;
+      }
+      return (
+        code: cleaned.substring(3, 5),
+        easting: int.parse(cleaned.substring(5, 10)),
+        northing: int.parse(cleaned.substring(10)),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _invalidateLookupEntries() {
+    _lookupEntries = null;
+  }
+
+  static int _compareLookupEntries(
+    _TasmapLookupEntry left,
+    _TasmapLookupEntry right,
+  ) {
+    final byName = left.nameLower.compareTo(right.nameLower);
+    if (byName != 0) {
+      return byName;
+    }
+
+    final bySeries = left.seriesLower.compareTo(right.seriesLower);
+    if (bySeries != 0) {
+      return bySeries;
+    }
+
+    return left.map.id.compareTo(right.map.id);
+  }
+}
+
+class _TasmapLookupEntry {
+  const _TasmapLookupEntry({
+    required this.map,
+    required this.points,
+    required this.mgrsCodes,
+    required this.nameLower,
+    required this.seriesLower,
+  });
+
+  final Tasmap50k map;
+  final List<LatLng> points;
+  final Set<String> mgrsCodes;
+  final String nameLower;
+  final String seriesLower;
 }

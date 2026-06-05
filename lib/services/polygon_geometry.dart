@@ -26,6 +26,9 @@ bool polygonContainsPoint(LatLng point, List<LatLng> vertices) {
   ) {
     final current = normalizedVertices[i];
     final previous = normalizedVertices[j];
+    if (_pointOnSegment(point, previous, current)) {
+      return true;
+    }
     final intersects =
         (current.latitude > point.latitude) !=
             (previous.latitude > point.latitude) &&
@@ -148,4 +151,32 @@ List<LatLng> _normalizeVertices(List<LatLng> vertices) {
 
 bool _samePoint(LatLng left, LatLng right) {
   return left.latitude == right.latitude && left.longitude == right.longitude;
+}
+
+bool _pointOnSegment(LatLng point, LatLng start, LatLng end) {
+  const epsilon = 1e-12;
+  final crossProduct =
+      (point.latitude - start.latitude) * (end.longitude - start.longitude) -
+      (point.longitude - start.longitude) * (end.latitude - start.latitude);
+  if (crossProduct.abs() > epsilon) {
+    return false;
+  }
+
+  final minLatitude = start.latitude < end.latitude
+      ? start.latitude
+      : end.latitude;
+  final maxLatitude = start.latitude > end.latitude
+      ? start.latitude
+      : end.latitude;
+  final minLongitude = start.longitude < end.longitude
+      ? start.longitude
+      : end.longitude;
+  final maxLongitude = start.longitude > end.longitude
+      ? start.longitude
+      : end.longitude;
+
+  return point.latitude >= minLatitude - epsilon &&
+      point.latitude <= maxLatitude + epsilon &&
+      point.longitude >= minLongitude - epsilon &&
+      point.longitude <= maxLongitude + epsilon;
 }

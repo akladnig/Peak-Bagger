@@ -301,6 +301,7 @@ class MapState {
   final String? error;
   final String currentMgrs;
   final String? cursorMgrs;
+  final LatLng? cursorPoint;
   final String? gotoMgrs;
   final bool showGotoInput;
   final bool showPeakSearch;
@@ -391,6 +392,7 @@ class MapState {
     this.error,
     this.currentMgrs = '55G FN\n00000 00000',
     this.cursorMgrs,
+    this.cursorPoint,
     this.gotoMgrs,
     this.showGotoInput = false,
     this.showPeakSearch = false,
@@ -538,6 +540,7 @@ class MapState {
     String? error,
     String? currentMgrs,
     String? cursorMgrs,
+    LatLng? cursorPoint,
     String? gotoMgrs,
     bool? showGotoInput,
     bool? showPeakSearch,
@@ -654,6 +657,7 @@ class MapState {
       error: clearError ? null : (error ?? this.error),
       currentMgrs: currentMgrs ?? this.currentMgrs,
       cursorMgrs: clearCursorMgrs ? null : (cursorMgrs ?? this.cursorMgrs),
+      cursorPoint: clearCursorMgrs ? null : (cursorPoint ?? this.cursorPoint),
       gotoMgrs: clearGotoMgrs ? null : (gotoMgrs ?? this.gotoMgrs),
       showGotoInput: showGotoInput ?? this.showGotoInput,
       showPeakSearch: showPeakSearch ?? this.showPeakSearch,
@@ -1009,6 +1013,14 @@ class MapNotifier extends Notifier<MapState> {
     try {
       return _tasmapRepository.findByMgrsCodeAndCoordinates(mgrsText)?.name ??
           'Unknown';
+    } catch (_) {
+      return 'Unknown';
+    }
+  }
+
+  String mapNameForPoint(LatLng point) {
+    try {
+      return _tasmapRepository.findByPoint(point)?.name ?? 'Unknown';
     } catch (_) {
       return 'Unknown';
     }
@@ -3799,15 +3811,16 @@ class MapNotifier extends Notifier<MapState> {
 
   void setCursorMgrs(LatLng location) {
     final mgrs = _convertToMgrs(location);
-    if (state.cursorMgrs == mgrs) {
+    if (state.cursorMgrs == mgrs && state.cursorPoint == location) {
       return;
     }
-    state = state.copyWith(cursorMgrs: mgrs);
+    state = state.copyWith(cursorMgrs: mgrs, cursorPoint: location);
   }
 
   void setSelectedLocation(LatLng location) {
     state = state.copyWith(
       cursorMgrs: _convertToMgrs(location),
+      cursorPoint: location,
       selectedLocation: location,
       syncEnabled: false,
     );
@@ -3818,6 +3831,7 @@ class MapNotifier extends Notifier<MapState> {
       selectedLocation: location,
       clearSelectedLocation: location == null,
       cursorMgrs: location == null ? state.cursorMgrs : _convertToMgrs(location),
+      cursorPoint: location ?? state.cursorPoint,
       syncEnabled: false,
     );
   }
@@ -5295,7 +5309,7 @@ class MapNotifier extends Notifier<MapState> {
 
   void _showInfoPopup() {
     final mgrs = _convertToMgrs(state.center);
-    final map = _findMapByMgrsWithCoordinates(mgrs);
+    final map = _tasmapRepository.findByPoint(state.center);
     final (peakName, peakElevation) = _findNearbyPeak(state.center);
     state = state.copyWith(
       showInfoPopup: true,
@@ -5325,11 +5339,6 @@ class MapNotifier extends Notifier<MapState> {
       }
     }
     return (null, null);
-  }
-
-  Tasmap50k? _findMapByMgrsWithCoordinates(String mgrsString) {
-    if (mgrsString.length < 10) return null;
-    return _tasmapRepository.findByMgrsCodeAndCoordinates(mgrsString);
   }
 
   void setGotoInputVisible(bool visible) {

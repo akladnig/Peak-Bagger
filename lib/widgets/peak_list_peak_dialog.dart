@@ -470,10 +470,6 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
     return widget.points ?? 0;
   }
 
-  String _mgrsLookupValue(Peak peak) {
-    return '${peak.gridZoneDesignator}${peak.mgrs100kId}${peak.easting}${peak.northing}';
-  }
-
   String _displayMgrs(Peak peak) {
     final mgrsValue = [
       peak.gridZoneDesignator,
@@ -486,10 +482,8 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
 
   Tasmap50k? _resolveMap(Peak peak) {
     try {
-      final mgrsRepository = ref.read(tasmapRepositoryProvider);
-      return mgrsRepository.findByMgrsCodeAndCoordinates(
-        _mgrsLookupValue(peak),
-      );
+      final tasmapRepository = ref.read(tasmapRepositoryProvider);
+      return tasmapRepository.findByPoint(LatLng(peak.latitude, peak.longitude));
     } catch (_) {
       return null;
     }
