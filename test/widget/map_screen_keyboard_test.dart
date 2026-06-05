@@ -225,7 +225,36 @@ void main() {
     await tester.pump();
 
     expect(container.read(mapProvider).showInfoPopup, isTrue);
-    expect(find.text('Unknown'), findsOneWidget);
+    expect(container.read(mapProvider).infoMapName, 'Outside Tasmania 50k coverage');
+  });
+
+  testWidgets('keyboard i resolves info popup map from center point', (
+    tester,
+  ) async {
+    final tasmapRepository = await TestTasmapRepository.create();
+    final mapCenter = tasmapRepository.getMapPolygonPoints(
+      tasmapRepository.getAllMaps().first,
+    ).first;
+    await _pumpMapApp(
+      tester,
+      MapState(
+        center: mapCenter,
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        selectedLocation: mapCenter,
+      ),
+      repository: tasmapRepository,
+    );
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyI);
+    await tester.pump();
+
+    expect(container.read(mapProvider).showInfoPopup, isTrue);
+    expect(container.read(mapProvider).infoMapName, 'Adamsons');
   });
 
   testWidgets('keyboard g closes map info and does not open goto input', (
@@ -542,8 +571,9 @@ Future<void> _pumpMapApp(
   WidgetTester tester,
   MapState state, {
   Size size = const Size(1600, 900),
+  TestTasmapRepository? repository,
 }) async {
-  final tasmapRepository = await TestTasmapRepository.create();
+  final tasmapRepository = repository ?? await TestTasmapRepository.create();
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(

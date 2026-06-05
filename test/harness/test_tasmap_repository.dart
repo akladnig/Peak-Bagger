@@ -3,6 +3,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/services/csv_importer.dart';
+import 'package:peak_bagger/services/polygon_geometry.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 
 class TestTasmapRepository implements TasmapRepository {
@@ -13,6 +14,7 @@ class TestTasmapRepository implements TasmapRepository {
   final List<Tasmap50k> _seedMaps;
   final List<Tasmap50k> _maps;
   int getAllMapsCallCount = 0;
+  List<_TestTasmapLookupEntry>? _lookupEntries;
 
   static Future<TestTasmapRepository> create({List<Tasmap50k>? maps}) async {
     return TestTasmapRepository._(maps ?? [_defaultMap()]);
@@ -44,26 +46,34 @@ class TestTasmapRepository implements TasmapRepository {
 
   @override
   Tasmap50k? findByMgrsCodeAndCoordinates(String mgrsString) {
-    final cleaned = mgrsString.replaceAll(RegExp(r'[\n\s]'), '');
-    if (cleaned.length < 10) return null;
+    final point = _mgrsStringToLatLng(mgrsString);
+    if (point == null) {
+      return null;
+    }
+    return findByPoint(point);
+  }
 
-    final code = cleaned.substring(3, 5);
-    final easting = int.tryParse(cleaned.substring(5, 10)) ?? 0;
-    final northing = int.tryParse(cleaned.substring(10)) ?? 0;
+  @override
+  Tasmap50k? findByPoint(LatLng point) {
+    final candidates = _candidateEntriesForPoint(point);
+    final matches = <_TestTasmapLookupEntry>[];
 
-    for (final map in findByMgrs100kId(code)) {
-      final validEasting = _inRange(easting, map.eastingMin, map.eastingMax);
-      final validNorthing = _inRange(
-        northing,
-        map.northingMin,
-        map.northingMax,
-      );
-      if (validEasting && validNorthing) {
-        return map;
+    for (final candidate in candidates) {
+      try {
+        if (polygonContainsPoint(point, candidate.points)) {
+          matches.add(candidate);
+        }
+      } on ArgumentError {
+        // Ignore malformed polygons in lookup tests.
       }
     }
 
-    return null;
+    if (matches.isEmpty) {
+      return null;
+    }
+
+    matches.sort(_compareLookupEntries);
+    return matches.first.map;
   }
 
   @override
@@ -161,6 +171,7 @@ class TestTasmapRepository implements TasmapRepository {
   @override
   Future<void> addMaps(List<Tasmap50k> maps) async {
     _maps.addAll(maps);
+    _invalidateLookupEntries();
   }
 
   @override
@@ -170,6 +181,7 @@ class TestTasmapRepository implements TasmapRepository {
     }
 
     _maps.addAll(_seedMaps);
+    _invalidateLookupEntries();
     return TasmapCsvImportResult(
       maps: getAllMaps(),
       importedCount: mapCount,
@@ -182,6 +194,7 @@ class TestTasmapRepository implements TasmapRepository {
     _maps
       ..clear()
       ..addAll(_seedMaps);
+    _invalidateLookupEntries();
 
     return TasmapCsvImportResult(
       maps: getAllMaps(),
@@ -193,6 +206,7 @@ class TestTasmapRepository implements TasmapRepository {
   @override
   Future<void> clearAll() async {
     _maps.clear();
+    _invalidateLookupEntries();
   }
 
   @override
@@ -206,6 +220,98 @@ class TestTasmapRepository implements TasmapRepository {
     }
 
     return (value >= min && value <= 99999) || (value >= 0 && value <= max);
+  }
+
+  List<_TestTasmapLookupEntry> _entries() {
+    return _lookupEntries ??= _maps
+        .map(
+          (map) => _TestTasmapLookupEntry(
+            map: map,
+            points: List<LatLng>.unmodifiable(getMapPolygonPoints(map)),
+            mgrsCodes: Set<String>.from(map.mgrs100kIdList),
+            nameLower: map.name.toLowerCase(),
+            seriesLower: map.series.toLowerCase(),
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  List<_TestTasmapLookupEntry> _candidateEntriesForPoint(LatLng point) {
+    final entries = _entries();
+    final mgrsPoint = _pointToMgrsPoint(point);
+    if (mgrsPoint == null) {
+      return entries;
+    }
+
+    final codeMatches = entries
+        .where((entry) => entry.mgrsCodes.contains(mgrsPoint.code))
+        .toList(growable: false);
+    final base = codeMatches.isEmpty ? entries : codeMatches;
+    final rangeMatches = base
+        .where(
+          (entry) =>
+              _inRange(mgrsPoint.easting, entry.map.eastingMin, entry.map.eastingMax) &&
+              _inRange(
+                mgrsPoint.northing,
+                entry.map.northingMin,
+                entry.map.northingMax,
+              ),
+        )
+        .toList(growable: false);
+    return rangeMatches.isEmpty ? base : rangeMatches;
+  }
+
+  LatLng? _mgrsStringToLatLng(String mgrsString) {
+    final cleaned = mgrsString.replaceAll(RegExp(r'[\n\s]'), '');
+    if (cleaned.length < 15) {
+      return null;
+    }
+
+    final fullMgrs = '${cleaned.substring(0, 5)} ${cleaned.substring(5, 10)} ${cleaned.substring(10)}';
+    try {
+      final coords = mgrs.Mgrs.toPoint(fullMgrs);
+      return LatLng(coords[1], coords[0]);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  ({String code, int easting, int northing})? _pointToMgrsPoint(LatLng point) {
+    try {
+      final cleaned = mgrs.Mgrs.forward([point.longitude, point.latitude], 5)
+          .replaceAll(RegExp(r'[\n\s]'), '');
+      if (cleaned.length < 15) {
+        return null;
+      }
+      return (
+        code: cleaned.substring(3, 5),
+        easting: int.parse(cleaned.substring(5, 10)),
+        northing: int.parse(cleaned.substring(10)),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _invalidateLookupEntries() {
+    _lookupEntries = null;
+  }
+
+  static int _compareLookupEntries(
+    _TestTasmapLookupEntry left,
+    _TestTasmapLookupEntry right,
+  ) {
+    final byName = left.nameLower.compareTo(right.nameLower);
+    if (byName != 0) {
+      return byName;
+    }
+
+    final bySeries = left.seriesLower.compareTo(right.seriesLower);
+    if (bySeries != 0) {
+      return bySeries;
+    }
+
+    return left.map.id.compareTo(right.map.id);
   }
 
   static Tasmap50k _defaultMap() {
@@ -227,4 +333,20 @@ class TestTasmapRepository implements TasmapRepository {
       p4: 'DM9999980000',
     );
   }
+}
+
+class _TestTasmapLookupEntry {
+  const _TestTasmapLookupEntry({
+    required this.map,
+    required this.points,
+    required this.mgrsCodes,
+    required this.nameLower,
+    required this.seriesLower,
+  });
+
+  final Tasmap50k map;
+  final List<LatLng> points;
+  final Set<String> mgrsCodes;
+  final String nameLower;
+  final String seriesLower;
 }

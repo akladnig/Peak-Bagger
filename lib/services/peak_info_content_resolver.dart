@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
-import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 
@@ -57,6 +56,13 @@ PeakInfoContent resolvePeakInfoContent({
 
 String _resolvePeakMapName(Peak peak, TasmapRepository tasmapRepository) {
   try {
+    final pointMatch = tasmapRepository.findByPoint(
+      LatLng(peak.latitude, peak.longitude),
+    );
+    if (pointMatch != null) {
+      return pointMatch.name;
+    }
+
     final gridZoneDesignator = peak.gridZoneDesignator.trim();
     final mgrs100kId = peak.mgrs100kId.trim();
     final easting = peak.easting.trim();
@@ -66,10 +72,15 @@ String _resolvePeakMapName(Peak peak, TasmapRepository tasmapRepository) {
         mgrs100kId.isNotEmpty &&
         easting.isNotEmpty &&
         northing.isNotEmpty;
-    final mgrsString = hasCompleteMgrs
-        ? '$gridZoneDesignator$mgrs100kId$easting$northing'
-        : _convertToMgrs(LatLng(peak.latitude, peak.longitude));
-    return tasmapRepository.findByMgrsCodeAndCoordinates(mgrsString)?.name ??
+    if (!hasCompleteMgrs) {
+      return 'Unknown';
+    }
+
+    return tasmapRepository
+            .findByMgrsCodeAndCoordinates(
+              '$gridZoneDesignator$mgrs100kId$easting$northing',
+            )
+            ?.name ??
         'Unknown';
   } catch (_) {
     return 'Unknown';
@@ -174,9 +185,4 @@ class _ResolvedPeakInfoAscentRow {
   final int gpxId;
   final DateTime? date;
   final String trackLabel;
-}
-
-String _convertToMgrs(LatLng location) {
-  final components = PeakMgrsConverter.fromLatLng(location);
-  return '${components.gridZoneDesignator} ${components.mgrs100kId} ${components.easting} ${components.northing}';
 }
