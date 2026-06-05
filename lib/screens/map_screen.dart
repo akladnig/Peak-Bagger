@@ -2023,7 +2023,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     final showPeakInfo = ref.watch(
                       peakMarkerInfoSettingsProvider,
                     );
-                    final showPolygons = ref.watch(showPolygonsSettingsProvider);
+                    final showPolygons = ref.watch(
+                      showPolygonsSettingsProvider,
+                    );
                     final polygonAssets = showPolygons
                         ? ref.watch(polygonAssetsProvider)
                         : null;
@@ -2034,7 +2036,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                           ? null
                           : buildPolygonAssetLayer(assets),
                       loading: () => null,
-                      error: (_, __) => null,
+                      error: (_, _) => null,
                     );
                     if (showPolygons) {
                       _maybeFocusPolygonAssets(
@@ -2053,10 +2055,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
                         return;
                       }
                       _maybeFocusPolygonAssets(
-                        ref.read(polygonAssetsProvider).maybeWhen(
-                          data: (value) => value,
-                          orElse: () => null,
-                        ),
+                        ref
+                            .read(polygonAssetsProvider)
+                            .maybeWhen(
+                              data: (value) => value,
+                              orElse: () => null,
+                            ),
                       );
                     });
                     ref.listen(polygonAssetsProvider, (previous, next) {
@@ -2715,7 +2719,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                         if (mgrsGridGeometry != null &&
                                             mgrsGridGeometry.lines.isNotEmpty)
                                           buildMgrsGridLayer(mgrsGridGeometry),
-                                        if (polygonLayer != null) polygonLayer,
+                                        ?polygonLayer,
                                         if (mapScene.showRoutes)
                                           buildRoutePolylines(
                                             routes,
@@ -3593,10 +3597,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _tryZoomPendingSelectedTrack();
     if (ref.read(showPolygonsSettingsProvider)) {
       _maybeFocusPolygonAssets(
-        ref.read(polygonAssetsProvider).maybeWhen(
-          data: (value) => value,
-          orElse: () => null,
-        ),
+        ref
+            .read(polygonAssetsProvider)
+            .maybeWhen(data: (value) => value, orElse: () => null),
       );
     }
     if (ref.read(mapProvider).showTrails) {
