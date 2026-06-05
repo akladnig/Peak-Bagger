@@ -14,6 +14,7 @@ import 'package:peak_bagger/providers/peak_list_csv_export_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
+import 'package:peak_bagger/providers/show_polygons_settings_provider.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/theme_provider.dart';
 import 'package:peak_bagger/router.dart';
@@ -70,6 +71,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final filterState = ref.watch(gpxFilterSettingsProvider);
     final openRouteServiceApiKey = ref.watch(openRouteServiceApiKeyProvider);
     final showPeakInfo = ref.watch(peakMarkerInfoSettingsProvider);
+    final showPolygons = ref.watch(showPolygonsSettingsProvider);
     final peakCorrelationState = ref.watch(peakCorrelationSettingsProvider);
     final routeGraphReadiness = ref.watch(routeGraphReadinessProvider);
     final themeMode = ref.watch(themeModeProvider);
@@ -284,6 +286,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ref
                         .read(peakMarkerInfoSettingsProvider.notifier)
                         .setShowPeakInfo(!showPeakInfo),
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: ListTile(
+                key: const Key('show-polygons-tile'),
+                leading: const Icon(Icons.format_shapes),
+                title: const Text('Show Polygons'),
+                subtitle: const Text(
+                  'Display polygon assets from assets/polygons',
+                ),
+                trailing: Switch(
+                  key: const Key('show-polygons-switch'),
+                  value: showPolygons,
+                  onChanged: (value) {
+                    unawaited(
+                      ref
+                          .read(showPolygonsSettingsProvider.notifier)
+                          .setShowPolygons(value),
+                    );
+                  },
+                ),
+                onTap: () {
+                  unawaited(
+                    ref
+                        .read(showPolygonsSettingsProvider.notifier)
+                        .setShowPolygons(!showPolygons),
                   );
                 },
               ),

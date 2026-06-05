@@ -223,6 +223,39 @@ void main() {
     await gesture.up();
   });
 
+  testWidgets('trackpad pinch zoom can zoom below 8', (tester) async {
+    final initialState = MapState(
+      center: const LatLng(-41.5, 146.5),
+      zoom: 7,
+      basemap: Basemap.tracestrack,
+    );
+
+    await _pumpMapApp(tester, initialState);
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final container = ProviderScope.containerOf(tester.element(region));
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(region),
+      kind: PointerDeviceKind.trackpad,
+    );
+
+    await gesture.panZoomUpdate(
+      tester.getCenter(region),
+      scale: 0.6,
+    );
+    await tester.pump();
+
+    expect(_zoomReadoutValue(tester), lessThan(initialState.zoom));
+
+    await gesture.up();
+    await tester.pump();
+
+    final state = container.read(mapProvider);
+    expect(state.zoom, lessThan(initialState.zoom));
+    expect(state.zoom, greaterThanOrEqualTo(1));
+  });
+
   testWidgets('trackpad zoom dismisses info popup during motion', (tester) async {
     final initialState = MapState(
       center: const LatLng(-41.5, 146.5),

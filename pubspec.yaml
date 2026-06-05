@@ -52,6 +52,7 @@ flutter:
     - assets/peak_marker.svg
     - assets/peak_marker_ticked.svg
     - assets/route.svg
+    - assets/polygons/
     - assets/tasmap50k.csv
     - assets/cop30_hh.tif
     - assets/tasmania_dem_25m.tif

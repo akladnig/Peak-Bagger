@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/map_polygon_asset.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
@@ -86,6 +87,21 @@ List<Polygon> buildAllMapRectangles(TasmapRepository repo) {
   }
 
   return polygons;
+}
+
+PolygonLayer buildPolygonAssetLayer(List<MapPolygonAsset> polygons) {
+  return PolygonLayer(
+    key: const Key('asset-polygon-layer'),
+    polygons: [
+      for (final polygon in polygons)
+        Polygon(
+          points: polygon.points,
+          color: const Color(0x1AFF9800),
+          borderColor: const Color(0xFFFF9800),
+          borderStrokeWidth: 3,
+        ),
+    ],
+  );
 }
 
 MapMgrsGridGeometry buildVisibleMgrsGridGeometry({

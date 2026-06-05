@@ -15,16 +15,19 @@ import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
+import 'package:peak_bagger/models/map_polygon_asset.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/route_marker_display.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/drive_eta_provider.dart';
+import 'package:peak_bagger/providers/polygon_assets_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/map_chart_hover_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
+import 'package:peak_bagger/providers/show_polygons_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/providers/gpx_export_provider.dart';
@@ -97,6 +100,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   String? _gotoError;
   bool _mapReady = false;
   bool _wasRouteDrafting = false;
+  bool _didAutoFocusPolygons = false;
   Tasmap50k? _pendingSelectedMap;
   int? _pendingSelectedMapSerial;
   int? _appliedSelectedMapSerial;
@@ -1361,7 +1365,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     }
 
     final targetZoom = (gestureZoom + intent.zoomDelta).clamp(
-      MapConstants.peakMinZoom.toDouble(),
+      1.0,
       MapConstants.peakMaxZoom.toDouble(),
     );
     _mapController.move(gestureCenter, targetZoom);
@@ -2019,8 +2023,52 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     final showPeakInfo = ref.watch(
                       peakMarkerInfoSettingsProvider,
                     );
+                    final showPolygons = ref.watch(showPolygonsSettingsProvider);
+                    final polygonAssets = showPolygons
+                        ? ref.watch(polygonAssetsProvider)
+                        : null;
                     final filteredPeaks = ref.watch(filteredPeaksProvider);
                     final routes = ref.watch(routeListProvider);
+                    final polygonLayer = polygonAssets?.when(
+                      data: (assets) => assets.isEmpty
+                          ? null
+                          : buildPolygonAssetLayer(assets),
+                      loading: () => null,
+                      error: (_, __) => null,
+                    );
+                    if (showPolygons) {
+                      _maybeFocusPolygonAssets(
+                        polygonAssets?.maybeWhen(
+                          data: (value) => value,
+                          orElse: () => null,
+                        ),
+                      );
+                    }
+                    ref.listen<bool>(showPolygonsSettingsProvider, (
+                      previous,
+                      next,
+                    ) {
+                      if (!next) {
+                        _didAutoFocusPolygons = false;
+                        return;
+                      }
+                      _maybeFocusPolygonAssets(
+                        ref.read(polygonAssetsProvider).maybeWhen(
+                          data: (value) => value,
+                          orElse: () => null,
+                        ),
+                      );
+                    });
+                    ref.listen(polygonAssetsProvider, (previous, next) {
+                      if (ref.read(showPolygonsSettingsProvider)) {
+                        _maybeFocusPolygonAssets(
+                          next.maybeWhen(
+                            data: (value) => value,
+                            orElse: () => null,
+                          ),
+                        );
+                      }
+                    });
                     ref.listen<bool>(
                       mapProvider.select((state) => state.showTrails),
                       (previous, next) {
@@ -2667,6 +2715,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                         if (mgrsGridGeometry != null &&
                                             mgrsGridGeometry.lines.isNotEmpty)
                                           buildMgrsGridLayer(mgrsGridGeometry),
+                                        if (polygonLayer != null) polygonLayer,
                                         if (mapScene.showRoutes)
                                           buildRoutePolylines(
                                             routes,
@@ -3426,6 +3475,58 @@ class _MapScreenState extends ConsumerState<MapScreen>
     );
   }
 
+  void _maybeFocusPolygonAssets(List<MapPolygonAsset>? assets) {
+    if (!_mapReady || _didAutoFocusPolygons) {
+      return;
+    }
+
+    final points = assets?.expand((asset) => asset.points).toList() ?? const [];
+    if (points.isEmpty) {
+      return;
+    }
+
+    if (points.length == 1) {
+      _didAutoFocusPolygons = true;
+      _applyAcceptedCameraMove(
+        PendingCameraRequest(
+          center: points.single,
+          zoom: MapConstants.defaultMapZoom,
+          serial: 0,
+          persist: false,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final bounds = LatLngBounds.fromPoints(points);
+      final cameraFit = CameraFit.bounds(
+        bounds: bounds,
+        padding: const EdgeInsets.all(50),
+      );
+      _didAutoFocusPolygons = true;
+      _applyAcceptedCameraFit(
+        PendingCameraRequest(
+          center: _mapController.camera.center,
+          zoom: _mapController.camera.zoom,
+          serial: 0,
+          persist: false,
+        ),
+        () => _mapController.fitCamera(cameraFit),
+      );
+    } catch (_) {
+      _didAutoFocusPolygons = true;
+      _applyAcceptedCameraMove(
+        PendingCameraRequest(
+          center: points.first,
+          zoom: MapConstants.defaultMapZoom,
+          serial: 0,
+          persist: false,
+        ),
+      );
+    }
+  }
+
   void _goToCurrentLocation() {
     // TODO: Implement GPS location
   }
@@ -3490,6 +3591,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _tryApplyPendingCameraRequest();
     _tryZoomPendingSelectedMap();
     _tryZoomPendingSelectedTrack();
+    if (ref.read(showPolygonsSettingsProvider)) {
+      _maybeFocusPolygonAssets(
+        ref.read(polygonAssetsProvider).maybeWhen(
+          data: (value) => value,
+          orElse: () => null,
+        ),
+      );
+    }
     if (ref.read(mapProvider).showTrails) {
       unawaited(
         _mapNotifier.prefetchRouteGraphVisibleBounds(
