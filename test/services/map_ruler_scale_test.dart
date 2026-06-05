@@ -34,13 +34,31 @@ void main() {
     );
 
     final nextStep = selectMapRulerScale(zoom: 14, latitude: -41.5);
-    expect(nextStep.distanceMeters, greaterThanOrEqualTo(selection.distanceMeters));
+    expect(
+      nextStep.distanceMeters,
+      greaterThanOrEqualTo(selection.distanceMeters),
+    );
   });
 
-  test('ruler selection clamps when no step fits width band', () {
-    final selection = selectMapRulerScale(zoom: 2, latitude: -41.5);
+  test('ruler selection keeps scaling up at far zoom levels', () {
+    final tasmaniaSelection = selectMapRulerScale(zoom: 2, latitude: -41.5);
+    final worldSelection = selectMapRulerScale(zoom: -1, latitude: 0);
 
-    expect(selection.distanceMeters, 100000);
-    expect(selection.barWidth, lessThan(MapConstants.mapRulerMinBarWidth));
+    expect(tasmaniaSelection.distanceMeters, 3000000);
+    expect(
+      tasmaniaSelection.barWidth,
+      inInclusiveRange(
+        MapConstants.mapRulerMinBarWidth,
+        MapConstants.mapRulerMaxBarWidth,
+      ),
+    );
+    expect(worldSelection.distanceMeters, 50000000);
+    expect(
+      worldSelection.barWidth,
+      inInclusiveRange(
+        MapConstants.mapRulerMinBarWidth,
+        MapConstants.mapRulerMaxBarWidth,
+      ),
+    );
   });
 }

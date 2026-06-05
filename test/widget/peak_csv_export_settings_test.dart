@@ -20,6 +20,21 @@ void main() {
     tester,
   ) async {
     Finder tile(String key) => find.byKey(Key(key), skipOffstage: false);
+    final settingsScrollable = find
+        .descendant(
+          of: find.byKey(const Key('settings-scrollable')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    Future<void> showTile(String key, {required double delta}) async {
+      await tester.scrollUntilVisible(
+        find.byKey(Key(key)),
+        delta,
+        scrollable: settingsScrollable,
+      );
+      await tester.pump();
+    }
+
     final repository = await TestTasmapRepository.create();
     final completer = Completer<PeakCsvExportResult>();
     var exportCalls = 0;
@@ -58,12 +73,7 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const Key('export-peak-data-tile')),
       200,
-      scrollable: find
-          .descendant(
-            of: find.byKey(const Key('settings-scrollable')),
-            matching: find.byType(Scrollable),
-          )
-          .first,
+      scrollable: settingsScrollable,
     );
     await tester.pump();
 
@@ -74,12 +84,7 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const Key('peak-export-status')),
       200,
-      scrollable: find
-          .descendant(
-            of: find.byKey(const Key('settings-scrollable')),
-            matching: find.byType(Scrollable),
-          )
-          .first,
+      scrollable: settingsScrollable,
     );
     await tester.pump();
 
@@ -88,11 +93,14 @@ void main() {
       tester.widget<ListTile>(tile('export-peak-data-tile')).onTap,
       isNull,
     );
+    await showTile('refresh-peak-data-tile', delta: -200);
     expect(
       tester.widget<ListTile>(tile('refresh-peak-data-tile')).onTap,
       isNull,
     );
+    await showTile('reset-map-data-tile', delta: 200);
     expect(tester.widget<ListTile>(tile('reset-map-data-tile')).onTap, isNull);
+    await showTile('export-peak-lists-tile', delta: 200);
     expect(
       tester.widget<ListTile>(tile('export-peak-lists-tile')).onTap,
       isNull,
@@ -109,6 +117,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
+    await showTile('peak-export-status', delta: 200);
     expect(find.byKey(const Key('peak-export-status')), findsOneWidget);
     expect(
       find.text(
@@ -120,14 +129,17 @@ void main() {
       tester.widget<ListTile>(tile('export-peak-data-tile')).onTap,
       isNotNull,
     );
+    await showTile('refresh-peak-data-tile', delta: -200);
     expect(
       tester.widget<ListTile>(tile('refresh-peak-data-tile')).onTap,
       isNotNull,
     );
+    await showTile('reset-map-data-tile', delta: 200);
     expect(
       tester.widget<ListTile>(tile('reset-map-data-tile')).onTap,
       isNotNull,
     );
+    await showTile('export-peak-lists-tile', delta: 200);
     expect(
       tester.widget<ListTile>(tile('export-peak-lists-tile')).onTap,
       isNotNull,
@@ -136,6 +148,21 @@ void main() {
 
   testWidgets('export peak data shows failure state', (tester) async {
     Finder tile(String key) => find.byKey(Key(key), skipOffstage: false);
+    final settingsScrollable = find
+        .descendant(
+          of: find.byKey(const Key('settings-scrollable')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    Future<void> showTile(String key, {required double delta}) async {
+      await tester.scrollUntilVisible(
+        find.byKey(Key(key)),
+        delta,
+        scrollable: settingsScrollable,
+      );
+      await tester.pump();
+    }
+
     final repository = await TestTasmapRepository.create();
     final notifier = TestPeakNotifier(
       MapState(
@@ -169,12 +196,7 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const Key('export-peak-data-tile')),
       200,
-      scrollable: find
-          .descendant(
-            of: find.byKey(const Key('settings-scrollable')),
-            matching: find.byType(Scrollable),
-          )
-          .first,
+      scrollable: settingsScrollable,
     );
     await tester.pump();
 
@@ -185,12 +207,7 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const Key('peak-export-status')),
       200,
-      scrollable: find
-          .descendant(
-            of: find.byKey(const Key('settings-scrollable')),
-            matching: find.byType(Scrollable),
-          )
-          .first,
+      scrollable: settingsScrollable,
     );
     await tester.pump();
 
@@ -201,14 +218,17 @@ void main() {
       tester.widget<ListTile>(tile('export-peak-data-tile')).onTap,
       isNotNull,
     );
+    await showTile('refresh-peak-data-tile', delta: -200);
     expect(
       tester.widget<ListTile>(tile('refresh-peak-data-tile')).onTap,
       isNotNull,
     );
+    await showTile('reset-map-data-tile', delta: 200);
     expect(
       tester.widget<ListTile>(tile('reset-map-data-tile')).onTap,
       isNotNull,
     );
+    await showTile('export-peak-lists-tile', delta: 200);
     expect(
       tester.widget<ListTile>(tile('export-peak-lists-tile')).onTap,
       isNotNull,
