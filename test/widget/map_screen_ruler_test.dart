@@ -86,4 +86,27 @@ void main() {
       ),
     );
   });
+
+  testWidgets('MapZoomReadout shows large-scale distance labels at low zoom', (
+    tester,
+  ) async {
+    const zoom = 2.0;
+    const latitude = -41.5;
+    final selection = selectMapRulerScale(zoom: zoom, latitude: latitude);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: MapZoomReadout(zoom: zoom, latitude: latitude),
+        ),
+      ),
+    );
+
+    expect(selection.distanceMeters, 3000000);
+    expect(find.text('3000 km'), findsOneWidget);
+    expect(
+      find.text(formatDistance(selection.distanceMeters.toDouble())),
+      findsOneWidget,
+    );
+  });
 }
