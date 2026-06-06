@@ -215,7 +215,7 @@
     },
     {
       "id": "3:8449374379554926112",
-      "lastPropertyId": "33:5662316491761993386",
+      "lastPropertyId": "36:6865718623478699060",
       "name": "GpxTrack",
       "properties": [
         {
@@ -358,6 +358,21 @@
           "id": "33:5662316491761993386",
           "name": "visible",
           "type": 1
+        },
+        {
+          "id": "34:7180206158243649018",
+          "name": "averageSpeedKmh",
+          "type": 8
+        },
+        {
+          "id": "35:3034155260083667586",
+          "name": "movingSpeedKmh",
+          "type": 8
+        },
+        {
+          "id": "36:6865718623478699060",
+          "name": "maxSpeedKmh",
+          "type": 8
         }
       ],
       "relations": [

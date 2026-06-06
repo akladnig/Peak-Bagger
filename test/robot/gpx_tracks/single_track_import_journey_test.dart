@@ -79,5 +79,12 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('track-info-panel')),
+        matching: find.text('Speed'),
+      ),
+      findsOneWidget,
+    );
   });
 }

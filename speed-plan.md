@@ -32,15 +32,15 @@ Keep route UI unchanged; reuse the existing Riverpod + ObjectBox pipeline.
 ### Phase 2: ObjectBox + journey coverage
 
 - **Goal**: admin visibility + critical journey
-- [ ] `./lib/objectbox-model.json` - regenerate for new `GpxTrack` fields
-- [ ] `./lib/objectbox.g.dart` - regenerate bindings
-- [ ] `./lib/services/objectbox_admin_repository.dart` - expose speed fields in `gpxTrackToAdminRow()`
-- [ ] `./test/services/objectbox_admin_repository_test.dart` - row/schema expectations for speed fields
-- [ ] `./test/widget/objectbox_admin_browser_test.dart` - browser list/detail shows speed fields
-- [ ] `./test/robot/gpx_tracks/single_track_import_journey_test.dart` - open track, assert panel + Speed section
-- [ ] TDD: admin row values -> browser assertions -> robot journey selectors
-- [ ] Robot selectors: `track-info-panel`, optional speed row keys if added
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `./lib/objectbox-model.json` - regenerate for new `GpxTrack` fields
+- [x] `./lib/objectbox.g.dart` - regenerate bindings
+- [x] `./lib/services/objectbox_admin_repository.dart` - expose speed fields in `gpxTrackToAdminRow()`
+- [x] `./test/services/objectbox_admin_repository_test.dart` - row/schema expectations for speed fields
+- [x] `./test/widget/objectbox_admin_browser_test.dart` - browser list/detail shows speed fields
+- [x] `./test/robot/gpx_tracks/single_track_import_journey_test.dart` - open track, assert panel + Speed section
+- [x] TDD: admin row values -> browser assertions -> robot journey selectors
+- [x] Robot selectors: `track-info-panel`, optional speed row keys if added
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 - **Risks**: max-speed window semantics; stale `0.0` on legacy tracks until recalc; ObjectBox regen churn

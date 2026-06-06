@@ -889,6 +889,27 @@ void main() {
           isPrimaryKey: false,
           isPrimaryName: false,
         ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'averageSpeedKmh',
+          typeLabel: 'double',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'movingSpeedKmh',
+          typeLabel: 'double',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'maxSpeedKmh',
+          typeLabel: 'double',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
       ],
     );
 
@@ -909,6 +930,9 @@ void main() {
               'movingTime': 30000,
               'restingTime': 1505000,
               'pausedTime': 1740000,
+              'averageSpeedKmh': 8.2,
+              'movingSpeedKmh': 8.4,
+              'maxSpeedKmh': 12.1,
             },
           ),
         ],
@@ -930,6 +954,9 @@ void main() {
     expect(find.text('movingTime'), findsWidgets);
     expect(find.text('restingTime'), findsWidgets);
     expect(find.text('pausedTime'), findsWidgets);
+    expect(find.text('averageSpeedKmh'), findsWidgets);
+    expect(find.text('movingSpeedKmh'), findsWidgets);
+    expect(find.text('maxSpeedKmh'), findsWidgets);
     final detailsScrollable = find
         .descendant(
           of: find.byKey(const Key('objectbox-admin-details-list')),
@@ -995,6 +1022,54 @@ void main() {
               as SelectableText)
           .data,
       '00:29:00',
+    );
+
+    await tester.scrollUntilVisible(
+      find.widgetWithText(ListTile, 'averageSpeedKmh'),
+      200,
+      scrollable: detailsScrollable,
+    );
+    expect(
+      (tester
+                  .widget<ListTile>(
+                    find.widgetWithText(ListTile, 'averageSpeedKmh'),
+                  )
+                  .subtitle
+              as SelectableText)
+          .data,
+      '8.2',
+    );
+
+    await tester.scrollUntilVisible(
+      find.widgetWithText(ListTile, 'movingSpeedKmh'),
+      200,
+      scrollable: detailsScrollable,
+    );
+    expect(
+      (tester
+                  .widget<ListTile>(
+                    find.widgetWithText(ListTile, 'movingSpeedKmh'),
+                  )
+                  .subtitle
+              as SelectableText)
+          .data,
+      '8.4',
+    );
+
+    await tester.scrollUntilVisible(
+      find.widgetWithText(ListTile, 'maxSpeedKmh'),
+      200,
+      scrollable: detailsScrollable,
+    );
+    expect(
+      (tester
+                  .widget<ListTile>(
+                    find.widgetWithText(ListTile, 'maxSpeedKmh'),
+                  )
+                  .subtitle
+              as SelectableText)
+          .data,
+      '12.1',
     );
   });
 }
