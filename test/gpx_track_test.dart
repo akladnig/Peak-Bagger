@@ -957,6 +957,9 @@ void main() {
         'movingTime': 2700000,
         'restingTime': 900000,
         'pausedTime': 600000,
+        'averageSpeedKmh': 8.2,
+        'movingSpeedKmh': 8.4,
+        'maxSpeedKmh': 12.1,
         'trackColour': 0xFFa726bc,
       };
 
@@ -977,6 +980,9 @@ void main() {
       expect(track.movingTime, 2700000);
       expect(track.restingTime, 900000);
       expect(track.pausedTime, 600000);
+      expect(track.averageSpeedKmh, 8.2);
+      expect(track.movingSpeedKmh, 8.4);
+      expect(track.maxSpeedKmh, 12.1);
       expect(track.gpxFile, '<gpx></gpx>');
       expect(track.gpxFileRepaired, '<gpx><trkseg /></gpx>');
       expect(encoded['contentHash'], 'hash');
@@ -992,6 +998,9 @@ void main() {
       expect(encoded['movingTime'], 2700000);
       expect(encoded['restingTime'], 900000);
       expect(encoded['pausedTime'], 600000);
+      expect(encoded['averageSpeedKmh'], 8.2);
+      expect(encoded['movingSpeedKmh'], 8.4);
+      expect(encoded['maxSpeedKmh'], 12.1);
       expect(encoded['gpxFile'], '<gpx></gpx>');
       expect(encoded['gpxFileRepaired'], '<gpx><trkseg /></gpx>');
     });

@@ -43,6 +43,9 @@ class GpxTrack {
   int? movingTime;
   int? restingTime;
   int? pausedTime;
+  double averageSpeedKmh;
+  double movingSpeedKmh;
+  double maxSpeedKmh;
   int trackColour;
   bool visible;
   bool peakCorrelationProcessed;
@@ -79,6 +82,9 @@ class GpxTrack {
     this.movingTime,
     this.restingTime,
     this.pausedTime,
+    this.averageSpeedKmh = 0.0,
+    this.movingSpeedKmh = 0.0,
+    this.maxSpeedKmh = 0.0,
     this.trackColour = 0xFFa726bc,
     this.visible = true,
     this.peakCorrelationProcessed = false,
@@ -118,6 +124,9 @@ class GpxTrack {
       movingTime: map['movingTime'] as int?,
       restingTime: map['restingTime'] as int?,
       pausedTime: map['pausedTime'] as int?,
+      averageSpeedKmh: _doubleFromMap(map['averageSpeedKmh']),
+      movingSpeedKmh: _doubleFromMap(map['movingSpeedKmh']),
+      maxSpeedKmh: _doubleFromMap(map['maxSpeedKmh']),
       trackColour: map['trackColour'] as int? ?? 0xFFa726bc,
       visible: map['visible'] as bool? ?? true,
       peakCorrelationProcessed:
@@ -152,6 +161,9 @@ class GpxTrack {
       'movingTime': movingTime,
       'restingTime': restingTime,
       'pausedTime': pausedTime,
+      'averageSpeedKmh': averageSpeedKmh,
+      'movingSpeedKmh': movingSpeedKmh,
+      'maxSpeedKmh': maxSpeedKmh,
       'trackColour': trackColour,
       'visible': visible,
       'peakCorrelationProcessed': peakCorrelationProcessed,

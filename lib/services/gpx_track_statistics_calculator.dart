@@ -24,6 +24,9 @@ class GpxTrackStatistics {
     required this.startElevation,
     required this.endElevation,
     required this.elevationProfile,
+    required this.averageSpeedKmh,
+    required this.movingSpeedKmh,
+    required this.maxSpeedKmh,
   });
 
   final DateTime? startDateTime;
@@ -43,6 +46,9 @@ class GpxTrackStatistics {
   final double startElevation;
   final double endElevation;
   final String elevationProfile;
+  final double? averageSpeedKmh;
+  final double? movingSpeedKmh;
+  final double? maxSpeedKmh;
 }
 
 class GpxTrackStatisticsCalculator {
@@ -57,6 +63,7 @@ class GpxTrackStatisticsCalculator {
   static const _exitSpeedMetersPerSecond = 0.3;
   static const _minimumRestDurationSeconds = 15;
   static const _exitFailureCountToClose = 2;
+  static const _defaultMaxSpeedWindow = Duration(minutes: 1);
 
   GpxTrackStatistics calculate(String gpxXml) {
     try {
@@ -87,6 +94,9 @@ class GpxTrackStatisticsCalculator {
       required double startElevation,
       required double endElevation,
       required String elevationProfile,
+      required double? averageSpeedKmh,
+      required double? movingSpeedKmh,
+      required double? maxSpeedKmh,
     }) {
       return GpxTrackStatistics(
         startDateTime: timeStats.startDateTime,
@@ -106,6 +116,9 @@ class GpxTrackStatisticsCalculator {
         startElevation: startElevation,
         endElevation: endElevation,
         elevationProfile: elevationProfile,
+        averageSpeedKmh: averageSpeedKmh,
+        movingSpeedKmh: movingSpeedKmh,
+        maxSpeedKmh: maxSpeedKmh,
       );
     }
 
@@ -182,6 +195,18 @@ class GpxTrackStatisticsCalculator {
     final elevationProfile = jsonEncode(
       profileEntries.map((entry) => entry.toJson()).toList(growable: false),
     );
+    final averageSpeedKmh = _calculateAverageSpeedKmh(
+      distance2d: distance2d,
+      durationMillis: timeStats.totalTimeMillis,
+    );
+    final movingSpeedKmh = _calculateAverageSpeedKmh(
+      distance2d: distance2d,
+      durationMillis: timeStats.movingTime,
+    );
+    final maxSpeedKmh = _calculateMaxSpeedKmh(
+      segments,
+      window: _defaultMaxSpeedWindow,
+    );
 
     if (points.length == 1) {
       return buildStats(
@@ -196,6 +221,9 @@ class GpxTrackStatisticsCalculator {
         startElevation: 0,
         endElevation: 0,
         elevationProfile: elevationProfile,
+        averageSpeedKmh: averageSpeedKmh,
+        movingSpeedKmh: movingSpeedKmh,
+        maxSpeedKmh: maxSpeedKmh,
       );
     }
 
@@ -225,6 +253,9 @@ class GpxTrackStatisticsCalculator {
         startElevation: 0,
         endElevation: 0,
         elevationProfile: elevationProfile,
+        averageSpeedKmh: averageSpeedKmh,
+        movingSpeedKmh: movingSpeedKmh,
+        maxSpeedKmh: maxSpeedKmh,
       );
     }
 
@@ -241,6 +272,9 @@ class GpxTrackStatisticsCalculator {
         startElevation: roundedStart,
         endElevation: roundedEnd,
         elevationProfile: elevationProfile,
+        averageSpeedKmh: averageSpeedKmh,
+        movingSpeedKmh: movingSpeedKmh,
+        maxSpeedKmh: maxSpeedKmh,
       );
     }
 
@@ -264,7 +298,22 @@ class GpxTrackStatisticsCalculator {
       startElevation: roundedStart,
       endElevation: roundedEnd,
       elevationProfile: elevationProfile,
+      averageSpeedKmh: averageSpeedKmh,
+      movingSpeedKmh: movingSpeedKmh,
+      maxSpeedKmh: maxSpeedKmh,
     );
+  }
+
+  double? calculateMaxSpeedKmh(
+    String gpxXml, {
+    Duration window = _defaultMaxSpeedWindow,
+  }) {
+    try {
+      final document = XmlDocument.parse(gpxXml);
+      return _calculateMaxSpeedKmh(_extractSegments(document), window: window);
+    } on XmlException catch (error) {
+      throw FormatException('Invalid GPX XML', error);
+    }
   }
 
   _TimeStats _calculateTimeStats(List<List<_TrackPoint>> segments) {
@@ -496,6 +545,165 @@ class GpxTrackStatisticsCalculator {
     );
   }
 
+  double? _calculateAverageSpeedKmh({
+    required double distance2d,
+    required int durationMillis,
+  }) {
+    if (durationMillis <= 0) {
+      return null;
+    }
+    return distance2d * 3600 / durationMillis;
+  }
+
+  double? _calculateMaxSpeedKmh(
+    List<List<_TrackPoint>> segments, {
+    required Duration window,
+  }) {
+    final windowMillis = window.inMilliseconds;
+    if (windowMillis <= 0) {
+      return null;
+    }
+
+    var maxSpeedKmh = 0.0;
+    var found = false;
+
+    for (final segment in segments) {
+      final runs = _buildTimedRuns(segment);
+      for (final run in runs) {
+        final runMax = _maxSpeedForRunKmh(run, windowMillis);
+        if (runMax == null) {
+          continue;
+        }
+        found = true;
+        maxSpeedKmh = math.max(maxSpeedKmh, runMax);
+      }
+    }
+
+    return found ? maxSpeedKmh : null;
+  }
+
+  List<List<_TimedDistanceSample>> _buildTimedRuns(List<_TrackPoint> segment) {
+    final runs = <List<_TimedDistanceSample>>[];
+    final currentRun = <_TimedDistanceSample>[];
+
+    var cumulativeDistanceMeters = 0.0;
+    _TrackPoint? previousPoint;
+    DateTime? previousTimedPointTime;
+
+    for (final point in segment) {
+      if (previousPoint != null) {
+        cumulativeDistanceMeters += _distance.as(
+          LengthUnit.Meter,
+          previousPoint.location,
+          point.location,
+        );
+      }
+
+      final timeUtc = point.timeUtc;
+      if (timeUtc != null) {
+        final sample = _TimedDistanceSample(
+          timeUtc: timeUtc,
+          cumulativeDistanceMeters: cumulativeDistanceMeters,
+        );
+
+        if (previousTimedPointTime != null &&
+            !timeUtc.isAfter(previousTimedPointTime)) {
+          if (currentRun.length >= 2) {
+            runs.add(List.of(currentRun));
+          }
+          currentRun
+            ..clear()
+            ..add(sample);
+        } else {
+          currentRun.add(sample);
+        }
+
+        previousTimedPointTime = timeUtc;
+      }
+
+      previousPoint = point;
+    }
+
+    if (currentRun.length >= 2) {
+      runs.add(List.of(currentRun));
+    }
+
+    return runs;
+  }
+
+  double? _maxSpeedForRunKmh(List<_TimedDistanceSample> run, int windowMillis) {
+    if (run.length < 2) {
+      return null;
+    }
+
+    var maxSpeedKmh = 0.0;
+    var found = false;
+
+    for (var endIndex = 1; endIndex < run.length; endIndex++) {
+      final endSample = run[endIndex];
+      final targetStartTime = endSample.timeUtc.subtract(
+        Duration(milliseconds: windowMillis),
+      );
+      final startDistance = _interpolateDistanceAt(run, targetStartTime);
+      if (startDistance == null) {
+        continue;
+      }
+
+      final distanceMeters = endSample.cumulativeDistanceMeters - startDistance;
+      if (distanceMeters < 0) {
+        continue;
+      }
+
+      found = true;
+      maxSpeedKmh = math.max(maxSpeedKmh, distanceMeters * 3600 / windowMillis);
+    }
+
+    return found ? maxSpeedKmh : null;
+  }
+
+  double? _interpolateDistanceAt(
+    List<_TimedDistanceSample> run,
+    DateTime targetTime,
+  ) {
+    if (targetTime.isBefore(run.first.timeUtc)) {
+      return null;
+    }
+
+    if (targetTime.isAtSameMomentAs(run.first.timeUtc)) {
+      return run.first.cumulativeDistanceMeters;
+    }
+
+    for (var index = 1; index < run.length; index++) {
+      final left = run[index - 1];
+      final right = run[index];
+
+      if (targetTime.isAfter(right.timeUtc)) {
+        continue;
+      }
+
+      if (targetTime.isAtSameMomentAs(right.timeUtc)) {
+        return right.cumulativeDistanceMeters;
+      }
+
+      final spanMillis = right.timeUtc.difference(left.timeUtc).inMilliseconds;
+      if (spanMillis <= 0) {
+        return null;
+      }
+
+      final offsetMillis = targetTime.difference(left.timeUtc).inMilliseconds;
+      if (offsetMillis < 0) {
+        return null;
+      }
+
+      final fraction = offsetMillis / spanMillis;
+      return left.cumulativeDistanceMeters +
+          (right.cumulativeDistanceMeters - left.cumulativeDistanceMeters) *
+              fraction;
+    }
+
+    return null;
+  }
+
   double _segmentDistanceMeters(_TrackPoint left, _TrackPoint right) {
     final horizontalMeters = _distance.as(
       LengthUnit.Meter,
@@ -623,6 +831,16 @@ class _TrackPoint {
   final double? elevation;
   final DateTime? timeUtc;
   final DateTime? timeLocal;
+}
+
+class _TimedDistanceSample {
+  const _TimedDistanceSample({
+    required this.timeUtc,
+    required this.cumulativeDistanceMeters,
+  });
+
+  final DateTime timeUtc;
+  final double cumulativeDistanceMeters;
 }
 
 class _StationaryClusterMetrics {

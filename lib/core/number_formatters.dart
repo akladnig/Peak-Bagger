@@ -22,6 +22,13 @@ String formatFileSizeKiB(double value, {int decimalPlaces = 1}) =>
 String formatPercentage(double value, {int decimalPlaces = 1}) =>
     '${value.toStringAsFixed(decimalPlaces)}%';
 
+String formatSpeedKmh(double? value, {int decimalPlaces = 1}) {
+  if (value == null || !value.isFinite) {
+    return 'Unknown';
+  }
+  return '${value.toStringAsFixed(decimalPlaces)} km/h';
+}
+
 String formatCoordinate(double value, {int decimalPlaces = GpxConstants.precision}) =>
     value.toStringAsFixed(decimalPlaces);
 
