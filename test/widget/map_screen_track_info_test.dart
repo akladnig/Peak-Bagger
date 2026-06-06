@@ -174,6 +174,9 @@ void main() {
             movingTime: 90 * 60 * 1000,
             restingTime: 15 * 60 * 1000,
             pausedTime: 0,
+            averageSpeedKmh: 5.9,
+            movingSpeedKmh: 8.3,
+            maxSpeedKmh: 12.7,
             peakCorrelationProcessed: true,
             gpxFile: '<gpx></gpx>',
           )
@@ -259,6 +262,13 @@ void main() {
     expect(find.text('Start Elevation'), findsOneWidget);
     expect(find.text('100 m'), findsOneWidget);
     expect(find.text('Time'), findsOneWidget);
+    expect(find.text('Speed'), findsOneWidget);
+    expect(find.text('Average Speed'), findsOneWidget);
+    expect(find.text('5.9 km/h'), findsOneWidget);
+    expect(find.text('Moving Speed'), findsOneWidget);
+    expect(find.text('8.3 km/h'), findsOneWidget);
+    expect(find.text('Max Speed'), findsOneWidget);
+    expect(find.text('12.7 km/h'), findsOneWidget);
     expect(find.text('2h 5m'), findsWidgets);
   });
 

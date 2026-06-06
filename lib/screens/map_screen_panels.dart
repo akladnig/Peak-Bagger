@@ -572,6 +572,32 @@ class MapTrackInfoPanel extends StatelessWidget {
           value: formatDuration(track.pausedTime),
         ),
         const SizedBox(height: 20),
+        const _SectionTitle(title: 'Speed'),
+        thinDivider,
+        _LabeledValueRow(
+          label: 'Average Speed',
+          value: _formatTrackSpeed(
+            track.averageSpeedKmh,
+            durationMillis: track.totalTimeMillis,
+          ),
+        ),
+        thinDivider,
+        _LabeledValueRow(
+          label: 'Moving Speed',
+          value: _formatTrackSpeed(
+            track.movingSpeedKmh,
+            durationMillis: track.movingTime,
+          ),
+        ),
+        thinDivider,
+        _LabeledValueRow(
+          label: 'Max Speed',
+          value: _formatTrackSpeed(
+            track.maxSpeedKmh,
+            durationMillis: track.totalTimeMillis,
+          ),
+        ),
+        const SizedBox(height: 20),
         _VisibilityToggleRow(
           key: const Key('track-info-panel-visibility-row'),
           label: track.visible
@@ -1010,6 +1036,16 @@ String formatDuration(int? millis) {
     return '${hours}h ${minutes}m';
   }
   return '${totalMinutes}m';
+}
+
+String _formatTrackSpeed(
+  double speedKmh, {
+  required int? durationMillis,
+}) {
+  if (durationMillis == null || durationMillis == 0) {
+    return 'Unknown';
+  }
+  return formatSpeedKmh(speedKmh);
 }
 
 List<Peak> normalizeTrackPeaks(Iterable<Peak> peaks) {

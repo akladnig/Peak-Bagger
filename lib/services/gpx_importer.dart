@@ -257,6 +257,9 @@ class GpxImporter {
         movingTime: stats.movingTime,
         restingTime: stats.restingTime,
         pausedTime: stats.pausedTime,
+        averageSpeedKmh: stats.averageSpeedKmh ?? 0.0,
+        movingSpeedKmh: stats.movingSpeedKmh ?? 0.0,
+        maxSpeedKmh: stats.maxSpeedKmh ?? 0.0,
       );
     } catch (e) {
       return null;

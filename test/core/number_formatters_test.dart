@@ -42,6 +42,16 @@ void main() {
     });
   });
 
+  group('formatSpeedKmh', () {
+    test('formats speeds with units by default', () {
+      expect(formatSpeedKmh(12.34), '12.3 km/h');
+    });
+
+    test('renders Unknown for null', () {
+      expect(formatSpeedKmh(null), 'Unknown');
+    });
+  });
+
   group('formatCoordinate', () {
     test('formats coordinates with six decimal places by default', () {
       expect(formatCoordinate(-42.1234567), '-42.123457');

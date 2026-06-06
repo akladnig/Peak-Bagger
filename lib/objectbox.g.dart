@@ -280,7 +280,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(3, 8449374379554926112),
     name: 'GpxTrack',
-    lastPropertyId: const obx_int.IdUid(33, 5662316491761993386),
+    lastPropertyId: const obx_int.IdUid(36, 6865718623478699060),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -449,6 +449,24 @@ final _entities = <obx_int.ModelEntity>[
         id: const obx_int.IdUid(33, 5662316491761993386),
         name: 'visible',
         type: 1,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(34, 7180206158243649018),
+        name: 'averageSpeedKmh',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(35, 3034155260083667586),
+        name: 'movingSpeedKmh',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(36, 6865718623478699060),
+        name: 'maxSpeedKmh',
+        type: 8,
         flags: 0,
       ),
     ],
@@ -1331,7 +1349,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final elevationProfileOffset = fbb.writeString(object.elevationProfile);
         final filteredTrackOffset = fbb.writeString(object.filteredTrack);
         final gpxFileRepairedOffset = fbb.writeString(object.gpxFileRepaired);
-        fbb.startTable(34);
+        fbb.startTable(37);
         fbb.addInt64(0, object.gpxTrackId);
         fbb.addOffset(2, trackNameOffset);
         fbb.addInt64(3, object.startDateTime?.millisecondsSinceEpoch);
@@ -1360,6 +1378,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addInt64(28, object.pausedTime);
         fbb.addOffset(29, gpxFileRepairedOffset);
         fbb.addBool(32, object.visible);
+        fbb.addFloat64(33, object.averageSpeedKmh);
+        fbb.addFloat64(34, object.movingSpeedKmh);
+        fbb.addFloat64(35, object.maxSpeedKmh);
         fbb.finish(fbb.endTable());
         return object.gpxTrackId;
       },
@@ -1502,6 +1523,24 @@ obx_int.ModelDefinition getObjectBoxModel() {
           rootOffset,
           60,
         );
+        final averageSpeedKmhParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          70,
+          0,
+        );
+        final movingSpeedKmhParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          72,
+          0,
+        );
+        final maxSpeedKmhParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          74,
+          0,
+        );
         final trackColourParam = const fb.Int64Reader().vTableGet(
           buffer,
           rootOffset,
@@ -1546,6 +1585,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
           movingTime: movingTimeParam,
           restingTime: restingTimeParam,
           pausedTime: pausedTimeParam,
+          averageSpeedKmh: averageSpeedKmhParam,
+          movingSpeedKmh: movingSpeedKmhParam,
+          maxSpeedKmh: maxSpeedKmhParam,
           trackColour: trackColourParam,
           visible: visibleParam,
           peakCorrelationProcessed: peakCorrelationProcessedParam,
@@ -2537,6 +2579,21 @@ class GpxTrack_ {
   /// See [GpxTrack.visible].
   static final visible = obx.QueryBooleanProperty<GpxTrack>(
     _entities[2].properties[27],
+  );
+
+  /// See [GpxTrack.averageSpeedKmh].
+  static final averageSpeedKmh = obx.QueryDoubleProperty<GpxTrack>(
+    _entities[2].properties[28],
+  );
+
+  /// See [GpxTrack.movingSpeedKmh].
+  static final movingSpeedKmh = obx.QueryDoubleProperty<GpxTrack>(
+    _entities[2].properties[29],
+  );
+
+  /// See [GpxTrack.maxSpeedKmh].
+  static final maxSpeedKmh = obx.QueryDoubleProperty<GpxTrack>(
+    _entities[2].properties[30],
   );
 
   /// see [GpxTrack.peaks]

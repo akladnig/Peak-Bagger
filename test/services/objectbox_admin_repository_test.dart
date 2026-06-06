@@ -106,6 +106,9 @@ void main() {
         'movingTime',
         'restingTime',
         'pausedTime',
+        'averageSpeedKmh',
+        'movingSpeedKmh',
+        'maxSpeedKmh',
       ]),
     );
     expect(

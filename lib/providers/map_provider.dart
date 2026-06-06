@@ -1837,6 +1837,9 @@ class MapNotifier extends Notifier<MapState> {
     track.movingTime = result.stats.movingTime;
     track.restingTime = result.stats.restingTime;
     track.pausedTime = result.stats.pausedTime;
+    track.averageSpeedKmh = result.stats.averageSpeedKmh ?? 0.0;
+    track.movingSpeedKmh = result.stats.movingSpeedKmh ?? 0.0;
+    track.maxSpeedKmh = result.stats.maxSpeedKmh ?? 0.0;
   }
 
   void _applyPeakCorrelation(

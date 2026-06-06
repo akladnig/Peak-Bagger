@@ -115,6 +115,7 @@ void main() {
     expect(container.read(mapProvider).selectedRouteFocusSerial, 1);
     expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
     expect(find.text('Visible Route'), findsOneWidget);
+    expect(find.text('Speed'), findsNothing);
     expect(find.byKey(const Key('map-mgrs-readout')), findsNothing);
     expect(find.byKey(const Key('map-zoom-readout')), findsNothing);
     expect(container.read(mapProvider).center.longitude, lessThan(146.5));

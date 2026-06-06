@@ -669,6 +669,9 @@ ObjectBoxAdminRow gpxTrackToAdminRow(GpxTrack track) {
       'movingTime': track.movingTime,
       'restingTime': track.restingTime,
       'pausedTime': track.pausedTime,
+      'averageSpeedKmh': track.averageSpeedKmh,
+      'movingSpeedKmh': track.movingSpeedKmh,
+      'maxSpeedKmh': track.maxSpeedKmh,
       'trackColour': track.trackColour,
       'peakCorrelationProcessed': track.peakCorrelationProcessed,
       'peaks': track.peaks
