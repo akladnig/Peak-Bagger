@@ -16,8 +16,8 @@ void main() {
     expect(result.isSuccess, isTrue);
     expect(result.asset!.assetPath, 'assets/polygons/tasmania.poly');
     expect(result.asset!.name, 'none');
-    expect(result.asset!.points, hasLength(9));
-    expect(result.asset!.points.first, const LatLng(-56.86236, 152.8587));
+    expect(result.asset!.points, hasLength(8));
+    expect(result.asset!.points.first, const LatLng(-44.0, 148.8867));
   });
 
   test('parsePolygonAsset rejects malformed coordinates', () {

@@ -7,9 +7,12 @@ import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/polygon_assets_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
+import 'package:peak_bagger/providers/show_polygons_settings_provider.dart';
 import 'package:peak_bagger/router.dart';
+import 'package:peak_bagger/services/polygon_asset_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/widgets/map_rebuild_debug_counters.dart';
 
@@ -76,6 +79,102 @@ void main() {
 
     expect(MapRebuildDebugCounters.routeRootBuilds, routeRootBuilds);
     expect(MapRebuildDebugCounters.actionRailBuilds, actionRailBuilds);
+  });
+
+  testWidgets('zoom keeps polygon layer build count flat', (tester) async {
+    MapRebuildDebugCounters.reset();
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 12,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(() => notifier),
+          peakListRepositoryProvider.overrideWithValue(
+            PeakListRepository.test(InMemoryPeakListStorage()),
+          ),
+          polygonAssetRepositoryProvider.overrideWithValue(
+            PolygonAssetRepository(assetLoader: _polygonAssetLoader),
+          ),
+          showPolygonsSettingsProvider.overrideWith(
+            () => _TestShowPolygonsNotifier(true),
+          ),
+        ],
+        child: const App(),
+      ),
+    );
+    await tester.pump();
+    router.go('/map');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(MapRebuildDebugCounters.polygonAssetLayerBuilds, 1);
+
+    notifier.updatePosition(const LatLng(-41.4, 146.4), 13);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    notifier.updatePosition(const LatLng(-41.3, 146.3), 14);
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(MapRebuildDebugCounters.polygonAssetLayerBuilds, 1);
+    expect(find.byKey(const Key('asset-polygon-layer')), findsOneWidget);
+  });
+
+  testWidgets('polygon toggle hides and restores the layer', (tester) async {
+    MapRebuildDebugCounters.reset();
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 12,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+    final polygonToggle = _TestShowPolygonsNotifier(true);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(() => notifier),
+          peakListRepositoryProvider.overrideWithValue(
+            PeakListRepository.test(InMemoryPeakListStorage()),
+          ),
+          polygonAssetRepositoryProvider.overrideWithValue(
+            PolygonAssetRepository(assetLoader: _polygonAssetLoader),
+          ),
+          showPolygonsSettingsProvider.overrideWith(() => polygonToggle),
+        ],
+        child: const App(),
+      ),
+    );
+    await tester.pump();
+    router.go('/map');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('asset-polygon-layer')), findsOneWidget);
+    expect(MapRebuildDebugCounters.polygonAssetLayerBuilds, 1);
+
+    await polygonToggle.setShowPolygons(false);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('asset-polygon-layer')), findsNothing);
+    expect(MapRebuildDebugCounters.polygonAssetLayerBuilds, 1);
+
+    await polygonToggle.setShowPolygons(true);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('asset-polygon-layer')), findsOneWidget);
+    expect(MapRebuildDebugCounters.polygonAssetLayerBuilds, 2);
   });
 
   test('filteredPeaksProvider ignores camera-only updates', () {
@@ -154,4 +253,27 @@ Future<void> _pumpMapApp(WidgetTester tester, MapState state) async {
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
   await tester.pump(const Duration(milliseconds: 100));
+}
+
+Future<String> _polygonAssetLoader(String assetPath) async {
+  return switch (assetPath) {
+    'assets/polygons/manifest.json' =>
+      '["assets/polygons/test.poly"]',
+    'assets/polygons/test.poly' => 'none\n1\n0 0\n1 0\n1 1\n0 0\nEND\nEND\n',
+    _ => throw StateError('Unexpected polygon asset: $assetPath'),
+  };
+}
+
+class _TestShowPolygonsNotifier extends ShowPolygonsSettingsNotifier {
+  _TestShowPolygonsNotifier(this._value);
+
+  final bool _value;
+
+  @override
+  bool build() => _value;
+
+  @override
+  Future<void> setShowPolygons(bool value) async {
+    state = value;
+  }
 }

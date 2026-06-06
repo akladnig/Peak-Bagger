@@ -12,6 +12,7 @@ import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/map_grid_geometry.dart';
 import 'package:peak_bagger/services/map_ruler_scale.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
+import 'package:peak_bagger/widgets/map_rebuild_debug_counters.dart';
 import 'package:peak_bagger/widgets/route_marker.dart';
 import 'package:peak_bagger/widgets/tasmap_outline_layer.dart';
 import 'package:peak_bagger/widgets/tasmap_polygon_label.dart';
@@ -90,6 +91,7 @@ List<Polygon> buildAllMapRectangles(TasmapRepository repo) {
 }
 
 PolygonLayer buildPolygonAssetLayer(List<MapPolygonAsset> polygons) {
+  MapRebuildDebugCounters.recordPolygonAssetLayerBuild();
   return PolygonLayer(
     key: const Key('asset-polygon-layer'),
     polygons: [

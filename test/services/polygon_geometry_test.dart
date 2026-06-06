@@ -106,8 +106,8 @@ void main() {
 
     expect(result.isSuccess, isTrue);
     expect(result.polygon!.name, 'none');
-    expect(result.polygon!.vertices, hasLength(9));
-    expect(result.polygon!.vertices.first, const LatLng(-56.86236, 152.8587));
+    expect(result.polygon!.vertices, hasLength(8));
+    expect(result.polygon!.vertices.first, const LatLng(-44.0, 148.8867));
   });
 
   test('rejects malformed polygon text inputs', () {

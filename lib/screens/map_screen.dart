@@ -152,6 +152,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
   List<Peak>? _cachedPeakHoverPeaks;
   Set<int>? _cachedPeakHoverCorrelatedPeakIds;
   List<PeakHoverCandidate>? _cachedPeakHoverCandidates;
+  PolygonLayer? _cachedPolygonAssetLayer;
+  List<MapPolygonAsset>? _cachedPolygonAssetLayerAssets;
   int? _cachedRouteHoverViewportRevision;
   int? _cachedRouteHoverDisplayZoom;
   List<app_route.Route>? _cachedRouteHoverRoutes;
@@ -2034,12 +2036,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                         : null;
                     final filteredPeaks = ref.watch(filteredPeaksProvider);
                     final routes = ref.watch(routeListProvider);
-                    final polygonLayer = polygonAssets?.when(
-                      data: (assets) => assets.isEmpty
-                          ? null
-                          : buildPolygonAssetLayer(assets),
-                      loading: () => null,
-                      error: (_, _) => null,
+                    final polygonLayer = _polygonAssetLayerFor(
+                      showPolygons: showPolygons,
+                      polygonAssets: polygonAssets,
                     );
                     if (showPolygons) {
                       _maybeFocusPolygonAssets(
@@ -3548,6 +3547,37 @@ class _MapScreenState extends ConsumerState<MapScreen>
         ),
       );
     }
+  }
+
+  PolygonLayer? _polygonAssetLayerFor({
+    required bool showPolygons,
+    required AsyncValue<List<MapPolygonAsset>>? polygonAssets,
+  }) {
+    if (!showPolygons) {
+      _cachedPolygonAssetLayer = null;
+      _cachedPolygonAssetLayerAssets = null;
+      return null;
+    }
+
+    final assets = polygonAssets?.maybeWhen(
+      data: (value) => value,
+      orElse: () => null,
+    );
+    if (assets == null) {
+      return _cachedPolygonAssetLayer;
+    }
+    if (assets.isEmpty) {
+      _cachedPolygonAssetLayer = null;
+      _cachedPolygonAssetLayerAssets = null;
+      return null;
+    }
+    if (identical(_cachedPolygonAssetLayerAssets, assets)) {
+      return _cachedPolygonAssetLayer;
+    }
+
+    _cachedPolygonAssetLayerAssets = assets;
+    _cachedPolygonAssetLayer = buildPolygonAssetLayer(assets);
+    return _cachedPolygonAssetLayer;
   }
 
   void _goToCurrentLocation() {
