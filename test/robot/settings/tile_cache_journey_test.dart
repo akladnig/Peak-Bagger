@@ -72,7 +72,7 @@ void main() {
     await robot.scrollToDownloadButton();
     await robot.tapDownload();
 
-    expect(capturedBasemaps, [Basemap.openstreetmap, Basemap.tracestrack]);
+    expect(capturedBasemaps, [Basemap.tracestrack, Basemap.openstreetmap]);
     expect(capturedRegion.originalRegion.outline, repository.getMapPolygonPoints(zulu));
   });
 }
