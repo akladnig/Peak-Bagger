@@ -20,6 +20,20 @@ void main() {
     expect(result.asset!.points.first, const LatLng(-44.0, 148.8867));
   });
 
+  test('parsePolygonAsset reads the bundled croatia polygon', () async {
+    final contents = await File('assets/polygons/croatia.poly').readAsString();
+    final result = parsePolygonAsset(
+      contents,
+      assetPath: 'assets/polygons/croatia.poly',
+    );
+
+    expect(result.isSuccess, isTrue);
+    expect(result.asset!.assetPath, 'assets/polygons/croatia.poly');
+    expect(result.asset!.name, 'none');
+    expect(result.asset!.points, isNotEmpty);
+    expect(result.asset!.points.first, const LatLng(42.43746, 18.51463));
+  });
+
   test('parsePolygonAsset rejects malformed coordinates', () {
     final result = parsePolygonAsset(
       'none\n1\ninvalid line\nEND\nEND\n',
