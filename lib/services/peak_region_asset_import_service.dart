@@ -61,7 +61,7 @@ class PeakRegionAssetImportService {
     }
 
     final missingRegions = manifest
-        .where((region) => !storedFingerprints.containsKey(region.key))
+        .where((region) => storedFingerprints[region.key] != region.fingerprint)
         .toList(growable: false);
     if (missingRegions.isEmpty) {
       return const PeakRegionAssetImportResult(
@@ -144,7 +144,14 @@ class PeakRegionAssetImportService {
       var regionChanged = false;
       final nextPeaksByOsmId = Map<int, Peak>.from(currentPeaksByOsmId);
       for (final peak in regionPeaks) {
-        if (nextPeaksByOsmId.containsKey(peak.osmId)) {
+        final existingPeak = nextPeaksByOsmId[peak.osmId];
+        if (existingPeak == null) {
+          nextPeaksByOsmId[peak.osmId] = peak;
+          importedPeakCount += 1;
+          regionChanged = true;
+          continue;
+        }
+        if (existingPeak.sourceOfTruth != Peak.sourceOfTruthOsm) {
           continue;
         }
         nextPeaksByOsmId[peak.osmId] = peak;

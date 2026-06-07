@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/geo.dart';
@@ -11,6 +12,10 @@ typedef PeakMgrsConverterFn = PeakMgrsComponents Function(LatLng location);
 
 class PeakRefreshService {
   static const _syntheticOsmMatchDistanceMeters = 2000.0;
+  static final _tasmaniaPeakBounds = LatLngBounds.fromPoints([
+    const LatLng(-43.643, 143.833),
+    const LatLng(-39.579, 148.482),
+  ]);
 
   PeakRefreshService(
     this._overpassService,
@@ -22,8 +27,23 @@ class PeakRefreshService {
   final PeakRepository _peakRepository;
   final PeakMgrsConverterFn _converter;
 
-  Future<PeakRefreshResult> refreshPeaks() async {
-    final peaks = await _overpassService.fetchTasmaniaPeaks();
+  Future<PeakRefreshResult> refreshPeaks({
+    String region = Peak.defaultRegion,
+    LatLngBounds? bounds,
+  }) async {
+    final effectiveBounds = bounds ?? _defaultBoundsForRegion(region);
+    if (effectiveBounds == null) {
+      throw ArgumentError.value(
+        bounds,
+        'bounds',
+        'Bounds are required when refreshing peaks for $region.',
+      );
+    }
+
+    final peaks = await _overpassService.fetchPeaks(
+      region: region,
+      bounds: effectiveBounds,
+    );
     if (peaks.isEmpty) {
       throw StateError('No peaks imported');
     }
@@ -103,6 +123,14 @@ class PeakRefreshService {
       skippedCount: skippedCount,
       warning: skippedCount > 0 ? '$skippedCount peaks skipped' : null,
     );
+  }
+
+  LatLngBounds? _defaultBoundsForRegion(String region) {
+    if (region == Peak.defaultRegion) {
+      return _tasmaniaPeakBounds;
+    }
+
+    return null;
   }
 
   Future<bool> backfillStoredPeaks() async {

@@ -312,6 +312,124 @@ void main() {
       });
     },
   );
+
+  test(
+    'syncOnStartup reimports changed regions, replaces matching OSM peaks, and preserves non-OSM plus stale OSM peaks',
+    () async {
+      final repository = PeakRepository.test(
+        InMemoryPeakStorage([
+          Peak(
+            id: 7,
+            osmId: 1,
+            name: 'Old OSM Peak',
+            altName: 'Manual alt',
+            verified: true,
+            latitude: 46.0,
+            longitude: 14.0,
+            region: 'slovenia',
+            sourceOfTruth: Peak.sourceOfTruthOsm,
+          ),
+          Peak(
+            id: 8,
+            osmId: 99,
+            name: 'Stale OSM Peak',
+            latitude: 46.1,
+            longitude: 14.1,
+            region: 'slovenia',
+            sourceOfTruth: Peak.sourceOfTruthOsm,
+          ),
+          Peak(
+            id: 9,
+            osmId: 3,
+            name: 'Manual HWC Peak',
+            latitude: 46.2,
+            longitude: 14.2,
+            region: 'slovenia',
+            sourceOfTruth: Peak.sourceOfTruthHwc,
+          ),
+        ]),
+      );
+      await const PeakRegionImportMarkerStore().saveFingerprints({
+        'slovenia': 'old-fp',
+      });
+      final service = PeakRegionAssetImportService(
+        assetLoader: _assetLoader({
+          PeakRegionAssetImportService.manifestAssetPath: jsonEncode({
+            'slovenia': {
+              'fingerprint': 'new-fp',
+              'peaks': ['assets/peaks/slovenia.json'],
+            },
+          }),
+          'assets/peaks/slovenia.json': _overpassAsset([
+            _peakNode(
+              id: 1,
+              name: 'Updated OSM Peak',
+              lat: 46.3,
+              lon: 14.3,
+              ele: '2000',
+            ),
+            _peakNode(
+              id: 2,
+              name: 'New Bundled Peak',
+              lat: 46.4,
+              lon: 14.4,
+              ele: '2100',
+            ),
+            _peakNode(
+              id: 3,
+              name: 'Bundled HWC Replacement',
+              lat: 46.5,
+              lon: 14.5,
+              ele: '2200',
+            ),
+          ]),
+        }),
+      );
+
+      final result = await service.syncOnStartup(peakRepository: repository);
+      final peaksByOsmId = {
+        for (final peak in repository.getAllPeaks()) peak.osmId: peak,
+      };
+
+      expect(result.importedRegions, ['slovenia']);
+      expect(peaksByOsmId, hasLength(4));
+      expect(peaksByOsmId[1]?.name, 'Updated OSM Peak');
+      expect(peaksByOsmId[1]?.id, 7);
+      expect(peaksByOsmId[1]?.altName, 'Manual alt');
+      expect(peaksByOsmId[1]?.verified, isTrue);
+      expect(peaksByOsmId[2]?.name, 'New Bundled Peak');
+      expect(peaksByOsmId[3]?.name, 'Manual HWC Peak');
+      expect(peaksByOsmId[99]?.name, 'Stale OSM Peak');
+      expect(await const PeakRegionImportMarkerStore().loadFingerprints(), {
+        'slovenia': 'new-fp',
+      });
+    },
+  );
+
+  test(
+    'syncOnStartup does not update marker fingerprint when region import fails',
+    () async {
+      final repository = PeakRepository.test(InMemoryPeakStorage());
+      const markerStore = PeakRegionImportMarkerStore();
+      await markerStore.saveFingerprints({'slovenia': 'old-fp'});
+      final service = PeakRegionAssetImportService(
+        assetLoader: _assetLoader({
+          PeakRegionAssetImportService.manifestAssetPath: jsonEncode({
+            'slovenia': {
+              'fingerprint': 'new-fp',
+              'peaks': ['assets/peaks/slovenia.json'],
+            },
+          }),
+        }),
+      );
+
+      await expectLater(
+        service.syncOnStartup(peakRepository: repository),
+        throwsA(isA<StateError>()),
+      );
+      expect(await markerStore.loadFingerprints(), {'slovenia': 'old-fp'});
+    },
+  );
 }
 
 PeakRegionAssetLoader _assetLoader(Map<String, String> assets) {

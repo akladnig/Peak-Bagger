@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
+import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_refresh_service.dart';
@@ -40,6 +42,24 @@ void main() {
       peaks.map((peak) => peak.name),
       containsAll(['Old Peak', 'Cradle', 'Ossa']),
     );
+  });
+
+  test('refreshPeaks forwards region and bounds to Overpass', () async {
+    final repository = PeakRepository.test(InMemoryPeakStorage());
+    final overpass = TestPeakOverpassService(
+      peaks: [Peak(name: 'Mount Test', latitude: -33.5, longitude: 150.5)],
+    );
+    final service = PeakRefreshService(overpass, repository);
+    final bounds = LatLngBounds.fromPoints([
+      const LatLng(-33.6, 150.4),
+      const LatLng(-33.4, 150.6),
+    ]);
+
+    await service.refreshPeaks(region: 'new-south-wales', bounds: bounds);
+
+    expect(overpass.lastRegion, 'new-south-wales');
+    expect(overpass.lastBounds, bounds);
+    expect(repository.getAllPeaks().single.region, 'new-south-wales');
   });
 
   test(

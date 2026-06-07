@@ -1,3 +1,5 @@
+import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
 
@@ -18,7 +20,10 @@ class TestPeakNotifier extends MapNotifier {
   MapState build() => initialState;
 
   @override
-  Future<PeakRefreshResult> refreshPeaks() {
+  Future<PeakRefreshResult> refreshPeaks({
+    String region = Peak.defaultRegion,
+    LatLngBounds? bounds,
+  }) {
     refreshCallCount += 1;
     return _refreshHandler();
   }

@@ -43,13 +43,13 @@ Startup path in `MapNotifier._loadPeaks()`; asset importer + marker store + fing
 ### Phase 3: Fingerprint Reimport + OSM Policy
 
 - **Goal**: changed region assets reconcile safely on later launches
-- [ ] `lib/services/peak_region_asset_import_service.dart` - compare stored vs manifest fingerprints; reimport changed/missing regions
-- [ ] `lib/services/peak_repository.dart` or importer-local merge path - preserve existing `id`, `altName`, `verified`; replace matching OSM peaks; preserve stale OSM + non-OSM peaks
-- [ ] `lib/services/peak_refresh_service.dart` - keep current region/bounds refresh API intact; no startup regression
-- [ ] TDD: changed fingerprint reimports region, replaces matching OSM rows, preserves `id`/`altName`/`verified`
-- [ ] TDD: stale OSM rows remain; non-OSM rows remain
-- [ ] TDD: failed region import does not update marker fingerprint
-- [ ] Verify: `flutter analyze` && `flutter test test/services/peak_region_asset_import_service_test.dart test/services/peak_refresh_service_test.dart`
+- [x] `lib/services/peak_region_asset_import_service.dart` - compare stored vs manifest fingerprints; reimport changed/missing regions
+- [x] `lib/services/peak_repository.dart` or importer-local merge path - preserve existing `id`, `altName`, `verified`; replace matching OSM peaks; preserve stale OSM + non-OSM peaks
+- [x] `lib/services/peak_refresh_service.dart` - keep current region/bounds refresh API intact; no startup regression
+- [x] TDD: changed fingerprint reimports region, replaces matching OSM rows, preserves `id`/`altName`/`verified`
+- [x] TDD: stale OSM rows remain; non-OSM rows remain
+- [x] TDD: failed region import does not update marker fingerprint
+- [x] Verify: `flutter analyze` && `flutter test test/services/peak_region_asset_import_service_test.dart test/services/peak_refresh_service_test.dart`
 
 ### Phase 4: Fingerprint Tooling
 
