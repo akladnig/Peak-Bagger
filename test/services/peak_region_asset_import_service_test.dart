@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/peak_region_asset_import_service.dart';
 import 'package:peak_bagger/services/peak_region_import_marker_store.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
@@ -140,6 +141,175 @@ void main() {
         await const PeakRegionImportMarkerStore().loadFingerprints(),
         isEmpty,
       );
+    },
+  );
+
+  test(
+    'syncOnStartup bootstraps only legacy tasmania and imports missing regions',
+    () async {
+      final repository = PeakRepository.test(
+        InMemoryPeakStorage([
+          Peak(
+            id: 7,
+            osmId: 1,
+            name: 'Stored Tasmania Peak',
+            latitude: -41.7,
+            longitude: 145.9,
+            region: Peak.defaultRegion,
+          ),
+        ]),
+      );
+      final service = PeakRegionAssetImportService(
+        assetLoader: _assetLoader({
+          PeakRegionAssetImportService.manifestAssetPath: jsonEncode({
+            'tasmania': {
+              'fingerprint': 'tas-fp',
+              'peaks': ['assets/peaks/tas.json'],
+            },
+            'slovenia': {
+              'fingerprint': 'slo-fp',
+              'peaks': ['assets/peaks/slovenia.json'],
+            },
+          }),
+          'assets/peaks/tas.json': _overpassAsset([
+            _peakNode(
+              id: 1,
+              name: 'Cradle',
+              lat: -41.7,
+              lon: 145.9,
+              ele: '1545',
+            ),
+          ]),
+          'assets/peaks/slovenia.json': _overpassAsset([
+            _peakNode(
+              id: 2,
+              name: 'Triglav',
+              lat: 46.3783,
+              lon: 13.8369,
+              ele: '2864',
+            ),
+          ]),
+        }),
+      );
+
+      final result = await service.syncOnStartup(peakRepository: repository);
+
+      expect(result.importedRegions, ['slovenia']);
+      expect(repository.getAllPeaks(), hasLength(2));
+      expect(await const PeakRegionImportMarkerStore().loadFingerprints(), {
+        'slovenia': 'slo-fp',
+        'tasmania': 'tas-fp',
+      });
+    },
+  );
+
+  test(
+    'syncOnStartup does not infer non-tasmania imports from free-form region values',
+    () async {
+      final repository = PeakRepository.test(
+        InMemoryPeakStorage([
+          Peak(
+            id: 7,
+            osmId: 1,
+            name: 'Manual Peak',
+            latitude: 46.3783,
+            longitude: 13.8369,
+            region: 'slovenia',
+            sourceOfTruth: Peak.sourceOfTruthHwc,
+          ),
+        ]),
+      );
+      final service = PeakRegionAssetImportService(
+        assetLoader: _assetLoader({
+          PeakRegionAssetImportService.manifestAssetPath: jsonEncode({
+            'tasmania': {
+              'fingerprint': 'tas-fp',
+              'peaks': ['assets/peaks/tas.json'],
+            },
+            'slovenia': {
+              'fingerprint': 'slo-fp',
+              'peaks': ['assets/peaks/slovenia.json'],
+            },
+          }),
+          'assets/peaks/tas.json': _overpassAsset([
+            _peakNode(
+              id: 2,
+              name: 'Cradle',
+              lat: -41.7,
+              lon: 145.9,
+              ele: '1545',
+            ),
+          ]),
+          'assets/peaks/slovenia.json': _overpassAsset([
+            _peakNode(
+              id: 3,
+              name: 'Triglav',
+              lat: 46.3783,
+              lon: 13.8369,
+              ele: '2864',
+            ),
+          ]),
+        }),
+      );
+
+      final result = await service.syncOnStartup(peakRepository: repository);
+
+      expect(result.importedRegions, ['tasmania', 'slovenia']);
+      expect(await const PeakRegionImportMarkerStore().loadFingerprints(), {
+        'slovenia': 'slo-fp',
+        'tasmania': 'tas-fp',
+      });
+    },
+  );
+
+  test(
+    'syncOnStartup leaves existing peaks untouched during bootstrap step',
+    () async {
+      final repository = PeakRepository.test(
+        InMemoryPeakStorage([
+          Peak(
+            id: 7,
+            osmId: 1,
+            name: 'Stored Tasmania Peak',
+            altName: 'Manual name',
+            verified: true,
+            latitude: -41.7,
+            longitude: 145.9,
+            region: Peak.defaultRegion,
+            sourceOfTruth: Peak.sourceOfTruthHwc,
+          ),
+        ]),
+      );
+      final service = PeakRegionAssetImportService(
+        assetLoader: _assetLoader({
+          PeakRegionAssetImportService.manifestAssetPath: jsonEncode({
+            'tasmania': {
+              'fingerprint': 'tas-fp',
+              'peaks': ['assets/peaks/tas.json'],
+            },
+          }),
+          'assets/peaks/tas.json': _overpassAsset([
+            _peakNode(
+              id: 1,
+              name: 'Cradle',
+              lat: -41.7,
+              lon: 145.9,
+              ele: '1545',
+            ),
+          ]),
+        }),
+      );
+
+      final result = await service.syncOnStartup(peakRepository: repository);
+      final peak = repository.getAllPeaks().single;
+
+      expect(result.importedRegions, isEmpty);
+      expect(peak.name, 'Stored Tasmania Peak');
+      expect(peak.altName, 'Manual name');
+      expect(peak.verified, isTrue);
+      expect(await const PeakRegionImportMarkerStore().loadFingerprints(), {
+        'tasmania': 'tas-fp',
+      });
     },
   );
 }

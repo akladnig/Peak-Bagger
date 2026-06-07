@@ -1123,30 +1123,25 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   Future<void> _loadPeaks() async {
-    if (_peakRepository.isEmpty()) {
-      state = state.copyWith(isLoadingPeaks: true);
-      try {
-        await _peakRegionAssetImportService.seedIfRepositoryEmpty(
-          peakRepository: _peakRepository,
-        );
-        ref.read(peakRevisionProvider.notifier).increment();
-        state = state.copyWith(
-          peaks: _peakRepository.getAllPeaks(),
-          isLoadingPeaks: false,
-          clearError: true,
-        );
-      } catch (e) {
-        state = state.copyWith(
-          isLoadingPeaks: false,
-          error: 'Failed to load peaks: $e',
-        );
-      }
-    } else {
+    state = state.copyWith(isLoadingPeaks: true);
+    try {
+      final importResult = await _peakRegionAssetImportService.syncOnStartup(
+        peakRepository: _peakRepository,
+      );
       final changed = await _peakRefreshService.backfillStoredPeaks();
-      if (changed) {
+      if (importResult.hasChanges || changed) {
         ref.read(peakRevisionProvider.notifier).increment();
       }
-      state = state.copyWith(peaks: _peakRepository.getAllPeaks());
+      state = state.copyWith(
+        peaks: _peakRepository.getAllPeaks(),
+        isLoadingPeaks: false,
+        clearError: true,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoadingPeaks: false,
+        error: 'Failed to load peaks: $e',
+      );
     }
   }
 

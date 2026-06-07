@@ -40,6 +40,44 @@ class PeakRegionAssetImportService {
   final PeakRegionMgrsConverter _mgrsConverter;
   final PeakRegionImportMarkerStore _markerStore;
 
+  Future<PeakRegionAssetImportResult> syncOnStartup({
+    required PeakRepository peakRepository,
+  }) async {
+    final manifest = await _loadManifest();
+    if (peakRepository.isEmpty()) {
+      return _importRegions(
+        peakRepository: peakRepository,
+        regions: manifest,
+        storedFingerprints: const {},
+      );
+    }
+
+    var storedFingerprints = await _markerStore.loadFingerprints();
+    if (storedFingerprints.isEmpty) {
+      storedFingerprints = await _bootstrapLegacyTasmania(
+        existingPeaks: peakRepository.getAllPeaks(),
+        manifest: manifest,
+      );
+    }
+
+    final missingRegions = manifest
+        .where((region) => !storedFingerprints.containsKey(region.key))
+        .toList(growable: false);
+    if (missingRegions.isEmpty) {
+      return const PeakRegionAssetImportResult(
+        importedRegions: [],
+        importedPeakCount: 0,
+        skippedPeakCount: 0,
+      );
+    }
+
+    return _importRegions(
+      peakRepository: peakRepository,
+      regions: missingRegions,
+      storedFingerprints: storedFingerprints,
+    );
+  }
+
   Future<PeakRegionAssetImportResult> seedIfRepositoryEmpty({
     required PeakRepository peakRepository,
   }) async {
@@ -52,38 +90,85 @@ class PeakRegionAssetImportService {
     }
 
     final manifest = await _loadManifest();
-    final importedRegions = <String>[];
-    final fingerprints = <String, String>{};
-    final peaksByOsmId = <int, Peak>{};
-    var skippedPeakCount = 0;
+    return _importRegions(
+      peakRepository: peakRepository,
+      regions: manifest,
+      storedFingerprints: const {},
+    );
+  }
+
+  Future<Map<String, String>> _bootstrapLegacyTasmania({
+    required List<Peak> existingPeaks,
+    required List<_ManifestRegion> manifest,
+  }) async {
+    if (!existingPeaks.any((peak) => peak.region == Peak.defaultRegion)) {
+      return const {};
+    }
 
     for (final region in manifest) {
-      importedRegions.add(region.key);
-      fingerprints[region.key] = region.fingerprint;
+      if (region.key != Peak.defaultRegion) {
+        continue;
+      }
+      final fingerprints = {region.key: region.fingerprint};
+      await _markerStore.saveFingerprints(fingerprints);
+      return fingerprints;
+    }
+
+    return const {};
+  }
+
+  Future<PeakRegionAssetImportResult> _importRegions({
+    required PeakRepository peakRepository,
+    required List<_ManifestRegion> regions,
+    required Map<String, String> storedFingerprints,
+  }) async {
+    final importedRegions = <String>[];
+    final nextFingerprints = Map<String, String>.from(storedFingerprints);
+    var currentPeaksByOsmId = {
+      for (final peak in peakRepository.getAllPeaks()) peak.osmId: peak,
+    };
+    var importedPeakCount = 0;
+    var skippedPeakCount = 0;
+
+    for (final region in regions) {
+      final regionPeaks = <Peak>[];
       for (final assetPath in region.peakAssetPaths) {
         final assetResult = await _loadRegionPeaks(
           regionKey: region.key,
           assetPath: assetPath,
         );
         skippedPeakCount += assetResult.skippedPeakCount;
-        for (final peak in assetResult.peaks) {
-          peaksByOsmId[peak.osmId] = peak;
-        }
+        regionPeaks.addAll(assetResult.peaks);
       }
-    }
 
-    if (peaksByOsmId.isEmpty) {
-      throw StateError('No bundled peaks imported');
-    }
+      var regionChanged = false;
+      final nextPeaksByOsmId = Map<int, Peak>.from(currentPeaksByOsmId);
+      for (final peak in regionPeaks) {
+        if (nextPeaksByOsmId.containsKey(peak.osmId)) {
+          continue;
+        }
+        nextPeaksByOsmId[peak.osmId] = peak;
+        importedPeakCount += 1;
+        regionChanged = true;
+      }
 
-    await peakRepository.replaceAll(
-      peaksByOsmId.values.toList(growable: false),
-    );
-    await _markerStore.saveFingerprints(fingerprints);
+      if (regionChanged) {
+        await peakRepository.replaceAll(
+          nextPeaksByOsmId.values.toList(growable: false),
+        );
+        currentPeaksByOsmId = {
+          for (final peak in peakRepository.getAllPeaks()) peak.osmId: peak,
+        };
+      }
+
+      nextFingerprints[region.key] = region.fingerprint;
+      await _markerStore.saveFingerprints(nextFingerprints);
+      importedRegions.add(region.key);
+    }
 
     return PeakRegionAssetImportResult(
       importedRegions: List<String>.unmodifiable(importedRegions),
-      importedPeakCount: peaksByOsmId.length,
+      importedPeakCount: importedPeakCount,
       skippedPeakCount: skippedPeakCount,
     );
   }

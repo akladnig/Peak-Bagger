@@ -31,14 +31,14 @@ Startup path in `MapNotifier._loadPeaks()`; asset importer + marker store + fing
 ### Phase 2: Existing Install Migration
 
 - **Goal**: populated install bootstrap; no unintended rewrites
-- [ ] `lib/services/peak_region_asset_import_service.dart` - empty-marker bootstrap for legacy Tasmania only; import only missing seedable regions after bootstrap
-- [ ] `lib/providers/map_provider.dart` - run bootstrap/diff before publishing peaks; preserve existing non-empty repo flow
-- [ ] `lib/models/peak.dart` - keep current model; no schema change beyond using existing `region` / `sourceOfTruth`
-- [ ] TDD: populated repo + empty marker store writes only Tasmania fingerprint when Tasmania peaks exist
-- [ ] TDD: bootstrap does not infer non-Tasmania imports from free-form `Peak.region`
-- [ ] TDD: populated repo import leaves existing peaks untouched during bootstrap step
-- [ ] TDD: bootstrap does not retroactively reconcile historical Tasmania bundled-data changes
-- [ ] Verify: `flutter analyze` && `flutter test test/services/peak_region_asset_import_service_test.dart test/providers/map_provider_peak_bootstrap_test.dart`
+- [x] `lib/services/peak_region_asset_import_service.dart` - empty-marker bootstrap for legacy Tasmania only; import only missing seedable regions after bootstrap
+- [x] `lib/providers/map_provider.dart` - run bootstrap/diff before publishing peaks; preserve existing non-empty repo flow
+- [x] `lib/models/peak.dart` - keep current model; no schema change beyond using existing `region` / `sourceOfTruth`
+- [x] TDD: populated repo + empty marker store writes only Tasmania fingerprint when Tasmania peaks exist
+- [x] TDD: bootstrap does not infer non-Tasmania imports from free-form `Peak.region`
+- [x] TDD: populated repo import leaves existing peaks untouched during bootstrap step
+- [x] TDD: bootstrap does not retroactively reconcile historical Tasmania bundled-data changes
+- [x] Verify: `flutter analyze` && `flutter test test/services/peak_region_asset_import_service_test.dart test/providers/map_provider_peak_bootstrap_test.dart`
 
 ### Phase 3: Fingerprint Reimport + OSM Policy
 
