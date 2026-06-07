@@ -32,6 +32,10 @@ void main() {
           },
     );
 
+    expect(
+      TileCacheService.storeNames,
+      Basemap.values.map((b) => b.name).toList(growable: false),
+    );
     expect(basemaps, Basemap.values);
     expect(regions, hasLength(Basemap.values.length));
     expect(regions.first.minZoom, lowZoomTileCacheWarmupMinZoom);

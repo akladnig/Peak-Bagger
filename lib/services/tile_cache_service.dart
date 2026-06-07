@@ -10,12 +10,8 @@ import 'package:peak_bagger/services/tile_cache_download_scope.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class TileCacheService {
-  static const List<String> storeNames = [
-    'openstreetmap',
-    'tracestrack',
-    'tasmapTopo',
-    'tasmap50k',
-    'tasmap25k',
+  static List<String> get storeNames => [
+    for (final basemap in Basemap.values) basemap.name,
   ];
   @visibleForTesting
   static const lowZoomWarmupVersionKey = 'tile_cache_low_zoom_warmup_version';
