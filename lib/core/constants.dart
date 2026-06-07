@@ -115,7 +115,6 @@ abstract final class DemConstants {
 }
 
 abstract final class RouteUI {
-  static const width = 2.0;
   static const markerSize = 20.0;
   static const markerMinSize = 14.0;
   static const markerFontSize = 6.0;
