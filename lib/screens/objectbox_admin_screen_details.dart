@@ -196,7 +196,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   late final TextEditingController _elevationController;
   late final TextEditingController _latitudeController;
   late final TextEditingController _longitudeController;
-  late final TextEditingController _areaController;
+  late final TextEditingController _regionController;
   late final TextEditingController _mgrs100kIdController;
   late final TextEditingController _eastingController;
   late final TextEditingController _northingController;
@@ -220,7 +220,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
     _elevationController = TextEditingController();
     _latitudeController = TextEditingController();
     _longitudeController = TextEditingController();
-    _areaController = TextEditingController();
+    _regionController = TextEditingController();
     _mgrs100kIdController = TextEditingController();
     _eastingController = TextEditingController();
     _northingController = TextEditingController();
@@ -246,7 +246,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
     _elevationController.dispose();
     _latitudeController.dispose();
     _longitudeController.dispose();
-    _areaController.dispose();
+    _regionController.dispose();
     _mgrs100kIdController.dispose();
     _eastingController.dispose();
     _northingController.dispose();
@@ -268,7 +268,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
       _elevationController.clear();
       _latitudeController.clear();
       _longitudeController.clear();
-      _areaController.clear();
+      _regionController.clear();
       _mgrs100kIdController.clear();
       _eastingController.clear();
       _northingController.clear();
@@ -286,7 +286,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
       _elevationController.text = form.elevation;
       _latitudeController.text = form.latitude;
       _longitudeController.text = form.longitude;
-      _areaController.text = form.area;
+      _regionController.text = form.region;
       _mgrs100kIdController.text = form.mgrs100kId;
       _eastingController.text = form.easting;
       _northingController.text = form.northing;
@@ -333,7 +333,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
       elevation: _elevationController.text,
       latitude: _latitudeController.text,
       longitude: _longitudeController.text,
-      area: _areaController.text,
+      region: _regionController.text,
       gridZoneDesignator: _gridZoneDesignatorController.text,
       mgrs100kId: _mgrs100kIdController.text,
       easting: _eastingController.text,
@@ -543,7 +543,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
                       elevationController: _elevationController,
                       latitudeController: _latitudeController,
                       longitudeController: _longitudeController,
-                      areaController: _areaController,
+                      regionController: _regionController,
                       gridZoneDesignatorController:
                           _gridZoneDesignatorController,
                       mgrs100kIdController: _mgrs100kIdController,
@@ -1243,7 +1243,7 @@ class _PeakEditForm extends StatelessWidget {
     required this.elevationController,
     required this.latitudeController,
     required this.longitudeController,
-    required this.areaController,
+    required this.regionController,
     required this.gridZoneDesignatorController,
     required this.mgrs100kIdController,
     required this.eastingController,
@@ -1270,7 +1270,7 @@ class _PeakEditForm extends StatelessWidget {
   final TextEditingController elevationController;
   final TextEditingController latitudeController;
   final TextEditingController longitudeController;
-  final TextEditingController areaController;
+  final TextEditingController regionController;
   final TextEditingController gridZoneDesignatorController;
   final TextEditingController mgrs100kIdController;
   final TextEditingController eastingController;
@@ -1384,11 +1384,11 @@ class _PeakEditForm extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               TextFormField(
-                key: const Key('objectbox-admin-peak-area'),
-                controller: areaController,
+                key: const Key('objectbox-admin-peak-region'),
+                controller: regionController,
                 enabled: !isSaving,
                 decoration: const InputDecoration(
-                  labelText: 'Area',
+                  labelText: 'Region',
                   border: OutlineInputBorder(),
                 ),
                 onChanged: (_) => onChanged(),

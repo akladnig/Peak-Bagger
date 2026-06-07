@@ -6,6 +6,7 @@ void main() {
     final peak = Peak(name: 'Mt Anne', latitude: -41.5, longitude: 146.5);
 
     expect(peak.sourceOfTruth, Peak.sourceOfTruthOsm);
+    expect(peak.region, Peak.defaultRegion);
   });
 
   test('defaults alternate name and verified metadata', () {
@@ -13,6 +14,7 @@ void main() {
 
     expect(peak.altName, '');
     expect(peak.verified, isFalse);
+    expect(peak.region, Peak.defaultRegion);
   });
 
   test('copyWith preserves alternate name and verified metadata', () {
@@ -43,5 +45,6 @@ void main() {
     expect(peak.latitude, -41.5);
     expect(peak.longitude, 146.5);
     expect(peak.sourceOfTruth, Peak.sourceOfTruthOsm);
+    expect(peak.region, Peak.defaultRegion);
   });
 }

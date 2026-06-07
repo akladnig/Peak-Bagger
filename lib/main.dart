@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/app.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
@@ -44,6 +45,10 @@ void main() async {
   final peakDeleteGuard = PeakDeleteGuard(
     ObjectBoxPeakDeleteGuardSource(objectboxStore),
   );
+  final peakRepository = PeakRepository(
+    objectboxStore,
+    peakListRewritePort: peakListRewritePort,
+  );
   final peakListRepo = PeakListRepository(objectboxStore);
   final overpassService = OverpassService();
   final routeGraphRepository = RouteGraphRepository.objectBox(objectboxStore);
@@ -58,15 +63,13 @@ void main() async {
   } catch (_) {
     // Continue with an empty database if the import fails.
   }
+  await peakRepository.backfillRegion(Peak.defaultRegion);
 
   runApp(
     ProviderScope(
       overrides: [
         peakRepositoryProvider.overrideWithValue(
-          PeakRepository(
-            objectboxStore,
-            peakListRewritePort: peakListRewritePort,
-          ),
+          peakRepository,
         ),
         peakListRewritePortProvider.overrideWithValue(peakListRewritePort),
         peakDeleteGuardProvider.overrideWithValue(peakDeleteGuard),

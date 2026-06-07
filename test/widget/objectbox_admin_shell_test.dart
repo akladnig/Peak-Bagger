@@ -425,8 +425,8 @@ void main() {
     tester,
   ) async {
     final peaks = [
-      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', area: 'Old Area'),
-      _buildPeak(id: 2, osmId: 202, name: 'Ossa Spur', area: 'Far East'),
+      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', region: 'Old Area'),
+      _buildPeak(id: 2, osmId: 202, name: 'Ossa Spur', region: 'Far East'),
     ];
     final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
       'Peak': peaks.map(_peakRow).toList(),
@@ -488,7 +488,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.enterText(
-      find.byKey(const Key('objectbox-admin-peak-area')),
+      find.byKey(const Key('objectbox-admin-peak-region')),
       'New Area',
     );
     await tester.drag(
@@ -514,7 +514,7 @@ void main() {
     );
     final mapState = container.read(mapProvider);
     expect(mapState.peaks, hasLength(2));
-    expect(mapState.peaks.singleWhere((peak) => peak.id == 1).area, 'New Area');
+    expect(mapState.peaks.singleWhere((peak) => peak.id == 1).region, 'New Area');
     expect(mapState.peaks.singleWhere((peak) => peak.id == 1).altName, 'Ossa');
     expect(mapState.peaks.singleWhere((peak) => peak.id == 1).verified, isTrue);
     expect(find.text('New Area'), findsWidgets);
@@ -524,7 +524,7 @@ void main() {
     tester,
   ) async {
     final peaks = [
-      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', area: 'Old Area'),
+      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', region: 'Old Area'),
     ];
     final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
       'Peak': peaks.map(_peakRow).toList(),
@@ -657,7 +657,7 @@ void main() {
     tester,
   ) async {
     final peaks = [
-      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', area: 'Old Area'),
+      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', region: 'Old Area'),
     ];
     final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
       'Peak': peaks.map(_peakRow).toList(),
@@ -762,7 +762,7 @@ void main() {
     'Peak edit shows paired-coordinate error for incomplete lat/lng',
     (tester) async {
       final peaks = [
-        _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', area: 'Old Area'),
+        _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', region: 'Old Area'),
       ];
       final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
         'Peak': peaks.map(_peakRow).toList(),
@@ -841,7 +841,7 @@ void main() {
     tester,
   ) async {
     final peaks = [
-      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', area: 'Old Area'),
+      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', region: 'Old Area'),
     ];
     final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
       'Peak': peaks.map(_peakRow).toList(),
@@ -891,7 +891,7 @@ void main() {
     tester,
   ) async {
     final peaks = [
-      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', area: 'Old Area'),
+      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', region: 'Old Area'),
     ];
     final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
       'Peak': peaks.map(_peakRow).toList(),
@@ -989,7 +989,7 @@ void main() {
   ) async {
     final saveGate = Completer<void>();
     final peaks = [
-      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', area: 'Old Area'),
+      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', region: 'Old Area'),
     ];
     final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
       'Peak': peaks.map(_peakRow).toList(),
@@ -1056,8 +1056,8 @@ void main() {
     tester,
   ) async {
     final peaks = [
-      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', area: 'Old Area'),
-      _buildPeak(id: 2, osmId: 202, name: 'Ossa Spur', area: 'Far East'),
+      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', region: 'Old Area'),
+      _buildPeak(id: 2, osmId: 202, name: 'Ossa Spur', region: 'Far East'),
     ];
     final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
       'Peak': peaks.map(_peakRow).toList(),
@@ -1197,7 +1197,7 @@ void main() {
       id: 1,
       osmId: 101,
       name: 'Mt Ossa',
-      area: 'Old Area',
+      region: 'Old Area',
     );
     final peaks = [peak];
     final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
@@ -1256,8 +1256,8 @@ void main() {
     tester,
   ) async {
     final peaks = [
-      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', area: 'Old Area'),
-      _buildPeak(id: 2, osmId: 202, name: 'Ossa Spur', area: 'Far East'),
+      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', region: 'Old Area'),
+      _buildPeak(id: 2, osmId: 202, name: 'Ossa Spur', region: 'Far East'),
     ];
     final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
       'Peak': peaks.map(_peakRow).toList(),
@@ -1345,7 +1345,7 @@ void main() {
 
   testWidgets('Peak save success surfaces PeakList warnings', (tester) async {
     final peaks = [
-      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', area: 'Old Area'),
+      _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa', region: 'Old Area'),
     ];
     final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
       'Peak': peaks.map(_peakRow).toList(),
@@ -1387,7 +1387,7 @@ void main() {
     await tester.tap(find.byKey(const Key('objectbox-admin-peak-edit')));
     await tester.pumpAndSettle();
     await tester.enterText(
-      find.byKey(const Key('objectbox-admin-peak-area')),
+      find.byKey(const Key('objectbox-admin-peak-region')),
       'New Area',
     );
     await tester.tap(find.byKey(const Key('objectbox-admin-peak-submit')));
@@ -1556,7 +1556,7 @@ Peak _buildPeak({
   required String name,
   String altName = '',
   double? elevation,
-  String? area,
+  String? region,
   bool verified = false,
 }) {
   final location = const LatLng(-41.5, 146.5);
@@ -1569,7 +1569,7 @@ Peak _buildPeak({
     elevation: elevation,
     latitude: location.latitude,
     longitude: location.longitude,
-    area: area,
+    region: region,
     gridZoneDesignator: components.gridZoneDesignator,
     mgrs100kId: components.mgrs100kId,
     easting: components.easting,
@@ -1671,7 +1671,7 @@ ObjectBoxAdminEntityDescriptor _peakEntity() {
         isPrimaryName: false,
       ),
       ObjectBoxAdminFieldDescriptor(
-        name: 'area',
+        name: 'region',
         typeLabel: 'String',
         nullable: true,
         isPrimaryKey: false,

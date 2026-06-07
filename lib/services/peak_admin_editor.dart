@@ -13,7 +13,7 @@ class PeakAdminFormState {
     required this.elevation,
     required this.latitude,
     required this.longitude,
-    required this.area,
+    required this.region,
     required this.gridZoneDesignator,
     required this.mgrs100kId,
     required this.easting,
@@ -28,7 +28,7 @@ class PeakAdminFormState {
   final String elevation;
   final String latitude;
   final String longitude;
-  final String area;
+  final String region;
   final String gridZoneDesignator;
   final String mgrs100kId;
   final String easting;
@@ -43,7 +43,7 @@ class PeakAdminFormState {
     String? elevation,
     String? latitude,
     String? longitude,
-    String? area,
+    String? region,
     String? gridZoneDesignator,
     String? mgrs100kId,
     String? easting,
@@ -58,7 +58,7 @@ class PeakAdminFormState {
       elevation: elevation ?? this.elevation,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
-      area: area ?? this.area,
+      region: region ?? this.region,
       gridZoneDesignator: gridZoneDesignator ?? this.gridZoneDesignator,
       mgrs100kId: mgrs100kId ?? this.mgrs100kId,
       easting: easting ?? this.easting,
@@ -125,7 +125,7 @@ class PeakAdminEditor {
       elevation: _formatOptionalNumber(peak.elevation),
       latitude: formatCoordinate(peak.latitude),
       longitude: formatCoordinate(peak.longitude),
-      area: peak.area ?? '',
+      region: peak.region ?? Peak.defaultRegion,
       gridZoneDesignator: fixedGridZoneDesignator,
       mgrs100kId: peak.mgrs100kId,
       easting: peak.easting,
@@ -287,7 +287,7 @@ class PeakAdminEditor {
       return PeakAdminValidationResult(fieldErrors: fieldErrors);
     }
 
-    final area = form.area.trim();
+    final region = form.region.trim();
     final peak = Peak(
       id: source.id,
       osmId: osmId!,
@@ -296,7 +296,7 @@ class PeakAdminEditor {
       elevation: elevation,
       latitude: latitude,
       longitude: longitude,
-      area: area.isEmpty ? null : area,
+      region: region.isEmpty ? Peak.defaultRegion : region,
       gridZoneDesignator: components.gridZoneDesignator,
       mgrs100kId: components.mgrs100kId,
       easting: components.easting,

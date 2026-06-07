@@ -17,7 +17,7 @@ void main() {
           elevation: 1545,
           latitude: -41.5,
           longitude: 146.5,
-          area: '  Cradle Country  ',
+          region: '  Cradle Country  ',
           gridZoneDesignator: '54H',
           mgrs100kId: 'AB',
           easting: '12345',
@@ -33,7 +33,7 @@ void main() {
       expect(draft.elevation, '1545');
       expect(draft.latitude, '-41.500000');
       expect(draft.longitude, '146.500000');
-      expect(draft.area, '  Cradle Country  ');
+      expect(draft.region, '  Cradle Country  ');
       expect(draft.gridZoneDesignator, PeakAdminEditor.fixedGridZoneDesignator);
       expect(draft.verified, isTrue);
       expect(draft.sourceOfTruth, Peak.sourceOfTruthOsm);
@@ -48,7 +48,7 @@ void main() {
           elevation: '1545',
           latitude: '-41.5',
           longitude: '146.5',
-          area: 'Central Highlands',
+          region: 'Central Highlands',
           gridZoneDesignator: '55G',
           mgrs100kId: '',
           easting: '',
@@ -71,7 +71,7 @@ void main() {
       expect(result.peak?.elevation, 1545);
       expect(result.peak?.latitude, -41.5);
       expect(result.peak?.longitude, 146.5);
-      expect(result.peak?.area, 'Central Highlands');
+      expect(result.peak?.region, 'Central Highlands');
       expect(
         result.peak?.gridZoneDesignator,
         expectedComponents.gridZoneDesignator,
@@ -91,7 +91,7 @@ void main() {
           elevation: '',
           latitude: '-41.5',
           longitude: '146.5',
-          area: '',
+          region: '',
           gridZoneDesignator: '55G',
           mgrs100kId: '',
           easting: '',
@@ -122,7 +122,7 @@ void main() {
           elevation: '',
           latitude: '-41.5',
           longitude: '146.5',
-          area: '',
+          region: '',
           gridZoneDesignator: '55G',
           mgrs100kId: '',
           easting: '',
@@ -135,6 +135,7 @@ void main() {
       expect(result.isValid, isTrue);
       expect(result.peak?.altName, 'Cradle Mountain');
       expect(result.peak?.verified, isTrue);
+      expect(result.peak?.region, Peak.defaultRegion);
     });
 
     test(
@@ -149,7 +150,7 @@ void main() {
             elevation: '',
             latitude: '',
             longitude: '',
-            area: '',
+            region: '',
             gridZoneDesignator: '55G',
             mgrs100kId: '',
             easting: '',
@@ -177,7 +178,7 @@ void main() {
           elevation: '1545',
           latitude: '',
           longitude: '',
-          area: '',
+          region: '',
           gridZoneDesignator: '55G',
           mgrs100kId: 'EN',
           easting: '41513',
@@ -208,7 +209,7 @@ void main() {
           elevation: '',
           latitude: '',
           longitude: '',
-          area: '',
+          region: '',
           gridZoneDesignator: '55G',
           mgrs100kId: 'EN',
           easting: '41513',
@@ -236,7 +237,7 @@ void main() {
           elevation: '',
           latitude: '',
           longitude: '',
-          area: '',
+          region: '',
           gridZoneDesignator: '55G',
           mgrs100kId: 'EN',
           easting: '415',
@@ -253,7 +254,7 @@ void main() {
           elevation: '',
           latitude: '',
           longitude: '',
-          area: '',
+          region: '',
           gridZoneDesignator: '55G',
           mgrs100kId: 'EN',
           easting: '415',
@@ -285,7 +286,7 @@ void main() {
             elevation: '',
             latitude: '-41.5',
             longitude: '',
-            area: '',
+            region: '',
             gridZoneDesignator: '55G',
             mgrs100kId: '',
             easting: '',
@@ -301,7 +302,7 @@ void main() {
             elevation: '',
             latitude: '',
             longitude: '',
-            area: '',
+            region: '',
             gridZoneDesignator: '55G',
             mgrs100kId: 'E',
             easting: '123456',
@@ -343,7 +344,7 @@ void main() {
           elevation: '1545',
           latitude: '-42.0',
           longitude: '147.0',
-          area: '',
+          region: '',
           gridZoneDesignator: '55G',
           mgrs100kId: mgrsComponents.mgrs100kId,
           easting: mgrsComponents.easting,
@@ -382,7 +383,7 @@ void main() {
             elevation: '1545',
             latitude: '-42.0',
             longitude: '147.0',
-            area: '',
+            region: '',
             gridZoneDesignator: '55G',
             mgrs100kId: mgrsComponents.mgrs100kId,
             easting: mgrsComponents.easting,
@@ -409,7 +410,7 @@ void main() {
           elevation: '',
           latitude: '-41.5',
           longitude: '-42.0',
-          area: '',
+          region: '',
           gridZoneDesignator: '55G',
           mgrs100kId: 'EN',
           easting: '',
@@ -434,7 +435,7 @@ void main() {
           elevation: '',
           latitude: '91',
           longitude: '146.5',
-          area: '',
+          region: '',
           gridZoneDesignator: '55G',
           mgrs100kId: '',
           easting: '',
@@ -451,7 +452,7 @@ void main() {
           elevation: '',
           latitude: '-35.0',
           longitude: '146.5',
-          area: '',
+          region: '',
           gridZoneDesignator: '55G',
           mgrs100kId: '',
           easting: '',
@@ -476,7 +477,7 @@ void main() {
           elevation: '12.4',
           latitude: '',
           longitude: '',
-          area: '',
+          region: '',
           gridZoneDesignator: '55G',
           mgrs100kId: 'E',
           easting: '123456',
@@ -503,7 +504,7 @@ void main() {
             elevation: '',
             latitude: '',
             longitude: '',
-            area: '',
+            region: '',
             gridZoneDesignator: '55G',
             mgrs100kId: 'ZZ',
             easting: '12345',
@@ -522,7 +523,7 @@ void main() {
           elevation: '',
           latitude: '',
           longitude: '',
-          area: '',
+          region: '',
           gridZoneDesignator: '55G',
           mgrs100kId: 'ZZ',
           easting: '12345',

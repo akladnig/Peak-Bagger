@@ -66,7 +66,7 @@ final _entities = <obx_int.ModelEntity>[
       ),
       obx_int.ModelProperty(
         id: const obx_int.IdUid(6, 8968330069070174548),
-        name: 'area',
+        name: 'region',
         type: 9,
         flags: 0,
       ),
@@ -1038,9 +1038,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
       },
       objectToFB: (Peak object, fb.Builder fbb) {
         final nameOffset = fbb.writeString(object.name);
-        final areaOffset = object.area == null
+        final regionOffset = object.region == null
             ? null
-            : fbb.writeString(object.area!);
+            : fbb.writeString(object.region!);
         final gridZoneDesignatorOffset = fbb.writeString(
           object.gridZoneDesignator,
         );
@@ -1055,7 +1055,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addFloat64(2, object.elevation);
         fbb.addFloat64(3, object.latitude);
         fbb.addFloat64(4, object.longitude);
-        fbb.addOffset(5, areaOffset);
+        fbb.addOffset(5, regionOffset);
         fbb.addOffset(6, gridZoneDesignatorOffset);
         fbb.addOffset(7, mgrs100kIdOffset);
         fbb.addOffset(8, eastingOffset);
@@ -1105,7 +1105,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
           12,
           0,
         );
-        final areaParam = const fb.StringReader(
+        final regionParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGetNullable(buffer, rootOffset, 14);
         final gridZoneDesignatorParam = const fb.StringReader(
@@ -1137,7 +1137,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
           elevation: elevationParam,
           latitude: latitudeParam,
           longitude: longitudeParam,
-          area: areaParam,
+          region: regionParam,
           gridZoneDesignator: gridZoneDesignatorParam,
           mgrs100kId: mgrs100kIdParam,
           easting: eastingParam,
@@ -2272,8 +2272,8 @@ class Peak_ {
     _entities[0].properties[4],
   );
 
-  /// See [Peak.area].
-  static final area = obx.QueryStringProperty<Peak>(_entities[0].properties[5]);
+  /// See [Peak.region].
+  static final region = obx.QueryStringProperty<Peak>(_entities[0].properties[5]);
 
   /// See [Peak.gridZoneDesignator].
   static final gridZoneDesignator = obx.QueryStringProperty<Peak>(
