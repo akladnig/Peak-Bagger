@@ -30,7 +30,7 @@ void main() {
             elevation: null,
             latitude: -41.1,
             longitude: 146.2,
-            area: null,
+            region: null,
             gridZoneDesignator: '55G',
             mgrs100kId: 'AB',
             easting: '100',
@@ -44,7 +44,7 @@ void main() {
             elevation: 1234.5,
             latitude: -40.3,
             longitude: 145.4,
-            area: 'Area, 1',
+            region: 'Area, 1',
             gridZoneDesignator: '55H',
             mgrs100kId: 'CD',
             easting: '300',
@@ -73,7 +73,7 @@ void main() {
         'Elevation',
         'Latitude',
         'Longitude',
-        'Area',
+        'Region',
         'Zone',
         'mgrs100kId',
         'Easting',
@@ -110,7 +110,7 @@ void main() {
 
       expect(result.path, outputFile.path);
       expect(result.exportedCount, 0);
-      expect(contents, 'Name,Alt Name,Elevation,Latitude,Longitude,Area,Zone,mgrs100kId,Easting,Northing,Verified,osmId');
+      expect(contents, 'Name,Alt Name,Elevation,Latitude,Longitude,Region,Zone,mgrs100kId,Easting,Northing,Verified,osmId');
     });
   });
 }

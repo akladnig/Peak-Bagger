@@ -408,6 +408,18 @@ class PeakRepository {
     );
   }
 
+  Future<void> backfillRegion(String region) async {
+    final peaks = _storage.getAll();
+    if (peaks.isEmpty || peaks.every((peak) => peak.region == region)) {
+      return;
+    }
+
+    final updatedPeaks = peaks
+        .map((peak) => peak.copyWith(region: region))
+        .toList(growable: false);
+    await _storage.replaceAll(updatedPeaks);
+  }
+
   Future<void> delete(int peakId) async {
     await _storage.delete(peakId);
   }

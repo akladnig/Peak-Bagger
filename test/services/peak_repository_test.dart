@@ -165,6 +165,34 @@ void main() {
       expect(peak?.sourceOfTruth, Peak.sourceOfTruthHwc);
     });
 
+    test('backfillRegion sets all stored peaks to tasmania', () async {
+      await repository.addPeaks([
+        Peak(
+          id: 7,
+          osmId: 123,
+          name: 'Cradle',
+          latitude: -41,
+          longitude: 146,
+          region: null,
+        ),
+        Peak(
+          id: 8,
+          osmId: 456,
+          name: 'Ossa',
+          latitude: -42,
+          longitude: 147,
+          region: 'Old Area',
+        ),
+      ]);
+
+      await repository.backfillRegion(Peak.defaultRegion);
+
+      final peaks = repository.getAllPeaks();
+
+      expect(peaks, hasLength(2));
+      expect(peaks.every((peak) => peak.region == Peak.defaultRegion), isTrue);
+    });
+
     test('delete removes the targeted peak', () async {
       await repository.addPeaks([
         Peak(id: 7, osmId: 123, name: 'Cradle', latitude: -41, longitude: 146),

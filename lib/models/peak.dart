@@ -4,6 +4,7 @@ import 'package:objectbox/objectbox.dart';
 class Peak {
   static const sourceOfTruthOsm = 'OSM';
   static const sourceOfTruthHwc = 'HWC';
+  static const defaultRegion = 'tasmania';
 
   @Id(assignable: true)
   int id = 0;
@@ -16,7 +17,7 @@ class Peak {
   double? elevation;
   double latitude;
   double longitude;
-  String? area;
+  String? region;
   String gridZoneDesignator;
   String mgrs100kId;
   String easting;
@@ -32,7 +33,7 @@ class Peak {
     this.elevation,
     required this.latitude,
     required this.longitude,
-    this.area,
+    this.region = defaultRegion,
     this.gridZoneDesignator = '',
     this.mgrs100kId = '',
     this.easting = '',
@@ -48,7 +49,7 @@ class Peak {
     double? elevation,
     double? latitude,
     double? longitude,
-    String? area,
+    String? region,
     String? gridZoneDesignator,
     String? mgrs100kId,
     String? easting,
@@ -64,7 +65,7 @@ class Peak {
       elevation: elevation ?? this.elevation,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
-      area: area ?? this.area,
+      region: region ?? this.region,
       gridZoneDesignator: gridZoneDesignator ?? this.gridZoneDesignator,
       mgrs100kId: mgrs100kId ?? this.mgrs100kId,
       easting: easting ?? this.easting,
@@ -108,6 +109,7 @@ class Peak {
       elevation: elevation,
       latitude: lat,
       longitude: lon,
+      region: defaultRegion,
     );
   }
 }

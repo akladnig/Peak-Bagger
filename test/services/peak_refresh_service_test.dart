@@ -35,6 +35,7 @@ void main() {
     expect(peaks.first.mgrs100kId, isNotEmpty);
     expect(peaks.first.easting, hasLength(5));
     expect(peaks.first.northing, hasLength(5));
+    expect(peaks.every((peak) => peak.region == Peak.defaultRegion), isTrue);
     expect(
       peaks.map((peak) => peak.name),
       containsAll(['Old Peak', 'Cradle', 'Ossa']),
