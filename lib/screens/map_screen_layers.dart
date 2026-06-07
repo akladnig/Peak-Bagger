@@ -438,7 +438,7 @@ PolylineLayer buildDraftRoutePolylines({
       Polyline(
         points: committedPoints,
         color: Color(colour),
-        strokeWidth: TrackRouteLineTheme.draftStrokeWidth,
+        strokeWidth: TrackRouteLineTheme.strokeWidth,
       ),
     );
   }
@@ -448,7 +448,7 @@ PolylineLayer buildDraftRoutePolylines({
       Polyline(
         points: provisionalPoints,
         color: Color(colour),
-        strokeWidth: TrackRouteLineTheme.draftStrokeWidth,
+        strokeWidth: TrackRouteLineTheme.strokeWidth,
       ),
     );
   }
@@ -675,7 +675,7 @@ PolylineLayer buildRoutePolylines(
             Polyline(
               points: segment,
               color: routeColor,
-              strokeWidth: TrackRouteLineTheme.routeStrokeWidth,
+              strokeWidth: TrackRouteLineTheme.strokeWidth,
             ),
           );
         }
@@ -706,7 +706,7 @@ PolylineLayer buildRoutePolylines(
           Polyline(
             points: route.gpxRoute,
             color: routeColor,
-            strokeWidth: TrackRouteLineTheme.routeStrokeWidth,
+            strokeWidth: TrackRouteLineTheme.strokeWidth,
           ),
         );
       }
@@ -770,7 +770,7 @@ PolylineLayer buildTrackPolylines(
             Polyline(
               points: segment,
               color: trackColor,
-              strokeWidth: TrackRouteLineTheme.trackStrokeWidth,
+              strokeWidth: TrackRouteLineTheme.strokeWidth,
             ),
           );
         }

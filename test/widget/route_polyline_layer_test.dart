@@ -19,10 +19,7 @@ void main() {
 
     expect(layer.polylines, hasLength(1));
     expect(layer.polylines.single.points, hasLength(3));
-    expect(
-      layer.polylines.single.strokeWidth,
-      TrackRouteLineTheme.routeStrokeWidth,
-    );
+    expect(layer.polylines.single.strokeWidth, TrackRouteLineTheme.strokeWidth);
   });
 
   test(
@@ -41,7 +38,7 @@ void main() {
       expect(layer.polylines.single.points, route.gpxRoute);
       expect(
         layer.polylines.single.strokeWidth,
-        TrackRouteLineTheme.routeStrokeWidth,
+        TrackRouteLineTheme.strokeWidth,
       );
     },
   );
@@ -56,8 +53,7 @@ void main() {
     expect(layer.polylines, hasLength(2));
     expect(
       layer.polylines.every(
-        (polyline) =>
-            polyline.strokeWidth == TrackRouteLineTheme.draftStrokeWidth,
+        (polyline) => polyline.strokeWidth == TrackRouteLineTheme.strokeWidth,
       ),
       isTrue,
     );

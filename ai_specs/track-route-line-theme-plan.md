@@ -17,7 +17,7 @@ Keep render behavior unchanged; selected-state border/overlay still explicit, ju
 ### Phase 1: Centralize line styles
 
 - **Goal**: one source of truth for route/track polyline widths + selection styling
-- [x] `lib/theme.dart` - add `TrackRouteLineTheme` with route, track, and draft widths; inactive alpha; selected width, border, border color, overlay color, overlay width
+- [x] `lib/theme.dart` - add `TrackRouteLineTheme` with shared stroke width; inactive alpha; selected width, border, border color, overlay color, overlay width
 - [x] `lib/core/constants.dart` - remove `RouteUI.width`; keep marker sizing/stroke constants only
 - [x] `lib/screens/map_screen_layers.dart` - replace hardcoded route/track/draft polyline widths and selection literals in `buildDraftRoutePolylines`, `buildRoutePolylines`, `buildTrackPolylines` with theme constants
 - [x] `test/widget/route_polyline_layer_test.dart` - TDD: route builder and draft-route builder both use theme widths; selected route still renders base + border + overlay stack; unselected route dims only when another route is selected
