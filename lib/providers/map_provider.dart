@@ -36,6 +36,7 @@ import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
+import 'package:peak_bagger/services/region_manifest_catalog.dart';
 import 'package:peak_bagger/services/track_peak_correlation_service.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
@@ -53,6 +54,7 @@ import 'package:peak_bagger/providers/peak_provider.dart';
 import '../core/constants.dart';
 
 export 'package:peak_bagger/services/peak_info_content_resolver.dart';
+export 'package:peak_bagger/services/region_manifest_catalog.dart';
 
 const _distance = Distance();
 
@@ -120,8 +122,6 @@ const _showRoutesKey = 'show_routes';
 const _showTrailsKey = 'show_trails';
 const _routeDraftMarkerLimitError =
     'Peak Bagger only supports a maximum of 99 route points';
-
-enum Basemap { tasmapTopo, tasmap50k, tasmap25k, tracestrack, openstreetmap }
 
 enum TasmapDisplayMode { overlay, none, selectedMap }
 

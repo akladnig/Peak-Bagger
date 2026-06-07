@@ -11,6 +11,7 @@ import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/map_grid_geometry.dart';
 import 'package:peak_bagger/services/map_ruler_scale.dart';
+import 'package:peak_bagger/services/region_manifest_catalog.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/widgets/map_rebuild_debug_counters.dart';
 import 'package:peak_bagger/widgets/route_marker.dart';
@@ -22,18 +23,10 @@ import '../core/number_formatters.dart';
 import '../theme.dart';
 
 String mapTileUrl(Basemap basemap) {
-  switch (basemap) {
-    case Basemap.tracestrack:
-      return 'https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp?key=8bd67b17be9041b60f241c2aa45ecf0d';
-    case Basemap.openstreetmap:
-      return 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-    case Basemap.tasmapTopo:
-      return 'https://services.thelist.tas.gov.au/arcgis/rest/services/Basemaps/Topographic/MapServer/tile/{z}/{y}/{x}';
-    case Basemap.tasmap50k:
-      return 'https://services.thelist.tas.gov.au/arcgis/rest/services/Basemaps/TasmapRaster/MapServer/tile/{z}/{y}/{x}';
-    case Basemap.tasmap25k:
-      return 'https://services.thelist.tas.gov.au/arcgis/rest/services/Basemaps/Tasmap25K/MapServer/tile/{z}/{y}/{x}';
-  }
+  return regionManifestCatalog
+          .basemapByKey(basemap.name)
+          ?.tileUrl ??
+      regionManifestCatalog.basemapByKey(Basemap.tracestrack.name)!.tileUrl;
 }
 
 Widget buildMapRectangle(TasmapRepository repo, Tasmap50k map) {

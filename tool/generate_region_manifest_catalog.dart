@@ -1,0 +1,263 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/services/polygon_geometry.dart';
+
+const _manifestPath = 'assets/region_manifest.json';
+const _outputPath = 'lib/generated/region_manifest_catalog.g.dart';
+const _baselineBasemapOrder = <String>[
+  'tasmapTopo',
+  'tasmap50k',
+  'tasmap25k',
+  'tracestrack',
+  'openstreetmap',
+];
+
+void main(List<String> args) {
+  final manifestFile = File(_manifestPath);
+  if (!manifestFile.existsSync()) {
+    stderr.writeln('Missing manifest: $_manifestPath');
+    exitCode = 1;
+    return;
+  }
+
+  final manifest = jsonDecode(manifestFile.readAsStringSync());
+  if (manifest is! Map<String, dynamic>) {
+    stderr.writeln('Manifest must be a JSON object.');
+    exitCode = 1;
+    return;
+  }
+
+  final seenBasemapOrder = <String>[];
+  final basemapDefinitions = <String, _BasemapDefinition>{};
+  final regions = <_RegionDefinition>[];
+
+  for (final entry in manifest.entries) {
+    final regionKey = entry.key;
+    final regionValue = entry.value;
+    if (regionValue is! Map<String, dynamic>) {
+      stderr.writeln('Region $regionKey must be a JSON object.');
+      exitCode = 1;
+      return;
+    }
+
+    final polygons = <List<LatLng>>[];
+    final polygonPaths = _readStringList(regionValue['poly'], 'poly', regionKey);
+    for (final polygonPath in polygonPaths) {
+      final polygonFile = File(polygonPath);
+      if (!polygonFile.existsSync()) {
+        stderr.writeln('Missing polygon asset for $regionKey: $polygonPath');
+        exitCode = 1;
+        return;
+      }
+
+      final parseResult = parsePolygonText(polygonFile.readAsStringSync());
+      if (!parseResult.isSuccess || parseResult.polygon == null) {
+        stderr.writeln(
+          'Invalid polygon asset for $regionKey: $polygonPath (${parseResult.error})',
+        );
+        exitCode = 1;
+        return;
+      }
+
+      polygons.add(parseResult.polygon!.vertices);
+    }
+
+    final mapKeys = <String>[];
+    final maps = _readList(regionValue['maps'], 'maps', regionKey);
+    for (final mapEntry in maps) {
+      if (mapEntry is! Map<String, dynamic>) {
+        stderr.writeln('Map entry for $regionKey must be an object.');
+        exitCode = 1;
+        return;
+      }
+
+      final definition = _BasemapDefinition.fromJson(mapEntry, regionKey);
+      final existing = basemapDefinitions[definition.key];
+      if (existing == null) {
+        basemapDefinitions[definition.key] = definition;
+        seenBasemapOrder.add(definition.key);
+      } else if (!existing.isCompatibleWith(definition)) {
+        stderr.writeln(
+          'Basemap key conflict for ${definition.key} in $regionKey',
+        );
+        exitCode = 1;
+        return;
+      }
+
+      if (!mapKeys.contains(definition.key)) {
+        mapKeys.add(definition.key);
+      }
+    }
+
+    regions.add(
+      _RegionDefinition(
+        key: regionKey,
+        polygons: polygons,
+        basemapKeys: mapKeys,
+      ),
+    );
+  }
+
+  final orderedBasemapKeys = <String>[
+    for (final key in _baselineBasemapOrder)
+      if (basemapDefinitions.containsKey(key)) key,
+    for (final key in seenBasemapOrder)
+      if (!_baselineBasemapOrder.contains(key)) key,
+  ];
+
+  final buffer = StringBuffer()
+    ..writeln('// GENERATED CODE - DO NOT MODIFY BY HAND.')
+    ..writeln('// ignore_for_file: constant_identifier_names, unnecessary_const')
+    ..writeln()
+    ..writeln("part of 'package:peak_bagger/services/region_manifest_catalog.dart';")
+    ..writeln()
+    ..writeln('enum Basemap {')
+    ..writeln(
+      orderedBasemapKeys.map((key) => '  $key,').join('\n'),
+    )
+    ..writeln('}')
+    ..writeln()
+    ..writeln('const regionManifestCatalogData = RegionManifestCatalogData(')
+    ..writeln('  basemaps: [');
+
+  for (final key in orderedBasemapKeys) {
+    final basemap = basemapDefinitions[key]!;
+    buffer
+      ..writeln('    RegionManifestBasemapData(')
+      ..writeln('      key: ${_stringLiteral(basemap.key)},')
+      ..writeln('      name: ${_stringLiteral(basemap.name)},')
+      ..writeln('      tileUrl: ${_stringLiteral(basemap.tileUrl)},')
+      ..writeln(
+        '      attribution: ${_stringLiteral(basemap.attribution)},',
+      );
+    if (basemap.maxZoom != null) {
+      buffer.writeln('      maxZoom: ${basemap.maxZoom},');
+    }
+    buffer.writeln('    ),');
+  }
+
+  buffer.writeln('  ],');
+  buffer.writeln('  regions: [');
+
+  for (final region in regions) {
+    buffer
+      ..writeln('    RegionManifestRegionData(')
+      ..writeln('      key: ${_stringLiteral(region.key)},')
+      ..writeln('      polygons: [');
+
+    for (final polygon in region.polygons) {
+      buffer.writeln('        [');
+      for (final point in polygon) {
+        buffer.writeln(
+          '          const LatLng(${_doubleLiteral(point.latitude)}, ${_doubleLiteral(point.longitude)}),',
+        );
+      }
+      buffer.writeln('        ],');
+    }
+
+    buffer
+      ..writeln('      ],')
+      ..writeln('      basemapKeys: [');
+    for (final key in region.basemapKeys) {
+      buffer.writeln('        ${_stringLiteral(key)},');
+    }
+    buffer
+      ..writeln('      ],')
+      ..writeln('    ),');
+  }
+
+  buffer
+    ..writeln('  ],')
+    ..writeln(');');
+
+  final outputFile = File(_outputPath);
+  outputFile.parent.createSync(recursive: true);
+  outputFile.writeAsStringSync(buffer.toString());
+}
+
+List<dynamic> _readList(dynamic value, String field, String regionKey) {
+  if (value is! List<dynamic>) {
+    stderr.writeln('Region $regionKey must define a list for $field.');
+    exitCode = 1;
+    return const [];
+  }
+  return value;
+}
+
+List<String> _readStringList(dynamic value, String field, String regionKey) {
+  final items = _readList(value, field, regionKey);
+  return items.cast<String>();
+}
+
+String _stringLiteral(String value) => "'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'";
+
+String _doubleLiteral(double value) {
+  if (value == value.roundToDouble()) {
+    return value.toStringAsFixed(1);
+  }
+  return value.toString();
+}
+
+class _BasemapDefinition {
+  const _BasemapDefinition({
+    required this.key,
+    required this.name,
+    required this.tileUrl,
+    required this.attribution,
+    required this.maxZoom,
+  });
+
+  factory _BasemapDefinition.fromJson(
+    Map<String, dynamic> json,
+    String regionKey,
+  ) {
+    final key = json['key'];
+    final name = json['name'];
+    final tileUrl = json['tileUrl'];
+    final attribution = json['attribution'];
+    if (key is! String || name is! String || tileUrl is! String || attribution is! String) {
+      throw StateError('Invalid basemap entry in $regionKey');
+    }
+
+    final maxZoom = json['maxZoom'];
+    if (maxZoom != null && maxZoom is! num) {
+      throw StateError('Invalid maxZoom for $key in $regionKey');
+    }
+
+    return _BasemapDefinition(
+      key: key,
+      name: name,
+      tileUrl: tileUrl,
+      attribution: attribution,
+      maxZoom: maxZoom?.toInt(),
+    );
+  }
+
+  final String key;
+  final String name;
+  final String tileUrl;
+  final String attribution;
+  final int? maxZoom;
+
+  bool isCompatibleWith(_BasemapDefinition other) {
+    return key == other.key &&
+        name == other.name &&
+        tileUrl == other.tileUrl &&
+        attribution == other.attribution &&
+        maxZoom == other.maxZoom;
+  }
+}
+
+class _RegionDefinition {
+  const _RegionDefinition({
+    required this.key,
+    required this.polygons,
+    required this.basemapKeys,
+  });
+
+  final String key;
+  final List<List<LatLng>> polygons;
+  final List<String> basemapKeys;
+}
