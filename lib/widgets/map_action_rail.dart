@@ -15,9 +15,10 @@ import 'package:peak_bagger/widgets/left_tooltip_fab.dart';
 import 'package:peak_bagger/widgets/map_rebuild_debug_counters.dart';
 
 class MapActionRail extends ConsumerWidget {
-  const MapActionRail({super.key, this.onCreateRoute});
+  const MapActionRail({super.key, this.onCreateRoute, this.onShowBasemaps});
 
   final VoidCallback? onCreateRoute;
+  final VoidCallback? onShowBasemaps;
 
   void _dismissTransientUi(
     WidgetRef ref, {
@@ -157,18 +158,19 @@ class MapActionRail extends ConsumerWidget {
                           heroTag: 'layers',
                           backgroundColor:
                               Theme.of(context).colorScheme.surface,
-                          onPressed: () {
-                            _dismissTransientUi(
-                              ref,
-                              closeInfoPopup: true,
-                              closePeakSearch: true,
-                              closeGotoInput: true,
-                            );
-                            ref
-                                .read(mapProvider.notifier)
-                                .setEndDrawerMode(EndDrawerMode.basemaps);
-                            Scaffold.of(context).openEndDrawer();
-                          },
+                          onPressed: onShowBasemaps ??
+                              () {
+                                _dismissTransientUi(
+                                  ref,
+                                  closeInfoPopup: true,
+                                  closePeakSearch: true,
+                                  closeGotoInput: true,
+                                );
+                                ref
+                                    .read(mapProvider.notifier)
+                                    .setEndDrawerMode(EndDrawerMode.basemaps);
+                                Scaffold.of(context).openEndDrawer();
+                              },
                           child: Icon(
                             Icons.layers,
                             color: Theme.of(context).colorScheme.onSurface,

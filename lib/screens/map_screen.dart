@@ -112,6 +112,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   int? _appliedSelectedRouteSerial;
   int? _pendingCameraRequestSerial;
   int? _appliedCameraRequestSerial;
+  String? _basemapDrawerRegionKey;
   bool _isPointerDown = false;
   Offset? _pointerDownPosition;
   bool _primaryClickPending = false;
@@ -1950,8 +1951,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
               }
               return KeyEventResult.handled;
             } else if (key == LogicalKeyboardKey.keyB) {
-              notifier.setEndDrawerMode(EndDrawerMode.basemaps);
-              _scaffoldKey.currentState?.openEndDrawer();
+              _openBasemapsDrawer();
               return KeyEventResult.handled;
             } else if (key == LogicalKeyboardKey.keyC) {
               _centerOnSelectedLocationDirect();
@@ -1968,15 +1968,18 @@ class _MapScreenState extends ConsumerState<MapScreen>
             }
             return KeyEventResult.ignored;
           },
-          child: Scaffold(
-            key: _scaffoldKey,
-            endDrawer: switch (routeChrome.endDrawerMode) {
-              EndDrawerMode.basemaps => const MapBasemapsDrawer(),
+            child: Scaffold(
+              key: _scaffoldKey,
+              endDrawer: switch (routeChrome.endDrawerMode) {
+              EndDrawerMode.basemaps => MapBasemapsDrawer(
+                  regionKey: _basemapDrawerRegionKey,
+                ),
               EndDrawerMode.peakLists => const MapPeakListsDrawer(),
               EndDrawerMode.tracksRoutes => const MapTracksRoutesDrawer(),
             },
             onEndDrawerChanged: (isOpen) {
               if (!isOpen && mounted) {
+                setState(() => _basemapDrawerRegionKey = null);
                 _mapFocusNode.requestFocus();
               }
             },
@@ -3009,7 +3012,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     );
                   },
                 ),
-                MapActionRail(onCreateRoute: _beginRouteDraft),
+                MapActionRail(
+                  onCreateRoute: _beginRouteDraft,
+                  onShowBasemaps: _openBasemapsDrawer,
+                ),
                 if (routeChrome.isRouteDrafting)
                   const Positioned(
                     key: Key('route-controls-overlay-root'),
@@ -3494,6 +3500,58 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
   void _goToCurrentLocation() {
     // TODO: Implement GPS location
+  }
+
+  void _dismissTransientUi({
+    bool closeInfoPopup = false,
+    bool closePeakSearch = false,
+    bool closeGotoInput = false,
+  }) {
+    final mapState = ref.read(mapProvider);
+    final notifier = ref.read(mapProvider.notifier);
+
+    if (closeInfoPopup && mapState.showInfoPopup) {
+      notifier.toggleInfoPopup();
+    }
+    if (closeInfoPopup && mapState.peakInfoPeak != null) {
+      notifier.closePeakInfoPopup();
+    }
+    if (closePeakSearch && mapState.showPeakSearch) {
+      notifier.setPeakSearchVisible(false);
+    }
+    if (closeGotoInput && mapState.showGotoInput) {
+      notifier.setGotoInputVisible(false);
+    }
+  }
+
+  void _openBasemapsDrawer() {
+    _dismissTransientUi(
+      closeInfoPopup: true,
+      closePeakSearch: true,
+      closeGotoInput: true,
+    );
+
+    final mapState = ref.read(mapProvider);
+    final point = mapState.cursorPoint ?? mapState.center;
+    final regionKey = regionManifestCatalog.regionKeyForPoint(point);
+    final availableBasemapKeys = regionKey == null
+        ? const <String>{}
+        : {
+            for (final basemap in regionManifestCatalog.basemapsForRegionKey(
+              regionKey,
+            ))
+              basemap.key,
+          };
+
+    if (!availableBasemapKeys.contains(mapState.basemap.name)) {
+      ref.read(mapProvider.notifier).setBasemap(Basemap.tracestrack);
+    }
+
+    setState(() {
+      _basemapDrawerRegionKey = regionKey;
+    });
+    ref.read(mapProvider.notifier).setEndDrawerMode(EndDrawerMode.basemaps);
+    _scaffoldKey.currentState?.openEndDrawer();
   }
 
   String _readoutMapName({
