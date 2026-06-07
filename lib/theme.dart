@@ -24,6 +24,16 @@ class TrailDisplayTheme {
   static const List<double> overlayDashSegments = [8, 6];
 }
 
+abstract final class TrackRouteLineTheme {
+  static const double strokeWidth = 2.0;
+  static const double inactiveOpacity = 0.6;
+  static const double selectedStrokeWidth = 4.0;
+  static const double selectedBorderStrokeWidth = 2.0;
+  static const Color selectedBorderColor = Color(0x66000000);
+  static const Color selectedOverlayColor = Colors.white;
+  static const double selectedOverlayStrokeWidth = 0.6;
+}
+
 class OutlinedText extends StatelessWidget {
   const OutlinedText({
     required this.text,

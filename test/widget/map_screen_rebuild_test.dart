@@ -116,6 +116,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(MapRebuildDebugCounters.polygonAssetLayerBuilds, 1);
+    expect(notifier.state.zoom, 12);
 
     notifier.updatePosition(const LatLng(-41.4, 146.4), 13);
     await tester.pump();
@@ -257,8 +258,7 @@ Future<void> _pumpMapApp(WidgetTester tester, MapState state) async {
 
 Future<String> _polygonAssetLoader(String assetPath) async {
   return switch (assetPath) {
-    'assets/polygons/manifest.json' =>
-      '["assets/polygons/test.poly"]',
+    'assets/polygons/manifest.json' => '["assets/polygons/test.poly"]',
     'assets/polygons/test.poly' => 'none\n1\n0 0\n1 0\n1 1\n0 0\nEND\nEND\n',
     _ => throw StateError('Unexpected polygon asset: $assetPath'),
   };

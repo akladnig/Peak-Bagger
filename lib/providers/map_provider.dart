@@ -3799,7 +3799,7 @@ class MapNotifier extends Notifier<MapState> {
   void centerOnLocation(LatLng location) {
     requestCameraMove(
       center: location,
-      zoom: state.zoom,
+      zoom: MapConstants.defaultZoom,
       selectedLocation: location,
       updateSelectedLocation: true,
       clearGotoMgrs: true,
@@ -3833,7 +3833,9 @@ class MapNotifier extends Notifier<MapState> {
     state = state.copyWith(
       selectedLocation: location,
       clearSelectedLocation: location == null,
-      cursorMgrs: location == null ? state.cursorMgrs : _convertToMgrs(location),
+      cursorMgrs: location == null
+          ? state.cursorMgrs
+          : _convertToMgrs(location),
       cursorPoint: location ?? state.cursorPoint,
       syncEnabled: false,
     );

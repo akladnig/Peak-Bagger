@@ -438,7 +438,7 @@ PolylineLayer buildDraftRoutePolylines({
       Polyline(
         points: committedPoints,
         color: Color(colour),
-        strokeWidth: RouteUI.width,
+        strokeWidth: TrackRouteLineTheme.strokeWidth,
       ),
     );
   }
@@ -448,7 +448,7 @@ PolylineLayer buildDraftRoutePolylines({
       Polyline(
         points: provisionalPoints,
         color: Color(colour),
-        strokeWidth: RouteUI.width,
+        strokeWidth: TrackRouteLineTheme.strokeWidth,
       ),
     );
   }
@@ -647,7 +647,7 @@ PolylineLayer buildRoutePolylines(
     final color = Color(route.colour);
     final routeColor = selectedRouteId == null || isSelected
         ? color
-        : color.withValues(alpha: 0.6);
+        : color.withValues(alpha: TrackRouteLineTheme.inactiveOpacity);
     try {
       for (final segment in route.getSegmentsForZoom(displayZoom)) {
         if (segment.isEmpty) {
@@ -658,20 +658,24 @@ PolylineLayer buildRoutePolylines(
             Polyline(
               points: segment,
               color: routeColor,
-              strokeWidth: 4.0,
-              borderStrokeWidth: 2.0,
-              borderColor: const Color(0x66000000),
+              strokeWidth: TrackRouteLineTheme.selectedStrokeWidth,
+              borderStrokeWidth: TrackRouteLineTheme.selectedBorderStrokeWidth,
+              borderColor: TrackRouteLineTheme.selectedBorderColor,
             ),
           );
           selectedOverlayPolylines.add(
-            Polyline(points: segment, color: Colors.white, strokeWidth: 0.6),
+            Polyline(
+              points: segment,
+              color: TrackRouteLineTheme.selectedOverlayColor,
+              strokeWidth: TrackRouteLineTheme.selectedOverlayStrokeWidth,
+            ),
           );
         } else {
           polylines.add(
             Polyline(
               points: segment,
               color: routeColor,
-              strokeWidth: RouteUI.width,
+              strokeWidth: TrackRouteLineTheme.strokeWidth,
             ),
           );
         }
@@ -685,16 +689,16 @@ PolylineLayer buildRoutePolylines(
           Polyline(
             points: route.gpxRoute,
             color: routeColor,
-            strokeWidth: 4.0,
-            borderStrokeWidth: 2.0,
-            borderColor: const Color(0x66000000),
+            strokeWidth: TrackRouteLineTheme.selectedStrokeWidth,
+            borderStrokeWidth: TrackRouteLineTheme.selectedBorderStrokeWidth,
+            borderColor: TrackRouteLineTheme.selectedBorderColor,
           ),
         );
         selectedOverlayPolylines.add(
           Polyline(
             points: route.gpxRoute,
-            color: Colors.white,
-            strokeWidth: 0.6,
+            color: TrackRouteLineTheme.selectedOverlayColor,
+            strokeWidth: TrackRouteLineTheme.selectedOverlayStrokeWidth,
           ),
         );
       } else {
@@ -702,7 +706,7 @@ PolylineLayer buildRoutePolylines(
           Polyline(
             points: route.gpxRoute,
             color: routeColor,
-            strokeWidth: RouteUI.width,
+            strokeWidth: TrackRouteLineTheme.strokeWidth,
           ),
         );
       }
@@ -740,7 +744,7 @@ PolylineLayer buildTrackPolylines(
     final color = Color(track.trackColour);
     final trackColor = selectedTrackId == null || isSelected
         ? color
-        : color.withValues(alpha: 0.6);
+        : color.withValues(alpha: TrackRouteLineTheme.inactiveOpacity);
     try {
       for (final segment in track.getSegmentsForZoom(displayZoom)) {
         if (segment.isEmpty) continue;
@@ -749,17 +753,25 @@ PolylineLayer buildTrackPolylines(
             Polyline(
               points: segment,
               color: trackColor,
-              strokeWidth: 4.0,
-              borderStrokeWidth: 2.0,
-              borderColor: const Color(0x66000000),
+              strokeWidth: TrackRouteLineTheme.selectedStrokeWidth,
+              borderStrokeWidth: TrackRouteLineTheme.selectedBorderStrokeWidth,
+              borderColor: TrackRouteLineTheme.selectedBorderColor,
             ),
           );
           selectedOverlayPolylines.add(
-            Polyline(points: segment, color: Colors.white, strokeWidth: 0.6),
+            Polyline(
+              points: segment,
+              color: TrackRouteLineTheme.selectedOverlayColor,
+              strokeWidth: TrackRouteLineTheme.selectedOverlayStrokeWidth,
+            ),
           );
         } else {
           polylines.add(
-            Polyline(points: segment, color: trackColor, strokeWidth: 3.0),
+            Polyline(
+              points: segment,
+              color: trackColor,
+              strokeWidth: TrackRouteLineTheme.strokeWidth,
+            ),
           );
         }
       }

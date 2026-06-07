@@ -101,7 +101,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
   String? _gotoError;
   bool _mapReady = false;
   bool _wasRouteDrafting = false;
-  bool _didAutoFocusPolygons = false;
   Tasmap50k? _pendingSelectedMap;
   int? _pendingSelectedMapSerial;
   int? _appliedSelectedMapSerial;
@@ -2040,41 +2039,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
                       showPolygons: showPolygons,
                       polygonAssets: polygonAssets,
                     );
-                    if (showPolygons) {
-                      _maybeFocusPolygonAssets(
-                        polygonAssets?.maybeWhen(
-                          data: (value) => value,
-                          orElse: () => null,
-                        ),
-                      );
-                    }
-                    ref.listen<bool>(showPolygonsSettingsProvider, (
-                      previous,
-                      next,
-                    ) {
-                      if (!next) {
-                        _didAutoFocusPolygons = false;
-                        return;
-                      }
-                      _maybeFocusPolygonAssets(
-                        ref
-                            .read(polygonAssetsProvider)
-                            .maybeWhen(
-                              data: (value) => value,
-                              orElse: () => null,
-                            ),
-                      );
-                    });
-                    ref.listen(polygonAssetsProvider, (previous, next) {
-                      if (ref.read(showPolygonsSettingsProvider)) {
-                        _maybeFocusPolygonAssets(
-                          next.maybeWhen(
-                            data: (value) => value,
-                            orElse: () => null,
-                          ),
-                        );
-                      }
-                    });
                     ref.listen<bool>(
                       mapProvider.select((state) => state.showTrails),
                       (previous, next) {
@@ -3497,58 +3461,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
     );
   }
 
-  void _maybeFocusPolygonAssets(List<MapPolygonAsset>? assets) {
-    if (!_mapReady || _didAutoFocusPolygons) {
-      return;
-    }
-
-    final points = assets?.expand((asset) => asset.points).toList() ?? const [];
-    if (points.isEmpty) {
-      return;
-    }
-
-    if (points.length == 1) {
-      _didAutoFocusPolygons = true;
-      _applyAcceptedCameraMove(
-        PendingCameraRequest(
-          center: points.single,
-          zoom: MapConstants.defaultMapZoom,
-          serial: 0,
-          persist: false,
-        ),
-      );
-      return;
-    }
-
-    try {
-      final bounds = LatLngBounds.fromPoints(points);
-      final cameraFit = CameraFit.bounds(
-        bounds: bounds,
-        padding: const EdgeInsets.all(50),
-      );
-      _didAutoFocusPolygons = true;
-      _applyAcceptedCameraFit(
-        PendingCameraRequest(
-          center: _mapController.camera.center,
-          zoom: _mapController.camera.zoom,
-          serial: 0,
-          persist: false,
-        ),
-        () => _mapController.fitCamera(cameraFit),
-      );
-    } catch (_) {
-      _didAutoFocusPolygons = true;
-      _applyAcceptedCameraMove(
-        PendingCameraRequest(
-          center: points.first,
-          zoom: MapConstants.defaultMapZoom,
-          serial: 0,
-          persist: false,
-        ),
-      );
-    }
-  }
-
   PolygonLayer? _polygonAssetLayerFor({
     required bool showPolygons,
     required AsyncValue<List<MapPolygonAsset>>? polygonAssets,
@@ -3660,13 +3572,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _tryApplyPendingCameraRequest();
     _tryZoomPendingSelectedMap();
     _tryZoomPendingSelectedTrack();
-    if (ref.read(showPolygonsSettingsProvider)) {
-      _maybeFocusPolygonAssets(
-        ref
-            .read(polygonAssetsProvider)
-            .maybeWhen(data: (value) => value, orElse: () => null),
-      );
-    }
     if (ref.read(mapProvider).showTrails) {
       unawaited(
         _mapNotifier.prefetchRouteGraphVisibleBounds(

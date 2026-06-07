@@ -9,6 +9,7 @@ import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
+import 'package:peak_bagger/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../harness/test_map_notifier.dart';
@@ -51,13 +52,33 @@ void main() {
     final layer = tester.widget<PolylineLayer>(find.byType(PolylineLayer));
 
     expect(layer.polylines, hasLength(3));
-    expect(layer.polylines.first.color, const Color(0x99112233));
+    expect(
+      layer.polylines.first.color,
+      const Color(
+        0xFF112233,
+      ).withValues(alpha: TrackRouteLineTheme.inactiveOpacity),
+    );
     expect(layer.polylines[1].color, const Color(0xFF445566));
-    expect(layer.polylines[1].strokeWidth, 4.0);
-    expect(layer.polylines[1].borderStrokeWidth, 2.0);
-    expect(layer.polylines[1].borderColor, const Color(0x66000000));
-    expect(layer.polylines.last.color, Colors.white);
-    expect(layer.polylines.last.strokeWidth, 0.6);
+    expect(
+      layer.polylines[1].strokeWidth,
+      TrackRouteLineTheme.selectedStrokeWidth,
+    );
+    expect(
+      layer.polylines[1].borderStrokeWidth,
+      TrackRouteLineTheme.selectedBorderStrokeWidth,
+    );
+    expect(
+      layer.polylines[1].borderColor,
+      TrackRouteLineTheme.selectedBorderColor,
+    );
+    expect(
+      layer.polylines.last.color,
+      TrackRouteLineTheme.selectedOverlayColor,
+    );
+    expect(
+      layer.polylines.last.strokeWidth,
+      TrackRouteLineTheme.selectedOverlayStrokeWidth,
+    );
   });
 }
 

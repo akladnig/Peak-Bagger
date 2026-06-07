@@ -612,7 +612,7 @@ class TestMapNotifier extends MapNotifier {
   void centerOnLocation(LatLng location) {
     requestCameraMove(
       center: location,
-      zoom: state.zoom,
+      zoom: MapConstants.defaultZoom,
       selectedLocation: location,
       updateSelectedLocation: true,
       clearGotoMgrs: true,
