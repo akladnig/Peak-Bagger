@@ -29,6 +29,7 @@ import 'package:peak_bagger/services/gpx_track_repair_service.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/peak_region_asset_import_service.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
 import 'package:peak_bagger/services/peak_refresh_service.dart';
 import 'package:peak_bagger/services/peak_info_content_resolver.dart';
@@ -953,6 +954,7 @@ class MapNotifier extends Notifier<MapState> {
     RoutePlanner? routePlanner,
     PeaksBaggedRepository? peaksBaggedRepository,
     MigrationMarkerStore? migrationMarkerStore,
+    PeakRegionAssetImportService? peakRegionAssetImportService,
     bool loadPositionOnBuild = true,
     bool loadPeaksOnBuild = true,
     bool loadTracksOnBuild = true,
@@ -965,6 +967,7 @@ class MapNotifier extends Notifier<MapState> {
        _injectedRoutePlanner = routePlanner,
        _injectedPeaksBaggedRepository = peaksBaggedRepository,
        _injectedMigrationMarkerStore = migrationMarkerStore,
+       _injectedPeakRegionAssetImportService = peakRegionAssetImportService,
        _loadPositionOnBuild = loadPositionOnBuild,
        _loadPeaksOnBuild = loadPeaksOnBuild,
        _loadTracksOnBuild = loadTracksOnBuild;
@@ -978,12 +981,14 @@ class MapNotifier extends Notifier<MapState> {
   final RoutePlanner? _injectedRoutePlanner;
   final PeaksBaggedRepository? _injectedPeaksBaggedRepository;
   final MigrationMarkerStore? _injectedMigrationMarkerStore;
+  final PeakRegionAssetImportService? _injectedPeakRegionAssetImportService;
   final bool _loadPositionOnBuild;
   final bool _loadPeaksOnBuild;
   final bool _loadTracksOnBuild;
 
   late final PeakRepository _peakRepository;
   late final PeakRefreshService _peakRefreshService;
+  late final PeakRegionAssetImportService _peakRegionAssetImportService;
   late final TasmapRepository _tasmapRepository;
   late final GpxTrackRepository _gpxTrackRepository;
   late final RouteRepository _routeRepository;
@@ -1059,6 +1064,8 @@ class MapNotifier extends Notifier<MapState> {
       migrationMarkerStore: _migrationMarkerStore,
     );
     _prefsLoader = ref.read(mapPreferencesLoaderProvider);
+    _peakRegionAssetImportService =
+        _injectedPeakRegionAssetImportService ?? PeakRegionAssetImportService();
     Future.microtask(_runStartupLoad);
     return MapState(
       center: MapConstants.defaultCenter,
@@ -1116,28 +1123,25 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   Future<void> _loadPeaks() async {
-    if (_peakRepository.isEmpty()) {
-      state = state.copyWith(isLoadingPeaks: true);
-      try {
-        await _peakRefreshService.refreshPeaks();
-        ref.read(peakRevisionProvider.notifier).increment();
-        state = state.copyWith(
-          peaks: _peakRepository.getAllPeaks(),
-          isLoadingPeaks: false,
-          clearError: true,
-        );
-      } catch (e) {
-        state = state.copyWith(
-          isLoadingPeaks: false,
-          error: 'Failed to load peaks: $e',
-        );
-      }
-    } else {
+    state = state.copyWith(isLoadingPeaks: true);
+    try {
+      final importResult = await _peakRegionAssetImportService.syncOnStartup(
+        peakRepository: _peakRepository,
+      );
       final changed = await _peakRefreshService.backfillStoredPeaks();
-      if (changed) {
+      if (importResult.hasChanges || changed) {
         ref.read(peakRevisionProvider.notifier).increment();
       }
-      state = state.copyWith(peaks: _peakRepository.getAllPeaks());
+      state = state.copyWith(
+        peaks: _peakRepository.getAllPeaks(),
+        isLoadingPeaks: false,
+        clearError: true,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoadingPeaks: false,
+        error: 'Failed to load peaks: $e',
+      );
     }
   }
 
@@ -5452,10 +5456,16 @@ class MapNotifier extends Notifier<MapState> {
     );
   }
 
-  Future<PeakRefreshResult> refreshPeaks() async {
+  Future<PeakRefreshResult> refreshPeaks({
+    String region = Peak.defaultRegion,
+    LatLngBounds? bounds,
+  }) async {
     state = state.copyWith(isLoadingPeaks: true, clearError: true);
     try {
-      final result = await _peakRefreshService.refreshPeaks();
+      final result = await _peakRefreshService.refreshPeaks(
+        region: region,
+        bounds: bounds,
+      );
       ref.read(peakRevisionProvider.notifier).increment();
       final peaks = _peakRepository.getAllPeaks();
       final refreshedPeakInfo = _refreshedPeakInfo(peaks);

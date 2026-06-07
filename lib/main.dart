@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/app.dart';
-import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
@@ -63,14 +62,11 @@ void main() async {
   } catch (_) {
     // Continue with an empty database if the import fails.
   }
-  await peakRepository.backfillRegion(Peak.defaultRegion);
 
   runApp(
     ProviderScope(
       overrides: [
-        peakRepositoryProvider.overrideWithValue(
-          peakRepository,
-        ),
+        peakRepositoryProvider.overrideWithValue(peakRepository),
         peakListRewritePortProvider.overrideWithValue(peakListRewritePort),
         peakDeleteGuardProvider.overrideWithValue(peakDeleteGuard),
         peakListRepositoryProvider.overrideWithValue(peakListRepo),

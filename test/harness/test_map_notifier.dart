@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
@@ -343,7 +344,10 @@ class TestMapNotifier extends MapNotifier {
   }
 
   @override
-  Future<PeakRefreshResult> refreshPeaks() async {
+  Future<PeakRefreshResult> refreshPeaks({
+    String region = Peak.defaultRegion,
+    LatLngBounds? bounds,
+  }) async {
     refreshCallCount += 1;
     final peaks = peakRepository?.getAllPeaks() ?? state.peaks;
     final refreshedPeakInfo = _refreshedPeakInfo(peaks);

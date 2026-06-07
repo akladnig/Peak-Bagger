@@ -1,3 +1,4 @@
+import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:peak_bagger/models/peak.dart';
@@ -8,26 +9,17 @@ class OverpassService {
     'https://overpass-api.de/api/interpreter',
   ];
 
-  // Spatial Extent (Bounding Box):
-  // - Longitude: 143.833° to 148.482° East
-  // - Latitude: -43.643° to -39.579° South
-
-  static const String _query = '''
-[out:json][timeout:60];
-(
-  node["natural"="peak"]["name"](-43.643,143.833,-39.579,148.482);
-);
-out center;
-''';
-
-  Future<List<Peak>> fetchTasmaniaPeaks() async {
+  Future<List<Peak>> fetchPeaks({
+    required String region,
+    required LatLngBounds bounds,
+  }) async {
     Exception? lastError;
     for (final endpoint in _endpoints) {
       try {
         final response = await http.post(
           Uri.parse(endpoint),
           headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-          body: {'data': _query},
+          body: {'data': _queryForBounds(bounds)},
         );
 
         if (response.statusCode == 200) {
@@ -37,7 +29,9 @@ out center;
           final peaks = <Peak>[];
           for (final element in elements) {
             try {
-              final peak = Peak.fromOverpass(element as Map<String, dynamic>);
+              final peak = Peak.fromOverpass(
+                element as Map<String, dynamic>,
+              ).copyWith(region: region);
               if (peak.name != 'Unknown') {
                 peaks.add(peak);
               }
@@ -54,5 +48,20 @@ out center;
     }
     throw lastError ??
         Exception('Failed to fetch peaks: no endpoints available');
+  }
+
+  String _queryForBounds(LatLngBounds bounds) {
+    final south = bounds.southWest.latitude;
+    final west = bounds.southWest.longitude;
+    final north = bounds.northEast.latitude;
+    final east = bounds.northEast.longitude;
+
+    return '''
+[out:json][timeout:60];
+(
+  node["natural"="peak"]["name"]($south,$west,$north,$east);
+);
+out center;
+''';
   }
 }

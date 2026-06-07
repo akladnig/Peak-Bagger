@@ -49,9 +49,11 @@ flutter:
   uses-material-design: true
   assets:
     - assets/highway.json
+    - assets/region_manifest.json
     - assets/peak_marker.svg
     - assets/peak_marker_ticked.svg
     - assets/route.svg
+    - assets/peaks/
     - assets/polygons/
     - assets/tasmap50k.csv
     - assets/cop30_hh.tif
