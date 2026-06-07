@@ -54,12 +54,12 @@ Startup path in `MapNotifier._loadPeaks()`; asset importer + marker store + fing
 ### Phase 4: Fingerprint Tooling
 
 - **Goal**: deterministic manifest maintenance
-- [ ] `tool/update_region_peak_fingerprints.dart` - recompute/write seedable-region fingerprints from listed peak asset bytes in manifest order
-- [ ] `tool/validate_region_peak_fingerprints.dart` - fail when manifest fingerprint differs from recomputed hash
-- [ ] `assets/region_manifest.json` - refresh fingerprints with tool output
-- [ ] TDD: tool rewrites stale fingerprints deterministically
-- [ ] TDD: validation command fails on stale fingerprints and passes on current manifest
-- [ ] Verify: `flutter analyze` && `flutter test test/tool/update_region_peak_fingerprints_test.dart test/tool/validate_region_peak_fingerprints_test.dart`
+- [x] `tool/update_region_peak_fingerprints.dart` - recompute/write seedable-region fingerprints from listed peak asset bytes in manifest order
+- [x] `tool/validate_region_peak_fingerprints.dart` - fail when manifest fingerprint differs from recomputed hash
+- [x] `assets/region_manifest.json` - refresh fingerprints with tool output
+- [x] TDD: tool rewrites stale fingerprints deterministically
+- [x] TDD: validation command fails on stale fingerprints and passes on current manifest
+- [x] Verify: `flutter analyze` && `flutter test test/tool/update_region_peak_fingerprints_test.dart test/tool/validate_region_peak_fingerprints_test.dart`
 
 ## Risks / Out of scope
 
