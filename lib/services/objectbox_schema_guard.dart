@@ -36,7 +36,12 @@ class ObjectBoxSchemaGuard {
     return [
       'modelVersion:${model.modelVersion}',
       'Peak.osmId:${_hasProperty(peak, 'osmId')}',
+      'Peak.peakbaggerPid:${_hasProperty(peak, 'peakbaggerPid')}',
       'Peak.altName:${_hasProperty(peak, 'altName')}',
+      'Peak.prominence:${_hasProperty(peak, 'prominence')}',
+      'Peak.country:${_hasProperty(peak, 'country')}',
+      'Peak.county:${_hasProperty(peak, 'county')}',
+      'Peak.range:${_hasProperty(peak, 'range')}',
       'Peak.verified:${_hasProperty(peak, 'verified')}',
       'Peak.sourceOfTruth:${_hasProperty(peak, 'sourceOfTruth')}',
       'PeakList.name:${_hasProperty(peakList, 'name')}',

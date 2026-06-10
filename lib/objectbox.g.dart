@@ -31,7 +31,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(1, 6887978098338940139),
     name: 'Peak',
-    lastPropertyId: const obx_int.IdUid(14, 8569973600435793379),
+    lastPropertyId: const obx_int.IdUid(19, 6639928261090114468),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -117,6 +117,36 @@ final _entities = <obx_int.ModelEntity>[
         id: const obx_int.IdUid(14, 8569973600435793379),
         name: 'verified',
         type: 1,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(15, 2976348997316740754),
+        name: 'peakbaggerPid',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(16, 8603710331303678704),
+        name: 'prominence',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(17, 3150687822589368084),
+        name: 'country',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(18, 2633572753115612143),
+        name: 'county',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(19, 6639928261090114468),
+        name: 'range',
+        type: 9,
         flags: 0,
       ),
     ],
@@ -1049,7 +1079,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final northingOffset = fbb.writeString(object.northing);
         final sourceOfTruthOffset = fbb.writeString(object.sourceOfTruth);
         final altNameOffset = fbb.writeString(object.altName);
-        fbb.startTable(15);
+        final countryOffset = fbb.writeString(object.country);
+        final countyOffset = fbb.writeString(object.county);
+        final rangeOffset = fbb.writeString(object.range);
+        fbb.startTable(20);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, nameOffset);
         fbb.addFloat64(2, object.elevation);
@@ -1064,6 +1097,11 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addOffset(11, sourceOfTruthOffset);
         fbb.addOffset(12, altNameOffset);
         fbb.addBool(13, object.verified);
+        fbb.addInt64(14, object.peakbaggerPid);
+        fbb.addFloat64(15, object.prominence);
+        fbb.addOffset(16, countryOffset);
+        fbb.addOffset(17, countyOffset);
+        fbb.addOffset(18, rangeOffset);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -1082,6 +1120,11 @@ obx_int.ModelDefinition getObjectBoxModel() {
           24,
           0,
         );
+        final peakbaggerPidParam = const fb.Int64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          32,
+        );
         final nameParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 6, '');
@@ -1093,6 +1136,20 @@ obx_int.ModelDefinition getObjectBoxModel() {
           rootOffset,
           8,
         );
+        final prominenceParam = const fb.Float64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          34,
+        );
+        final countryParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 36, '');
+        final countyParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 38, '');
+        final rangeParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 40, '');
         final latitudeParam = const fb.Float64Reader().vTableGet(
           buffer,
           rootOffset,
@@ -1132,9 +1189,14 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final object = Peak(
           id: idParam,
           osmId: osmIdParam,
+          peakbaggerPid: peakbaggerPidParam,
           name: nameParam,
           altName: altNameParam,
           elevation: elevationParam,
+          prominence: prominenceParam,
+          country: countryParam,
+          county: countyParam,
+          range: rangeParam,
           latitude: latitudeParam,
           longitude: longitudeParam,
           region: regionParam,
@@ -2273,7 +2335,9 @@ class Peak_ {
   );
 
   /// See [Peak.region].
-  static final region = obx.QueryStringProperty<Peak>(_entities[0].properties[5]);
+  static final region = obx.QueryStringProperty<Peak>(
+    _entities[0].properties[5],
+  );
 
   /// See [Peak.gridZoneDesignator].
   static final gridZoneDesignator = obx.QueryStringProperty<Peak>(
@@ -2313,6 +2377,31 @@ class Peak_ {
   /// See [Peak.verified].
   static final verified = obx.QueryBooleanProperty<Peak>(
     _entities[0].properties[13],
+  );
+
+  /// See [Peak.peakbaggerPid].
+  static final peakbaggerPid = obx.QueryIntegerProperty<Peak>(
+    _entities[0].properties[14],
+  );
+
+  /// See [Peak.prominence].
+  static final prominence = obx.QueryDoubleProperty<Peak>(
+    _entities[0].properties[15],
+  );
+
+  /// See [Peak.country].
+  static final country = obx.QueryStringProperty<Peak>(
+    _entities[0].properties[16],
+  );
+
+  /// See [Peak.county].
+  static final county = obx.QueryStringProperty<Peak>(
+    _entities[0].properties[17],
+  );
+
+  /// See [Peak.range].
+  static final range = obx.QueryStringProperty<Peak>(
+    _entities[0].properties[18],
   );
 }
 

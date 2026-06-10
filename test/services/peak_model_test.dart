@@ -7,6 +7,11 @@ void main() {
 
     expect(peak.sourceOfTruth, Peak.sourceOfTruthOsm);
     expect(peak.region, Peak.defaultRegion);
+    expect(peak.peakbaggerPid, isNull);
+    expect(peak.prominence, isNull);
+    expect(peak.country, '');
+    expect(peak.county, '');
+    expect(peak.range, '');
   });
 
   test('defaults alternate name and verified metadata', () {
@@ -30,6 +35,31 @@ void main() {
 
     expect(copy.altName, 'Anne Peak');
     expect(copy.verified, isTrue);
+  });
+
+  test('copyWith preserves PeakBagger metadata', () {
+    final peak = Peak(
+      name: 'Mt Anne',
+      latitude: -41.5,
+      longitude: 146.5,
+      peakbaggerPid: 123,
+      prominence: 456.7,
+      country: 'Australia',
+      county: 'Hobart',
+      range: 'Eastern Arthur Range',
+    );
+
+    final copy = peak.copyWith(name: 'Mount Anne');
+
+    expect(copy.peakbaggerPid, 123);
+    expect(copy.prominence, 456.7);
+    expect(copy.country, 'Australia');
+    expect(copy.county, 'Hobart');
+    expect(copy.range, 'Eastern Arthur Range');
+  });
+
+  test('sourceOfTruthPeakBagger uses peakbagger.com', () {
+    expect(Peak.sourceOfTruthPeakBagger, 'peakbagger.com');
   });
 
   test('fromOverpass parses osmId', () {

@@ -442,7 +442,11 @@ void main() {
 
     expect(row.primaryKeyValue, 42);
     expect(row.values['osmId'], 4242);
+    expect(row.values['peakbaggerPid'], isNull);
     expect(row.values['altName'], 'Milner');
+    expect(row.values['country'], '');
+    expect(row.values['county'], '');
+    expect(row.values['range'], '');
     expect(row.values['gridZoneDesignator'], '55G');
     expect(row.values['mgrs100kId'], 'DN');
     expect(row.values['easting'], '17710');
@@ -458,9 +462,14 @@ void main() {
         values: {
           'id': 42,
           'osmId': 4242,
+          'peakbaggerPid': 313,
           'name': 'Mount Milner',
           'altName': 'Milner',
           'elevation': 1200.0,
+          'prominence': 340.0,
+          'country': 'Australia',
+          'county': 'Tasmania',
+          'range': 'Central Highlands',
           'latitude': -41.2,
           'longitude': 146.1,
           'region': 'Central',
@@ -475,7 +484,12 @@ void main() {
     );
 
     expect(peak.id, 42);
+    expect(peak.peakbaggerPid, 313);
     expect(peak.altName, 'Milner');
+    expect(peak.prominence, 340.0);
+    expect(peak.country, 'Australia');
+    expect(peak.county, 'Tasmania');
+    expect(peak.range, 'Central Highlands');
     expect(peak.verified, isTrue);
   });
 
@@ -523,6 +537,11 @@ void main() {
       'altName',
       'id',
       'elevation',
+      'peakbaggerPid',
+      'prominence',
+      'country',
+      'county',
+      'range',
       'latitude',
       'longitude',
       'region',
@@ -539,6 +558,11 @@ void main() {
       'name',
       'altName',
       'elevation',
+      'peakbaggerPid',
+      'prominence',
+      'country',
+      'county',
+      'range',
       'latitude',
       'longitude',
       'region',
