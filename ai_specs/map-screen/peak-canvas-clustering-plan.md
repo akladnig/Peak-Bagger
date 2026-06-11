@@ -28,15 +28,15 @@ Main-map peak renderer rewrite. Custom-painted peaks + overlap-driven clusters; 
 ### Phase 2: Individual Peaks And Hover Path
 
 - **Goal**: individual canvas peaks replace SVG markers without popup regressions
-- [ ] `lib/screens/map_screen_peak_layer.dart` - paint individual ticked/unticked peaks, preserve unticked-before-ticked paint order, add optional hover chrome seam
-- [ ] `lib/services/peak_hit_test.dart` - derive peak + cluster hit-test candidates from shared projected viewport data
-- [ ] `lib/services/peak_hover_detector.dart` - adapt existing distance-based hover logic to projected candidates or wrap via new adapter seam
-- [ ] `lib/screens/map_screen.dart` - replace `_hitTestPeak()` candidate build path with shared projected data; keep popup open/close behavior intact
-- [ ] `test/widget/map_screen_peak_info_test.dart` - migrate hover and click tests off marker widgets; assert popup, cursor, hover affordance, and no selected-location regression
-- [ ] `test/robot/peaks/peak_info_robot.dart` - replace main-map marker-hitbox selectors with interaction helpers on `map-interaction-region` plus any minimal new stable selectors
-- [ ] TDD: non-overlapping visible peaks render as individual canvas peaks with climbed/unclimbed meaning preserved, then implement
-- [ ] TDD: hovering and clicking an individual peak still drive cursor + hover popup + pinned popup flows, then implement
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/screens/map_screen_peak_layer.dart` - paint individual ticked/unticked peaks, preserve unticked-before-ticked paint order, add optional hover chrome seam
+- [x] `lib/services/peak_hit_test.dart` - derive peak + cluster hit-test candidates from shared projected viewport data
+- [x] `lib/services/peak_hover_detector.dart` - adapt existing distance-based hover logic to projected candidates or wrap via new adapter seam
+- [x] `lib/screens/map_screen.dart` - replace `_hitTestPeak()` candidate build path with shared projected data; keep popup open/close behavior intact
+- [x] `test/widget/map_screen_peak_info_test.dart` - migrate hover and click tests off marker widgets; assert popup, cursor, hover affordance, and no selected-location regression
+- [x] `test/robot/peaks/peak_info_robot.dart` - replace main-map marker-hitbox selectors with interaction helpers on `map-interaction-region` plus any minimal new stable selectors
+- [x] TDD: non-overlapping visible peaks render as individual canvas peaks with climbed/unclimbed meaning preserved, then implement
+- [x] TDD: hovering and clicking an individual peak still drive cursor + hover popup + pinned popup flows, then implement
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Label Collision Overlay
 

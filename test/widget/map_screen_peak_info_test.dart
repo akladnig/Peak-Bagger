@@ -10,6 +10,7 @@ import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
@@ -1015,8 +1016,13 @@ void main() {
     await tester.tap(find.byKey(const Key('peak-list-item-Alpha')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('peak-marker-hitbox-6406')), findsOneWidget);
-    expect(find.byKey(const Key('peak-marker-hitbox-7000')), findsNothing);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+    expect(
+      container.read(filteredPeaksProvider).map((peak) => peak.osmId).toList(),
+      [6406],
+    );
   });
 
   testWidgets('drawer shows all peaks and unavailable message on repository error', (

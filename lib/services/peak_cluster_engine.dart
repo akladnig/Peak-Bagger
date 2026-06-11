@@ -36,12 +36,16 @@ class PeakCluster {
 
 class PeakClusterViewportData {
   const PeakClusterViewportData({
-    required this.individualPeaks,
+    required this.individualCandidates,
     required this.clusters,
   });
 
-  final List<Peak> individualPeaks;
+  final List<ProjectedPeakCandidate> individualCandidates;
   final List<PeakCluster> clusters;
+
+  List<Peak> get individualPeaks => [
+    for (final candidate in individualCandidates) candidate.peak,
+  ];
 }
 
 PeakClusterViewportData buildPeakClusterViewportData({
@@ -51,7 +55,10 @@ PeakClusterViewportData buildPeakClusterViewportData({
 }) {
   final size = camera.nonRotatedSize;
   if (size == MapCamera.kImpossibleSize) {
-    return const PeakClusterViewportData(individualPeaks: [], clusters: []);
+    return const PeakClusterViewportData(
+      individualCandidates: [],
+      clusters: [],
+    );
   }
 
   final paddedViewport = Rect.fromLTWH(
@@ -86,8 +93,8 @@ PeakClusterViewportData buildPeakClusterViewportData({
 
   final visited = List<bool>.filled(projected.length, false);
   final clusters = <PeakCluster>[];
-  final untickedIndividuals = <Peak>[];
-  final tickedIndividuals = <Peak>[];
+  final untickedIndividuals = <ProjectedPeakCandidate>[];
+  final tickedIndividuals = <ProjectedPeakCandidate>[];
 
   for (var i = 0; i < projected.length; i++) {
     if (visited[i]) {
@@ -118,9 +125,9 @@ PeakClusterViewportData buildPeakClusterViewportData({
     if (component.length == 1) {
       final candidate = component.single;
       if (candidate.isTicked) {
-        tickedIndividuals.add(candidate.peak);
+        tickedIndividuals.add(candidate);
       } else {
-        untickedIndividuals.add(candidate.peak);
+        untickedIndividuals.add(candidate);
       }
       continue;
     }
@@ -140,7 +147,7 @@ PeakClusterViewportData buildPeakClusterViewportData({
   clusters.sort((left, right) => left.members.length.compareTo(right.members.length));
 
   return PeakClusterViewportData(
-    individualPeaks: [...untickedIndividuals, ...tickedIndividuals],
+    individualCandidates: [...untickedIndividuals, ...tickedIndividuals],
     clusters: clusters,
   );
 }

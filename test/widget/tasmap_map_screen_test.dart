@@ -558,8 +558,9 @@ void main() {
 
     await tester.pump();
 
-    expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
-
+    final peakLayerFinder = find.byKey(const Key('peak-marker-layer'));
+    expect(peakLayerFinder, findsOneWidget);
+    expect(tester.widget(peakLayerFinder), isNot(isA<MarkerLayer>()));
     expect(find.byKey(const Key('peak-cluster-layer')), findsNothing);
   });
 
@@ -676,7 +677,9 @@ void main() {
 
     await tester.pump();
 
-    expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
+    final peakLayerFinder = find.byKey(const Key('peak-marker-layer'));
+    expect(peakLayerFinder, findsOneWidget);
+    expect(tester.widget(peakLayerFinder), isNot(isA<MarkerLayer>()));
     expect(find.byKey(const Key('peak-cluster-layer')), findsNothing);
   });
 

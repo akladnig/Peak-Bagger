@@ -35,9 +35,6 @@ class PeakInfoRobot {
   Finder get peakListsSelectedLocationMarker =>
       find.byKey(const Key('peak-lists-selected-location-marker'));
 
-  Finder peakMarker(int peakOsmId) => find.byKey(Key('peak-marker-$peakOsmId'));
-  Finder peakMarkerHitbox(int peakOsmId) =>
-      find.byKey(Key('peak-marker-hitbox-$peakOsmId'));
   Finder peakMarkerHover(int peakOsmId) =>
       find.byKey(Key('peak-marker-hover-$peakOsmId'));
 
@@ -137,8 +134,7 @@ class PeakInfoRobot {
   }
 
   void expectPeakMarkerSelectors(int peakOsmId) {
-    expect(peakMarker(peakOsmId), findsOneWidget);
-    expect(peakMarkerHitbox(peakOsmId), findsOneWidget);
+    expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
   }
 
   void expectPeakHover(int peakOsmId) {
