@@ -31,6 +31,11 @@ void main() {
     final signature = ObjectBoxSchemaGuard.debugCurrentSchemaSignature();
 
     expect(signature, contains('Peak.altName:'));
+    expect(signature, contains('Peak.peakbaggerPid:'));
+    expect(signature, contains('Peak.prominence:'));
+    expect(signature, contains('Peak.country:'));
+    expect(signature, contains('Peak.county:'));
+    expect(signature, contains('Peak.range:'));
     expect(signature, contains('Peak.verified:'));
     expect(signature, contains('Peak.sourceOfTruth:'));
     expect(signature, contains('PeakList.name:'));

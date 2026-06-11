@@ -4,6 +4,7 @@ import 'package:objectbox/objectbox.dart';
 class Peak {
   static const sourceOfTruthOsm = 'OSM';
   static const sourceOfTruthHwc = 'HWC';
+  static const sourceOfTruthPeakBagger = 'peakbagger.com';
   static const defaultRegion = 'tasmania';
 
   @Id(assignable: true)
@@ -12,9 +13,15 @@ class Peak {
   @Unique()
   int osmId;
 
+  int? peakbaggerPid;
+
   String name;
   String altName;
   double? elevation;
+  double? prominence;
+  String country;
+  String county;
+  String range;
   double latitude;
   double longitude;
   String? region;
@@ -28,9 +35,14 @@ class Peak {
   Peak({
     this.id = 0,
     this.osmId = 0,
+    this.peakbaggerPid,
     required this.name,
     this.altName = '',
     this.elevation,
+    this.prominence,
+    this.country = '',
+    this.county = '',
+    this.range = '',
     required this.latitude,
     required this.longitude,
     this.region = defaultRegion,
@@ -44,9 +56,14 @@ class Peak {
 
   Peak copyWith({
     int? osmId,
+    int? peakbaggerPid,
     String? name,
     String? altName,
     double? elevation,
+    double? prominence,
+    String? country,
+    String? county,
+    String? range,
     double? latitude,
     double? longitude,
     String? region,
@@ -60,9 +77,14 @@ class Peak {
     return Peak(
       id: id,
       osmId: osmId ?? this.osmId,
+      peakbaggerPid: peakbaggerPid ?? this.peakbaggerPid,
       name: name ?? this.name,
       altName: altName ?? this.altName,
       elevation: elevation ?? this.elevation,
+      prominence: prominence ?? this.prominence,
+      country: country ?? this.country,
+      county: county ?? this.county,
+      range: range ?? this.range,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       region: region ?? this.region,
@@ -110,6 +132,10 @@ class Peak {
       latitude: lat,
       longitude: lon,
       region: defaultRegion,
+      prominence: null,
+      country: '',
+      county: '',
+      range: '',
     );
   }
 }

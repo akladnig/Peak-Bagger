@@ -1170,6 +1170,11 @@ void main() {
       tester.getTopLeft(find.text('name').last).dy,
       lessThan(tester.getTopLeft(find.text('altName').last).dy),
     );
+    expect(find.text('peakbaggerPid'), findsWidgets);
+    expect(find.text('prominence'), findsWidgets);
+    expect(find.text('country'), findsWidgets);
+    expect(find.text('county'), findsWidgets);
+    expect(find.text('range'), findsWidgets);
     expect(details, findsOneWidget);
   });
 
@@ -1653,6 +1658,41 @@ ObjectBoxAdminEntityDescriptor _peakEntity() {
         name: 'elevation',
         typeLabel: 'double',
         nullable: true,
+        isPrimaryKey: false,
+        isPrimaryName: false,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'peakbaggerPid',
+        typeLabel: 'int',
+        nullable: true,
+        isPrimaryKey: false,
+        isPrimaryName: false,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'prominence',
+        typeLabel: 'double',
+        nullable: true,
+        isPrimaryKey: false,
+        isPrimaryName: false,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'country',
+        typeLabel: 'String',
+        nullable: false,
+        isPrimaryKey: false,
+        isPrimaryName: false,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'county',
+        typeLabel: 'String',
+        nullable: false,
+        isPrimaryKey: false,
+        isPrimaryName: false,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'range',
+        typeLabel: 'String',
+        nullable: false,
         isPrimaryKey: false,
         isPrimaryName: false,
       ),

@@ -1,6 +1,7 @@
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
+import 'package:peak_bagger/services/peak_source.dart';
 
 import '../objectbox.g.dart';
 
@@ -294,7 +295,7 @@ class InMemoryPeakStorage implements PeakStorage {
   }
 }
 
-class PeakRepository {
+class PeakRepository implements PeakSource {
   PeakRepository(
     Store store, {
     required PeakListRewritePort peakListRewritePort,
@@ -315,6 +316,7 @@ class PeakRepository {
 
   int get peakCount => _storage.count;
 
+  @override
   List<Peak> getAllPeaks() {
     return _storage.getAll();
   }

@@ -5,7 +5,7 @@
   "entities": [
     {
       "id": "1:6887978098338940139",
-      "lastPropertyId": "14:8569973600435793379",
+      "lastPropertyId": "19:6639928261090114468",
       "name": "Peak",
       "properties": [
         {
@@ -80,6 +80,31 @@
           "id": "14:8569973600435793379",
           "name": "verified",
           "type": 1
+        },
+        {
+          "id": "15:2976348997316740754",
+          "name": "peakbaggerPid",
+          "type": 6
+        },
+        {
+          "id": "16:8603710331303678704",
+          "name": "prominence",
+          "type": 8
+        },
+        {
+          "id": "17:3150687822589368084",
+          "name": "country",
+          "type": 9
+        },
+        {
+          "id": "18:2633572753115612143",
+          "name": "county",
+          "type": 9
+        },
+        {
+          "id": "19:6639928261090114468",
+          "name": "range",
+          "type": 9
         }
       ],
       "relations": []
