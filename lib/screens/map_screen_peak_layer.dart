@@ -39,13 +39,9 @@ class MapScreenPeakLayer extends StatelessWidget {
         }
       }
     }
-    final suppressedLabelIds = <int>{};
-    if (hoveredPeakId != null) {
-      suppressedLabelIds.add(hoveredPeakId!);
-    }
-    if (popupPeakId != null) {
-      suppressedLabelIds.add(popupPeakId!);
-    }
+    final suppressedLabelIds = {
+      for (final peakId in [hoveredPeakId, popupPeakId].whereType<int>()) peakId,
+    };
     final labelPlacements = showPeakInfo
         ? layoutPeakLabels(
             context: context,
