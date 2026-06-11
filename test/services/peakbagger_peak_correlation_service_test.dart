@@ -157,7 +157,7 @@ void main() {
 
     expect(result.peak?.id, 1);
     expect(result.action, 'strong-name-exact');
-    expect(result.note, 'matched via exact name');
+    expect(result.note, 'exact name match');
     expect(result.note, isNot(contains('spatial diff:')));
     expect(result.safeToCreate, isFalse);
   });
@@ -194,7 +194,7 @@ void main() {
 
       expect(result.peak?.id, 1);
       expect(result.action, 'strong-name-exact');
-      expect(result.note, contains('matched via exact name'));
+      expect(result.note, contains('exact name match'));
       expect(result.note, contains('spatial diff:'));
       expect(result.safeToCreate, isFalse);
     },
@@ -391,4 +391,89 @@ void main() {
       expect(result.safeToCreate, isFalse);
     },
   );
+
+  test('exact-name-only rejects non-exact spatial matches', () {
+    final result = service.correlate(
+      peakBaggerPeak: const PeakBaggerPeakDetails(
+        peakbaggerPid: 1,
+        name: 'Mount Giblin',
+        latitude: -43.006468,
+        longitude: 146.185842,
+        elevation: 884,
+      ),
+      peaks: [
+        peak(
+          id: 1,
+          name: 'Mount Giblin North',
+          latitude: -43.006468,
+          longitude: 146.185842,
+          elevation: 884,
+        ),
+      ],
+      options: const PeakBaggerCorrelationOptions(exactNameOnly: true),
+    );
+
+    expect(result.peak, isNull);
+    expect(result.action, 'unresolved');
+    expect(result.detail, 'no exact-name match');
+  });
+
+  test('elevation-only matches within the configured tolerance', () {
+    final result = service.correlate(
+      peakBaggerPeak: const PeakBaggerPeakDetails(
+        peakbaggerPid: 1,
+        name: 'Mount Giblin',
+        latitude: -43.006468,
+        longitude: 146.185842,
+        elevation: 884,
+      ),
+      peaks: [
+        peak(
+          id: 1,
+          name: 'Different Peak',
+          latitude: -43.006468,
+          longitude: 146.185842,
+          elevation: 887,
+        ),
+      ],
+      options: const PeakBaggerCorrelationOptions(
+        elevationOnly: true,
+        elevationToleranceMeters: 5,
+      ),
+    );
+
+    expect(result.peak?.id, 1);
+    expect(result.action, 'elevation-match');
+    expect(result.note, contains('elevation match'));
+  });
+
+  test('exact-name-and-elevation requires both conditions', () {
+    final result = service.correlate(
+      peakBaggerPeak: const PeakBaggerPeakDetails(
+        peakbaggerPid: 1,
+        name: 'Mount Giblin',
+        latitude: -43.006468,
+        longitude: 146.185842,
+        elevation: 884,
+      ),
+      peaks: [
+        peak(
+          id: 1,
+          name: 'Mount Giblin',
+          latitude: -43.006468,
+          longitude: 146.185842,
+          elevation: 910,
+        ),
+      ],
+      options: const PeakBaggerCorrelationOptions(
+        exactNameOnly: true,
+        elevationOnly: true,
+        elevationToleranceMeters: 10,
+      ),
+    );
+
+    expect(result.peak, isNull);
+    expect(result.action, 'unresolved');
+    expect(result.detail, 'no exact-name match within 10m elevation tolerance');
+  });
 }
