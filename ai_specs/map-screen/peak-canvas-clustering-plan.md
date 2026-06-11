@@ -54,16 +54,16 @@ Main-map peak renderer rewrite. Custom-painted peaks + overlap-driven clusters; 
 ### Phase 4: Cluster Visuals, Perf, Journey Proof
 
 - **Goal**: finish `cluster.png` ring visuals; harden invalidation; prove dense-map journey
-- [ ] `lib/screens/map_screen_peak_layer.dart` - paint ringed cluster visuals with centered count and ticked/unticked proportional arcs; preserve current peak colors
-- [ ] `lib/services/peak_cluster_engine.dart` - add bounded viewport-data caching/invalidation keyed by camera, viewport size, filtered peaks, correlation inputs
-- [ ] `lib/services/peak_projection_cache.dart` - add smallest shared runtime cache only if profiling after earlier slices still shows repeated projection churn
-- [ ] `test/unit/` - add focused tests for cluster composition ratios, representative selection, dissolve threshold, invalid-coordinate skip, cache invalidation
-- [ ] `test/robot/peaks/peak_cluster_journey_test.dart` - add dense-map robot journey: open map, reach cluster state, expand cluster, confirm individual-peak state; use app-owned keys first
-- [ ] `test/robot/peaks/peak_info_robot.dart` - add minimal selectors/seams for cluster interaction only if `map-interaction-region` alone is insufficient
-- [ ] TDD: cluster ring arc proportions match ticked/unticked membership counts, then implement
-- [ ] TDD: repeated pan/zoom invalidates and rebuilds viewport data deterministically without stale cluster/hover state, then implement
-- [ ] Robot journey tests + selectors/seams for critical flows: `Key('map-interaction-region')`, `Key('peak-marker-layer')`, sparse label root, optional cluster-interaction selector, deterministic repository/notifier fixtures
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/screens/map_screen_peak_layer.dart` - paint ringed cluster visuals with centered count and ticked/unticked proportional arcs; preserve current peak colors
+- [x] `lib/services/peak_cluster_engine.dart` - add bounded viewport-data caching/invalidation keyed by camera, viewport size, filtered peaks, correlation inputs
+- [x] `lib/services/peak_projection_cache.dart` - add smallest shared runtime cache only if profiling after earlier slices still shows repeated projection churn
+- [x] `test/unit/` - add focused tests for cluster composition ratios, representative selection, dissolve threshold, invalid-coordinate skip, cache invalidation
+- [x] `test/robot/peaks/peak_cluster_journey_test.dart` - add dense-map robot journey: open map, reach cluster state, expand cluster, confirm individual-peak state; use app-owned keys first
+- [x] `test/robot/peaks/peak_info_robot.dart` - add minimal selectors/seams for cluster interaction only if `map-interaction-region` alone is insufficient
+- [x] TDD: cluster ring arc proportions match ticked/unticked membership counts, then implement
+- [x] TDD: repeated pan/zoom invalidates and rebuilds viewport data deterministically without stale cluster/hover state, then implement
+- [x] Robot journey tests + selectors/seams for critical flows: `Key('map-interaction-region')`, `Key('peak-marker-layer')`, sparse label root, optional cluster-interaction selector, deterministic repository/notifier fixtures
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

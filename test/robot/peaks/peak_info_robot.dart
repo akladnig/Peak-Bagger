@@ -27,6 +27,7 @@ class PeakInfoRobot {
 
   Finder get mapInteractionRegion =>
       find.byKey(const Key('map-interaction-region'));
+  Finder get peakClusterLayer => find.byKey(const Key('peak-cluster-layer'));
   Finder get peakInfoPopup => find.byKey(const Key('peak-info-popup'));
   Finder get peakInfoPopupClose =>
       find.byKey(const Key('peak-info-popup-close'));
@@ -133,6 +134,12 @@ class PeakInfoRobot {
     await tester.pump(const Duration(milliseconds: 300));
   }
 
+  Future<void> tapMapCenter() async {
+    await tester.tapAt(tester.getCenter(mapInteractionRegion));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+  }
+
   void expectPeakMarkerSelectors(int peakOsmId) {
     expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
   }
@@ -147,6 +154,10 @@ class PeakInfoRobot {
       SystemMouseCursors.click,
     );
     expect(peakMarkerHover(peakOsmId), findsOneWidget);
+  }
+
+  ProviderContainer container() {
+    return ProviderScope.containerOf(tester.element(mapInteractionRegion));
   }
 
   void expectPeakPopupWithContent(String peakName) {

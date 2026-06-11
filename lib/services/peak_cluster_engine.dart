@@ -28,6 +28,12 @@ class PeakCluster {
 
   int get untickedCount => members.length - tickedCount;
 
+  double get tickedFraction =>
+      members.isEmpty ? 0 : tickedCount / members.length;
+
+  double get untickedFraction =>
+      members.isEmpty ? 0 : untickedCount / members.length;
+
   List<LatLng> get points => [
     for (final member in members)
       LatLng(member.peak.latitude, member.peak.longitude),

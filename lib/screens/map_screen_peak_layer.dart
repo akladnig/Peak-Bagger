@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/core/number_formatters.dart';
@@ -83,8 +84,15 @@ class MapScreenPeakLayer extends StatelessWidget {
               ),
             if (hoveredCandidate != null)
               _PeakHoverOverlay(candidate: hoveredCandidate),
-            for (final placement in labelPlacements)
-              _PeakMarkerLabelsOverlay(placement: placement),
+            if (labelPlacements.isNotEmpty)
+              Stack(
+                key: const Key('peak-label-layer'),
+                clipBehavior: Clip.none,
+                children: [
+                  for (final placement in labelPlacements)
+                    _PeakMarkerLabelsOverlay(placement: placement),
+                ],
+              ),
           ],
         ),
       ),
@@ -113,7 +121,17 @@ class _PeakViewportPainter extends CustomPainter {
     final clusterStroke = Paint()
       ..color = const Color(0xFF3B4A6B)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+      ..strokeWidth = 1.5;
+    final untickedRing = Paint()
+      ..color = const Color(0xFFD66A6D)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5
+      ..strokeCap = StrokeCap.round;
+    final tickedRing = Paint()
+      ..color = const Color(0xFF3F8F5B)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5
+      ..strokeCap = StrokeCap.round;
 
     for (final candidate in individuals) {
       final center = candidate.screenPosition;
@@ -127,14 +145,33 @@ class _PeakViewportPainter extends CustomPainter {
     }
 
     for (final cluster in clusters) {
+      final ringRect = Rect.fromCircle(
+        center: cluster.screenPosition,
+        radius: MapConstants.peakClusterVisualRadius,
+      );
+      final startAngle = -math.pi / 2;
+      canvas.drawArc(
+        ringRect,
+        startAngle,
+        math.pi * 2 * cluster.untickedFraction,
+        false,
+        untickedRing,
+      );
+      canvas.drawArc(
+        ringRect,
+        startAngle + math.pi * 2 * cluster.untickedFraction,
+        math.pi * 2 * cluster.tickedFraction,
+        false,
+        tickedRing,
+      );
       canvas.drawCircle(
         cluster.screenPosition,
-        MapConstants.peakClusterVisualRadius,
+        MapConstants.peakClusterVisualRadius - 4,
         clusterFill,
       );
       canvas.drawCircle(
         cluster.screenPosition,
-        MapConstants.peakClusterVisualRadius,
+        MapConstants.peakClusterVisualRadius - 4,
         clusterStroke,
       );
     }

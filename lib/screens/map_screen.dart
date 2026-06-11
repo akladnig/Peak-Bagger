@@ -33,6 +33,7 @@ import 'package:peak_bagger/providers/gpx_export_provider.dart';
 import 'package:peak_bagger/services/peak_hover_detector.dart';
 import 'package:peak_bagger/services/peak_cluster_engine.dart';
 import 'package:peak_bagger/services/peak_hit_test.dart';
+import 'package:peak_bagger/services/peak_projection_cache.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/route_graph_trail_provider.dart';
 import 'package:peak_bagger/services/route_hover_detector.dart';
@@ -150,10 +151,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   int? _cachedTrackHoverDisplayZoom;
   List<GpxTrack>? _cachedTrackHoverTracks;
   List<TrackHoverCandidate>? _cachedTrackHoverCandidates;
-  int? _cachedPeakViewportRevision;
-  List<Peak>? _cachedPeakViewportPeaks;
-  Set<int>? _cachedPeakViewportCorrelatedPeakIds;
-  PeakClusterViewportData? _cachedPeakViewportData;
+  final _peakProjectionCache = PeakProjectionCache();
   PolygonLayer? _cachedPolygonAssetLayer;
   List<MapPolygonAsset>? _cachedPolygonAssetLayerAssets;
   int? _cachedRouteHoverViewportRevision;
@@ -799,25 +797,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
     List<Peak> peaks,
     MapCamera camera,
   ) {
-    final correlatedPeakIds = ref.read(mapProvider.notifier).correlatedPeakIds;
-    final viewportRevision = _viewportUiRevision.value;
-    if (_cachedPeakViewportData != null &&
-        _cachedPeakViewportRevision == viewportRevision &&
-        identical(_cachedPeakViewportPeaks, peaks) &&
-        identical(_cachedPeakViewportCorrelatedPeakIds, correlatedPeakIds)) {
-      return _cachedPeakViewportData!;
-    }
-
-    final viewportData = buildPeakClusterViewportData(
+    return _peakProjectionCache.getOrBuild(
       peaks: peaks,
       camera: camera,
-      correlatedPeakIds: correlatedPeakIds,
+      correlatedPeakIds: ref.read(mapProvider.notifier).correlatedPeakIds,
     );
-    _cachedPeakViewportRevision = viewportRevision;
-    _cachedPeakViewportPeaks = peaks;
-    _cachedPeakViewportCorrelatedPeakIds = correlatedPeakIds;
-    _cachedPeakViewportData = viewportData;
-    return viewportData;
   }
 
   void _expandPeakCluster(PeakCluster cluster) {
