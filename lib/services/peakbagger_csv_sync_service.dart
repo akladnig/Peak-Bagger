@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:path/path.dart' as p;
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/peakbagger_csv_import_service.dart';
 import 'package:peak_bagger/services/peakbagger_peak_correlation_service.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peak_source.dart';
 import 'package:peak_bagger/services/peakbagger_scraper.dart';
 
@@ -49,6 +51,8 @@ class PeakBaggerCsvSyncReport {
         row.action == 'closest-location-tie-break' ||
         row.action == 'strong-name-fallback' ||
         row.action == 'strong-name-exact' ||
+        row.action == 'elevation-match' ||
+        row.action == 'name-elevation-match' ||
         row.action == 'pid-reuse' ||
         row.action == 'promoted-osm-id';
   }).length;
@@ -148,11 +152,17 @@ class PeakBaggerCsvSyncService {
     required String csvPath,
     bool createUnmatchedPeaks = false,
     bool allowLiveLookups = true,
+    bool exactNameOnly = false,
+    bool elevationOnly = false,
+    int elevationToleranceMeters = 10,
+    int? maxRows,
   }) async {
     final _ = createUnmatchedPeaks;
     final csvContents = await _csvReader(csvPath);
     final document = _csvImportService.parse(csvContents);
-    final totalRows = document.rows.length;
+    final totalRows = maxRows == null
+        ? document.rows.length
+        : math.min(document.rows.length, maxRows);
     final requiresLookup = allowLiveLookups && _requiresLookup(document);
     if (requiresLookup) {
       try {
@@ -174,12 +184,12 @@ class PeakBaggerCsvSyncService {
 
     final rows = <PeakBaggerCsvSyncRowReport>[];
     final logEntries = <String>[];
-    final allPeaks = _peakSource.getAllPeaks();
+    final allPeaks = List<Peak>.from(_peakSource.getAllPeaks());
     final peaksByPid = <int, Peak>{
       for (final peak in allPeaks)
         if (peak.peakbaggerPid != null) peak.peakbaggerPid!: peak,
     };
-    for (var rowIndex = 0; rowIndex < document.rows.length; rowIndex++) {
+    for (var rowIndex = 0; rowIndex < totalRows; rowIndex++) {
       final row = document.rows[rowIndex];
       final rowNumber = row.lineNumber;
       final peakbaggerPid = _csvImportService.peakbaggerPidForRow(
@@ -312,6 +322,11 @@ class PeakBaggerCsvSyncService {
           : _correlationService.correlate(
               peakBaggerPeak: detailsForMatching,
               peaks: allPeaks,
+              options: PeakBaggerCorrelationOptions(
+                exactNameOnly: exactNameOnly,
+                elevationOnly: elevationOnly,
+                elevationToleranceMeters: elevationToleranceMeters,
+              ),
             );
 
       int? resolvedOsmId;
@@ -322,6 +337,23 @@ class PeakBaggerCsvSyncService {
         action = correlation.action;
         detail = correlation.detail;
       } else {
+        final updatedPeak = await _backfillMatchedPeak(
+          peak: correlation.peak!,
+          peakbaggerPid: peakbaggerPid,
+          targetElevation: targetElevation,
+          targetProminence:
+              _parseDoubleCell(document.cellValueAt(rowIndex, 'Prom-M')) ??
+              details.prominence,
+          targetCountry: targetCountry,
+          targetCounty: targetCounty,
+          targetRange: targetRange,
+        );
+        if (updatedPeak != null) {
+          _replacePeakInList(allPeaks, updatedPeak);
+          if (updatedPeak.peakbaggerPid != null) {
+            peaksByPid[updatedPeak.peakbaggerPid!] = updatedPeak;
+          }
+        }
         resolvedOsmId = correlation.peak!.osmId;
         action = correlation.action;
         detail = correlation.detail;
@@ -515,9 +547,72 @@ class PeakBaggerCsvSyncService {
       detail: hasStrongSpatialMatch
           ? 'matched existing PeakBagger pid with strong spatial match'
           : 'matched existing PeakBagger pid',
-      note: hasStrongSpatialMatch ? 'matched via strong spatial match' : '',
+      note: hasStrongSpatialMatch
+          ? 'matched existing PeakBagger pid with strong spatial match'
+          : 'matched existing PeakBagger pid',
       safeToCreate: false,
     );
+  }
+
+  Future<Peak?> _backfillMatchedPeak({
+    required Peak peak,
+    required int peakbaggerPid,
+    required double? targetElevation,
+    required double? targetProminence,
+    required String targetCountry,
+    required String targetCounty,
+    required String targetRange,
+  }) async {
+    final updatedPeak = peak.copyWith(
+      peakbaggerPid: peak.peakbaggerPid ?? peakbaggerPid,
+      elevation: peak.elevation ?? targetElevation,
+      prominence: peak.prominence ?? targetProminence,
+      country: peak.country.trim().isEmpty ? targetCountry : peak.country,
+      county: peak.county.trim().isEmpty ? targetCounty : peak.county,
+      range: peak.range.trim().isEmpty ? targetRange : peak.range,
+    );
+
+    if (_peaksEqual(peak, updatedPeak)) {
+      return null;
+    }
+
+    final peakSource = _peakSource;
+    if (peakSource is! PeakRepository) {
+      return updatedPeak;
+    }
+
+    return await peakSource.save(updatedPeak);
+  }
+
+  void _replacePeakInList(List<Peak> peaks, Peak updatedPeak) {
+    for (var index = 0; index < peaks.length; index++) {
+      if (peaks[index].id == updatedPeak.id) {
+        peaks[index] = updatedPeak;
+        return;
+      }
+    }
+  }
+
+  bool _peaksEqual(Peak left, Peak right) {
+    return left.id == right.id &&
+        left.osmId == right.osmId &&
+        left.peakbaggerPid == right.peakbaggerPid &&
+        left.name == right.name &&
+        left.altName == right.altName &&
+        left.elevation == right.elevation &&
+        left.prominence == right.prominence &&
+        left.country == right.country &&
+        left.county == right.county &&
+        left.range == right.range &&
+        left.latitude == right.latitude &&
+        left.longitude == right.longitude &&
+        left.region == right.region &&
+        left.gridZoneDesignator == right.gridZoneDesignator &&
+        left.mgrs100kId == right.mgrs100kId &&
+        left.easting == right.easting &&
+        left.northing == right.northing &&
+        left.verified == right.verified &&
+        left.sourceOfTruth == right.sourceOfTruth;
   }
 
   int? _parseIntCell(String? value) {

@@ -1,29 +1,74 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/widgets.dart';
 import 'package:path/path.dart' as p;
-import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/services/peakbagger_csv_import_service.dart';
 import 'package:peak_bagger/services/peakbagger_csv_sync_service.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peakbagger_scraper.dart';
-import 'package:peak_bagger/services/peak_source.dart';
 
 const _defaultCsvPath = 'peak-bagger-peak-data.csv';
 
 class _SyncArgs {
-  const _SyncArgs({required this.csvPath, required this.createUnmatchedPeaks});
+  const _SyncArgs({
+    required this.csvPath,
+    required this.createUnmatchedPeaks,
+    required this.exactNameOnly,
+    required this.elevationOnly,
+    required this.elevationToleranceMeters,
+    required this.maxRows,
+  });
 
   final String csvPath;
   final bool createUnmatchedPeaks;
+  final bool exactNameOnly;
+  final bool elevationOnly;
+  final int elevationToleranceMeters;
+  final int? maxRows;
 }
 
 _SyncArgs _parseArgs(List<String> args) {
   var csvPath = _defaultCsvPath;
   var createUnmatchedPeaks = false;
+  var exactNameOnly = false;
+  var elevationOnly = false;
+  var elevationToleranceMeters = 10;
+  int? maxRows;
 
-  for (final arg in args) {
+  for (var index = 0; index < args.length; index++) {
+    final arg = args[index];
     if (arg == '--create-unmatched-peaks') {
       createUnmatchedPeaks = true;
+      continue;
+    }
+    if (arg == '--name' || arg == '-n') {
+      exactNameOnly = true;
+      continue;
+    }
+    if (arg == '--elevation' || arg == '-e') {
+      elevationOnly = true;
+      continue;
+    }
+    if (arg == '--tolerance' || arg == '-t') {
+      if (index + 1 >= args.length) {
+        throw ArgumentError('Missing value for $arg');
+      }
+      elevationToleranceMeters = int.parse(args[++index]);
+      if (elevationToleranceMeters < 0) {
+        throw ArgumentError('Tolerance must be non-negative');
+      }
+      continue;
+    }
+    if (arg == '--rows' || arg == '-r') {
+      if (index + 1 >= args.length) {
+        throw ArgumentError('Missing value for $arg');
+      }
+      maxRows = int.parse(args[++index]);
+      if (maxRows < 0) {
+        throw ArgumentError('Rows must be non-negative');
+      }
       continue;
     }
     if (arg.startsWith('-')) {
@@ -35,12 +80,20 @@ _SyncArgs _parseArgs(List<String> args) {
   return _SyncArgs(
     csvPath: csvPath,
     createUnmatchedPeaks: createUnmatchedPeaks,
+    exactNameOnly: exactNameOnly,
+    elevationOnly: elevationOnly,
+    elevationToleranceMeters: elevationToleranceMeters,
+    maxRows: maxRows,
   );
 }
 
 Future<PeakBaggerCsvSyncResult> syncPeakBaggerCsv({
   String csvPath = _defaultCsvPath,
   bool createUnmatchedPeaks = false,
+  bool exactNameOnly = false,
+  bool elevationOnly = false,
+  int elevationToleranceMeters = 10,
+  int? maxRows,
   PeakBaggerCsvSyncService? service,
   PeakBaggerCsvRowProgress? onRowProcessed,
   void Function(String message)? onWarning,
@@ -50,6 +103,10 @@ Future<PeakBaggerCsvSyncResult> syncPeakBaggerCsv({
     return service.syncCsv(
       csvPath: resolvedInputPath,
       createUnmatchedPeaks: createUnmatchedPeaks,
+      exactNameOnly: exactNameOnly,
+      elevationOnly: elevationOnly,
+      elevationToleranceMeters: elevationToleranceMeters,
+      maxRows: maxRows,
     );
   }
 
@@ -66,17 +123,76 @@ Future<PeakBaggerCsvSyncResult> syncPeakBaggerCsv({
     throw FileSystemException('Missing PeakBagger CSV input', csvPath);
   }
 
-  final peakSource = await _loadAssetPeakSource();
-  final syncService = PeakBaggerCsvSyncService(
-    peakSource: peakSource,
-    scraper: ProcessPeakBaggerScraper(),
-    onRowProcessed: onRowProcessed,
+  WidgetsFlutterBinding.ensureInitialized();
+  final store = await openStore();
+  try {
+    final peakRepository = PeakRepository(
+      store,
+      peakListRewritePort: ObjectBoxPeakListRewritePort(store),
+    );
+    final syncService = PeakBaggerCsvSyncService(
+      peakSource: peakRepository,
+      scraper: ProcessPeakBaggerScraper(),
+      onRowProcessed: onRowProcessed,
+    );
+    return await syncService.syncCsv(
+      csvPath: inputCsvPath,
+      createUnmatchedPeaks: createUnmatchedPeaks,
+      allowLiveLookups: false,
+      exactNameOnly: exactNameOnly,
+      elevationOnly: elevationOnly,
+      elevationToleranceMeters: elevationToleranceMeters,
+      maxRows: maxRows,
+    );
+  } finally {
+    store.close();
+  }
+}
+
+Future<PeakBaggerCsvSyncResult> runSyncPeakBaggerCsvTool({
+  List<String> args = const [],
+  PeakBaggerCsvSyncService? service,
+  RandomAccessFile? progressFile,
+  void Function(String message)? warningWriter,
+}) async {
+  final parsedArgs = _parseArgs(args);
+  var processedRows = 0;
+
+  final result = await syncPeakBaggerCsv(
+    csvPath: parsedArgs.csvPath,
+    createUnmatchedPeaks: parsedArgs.createUnmatchedPeaks,
+    exactNameOnly: parsedArgs.exactNameOnly,
+    elevationOnly: parsedArgs.elevationOnly,
+    elevationToleranceMeters: parsedArgs.elevationToleranceMeters,
+    maxRows: parsedArgs.maxRows,
+    service: service,
+    onWarning: (message) {
+      warningWriter?.call(message);
+      final logPath = p.join(Directory.current.path, 'logs', 'import.log');
+      final logFile = File(logPath);
+      logFile.parent.createSync(recursive: true);
+      logFile.writeAsStringSync(
+        '${_warningLogLine(message)}\n',
+        mode: FileMode.append,
+      );
+    },
+    onRowProcessed: (processed, total) {
+      processedRows = processed;
+      _writeProgress(progressFile, '.');
+      if (processed % 100 == 0 || processed == total) {
+        _writeProgress(progressFile, ' $processed/$total\n');
+      }
+    },
   );
-  return await syncService.syncCsv(
-    csvPath: inputCsvPath,
-    createUnmatchedPeaks: createUnmatchedPeaks,
-    allowLiveLookups: false,
-  );
+
+  if (processedRows > 0 && processedRows % 100 != 0) {
+    _writeProgress(
+      progressFile,
+      ' $processedRows/${result.report.processedCount}\n',
+    );
+  }
+
+  return result;
 }
 
 String _resolvedInputCsvPath(String csvPath) {
@@ -260,61 +376,6 @@ Future<String> refreshPeakBaggerLatLonCsv({
   return latLonCsvPath;
 }
 
-Future<PeakSource> _loadAssetPeakSource() async {
-  final peaksDirectory = Directory(
-    p.join(Directory.current.path, 'assets', 'peaks'),
-  );
-  if (!peaksDirectory.existsSync()) {
-    throw FileSystemException(
-      'Missing assets/peaks directory',
-      peaksDirectory.path,
-    );
-  }
-
-  final peaks = <Peak>[];
-  final entries =
-      peaksDirectory
-          .listSync(recursive: false)
-          .whereType<File>()
-          .where((file) => p.extension(file.path).toLowerCase() == '.json')
-          .toList(growable: false)
-        ..sort((a, b) => a.path.compareTo(b.path));
-
-  for (final file in entries) {
-    final decoded = jsonDecode(await file.readAsString());
-    if (decoded is! Map<String, dynamic>) {
-      continue;
-    }
-
-    final elements = decoded['elements'];
-    if (elements is! List) {
-      continue;
-    }
-
-    final region = p
-        .basenameWithoutExtension(file.path)
-        .replaceFirst(RegExp(r'-peaks$'), '');
-    for (final element in elements) {
-      if (element is! Map) {
-        continue;
-      }
-
-      try {
-        final peak = Peak.fromOverpass(
-          Map<String, dynamic>.from(element),
-        ).copyWith(region: region);
-        if (peak.name != 'Unknown') {
-          peaks.add(peak);
-        }
-      } catch (_) {
-        continue;
-      }
-    }
-  }
-
-  return InMemoryPeakSource(peaks);
-}
-
 String? _cacheRowKey(PeakBaggerCsvDocument document, int rowIndex) {
   final url =
       document.cellValueAt(rowIndex, 'Url') ??
@@ -371,7 +432,6 @@ String _warningLogLine(String message) {
 }
 
 Future<void> main(List<String> args) async {
-  final parsedArgs = _parseArgs(args);
   final progressFilePath = Platform.environment['PEAKBAGGER_PROGRESS_FILE'];
   RandomAccessFile? progressFile;
   if (progressFilePath != null && progressFilePath.isNotEmpty) {
@@ -380,37 +440,14 @@ Future<void> main(List<String> args) async {
     progressFile = file.openSync(mode: FileMode.writeOnlyAppend);
   }
 
-  var processedRows = 0;
   try {
-    final result = await syncPeakBaggerCsv(
-      csvPath: parsedArgs.csvPath,
-      createUnmatchedPeaks: parsedArgs.createUnmatchedPeaks,
-      onWarning: (message) {
-        stderr.writeln(message);
-        final logPath = p.join(Directory.current.path, 'logs', 'import.log');
-        final logFile = File(logPath);
-        logFile.parent.createSync(recursive: true);
-        logFile.writeAsStringSync(
-          '${_warningLogLine(message)}\n',
-          mode: FileMode.append,
-        );
-      },
-      onRowProcessed: (processed, total) {
-        processedRows = processed;
-        _writeProgress(progressFile, '.');
-        if (processed % 100 == 0 || processed == total) {
-          _writeProgress(progressFile, ' $processed/$total\n');
-        }
-      },
+    final result = await runSyncPeakBaggerCsvTool(
+      args: args,
+      progressFile: progressFile,
+      warningWriter: stderr.writeln,
     );
-
-    if (processedRows > 0 && processedRows % 100 != 0) {
-      _writeProgress(
-        progressFile,
-        ' $processedRows/${result.report.processedCount}\n',
-      );
-    }
     stdout.writeln(jsonEncode(result.report.toJson()));
+    exit(0);
   } finally {
     progressFile?.closeSync();
   }

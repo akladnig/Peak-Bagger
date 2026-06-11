@@ -32,15 +32,27 @@ class _CapturingService extends PeakBaggerCsvSyncService {
 
   String? csvPath;
   bool? createUnmatchedPeaks;
+  bool? exactNameOnly;
+  bool? elevationOnly;
+  int? elevationToleranceMeters;
+  int? maxRows;
 
   @override
   Future<PeakBaggerCsvSyncResult> syncCsv({
     required String csvPath,
     bool createUnmatchedPeaks = false,
     bool allowLiveLookups = true,
+    bool exactNameOnly = false,
+    bool elevationOnly = false,
+    int elevationToleranceMeters = 10,
+    int? maxRows,
   }) async {
     this.csvPath = csvPath;
     this.createUnmatchedPeaks = createUnmatchedPeaks;
+    this.exactNameOnly = exactNameOnly;
+    this.elevationOnly = elevationOnly;
+    this.elevationToleranceMeters = elevationToleranceMeters;
+    this.maxRows = maxRows;
     return const PeakBaggerCsvSyncResult(
       outputCsvPath: 'peak-bagger-peak-data-processed.csv',
       csvContents: 'csv',
@@ -107,6 +119,39 @@ void main() {
     expect(service.csvPath, 'peak-bagger-peak-data-lat-lon.csv');
     expect(service.createUnmatchedPeaks, isTrue);
     expect(result.csvContents, 'csv');
+  });
+
+  test(
+    'forwards name and elevation match options to the sync service',
+    () async {
+      final service = _CapturingService();
+
+      await syncPeakBaggerCsv(
+        csvPath: 'peak-bagger-peak-data.csv',
+        exactNameOnly: true,
+        elevationOnly: true,
+        elevationToleranceMeters: 7,
+        service: service,
+      );
+
+      expect(service.csvPath, 'peak-bagger-peak-data-lat-lon.csv');
+      expect(service.exactNameOnly, isTrue);
+      expect(service.elevationOnly, isTrue);
+      expect(service.elevationToleranceMeters, 7);
+    },
+  );
+
+  test('forwards the row limit to the sync service', () async {
+    final service = _CapturingService();
+
+    await syncPeakBaggerCsv(
+      csvPath: 'peak-bagger-peak-data.csv',
+      maxRows: 12,
+      service: service,
+    );
+
+    expect(service.csvPath, 'peak-bagger-peak-data-lat-lon.csv');
+    expect(service.maxRows, 12);
   });
 
   test('prefers the cached lat-lon csv when it exists', () async {

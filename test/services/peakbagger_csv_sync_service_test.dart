@@ -39,6 +39,10 @@ void main() {
     required PeakRepository repository,
     required PeakBaggerScraper scraper,
     bool createUnmatchedPeaks = false,
+    bool exactNameOnly = false,
+    bool elevationOnly = false,
+    int elevationToleranceMeters = 10,
+    int? maxRows,
     Map<String, String> outputs = const {},
   }) async {
     final captured = <String, String>{};
@@ -63,6 +67,10 @@ void main() {
     final result = await service.syncCsv(
       csvPath: 'peak-bagger-peak-data.csv',
       createUnmatchedPeaks: createUnmatchedPeaks,
+      exactNameOnly: exactNameOnly,
+      elevationOnly: elevationOnly,
+      elevationToleranceMeters: elevationToleranceMeters,
+      maxRows: maxRows,
     );
 
     for (final entry in outputs.entries) {
@@ -117,15 +125,15 @@ Mt Anne,1103,561,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.as
     expect(result.report.createdCount, 0);
     expect(result.report.unmatchedCount, 0);
     expect(result.report.fetchFailureCount, 0);
-    expect(result.report.rows.single.note, contains('matched via exact name'));
+    expect(result.report.rows.single.note, contains('exact name match'));
     expect(result.outputCsvPath, 'peak-bagger-peak-data-processed.csv');
     expect(result.report.csvPath, 'peak-bagger-peak-data-processed.csv');
 
     final savedPeak = repository.getAllPeaks().single;
-    expect(savedPeak.peakbaggerPid, isNull);
+    expect(savedPeak.peakbaggerPid, 74023);
     expect(savedPeak.sourceOfTruth, Peak.sourceOfTruthOsm);
-    expect(savedPeak.prominence, isNull);
-    expect(savedPeak.country, '');
+    expect(savedPeak.prominence, 561);
+    expect(savedPeak.country, 'Australia');
 
     expect(result.csvContents, contains('PeakBagger PID'));
     expect(result.csvContents, contains('Latitude'));
@@ -133,7 +141,7 @@ Mt Anne,1103,561,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.as
     expect(result.csvContents, contains('osmId'));
     expect(result.csvContents, contains('safeToCreate'));
     expect(result.csvContents, contains('false'));
-    expect(result.csvContents, contains('matched via exact name'));
+    expect(result.csvContents, contains('exact name match'));
   });
 
   test('uses csv elevation when scraper omits elevation', () async {
@@ -171,13 +179,54 @@ Jurjev vrh,155.7,155.7,Croatia,Dubrovnik-Neretva,,Dinaric Alps,https://www.peakb
 ''',
       outputs: {
         'peak-bagger-peak-data.sync-report.json': 'strong-name-exact',
-        'peak-bagger-peak-data-processed.csv': 'matched via exact name',
+        'peak-bagger-peak-data-processed.csv': 'exact name match',
       },
     );
 
     expect(result.report.rows.single.action, 'strong-name-exact');
-    expect(result.report.rows.single.note, 'matched via exact name');
-    expect(result.csvContents, contains('matched via exact name'));
+    expect(result.report.rows.single.note, 'exact name match');
+    expect(result.csvContents, contains('exact name match'));
+  });
+
+  test('writes a note for pid reuse matches', () async {
+    final repository = repositoryWith([
+      Peak(
+        id: 1,
+        osmId: 123,
+        peakbaggerPid: 74023,
+        name: 'Abbotts Lookout',
+        latitude: -42.780553,
+        longitude: 146.654086,
+        elevation: 1103,
+        region: 'Tasmania',
+      ),
+    ]);
+    final scraper = _FakePeakBaggerScraper({
+      74023: const PeakBaggerPeakDetails(
+        peakbaggerPid: 74023,
+        name: 'Abbotts Lookout',
+        latitude: -42.780553,
+        longitude: 146.654086,
+        elevation: 1103,
+      ),
+    });
+
+    final result = await runSync(
+      repository: repository,
+      scraper: scraper,
+      csv: '''
+Peak,Elev-M,Prom-M,Country,Region,County,Range,Url
+Abbotts Lookout,1103,561,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.aspx?pid=74023
+''',
+      outputs: {
+        'peak-bagger-peak-data-processed.csv':
+            'matched existing PeakBagger pid',
+      },
+    );
+
+    expect(result.report.rows.single.action, 'pid-reuse');
+    expect(result.report.rows.single.note, 'matched existing PeakBagger pid');
+    expect(result.csvContents, contains('matched existing PeakBagger pid'));
   });
 
   test('skips PeakBagger lookups when cached lat/lon are present', () async {
@@ -201,9 +250,7 @@ Jurjev vrh,155.7,155.7,Croatia,Dubrovnik-Neretva,,Dinaric Alps,https://www.peakb
 Peak,Elev-M,Prom-M,Country,Region,County,Range,Url,Latitude,Longitude
 Mount Giblin,884,240,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.aspx?pid=77037,-43.006468,146.185842
 ''',
-      outputs: {
-        'peak-bagger-peak-data-processed.csv': 'matched via exact name',
-      },
+      outputs: {'peak-bagger-peak-data-processed.csv': 'exact name match'},
     );
 
     expect(result.report.rows.single.action, 'strong-name-exact');
@@ -247,11 +294,11 @@ Mount Giblin,884,240,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/pea
 Peak,Elev-M,Prom-M,Country,Region,County,Range,Url
 Mount Giblin,884,240,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.aspx?pid=77037
 ''',
-        outputs: {'logs/import.log': 'note=matched via exact name'},
+        outputs: {'logs/import.log': 'detail=exact name match'},
       );
 
       expect(result.report.rows.single.action, 'strong-name-exact');
-      expect(result.report.rows.single.note, 'matched via exact name');
+      expect(result.report.rows.single.note, 'exact name match');
     },
   );
 
@@ -278,19 +325,17 @@ Mount Giblin,884,240,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/pea
 Peak,Elev-M,Prom-M,Country,Region,County,Range,Url,Latitude,Longitude
 Mount Giblin,884,240,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.aspx?pid=77037,,
 ''',
-        outputs: {
-          'peak-bagger-peak-data-processed.csv': 'matched via exact name',
-        },
+        outputs: {'peak-bagger-peak-data-processed.csv': 'exact name match'},
       );
 
       expect(result.report.rows.single.action, 'strong-name-exact');
-      expect(result.report.rows.single.note, 'matched via exact name');
-      expect(result.csvContents, contains('matched via exact name'));
+      expect(result.report.rows.single.note, 'exact name match');
+      expect(result.csvContents, contains('exact name match'));
       expect(result.csvContents, isNot(contains('spatial diff:')));
     },
   );
 
-  test('does not update objectbox peak metadata during review mode', () async {
+  test('fills missing peak metadata when a match is found', () async {
     final repository = repositoryWith([
       Peak(
         id: 1,
@@ -298,11 +343,11 @@ Mount Giblin,884,240,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/pea
         name: 'Mt Anne',
         latitude: -40,
         longitude: 145,
-        elevation: 900,
-        prominence: 100,
-        country: 'Old Country',
-        county: 'Old County',
-        range: 'Old Range',
+        elevation: null,
+        prominence: null,
+        country: '',
+        county: '',
+        range: '',
         region: 'Old Region',
       ),
     ]);
@@ -331,13 +376,67 @@ Mt Anne,1103,561,Australia,Tasmania,Hobart,Tasmania Ranges,https://www.peakbagge
     );
 
     final savedPeak = repository.getAllPeaks().single;
-    expect(savedPeak.elevation, 900);
-    expect(savedPeak.prominence, 100);
-    expect(savedPeak.country, 'Old Country');
+    expect(savedPeak.peakbaggerPid, 74023);
+    expect(savedPeak.elevation, 1103);
+    expect(savedPeak.prominence, 561);
+    expect(savedPeak.country, 'Australia');
     expect(savedPeak.region, 'Old Region');
-    expect(savedPeak.county, 'Old County');
-    expect(savedPeak.range, 'Old Range');
+    expect(savedPeak.county, 'Hobart');
+    expect(savedPeak.range, 'Tasmania Ranges');
   });
+
+  test(
+    'does not overwrite existing peak metadata when a match is found',
+    () async {
+      final repository = repositoryWith([
+        Peak(
+          id: 1,
+          osmId: 123,
+          peakbaggerPid: 74023,
+          name: 'Mt Anne',
+          latitude: -40,
+          longitude: 145,
+          elevation: 900,
+          prominence: 100,
+          country: 'Old Country',
+          county: 'Old County',
+          range: 'Old Range',
+          region: 'Old Region',
+        ),
+      ]);
+      final scraper = _FakePeakBaggerScraper({
+        74023: const PeakBaggerPeakDetails(
+          peakbaggerPid: 74023,
+          name: 'Mt Anne',
+          latitude: -41.5,
+          longitude: 146.5,
+          elevation: null,
+          prominence: null,
+          country: '',
+          county: '',
+          range: '',
+          osmId: 123,
+        ),
+      });
+
+      await runSync(
+        repository: repository,
+        scraper: scraper,
+        csv: '''
+Peak,Elev-M,Prom-M,Country,Region,County,Range,Url
+Mt Anne,1103,561,Australia,Tasmania,Hobart,Tasmania Ranges,https://www.peakbagger.com/peak.aspx?pid=74023
+''',
+      );
+
+      final savedPeak = repository.getAllPeaks().single;
+      expect(savedPeak.elevation, 900);
+      expect(savedPeak.prominence, 100);
+      expect(savedPeak.country, 'Old Country');
+      expect(savedPeak.region, 'Old Region');
+      expect(savedPeak.county, 'Old County');
+      expect(savedPeak.range, 'Old Range');
+    },
+  );
 
   test('records unresolved rows without creating peaks', () async {
     final repository = repositoryWith(const []);
@@ -420,5 +519,109 @@ Mt Anne,1103,561,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.as
     expect(result.report.unmatchedCount, 1);
     expect(result.report.rows.single.action, 'unresolved');
     expect(repository.getAllPeaks(), isEmpty);
+  });
+
+  test('applies exact-name-only matching when requested', () async {
+    final repository = repositoryWith([
+      Peak(
+        id: 1,
+        osmId: 123,
+        name: 'Mount Giblin North',
+        latitude: -43.006468,
+        longitude: 146.185842,
+        elevation: 884,
+        region: 'Tasmania',
+      ),
+    ]);
+    final scraper = _FakePeakBaggerScraper({}, available: false);
+
+    final result = await runSync(
+      repository: repository,
+      scraper: scraper,
+      exactNameOnly: true,
+      csv: '''
+Peak,Elev-M,Prom-M,Country,Region,County,Range,Url,Latitude,Longitude
+Mount Giblin,884,240,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.aspx?pid=77037,-43.006468,146.185842
+''',
+    );
+
+    expect(result.report.unmatchedCount, 1);
+    expect(result.report.rows.single.action, 'unresolved');
+    expect(result.report.rows.single.note, contains('no exact-name match'));
+  });
+
+  test('applies elevation-only matching when requested', () async {
+    final repository = repositoryWith([
+      Peak(
+        id: 1,
+        osmId: 123,
+        name: 'Completely Different Peak',
+        latitude: -43.006468,
+        longitude: 146.185842,
+        elevation: 887,
+        region: 'Tasmania',
+      ),
+    ]);
+    final scraper = _FakePeakBaggerScraper({}, available: false);
+
+    final result = await runSync(
+      repository: repository,
+      scraper: scraper,
+      elevationOnly: true,
+      elevationToleranceMeters: 5,
+      csv: '''
+Peak,Elev-M,Prom-M,Country,Region,County,Range,Url,Latitude,Longitude
+Mount Giblin,884,240,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.aspx?pid=77037,-43.006468,146.185842
+''',
+    );
+
+    expect(result.report.updatedCount, 1);
+    expect(result.report.rows.single.action, 'elevation-match');
+    expect(result.report.rows.single.note, contains('elevation match'));
+  });
+
+  test('limits processing to the requested number of rows', () async {
+    final repository = repositoryWith([
+      Peak(
+        id: 1,
+        osmId: 123,
+        name: 'Mt Anne',
+        latitude: -41.5,
+        longitude: 146.5,
+        elevation: 1103,
+        region: 'Tasmania',
+      ),
+    ]);
+    final scraper = _FakePeakBaggerScraper({
+      74023: const PeakBaggerPeakDetails(
+        peakbaggerPid: 74023,
+        name: 'Mt Anne',
+        latitude: -41.5,
+        longitude: 146.5,
+        elevation: 1103,
+      ),
+      74024: const PeakBaggerPeakDetails(
+        peakbaggerPid: 74024,
+        name: 'Unknown Peak',
+        latitude: -41.6,
+        longitude: 146.6,
+        elevation: 900,
+      ),
+    });
+
+    final result = await runSync(
+      repository: repository,
+      scraper: scraper,
+      maxRows: 1,
+      csv: '''
+Peak,Elev-M,Prom-M,Country,Region,County,Range,Url
+Mt Anne,1103,561,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.aspx?pid=74023
+Unknown Peak,900,200,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.aspx?pid=74024
+''',
+    );
+
+    expect(result.report.processedCount, 1);
+    expect(result.report.rows, hasLength(1));
+    expect(result.report.rows.single.peakbaggerPid, 74023);
   });
 }
