@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:csv/csv.dart';
 
 class PeakProminenceCsvFormatException implements Exception {
@@ -65,50 +67,33 @@ class PeakProminenceCsvService {
   const PeakProminenceCsvService();
 
   PeakProminenceCsvDocument parse(String contents) {
-    final rawRows = const CsvToListConverter(
-      shouldParseNumbers: false,
-      eol: '\n',
-    ).convert(contents);
+    return PeakProminenceCsvDocument(
+      rows: parseRows(const LineSplitter().convert(contents)).toList(growable: false),
+    );
+  }
 
-    final rows = <PeakProminenceCsvRow>[];
-    for (var index = 0; index < rawRows.length; index++) {
-      final rawRow = rawRows[index];
-      if (_isBlankRow(rawRow)) {
-        continue;
+  Iterable<PeakProminenceCsvRow> parseRows(Iterable<String> lines) sync* {
+    final parser = _StreamingPeakProminenceCsvParser(this);
+    var lineNumber = 0;
+    for (final line in lines) {
+      lineNumber += 1;
+      final row = parser.parseLine(line, lineNumber);
+      if (row != null) {
+        yield row;
       }
-
-      if (rawRow.length != 6) {
-        throw PeakProminenceCsvFormatException(
-          'expected 6 columns but found ${rawRow.length}: ${rawRow.join(',')}',
-          lineNumber: index + 1,
-        );
-      }
-
-      final lineNumber = index + 1;
-      rows.add(
-        PeakProminenceCsvRow(
-          lineNumber: lineNumber,
-          latitude: _parseDouble(rawRow[0], lineNumber: lineNumber, column: 1),
-          longitude: _parseDouble(rawRow[1], lineNumber: lineNumber, column: 2),
-          elevation: _parseDouble(rawRow[2], lineNumber: lineNumber, column: 3),
-          keySaddleLatitude: _parseDouble(
-            rawRow[3],
-            lineNumber: lineNumber,
-            column: 4,
-          ),
-          keySaddleLongitude: _parseDouble(
-            rawRow[4],
-            lineNumber: lineNumber,
-            column: 5,
-          ),
-          prominence: _parseDouble(rawRow[5], lineNumber: lineNumber, column: 6),
-        ),
-      );
     }
+  }
 
-    final document = PeakProminenceCsvDocument(rows: rows);
-    validate(document);
-    return document;
+  Stream<PeakProminenceCsvRow> parseRowStream(Stream<String> lines) async* {
+    final parser = _StreamingPeakProminenceCsvParser(this);
+    var lineNumber = 0;
+    await for (final line in lines) {
+      lineNumber += 1;
+      final row = parser.parseLine(line, lineNumber);
+      if (row != null) {
+        yield row;
+      }
+    }
   }
 
   void validate(PeakProminenceCsvDocument document) {
@@ -141,7 +126,62 @@ class PeakProminenceCsvService {
     return parsed;
   }
 
-  bool _isBlankRow(List<dynamic> row) {
-    return row.every((cell) => '$cell'.trim().isEmpty);
+  PeakProminenceCsvRow? parseRawLine(String line, int lineNumber) {
+    final trimmedLine = line.replaceAll('\r', '');
+    if (trimmedLine.trim().isEmpty) {
+      return null;
+    }
+
+    final rawRow = trimmedLine.split(',');
+    if (rawRow.length != 6) {
+      throw PeakProminenceCsvFormatException(
+        'expected 6 columns but found ${rawRow.length}: ${rawRow.join(',')}',
+        lineNumber: lineNumber,
+      );
+    }
+
+    return PeakProminenceCsvRow(
+      lineNumber: lineNumber,
+      latitude: _parseDouble(rawRow[0], lineNumber: lineNumber, column: 1),
+      longitude: _parseDouble(rawRow[1], lineNumber: lineNumber, column: 2),
+      elevation: _parseDouble(rawRow[2], lineNumber: lineNumber, column: 3),
+      keySaddleLatitude: _parseDouble(rawRow[3], lineNumber: lineNumber, column: 4),
+      keySaddleLongitude: _parseDouble(rawRow[4], lineNumber: lineNumber, column: 5),
+      prominence: _parseDouble(rawRow[5], lineNumber: lineNumber, column: 6),
+    );
+  }
+
+  void validateProminenceOrder({
+    required double? previousProminence,
+    required PeakProminenceCsvRow row,
+  }) {
+    final currentProminence = row.prominence;
+    if (previousProminence != null && currentProminence > previousProminence) {
+      throw PeakProminenceCsvFormatException(
+        'expected prominence to be sorted descending, but line ${row.lineNumber} has ${currentProminence.toStringAsFixed(2)} after ${previousProminence.toStringAsFixed(2)}',
+        lineNumber: row.lineNumber,
+      );
+    }
+  }
+}
+
+class _StreamingPeakProminenceCsvParser {
+  _StreamingPeakProminenceCsvParser(this._service);
+
+  final PeakProminenceCsvService _service;
+  double? _previousProminence;
+
+  PeakProminenceCsvRow? parseLine(String line, int lineNumber) {
+    final row = _service.parseRawLine(line, lineNumber);
+    if (row == null) {
+      return null;
+    }
+
+    _service.validateProminenceOrder(
+      previousProminence: _previousProminence,
+      row: row,
+    );
+    _previousProminence = row.prominence;
+    return row;
   }
 }

@@ -75,8 +75,8 @@ Error flows:
 14. If the file is not sorted by decreasing prominence, fail validation at the first out-of-order pair.
 15. If a CSV row cannot be correlated confidently, leave the matching `Peak` unchanged and record the row as unresolved instead of guessing.
 16. If persistence fails for a matched row, continue best-effort with later rows, report the failure deterministically, and do not silently drop the update.
-17. If a CSV row cannot be correlated, append one timestamped error entry per unresolved CSV row per run to `./logs/prominence.log`.
-18. After the full correlation pass, append one timestamped informational entry per unmatched ObjectBox `Peak` entity per run to `./logs/prominence.log` with `action=not-found-in-dataset`.
+17. If a CSV row cannot be correlated, append one timestamped error entry per unresolved CSV row per run to `./logs/prominence-unresolved-csv.log`.
+18. After the full correlation pass, append one timestamped informational entry per unmatched ObjectBox `Peak` entity per run to `./logs/prominence-not-found-in-dataset.log` with `action=not-found-in-dataset`.
 
 **Edge Cases:**
 19. Handle peaks whose key saddle is the `0,0` sentinel without treating them as invalid.
@@ -129,12 +129,13 @@ Implementation expectations:
 - Keep parsing logic isolated from CLI argument handling.
 - Use a small record model with explicit field names instead of a loosely typed list of doubles.
 - Make validation available as a pure function or service method so tests can cover it without spawning a process.
-- Keep correlation behavior narrow and deterministic: coordinate-first matching, a 30m/10m window, lat/lon-only fallback when `Peak.elevation` is missing, and ascending-`Peak.id` tie resolution for accidental multi-hit windows.
+- Keep correlation behavior narrow and deterministic: coordinate-first matching, a 150m/100m window, lat/lon-only fallback when `Peak.elevation` is missing, and ascending-`Peak.id` tie resolution for accidental multi-hit windows.
 - Preserve the raw CSV as the single source of truth.
 - Prefer a transient in-memory index first; only add a derived lookup artifact if the in-memory path is too slow or too memory-heavy.
 - Use the existing `PeakRepository.saveDetailed()` flow for matched rows so the update remains on the existing ObjectBox entity identity.
 - For dry run, export all ObjectBox peaks using the same field order in the spec so reviewers can compare before/after without opening the app; matched rows should reflect the proposed prominence value, unmatched peaks should retain their current stored prominence value unchanged, and output should be sorted by `id`.
-- Write `./logs/prominence.log` using one line per event in the format `<iso8601-utc> peakId=<id> name=<name> action=<action> detail=<detail>` for unmatched ObjectBox peaks, and `<iso8601-utc> latitude=<lat> longitude=<lon> elevation=<elev-or-empty> action=unresolved-csv-row detail=<detail>` for unresolved CSV rows.
+- Write `./logs/prominence-unresolved-csv.log` using one line per unresolved CSV row in the format `<iso8601-utc> latitude=<lat> longitude=<lon> elevation=<elev-or-empty> action=unresolved-csv-row detail=<detail>`.
+- Write `./logs/prominence-not-found-in-dataset.log` using one line per unmatched ObjectBox peak in the format `<iso8601-utc> peakId=<id> name=<name> action=<action> detail=<detail>`.
 - The run report should include at least `matchedCount`, `updatedCount`, `unresolvedCsvRowCount`, `unmatchedPeakCount`, and `writeFailureCount`.
 
 Avoid:
