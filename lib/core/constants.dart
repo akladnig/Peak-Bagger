@@ -12,6 +12,12 @@ abstract final class MapConstants {
   static const peakMinZoom = 8;
   static const peakInfoMinZoom = 12.0;
   static const peakInfoLabelMaxCharacters = 20;
+  static const peakClusterRadius = 28.0;
+  static const peakClusterTapRadius = 18.0;
+  static const peakClusterVisualRadius = 18.0;
+  static const peakMarkerExclusionRadius = 14.0;
+  static const peakClusterExpandPadding = 48.0;
+  static const peakViewportPadding = 24.0;
   static const peakMaxZoom = 18;
   static const driveEtaMinZoom = 6.0;
   static const trackMinZoom = 6;

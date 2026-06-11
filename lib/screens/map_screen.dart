@@ -32,6 +32,7 @@ import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/providers/gpx_export_provider.dart';
 import 'package:peak_bagger/services/peak_hover_detector.dart';
+import 'package:peak_bagger/services/peak_cluster_engine.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/route_graph_trail_provider.dart';
 import 'package:peak_bagger/services/route_hover_detector.dart';
@@ -54,6 +55,7 @@ import 'package:peak_bagger/widgets/tasmap_polygon_label.dart';
 import 'package:peak_bagger/widgets/dialog_helpers.dart';
 
 import 'map_screen_layers.dart';
+import 'map_screen_peak_layer.dart';
 import 'map_screen_panels.dart';
 
 class DismissSurfaceIntent extends Intent {
@@ -790,6 +792,78 @@ class _MapScreenState extends ConsumerState<MapScreen>
     }
     ref.read(mapProvider.notifier).closeHoveredPeakInfoPopup();
     return null;
+  }
+
+  PeakCluster? _hitTestPeakCluster(
+    Offset localPosition,
+    MapState mapState,
+    List<Peak> peaks,
+  ) {
+    if (!mapState.showPeaks || mapState.zoom < MapConstants.peakMinZoom) {
+      return null;
+    }
+
+    final camera = _mapController.camera;
+    if (camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      return null;
+    }
+
+    final viewportData = buildPeakClusterViewportData(
+      peaks: peaks,
+      camera: camera,
+      correlatedPeakIds: ref.read(mapProvider.notifier).correlatedPeakIds,
+    );
+    return hitTestPeakCluster(
+      pointerPosition: localPosition,
+      data: viewportData,
+    );
+  }
+
+  void _expandPeakCluster(PeakCluster cluster) {
+    final notifier = ref.read(mapProvider.notifier);
+    notifier.clearHoveredPeak();
+    notifier.clearHoveredTrack();
+    notifier.clearHoveredRoute();
+    if (ref.read(mapProvider).peakInfoPeak != null) {
+      notifier.closePeakInfoPopup();
+    }
+
+    final points = cluster.points;
+    if (points.isEmpty) {
+      return;
+    }
+
+    final request = PendingCameraRequest(
+      center: points.first,
+      zoom: _mapController.camera.zoom,
+      serial: ref.read(mapProvider).cameraRequestSerial + 1,
+      persist: true,
+      clearHoveredPeakId: true,
+      clearHoveredTrackId: true,
+    );
+
+    if (peakClusterNeedsZoomFallback(points)) {
+      _applyAcceptedCameraMove(
+        request.copyWith(
+          zoom: (_mapController.camera.zoom + 2).clamp(
+            MapConstants.peakMinZoom.toDouble(),
+            MapConstants.peakMaxZoom.toDouble(),
+          ),
+        ),
+      );
+      return;
+    }
+
+    final bounds = LatLngBounds.fromPoints(points);
+    _applyAcceptedCameraFit(
+      request,
+      () => _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: bounds,
+          padding: const EdgeInsets.all(MapConstants.peakClusterExpandPadding),
+        ),
+      ),
+    );
   }
 
   List<PeakHoverCandidate> _buildPeakHoverCandidates(
@@ -2390,6 +2464,15 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                             );
                                             return;
                                           }
+                                          final tappedCluster = _hitTestPeakCluster(
+                                            event.localPosition,
+                                            ref.read(mapProvider),
+                                            ref.read(filteredPeaksProvider),
+                                          );
+                                          if (tappedCluster != null) {
+                                            _expandPeakCluster(tappedCluster);
+                                            return;
+                                          }
                                           final tappedPeak = _hitTestPeak(
                                             event.localPosition,
                                             ref.read(mapProvider),
@@ -2722,25 +2805,18 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                       state.hoveredPeakId,
                                                 ),
                                               );
-                                              return MarkerLayer(
-                                                key: const Key(
-                                                  'peak-marker-layer',
-                                                ),
-                                                markers: buildPeakMarkers(
-                                                  peaks: filteredPeaks,
-                                                  zoom: mapScene.zoom,
-                                                  showPeakInfo: showPeakInfo,
-                                                  correlatedPeakIds: ref
-                                                      .read(
-                                                        mapProvider.notifier,
-                                                      )
-                                                      .correlatedPeakIds,
-                                                  tickedPeakMarker:
-                                                      _tickedPeakMarker,
-                                                  untickedPeakMarker:
-                                                      _untickedPeakMarker,
-                                                  hoveredPeakId: hoveredPeakId,
-                                                ),
+                                              return MapScreenPeakLayer(
+                                                peaks: filteredPeaks,
+                                                zoom: mapScene.zoom,
+                                                showPeakInfo: showPeakInfo,
+                                                correlatedPeakIds: ref
+                                                    .read(mapProvider.notifier)
+                                                    .correlatedPeakIds,
+                                                tickedPeakMarker:
+                                                    _tickedPeakMarker,
+                                                untickedPeakMarker:
+                                                    _untickedPeakMarker,
+                                                hoveredPeakId: hoveredPeakId,
                                               );
                                             },
                                           ),
