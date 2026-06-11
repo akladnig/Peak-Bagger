@@ -33,7 +33,26 @@ Mt Anne,1103,561,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.as
     expect(csv, contains('matched via strong-name fallback'));
 
     service.setSyncColumns(document, 0, note: '');
-    expect(service.write(document), isNot(contains('matched via strong-name fallback')));
+    expect(
+      service.write(document),
+      isNot(contains('matched via strong-name fallback')),
+    );
+  });
+
+  test('keeps cached peak details when latitude and longitude are missing', () {
+    final service = PeakBaggerCsvImportService();
+    final document = service.parse('''
+Peak,Elev-M,Prom-M,Country,Region,County,Range,Url,Latitude,Longitude
+Mt Anne,1103,561,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.aspx?pid=74023,,
+''');
+
+    final details = service.cachedPeakDetailsForRow(document, 0);
+
+    expect(details, isNotNull);
+    expect(details!.peakbaggerPid, 74023);
+    expect(details.latitude, isNull);
+    expect(details.longitude, isNull);
+    expect(details.hasCoordinates, isFalse);
   });
 
   test('falls back to State/Prov when region header differs', () {
@@ -67,7 +86,10 @@ Mt Anne,1103,561,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.as
     final lines = csv.trimRight().split('\n');
 
     expect(lines, hasLength(2));
-    expect(lines.first, contains('Url,PeakBagger PID,Latitude,Longitude,note,osmId'));
+    expect(
+      lines.first,
+      contains('Url,PeakBagger PID,Latitude,Longitude,note,osmId'),
+    );
     expect(lines.last, contains('peak.aspx?pid=74023,74023,-41.5,146.5,ok,-1'));
   });
 }

@@ -37,9 +37,15 @@ class PeakBaggerPeakCorrelationService {
     required PeakBaggerPeakDetails peakBaggerPeak,
     required Peak peak,
   }) {
+    if (!peakBaggerPeak.hasCoordinates) {
+      return false;
+    }
+
+    final peakBaggerLatitude = peakBaggerPeak.latitude!;
+    final peakBaggerLongitude = peakBaggerPeak.longitude!;
     final distanceMeters = haversineDistance(
-      peakBaggerPeak.latitude,
-      peakBaggerPeak.longitude,
+      peakBaggerLatitude,
+      peakBaggerLongitude,
       peak.latitude,
       peak.longitude,
     );
@@ -54,7 +60,10 @@ class PeakBaggerPeakCorrelationService {
     required PeakBaggerPeakDetails peakBaggerPeak,
     required List<Peak> peaks,
   }) {
-    final nearestDistanceMeters = _nearestDistanceMeters(peakBaggerPeak, peaks);
+    final hasCoordinates = peakBaggerPeak.hasCoordinates;
+    final nearestDistanceMeters = hasCoordinates
+        ? _nearestDistanceMeters(peakBaggerPeak, peaks)
+        : null;
 
     final exactPrimaryNameMatches = <Peak>[];
     final exactPrimaryNameMatchIds = <int>{};
@@ -67,32 +76,40 @@ class PeakBaggerPeakCorrelationService {
     }
 
     final spatialCandidates = <_SpatialCandidate>[];
-    for (final peak in peaks) {
-      final distanceMeters = haversineDistance(
-        peakBaggerPeak.latitude,
-        peakBaggerPeak.longitude,
-        peak.latitude,
-        peak.longitude,
-      );
-      if (distanceMeters > spatialThresholdMeters) {
-        continue;
+    if (hasCoordinates) {
+      final peakBaggerLatitude = peakBaggerPeak.latitude!;
+      final peakBaggerLongitude = peakBaggerPeak.longitude!;
+      for (final peak in peaks) {
+        final distanceMeters = haversineDistance(
+          peakBaggerLatitude,
+          peakBaggerLongitude,
+          peak.latitude,
+          peak.longitude,
+        );
+        if (distanceMeters > spatialThresholdMeters) {
+          continue;
+        }
+
+        if (!_hasCompatibleElevation(
+          peakBaggerPeak.elevation,
+          peak.elevation,
+        )) {
+          continue;
+        }
+
+        final elevationDifference =
+            peakBaggerPeak.elevation == null || peak.elevation == null
+            ? 0
+            : (peakBaggerPeak.elevation! - peak.elevation!).abs().round();
+
+        spatialCandidates.add(
+          _SpatialCandidate(
+            peak: peak,
+            distanceMeters: distanceMeters,
+            elevationDifference: elevationDifference,
+          ),
+        );
       }
-
-      if (!_hasCompatibleElevation(peakBaggerPeak.elevation, peak.elevation)) {
-        continue;
-      }
-
-      final elevationDifference = peakBaggerPeak.elevation == null || peak.elevation == null
-          ? 0
-          : (peakBaggerPeak.elevation! - peak.elevation!).abs().round();
-
-      spatialCandidates.add(
-        _SpatialCandidate(
-          peak: peak,
-          distanceMeters: distanceMeters,
-          elevationDifference: elevationDifference,
-        ),
-      );
     }
 
     if (spatialCandidates.isNotEmpty) {
@@ -167,7 +184,8 @@ class PeakBaggerPeakCorrelationService {
     final nameMatches = <Peak>[];
     final weakNameMatches = <Peak>[];
     for (final peak in peaks) {
-      final hasExactNameMatch = _hasExactNameMatch(peakBaggerPeak.name, peak.altName) ||
+      final hasExactNameMatch =
+          _hasExactNameMatch(peakBaggerPeak.name, peak.altName) ||
           _hasExactNameMatch(peakBaggerPeak.altName, peak.name) ||
           _hasExactNameMatch(peakBaggerPeak.altName, peak.altName);
       if (hasExactNameMatch &&
@@ -259,7 +277,8 @@ class PeakBaggerPeakCorrelationService {
     return PeakBaggerCorrelationResult(
       peak: null,
       action: 'unresolved',
-      detail: 'no confident spatial match and no strong-name match$distanceSuffix',
+      detail:
+          'no confident spatial match and no strong-name match$distanceSuffix',
       note:
           'unresolved: no confident spatial match and no strong-name match$distanceSuffix',
       safeToCreate: weakNameMatches.isEmpty,
@@ -270,15 +289,18 @@ class PeakBaggerPeakCorrelationService {
     PeakBaggerPeakDetails peakBaggerPeak,
     List<Peak> peaks,
   ) {
+    final peakBaggerLatitude = peakBaggerPeak.latitude!;
+    final peakBaggerLongitude = peakBaggerPeak.longitude!;
     double? nearestDistanceMeters;
     for (final peak in peaks) {
       final distanceMeters = haversineDistance(
-        peakBaggerPeak.latitude,
-        peakBaggerPeak.longitude,
+        peakBaggerLatitude,
+        peakBaggerLongitude,
         peak.latitude,
         peak.longitude,
       );
-      if (nearestDistanceMeters == null || distanceMeters < nearestDistanceMeters) {
+      if (nearestDistanceMeters == null ||
+          distanceMeters < nearestDistanceMeters) {
         nearestDistanceMeters = distanceMeters;
       }
     }
@@ -311,43 +333,65 @@ class PeakBaggerPeakCorrelationService {
   }) {
     final compatibleCandidates = peaks
         .where(
-          (peak) => _hasCompatibleElevation(peakBaggerPeak.elevation, peak.elevation),
+          (peak) =>
+              _hasCompatibleElevation(peakBaggerPeak.elevation, peak.elevation),
         )
         .toList(growable: false);
     if (compatibleCandidates.isEmpty) {
       return null;
     }
 
-    compatibleCandidates.sort((a, b) {
-      final distanceCompare = haversineDistance(
-        peakBaggerPeak.latitude,
-        peakBaggerPeak.longitude,
-        a.latitude,
-        a.longitude,
-      ).compareTo(
-        haversineDistance(
-          peakBaggerPeak.latitude,
-          peakBaggerPeak.longitude,
-          b.latitude,
-          b.longitude,
-        ),
-      );
-      if (distanceCompare != 0) {
-        return distanceCompare;
-      }
+    if (peakBaggerPeak.hasCoordinates) {
+      final peakBaggerLatitude = peakBaggerPeak.latitude!;
+      final peakBaggerLongitude = peakBaggerPeak.longitude!;
+      compatibleCandidates.sort((a, b) {
+        final distanceCompare =
+            haversineDistance(
+              peakBaggerLatitude,
+              peakBaggerLongitude,
+              a.latitude,
+              a.longitude,
+            ).compareTo(
+              haversineDistance(
+                peakBaggerLatitude,
+                peakBaggerLongitude,
+                b.latitude,
+                b.longitude,
+              ),
+            );
+        if (distanceCompare != 0) {
+          return distanceCompare;
+        }
 
-      final elevationCompare = _elevationDifferenceValue(
-        peakBaggerPeak.elevation,
-        a.elevation,
-      ).compareTo(
-        _elevationDifferenceValue(peakBaggerPeak.elevation, b.elevation),
-      );
-      if (elevationCompare != 0) {
-        return elevationCompare;
-      }
+        final elevationCompare =
+            _elevationDifferenceValue(
+              peakBaggerPeak.elevation,
+              a.elevation,
+            ).compareTo(
+              _elevationDifferenceValue(peakBaggerPeak.elevation, b.elevation),
+            );
+        if (elevationCompare != 0) {
+          return elevationCompare;
+        }
 
-      return a.id.compareTo(b.id);
-    });
+        return a.id.compareTo(b.id);
+      });
+    } else {
+      compatibleCandidates.sort((a, b) {
+        final elevationCompare =
+            _elevationDifferenceValue(
+              peakBaggerPeak.elevation,
+              a.elevation,
+            ).compareTo(
+              _elevationDifferenceValue(peakBaggerPeak.elevation, b.elevation),
+            );
+        if (elevationCompare != 0) {
+          return elevationCompare;
+        }
+
+        return a.id.compareTo(b.id);
+      });
+    }
 
     return compatibleCandidates.first;
   }
@@ -373,17 +417,23 @@ class PeakBaggerPeakCorrelationService {
     required PeakBaggerPeakDetails peakBaggerPeak,
     required Peak peak,
   }) {
+    if (!peakBaggerPeak.hasCoordinates) {
+      return '';
+    }
+
+    final peakBaggerLatitude = peakBaggerPeak.latitude!;
+    final peakBaggerLongitude = peakBaggerPeak.longitude!;
     final distanceMeters = haversineDistance(
-      peakBaggerPeak.latitude,
-      peakBaggerPeak.longitude,
+      peakBaggerLatitude,
+      peakBaggerLongitude,
       peak.latitude,
       peak.longitude,
     );
     final distanceText = distanceMeters >= 1000
         ? '${(distanceMeters / 1000).toStringAsFixed(1)}km'
         : '${distanceMeters.toStringAsFixed(1)}m';
-    final elevationDifference = peakBaggerPeak.elevation != null &&
-        peak.elevation != null
+    final elevationDifference =
+        peakBaggerPeak.elevation != null && peak.elevation != null
         ? (peakBaggerPeak.elevation! - peak.elevation!).abs().round()
         : null;
     if (elevationDifference == null) {
@@ -455,7 +505,9 @@ class PeakBaggerPeakCorrelationService {
       return false;
     }
 
-    final shorter = csvTokens.length <= peakTokens.length ? csvTokens : peakTokens;
+    final shorter = csvTokens.length <= peakTokens.length
+        ? csvTokens
+        : peakTokens;
     final longer = identical(shorter, csvTokens) ? peakTokens : csvTokens;
     return shorter.every(longer.contains);
   }
@@ -464,11 +516,12 @@ class PeakBaggerPeakCorrelationService {
     var normalized = value.trim().toLowerCase();
     normalized = normalized.replaceAll(RegExp(r'\bmt\b'), 'mount');
     normalized = normalized.replaceAll(RegExp(r'[^a-z0-9]+'), ' ');
-    final tokens = normalized
-        .split(RegExp(r'\s+'))
-        .where((token) => token.isNotEmpty && token != 'the')
-        .toList(growable: false)
-      ..sort();
+    final tokens =
+        normalized
+            .split(RegExp(r'\s+'))
+            .where((token) => token.isNotEmpty && token != 'the')
+            .toList(growable: false)
+          ..sort();
     return tokens.join(' ');
   }
 

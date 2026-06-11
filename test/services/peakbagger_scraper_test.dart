@@ -7,14 +7,8 @@ void main() {
       'pid': '74023',
       'name': 'Abbotts Lookout',
       'state': 'Tasmania',
-      'elevation': {
-        'feet': null,
-        'meters': null,
-      },
-      'prominence': {
-        'feet': null,
-        'meters': null,
-      },
+      'elevation': {'feet': null, 'meters': null},
+      'prominence': {'feet': null, 'meters': null},
       'location': {
         'latitude': -42.780553,
         'longitude': 146.654086,
@@ -32,5 +26,20 @@ void main() {
     expect(details.prominence, isNull);
     expect(details.country, '');
     expect(details.county, '');
+  });
+
+  test('allows missing coordinates in PeakBagger json', () {
+    final details = PeakBaggerPeakDetails.fromJson({
+      'pid': 74023,
+      'name': 'Abbotts Lookout',
+      'elevation': 1103,
+      'prominence': 561,
+      'location': {'county': 'Tasmania', 'country': 'Australia'},
+    });
+
+    expect(details.peakbaggerPid, 74023);
+    expect(details.latitude, isNull);
+    expect(details.longitude, isNull);
+    expect(details.hasCoordinates, isFalse);
   });
 }

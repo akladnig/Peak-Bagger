@@ -12,8 +12,8 @@ class PeakBaggerCsvDocument {
   PeakBaggerCsvDocument({
     required List<String> headers,
     required List<PeakBaggerCsvRow> rows,
-  })  : headers = List<String>.from(headers),
-        rows = List<PeakBaggerCsvRow>.from(rows);
+  }) : headers = List<String>.from(headers),
+       rows = List<PeakBaggerCsvRow>.from(rows);
 
   final List<String> headers;
   final List<PeakBaggerCsvRow> rows;
@@ -21,7 +21,8 @@ class PeakBaggerCsvDocument {
   int? headerIndexOf(String headerName) {
     final target = PeakBaggerCsvImportService._normalizeLookupKey(headerName);
     for (var i = 0; i < headers.length; i++) {
-      if (PeakBaggerCsvImportService._normalizeLookupKey(headers[i]) == target) {
+      if (PeakBaggerCsvImportService._normalizeLookupKey(headers[i]) ==
+          target) {
         return i;
       }
     }
@@ -117,7 +118,9 @@ class PeakBaggerCsvImportService {
   }
 
   int? peakbaggerPidForRow(PeakBaggerCsvDocument document, int rowIndex) {
-    final explicitPid = _parseInt(document.cellValueAt(rowIndex, peakbaggerPidColumn));
+    final explicitPid = _parseInt(
+      document.cellValueAt(rowIndex, peakbaggerPidColumn),
+    );
     if (explicitPid != null) {
       return explicitPid;
     }
@@ -145,15 +148,17 @@ class PeakBaggerCsvImportService {
       return null;
     }
 
-    final latitude = _parseDouble(document.cellValueAt(rowIndex, latitudeColumn));
-    final longitude = _parseDouble(document.cellValueAt(rowIndex, longitudeColumn));
-    if (latitude == null || longitude == null) {
-      return null;
-    }
+    final latitude = _parseDouble(
+      document.cellValueAt(rowIndex, latitudeColumn),
+    );
+    final longitude = _parseDouble(
+      document.cellValueAt(rowIndex, longitudeColumn),
+    );
 
     return PeakBaggerPeakDetails(
       peakbaggerPid: peakbaggerPid,
-      name: _firstNonEmpty([
+      name:
+          _firstNonEmpty([
             document.cellValueAt(rowIndex, 'Peak'),
             document.cellValueAt(rowIndex, 'Name'),
           ]) ??
@@ -162,11 +167,10 @@ class PeakBaggerCsvImportService {
       longitude: longitude,
       elevation: _parseDouble(document.cellValueAt(rowIndex, 'Elev-M')),
       prominence: _parseDouble(document.cellValueAt(rowIndex, 'Prom-M')),
-      country: _firstNonEmpty([
-            document.cellValueAt(rowIndex, 'Country'),
-          ]) ??
-          '',
-      county: _firstNonEmpty([
+      country:
+          _firstNonEmpty([document.cellValueAt(rowIndex, 'Country')]) ?? '',
+      county:
+          _firstNonEmpty([
             document.cellValueAt(rowIndex, 'County'),
             document.cellValueAt(rowIndex, 'State/Prov'),
             document.cellValueAt(rowIndex, 'Region'),
@@ -207,13 +211,21 @@ class PeakBaggerCsvImportService {
       document.setCellValue(rowIndex, latitudeColumn, _formatDouble(latitude));
     }
     if (longitude != null) {
-      document.setCellValue(rowIndex, longitudeColumn, _formatDouble(longitude));
+      document.setCellValue(
+        rowIndex,
+        longitudeColumn,
+        _formatDouble(longitude),
+      );
     }
     if (osmId != null) {
       document.setCellValue(rowIndex, osmIdColumn, '$osmId');
     }
     if (safeToCreate != null) {
-      document.setCellValue(rowIndex, safeToCreateColumn, safeToCreate.toString());
+      document.setCellValue(
+        rowIndex,
+        safeToCreateColumn,
+        safeToCreate.toString(),
+      );
     }
     document.setCellValue(rowIndex, noteColumn, note?.trim() ?? '');
   }
@@ -235,10 +247,7 @@ class PeakBaggerCsvImportService {
   }
 
   String _normalizeHeader(String header) {
-    return header
-        .replaceFirst('\uFEFF', '')
-        .replaceAll('\u00A0', ' ')
-        .trim();
+    return header.replaceFirst('\uFEFF', '').replaceAll('\u00A0', ' ').trim();
   }
 
   String _normalizeCellValue(String value) {

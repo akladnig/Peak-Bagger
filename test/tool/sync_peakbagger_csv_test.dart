@@ -25,10 +25,10 @@ class _NoopScraper implements PeakBaggerScraper {
 
 class _CapturingService extends PeakBaggerCsvSyncService {
   _CapturingService()
-      : super(
-          peakSource: PeakRepository.test(InMemoryPeakStorage(const [])),
-          scraper: _NoopScraper(),
-        );
+    : super(
+        peakSource: PeakRepository.test(InMemoryPeakStorage(const [])),
+        scraper: _NoopScraper(),
+      );
 
   String? csvPath;
   bool? createUnmatchedPeaks;
@@ -66,9 +66,31 @@ class _CountingScraper implements PeakBaggerScraper {
     showCount++;
     final response = responses[peakbaggerPid];
     if (response == null) {
-      throw PeakBaggerCommandException('missing response for pid $peakbaggerPid');
+      throw PeakBaggerCommandException(
+        'missing response for pid $peakbaggerPid',
+      );
     }
     return response;
+  }
+}
+
+class _ForbiddenScraper implements PeakBaggerScraper {
+  _ForbiddenScraper();
+
+  var verifyCount = 0;
+  var showCount = 0;
+
+  @override
+  Future<void> verifyAvailable() async {
+    verifyCount++;
+  }
+
+  @override
+  Future<PeakBaggerPeakDetails> showPeak(int peakbaggerPid) async {
+    showCount++;
+    throw PeakBaggerCommandException(
+      'HTTP 403 Forbidden for pid $peakbaggerPid',
+    );
   }
 }
 
@@ -92,16 +114,16 @@ void main() {
     addTearDown(() => tempDir.deleteSync(recursive: true));
 
     final sourcePath = p.join(tempDir.path, 'peak-bagger-peak-data.csv');
-    final latLonPath = p.join(tempDir.path, 'peak-bagger-peak-data-lat-lon.csv');
+    final latLonPath = p.join(
+      tempDir.path,
+      'peak-bagger-peak-data-lat-lon.csv',
+    );
     File(sourcePath).writeAsStringSync('source');
     File(latLonPath).writeAsStringSync('latlon');
 
     final service = _CapturingService();
 
-    await syncPeakBaggerCsv(
-      csvPath: sourcePath,
-      service: service,
-    );
+    await syncPeakBaggerCsv(csvPath: sourcePath, service: service);
 
     expect(service.csvPath, latLonPath);
   });
@@ -111,16 +133,25 @@ void main() {
     addTearDown(() => tempDir.deleteSync(recursive: true));
 
     final sourcePath = p.join(tempDir.path, 'peak-bagger-peak-data.csv');
-    final latLonPath = p.join(tempDir.path, 'peak-bagger-peak-data-lat-lon.csv');
-    File(sourcePath).writeAsStringSync('''
+    final latLonPath = p.join(
+      tempDir.path,
+      'peak-bagger-peak-data-lat-lon.csv',
+    );
+    File(sourcePath).writeAsStringSync(
+      '''
 Peak,Elev-M,Prom-M,Country,State/Prov,County,Range,Url
 Mount Anne,1103,561,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.aspx?pid=74023
 Mount Giblin,884,334,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.aspx?pid=78112
-'''.trim());
-    File(latLonPath).writeAsStringSync('''
+'''
+          .trim(),
+    );
+    File(latLonPath).writeAsStringSync(
+      '''
 Peak,Elev-M,Prom-M,Country,State/Prov,County,Range,Url,PeakBagger PID,Latitude,Longitude
 Mount Anne,1103,561,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.aspx?pid=74023,74023,-41.5,146.5
-'''.trim());
+'''
+          .trim(),
+    );
 
     final scraper = _CountingScraper({
       78112: const PeakBaggerPeakDetails(
@@ -151,4 +182,44 @@ Mount Anne,1103,561,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak
     expect(refreshed, isNot(contains('note')));
     expect(refreshed, isNot(contains('safeToCreate')));
   });
+
+  test(
+    'falls back to the source csv on the first 403 and warns once',
+    () async {
+      final tempDir = await Directory.systemTemp.createTemp('peakbagger-403');
+      addTearDown(() => tempDir.deleteSync(recursive: true));
+
+      final sourcePath = p.join(tempDir.path, 'peak-bagger-peak-data.csv');
+      final latLonPath = p.join(
+        tempDir.path,
+        'peak-bagger-peak-data-lat-lon.csv',
+      );
+      File(sourcePath).writeAsStringSync(
+        '''
+Peak,Elev-M,Prom-M,Country,State/Prov,County,Range,Url
+Mount Anne,1103,561,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.aspx?pid=74023
+Mount Giblin,884,334,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.aspx?pid=78112
+'''
+            .trim(),
+      );
+
+      final scraper = _ForbiddenScraper();
+      final warnings = <String>[];
+
+      final refreshedPath = await refreshPeakBaggerLatLonCsv(
+        sourceCsvPath: sourcePath,
+        latLonCsvPath: latLonPath,
+        scraper: scraper,
+        onWarning: warnings.add,
+      );
+
+      expect(refreshedPath, sourcePath);
+      expect(scraper.verifyCount, 1);
+      expect(scraper.showCount, 1);
+      expect(warnings, hasLength(1));
+      expect(warnings.single, contains('403'));
+      expect(warnings.single, contains('falling back to the source CSV'));
+      expect(File(latLonPath).existsSync(), isFalse);
+    },
+  );
 }

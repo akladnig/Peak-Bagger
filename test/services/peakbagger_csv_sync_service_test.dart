@@ -21,7 +21,9 @@ class _FakePeakBaggerScraper implements PeakBaggerScraper {
   Future<PeakBaggerPeakDetails> showPeak(int peakbaggerPid) async {
     final response = responses[peakbaggerPid];
     if (response == null) {
-      throw PeakBaggerCommandException('missing response for pid $peakbaggerPid');
+      throw PeakBaggerCommandException(
+        'missing response for pid $peakbaggerPid',
+      );
     }
     return response;
   }
@@ -107,7 +109,7 @@ Mt Anne,1103,561,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.as
       outputs: {
         'peak-bagger-peak-data.sync-report.json': 'updatedCount',
         'peak-bagger-peak-data-processed.csv': 'PeakBagger PID',
-        'logs/import.log': 'action=spatial-match',
+        'logs/import.log': 'action=strong-name-exact',
       },
     );
 
@@ -115,7 +117,7 @@ Mt Anne,1103,561,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.as
     expect(result.report.createdCount, 0);
     expect(result.report.unmatchedCount, 0);
     expect(result.report.fetchFailureCount, 0);
-    expect(result.report.rows.single.note, 'matched via strong spatial match');
+    expect(result.report.rows.single.note, contains('matched via exact name'));
     expect(result.outputCsvPath, 'peak-bagger-peak-data-processed.csv');
     expect(result.report.csvPath, 'peak-bagger-peak-data-processed.csv');
 
@@ -131,7 +133,7 @@ Mt Anne,1103,561,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.as
     expect(result.csvContents, contains('osmId'));
     expect(result.csvContents, contains('safeToCreate'));
     expect(result.csvContents, contains('false'));
-    expect(result.csvContents, contains('matched via strong spatial match'));
+    expect(result.csvContents, contains('matched via exact name'));
   });
 
   test('uses csv elevation when scraper omits elevation', () async {
@@ -168,14 +170,14 @@ Peak,Elev-M,Prom-M,Country,Region,County,Range,Url
 Jurjev vrh,155.7,155.7,Croatia,Dubrovnik-Neretva,,Dinaric Alps,https://www.peakbagger.com/peak.aspx?pid=111919
 ''',
       outputs: {
-        'peak-bagger-peak-data.sync-report.json': 'spatial-match',
-        'peak-bagger-peak-data-processed.csv': 'matched via strong spatial match',
+        'peak-bagger-peak-data.sync-report.json': 'strong-name-exact',
+        'peak-bagger-peak-data-processed.csv': 'matched via exact name',
       },
     );
 
-    expect(result.report.rows.single.action, 'spatial-match');
-    expect(result.report.rows.single.note, 'matched via strong spatial match');
-    expect(result.csvContents, contains('matched via strong spatial match'));
+    expect(result.report.rows.single.action, 'strong-name-exact');
+    expect(result.report.rows.single.note, 'matched via exact name');
+    expect(result.csvContents, contains('matched via exact name'));
   });
 
   test('skips PeakBagger lookups when cached lat/lon are present', () async {
@@ -210,47 +212,83 @@ Mount Giblin,884,240,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/pea
     expect(result.csvContents, contains('Longitude'));
   });
 
-  test('logs exact-name matches with spatial difference notes', () async {
-    final repository = repositoryWith([
-      Peak(
-        id: 1,
-        osmId: 123,
-        name: 'Mount Giblin',
-        latitude: -43.00799,
-        longitude: 146.16562,
-        elevation: 881,
-        region: 'Tasmania',
-      ),
-    ]);
-    final scraper = _FakePeakBaggerScraper({
-      77037: const PeakBaggerPeakDetails(
-        peakbaggerPid: 77037,
-        name: 'Mount Giblin',
-        latitude: -43.006468,
-        longitude: 146.185842,
-        elevation: 884,
-        prominence: 240,
-        country: 'Australia',
-        county: 'Tasmania',
-        range: 'Tasmania',
-      ),
-    });
+  test(
+    'logs exact-name matches without spatial difference when coordinates are missing',
+    () async {
+      final repository = repositoryWith([
+        Peak(
+          id: 1,
+          osmId: 123,
+          name: 'Mount Giblin',
+          latitude: -43.00799,
+          longitude: 146.16562,
+          elevation: 881,
+          region: 'Tasmania',
+        ),
+      ]);
+      final scraper = _FakePeakBaggerScraper({
+        77037: const PeakBaggerPeakDetails(
+          peakbaggerPid: 77037,
+          name: 'Mount Giblin',
+          latitude: -43.006468,
+          longitude: 146.185842,
+          elevation: 884,
+          prominence: 240,
+          country: 'Australia',
+          county: 'Tasmania',
+          range: 'Tasmania',
+        ),
+      });
 
-    final result = await runSync(
-      repository: repository,
-      scraper: scraper,
-      csv: '''
+      final result = await runSync(
+        repository: repository,
+        scraper: scraper,
+        csv: '''
 Peak,Elev-M,Prom-M,Country,Region,County,Range,Url
 Mount Giblin,884,240,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.aspx?pid=77037
 ''',
-      outputs: {
-        'logs/import.log': 'note=matched via exact name',
-      },
-    );
+        outputs: {'logs/import.log': 'note=matched via exact name'},
+      );
 
-    expect(result.report.rows.single.action, 'strong-name-exact');
-    expect(result.report.rows.single.note, contains('spatial diff:'));
-  });
+      expect(result.report.rows.single.action, 'strong-name-exact');
+      expect(result.report.rows.single.note, 'matched via exact name');
+    },
+  );
+
+  test(
+    'matches by name and elevation when latitude and longitude are missing',
+    () async {
+      final repository = repositoryWith([
+        Peak(
+          id: 1,
+          osmId: 123,
+          name: 'Mount Giblin',
+          latitude: 60,
+          longitude: 10,
+          elevation: 881,
+          region: 'Tasmania',
+        ),
+      ]);
+      final scraper = _FakePeakBaggerScraper({}, available: false);
+
+      final result = await runSync(
+        repository: repository,
+        scraper: scraper,
+        csv: '''
+Peak,Elev-M,Prom-M,Country,Region,County,Range,Url,Latitude,Longitude
+Mount Giblin,884,240,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.aspx?pid=77037,,
+''',
+        outputs: {
+          'peak-bagger-peak-data-processed.csv': 'matched via exact name',
+        },
+      );
+
+      expect(result.report.rows.single.action, 'strong-name-exact');
+      expect(result.report.rows.single.note, 'matched via exact name');
+      expect(result.csvContents, contains('matched via exact name'));
+      expect(result.csvContents, isNot(contains('spatial diff:')));
+    },
+  );
 
   test('does not update objectbox peak metadata during review mode', () async {
     final repository = repositoryWith([
@@ -365,7 +403,7 @@ Mt Anne,1103,561,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.as
     expect(repository.getAllPeaks(), isEmpty);
   });
 
-  test('reports fetch failures and leaves the repository untouched', () async {
+  test('records unresolved rows without triggering live lookup', () async {
     final repository = repositoryWith(const []);
     final scraper = _FakePeakBaggerScraper({}, available: true);
 
@@ -378,8 +416,9 @@ Mt Anne,1103,561,Australia,Tasmania,,Tasmania,https://www.peakbagger.com/peak.as
 ''',
     );
 
-    expect(result.report.fetchFailureCount, 1);
-    expect(result.report.rows.single.action, 'fetch-failure');
+    expect(result.report.fetchFailureCount, 0);
+    expect(result.report.unmatchedCount, 1);
+    expect(result.report.rows.single.action, 'unresolved');
     expect(repository.getAllPeaks(), isEmpty);
   });
 }

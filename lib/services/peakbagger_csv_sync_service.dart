@@ -38,26 +38,23 @@ class PeakBaggerCsvSyncRowReport {
 }
 
 class PeakBaggerCsvSyncReport {
-  const PeakBaggerCsvSyncReport({
-    required this.csvPath,
-    required this.rows,
-  });
+  const PeakBaggerCsvSyncReport({required this.csvPath, required this.rows});
 
   final String csvPath;
   final List<PeakBaggerCsvSyncRowReport> rows;
 
   int get processedCount => rows.length;
-  int get updatedCount =>
-      rows.where((row) {
-        return row.action == 'spatial-match' ||
-            row.action == 'closest-location-tie-break' ||
-            row.action == 'strong-name-fallback' ||
-            row.action == 'strong-name-exact' ||
-            row.action == 'pid-reuse' ||
-            row.action == 'promoted-osm-id';
-      }).length;
+  int get updatedCount => rows.where((row) {
+    return row.action == 'spatial-match' ||
+        row.action == 'closest-location-tie-break' ||
+        row.action == 'strong-name-fallback' ||
+        row.action == 'strong-name-exact' ||
+        row.action == 'pid-reuse' ||
+        row.action == 'promoted-osm-id';
+  }).length;
   int get createdCount => rows.where((row) => row.action == 'created').length;
-  int get unmatchedCount => rows.where((row) => row.action == 'unresolved').length;
+  int get unmatchedCount =>
+      rows.where((row) => row.action == 'unresolved').length;
   int get skippedCount => rows.where((row) => row.action == 'skipped').length;
   int get fetchFailureCount =>
       rows.where((row) => row.action == 'fetch-failure').length;
@@ -98,11 +95,10 @@ class PeakBaggerCsvSyncException implements Exception {
 }
 
 typedef PeakBaggerCsvReader = Future<String> Function(String path);
-typedef PeakBaggerCsvWriter = Future<void> Function(String path, String contents);
-typedef PeakBaggerCsvRowProgress = void Function(
-  int processedRows,
-  int totalRows,
-);
+typedef PeakBaggerCsvWriter =
+    Future<void> Function(String path, String contents);
+typedef PeakBaggerCsvRowProgress =
+    void Function(int processedRows, int totalRows);
 
 class PeakBaggerCsvSyncService {
   PeakBaggerCsvSyncService({
@@ -120,20 +116,19 @@ class PeakBaggerCsvSyncService {
     String Function(String csvPath)? importLogPathResolver,
     DateTime Function()? clock,
   }) : _peakSource = peakSource,
-        _scraper = scraper,
+       _scraper = scraper,
        _csvImportService = csvImportService ?? PeakBaggerCsvImportService(),
        _correlationService =
            correlationService ?? const PeakBaggerPeakCorrelationService(),
        _csvReader = csvReader ?? _readFile,
-        _csvWriter = csvWriter ?? _writeAtomicFile,
-        _reportWriter = reportWriter ?? _writeAtomicFile,
-        _logWriter = logWriter ?? _appendFile,
-        _onRowProcessed = onRowProcessed,
-        _outputCsvPathResolver = outputCsvPathResolver ?? _defaultOutputCsvPath,
-        _reportPathResolver = reportPathResolver ?? _defaultReportPath,
-        _importLogPathResolver =
-            importLogPathResolver ?? _defaultImportLogPath,
-        _clock = clock ?? DateTime.now;
+       _csvWriter = csvWriter ?? _writeAtomicFile,
+       _reportWriter = reportWriter ?? _writeAtomicFile,
+       _logWriter = logWriter ?? _appendFile,
+       _onRowProcessed = onRowProcessed,
+       _outputCsvPathResolver = outputCsvPathResolver ?? _defaultOutputCsvPath,
+       _reportPathResolver = reportPathResolver ?? _defaultReportPath,
+       _importLogPathResolver = importLogPathResolver ?? _defaultImportLogPath,
+       _clock = clock ?? DateTime.now;
 
   final PeakSource _peakSource;
   final PeakBaggerScraper _scraper;
@@ -158,7 +153,7 @@ class PeakBaggerCsvSyncService {
     final csvContents = await _csvReader(csvPath);
     final document = _csvImportService.parse(csvContents);
     final totalRows = document.rows.length;
-    final requiresLookup = _requiresLookup(document);
+    final requiresLookup = allowLiveLookups && _requiresLookup(document);
     if (requiresLookup) {
       try {
         await _scraper.verifyAvailable();
@@ -280,13 +275,22 @@ class PeakBaggerCsvSyncService {
           _parseDoubleCell(document.cellValueAt(rowIndex, 'Elev-M')) ??
           details.elevation;
       final targetCountry =
-          _firstNonEmptyText([document.cellValueAt(rowIndex, 'Country'), details.country]) ??
+          _firstNonEmptyText([
+            document.cellValueAt(rowIndex, 'Country'),
+            details.country,
+          ]) ??
           '';
       final targetCounty =
-          _firstNonEmptyText([document.cellValueAt(rowIndex, 'County'), details.county]) ??
+          _firstNonEmptyText([
+            document.cellValueAt(rowIndex, 'County'),
+            details.county,
+          ]) ??
           '';
       final targetRange =
-          _firstNonEmptyText([document.cellValueAt(rowIndex, 'Range'), details.range]) ??
+          _firstNonEmptyText([
+            document.cellValueAt(rowIndex, 'Range'),
+            details.range,
+          ]) ??
           '';
 
       final existingPeak = peaksByPid[peakbaggerPid];
@@ -323,10 +327,18 @@ class PeakBaggerCsvSyncService {
         detail = correlation.detail;
       }
 
-      final existingPid = _parseIntCell(document.cellValueAt(rowIndex, 'PeakBagger PID'));
-      final existingLatitude = _parseDoubleCell(document.cellValueAt(rowIndex, 'Latitude'));
-      final existingLongitude = _parseDoubleCell(document.cellValueAt(rowIndex, 'Longitude'));
-      final existingOsmId = _parseIntCell(document.cellValueAt(rowIndex, 'osmId'));
+      final existingPid = _parseIntCell(
+        document.cellValueAt(rowIndex, 'PeakBagger PID'),
+      );
+      final existingLatitude = _parseDoubleCell(
+        document.cellValueAt(rowIndex, 'Latitude'),
+      );
+      final existingLongitude = _parseDoubleCell(
+        document.cellValueAt(rowIndex, 'Longitude'),
+      );
+      final existingOsmId = _parseIntCell(
+        document.cellValueAt(rowIndex, 'osmId'),
+      );
       final note = _buildNote(
         rowIndex: rowIndex,
         document: document,
@@ -383,7 +395,10 @@ class PeakBaggerCsvSyncService {
 
     final report = PeakBaggerCsvSyncReport(csvPath: outputCsvPath, rows: rows);
     final reportPath = _reportPathResolver(csvPath);
-    await _reportWriter(reportPath, const JsonEncoder.withIndent('  ').convert(report.toJson()));
+    await _reportWriter(
+      reportPath,
+      const JsonEncoder.withIndent('  ').convert(report.toJson()),
+    );
 
     final logPath = _importLogPathResolver(csvPath);
     if (logEntries.isNotEmpty) {
@@ -425,25 +440,32 @@ class PeakBaggerCsvSyncService {
       noteParts.add('PeakBagger PID changed to ${details.peakbaggerPid}');
     }
 
-    if ((existingLatitude != null && existingLatitude != details.latitude) ||
+    if ((existingLatitude != null &&
+            details.latitude != null &&
+            existingLatitude != details.latitude) ||
         (existingLongitude != null &&
+            details.longitude != null &&
             existingLongitude != details.longitude)) {
       noteParts.add('latitude/longitude refreshed');
     }
 
-    final currentElevation = _parseDoubleCell(document.cellValueAt(rowIndex, 'Elev-M'));
+    final currentElevation = _parseDoubleCell(
+      document.cellValueAt(rowIndex, 'Elev-M'),
+    );
     if (targetElevation != null &&
         currentElevation != null &&
         currentElevation != targetElevation) {
       noteParts.add('elevation updated');
     }
 
-    final currentCountry = document.cellValueAt(rowIndex, 'Country')?.trim() ?? '';
+    final currentCountry =
+        document.cellValueAt(rowIndex, 'Country')?.trim() ?? '';
     if (currentCountry.isNotEmpty && currentCountry != targetCountry) {
       noteParts.add('country refreshed');
     }
 
-    final currentCounty = document.cellValueAt(rowIndex, 'County')?.trim() ?? '';
+    final currentCounty =
+        document.cellValueAt(rowIndex, 'County')?.trim() ?? '';
     if (currentCounty.isNotEmpty && currentCounty != targetCounty) {
       noteParts.add('county refreshed');
     }
@@ -453,7 +475,9 @@ class PeakBaggerCsvSyncService {
       noteParts.add('range refreshed');
     }
 
-    if (resolvedOsmId != null && existingOsmId != null && existingOsmId != resolvedOsmId) {
+    if (resolvedOsmId != null &&
+        existingOsmId != null &&
+        existingOsmId != resolvedOsmId) {
       noteParts.add('osmId changed $resolvedOsmId');
     }
 
@@ -528,14 +552,10 @@ class PeakBaggerCsvSyncService {
     required String action,
     required String detail,
   }) async {
-    await _logWriter(logPath, '${_logLine(
-      rowNumber: rowNumber,
-      peakbaggerPid: peakbaggerPid,
-      osmId: osmId,
-      action: action,
-      detail: detail,
-      note: '',
-    )}\n');
+    await _logWriter(
+      logPath,
+      '${_logLine(rowNumber: rowNumber, peakbaggerPid: peakbaggerPid, osmId: osmId, action: action, detail: detail, note: '')}\n',
+    );
   }
 
   static String _defaultReportPath(String csvPath) {
@@ -547,13 +567,15 @@ class PeakBaggerCsvSyncService {
     final directory = p.dirname(basePath);
     final basename = p.basenameWithoutExtension(basePath);
     final extension = p.extension(basePath);
-    final fileName = '$basename-processed${extension.isEmpty ? '.csv' : extension}';
+    final fileName =
+        '$basename-processed${extension.isEmpty ? '.csv' : extension}';
     return directory == '.' ? fileName : p.join(directory, fileName);
   }
 
   bool _requiresLookup(PeakBaggerCsvDocument document) {
     for (var rowIndex = 0; rowIndex < document.rows.length; rowIndex++) {
-      if (_csvImportService.cachedPeakDetailsForRow(document, rowIndex) == null) {
+      if (_csvImportService.cachedPeakDetailsForRow(document, rowIndex) ==
+          null) {
         return true;
       }
     }

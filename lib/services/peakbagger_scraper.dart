@@ -13,9 +13,8 @@ class PeakBaggerCommandResult {
   final String stderr;
 }
 
-typedef PeakBaggerCommandRunner = Future<PeakBaggerCommandResult> Function(
-  List<String> command,
-);
+typedef PeakBaggerCommandRunner =
+    Future<PeakBaggerCommandResult> Function(List<String> command);
 
 class PeakBaggerCommandException implements Exception {
   const PeakBaggerCommandException(this.message);
@@ -44,14 +43,16 @@ class PeakBaggerPeakDetails {
   final int peakbaggerPid;
   final String name;
   final String altName;
-  final double latitude;
-  final double longitude;
+  final double? latitude;
+  final double? longitude;
   final double? elevation;
   final double? prominence;
   final String country;
   final String county;
   final String range;
   final int? osmId;
+
+  bool get hasCoordinates => latitude != null && longitude != null;
 
   factory PeakBaggerPeakDetails.fromJson(Map<String, dynamic> json) {
     final payload = _unwrapPeakJson(json);
@@ -79,27 +80,25 @@ class PeakBaggerPeakDetails {
       'lng',
       'Longitude',
     ]);
-    if (latitude == null || longitude == null) {
-      throw const FormatException('PeakBagger response is missing coordinates.');
-    }
-
     return PeakBaggerPeakDetails(
       peakbaggerPid: peakbaggerPid,
       name: _readString(payload, const ['name', 'Peak', 'peak']) ?? 'Unknown',
-      altName: _readString(payload, const ['altName', 'AltName', 'alternateName']) ?? '',
+      altName:
+          _readString(payload, const ['altName', 'AltName', 'alternateName']) ??
+          '',
       latitude: latitude,
       longitude: longitude,
       elevation:
           _readDouble(elevation ?? payload, const ['meters']) ??
           _readDouble(payload, const ['elevation', 'ele', 'Elev-M', 'elev_m']),
-      prominence: _readDouble(
-            prominence ?? payload,
-            const ['meters'],
-          ) ??
-          _readDouble(
-            payload,
-            const ['prominence', 'prom', 'Prom-M', 'prom_m'],
-          ),
+      prominence:
+          _readDouble(prominence ?? payload, const ['meters']) ??
+          _readDouble(payload, const [
+            'prominence',
+            'prom',
+            'Prom-M',
+            'prom_m',
+          ]),
       country:
           _readString(location ?? payload, const ['country', 'Country']) ??
           _readString(payload, const ['country', 'Country']) ??

@@ -11,10 +11,7 @@ import 'package:peak_bagger/services/peak_source.dart';
 const _defaultCsvPath = 'peak-bagger-peak-data.csv';
 
 class _SyncArgs {
-  const _SyncArgs({
-    required this.csvPath,
-    required this.createUnmatchedPeaks,
-  });
+  const _SyncArgs({required this.csvPath, required this.createUnmatchedPeaks});
 
   final String csvPath;
   final bool createUnmatchedPeaks;
@@ -46,6 +43,7 @@ Future<PeakBaggerCsvSyncResult> syncPeakBaggerCsv({
   bool createUnmatchedPeaks = false,
   PeakBaggerCsvSyncService? service,
   PeakBaggerCsvRowProgress? onRowProcessed,
+  void Function(String message)? onWarning,
 }) async {
   if (service != null) {
     final resolvedInputPath = _resolvedInputCsvPath(csvPath);
@@ -59,13 +57,12 @@ Future<PeakBaggerCsvSyncResult> syncPeakBaggerCsv({
   final latLonCsvPath = _latLonCsvPath(sourceCsvPath);
   final sourceExists = File(sourceCsvPath).existsSync();
   final latLonExists = File(latLonCsvPath).existsSync();
+  var inputCsvPath = csvPath;
   if (sourceExists) {
-    await refreshPeakBaggerLatLonCsv(
-      sourceCsvPath: sourceCsvPath,
-      latLonCsvPath: latLonCsvPath,
-      scraper: ProcessPeakBaggerScraper(),
-    );
-  } else if (!latLonExists) {
+    inputCsvPath = latLonExists ? latLonCsvPath : sourceCsvPath;
+  } else if (latLonExists) {
+    inputCsvPath = latLonCsvPath;
+  } else {
     throw FileSystemException('Missing PeakBagger CSV input', csvPath);
   }
 
@@ -75,12 +72,12 @@ Future<PeakBaggerCsvSyncResult> syncPeakBaggerCsv({
     scraper: ProcessPeakBaggerScraper(),
     onRowProcessed: onRowProcessed,
   );
-    return await syncService.syncCsv(
-      csvPath: latLonCsvPath,
-      createUnmatchedPeaks: createUnmatchedPeaks,
-      allowLiveLookups: false,
-    );
-  }
+  return await syncService.syncCsv(
+    csvPath: inputCsvPath,
+    createUnmatchedPeaks: createUnmatchedPeaks,
+    allowLiveLookups: false,
+  );
+}
 
 String _resolvedInputCsvPath(String csvPath) {
   final sourceCsvPath = _sourceCsvPath(csvPath);
@@ -116,6 +113,7 @@ Future<String> refreshPeakBaggerLatLonCsv({
   required String sourceCsvPath,
   required String latLonCsvPath,
   PeakBaggerScraper? scraper,
+  void Function(String message)? onWarning,
 }) async {
   final csvImportService = PeakBaggerCsvImportService();
   final sourceContents = await File(sourceCsvPath).readAsString();
@@ -141,11 +139,21 @@ Future<String> refreshPeakBaggerLatLonCsv({
   }
 
   final existingRowsByKey = <String, PeakBaggerCsvRow>{};
-  final existingPidIndex = existingDocument?.headerIndexOf(PeakBaggerCsvImportService.peakbaggerPidColumn);
-  final existingLatitudeIndex = existingDocument?.headerIndexOf(PeakBaggerCsvImportService.latitudeColumn);
-  final existingLongitudeIndex = existingDocument?.headerIndexOf(PeakBaggerCsvImportService.longitudeColumn);
+  final existingPidIndex = existingDocument?.headerIndexOf(
+    PeakBaggerCsvImportService.peakbaggerPidColumn,
+  );
+  final existingLatitudeIndex = existingDocument?.headerIndexOf(
+    PeakBaggerCsvImportService.latitudeColumn,
+  );
+  final existingLongitudeIndex = existingDocument?.headerIndexOf(
+    PeakBaggerCsvImportService.longitudeColumn,
+  );
   if (existingDocument != null) {
-    for (var rowIndex = 0; rowIndex < existingDocument.rows.length; rowIndex++) {
+    for (
+      var rowIndex = 0;
+      rowIndex < existingDocument.rows.length;
+      rowIndex++
+    ) {
       final key = _cacheRowKey(existingDocument, rowIndex);
       if (key != null) {
         existingRowsByKey[key] = existingDocument.rows[rowIndex];
@@ -169,21 +177,39 @@ Future<String> refreshPeakBaggerLatLonCsv({
         existingPidIndex == null ? null : cachedRow.cells[existingPidIndex],
       );
       latitude = _parseDoubleCell(
-        existingLatitudeIndex == null ? null : cachedRow.cells[existingLatitudeIndex],
+        existingLatitudeIndex == null
+            ? null
+            : cachedRow.cells[existingLatitudeIndex],
       );
       longitude = _parseDoubleCell(
-        existingLongitudeIndex == null ? null : cachedRow.cells[existingLongitudeIndex],
+        existingLongitudeIndex == null
+            ? null
+            : cachedRow.cells[existingLongitudeIndex],
       );
     }
 
-    peakbaggerPid ??= csvImportService.peakbaggerPidForRow(sourceDocument, rowIndex);
+    peakbaggerPid ??= csvImportService.peakbaggerPidForRow(
+      sourceDocument,
+      rowIndex,
+    );
 
     if (latitude == null || longitude == null) {
       if (peakbaggerPid == null) {
         continue;
       }
       if (!availabilityChecked) {
-        await activeScraper.verifyAvailable();
+        try {
+          await activeScraper.verifyAvailable();
+        } on Object catch (error) {
+          if (_isForbiddenError(error)) {
+            onWarning?.call(
+              'PeakBagger returned HTTP 403 while refreshing lat/lon data; '
+              'falling back to the source CSV and stopping live scraping.',
+            );
+            return sourceCsvPath;
+          }
+          rethrow;
+        }
         availabilityChecked = true;
       }
       if (liveScrapingAvailable) {
@@ -192,7 +218,14 @@ Future<String> refreshPeakBaggerLatLonCsv({
           peakbaggerPid = details.peakbaggerPid;
           latitude = details.latitude;
           longitude = details.longitude;
-        } on Object {
+        } on Object catch (error) {
+          if (_isForbiddenError(error)) {
+            onWarning?.call(
+              'PeakBagger returned HTTP 403 while refreshing lat/lon data; '
+              'falling back to the source CSV and stopping live scraping.',
+            );
+            return sourceCsvPath;
+          }
           liveScrapingAvailable = false;
         }
       }
@@ -228,18 +261,24 @@ Future<String> refreshPeakBaggerLatLonCsv({
 }
 
 Future<PeakSource> _loadAssetPeakSource() async {
-  final peaksDirectory = Directory(p.join(Directory.current.path, 'assets', 'peaks'));
+  final peaksDirectory = Directory(
+    p.join(Directory.current.path, 'assets', 'peaks'),
+  );
   if (!peaksDirectory.existsSync()) {
-    throw FileSystemException('Missing assets/peaks directory', peaksDirectory.path);
+    throw FileSystemException(
+      'Missing assets/peaks directory',
+      peaksDirectory.path,
+    );
   }
 
   final peaks = <Peak>[];
-  final entries = peaksDirectory
-      .listSync(recursive: false)
-      .whereType<File>()
-      .where((file) => p.extension(file.path).toLowerCase() == '.json')
-      .toList(growable: false)
-    ..sort((a, b) => a.path.compareTo(b.path));
+  final entries =
+      peaksDirectory
+          .listSync(recursive: false)
+          .whereType<File>()
+          .where((file) => p.extension(file.path).toLowerCase() == '.json')
+          .toList(growable: false)
+        ..sort((a, b) => a.path.compareTo(b.path));
 
   for (final file in entries) {
     final decoded = jsonDecode(await file.readAsString());
@@ -252,15 +291,18 @@ Future<PeakSource> _loadAssetPeakSource() async {
       continue;
     }
 
-    final region = p.basenameWithoutExtension(file.path).replaceFirst(RegExp(r'-peaks$'), '');
+    final region = p
+        .basenameWithoutExtension(file.path)
+        .replaceFirst(RegExp(r'-peaks$'), '');
     for (final element in elements) {
       if (element is! Map) {
         continue;
       }
 
       try {
-        final peak = Peak.fromOverpass(Map<String, dynamic>.from(element))
-            .copyWith(region: region);
+        final peak = Peak.fromOverpass(
+          Map<String, dynamic>.from(element),
+        ).copyWith(region: region);
         if (peak.name != 'Unknown') {
           peaks.add(peak);
         }
@@ -274,12 +316,19 @@ Future<PeakSource> _loadAssetPeakSource() async {
 }
 
 String? _cacheRowKey(PeakBaggerCsvDocument document, int rowIndex) {
-  final url = document.cellValueAt(rowIndex, 'Url') ?? document.cellValueAt(rowIndex, 'URL');
+  final url =
+      document.cellValueAt(rowIndex, 'Url') ??
+      document.cellValueAt(rowIndex, 'URL');
   if (url != null && url.trim().isNotEmpty) {
     return 'url:${url.trim()}';
   }
 
-  final pid = _parseIntCell(document.cellValueAt(rowIndex, PeakBaggerCsvImportService.peakbaggerPidColumn));
+  final pid = _parseIntCell(
+    document.cellValueAt(
+      rowIndex,
+      PeakBaggerCsvImportService.peakbaggerPidColumn,
+    ),
+  );
   if (pid != null) {
     return 'pid:$pid';
   }
@@ -308,6 +357,19 @@ double? _parseDoubleCell(String? value) {
   return double.tryParse(value.trim());
 }
 
+bool _isForbiddenError(Object error) {
+  final text = error.toString().toLowerCase();
+  return text.contains('403') &&
+      (text.contains('forbidden') ||
+          text.contains('status code') ||
+          text.contains('http'));
+}
+
+String _warningLogLine(String message) {
+  final timestamp = DateTime.now().toUtc().toIso8601String();
+  return '$timestamp row=0 peakbaggerPid= osmId= action=error detail=$message';
+}
+
 Future<void> main(List<String> args) async {
   final parsedArgs = _parseArgs(args);
   final progressFilePath = Platform.environment['PEAKBAGGER_PROGRESS_FILE'];
@@ -323,6 +385,16 @@ Future<void> main(List<String> args) async {
     final result = await syncPeakBaggerCsv(
       csvPath: parsedArgs.csvPath,
       createUnmatchedPeaks: parsedArgs.createUnmatchedPeaks,
+      onWarning: (message) {
+        stderr.writeln(message);
+        final logPath = p.join(Directory.current.path, 'logs', 'import.log');
+        final logFile = File(logPath);
+        logFile.parent.createSync(recursive: true);
+        logFile.writeAsStringSync(
+          '${_warningLogLine(message)}\n',
+          mode: FileMode.append,
+        );
+      },
       onRowProcessed: (processed, total) {
         processedRows = processed;
         _writeProgress(progressFile, '.');
@@ -333,7 +405,10 @@ Future<void> main(List<String> args) async {
     );
 
     if (processedRows > 0 && processedRows % 100 != 0) {
-      _writeProgress(progressFile, ' $processedRows/${result.report.processedCount}\n');
+      _writeProgress(
+        progressFile,
+        ' $processedRows/${result.report.processedCount}\n',
+      );
     }
     stdout.writeln(jsonEncode(result.report.toJson()));
   } finally {

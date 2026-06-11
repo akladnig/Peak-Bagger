@@ -40,7 +40,15 @@ void main() {
   test('matches a single peak in the spatial window', () {
     final result = service.correlate(
       peakBaggerPeak: details,
-      peaks: [peak(id: 1, name: 'Mt Anne', latitude: -41.5001, longitude: 146.5001, elevation: 1100)],
+      peaks: [
+        peak(
+          id: 1,
+          name: 'Mt Anne',
+          latitude: -41.5001,
+          longitude: 146.5001,
+          elevation: 1100,
+        ),
+      ],
     );
 
     expect(result.peak?.id, 1);
@@ -53,8 +61,20 @@ void main() {
     final result = service.correlate(
       peakBaggerPeak: details,
       peaks: [
-        peak(id: 1, name: 'Mt Anne A', latitude: -41.5001, longitude: 146.5001, elevation: 1100),
-        peak(id: 2, name: 'Mt Anne B', latitude: -41.5002, longitude: 146.5002, elevation: 1100),
+        peak(
+          id: 1,
+          name: 'Mt Anne A',
+          latitude: -41.5001,
+          longitude: 146.5001,
+          elevation: 1100,
+        ),
+        peak(
+          id: 2,
+          name: 'Mt Anne B',
+          latitude: -41.5002,
+          longitude: 146.5002,
+          elevation: 1100,
+        ),
       ],
     );
 
@@ -68,8 +88,20 @@ void main() {
     final result = service.correlate(
       peakBaggerPeak: details,
       peaks: [
-        peak(id: 1, name: 'Mt Anne A', latitude: -41.5001, longitude: 146.5001, elevation: 1100),
-        peak(id: 2, name: 'Mt Anne B', latitude: -41.5001, longitude: 146.5001, elevation: 1100),
+        peak(
+          id: 1,
+          name: 'Mt Anne A',
+          latitude: -41.5001,
+          longitude: 146.5001,
+          elevation: 1100,
+        ),
+        peak(
+          id: 2,
+          name: 'Mt Anne B',
+          latitude: -41.5001,
+          longitude: 146.5001,
+          elevation: 1100,
+        ),
       ],
     );
 
@@ -88,7 +120,13 @@ void main() {
         elevation: 100,
       ),
       peaks: [
-        peak(id: 1, name: 'Cradle Mountin', latitude: -10, longitude: 10, elevation: 500),
+        peak(
+          id: 1,
+          name: 'Cradle Mountin',
+          latitude: -10,
+          longitude: 10,
+          elevation: 500,
+        ),
       ],
     );
 
@@ -97,13 +135,13 @@ void main() {
     expect(result.safeToCreate, isFalse);
   });
 
-  test('prefers a unique exact-name match over other strong-name candidates', () {
+  test('matches by name and elevation when coordinates are missing', () {
     final result = service.correlate(
       peakBaggerPeak: const PeakBaggerPeakDetails(
         peakbaggerPid: 1,
         name: 'Mount Giblin',
-        latitude: -43.006468,
-        longitude: 146.185842,
+        latitude: null,
+        longitude: null,
         elevation: 884,
       ),
       peaks: [
@@ -114,23 +152,53 @@ void main() {
           longitude: 146.16562,
           elevation: 881,
         ),
-        peak(
-          id: 2,
-          name: 'Giblin Peak',
-          altName: 'Mount Giblin',
-          latitude: -43.0065,
-          longitude: 146.1858,
-          elevation: 884,
-        ),
       ],
     );
 
     expect(result.peak?.id, 1);
     expect(result.action, 'strong-name-exact');
-    expect(result.note, contains('matched via exact name'));
-    expect(result.note, contains('spatial diff:'));
+    expect(result.note, 'matched via exact name');
+    expect(result.note, isNot(contains('spatial diff:')));
     expect(result.safeToCreate, isFalse);
   });
+
+  test(
+    'prefers a unique exact-name match over other strong-name candidates',
+    () {
+      final result = service.correlate(
+        peakBaggerPeak: const PeakBaggerPeakDetails(
+          peakbaggerPid: 1,
+          name: 'Mount Giblin',
+          latitude: -43.006468,
+          longitude: 146.185842,
+          elevation: 884,
+        ),
+        peaks: [
+          peak(
+            id: 1,
+            name: 'Mount Giblin',
+            latitude: -43.00799,
+            longitude: 146.16562,
+            elevation: 881,
+          ),
+          peak(
+            id: 2,
+            name: 'Giblin Peak',
+            altName: 'Mount Giblin',
+            latitude: -43.0065,
+            longitude: 146.1858,
+            elevation: 884,
+          ),
+        ],
+      );
+
+      expect(result.peak?.id, 1);
+      expect(result.action, 'strong-name-exact');
+      expect(result.note, contains('matched via exact name'));
+      expect(result.note, contains('spatial diff:'));
+      expect(result.safeToCreate, isFalse);
+    },
+  );
 
   test('resolves among duplicate exact-name peaks by closest fit', () {
     final result = service.correlate(
@@ -200,13 +268,22 @@ void main() {
         elevation: 1,
       ),
       peaks: [
-        peak(id: 1, name: 'Cradle', latitude: -10, longitude: 10, elevation: 500),
+        peak(
+          id: 1,
+          name: 'Cradle',
+          latitude: -10,
+          longitude: 10,
+          elevation: 500,
+        ),
       ],
     );
 
     expect(result.peak, isNull);
     expect(result.action, 'unresolved');
-    expect(result.detail, 'no confident spatial match and no strong-name match');
+    expect(
+      result.detail,
+      'no confident spatial match and no strong-name match',
+    );
     expect(
       result.note,
       'unresolved: no confident spatial match and no strong-name match',
@@ -236,73 +313,82 @@ void main() {
 
     expect(result.peak, isNull);
     expect(result.action, 'unresolved');
-    expect(result.detail, contains('no confident spatial match and no strong-name match'));
+    expect(
+      result.detail,
+      contains('no confident spatial match and no strong-name match'),
+    );
     expect(result.detail, contains('nearest '));
     expect(result.detail, contains('m)'));
     expect(result.safeToCreate, isTrue);
   });
 
-  test('reports spatial failure separately from multiple strong-name candidates', () {
-    final result = service.correlate(
-      peakBaggerPeak: const PeakBaggerPeakDetails(
-        peakbaggerPid: 1,
-        name: 'Cradle Mountain',
-        latitude: -41.5,
-        longitude: 146.5,
-        elevation: 1,
-      ),
-      peaks: [
-        peak(
-          id: 1,
-          name: 'Cradle',
-          altName: 'Cradle Mountain',
-          latitude: -42.0,
-          longitude: 147.0,
-          elevation: 500,
+  test(
+    'reports spatial failure separately from multiple strong-name candidates',
+    () {
+      final result = service.correlate(
+        peakBaggerPeak: const PeakBaggerPeakDetails(
+          peakbaggerPid: 1,
+          name: 'Cradle Mountain',
+          latitude: -41.5,
+          longitude: 146.5,
+          elevation: 1,
         ),
-        peak(
-          id: 2,
-          name: 'Mount Cradle',
-          altName: 'Cradle Mountain',
-          latitude: -42.1,
-          longitude: 147.1,
-          elevation: 600,
+        peaks: [
+          peak(
+            id: 1,
+            name: 'Cradle',
+            altName: 'Cradle Mountain',
+            latitude: -42.0,
+            longitude: 147.0,
+            elevation: 500,
+          ),
+          peak(
+            id: 2,
+            name: 'Mount Cradle',
+            altName: 'Cradle Mountain',
+            latitude: -42.1,
+            longitude: 147.1,
+            elevation: 600,
+          ),
+        ],
+      );
+
+      expect(result.peak, isNull);
+      expect(result.action, 'unresolved');
+      expect(result.detail, contains('multiple exact-name candidates'));
+      expect(result.safeToCreate, isFalse);
+    },
+  );
+
+  test(
+    'weak name match blocks safeToCreate without becoming a strong-name match',
+    () {
+      final result = service.correlate(
+        peakBaggerPeak: const PeakBaggerPeakDetails(
+          peakbaggerPid: 1,
+          name: 'Asbestos Range High Point',
+          latitude: -41.5,
+          longitude: 146.5,
+          elevation: 1,
         ),
-      ],
-    );
+        peaks: [
+          peak(
+            id: 1,
+            name: 'Asbestos Range',
+            latitude: -45.0,
+            longitude: 150.0,
+            elevation: 500,
+          ),
+        ],
+      );
 
-    expect(result.peak, isNull);
-    expect(result.action, 'unresolved');
-    expect(
-      result.detail,
-      contains('multiple exact-name candidates'),
-    );
-    expect(result.safeToCreate, isFalse);
-  });
-
-  test('weak name match blocks safeToCreate without becoming a strong-name match', () {
-    final result = service.correlate(
-      peakBaggerPeak: const PeakBaggerPeakDetails(
-        peakbaggerPid: 1,
-        name: 'Asbestos Range High Point',
-        latitude: -41.5,
-        longitude: 146.5,
-        elevation: 1,
-      ),
-      peaks: [
-        peak(
-          id: 1,
-          name: 'Asbestos Range',
-          latitude: -45.0,
-          longitude: 150.0,
-          elevation: 500,
-        ),
-      ],
-    );
-
-    expect(result.peak, isNull);
-    expect(result.action, 'unresolved');
-    expect(result.detail, 'no confident spatial match and no strong-name match');
-    expect(result.safeToCreate, isFalse);
-  });
+      expect(result.peak, isNull);
+      expect(result.action, 'unresolved');
+      expect(
+        result.detail,
+        'no confident spatial match and no strong-name match',
+      );
+      expect(result.safeToCreate, isFalse);
+    },
+  );
 }
