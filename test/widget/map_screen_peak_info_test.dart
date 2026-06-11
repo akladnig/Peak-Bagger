@@ -234,6 +234,37 @@ void main() {
     expect(find.text('Bonnet Hill'), findsOneWidget);
   });
 
+  testWidgets('pinned peak popup suppresses the overlapping label', (
+    tester,
+  ) async {
+    await _pumpMap(
+      tester,
+      _mapStateWithPeak(
+        peak: Peak(
+          osmId: 6406,
+          name: 'Bonnet Hill',
+          elevation: 1234,
+          latitude: -43.0,
+          longitude: 147.0,
+        ),
+      ),
+      overrides: [
+        peakMarkerInfoSettingsProvider.overrideWith(
+          () => _StaticPeakMarkerInfoNotifier(true),
+        ),
+      ],
+    );
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byKey(const Key('peak-info-popup')), findsOneWidget);
+    expect(find.byKey(const Key('peak-marker-name-6406')), findsNothing);
+    expect(find.byKey(const Key('peak-marker-height-6406')), findsNothing);
+  });
+
   testWidgets('moving off a peak clears hover without closing peak popup', (
     tester,
   ) async {

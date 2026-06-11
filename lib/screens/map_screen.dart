@@ -2762,16 +2762,23 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                 MapConstants.peakMinZoom)
                                           Consumer(
                                             builder: (context, ref, child) {
-                                              final hoveredPeakId = ref.watch(
+                                              final peakUiState = ref.watch(
                                                 mapProvider.select(
-                                                  (state) =>
-                                                      state.hoveredPeakId,
+                                                  (state) => (
+                                                    hoveredPeakId:
+                                                        state.hoveredPeakId,
+                                                    popupPeakId:
+                                                        state.peakInfoPeak?.osmId,
+                                                  ),
                                                 ),
                                               );
                                               return MapScreenPeakLayer(
                                                 zoom: mapScene.zoom,
                                                 showPeakInfo: showPeakInfo,
-                                                hoveredPeakId: hoveredPeakId,
+                                                hoveredPeakId:
+                                                    peakUiState.hoveredPeakId,
+                                                popupPeakId:
+                                                    peakUiState.popupPeakId,
                                                 viewportData:
                                                     _buildPeakViewportData(
                                                       filteredPeaks,

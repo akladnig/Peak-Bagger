@@ -41,15 +41,15 @@ Main-map peak renderer rewrite. Custom-painted peaks + overlap-driven clusters; 
 ### Phase 3: Label Collision Overlay
 
 - **Goal**: restore peak-info labels via sparse collision pass
-- [ ] `lib/screens/map_screen.dart` - add sparse overlay seam above the custom peak layer; keep main-map-only scope
-- [ ] `lib/services/peak_label_layout.dart` - build label candidates from visible non-hovered individual peaks; descending screen-`y` acceptance; reject label/label and label/marker conflicts
-- [ ] `lib/screens/map_screen_layers.dart` - extract or reuse label text styling helpers without keeping per-peak widget marker composition on the main map
-- [ ] `lib/providers/peak_marker_info_settings_provider.dart` - keep current toggle semantics; no new persistence shape
-- [ ] `test/widget/map_screen_peak_info_test.dart` - cover collision visibility, hidden conflicting labels, preserved label keys only for accepted labels
-- [ ] `test/widget/tasmap_map_screen_test.dart` - cover main-map selector migration and preserved layer ordering above track polylines
-- [ ] TDD: with peak info enabled, only non-conflicting non-hovered individual labels render; lower-on-screen wins, then implement
-- [ ] TDD: hovered or pinned popup states do not require labels and do not regress popup behavior, then implement
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/screens/map_screen.dart` - add sparse overlay seam above the custom peak layer; keep main-map-only scope
+- [x] `lib/services/peak_label_layout.dart` - build label candidates from visible non-hovered individual peaks; descending screen-`y` acceptance; reject label/label and label/marker conflicts
+- [x] `lib/screens/map_screen_layers.dart` - extract or reuse label text styling helpers without keeping per-peak widget marker composition on the main map
+- [x] `lib/providers/peak_marker_info_settings_provider.dart` - keep current toggle semantics; no new persistence shape
+- [x] `test/widget/map_screen_peak_info_test.dart` - cover collision visibility, hidden conflicting labels, preserved label keys only for accepted labels
+- [x] `test/widget/tasmap_map_screen_test.dart` - cover main-map selector migration and preserved layer ordering above track polylines
+- [x] TDD: with peak info enabled, only non-conflicting non-hovered individual labels render; lower-on-screen wins, then implement
+- [x] TDD: hovered or pinned popup states do not require labels and do not regress popup behavior, then implement
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 4: Cluster Visuals, Perf, Journey Proof
 

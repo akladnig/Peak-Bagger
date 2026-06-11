@@ -252,6 +252,8 @@ List<Marker> buildPeakMarkers({
   int? hoveredPeakId,
   bool suppressBelowZoom = true,
 }) {
+  // Main-map peak rendering now lives in MapScreenPeakLayer; keep this helper
+  // for mini-maps and other small widget-based renderers.
   if (suppressBelowZoom && zoom < 8) {
     return const [];
   }

@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/services/peak_cluster_engine.dart';
+import 'package:peak_bagger/services/peak_label_layout.dart';
 import 'package:peak_bagger/theme.dart';
 
 class MapScreenPeakLayer extends StatelessWidget {
@@ -11,6 +12,7 @@ class MapScreenPeakLayer extends StatelessWidget {
     required this.showPeakInfo,
     required this.hoveredPeakId,
     required this.viewportData,
+    required this.popupPeakId,
     super.key,
   });
 
@@ -18,6 +20,7 @@ class MapScreenPeakLayer extends StatelessWidget {
   final bool showPeakInfo;
   final int? hoveredPeakId;
   final PeakClusterViewportData viewportData;
+  final int? popupPeakId;
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +39,21 @@ class MapScreenPeakLayer extends StatelessWidget {
         }
       }
     }
+    final suppressedLabelIds = <int>{};
+    if (hoveredPeakId != null) {
+      suppressedLabelIds.add(hoveredPeakId!);
+    }
+    if (popupPeakId != null) {
+      suppressedLabelIds.add(popupPeakId!);
+    }
+    final labelPlacements = showPeakInfo
+        ? layoutPeakLabels(
+            context: context,
+            candidates: viewportData.individualCandidates.where(
+              (candidate) => !suppressedLabelIds.contains(candidate.peak.osmId),
+            ),
+          )
+        : const <PeakLabelPlacement>[];
 
     return MobileLayerTransformer(
       child: SizedBox(
@@ -69,10 +87,8 @@ class MapScreenPeakLayer extends StatelessWidget {
               ),
             if (hoveredCandidate != null)
               _PeakHoverOverlay(candidate: hoveredCandidate),
-            if (showPeakInfo && zoom >= MapConstants.peakInfoMinZoom)
-              for (final candidate in viewportData.individualCandidates)
-                if (candidate.peak.osmId != hoveredPeakId)
-                  _PeakMarkerLabelsOverlay(candidate: candidate),
+            for (final placement in labelPlacements)
+              _PeakMarkerLabelsOverlay(placement: placement),
           ],
         ),
       ),
@@ -197,13 +213,13 @@ class _PeakHoverOverlay extends StatelessWidget {
 }
 
 class _PeakMarkerLabelsOverlay extends StatelessWidget {
-  const _PeakMarkerLabelsOverlay({required this.candidate});
+  const _PeakMarkerLabelsOverlay({required this.placement});
 
-  final ProjectedPeakCandidate candidate;
+  final PeakLabelPlacement placement;
 
   @override
   Widget build(BuildContext context) {
-    final maxWidth = peakMarkerLabelMaxWidth(context);
+    final candidate = placement.candidate;
     final name = candidate.peak.name.trim().isEmpty
         ? '—'
         : candidate.peak.name.trim();
@@ -213,13 +229,13 @@ class _PeakMarkerLabelsOverlay extends StatelessWidget {
     final style = peakMarkerLabelTextStyle(context);
 
     return Positioned(
-      top: candidate.screenPosition.dy + 10,
-      left: candidate.screenPosition.dx - maxWidth / 2,
-      width: maxWidth,
+      top: placement.rect.top,
+      left: placement.rect.left,
+      width: placement.rect.width,
       child: IgnorePointer(
         child: ConstrainedBox(
           key: Key('peak-marker-labels-${candidate.peak.osmId}'),
-          constraints: BoxConstraints(maxWidth: maxWidth),
+          constraints: BoxConstraints(maxWidth: placement.rect.width),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
