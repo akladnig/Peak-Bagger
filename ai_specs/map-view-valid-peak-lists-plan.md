@@ -26,11 +26,11 @@ Hide zero-match + malformed lists; if none qualify, leave `All Peaks`; prevent h
 ### Phase 2: Selection reconciliation
 
 - **Goal**: no hidden active filters after map dataset/view changes
-- [ ] `test/providers/map_peak_list_selection_state_test.dart` - TDD: selected ids prune to still-renderable valid lists; when none remain, selection falls back to `PeakListSelectionMode.allPeaks`
-- [ ] `lib/providers/map_provider.dart` - extend selection reconcile path to consider current renderable peaks, not just decode validity; run it after peak reload/refresh paths that replace `state.peaks`
-- [ ] `lib/providers/peak_list_selection_provider.dart` - extract/reuse a pure visible-list or valid-id helper only if needed to keep drawer/provider/notifier logic aligned
-- [ ] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - robot journey tests + selectors/seams for critical flow: open peaks drawer, confirm off-scope list row absent, `All Peaks` still selectable, hidden selection cannot strand the map empty
-- [ ] Verify: `flutter analyze` && `flutter test test/providers/map_peak_list_selection_state_test.dart test/robot/gpx_tracks/gpx_tracks_journey_test.dart`
+- [x] `test/providers/map_peak_list_selection_state_test.dart` - TDD: selected ids prune to still-renderable valid lists; when none remain, selection falls back to `PeakListSelectionMode.allPeaks`
+- [x] `lib/providers/map_provider.dart` - extend selection reconcile path to consider current renderable peaks, not just decode validity; run it after peak reload/refresh paths that replace `state.peaks`
+- [x] `lib/providers/peak_list_selection_provider.dart` - not needed; helper shared via `lib/services/peak_list_visibility.dart`
+- [x] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - robot journey tests + selectors/seams for critical flow: open peaks drawer, confirm off-scope list row absent, `All Peaks` still selectable, hidden selection cannot strand the map empty
+- [x] Verify: `flutter analyze` && `flutter test test/providers/map_peak_list_selection_state_test.dart test/robot/gpx_tracks/gpx_tracks_journey_test.dart`
 
 ## Risks / Out of scope
 

@@ -33,6 +33,7 @@ import 'package:peak_bagger/services/peak_region_asset_import_service.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
 import 'package:peak_bagger/services/peak_refresh_service.dart';
 import 'package:peak_bagger/services/peak_info_content_resolver.dart';
+import 'package:peak_bagger/services/peak_list_visibility.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
@@ -1137,6 +1138,7 @@ class MapNotifier extends Notifier<MapState> {
         isLoadingPeaks: false,
         clearError: true,
       );
+      reconcileSelectedPeakList();
     } catch (e) {
       state = state.copyWith(
         isLoadingPeaks: false,
@@ -3755,11 +3757,6 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
-    if (state.selectedPeakListIds.isEmpty) {
-      _resetToNoPeaks();
-      return;
-    }
-
     final repo = ref.read(peakListRepositoryProvider);
     List<PeakList> peakLists;
     try {
@@ -3768,19 +3765,14 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
-    final validPeakListIds = <int>{};
-    for (final peakList in peakLists) {
-      if (!state.selectedPeakListIds.contains(peakList.peakListId)) {
-        continue;
-      }
-      try {
-        decodePeakListItems(peakList.peakList);
-        validPeakListIds.add(peakList.peakListId);
-      } catch (_) {}
-    }
+    final validPeakListIds = renderablePeakListIds(
+      peaks: state.peaks,
+      peakLists: peakLists,
+      selectedPeakListIds: state.selectedPeakListIds,
+    );
 
     if (validPeakListIds.isEmpty) {
-      _resetToNoPeaks();
+      _resetToAllPeaks();
       return;
     }
 
@@ -3793,10 +3785,11 @@ class MapNotifier extends Notifier<MapState> {
     }
   }
 
-  void _resetToNoPeaks() {
+  void _resetToAllPeaks() {
     _updatePeakListSelection(
-      mode: PeakListSelectionMode.none,
+      mode: PeakListSelectionMode.allPeaks,
       selectedPeakListIds: const <int>{},
+      previousSpecificPeakListIds: const <int>{},
     );
   }
 
@@ -5454,6 +5447,7 @@ class MapNotifier extends Notifier<MapState> {
       peakInfo: refreshedPeakInfo,
       clearPeakInfoPopup: state.peakInfo != null && refreshedPeakInfo == null,
     );
+    reconcileSelectedPeakList();
   }
 
   Future<PeakRefreshResult> refreshPeaks({
@@ -5476,6 +5470,7 @@ class MapNotifier extends Notifier<MapState> {
         peakInfo: refreshedPeakInfo,
         clearPeakInfoPopup: state.peakInfo != null && refreshedPeakInfo == null,
       );
+      reconcileSelectedPeakList();
       return result;
     } catch (e) {
       state = state.copyWith(

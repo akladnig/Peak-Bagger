@@ -35,6 +35,60 @@ import '../../harness/test_tasmap_repository.dart';
 import 'gpx_tracks_robot.dart';
 
 void main() {
+  testWidgets('peak drawer hides off-scope lists and keeps all peaks selectable', (
+    tester,
+  ) async {
+    final robot = GpxTracksRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        peaks: [
+          Peak(
+            osmId: 6406,
+            name: 'Bonnet Hill',
+            latitude: -43.0,
+            longitude: 147.0,
+          ),
+        ],
+      ),
+      peakListRepository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(
+            name: 'Alpha',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 6406, points: 1),
+            ]),
+          )..peakListId = 1,
+          PeakList(
+            name: 'Zero',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 9999, points: 1),
+            ]),
+          )..peakListId = 2,
+          PeakList(name: 'Broken', peakList: '{not-json}')..peakListId = 3,
+        ]),
+      ),
+    );
+    addTearDown(robot.dispose);
+    await robot.pumpApp();
+
+    await tester.ensureVisible(robot.showPeaksFab);
+    await tester.pumpAndSettle();
+    tester.widget<FloatingActionButton>(robot.showPeaksFab).onPressed!.call();
+    await tester.pumpAndSettle();
+
+    expect(robot.peakListsDrawer, findsOneWidget);
+    expect(robot.peakListRow(1), findsOneWidget);
+    expect(robot.peakListRow(2), findsNothing);
+    expect(robot.peakListRow(3), findsNothing);
+
+    await tester.tap(find.byKey(const Key('peak-list-item-All Peaks')));
+    await tester.pumpAndSettle();
+    expect(robot.peakListChipAllPeaks, findsOneWidget);
+  });
+
   testWidgets('import happy path then toggle hides and shows tracks', (
     tester,
   ) async {
@@ -777,9 +831,10 @@ void main() {
 
     expect(
       container.read(mapProvider).peakListSelectionMode,
-      PeakListSelectionMode.none,
+      PeakListSelectionMode.allPeaks,
     );
-    robot.expectPeaksHidden();
+    robot.expectPeaksShown();
+    expect(robot.peakListChipAllPeaks, findsOneWidget);
   });
 
   testWidgets('save route keeps routes visible across restart', (tester) async {
