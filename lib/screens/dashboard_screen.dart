@@ -8,6 +8,7 @@ import '../core/number_formatters.dart';
 import '../providers/dashboard_layout_provider.dart';
 import '../providers/map_provider.dart';
 import '../providers/peak_marker_info_settings_provider.dart';
+import '../services/latest_walk_summary.dart';
 import '../services/summary_card_service.dart';
 import '../widgets/dashboard/distance_card.dart';
 import '../widgets/dashboard/elevation_card.dart';
@@ -72,6 +73,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget build(BuildContext context) {
     final order = ref.watch(dashboardLayoutProvider);
     final tracks = ref.watch(mapProvider.select((state) => state.tracks));
+    final latestWalkTrackId = LatestWalkSummary.selectLatestTrack(
+      tracks,
+    )?.gpxTrackId;
     final showPeakInfo = ref.watch(peakMarkerInfoSettingsProvider);
     final isLoadingTracks = ref.watch(
       mapProvider.select((state) => state.isLoadingTracks),
@@ -115,6 +119,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       onVisibleSummaryChanged: _handleDistanceSummaryChanged,
                     ),
                     'latest-walk' => LatestWalkCard(
+                      key: ValueKey(
+                        'latest-walk-card-${latestWalkTrackId ?? 'empty'}',
+                      ),
                       tracks: tracks,
                       showPeakInfo: showPeakInfo,
                     ),
