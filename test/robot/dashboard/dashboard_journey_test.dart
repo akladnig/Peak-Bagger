@@ -102,9 +102,7 @@ void main() {
       ),
     );
 
-    final container = await _createContainer(
-      notifier: notifier,
-    );
+    final container = await _createContainer(notifier: notifier);
     addTearDown(container.dispose);
 
     await robot.pumpApp(container: container);
@@ -146,20 +144,41 @@ void main() {
 
       final robot = DashboardRobot(tester);
       final notifier = TestMapNotifier(
-        const MapState(
+        MapState(
           center: LatLng(-41.5, 146.5),
           zoom: 12,
           basemap: Basemap.tracestrack,
+          tracks: [
+            _track(
+              10,
+              DateTime.utc(2026, 5, 14, 10),
+              segments: [
+                [const LatLng(-41.5, 146.5), const LatLng(-41.4, 146.6)],
+              ],
+            ),
+            _track(
+              20,
+              DateTime.utc(2026, 5, 15, 10),
+              segments: [
+                [const LatLng(-41.6, 146.6), const LatLng(-41.7, 146.7)],
+              ],
+            ),
+          ],
         ),
       );
 
-    final container = await _createContainer(notifier: notifier);
+      final container = await _createContainer(notifier: notifier);
       addTearDown(container.dispose);
 
       await robot.pumpApp(container: container);
       await robot.openDashboard();
 
-      expect(robot.latestWalkEmptyState, findsOneWidget);
+      expect(find.text('Track 20'), findsOneWidget);
+
+      await robot.tapLatestWalkPrev();
+      expect(find.text('Track 10'), findsOneWidget);
+
+      await robot.openMap();
 
       notifier.setTracks([
         _track(
@@ -176,11 +195,28 @@ void main() {
             [const LatLng(-41.6, 146.6), const LatLng(-41.7, 146.7)],
           ],
         ),
+        _track(
+          30,
+          DateTime.utc(2026, 5, 16, 10),
+          segments: [
+            [const LatLng(-41.8, 146.8), const LatLng(-41.9, 146.9)],
+          ],
+        ),
       ]);
       await tester.pumpAndSettle();
 
-      expect(find.text('Track 20'), findsOneWidget);
+      await robot.openDashboard();
+
+      expect(find.text('Track 30'), findsOneWidget);
       expect(robot.latestWalkCard, findsOneWidget);
+      expect(
+        tester.widget<IconButton>(robot.latestWalkNextTrack).onPressed,
+        isNull,
+      );
+      expect(
+        tester.widget<IconButton>(robot.latestWalkPrevTrack).onPressed,
+        isNotNull,
+      );
     },
   );
 
@@ -196,9 +232,7 @@ void main() {
       ),
     );
 
-    final container = await _createContainer(
-      notifier: notifier,
-    );
+    final container = await _createContainer(notifier: notifier);
     addTearDown(container.dispose);
 
     await robot.pumpApp(container: container);
@@ -261,9 +295,7 @@ void main() {
       ),
     );
 
-    final container = await _createContainer(
-      notifier: notifier,
-    );
+    final container = await _createContainer(notifier: notifier);
     addTearDown(container.dispose);
 
     await robot.pumpApp(container: container);
@@ -323,7 +355,7 @@ void main() {
     expect(find.text('My Walks in 2025'), findsOneWidget);
     expect(
       tester
-      .widget<Text>(find.byKey(const Key('year-to-date-distance-value')))
+          .widget<Text>(find.byKey(const Key('year-to-date-distance-value')))
           .data,
       '12 km',
     );
@@ -476,11 +508,7 @@ PeakList _peakList(int id, String name, List<int> peakIds) {
   );
 }
 
-GpxTrack _trackWithPeaks(
-  int id,
-  List<int> peakIds,
-  DateTime startDateTime,
-) {
+GpxTrack _trackWithPeaks(int id, List<int> peakIds, DateTime startDateTime) {
   final track = GpxTrack(
     gpxTrackId: id,
     contentHash: 'hash-$id',
@@ -500,11 +528,7 @@ GpxTrack _trackWithPeaks(
   return track;
 }
 
-Peak _peak(
-  int osmId,
-  String name, {
-  double? elevation,
-}) {
+Peak _peak(int osmId, String name, {double? elevation}) {
   return Peak(
     osmId: osmId,
     name: name,

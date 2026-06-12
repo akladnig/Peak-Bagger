@@ -17,6 +17,7 @@ import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:peak_bagger/screens/dashboard_screen.dart';
 
@@ -407,6 +408,111 @@ void main() {
       );
     });
 
+    testWidgets(
+      'rebinds latest walk to the newest imported track after revisit',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+
+        final notifier = TestMapNotifier(
+          MapState(
+            center: const LatLng(-41.5, 146.5),
+            zoom: 10,
+            basemap: Basemap.tracestrack,
+            tracks: [
+              _track(
+                10,
+                DateTime.utc(2026, 5, 14, 10),
+                segments: [
+                  [const LatLng(-41.5, 146.5), const LatLng(-41.4, 146.6)],
+                ],
+              ),
+              _track(
+                20,
+                DateTime.utc(2026, 5, 15, 10),
+                segments: [
+                  [const LatLng(-41.6, 146.6), const LatLng(-41.7, 146.7)],
+                ],
+              ),
+            ],
+          ),
+        );
+        final container = ProviderContainer(
+          overrides: [
+            mapProvider.overrideWith(() => notifier),
+            peakListRepositoryProvider.overrideWithValue(
+              PeakListRepository.test(InMemoryPeakListStorage()),
+            ),
+            peaksBaggedRepositoryProvider.overrideWithValue(
+              PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await tester.binding.setSurfaceSize(const Size(2200, 1000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const MaterialApp(home: DashboardScreen()),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Track 20'), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('latest-walk-prev-track')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Track 10'), findsOneWidget);
+
+        notifier.setTracks([
+          _track(
+            10,
+            DateTime.utc(2026, 5, 14, 10),
+            segments: [
+              [const LatLng(-41.5, 146.5), const LatLng(-41.4, 146.6)],
+            ],
+          ),
+          _track(
+            20,
+            DateTime.utc(2026, 5, 15, 10),
+            segments: [
+              [const LatLng(-41.6, 146.6), const LatLng(-41.7, 146.7)],
+            ],
+          ),
+          _track(
+            30,
+            DateTime.utc(2026, 5, 16, 10),
+            segments: [
+              [const LatLng(-41.8, 146.8), const LatLng(-41.9, 146.9)],
+            ],
+          ),
+        ]);
+
+        await tester.pumpAndSettle();
+
+        expect(find.text('Track 30'), findsOneWidget);
+        expect(
+          tester
+              .widget<IconButton>(
+                find.byKey(const Key('latest-walk-next-track')),
+              )
+              .onPressed,
+          isNull,
+        );
+        expect(
+          tester
+              .widget<IconButton>(
+                find.byKey(const Key('latest-walk-prev-track')),
+              )
+              .onPressed,
+          isNotNull,
+        );
+      },
+    );
+
     testWidgets('tapping a my ascents row opens the map at that track', (
       tester,
     ) async {
@@ -468,10 +574,7 @@ void main() {
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const App(),
-        ),
+        UncontrolledProviderScope(container: container, child: const App()),
       );
       await tester.pump();
       router.go('/');
@@ -551,6 +654,7 @@ void _expectGridContract(WidgetTester tester, int columns) {
 GpxTrack _track(
   int id,
   DateTime? trackDate, {
+  List<List<LatLng>> segments = const [],
   double? ascent,
   double distance2d = 0,
   List<int> peakIds = const [],
@@ -560,8 +664,13 @@ GpxTrack _track(
     contentHash: 'hash-$id',
     trackName: 'Track $id',
     trackDate: trackDate,
+    startDateTime: trackDate,
     ascent: ascent,
     distance2d: distance2d,
+    gpxFile: segments.isEmpty ? '' : '<gpx></gpx>',
+    displayTrackPointsByZoom: segments.isEmpty
+        ? '{}'
+        : TrackDisplayCacheBuilder.buildJson(segments),
   );
   track.peaks.addAll(
     peakIds.map(

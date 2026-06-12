@@ -14,6 +14,7 @@ class DashboardRobot {
   late ProviderContainer container;
 
   Finder get homeButton => find.byKey(const Key('app-bar-home'));
+  Finder get mapButton => find.byKey(const Key('nav-map'));
   Finder get board => find.byKey(const Key('dashboard-board'));
   Finder card(String id) => find.byKey(Key('dashboard-card-$id'));
   Finder dragHandle(String id) =>
@@ -39,14 +40,17 @@ class DashboardRobot {
   Finder get myListsCard => find.byKey(const Key('dashboard-card-my-lists'));
   Finder get myListsEmptyState => find.byKey(const Key('my-lists-empty-state'));
   Finder get myListsTable => find.byKey(const Key('my-lists-table'));
-  Finder myListsRow(int peakListId) => find.byKey(Key('my-lists-row-$peakListId'));
+  Finder myListsRow(int peakListId) =>
+      find.byKey(Key('my-lists-row-$peakListId'));
   Finder myListsControl(String key) =>
       find.descendant(of: myListsCard, matching: find.byKey(Key(key)));
-  Finder get myAscentsCard => find.byKey(const Key('dashboard-card-my-ascents'));
+  Finder get myAscentsCard =>
+      find.byKey(const Key('dashboard-card-my-ascents'));
   Finder get myAscentsEmptyState =>
       find.byKey(const Key('my-ascents-empty-state'));
   Finder get myAscentsTable => find.byKey(const Key('my-ascents-table'));
-  Finder myAscentsRow(int baggedId) => find.byKey(Key('my-ascents-row-$baggedId'));
+  Finder myAscentsRow(int baggedId) =>
+      find.byKey(Key('my-ascents-row-$baggedId'));
   Finder myAscentsYearHeader(int year) =>
       find.byKey(Key('my-ascents-year-$year'));
   Finder get myAscentsSortToggle =>
@@ -65,6 +69,11 @@ class DashboardRobot {
 
   Future<void> openDashboard() async {
     await tester.tap(homeButton);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> openMap() async {
+    await tester.tap(mapButton);
     await tester.pumpAndSettle();
   }
 
