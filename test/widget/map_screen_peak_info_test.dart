@@ -1038,11 +1038,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-list-item-Alpha')), findsOneWidget);
-    expect(find.byKey(const Key('peak-list-item-Zero')), findsOneWidget);
+    expect(find.byKey(const Key('peak-list-item-Zero')), findsNothing);
     expect(find.byKey(const Key('peak-list-item-Zulu')), findsOneWidget);
     expect(find.byKey(const Key('peak-list-item-Broken')), findsNothing);
     expect(find.text('1 renderable peak'), findsNWidgets(2));
-    expect(find.text('0 renderable peaks'), findsOneWidget);
+    expect(find.textContaining('0 renderable peaks'), findsNothing);
 
     await tester.tap(find.byKey(const Key('peak-list-item-Alpha')));
     await tester.pumpAndSettle();
@@ -1054,6 +1054,49 @@ void main() {
       container.read(filteredPeaksProvider).map((peak) => peak.osmId).toList(),
       [6406],
     );
+  });
+
+  testWidgets('drawer falls back to all peaks when no lists render', (
+    tester,
+  ) async {
+    await _pumpMap(
+      tester,
+      MapState(
+        center: const LatLng(-43.0, 147.0),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        peaks: [
+          Peak(
+            osmId: 6406,
+            name: 'Bonnet Hill',
+            latitude: -43.0,
+            longitude: 147.0,
+          ),
+        ],
+      ),
+      peakListRepository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(
+            name: 'Zero',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 9999, points: 1),
+            ]),
+          )..peakListId = 4,
+          PeakList(name: 'Broken', peakList: '{not-json}')..peakListId = 5,
+        ]),
+      ),
+    );
+
+    final showPeaksFab = find.byKey(const Key('show-peaks-fab'));
+    await tester.ensureVisible(showPeaksFab);
+    await tester.pumpAndSettle();
+    await tester.tap(showPeaksFab);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-list-item-All Peaks')), findsOneWidget);
+    expect(find.byKey(const Key('peak-list-item-Zero')), findsNothing);
+    expect(find.byKey(const Key('peak-list-item-Broken')), findsNothing);
+    expect(find.textContaining('renderable peak'), findsNothing);
   });
 
   testWidgets('drawer shows all peaks and unavailable message on repository error', (

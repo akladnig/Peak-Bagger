@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
+import 'package:peak_bagger/services/peak_list_visibility.dart';
 
 class MapPeakListsDrawer extends ConsumerWidget {
   const MapPeakListsDrawer({super.key});
@@ -24,19 +25,14 @@ class MapPeakListsDrawer extends ConsumerWidget {
     );
     final peakListsLoadState = ref.watch(peakListsLoadProvider);
     final peakLists = ref.watch(peakListsProvider);
-    final renderablePeakIds = peaks
-        .map((peak) => peak.osmId)
-        .toSet();
     final visiblePeakLists = <({PeakList peakList, int renderableCount})>[];
 
     for (final peakList in peakLists) {
       try {
-        final items = decodePeakListItems(peakList.peakList);
-        final renderableCount = items
-            .map((item) => item.peakOsmId)
-            .where(renderablePeakIds.contains)
-            .toSet()
-            .length;
+        final renderableCount = renderablePeakCount(peaks: peaks, peakList: peakList);
+        if (renderableCount == 0) {
+          continue;
+        }
         visiblePeakLists.add((
           peakList: peakList,
           renderableCount: renderableCount,
