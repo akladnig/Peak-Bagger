@@ -1,6 +1,7 @@
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -1037,23 +1038,102 @@ void main() {
     await tester.tap(showPeaksFab);
     await tester.pumpAndSettle();
 
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+    container.read(mapProvider.notifier).updateVisibleBounds(
+      LatLngBounds(
+        const LatLng(-44.5, 146.0),
+        const LatLng(-41.5, 148.5),
+      ),
+    );
+    await tester.pumpAndSettle();
+
     expect(find.byKey(const Key('peak-list-item-Alpha')), findsOneWidget);
-    expect(find.byKey(const Key('peak-list-item-Zero')), findsOneWidget);
+    expect(find.byKey(const Key('peak-list-item-Zero')), findsNothing);
     expect(find.byKey(const Key('peak-list-item-Zulu')), findsOneWidget);
     expect(find.byKey(const Key('peak-list-item-Broken')), findsNothing);
     expect(find.text('1 renderable peak'), findsNWidgets(2));
-    expect(find.text('0 renderable peaks'), findsOneWidget);
+    expect(find.textContaining('0 renderable peaks'), findsNothing);
 
     await tester.tap(find.byKey(const Key('peak-list-item-Alpha')));
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(filteredPeaksProvider).map((peak) => peak.osmId).toList(),
+      [6406],
+    );
+
+    container.read(mapProvider.notifier).updateVisibleBounds(
+      LatLngBounds(
+        const LatLng(-10.0, 10.0),
+        const LatLng(-5.0, 15.0),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(mapProvider).peakListSelectionMode,
+      PeakListSelectionMode.allPeaks,
+    );
+    expect(find.byKey(const Key('peak-list-item-Alpha')), findsNothing);
+    expect(find.byKey(const Key('peak-list-item-Zulu')), findsNothing);
+    expect(find.byKey(const Key('peak-list-item-All Peaks')), findsOneWidget);
+  });
+
+  testWidgets('drawer falls back to all peaks when no lists render', (
+    tester,
+  ) async {
+    await _pumpMap(
+      tester,
+      MapState(
+        center: const LatLng(-43.0, 147.0),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        peaks: [
+          Peak(
+            osmId: 6406,
+            name: 'Bonnet Hill',
+            latitude: -43.0,
+            longitude: 147.0,
+          ),
+        ],
+      ),
+      peakListRepository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(
+            name: 'Zero',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 9999, points: 1),
+            ]),
+          )..peakListId = 4,
+          PeakList(name: 'Broken', peakList: '{not-json}')..peakListId = 5,
+        ]),
+      ),
+    );
+
+    final showPeaksFab = find.byKey(const Key('show-peaks-fab'));
+    await tester.ensureVisible(showPeaksFab);
+    await tester.pumpAndSettle();
+    await tester.tap(showPeaksFab);
     await tester.pumpAndSettle();
 
     final container = ProviderScope.containerOf(
       tester.element(find.byKey(const Key('map-interaction-region'))),
     );
-    expect(
-      container.read(filteredPeaksProvider).map((peak) => peak.osmId).toList(),
-      [6406],
+
+    container.read(mapProvider.notifier).updateVisibleBounds(
+      LatLngBounds(
+        const LatLng(-10.0, 10.0),
+        const LatLng(-5.0, 15.0),
+      ),
     );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-list-item-All Peaks')), findsOneWidget);
+    expect(find.byKey(const Key('peak-list-item-Zero')), findsNothing);
+    expect(find.byKey(const Key('peak-list-item-Broken')), findsNothing);
+    expect(find.textContaining('renderable peak'), findsNothing);
   });
 
   testWidgets('drawer shows all peaks and unavailable message on repository error', (

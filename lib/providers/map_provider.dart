@@ -33,6 +33,7 @@ import 'package:peak_bagger/services/peak_region_asset_import_service.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
 import 'package:peak_bagger/services/peak_refresh_service.dart';
 import 'package:peak_bagger/services/peak_info_content_resolver.dart';
+import 'package:peak_bagger/services/peak_list_visibility.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
@@ -344,6 +345,7 @@ class MapState {
   final bool routeDraftCanRedo;
   final bool syncEnabled;
   final List<Peak> peaks;
+  final LatLngBounds? visibleBounds;
   final bool isLoadingPeaks;
   final List<Peak> searchResults;
   final String searchQuery;
@@ -435,6 +437,7 @@ class MapState {
     this.routeDraftCanRedo = false,
     this.syncEnabled = true,
     this.peaks = const [],
+    this.visibleBounds,
     this.isLoadingPeaks = false,
     this.searchResults = const [],
     this.searchQuery = '',
@@ -595,6 +598,7 @@ class MapState {
     List<Peak>? searchResults,
     String? searchQuery,
     List<Peak>? selectedPeaks,
+    LatLngBounds? visibleBounds,
     Tasmap50k? selectedMap,
     TasmapDisplayMode? tasmapDisplayMode,
     MapGridVisibility? gridVisibility,
@@ -732,6 +736,7 @@ class MapState {
       routeDraftCanRedo: routeDraftCanRedo ?? this.routeDraftCanRedo,
       syncEnabled: syncEnabled ?? this.syncEnabled,
       peaks: peaks ?? this.peaks,
+      visibleBounds: visibleBounds ?? this.visibleBounds,
       isLoadingPeaks: isLoadingPeaks ?? this.isLoadingPeaks,
       searchResults: searchResults ?? this.searchResults,
       searchQuery: searchQuery ?? this.searchQuery,
@@ -1137,6 +1142,7 @@ class MapNotifier extends Notifier<MapState> {
         isLoadingPeaks: false,
         clearError: true,
       );
+      reconcileSelectedPeakList();
     } catch (e) {
       state = state.copyWith(
         isLoadingPeaks: false,
@@ -3755,11 +3761,6 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
-    if (state.selectedPeakListIds.isEmpty) {
-      _resetToNoPeaks();
-      return;
-    }
-
     final repo = ref.read(peakListRepositoryProvider);
     List<PeakList> peakLists;
     try {
@@ -3768,19 +3769,15 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
-    final validPeakListIds = <int>{};
-    for (final peakList in peakLists) {
-      if (!state.selectedPeakListIds.contains(peakList.peakListId)) {
-        continue;
-      }
-      try {
-        decodePeakListItems(peakList.peakList);
-        validPeakListIds.add(peakList.peakListId);
-      } catch (_) {}
-    }
+    final validPeakListIds = renderablePeakListIds(
+      peaks: state.peaks,
+      visibleBounds: state.visibleBounds,
+      peakLists: peakLists,
+      selectedPeakListIds: state.selectedPeakListIds,
+    );
 
     if (validPeakListIds.isEmpty) {
-      _resetToNoPeaks();
+      _resetToAllPeaks();
       return;
     }
 
@@ -3793,11 +3790,35 @@ class MapNotifier extends Notifier<MapState> {
     }
   }
 
-  void _resetToNoPeaks() {
+  void _resetToAllPeaks() {
     _updatePeakListSelection(
-      mode: PeakListSelectionMode.none,
+      mode: PeakListSelectionMode.allPeaks,
       selectedPeakListIds: const <int>{},
+      previousSpecificPeakListIds: const <int>{},
     );
+  }
+
+  void updateVisibleBounds(LatLngBounds? bounds) {
+    if (_sameVisibleBounds(state.visibleBounds, bounds)) {
+      return;
+    }
+
+    state = state.copyWith(visibleBounds: bounds);
+    if (state.isLoadingPeaks) {
+      return;
+    }
+    reconcileSelectedPeakList();
+  }
+
+  bool _sameVisibleBounds(LatLngBounds? left, LatLngBounds? right) {
+    if (left == null || right == null) {
+      return left == right;
+    }
+
+    return left.southWest.latitude == right.southWest.latitude &&
+        left.southWest.longitude == right.southWest.longitude &&
+        left.northEast.latitude == right.northEast.latitude &&
+        left.northEast.longitude == right.northEast.longitude;
   }
 
   void centerOnLocation(LatLng location) {
@@ -5454,6 +5475,7 @@ class MapNotifier extends Notifier<MapState> {
       peakInfo: refreshedPeakInfo,
       clearPeakInfoPopup: state.peakInfo != null && refreshedPeakInfo == null,
     );
+    reconcileSelectedPeakList();
   }
 
   Future<PeakRefreshResult> refreshPeaks({
@@ -5476,6 +5498,7 @@ class MapNotifier extends Notifier<MapState> {
         peakInfo: refreshedPeakInfo,
         clearPeakInfoPopup: state.peakInfo != null && refreshedPeakInfo == null,
       );
+      reconcileSelectedPeakList();
       return result;
     } catch (e) {
       state = state.copyWith(

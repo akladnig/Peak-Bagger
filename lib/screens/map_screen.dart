@@ -1527,6 +1527,16 @@ class _MapScreenState extends ConsumerState<MapScreen>
     }
   }
 
+  void _syncVisibleBounds() {
+    if (_mapController.camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      return;
+    }
+
+    ref.read(mapProvider.notifier).updateVisibleBounds(
+      _mapController.camera.visibleBounds,
+    );
+  }
+
   void _updateContinuousCamera({
     required LatLng center,
     required double zoom,
@@ -1539,6 +1549,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
       token: ++_cameraIntentToken,
     );
     _liveCamera = liveCamera;
+    _syncVisibleBounds();
     _bumpViewportUiRevision();
     _applyContinuousMotionSideEffects(zoom: zoom);
     if (debounce) {
@@ -1610,6 +1621,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
       rightCenter: liveCamera.center,
       rightZoom: liveCamera.zoom,
     )) {
+      _syncVisibleBounds();
       if (_liveCamera?.token == liveCamera.token) {
         _liveCamera = null;
         _bumpViewportUiRevision();
@@ -1620,6 +1632,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     ref
         .read(mapProvider.notifier)
         .updatePosition(liveCamera.center, liveCamera.zoom);
+    _syncVisibleBounds();
     if (_liveCamera?.token == liveCamera.token) {
       _liveCamera = null;
       _bumpViewportUiRevision();
@@ -3657,6 +3670,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _tryApplyPendingCameraRequest();
     _tryZoomPendingSelectedMap();
     _tryZoomPendingSelectedTrack();
+    _syncVisibleBounds();
     if (ref.read(mapProvider).showTrails) {
       unawaited(
         _mapNotifier.prefetchRouteGraphVisibleBounds(
