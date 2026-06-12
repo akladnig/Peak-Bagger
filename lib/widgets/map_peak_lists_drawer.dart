@@ -23,13 +23,20 @@ class MapPeakListsDrawer extends ConsumerWidget {
         ),
       ),
     );
+    final visibleBounds = ref.watch(
+      mapProvider.select((state) => state.visibleBounds),
+    );
     final peakListsLoadState = ref.watch(peakListsLoadProvider);
     final peakLists = ref.watch(peakListsProvider);
     final visiblePeakLists = <({PeakList peakList, int renderableCount})>[];
 
     for (final peakList in peakLists) {
       try {
-        final renderableCount = renderablePeakCount(peaks: peaks, peakList: peakList);
+        final renderableCount = renderablePeakCount(
+          peaks: peaks,
+          visibleBounds: visibleBounds,
+          peakList: peakList,
+        );
         if (renderableCount == 0) {
           continue;
         }

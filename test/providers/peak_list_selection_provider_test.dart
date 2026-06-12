@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
@@ -177,6 +178,10 @@ void main() {
     expect(
       renderablePeakListIds(
         peaks: peaks,
+        visibleBounds: LatLngBounds(
+          const LatLng(-44.0, 146.0),
+          const LatLng(-42.0, 148.0),
+        ),
         peakLists: peakLists,
         selectedPeakListIds: {7, 8, 9},
       ),

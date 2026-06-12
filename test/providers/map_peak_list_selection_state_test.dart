@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
@@ -155,6 +156,10 @@ void main() {
                   longitude: 147.0,
                 ),
               ],
+              visibleBounds: LatLngBounds(
+                const LatLng(-44.0, 146.0),
+                const LatLng(-42.0, 148.0),
+              ),
               peakListSelectionMode: PeakListSelectionMode.specificList,
               selectedPeakListIds: {7, 8, 9},
               previousSpecificPeakListIds: {7, 8, 9},
@@ -172,17 +177,12 @@ void main() {
     expect(container.read(mapProvider).selectedPeakListIds, {7});
     expect(container.read(mapProvider).previousSpecificPeakListIds, {7});
 
-    container.read(mapProvider.notifier).state = container.read(mapProvider).copyWith(
-      peaks: [
-        Peak(
-          osmId: 7000,
-          name: 'Other Peak',
-          latitude: -42.9,
-          longitude: 147.1,
-        ),
-      ],
+    container.read(mapProvider.notifier).updateVisibleBounds(
+      LatLngBounds(
+        const LatLng(-10.0, 10.0),
+        const LatLng(-5.0, 15.0),
+      ),
     );
-    container.read(mapProvider.notifier).reconcileSelectedPeakList();
 
     expect(container.read(mapProvider).peakListSelectionMode, PeakListSelectionMode.allPeaks);
     expect(container.read(mapProvider).selectedPeakListIds, isEmpty);

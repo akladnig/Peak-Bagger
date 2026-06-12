@@ -345,6 +345,7 @@ class MapState {
   final bool routeDraftCanRedo;
   final bool syncEnabled;
   final List<Peak> peaks;
+  final LatLngBounds? visibleBounds;
   final bool isLoadingPeaks;
   final List<Peak> searchResults;
   final String searchQuery;
@@ -436,6 +437,7 @@ class MapState {
     this.routeDraftCanRedo = false,
     this.syncEnabled = true,
     this.peaks = const [],
+    this.visibleBounds,
     this.isLoadingPeaks = false,
     this.searchResults = const [],
     this.searchQuery = '',
@@ -596,6 +598,7 @@ class MapState {
     List<Peak>? searchResults,
     String? searchQuery,
     List<Peak>? selectedPeaks,
+    LatLngBounds? visibleBounds,
     Tasmap50k? selectedMap,
     TasmapDisplayMode? tasmapDisplayMode,
     MapGridVisibility? gridVisibility,
@@ -733,6 +736,7 @@ class MapState {
       routeDraftCanRedo: routeDraftCanRedo ?? this.routeDraftCanRedo,
       syncEnabled: syncEnabled ?? this.syncEnabled,
       peaks: peaks ?? this.peaks,
+      visibleBounds: visibleBounds ?? this.visibleBounds,
       isLoadingPeaks: isLoadingPeaks ?? this.isLoadingPeaks,
       searchResults: searchResults ?? this.searchResults,
       searchQuery: searchQuery ?? this.searchQuery,
@@ -3767,6 +3771,7 @@ class MapNotifier extends Notifier<MapState> {
 
     final validPeakListIds = renderablePeakListIds(
       peaks: state.peaks,
+      visibleBounds: state.visibleBounds,
       peakLists: peakLists,
       selectedPeakListIds: state.selectedPeakListIds,
     );
@@ -3791,6 +3796,29 @@ class MapNotifier extends Notifier<MapState> {
       selectedPeakListIds: const <int>{},
       previousSpecificPeakListIds: const <int>{},
     );
+  }
+
+  void updateVisibleBounds(LatLngBounds? bounds) {
+    if (_sameVisibleBounds(state.visibleBounds, bounds)) {
+      return;
+    }
+
+    state = state.copyWith(visibleBounds: bounds);
+    if (state.isLoadingPeaks) {
+      return;
+    }
+    reconcileSelectedPeakList();
+  }
+
+  bool _sameVisibleBounds(LatLngBounds? left, LatLngBounds? right) {
+    if (left == null || right == null) {
+      return left == right;
+    }
+
+    return left.southWest.latitude == right.southWest.latitude &&
+        left.southWest.longitude == right.southWest.longitude &&
+        left.northEast.latitude == right.northEast.latitude &&
+        left.northEast.longitude == right.northEast.longitude;
   }
 
   void centerOnLocation(LatLng location) {

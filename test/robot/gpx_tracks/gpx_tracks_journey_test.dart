@@ -79,10 +79,29 @@ void main() {
     tester.widget<FloatingActionButton>(robot.showPeaksFab).onPressed!.call();
     await tester.pumpAndSettle();
 
+    robot.notifier.updateVisibleBounds(
+      LatLngBounds(
+        const LatLng(-44.5, 146.0),
+        const LatLng(-41.5, 148.5),
+      ),
+    );
+    await tester.pumpAndSettle();
+
     expect(robot.peakListsDrawer, findsOneWidget);
     expect(robot.peakListRow(1), findsOneWidget);
     expect(robot.peakListRow(2), findsNothing);
     expect(robot.peakListRow(3), findsNothing);
+
+    robot.notifier.updateVisibleBounds(
+      LatLngBounds(
+        const LatLng(-10.0, 10.0),
+        const LatLng(-5.0, 15.0),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(robot.peakListRow(1), findsNothing);
+    expect(robot.peakListChipAllPeaks, findsOneWidget);
 
     await tester.tap(find.byKey(const Key('peak-list-item-All Peaks')));
     await tester.pumpAndSettle();
@@ -796,6 +815,14 @@ void main() {
     await robot.pumpApp();
 
     robot.expectPeaksShown();
+
+    robot.notifier.updateVisibleBounds(
+      LatLngBounds(
+        const LatLng(-44.5, 146.0),
+        const LatLng(-41.5, 148.5),
+      ),
+    );
+    await tester.pumpAndSettle();
 
     expect(robot.peakMarkerIds(), [7000, 6406]);
 

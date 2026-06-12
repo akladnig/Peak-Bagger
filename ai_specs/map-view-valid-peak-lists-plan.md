@@ -10,7 +10,7 @@ Hide zero-match + malformed lists; if none qualify, leave `All Peaks`; prevent h
 - **Structure**: feature-first map UI under `lib/widgets`; selection state in `lib/providers`
 - **State management**: Riverpod `Notifier` + derived `Provider`
 - **Reference implementations**: `lib/widgets/map_peak_lists_drawer.dart`, `lib/providers/peak_list_selection_provider.dart`, `lib/providers/map_provider.dart`, `test/widget/map_screen_peak_info_test.dart`, `test/providers/map_peak_list_selection_state_test.dart`, `test/robot/gpx_tracks/gpx_tracks_journey_test.dart`
-- **Assumptions/Gaps**: “current map view” maps to current renderable `MapState.peaks`, not literal camera-frustum geometry; if a selected list leaves scope, prune hidden ids and fall back to `All Peaks` when none remain
+- **Assumptions/Gaps**: current map view snapshots via `MapState.visibleBounds`; if a selected list leaves scope, prune hidden ids and fall back to `All Peaks` when none remain
 
 ## Plan
 
