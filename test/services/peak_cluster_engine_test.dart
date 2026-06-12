@@ -1,0 +1,325 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/core/constants.dart';
+import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/services/peak_cluster_engine.dart';
+import 'package:peak_bagger/services/peak_projection_cache.dart';
+
+void main() {
+  final closeA = Peak(osmId: 1, name: 'A', latitude: -43.0, longitude: 147.0);
+  final closeB = Peak(osmId: 2, name: 'B', latitude: -43.0, longitude: 147.01);
+
+  test('close peaks cluster at low zoom with expected fractions', () {
+    final camera = _camera(zoom: 8);
+    final data = buildPeakClusterViewportData(
+      peaks: [closeA, closeB],
+      camera: camera,
+      correlatedPeakIds: {2},
+    );
+
+    expect(data.clusters, hasLength(1));
+    expect(data.individualCandidates, isEmpty);
+    expect(data.clusters.single.untickedCount, 1);
+    expect(data.clusters.single.tickedCount, 1);
+    expect(data.clusters.single.untickedFraction, 0.5);
+    expect(data.clusters.single.tickedFraction, 0.5);
+  });
+
+  test('close peaks dissolve into individuals at higher zoom', () {
+    final camera = _camera(zoom: 15);
+    final data = buildPeakClusterViewportData(
+      peaks: [closeA, closeB],
+      camera: camera,
+      correlatedPeakIds: const {},
+    );
+
+    expect(data.clusters, isEmpty);
+    expect(data.individualCandidates.map((candidate) => candidate.peak.osmId), [
+      1,
+      2,
+    ]);
+  });
+
+  test('invalid coordinates are skipped safely', () {
+    final invalid = Peak(
+      osmId: 3,
+      name: 'Invalid',
+      latitude: double.nan,
+      longitude: 147.0,
+    );
+    final camera = _camera(zoom: 15);
+    final data = buildPeakClusterViewportData(
+      peaks: [closeA, invalid],
+      camera: camera,
+      correlatedPeakIds: const {},
+    );
+
+    expect(data.clusters, isEmpty);
+    expect(data.individualCandidates.map((candidate) => candidate.peak.osmId), [
+      1,
+    ]);
+  });
+
+  test('cluster representative uses projected centroid', () {
+    final camera = _camera(zoom: 8);
+    final data = buildPeakClusterViewportData(
+      peaks: [closeA, closeB],
+      camera: camera,
+      correlatedPeakIds: const {},
+    );
+    final cluster = data.clusters.single;
+    final expected =
+        [closeA, closeB]
+            .map(
+              (peak) => camera.latLngToScreenOffset(
+                LatLng(peak.latitude, peak.longitude),
+              ),
+            )
+            .reduce((left, right) => left + right) /
+        2;
+
+    expect(cluster.screenPosition.dx, closeTo(expected.dx, 0.001));
+    expect(cluster.screenPosition.dy, closeTo(expected.dy, 0.001));
+  });
+
+  test('compact clustering keeps chain-linked groups separate', () {
+    final camera = _camera(zoom: 13);
+    final peaks = [
+      _peakAtScreen(camera, osmId: 10, screenPosition: const Offset(492, 400)),
+      _peakAtScreen(camera, osmId: 11, screenPosition: const Offset(506, 386)),
+      _peakAtScreen(camera, osmId: 12, screenPosition: const Offset(506, 414)),
+      _peakAtScreen(camera, osmId: 13, screenPosition: const Offset(520, 400)),
+      _peakAtScreen(camera, osmId: 14, screenPosition: const Offset(506, 400)),
+      _peakAtScreen(camera, osmId: 20, screenPosition: const Offset(544, 400)),
+      _peakAtScreen(camera, osmId: 21, screenPosition: const Offset(558, 401)),
+    ];
+    final data = buildPeakClusterViewportData(
+      peaks: peaks,
+      camera: camera,
+      correlatedPeakIds: const {},
+      algorithm: PeakClusterAlgorithm.compactCircular,
+    );
+
+    expect(data.clusters.map((cluster) => cluster.members.length), [2, 5]);
+    expect(data.individualCandidates, isEmpty);
+    expect({
+      for (final cluster in data.clusters)
+        for (final member in cluster.members) member.peak.osmId,
+    }, hasLength(peaks.length));
+  });
+
+  test(
+    'marker cluster compatible mode keeps current compact mode selectable',
+    () {
+      final camera = _camera(zoom: 13);
+      final peaks = [
+        _peakAtScreen(
+          camera,
+          osmId: 50,
+          screenPosition: const Offset(500, 400),
+        ),
+        _peakAtScreen(
+          camera,
+          osmId: 51,
+          screenPosition: const Offset(520, 400),
+        ),
+        _peakAtScreen(
+          camera,
+          osmId: 52,
+          screenPosition: const Offset(530, 400),
+        ),
+        _peakAtScreen(
+          camera,
+          osmId: 53,
+          screenPosition: const Offset(544, 400),
+        ),
+        _peakAtScreen(
+          camera,
+          osmId: 54,
+          screenPosition: const Offset(551, 400),
+        ),
+      ];
+
+      final compactData = buildPeakClusterViewportData(
+        peaks: peaks,
+        camera: camera,
+        correlatedPeakIds: const {},
+        algorithm: PeakClusterAlgorithm.compactCircular,
+      );
+      final markerClusterCompatibleData = buildPeakClusterViewportData(
+        peaks: peaks,
+        camera: camera,
+        correlatedPeakIds: const {},
+        algorithm: PeakClusterAlgorithm.markerClusterCompatible,
+      );
+
+      expect(
+        MapConstants.peakClusterAlgorithm,
+        PeakClusterAlgorithm.supercluster,
+      );
+      expect(compactData.clusters.map((cluster) => cluster.members.length), [
+        4,
+      ]);
+      expect(
+        compactData.individualCandidates.map(
+          (candidate) => candidate.peak.osmId,
+        ),
+        [54],
+      );
+      expect(
+        markerClusterCompatibleData.clusters.map(
+          (cluster) => cluster.members.length,
+        ),
+        [5],
+      );
+      expect(markerClusterCompatibleData.individualCandidates, isEmpty);
+    },
+  );
+
+  test('supercluster mode returns stable aggregated clusters', () {
+    final camera = _camera(zoom: 8);
+    final data = buildPeakClusterViewportData(
+      peaks: [closeA, closeB],
+      camera: camera,
+      correlatedPeakIds: {2},
+      algorithm: PeakClusterAlgorithm.supercluster,
+    );
+
+    expect(data.clusters, hasLength(1));
+    expect(data.clusters.single.members.length, 2);
+    expect(data.clusters.single.tickedCount, 1);
+    expect(data.individualCandidates, isEmpty);
+  });
+
+  test('cluster visual radius follows hull edge geometry', () {
+    final cluster = PeakCluster(
+      members: [
+        _candidate(osmId: 40, screenPosition: const Offset(470, 400)),
+        _candidate(osmId: 41, screenPosition: const Offset(530, 400)),
+      ],
+      screenPosition: const Offset(500, 400),
+    );
+
+    expect(
+      peakClusterVisualRadius(
+        cluster,
+        algorithm: PeakClusterAlgorithm.compactCircular,
+      ),
+      closeTo(22, 0.001),
+    );
+  });
+
+  test('seed priority prefers prominence before elevation fallback', () {
+    final highProminence = _candidate(
+      osmId: 30,
+      prominence: 120,
+      elevation: 800,
+    );
+    final highElevation = _candidate(osmId: 31, elevation: 1500);
+    final lowerElevation = _candidate(osmId: 32, elevation: 1200);
+
+    expect(
+      comparePeakClusterSeedPriority(highProminence, highElevation),
+      lessThan(0),
+    );
+    expect(
+      comparePeakClusterSeedPriority(highElevation, lowerElevation),
+      lessThan(0),
+    );
+  });
+
+  test('projection cache invalidates on zoom and correlation changes', () {
+    final cache = PeakProjectionCache();
+    final base = cache.getOrBuild(
+      peaks: [closeA, closeB],
+      camera: _camera(zoom: 8),
+      correlatedPeakIds: const {},
+      algorithm: PeakClusterAlgorithm.compactCircular,
+    );
+    final same = cache.getOrBuild(
+      peaks: [closeA, closeB],
+      camera: _camera(zoom: 8),
+      correlatedPeakIds: const {},
+      algorithm: PeakClusterAlgorithm.compactCircular,
+    );
+    final changedZoom = cache.getOrBuild(
+      peaks: [closeA, closeB],
+      camera: _camera(zoom: 9),
+      correlatedPeakIds: const {},
+      algorithm: PeakClusterAlgorithm.compactCircular,
+    );
+    final changedCorrelation = cache.getOrBuild(
+      peaks: [closeA, closeB],
+      camera: _camera(zoom: 9),
+      correlatedPeakIds: {2},
+      algorithm: PeakClusterAlgorithm.compactCircular,
+    );
+    final changedAlgorithm = cache.getOrBuild(
+      peaks: [closeA, closeB],
+      camera: _camera(zoom: 9),
+      correlatedPeakIds: {2},
+      algorithm: PeakClusterAlgorithm.supercluster,
+    );
+
+    expect(identical(base, same), isTrue);
+    expect(identical(base, changedZoom), isFalse);
+    expect(identical(changedCorrelation, changedAlgorithm), isFalse);
+    expect(
+      changedCorrelation.individualCandidates.any(
+            (candidate) => candidate.isTicked,
+          ) ||
+          changedCorrelation.clusters.any((cluster) => cluster.tickedCount > 0),
+      isTrue,
+    );
+  });
+}
+
+MapCamera _camera({required double zoom}) {
+  return MapCamera(
+    crs: const Epsg3857(),
+    center: const LatLng(-43.0, 147.0),
+    zoom: zoom,
+    rotation: 0,
+    nonRotatedSize: const Size(1000, 800),
+  );
+}
+
+Peak _peakAtScreen(
+  MapCamera camera, {
+  required int osmId,
+  required Offset screenPosition,
+  double? elevation,
+  double? prominence,
+}) {
+  final point = camera.screenOffsetToLatLng(screenPosition);
+  return Peak(
+    osmId: osmId,
+    name: 'Peak $osmId',
+    latitude: point.latitude,
+    longitude: point.longitude,
+    elevation: elevation,
+    prominence: prominence,
+  );
+}
+
+ProjectedPeakCandidate _candidate({
+  required int osmId,
+  Offset screenPosition = Offset.zero,
+  double? elevation,
+  double? prominence,
+}) {
+  return ProjectedPeakCandidate(
+    peak: Peak(
+      osmId: osmId,
+      name: 'Peak $osmId',
+      latitude: -43,
+      longitude: 147,
+      elevation: elevation,
+      prominence: prominence,
+    ),
+    screenPosition: screenPosition,
+    isTicked: false,
+  );
+}

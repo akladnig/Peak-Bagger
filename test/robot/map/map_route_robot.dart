@@ -81,9 +81,6 @@ class MapRouteRobot {
       find.byKey(const Key('route-elevation-error-text'));
   Finder routeDraftMarkerHitbox(String markerId) =>
       find.byKey(Key('route-draft-marker-hitbox-$markerId'));
-  Finder peakMarkerHitbox(int peakOsmId) =>
-      find.byKey(Key('peak-marker-hitbox-$peakOsmId'));
-
   void expectRouteDraftOverlaysVisible() {
     expect(routeGraphOverlayRoot, findsOneWidget);
     expect(routeControlsOverlayRoot, findsOneWidget);
@@ -165,7 +162,7 @@ class MapRouteRobot {
   }
 
   Future<void> openPeakPopup(int peakOsmId) async {
-    await tester.tap(peakMarkerHitbox(peakOsmId));
+    await tester.tapAt(tester.getCenter(mapInteractionRegion));
     await tester.pumpAndSettle();
   }
 

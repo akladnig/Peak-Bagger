@@ -10,6 +10,7 @@ import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
@@ -231,6 +232,37 @@ void main() {
     expect(state.selectedLocation, beforeLocation);
     expect(find.byKey(const Key('peak-info-popup')), findsOneWidget);
     expect(find.text('Bonnet Hill'), findsOneWidget);
+  });
+
+  testWidgets('pinned peak popup suppresses the overlapping label', (
+    tester,
+  ) async {
+    await _pumpMap(
+      tester,
+      _mapStateWithPeak(
+        peak: Peak(
+          osmId: 6406,
+          name: 'Bonnet Hill',
+          elevation: 1234,
+          latitude: -43.0,
+          longitude: 147.0,
+        ),
+      ),
+      overrides: [
+        peakMarkerInfoSettingsProvider.overrideWith(
+          () => _StaticPeakMarkerInfoNotifier(true),
+        ),
+      ],
+    );
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byKey(const Key('peak-info-popup')), findsOneWidget);
+    expect(find.byKey(const Key('peak-marker-name-6406')), findsNothing);
+    expect(find.byKey(const Key('peak-marker-height-6406')), findsNothing);
   });
 
   testWidgets('moving off a peak clears hover without closing peak popup', (
@@ -1015,8 +1047,13 @@ void main() {
     await tester.tap(find.byKey(const Key('peak-list-item-Alpha')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('peak-marker-hitbox-6406')), findsOneWidget);
-    expect(find.byKey(const Key('peak-marker-hitbox-7000')), findsNothing);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+    expect(
+      container.read(filteredPeaksProvider).map((peak) => peak.osmId).toList(),
+      [6406],
+    );
   });
 
   testWidgets('drawer shows all peaks and unavailable message on repository error', (

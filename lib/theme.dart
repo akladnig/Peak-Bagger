@@ -3,6 +3,9 @@ import 'package:peak_bagger/core/constants.dart';
 
 const thinDivider = Divider(height: 0, color: Color(0xff7b7b7b));
 const mapGridColour = Colors.blue;
+const tickedColour = Color(0xFF3DD700);
+const untickedColour = Color(0xFFD66A6D);
+
 
 class MapChartHoverDotTheme {
   static const Color color = Color(0xFF12B886);

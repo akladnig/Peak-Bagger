@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
+enum PeakClusterAlgorithm {
+  compactCircular,
+  markerClusterCompatible,
+  supercluster,
+}
+
 abstract final class MapConstants {
   static const defaultCenter = LatLng(-41.5, 146.5);
   static const defaultZoom = 15.0;
@@ -9,9 +15,23 @@ abstract final class MapConstants {
   static const cameraSaveDebounce = Duration(milliseconds: 150);
   static const cameraEpsilon = 0.000001;
   static const searchRadiusMeters = 100.0;
-  static const peakMinZoom = 8;
+  static const peakMinZoom = 1;
   static const peakInfoMinZoom = 12.0;
   static const peakInfoLabelMaxCharacters = 20;
+  static const peakClusterAlgorithm = PeakClusterAlgorithm.supercluster;
+  static const peakClusterShowDebugHulls = false;
+  static const peakClusterRadius = 28.0;
+  static const peakSuperclusterRadius = 86;
+  static const peakSuperclusterMinPoints = 2;
+  static const peakSuperclusterMaxZoom = 16;
+  static const peakClusterTapPadding = 4.0;
+  static const peakClusterVisualRadius = 15.0;
+  static const peakClusterVisualRadiusPerDigit = 3.0;
+  static const peakClusterRingWidth = 8.0;
+  static const peakClusterRingBorderWidth = 1.0;
+  static const peakMarkerExclusionRadius = 14.0;
+  static const peakClusterExpandPadding = 48.0;
+  static const peakViewportPadding = 24.0;
   static const peakMaxZoom = 18;
   static const driveEtaMinZoom = 6.0;
   static const trackMinZoom = 6;

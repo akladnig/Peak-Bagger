@@ -514,7 +514,9 @@ void main() {
     expect(buildCorrelatedPeakIds(tracks), {6406});
   });
 
-  testWidgets('peak layer renders ticked and unticked markers', (tester) async {
+  testWidgets('peak layer renders as individuals when peaks are separated', (
+    tester,
+  ) async {
     final map = _adamsons();
     final repository = await TestTasmapRepository.create(maps: [map]);
 
@@ -556,14 +558,10 @@ void main() {
 
     await tester.pump();
 
-    expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
-
-    final markerLayer = tester.widget<MarkerLayer>(
-      find.byKey(const Key('peak-marker-layer')),
-    );
-    expect(markerLayer.markers, hasLength(2));
-    expect(markerLayer.markers.first.key, const Key('peak-marker-hitbox-7000'));
-    expect(markerLayer.markers.last.key, const Key('peak-marker-hitbox-6406'));
+    final peakLayerFinder = find.byKey(const Key('peak-marker-layer'));
+    expect(peakLayerFinder, findsOneWidget);
+    expect(tester.widget(peakLayerFinder), isNot(isA<MarkerLayer>()));
+    expect(find.byKey(const Key('peak-cluster-layer')), findsNothing);
   });
 
   testWidgets('None selection hides peak layer', (tester) async {
@@ -620,7 +618,7 @@ void main() {
     expect(find.byKey(const Key('peak-marker-layer')), findsNothing);
   });
 
-  testWidgets('imported correlated peaks render as ticked markers', (
+  testWidgets('imported correlated peaks still render the peak layer', (
     tester,
   ) async {
     final repository = await TestTasmapRepository.create();
@@ -679,14 +677,10 @@ void main() {
 
     await tester.pump();
 
-    final markerLayer = tester.widget<MarkerLayer>(
-      find.byKey(const Key('peak-marker-layer')),
-    );
-    expect(markerLayer.markers, hasLength(1));
-    expect(
-      markerLayer.markers.single.key,
-      const Key('peak-marker-hitbox-6406'),
-    );
+    final peakLayerFinder = find.byKey(const Key('peak-marker-layer'));
+    expect(peakLayerFinder, findsOneWidget);
+    expect(tester.widget(peakLayerFinder), isNot(isA<MarkerLayer>()));
+    expect(find.byKey(const Key('peak-cluster-layer')), findsNothing);
   });
 
   testWidgets('peak layer renders at zoom 8', (tester) async {
@@ -726,6 +720,61 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
+  });
+
+  testWidgets('overlapping peaks render a cluster and tapping it expands', (
+    tester,
+  ) async {
+    final repository = await TestTasmapRepository.create();
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-43.0, 147.0),
+        zoom: 8,
+        basemap: Basemap.tracestrack,
+        peaks: [
+          Peak(
+            osmId: 6406,
+            name: 'Bonnet Hill',
+            latitude: -43.0,
+            longitude: 147.0,
+          ),
+          Peak(
+            osmId: 7000,
+            name: 'Other Peak',
+            latitude: -43.0,
+            longitude: 147.0,
+          ),
+        ],
+      ),
+      correlatedPeakIds: {6406},
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(() => notifier),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
+          tasmapRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(home: MapScreen()),
+      ),
+    );
+
+    await tester.pump();
+
+    expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
+    expect(find.byKey(const Key('peak-cluster-layer')), findsOneWidget);
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(notifier.state.zoom, greaterThan(8));
+    expect(notifier.state.selectedLocation, isNull);
+    expect(notifier.state.peakInfoPeak, isNull);
   });
 
   testWidgets('peak layer renders above track polylines', (tester) async {
@@ -791,8 +840,7 @@ void main() {
     final widgets = tester.allWidgets.toList(growable: false);
     final trackIndex = widgets.indexWhere((widget) => widget is PolylineLayer);
     final peakIndex = widgets.indexWhere(
-      (widget) =>
-          widget is MarkerLayer && widget.key == const Key('peak-marker-layer'),
+      (widget) => widget.key == const Key('peak-marker-layer'),
     );
 
     expect(trackIndex, greaterThanOrEqualTo(0));

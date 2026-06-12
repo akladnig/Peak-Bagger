@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
@@ -486,30 +486,24 @@ class GpxTracksRobot {
     expect(peakMarkerLayer, findsNothing);
   }
 
-  List<String> peakMarkerAssetNames() {
-    return tester
-        .widgetList<SvgPicture>(
-          find.descendant(
-            of: peakMarkerLayer,
-            matching: find.byType(SvgPicture),
-          ),
-        )
-        .map((svg) => svg.bytesLoader.toString())
-        .toList(growable: false);
-  }
-
   List<int> peakMarkerIds() {
-    final markerLayer = tester.widget<MarkerLayer>(peakMarkerLayer);
-    return markerLayer.markers
-        .map((marker) {
-          final key = marker.key;
-          if (key is ValueKey<String>) {
-            return int.tryParse(key.value.split('-').last);
-          }
-          return null;
-        })
-        .whereType<int>()
-        .toList(growable: false);
+    final container = ProviderScope.containerOf(
+      tester.element(mapInteractionRegion),
+    );
+    final peaks = container.read(filteredPeaksProvider);
+    final correlatedPeakIds = notifier.correlatedPeakIds;
+    final unticked = <int>[];
+    final ticked = <int>[];
+
+    for (final peak in peaks) {
+      if (correlatedPeakIds.contains(peak.osmId)) {
+        ticked.add(peak.osmId);
+      } else {
+        unticked.add(peak.osmId);
+      }
+    }
+
+    return [...unticked, ...ticked];
   }
 
   Future<void> hoverTrack() async {

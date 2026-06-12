@@ -13,7 +13,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/map_polygon_asset.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
@@ -32,6 +31,9 @@ import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/providers/gpx_export_provider.dart';
 import 'package:peak_bagger/services/peak_hover_detector.dart';
+import 'package:peak_bagger/services/peak_cluster_engine.dart';
+import 'package:peak_bagger/services/peak_hit_test.dart';
+import 'package:peak_bagger/services/peak_projection_cache.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/route_graph_trail_provider.dart';
 import 'package:peak_bagger/services/route_hover_detector.dart';
@@ -54,6 +56,7 @@ import 'package:peak_bagger/widgets/tasmap_polygon_label.dart';
 import 'package:peak_bagger/widgets/dialog_helpers.dart';
 
 import 'map_screen_layers.dart';
+import 'map_screen_peak_layer.dart';
 import 'map_screen_panels.dart';
 
 class DismissSurfaceIntent extends Intent {
@@ -148,10 +151,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   int? _cachedTrackHoverDisplayZoom;
   List<GpxTrack>? _cachedTrackHoverTracks;
   List<TrackHoverCandidate>? _cachedTrackHoverCandidates;
-  int? _cachedPeakHoverViewportRevision;
-  List<Peak>? _cachedPeakHoverPeaks;
-  Set<int>? _cachedPeakHoverCorrelatedPeakIds;
-  List<PeakHoverCandidate>? _cachedPeakHoverCandidates;
+  final _peakProjectionCache = PeakProjectionCache();
   PolygonLayer? _cachedPolygonAssetLayer;
   List<MapPolygonAsset>? _cachedPolygonAssetLayerAssets;
   int? _cachedRouteHoverViewportRevision;
@@ -161,14 +161,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
   Basemap? _cachedTileProviderBasemap;
   TileProvider? _cachedTileProvider;
   int _driveEtaRequestId = 0;
-  static final _tickedPeakMarker = SvgPicture.asset(
-    'assets/peak_marker_ticked.svg',
-  );
-  static final _untickedPeakMarker = SvgPicture.asset(
-    'assets/peak_marker.svg',
-    colorFilter: const ColorFilter.mode(Color(0xFFD66A6D), BlendMode.srcIn),
-  );
-
   @override
   void initState() {
     super.initState();
@@ -768,66 +760,95 @@ class _MapScreenState extends ConsumerState<MapScreen>
       return null;
     }
 
-    final candidates = _buildPeakHoverCandidates(peaks, camera);
-    if (candidates.isEmpty) {
-      return null;
-    }
-
-    final result = PeakHoverDetector.findHoveredPeak(
+    final peak = hitTestPeakFromViewportData(
       pointerPosition: localPosition,
-      candidates: candidates,
+      data: _buildPeakViewportData(peaks, camera),
     );
-    final peakId = result.hoveredPeakId;
-    if (peakId == null) {
+    if (peak == null) {
       ref.read(mapProvider.notifier).closeHoveredPeakInfoPopup();
       return null;
     }
-    for (final peak in peaks) {
-      if (peak.osmId == peakId) {
-        ref.read(mapProvider.notifier).openHoveredPeakInfoPopup(peak);
-        return peak;
-      }
-    }
-    ref.read(mapProvider.notifier).closeHoveredPeakInfoPopup();
-    return null;
+    ref.read(mapProvider.notifier).openHoveredPeakInfoPopup(peak);
+    return peak;
   }
 
-  List<PeakHoverCandidate> _buildPeakHoverCandidates(
+  PeakCluster? _hitTestPeakCluster(
+    Offset localPosition,
+    MapState mapState,
+    List<Peak> peaks,
+  ) {
+    if (!mapState.showPeaks || mapState.zoom < MapConstants.peakMinZoom) {
+      return null;
+    }
+
+    final camera = _mapController.camera;
+    if (camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      return null;
+    }
+
+    final viewportData = _buildPeakViewportData(peaks, camera);
+    return hitTestPeakCluster(
+      pointerPosition: localPosition,
+      data: viewportData,
+    );
+  }
+
+  PeakClusterViewportData _buildPeakViewportData(
     List<Peak> peaks,
     MapCamera camera,
   ) {
-    final correlatedPeakIds = ref.read(mapProvider.notifier).correlatedPeakIds;
-    final viewportRevision = _viewportUiRevision.value;
-    if (_cachedPeakHoverCandidates != null &&
-        _cachedPeakHoverViewportRevision == viewportRevision &&
-        identical(_cachedPeakHoverPeaks, peaks) &&
-        identical(_cachedPeakHoverCorrelatedPeakIds, correlatedPeakIds)) {
-      return _cachedPeakHoverCandidates!;
+    return _peakProjectionCache.getOrBuild(
+      peaks: peaks,
+      camera: camera,
+      correlatedPeakIds: ref.read(mapProvider.notifier).correlatedPeakIds,
+    );
+  }
+
+  void _expandPeakCluster(PeakCluster cluster) {
+    final notifier = ref.read(mapProvider.notifier);
+    notifier.clearHoveredPeak();
+    notifier.clearHoveredTrack();
+    notifier.clearHoveredRoute();
+    if (ref.read(mapProvider).peakInfoPeak != null) {
+      notifier.closePeakInfoPopup();
     }
 
-    final untickedCandidates = <PeakHoverCandidate>[];
-    final tickedCandidates = <PeakHoverCandidate>[];
+    final points = cluster.points;
+    if (points.isEmpty) {
+      return;
+    }
 
-    for (final peak in peaks) {
-      final candidate = PeakHoverCandidate(
-        peakId: peak.osmId,
-        screenPosition: camera.latLngToScreenOffset(
-          LatLng(peak.latitude, peak.longitude),
+    final request = PendingCameraRequest(
+      center: points.first,
+      zoom: _mapController.camera.zoom,
+      serial: ref.read(mapProvider).cameraRequestSerial + 1,
+      persist: true,
+      clearHoveredPeakId: true,
+      clearHoveredTrackId: true,
+    );
+
+    if (peakClusterNeedsZoomFallback(points)) {
+      _applyAcceptedCameraMove(
+        request.copyWith(
+          zoom: (_mapController.camera.zoom + 2).clamp(
+            MapConstants.peakMinZoom.toDouble(),
+            MapConstants.peakMaxZoom.toDouble(),
+          ),
         ),
       );
-      if (correlatedPeakIds.contains(peak.osmId)) {
-        tickedCandidates.add(candidate);
-      } else {
-        untickedCandidates.add(candidate);
-      }
+      return;
     }
 
-    final candidates = [...untickedCandidates, ...tickedCandidates];
-    _cachedPeakHoverViewportRevision = viewportRevision;
-    _cachedPeakHoverPeaks = peaks;
-    _cachedPeakHoverCorrelatedPeakIds = correlatedPeakIds;
-    _cachedPeakHoverCandidates = candidates;
-    return candidates;
+    final bounds = LatLngBounds.fromPoints(points);
+    _applyAcceptedCameraFit(
+      request,
+      () => _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: bounds,
+          padding: const EdgeInsets.all(MapConstants.peakClusterExpandPadding),
+        ),
+      ),
+    );
   }
 
   List<RouteHoverCandidate> _buildRouteHoverCandidates(
@@ -2390,6 +2411,15 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                             );
                                             return;
                                           }
+                                          final tappedCluster = _hitTestPeakCluster(
+                                            event.localPosition,
+                                            ref.read(mapProvider),
+                                            ref.read(filteredPeaksProvider),
+                                          );
+                                          if (tappedCluster != null) {
+                                            _expandPeakCluster(tappedCluster);
+                                            return;
+                                          }
                                           final tappedPeak = _hitTestPeak(
                                             event.localPosition,
                                             ref.read(mapProvider),
@@ -2716,31 +2746,28 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                 MapConstants.peakMinZoom)
                                           Consumer(
                                             builder: (context, ref, child) {
-                                              final hoveredPeakId = ref.watch(
+                                              final peakUiState = ref.watch(
                                                 mapProvider.select(
-                                                  (state) =>
-                                                      state.hoveredPeakId,
+                                                  (state) => (
+                                                    hoveredPeakId:
+                                                        state.hoveredPeakId,
+                                                    popupPeakId:
+                                                        state.peakInfoPeak?.osmId,
+                                                  ),
                                                 ),
                                               );
-                                              return MarkerLayer(
-                                                key: const Key(
-                                                  'peak-marker-layer',
-                                                ),
-                                                markers: buildPeakMarkers(
-                                                  peaks: filteredPeaks,
-                                                  zoom: mapScene.zoom,
-                                                  showPeakInfo: showPeakInfo,
-                                                  correlatedPeakIds: ref
-                                                      .read(
-                                                        mapProvider.notifier,
-                                                      )
-                                                      .correlatedPeakIds,
-                                                  tickedPeakMarker:
-                                                      _tickedPeakMarker,
-                                                  untickedPeakMarker:
-                                                      _untickedPeakMarker,
-                                                  hoveredPeakId: hoveredPeakId,
-                                                ),
+                                              return MapScreenPeakLayer(
+                                                zoom: mapScene.zoom,
+                                                showPeakInfo: showPeakInfo,
+                                                hoveredPeakId:
+                                                    peakUiState.hoveredPeakId,
+                                                popupPeakId:
+                                                    peakUiState.popupPeakId,
+                                                viewportData:
+                                                    _buildPeakViewportData(
+                                                      filteredPeaks,
+                                                      _mapController.camera,
+                                                    ),
                                               );
                                             },
                                           ),
