@@ -41,7 +41,8 @@ class MapScreenPeakLayer extends StatelessWidget {
       }
     }
     final suppressedLabelIds = {
-      for (final peakId in [hoveredPeakId, popupPeakId].whereType<int>()) peakId,
+      for (final peakId in [hoveredPeakId, popupPeakId].whereType<int>())
+        peakId,
     };
     final labelPlacements = showPeakInfo
         ? layoutPeakLabels(
@@ -111,27 +112,37 @@ class _PeakViewportPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final untickedFill = Paint()..color = const Color(0xFFD66A6D);
-    final tickedFill = Paint()..color = const Color(0xFF3F8F5B);
+    final untickedFill = Paint()..color = untickedColour;
+    final tickedFill = Paint()..color = tickedColour;
+    final debugHullStroke = Paint()
+      ..color = const Color(0xFF00BCD4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
     final markerStroke = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
-    final clusterFill = Paint()..color = Colors.white.withValues(alpha: 0.95);
-    final clusterStroke = Paint()
-      ..color = const Color(0xFF3B4A6B)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
+    final clusterFillColor =
+        MapConstants.peakClusterAlgorithm ==
+            PeakClusterAlgorithm.markerClusterCompatible
+        ? const Color(0xFFFFF3B0)
+        : Colors.white;
+    final clusterFill = Paint()
+      ..color = clusterFillColor.withValues(alpha: 0.4);
     final untickedRing = Paint()
-      ..color = const Color(0xFFD66A6D)
+      ..color = untickedColour
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 5
-      ..strokeCap = StrokeCap.round;
+      ..strokeWidth = MapConstants.peakClusterRingWidth
+      ..strokeCap = StrokeCap.butt;
     final tickedRing = Paint()
-      ..color = const Color(0xFF3F8F5B)
+      ..color = tickedColour
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 5
-      ..strokeCap = StrokeCap.round;
+      ..strokeWidth = MapConstants.peakClusterRingWidth
+      ..strokeCap = StrokeCap.butt;
+    final ringBorder = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = MapConstants.peakClusterRingBorderWidth;
 
     for (final candidate in individuals) {
       final center = candidate.screenPosition;
@@ -145,9 +156,26 @@ class _PeakViewportPainter extends CustomPainter {
     }
 
     for (final cluster in clusters) {
+      final hull =
+          MapConstants.peakClusterShowDebugHulls &&
+              MapConstants.peakClusterAlgorithm !=
+                  PeakClusterAlgorithm.supercluster &&
+              cluster.members.length >= 3
+          ? peakClusterHullPath(cluster)
+          : null;
+      if (hull != null) {
+        canvas.drawPath(hull, debugHullStroke);
+      }
+
+      final radius = peakClusterVisualRadius(
+        cluster,
+        algorithm: MapConstants.peakClusterAlgorithm,
+      );
+      final ringHalfWidth = MapConstants.peakClusterRingWidth / 2;
+      final innerRingBorderRadius = radius - ringHalfWidth;
       final ringRect = Rect.fromCircle(
         center: cluster.screenPosition,
-        radius: MapConstants.peakClusterVisualRadius,
+        radius: radius,
       );
       final startAngle = -math.pi / 2;
       canvas.drawArc(
@@ -166,13 +194,18 @@ class _PeakViewportPainter extends CustomPainter {
       );
       canvas.drawCircle(
         cluster.screenPosition,
-        MapConstants.peakClusterVisualRadius - 4,
+        innerRingBorderRadius,
         clusterFill,
       );
       canvas.drawCircle(
         cluster.screenPosition,
-        MapConstants.peakClusterVisualRadius - 4,
-        clusterStroke,
+        radius + ringHalfWidth,
+        ringBorder,
+      );
+      canvas.drawCircle(
+        cluster.screenPosition,
+        innerRingBorderRadius,
+        ringBorder,
       );
     }
   }
@@ -192,7 +225,10 @@ class _PeakClusterCount extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = MapConstants.peakClusterVisualRadius;
+    final radius = peakClusterVisualRadius(
+      cluster,
+      algorithm: MapConstants.peakClusterAlgorithm,
+    );
     return Positioned(
       left: cluster.screenPosition.dx - radius,
       top: cluster.screenPosition.dy - radius,
@@ -205,7 +241,7 @@ class _PeakClusterCount extends StatelessWidget {
             key: Key('peak-cluster-count-$index'),
             style: const TextStyle(
               color: Color(0xFF1E2A44),
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
           ),
