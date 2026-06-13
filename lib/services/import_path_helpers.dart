@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
 /// Shared path helpers for Bushwalking root resolution.
 ///
 /// This is the canonical root used by importer storage semantics.
@@ -22,6 +24,14 @@ String resolveBushwalkingRoot() {
   }
 
   return home;
+}
+
+String resolveBushwalkingTracksPath({String? bushwalkingRoot}) {
+  return p.join(bushwalkingRoot ?? resolveBushwalkingRoot(), 'Tracks');
+}
+
+String resolveBushwalkingRoutesPath({String? bushwalkingRoot}) {
+  return p.join(bushwalkingRoot ?? resolveBushwalkingRoot(), 'Routes');
 }
 
 String? _resolveHomeDirectory() {
