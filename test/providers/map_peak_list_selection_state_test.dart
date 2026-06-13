@@ -87,7 +87,10 @@ void main() {
 
     notifier.setAllPeaksSelected(true);
 
-    expect(notifier.state.peakListSelectionMode, PeakListSelectionMode.allPeaks);
+    expect(
+      notifier.state.peakListSelectionMode,
+      PeakListSelectionMode.allPeaks,
+    );
     expect(notifier.state.selectedPeakListIds, isEmpty);
     expect(notifier.state.previousSpecificPeakListIds, {7, 8});
   });
@@ -121,7 +124,7 @@ void main() {
     expect(notifier.state.previousSpecificPeakListIds, {9});
   });
 
-  test('reconcile keeps renderable lists and falls back to all peaks', () {
+  test('reconcile follows cursor region and falls back to all peaks', () {
     final repository = PeakListRepository.test(
       InMemoryPeakListStorage([
         PeakList(
@@ -148,6 +151,7 @@ void main() {
               center: const LatLng(-41.5, 146.5),
               zoom: 15,
               basemap: Basemap.tracestrack,
+              cursorPoint: const LatLng(-44.0, 148.8867),
               peaks: [
                 Peak(
                   osmId: 6406,
@@ -156,10 +160,6 @@ void main() {
                   longitude: 147.0,
                 ),
               ],
-              visibleBounds: LatLngBounds(
-                const LatLng(-44.0, 146.0),
-                const LatLng(-42.0, 148.0),
-              ),
               peakListSelectionMode: PeakListSelectionMode.specificList,
               selectedPeakListIds: {7, 8, 9},
               previousSpecificPeakListIds: {7, 8, 9},
@@ -173,18 +173,32 @@ void main() {
 
     container.read(mapProvider.notifier).reconcileSelectedPeakList();
 
-    expect(container.read(mapProvider).peakListSelectionMode, PeakListSelectionMode.specificList);
+    expect(
+      container.read(mapProvider).peakListSelectionMode,
+      PeakListSelectionMode.specificList,
+    );
     expect(container.read(mapProvider).selectedPeakListIds, {7});
     expect(container.read(mapProvider).previousSpecificPeakListIds, {7});
 
-    container.read(mapProvider.notifier).updateVisibleBounds(
-      LatLngBounds(
-        const LatLng(-10.0, 10.0),
-        const LatLng(-5.0, 15.0),
-      ),
-    );
+    container
+        .read(mapProvider.notifier)
+        .updateVisibleBounds(
+          LatLngBounds(const LatLng(-10.0, 10.0), const LatLng(-5.0, 15.0)),
+        );
 
-    expect(container.read(mapProvider).peakListSelectionMode, PeakListSelectionMode.allPeaks);
+    expect(
+      container.read(mapProvider).peakListSelectionMode,
+      PeakListSelectionMode.specificList,
+    );
+    expect(container.read(mapProvider).selectedPeakListIds, {7});
+    expect(container.read(mapProvider).previousSpecificPeakListIds, {7});
+
+    container.read(mapProvider.notifier).setCursorMgrs(const LatLng(0, 0));
+
+    expect(
+      container.read(mapProvider).peakListSelectionMode,
+      PeakListSelectionMode.allPeaks,
+    );
     expect(container.read(mapProvider).selectedPeakListIds, isEmpty);
     expect(container.read(mapProvider).previousSpecificPeakListIds, isEmpty);
   });
