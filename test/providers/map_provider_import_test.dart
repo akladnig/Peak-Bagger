@@ -9,6 +9,7 @@ import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
+import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/import_path_helpers.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/migration_marker_store.dart';
@@ -41,6 +42,15 @@ void main() {
     debugBushwalkingRootOverride = bushwalkingRoot.path;
     addTearDown(() {
       debugBushwalkingRootOverride = null;
+    });
+    GpxImporter.debugTracksFolderOverride = '${bushwalkingRoot.path}/Tracks';
+    GpxImporter.debugTasmaniaFolderOverride =
+        '${bushwalkingRoot.path}/Tracks/Australia/Tasmania';
+    GpxImporter.debugRoutesFolderOverride = '${bushwalkingRoot.path}/Routes';
+    addTearDown(() {
+      GpxImporter.debugTracksFolderOverride = null;
+      GpxImporter.debugTasmaniaFolderOverride = null;
+      GpxImporter.debugRoutesFolderOverride = null;
     });
 
     final tasmapRepository = await TestTasmapRepository.create();
@@ -96,6 +106,33 @@ void main() {
   test('non-added import keeps the current selected track', () async {
     SharedPreferences.setMockInitialValues({});
 
+    final homeRoot = Directory(
+      Platform.environment['HOME'] ?? Directory.current.path,
+    );
+    final uniqueSuffix = DateTime.now().microsecondsSinceEpoch;
+    final tmpRoot = Directory('${homeRoot.path}/tmp/peak-bagger-import-test-$uniqueSuffix')
+      ..createSync(recursive: true);
+    addTearDown(() => tmpRoot.deleteSync(recursive: true));
+
+    final bushwalkingRoot = Directory('${tmpRoot.path}/Bushwalking')
+      ..createSync(recursive: true);
+    Directory('${bushwalkingRoot.path}/Tracks/Australia/Tasmania')
+        .createSync(recursive: true);
+
+    debugBushwalkingRootOverride = bushwalkingRoot.path;
+    addTearDown(() {
+      debugBushwalkingRootOverride = null;
+    });
+    GpxImporter.debugTracksFolderOverride = '${bushwalkingRoot.path}/Tracks';
+    GpxImporter.debugTasmaniaFolderOverride =
+        '${bushwalkingRoot.path}/Tracks/Australia/Tasmania';
+    GpxImporter.debugRoutesFolderOverride = '${bushwalkingRoot.path}/Routes';
+    addTearDown(() {
+      GpxImporter.debugTracksFolderOverride = null;
+      GpxImporter.debugTasmaniaFolderOverride = null;
+      GpxImporter.debugRoutesFolderOverride = null;
+    });
+
     final existingTrack = GpxTrack(
       gpxTrackId: 7,
       contentHash: 'hash-7',
@@ -143,11 +180,16 @@ void main() {
     final result = await notifier.importGpxFiles(
       pathToEditedNames: {gpxFile.path: 'Outside Tasmania'},
     );
+    final importLog = File('${bushwalkingRoot.path}/import.log').readAsStringSync();
 
     expect(result.addedCount, 0);
+    expect(result.unsupportedCount, 1);
+    expect(result.warningMessage, contains('import.log'));
     expect(notifier.state.tracks, hasLength(1));
     expect(notifier.state.selectedTrackId, 7);
     expect(notifier.state.selectedTrackFocusSerial, focusSerialBefore);
+    expect(importLog, contains('outside-tasmania.gpx'));
+    expect(importLog, contains('Unsupported location'));
   });
 
   test('route import saves a route and selects it', () async {

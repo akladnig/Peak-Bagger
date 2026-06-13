@@ -761,6 +761,10 @@ class GpxImporter {
           canonicalDate: track.trackDate,
         );
         unsupportedCount += 1;
+        logWriteFailed = !await _appendImportLog(
+          file.path,
+          'Unsupported location',
+        );
         continue;
       }
 
@@ -1323,6 +1327,7 @@ class GpxImporter {
     var unchangedCount = 0;
     var unsupportedCount = 0;
     var errorCount = 0;
+    var logWriteFailed = false;
     final warnings = <String>[];
 
     final seenContentHashes = <String>{};
@@ -1332,18 +1337,30 @@ class GpxImporter {
 
       if (track == null) {
         errorCount += 1;
+        logWriteFailed = !await _appendImportLog(
+          filePath,
+          _classifyParseFailure(filePath),
+        );
         continue;
       }
 
       final firstPoint = _getFirstPointFromFile(filePath);
       if (firstPoint == null) {
         errorCount += 1;
+        logWriteFailed = !await _appendImportLog(
+          filePath,
+          'First track point unreadable',
+        );
         continue;
       }
 
       final destination = await _resolveTrackDestination(firstPoint);
       if (destination == null) {
         unsupportedCount += 1;
+        logWriteFailed = !await _appendImportLog(
+          filePath,
+          'Unsupported location',
+        );
         continue;
       }
 
@@ -1380,8 +1397,12 @@ class GpxImporter {
       );
     }
 
-    if (errorCount > 0 || warnings.isNotEmpty) {
-      warnings.add('See import.log for details.');
+    if (errorCount > 0 || unsupportedCount > 0 || warnings.isNotEmpty) {
+      warnings.add(
+        logWriteFailed
+            ? 'Could not update import.log.'
+            : 'See import.log for details.',
+      );
     }
 
     return GpxTrackImportPlan(

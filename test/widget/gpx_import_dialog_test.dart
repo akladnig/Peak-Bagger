@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/services/gpx_file_picker.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
@@ -19,8 +21,70 @@ Future<GpxTrackImportResult> fakeImportRunner({
   );
 }
 
+Future<String> fastPrefilledNameResolver(String filePath) async {
+  return filePath.split(Platform.pathSeparator).last;
+}
+
 void main() {
   group('GpxImportDialog', () {
+    testWidgets('uses dialog margin spacing and single-line title', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                child: const Text('Open'),
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (_) => GpxImportDialog(
+                    filePicker: _FakeGpxFilePicker(),
+                    importAsRoute: false,
+                    onImport: fakeImportRunner,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pumpAndSettle();
+
+      final headerPadding = tester.widget<Padding>(
+        find.byKey(const Key('gpx-import-header-padding')),
+      );
+      expect(
+        headerPadding.padding,
+        const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      );
+
+      final bodyPadding = tester.widget<Padding>(
+        find.byKey(const Key('gpx-import-body-padding')),
+      );
+      expect(
+        bodyPadding.padding,
+        const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      );
+
+      final actionsPadding = tester.widget<Padding>(
+        find.byKey(const Key('gpx-import-actions-padding')),
+      );
+      expect(
+        actionsPadding.padding,
+        const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      );
+
+      final title = tester.widget<Text>(
+        find.text('Import GPX File(s)'),
+      );
+      expect(title.maxLines, 1);
+      expect(title.softWrap, isFalse);
+      expect(title.overflow, TextOverflow.ellipsis);
+    });
+
     testWidgets('shows "No files selected" when empty', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -46,6 +110,61 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('No files selected'), findsOneWidget);
+    });
+
+    testWidgets('shows loading indicator while selected files are resolving', (
+      tester,
+    ) async {
+      final tempDir = Directory.systemTemp.createTempSync('gpx-import-dialog');
+      addTearDown(() => tempDir.deleteSync(recursive: true));
+      final file = File('${tempDir.path}/track-1.gpx')
+        ..writeAsStringSync('<gpx><trk><name>Track 1</name></trk></gpx>');
+      final completer = Completer<String>();
+
+      Future<String> slowPrefilledNameResolver(String filePath) {
+        return completer.future;
+      }
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                child: const Text('Open'),
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (_) => GpxImportDialog(
+                    filePicker: _FakeSelectedGpxFilePicker([file.path]),
+                    importAsRoute: false,
+                    prefilledNameResolver: slowPrefilledNameResolver,
+                    onImport: fakeImportRunner,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('gpx-import-select-files')));
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('gpx-import-file-selection-progress')),
+        findsOneWidget,
+      );
+      expect(find.text('No files selected'), findsNothing);
+
+      completer.complete('Track 1');
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('gpx-import-file-selection-progress')),
+        findsNothing,
+      );
+      expect(find.byKey(const Key('gpx-import-row-0')), findsOneWidget);
     });
 
     testWidgets('shows dialog title', (tester) async {
@@ -75,6 +194,43 @@ void main() {
       expect(find.text('Import GPX File(s)'), findsOneWidget);
     });
 
+    testWidgets('picker failure uses failure modal', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                child: const Text('Open'),
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (_) => GpxImportDialog(
+                    filePicker: _FakeGpxFilePicker(
+                      pickError: PlatformException(
+                        code: 'PICK_FAILED',
+                        message: 'Could not open picker.',
+                      ),
+                    ),
+                    importAsRoute: false,
+                    onImport: fakeImportRunner,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('gpx-import-select-files')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Import Failed'), findsOneWidget);
+      expect(find.text('Could not open picker.'), findsOneWidget);
+      expect(find.byKey(const Key('gpx-import-error-close')), findsOneWidget);
+    });
+
     testWidgets('route mode shows route copy and toggle', (tester) async {
       final tempDir = Directory.systemTemp.createTempSync('gpx-import-dialog');
       addTearDown(() => tempDir.deleteSync(recursive: true));
@@ -91,6 +247,7 @@ void main() {
                   builder: (_) => GpxImportDialog(
                     filePicker: _FakeSelectedGpxFilePicker([file.path]),
                     importAsRoute: true,
+                    prefilledNameResolver: fastPrefilledNameResolver,
                     onImport: fakeImportRunner,
                   ),
                 ),
@@ -103,6 +260,9 @@ void main() {
       await tester.tap(find.byType(ElevatedButton));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('gpx-import-select-files')));
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      });
       await tester.pumpAndSettle();
 
       final routeSwitch = find.descendant(
@@ -153,6 +313,142 @@ void main() {
         find.byKey(const Key('gpx-import-button')),
       );
       expect(importButton.onPressed, isNull);
+    });
+
+    testWidgets('file list uses its own scrollable area', (tester) async {
+      final tempDir = Directory.systemTemp.createTempSync('gpx-import-dialog');
+      addTearDown(() => tempDir.deleteSync(recursive: true));
+      final filePicker = _FakeSelectedGpxFilePicker(
+        List.generate(
+          8,
+          (index) => File('${tempDir.path}/track-$index.gpx')
+            ..writeAsStringSync(
+              '<gpx><trk><name>Track $index</name></trk></gpx>',
+            ),
+        ).map((file) => file.path).toList(growable: false),
+      );
+
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.binding.setSurfaceSize(const Size(320, 520));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                child: const Text('Open'),
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (_) => GpxImportDialog(
+                    filePicker: filePicker,
+                    importAsRoute: false,
+                    prefilledNameResolver: fastPrefilledNameResolver,
+                    onImport: fakeImportRunner,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('gpx-import-select-files')));
+      expect(filePicker.pickCallCount, 1);
+      final firstRow = find.byKey(
+        const Key('gpx-import-row-0'),
+        skipOffstage: false,
+      );
+      for (var attempt = 0; attempt < 50; attempt += 1) {
+        if (firstRow.evaluate().isNotEmpty) {
+          break;
+        }
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('gpx-import-select-files')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('gpx-import-dialog')),
+          matching: find.byKey(const Key('gpx-import-row-0')),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('dialog grows as more files are selected', (tester) async {
+      final tempDir = Directory.systemTemp.createTempSync('gpx-import-dialog');
+      addTearDown(() => tempDir.deleteSync(recursive: true));
+
+      Future<double> openWithPaths(List<String> paths) async {
+        var opened = false;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) {
+                  if (!opened) {
+                    opened = true;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      showDialog(
+                        context: context,
+                        builder: (_) => GpxImportDialog(
+                          filePicker: _FakeSelectedGpxFilePicker(paths),
+                          importAsRoute: false,
+                          prefilledNameResolver: fastPrefilledNameResolver,
+                          onImport: fakeImportRunner,
+                        ),
+                      );
+                    });
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('gpx-import-select-files')));
+        final firstRow = find.byKey(
+          const Key('gpx-import-row-0'),
+          skipOffstage: false,
+        );
+        for (var attempt = 0; attempt < 50; attempt += 1) {
+          if (firstRow.evaluate().isNotEmpty) {
+            break;
+          }
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        await tester.pumpAndSettle();
+        final height = tester
+            .getSize(find.byKey(const Key('gpx-import-dialog')).last)
+            .height;
+        await tester.tap(find.byKey(const Key('gpx-import-cancel')).last);
+        await tester.pumpAndSettle();
+        return height;
+      }
+
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.binding.setSurfaceSize(const Size(360, 900));
+
+      final oneFilePath = '${tempDir.path}/track-1.gpx';
+      File(oneFilePath).writeAsStringSync(
+        '<gpx><trk><name>Track 1</name></trk></gpx>',
+      );
+      for (var i = 0; i < 6; i += 1) {
+        File('${tempDir.path}/track-$i.gpx').writeAsStringSync(
+          '<gpx><trk><name>Track $i</name></trk></gpx>',
+        );
+      }
+
+      final oneFileHeight = await openWithPaths([oneFilePath]);
+      final manyFileHeight = await openWithPaths([
+        for (var i = 0; i < 6; i += 1) '${tempDir.path}/track-$i.gpx',
+      ]);
+
+      expect(manyFileHeight, greaterThan(oneFileHeight));
     });
 
     testWidgets('shows select files button', (tester) async {
@@ -243,8 +539,17 @@ void main() {
 }
 
 class _FakeGpxFilePicker implements GpxFilePicker {
+  _FakeGpxFilePicker({this.pickError});
+
+  final Object? pickError;
+
   @override
-  Future<List<String>?> pickGpxFiles() async => null;
+  Future<List<String>?> pickGpxFiles() async {
+    if (pickError != null) {
+      throw pickError!;
+    }
+    return null;
+  }
 
   @override
   Future<String> resolveImportRoot() async => '/tmp';
@@ -254,9 +559,13 @@ class _FakeSelectedGpxFilePicker implements GpxFilePicker {
   _FakeSelectedGpxFilePicker(this.paths);
 
   final List<String> paths;
+  int pickCallCount = 0;
 
   @override
-  Future<List<String>?> pickGpxFiles() async => paths;
+  Future<List<String>?> pickGpxFiles() async {
+    pickCallCount += 1;
+    return paths;
+  }
 
   @override
   Future<String> resolveImportRoot() async => '/tmp';
