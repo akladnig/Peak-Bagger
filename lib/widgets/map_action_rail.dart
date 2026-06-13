@@ -46,7 +46,12 @@ class MapActionRail extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     MapRebuildDebugCounters.recordActionRailBuild();
-    final (:isLoadingTracks, :hasTrackRecoveryIssue, :isRouteDrafting, :mapGridTooltip) = ref.watch(
+    final (
+      :isLoadingTracks,
+      :hasTrackRecoveryIssue,
+      :isRouteDrafting,
+      :mapGridTooltip,
+    ) = ref.watch(
       mapProvider.select(
         (state) => (
           isLoadingTracks: state.isLoadingTracks,
@@ -88,10 +93,10 @@ class MapActionRail extends ConsumerWidget {
                           child: FloatingActionButton.small(
                             key: const Key('import-tracks-fab'),
                             heroTag: 'import',
-                            backgroundColor:
-                                Theme.of(context).colorScheme.surface,
-                            onPressed:
-                                isLoadingTracks || hasTrackRecoveryIssue
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.surface,
+                            onPressed: isLoadingTracks || hasTrackRecoveryIssue
                                 ? null
                                 : () => _showGpxImportDialog(context, ref),
                             child: isLoadingTracks
@@ -105,14 +110,13 @@ class MapActionRail extends ConsumerWidget {
                                 : Icon(
                                     Icons.input,
                                     color: hasTrackRecoveryIssue
-                                        ? Theme.of(
-                                            context,
-                                          ).colorScheme.onSurface.withValues(
-                                            alpha: 0.38,
-                                          )
-                                        : Theme.of(context)
+                                        ? Theme.of(context)
                                               .colorScheme
-                                              .onSurface,
+                                              .onSurface
+                                              .withValues(alpha: 0.38)
+                                        : Theme.of(
+                                            context,
+                                          ).colorScheme.onSurface,
                                   ),
                           ),
                         ),
@@ -122,8 +126,9 @@ class MapActionRail extends ConsumerWidget {
                           child: FloatingActionButton.small(
                             key: const Key('create-route-fab'),
                             heroTag: 'create-route',
-                            backgroundColor:
-                                Theme.of(context).colorScheme.surface,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.surface,
                             onPressed: onCreateRoute,
                             child: SvgPicture.asset(
                               'assets/route.svg',
@@ -131,11 +136,8 @@ class MapActionRail extends ConsumerWidget {
                               height: 18,
                               colorFilter: ColorFilter.mode(
                                 onCreateRoute == null
-                                    ? Theme.of(
-                                        context,
-                                      ).colorScheme.onSurface.withValues(
-                                        alpha: 0.38,
-                                      )
+                                    ? Theme.of(context).colorScheme.onSurface
+                                          .withValues(alpha: 0.38)
                                     : Theme.of(context).colorScheme.onSurface,
                                 BlendMode.srcIn,
                               ),
@@ -156,9 +158,11 @@ class MapActionRail extends ConsumerWidget {
                         child: FloatingActionButton.small(
                           key: const Key('show-basemaps-fab'),
                           heroTag: 'layers',
-                          backgroundColor:
-                              Theme.of(context).colorScheme.surface,
-                          onPressed: onShowBasemaps ??
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.surface,
+                          onPressed:
+                              onShowBasemaps ??
                               () {
                                 _dismissTransientUi(
                                   ref,
@@ -183,8 +187,9 @@ class MapActionRail extends ConsumerWidget {
                         child: FloatingActionButton.small(
                           key: const Key('grid-map-fab'),
                           heroTag: 'grid',
-                          backgroundColor:
-                              Theme.of(context).colorScheme.surface,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.surface,
                           onPressed: () {
                             ref.read(mapProvider.notifier).toggleMapOverlay();
                           },
@@ -200,8 +205,9 @@ class MapActionRail extends ConsumerWidget {
                         child: FloatingActionButton.small(
                           key: const Key('show-peaks-fab'),
                           heroTag: 'peaks',
-                          backgroundColor:
-                              Theme.of(context).colorScheme.surface,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.surface,
                           onPressed: () {
                             _dismissTransientUi(
                               ref,
@@ -209,6 +215,9 @@ class MapActionRail extends ConsumerWidget {
                               closePeakSearch: true,
                               closeGotoInput: true,
                             );
+                            ref
+                                .read(mapProvider.notifier)
+                                .reconcileSelectedPeakList();
                             ref
                                 .read(mapProvider.notifier)
                                 .setEndDrawerMode(EndDrawerMode.peakLists);
@@ -226,8 +235,9 @@ class MapActionRail extends ConsumerWidget {
                         child: FloatingActionButton.small(
                           key: const Key('show-tracks-fab'),
                           heroTag: 'tracks',
-                          backgroundColor:
-                              Theme.of(context).colorScheme.surface,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.surface,
                           onPressed: () {
                             ref
                                 .read(mapProvider.notifier)
@@ -248,8 +258,9 @@ class MapActionRail extends ConsumerWidget {
                         child: FloatingActionButton.small(
                           key: const Key('show-trails-fab'),
                           heroTag: 'trails',
-                          backgroundColor:
-                              Theme.of(context).colorScheme.surface,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.surface,
                           onPressed: routeGraphReady
                               ? () {
                                   ref.read(mapProvider.notifier).toggleTrails();
@@ -275,8 +286,9 @@ class MapActionRail extends ConsumerWidget {
                           child: FloatingActionButton.small(
                             key: const Key('search-peaks-fab'),
                             heroTag: 'search',
-                            backgroundColor:
-                                Theme.of(context).colorScheme.surface,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.surface,
                             onPressed: () {
                               _dismissTransientUi(ref, closeInfoPopup: true);
                               ref.read(mapProvider.notifier).togglePeakSearch();
@@ -293,8 +305,9 @@ class MapActionRail extends ConsumerWidget {
                           child: FloatingActionButton.small(
                             key: const Key('goto-map-fab'),
                             heroTag: 'goto',
-                            backgroundColor:
-                                Theme.of(context).colorScheme.surface,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.surface,
                             onPressed: () {
                               _dismissTransientUi(
                                 ref,
@@ -315,8 +328,9 @@ class MapActionRail extends ConsumerWidget {
                           message: 'Center on marker',
                           child: FloatingActionButton.small(
                             heroTag: 'centermarker',
-                            backgroundColor:
-                                Theme.of(context).colorScheme.surface,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.surface,
                             onPressed: () {
                               _dismissTransientUi(
                                 ref,
@@ -339,8 +353,9 @@ class MapActionRail extends ConsumerWidget {
                           message: 'My location',
                           child: FloatingActionButton.small(
                             heroTag: 'mylocation',
-                            backgroundColor:
-                                Theme.of(context).colorScheme.surface,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.surface,
                             onPressed: () async {
                               _dismissTransientUi(
                                 ref,
@@ -364,12 +379,16 @@ class MapActionRail extends ConsumerWidget {
                                   return;
                                 }
 
-                                var permission = await Geolocator.checkPermission();
+                                var permission =
+                                    await Geolocator.checkPermission();
                                 if (permission == LocationPermission.denied) {
-                                  permission = await Geolocator.requestPermission();
+                                  permission =
+                                      await Geolocator.requestPermission();
                                   if (permission == LocationPermission.denied) {
                                     if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
                                         const SnackBar(
                                           content: Text(
                                             'Location permission denied',
@@ -381,7 +400,8 @@ class MapActionRail extends ConsumerWidget {
                                   }
                                 }
 
-                                if (permission == LocationPermission.deniedForever) {
+                                if (permission ==
+                                    LocationPermission.deniedForever) {
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
@@ -394,11 +414,12 @@ class MapActionRail extends ConsumerWidget {
                                   return;
                                 }
 
-                                final position = await Geolocator.getCurrentPosition(
-                                  locationSettings: const LocationSettings(
-                                    accuracy: LocationAccuracy.high,
-                                  ),
-                                );
+                                final position =
+                                    await Geolocator.getCurrentPosition(
+                                      locationSettings: const LocationSettings(
+                                        accuracy: LocationAccuracy.high,
+                                      ),
+                                    );
                                 ref
                                     .read(mapProvider.notifier)
                                     .centerOnLocation(
@@ -410,7 +431,9 @@ class MapActionRail extends ConsumerWidget {
                               } catch (e) {
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Location error: $e')),
+                                    SnackBar(
+                                      content: Text('Location error: $e'),
+                                    ),
                                   );
                                 }
                               }
@@ -457,19 +480,20 @@ class MapActionRail extends ConsumerWidget {
         return GpxImportDialog(
           filePicker: filePicker,
           importAsRoute: false,
-          onImport: ({
-            required bool importAsRoute,
-            required Map<String, String> pathToEditedNames,
-          }) {
-            final notifier = ref.read(mapProvider.notifier);
-            return importAsRoute
-                ? notifier.importRouteFiles(
-                    pathToEditedNames: pathToEditedNames,
-                  )
-                : notifier.importGpxFiles(
-                    pathToEditedNames: pathToEditedNames,
-                  );
-          },
+          onImport:
+              ({
+                required bool importAsRoute,
+                required Map<String, String> pathToEditedNames,
+              }) {
+                final notifier = ref.read(mapProvider.notifier);
+                return importAsRoute
+                    ? notifier.importRouteFiles(
+                        pathToEditedNames: pathToEditedNames,
+                      )
+                    : notifier.importGpxFiles(
+                        pathToEditedNames: pathToEditedNames,
+                      );
+              },
         );
       },
     );
@@ -500,7 +524,7 @@ class _MapActionSection extends StatelessWidget {
       order: NumericFocusOrder(sortOrder),
       child: Semantics(
         sortKey: OrdinalSortKey(sortOrder),
-          child: Container(
+        child: Container(
           key: sectionKey,
           padding: const EdgeInsets.symmetric(vertical: 4),
           decoration: BoxDecoration(

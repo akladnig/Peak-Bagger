@@ -35,13 +35,11 @@ import '../../harness/test_tasmap_repository.dart';
 import 'gpx_tracks_robot.dart';
 
 void main() {
-  testWidgets('peak drawer hides off-scope lists and keeps all peaks selectable', (
-    tester,
-  ) async {
+  testWidgets('peak drawer follows map center region changes', (tester) async {
     final robot = GpxTracksRobot(
       tester,
       MapState(
-        center: const LatLng(-41.5, 146.5),
+        center: const LatLng(-44.0, 148.8867),
         zoom: 15,
         basemap: Basemap.tracestrack,
         peaks: [
@@ -51,23 +49,32 @@ void main() {
             latitude: -43.0,
             longitude: 147.0,
           ),
+          Peak(
+            osmId: 7000,
+            name: 'Other Peak',
+            latitude: -37.75984,
+            longitude: 158.7979,
+          ),
         ],
       ),
       peakListRepository: PeakListRepository.test(
         InMemoryPeakListStorage([
           PeakList(
             name: 'Alpha',
+            region: 'tasmania',
             peakList: encodePeakListItems([
               const PeakListItem(peakOsmId: 6406, points: 1),
             ]),
           )..peakListId = 1,
           PeakList(
-            name: 'Zero',
+            name: 'Bravo',
+            region: 'new-south-wales',
             peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 9999, points: 1),
+              const PeakListItem(peakOsmId: 7000, points: 1),
             ]),
           )..peakListId = 2,
-          PeakList(name: 'Broken', peakList: '{not-json}')..peakListId = 3,
+          PeakList(name: 'Broken', region: 'tasmania', peakList: '{not-json}')
+            ..peakListId = 3,
         ]),
       ),
     );
@@ -79,33 +86,15 @@ void main() {
     tester.widget<FloatingActionButton>(robot.showPeaksFab).onPressed!.call();
     await tester.pumpAndSettle();
 
-    robot.notifier.updateVisibleBounds(
-      LatLngBounds(
-        const LatLng(-44.5, 146.0),
-        const LatLng(-41.5, 148.5),
-      ),
-    );
-    await tester.pumpAndSettle();
-
     expect(robot.peakListsDrawer, findsOneWidget);
     expect(robot.peakListRow(1), findsOneWidget);
     expect(robot.peakListRow(2), findsNothing);
     expect(robot.peakListRow(3), findsNothing);
 
-    robot.notifier.updateVisibleBounds(
-      LatLngBounds(
-        const LatLng(-10.0, 10.0),
-        const LatLng(-5.0, 15.0),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await robot.setMapCenter(const LatLng(-37.75984, 158.7979));
 
     expect(robot.peakListRow(1), findsNothing);
-    expect(robot.peakListChipAllPeaks, findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('peak-list-item-All Peaks')));
-    await tester.pumpAndSettle();
-    expect(robot.peakListChipAllPeaks, findsOneWidget);
+    expect(robot.peakListRow(2), findsOneWidget);
   });
 
   testWidgets('import happy path then toggle hides and shows tracks', (
@@ -337,8 +326,9 @@ void main() {
     bushwalkingRoot.createSync(recursive: true);
     final tracksDir = Directory('${bushwalkingRoot.path}/Tracks')
       ..createSync(recursive: true);
-    Directory('${tracksDir.path}/Australia/Tasmania')
-        .createSync(recursive: true);
+    Directory(
+      '${tracksDir.path}/Australia/Tasmania',
+    ).createSync(recursive: true);
     final uniqueSuffix = DateTime.now().microsecondsSinceEpoch;
 
     File(
@@ -818,10 +808,7 @@ void main() {
     robot.expectPeaksShown();
 
     robot.notifier.updateVisibleBounds(
-      LatLngBounds(
-        const LatLng(-44.5, 146.0),
-        const LatLng(-41.5, 148.5),
-      ),
+      LatLngBounds(const LatLng(-44.5, 146.0), const LatLng(-41.5, 148.5)),
     );
     await tester.pumpAndSettle();
 

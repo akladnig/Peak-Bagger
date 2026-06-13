@@ -87,7 +87,10 @@ void main() {
 
     notifier.setAllPeaksSelected(true);
 
-    expect(notifier.state.peakListSelectionMode, PeakListSelectionMode.allPeaks);
+    expect(
+      notifier.state.peakListSelectionMode,
+      PeakListSelectionMode.allPeaks,
+    );
     expect(notifier.state.selectedPeakListIds, isEmpty);
     expect(notifier.state.previousSpecificPeakListIds, {7, 8});
   });
@@ -121,73 +124,101 @@ void main() {
     expect(notifier.state.previousSpecificPeakListIds, {9});
   });
 
-  test('reconcile keeps renderable lists and falls back to all peaks', () {
-    final repository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(
-          name: 'Alpha',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 6406, points: 1),
-          ]),
-        )..peakListId = 7,
-        PeakList(
-          name: 'Zero',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 9999, points: 1),
-          ]),
-        )..peakListId = 8,
-        PeakList(name: 'Broken', peakList: '{not-json}')..peakListId = 9,
-      ]),
-    );
+  test(
+    'explicit reconcile follows map center region and falls back to all peaks',
+    () {
+      final repository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(
+            name: 'Alpha',
+            region: 'tasmania',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 6406, points: 1),
+            ]),
+          )..peakListId = 7,
+          PeakList(
+            name: 'Zero',
+            region: 'new-south-wales',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 9999, points: 1),
+            ]),
+          )..peakListId = 8,
+          PeakList(name: 'Broken', region: 'tasmania', peakList: '{not-json}')
+            ..peakListId = 9,
+        ]),
+      );
 
-    final container = ProviderContainer(
-      overrides: [
-        mapProvider.overrideWith(
-          () => _InitialStateMapNotifier(
-            MapState(
-              center: const LatLng(-41.5, 146.5),
-              zoom: 15,
-              basemap: Basemap.tracestrack,
-              peaks: [
-                Peak(
-                  osmId: 6406,
-                  name: 'Bonnet Hill',
-                  latitude: -43.0,
-                  longitude: 147.0,
-                ),
-              ],
-              visibleBounds: LatLngBounds(
-                const LatLng(-44.0, 146.0),
-                const LatLng(-42.0, 148.0),
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => _InitialStateMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 15,
+                basemap: Basemap.tracestrack,
+                peaks: [
+                  Peak(
+                    osmId: 6406,
+                    name: 'Bonnet Hill',
+                    latitude: -43.0,
+                    longitude: 147.0,
+                  ),
+                ],
+                peakListSelectionMode: PeakListSelectionMode.specificList,
+                selectedPeakListIds: {7, 8, 9},
+                previousSpecificPeakListIds: {7, 8, 9},
               ),
-              peakListSelectionMode: PeakListSelectionMode.specificList,
-              selectedPeakListIds: {7, 8, 9},
-              previousSpecificPeakListIds: {7, 8, 9},
             ),
           ),
-        ),
-        peakListRepositoryProvider.overrideWithValue(repository),
-      ],
-    );
-    addTearDown(container.dispose);
+          peakListRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
 
-    container.read(mapProvider.notifier).reconcileSelectedPeakList();
+      container.read(mapProvider.notifier).reconcileSelectedPeakList();
 
-    expect(container.read(mapProvider).peakListSelectionMode, PeakListSelectionMode.specificList);
-    expect(container.read(mapProvider).selectedPeakListIds, {7});
-    expect(container.read(mapProvider).previousSpecificPeakListIds, {7});
+      expect(
+        container.read(mapProvider).peakListSelectionMode,
+        PeakListSelectionMode.specificList,
+      );
+      expect(container.read(mapProvider).selectedPeakListIds, {7});
+      expect(container.read(mapProvider).previousSpecificPeakListIds, {7});
 
-    container.read(mapProvider.notifier).updateVisibleBounds(
-      LatLngBounds(
-        const LatLng(-10.0, 10.0),
-        const LatLng(-5.0, 15.0),
-      ),
-    );
+      container
+          .read(mapProvider.notifier)
+          .updateVisibleBounds(
+            LatLngBounds(const LatLng(-10.0, 10.0), const LatLng(-5.0, 15.0)),
+          );
 
-    expect(container.read(mapProvider).peakListSelectionMode, PeakListSelectionMode.allPeaks);
-    expect(container.read(mapProvider).selectedPeakListIds, isEmpty);
-    expect(container.read(mapProvider).previousSpecificPeakListIds, isEmpty);
-  });
+      expect(
+        container.read(mapProvider).peakListSelectionMode,
+        PeakListSelectionMode.specificList,
+      );
+      expect(container.read(mapProvider).selectedPeakListIds, {7});
+      expect(container.read(mapProvider).previousSpecificPeakListIds, {7});
+
+      container.read(mapProvider.notifier).state = container
+          .read(mapProvider.notifier)
+          .state
+          .copyWith(center: const LatLng(-37.75984, 158.7979));
+
+      expect(
+        container.read(mapProvider).peakListSelectionMode,
+        PeakListSelectionMode.specificList,
+      );
+      expect(container.read(mapProvider).selectedPeakListIds, {7});
+      expect(container.read(mapProvider).previousSpecificPeakListIds, {7});
+
+      container.read(mapProvider.notifier).reconcileSelectedPeakList();
+
+      expect(
+        container.read(mapProvider).peakListSelectionMode,
+        PeakListSelectionMode.allPeaks,
+      );
+      expect(container.read(mapProvider).selectedPeakListIds, isEmpty);
+      expect(container.read(mapProvider).previousSpecificPeakListIds, isEmpty);
+    },
+  );
 }
 
 class _InitialStateMapNotifier extends MapNotifier {

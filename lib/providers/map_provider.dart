@@ -3770,12 +3770,14 @@ class MapNotifier extends Notifier<MapState> {
     } catch (_) {
       return;
     }
+    final currentRegionKey = regionManifestCatalog.regionKeyForPoint(
+      state.center,
+    );
 
     final validPeakListIds = renderablePeakListIds(
-      peaks: state.peaks,
-      visibleBounds: state.visibleBounds,
       peakLists: peakLists,
       selectedPeakListIds: state.selectedPeakListIds,
+      currentRegionKey: currentRegionKey,
     );
 
     if (validPeakListIds.isEmpty) {
@@ -3806,10 +3808,6 @@ class MapNotifier extends Notifier<MapState> {
     }
 
     state = state.copyWith(visibleBounds: bounds);
-    if (state.isLoadingPeaks) {
-      return;
-    }
-    reconcileSelectedPeakList();
   }
 
   bool _sameVisibleBounds(LatLngBounds? left, LatLngBounds? right) {

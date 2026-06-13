@@ -512,7 +512,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(4, 5754024077279183606),
     name: 'PeakList',
-    lastPropertyId: const obx_int.IdUid(3, 6714151057753537882),
+    lastPropertyId: const obx_int.IdUid(4, 1234567890123456789),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -531,6 +531,12 @@ final _entities = <obx_int.ModelEntity>[
       obx_int.ModelProperty(
         id: const obx_int.IdUid(3, 6714151057753537882),
         name: 'peakList',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(4, 1234567890123456789),
+        name: 'region',
         type: 9,
         flags: 0,
       ),
@@ -1673,10 +1679,12 @@ obx_int.ModelDefinition getObjectBoxModel() {
       objectToFB: (PeakList object, fb.Builder fbb) {
         final nameOffset = fbb.writeString(object.name);
         final peakListOffset = fbb.writeString(object.peakList);
-        fbb.startTable(4);
+        final regionOffset = fbb.writeString(object.region);
+        fbb.startTable(5);
         fbb.addInt64(0, object.peakListId);
         fbb.addOffset(1, nameOffset);
         fbb.addOffset(2, peakListOffset);
+        fbb.addOffset(3, regionOffset);
         fbb.finish(fbb.endTable());
         return object.peakListId;
       },
@@ -1695,10 +1703,14 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final peakListParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 8, '');
+        final regionParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 10, Peak.defaultRegion);
         final object = PeakList(
           peakListId: peakListIdParam,
           name: nameParam,
           peakList: peakListParam,
+          region: regionParam,
         );
 
         return object;
@@ -2706,6 +2718,11 @@ class PeakList_ {
   /// See [PeakList.peakList].
   static final peakList = obx.QueryStringProperty<PeakList>(
     _entities[3].properties[2],
+  );
+
+  /// See [PeakList.region].
+  static final region = obx.QueryStringProperty<PeakList>(
+    _entities[3].properties[3],
   );
 }
 
