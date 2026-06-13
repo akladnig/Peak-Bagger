@@ -7,6 +7,8 @@ import 'package:path/path.dart' as p;
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/core/constants.dart';
+import 'package:peak_bagger/services/gpx_storage_destination_resolver.dart';
+import 'package:peak_bagger/services/import_path_helpers.dart';
 import 'package:peak_bagger/services/track_peak_correlation_service.dart';
 
 class GpxExportException implements Exception {
@@ -57,9 +59,8 @@ class IoGpxExportFileSystem implements GpxExportFileSystem {
   }
 }
 
-typedef GpxPointElevationsResolver = Future<List<double?>> Function(
-  List<LatLng> points,
-);
+typedef GpxPointElevationsResolver =
+    Future<List<double?>> Function(List<LatLng> points);
 typedef GpxDirectoryResolver = Directory Function();
 typedef PeakListLoader = List<Peak> Function();
 typedef PeakCorrelationThresholdLoader = Future<int> Function();
@@ -72,6 +73,7 @@ class GpxExportService {
     GpxPointElevationsResolver? routePointElevationsResolver,
     PeakListLoader? peakListLoader,
     PeakCorrelationThresholdLoader? peakCorrelationThresholdLoader,
+    GpxStorageDestinationResolver? storageDestinationResolver,
   }) : _trackDownloadsDirectoryResolver =
            trackDownloadsDirectoryResolver ?? _defaultTrackDownloadsDirectory,
        _routeExportsDirectoryResolver =
@@ -79,7 +81,9 @@ class GpxExportService {
        _fileSystem = fileSystem ?? const IoGpxExportFileSystem(),
        _routePointElevationsResolver = routePointElevationsResolver,
        _peakListLoader = peakListLoader,
-       _peakCorrelationThresholdLoader = peakCorrelationThresholdLoader;
+       _peakCorrelationThresholdLoader = peakCorrelationThresholdLoader,
+       _storageDestinationResolver =
+           storageDestinationResolver ?? GpxStorageDestinationResolver();
 
   final GpxDirectoryResolver _trackDownloadsDirectoryResolver;
   final GpxDirectoryResolver _routeExportsDirectoryResolver;
@@ -87,6 +91,7 @@ class GpxExportService {
   final GpxPointElevationsResolver? _routePointElevationsResolver;
   final PeakListLoader? _peakListLoader;
   final PeakCorrelationThresholdLoader? _peakCorrelationThresholdLoader;
+  final GpxStorageDestinationResolver _storageDestinationResolver;
 
   GpxExportPlan planTrackExport(GpxTrack track) {
     final stem = _sanitizeTrackStem(track.trackName);
@@ -110,11 +115,17 @@ class GpxExportService {
       throw const GpxExportException('Route point list is empty.');
     }
 
-    final directory = _routeExportsDirectoryResolver();
+    final routesRoot = _routeExportsDirectoryResolver();
+    final destination = await _storageDestinationResolver.resolveForPoint(
+      route.gpxRoute.first,
+    );
+    if (destination == null) {
+      throw const GpxExportException('Route export location is unsupported.');
+    }
     final elevations = await _resolveRoutePointElevations(route);
     final correlatedPeaks = await _resolveCorrelatedPeaks(route);
     return GpxExportPlan(
-      path: p.join(directory.path, '$stem.gpx'),
+      path: p.join(routesRoot.path, destination.relativeFolder, '$stem.gpx'),
       contents: _buildRouteGpx(
         route: route,
         stem: stem,
@@ -158,7 +169,9 @@ class GpxExportService {
       ..write(
         '<gpx version="1.1" creator="peak-bagger" xmlns="http://www.topografix.com/GPX/1/1">',
       )
-      ..write('<metadata><author><name>Adrian Kladnig</name></author></metadata>')
+      ..write(
+        '<metadata><author><name>Adrian Kladnig</name></author></metadata>',
+      )
       ..write(_buildWaypointXml(correlatedPeaks))
       ..write(_buildRouteWaypointXml(route.routeWaypoints, correlatedPeaks))
       ..write('<rte><name>${_escapeXml(stem)}</name>');
@@ -231,7 +244,9 @@ class GpxExportService {
     return buffer.toString();
   }
 
-  Future<List<double?>> _resolveRoutePointElevations(app_route.Route route) async {
+  Future<List<double?>> _resolveRoutePointElevations(
+    app_route.Route route,
+  ) async {
     if (route.gpxRouteElevations.isNotEmpty &&
         route.gpxRouteElevations.any((value) => value != null)) {
       return List<double?>.generate(
@@ -342,9 +357,7 @@ class GpxExportService {
   }
 
   static Directory _defaultRouteExportsDirectory() {
-    return Directory(
-      p.join(_resolveHomeDirectory(), 'Documents', 'Bushwalking', 'routes'),
-    );
+    return Directory(resolveBushwalkingRoutesPath());
   }
 
   static String _resolveHomeDirectory() {

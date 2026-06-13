@@ -8,6 +8,8 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/route_waypoint.dart';
 import 'package:peak_bagger/services/gpx_export_service.dart';
+import 'package:peak_bagger/services/gpx_storage_destination_resolver.dart';
+import 'package:peak_bagger/services/polygon_asset_repository.dart';
 
 void main() {
   group('GpxExportService', () {
@@ -59,18 +61,19 @@ void main() {
       final service = GpxExportService(
         trackDownloadsDirectoryResolver: () => routesDir,
         routeExportsDirectoryResolver: () => routesDir,
+        storageDestinationResolver: _fileBackedResolver(),
       );
       final route = app_route.Route(
         name: 'Route 1',
-        gpxRoute: const [
-          LatLng(-41.5, 146.5),
-          LatLng(-41.6, 146.6),
-        ],
+        gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.6, 146.6)],
       );
 
       final plan = await service.planRouteExport(route);
 
-      expect(plan.path, p.join(routesDir.path, 'Route-1.gpx'));
+      expect(
+        plan.path,
+        p.join(routesDir.path, 'Australia', 'Tasmania', 'Route-1.gpx'),
+      );
       expect(
         plan.contents,
         '<gpx version="1.1" creator="peak-bagger" xmlns="http://www.topografix.com/GPX/1/1">'
@@ -81,6 +84,66 @@ void main() {
         '</rte></gpx>',
       );
     });
+
+    test('plans route exports into Italy regional folders', () async {
+      final routesDir = await Directory.systemTemp.createTemp(
+        'gpx-route-italy',
+      );
+      addTearDown(() async => routesDir.delete(recursive: true));
+      final service = GpxExportService(
+        trackDownloadsDirectoryResolver: () => routesDir,
+        routeExportsDirectoryResolver: () => routesDir,
+        storageDestinationResolver: _fileBackedResolver(),
+      );
+      final route = app_route.Route(
+        name: 'Route 1',
+        gpxRoute: const [LatLng(45.7730, 13.6200)],
+      );
+
+      final plan = await service.planRouteExport(route);
+
+      expect(
+        plan.path,
+        p.join(routesDir.path, 'Italy', 'nord-est', 'Route-1.gpx'),
+      );
+    });
+
+    test(
+      'plans route exports into country-only folders for Slovenia and Croatia',
+      () async {
+        final routesDir = await Directory.systemTemp.createTemp(
+          'gpx-route-country',
+        );
+        addTearDown(() async => routesDir.delete(recursive: true));
+        final service = GpxExportService(
+          trackDownloadsDirectoryResolver: () => routesDir,
+          routeExportsDirectoryResolver: () => routesDir,
+          storageDestinationResolver: _fileBackedResolver(),
+        );
+
+        final sloveniaPlan = await service.planRouteExport(
+          app_route.Route(
+            name: 'Slovenia Route',
+            gpxRoute: const [LatLng(46.0569, 14.5058)],
+          ),
+        );
+        final croatiaPlan = await service.planRouteExport(
+          app_route.Route(
+            name: 'Croatia Route',
+            gpxRoute: const [LatLng(45.8150, 15.9819)],
+          ),
+        );
+
+        expect(
+          sloveniaPlan.path,
+          p.join(routesDir.path, 'Slovenia', 'Slovenia-Route.gpx'),
+        );
+        expect(
+          croatiaPlan.path,
+          p.join(routesDir.path, 'Croatia', 'Croatia-Route.gpx'),
+        );
+      },
+    );
 
     test('adds correlated peak waypoints before route points', () async {
       final service = GpxExportService(
@@ -99,10 +162,7 @@ void main() {
       );
       final route = app_route.Route(
         name: 'Route 1',
-        gpxRoute: const [
-          LatLng(-41.5, 146.5),
-          LatLng(-41.6, 146.6),
-        ],
+        gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.6, 146.6)],
       );
 
       final plan = await service.planRouteExport(route);
@@ -147,56 +207,68 @@ void main() {
       );
     });
 
-    test('emits stored route waypoints and suppresses duplicate correlated peaks', () async {
-      final service = GpxExportService(
-        trackDownloadsDirectoryResolver: () => Directory.systemTemp,
-        routeExportsDirectoryResolver: () => Directory.systemTemp,
-        peakListLoader: () => [
-          Peak(
-            osmId: 1,
-            name: 'Peak One',
-            elevation: 1234,
-            latitude: -41.5,
-            longitude: 146.5,
-          ),
-        ],
-        peakCorrelationThresholdLoader: () async => 100,
-      );
-      final route = app_route.Route(
-        name: 'Route 1',
-        gpxRoute: const [
-          LatLng(-41.5, 146.5),
-          LatLng(-41.6, 146.6),
-        ],
-        routeWaypoints: const [
-          RouteWaypoint(
-            latitude: -41.5,
-            longitude: 146.5,
-            label: 'Peak One',
-            sequence: 1,
-            isPeakDerived: true,
-            peakOsmId: 1,
-            peakName: 'Peak One',
-          ),
-          RouteWaypoint(
-            latitude: -41.6,
-            longitude: 146.6,
-            label: 'Waypoint 1',
-            sequence: 2,
-            isPeakDerived: false,
-          ),
-        ],
-      );
+    test(
+      'emits stored route waypoints and suppresses duplicate correlated peaks',
+      () async {
+        final service = GpxExportService(
+          trackDownloadsDirectoryResolver: () => Directory.systemTemp,
+          routeExportsDirectoryResolver: () => Directory.systemTemp,
+          peakListLoader: () => [
+            Peak(
+              osmId: 1,
+              name: 'Peak One',
+              elevation: 1234,
+              latitude: -41.5,
+              longitude: 146.5,
+            ),
+          ],
+          peakCorrelationThresholdLoader: () async => 100,
+        );
+        final route = app_route.Route(
+          name: 'Route 1',
+          gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.6, 146.6)],
+          routeWaypoints: const [
+            RouteWaypoint(
+              latitude: -41.5,
+              longitude: 146.5,
+              label: 'Peak One',
+              sequence: 1,
+              isPeakDerived: true,
+              peakOsmId: 1,
+              peakName: 'Peak One',
+            ),
+            RouteWaypoint(
+              latitude: -41.6,
+              longitude: 146.6,
+              label: 'Waypoint 1',
+              sequence: 2,
+              isPeakDerived: false,
+            ),
+          ],
+        );
 
-      final plan = await service.planRouteExport(route);
+        final plan = await service.planRouteExport(route);
 
-      expect(plan.contents, contains('<wpt lat="-41.500000" lon="146.500000"><ele>1234</ele><name>Peak One</name></wpt>'));
-      expect(plan.contents, contains('<wpt lat="-41.600000" lon="146.600000"><name>Waypoint 1</name></wpt>'));
-      expect(
-        RegExp(r'<wpt lat="-41\.500000" lon="146\.500000">').allMatches(plan.contents),
-        hasLength(1),
-      );
-    });
+        expect(
+          plan.contents,
+          contains(
+            '<wpt lat="-41.500000" lon="146.500000"><ele>1234</ele><name>Peak One</name></wpt>',
+          ),
+        );
+        expect(
+          plan.contents,
+          contains(
+            '<wpt lat="-41.600000" lon="146.600000"><name>Waypoint 1</name></wpt>',
+          ),
+        );
+        expect(
+          RegExp(
+            r'<wpt lat="-41\.500000" lon="146\.500000">',
+          ).allMatches(plan.contents),
+          hasLength(1),
+        );
+      },
+    );
 
     test('rejects blank route names and empty route point lists', () async {
       final service = GpxExportService(
@@ -211,13 +283,44 @@ void main() {
         throwsA(isA<GpxExportException>()),
       );
       await expectLater(
-        service.planRouteExport(app_route.Route(name: 'Route 3', gpxRoute: const [])),
+        service.planRouteExport(
+          app_route.Route(name: 'Route 3', gpxRoute: const []),
+        ),
         throwsA(isA<GpxExportException>()),
       );
     });
 
+    test('rejects unsupported route export locations', () async {
+      final routesDir = await Directory.systemTemp.createTemp(
+        'gpx-route-unsupported',
+      );
+      addTearDown(() async => routesDir.delete(recursive: true));
+      final service = GpxExportService(
+        trackDownloadsDirectoryResolver: () => routesDir,
+        routeExportsDirectoryResolver: () => routesDir,
+      );
+
+      await expectLater(
+        service.planRouteExport(
+          app_route.Route(
+            name: 'Melbourne Route',
+            gpxRoute: const [LatLng(-37.8136, 144.9631)],
+          ),
+        ),
+        throwsA(
+          isA<GpxExportException>().having(
+            (error) => error.message,
+            'message',
+            'Route export location is unsupported.',
+          ),
+        ),
+      );
+    });
+
     test('uses plan-then-write split for overwrite checks', () async {
-      final downloadsDir = await Directory.systemTemp.createTemp('gpx-overwrite');
+      final downloadsDir = await Directory.systemTemp.createTemp(
+        'gpx-overwrite',
+      );
       addTearDown(() async => downloadsDir.delete(recursive: true));
       final service = GpxExportService(
         trackDownloadsDirectoryResolver: () => downloadsDir,
@@ -256,5 +359,45 @@ void main() {
       expect(versioned.path, p.join(downloadsDir.path, 'test_2.gpx'));
       expect(versioned.contents, '<gpx />');
     });
+
+    test(
+      'plans next route version inside the resolved destination folder',
+      () async {
+        final routesDir = await Directory.systemTemp.createTemp(
+          'gpx-route-version',
+        );
+        addTearDown(() async => routesDir.delete(recursive: true));
+        final service = GpxExportService(
+          trackDownloadsDirectoryResolver: () => routesDir,
+          routeExportsDirectoryResolver: () => routesDir,
+        );
+        final route = app_route.Route(
+          name: 'Route 1',
+          gpxRoute: const [LatLng(-41.5, 146.5)],
+        );
+
+        final original = await service.planRouteExport(route);
+        await Directory(p.dirname(original.path)).create(recursive: true);
+        await File(original.path).writeAsString('base');
+        await File(
+          p.join(routesDir.path, 'Australia', 'Tasmania', 'Route-1_1.gpx'),
+        ).writeAsString('v1');
+
+        final versioned = service.planNewVersionExport(original);
+
+        expect(
+          versioned.path,
+          p.join(routesDir.path, 'Australia', 'Tasmania', 'Route-1_2.gpx'),
+        );
+      },
+    );
   });
+}
+
+GpxStorageDestinationResolver _fileBackedResolver() {
+  return GpxStorageDestinationResolver(
+    polygonAssetRepository: PolygonAssetRepository(
+      assetLoader: (assetPath) async => File(assetPath).readAsString(),
+    ),
+  );
 }

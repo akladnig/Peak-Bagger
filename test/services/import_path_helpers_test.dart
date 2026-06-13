@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:peak_bagger/services/import_path_helpers.dart';
 
 void main() {
@@ -30,6 +31,20 @@ void main() {
     test('returns current directory when HOME is not set', () {
       // This is hard to test without mocking Platform.environment
       // The behavior is tested via integration tests
+    });
+
+    test('builds Tracks path from an explicit Bushwalking root', () {
+      expect(
+        resolveBushwalkingTracksPath(bushwalkingRoot: '/tmp/Bushwalking'),
+        p.join('/tmp/Bushwalking', 'Tracks'),
+      );
+    });
+
+    test('builds Routes path from an explicit Bushwalking root', () {
+      expect(
+        resolveBushwalkingRoutesPath(bushwalkingRoot: '/tmp/Bushwalking'),
+        p.join('/tmp/Bushwalking', 'Routes'),
+      );
     });
   });
 }

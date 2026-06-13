@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
@@ -6,11 +7,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
+import 'package:peak_bagger/providers/gpx_export_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/screens/map_screen_panels.dart';
+import 'package:peak_bagger/services/gpx_export_service.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
@@ -237,6 +240,91 @@ void main() {
     expect(find.text('Start Elevation'), findsOneWidget);
     expect(find.text('End Elevation'), findsOneWidget);
   });
+
+  testWidgets('route export success snackbar shows nested Routes path', (
+    tester,
+  ) async {
+    final route = app_route.Route(
+      id: 1,
+      name: 'Visible Route',
+      gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.6, 146.6)],
+    );
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage([route]));
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showRoutes: true,
+        selectedRouteId: 1,
+      ),
+      routeRepository: routeRepository,
+    );
+    final exportService = _FakeRouteInfoExportService();
+
+    await _pumpRawMapScreen(
+      tester,
+      notifier,
+      routeRepository,
+      size: const Size(1600, 900),
+      exportService: exportService,
+    );
+
+    await tester.tap(find.byKey(const Key('track-info-panel-export-button')));
+    await tester.pumpAndSettle();
+
+    expect(
+      exportService.lastWrittenPath,
+      '/fake/Routes/Australia/Tasmania/Visible-Route.gpx',
+    );
+    expect(
+      find.textContaining(
+        'Exported to /fake/Routes/Australia/Tasmania/Visible-Route.gpx',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('route export failure shows unsupported location message', (
+    tester,
+  ) async {
+    final route = app_route.Route(
+      id: 1,
+      name: 'Melbourne Route',
+      gpxRoute: const [LatLng(-37.8136, 144.9631)],
+    );
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage([route]));
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-37.8136, 144.9631),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showRoutes: true,
+        selectedRouteId: 1,
+      ),
+      routeRepository: routeRepository,
+    );
+    final exportService = _FailingRouteInfoExportService();
+
+    await _pumpRawMapScreen(
+      tester,
+      notifier,
+      routeRepository,
+      size: const Size(1600, 900),
+      exportService: exportService,
+    );
+
+    await tester.tap(find.byKey(const Key('track-info-panel-export-button')));
+    await tester.pumpAndSettle();
+
+    expect(exportService.writeAttempted, isFalse);
+    expect(
+      find.textContaining(
+        'Export failed: Route export location is unsupported.',
+      ),
+      findsOneWidget,
+    );
+  });
 }
 
 Future<void> _pumpRawMapScreen(
@@ -244,6 +332,7 @@ Future<void> _pumpRawMapScreen(
   TestMapNotifier notifier,
   RouteRepository routeRepository, {
   required Size size,
+  GpxExportService? exportService,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -258,6 +347,8 @@ Future<void> _pumpRawMapScreen(
         gpxTrackRepositoryProvider.overrideWithValue(
           GpxTrackRepository.test(InMemoryGpxTrackStorage()),
         ),
+        if (exportService != null)
+          gpxExportServiceProvider.overrideWithValue(exportService),
       ],
       child: const MaterialApp(home: MapScreen()),
     ),
@@ -265,4 +356,38 @@ Future<void> _pumpRawMapScreen(
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
   await tester.pump(const Duration(milliseconds: 100));
+}
+
+final class _FakeRouteInfoExportService extends GpxExportService {
+  _FakeRouteInfoExportService()
+    : super(routeExportsDirectoryResolver: () => Directory('/fake/Routes'));
+
+  String? lastWrittenPath;
+
+  @override
+  bool fileExists(GpxExportPlan plan) => false;
+
+  @override
+  Future<String> writeExport(GpxExportPlan plan) async {
+    lastWrittenPath = plan.path;
+    return plan.path;
+  }
+}
+
+final class _FailingRouteInfoExportService extends GpxExportService {
+  _FailingRouteInfoExportService()
+    : super(routeExportsDirectoryResolver: () => Directory('/fake/Routes'));
+
+  bool writeAttempted = false;
+
+  @override
+  Future<GpxExportPlan> planRouteExport(app_route.Route route) async {
+    throw const GpxExportException('Route export location is unsupported.');
+  }
+
+  @override
+  Future<String> writeExport(GpxExportPlan plan) async {
+    writeAttempted = true;
+    return plan.path;
+  }
 }

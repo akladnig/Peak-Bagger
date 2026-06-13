@@ -926,7 +926,9 @@ void main() {
         ]),
       );
 
-      final segments = track.getSegmentsForZoom(MapConstants.defaultZoom.toInt());
+      final segments = track.getSegmentsForZoom(
+        MapConstants.defaultZoom.toInt(),
+      );
 
       expect(segments, hasLength(2));
       expect(track.getSegments(), hasLength(2));
@@ -1506,8 +1508,9 @@ void main() {
     });
 
     test('matches the Acropolis paused and rest targets', () {
-      final gpx = File('test/fixtures/acropolis_(10-03-2025).gpx')
-          .readAsStringSync();
+      final gpx = File(
+        'test/fixtures/acropolis_(10-03-2025).gpx',
+      ).readAsStringSync();
       final stats = calculator.calculate(gpx);
 
       expect(stats.pausedTime, 29 * 60 * 1000);
@@ -1516,8 +1519,9 @@ void main() {
     });
 
     test('matches the Mt Wellington Loop stopped-time target', () {
-      final gpx = File('test/fixtures/mt-wellington-loop_(04-03-2025).gpx')
-          .readAsStringSync();
+      final gpx = File(
+        'test/fixtures/mt-wellington-loop_(04-03-2025).gpx',
+      ).readAsStringSync();
       final stats = calculator.calculate(gpx);
 
       expect(stats.restingTime, 38 * 60 * 1000 + 20 * 1000);
@@ -1629,7 +1633,10 @@ void main() {
       expect(track.contentHash, isNotEmpty);
       expect(track.gpxFile, gpx);
       expect(track.displayTrackPointsByZoom, isNot('{}'));
-      expect(track.getSegmentsForZoom(MapConstants.defaultZoom.toInt()), isNotEmpty);
+      expect(
+        track.getSegmentsForZoom(MapConstants.defaultZoom.toInt()),
+        isNotEmpty,
+      );
     });
 
     test('parseGpxFile populates elevation analytics', () async {
@@ -1863,6 +1870,35 @@ void main() {
       );
     });
 
+    test(
+      'planSelectiveImport keeps Tasmania managed path after resolver extraction',
+      () async {
+        final importDir = Directory.systemTemp.createTempSync(
+          'gpx-import-tasmania',
+        );
+        addTearDown(() => importDir.deleteSync(recursive: true));
+        final gpxFile = File('${importDir.path}/lake-skinner.gpx')
+          ..writeAsStringSync(_tasmanianGpx('Lake Skinner'));
+
+        final importer = GpxImporter(
+          polygonAssetRepository: PolygonAssetRepository(
+            assetLoader: (_) async => throw Exception('No polygon assets'),
+          ),
+        );
+        final plan = await importer.planSelectiveImport(
+          paths: [gpxFile.path],
+          pathToEditedNames: {gpxFile.path: 'Lake Skinner'},
+          existingContentHashes: const {},
+        );
+
+        expect(plan.items, hasLength(1));
+        expect(
+          plan.items.single.plannedManagedRelativePath,
+          'Tracks/Australia/Tasmania/lake-skinner_(15-01-2024).gpx',
+        );
+      },
+    );
+
     test('metadata-date track replaces existing logical match', () async {
       final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
       final tasDir = Directory('${tempDir.path}/Tracks/Australia/Tasmania')
@@ -1944,8 +1980,8 @@ void main() {
       'moved filename is canonicalized using filename date override',
       () async {
         final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-      final tasDir = Directory('${tracksDir.path}/Australia/Tasmania')
-        ..createSync(recursive: true);
+        final tasDir = Directory('${tracksDir.path}/Australia/Tasmania')
+          ..createSync(recursive: true);
         final source = File(
           '${tracksDir.path}/Mt. William & Dove, Ridge (2024-02-03 13-30).gpx',
         );
@@ -2099,8 +2135,8 @@ void main() {
       'moveReplacementFile restores files when database replacement fails',
       () async {
         final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-      final tasDir = Directory('${tracksDir.path}/Australia/Tasmania')
-        ..createSync(recursive: true);
+        final tasDir = Directory('${tracksDir.path}/Australia/Tasmania')
+          ..createSync(recursive: true);
         final source = File('${tracksDir.path}/track.gpx');
         final destination = File('${tasDir.path}/track_(15-01-2024).gpx');
         await source.writeAsString(_tasmanianGpx('Tas Track'));
