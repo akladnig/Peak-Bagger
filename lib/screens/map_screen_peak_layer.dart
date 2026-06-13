@@ -115,7 +115,7 @@ class _PeakViewportPainter extends CustomPainter {
     final untickedFill = Paint()..color = untickedColour;
     final tickedFill = Paint()..color = tickedColour;
     final debugHullStroke = Paint()
-      ..color = const Color(0xFF00BCD4)
+      ..color = polygonColour
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     final markerStroke = Paint()
@@ -125,8 +125,8 @@ class _PeakViewportPainter extends CustomPainter {
     final clusterFillColor =
         MapConstants.peakClusterAlgorithm ==
             PeakClusterAlgorithm.markerClusterCompatible
-        ? const Color(0xFFFFF3B0)
-        : Colors.white;
+        ? clusterFillColourSecondary
+        : clusterFillColourPrimary;
     final clusterFill = Paint()
       ..color = clusterFillColor.withValues(alpha: 0.4);
     final untickedRing = Paint()
@@ -239,11 +239,7 @@ class _PeakClusterCount extends StatelessWidget {
           child: Text(
             '${cluster.members.length}',
             key: Key('peak-cluster-count-$index'),
-            style: const TextStyle(
-              color: Color(0xFF1E2A44),
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
+            style: clusterCountTextStyle(),
           ),
         ),
       ),

@@ -3,9 +3,15 @@ import 'package:peak_bagger/core/constants.dart';
 
 const thinDivider = Divider(height: 0, color: Color(0xff7b7b7b));
 const mapGridColour = Colors.blue;
+const polygonColour = Colors.blue;
 const tickedColour = Color(0xFF3DD700);
 const untickedColour = Color(0xFFD66A6D);
+const clusterFillColourPrimary = Colors.white;
+const clusterFillColourSecondary = Color(0xFFFFF3B0);
 
+// Font Colours
+
+const clusterCountTextColour = Color(0xFF1E2A44);
 
 class MapChartHoverDotTheme {
   static const Color color = Color(0xFF12B886);
@@ -16,6 +22,14 @@ TextStyle mapRulerTextStyle(BuildContext context) {
   return TextStyle(
     fontSize: 12,
     color: Theme.of(context).colorScheme.onSurface,
+  );
+}
+
+TextStyle clusterCountTextStyle() {
+  return TextStyle(
+    color: clusterCountTextColour,
+    fontSize: 11,
+    fontWeight: FontWeight.w700,
   );
 }
 
