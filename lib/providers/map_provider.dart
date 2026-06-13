@@ -3837,18 +3837,11 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void setCursorMgrs(LatLng location) {
-    final previousRegionKey = regionManifestCatalog.regionKeyForPoint(
-      state.cursorPoint ?? state.center,
-    );
-    final nextRegionKey = regionManifestCatalog.regionKeyForPoint(location);
     final mgrs = _convertToMgrs(location);
     if (state.cursorMgrs == mgrs && state.cursorPoint == location) {
       return;
     }
     state = state.copyWith(cursorMgrs: mgrs, cursorPoint: location);
-    if (previousRegionKey != nextRegionKey) {
-      reconcileSelectedPeakList();
-    }
   }
 
   void setSelectedLocation(LatLng location) {
@@ -3893,16 +3886,7 @@ class MapNotifier extends Notifier<MapState> {
     if (state.cursorMgrs == null) {
       return;
     }
-    final previousRegionKey = regionManifestCatalog.regionKeyForPoint(
-      state.cursorPoint ?? state.center,
-    );
     state = state.copyWith(clearCursorMgrs: true);
-    final nextRegionKey = regionManifestCatalog.regionKeyForPoint(
-      state.cursorPoint ?? state.center,
-    );
-    if (previousRegionKey != nextRegionKey) {
-      reconcileSelectedPeakList();
-    }
   }
 
   void setHoveredPeakId(int? peakId) {
