@@ -978,37 +978,42 @@ void main() {
     },
   );
 
-  testWidgets('drawer follows cursor region and updates live', (tester) async {
+  testWidgets('drawer follows map center region and updates live', (
+    tester,
+  ) async {
     final peakListRepository = PeakListRepository.test(
       InMemoryPeakListStorage([
         PeakList(
           name: 'Bravo',
+          region: 'new-south-wales',
           peakList: encodePeakListItems([
             const PeakListItem(peakOsmId: 7000, points: 2),
             const PeakListItem(peakOsmId: 9999, points: 1),
           ]),
         )..peakListId = 2,
-        PeakList(name: 'Broken', peakList: '{"oops":true}')..peakListId = 3,
         PeakList(
           name: 'Alpha',
+          region: 'tasmania',
           peakList: encodePeakListItems([
             const PeakListItem(peakOsmId: 6406, points: 1),
           ]),
         )..peakListId = 1,
         PeakList(
           name: 'Zero',
+          region: 'victoria',
           peakList: encodePeakListItems([
             const PeakListItem(peakOsmId: 9999, points: 1),
           ]),
         )..peakListId = 4,
+        PeakList(name: 'Broken', region: 'tasmania', peakList: '{"oops":true}')
+          ..peakListId = 3,
       ]),
     );
 
     await _pumpMap(
       tester,
       MapState(
-        center: const LatLng(-43.0, 147.0),
-        cursorPoint: const LatLng(-44.0, 148.8867),
+        center: const LatLng(-44.0, 148.8867),
         zoom: 15,
         basemap: Basemap.tracestrack,
         peaks: [
@@ -1041,19 +1046,16 @@ void main() {
 
     expect(find.byKey(const Key('peak-list-item-Alpha')), findsOneWidget);
     expect(find.byKey(const Key('peak-list-item-Zero')), findsNothing);
-    expect(find.byKey(const Key('peak-list-item-Bravo')), findsNothing);
     expect(find.byKey(const Key('peak-list-item-Broken')), findsNothing);
-    expect(find.text('1 renderable peak'), findsOneWidget);
-    expect(find.textContaining('0 renderable peaks'), findsNothing);
 
-    container
+    container.read(mapProvider.notifier).state = container
         .read(mapProvider.notifier)
-        .setCursorMgrs(const LatLng(-37.75984, 158.7979));
+        .state
+        .copyWith(center: const LatLng(-37.75984, 158.7979));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-list-item-Alpha')), findsNothing);
     expect(find.byKey(const Key('peak-list-item-Bravo')), findsOneWidget);
-    expect(find.text('1 renderable peak'), findsOneWidget);
   });
 
   testWidgets('drawer falls back to all peaks when no lists render', (
@@ -1062,8 +1064,7 @@ void main() {
     await _pumpMap(
       tester,
       MapState(
-        center: const LatLng(-43.0, 147.0),
-        cursorPoint: const LatLng(0, 0),
+        center: const LatLng(0, 0),
         zoom: 15,
         basemap: Basemap.tracestrack,
         peaks: [
@@ -1079,11 +1080,13 @@ void main() {
         InMemoryPeakListStorage([
           PeakList(
             name: 'Zero',
+            region: 'tasmania',
             peakList: encodePeakListItems([
               const PeakListItem(peakOsmId: 9999, points: 1),
             ]),
           )..peakListId = 4,
-          PeakList(name: 'Broken', peakList: '{not-json}')..peakListId = 5,
+          PeakList(name: 'Broken', region: 'tasmania', peakList: '{not-json}')
+            ..peakListId = 5,
         ]),
       ),
     );
@@ -1097,7 +1100,6 @@ void main() {
     expect(find.byKey(const Key('peak-list-item-All Peaks')), findsOneWidget);
     expect(find.byKey(const Key('peak-list-item-Zero')), findsNothing);
     expect(find.byKey(const Key('peak-list-item-Broken')), findsNothing);
-    expect(find.textContaining('renderable peak'), findsNothing);
   });
 
   testWidgets(
@@ -1120,7 +1122,6 @@ void main() {
         find.byKey(const Key('peak-list-selection-unavailable-message')),
         findsOneWidget,
       );
-      expect(find.textContaining('renderable peak'), findsNothing);
     },
   );
 }

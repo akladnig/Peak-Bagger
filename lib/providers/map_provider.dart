@@ -3770,13 +3770,14 @@ class MapNotifier extends Notifier<MapState> {
     } catch (_) {
       return;
     }
+    final currentRegionKey = regionManifestCatalog.regionKeyForPoint(
+      state.center,
+    );
 
     final validPeakListIds = renderablePeakListIds(
-      peaks: state.peaks,
-      cursorPoint: state.cursorPoint ?? state.center,
-      visibleBounds: null,
       peakLists: peakLists,
       selectedPeakListIds: state.selectedPeakListIds,
+      currentRegionKey: currentRegionKey,
     );
 
     if (validPeakListIds.isEmpty) {

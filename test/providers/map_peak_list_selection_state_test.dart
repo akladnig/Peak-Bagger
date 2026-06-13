@@ -125,23 +125,26 @@ void main() {
   });
 
   test(
-    'explicit reconcile follows cursor region and falls back to all peaks',
+    'explicit reconcile follows map center region and falls back to all peaks',
     () {
       final repository = PeakListRepository.test(
         InMemoryPeakListStorage([
           PeakList(
             name: 'Alpha',
+            region: 'tasmania',
             peakList: encodePeakListItems([
               const PeakListItem(peakOsmId: 6406, points: 1),
             ]),
           )..peakListId = 7,
           PeakList(
             name: 'Zero',
+            region: 'new-south-wales',
             peakList: encodePeakListItems([
               const PeakListItem(peakOsmId: 9999, points: 1),
             ]),
           )..peakListId = 8,
-          PeakList(name: 'Broken', peakList: '{not-json}')..peakListId = 9,
+          PeakList(name: 'Broken', region: 'tasmania', peakList: '{not-json}')
+            ..peakListId = 9,
         ]),
       );
 
@@ -153,7 +156,6 @@ void main() {
                 center: const LatLng(-41.5, 146.5),
                 zoom: 15,
                 basemap: Basemap.tracestrack,
-                cursorPoint: const LatLng(-44.0, 148.8867),
                 peaks: [
                   Peak(
                     osmId: 6406,
@@ -195,7 +197,10 @@ void main() {
       expect(container.read(mapProvider).selectedPeakListIds, {7});
       expect(container.read(mapProvider).previousSpecificPeakListIds, {7});
 
-      container.read(mapProvider.notifier).setCursorMgrs(const LatLng(0, 0));
+      container.read(mapProvider.notifier).state = container
+          .read(mapProvider.notifier)
+          .state
+          .copyWith(center: const LatLng(-37.75984, 158.7979));
 
       expect(
         container.read(mapProvider).peakListSelectionMode,

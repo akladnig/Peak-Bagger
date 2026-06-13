@@ -6,9 +6,10 @@ import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 
-final peakListRevisionProvider = NotifierProvider<PeakListRevisionNotifier, int>(
-  PeakListRevisionNotifier.new,
-);
+final peakListRevisionProvider =
+    NotifierProvider<PeakListRevisionNotifier, int>(
+      PeakListRevisionNotifier.new,
+    );
 
 final peakListsLoadProvider =
     NotifierProvider<PeakListsLoadNotifier, PeakListsLoadState>(
@@ -23,7 +24,9 @@ final peakListsLoadFailedProvider = Provider<bool>((ref) {
   return ref.watch(peakListsLoadProvider).failed;
 });
 
-final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((ref) {
+final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((
+  ref,
+) {
   final peakListSelectionMode = ref.watch(
     mapProvider.select((state) => state.peakListSelectionMode),
   );
@@ -43,15 +46,18 @@ final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((ref
       chips: [PeakListSelectionChip.allPeaks()],
     ),
     PeakListSelectionMode.specificList => PeakListSelectionSummary(
-      chips: [
-        for (final peakListId in selectedPeakListIds)
-          PeakListSelectionChip.list(
-            peakListId: peakListId,
-            label: labelsById[peakListId] ?? 'List #$peakListId',
-          ),
-      ]..sort((left, right) {
-          return left.label.toLowerCase().compareTo(right.label.toLowerCase());
-        }),
+      chips:
+          [
+            for (final peakListId in selectedPeakListIds)
+              PeakListSelectionChip.list(
+                peakListId: peakListId,
+                label: labelsById[peakListId] ?? 'List #$peakListId',
+              ),
+          ]..sort((left, right) {
+            return left.label.toLowerCase().compareTo(
+              right.label.toLowerCase(),
+            );
+          }),
     ),
   };
 });

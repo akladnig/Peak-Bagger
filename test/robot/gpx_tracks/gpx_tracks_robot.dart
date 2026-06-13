@@ -521,10 +521,11 @@ class GpxTracksRobot {
     await tester.pump();
   }
 
-  Future<void> setCursorPoint(LatLng point) async {
-    ProviderScope.containerOf(
+  Future<void> setMapCenter(LatLng center) async {
+    final notifier = ProviderScope.containerOf(
       tester.element(mapInteractionRegion),
-    ).read(mapProvider.notifier).setCursorMgrs(point);
+    ).read(mapProvider.notifier);
+    notifier.state = notifier.state.copyWith(center: center);
     await tester.pumpAndSettle();
   }
 

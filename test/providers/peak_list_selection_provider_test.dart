@@ -152,34 +152,31 @@ void main() {
     },
   );
 
-  test('renderablePeakListIds keeps only lists that match current peaks', () {
-    final peaks = [
-      Peak(osmId: 6406, name: 'Bonnet Hill', latitude: -43.0, longitude: 147.0),
-      Peak(osmId: 7000, name: 'Other Peak', latitude: -42.9, longitude: 147.1),
-    ];
+  test('renderablePeakListIds keeps only lists in current region', () {
     final peakLists = [
       PeakList(
         name: 'Alpha',
+        region: 'tasmania',
         peakList: encodePeakListItems([
           const PeakListItem(peakOsmId: 6406, points: 1),
         ]),
       )..peakListId = 7,
       PeakList(
         name: 'Zero',
+        region: 'victoria',
         peakList: encodePeakListItems([
           const PeakListItem(peakOsmId: 9999, points: 1),
         ]),
       )..peakListId = 8,
-      PeakList(name: 'Broken', peakList: '{not-json}')..peakListId = 9,
+      PeakList(name: 'Broken', region: 'tasmania', peakList: '{not-json}')
+        ..peakListId = 9,
     ];
 
     expect(
       renderablePeakListIds(
-        peaks: peaks,
-        cursorPoint: const LatLng(-44.0, 148.8867),
-        visibleBounds: null,
         peakLists: peakLists,
         selectedPeakListIds: {7, 8, 9},
+        currentRegionKey: 'tasmania',
       ),
       {7},
     );

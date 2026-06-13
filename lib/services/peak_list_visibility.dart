@@ -4,67 +4,11 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
 
-int renderablePeakCount({
+Set<int> peakIdsForRegion({
   required Iterable<Peak> peaks,
-  LatLng? cursorPoint,
-  required LatLngBounds? visibleBounds,
-  required PeakList peakList,
+  required LatLng cursorPoint,
 }) {
-  final renderablePeakIds = cursorPoint == null
-      ? (visibleBounds == null
-            ? peaks.map((peak) => peak.osmId).toSet()
-            : peaks
-                  .where(
-                    (peak) =>
-                        _isPeakWithinBounds(peak: peak, bounds: visibleBounds),
-                  )
-                  .map((peak) => peak.osmId)
-                  .toSet())
-      : _peakIdsInRegion(peaks, cursorPoint);
-  final items = decodePeakListItems(peakList.peakList);
-
-  return items
-      .map((item) => item.peakOsmId)
-      .where(renderablePeakIds.contains)
-      .toSet()
-      .length;
-}
-
-Set<int> renderablePeakListIds({
-  required Iterable<Peak> peaks,
-  LatLng? cursorPoint,
-  required LatLngBounds? visibleBounds,
-  required Iterable<PeakList> peakLists,
-  required Iterable<int> selectedPeakListIds,
-}) {
-  final selectedIds = selectedPeakListIds.toSet();
-  final validPeakListIds = <int>{};
-
-  for (final peakList in peakLists) {
-    if (!selectedIds.contains(peakList.peakListId)) {
-      continue;
-    }
-
-    try {
-      if (renderablePeakCount(
-            peaks: peaks,
-            cursorPoint: cursorPoint,
-            visibleBounds: visibleBounds,
-            peakList: peakList,
-          ) >
-          0) {
-        validPeakListIds.add(peakList.peakListId);
-      }
-    } catch (_) {
-      continue;
-    }
-  }
-
-  return validPeakListIds;
-}
-
-Set<int> _peakIdsInRegion(Iterable<Peak> peaks, LatLng point) {
-  final regionKey = regionManifestCatalog.regionKeyForPoint(point);
+  final regionKey = regionManifestCatalog.regionKeyForPoint(cursorPoint);
   if (regionKey == null) {
     return const <int>{};
   }
@@ -79,6 +23,67 @@ Set<int> _peakIdsInRegion(Iterable<Peak> peaks, LatLng point) {
       )
       .map((peak) => peak.osmId)
       .toSet();
+}
+
+int renderablePeakCount({
+  required Iterable<Peak> peaks,
+  LatLng? cursorPoint,
+  required LatLngBounds? visibleBounds,
+  required PeakList peakList,
+  Set<int>? renderablePeakIds,
+}) {
+  final renderableIds =
+      renderablePeakIds ??
+      (cursorPoint == null
+          ? (visibleBounds == null
+                ? peaks.map((peak) => peak.osmId).toSet()
+                : peaks
+                      .where(
+                        (peak) => _isPeakWithinBounds(
+                          peak: peak,
+                          bounds: visibleBounds,
+                        ),
+                      )
+                      .map((peak) => peak.osmId)
+                      .toSet())
+          : peakIdsForRegion(peaks: peaks, cursorPoint: cursorPoint));
+  final items = decodePeakListItems(peakList.peakList);
+
+  return items
+      .map((item) => item.peakOsmId)
+      .where(renderableIds.contains)
+      .toSet()
+      .length;
+}
+
+Set<int> renderablePeakListIds({
+  required Iterable<PeakList> peakLists,
+  required Iterable<int> selectedPeakListIds,
+  required String? currentRegionKey,
+}) {
+  final selectedIds = selectedPeakListIds.toSet();
+  final validPeakListIds = <int>{};
+
+  for (final peakList in peakLists) {
+    if (!selectedIds.contains(peakList.peakListId) ||
+        !peakListAppliesToRegion(peakList, currentRegionKey)) {
+      continue;
+    }
+
+    try {
+      decodePeakListItems(peakList.peakList);
+    } catch (_) {
+      continue;
+    }
+
+    validPeakListIds.add(peakList.peakListId);
+  }
+
+  return validPeakListIds;
+}
+
+bool peakListAppliesToRegion(PeakList peakList, String? currentRegionKey) {
+  return currentRegionKey != null && peakList.region == currentRegionKey;
 }
 
 bool _isPeakWithinBounds({required Peak peak, required LatLngBounds bounds}) {

@@ -35,12 +35,11 @@ import '../../harness/test_tasmap_repository.dart';
 import 'gpx_tracks_robot.dart';
 
 void main() {
-  testWidgets('peak drawer follows cursor region changes', (tester) async {
+  testWidgets('peak drawer follows map center region changes', (tester) async {
     final robot = GpxTracksRobot(
       tester,
       MapState(
-        center: const LatLng(-41.5, 146.5),
-        cursorPoint: const LatLng(-44.0, 148.8867),
+        center: const LatLng(-44.0, 148.8867),
         zoom: 15,
         basemap: Basemap.tracestrack,
         peaks: [
@@ -62,17 +61,20 @@ void main() {
         InMemoryPeakListStorage([
           PeakList(
             name: 'Alpha',
+            region: 'tasmania',
             peakList: encodePeakListItems([
               const PeakListItem(peakOsmId: 6406, points: 1),
             ]),
           )..peakListId = 1,
           PeakList(
             name: 'Bravo',
+            region: 'new-south-wales',
             peakList: encodePeakListItems([
               const PeakListItem(peakOsmId: 7000, points: 1),
             ]),
           )..peakListId = 2,
-          PeakList(name: 'Broken', peakList: '{not-json}')..peakListId = 3,
+          PeakList(name: 'Broken', region: 'tasmania', peakList: '{not-json}')
+            ..peakListId = 3,
         ]),
       ),
     );
@@ -89,7 +91,7 @@ void main() {
     expect(robot.peakListRow(2), findsNothing);
     expect(robot.peakListRow(3), findsNothing);
 
-    await robot.setCursorPoint(const LatLng(-37.75984, 158.7979));
+    await robot.setMapCenter(const LatLng(-37.75984, 158.7979));
 
     expect(robot.peakListRow(1), findsNothing);
     expect(robot.peakListRow(2), findsOneWidget);

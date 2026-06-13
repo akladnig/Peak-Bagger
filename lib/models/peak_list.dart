@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:objectbox/objectbox.dart';
+import 'package:peak_bagger/models/peak.dart';
 
 @Entity()
 class PeakList {
@@ -10,14 +11,27 @@ class PeakList {
   @Unique()
   String name;
 
+  String region;
+
   String peakList;
 
-  PeakList({this.peakListId = 0, required this.name, required this.peakList});
+  PeakList({
+    this.peakListId = 0,
+    required this.name,
+    this.region = Peak.defaultRegion,
+    required this.peakList,
+  });
 
-  PeakList copyWith({int? peakListId, String? name, String? peakList}) {
+  PeakList copyWith({
+    int? peakListId,
+    String? name,
+    String? region,
+    String? peakList,
+  }) {
     return PeakList(
       peakListId: peakListId ?? this.peakListId,
       name: name ?? this.name,
+      region: region ?? this.region,
       peakList: peakList ?? this.peakList,
     );
   }
