@@ -9,14 +9,14 @@ class GpxTrackImportPlan {
   const GpxTrackImportPlan({
     required this.items,
     required this.unchangedCount,
-    required this.nonTasmanianCount,
+    required this.unsupportedCount,
     required this.errorCount,
     this.warningMessage,
   });
 
   final List<GpxTrackImportPlanItem> items;
   final int unchangedCount;
-  final int nonTasmanianCount;
+  final int unsupportedCount;
   final int errorCount;
   final String? warningMessage;
 }
@@ -64,7 +64,7 @@ class GpxImportResult<TItem extends GpxImportItem> {
     required this.items,
     required this.addedCount,
     required this.unchangedCount,
-    required this.nonTasmanianCount,
+    required this.unsupportedCount,
     required this.errorCount,
     this.warningMessage,
   });
@@ -72,7 +72,7 @@ class GpxImportResult<TItem extends GpxImportItem> {
   final List<TItem> items;
   final int addedCount;
   final int unchangedCount;
-  final int nonTasmanianCount;
+  final int unsupportedCount;
   final int errorCount;
   final String? warningMessage;
 }

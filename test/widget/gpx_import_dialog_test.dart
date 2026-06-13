@@ -14,7 +14,7 @@ Future<GpxTrackImportResult> fakeImportRunner({
     items: [],
     addedCount: 0,
     unchangedCount: 0,
-    nonTasmanianCount: 0,
+    unsupportedCount: 0,
     errorCount: 0,
   );
 }

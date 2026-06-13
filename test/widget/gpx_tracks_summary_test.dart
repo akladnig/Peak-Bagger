@@ -9,14 +9,14 @@ import '../harness/test_map_notifier.dart';
 
 void main() {
   testWidgets(
-    'mixed scan summary reports non-Tasmanian files only in nonTasmanianCount',
+    'mixed scan summary reports unsupported files only in unsupportedCount',
     (tester) async {
       final initialState = MapState(
         center: _center,
         zoom: 10,
         basemap: Basemap.tracestrack,
         trackOperationStatus:
-            'Imported 1, replaced 0, unchanged 0, non-Tasmanian 2, errors 0',
+            'Imported 1, replaced 0, unchanged 0, unsupported 2, errors 0',
       );
 
       await tester.pumpWidget(
@@ -31,7 +31,7 @@ void main() {
       expect(find.textContaining('Imported 1'), findsOneWidget);
       expect(find.textContaining('replaced 0'), findsOneWidget);
       expect(find.textContaining('unchanged 0'), findsOneWidget);
-      expect(find.textContaining('non-Tasmanian 2'), findsOneWidget);
+      expect(find.textContaining('unsupported 2'), findsOneWidget);
       expect(find.textContaining('errors 0'), findsOneWidget);
     },
   );

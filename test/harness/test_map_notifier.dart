@@ -25,7 +25,7 @@ class TestMapNotifier extends MapNotifier {
   TestMapNotifier(
     this.initialState, {
     this.rescanStatus =
-        'Imported 1, replaced 0, unchanged 0, non-Tasmanian 2, errors 0',
+        'Imported 1, replaced 0, unchanged 0, unsupported 2, errors 0',
     this.rescanWarning,
     this.rescanSnackbarMessage,
     this.startupBackfillWarningMessage,
@@ -772,7 +772,7 @@ class TestMapNotifier extends MapNotifier {
       showTracks: false,
       tracks: const [],
       trackOperationStatus:
-          'Imported 1, replaced 0, unchanged 0, non-Tasmanian 0, errors 0',
+          'Imported 1, replaced 0, unchanged 0, unsupported 0, errors 0',
       trackOperationWarning: null,
       clearHoveredTrackId: true,
       clearSelectedTrackId: true,
@@ -784,7 +784,7 @@ class TestMapNotifier extends MapNotifier {
       importedCount: 1,
       replacedCount: 0,
       unchangedCount: 0,
-      nonTasmanianCount: 0,
+      unsupportedCount: 0,
       errorSkippedCount: 0,
     );
   }

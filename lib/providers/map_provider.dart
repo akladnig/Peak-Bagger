@@ -1338,7 +1338,7 @@ class MapNotifier extends Notifier<MapState> {
       }
       final statusMessage = result.noGpxFilesFound
           ? 'No GPX files found in watched folder'
-          : 'Imported ${result.importedCount}, replaced ${result.replacedCount}, unchanged ${result.unchangedCount}, non-Tasmanian ${result.nonTasmanianCount}, errors ${result.errorSkippedCount}';
+          : 'Imported ${result.importedCount}, replaced ${result.replacedCount}, unchanged ${result.unchangedCount}, unsupported ${result.unsupportedCount}, errors ${result.errorSkippedCount}';
       if (surfaceNotifications) {
         _pendingTrackSnackbarMessage = statusMessage;
       }
@@ -1394,7 +1394,7 @@ class MapNotifier extends Notifier<MapState> {
           .toSet();
 
       final importer = GpxImporter();
-      final plan = importer.planSelectiveImport(
+      final plan = await importer.planSelectiveImport(
         paths: pathToEditedNames.keys.toList(),
         pathToEditedNames: pathToEditedNames,
         existingContentHashes: existingContentHashes,
@@ -1481,7 +1481,7 @@ class MapNotifier extends Notifier<MapState> {
         items: addedItems,
         addedCount: addedItems.length,
         unchangedCount: plan.unchangedCount,
-        nonTasmanianCount: plan.nonTasmanianCount,
+        unsupportedCount: plan.unsupportedCount,
         errorCount: plan.errorCount,
         warningMessage: plan.warningMessage,
       );
@@ -1556,7 +1556,7 @@ class MapNotifier extends Notifier<MapState> {
         items: addedItems,
         addedCount: addedItems.length,
         unchangedCount: 0,
-        nonTasmanianCount: 0,
+        unsupportedCount: 0,
         errorCount: errorCount,
         warningMessage: null,
       );

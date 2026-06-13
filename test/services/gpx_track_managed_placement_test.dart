@@ -29,7 +29,7 @@ void main() {
         'contentHash': 'abc123',
         'trackName': 'Legacy Track',
         'managedPlacementPending': true,
-        'managedRelativePath': 'Tracks/Tasmania/test.gpx',
+        'managedRelativePath': 'Tracks/Australia/Tasmania/test.gpx',
       };
 
       final track = GpxTrack.fromMap(legacyMap);

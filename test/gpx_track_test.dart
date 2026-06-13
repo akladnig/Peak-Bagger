@@ -1666,7 +1666,8 @@ void main() {
 
     test('importTracks repairs signal-loss gaps before processing', () async {
       final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-      final tasDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+      final tasDir = Directory('${tracksDir.path}/Australia/Tasmania')
+        ..createSync(recursive: true);
       final source = File('${tracksDir.path}/repair.gpx');
       await source.writeAsString(
         _statsGpx('Repair Import', [
@@ -1694,7 +1695,8 @@ void main() {
       'importTracks surfaces repair warnings for missing timestamps',
       () async {
         final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-        final tasDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+        final tasDir = Directory('${tracksDir.path}/Australia/Tasmania')
+          ..createSync(recursive: true);
         await File('${tracksDir.path}/no-time.gpx').writeAsString(
           _statsGpx('No Time Import', [
             [_StatsPoint(-42.0, 146.0, 100)],
@@ -1740,7 +1742,8 @@ void main() {
       'route GPX files are moved to Routes and excluded from counts',
       () async {
         final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-        final tasDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+        final tasDir = Directory('${tracksDir.path}/Australia/Tasmania')
+          ..createSync(recursive: true);
         final routesDir = Directory('${tempDir.path}/Routes')..createSync();
         final source = File('${tracksDir.path}/route.gpx');
         await source.writeAsString(_tasmanianRouteGpx('Mt Dial & Gnomon'));
@@ -1758,7 +1761,7 @@ void main() {
         expect(result.importedCount, 0);
         expect(result.replacedCount, 0);
         expect(result.unchangedCount, 0);
-        expect(result.nonTasmanianCount, 0);
+        expect(result.unsupportedCount, 0);
         expect(result.errorSkippedCount, 0);
         expect(result.tracks, isEmpty);
         expect(source.existsSync(), isFalse);
@@ -1771,7 +1774,8 @@ void main() {
 
     test('no-point GPX logs no track points found', () async {
       final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-      final tasDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+      final tasDir = Directory('${tracksDir.path}/Australia/Tasmania')
+        ..createSync(recursive: true);
       await File(
         '${tracksDir.path}/empty-track.gpx',
       ).writeAsString(_noPointGpx('Lunch Activity'));
@@ -1789,11 +1793,11 @@ void main() {
     });
 
     test(
-      'importTracks reports non-Tasmanian files only in nonTasmanianCount',
+      'importTracks reports unsupported files only in unsupportedCount',
       () async {
         final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-        final tasDir = Directory('${tempDir.path}/Tracks/Tasmania')
-          ..createSync();
+        final tasDir = Directory('${tempDir.path}/Tracks/Australia/Tasmania')
+          ..createSync(recursive: true);
         await File(
           '${tracksDir.path}/tas.gpx',
         ).writeAsString(_tasmanianGpx('Tas Track'));
@@ -1814,14 +1818,15 @@ void main() {
         expect(result.replacedCount, 0);
         expect(result.unchangedCount, 0);
         expect(result.errorSkippedCount, 0);
-        expect(result.nonTasmanianCount, 1);
+        expect(result.unsupportedCount, 1);
         expect(result.tracks, hasLength(1));
       },
     );
 
     test('metadata-date track replaces existing logical match', () async {
       final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-      final tasDir = Directory('${tempDir.path}/Tracks/Tasmania')..createSync();
+      final tasDir = Directory('${tempDir.path}/Tracks/Australia/Tasmania')
+        ..createSync(recursive: true);
       await File(
         '${tracksDir.path}/tas.gpx',
       ).writeAsString(_tasmanianGpx('Tas Track'));
@@ -1850,7 +1855,7 @@ void main() {
 
     test('tasmanian imported file is moved into Tasmania folder', () async {
       final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-      final tasDir = Directory('${tracksDir.path}/Tracks/Tasmania')
+      final tasDir = Directory('${tracksDir.path}/Australia/Tasmania')
         ..createSync(recursive: true);
       final source = File('${tracksDir.path}/lake-skinner.gpx');
       await source.writeAsString(_tasmanianGpx('Lake Skinner'));
@@ -1872,7 +1877,7 @@ void main() {
 
     test('reset import reassigns track ids from 1', () async {
       final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-      final tasDir = Directory('${tracksDir.path}/Tracks/Tasmania')
+      final tasDir = Directory('${tracksDir.path}/Australia/Tasmania')
         ..createSync(recursive: true);
       await File(
         '${tracksDir.path}/a-first.gpx',
@@ -1899,8 +1904,8 @@ void main() {
       'moved filename is canonicalized using filename date override',
       () async {
         final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-        final tasDir = Directory('${tracksDir.path}/Tracks/Tasmania')
-          ..createSync(recursive: true);
+      final tasDir = Directory('${tracksDir.path}/Australia/Tasmania')
+        ..createSync(recursive: true);
         final source = File(
           '${tracksDir.path}/Mt. William & Dove, Ridge (2024-02-03 13-30).gpx',
         );
@@ -1924,7 +1929,7 @@ void main() {
 
     test('already canonical filename is preserved', () async {
       final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-      final tasDir = Directory('${tracksDir.path}/Tracks/Tasmania')
+      final tasDir = Directory('${tracksDir.path}/Australia/Tasmania')
         ..createSync(recursive: true);
       final source = File(
         '${tracksDir.path}/mt-william-dove-ridge_(03-02-2024).gpx',
@@ -1948,7 +1953,8 @@ void main() {
 
     test('no-date changed track does not replace logical match', () async {
       final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-      final tasDir = Directory('${tempDir.path}/Tracks/Tasmania')..createSync();
+      final tasDir = Directory('${tempDir.path}/Tracks/Australia/Tasmania')
+        ..createSync(recursive: true);
       final file = File('${tracksDir.path}/tas-no-date.gpx');
       await file.writeAsString(_tasmanianGpxNoDate('Tas Track'));
       await file.setLastModified(DateTime(2024, 2, 1, 12));
@@ -1979,8 +1985,8 @@ void main() {
       'same-operation logical-match conflict keeps first candidate and skips later one',
       () async {
         final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-        final tasDir = Directory('${tempDir.path}/Tracks/Tasmania')
-          ..createSync();
+        final tasDir = Directory('${tempDir.path}/Tracks/Australia/Tasmania')
+          ..createSync(recursive: true);
         await File(
           '${tracksDir.path}/a-first.gpx',
         ).writeAsString(_tasmanianGpx('Tas Track'));
@@ -2018,7 +2024,8 @@ void main() {
 
     test('startup import keeps manual-review warnings silent', () async {
       final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-      final tasDir = Directory('${tempDir.path}/Tracks/Tasmania')..createSync();
+      final tasDir = Directory('${tempDir.path}/Tracks/Australia/Tasmania')
+        ..createSync(recursive: true);
       await File(
         '${tracksDir.path}/a-first.gpx',
       ).writeAsString(_tasmanianGpx('Tas Track'));
@@ -2052,7 +2059,8 @@ void main() {
       'moveReplacementFile restores files when database replacement fails',
       () async {
         final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-        final tasDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+      final tasDir = Directory('${tracksDir.path}/Australia/Tasmania')
+        ..createSync(recursive: true);
         final source = File('${tracksDir.path}/track.gpx');
         final destination = File('${tasDir.path}/track_(15-01-2024).gpx');
         await source.writeAsString(_tasmanianGpx('Tas Track'));
@@ -2082,7 +2090,8 @@ void main() {
       'moveReplacementFile blocks overwrite when destination is different logical match',
       () async {
         final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-        final tasDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+        final tasDir = Directory('${tracksDir.path}/Australia/Tasmania')
+          ..createSync(recursive: true);
         final source = File('${tracksDir.path}/track.gpx');
         final destination = File('${tasDir.path}/track_(15-01-2024).gpx');
         await source.writeAsString(_tasmanianGpx('Tas Track'));
@@ -2110,7 +2119,8 @@ void main() {
       'moveReplacementFile preserves existing organized filename for logical match',
       () async {
         final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-        final tasDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+        final tasDir = Directory('${tracksDir.path}/Australia/Tasmania')
+          ..createSync(recursive: true);
         final source = File('${tracksDir.path}/Mt. William Alternate.gpx');
         final destination = File('${tasDir.path}/mt-william_(15-01-2024).gpx');
         await source.writeAsString(_tasmanianGpx('Mt William'));
