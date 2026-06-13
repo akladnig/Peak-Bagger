@@ -171,7 +171,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               leading: const Icon(Icons.route),
               title: const Text('Reset Track Data'),
               subtitle: const Text(
-                'Wipe track data and rebuild from Tracks and Tracks/Tasmania',
+                'Wipe track data and rebuild from Tracks and Tracks/Australia/Tasmania',
               ),
               trailing: mapState.isLoadingTracks
                   ? const SizedBox(
@@ -831,7 +831,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Imported ${result.importedCount}, replaced ${result.replacedCount}, unchanged ${result.unchangedCount}, non-Tasmanian ${result.nonTasmanianCount}, errors ${result.errorSkippedCount}',
+            'Imported ${result.importedCount}, replaced ${result.replacedCount}, unchanged ${result.unchangedCount}, unsupported ${result.unsupportedCount}, errors ${result.errorSkippedCount}',
           ),
           if (result.warning != null) ...[
             const SizedBox(height: 12),

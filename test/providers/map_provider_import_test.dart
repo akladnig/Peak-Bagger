@@ -33,8 +33,8 @@ void main() {
 
     final bushwalkingRoot = Directory('${tmpRoot.path}/Bushwalking')
       ..createSync(recursive: true);
-    Directory('${bushwalkingRoot.path}/Tracks/Tasmania')
-      .createSync(recursive: true);
+    Directory('${bushwalkingRoot.path}/Tracks/Australia/Tasmania')
+        .createSync(recursive: true);
     final gpxFile = File('${tmpRoot.path}/selected-track-import.gpx')
       ..writeAsStringSync(_tasmanianTrackGpx);
 

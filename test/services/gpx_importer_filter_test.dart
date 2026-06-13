@@ -14,7 +14,8 @@ void main() {
     });
 
     final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-    final tasmaniaDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+    final tasmaniaDir = Directory('${tracksDir.path}/Australia/Tasmania')
+      ..createSync(recursive: true);
     final source = File('${tracksDir.path}/test-track.gpx');
     const rawXml = '''
 <?xml version="1.0" encoding="UTF-8"?>
@@ -78,7 +79,8 @@ void main() {
     });
 
     final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-    final tasmaniaDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+    final tasmaniaDir = Directory('${tracksDir.path}/Australia/Tasmania')
+      ..createSync(recursive: true);
     final source = File('${tracksDir.path}/none-track.gpx');
     const rawXml = '''
 <?xml version="1.0" encoding="UTF-8"?>
@@ -137,7 +139,8 @@ void main() {
       });
 
       final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-      final tasmaniaDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+    final tasmaniaDir = Directory('${tracksDir.path}/Australia/Tasmania')
+      ..createSync(recursive: true);
       final source = File('${tracksDir.path}/fallback-track.gpx');
       const rawXml = '''
 <?xml version="1.0" encoding="UTF-8"?>
@@ -187,7 +190,8 @@ void main() {
       });
 
       final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-      final tasmaniaDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+    final tasmaniaDir = Directory('${tracksDir.path}/Australia/Tasmania')
+      ..createSync(recursive: true);
       final source = File('${tracksDir.path}/refresh-track.gpx');
       const rawXml = '''
 <?xml version="1.0" encoding="UTF-8"?>
@@ -254,7 +258,8 @@ void main() {
     });
 
     final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-    final tasmaniaDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+    final tasmaniaDir = Directory('${tracksDir.path}/Australia/Tasmania')
+      ..createSync(recursive: true);
     final source = File('${tracksDir.path}/acropolis_(10-03-2025).gpx');
     await source.writeAsString(
       File('test/fixtures/acropolis_(10-03-2025).gpx').readAsStringSync(),
@@ -285,7 +290,8 @@ void main() {
     });
 
     final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-    final tasmaniaDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+    final tasmaniaDir = Directory('${tracksDir.path}/Australia/Tasmania')
+      ..createSync(recursive: true);
     final source = File('${tracksDir.path}/mt-wellington-loop_(04-03-2025).gpx');
     await source.writeAsString(
       File('test/fixtures/mt-wellington-loop_(04-03-2025).gpx')

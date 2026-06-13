@@ -79,7 +79,7 @@ void main() {
       TestMapNotifier(
         _baseState(),
         rescanStatus:
-            'Imported 1, replaced 0, unchanged 0, non-Tasmanian 2, errors 1',
+            'Imported 1, replaced 0, unchanged 0, unsupported 2, errors 1',
         rescanWarning: 'Some files need manual review. See import.log.',
       ),
     );
@@ -93,7 +93,7 @@ void main() {
 
     expect(
       find.text(
-        'Imported 1, replaced 0, unchanged 0, non-Tasmanian 2, errors 1',
+        'Imported 1, replaced 0, unchanged 0, unsupported 2, errors 1',
       ),
       findsOneWidget,
     );

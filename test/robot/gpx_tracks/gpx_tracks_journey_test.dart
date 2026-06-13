@@ -337,7 +337,8 @@ void main() {
     bushwalkingRoot.createSync(recursive: true);
     final tracksDir = Directory('${bushwalkingRoot.path}/Tracks')
       ..createSync(recursive: true);
-    Directory('${tracksDir.path}/Tasmania').createSync(recursive: true);
+    Directory('${tracksDir.path}/Australia/Tasmania')
+        .createSync(recursive: true);
     final uniqueSuffix = DateTime.now().microsecondsSinceEpoch;
 
     File(
@@ -1149,7 +1150,7 @@ class _ImportingTestMapNotifier extends TestMapNotifier {
         items: importedItems,
         addedCount: importedItems.length,
         unchangedCount: 0,
-        nonTasmanianCount: 0,
+        unsupportedCount: 0,
         errorCount: 0,
       );
     } catch (error) {

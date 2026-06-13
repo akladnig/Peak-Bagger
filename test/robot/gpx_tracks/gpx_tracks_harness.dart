@@ -22,7 +22,8 @@ class GpxTracksHarness {
     final root = Directory.systemTemp.createTempSync('gpx-tracks-harness');
     final storeDir = Directory('${root.path}/store')..createSync();
     final tracksDir = Directory('${root.path}/Tracks')..createSync();
-    final tasmaniaDir = Directory('${tracksDir.path}/Tasmania')..createSync();
+    final tasmaniaDir = Directory('${tracksDir.path}/Australia/Tasmania')
+      ..createSync(recursive: true);
 
     File('${tracksDir.path}/tas-track.gpx').writeAsStringSync(_tasmanianGpx);
 

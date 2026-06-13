@@ -321,8 +321,8 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
           ),
           if (result.unchangedCount > 0)
             Text('${result.unchangedCount} unchanged'),
-          if (result.nonTasmanianCount > 0)
-            Text('${result.nonTasmanianCount} non-Tasmanian'),
+          if (result.unsupportedCount > 0)
+            Text('${result.unsupportedCount} unsupported'),
           if (result.errorCount > 0) Text('${result.errorCount} error(s)'),
           if (result.warningMessage != null) ...[
             const SizedBox(height: 12),

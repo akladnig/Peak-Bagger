@@ -3,13 +3,17 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:path/path.dart' as p;
 import 'package:xml/xml.dart';
+import 'package:peak_bagger/models/map_polygon_asset.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/route_waypoint.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/services/gpx_track_filter.dart';
 import 'package:peak_bagger/services/gpx_track_repair_service.dart';
+import 'package:peak_bagger/services/polygon_asset_repository.dart';
+import 'package:peak_bagger/services/polygon_geometry.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
@@ -23,7 +27,7 @@ class TrackImportResult {
     required this.importedCount,
     required this.replacedCount,
     required this.unchangedCount,
-    required this.nonTasmanianCount,
+    required this.unsupportedCount,
     required this.errorSkippedCount,
     this.noGpxFilesFound = false,
     this.warning,
@@ -33,10 +37,19 @@ class TrackImportResult {
   final int importedCount;
   final int replacedCount;
   final int unchangedCount;
-  final int nonTasmanianCount;
+  final int unsupportedCount;
   final int errorSkippedCount;
   final bool noGpxFilesFound;
   final String? warning;
+}
+
+class _TrackDestination {
+  const _TrackDestination({required this.country, this.region});
+
+  final String country;
+  final String? region;
+
+  String get relativeFolder => region == null ? country : '$country/$region';
 }
 
 class _FileOrganizationResult {
@@ -89,14 +102,18 @@ class GpxImporter {
   String tracksFolder;
   String tasmaniaFolder;
   String routesFolder;
+  final PolygonAssetRepository _polygonAssetRepository;
+  List<MapPolygonAsset>? _polygonCache;
 
   GpxImporter({
     String? tracksFolder,
     String? tasmaniaFolder,
     String? routesFolder,
+    PolygonAssetRepository? polygonAssetRepository,
   }) : tracksFolder = tracksFolder ?? _defaultTracksFolder(),
-       tasmaniaFolder = tasmaniaFolder ?? _defaultTasmaniaFolder(),
-       routesFolder = routesFolder ?? _defaultRoutesFolder();
+        tasmaniaFolder = tasmaniaFolder ?? _defaultTasmaniaFolder(),
+        routesFolder = routesFolder ?? _defaultRoutesFolder(),
+        _polygonAssetRepository = polygonAssetRepository ?? PolygonAssetRepository();
 
   static String _defaultTracksFolder() {
     if (debugTracksFolderOverride != null) {
@@ -111,7 +128,7 @@ class GpxImporter {
       return debugTasmaniaFolderOverride!;
     }
     final home = Platform.environment['HOME'] ?? '';
-    return '$home/Documents/Bushwalking/Tracks/Tasmania';
+    return '$home/Documents/Bushwalking/Tracks/Australia/Tasmania';
   }
 
   static String _defaultRoutesFolder() {
@@ -135,13 +152,77 @@ class GpxImporter {
     return '$importRoot${Platform.pathSeparator}import.log';
   }
 
+  Future<List<MapPolygonAsset>> _loadPolygonAssets() async {
+    _polygonCache ??= await _polygonAssetRepository.loadPolygons();
+    return _polygonCache!;
+  }
+
+  Future<_TrackDestination?> _resolveTrackDestination(
+    LatLng firstPoint,
+  ) async {
+    final polygons = await _loadPolygonAssets();
+    if (polygons.isEmpty) {
+      return _fallbackTrackDestination(firstPoint);
+    }
+
+    final assetByName = {
+      for (final asset in polygons) _assetNameFor(asset): asset,
+    };
+
+    for (final assetName in _trackDestinationPriority) {
+      final asset = assetByName[assetName];
+      if (asset != null && polygonContainsPoint(firstPoint, asset.points)) {
+        return _trackDestinationForAsset(assetName);
+      }
+    }
+
+    return _fallbackTrackDestination(firstPoint);
+  }
+
+  static const List<String> _trackDestinationPriority = [
+    'italy-nord-est.poly',
+    'italy-nord-ovest.poly',
+    'slovenia.poly',
+    'croatia.poly',
+    'tasmania.poly',
+    'new-south-wales.poly',
+  ];
+
+  static String _assetNameFor(MapPolygonAsset asset) {
+    return asset.assetPath.split('/').last;
+  }
+
+  static _TrackDestination _trackDestinationForAsset(String assetName) {
+    return switch (assetName) {
+      'italy-nord-est.poly' => const _TrackDestination(
+        country: 'Italy',
+        region: 'nord-est',
+      ),
+      'italy-nord-ovest.poly' => const _TrackDestination(
+        country: 'Italy',
+        region: 'nord-ovest',
+      ),
+      'slovenia.poly' => const _TrackDestination(country: 'Slovenia'),
+      'croatia.poly' => const _TrackDestination(country: 'Croatia'),
+      'tasmania.poly' => const _TrackDestination(
+        country: 'Australia',
+        region: 'Tasmania',
+      ),
+      'new-south-wales.poly' => const _TrackDestination(
+        country: 'Australia',
+        region: 'NSW',
+      ),
+      _ => const _TrackDestination(country: ''),
+    };
+  }
+
   Future<bool> moveReplacementFile({
     required String sourcePath,
     required GpxTrack replacementTrack,
     required Future<void> Function() applyDatabaseReplacement,
   }) async {
     final sourceFile = File(sourcePath);
-    final destinationPath = _resolveReplacementDestinationPath(
+    final destinationPath = await _resolveReplacementDestinationPath(
       sourcePath,
       replacementTrack,
     );
@@ -550,7 +631,7 @@ class GpxImporter {
     return '$day-$month-$year';
   }
 
-  ({double lat, double lng})? _extractFirstPoint(XmlDocument doc) {
+  LatLng? _extractFirstPoint(XmlDocument doc) {
     final point = _firstPointElement(doc);
     if (point == null) return null;
 
@@ -564,7 +645,7 @@ class GpxImporter {
 
     if (lat == null || lng == null) return null;
 
-    return (lat: lat, lng: lng);
+    return LatLng(lat, lng);
   }
 
   XmlElement? _firstPointElement(XmlDocument doc) {
@@ -601,7 +682,7 @@ class GpxImporter {
     var importedCount = 0;
     var replacedCount = 0;
     var unchangedCount = 0;
-    var nonTasmanianCount = 0;
+    var unsupportedCount = 0;
     var errorSkippedCount = 0;
     var filterFallbackCount = 0;
     var logWriteFailed = false;
@@ -615,24 +696,14 @@ class GpxImporter {
       await tracksDir.create(recursive: true);
     }
 
-    if (!tasmaniaDir.existsSync()) {
-      await tasmaniaDir.create(recursive: true);
-    }
-
     if (!routesDir.existsSync()) {
       await routesDir.create(recursive: true);
     }
 
-    final snapshot = <File>[];
-    if (tracksDir.existsSync()) {
-      snapshot.addAll(_snapshotDirectory(tracksDir));
-    }
-
-    if (includeTasmaniaFolder && tasmaniaDir.existsSync()) {
-      snapshot.addAll(_snapshotDirectory(tasmaniaDir));
-    }
-
-    snapshot.sort((a, b) => a.path.compareTo(b.path));
+    final snapshot = _snapshotDirectory(
+      tracksDir,
+      excludedFolder: includeTasmaniaFolder ? null : tasmaniaDir.path,
+    );
 
     if (snapshot.isEmpty) {
       return const TrackImportResult(
@@ -640,7 +711,7 @@ class GpxImporter {
         importedCount: 0,
         replacedCount: 0,
         unchangedCount: 0,
-        nonTasmanianCount: 0,
+        unsupportedCount: 0,
         errorSkippedCount: 0,
         noGpxFilesFound: true,
       );
@@ -682,19 +753,20 @@ class GpxImporter {
         continue;
       }
 
-      if (!isTasmanian(firstPoint.lat, firstPoint.lng)) {
+      final destination = await _resolveTrackDestination(firstPoint);
+      if (destination == null) {
         await _organizeFile(
           file.path,
           destinationFolder: tracksFolder,
           canonicalDate: track.trackDate,
         );
-        nonTasmanianCount += 1;
+        unsupportedCount += 1;
         continue;
       }
 
       final organization = await _organizeFile(
         file.path,
-        destinationFolder: tasmaniaFolder,
+        destinationFolder: p.join(tracksFolder, destination.relativeFolder),
         canonicalDate: track.trackDate,
       );
       if (organization.requiresManualReview) {
@@ -823,7 +895,7 @@ class GpxImporter {
       importedCount: importedCount,
       replacedCount: replacedCount,
       unchangedCount: unchangedCount,
-      nonTasmanianCount: nonTasmanianCount,
+      unsupportedCount: unsupportedCount,
       errorSkippedCount: errorSkippedCount,
       noGpxFilesFound: false,
       warning:
@@ -988,30 +1060,42 @@ class GpxImporter {
     }
   }
 
-  String _resolveReplacementDestinationPath(
+  Future<String> _resolveReplacementDestinationPath(
     String sourcePath,
     GpxTrack replacementTrack,
-  ) {
+  ) async {
+    await _loadPolygonAssets();
+    final destination = _resolveTrackDestinationForFile(sourcePath);
     final existingPath = _findExistingOrganizedLogicalMatchPath(
+      sourcePath,
       replacementTrack,
     );
     if (existingPath != null) {
       return existingPath;
     }
-    return '$tasmaniaFolder${Platform.pathSeparator}${_canonicalFilename(sourcePath, replacementTrack.trackDate)}';
+    final canonicalName = _canonicalFilename(sourcePath, replacementTrack.trackDate);
+    if (destination == null) {
+      return p.join(tracksFolder, canonicalName);
+    }
+
+    return p.join(tracksFolder, destination.relativeFolder, canonicalName);
   }
 
-  String? _findExistingOrganizedLogicalMatchPath(GpxTrack replacementTrack) {
+  String? _findExistingOrganizedLogicalMatchPath(
+    String sourcePath,
+    GpxTrack replacementTrack,
+  ) {
     try {
-      final folder = Directory(tasmaniaFolder);
+      final folder = Directory(tracksFolder);
       if (!folder.existsSync()) {
         return null;
       }
 
       final candidates = folder
-          .listSync()
+          .listSync(recursive: true, followLinks: false)
           .whereType<File>()
           .where((file) => file.path.toLowerCase().endsWith('.gpx'))
+          .where((file) => file.path != sourcePath)
           .map((file) => (path: file.path, track: parseGpxFile(file.path)))
           .where((entry) => entry.track != null)
           .where((entry) => _isSameLogicalMatch(entry.track!, replacementTrack))
@@ -1027,6 +1111,56 @@ class GpxImporter {
     } catch (_) {
       return null;
     }
+  }
+
+  _TrackDestination? _resolveTrackDestinationForFile(String filePath) {
+    final file = File(filePath);
+    if (!file.existsSync()) {
+      return null;
+    }
+
+    try {
+      final content = file.readAsStringSync();
+      final doc = XmlDocument.parse(content);
+      final firstPoint = _extractFirstPoint(doc);
+      if (firstPoint == null) {
+        return null;
+      }
+      return _resolveTrackDestinationSync(firstPoint);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  _TrackDestination? _resolveTrackDestinationSync(LatLng firstPoint) {
+    final polygons = _polygonCache;
+    if (polygons == null || polygons.isEmpty) {
+      return _fallbackTrackDestination(firstPoint);
+    }
+
+    final assetByName = {
+      for (final asset in polygons) _assetNameFor(asset): asset,
+    };
+
+    for (final assetName in _trackDestinationPriority) {
+      final asset = assetByName[assetName];
+      if (asset != null && polygonContainsPoint(firstPoint, asset.points)) {
+        return _trackDestinationForAsset(assetName);
+      }
+    }
+
+    return _fallbackTrackDestination(firstPoint);
+  }
+
+  _TrackDestination? _fallbackTrackDestination(LatLng firstPoint) {
+    if (isTasmanian(firstPoint.latitude, firstPoint.longitude)) {
+      return const _TrackDestination(
+        country: 'Australia',
+        region: 'Tasmania',
+      );
+    }
+
+    return null;
   }
 
   Future<_FileOrganizationResult> _organizeFile(
@@ -1098,19 +1232,29 @@ class GpxImporter {
     return matches.first;
   }
 
-  List<File> _snapshotDirectory(Directory dir) {
+  List<File> _snapshotDirectory(
+    Directory dir, {
+    String? excludedFolder,
+  }) {
     try {
-      return dir
-          .listSync()
+      final files = dir
+          .listSync(recursive: true, followLinks: false)
           .whereType<File>()
           .where((file) => file.path.toLowerCase().endsWith('.gpx'))
+          .where(
+            (file) =>
+                excludedFolder == null ||
+                !p.isWithin(excludedFolder, file.path),
+          )
           .toList(growable: false);
+      files.sort((a, b) => a.path.compareTo(b.path));
+      return files;
     } catch (e) {
       return const [];
     }
   }
 
-  ({double lat, double lng})? _getFirstPointFromFile(String filePath) {
+  LatLng? _getFirstPointFromFile(String filePath) {
     try {
       final file = File(filePath);
       final content = file.readAsStringSync();
@@ -1167,17 +1311,17 @@ class GpxImporter {
   /// [pathToEditedNames] - User-edited names keyed by file path
   /// [existingContentHashes] - Content hashes of tracks already in the database
   ///
-  /// Returns a plan containing only valid Tasmanian tracks that are not duplicates.
-  /// Duplicate, non-Tasmanian, route-only, and invalid files are counted
+  /// Returns a plan containing only supported tracks that are not duplicates.
+  /// Duplicate, unsupported, route-only, and invalid files are counted
   /// in the aggregate counts instead.
-  GpxTrackImportPlan planSelectiveImport({
+  Future<GpxTrackImportPlan> planSelectiveImport({
     required List<String> paths,
     required Map<String, String> pathToEditedNames,
     required Set<String> existingContentHashes,
-  }) {
+  }) async {
     final items = <GpxTrackImportPlanItem>[];
     var unchangedCount = 0;
-    var nonTasmanianCount = 0;
+    var unsupportedCount = 0;
     var errorCount = 0;
     final warnings = <String>[];
 
@@ -1197,8 +1341,9 @@ class GpxImporter {
         continue;
       }
 
-      if (!isTasmanian(firstPoint.lat, firstPoint.lng)) {
-        nonTasmanianCount += 1;
+      final destination = await _resolveTrackDestination(firstPoint);
+      if (destination == null) {
+        unsupportedCount += 1;
         continue;
       }
 
@@ -1218,10 +1363,11 @@ class GpxImporter {
         track.trackName = pathToEditedNames[filePath]!;
       }
 
-      // Plan managed storage placement for Tasmanian tracks
+      // Plan managed storage placement for supported tracks
       final plannedRelativePath = _planManagedRelativePath(
         filePath: filePath,
         track: track,
+        destination: destination,
       );
 
       items.add(
@@ -1241,7 +1387,7 @@ class GpxImporter {
     return GpxTrackImportPlan(
       items: items,
       unchangedCount: unchangedCount,
-      nonTasmanianCount: nonTasmanianCount,
+      unsupportedCount: unsupportedCount,
       errorCount: errorCount,
       warningMessage: warnings.isEmpty ? null : warnings.join(' '),
     );
@@ -1250,8 +1396,9 @@ class GpxImporter {
   String? _planManagedRelativePath({
     required String filePath,
     required GpxTrack track,
+    required _TrackDestination destination,
   }) {
     final canonicalName = _canonicalFilename(filePath, track.trackDate);
-    return 'Tracks/Tasmania/$canonicalName';
+    return 'Tracks/${destination.relativeFolder}/$canonicalName';
   }
 }
