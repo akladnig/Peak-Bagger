@@ -14,17 +14,20 @@ class MapPeakListsDrawer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final (:peakListSelectionMode, :selectedPeakListIds, :peaks) = ref.watch(
+    final (
+      :peakListSelectionMode,
+      :selectedPeakListIds,
+      :peaks,
+      :cursorPoint,
+    ) = ref.watch(
       mapProvider.select(
         (state) => (
           peakListSelectionMode: state.peakListSelectionMode,
           selectedPeakListIds: state.selectedPeakListIds,
           peaks: state.peaks,
+          cursorPoint: state.cursorPoint ?? state.center,
         ),
       ),
-    );
-    final visibleBounds = ref.watch(
-      mapProvider.select((state) => state.visibleBounds),
     );
     final peakListsLoadState = ref.watch(peakListsLoadProvider);
     final peakLists = ref.watch(peakListsProvider);
@@ -34,7 +37,8 @@ class MapPeakListsDrawer extends ConsumerWidget {
       try {
         final renderableCount = renderablePeakCount(
           peaks: peaks,
-          visibleBounds: visibleBounds,
+          cursorPoint: cursorPoint,
+          visibleBounds: null,
           peakList: peakList,
         );
         if (renderableCount == 0) {
@@ -77,14 +81,17 @@ class MapPeakListsDrawer extends ConsumerWidget {
                 key: const Key('peak-list-item-All Peaks'),
                 title: const Text(_allPeaksLabel),
                 onTap: () {
-                  ref.read(mapProvider.notifier).setAllPeaksSelected(
-                    peakListSelectionMode != PeakListSelectionMode.allPeaks,
-                  );
+                  ref
+                      .read(mapProvider.notifier)
+                      .setAllPeaksSelected(
+                        peakListSelectionMode != PeakListSelectionMode.allPeaks,
+                      );
                 },
                 leading: IgnorePointer(
                   child: Switch.adaptive(
                     key: const Key('peak-list-selection-all-peaks-switch'),
-                    value: peakListSelectionMode == PeakListSelectionMode.allPeaks,
+                    value:
+                        peakListSelectionMode == PeakListSelectionMode.allPeaks,
                     onChanged: (_) {},
                   ),
                 ),
@@ -107,18 +114,21 @@ class MapPeakListsDrawer extends ConsumerWidget {
                     title: Text(entry.peakList.name),
                     subtitle: Text(_renderablePeakLabel(entry.renderableCount)),
                     onTap: () {
-                      ref.read(mapProvider.notifier).togglePeakListSelection(
-                        entry.peakList.peakListId,
-                      );
+                      ref
+                          .read(mapProvider.notifier)
+                          .togglePeakListSelection(entry.peakList.peakListId);
                     },
                     leading: IgnorePointer(
                       child: Switch.adaptive(
                         key: Key(
                           'peak-list-selection-switch-${entry.peakList.peakListId}',
                         ),
-                        value: peakListSelectionMode ==
+                        value:
+                            peakListSelectionMode ==
                                 PeakListSelectionMode.specificList &&
-                            selectedPeakListIds.contains(entry.peakList.peakListId),
+                            selectedPeakListIds.contains(
+                              entry.peakList.peakListId,
+                            ),
                         onChanged: (_) {},
                       ),
                     ),
@@ -131,8 +141,6 @@ class MapPeakListsDrawer extends ConsumerWidget {
   }
 
   String _renderablePeakLabel(int count) {
-    return count == 1
-        ? '1 renderable peak'
-        : '$count renderable peaks';
+    return count == 1 ? '1 renderable peak' : '$count renderable peaks';
   }
 }

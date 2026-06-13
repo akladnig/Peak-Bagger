@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
@@ -518,6 +519,13 @@ class GpxTracksRobot {
       tester.getBottomRight(mapInteractionRegion) + const Offset(20, 20),
     );
     await tester.pump();
+  }
+
+  Future<void> setCursorPoint(LatLng point) async {
+    ProviderScope.containerOf(
+      tester.element(mapInteractionRegion),
+    ).read(mapProvider.notifier).setCursorMgrs(point);
+    await tester.pumpAndSettle();
   }
 
   Future<void> clickHoveredTrack() async {

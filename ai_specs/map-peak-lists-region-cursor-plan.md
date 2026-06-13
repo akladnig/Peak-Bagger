@@ -26,11 +26,11 @@ Keep `All Peaks`; update selection reconciliation to follow cursor-region change
 ### Phase 2: Drawer + journeys
 
 - **Goal**: drawer rows follow cursor region live while open
-- [ ] `lib/widgets/map_peak_lists_drawer.dart` - watch cursor point/center; render rows from region match, not map viewport; keep `All Peaks` + failure message
-- [ ] `test/widget/map_screen_peak_info_test.dart` - TDD: open drawer with peaks visible in one area but cursor in another; shown rows match cursor region; moving cursor updates rows without reopening
-- [ ] `test/robot/gpx_tracks/gpx_tracks_robot.dart` - add hover helper/selector if needed for region switch checks
-- [ ] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - robot journey: hover into two regions, open peak drawer, assert row set changes by cursor region
-- [ ] Verify: `flutter analyze` && `flutter test test/widget/map_screen_peak_info_test.dart test/robot/gpx_tracks/gpx_tracks_journey_test.dart`
+- [x] `lib/widgets/map_peak_lists_drawer.dart` - watch cursor point/center; render rows from region match, not map viewport; keep `All Peaks` + failure message
+- [x] `test/widget/map_screen_peak_info_test.dart` - TDD: open drawer with peaks visible in one area but cursor in another; shown rows match cursor region; moving cursor updates rows without reopening
+- [x] `test/robot/gpx_tracks/gpx_tracks_robot.dart` - add cursor-point helper/selector for region switch checks
+- [x] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - robot journey: switch cursor between two regions, open peak drawer, assert row set changes by cursor region
+- [x] Verify: `flutter analyze` && `flutter test test/widget/map_screen_peak_info_test.dart test/robot/gpx_tracks/gpx_tracks_journey_test.dart`
 
 ## Risks / Out of scope
 
