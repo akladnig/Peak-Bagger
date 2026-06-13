@@ -1,9 +1,11 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:xml/xml.dart';
 
+import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/services/gpx_file_picker.dart';
 import 'dialog_helpers.dart';
 
@@ -57,10 +59,42 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       key: const Key('gpx-import-dialog'),
-      title: const Text('Import GPX File(s)'),
-      content: SingleChildScrollView(
+      insetPadding: const EdgeInsets.all(UiConstants.dialogMargin),
+      titlePadding: const EdgeInsets.fromLTRB(
+        UiConstants.dialogMargin,
+        UiConstants.dialogMargin,
+        UiConstants.dialogMargin,
+        0,
+      ),
+      contentPadding: const EdgeInsets.fromLTRB(
+        UiConstants.dialogMargin,
+        0,
+        UiConstants.dialogMargin,
+        UiConstants.dialogMargin,
+      ),
+      actionsPadding: const EdgeInsets.fromLTRB(
+        UiConstants.dialogMargin,
+        0,
+        UiConstants.dialogMargin,
+        UiConstants.dialogMargin,
+      ),
+      title: const Text(
+        'Import GPX File(s)',
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.ellipsis,
+      ),
+      content: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: math.max(
+            0.0,
+            MediaQuery.sizeOf(context).height - (UiConstants.dialogMargin * 4),
+          ),
+        ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: _selectedFiles.isNotEmpty
+              ? MainAxisSize.max
+              : MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             FilledButton.tonal(
@@ -93,10 +127,8 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
             ),
             if (_selectedFiles.isNotEmpty) ...[
               const SizedBox(height: 16),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 200),
+              Expanded(
                 child: ListView.builder(
-                  shrinkWrap: true,
                   itemCount: _selectedFiles.length,
                   itemBuilder: (context, index) {
                     final file = _selectedFiles[index];
