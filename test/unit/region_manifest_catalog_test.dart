@@ -17,6 +17,7 @@ void main() {
         'nswImagery',
         'nswBasemap',
         'nswTopo',
+        'sloveniaOrtofoto',
       ],
     );
   });

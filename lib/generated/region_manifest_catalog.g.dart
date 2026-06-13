@@ -12,6 +12,7 @@ enum Basemap {
   nswImagery,
   nswBasemap,
   nswTopo,
+  sloveniaOrtofoto,
 }
 
 const regionManifestCatalogData = RegionManifestCatalogData(
@@ -69,6 +70,13 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       tileUrl: 'http://maps.six.nsw.gov.au/arcgis/rest/services/public/NSW_Topo_Map/MapServer/tile/{z}/{y}/{x}/jpg',
       attribution: '© Department of Customer Service 2020',
       maxZoom: 16,
+    ),
+    RegionManifestBasemapData(
+      key: 'sloveniaOrtofoto',
+      name: 'Slovenia Ortofoto',
+      tileUrl: 'https://tiles.peakbagger.com/slovenia-ortofoto/{z}/{x}/{y}.png',
+      attribution: '© Geodetska uprava Republike Slovenije',
+      maxZoom: 18,
     ),
   ],
   regions: [
@@ -1896,6 +1904,7 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       basemapKeys: [
         'openstreetmap',
         'tracestrack',
+        'sloveniaOrtofoto',
       ],
     ),
     RegionManifestRegionData(
