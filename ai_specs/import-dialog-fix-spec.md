@@ -5,9 +5,11 @@ Fix the GPX import dialog so it matches the established popup spacing, keeps the
 <background>
 This is a Flutter UI fix in the shared GPX import dialog used by the track import flow.
 The dialog lives in `./lib/widgets/gpx_import_dialog.dart` and the result payload comes from `./lib/services/import/gpx_track_import_models.dart` via `./lib/services/gpx_importer.dart`.
+The production dialog is opened from `./lib/widgets/map_action_rail.dart`.
 
 Relevant reference files:
 - `./lib/widgets/gpx_import_dialog.dart`
+- `./lib/widgets/map_action_rail.dart`
 - `./lib/widgets/dialog_helpers.dart`
 - `./lib/widgets/peak_list_peak_dialog.dart`
 - `./lib/screens/map_screen.dart`
@@ -39,24 +41,26 @@ Error flows:
 
 <requirements>
 **Functional:**
-1. Keep the import dialog on the existing `AlertDialog` shell, but give its content area the same outer spacing rhythm used by the established popup/dialog patterns elsewhere in the app.
+1. Use a custom `Dialog` shell with popup-aligned padding and the same spacing rhythm used by the established popup/dialog patterns elsewhere in the app.
 2. Keep the `Import GPX File(s)` title on a single line with no wrapping.
-3. Keep the title row and action buttons fixed in place, and let only the selected-file list/content area scroll when the selection exceeds the available viewport height minus top and bottom padding.
-4. Preserve the existing success summary counts and failure modal behavior.
+3. Keep the title row and action buttons fixed in place.
+4. Let the selected-file section grow vertically from real content for smaller selections, and only switch that section to a bounded scrollable region once the available viewport height is exhausted.
+5. Preserve the existing success summary counts and failure modal behavior.
 
 **Error Handling:**
-5. Picker and import failures must continue to surface through the existing `Import Failed` modal path.
-6. Inline name validation must still prevent empty track/route names from reaching the import runner.
+6. Picker and import failures must continue to surface through the existing `Import Failed` modal path.
+7. Inline name validation must still prevent empty track/route names from reaching the import runner.
 
 **Edge Cases:**
-7. A single selected file should not trigger unnecessary scrolling or compressed content.
-8. A large number of selected files must remain accessible through scrolling without truncating the list.
-9. The existing `unchangedCount` summary should still reflect skipped duplicate content and existing content matches exactly as the importer already reports them.
+8. A single selected file should not trigger unnecessary scrolling or compressed content.
+9. Two or three selected files should increase the dialog height when viewport space allows.
+10. A large number of selected files must remain accessible through scrolling without truncating the list.
+11. The existing `unchangedCount` summary should still reflect skipped duplicate content and existing content matches exactly as the importer already reports them.
 
 **Validation:**
-10. Add tests that prove the title stays single-line and the dialog remains within the viewport constraints on narrow and standard widths.
-11. Add tests that prove multiple selected files produce a scrollable dialog body once the content exceeds the max height.
-12. Keep automated coverage split across widget behavior, business/result mapping, and the critical user journey.
+12. Add tests that prove the title stays single-line and the dialog remains within the viewport constraints on narrow and standard widths.
+13. Add tests that prove the dialog grows with more selected files and that the file section becomes scrollable once the viewport-constrained height is exhausted.
+14. Keep automated coverage focused on widget behavior and analyzer coverage for this UI fix.
 </requirements>
 
 <boundaries>
@@ -76,7 +80,9 @@ Limits:
 </boundaries>
 
 <implementation>
-Modify `./lib/widgets/gpx_import_dialog.dart` to keep the current `AlertDialog` shell but add a more deliberate constrained layout inside it, using the app's existing dialog margin constants and a scrollable content area that grows to the available viewport height while keeping the title and action row fixed.
+Modify `./lib/widgets/gpx_import_dialog.dart` to use a custom `Dialog` shell with popup-aligned spacing, a fixed header/action row, and a selected-file section that expands as plain content before switching to a bounded scrollable region.
+
+Update `./lib/widgets/map_action_rail.dart` so production opens `GpxImportDialog` directly instead of wrapping it in a second `Dialog` with its own `maxHeight` cap.
 
 Update `./test/widget/gpx_import_dialog_test.dart` with layout and summary regressions.
 
@@ -85,12 +91,12 @@ Avoid changing import semantics in `./lib/services/gpx_importer.dart`.
 
 <stages>
 Phase 1: Rework dialog layout and sizing
-- Implement the constrained, scrollable dialog shell in `./lib/widgets/gpx_import_dialog.dart`.
-- Verify the title stays on one line and the selected-file list expands correctly on small and large viewports.
+- Implement the constrained custom `Dialog` shell in `./lib/widgets/gpx_import_dialog.dart`.
+- Verify the title stays on one line and the selected-file section expands correctly on small and large viewports.
 - Confirm cancellation, name validation, and the existing success/failure dialogs still behave the same.
 
 Phase 2: Lock the behavior with tests
-- Add widget tests for title wrapping, viewport-constrained multi-file selection, and result summary visibility.
+- Add widget tests for title wrapping, viewport-constrained multi-file selection, and dialog growth behavior.
 - Run the targeted test files, then `flutter analyze`.
 </stages>
 
@@ -107,8 +113,8 @@ Testing seams:
 
 Automated coverage outcomes:
 - Logic/result mapping: confirm the existing import result counts still surface correctly in the success dialog.
-- UI behavior: confirm layout, scrollability, and title wrapping behavior at the widget level.
-- Critical journey: confirm a user can select GPX files, import them, and see the expected success dialog summary in the GPX import flow.
+- UI behavior: confirm layout, scrollability, dialog growth, and title wrapping behavior at the widget level.
+- Production path: confirm the real map-action-rail launch path does not add a second dialog-level height cap.
 
 Robot coverage expectations:
 - Use key-first selectors for the dialog actions and result close buttons.
@@ -117,13 +123,13 @@ Robot coverage expectations:
 
 Recommended verification:
 - `flutter test test/widget/gpx_import_dialog_test.dart`
-- `flutter test test/robot/gpx_tracks/gpx_tracks_journey_test.dart`
 - `flutter analyze`
 </validation>
 
 <done_when>
 The import dialog title never wraps.
-The selected-file list expands and scrolls correctly within the viewport.
+The selected-file section expands vertically for smaller selections and scrolls correctly within the viewport for larger ones.
+The production launch path does not wrap `GpxImportDialog` in a second constrained dialog.
 Existing success, validation, and failure behavior remains intact.
-The targeted widget and robot tests pass.
+The targeted widget tests and analyzer pass.
 </done_when>

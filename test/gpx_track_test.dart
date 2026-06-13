@@ -12,6 +12,7 @@ import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
+import 'package:peak_bagger/services/polygon_asset_repository.dart';
 import 'package:peak_bagger/services/gpx_track_repair_service.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
@@ -1813,6 +1814,7 @@ void main() {
         final result = await importer.importTracks(
           includeTasmaniaFolder: false,
         );
+        final importLog = File(importer.getImportLogPath()).readAsStringSync();
 
         expect(result.importedCount, 1);
         expect(result.replacedCount, 0);
@@ -1820,8 +1822,46 @@ void main() {
         expect(result.errorSkippedCount, 0);
         expect(result.unsupportedCount, 1);
         expect(result.tracks, hasLength(1));
+        expect(importLog, contains('mainland.gpx'));
+        expect(importLog, contains('Unsupported location'));
       },
     );
+
+    test('planSelectiveImport routes Italy tracks into nord-est', () async {
+      final importDir = Directory.systemTemp.createTempSync('gpx-import-italy');
+      addTearDown(() => importDir.deleteSync(recursive: true));
+      final gpxFile = File('${importDir.path}/sistiana-scala-santa.gpx')
+        ..writeAsStringSync(_italyNordEstGpx);
+
+      final italyPolygon = File(
+        '${Directory.current.path}/assets/polygons/italy-nord-est.poly',
+      ).readAsStringSync();
+      final importer = GpxImporter(
+        polygonAssetRepository: PolygonAssetRepository(
+          assetLoader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/polygons/manifest.json' =>
+                '["assets/polygons/italy-nord-est.poly"]',
+              'assets/polygons/italy-nord-est.poly' => italyPolygon,
+              _ => throw Exception('Unexpected asset: $assetPath'),
+            };
+          },
+        ),
+      );
+
+      final plan = await importer.planSelectiveImport(
+        paths: [gpxFile.path],
+        pathToEditedNames: {gpxFile.path: 'Sistiana - Scala Santa'},
+        existingContentHashes: const {},
+      );
+
+      expect(plan.items, hasLength(1));
+      expect(plan.unsupportedCount, 0);
+      expect(
+        plan.items.single.plannedManagedRelativePath,
+        'Tracks/Italy/nord-est/sistiana-scala-santa_(01-05-2024).gpx',
+      );
+    });
 
     test('metadata-date track replaces existing logical match', () async {
       final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
@@ -2368,6 +2408,19 @@ String _mainlandGpx(String name) =>
       <trkpt lat="-37.8136" lon="144.9631">
         <time>2024-01-15T08:00:00Z</time>
       </trkpt>
+    </trkseg>
+  </trk>
+</gpx>
+''';
+
+const _italyNordEstGpx = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <trk>
+    <name>Sistiana - Scala Santa</name>
+    <trkseg>
+      <trkpt lat="45.7730" lon="13.6200"><time>2024-05-01T08:00:00Z</time></trkpt>
+      <trkpt lat="45.7700" lon="13.6250"><time>2024-05-01T09:00:00Z</time></trkpt>
     </trkseg>
   </trk>
 </gpx>

@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gdal_dart/gdal_dart.dart' show GdalException;
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
@@ -1648,21 +1649,22 @@ class MapNotifier extends Notifier<MapState> {
   }) async {
     final root = resolveBushwalkingRoot();
     final targetPath = '$root${io.Platform.pathSeparator}$relativePath';
-    final targetDir = io.Directory(root).parent;
+    final targetFile = io.File(targetPath);
+    final targetDir = targetFile.parent;
 
     if (!targetDir.existsSync()) {
       await targetDir.create(recursive: true);
     }
 
-    final targetFile = io.File(targetPath);
     if (targetFile.existsSync()) {
       // Add suffix for collision
       var suffix = 1;
       var newPath = targetPath;
+      final baseName = p.basenameWithoutExtension(targetPath);
+      final extension = p.extension(targetPath);
+      final targetFolder = p.dirname(targetPath);
       while (io.File(newPath).existsSync()) {
-        final baseName = track.trackName.replaceAll(RegExp(r'[^\w\s-]'), '');
-        newPath =
-            '$root${io.Platform.pathSeparator}Tracks${io.Platform.pathSeparator}Tasmania${io.Platform.pathSeparator}${baseName}_$suffix.gpx';
+        newPath = p.join(targetFolder, '${baseName}_$suffix$extension');
         suffix++;
       }
       await io.File(sourcePath).rename(newPath);

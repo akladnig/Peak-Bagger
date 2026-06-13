@@ -454,27 +454,22 @@ class MapActionRail extends ConsumerWidget {
     await showDialog<dynamic>(
       context: context,
       builder: (dialogContext) {
-        return Dialog(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 320, maxHeight: 360),
-            child: GpxImportDialog(
-              filePicker: filePicker,
-              importAsRoute: false,
-              onImport: ({
-                required bool importAsRoute,
-                required Map<String, String> pathToEditedNames,
-              }) {
-                final notifier = ref.read(mapProvider.notifier);
-                return importAsRoute
-                    ? notifier.importRouteFiles(
-                        pathToEditedNames: pathToEditedNames,
-                      )
-                    : notifier.importGpxFiles(
-                        pathToEditedNames: pathToEditedNames,
-                      );
-              },
-            ),
-          ),
+        return GpxImportDialog(
+          filePicker: filePicker,
+          importAsRoute: false,
+          onImport: ({
+            required bool importAsRoute,
+            required Map<String, String> pathToEditedNames,
+          }) {
+            final notifier = ref.read(mapProvider.notifier);
+            return importAsRoute
+                ? notifier.importRouteFiles(
+                    pathToEditedNames: pathToEditedNames,
+                  )
+                : notifier.importGpxFiles(
+                    pathToEditedNames: pathToEditedNames,
+                  );
+          },
         );
       },
     );
