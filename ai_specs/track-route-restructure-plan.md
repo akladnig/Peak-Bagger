@@ -26,11 +26,11 @@ Align route export foldering with current track import placement. Share first-po
 ### Phase 2: Route export parity
 
 - **Goal**: route exports land in `Routes/Country/Region` from first route point
-- [ ] `lib/services/gpx_export_service.dart` - replace hard-coded `Documents/Bushwalking/routes` target with shared resolver; derive destination from `route.gpxRoute.first`; keep existing GPX payload generation and versioning behavior; surface unsupported-location failure explicitly
-- [ ] `lib/providers/gpx_export_provider.dart` - wire any new resolver dependency only if constructor injection is needed for test seams
-- [ ] `test/services/gpx_export_service_test.dart` - TDD: Tasmania path, Italy regional path, Slovenia/Croatia country-only path, unsupported-point failure, existing blank-name / empty-route guards still pass, versioning stays directory-local
-- [ ] `test/widget/map_screen_route_info_test.dart` - TDD: route export success snackbar shows nested `Routes/...` path; unsupported export shows failure snackbar
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/services/gpx_export_service.dart` - replace hard-coded `Documents/Bushwalking/routes` target with shared resolver; derive destination from `route.gpxRoute.first`; keep existing GPX payload generation and versioning behavior; surface unsupported-location failure explicitly
+- [x] `lib/providers/gpx_export_provider.dart` - wire any new resolver dependency only if constructor injection is needed for test seams
+- [x] `test/services/gpx_export_service_test.dart` - TDD: Tasmania path, Italy regional path, Slovenia/Croatia country-only path, unsupported-point failure, existing blank-name / empty-route guards still pass, versioning stays directory-local
+- [x] `test/widget/map_screen_route_info_test.dart` - TDD: route export success snackbar shows nested `Routes/...` path; unsupported export shows failure snackbar
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 
