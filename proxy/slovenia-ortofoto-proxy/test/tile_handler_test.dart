@@ -37,6 +37,7 @@ void main() {
 
     expect(response.statusCode, 200);
     expect(response.headers['Content-Type'], 'image/png');
+    expect(response.headers['Cache-Control'], 'public, max-age=3600');
     expect(upstream.callCount, 0);
   });
 
@@ -56,8 +57,35 @@ void main() {
     );
 
     expect(response.statusCode, 200);
+    expect(response.headers['Cache-Control'], 'public, max-age=86400');
     expect(upstream.callCount, 1);
     expect(upstream.lastBounds?.toBboxString(), expectedBounds.toBboxString());
+  });
+
+  test('maps upstream HTML failure to 502 without leaking body', () async {
+    final handler = SloveniaOrtofotoTileHandler(
+      upstreamClient: _FakeUpstreamWmsClient(
+        response: const UpstreamTileResponse(
+          statusCode: 500,
+          bodyBytes: [60, 104, 116, 109, 108, 62],
+          contentType: 'text/html',
+        ),
+      ),
+    );
+    final tile = _tileForLatLng(latitude: 46.05, longitude: 14.5, zoom: 10);
+
+    final response = await handler.handle(
+      Request(
+        'GET',
+        Uri.parse(
+          'https://example.com/slovenia-ortofoto/${tile.z}/${tile.x}/${tile.y}.png',
+        ),
+      ),
+    );
+
+    expect(response.statusCode, 502);
+    expect(response.headers['Cache-Control'], 'public, max-age=60');
+    expect(await response.readAsString(), 'Upstream WMS request failed');
   });
 }
 
@@ -77,6 +105,16 @@ TileCoordinate _tileForLatLng({
 }
 
 class _FakeUpstreamWmsClient implements UpstreamWmsClient {
+  _FakeUpstreamWmsClient({UpstreamTileResponse? response})
+    : _response =
+          response ??
+          UpstreamTileResponse(
+            statusCode: 200,
+            bodyBytes: base64Decode(_pngBase64),
+            contentType: 'image/png',
+          );
+
+  final UpstreamTileResponse _response;
   int callCount = 0;
   ProjectedBounds? lastBounds;
 
@@ -84,10 +122,6 @@ class _FakeUpstreamWmsClient implements UpstreamWmsClient {
   Future<UpstreamTileResponse> fetchTile({required ProjectedBounds bbox}) async {
     callCount++;
     lastBounds = bbox;
-    return UpstreamTileResponse(
-      statusCode: 200,
-      bodyBytes: base64Decode(_pngBase64),
-      contentType: 'image/png',
-    );
+    return _response;
   }
 }

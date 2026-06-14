@@ -31,14 +31,14 @@ Slovenia ortho basemap via XYZ proxy. Keep Flutter on manifest + `TileLayer`; ad
 ### Phase 2: Proxy hardening
 
 - **Goal**: production-safe projection, headers, error mapping
-- [ ] `./proxy/slovenia-ortofoto-proxy/lib/src/projection.dart` - Web Mercator tile bounds -> `EPSG:3794` corner transform; intersection test against source coverage
-- [ ] `./proxy/slovenia-ortofoto-proxy/lib/src/upstream_wms_client.dart` - `GetMap` builder; timeout; 502 mapping; PNG-only response contract
-- [ ] `./proxy/slovenia-ortofoto-proxy/lib/src/transparent_tile.dart` - embedded 256x256 transparent PNG bytes; no image package unless required
-- [ ] `./proxy/slovenia-ortofoto-proxy/test/projection_test.dart` - partial overlap keeps original tile bbox; no bbox clamping; Y orientation stable
-- [ ] `./proxy/slovenia-ortofoto-proxy/test/upstream_wms_client_test.dart` - cache headers; timeout/error mapping; HTML leak prevention
-- [ ] `./proxy/slovenia-ortofoto-proxy/README.md` - committed XYZ URL, upstream WMS URL/layer, `PORT` override, local run steps
-- [ ] TDD: partial-overlap tile keeps exact tile extent; out-of-coverage uses transparent tile; upstream failure => controlled 502 + short cache
-- [ ] Verify: `flutter analyze` && `flutter test`; in `./proxy/slovenia-ortofoto-proxy`: `dart analyze` && `dart test`
+- [x] `./proxy/slovenia-ortofoto-proxy/lib/src/projection.dart` - Web Mercator tile bounds -> `EPSG:3794` corner transform; intersection test against source coverage
+- [x] `./proxy/slovenia-ortofoto-proxy/lib/src/upstream_wms_client.dart` - `GetMap` builder; timeout; 502 mapping; PNG-only response contract
+- [x] `./proxy/slovenia-ortofoto-proxy/lib/src/transparent_tile.dart` - embedded 256x256 transparent PNG bytes; no image package unless required
+- [x] `./proxy/slovenia-ortofoto-proxy/test/projection_test.dart` - partial overlap keeps original tile bbox; no bbox clamping; Y orientation stable
+- [x] `./proxy/slovenia-ortofoto-proxy/test/upstream_wms_client_test.dart` - cache headers; timeout/error mapping; HTML leak prevention
+- [x] `./proxy/slovenia-ortofoto-proxy/README.md` - committed XYZ URL, upstream WMS URL/layer, `PORT` override, local run steps
+- [x] TDD: partial-overlap tile keeps exact tile extent; out-of-coverage uses transparent tile; upstream failure => controlled 502 + short cache
+- [x] Verify: `flutter analyze` && `flutter test`; in `./proxy/slovenia-ortofoto-proxy`: `dart analyze` && `dart test`
 
 ### Phase 3: Drawer + journey proof
 
