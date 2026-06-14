@@ -2630,10 +2630,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                             },
                                       ),
                                       children: [
-                                        TileLayer(
-                                          urlTemplate: mapTileUrl(
-                                            mapScene.basemap,
-                                          ),
+                                        buildBasemapTileLayer(
+                                          mapScene.basemap,
                                           userAgentPackageName:
                                               'com.peak_bagger.app',
                                           tileProvider:

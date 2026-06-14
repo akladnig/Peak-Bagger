@@ -29,6 +29,50 @@ String mapTileUrl(Basemap basemap) {
       regionManifestCatalog.basemapByKey(Basemap.tracestrack.name)!.tileUrl;
 }
 
+TileLayer buildBasemapTileLayer(
+  Basemap basemap, {
+  TileProvider? tileProvider,
+  String? userAgentPackageName,
+}) {
+  if (basemap == Basemap.sloveniaOrtofoto) {
+    return userAgentPackageName == null
+        ? TileLayer(
+            wmsOptions: WMSTileLayerOptions(
+              baseUrl: mapTileUrl(basemap),
+              layers: const ['SI.GURS.ZPDZ:DOF5'],
+              format: 'image/png',
+              crs: const Epsg3857(),
+              transparent: true,
+              version: '1.3.0',
+            ),
+            tileProvider: tileProvider,
+          )
+        : TileLayer(
+            wmsOptions: WMSTileLayerOptions(
+              baseUrl: mapTileUrl(basemap),
+              layers: const ['SI.GURS.ZPDZ:DOF5'],
+              format: 'image/png',
+              crs: const Epsg3857(),
+              transparent: true,
+              version: '1.3.0',
+            ),
+            tileProvider: tileProvider,
+            userAgentPackageName: userAgentPackageName,
+          );
+  }
+
+  return userAgentPackageName == null
+      ? TileLayer(
+          urlTemplate: mapTileUrl(basemap),
+          tileProvider: tileProvider,
+        )
+      : TileLayer(
+          urlTemplate: mapTileUrl(basemap),
+          tileProvider: tileProvider,
+          userAgentPackageName: userAgentPackageName,
+        );
+}
+
 Widget buildMapRectangle(TasmapRepository repo, Tasmap50k map) {
   final points = repo.getMapPolygonPoints(map);
   if (points.length < 4) {

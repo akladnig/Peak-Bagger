@@ -1717,8 +1717,8 @@ class _TileCacheSettingsScreenState
       for (final basemap in selectedBasemaps) {
         if (!mounted) return;
 
-        final tileLayer = TileLayer(
-          urlTemplate: mapTileUrl(basemap),
+        final tileLayer = buildBasemapTileLayer(
+          basemap,
           userAgentPackageName: 'com.peak_bagger.app',
         );
         final region = buildTileCacheDownloadRegion(

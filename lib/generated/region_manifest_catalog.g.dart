@@ -74,7 +74,7 @@ const regionManifestCatalogData = RegionManifestCatalogData(
     RegionManifestBasemapData(
       key: 'sloveniaOrtofoto',
       name: 'Slovenia Ortofoto',
-      tileUrl: 'https://tiles.peakbagger.com/slovenia-ortofoto/{z}/{x}/{y}.png',
+      tileUrl: 'https://storitve.eprostor.gov.si/ows-pub-wms/wms?',
       attribution: '© Geodetska uprava Republike Slovenije',
       maxZoom: 19,
     ),

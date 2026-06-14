@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/screens/map_screen_layers.dart';
@@ -79,5 +80,25 @@ void main() {
       mapTileUrl(Basemap.nswTopo),
       regionManifestCatalog.basemapByKey('nswTopo')!.tileUrl,
     );
+    expect(
+      mapTileUrl(Basemap.sloveniaOrtofoto),
+      'https://storitve.eprostor.gov.si/ows-pub-wms/wms?',
+    );
+  });
+
+  test('Slovenia ortofoto uses the WMS tile layer config', () {
+    final layer = buildBasemapTileLayer(Basemap.sloveniaOrtofoto);
+
+    expect(layer, isA<TileLayer>());
+    final tileLayer = layer;
+    expect(tileLayer.wmsOptions, isNotNull);
+    expect(
+      tileLayer.wmsOptions!.baseUrl,
+      'https://storitve.eprostor.gov.si/ows-pub-wms/wms?',
+    );
+    expect(tileLayer.wmsOptions!.layers, ['SI.GURS.ZPDZ:DOF5']);
+    expect(tileLayer.wmsOptions!.format, 'image/png');
+    expect(tileLayer.wmsOptions!.transparent, isTrue);
+    expect(tileLayer.wmsOptions!.crs, isA<Epsg3857>());
   });
 }

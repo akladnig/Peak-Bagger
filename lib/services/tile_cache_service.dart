@@ -118,8 +118,8 @@ class TileCacheService {
         final result = downloadStarter(
           basemap: basemap,
           region: buildLowZoomTileCacheWarmupRegion(
-            options: TileLayer(
-              urlTemplate: mapTileUrl(basemap),
+            options: buildBasemapTileLayer(
+              basemap,
               userAgentPackageName: 'com.peak_bagger.app',
             ),
           ),
