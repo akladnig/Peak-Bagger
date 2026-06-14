@@ -23,9 +23,7 @@ import '../core/number_formatters.dart';
 import '../theme.dart';
 
 String mapTileUrl(Basemap basemap) {
-  return regionManifestCatalog
-          .basemapByKey(basemap.name)
-          ?.tileUrl ??
+  return regionManifestCatalog.basemapByKey(basemap.name)?.tileUrl ??
       regionManifestCatalog.basemapByKey(Basemap.tracestrack.name)!.tileUrl;
 }
 
@@ -34,38 +32,8 @@ TileLayer buildBasemapTileLayer(
   TileProvider? tileProvider,
   String? userAgentPackageName,
 }) {
-  if (basemap == Basemap.sloveniaOrtofoto) {
-    return userAgentPackageName == null
-        ? TileLayer(
-            wmsOptions: WMSTileLayerOptions(
-              baseUrl: mapTileUrl(basemap),
-              layers: const ['SI.GURS.ZPDZ:DOF5'],
-              format: 'image/png',
-              crs: const Epsg3857(),
-              transparent: true,
-              version: '1.3.0',
-            ),
-            tileProvider: tileProvider,
-          )
-        : TileLayer(
-            wmsOptions: WMSTileLayerOptions(
-              baseUrl: mapTileUrl(basemap),
-              layers: const ['SI.GURS.ZPDZ:DOF5'],
-              format: 'image/png',
-              crs: const Epsg3857(),
-              transparent: true,
-              version: '1.3.0',
-            ),
-            tileProvider: tileProvider,
-            userAgentPackageName: userAgentPackageName,
-          );
-  }
-
   return userAgentPackageName == null
-      ? TileLayer(
-          urlTemplate: mapTileUrl(basemap),
-          tileProvider: tileProvider,
-        )
+      ? TileLayer(urlTemplate: mapTileUrl(basemap), tileProvider: tileProvider)
       : TileLayer(
           urlTemplate: mapTileUrl(basemap),
           tileProvider: tileProvider,

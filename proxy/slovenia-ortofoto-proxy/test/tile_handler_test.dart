@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -15,31 +16,34 @@ void main() {
     );
 
     final response = await handler.handle(
-      Request('GET', Uri.parse('https://example.com/slovenia-ortofoto/nope/1.png')),
+      Request('GET', Uri.parse('https://example.com/slovenia-topo/nope/1.png')),
     );
 
     expect(response.statusCode, 400);
   });
 
-  test('returns transparent tile when request does not intersect Slovenia', () async {
-    final upstream = _FakeUpstreamWmsClient();
-    final handler = SloveniaOrtofotoTileHandler(upstreamClient: upstream);
-    final tile = _tileForLatLng(latitude: 0, longitude: 0, zoom: 10);
+  test(
+    'returns transparent tile when request does not intersect Slovenia',
+    () async {
+      final upstream = _FakeUpstreamWmsClient();
+      final handler = SloveniaOrtofotoTileHandler(upstreamClient: upstream);
+      final tile = _tileForLatLng(latitude: 0, longitude: 0, zoom: 10);
 
-    final response = await handler.handle(
-      Request(
-        'GET',
-        Uri.parse(
-          'https://example.com/slovenia-ortofoto/${tile.z}/${tile.x}/${tile.y}.png',
+      final response = await handler.handle(
+        Request(
+          'GET',
+          Uri.parse(
+            'https://example.com/slovenia-topo/${tile.z}/${tile.x}/${tile.y}.png',
+          ),
         ),
-      ),
-    );
+      );
 
-    expect(response.statusCode, 200);
-    expect(response.headers['Content-Type'], 'image/png');
-    expect(response.headers['Cache-Control'], 'public, max-age=3600');
-    expect(upstream.callCount, 0);
-  });
+      expect(response.statusCode, 200);
+      expect(response.headers['Content-Type'], 'image/png');
+      expect(response.headers['Cache-Control'], 'public, max-age=3600');
+      expect(upstream.callCount, 0);
+    },
+  );
 
   test('uses exact projected bbox for intersecting tile request', () async {
     final upstream = _FakeUpstreamWmsClient();
@@ -51,7 +55,7 @@ void main() {
       Request(
         'GET',
         Uri.parse(
-          'https://example.com/slovenia-ortofoto/${tile.z}/${tile.x}/${tile.y}.png',
+          'https://example.com/slovenia-topo/${tile.z}/${tile.x}/${tile.y}.png',
         ),
       ),
     );
@@ -60,26 +64,61 @@ void main() {
     expect(response.headers['Cache-Control'], 'public, max-age=86400');
     expect(upstream.callCount, 1);
     expect(upstream.lastBounds?.toBboxString(), expectedBounds.toBboxString());
+    expect(upstream.lastLayerName, 'SI.GURS.DK:DPK750');
   });
 
-  test('returns transparent tile above configured max zoom without upstream call', () async {
-    final upstream = _FakeUpstreamWmsClient();
-    final handler = SloveniaOrtofotoTileHandler(upstreamClient: upstream);
+  test('switches upstream layer by zoom band', () async {
+    final cases = <int, String>{
+      1: 'SI.GURS.DK:DPK1000',
+      9: 'SI.GURS.DK:DPK1000',
+      10: 'SI.GURS.DK:DPK750',
+      11: 'SI.GURS.DK:DPK500',
+      12: 'SI.GURS.DK:DPK250',
+      13: 'SI.GURS.DK:DTK50',
+      14: 'SI.GURS.DK:DTK50',
+    };
 
-    final response = await handler.handle(
-      Request(
-        'GET',
-        Uri.parse(
-          'https://example.com/slovenia-ortofoto/20/566523/372803.png',
+    for (final entry in cases.entries) {
+      final upstream = _FakeUpstreamWmsClient();
+      final handler = SloveniaOrtofotoTileHandler(upstreamClient: upstream);
+      final tile = _tileForLatLng(
+        latitude: 46.05,
+        longitude: 14.5,
+        zoom: entry.key,
+      );
+
+      await handler.handle(
+        Request(
+          'GET',
+          Uri.parse(
+            'https://example.com/slovenia-topo/${tile.z}/${tile.x}/${tile.y}.png',
+          ),
         ),
-      ),
-    );
+      );
 
-    expect(response.statusCode, 200);
-    expect(response.headers['Content-Type'], 'image/png');
-    expect(response.headers['Cache-Control'], 'public, max-age=3600');
-    expect(upstream.callCount, 0);
+      expect(upstream.lastLayerName, entry.value);
+    }
   });
+
+  test(
+    'returns transparent tile above configured max zoom without upstream call',
+    () async {
+      final upstream = _FakeUpstreamWmsClient();
+      final handler = SloveniaOrtofotoTileHandler(upstreamClient: upstream);
+
+      final response = await handler.handle(
+        Request(
+          'GET',
+          Uri.parse('https://example.com/slovenia-topo/20/566523/372803.png'),
+        ),
+      );
+
+      expect(response.statusCode, 200);
+      expect(response.headers['Content-Type'], 'image/png');
+      expect(response.headers['Cache-Control'], 'public, max-age=3600');
+      expect(upstream.callCount, 0);
+    },
+  );
 
   test('maps upstream HTML failure to 502 without leaking body', () async {
     final handler = SloveniaOrtofotoTileHandler(
@@ -97,7 +136,7 @@ void main() {
       Request(
         'GET',
         Uri.parse(
-          'https://example.com/slovenia-ortofoto/${tile.z}/${tile.x}/${tile.y}.png',
+          'https://example.com/slovenia-topo/${tile.z}/${tile.x}/${tile.y}.png',
         ),
       ),
     );
@@ -105,6 +144,52 @@ void main() {
     expect(response.statusCode, 502);
     expect(response.headers['Cache-Control'], 'public, max-age=60');
     expect(await response.readAsString(), 'Upstream WMS request failed');
+  });
+
+  test('retries transient upstream failure before succeeding', () async {
+    final upstream = _FakeUpstreamWmsClient(
+      responses: [
+        const UpstreamTileResponse(
+          statusCode: 500,
+          bodyBytes: [60, 104, 116, 109, 108, 62],
+          contentType: 'text/html',
+        ),
+      ],
+    );
+    final handler = SloveniaOrtofotoTileHandler(upstreamClient: upstream);
+    final tile = _tileForLatLng(latitude: 46.05, longitude: 14.5, zoom: 14);
+
+    final response = await handler.handle(
+      Request(
+        'GET',
+        Uri.parse(
+          'https://example.com/slovenia-topo/${tile.z}/${tile.x}/${tile.y}.png',
+        ),
+      ),
+    );
+
+    expect(response.statusCode, 200);
+    expect(response.headers['Content-Type'], 'image/png');
+    expect(upstream.callCount, 2);
+  });
+
+  test('retries transient upstream timeout before succeeding', () async {
+    final upstream = _FakeUpstreamWmsClient(throwTimeoutCount: 1);
+    final handler = SloveniaOrtofotoTileHandler(upstreamClient: upstream);
+    final tile = _tileForLatLng(latitude: 46.05, longitude: 14.5, zoom: 14);
+
+    final response = await handler.handle(
+      Request(
+        'GET',
+        Uri.parse(
+          'https://example.com/slovenia-topo/${tile.z}/${tile.x}/${tile.y}.png',
+        ),
+      ),
+    );
+
+    expect(response.statusCode, 200);
+    expect(response.headers['Content-Type'], 'image/png');
+    expect(upstream.callCount, 2);
   });
 }
 
@@ -117,30 +202,52 @@ TileCoordinate _tileForLatLng({
   final x = ((longitude + 180) / 360 * tileCount).floor();
   final latitudeRadians = latitude * math.pi / 180;
   final mercatorY =
-      (1 - math.log(math.tan(latitudeRadians) + 1 / math.cos(latitudeRadians)) / math.pi) /
+      (1 -
+          math.log(math.tan(latitudeRadians) + 1 / math.cos(latitudeRadians)) /
+              math.pi) /
       2;
   final y = (mercatorY * tileCount).floor();
   return TileCoordinate(z: zoom, x: x, y: y);
 }
 
 class _FakeUpstreamWmsClient implements UpstreamWmsClient {
-  _FakeUpstreamWmsClient({UpstreamTileResponse? response})
-    : _response =
-          response ??
-          UpstreamTileResponse(
-            statusCode: 200,
-            bodyBytes: base64Decode(_pngBase64),
-            contentType: 'image/png',
-          );
+  _FakeUpstreamWmsClient({
+    UpstreamTileResponse? response,
+    List<UpstreamTileResponse>? responses,
+    this.throwTimeoutCount = 0,
+  }) : _response =
+           response ??
+           UpstreamTileResponse(
+             statusCode: 200,
+             bodyBytes: base64Decode(_pngBase64),
+             contentType: 'image/png',
+           ),
+       _responses = responses != null
+           ? List<UpstreamTileResponse>.from(responses)
+           : null;
 
   final UpstreamTileResponse _response;
+  final List<UpstreamTileResponse>? _responses;
+  int throwTimeoutCount;
   int callCount = 0;
   ProjectedBounds? lastBounds;
+  String? lastLayerName;
 
   @override
-  Future<UpstreamTileResponse> fetchTile({required ProjectedBounds bbox}) async {
+  Future<UpstreamTileResponse> fetchTile({
+    required ProjectedBounds bbox,
+    required String layerName,
+  }) async {
     callCount++;
     lastBounds = bbox;
+    lastLayerName = layerName;
+    if (throwTimeoutCount > 0) {
+      throwTimeoutCount--;
+      throw TimeoutException('transient timeout');
+    }
+    if (_responses != null && _responses!.isNotEmpty) {
+      return _responses!.removeAt(0);
+    }
     return _response;
   }
 }

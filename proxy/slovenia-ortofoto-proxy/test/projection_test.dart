@@ -17,11 +17,7 @@ void main() {
   });
 
   test('partial-overlap tile keeps exact projected tile extent', () {
-    final seedTile = _tileForLatLng(
-      latitude: 46.0,
-      longitude: 13.35,
-      zoom: 10,
-    );
+    final seedTile = _tileForLatLng(latitude: 46.0, longitude: 13.35, zoom: 10);
     final tile = _findPartialOverlapTile(seedTile);
 
     final bounds = projectTileBoundsToSloveniaCrs(tile);
@@ -41,7 +37,9 @@ TileCoordinate _tileForLatLng({
   final x = ((longitude + 180) / 360 * tileCount).floor();
   final latitudeRadians = latitude * math.pi / 180;
   final mercatorY =
-      (1 - math.log(math.tan(latitudeRadians) + 1 / math.cos(latitudeRadians)) / math.pi) /
+      (1 -
+          math.log(math.tan(latitudeRadians) + 1 / math.cos(latitudeRadians)) /
+              math.pi) /
       2;
   final y = (mercatorY * tileCount).floor();
   return TileCoordinate(z: zoom, x: x, y: y);

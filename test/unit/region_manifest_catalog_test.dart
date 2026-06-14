@@ -63,11 +63,7 @@ void main() {
           .basemapsForRegionKey('slovenia')
           .map((basemap) => basemap.key)
           .toList(growable: false),
-      const [
-        'openstreetmap',
-        'tracestrack',
-        'sloveniaOrtofoto',
-      ],
+      const ['openstreetmap', 'tracestrack', 'sloveniaOrtofoto'],
     );
   });
 
@@ -82,23 +78,19 @@ void main() {
     );
     expect(
       mapTileUrl(Basemap.sloveniaOrtofoto),
-      'https://storitve.eprostor.gov.si/ows-pub-wms/wms?',
+      'http://127.0.0.1:8081/slovenia-topo/{z}/{x}/{y}.png',
     );
   });
 
-  test('Slovenia ortofoto uses the WMS tile layer config', () {
+  test('Slovenia topo uses the proxy tile layer config', () {
     final layer = buildBasemapTileLayer(Basemap.sloveniaOrtofoto);
 
     expect(layer, isA<TileLayer>());
     final tileLayer = layer;
-    expect(tileLayer.wmsOptions, isNotNull);
+    expect(tileLayer.wmsOptions, isNull);
     expect(
-      tileLayer.wmsOptions!.baseUrl,
-      'https://storitve.eprostor.gov.si/ows-pub-wms/wms?',
+      tileLayer.urlTemplate,
+      'http://127.0.0.1:8081/slovenia-topo/{z}/{x}/{y}.png',
     );
-    expect(tileLayer.wmsOptions!.layers, ['SI.GURS.ZPDZ:DOF5']);
-    expect(tileLayer.wmsOptions!.format, 'image/png');
-    expect(tileLayer.wmsOptions!.transparent, isTrue);
-    expect(tileLayer.wmsOptions!.crs, isA<Epsg3857>());
   });
 }

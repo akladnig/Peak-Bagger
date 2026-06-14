@@ -14,10 +14,8 @@ Future<void> main() async {
   final client = HttpUpstreamWmsClient(baseUrl: upstreamWmsUrl);
   final handler = Pipeline()
       .addMiddleware(logRequests())
-      .addHandler(
-        SloveniaOrtofotoTileHandler(upstreamClient: client).handle,
-      );
+      .addHandler(SloveniaOrtofotoTileHandler(upstreamClient: client).handle);
 
   final server = await shelf_io.serve(handler, InternetAddress.anyIPv4, port);
-  stdout.writeln('Serving Slovenia ortofoto proxy on port ${server.port}');
+  stdout.writeln('Serving Slovenia topo proxy on port ${server.port}');
 }

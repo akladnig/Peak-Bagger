@@ -183,8 +183,8 @@
       },
       {
         "key": "sloveniaOrtofoto",
-        "name": "Slovenia Ortofoto",
-        "tileUrl": "https://storitve.eprostor.gov.si/ows-pub-wms/wms?",
+        "name": "Slovenia Topo",
+        "tileUrl": "http://127.0.0.1:8081/slovenia-topo/{z}/{x}/{y}.png",
         "attribution": "\u00A9 Geodetska uprava Republike Slovenije",
         "maxZoom": 19
       }

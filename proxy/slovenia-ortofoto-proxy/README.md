@@ -1,10 +1,15 @@
-# Slovenia Ortofoto Proxy
+# Slovenia Topo Proxy
 
-Standalone XYZ tile proxy for Peak Bagger's Slovenia ortho basemap.
+Standalone XYZ tile proxy for Peak Bagger's Slovenia topo basemap.
 
-- Committed app URL: `https://tiles.peakbagger.com/slovenia-ortofoto/{z}/{x}/{y}.png`
+- Committed app URL: `https://tiles.peakbagger.com/slovenia-topo/{z}/{x}/{y}.png`
 - Upstream WMS: `https://storitve.eprostor.gov.si/ows-pub-wms/wms`
-- Upstream layer: `SI.GURS.ZPDZ:DOF5`
+- Upstream layers by zoom:
+  - `z1-z8`: `SI.GURS.DK:DPK1000`
+  - `z9`: `SI.GURS.DK:DPK750`
+  - `z10`: `SI.GURS.DK:DPK500`
+  - `z11-z12`: `SI.GURS.DK:DPK250`
+  - `z13+`: `SI.GURS.DK:DTK50`
 
 ## Local run
 

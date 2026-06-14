@@ -4,8 +4,23 @@ import 'package:http/http.dart' as http;
 
 import 'projection.dart';
 
-const upstreamLayerName = 'SI.GURS.ZPDZ:DOF5';
 const tileDimension = 256;
+
+String upstreamLayerNameForZoom(int zoom) {
+  if (zoom <= 9) {
+    return 'SI.GURS.DK:DPK1000';
+  }
+  if (zoom == 10) {
+    return 'SI.GURS.DK:DPK750';
+  }
+  if (zoom == 11) {
+    return 'SI.GURS.DK:DPK500';
+  }
+  if (zoom <= 12) {
+    return 'SI.GURS.DK:DPK250';
+  }
+  return 'SI.GURS.DK:DTK50';
+}
 
 class UpstreamTileResponse {
   const UpstreamTileResponse({
@@ -20,7 +35,10 @@ class UpstreamTileResponse {
 }
 
 abstract class UpstreamWmsClient {
-  Future<UpstreamTileResponse> fetchTile({required ProjectedBounds bbox});
+  Future<UpstreamTileResponse> fetchTile({
+    required ProjectedBounds bbox,
+    required String layerName,
+  });
 }
 
 class HttpUpstreamWmsClient implements UpstreamWmsClient {
@@ -35,8 +53,13 @@ class HttpUpstreamWmsClient implements UpstreamWmsClient {
   final Duration timeout;
 
   @override
-  Future<UpstreamTileResponse> fetchTile({required ProjectedBounds bbox}) async {
-    final response = await _client.get(buildGetMapUri(bbox)).timeout(timeout);
+  Future<UpstreamTileResponse> fetchTile({
+    required ProjectedBounds bbox,
+    required String layerName,
+  }) async {
+    final response = await _client
+        .get(buildGetMapUri(bbox, layerName: layerName))
+        .timeout(timeout);
     return UpstreamTileResponse(
       statusCode: response.statusCode,
       bodyBytes: response.bodyBytes,
@@ -44,13 +67,13 @@ class HttpUpstreamWmsClient implements UpstreamWmsClient {
     );
   }
 
-  Uri buildGetMapUri(ProjectedBounds bbox) {
+  Uri buildGetMapUri(ProjectedBounds bbox, {required String layerName}) {
     return baseUrl.replace(
       queryParameters: {
         'service': 'WMS',
         'request': 'GetMap',
         'version': '1.3.0',
-        'layers': upstreamLayerName,
+        'layers': layerName,
         'styles': '',
         'crs': sloveniaProjectionCode,
         'bbox': bbox.toBboxString(),

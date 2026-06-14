@@ -102,7 +102,9 @@ ProjectedBounds projectTileBoundsToSloveniaCrs(TileCoordinate coordinate) {
   ];
 
   final transformed = points
-      .map((point) => _webMercatorProjection.transform(_sloveniaProjection, point))
+      .map(
+        (point) => _webMercatorProjection.transform(_sloveniaProjection, point),
+      )
       .toList(growable: false);
 
   final xs = transformed.map((point) => point.x);
