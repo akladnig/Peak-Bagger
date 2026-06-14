@@ -108,13 +108,6 @@
         "tileUrl": "https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp?key=8bd67b17be9041b60f241c2aa45ecf0d",
         "attribution": "\u00A9 Tracestrack",
         "maxZoom": 24
-      },
-      {
-        "key": "sloveniaOrtofoto",
-        "name": "Slovenia Ortofoto",
-        "tileUrl": "https://tiles.peakbagger.com/slovenia-ortofoto/{z}/{x}/{y}.png",
-        "attribution": "\u00A9 Geodetska uprava Republike Slovenije",
-        "maxZoom": 18
       }
     ]
   },
@@ -187,6 +180,13 @@
         "tileUrl": "https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp?key=8bd67b17be9041b60f241c2aa45ecf0d",
         "attribution": "\u00A9 Tracestrack",
         "maxZoom": 24
+      },
+      {
+        "key": "sloveniaOrtofoto",
+        "name": "Slovenia Ortofoto",
+        "tileUrl": "https://tiles.peakbagger.com/slovenia-ortofoto/{z}/{x}/{y}.png",
+        "attribution": "\u00A9 Geodetska uprava Republike Slovenije",
+        "maxZoom": 18
       }
     ]
   },

@@ -1904,7 +1904,6 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       basemapKeys: [
         'openstreetmap',
         'tracestrack',
-        'sloveniaOrtofoto',
       ],
     ),
     RegionManifestRegionData(
@@ -4183,6 +4182,7 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       basemapKeys: [
         'openstreetmap',
         'tracestrack',
+        'sloveniaOrtofoto',
       ],
     ),
     RegionManifestRegionData(

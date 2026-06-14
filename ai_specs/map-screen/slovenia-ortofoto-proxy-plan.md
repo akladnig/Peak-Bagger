@@ -43,12 +43,12 @@ Slovenia ortho basemap via XYZ proxy. Keep Flutter on manifest + `TileLayer`; ad
 ### Phase 3: Drawer + journey proof
 
 - **Goal**: region-visible basemap; deterministic selection proof
-- [ ] `./test/widget/map_basemaps_drawer_test.dart` - Slovenia region shows `basemap-option-sloveniaOrtofoto`; non-Slovenia unaffected
-- [ ] `./test/robot/map/basemap_selection_journey_test.dart` - extend existing journey for Slovenia-centered state + `sloveniaOrtofoto` selection
-- [ ] `./test/unit/region_manifest_catalog_test.dart` - Slovenia region membership/order includes new basemap key once
-- [ ] TDD: Slovenia drawer includes new option; selecting it updates `mapProvider.basemap`; drawer key path unchanged
-- [ ] Robot journey tests + selectors/seams: reuse `Key('show-basemaps-fab')`, `Key('basemaps-drawer')`, `Key('basemap-option-sloveniaOrtofoto')`; deterministic state via existing `MapRouteRobot` / `TestMapNotifier`
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `./test/widget/map_basemaps_drawer_test.dart` - Slovenia region shows `basemap-option-sloveniaOrtofoto`; non-Slovenia unaffected
+- [x] `./test/robot/map/basemap_selection_journey_test.dart` - extend existing journey for Slovenia-centered state + `sloveniaOrtofoto` selection
+- [x] `./test/unit/region_manifest_catalog_test.dart` - Slovenia region membership/order includes new basemap key once
+- [x] TDD: Slovenia drawer includes new option; selecting it updates `mapProvider.basemap`; drawer key path unchanged
+- [x] Robot journey tests + selectors/seams: reuse `Key('show-basemaps-fab')`, `Key('basemaps-drawer')`, `Key('basemap-option-sloveniaOrtofoto')`; deterministic state via existing `MapRouteRobot` / `TestMapNotifier`
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

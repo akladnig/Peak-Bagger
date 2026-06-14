@@ -57,6 +57,17 @@ void main() {
         'tasmap25k',
       ],
     );
+    expect(
+      regionManifestCatalog
+          .basemapsForRegionKey('slovenia')
+          .map((basemap) => basemap.key)
+          .toList(growable: false),
+      const [
+        'openstreetmap',
+        'tracestrack',
+        'sloveniaOrtofoto',
+      ],
+    );
   });
 
   test('mapTileUrl reads from the manifest catalog', () {
