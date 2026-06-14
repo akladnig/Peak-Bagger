@@ -18,6 +18,9 @@ void main() {
   test('ensureLowZoomWarmup downloads missing low zoom tiles once', () async {
     final basemaps = <Basemap>[];
     final regions = <DownloadableRegion>[];
+    final expectedWarmupBasemaps = TileCacheService.warmupBasemaps.toList(
+      growable: false,
+    );
 
     await TileCacheService.ensureLowZoomWarmup(
       downloadStarter:
@@ -36,8 +39,9 @@ void main() {
       TileCacheService.storeNames,
       Basemap.values.map((b) => b.name).toList(growable: false),
     );
-    expect(basemaps, Basemap.values);
-    expect(regions, hasLength(Basemap.values.length));
+    expect(basemaps, expectedWarmupBasemaps);
+    expect(regions, hasLength(expectedWarmupBasemaps.length));
+    expect(basemaps, contains(Basemap.sloveniaOrtofoto));
     expect(regions.first.minZoom, lowZoomTileCacheWarmupMinZoom);
     expect(regions.first.maxZoom, lowZoomTileCacheWarmupMaxZoom);
 
@@ -132,6 +136,6 @@ void main() {
     completer.complete();
     await Future.wait([first, second]);
 
-    expect(callCount, Basemap.values.length);
+    expect(callCount, TileCacheService.warmupBasemaps.length);
   });
 }

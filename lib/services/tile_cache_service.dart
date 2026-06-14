@@ -13,6 +13,7 @@ class TileCacheService {
   static List<String> get storeNames => [
     for (final basemap in Basemap.values) basemap.name,
   ];
+  static Iterable<Basemap> get warmupBasemaps => Basemap.values;
   @visibleForTesting
   static const lowZoomWarmupVersionKey = 'tile_cache_low_zoom_warmup_version';
 
@@ -110,13 +111,13 @@ class TileCacheService {
     }
 
     var completed = true;
-    for (final basemap in Basemap.values) {
+    for (final basemap in warmupBasemaps) {
       try {
         final result = downloadStarter(
           basemap: basemap,
           region: buildLowZoomTileCacheWarmupRegion(
-            options: TileLayer(
-              urlTemplate: mapTileUrl(basemap),
+            options: buildBasemapTileLayer(
+              basemap,
               userAgentPackageName: 'com.peak_bagger.app',
             ),
           ),

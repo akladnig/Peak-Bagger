@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/screens/map_screen_layers.dart';
@@ -17,6 +18,7 @@ void main() {
         'nswImagery',
         'nswBasemap',
         'nswTopo',
+        'sloveniaOrtofoto',
       ],
     );
   });
@@ -56,6 +58,13 @@ void main() {
         'tasmap25k',
       ],
     );
+    expect(
+      regionManifestCatalog
+          .basemapsForRegionKey('slovenia')
+          .map((basemap) => basemap.key)
+          .toList(growable: false),
+      const ['openstreetmap', 'tracestrack', 'sloveniaOrtofoto'],
+    );
   });
 
   test('mapTileUrl reads from the manifest catalog', () {
@@ -66,6 +75,22 @@ void main() {
     expect(
       mapTileUrl(Basemap.nswTopo),
       regionManifestCatalog.basemapByKey('nswTopo')!.tileUrl,
+    );
+    expect(
+      mapTileUrl(Basemap.sloveniaOrtofoto),
+      'https://tiles.peakbagger.com/slovenia-topo/{z}/{x}/{y}.png',
+    );
+  });
+
+  test('Slovenia topo uses the proxy tile layer config', () {
+    final layer = buildBasemapTileLayer(Basemap.sloveniaOrtofoto);
+
+    expect(layer, isA<TileLayer>());
+    final tileLayer = layer;
+    expect(tileLayer.wmsOptions, isNull);
+    expect(
+      tileLayer.urlTemplate,
+      'https://tiles.peakbagger.com/slovenia-topo/{z}/{x}/{y}.png',
     );
   });
 }

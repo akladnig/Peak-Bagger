@@ -23,10 +23,22 @@ import '../core/number_formatters.dart';
 import '../theme.dart';
 
 String mapTileUrl(Basemap basemap) {
-  return regionManifestCatalog
-          .basemapByKey(basemap.name)
-          ?.tileUrl ??
+  return regionManifestCatalog.basemapByKey(basemap.name)?.tileUrl ??
       regionManifestCatalog.basemapByKey(Basemap.tracestrack.name)!.tileUrl;
+}
+
+TileLayer buildBasemapTileLayer(
+  Basemap basemap, {
+  TileProvider? tileProvider,
+  String? userAgentPackageName,
+}) {
+  return userAgentPackageName == null
+      ? TileLayer(urlTemplate: mapTileUrl(basemap), tileProvider: tileProvider)
+      : TileLayer(
+          urlTemplate: mapTileUrl(basemap),
+          tileProvider: tileProvider,
+          userAgentPackageName: userAgentPackageName,
+        );
 }
 
 Widget buildMapRectangle(TasmapRepository repo, Tasmap50k map) {

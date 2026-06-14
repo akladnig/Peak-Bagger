@@ -84,6 +84,25 @@ void main() {
 
     expect(find.byKey(const Key('basemaps-drawer-empty-state')), findsOneWidget);
   });
+
+  testWidgets('slovenia region shows slovenia ortofoto option', (tester) async {
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(46.05, 14.5),
+        cursorPoint: const LatLng(46.05, 14.5),
+        zoom: 12,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    await _pumpRawMapScreen(tester, notifier, size: const Size(1600, 900));
+
+    await tester.tap(find.byKey(const Key('show-basemaps-fab')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('basemap-option-sloveniaOrtofoto')), findsOneWidget);
+    expect(find.byKey(const Key('basemap-option-nswTopo')), findsNothing);
+  });
 }
 
 Future<void> _pumpRawMapScreen(
