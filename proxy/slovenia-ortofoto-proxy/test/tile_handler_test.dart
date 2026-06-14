@@ -62,6 +62,25 @@ void main() {
     expect(upstream.lastBounds?.toBboxString(), expectedBounds.toBboxString());
   });
 
+  test('returns transparent tile above configured max zoom without upstream call', () async {
+    final upstream = _FakeUpstreamWmsClient();
+    final handler = SloveniaOrtofotoTileHandler(upstreamClient: upstream);
+
+    final response = await handler.handle(
+      Request(
+        'GET',
+        Uri.parse(
+          'https://example.com/slovenia-ortofoto/20/566523/372803.png',
+        ),
+      ),
+    );
+
+    expect(response.statusCode, 200);
+    expect(response.headers['Content-Type'], 'image/png');
+    expect(response.headers['Cache-Control'], 'public, max-age=3600');
+    expect(upstream.callCount, 0);
+  });
+
   test('maps upstream HTML failure to 502 without leaking body', () async {
     final handler = SloveniaOrtofotoTileHandler(
       upstreamClient: _FakeUpstreamWmsClient(

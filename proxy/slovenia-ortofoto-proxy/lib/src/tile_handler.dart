@@ -13,7 +13,7 @@ const _routePrefix = 'slovenia-ortofoto';
 class SloveniaOrtofotoTileHandler {
   SloveniaOrtofotoTileHandler({
     required UpstreamWmsClient upstreamClient,
-    int maxZoom = 18,
+    int maxZoom = 19,
   }) : _upstreamClient = upstreamClient,
        _maxZoom = maxZoom;
 

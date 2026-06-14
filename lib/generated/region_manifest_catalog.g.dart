@@ -76,7 +76,7 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       name: 'Slovenia Ortofoto',
       tileUrl: 'https://tiles.peakbagger.com/slovenia-ortofoto/{z}/{x}/{y}.png',
       attribution: '© Geodetska uprava Republike Slovenije',
-      maxZoom: 18,
+      maxZoom: 19,
     ),
   ],
   regions: [
