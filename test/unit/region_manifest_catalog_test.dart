@@ -78,7 +78,7 @@ void main() {
     );
     expect(
       mapTileUrl(Basemap.sloveniaOrtofoto),
-      'http://127.0.0.1:8081/slovenia-topo/{z}/{x}/{y}.png',
+      'https://tiles.peakbagger.com/slovenia-topo/{z}/{x}/{y}.png',
     );
   });
 
@@ -90,7 +90,7 @@ void main() {
     expect(tileLayer.wmsOptions, isNull);
     expect(
       tileLayer.urlTemplate,
-      'http://127.0.0.1:8081/slovenia-topo/{z}/{x}/{y}.png',
+      'https://tiles.peakbagger.com/slovenia-topo/{z}/{x}/{y}.png',
     );
   });
 }

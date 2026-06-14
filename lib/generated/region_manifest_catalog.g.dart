@@ -81,7 +81,7 @@ const regionManifestCatalogData = RegionManifestCatalogData(
     RegionManifestBasemapData(
       key: 'sloveniaOrtofoto',
       name: 'Slovenia Topo',
-      tileUrl: 'http://127.0.0.1:8081/slovenia-topo/{z}/{x}/{y}.png',
+      tileUrl: 'https://tiles.peakbagger.com/slovenia-topo/{z}/{x}/{y}.png',
       attribution: '© Geodetska uprava Republike Slovenije',
       maxZoom: 19,
     ),
