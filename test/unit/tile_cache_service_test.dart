@@ -41,7 +41,7 @@ void main() {
     );
     expect(basemaps, expectedWarmupBasemaps);
     expect(regions, hasLength(expectedWarmupBasemaps.length));
-    expect(basemaps, contains(Basemap.sloveniaOrtofoto));
+    expect(basemaps, contains(Basemap.sloveniaTopo));
     expect(regions.first.minZoom, lowZoomTileCacheWarmupMinZoom);
     expect(regions.first.maxZoom, lowZoomTileCacheWarmupMaxZoom);
 

@@ -12,7 +12,7 @@ enum Basemap {
   nswImagery,
   nswBasemap,
   nswTopo,
-  sloveniaOrtofoto,
+  sloveniaTopo,
 }
 
 const regionManifestCatalogData = RegionManifestCatalogData(
@@ -79,7 +79,7 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       maxZoom: 16,
     ),
     RegionManifestBasemapData(
-      key: 'sloveniaOrtofoto',
+      key: 'sloveniaTopo',
       name: 'Slovenia Topo',
       tileUrl: 'https://tiles.peakbagger.com/slovenia-topo/{z}/{x}/{y}.png',
       attribution: '© Geodetska uprava Republike Slovenije',
@@ -4177,7 +4177,7 @@ const regionManifestCatalogData = RegionManifestCatalogData(
           const LatLng(45.42081, 15.17796),
         ],
       ],
-      basemapKeys: ['openstreetmap', 'tracestrack', 'sloveniaOrtofoto'],
+      basemapKeys: ['openstreetmap', 'tracestrack', 'sloveniaTopo'],
     ),
     RegionManifestRegionData(
       key: 'croatia',
