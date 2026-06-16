@@ -1,59 +1,44 @@
 ## Overview
-Route-draft in-place editing slice.
-Provider history/snapshot first, then marker gesture UI, then route-sheet controls, then robot journey.
+Add in-place route editing from the saved route info panel.
+Seed existing route into draft, save back to same id, reopen panel.
 
-**Spec**: `ai_specs/route-edit-spec.md` (read this file for full requirements)
+**Spec**: `ai_specs/routes/route-edit-spec.md` (read this file for full requirements)
 
 ## Context
-- **Structure**: provider-led map feature; screen/widget split
-- **State management**: Riverpod `Notifier<MapState>`
-- **Reference implementations**: `lib/providers/map_provider.dart`, `lib/screens/map_screen.dart`, `lib/screens/map_screen_panels.dart`, `lib/widgets/map_route_bottom_sheet.dart`, `test/providers/route_draft_state_test.dart`, `test/widget/map_screen_route_sheet_test.dart`, `test/robot/map/map_route_journey_test.dart`
-- **Assumptions/Gaps**: none material; spec resolves live-drag fallback, peak-target invalidation, popup rules
+
+- **Structure**: feature-first; UI in `./lib/screens`, state in `./lib/providers`, shared route draft UI in `./lib/widgets`
+- **State management**: Riverpod
+- **Reference implementations**: `./lib/screens/map_screen_panels.dart`, `./lib/widgets/map_route_bottom_sheet.dart`, `./test/providers/route_draft_state_test.dart`, `./test/robot/map/route_info_journey_test.dart`
+- **Assumptions/Gaps**: full-geometry edit; `routeWaypoints` regenerated on save; `selectedRouteId` restored from `sourceRouteId`
 
 ## Plan
 
-### Phase 1: Draft history core
+### Phase 1: Edit entry + seed
 
-- **Goal**: snapshot/edit state; undo/redo safe
-- [x] `lib/providers/map_provider.dart` - history stack/snapshot; undo/redo availability; public move/delete/drag entry points; monotonic request/elevation counters; empty-draft recovery
-- [x] `lib/providers/map_provider.dart` - full open-route/loop semantics; peak-target invalidation edge cases; drag failure fallback parity; deeper `segmentFailure` recovery coverage
-- [x] TDD: point-place undo/redo; one-drag-one-step; straight-line move; delete-last-marker recovery
-- [x] TDD: interior/terminal move-delete; open-route/loop recovery; deeper `routed`/`noPath`/`offTrack`/`failed` drag parity; stale-response guard
-- [x] TDD: peak-target invalidation after marker edit
-- [x] `test/providers/route_draft_state_test.dart` - provider coverage for landed history/move/delete slices
-- [x] Verify: `flutter analyze && flutter test test/providers/route_draft_state_test.dart`
+- **Goal**: route panel edit button -> draft seeded from saved route
+- [x] `./lib/screens/map_screen_panels.dart` - add `Edit Route` header action + callback
+- [x] `./lib/screens/map_screen.dart` - wire selected route edit callback into provider
+- [x] `./lib/providers/map_provider.dart` - add `sourceRouteId`; new begin-edit path; seed draft state from `Route`
+- [x] `./lib/widgets/map_route_bottom_sheet.dart` - scroll draft summary panel so seeded edit state fits
+- [x] `./test/widget/map_route_info_panel_test.dart` - header button, tooltip, placement
+- [x] `./test/widget/map_screen_route_sheet_test.dart` - edit opens draft overlay; name/route seed visible
+- [x] `./test/providers/route_draft_state_test.dart` - seed state, clear panel selection, no-op while already drafting
+- [x] TDD: header button visible; edit entry seeds route name/points/elevation; `sourceRouteId` retained while `selectedRouteId` clears
+- [x] Verify: `flutter analyze` && `flutter test test/widget/map_route_info_panel_test.dart test/widget/map_screen_route_sheet_test.dart test/providers/route_draft_state_test.dart`
 
-### Phase 2: Marker gestures + delete popup
+### Phase 2: Save/cancel + journeys
 
-- **Goal**: marker click/drag precedence; popup overlay
-- [x] `lib/screens/map_screen_layers.dart` - marker hit-test hooks; stable keys; click consumption; raw-pointer drag plumbing
-- [x] `lib/screens/map_screen.dart` - marker vs map tap precedence; drag session wiring; popup overlay placement/dismissal
-- [x] `lib/screens/map_screen_panels.dart` - `RouteDraftMarkerDeletePopupCard`; close icon; destructive action wiring
-- [x] TDD: click-vs-drag split; marker click isolation; delete action flow; escape dismissal
-- [x] TDD: hover cursor; drag cursor; popup anchor edge cases; outside-click behavior specifics
-- [x] `test/widget/map_screen_route_hover_test.dart` - landed marker interaction coverage
-- [x] `test/widget/route_marker_layer_test.dart` - marker shell / hitbox / selector coverage
-- [x] Verify: `flutter analyze && flutter test test/widget/map_screen_route_hover_test.dart test/widget/route_marker_layer_test.dart`
-
-### Phase 3: Route sheet controls + shortcuts
-
-- **Goal**: square action buttons; keyboard undo/redo
-- [x] `lib/widgets/map_route_bottom_sheet.dart` - square icon action strip; undo/redo buttons; placement/spacing/keys
-- [x] `lib/screens/map_screen.dart` - `⌘Z` / `Shift+⌘Z`; name-field focus precedence; map focus restore
-- [x] TDD: action-strip layout; square button family; enablement; shortcut gating
-- [x] TDD: `Route to Peak` invalidation gating after terminal target edits
-- [x] `test/widget/map_screen_route_sheet_test.dart` - route strip layout / enablement coverage
-- [x] `test/widget/map_screen_keyboard_test.dart` - shortcut and focus-precedence coverage
-- [x] Verify: `flutter analyze && flutter test test/widget/map_screen_route_sheet_test.dart test/widget/map_screen_keyboard_test.dart`
-
-### Phase 4: Robot journey
-
-- **Goal**: full visible edit loop
-- [x] `test/robot/map/map_route_robot.dart` - drag/delete/undo/redo helpers; stable selectors
-- [x] TDD: create route -> place points -> move marker -> delete marker -> undo/redo -> save
-- [x] `test/robot/map/map_route_journey_test.dart` - end-to-end edit journey coverage
-- [x] Verify: `flutter analyze && flutter test test/robot/map/map_route_journey_test.dart`
+- **Goal**: update same route id; restore/reopen on exit; recover errors
+- [ ] `./lib/providers/map_provider.dart` - branch `saveRouteDraft()` on `sourceRouteId`; regenerate waypoints; restore selection on save/cancel; clear edit session
+- [ ] `./lib/services/route_repository.dart` - only if helper needed for update semantics
+- [ ] `./test/widget/map_screen_route_sheet_test.dart` - save/cancel reopen panel; same id updated; original route unchanged on cancel; save failure message
+- [ ] `./test/robot/map/route_info_robot.dart` - edit/save/cancel actions + stable selectors
+- [ ] `./test/robot/map/route_info_journey_test.dart` - open route -> edit -> save -> reopen; cancel path; deleted-route recovery
+- [ ] TDD: save updates same id and refreshes panel; cancel restores original route; deleted route exits edit mode; save failure keeps draft/error
+- [ ] Robot selectors: `track-info-panel-edit`, `track-info-panel-close`, `route-name-field`, `route-save-button`, `route-controls-overlay-root`
+- [ ] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
-- **Risks**: marker/map click precedence; popup placement on narrow viewports; async drag results
-- **Out of scope**: persistence/export/schema changes; new route mode; separate editor screen
+
+- **Risks**: route->draft endpoint seeding; reopen timing after save/cancel; robot flake around panel close/open
+- **Out of scope**: metadata-only edit, new editor surface, schema migration

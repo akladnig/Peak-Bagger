@@ -384,6 +384,7 @@ class MapState {
   final int? hoveredTrackId;
   final int? selectedTrackId;
   final int? selectedRouteId;
+  final int? sourceRouteId;
   final PendingCameraRequest? pendingCameraRequest;
   final int cameraRequestSerial;
 
@@ -476,6 +477,7 @@ class MapState {
     this.hoveredTrackId,
     this.selectedTrackId,
     this.selectedRouteId,
+    this.sourceRouteId,
     this.pendingCameraRequest,
     this.cameraRequestSerial = 0,
   }) : gridVisibility =
@@ -647,6 +649,8 @@ class MapState {
     bool clearSelectedTrackId = false,
     int? selectedRouteId,
     bool clearSelectedRouteId = false,
+    int? sourceRouteId,
+    bool clearSourceRouteId = false,
     PendingCameraRequest? pendingCameraRequest,
     int? cameraRequestSerial,
     bool clearPendingCameraRequest = false,
@@ -820,6 +824,9 @@ class MapState {
       selectedRouteId: clearSelectedRouteId
           ? null
           : (selectedRouteId ?? this.selectedRouteId),
+      sourceRouteId: clearSourceRouteId
+          ? null
+          : (sourceRouteId ?? this.sourceRouteId),
       pendingCameraRequest: clearPendingCameraRequest
           ? null
           : (pendingCameraRequest ?? this.pendingCameraRequest),
@@ -2492,6 +2499,83 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftCanUndo: false,
       routeDraftCanRedo: false,
       clearSelectedTrackId: true,
+      clearSourceRouteId: true,
+    );
+  }
+
+  void beginRouteEdit(Route route) {
+    if (state.isRouteDrafting) {
+      return;
+    }
+
+    _routeDraftUndoStack.clear();
+    _routeDraftRedoStack.clear();
+    _activeRouteDraftDragMarkerId = null;
+    _syncRouteDraftHistoryAvailability();
+
+    final peakTarget = _routeEditPeakTarget(route);
+    final controlEndpoints = _routeEditControlEndpoints(route);
+    final committedPoints = List<LatLng>.unmodifiable(route.gpxRoute);
+    final pointElevations = List<double?>.unmodifiable(
+      route.gpxRouteElevations.map((value) => value?.toDouble()),
+    );
+    final summary = RouteElevationSummary(
+      requestId: 0,
+      geometryVersion: 0,
+      distance3d: route.distance3d,
+      ascent: route.ascent,
+      descent: route.descent,
+      startElevation: route.startElevation,
+      endElevation: route.endElevation,
+      lowestElevation: route.lowestElevation,
+      highestElevation: route.highestElevation,
+    );
+
+    state = state.copyWith(
+      isRouteDrafting: true,
+      isSavingRoute: false,
+      sourceRouteId: route.id,
+      routeDraftName: route.name,
+      clearRouteDraftNameError: true,
+      routeDraftMode: peakTarget == null
+          ? RouteMode.snapToTrail
+          : RouteMode.routeToPeak,
+      routeDraftPeak: peakTarget,
+      routeDraftControlEndpoints: controlEndpoints,
+      routeDraftDisplayMarkers: List<RouteDraftDisplayMarker>.unmodifiable(
+        _buildDisplayMarkers(controlEndpoints),
+      ),
+      routeDraftMarkers: committedPoints,
+      routeDraftStage: committedPoints.length < 2
+          ? RouteDraftStage.awaitingStart
+          : RouteDraftStage.awaitingNextPoint,
+      clearRouteDraftError: true,
+      routeDraftColour: route.colour,
+      routeDraftCommittedPoints: committedPoints,
+      routeDraftProvisionalPoints: const [],
+      routeDraftDistanceMeters: route.distance2d,
+      routeDraftOffTrackProbeActive: false,
+      routeDraftStraightLineFallback: false,
+      routeDraftNextMarkerId: committedPoints.length,
+      routeDraftRequestId: 0,
+      routeDraftElevationSummary: summary,
+      routeDraftElevationLoading: false,
+      clearRouteDraftElevationError: true,
+      routeDraftPointElevations: pointElevations,
+      routeDraftElevationRequestId: 0,
+      routeDraftGeometryVersion: 0,
+      routeDraftNameFieldFocused: false,
+      routeDraftPeakTargetLocked: false,
+      routeDraftCanUndo: false,
+      routeDraftCanRedo: false,
+      clearHoveredRouteId: true,
+      clearHoveredRouteDraftMarkerId: true,
+      clearHoveredRouteDraftSegmentPreview: true,
+      clearSelectedLocation: true,
+      clearSelectedRouteId: true,
+      clearSelectedTrackId: true,
+      clearHoveredPeakId: true,
+      clearPeakInfoPopup: true,
     );
   }
 
@@ -2534,12 +2618,57 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftPeakTargetLocked: false,
       routeDraftCanUndo: false,
       routeDraftCanRedo: false,
+      clearSourceRouteId: true,
     );
     _routeDraftUndoStack.clear();
     _routeDraftRedoStack.clear();
     _activeRouteDraftDragMarkerId = null;
     _syncRouteDraftHistoryAvailability();
   }
+
+  Peak? _routeEditPeakTarget(Route route) {
+    for (final waypoint in route.routeWaypoints) {
+      if (!waypoint.isPeakDerived) {
+        continue;
+      }
+
+      return Peak(
+        osmId: waypoint.peakOsmId ?? 0,
+        name: waypoint.peakName ?? waypoint.label,
+        latitude: waypoint.latitude,
+        longitude: waypoint.longitude,
+      );
+    }
+    return null;
+  }
+
+  List<RouteDraftControlEndpoint> _routeEditControlEndpoints(Route route) {
+    final waypointsByPoint = <String, RouteWaypoint>{};
+    for (final waypoint in route.routeWaypoints) {
+      if (!waypoint.isPeakDerived) {
+        continue;
+      }
+      waypointsByPoint[_routeEditPointKey(
+        LatLng(waypoint.latitude, waypoint.longitude),
+      )] = waypoint;
+    }
+
+    return [
+      for (var index = 0; index < route.gpxRoute.length; index++)
+        _createControlEndpoint(
+          point: route.gpxRoute[index],
+          kind: waypointsByPoint.containsKey(
+            _routeEditPointKey(route.gpxRoute[index]),
+          )
+              ? RouteDraftEndpointKind.peakTarget
+              : RouteDraftEndpointKind.tapped,
+          id: '$index',
+        ),
+    ];
+  }
+
+  String _routeEditPointKey(LatLng point) =>
+      '${point.latitude},${point.longitude}';
 
   String? _validateRouteDraftName(String value) {
     return value.trim().isEmpty ? 'A Route name must be entered' : null;

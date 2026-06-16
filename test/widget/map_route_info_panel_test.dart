@@ -41,6 +41,45 @@ void main() {
     expect(find.text('17.4 / 17.9 km'), findsOneWidget);
   });
 
+  testWidgets('renders an edit action before close for a saved route', (
+    tester,
+  ) async {
+    var editTapped = false;
+    final route = app_route.Route(
+      name: 'Test Route',
+      gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.5, 146.51)],
+      gpxRouteElevations: const [100, 120],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 600,
+            child: MapTrackInfoPanel(
+              route: route,
+              onClose: () {},
+              onEdit: () {
+                editTapped = true;
+              },
+              onExport: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final editButton = find.byKey(const Key('track-info-panel-edit-button'));
+    final closeButton = find.byKey(const Key('track-info-panel-close'));
+    expect(find.byTooltip('Edit Route'), findsOneWidget);
+    expect(tester.getRect(editButton).right, lessThan(tester.getRect(closeButton).left));
+
+    await tester.tap(editButton);
+    await tester.pump();
+
+    expect(editTapped, isTrue);
+  });
+
   testWidgets('renders elevation profile chart for a saved route', (
     tester,
   ) async {

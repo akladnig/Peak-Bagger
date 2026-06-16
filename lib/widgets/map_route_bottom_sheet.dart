@@ -91,20 +91,22 @@ class RouteDraftGraphOverlay extends ConsumerWidget {
               borderRadius: BorderRadius.circular(20),
               child: SafeArea(
                 top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                  child: _DistanceElevationGroup(
-                    routeDraftStage: routeDraftStage,
-                    routeDraftDistanceMeters: routeDraftDistanceMeters,
-                    routeDraftError: routeDraftError,
-                    routeDraftFailureKind: routeDraftFailureKind,
-                    routeDraftElevationSummary: routeDraftElevationSummary,
-                    routeDraftElevationLoading: routeDraftElevationLoading,
-                    routeDraftElevationError: routeDraftElevationError,
-                    routeDraftCommittedPoints: routeDraftCommittedPoints,
-                    routeDraftPointElevations: routeDraftPointElevations,
-                    onRetry:
-                        ref.read(mapProvider.notifier).retryRouteDraftSegment,
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: _DistanceElevationGroup(
+                      routeDraftStage: routeDraftStage,
+                      routeDraftDistanceMeters: routeDraftDistanceMeters,
+                      routeDraftError: routeDraftError,
+                      routeDraftFailureKind: routeDraftFailureKind,
+                      routeDraftElevationSummary: routeDraftElevationSummary,
+                      routeDraftElevationLoading: routeDraftElevationLoading,
+                      routeDraftElevationError: routeDraftElevationError,
+                      routeDraftCommittedPoints: routeDraftCommittedPoints,
+                      routeDraftPointElevations: routeDraftPointElevations,
+                      onRetry:
+                          ref.read(mapProvider.notifier).retryRouteDraftSegment,
+                    ),
                   ),
                 ),
               ),

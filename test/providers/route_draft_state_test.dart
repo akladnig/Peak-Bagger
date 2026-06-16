@@ -13,6 +13,7 @@ import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/models/route.dart';
+import 'package:peak_bagger/models/route_waypoint.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import '../harness/test_tasmap_repository.dart';
 
@@ -44,6 +45,87 @@ void main() {
     expect(state.routeDraftMarkers, isEmpty);
     expect(state.selectedLocation, const LatLng(-41.6, 146.6));
     expect(state.selectedTrackId, isNull);
+  });
+
+  test('route edit seeds the draft from the saved route', () async {
+    final route = Route(
+      id: 7,
+      name: 'Seed Route',
+      gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.55, 146.55)],
+      gpxRouteElevations: const [100, 120],
+      routeWaypoints: const [
+        RouteWaypoint(
+          latitude: -41.55,
+          longitude: 146.55,
+          label: 'Bonnet Hill',
+          sequence: 1,
+          isPeakDerived: true,
+          peakOsmId: 42,
+          peakName: 'Bonnet Hill',
+        ),
+      ],
+      colour: 0xFF112233,
+      distance2d: 17450,
+      distance3d: 17920,
+      ascent: 912,
+      descent: 456,
+      startElevation: 100,
+      endElevation: 120,
+      lowestElevation: 90,
+      highestElevation: 130,
+    );
+    final routeRepository = RouteRepository.test(
+      InMemoryRouteStorage([route]),
+    );
+    final realNotifier = await _buildRouteTestNotifier(
+      routePlanner: const _ImmediateStraightRoutePlanner(),
+      routeElevationSampler: const _ImmediateZeroRouteElevationSampler(),
+      routeRepository: routeRepository,
+    );
+    final container = ProviderContainer(
+      overrides: [mapProvider.overrideWith(() => realNotifier)],
+    );
+    addTearDown(container.dispose);
+    container.read(mapProvider.notifier).state = MapState(
+      center: const LatLng(-41.5, 146.5),
+      zoom: 15,
+      basemap: Basemap.tracestrack,
+      selectedLocation: const LatLng(-41.6, 146.6),
+      showRoutes: true,
+      selectedRouteId: 7,
+    );
+
+    final notifier = container.read(mapProvider.notifier);
+    notifier.beginRouteEdit(route);
+
+    final state = container.read(mapProvider);
+    expect(state.isRouteDrafting, isTrue);
+    expect(state.sourceRouteId, 7);
+    expect(state.selectedRouteId, isNull);
+    expect(state.selectedLocation, isNull);
+    expect(state.routeDraftName, 'Seed Route');
+    expect(state.routeDraftColour, 0xFF112233);
+    expect(state.routeDraftCommittedPoints, route.gpxRoute);
+    expect(state.routeDraftMarkers, route.gpxRoute);
+    expect(state.routeDraftStage, RouteDraftStage.awaitingNextPoint);
+    expect(state.routeDraftPointElevations, const [100.0, 120.0]);
+    expect(state.routeDraftDistanceMeters, 17450);
+    expect(state.routeDraftElevationSummary, isNotNull);
+    expect(state.routeDraftElevationSummary!.distance3d, 17920);
+    expect(state.routeDraftElevationSummary!.ascent, 912);
+    expect(state.routeDraftElevationSummary!.descent, 456);
+    expect(state.routeDraftElevationSummary!.startElevation, 100);
+    expect(state.routeDraftElevationSummary!.endElevation, 120);
+    expect(state.routeDraftElevationSummary!.lowestElevation, 90);
+    expect(state.routeDraftElevationSummary!.highestElevation, 130);
+    expect(state.routeDraftControlEndpoints, hasLength(2));
+    expect(
+      state.routeDraftControlEndpoints.last.kind,
+      RouteDraftEndpointKind.peakTarget,
+    );
+    expect(state.routeDraftPeak, isNotNull);
+    expect(state.routeDraftPeak!.name, 'Bonnet Hill');
+    expect(state.routeDraftPeak!.osmId, 42);
   });
 
   test('route draft markers append in tap order', () async {

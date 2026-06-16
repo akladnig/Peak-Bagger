@@ -95,6 +95,53 @@ void main() {
     );
   });
 
+  testWidgets('edit route opens draft sheet from the shared panel', (
+    tester,
+  ) async {
+    final route = app_route.Route(
+      id: 1,
+      name: 'Seed Route',
+      gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.55, 146.55)],
+      gpxRouteElevations: const [100, 120],
+      distance2d: 17450,
+      distance3d: 17920,
+      ascent: 912,
+      descent: 456,
+      startElevation: 100,
+      endElevation: 120,
+      lowestElevation: 90,
+      highestElevation: 130,
+    );
+    final routeRepository = RouteRepository.test(
+      InMemoryRouteStorage([route]),
+    );
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showRoutes: true,
+        selectedRouteId: 1,
+      ),
+      routeRepository: routeRepository,
+    );
+
+    await _pumpMap(tester, notifier, routeRepository: routeRepository);
+
+    expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('track-info-panel-edit-button')));
+    await tester.pumpAndSettle();
+
+    final container = _container(tester);
+    expect(container.read(mapProvider).selectedRouteId, isNull);
+    expect(container.read(mapProvider).sourceRouteId, 1);
+    expect(container.read(mapProvider).isRouteDrafting, isTrue);
+    expect(container.read(mapProvider).routeDraftName, 'Seed Route');
+    expect(find.byKey(const Key('track-info-panel')), findsNothing);
+    expect(find.byKey(const Key('route-controls-overlay-root')), findsOneWidget);
+    expect(find.byKey(const Key('route-name-field')), findsOneWidget);
+  });
+
   testWidgets('route draft elevation chart expands with more points', (
     tester,
   ) async {

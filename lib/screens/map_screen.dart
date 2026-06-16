@@ -2926,6 +2926,23 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                   ? selectedTrack
                                                   : null,
                                               route: selectedRoute,
+                                              onEdit: selectedRoute == null
+                                                  ? null
+                                                  : () {
+                                                      final route =
+                                                          selectedRoute;
+                                                      if (route == null) {
+                                                        return;
+                                                      }
+                                                      ref
+                                                          .read(
+                                                            mapProvider
+                                                                .notifier,
+                                                          )
+                                                          .beginRouteEdit(
+                                                            route,
+                                                          );
+                                                    },
                                               onElevationProfileHoverChanged:
                                                   (hoverSample) {
                                                     final hoverNotifier = ref
