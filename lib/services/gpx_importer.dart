@@ -17,6 +17,7 @@ import 'package:peak_bagger/services/polygon_asset_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
+import 'package:peak_bagger/services/gpx_point_sample.dart';
 import 'package:peak_bagger/services/gpx_filter.dart';
 
 import '../core/constants.dart';
@@ -86,9 +87,11 @@ class GpxTrackProcessingResult {
 }
 
 class GpxImporter {
+  static const _distance = Distance();
   static String? debugTracksFolderOverride;
   static String? debugTasmaniaFolderOverride;
   static String? debugRoutesFolderOverride;
+  static const routeSimplificationMinimumSpacingMeters = 10.0;
 
   String tracksFolder;
   String tasmaniaFolder;
@@ -303,24 +306,55 @@ class GpxImporter {
         return null;
       }
 
+      final simplifiedRoutePoints = _simplifyRoutePoints(routePoints);
+
       final route = app_route.Route(
         name: result.name ?? _extractRouteName(doc, filePath),
         desc: result.desc ?? _extractRouteDesc(doc, filePath) ?? '',
-        gpxRoute: routePoints
+        gpxRoute: simplifiedRoutePoints
             .map((point) => point.location)
             .toList(growable: false),
-        gpxRouteElevations: routePoints
+        gpxRouteElevations: simplifiedRoutePoints
             .map((point) => point.ele?.round())
             .toList(growable: false),
         routeWaypoints: _extractRouteWaypoints(doc),
         displayRoutePointsByZoom: TrackDisplayCacheBuilder.buildJson(
-          result.displaySegments,
+          [
+            simplifiedRoutePoints
+                .map((point) => point.location)
+                .toList(growable: false),
+          ],
         ),
       );
       return route;
     } catch (_) {
       return null;
     }
+  }
+
+  List<GpxPointSample> _simplifyRoutePoints(List<GpxPointSample> points) {
+    if (points.length < 3) {
+      return points;
+    }
+
+    final simplified = <GpxPointSample>[points.first];
+    var lastKept = points.first;
+
+    for (var index = 1; index < points.length - 1; index++) {
+      final point = points[index];
+      final spacing = _distance.as(
+        LengthUnit.Meter,
+        lastKept.location,
+        point.location,
+      );
+      if (spacing >= routeSimplificationMinimumSpacingMeters) {
+        simplified.add(point);
+        lastKept = point;
+      }
+    }
+
+    simplified.add(points.last);
+    return simplified;
   }
 
   bool _hasInterpolatedSegment(XmlDocument doc) {

@@ -113,7 +113,7 @@ void main() {
 
     expect(find.byKey(const Key('route-draft-marker-hover-1')), findsOneWidget);
     expect(find.byKey(const Key('route-marker-numbered-label')), findsOneWidget);
-    expect(tester.widget<Text>(find.byKey(const Key('route-marker-numbered-label'))).data, '1');
+    expect(tester.widget<Text>(find.byKey(const Key('route-marker-numbered-label'))).data, '01');
   });
 
   testWidgets('hovered circle marker scales and shows the hover shell', (tester) async {

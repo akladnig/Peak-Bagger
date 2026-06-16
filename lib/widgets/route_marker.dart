@@ -75,7 +75,7 @@ class RouteMarker extends StatelessWidget {
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  '${_clampNumber(number)}',
+                  _formatNumber(number),
                   key: const Key('route-marker-numbered-label'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
@@ -92,17 +92,9 @@ class RouteMarker extends StatelessWidget {
     );
   }
 
-  static int _clampNumber(int? value) {
-    if (value == null) {
-      return 1;
-    }
-    if (value < 1) {
-      return 1;
-    }
-    if (value > 99) {
-      return 99;
-    }
-    return value;
+  static String _formatNumber(int? value) {
+    final number = value == null ? 1 : value.clamp(1, 99).toInt();
+    return number.toString().padLeft(2, '0');
   }
 
   static Color _darkenedStroke(Color color) {

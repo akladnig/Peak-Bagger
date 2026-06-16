@@ -40,7 +40,7 @@ class GpxFilterConfig {
     outlierFilter: GpxTrackOutlierFilter.hampel,
     elevationSmoother: GpxTrackElevationSmoother.none,
     elevationWindow: RouteUI.defaultElevationWindow,
-    positionSmoother: GpxTrackPositionSmoother.kalman,
+    positionSmoother: GpxTrackPositionSmoother.none,
     positionWindow: RouteUI.defaultPositionWindow,
   );
 

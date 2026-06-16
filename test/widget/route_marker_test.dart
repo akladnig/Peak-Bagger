@@ -48,7 +48,7 @@ void main() {
     expect(dotDecoration.shape, BoxShape.circle);
   });
 
-  testWidgets('numbered clamps and darkens stroke', (tester) async {
+  testWidgets('numbered clamps, pads, and darkens stroke', (tester) async {
     await tester.pumpWidget(
       host(
         const RouteMarker(
@@ -75,6 +75,23 @@ void main() {
     expect(label.data, '99');
     expect(label.style?.fontSize, RouteUI.markerFontSize);
     expect(label.style?.color, Colors.white);
+  });
+
+  testWidgets('numbered pads single-digit labels', (tester) async {
+    await tester.pumpWidget(
+      host(
+        const RouteMarker(
+          kind: RouteMarkerKind.numbered,
+          color: Colors.green,
+          number: 7,
+        ),
+      ),
+    );
+
+    final label = tester.widget<Text>(
+      find.byKey(const Key('route-marker-numbered-label')),
+    );
+    expect(label.data, '07');
   });
 
   testWidgets('size clamps to minimum', (tester) async {

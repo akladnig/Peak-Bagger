@@ -126,6 +126,43 @@ void main() {
     expect(result.tracks.single.getSegmentsForZoom(15), hasLength(1));
   });
 
+  test('parseRouteFile simplifies imported route geometry', () async {
+    final tempDir = await Directory.systemTemp.createTemp('gpx-route-simplify');
+    addTearDown(() async {
+      if (tempDir.existsSync()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    final routesDir = Directory('${tempDir.path}/Routes')..createSync();
+    final source = File('${routesDir.path}/simple-route.gpx');
+    const rawXml = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <rte>
+    <name>Simple Route</name>
+    <rtept lat="-42.0000" lon="146.0000" />
+    <rtept lat="-42.0000" lon="146.00002" />
+    <rtept lat="-42.0000" lon="146.00004" />
+    <rtept lat="-42.0000" lon="146.00006" />
+    <rtept lat="-42.0000" lon="146.00008" />
+    <rtept lat="-42.0000" lon="146.00010" />
+  </rte>
+</gpx>
+''';
+    await source.writeAsString(rawXml);
+
+    final importer = GpxImporter(routesFolder: routesDir.path);
+    final route = importer.parseRouteFile(source.path);
+
+    expect(route, isNotNull);
+    expect(route!.gpxRoute, hasLength(2));
+    expect(route.gpxRoute.first.longitude, 146.0);
+    expect(route.gpxRoute.last.longitude, 146.00010);
+    expect(route.gpxRouteElevations, hasLength(2));
+    expect(route.displayRoutePointsByZoom, isNot('{}'));
+  });
+
   test(
     'importTracks falls back to raw GPX when filtering removes too much',
     () async {
