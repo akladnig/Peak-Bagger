@@ -28,7 +28,6 @@ import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/route_graph_store.dart';
-import 'package:peak_bagger/models/route_marker_display.dart';
 import 'package:peak_bagger/widgets/route_marker.dart';
 import 'package:peak_bagger/widgets/map_route_bottom_sheet.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
@@ -140,6 +139,168 @@ void main() {
     expect(find.byKey(const Key('track-info-panel')), findsNothing);
     expect(find.byKey(const Key('route-controls-overlay-root')), findsOneWidget);
     expect(find.byKey(const Key('route-name-field')), findsOneWidget);
+    expect(
+      tester.widget<TextFormField>(find.byKey(const Key('route-name-field')))
+          .controller!
+          .text,
+      'Seed Route',
+    );
+  });
+
+  testWidgets('edit route save updates the same route and reopens the panel', (
+    tester,
+  ) async {
+    final route = app_route.Route(
+      id: 1,
+      name: 'Seed Route',
+      gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.55, 146.55)],
+      gpxRouteElevations: const [100, 120],
+      distance2d: 17450,
+      distance3d: 17920,
+      ascent: 912,
+      descent: 456,
+      startElevation: 100,
+      endElevation: 120,
+      lowestElevation: 90,
+      highestElevation: 130,
+    );
+    final routeRepository = RouteRepository.test(
+      InMemoryRouteStorage([route]),
+    );
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showRoutes: true,
+        selectedRouteId: 1,
+      ),
+      routeRepository: routeRepository,
+    );
+
+    await _pumpMap(tester, notifier, routeRepository: routeRepository);
+    await tester.tap(find.byKey(const Key('track-info-panel-edit-button')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('route-name-field')),
+      'Edited Route',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('route-save-button')));
+    await tester.pumpAndSettle();
+
+    final container = _container(tester);
+    final savedRoute = routeRepository.findById(1);
+    expect(savedRoute, isNotNull);
+    expect(savedRoute!.name, 'Edited Route');
+    expect(container.read(mapProvider).selectedRouteId, 1);
+    expect(container.read(mapProvider).sourceRouteId, isNull);
+    expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
+    expect(find.text('Edited Route'), findsOneWidget);
+  });
+
+  testWidgets('edit route cancel restores the original route', (
+    tester,
+  ) async {
+    final route = app_route.Route(
+      id: 1,
+      name: 'Seed Route',
+      gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.55, 146.55)],
+      gpxRouteElevations: const [100, 120],
+      distance2d: 17450,
+      distance3d: 17920,
+      ascent: 912,
+      descent: 456,
+      startElevation: 100,
+      endElevation: 120,
+      lowestElevation: 90,
+      highestElevation: 130,
+    );
+    final routeRepository = RouteRepository.test(
+      InMemoryRouteStorage([route]),
+    );
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showRoutes: true,
+        selectedRouteId: 1,
+      ),
+      routeRepository: routeRepository,
+    );
+
+    await _pumpMap(tester, notifier, routeRepository: routeRepository);
+    await tester.tap(find.byKey(const Key('track-info-panel-edit-button')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('route-name-field')),
+      'Cancelled Route',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('route-cancel-button')));
+    await tester.pumpAndSettle();
+
+    final container = _container(tester);
+    final savedRoute = routeRepository.findById(1);
+    expect(savedRoute, isNotNull);
+    expect(savedRoute!.name, 'Seed Route');
+    expect(container.read(mapProvider).selectedRouteId, 1);
+    expect(container.read(mapProvider).sourceRouteId, isNull);
+    expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
+    expect(find.text('Seed Route'), findsOneWidget);
+    expect(find.byKey(const Key('route-controls-overlay-root')), findsNothing);
+  });
+
+  testWidgets('edit route save failure keeps the draft open', (
+    tester,
+  ) async {
+    final route = app_route.Route(
+      id: 1,
+      name: 'Seed Route',
+      gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.55, 146.55)],
+      gpxRouteElevations: const [100, 120],
+      distance2d: 17450,
+      distance3d: 17920,
+      ascent: 912,
+      descent: 456,
+      startElevation: 100,
+      endElevation: 120,
+      lowestElevation: 90,
+      highestElevation: 130,
+    );
+    final routeRepository = RouteRepository.test(
+      _EditFailingRouteStorage([route]),
+    );
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showRoutes: true,
+        selectedRouteId: 1,
+      ),
+      routeRepository: routeRepository,
+    );
+
+    await _pumpMap(tester, notifier, routeRepository: routeRepository);
+    await tester.tap(find.byKey(const Key('track-info-panel-edit-button')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('route-name-field')),
+      'Broken Route',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('route-save-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('route-controls-overlay-root')), findsOneWidget);
+    expect(find.textContaining('Failed to save route'), findsOneWidget);
+    expect(routeRepository.findById(1)!.name, 'Seed Route');
+    expect(_container(tester).read(mapProvider).sourceRouteId, 1);
   });
 
   testWidgets('route draft elevation chart expands with more points', (
@@ -908,70 +1069,38 @@ void main() {
     );
     await _pumpMap(tester, notifier, tasmapRepository: tasmapRepository);
 
-    final controlEndpoints = <RouteDraftControlEndpoint>[
-      RouteDraftControlEndpoint(
-        id: 'endpoint-0',
-        point: const LatLng(-41.5, 146.5),
-        kind: RouteDraftEndpointKind.tapped,
-      ),
-      for (var index = 1; index <= 99; index++)
-        RouteDraftControlEndpoint(
-          id: 'endpoint-$index',
-          point: LatLng(-41.5, 146.5 + index * 0.001),
-          kind: RouteDraftEndpointKind.tapped,
-        ),
-      RouteDraftControlEndpoint(
-        id: 'endpoint-100',
-        point: const LatLng(-41.5, 146.9),
-        kind: RouteDraftEndpointKind.tapped,
-      ),
-    ];
-
-    final displayMarkers = [
-      RouteMarkerDisplay(
-        id: 'endpoint-0',
-        point: const LatLng(-41.5, 146.5),
-        kind: RouteMarkerKind.circle,
-      ),
-      for (var index = 1; index <= 99; index++)
-        RouteMarkerDisplay(
-          id: 'endpoint-$index',
-          point: LatLng(-41.5, 146.5 + index * 0.001),
-          kind: RouteMarkerKind.numbered,
-          number: index,
-        ),
-      RouteMarkerDisplay(
-        id: 'endpoint-100',
-        point: const LatLng(-41.5, 146.9),
-        kind: RouteMarkerKind.target,
-      ),
-    ];
-
     final container = _container(tester);
-    container.read(mapProvider.notifier).state = container.read(mapProvider).copyWith(
-      isRouteDrafting: true,
-      routeDraftName: 'Long Route',
-      routeDraftNameError: null,
-      routeDraftStage: RouteDraftStage.awaitingNextPoint,
-      routeDraftControlEndpoints: controlEndpoints,
-      routeDraftDisplayMarkers: displayMarkers,
-      routeDraftMarkers: controlEndpoints.map((endpoint) => endpoint.point).toList(),
-      routeDraftCommittedPoints: controlEndpoints.map((endpoint) => endpoint.point).toList(),
-      routeDraftDistanceMeters: 1234,
-      routeDraftError: null,
+    final draftNotifier = container.read(mapProvider.notifier);
+    draftNotifier.state = draftNotifier.state.copyWith(peaks: const []);
+    draftNotifier.beginRouteDraft();
+    draftNotifier.addRouteDraftMarker(
+      const LatLng(-41.5, 146.5),
+      straightLine: true,
     );
+    for (var index = 1; index <= 100; index++) {
+      draftNotifier.addRouteDraftMarker(
+        LatLng(-41.5, 146.5 + index * 0.001),
+        straightLine: true,
+      );
+    }
     await tester.pump();
 
     final stateBefore = container.read(mapProvider);
-    container.read(mapProvider.notifier).addRouteDraftMarker(
-      const LatLng(-41.5, 146.95),
+    expect(
+      stateBefore.routeDraftDisplayMarkers.where(
+        (marker) => marker.kind == RouteMarkerKind.numbered,
+      ),
+      hasLength(99),
     );
-    await tester.pump();
+    expect(stateBefore.routeDraftControlEndpoints, hasLength(101));
+    draftNotifier.addRouteDraftMarker(
+      const LatLng(-41.5, 146.75),
+      straightLine: true,
+    );
 
     final stateAfter = container.read(mapProvider);
-    expect(stateAfter.routeDraftError, 'Peak Bagger only supports a maximum of 99 route points');
     expect(stateAfter.routeDraftDisplayMarkers, stateBefore.routeDraftDisplayMarkers);
-    expect(find.text('Peak Bagger only supports a maximum of 99 route points'), findsOneWidget);
+    expect(stateAfter.routeDraftError, 'Peak Bagger only supports a maximum of 99 route points');
   });
 
   testWidgets('blank route name shows inline error and save stays disabled', (
@@ -1707,6 +1836,38 @@ class _FailingRouteStorage implements RouteStorage {
 
   @override
   app_route.Route? getById(int id) => null;
+
+  @override
+  int save(app_route.Route route) {
+    throw Exception('write failed');
+  }
+}
+
+class _EditFailingRouteStorage implements RouteStorage {
+  _EditFailingRouteStorage(List<app_route.Route> routes)
+    : _routes = List<app_route.Route>.from(routes);
+
+  final List<app_route.Route> _routes;
+
+  @override
+  bool delete(int id) {
+    final before = _routes.length;
+    _routes.removeWhere((route) => route.id == id);
+    return _routes.length != before;
+  }
+
+  @override
+  List<app_route.Route> getAll() => List<app_route.Route>.unmodifiable(_routes);
+
+  @override
+  app_route.Route? getById(int id) {
+    for (final route in _routes) {
+      if (route.id == id) {
+        return route;
+      }
+    }
+    return null;
+  }
 
   @override
   int save(app_route.Route route) {

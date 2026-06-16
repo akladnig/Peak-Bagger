@@ -530,25 +530,67 @@ class TestMapNotifier extends MapNotifier {
       );
       return;
     }
+    state = state.copyWith(isSavingRoute: true, clearRouteDraftNameError: true);
     if (routeSaveErrorMessage != null) {
       _routeSnackbarMessage = routeSaveErrorMessage;
       state = state.copyWith(isSavingRoute: false);
       return;
     }
-    routeRepository?.saveRoute(
-      Route(
-        name: trimmedName,
-        gpxRoute: List<LatLng>.from(
-          state.routeDraftCommittedPoints,
-          growable: false,
+    final sourceRouteId = state.sourceRouteId;
+    final existingRoute = sourceRouteId == null
+        ? null
+        : routeRepository?.findById(sourceRouteId);
+    try {
+      routeRepository?.saveRoute(
+        Route(
+          id: sourceRouteId ?? 0,
+          name: trimmedName,
+          desc: existingRoute?.desc ?? '',
+          gpxRoute: List<LatLng>.from(
+            state.routeDraftCommittedPoints,
+            growable: false,
+          ),
+          gpxRouteElevations: existingRoute?.gpxRouteElevations ??
+              List<int?>.filled(
+                state.routeDraftCommittedPoints.length,
+                null,
+                growable: false,
+              ),
+          routeWaypoints: existingRoute?.routeWaypoints ?? const [],
+          displayRoutePointsByZoom: existingRoute?.displayRoutePointsByZoom ??
+              TrackDisplayCacheBuilder.buildJson([
+                List<LatLng>.from(
+                  state.routeDraftCommittedPoints,
+                  growable: false,
+                ),
+              ]),
+          colour: state.routeDraftColour,
+          visible: existingRoute?.visible ?? true,
+          distance2d: state.routeDraftDistanceMeters,
+          distance3d:
+              existingRoute?.distance3d ?? state.routeDraftDistanceMeters,
+          ascent: existingRoute?.ascent ?? 0,
+          descent: existingRoute?.descent ?? 0,
+          startElevation: existingRoute?.startElevation ?? 0,
+          endElevation: existingRoute?.endElevation ?? 0,
+          lowestElevation: existingRoute?.lowestElevation ?? 0,
+          highestElevation: existingRoute?.highestElevation ?? 0,
         ),
-        displayRoutePointsByZoom: TrackDisplayCacheBuilder.buildJson([
-          List<LatLng>.from(state.routeDraftCommittedPoints, growable: false),
-        ]),
-        colour: state.routeDraftColour,
-        distance2d: state.routeDraftDistanceMeters,
-      ),
-    );
+      );
+      ref.read(routeRevisionProvider.notifier).increment();
+    } catch (error) {
+      _routeSnackbarMessage = 'Failed to save route: $error';
+      state = state.copyWith(isSavingRoute: false);
+      return;
+    }
+    if (sourceRouteId != null) {
+      endRouteDraft();
+      state = state.copyWith(
+        selectedRouteId: sourceRouteId,
+        selectedRouteFocusSerial: state.selectedRouteFocusSerial + 1,
+      );
+      return;
+    }
     state = state.copyWith(showRoutes: true);
     endRouteDraft();
   }
@@ -716,6 +758,14 @@ class TestMapNotifier extends MapNotifier {
   void reconcileSelectedRouteState() {
     final selectedRouteId = state.selectedRouteId;
     if (selectedRouteId == null) {
+      final sourceRouteId = state.sourceRouteId;
+      if (state.isRouteDrafting && sourceRouteId != null) {
+        final hasSourceRoute = routeRepository?.findById(sourceRouteId) != null;
+        if (!hasSourceRoute) {
+          _routeSnackbarMessage = 'Route is no longer available.';
+          endRouteDraft();
+        }
+      }
       return;
     }
 
@@ -727,6 +777,15 @@ class TestMapNotifier extends MapNotifier {
             true;
     if (!hasVisibleRoute) {
       state = state.copyWith(clearSelectedRouteId: true);
+    }
+
+    final sourceRouteId = state.sourceRouteId;
+    if (state.isRouteDrafting && sourceRouteId != null) {
+      final hasSourceRoute = routeRepository?.findById(sourceRouteId) != null;
+      if (!hasSourceRoute) {
+        _routeSnackbarMessage = 'Route is no longer available.';
+        endRouteDraft();
+      }
     }
   }
 

@@ -136,7 +136,9 @@ class _RouteDraftControlsOverlayState
   void initState() {
     super.initState();
     _notifier = ref.read(mapProvider.notifier);
-    _routeNameController = TextEditingController();
+    _routeNameController = TextEditingController(
+      text: ref.read(mapProvider).routeDraftName,
+    );
     _routeNameFocusNode = FocusNode()
       ..addListener(() {
         if (mounted) {
@@ -237,7 +239,7 @@ class _RouteDraftControlsOverlayState
                 ),
                 const SizedBox(width: 12),
                 _RouteActionsGroup(
-                  onCancel: notifier.endRouteDraft,
+                  onCancel: notifier.cancelRouteDraft,
                   onSave: notifier.saveRouteDraft,
                   canSave:
                       routeDraftCommittedPoints.length >= 2 &&

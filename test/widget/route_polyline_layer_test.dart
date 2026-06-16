@@ -114,4 +114,32 @@ void main() {
       TrackRouteLineTheme.selectedOverlayStrokeWidth,
     );
   });
+
+  test('route polyline layer can exclude an edited source route', () {
+    final routes = [
+      app_route.Route(
+        id: 1,
+        name: 'Route 1',
+        gpxRoute: const [LatLng(-41.5, 146.4), LatLng(-41.5, 146.45)],
+        displayRoutePointsByZoom: '{"12":[[[-41.5,146.4],[-41.5,146.45]]]}',
+        colour: 0xFF112233,
+      ),
+      app_route.Route(
+        id: 2,
+        name: 'Route 2',
+        gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.5, 146.55)],
+        displayRoutePointsByZoom: '{"12":[[[-41.5,146.5],[-41.5,146.55]]]}',
+        colour: 0xFF445566,
+      ),
+    ];
+
+    final layer = buildRoutePolylines(
+      routes,
+      12,
+      excludedRouteId: 1,
+    );
+
+    expect(layer.polylines, hasLength(1));
+    expect(layer.polylines.single.points, routes[1].gpxRoute);
+  });
 }

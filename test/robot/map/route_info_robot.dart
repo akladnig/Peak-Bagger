@@ -36,10 +36,39 @@ class RouteInfoRobot {
   Finder get mapInteractionRegion =>
       find.byKey(const Key('map-interaction-region'));
   Finder get routeInfoPanel => find.byKey(const Key('track-info-panel'));
+  Finder get routeInfoPanelEdit =>
+      find.byKey(const Key('track-info-panel-edit-button'));
   Finder get routeInfoPanelClose =>
       find.byKey(const Key('track-info-panel-close'));
   Finder get visibilitySwitch =>
       find.byKey(const Key('track-info-panel-visibility-switch'));
+  Finder get routeDraftNameField => find.byKey(const Key('route-name-field'));
+  Finder get routeCancelButton => find.byKey(const Key('route-cancel-button'));
+  Finder get routeSaveButton => find.byKey(const Key('route-save-button'));
+  Finder get routeControlsOverlayRoot =>
+      find.byKey(const Key('route-controls-overlay-root'));
+
+  Future<void> tapEditRoute() async {
+    await tester.tap(routeInfoPanelEdit);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> enterRouteName(String value) async {
+    await tester.ensureVisible(routeDraftNameField);
+    await tester.tap(routeDraftNameField);
+    await tester.enterText(routeDraftNameField, value);
+    await tester.pump();
+  }
+
+  Future<void> saveRouteDraft() async {
+    await tester.tap(routeSaveButton);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> cancelRouteDraft() async {
+    await tester.tap(routeCancelButton);
+    await tester.pumpAndSettle();
+  }
 
   Future<void> pumpApp() async {
     await tester.binding.setSurfaceSize(surfaceSize);
@@ -123,6 +152,16 @@ class RouteInfoRobot {
   void expectRoutePanelHidden() {
     expect(routeInfoPanel, findsNothing);
     expect(container().read(mapProvider).selectedRouteId, isNull);
+  }
+
+  void expectRouteDraftVisible() {
+    expect(routeControlsOverlayRoot, findsOneWidget);
+    expect(routeDraftNameField, findsOneWidget);
+  }
+
+  void expectRouteDraftHidden() {
+    expect(routeControlsOverlayRoot, findsNothing);
+    expect(routeDraftNameField, findsNothing);
   }
 
   void expectSelectedRoute(int routeId) {

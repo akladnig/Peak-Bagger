@@ -43,6 +43,100 @@ void main() {
     robot.expectRoutePanelHidden();
   });
 
+  testWidgets('route journey edits and saves in place', (tester) async {
+    final route = routeFixture(id: 1, name: 'Robot Route');
+    final repository = RouteRepository.test(InMemoryRouteStorage([route]));
+    final robot = RouteInfoRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showRoutes: true,
+      ),
+      routeRepository: repository,
+    );
+
+    await robot.pumpApp();
+    await robot.hoverRoute();
+    await robot.clickRoute();
+
+    robot.expectSelectedRoute(1);
+    robot.expectRoutePanelVisible('Robot Route');
+
+    await robot.tapEditRoute();
+
+    robot.expectRouteDraftVisible();
+    robot.expectRoutePanelHidden();
+
+    await robot.enterRouteName('Edited Robot Route');
+    await robot.saveRouteDraft();
+
+    robot.expectSelectedRoute(1);
+    robot.expectRoutePanelVisible('Edited Robot Route');
+    robot.expectRouteDraftHidden();
+    expect(repository.findById(1)!.name, 'Edited Robot Route');
+  });
+
+  testWidgets('route journey cancels edit and restores the panel', (
+    tester,
+  ) async {
+    final route = routeFixture(id: 1, name: 'Robot Route');
+    final repository = RouteRepository.test(InMemoryRouteStorage([route]));
+    final robot = RouteInfoRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showRoutes: true,
+      ),
+      routeRepository: repository,
+    );
+
+    await robot.pumpApp();
+    await robot.hoverRoute();
+    await robot.clickRoute();
+    await robot.tapEditRoute();
+
+    await robot.enterRouteName('Cancelled Robot Route');
+    await robot.cancelRouteDraft();
+
+    robot.expectSelectedRoute(1);
+    robot.expectRoutePanelVisible('Robot Route');
+    robot.expectRouteDraftHidden();
+    expect(repository.findById(1)!.name, 'Robot Route');
+  });
+
+  testWidgets(
+    'route journey clears stale edit state when the route disappears',
+    (tester) async {
+      final route = routeFixture(id: 1, name: 'Stale Edit Route');
+      final repository = RouteRepository.test(InMemoryRouteStorage([route]));
+      final robot = RouteInfoRobot(
+        tester,
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          showRoutes: true,
+        ),
+        routeRepository: repository,
+      );
+
+      await robot.pumpApp();
+      await robot.hoverRoute();
+      await robot.clickRoute();
+      await robot.tapEditRoute();
+
+      robot.expectRouteDraftVisible();
+      await robot.deleteRouteAndRefresh(1);
+
+      robot.expectRoutePanelHidden();
+      robot.expectRouteDraftHidden();
+    },
+  );
+
   testWidgets(
     'route journey clears stale selection when the route disappears',
     (tester) async {
