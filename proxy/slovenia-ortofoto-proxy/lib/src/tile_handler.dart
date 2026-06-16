@@ -20,7 +20,7 @@ const _defaultMaxConcurrentUpstreamRequests = 4;
 const _defaultUpstreamAttempts = 4;
 const _baseRetryDelay = Duration(milliseconds: 150);
 
-final _sharedUpstreamSemaphore = _AsyncSemaphore(
+final _sharedUpstreamSemaphore = AsyncSemaphore(
   _defaultMaxConcurrentUpstreamRequests,
 );
 
@@ -29,7 +29,7 @@ class SloveniaOrtofotoTileHandler {
     required UpstreamWmsClient upstreamClient,
     int maxZoom = 19,
     int upstreamAttempts = _defaultUpstreamAttempts,
-    _AsyncSemaphore? upstreamSemaphore,
+    AsyncSemaphore? upstreamSemaphore,
   }) : _upstreamClient = upstreamClient,
        _maxZoom = maxZoom,
        _upstreamAttempts = upstreamAttempts,
@@ -38,7 +38,7 @@ class SloveniaOrtofotoTileHandler {
   final UpstreamWmsClient _upstreamClient;
   final int _maxZoom;
   final int _upstreamAttempts;
-  final _AsyncSemaphore _upstreamSemaphore;
+  final AsyncSemaphore _upstreamSemaphore;
 
   Future<Response> handle(Request request) async {
     final coordinate = TileCoordinate.tryParse(
@@ -128,8 +128,8 @@ Response _badGatewayResponse() {
   );
 }
 
-class _AsyncSemaphore {
-  _AsyncSemaphore(this._maxPermits);
+class AsyncSemaphore {
+  AsyncSemaphore(this._maxPermits);
 
   final int _maxPermits;
   int _activePermits = 0;

@@ -245,8 +245,8 @@ class _FakeUpstreamWmsClient implements UpstreamWmsClient {
       throwTimeoutCount--;
       throw TimeoutException('transient timeout');
     }
-    if (_responses != null && _responses!.isNotEmpty) {
-      return _responses!.removeAt(0);
+    if (_responses != null && _responses.isNotEmpty) {
+      return _responses.removeAt(0);
     }
     return _response;
   }
