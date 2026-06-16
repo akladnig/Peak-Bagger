@@ -40,7 +40,7 @@ void main() {
     );
 
     expect(find.text('Distance (2d/3d)'), findsOneWidget);
-    expect(find.text('12.4 km / 0 m'), findsOneWidget);
+    expect(find.text('12.4 / 0.0 km'), findsOneWidget);
   });
 
   testWidgets('renders elevation profile chart for a track', (tester) async {

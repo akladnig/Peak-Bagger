@@ -69,7 +69,7 @@ void main() {
     expect(find.text('Track 20'), findsOneWidget);
     expect(
       find.text(
-        '${formatTrackDate(DateTime.utc(2026, 5, 15, 10))} • 12.4/12.7 km • 638 m',
+        '${formatTrackDate(DateTime.utc(2026, 5, 15, 10))} • 12.4 / 12.7 km • 638 m',
       ),
       findsOneWidget,
     );

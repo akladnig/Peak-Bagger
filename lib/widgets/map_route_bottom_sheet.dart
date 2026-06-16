@@ -288,11 +288,9 @@ class _DistanceElevationGroup extends StatelessWidget {
     final elevationSummary = routeDraftElevationSummary;
     final combinedDistanceText = elevationSummary == null
         ? null
-        : formatDistancePair(
+        : formatDistance2d3d(
             routeDraftDistanceMeters,
             elevationSummary.distance3d,
-            decimalPlaces: 1,
-            separator: ' / ',
           );
 
     return Column(

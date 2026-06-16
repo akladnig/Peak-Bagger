@@ -52,11 +52,7 @@ class LatestWalkSummary {
       ),
       title: track.trackName.isEmpty ? 'Unnamed Track' : track.trackName,
       dateText: formatTrackDate(track.startDateTime),
-      distanceText: formatDistancePair(
-        track.distance2d,
-        track.distance3d,
-        decimalPlaces: 1,
-      ),
+      distanceText: formatDistance2d3d(track.distance2d, track.distance3d),
       ascentText: formatAscent(track.ascent),
     );
   }

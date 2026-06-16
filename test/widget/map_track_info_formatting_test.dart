@@ -37,6 +37,8 @@ void main() {
     expect(formatDistance(12400), '12 km');
     expect(formatDistance(1234.5, decimalPlaces: 1), '1.2 km');
     expect(formatDistance(999.6), '1 km');
+    expect(formatDistance2d3d(12400, 12700), '12.4 / 12.7 km');
+    expect(formatDistance2d3d(850, 900), '0.8 / 0.9 km');
     expect(formatDuration(0), '0m');
     expect(formatDuration(59 * 60 * 1000), '59m');
     expect(formatDuration(2 * 60 * 60 * 1000 + 5 * 60 * 1000), '2h 5m');
