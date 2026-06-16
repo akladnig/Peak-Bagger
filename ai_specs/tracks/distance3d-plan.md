@@ -29,13 +29,13 @@ Reuse current formatter path; add tiny shared presentation seam; extend focused 
 ### Phase 2: Saved Panel Summaries
 
 - **Goal**: saved track/route summary swap; no layout churn
-- [ ] `lib/screens/map_screen_panels.dart` - replace saved track `Distance` metric with `Distance (2d/3d)` combined value; keep `Ascent` + `Total Time`
-- [ ] `lib/screens/map_screen_panels.dart` - replace saved route `Distance` metric with `Distance (2d/3d)` combined value; keep `Ascent` + `Descent`
-- [ ] `test/widget/map_track_info_panel_test.dart` - add summary assertion for combined track distance label/value
-- [ ] `test/widget/map_route_info_panel_test.dart` - add summary assertion for combined route distance label/value
-- [ ] TDD: saved track panel shows combined metric with zero-3d path still visible
-- [ ] TDD: saved route panel shows combined metric without breaking existing summary layout
-- [ ] Verify: `flutter analyze` && `flutter test test/widget/map_track_info_panel_test.dart test/widget/map_route_info_panel_test.dart`
+- [x] `lib/screens/map_screen_panels.dart` - replace saved track `Distance` metric with `Distance (2d/3d)` combined value; keep `Ascent` + `Total Time`
+- [x] `lib/screens/map_screen_panels.dart` - replace saved route `Distance` metric with `Distance (2d/3d)` combined value; keep `Ascent` + `Descent`
+- [x] `test/widget/map_track_info_panel_test.dart` - add summary assertion for combined track distance label/value
+- [x] `test/widget/map_route_info_panel_test.dart` - add summary assertion for combined route distance label/value
+- [x] TDD: saved track panel shows combined metric with zero-3d path still visible
+- [x] TDD: saved route panel shows combined metric without breaking existing summary layout
+- [x] Verify: `flutter analyze` && `flutter test test/widget/map_track_info_panel_test.dart test/widget/map_route_info_panel_test.dart`
 
 ### Phase 3: Route Draft Summary + Journey
 

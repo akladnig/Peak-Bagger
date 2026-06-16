@@ -360,8 +360,13 @@ class MapTrackInfoPanel extends StatelessWidget {
           children: [
             Expanded(
               child: _SummaryMetric(
-                label: 'Distance',
-                value: formatDistance(route.distance2d, decimalPlaces: 1),
+                label: 'Distance (2d/3d)',
+                value: formatDistancePair(
+                  route.distance2d,
+                  route.distance3d,
+                  decimalPlaces: 1,
+                  separator: ' / ',
+                ),
               ),
             ),
             Expanded(
@@ -446,8 +451,13 @@ class MapTrackInfoPanel extends StatelessWidget {
           children: [
             Expanded(
               child: _SummaryMetric(
-                label: 'Distance',
-                value: formatDistance(track.distance2d, decimalPlaces: 1),
+                label: 'Distance (2d/3d)',
+                value: formatDistancePair(
+                  track.distance2d,
+                  track.distance3d,
+                  decimalPlaces: 1,
+                  separator: ' / ',
+                ),
               ),
             ),
             Expanded(
