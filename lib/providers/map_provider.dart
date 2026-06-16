@@ -204,21 +204,25 @@ class RouteDraftControlEndpoint {
     required this.id,
     required this.point,
     required this.kind,
+    this.renderMarker = true,
   });
 
   final String id;
   final LatLng point;
   final RouteDraftEndpointKind kind;
+  final bool renderMarker;
 
   RouteDraftControlEndpoint copyWith({
     String? id,
     LatLng? point,
     RouteDraftEndpointKind? kind,
+    bool? renderMarker,
   }) {
     return RouteDraftControlEndpoint(
       id: id ?? this.id,
       point: point ?? this.point,
       kind: kind ?? this.kind,
+      renderMarker: renderMarker ?? this.renderMarker,
     );
   }
 
@@ -229,10 +233,11 @@ class RouteDraftControlEndpoint {
           runtimeType == other.runtimeType &&
           id == other.id &&
           point == other.point &&
-          kind == other.kind;
+          kind == other.kind &&
+          renderMarker == other.renderMarker;
 
   @override
-  int get hashCode => Object.hash(id, point, kind);
+  int get hashCode => Object.hash(id, point, kind, renderMarker);
 }
 
 enum PendingCameraSelectionBehavior { preserve, replace, clear }
@@ -2151,11 +2156,13 @@ class MapNotifier extends Notifier<MapState> {
     required LatLng point,
     required RouteDraftEndpointKind kind,
     String? id,
+    bool renderMarker = true,
   }) {
     return RouteDraftControlEndpoint(
       id: id ?? '${state.routeDraftNextMarkerId}',
       point: point,
       kind: kind,
+      renderMarker: renderMarker,
     );
   }
 
@@ -2176,7 +2183,8 @@ class MapNotifier extends Notifier<MapState> {
 
     var count = 0;
     for (var index = 1; index < controlEndpoints.length - 1; index++) {
-      if (controlEndpoints[index].kind != RouteDraftEndpointKind.peakTarget) {
+      if (controlEndpoints[index].renderMarker &&
+          controlEndpoints[index].kind != RouteDraftEndpointKind.peakTarget) {
         count += 1;
       }
     }
@@ -2193,27 +2201,30 @@ class MapNotifier extends Notifier<MapState> {
     List<RouteDraftControlEndpoint> controlEndpoints, {
     String? provisionalEndpointId,
   }) {
+    final visibleEndpoints = controlEndpoints
+        .where((endpoint) => endpoint.renderMarker)
+        .toList(growable: false);
     var nextNumber = 1;
 
     return [
-      for (var index = 0; index < controlEndpoints.length; index++)
+      for (var index = 0; index < visibleEndpoints.length; index++)
         RouteDraftDisplayMarker(
-          id: controlEndpoints[index].id,
-          point: controlEndpoints[index].point,
-          kind: switch ((index, controlEndpoints[index].kind)) {
+          id: visibleEndpoints[index].id,
+          point: visibleEndpoints[index].point,
+          kind: switch ((index, visibleEndpoints[index].kind)) {
             (0, _) => RouteMarkerKind.circle,
             (_, RouteDraftEndpointKind.peakTarget) => RouteMarkerKind.target,
-            (_, _) when index == controlEndpoints.length - 1 =>
+            (_, _) when index == visibleEndpoints.length - 1 =>
               RouteMarkerKind.target,
             (_, _) => RouteMarkerKind.numbered,
           },
-          number: switch ((index, controlEndpoints[index].kind)) {
+          number: switch ((index, visibleEndpoints[index].kind)) {
             (0, _) => null,
             (_, RouteDraftEndpointKind.peakTarget) => null,
-            (_, _) when index == controlEndpoints.length - 1 => null,
+            (_, _) when index == visibleEndpoints.length - 1 => null,
             (_, _) => nextNumber++,
           },
-          isCommitted: controlEndpoints[index].id != provisionalEndpointId,
+          isCommitted: visibleEndpoints[index].id != provisionalEndpointId,
         ),
     ];
   }
@@ -2248,6 +2259,77 @@ class MapNotifier extends Notifier<MapState> {
       return List<LatLng>.from(points, growable: false);
     }
     return [...points, peakPoint];
+  }
+
+  List<LatLng> _attachRouteDraftEndpoints(
+    List<LatLng> points, {
+    required LatLng start,
+    required LatLng end,
+  }) {
+    final attached = List<LatLng>.from(points, growable: true);
+    if (attached.isEmpty) {
+      return [start, end];
+    }
+    if (attached.first != start) {
+      attached.insert(0, start);
+    }
+    if (attached.last != end) {
+      attached.add(end);
+    }
+    return List<LatLng>.unmodifiable(attached);
+  }
+
+  int _indexOfRouteDraftPoint(
+    List<LatLng> points,
+    LatLng target, {
+    required int startAt,
+  }) {
+    for (var index = startAt; index < points.length; index++) {
+      if (points[index] == target) {
+        return index;
+      }
+    }
+    return -1;
+  }
+
+  List<List<LatLng>> _splitCommittedRouteSegments(
+    List<RouteDraftControlEndpoint> controlEndpoints,
+    List<LatLng> committedPoints,
+  ) {
+    if (controlEndpoints.length < 2 || committedPoints.length < 2) {
+      return const [];
+    }
+
+    final segments = <List<LatLng>>[];
+    var committedSearchStart = 0;
+    for (var index = 0; index < controlEndpoints.length - 1; index++) {
+      final startIndex = _indexOfRouteDraftPoint(
+        committedPoints,
+        controlEndpoints[index].point,
+        startAt: committedSearchStart,
+      );
+      if (startIndex == -1 || startIndex >= committedPoints.length - 1) {
+        return const [];
+      }
+
+      final endIndex = _indexOfRouteDraftPoint(
+        committedPoints,
+        controlEndpoints[index + 1].point,
+        startAt: startIndex + 1,
+      );
+      if (endIndex == -1 || endIndex <= startIndex) {
+        return const [];
+      }
+
+      segments.add(
+        List<LatLng>.unmodifiable(
+          committedPoints.sublist(startIndex, endIndex + 1),
+        ),
+      );
+      committedSearchStart = endIndex;
+    }
+
+    return List<List<LatLng>>.unmodifiable(segments);
   }
 
   double _polylineDistanceMeters(List<LatLng> points) {
@@ -2556,7 +2638,7 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftDistanceMeters: route.distance2d,
       routeDraftOffTrackProbeActive: false,
       routeDraftStraightLineFallback: false,
-      routeDraftNextMarkerId: committedPoints.length,
+      routeDraftNextMarkerId: controlEndpoints.length,
       routeDraftRequestId: 0,
       routeDraftElevationSummary: summary,
       routeDraftElevationLoading: false,
@@ -2643,32 +2725,60 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   List<RouteDraftControlEndpoint> _routeEditControlEndpoints(Route route) {
-    final waypointsByPoint = <String, RouteWaypoint>{};
-    for (final waypoint in route.routeWaypoints) {
-      if (!waypoint.isPeakDerived) {
-        continue;
-      }
-      waypointsByPoint[_routeEditPointKey(
-        LatLng(waypoint.latitude, waypoint.longitude),
-      )] = waypoint;
+    if (route.gpxRoute.isEmpty) {
+      return const [];
     }
 
-    return [
-      for (var index = 0; index < route.gpxRoute.length; index++)
+    final controlEndpoints = <RouteDraftControlEndpoint>[
+      _createControlEndpoint(
+        point: route.gpxRoute.first,
+        kind: RouteDraftEndpointKind.tapped,
+        id: '0',
+      ),
+    ];
+
+    final waypoints = List<RouteWaypoint>.from(route.routeWaypoints)
+      ..sort((left, right) => left.sequence.compareTo(right.sequence));
+    for (var index = 0; index < waypoints.length; index++) {
+      final waypoint = waypoints[index];
+      controlEndpoints.add(
         _createControlEndpoint(
-          point: route.gpxRoute[index],
-          kind: waypointsByPoint.containsKey(
-            _routeEditPointKey(route.gpxRoute[index]),
-          )
+          point: LatLng(waypoint.latitude, waypoint.longitude),
+          kind: waypoint.isPeakDerived
               ? RouteDraftEndpointKind.peakTarget
               : RouteDraftEndpointKind.tapped,
-          id: '$index',
+          id: '${index + 1}',
         ),
-    ];
+      );
+    }
+
+    final lastPoint = route.gpxRoute.last;
+    final lastWaypointPoint = waypoints.isEmpty
+        ? null
+        : LatLng(waypoints.last.latitude, waypoints.last.longitude);
+    if (lastWaypointPoint == null || lastWaypointPoint != lastPoint) {
+      controlEndpoints.add(
+        _createControlEndpoint(
+          point: lastPoint,
+          kind: RouteDraftEndpointKind.tapped,
+          id: '${controlEndpoints.length}',
+        ),
+      );
+    }
+
+    return controlEndpoints;
   }
 
-  String _routeEditPointKey(LatLng point) =>
-      '${point.latitude},${point.longitude}';
+  void _closeRouteEditSession({required bool restoreSelection}) {
+    final sourceRouteId = state.sourceRouteId;
+    endRouteDraft();
+    if (restoreSelection && sourceRouteId != null) {
+      state = state.copyWith(
+        selectedRouteId: sourceRouteId,
+        selectedRouteFocusSerial: state.selectedRouteFocusSerial + 1,
+      );
+    }
+  }
 
   String? _validateRouteDraftName(String value) {
     return value.trim().isEmpty ? 'A Route name must be entered' : null;
@@ -2959,7 +3069,9 @@ class MapNotifier extends Notifier<MapState> {
     RouteEndpointAnchor? anchor, {
     bool isPeakTarget = false,
   }) {
-    if (endpoint.kind == RouteDraftEndpointKind.peakTarget) {
+    if (endpoint.kind == RouteDraftEndpointKind.peakTarget ||
+        endpoint.kind == RouteDraftEndpointKind.projectedAnchor ||
+        endpoint.kind == RouteDraftEndpointKind.snappedNode) {
       return endpoint;
     }
     if (anchor == null) {
@@ -3296,6 +3408,15 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
+    final sourceRouteId = state.sourceRouteId;
+    if (sourceRouteId != null &&
+        _routeRepository.findById(sourceRouteId) == null) {
+      _pendingRouteSnackbarMessage = 'Route is no longer available.';
+      _closeRouteEditSession(restoreSelection: false);
+      state = state.copyWith(clearSelectedRouteId: true);
+      return;
+    }
+
     final trimmedName = state.routeDraftName.trim();
     final routeNameError = _validateRouteDraftName(trimmedName);
     if (routeNameError != null || state.routeDraftCommittedPoints.length < 2) {
@@ -3314,6 +3435,7 @@ class MapNotifier extends Notifier<MapState> {
       );
       final elevationSummary = _routeDraftElevationSummaryForSave();
       final route = Route(
+        id: sourceRouteId ?? 0,
         name: trimmedName,
         gpxRoute: committedPoints,
         gpxRouteElevations: pointElevations,
@@ -3333,12 +3455,29 @@ class MapNotifier extends Notifier<MapState> {
       );
       _routeRepository.saveRoute(route);
       ref.read(routeRevisionProvider.notifier).increment();
-      state = state.copyWith(showRoutes: true);
-      endRouteDraft();
+      if (sourceRouteId != null) {
+        _closeRouteEditSession(restoreSelection: true);
+      } else {
+        state = state.copyWith(showRoutes: true);
+        endRouteDraft();
+      }
     } catch (error) {
       state = state.copyWith(isSavingRoute: false);
       _pendingRouteSnackbarMessage = 'Failed to save route: $error';
     }
+  }
+
+  void cancelRouteDraft() {
+    if (!state.isRouteDrafting) {
+      return;
+    }
+
+    if (state.sourceRouteId == null) {
+      endRouteDraft();
+      return;
+    }
+
+    _closeRouteEditSession(restoreSelection: true);
   }
 
   void retryRouteDraftSegment() {
@@ -3377,6 +3516,9 @@ class MapNotifier extends Notifier<MapState> {
       index++
     ) {
       final endpoint = state.routeDraftControlEndpoints[index];
+      if (!endpoint.renderMarker) {
+        continue;
+      }
       final isFinalReturnToStart =
           index == state.routeDraftControlEndpoints.length - 1 &&
           endpoint.point == startPoint;
@@ -4227,7 +4369,7 @@ class MapNotifier extends Notifier<MapState> {
     state = state.copyWith(clearHoveredRouteDraftSegmentPreview: true);
   }
 
-  void commitHoveredRouteDraftSegmentPreview() {
+  String? commitHoveredRouteDraftSegmentPreview({bool pushHistory = true}) {
     final segmentIndex = state.hoveredRouteDraftSegmentIndex;
     final committedSegmentIndex = state.hoveredRouteDraftCommittedSegmentIndex;
     final point = state.hoveredRouteDraftSegmentPoint;
@@ -4235,16 +4377,22 @@ class MapNotifier extends Notifier<MapState> {
         segmentIndex == null ||
         committedSegmentIndex == null ||
         point == null) {
-      return;
+      return null;
     }
 
-    _pushRouteDraftHistory();
-    _insertRouteDraftPointIntoChain(
+    if (pushHistory) {
+      _pushRouteDraftHistory();
+    }
+    final insertedMarkerId = _insertRouteDraftPointIntoChain(
       segmentIndex: segmentIndex,
       committedSegmentIndex: committedSegmentIndex,
       point: point,
     );
+    if (insertedMarkerId.isEmpty) {
+      return null;
+    }
     clearHoveredRouteDraftSegmentPreview();
+    return insertedMarkerId;
   }
 
   Future<void> deleteRouteDraftMarker(String markerId) async {
@@ -4277,7 +4425,7 @@ class MapNotifier extends Notifier<MapState> {
     );
   }
 
-  void beginRouteDraftMarkerDrag(String markerId) {
+  void beginRouteDraftMarkerDrag(String markerId, {bool pushHistory = true}) {
     if (!state.isRouteDrafting ||
         state.isSavingRoute ||
         state.routeDraftStage == RouteDraftStage.routingSegment ||
@@ -4287,7 +4435,9 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
-    _pushRouteDraftHistory();
+    if (pushHistory) {
+      _pushRouteDraftHistory();
+    }
     _activeRouteDraftDragMarkerId = markerId;
   }
 
@@ -4348,16 +4498,29 @@ class MapNotifier extends Notifier<MapState> {
     if (pushHistory) {
       _pushRouteDraftHistory();
     }
+    final originalKind = controlEndpoints[markerIndex].kind;
     controlEndpoints[markerIndex] = controlEndpoints[markerIndex].copyWith(
       point: point,
-      kind: _manualEndpointKindForPoint(point),
+      kind: switch (originalKind) {
+        RouteDraftEndpointKind.projectedAnchor ||
+        RouteDraftEndpointKind.snappedNode => originalKind,
+        _ => _manualEndpointKindForPoint(point),
+      },
     );
     final invalidatePeakTarget = _shouldInvalidateRouteDraftPeakTarget(
       controlEndpoints,
     );
+    final rerouteSegmentIndexes = <int>{};
+    if (markerIndex > 0) {
+      rerouteSegmentIndexes.add(markerIndex - 1);
+    }
+    if (markerIndex < controlEndpoints.length - 1) {
+      rerouteSegmentIndexes.add(markerIndex);
+    }
     await _rebuildRouteDraftFromControlEndpoints(
       controlEndpoints,
       invalidatePeakTarget: invalidatePeakTarget,
+      rerouteSegmentIndexes: rerouteSegmentIndexes,
     );
   }
 
@@ -4380,6 +4543,7 @@ class MapNotifier extends Notifier<MapState> {
   Future<void> _rebuildRouteDraftFromControlEndpoints(
     List<RouteDraftControlEndpoint> controlEndpoints, {
     required bool invalidatePeakTarget,
+    Set<int>? rerouteSegmentIndexes,
   }) async {
     final requestId = state.routeDraftRequestId + 1;
     final routeMode =
@@ -4438,7 +4602,58 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
+    final preservedSegments = rerouteSegmentIndexes == null
+        ? const <List<LatLng>>[]
+        : _splitCommittedRouteSegments(
+            state.routeDraftControlEndpoints,
+            state.routeDraftCommittedPoints,
+          );
+
     if (routeMode == RouteMode.straightLine) {
+      if (rerouteSegmentIndexes != null) {
+        var committedPoints = const <LatLng>[];
+        for (var index = 0; index < controlEndpoints.length - 1; index++) {
+          final segmentPoints =
+              !rerouteSegmentIndexes.contains(index) &&
+                  preservedSegments.length > index
+              ? preservedSegments[index]
+              : _appendPeakTerminalLegIfNeeded([
+                  controlEndpoints[index].point,
+                  controlEndpoints[index + 1].point,
+                ], controlEndpoints[index + 1].point);
+          committedPoints = _appendRouteSegment(committedPoints, segmentPoints);
+        }
+
+        final committedPointsView = List<LatLng>.unmodifiable(committedPoints);
+        state = state.copyWith(
+          routeDraftControlEndpoints:
+              List<RouteDraftControlEndpoint>.unmodifiable(controlEndpoints),
+          routeDraftDisplayMarkers: List<RouteDraftDisplayMarker>.unmodifiable(
+            _buildDisplayMarkers(controlEndpoints),
+          ),
+          routeDraftMarkers: List<LatLng>.unmodifiable(
+            controlEndpoints.map((endpoint) => endpoint.point),
+          ),
+          routeDraftStage: RouteDraftStage.awaitingNextPoint,
+          routeDraftCommittedPoints: committedPointsView,
+          routeDraftProvisionalPoints: const [],
+          routeDraftDistanceMeters: _polylineDistanceMeters(
+            committedPointsView,
+          ),
+          routeDraftOffTrackProbeActive: false,
+          routeDraftStraightLineFallback: false,
+          clearRouteDraftError: true,
+          routeDraftMode: routeMode,
+          clearRouteDraftPeak: invalidatePeakTarget,
+          routeDraftPeakTargetLocked: invalidatePeakTarget
+              ? true
+              : state.routeDraftPeakTargetLocked,
+          routeDraftRequestId: requestId,
+        );
+        _resampleRouteDraftElevation();
+        return;
+      }
+
       final committedPoints = List<LatLng>.unmodifiable(
         controlEndpoints.map((endpoint) => endpoint.point),
       );
@@ -4489,6 +4704,16 @@ class MapNotifier extends Notifier<MapState> {
     var usedFallback = false;
 
     for (var index = 0; index < rebuiltEndpoints.length - 1; index++) {
+      if (!((rerouteSegmentIndexes == null) ||
+          rerouteSegmentIndexes.contains(index))) {
+        if (preservedSegments.length > index) {
+          final segmentPoints = preservedSegments[index];
+          committedPoints = _appendRouteSegment(committedPoints, segmentPoints);
+          distanceMeters += _polylineDistanceMeters(segmentPoints);
+          continue;
+        }
+      }
+
       final startEndpoint = rebuiltEndpoints[index];
       final endEndpoint = rebuiltEndpoints[index + 1];
       final result = await _routePlanner.planSegmentResult(
@@ -4514,14 +4739,11 @@ class MapNotifier extends Notifier<MapState> {
                 : result.endAnchor,
             isPeakTarget: endEndpoint.kind == RouteDraftEndpointKind.peakTarget,
           );
-          final segmentPoints =
-              rebuiltEndpoints[index + 1].kind ==
-                  RouteDraftEndpointKind.peakTarget
-              ? _appendPeakTerminalLegIfNeeded(
-                  result.points,
-                  rebuiltEndpoints[index + 1].point,
-                )
-              : result.points;
+          final segmentPoints = _attachRouteDraftEndpoints(
+            result.points,
+            start: rebuiltEndpoints[index].point,
+            end: rebuiltEndpoints[index + 1].point,
+          );
           committedPoints = _appendRouteSegment(committedPoints, segmentPoints);
           distanceMeters += _polylineDistanceMeters(segmentPoints);
           break;
@@ -4590,7 +4812,7 @@ class MapNotifier extends Notifier<MapState> {
     _resampleRouteDraftElevation();
   }
 
-  void _insertRouteDraftPointIntoChain({
+  String _insertRouteDraftPointIntoChain({
     required int segmentIndex,
     required int committedSegmentIndex,
     required LatLng point,
@@ -4598,25 +4820,70 @@ class MapNotifier extends Notifier<MapState> {
     final controlEndpoints = List<RouteDraftControlEndpoint>.from(
       state.routeDraftControlEndpoints,
     );
+    final committedPoints = state.routeDraftCommittedPoints;
     if (segmentIndex < 0 || segmentIndex >= controlEndpoints.length - 1) {
-      return;
+      return '';
+    }
+    if (committedSegmentIndex < 0 ||
+        committedSegmentIndex >= committedPoints.length - 1) {
+      return '';
     }
 
-    final insertedEndpoint = _createControlEndpoint(
-      point: point,
-      kind: RouteDraftEndpointKind.projectedAnchor,
-      id: _routeDraftEndpointId(state.routeDraftNextMarkerId),
-    );
-    controlEndpoints.insert(segmentIndex + 1, insertedEndpoint);
+    var nextMarkerId = state.routeDraftNextMarkerId;
+    var insertionIndex = segmentIndex + 1;
 
-    final committedPoints = List<LatLng>.from(state.routeDraftCommittedPoints);
+    final committedStart = committedPoints[committedSegmentIndex];
+    if (controlEndpoints[segmentIndex].point != committedStart) {
+      controlEndpoints.insert(
+        insertionIndex,
+        _createControlEndpoint(
+          point: committedStart,
+          kind: RouteDraftEndpointKind.projectedAnchor,
+          id: _routeDraftEndpointId(nextMarkerId),
+          renderMarker: false,
+        ),
+      );
+      nextMarkerId += 1;
+      insertionIndex += 1;
+    }
+
+    final insertedMarkerId = _routeDraftEndpointId(nextMarkerId);
+    controlEndpoints.insert(
+      insertionIndex,
+      _createControlEndpoint(
+        point: point,
+        kind: RouteDraftEndpointKind.projectedAnchor,
+        id: insertedMarkerId,
+      ),
+    );
+    nextMarkerId += 1;
+    insertionIndex += 1;
+
+    final committedEnd = committedPoints[committedSegmentIndex + 1];
+    if (insertionIndex >= controlEndpoints.length ||
+        controlEndpoints[insertionIndex].point != committedEnd) {
+      controlEndpoints.insert(
+        insertionIndex,
+        _createControlEndpoint(
+          point: committedEnd,
+          kind: RouteDraftEndpointKind.projectedAnchor,
+          id: _routeDraftEndpointId(nextMarkerId),
+          renderMarker: false,
+        ),
+      );
+      nextMarkerId += 1;
+    }
+
+    final rebuiltCommittedPoints = List<LatLng>.from(
+      state.routeDraftCommittedPoints,
+    );
     if (committedSegmentIndex >= 0 &&
-        committedSegmentIndex < committedPoints.length) {
-      committedPoints.insert(committedSegmentIndex + 1, point);
-    } else if (segmentIndex + 1 <= committedPoints.length) {
-      committedPoints.insert(segmentIndex + 1, point);
+        committedSegmentIndex < rebuiltCommittedPoints.length) {
+      rebuiltCommittedPoints.insert(committedSegmentIndex + 1, point);
+    } else if (segmentIndex + 1 <= rebuiltCommittedPoints.length) {
+      rebuiltCommittedPoints.insert(segmentIndex + 1, point);
     } else {
-      committedPoints.add(point);
+      rebuiltCommittedPoints.add(point);
     }
 
     state = state.copyWith(
@@ -4629,11 +4896,14 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftMarkers: List<LatLng>.unmodifiable(
         controlEndpoints.map((endpoint) => endpoint.point),
       ),
-      routeDraftCommittedPoints: List<LatLng>.unmodifiable(committedPoints),
-      routeDraftNextMarkerId: state.routeDraftNextMarkerId + 1,
+      routeDraftCommittedPoints: List<LatLng>.unmodifiable(
+        rebuiltCommittedPoints,
+      ),
+      routeDraftNextMarkerId: nextMarkerId,
       routeDraftGeometryVersion: state.routeDraftGeometryVersion + 1,
     );
     _resampleRouteDraftElevation();
+    return insertedMarkerId;
   }
 
   Future<void> deleteTrack(int trackId) async {
@@ -4675,6 +4945,14 @@ class MapNotifier extends Notifier<MapState> {
   void reconcileSelectedRouteState() {
     final selectedRouteId = state.selectedRouteId;
     if (selectedRouteId == null) {
+      final sourceRouteId = state.sourceRouteId;
+      if (state.isRouteDrafting && sourceRouteId != null) {
+        final hasSourceRoute = _routeRepository.findById(sourceRouteId) != null;
+        if (!hasSourceRoute) {
+          _pendingRouteSnackbarMessage = 'Route is no longer available.';
+          _closeRouteEditSession(restoreSelection: false);
+        }
+      }
       return;
     }
 
@@ -4685,6 +4963,15 @@ class MapNotifier extends Notifier<MapState> {
         );
     if (!hasVisibleRoute) {
       state = state.copyWith(clearSelectedRouteId: true);
+    }
+
+    final sourceRouteId = state.sourceRouteId;
+    if (state.isRouteDrafting && sourceRouteId != null) {
+      final hasSourceRoute = _routeRepository.findById(sourceRouteId) != null;
+      if (!hasSourceRoute) {
+        _pendingRouteSnackbarMessage = 'Route is no longer available.';
+        _closeRouteEditSession(restoreSelection: false);
+      }
     }
   }
 

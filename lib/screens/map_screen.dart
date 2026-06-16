@@ -129,6 +129,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
   bool _trackRouteChooserSuppressReopen = false;
   String? _pendingRouteDraftDragMarkerId;
   double _pendingRouteDraftDragDistance = 0;
+  bool _pendingHoveredRouteDraftSegmentDrag = false;
+  double _pendingHoveredRouteDraftSegmentDragDistance = 0;
   String? _draggingRouteDraftMarkerId;
   Offset? _draggingRouteDraftMarkerScreenOffset;
   LatLng? _trackpadGestureCenter;
@@ -489,6 +491,76 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _bumpViewportUiRevision();
   }
 
+  void _startHoveredRouteDraftSegmentDrag() {
+    final mapState = ref.read(mapProvider);
+    final hoveredPoint = mapState.hoveredRouteDraftSegmentPoint;
+    final camera = _mapController.camera;
+    if (!mapState.isRouteDrafting ||
+        mapState.isSavingRoute ||
+        hoveredPoint == null ||
+        camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      return;
+    }
+
+    final notifier = ref.read(mapProvider.notifier);
+    final insertedMarkerId = notifier.commitHoveredRouteDraftSegmentPreview();
+    if (insertedMarkerId == null) {
+      return;
+    }
+
+    _routeDraftMarkerTapConsumed = true;
+    _dismissRouteDraftMarkerDeletePopup();
+    _pendingHoveredRouteDraftSegmentDrag = false;
+    _pendingHoveredRouteDraftSegmentDragDistance = 0;
+    _pendingRouteDraftDragMarkerId = null;
+    _pendingRouteDraftDragDistance = 0;
+    _draggingRouteDraftMarkerId = insertedMarkerId;
+    _draggingRouteDraftMarkerScreenOffset = camera.latLngToScreenOffset(
+      hoveredPoint,
+    );
+    notifier.beginRouteDraftMarkerDrag(insertedMarkerId, pushHistory: false);
+    _bumpViewportUiRevision();
+  }
+
+  void _beginHoveredRouteDraftSegmentInteraction() {
+    _routeDraftMarkerTapConsumed = true;
+    _pendingHoveredRouteDraftSegmentDrag = true;
+    _pendingHoveredRouteDraftSegmentDragDistance = 0;
+    _dismissRouteDraftMarkerDeletePopup();
+  }
+
+  void _trackHoveredRouteDraftSegmentDrag(Offset delta) {
+    if (!_pendingHoveredRouteDraftSegmentDrag &&
+        _draggingRouteDraftMarkerId == null) {
+      return;
+    }
+
+    _routeDraftMarkerTapConsumed = true;
+    if (_draggingRouteDraftMarkerId == null) {
+      _pendingHoveredRouteDraftSegmentDragDistance += delta.distance;
+      if (_pendingHoveredRouteDraftSegmentDragDistance <= 5) {
+        return;
+      }
+      _startHoveredRouteDraftSegmentDrag();
+    }
+
+    final markerId = _draggingRouteDraftMarkerId;
+    if (markerId == null) {
+      return;
+    }
+    _updateRouteDraftMarkerDrag(markerId, delta);
+  }
+
+  void _endHoveredRouteDraftSegmentInteraction() {
+    final markerId = _draggingRouteDraftMarkerId;
+    if (markerId != null) {
+      _endRouteDraftMarkerDrag(markerId);
+      return;
+    }
+    _pendingHoveredRouteDraftSegmentDrag = false;
+    _pendingHoveredRouteDraftSegmentDragDistance = 0;
+  }
+
   void _updateRouteDraftMarkerDrag(String markerId, Offset delta) {
     if (_draggingRouteDraftMarkerId != markerId ||
         _draggingRouteDraftMarkerScreenOffset == null) {
@@ -498,6 +570,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _routeDraftMarkerTapConsumed = true;
     final nextScreenOffset = _draggingRouteDraftMarkerScreenOffset! + delta;
     _draggingRouteDraftMarkerScreenOffset = nextScreenOffset;
+    final nextPoint = _mapController.camera.screenOffsetToLatLng(
+      nextScreenOffset,
+    );
+    unawaited(
+      ref
+          .read(mapProvider.notifier)
+          .updateRouteDraftMarkerDrag(markerId, nextPoint),
+    );
     _bumpViewportUiRevision();
   }
 
@@ -1532,9 +1612,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
       return;
     }
 
-    ref.read(mapProvider.notifier).updateVisibleBounds(
-      _mapController.camera.visibleBounds,
-    );
+    ref
+        .read(mapProvider.notifier)
+        .updateVisibleBounds(_mapController.camera.visibleBounds);
   }
 
   void _updateContinuousCamera({
@@ -2002,12 +2082,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
             }
             return KeyEventResult.ignored;
           },
-            child: Scaffold(
-              key: _scaffoldKey,
-              endDrawer: switch (routeChrome.endDrawerMode) {
+          child: Scaffold(
+            key: _scaffoldKey,
+            endDrawer: switch (routeChrome.endDrawerMode) {
               EndDrawerMode.basemaps => MapBasemapsDrawer(
-                  regionKey: _basemapDrawerRegionKey,
-                ),
+                regionKey: _basemapDrawerRegionKey,
+              ),
               EndDrawerMode.peakLists => const MapPeakListsDrawer(),
               EndDrawerMode.tracksRoutes => const MapTracksRoutesDrawer(),
             },
@@ -2072,6 +2152,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                         : null;
                     final filteredPeaks = ref.watch(filteredPeaksProvider);
                     final routes = ref.watch(routeListProvider);
+                    final routeDraftSourceRouteId = ref.watch(
+                      mapProvider.select((state) => state.sourceRouteId),
+                    );
                     final polygonLayer = _polygonAssetLayerFor(
                       showPolygons: showPolygons,
                       polygonAssets: polygonAssets,
@@ -2106,7 +2189,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     );
                     final routeDraftVisibility = ref.watch(
                       mapProvider.select(
-                        (state) => (isRouteDrafting: state.isRouteDrafting),
+                        (state) => (
+                          isRouteDrafting: state.isRouteDrafting,
+                          isSavingRoute: state.isSavingRoute,
+                        ),
                       ),
                     );
                     final routeSnackbarMessage = ref
@@ -2424,11 +2510,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                             );
                                             return;
                                           }
-                                          final tappedCluster = _hitTestPeakCluster(
-                                            event.localPosition,
-                                            ref.read(mapProvider),
-                                            ref.read(filteredPeaksProvider),
-                                          );
+                                          final tappedCluster =
+                                              _hitTestPeakCluster(
+                                                event.localPosition,
+                                                ref.read(mapProvider),
+                                                ref.read(filteredPeaksProvider),
+                                              );
                                           if (tappedCluster != null) {
                                             _expandPeakCluster(tappedCluster);
                                             return;
@@ -2698,6 +2785,17 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                   _finishRouteDraftMarkerInteraction,
                                               onTap:
                                                   _openRouteDraftMarkerDeletePopup,
+                                              onHoveredSegmentTap: () {
+                                                ref
+                                                    .read(mapProvider.notifier)
+                                                    .commitHoveredRouteDraftSegmentPreview();
+                                              },
+                                              onHoveredSegmentPanStart:
+                                                  _beginHoveredRouteDraftSegmentInteraction,
+                                              onHoveredSegmentPanUpdate:
+                                                  _trackHoveredRouteDraftSegmentDrag,
+                                              onHoveredSegmentPanEnd:
+                                                  _endHoveredRouteDraftSegmentInteraction,
                                             ),
                                           ),
                                         if (mapScene.selectedPeaks.isNotEmpty)
@@ -2743,6 +2841,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                             mapScene.zoom,
                                             selectedRouteId:
                                                 mapScene.selectedRouteId,
+                                            excludedRouteId:
+                                                routeDraftSourceRouteId,
                                           ),
                                         if (mapScene.showTracks)
                                           buildTrackPolylines(
@@ -2762,8 +2862,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                   (state) => (
                                                     hoveredPeakId:
                                                         state.hoveredPeakId,
-                                                    popupPeakId:
-                                                        state.peakInfoPeak?.osmId,
+                                                    popupPeakId: state
+                                                        .peakInfoPeak
+                                                        ?.osmId,
                                                   ),
                                                 ),
                                               );
