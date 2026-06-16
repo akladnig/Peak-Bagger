@@ -183,25 +183,7 @@ class _LatestWalkContent extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  summary.dateText,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: textStyle,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  summary.distanceText,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: textStyle,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  summary.ascentText,
+                  '${summary.dateText} • ${summary.distanceText} • ${summary.ascentText}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: textStyle,

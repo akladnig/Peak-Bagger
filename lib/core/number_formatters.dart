@@ -16,6 +16,24 @@ String formatDistance(double value, {int decimalPlaces = 0}) {
   return '${(roundedMeters / 1000).toStringAsFixed(decimalPlaces)} km';
 }
 
+String formatDistancePair(
+  double first,
+  double second, {
+  int decimalPlaces = 0,
+  String separator = '/',
+}) {
+  final firstText = formatDistance(first, decimalPlaces: decimalPlaces);
+  final secondText = formatDistance(second, decimalPlaces: decimalPlaces);
+
+  for (final unit in [' km', ' m']) {
+    if (firstText.endsWith(unit) && secondText.endsWith(unit)) {
+      return '${firstText.substring(0, firstText.length - unit.length)}$separator$secondText';
+    }
+  }
+
+  return '$firstText$separator$secondText';
+}
+
 String formatFileSizeKiB(double value, {int decimalPlaces = 1}) =>
     '${value.toStringAsFixed(decimalPlaces)} KiB';
 
