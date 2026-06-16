@@ -1059,8 +1059,9 @@ void main() {
           const LatLng(-41.55, 146.55),
           const LatLng(-41.6, 146.6),
         );
+    expect(find.text('Distance (2d/3d)'), findsOneWidget);
     expect(find.byKey(const Key('route-distance-text')), findsOneWidget);
-    expect(find.text('13.9 km'), findsOneWidget);
+    expect(find.text('13.9 / 1.3 km'), findsOneWidget);
     expect(find.text('Ascent'), findsOneWidget);
     expect(find.text('432 m'), findsOneWidget);
     expect(find.text('Descent'), findsOneWidget);
@@ -1224,10 +1225,15 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const Key('route-distance-text')), findsOneWidget);
+    expect(find.text('Distance (2d/3d)'), findsOneWidget);
     expect(find.text('Ascent'), findsOneWidget);
     expect(find.text('150 m'), findsOneWidget);
     expect(find.text('Descent'), findsOneWidget);
     expect(find.text('75 m'), findsOneWidget);
+    final fallbackDistance = tester.widget<Text>(
+      find.byKey(const Key('route-distance-text')),
+    );
+    expect(fallbackDistance.data, endsWith(' / 0 m'));
     expect(find.byIcon(Icons.arrow_upward), findsOneWidget);
     expect(find.byIcon(Icons.arrow_downward), findsOneWidget);
     expect(find.byKey(const Key('route-error-text')), findsNothing);
@@ -1340,6 +1346,7 @@ void main() {
         find.byKey(const Key('route-elevation-loading-text')),
         findsOneWidget,
       );
+      expect(find.text('Distance (2d/3d)'), findsNothing);
 
       routeElevationSampler.failNext(Exception('DEM offline'));
       await tester.pump();
@@ -1354,10 +1361,10 @@ void main() {
         find.byKey(const Key('route-elevation-error-text')),
         findsOneWidget,
       );
-    expect(find.byKey(const Key('route-elevation-error-text')), findsOneWidget);
-    expect(find.text('315 m'), findsNothing);
-    expect(find.text('234 m'), findsNothing);
-  },
+      expect(find.text('Distance (2d/3d)'), findsNothing);
+      expect(find.text('315 m'), findsNothing);
+      expect(find.text('234 m'), findsNothing);
+    },
   );
 
   testWidgets(
@@ -1389,7 +1396,8 @@ void main() {
       final distanceText = tester.widget<Text>(
         find.byKey(const Key('route-distance-text')),
       );
-      expect(distanceText.data, '850 m');
+      expect(find.text('Distance (2d/3d)'), findsOneWidget);
+      expect(distanceText.data, '850 / 0 m');
     },
   );
 }

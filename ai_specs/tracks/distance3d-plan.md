@@ -40,14 +40,14 @@ Reuse current formatter path; add tiny shared presentation seam; extend focused 
 ### Phase 3: Route Draft Summary + Journey
 
 - **Goal**: route-draft success-state combined distance; loading/error intact
-- [ ] `lib/widgets/map_route_bottom_sheet.dart` - in success branch, replace bare 2D distance text with combined `Distance (2d/3d)` value; preserve existing loading/error priority and reuse `route-distance-text` if practical
-- [ ] `test/widget/map_screen_route_sheet_test.dart` - assert combined distance in success state; assert loading/error branches still suppress combined output
-- [ ] `test/robot/map/map_route_robot.dart` - keep selector seam stable around `route-distance-text`; add helper/assertion only if needed for combined text readability
-- [ ] `test/robot/map/map_route_journey_test.dart` - extend happy-path route draft journey to assert combined distance after elevation sampling succeeds
-- [ ] TDD: route draft success state shows combined 2D/3D distance only when `routeDraftElevationSummary` exists
-- [ ] TDD: route draft loading/error states keep current message priority and omit combined distance
-- [ ] Robot journey tests + selectors/seams for critical flows: route draft happy path through existing `route-distance-text`; deterministic existing route-elevation fake queue
-- [ ] Verify: `flutter analyze` && `flutter test test/widget/map_screen_route_sheet_test.dart test/robot/map/map_route_journey_test.dart`
+- [x] `lib/widgets/map_route_bottom_sheet.dart` - in success branch, replace bare 2D distance text with combined `Distance (2d/3d)` value; preserve existing loading/error priority and reuse `route-distance-text` if practical
+- [x] `test/widget/map_screen_route_sheet_test.dart` - assert combined distance in success state; assert loading/error branches still suppress combined output
+- [x] `test/robot/map/map_route_robot.dart` - keep selector seam stable around `route-distance-text`; add helper/assertion only if needed for combined text readability
+- [x] `test/robot/map/map_route_journey_test.dart` - extend happy-path route draft journey to assert combined distance after elevation sampling succeeds
+- [x] TDD: route draft success state shows combined 2D/3D distance only when `routeDraftElevationSummary` exists
+- [x] TDD: route draft loading/error states keep current message priority and omit combined distance
+- [x] Robot journey tests + selectors/seams for critical flows: route draft happy path through existing `route-distance-text`; deterministic existing route-elevation fake queue
+- [x] Verify: `flutter analyze` && `flutter test test/widget/map_screen_route_sheet_test.dart test/robot/map/map_route_journey_test.dart`
 
 ## Risks / Out of scope
 

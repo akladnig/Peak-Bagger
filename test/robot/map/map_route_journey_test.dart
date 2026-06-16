@@ -76,6 +76,7 @@ void main() {
     await robot.selectRouteMode(RouteMode.routeToPeak);
 
     expect(robot.routeDistanceText, findsOneWidget);
+    robot.expectRouteDistanceContains('/ 1.0 km');
     expect(robot.routeAscentText, findsOneWidget);
     expect(find.text('321 m'), findsOneWidget);
 
@@ -275,6 +276,7 @@ void main() {
     await robot.applyCloseLoop();
 
     expect(robot.routeDistanceText, findsOneWidget);
+    robot.expectRouteDistanceContains('/ 1.0 km');
     expect(find.text('321 m'), findsOneWidget);
 
     await robot.enterRouteName('Close Loop Route');
@@ -351,6 +353,7 @@ void main() {
 
     await robot.tapRoutePoint(const Offset(80, 0));
 
+    robot.expectRouteDistanceContains('/ 2.2 km');
     expect(robot.routeAscentText, findsOneWidget);
     expect(find.text('654 m'), findsOneWidget);
     expect(robot.routeDescentText, findsOneWidget);
