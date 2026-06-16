@@ -85,7 +85,7 @@ void main() {
     expect(find.byKey(const Key('basemaps-drawer-empty-state')), findsOneWidget);
   });
 
-  testWidgets('slovenia region shows slovenia ortofoto option', (tester) async {
+  testWidgets('slovenia region shows slovenia topo option', (tester) async {
     final notifier = TestMapNotifier(
       MapState(
         center: const LatLng(46.05, 14.5),
@@ -100,7 +100,7 @@ void main() {
     await tester.tap(find.byKey(const Key('show-basemaps-fab')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('basemap-option-sloveniaOrtofoto')), findsOneWidget);
+    expect(find.byKey(const Key('basemap-option-sloveniaTopo')), findsOneWidget);
     expect(find.byKey(const Key('basemap-option-nswTopo')), findsNothing);
   });
 }

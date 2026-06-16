@@ -18,7 +18,7 @@ void main() {
         'nswImagery',
         'nswBasemap',
         'nswTopo',
-        'sloveniaOrtofoto',
+        'sloveniaTopo',
       ],
     );
   });
@@ -63,7 +63,7 @@ void main() {
           .basemapsForRegionKey('slovenia')
           .map((basemap) => basemap.key)
           .toList(growable: false),
-      const ['openstreetmap', 'tracestrack', 'sloveniaOrtofoto'],
+      const ['openstreetmap', 'tracestrack', 'sloveniaTopo'],
     );
   });
 
@@ -77,13 +77,13 @@ void main() {
       regionManifestCatalog.basemapByKey('nswTopo')!.tileUrl,
     );
     expect(
-      mapTileUrl(Basemap.sloveniaOrtofoto),
+      mapTileUrl(Basemap.sloveniaTopo),
       'https://tiles.peakbagger.com/slovenia-topo/{z}/{x}/{y}.png',
     );
   });
 
   test('Slovenia topo uses the proxy tile layer config', () {
-    final layer = buildBasemapTileLayer(Basemap.sloveniaOrtofoto);
+    final layer = buildBasemapTileLayer(Basemap.sloveniaTopo);
 
     expect(layer, isA<TileLayer>());
     final tileLayer = layer;

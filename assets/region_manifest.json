@@ -182,7 +182,7 @@
         "maxZoom": 24
       },
       {
-        "key": "sloveniaOrtofoto",
+        "key": "sloveniaTopo",
         "name": "Slovenia Topo",
         "tileUrl": "https://tiles.peakbagger.com/slovenia-topo/{z}/{x}/{y}.png",
         "attribution": "\u00A9 Geodetska uprava Republike Slovenije",

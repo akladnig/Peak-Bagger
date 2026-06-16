@@ -38,7 +38,7 @@ void main() {
     expect(find.byKey(const Key('basemaps-drawer')), findsNothing);
   });
 
-  testWidgets('basemap drawer selects slovenia ortofoto in slovenia', (
+  testWidgets('basemap drawer selects slovenia topo in slovenia', (
     tester,
   ) async {
     final robot = MapRouteRobot(
@@ -60,14 +60,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('basemaps-drawer')), findsOneWidget);
-    expect(find.byKey(const Key('basemap-option-sloveniaOrtofoto')), findsOneWidget);
+    expect(find.byKey(const Key('basemap-option-sloveniaTopo')), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('basemap-option-sloveniaOrtofoto')));
+    await tester.tap(find.byKey(const Key('basemap-option-sloveniaTopo')));
     await tester.pumpAndSettle();
 
     expect(
       robot.container().read(mapProvider).basemap,
-      Basemap.sloveniaOrtofoto,
+      Basemap.sloveniaTopo,
     );
     expect(find.byKey(const Key('basemaps-drawer')), findsNothing);
   });
