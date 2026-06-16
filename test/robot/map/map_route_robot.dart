@@ -91,6 +91,12 @@ class MapRouteRobot {
     expect(routeControlsOverlayRoot, findsNothing);
   }
 
+  void expectRouteDistanceContains(String valueFragment) {
+    expect(routeDistanceText, findsOneWidget);
+    final text = tester.widget<Text>(routeDistanceText).data;
+    expect(text, contains(valueFragment));
+  }
+
   Future<void> pumpApp() async {
     await tester.binding.setSurfaceSize(const Size(1600, 900));
     _tasmapRepository = await TestTasmapRepository.create();

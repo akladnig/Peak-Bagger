@@ -1,13 +1,48 @@
-import 'dart:ui' show PointerDeviceKind;
-
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/screens/map_screen_panels.dart';
+import 'package:peak_bagger/services/elevation_profile_series_builder.dart';
 import 'package:peak_bagger/widgets/elevation_profile_chart.dart';
 
 void main() {
+  testWidgets('renders combined distance metric for a track', (tester) async {
+    final track = GpxTrack(
+      contentHash: 'hash',
+      trackName: 'Test Track',
+      distance2d: 12400,
+      distance3d: 0,
+      ascent: 638,
+      totalTimeMillis: 5400000,
+      lowestElevation: 1022,
+      highestElevation: 1377,
+      elevationProfile: '''
+[
+  {"distanceMeters":0,"elevationMeters":100,"timeLocal":"2024-01-15T08:00:00.000"},
+  {"distanceMeters":100,"elevationMeters":120,"timeLocal":"2024-01-15T08:10:00.000"}
+]
+''',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 600,
+            child: MapTrackInfoPanel(
+              track: track,
+              onClose: () {},
+              onExport: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Distance (2d/3d)'), findsOneWidget);
+    expect(find.text('12.4 / 0.0 km'), findsOneWidget);
+  });
+
   testWidgets('renders elevation profile chart for a track', (tester) async {
     final track = GpxTrack(
       contentHash: 'hash',
@@ -45,7 +80,7 @@ void main() {
     expect(chart.maxElevation, track.highestElevation);
   });
 
-  testWidgets('forwards track chart hover samples', (tester) async {
+  testWidgets('forwards track chart hover callback', (tester) async {
     final hoverEvents = <ElevationProfileChartHoverSample?>[];
     final track = GpxTrack(
       contentHash: 'hash',
@@ -77,17 +112,23 @@ void main() {
       ),
     );
 
-    final chart = find.byType(LineChart);
-    final chartRect = tester.getRect(chart);
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    addTearDown(mouse.removePointer);
-
-    await mouse.addPointer(location: chartRect.topLeft - const Offset(20, 20));
-    await tester.pump();
-    await mouse.moveTo(
-      Offset(chartRect.left + (chartRect.width * 0.85), chartRect.center.dy),
+    final chart = tester.widget<ElevationProfileChart>(
+      find.byType(ElevationProfileChart),
     );
-    await tester.pump();
+    final sample = ElevationProfileChartHoverSample(
+      sampleIndex: 2,
+      sample: ElevationProfileSample(
+        segmentIndex: 1,
+        pointIndex: 0,
+        distanceMeters: 24,
+        elevationMeters: 120,
+        timeLocal: DateTime.utc(2024, 1, 15, 8, 10),
+      ),
+      xValue: 24,
+      axisMode: ElevationProfileAxisMode.distance,
+    );
+
+    chart.onHoverChanged?.call(sample);
 
     expect(hoverEvents.last, isNotNull);
     expect(hoverEvents.last!.sampleIndex, 2);

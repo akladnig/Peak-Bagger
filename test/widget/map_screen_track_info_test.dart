@@ -215,13 +215,16 @@ void main() {
     expect(find.text('Wed, 7 January 2026'), findsOneWidget);
     expect(find.text('from Unknown to Unknown'), findsOneWidget);
     expect(panel.color, CatppuccinColors.dark.colorScheme.secondary);
-    expect(find.text('Distance'), findsOneWidget);
+    expect(find.text('Distance (2d/3d)'), findsOneWidget);
     expect(
       find.descendant(
         of: find
-            .ancestor(of: find.text('Distance'), matching: find.byType(Row))
+            .ancestor(
+              of: find.text('Distance (2d/3d)'),
+              matching: find.byType(Row),
+            )
             .first,
-        matching: find.text('12.4 km'),
+        matching: find.text('12.4 / 0.0 km'),
       ),
       findsOneWidget,
     );

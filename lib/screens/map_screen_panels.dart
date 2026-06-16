@@ -360,8 +360,8 @@ class MapTrackInfoPanel extends StatelessWidget {
           children: [
             Expanded(
               child: _SummaryMetric(
-                label: 'Distance',
-                value: formatDistance(route.distance2d, decimalPlaces: 1),
+                label: 'Distance (2d/3d)',
+                value: formatDistance2d3d(route.distance2d, route.distance3d),
               ),
             ),
             Expanded(
@@ -446,8 +446,8 @@ class MapTrackInfoPanel extends StatelessWidget {
           children: [
             Expanded(
               child: _SummaryMetric(
-                label: 'Distance',
-                value: formatDistance(track.distance2d, decimalPlaces: 1),
+                label: 'Distance (2d/3d)',
+                value: formatDistance2d3d(track.distance2d, track.distance3d),
               ),
             ),
             Expanded(
@@ -996,12 +996,17 @@ class _SummaryMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
         const SizedBox(height: 4),
         Text(
           value,
+          textAlign: TextAlign.center,
           style: Theme.of(
             context,
           ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),

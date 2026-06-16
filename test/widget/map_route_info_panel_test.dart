@@ -9,6 +9,38 @@ import 'package:peak_bagger/screens/map_screen_panels.dart';
 import 'package:peak_bagger/widgets/elevation_profile_chart.dart';
 
 void main() {
+  testWidgets('renders combined distance metric for a saved route', (
+    tester,
+  ) async {
+    final route = app_route.Route(
+      name: 'Test Route',
+      distance2d: 17450,
+      distance3d: 17920,
+      ascent: 912,
+      descent: 456,
+      gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.5, 146.51)],
+      gpxRouteElevations: const [100, 120],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 600,
+            child: MapTrackInfoPanel(
+              route: route,
+              onClose: () {},
+              onExport: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Distance (2d/3d)'), findsOneWidget);
+    expect(find.text('17.4 / 17.9 km'), findsOneWidget);
+  });
+
   testWidgets('renders elevation profile chart for a saved route', (
     tester,
   ) async {

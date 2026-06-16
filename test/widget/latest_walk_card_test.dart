@@ -4,6 +4,7 @@ import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/core/constants.dart';
+import 'package:peak_bagger/core/date_formatters.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
@@ -66,8 +67,12 @@ void main() {
     );
 
     expect(find.text('Track 20'), findsOneWidget);
-    expect(find.text('12.4 km'), findsOneWidget);
-    expect(find.text('638 m'), findsOneWidget);
+    expect(
+      find.text(
+        '${formatTrackDate(DateTime.utc(2026, 5, 15, 10))} • 12.4 / 12.7 km • 638 m',
+      ),
+      findsOneWidget,
+    );
     expect(find.byKey(const Key('latest-walk-mini-map')), findsOneWidget);
     expect(find.byType(FlutterMap), findsOneWidget);
     expect(find.byType(PolylineLayer), findsOneWidget);
@@ -306,6 +311,9 @@ GpxTrack _track(
   List<List<LatLng>> segments = const [],
   List<Peak> peaks = const [],
   bool peakCorrelationProcessed = false,
+  double distance2d = 12400,
+  double distance3d = 12700,
+  double? ascent = 638,
 }) {
   final track = GpxTrack(
     gpxTrackId: id,
@@ -313,8 +321,9 @@ GpxTrack _track(
     trackName: 'Track $id',
     trackDate: startDateTime,
     startDateTime: startDateTime,
-    distance2d: 12400,
-    ascent: 638,
+    distance2d: distance2d,
+    distance3d: distance3d,
+    ascent: ascent,
     gpxFile: segments.isEmpty ? '' : '<gpx></gpx>',
     displayTrackPointsByZoom: segments.isEmpty
         ? '{}'

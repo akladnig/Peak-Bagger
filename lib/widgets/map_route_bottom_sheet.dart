@@ -286,6 +286,12 @@ class _DistanceElevationGroup extends StatelessWidget {
       decimalPlaces: 1,
     );
     final elevationSummary = routeDraftElevationSummary;
+    final combinedDistanceText = elevationSummary == null
+        ? null
+        : formatDistance2d3d(
+            routeDraftDistanceMeters,
+            elevationSummary.distance3d,
+          );
 
     return Column(
       key: const Key('route-distance-elevation-group'),
@@ -326,13 +332,22 @@ class _DistanceElevationGroup extends StatelessWidget {
             runSpacing: 4,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Text(
-                distanceText,
-                key: const Key('route-distance-text'),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+              if (elevationSummary != null &&
+                  !routeDraftElevationLoading &&
+                  routeDraftElevationError == null)
+                _RouteSummaryMetric(
+                  label: 'Distance (2d/3d)',
+                  value: combinedDistanceText!,
+                  valueKey: const Key('route-distance-text'),
+                )
+              else
+                Text(
+                  distanceText,
+                  key: const Key('route-distance-text'),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
               if (routeDraftElevationLoading)
                 Text(
                   'Sampling elevation...',
@@ -417,6 +432,39 @@ class _ElevationMetric extends StatelessWidget {
           formatElevation(value),
           key: valueKey,
           style: theme.textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RouteSummaryMetric extends StatelessWidget {
+  const _RouteSummaryMetric({
+    required this.label,
+    required this.value,
+    required this.valueKey,
+  });
+
+  final String label;
+  final String value;
+  final Key valueKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: theme.textTheme.bodySmall),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          key: valueKey,
+          style: theme.textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w700,
           ),
         ),

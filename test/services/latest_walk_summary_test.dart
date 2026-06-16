@@ -130,13 +130,30 @@ void main() {
           [const LatLng(-41.5, 146.5), const LatLng(-41.4, 146.6)],
         ],
         distance2d: 12400,
+        distance3d: 12700,
         ascent: null,
       ),
     ]);
 
     expect(summary.dateText, formatTrackDate(DateTime.utc(2026, 1, 7, 23, 30)));
-    expect(summary.distanceText, '12.4 km');
+    expect(summary.distanceText, '12.4 / 12.7 km');
     expect(summary.ascentText, 'Unknown');
+  });
+
+  test('formats mixed-unit combined distance from selected track', () {
+    final summary = LatestWalkSummary.fromTracks([
+      _track(
+        10,
+        DateTime.utc(2026, 1, 7, 23, 30),
+        segments: [
+          [const LatLng(-41.5, 146.5), const LatLng(-41.4, 146.6)],
+        ],
+        distance2d: 850,
+        distance3d: 900,
+      ),
+    ]);
+
+    expect(summary.distanceText, '0.8 / 0.9 km');
   });
 }
 
@@ -145,6 +162,7 @@ GpxTrack _track(
   DateTime? startDateTime, {
   List<List<LatLng>> segments = const [],
   double distance2d = 12400,
+  double distance3d = 12400,
   double? ascent = 638,
 }) {
   return GpxTrack(
@@ -154,6 +172,7 @@ GpxTrack _track(
     trackDate: startDateTime,
     startDateTime: startDateTime,
     distance2d: distance2d,
+    distance3d: distance3d,
     ascent: ascent,
     gpxFile: segments.isEmpty ? '' : '<gpx></gpx>',
     displayTrackPointsByZoom: segments.isEmpty

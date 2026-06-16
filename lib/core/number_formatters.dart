@@ -16,6 +16,16 @@ String formatDistance(double value, {int decimalPlaces = 0}) {
   return '${(roundedMeters / 1000).toStringAsFixed(decimalPlaces)} km';
 }
 
+String formatDistance2d3d(
+  double distance2d,
+  double distance3d, {
+  int decimalPlaces = 1,
+}) {
+  final firstKm = (distance2d / 1000).toStringAsFixed(decimalPlaces);
+  final secondKm = (distance3d / 1000).toStringAsFixed(decimalPlaces);
+  return '$firstKm / $secondKm km';
+}
+
 String formatFileSizeKiB(double value, {int decimalPlaces = 1}) =>
     '${value.toStringAsFixed(decimalPlaces)} KiB';
 
