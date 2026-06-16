@@ -481,6 +481,10 @@ List<Marker> buildRouteDraftMarkers({
   ValueChanged<String>? onPanStart,
   void Function(String, Offset delta)? onPanUpdate,
   ValueChanged<String>? onPanEnd,
+  VoidCallback? onHoveredSegmentTap,
+  VoidCallback? onHoveredSegmentPanStart,
+  ValueChanged<Offset>? onHoveredSegmentPanUpdate,
+  VoidCallback? onHoveredSegmentPanEnd,
 }) {
   final routeMarkers = <Marker>[
     for (final marker in markers)
@@ -516,11 +520,33 @@ List<Marker> buildRouteDraftMarkers({
         point: hoveredSegmentPoint,
         width: RouteUI.markerNumberedSize,
         height: RouteUI.markerNumberedSize,
-        child: RouteMarker(
-          kind: RouteMarkerKind.circle,
-          color: Color(colour),
-          size: RouteUI.markerNumberedSize,
-          strokeWidth: RouteUI.strokeWidth,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onHoveredSegmentTap,
+          child: MouseRegion(
+            key: Key('route-draft-segment-hitbox-$hoveredSegmentIndex'),
+            cursor: SystemMouseCursors.click,
+            child: Listener(
+              onPointerDown: onHoveredSegmentPanStart == null
+                  ? null
+                  : (_) => onHoveredSegmentPanStart(),
+              onPointerMove: onHoveredSegmentPanUpdate == null
+                  ? null
+                  : (event) => onHoveredSegmentPanUpdate(event.delta),
+              onPointerUp: onHoveredSegmentPanEnd == null
+                  ? null
+                  : (_) => onHoveredSegmentPanEnd(),
+              onPointerCancel: onHoveredSegmentPanEnd == null
+                  ? null
+                  : (_) => onHoveredSegmentPanEnd(),
+              child: RouteMarker(
+                kind: RouteMarkerKind.circle,
+                color: Color(colour),
+                size: RouteUI.markerNumberedSize,
+                strokeWidth: RouteUI.strokeWidth,
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -637,6 +663,7 @@ PolylineLayer buildRoutePolylines(
   List<app_route.Route> routes,
   double zoom, {
   int? selectedRouteId,
+  int? excludedRouteId,
 }) {
   final polylines = <Polyline>[];
   final selectedBasePolylines = <Polyline>[];
@@ -647,6 +674,9 @@ PolylineLayer buildRoutePolylines(
   );
 
   for (final route in routes) {
+    if (route.id == excludedRouteId) {
+      continue;
+    }
     if (!route.visible) {
       continue;
     }

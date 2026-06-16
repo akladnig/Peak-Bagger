@@ -1,179 +1,152 @@
 <goal>
-Add in-place editing to the existing route draft workflow so a user can move draft markers, delete draft markers, and undo/redo any route edit without restarting the draft.
-This matters because route creation is iterative: hikers need to correct points quickly while keeping the current draft and its save state intact.
+Add route editing from the saved route info panel so a user can modify an existing route without recreating it from scratch.
+The edit action should reuse the current route as the draft baseline, then save changes back to the same route record.
 </goal>
 
 <background>
-The app is a Flutter/Riverpod map application with an existing route draft editor.
-Route drafting already lives in `./lib/providers/map_provider.dart`, `./lib/widgets/map_route_bottom_sheet.dart`, `./lib/screens/map_screen.dart`, `./lib/screens/map_screen_layers.dart`, and `./lib/widgets/route_marker.dart`.
-Current route draft controls already support point placement, `Route to Peak`, `Snap to Trail`, `Straight Line`, `Out and Back`, and `Close Loop`.
-Relevant tests and harnesses live in `./test/providers/route_draft_state_test.dart`, `./test/widget/map_screen_route_sheet_test.dart`, `./test/widget/map_screen_route_hover_test.dart`, `./test/widget/route_marker_layer_test.dart`, and `./test/robot/map/map_route_robot.dart`.
+Flutter app using Riverpod state in `./lib/providers/map_provider.dart`, route info UI in `./lib/screens/map_screen_panels.dart`, route draft UI in `./lib/widgets/map_route_bottom_sheet.dart`, and persistence in `./lib/services/route_repository.dart`.
+The current create-route flow is create-only; `saveRouteDraft()` always creates a new `Route` and `endRouteDraft()` clears the draft state.
+This feature must add an edit-session source route id so the app can close the route panel while still knowing which saved route is being edited.
+The edit session must restore `selectedRouteId` from `sourceRouteId` before reopening the route info panel on save or cancel.
+Files to examine: `./lib/screens/map_screen_panels.dart`, `./lib/providers/map_provider.dart`, `./lib/widgets/map_route_bottom_sheet.dart`, `./lib/services/route_repository.dart`, `./lib/models/route.dart`, `./test/widget/map_screen_route_sheet_test.dart`, `./test/widget/map_route_info_panel_test.dart`, `./test/robot/map/route_info_journey_test.dart`.
 </background>
-
-<discovery>
-Inspect the current route-draft state machine, marker hit testing, mouse cursor selection, and route sheet control strip before coding.
-Confirm how drag gestures are detected on marker widgets, how transient popups are dismissed, and how stale async route-planner responses are ignored during live marker movement.
-Identify the smallest public `MapNotifier` contract that supports move, delete, undo, and redo without introducing a parallel editing subsystem.
-</discovery>
 
 <user_flows>
 Primary flow:
-1. User starts or continues a route draft.
-2. User places draft points as usual.
-3. User presses and holds a draft marker, then drags it to a new location.
-4. The marker follows the pointer, the cursor becomes `SystemMouseCursors.grabbing`, and the affected route preview updates live during the drag.
-5. User single-clicks a draft marker to open a transient delete popup and chooses `Delete Point` when needed.
-6. User taps `Undo` or `Redo` to step through any prior route edit.
-7. User saves the route with the edited geometry intact.
+1. User opens a saved route in the route info panel.
+2. User taps the edit icon in the header.
+3. The route info panel closes.
+4. Route draft mode opens with the existing route name, geometry, metadata, and source route id loaded as the draft baseline.
+5. User makes changes and saves.
+6. The app updates the same route id, refreshes route state, and reopens the updated route info panel.
 
 Alternative flows:
-- Start marker edit: the first draft marker can be moved or deleted the same way as any other marker.
-- End marker edit: the current terminal marker can be moved or deleted the same way as any other marker.
-- History recovery: after an undo, a new edit truncates redo history and starts a new branch.
-- Draft reset: closing or saving the draft clears edit history so reopening starts clean.
-- Loop recovery: if a user moves or deletes either terminal marker on a closed-loop or out-and-back route, the route reopens into a normal editable draft and undo restores the previous closed/returned topology.
-- Interior marker recovery: if a user moves a middle marker, the route reroutes both adjacent segments around the new position; if a user deletes a middle marker, the route removes that waypoint and reconnects its neighboring markers into a single path.
-Open-route endpoint recovery: if a user moves the first marker on an open draft, that marker becomes the new route start; if a user moves the last marker, that marker becomes the new terminal waypoint; deleting either endpoint removes it and leaves the draft open with the remaining geometry intact. If the draft had a peak target, terminal edits keep the target only while the edited endpoint still represents the same peak-derived waypoint; otherwise the active draft target is cleared and `Route to Peak` becomes unavailable until a new valid target exists, with no fallback to `peakInfoPeak` or `selectedLocation` until the user explicitly picks a new target.
+- Cancel edit: user abandons changes and the app restores the original route unchanged, then reopens the original route info panel.
+- Reopen after cancel: edit should reload from the latest saved route state, not stale draft state.
+- Hidden or selected route: editing should not implicitly change visibility or selection outside the normal transition into draft mode.
 
 Error flows:
-- Drag, delete, undo, and redo stay disabled while the draft is routing or saving.
-- If an edit produces an inconsistent draft state, keep the last valid geometry recoverable and surface a route-draft error.
-- If a drag triggers stale async route-planner responses, ignore the stale results and keep only the latest geometry.
-- If deleting the final remaining marker empties the draft, keep route drafting active in an empty start-ready state rather than forcing cancellation.
+- Draft initialization fails: keep the original route view intact and avoid corrupting the selected route.
+- Save fails: keep the unsaved draft state, show a recoverable edit-specific error, and leave the original route unchanged.
+- Route disappears during edit: exit edit mode and clear stale selection through the existing reconciliation path.
 </user_flows>
 
 <requirements>
 **Functional:**
-1. Add marker drag editing for route draft markers in the map layer and provider contract.
-   The hovered marker cursor must be `grab` when idle and `grabbing` while a drag is active.
-   The dragged marker must follow pointer movement and update the visible draft route live while moving.
-2. Add a single-click delete popup for draft markers.
-   The popup must be transient, anchored near the clicked marker, show a red `Icons.deleteForever`, and include the red label `Delete Point`.
-   Any draft marker may be deleted, including the first and last markers.
-3. Add `Undo` and `Redo` controls to the right of `Close Loop` in `./lib/widgets/map_route_bottom_sheet.dart` with one icon-width gap between controls.
-   `Undo` must use `Icons.undo` with tooltip `Undo (⌘ Z)`.
-   `Redo` must use `Icons.redo` with tooltip `Redo (⌘ ⇧ Z)`.
-   `Undo` and `Redo` must respond to `⌘Z` and `Shift+⌘Z` while the route draft editor is active, except when the route name field has focus, in which case native text undo/redo wins.
-4. Undo/redo must cover all route edit actions, including point placement, marker moves, marker deletes, `Out and Back`, and `Close Loop`.
-   A new edit after undo must discard redo history.
-   A complete drag gesture counts as one history entry; intermediate drag positions are transient and must not create extra undo steps.
-5. Expose the edit contract through public `MapNotifier` methods so widget and robot tests can drive the feature without private helpers.
-   The notifier must provide public entry points for drag start/update/end as needed, delete, undo, and redo.
-6. Keep route save, export, and route persistence behavior unchanged.
-   This feature edits the active draft only and must not require schema changes or export-format changes.
-7. Preserve the existing route point limit, route draft mode rules, and save gate conditions while editing.
-   Edit actions must remain disabled when the draft is routing or saving.
-8. Maintain exactly one visible source of truth for route draft geometry.
-   Live drag updates, delete actions, undo, redo, `Out and Back`, and `Close Loop` must all flow through the same draft state machine and geometry versioning.
-   Undo/redo must restore the full draft snapshot, including route geometry, routeDraftMode, routeDraftStage, routeDraftPeak, routeDraftNextMarkerId, and transient loading/error flags, while keeping request/version counters monotonic so stale async responses remain stale after history navigation.
+1. Add an `icons.edit` icon button to the route info panel header, immediately left of the close button, with tooltip text `Edit Route`.
+2. The edit action must only be available when a saved route is being displayed.
+3. Clicking edit must close the route info panel, retain `sourceRouteId`, and enter route draft mode using the selected route as the source of truth.
+4. The draft must be seeded from the existing route using the exact mapping below so the user edits the current route instead of starting from an empty draft.
+5. Saving from edit mode must update the same route id instead of creating a new route record.
+6. Cancelling edit must restore the original route, restore `selectedRouteId` from `sourceRouteId`, clear edit-session state, and leave the saved route unchanged.
+7. After a successful save, the app must emit route revision or refresh notifications, restore `selectedRouteId` from `sourceRouteId`, clear edit-session state, and reopen the updated route info panel.
+8. After cancel, the app must restore `selectedRouteId` from `sourceRouteId`, clear edit-session state, and reopen the original route info panel.
+
+**Route-to-draft mapping:**
+9. `sourceRouteId = route.id`.
+10. `routeDraftName = route.name`.
+11. `routeDraftColour = route.colour`.
+12. `routeDraftCommittedPoints = List<LatLng>.from(route.gpxRoute)`.
+13. `routeDraftMarkers = List<LatLng>.from(route.gpxRoute)`.
+14. `routeDraftControlEndpoints` must be rebuilt from `route.gpxRoute` in order, using stable ids based on point index and deterministic endpoint kinds for edit entry. Seed all geometry points as manual/tapped endpoints unless a persisted waypoint explicitly marks the point as peak-derived.
+15. `routeDraftDisplayMarkers` must be derived from `routeDraftControlEndpoints` with the existing display-marker rules.
+16. `routeDraftStage` must start as `awaitingStart` when the route has fewer than 2 points, otherwise `awaitingNextPoint`.
+17. `routeDraftPointElevations = route.gpxRouteElevations.map((value) => value?.toDouble()).toList()`.
+18. `routeDraftElevationSummary` must be initialized from the saved route metrics using the saved 3D distance, ascent, descent, and elevation bounds, with request and geometry ids reset for the edit session.
+19. `routeDraftElevationLoading = false` and `routeDraftElevationError = null` on entry.
+20. `routeDraftRequestId = 0`, `routeDraftElevationRequestId = 0`, and `routeDraftGeometryVersion = 0` on entry.
+21. `route.routeWaypoints` must be preserved only as the baseline reference for the edit session; on save, regenerate waypoints from the edited draft geometry using the existing save-builder rules.
 
 **Error Handling:**
-9. If a drag or delete action would create an inconsistent draft state, do not commit partial geometry.
-    Surface a route-draft error and keep the last valid state recoverable.
-10. If a delete action removes the last remaining marker, leave the draft open and reset it to an empty, start-ready draft.
-    Undo must restore the removed marker.
-11. During live drag routing, a `routed` response must accept the routed geometry, `noPath` and `offTrack` must fall back to the direct segment, and `failed` must preserve the last valid geometry and surface a route-draft error.
-12. If route-planner responses arrive out of order during live drag, ignore stale responses using the existing request/version guard pattern.
-13. If an edit is attempted while routing or saving, do nothing and keep the current draft unchanged.
-14. If the draft is in `segmentFailure`, the route remains visible and editable so the user can recover with undo, redo, delete, or a new edit.
+22. If edit setup fails, keep the original route view intact and show an `Edit Route`-specific failure message.
+23. If save fails, keep the unsaved draft state and show a recoverable `Edit Route`-specific failure message instead of silently discarding changes.
+24. If the route has been deleted or becomes unavailable while editing, exit edit mode, clear stale selection using the existing reconciliation path, and show a route-unavailable message.
 
 **Edge Cases:**
-15. Dragging a marker must not open the delete popup.
-    Use a drag threshold so click and hold can be distinguished from tap-to-delete.
-16. The first marker and the last marker must be editable and deletable.
-17. Undo/redo must restore route geometry, marker ordering, and marker display state consistently after move/delete/loop actions.
-18. Existing `Out and Back` and `Close Loop` actions must still work and must participate in history.
-19. The route-action strip must use the same square icon-button visual family for `Out and Back`, `Close Loop`, `Undo`, and `Redo`, rather than the current circular `FloatingActionButton.small` treatment.
-20. The delete popup must use map-relative anchoring near the clicked marker and dismiss itself if it cannot be anchored or if the view changes enough to invalidate its placement.
-21. The delete popup must include a close icon in the top-right corner, matching the route/track info popup pattern, and must dismiss on outside click, Escape, or any draft/view mutation.
-22. Clicking a draft marker must consume the event so it opens the delete popup without also falling through to the map tap path that adds a new point.
+25. Editing a route with an empty or trimmed-only name must still apply the existing route name validation rules before save.
+26. Editing must preserve non-editable route metadata and geometry fields that are not explicitly changed by the draft.
+27. Re-entering edit after cancel or save must not reuse stale draft state from the previous session.
+28. The edit icon must not shift or hide the close button on narrow layouts beyond existing header overflow behavior.
+29. Concurrent save/cancel taps must be ignored while a save is in flight.
 
 **Validation:**
-23. Use behavior-first TDD slices: provider history/state tests first, then widget tests for controls and popup behavior, then robot journey coverage last.
-24. Keep tests deterministic by driving the public `MapNotifier` contract and by using route-planner and route-repository fakes instead of real services.
-25. Require baseline automated coverage outcomes for logic/business rules, UI behavior, and the critical route-edit journey.
-26. For the widget and robot lanes, use stable key-first selectors for the undo/redo buttons, the delete popup, the delete action, and the route draft marker hitboxes.
+15. Add a unit or widget-level test slice for the edit-state initializer, save/update branching, and cancel restore behavior using deterministic fakes.
+16. Add a widget test that asserts the route info panel header shows the edit icon with the correct tooltip and placement relative to the close button.
+17. Add a widget or robot test that covers the full edit journey: open route, start edit, verify route info panel closes, verify draft opens with the existing route name, save, and confirm the same route id was updated.
+18. Add a cancellation test that verifies abandoning edit restores the original route unchanged.
+19. Require baseline automated coverage across route-edit logic, route-edit UI behavior, and the critical edit/save journey.
+20. Follow vertical-slice TDD: write the smallest failing test for each behavior, implement just enough to pass, then refactor after green.
+21. Keep tests deterministic by injecting route repository and map state fakes rather than depending on live persistence or network.
+22. Use robot-driven coverage for the critical cross-screen journey and widget tests for the header action, cancel, and error-state edges.
 </requirements>
 
 <boundaries>
 Edge cases:
-- Single-click versus drag: a click on a marker opens the delete popup; a press-and-drag moves the marker.
-- Empty draft: after deleting the final point, the draft stays open but has no points until the user adds one.
-- History branch: if the user undoes and then performs a new edit, redo history is discarded.
-- History scope: history exists only for the active draft session and is cleared when the draft is saved, cancelled, or reset.
+- Editing while the route draft overlay is already active should be rejected or no-op rather than corrupting the current draft session.
+- Editing a route that has no geometry should remain disabled or fail fast with a clear error because there is nothing meaningful to seed.
+- A hidden route should still be editable from its info panel if the panel can be opened, but the edit action must not implicitly change visibility unless that is already part of the existing selection flow.
 
 Error scenarios:
-- Inconsistent draft state: preserve the current editability and show a route-draft error instead of mutating partial geometry.
-- Stale async routing: ignore outdated route-planner results instead of applying them over newer edits.
-- Disabled actions: ignore drag, delete, undo, and redo while the draft is routing or saving.
+- Repository save failures: surface an error and retain unsaved draft state for retry.
+- Deleted route during edit: exit edit mode and clear selection.
+- Concurrent save/cancel actions: the first completed action wins; subsequent taps should be ignored while save is in flight.
 
 Limits:
-- No route persistence migration is in scope.
-- No GPX export or saved route schema changes are in scope.
-- No new route mode is in scope.
-- No separate marker-management screen or route editor subsystem is in scope.
+- Do not introduce a parallel route-edit storage model unless required by the current route draft architecture.
+- Do not implement a second editor UI; reuse the existing route draft UI and state transitions so the behavior stays consistent with route creation.
 </boundaries>
 
 <implementation>
-Modify or create files under `./lib/providers/map_provider.dart`, `./lib/screens/map_screen.dart`, `./lib/screens/map_screen_layers.dart`, and `./lib/widgets/map_route_bottom_sheet.dart`.
-Update `./lib/widgets/route_marker.dart` only if a small interaction or cursor seam is required.
-Keep the route editing history inside the existing route draft state machine rather than adding a parallel editor model.
-Add stable keys for the new undo/redo controls and delete popup actions.
-Preserve the existing marker hitbox keys so current hover and robot coverage keeps working.
-Update tests under `./test/providers/route_draft_state_test.dart`, `./test/widget/map_screen_route_sheet_test.dart`, `./test/widget/map_screen_route_hover_test.dart`, `./test/widget/route_marker_layer_test.dart`, `./test/robot/map/map_route_robot.dart`, and `./test/robot/map/map_route_journey_test.dart`.
+- Update `./lib/screens/map_screen_panels.dart` to add the edit header action and invoke the new edit entrypoint.
+- Extend `./lib/providers/map_provider.dart` with `sourceRouteId`, route-edit entry/exit state, route draft seeding from an existing `Route`, and save branching that updates an existing route id when editing.
+- Reuse `./lib/widgets/map_route_bottom_sheet.dart` for the edit UI; avoid a separate editor surface.
+- Keep persistence in `./lib/services/route_repository.dart` unchanged unless the edit state needs a small helper for update semantics.
+- Preserve route geometry, elevations, waypoints, and display cache fields when editing, unless the user explicitly changes them through the draft.
+- Add or update tests under `./test/widget/` and `./test/robot/map/` to cover the edit button, draft seeding, save/update, and cancel restore paths.
 </implementation>
 
-<validation>
-Follow a one-test-at-a-time red-green-refactor cycle.
-
-Provider/state slices:
-1. Add a failing test for undo/redo history after a point placement.
-2. Add a failing test for marker move history.
-3. Add a failing test for marker delete history, including deleting the first or last marker.
-4. Add a failing test that `Out and Back` and `Close Loop` participate in the same history stack.
-5. Add a failing test for stale async result handling during live drag.
-
-Widget slices:
-6. Add a failing test for the undo/redo buttons, placement after `Close Loop`, tooltips, icon choice, and spacing.
-7. Add a failing test for the delete popup appearance, destructive action label, and dismissal behavior.
-8. Add a failing test for cursor state changes while hovering and dragging route markers.
-9. Add a failing test for disabled states while routing or saving.
-10. Add a failing keyboard test for `⌘Z` and `Shift+⌘Z` route-editor shortcuts.
-
-Robot slices:
-11. Add a failing robot journey for create route -> place points -> move a marker -> delete a marker -> undo -> redo -> save.
-12. Use stable selectors for the route draft marker hitboxes, undo/redo buttons, delete popup, and delete action.
-13. Keep the robot journey deterministic with route-planner fakes and explicit waits only where the UI contract requires them.
-
-Expected behavior by layer:
-- Logic/business rules: history stacks, draft geometry mutation, and branch truncation behave predictably.
-- UI behavior: the marker cursor, delete popup, and undo/redo controls match the requested layout and enablement rules.
-- UI behavior: the route-action strip uses the requested square icon-button family, the marker cursor wins over segment hover, and the delete popup dismisses predictably.
-- Critical journey: a user can edit a draft route in-place and still save the edited route successfully.
-
-Required seams:
-- Deterministic route-planner fake for drag-driven route recomputation.
-- Deterministic route-repository fake for save verification.
-- Stable key-first selectors for route markers, edit controls, and delete popup actions.
-</validation>
+<discovery>
+Before implementation, inspect how route draft state is captured and restored in `lib/providers/map_provider.dart`, then identify the smallest set of new state fields needed to remember the source route and restore it on cancel.
+Verify whether the existing route info panel header can accommodate an extra icon without layout changes on narrow widths.
+Confirm which route draft tests already cover save and cancel so the new tests can extend existing slices instead of duplicating them.
+</discovery>
 
 <stages>
-Phase 1: Add route-edit history and public notifier methods.
-Verify with provider tests that move/delete/undo/redo mutate the draft predictably.
-
-Phase 2: Add marker drag and delete interactions in the map layer.
-Verify with widget tests that the cursor, popup, and gesture split behave correctly.
-
-Phase 3: Add undo/redo controls to the route sheet.
-Verify the controls render in the requested position and participate in the history stack.
-
-Phase 4: Add the robot journey for full in-place editing.
-Verify a user can complete the edit flow end to end and save the edited route.
+Phase 1: Add the route info panel edit control and a failing widget test for the header action. Verify the button appears with the correct tooltip and placement.
+Phase 2: Add route-edit entry state in the map provider and a failing test for seeding the draft from an existing route. Verify the draft opens with the route name and source route data.
+Phase 3: Implement save/update branching and cancel restore behavior. Verify the same route id is updated and the original route remains unchanged on cancel.
+Phase 4: Add robot coverage for the full edit journey and error-path coverage for deleted-route or save-failure recovery. Verify the edit/save flow remains stable across the map shell and route panel.
 </stages>
 
+<illustrations>
+Desired:
+- Route info panel shows an edit icon left of close, tooltip `Edit Route`.
+- Clicking edit closes the panel and opens the route draft with the selected route already loaded.
+- Saving an edited route updates the same saved route record.
+
+Avoid:
+- Clicking edit starting a blank route draft.
+- Saving edit as a brand-new route copy.
+- Clearing or mutating the original route when the user cancels.
+</illustrations>
+
+<validation>
+- Use vertical-slice TDD for each behavior: write one failing test, implement the smallest change, confirm green, then move to the next slice.
+- Required test split: robot tests for the critical open-edit-save journey; widget tests for the route panel header, cancel, and error edges; unit tests for route-edit state transitions and save/update branching.
+- Required seams: inject route repository fakes, avoid time-dependent logic in edit state transitions, and keep route-draft seeding deterministic from the selected route object.
+- Baseline automated coverage outcomes:
+  - Logic/business rules: edit-entry state, save/update branching, cancel restore, stale-route reconciliation.
+  - UI behavior: header action visibility, tooltip, panel close transition, draft prefill.
+  - Critical journey: open route, edit, save, and observe the same route updated end-to-end.
+- Add explicit assertions that the original route record remains unchanged after cancel and that the persisted id remains stable after save.
+- Add explicit assertions that the route info panel reopens after save and after cancel, with the correct route context each time.
+- Report any residual risk if route geometry editing or route-draft restoration cannot be fully covered with deterministic tests.
+</validation>
+
 <done_when>
-The route draft editor can move any draft marker by drag, delete any draft marker through a transient popup, and undo or redo any route edit.
-The route sheet shows the requested undo/redo controls in the requested position.
-The route draft remains saveable after edits, and the existing route save/export behavior still works.
-All required automated tests pass.
+- The route info panel has an `Edit Route` icon button in the correct position.
+- Clicking edit closes the route info panel and opens route draft mode seeded from the selected route.
+- Saving edits updates the same route record and refreshes the route view.
+- Cancelling edits restores the original route with no persisted changes.
+- Tests cover header rendering, cancel/save behavior, and the cross-screen edit journey.
 </done_when>

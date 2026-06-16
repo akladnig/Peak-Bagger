@@ -218,6 +218,7 @@ class MapTrackInfoPanel extends StatelessWidget {
     this.track,
     this.route,
     required this.onClose,
+    this.onEdit,
     this.onVisibilityChanged,
     this.onExport,
     this.onElevationProfileHoverChanged,
@@ -228,6 +229,7 @@ class MapTrackInfoPanel extends StatelessWidget {
   final GpxTrack? track;
   final app_route.Route? route;
   final VoidCallback onClose;
+  final VoidCallback? onEdit;
   final ValueChanged<bool>? onVisibilityChanged;
   final VoidCallback? onExport;
   final ValueChanged<ElevationProfileChartHoverSample?>?
@@ -268,6 +270,14 @@ class MapTrackInfoPanel extends StatelessWidget {
                               style: Theme.of(context).textTheme.titleMedium,
                             ),
                           ),
+                          if (isRoute)
+                            IconButton(
+                              key: const Key('track-info-panel-edit-button'),
+                              tooltip: 'Edit Route',
+                              onPressed: onEdit,
+                              icon: const Icon(Icons.edit),
+                            ),
+                          if (isRoute) const SizedBox(width: 4),
                           IconButton(
                             key: const Key('track-info-panel-close'),
                             tooltip: isRoute
