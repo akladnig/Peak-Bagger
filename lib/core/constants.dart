@@ -90,6 +90,13 @@ abstract final class RouteConstants {
   static const maxSnapDistanceMeters = 50.0;
 }
 
+abstract final class RouteTimingConstants {
+  static const naismithsNumber = 7.92;
+  static const naismithSpeedMetresPerSecond = 1.3888888889;
+  static const naismithAscentSecondsPerMetre = 6.0;
+  static const naismithDescentSecondsPerMetre = 1.8;
+}
+
 enum DemSource { copernicusGlo30, theList, elvis }
 
 class DemSourceConfig {

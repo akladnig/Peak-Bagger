@@ -470,7 +470,7 @@
     },
     {
       "id": "6:3506540890240152030",
-      "lastPropertyId": "16:8462861869933376021",
+      "lastPropertyId": "18:2344486618552624926",
       "name": "Route",
       "properties": [
         {
@@ -553,6 +553,16 @@
           "id": "16:8462861869933376021",
           "name": "visible",
           "type": 1
+        },
+        {
+          "id": "17:6665941071022216451",
+          "name": "estimatedTime",
+          "type": 6
+        },
+        {
+          "id": "18:2344486618552624926",
+          "name": "routeTimingProfileJson",
+          "type": 9
         }
       ],
       "relations": []

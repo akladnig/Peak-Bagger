@@ -731,6 +731,8 @@ ObjectBoxAdminRow routeToAdminRow(Route route) {
       'endElevation': route.endElevation,
       'lowestElevation': route.lowestElevation,
       'highestElevation': route.highestElevation,
+      'estimatedTime': route.estimatedTime,
+      'routeTimingProfileJson': route.routeTimingProfileJson,
     },
   );
 }

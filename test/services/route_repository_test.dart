@@ -82,4 +82,20 @@ void main() {
     expect(decoded.routeWaypoints, hasLength(1));
     expect(decoded.routeWaypoints.single, route.routeWaypoints.single);
   });
+
+  test('route timing metadata round-trips through persistence', () {
+    final repository = RouteRepository.test(InMemoryRouteStorage());
+    final route = Route(
+      name: 'Timed Route',
+      gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.6, 146.6)],
+      estimatedTime: 123456,
+      routeTimingProfileJson: '[0,123456]',
+    );
+
+    final saved = repository.saveRoute(route);
+
+    expect(saved.estimatedTime, 123456);
+    expect(repository.getAllRoutes().single.estimatedTime, 123456);
+    expect(repository.getAllRoutes().single.routeTimingProfileJson, '[0,123456]');
+  });
 }
