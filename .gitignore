@@ -50,3 +50,8 @@ app.*.map.json
 /assets/tasmania_dem_25m.vrt
 /assets/tassy dem.xlsx
 /ai_specs/todo.md
+/peak-bagger-peak-data.sync-report.json
+/peak-bagger-peak-data-processed.csv
+/objectbox/data.mdb
+/objectbox/lock.mdb
+/objectbox/data.mdb
