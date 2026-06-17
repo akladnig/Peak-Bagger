@@ -83,7 +83,21 @@ Set<int> renderablePeakListIds({
 }
 
 bool peakListAppliesToRegion(PeakList peakList, String? currentRegionKey) {
-  return currentRegionKey != null && peakList.region == currentRegionKey;
+  return normalizePeakListRegionKey(currentRegionKey) != null &&
+      normalizePeakListRegionKey(peakList.region) ==
+          normalizePeakListRegionKey(currentRegionKey);
+}
+
+String? normalizePeakListRegionKey(String? regionKey) {
+  final trimmed = regionKey?.trim();
+  if (trimmed == null) {
+    return null;
+  }
+  if (trimmed.isEmpty) {
+    return Peak.defaultRegion;
+  }
+
+  return trimmed.toLowerCase();
 }
 
 bool _isPeakWithinBounds({required Peak peak, required LatLngBounds bounds}) {

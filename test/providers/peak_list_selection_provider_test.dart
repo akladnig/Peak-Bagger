@@ -152,7 +152,9 @@ void main() {
     },
   );
 
-  test('renderablePeakListIds keeps only lists in current region', () {
+  test(
+    'renderablePeakListIds keeps Tasmania lists with legacy region values',
+    () {
     final peakLists = [
       PeakList(
         name: 'Alpha',
@@ -161,6 +163,20 @@ void main() {
           const PeakListItem(peakOsmId: 6406, points: 1),
         ]),
       )..peakListId = 7,
+      PeakList(
+        name: 'Legacy Blank',
+        region: '',
+        peakList: encodePeakListItems([
+          const PeakListItem(peakOsmId: 6407, points: 1),
+        ]),
+      )..peakListId = 10,
+      PeakList(
+        name: 'Legacy Cased',
+        region: 'Tasmania',
+        peakList: encodePeakListItems([
+          const PeakListItem(peakOsmId: 6408, points: 1),
+        ]),
+      )..peakListId = 11,
       PeakList(
         name: 'Zero',
         region: 'victoria',
@@ -175,12 +191,13 @@ void main() {
     expect(
       renderablePeakListIds(
         peakLists: peakLists,
-        selectedPeakListIds: {7, 8, 9},
+        selectedPeakListIds: {7, 8, 9, 10, 11},
         currentRegionKey: 'tasmania',
       ),
-      {7},
+      {7, 10, 11},
     );
-  });
+    },
+  );
 }
 
 class _TestMapNotifier extends MapNotifier {
