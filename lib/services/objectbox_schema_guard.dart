@@ -56,6 +56,7 @@ class ObjectBoxSchemaGuard {
       'Route.gpxRouteJson:${_hasProperty(route, 'gpxRouteJson')}',
       'Route.routeWaypointsJson:${_hasProperty(route, 'routeWaypointsJson')}',
       'Route.estimatedTime:${_hasProperty(route, 'estimatedTime')}',
+      'Route.routeTimingSource:${_hasProperty(route, 'routeTimingSource')}',
       'Route.routeTimingProfileJson:${_hasProperty(route, 'routeTimingProfileJson')}',
       'Route.displayRoutePointsByZoom:${_hasProperty(route, 'displayRoutePointsByZoom')}',
       'Route.colour:${_hasProperty(route, 'colour')}',

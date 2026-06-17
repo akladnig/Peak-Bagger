@@ -581,7 +581,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(6, 3506540890240152030),
     name: 'Route',
-    lastPropertyId: const obx_int.IdUid(18, 2344486618552624926),
+    lastPropertyId: const obx_int.IdUid(19, 3445699157426820519),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -689,6 +689,12 @@ final _entities = <obx_int.ModelEntity>[
       obx_int.ModelProperty(
         id: const obx_int.IdUid(18, 2344486618552624926),
         name: 'routeTimingProfileJson',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(19, 3445699157426820519),
+        name: 'routeTimingSource',
         type: 9,
         flags: 0,
       ),
@@ -1806,7 +1812,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
             object.routeTimingProfileJson == null
             ? null
             : fbb.writeString(object.routeTimingProfileJson!);
-        fbb.startTable(19);
+        final routeTimingSourceOffset = object.routeTimingSource == null
+            ? null
+            : fbb.writeString(object.routeTimingSource!);
+        fbb.startTable(20);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, nameOffset);
         fbb.addOffset(2, displayRoutePointsByZoomOffset);
@@ -1825,6 +1834,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addBool(15, object.visible);
         fbb.addInt64(16, object.estimatedTime);
         fbb.addOffset(17, routeTimingProfileJsonOffset);
+        fbb.addOffset(18, routeTimingSourceOffset);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -1911,6 +1921,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
           rootOffset,
           36,
         );
+        final routeTimingSourceParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 40);
         final routeTimingProfileJsonParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGetNullable(buffer, rootOffset, 38);
@@ -1931,6 +1944,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
                 lowestElevation: lowestElevationParam,
                 highestElevation: highestElevationParam,
                 estimatedTime: estimatedTimeParam,
+                routeTimingSource: routeTimingSourceParam,
                 routeTimingProfileJson: routeTimingProfileJsonParam,
               )
               ..gpxRouteJson = const fb.StringReader(
@@ -2865,6 +2879,11 @@ class Route_ {
   /// See [Route.routeTimingProfileJson].
   static final routeTimingProfileJson = obx.QueryStringProperty<Route>(
     _entities[5].properties[17],
+  );
+
+  /// See [Route.routeTimingSource].
+  static final routeTimingSource = obx.QueryStringProperty<Route>(
+    _entities[5].properties[18],
   );
 }
 

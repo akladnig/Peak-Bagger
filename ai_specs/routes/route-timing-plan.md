@@ -27,23 +27,23 @@ Use existing Riverpod/ObjectBox patterns; keep timing logic centralized.
 ### Phase 2: Import/export/edit wiring
 
 - **Goal**: compute timing on import; recompute on edit; synthesize export `<time>` tags
-- [ ] `./lib/services/gpx_importer.dart` - derive timing from GPX timestamps or Naismith
-- [ ] `./lib/providers/map_provider.dart` - save imported route timing; recompute on route draft save
-- [ ] `./lib/services/route_admin_editor.dart` - carry timing through admin rebuild, full recompute on edit
-- [ ] `./lib/services/gpx_export_service.dart` - write deterministic point `<time>` tags from timing profile
-- [ ] TDD: timestamped import path; untimed import path; edit recompute path; export timing path; null timing fallback
-- [ ] Verify: `flutter test test/providers/map_provider_import_test.dart test/services/gpx_export_service_test.dart test/services/route_admin_editor_test.dart && flutter analyze`
+- [x] `./lib/services/gpx_importer.dart` - derive timing from GPX timestamps or Naismith
+- [x] `./lib/providers/map_provider.dart` - save imported route timing; recompute on route draft save
+- [x] `./lib/services/route_admin_editor.dart` - carry timing through admin rebuild, full recompute on edit
+- [x] `./lib/services/gpx_export_service.dart` - write deterministic point `<time>` tags from timing profile
+- [x] TDD: timestamped import path; untimed import path; edit recompute path; export timing path; null timing fallback
+- [x] Verify: `flutter test test/services/gpx_importer_filter_test.dart test/providers/map_provider_import_test.dart test/services/gpx_export_service_test.dart test/services/route_admin_editor_test.dart && flutter analyze`
 
 ### Phase 3: UI + journeys
 
 - **Goal**: show estimated time and revised labels in route/track panels; cover critical journeys
-- [ ] `./lib/screens/map_screen_panels.dart` - route `Estimated Time` row, route Time section, `Ascent`/`Descent` labels, dash fallback
-- [ ] `./test/widget/map_route_info_panel_test.dart` - panel copy, null-state, label assertions
-- [ ] `./test/widget/map_screen_route_info_test.dart` - route panel render/update/legacy safety
-- [ ] `./test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - import-as-route journey coverage
-- [ ] `./test/robot/map/route_info_journey_test.dart` - open/edit/close route panel coverage
-- [ ] TDD: panel text and layout; missing estimate dash; robot journey selectors for route time content
-- [ ] Verify: `flutter test test/widget/map_route_info_panel_test.dart test/widget/map_screen_route_info_test.dart test/robot/gpx_tracks/gpx_tracks_journey_test.dart test/robot/map/route_info_journey_test.dart && flutter analyze`
+- [x] `./lib/screens/map_screen_panels.dart` - route `Estimated Time` row, route Time section, `Ascent`/`Descent` labels, dash fallback
+- [x] `./test/widget/map_route_info_panel_test.dart` - panel copy, null-state, label assertions
+- [x] `./test/widget/map_screen_route_info_test.dart` - route panel render/update/legacy safety
+- [x] `./test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - import-as-route journey coverage
+- [x] `./test/robot/map/route_info_journey_test.dart` - open/edit/close route panel coverage
+- [x] TDD: panel text and layout; missing estimate dash; robot journey selectors for route time content
+- [x] Verify: `flutter test test/widget/map_route_info_panel_test.dart test/widget/map_screen_route_info_test.dart test/robot/gpx_tracks/gpx_tracks_journey_test.dart test/robot/map/route_info_journey_test.dart && flutter analyze`
 
 ## Risks / Out of scope
 

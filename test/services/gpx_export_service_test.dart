@@ -66,6 +66,8 @@ void main() {
       final route = app_route.Route(
         name: 'Route 1',
         gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.6, 146.6)],
+        estimatedTime: 600000,
+        routeTimingProfileJson: '[0,600]',
       );
 
       final plan = await service.planRouteExport(route);
@@ -79,8 +81,8 @@ void main() {
         '<gpx version="1.1" creator="peak-bagger" xmlns="http://www.topografix.com/GPX/1/1">'
         '<metadata><author><name>Adrian Kladnig</name></author></metadata>'
         '<rte><name>Route-1</name>'
-        '<rtept lat="-41.500000" lon="146.500000"></rtept>'
-        '<rtept lat="-41.600000" lon="146.600000"></rtept>'
+        '<rtept lat="-41.500000" lon="146.500000"><time>2000-01-01T00:00:00Z</time></rtept>'
+        '<rtept lat="-41.600000" lon="146.600000"><time>2000-01-01T00:10:00Z</time></rtept>'
         '</rte></gpx>',
       );
     });
@@ -193,6 +195,8 @@ void main() {
       final route = app_route.Route(
         name: 'Route 2',
         gpxRoute: const [LatLng(-41.5, 146.5)],
+        estimatedTime: 0,
+        routeTimingProfileJson: '[0]',
       );
 
       final plan = await service.planRouteExport(route);
@@ -202,7 +206,7 @@ void main() {
         '<gpx version="1.1" creator="peak-bagger" xmlns="http://www.topografix.com/GPX/1/1">'
         '<metadata><author><name>Adrian Kladnig</name></author></metadata>'
         '<rte><name>Route-2</name>'
-        '<rtept lat="-41.500000" lon="146.500000"><ele>123.5</ele></rtept>'
+        '<rtept lat="-41.500000" lon="146.500000"><time>2000-01-01T00:00:00Z</time><ele>123.5</ele></rtept>'
         '</rte></gpx>',
       );
     });

@@ -48,6 +48,7 @@ void main() {
     expect(signature, contains('Route.gpxRouteJson:'));
     expect(signature, contains('Route.routeWaypointsJson:'));
     expect(signature, contains('Route.estimatedTime:'));
+    expect(signature, contains('Route.routeTimingSource:'));
     expect(signature, contains('Route.routeTimingProfileJson:'));
     expect(signature, contains('Route.displayRoutePointsByZoom:'));
     expect(signature, contains('Route.colour:'));

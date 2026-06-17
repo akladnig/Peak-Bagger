@@ -36,6 +36,7 @@ class Route {
   double lowestElevation;
   double highestElevation;
   int? estimatedTime;
+  String? routeTimingSource;
   String? routeTimingProfileJson;
 
   @Transient()
@@ -63,6 +64,7 @@ class Route {
     this.lowestElevation = 0,
     this.highestElevation = 0,
     this.estimatedTime,
+    this.routeTimingSource,
     this.routeTimingProfileJson,
   }) : gpxRoute = List<LatLng>.from(gpxRoute ?? const []),
        gpxRouteElevations = _normalizeElevations(

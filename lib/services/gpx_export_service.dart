@@ -9,6 +9,7 @@ import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/services/gpx_storage_destination_resolver.dart';
 import 'package:peak_bagger/services/import_path_helpers.dart';
+import 'package:peak_bagger/services/route_timing_service.dart';
 import 'package:peak_bagger/services/track_peak_correlation_service.dart';
 
 class GpxExportException implements Exception {
@@ -165,6 +166,10 @@ class GpxExportService {
     required List<double?> elevations,
     required List<Peak> correlatedPeaks,
   }) {
+    final timingProfile = _routeTimingProfile(route);
+    final syntheticTimes = timingProfile.isEmpty
+        ? const <DateTime>[]
+        : buildSyntheticRouteTimes(timingProfile);
     final buffer = StringBuffer()
       ..write(
         '<gpx version="1.1" creator="peak-bagger" xmlns="http://www.topografix.com/GPX/1/1">',
@@ -181,6 +186,9 @@ class GpxExportService {
       buffer.write(
         '<rtept lat="${_formatCoordinate(point.latitude)}" lon="${_formatCoordinate(point.longitude)}">',
       );
+      if (index < syntheticTimes.length) {
+        buffer.write('<time>${_formatTimestamp(syntheticTimes[index])}</time>');
+      }
       final elevation = index < elevations.length ? elevations[index] : null;
       if (elevation != null) {
         buffer.write('<ele>${_formatElevation(elevation)}</ele>');
@@ -190,6 +198,18 @@ class GpxExportService {
 
     buffer.write('</rte></gpx>');
     return buffer.toString();
+  }
+
+  List<int> _routeTimingProfile(app_route.Route route) {
+    final storedProfile = decodeRouteTimingProfile(route.routeTimingProfileJson);
+    if (storedProfile.length == route.gpxRoute.length && storedProfile.isNotEmpty) {
+      return storedProfile;
+    }
+
+    return buildNaismithProfile(
+      points: route.gpxRoute,
+      elevations: route.gpxRouteElevations,
+    );
   }
 
   String _buildWaypointXml(List<Peak> peaks) {
@@ -341,6 +361,10 @@ class GpxExportService {
 
   String _formatElevation(double value) {
     return value.toString();
+  }
+
+  String _formatTimestamp(DateTime value) {
+    return value.toUtc().toIso8601String().replaceFirst('.000Z', 'Z');
   }
 
   String _escapeXml(String value) {

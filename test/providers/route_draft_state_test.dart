@@ -15,6 +15,7 @@ import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/models/route_waypoint.dart';
 import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/services/route_timing_service.dart';
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
@@ -124,6 +125,76 @@ void main() {
     expect(state.routeDraftPeak, isNotNull);
     expect(state.routeDraftPeak!.name, 'Bonnet Hill');
     expect(state.routeDraftPeak!.osmId, 42);
+  });
+
+  test('route edit preserves source timing when inserting extra segment', () async {
+    const start = LatLng(-41.5, 146.5);
+    const midpoint = LatLng(-41.55, 146.55);
+    const inserted = LatLng(-41.57, 146.58);
+    const sourceEnd = LatLng(-41.6, 146.6);
+    final sourceProfile = <int>[0, 600, 700];
+    final sourceRoute = Route(
+      id: 31,
+      name: 'Mount Charles',
+      gpxRoute: const [start, midpoint, sourceEnd],
+      gpxRouteElevations: const [100, 110, 120],
+      distance2d: 1000,
+      distance3d: 1000,
+      ascent: 0,
+      descent: 0,
+      startElevation: 100,
+      endElevation: 120,
+      lowestElevation: 100,
+      highestElevation: 120,
+      estimatedTime: sourceProfile.last * 1000,
+      routeTimingProfileJson: encodeRouteTimingProfile(sourceProfile),
+    );
+    final routeRepository = RouteRepository.test(
+      InMemoryRouteStorage([sourceRoute]),
+    );
+    final realNotifier = await _buildRouteTestNotifier(
+      routePlanner: const _ImmediateStraightRoutePlanner(),
+      routeElevationSampler: const _ImmediateZeroRouteElevationSampler(),
+      routeRepository: routeRepository,
+    );
+    final container = ProviderContainer(
+      overrides: [mapProvider.overrideWith(() => realNotifier)],
+    );
+    addTearDown(container.dispose);
+    container.read(mapProvider.notifier).state = MapState(
+      center: const LatLng(-41.5, 146.5),
+      zoom: 15,
+      basemap: Basemap.tracestrack,
+      showRoutes: true,
+      selectedRouteId: 31,
+    );
+
+    final notifier = container.read(mapProvider.notifier);
+    notifier.beginRouteEdit(sourceRoute);
+    notifier.state = notifier.state.copyWith(
+      routeDraftCommittedPoints: const [start, midpoint, inserted, sourceEnd],
+      routeDraftMarkers: const [start, midpoint, inserted, sourceEnd],
+      routeDraftDistanceMeters: 2000,
+    );
+
+    await notifier.saveRouteDraft();
+
+    final savedRoute = routeRepository.getAllRoutes().single;
+    final expectedProfile = extendVerifiedWalkTimingProfile(
+      sourcePoints: sourceRoute.gpxRoute,
+      sourceElevations: sourceRoute.gpxRouteElevations,
+      sourceProfile: sourceProfile,
+      updatedPoints: const [start, midpoint, inserted, sourceEnd],
+      updatedElevations: const [100, 110, 120, 130],
+    );
+
+    expect(expectedProfile, isNotNull);
+    expect(savedRoute.estimatedTime, profileDurationSeconds(expectedProfile!) * 1000);
+    expect(savedRoute.routeTimingSource, RouteTimingSources.extendedRoute);
+    expect(
+      savedRoute.routeTimingProfileJson,
+      encodeRouteTimingProfile(expectedProfile),
+    );
   });
 
   test('route edit shows only saved waypoints and endpoints', () async {

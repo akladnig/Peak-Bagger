@@ -3,6 +3,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/models/route_waypoint.dart';
 import 'package:peak_bagger/services/route_admin_editor.dart';
+import 'package:peak_bagger/services/route_timing_service.dart';
 
 void main() {
   test('validateAndBuild preserves route geometry while updating metadata', () {
@@ -73,6 +74,19 @@ void main() {
       result.route!.displayRoutePointsByZoom,
       source.displayRoutePointsByZoom,
     );
+    final expectedProfile = buildNaismithProfile(
+      points: source.gpxRoute,
+      elevations: source.gpxRouteElevations,
+    );
+    expect(
+      result.route!.routeTimingProfileJson,
+      encodeRouteTimingProfile(expectedProfile),
+    );
+    expect(
+      result.route!.estimatedTime,
+      profileDurationSeconds(expectedProfile) * 1000,
+    );
+    expect(result.route!.routeTimingSource, RouteTimingSources.naismith);
     expect(RouteAdminEditor.normalize(source).colour, '0x00000001');
   });
 }

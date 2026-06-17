@@ -166,6 +166,7 @@ void main() {
         'lowestElevation',
         'highestElevation',
         'estimatedTime',
+        'routeTimingSource',
         'routeTimingProfileJson',
       ]),
     );
@@ -514,6 +515,7 @@ void main() {
         lowestElevation: 110,
         highestElevation: 1600,
         estimatedTime: 5400000,
+        routeTimingSource: 'naismith',
         routeTimingProfileJson: '[0,5400]',
       ),
     );
@@ -527,6 +529,7 @@ void main() {
     expect(row.values['distance2d'], 12.5);
     expect(row.values['highestElevation'], 1600);
     expect(row.values['estimatedTime'], 5400000);
+    expect(row.values['routeTimingSource'], 'naismith');
     expect(row.values['routeTimingProfileJson'], '[0,5400]');
   });
 

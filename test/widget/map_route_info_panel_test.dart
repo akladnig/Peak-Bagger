@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/screens/map_screen_panels.dart';
+import 'package:peak_bagger/services/route_timing_service.dart';
 import 'package:peak_bagger/widgets/elevation_profile_chart.dart';
 
 void main() {
@@ -18,6 +19,8 @@ void main() {
       distance3d: 17920,
       ascent: 912,
       descent: 456,
+      estimatedTime: 5400000,
+      routeTimingSource: RouteTimingSources.verifiedWalk,
       gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.5, 146.51)],
       gpxRouteElevations: const [100, 120],
     );
@@ -39,6 +42,41 @@ void main() {
 
     expect(find.text('Distance (2d/3d)'), findsOneWidget);
     expect(find.text('17.4 / 17.9 km'), findsOneWidget);
+  });
+
+  testWidgets('renders route timing explanation', (tester) async {
+    final route = app_route.Route(
+      name: 'Timed Route',
+      distance2d: 17450,
+      distance3d: 17920,
+      ascent: 912,
+      descent: 456,
+      estimatedTime: 5400000,
+      routeTimingSource: RouteTimingSources.verifiedWalk,
+      gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.5, 146.51)],
+      gpxRouteElevations: const [100, 120],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 600,
+            child: MapTrackInfoPanel(
+              route: route,
+              onClose: () {},
+              onExport: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key('route-estimated-time-explanation')), findsOneWidget);
+    expect(
+      find.text('Estimated time has been derived from a verified walk'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('renders an edit action before close for a saved route', (
@@ -208,5 +246,83 @@ void main() {
 
     expect(find.text('Show this route on the map'), findsOneWidget);
     expect(tester.widget<Switch>(switchFinder).value, isFalse);
+  });
+
+  testWidgets('renders Naismith explanation for untimed route source', (
+    tester,
+  ) async {
+    final route = app_route.Route(
+      name: 'Timed Route',
+      distance2d: 17450,
+      distance3d: 17920,
+      ascent: 912,
+      descent: 456,
+      estimatedTime: 5400000,
+      routeTimingSource: RouteTimingSources.naismith,
+      gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.5, 146.51)],
+      gpxRouteElevations: const [100, 120],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 600,
+            child: MapTrackInfoPanel(
+              route: route,
+              onClose: () {},
+              onExport: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key('route-estimated-time-explanation')), findsOneWidget);
+    expect(
+      find.text(
+        "Estimated time has been derived using Naismith's rule using 5.0 km/h, 100:00m per 1000 m ascent and 30:00m per 1000 m descent",
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('renders mixed explanation for extended verified walk route', (
+    tester,
+  ) async {
+    final route = app_route.Route(
+      name: 'Extended Route',
+      distance2d: 17450,
+      distance3d: 17920,
+      ascent: 912,
+      descent: 456,
+      estimatedTime: 5400000,
+      routeTimingSource: RouteTimingSources.extendedRoute,
+      gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.5, 146.51)],
+      gpxRouteElevations: const [100, 120],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 600,
+            child: MapTrackInfoPanel(
+              route: route,
+              onClose: () {},
+              onExport: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key('route-estimated-time-explanation')), findsOneWidget);
+    expect(
+      find.text(
+        "Estimated time has been derived from the original route plus manually added segments estimated using Naismith's rule using 5.0 km/h, 100:00m per 1000 m ascent and 30:00m per 1000 m descent",
+      ),
+      findsOneWidget,
+    );
   });
 }

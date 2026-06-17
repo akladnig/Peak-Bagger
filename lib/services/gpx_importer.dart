@@ -19,6 +19,7 @@ import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
 import 'package:peak_bagger/services/gpx_point_sample.dart';
 import 'package:peak_bagger/services/gpx_filter.dart';
+import 'package:peak_bagger/services/route_timing_service.dart';
 
 import '../core/constants.dart';
 
@@ -307,6 +308,12 @@ class GpxImporter {
       }
 
       final simplifiedRoutePoints = _simplifyRoutePoints(routePoints);
+      final timingProfile = buildProfileFromTimestamps(
+        simplifiedRoutePoints.map((point) => point.time).toList(growable: false),
+      );
+      final movingTimeMillis = timingProfile.isEmpty
+          ? null
+          : _movingTimeMillisForRoutePoints(simplifiedRoutePoints);
 
       final route = app_route.Route(
         name: result.name ?? _extractRouteName(doc, filePath),
@@ -325,11 +332,42 @@ class GpxImporter {
                 .toList(growable: false),
           ],
         ),
+        estimatedTime: movingTimeMillis,
+        routeTimingSource: movingTimeMillis == null
+            ? null
+            : RouteTimingSources.verifiedWalk,
+        routeTimingProfileJson: movingTimeMillis == null
+            ? null
+            : encodeRouteTimingProfile(timingProfile),
       );
       return route;
     } catch (_) {
       return null;
     }
+  }
+
+  int? _movingTimeMillisForRoutePoints(List<GpxPointSample> points) {
+    if (points.length < 2 || points.any((point) => point.time == null)) {
+      return null;
+    }
+
+    final buffer = StringBuffer()
+      ..write('<gpx><trk><trkseg>');
+    for (final point in points) {
+      final time = point.time;
+      if (time == null) {
+        return null;
+      }
+      buffer.write(
+        '<trkpt lat="${point.lat.toStringAsFixed(6)}" lon="${point.lon.toStringAsFixed(6)}">',
+      );
+      buffer.write('<time>${time.toUtc().toIso8601String()}</time>');
+      buffer.write('</trkpt>');
+    }
+    buffer.write('</trkseg></trk></gpx>');
+
+    final stats = GpxTrackStatisticsCalculator().calculate(buffer.toString());
+    return stats.movingTime > 0 ? stats.movingTime : null;
   }
 
   List<GpxPointSample> _simplifyRoutePoints(List<GpxPointSample> points) {

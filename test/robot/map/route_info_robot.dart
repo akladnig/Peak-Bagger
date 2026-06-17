@@ -40,6 +40,8 @@ class RouteInfoRobot {
       find.byKey(const Key('track-info-panel-edit-button'));
   Finder get routeInfoPanelClose =>
       find.byKey(const Key('track-info-panel-close'));
+  Finder get routeEstimatedTimeRow =>
+      find.byKey(const Key('route-estimated-time-row'));
   Finder get visibilitySwitch =>
       find.byKey(const Key('track-info-panel-visibility-switch'));
   Finder get routeDraftNameField => find.byKey(const Key('route-name-field'));
@@ -147,6 +149,21 @@ class RouteInfoRobot {
     expect(routeInfoPanel, findsOneWidget);
     expect(routeInfoPanelClose, findsOneWidget);
     expect(find.text(routeName), findsOneWidget);
+  }
+
+  void expectRouteEstimatedTime(String value) {
+    expect(routeEstimatedTimeRow, findsOneWidget);
+    expect(
+      find.descendant(
+        of: routeEstimatedTimeRow,
+        matching: find.text('Estimated Time'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: routeEstimatedTimeRow, matching: find.text(value)),
+      findsOneWidget,
+    );
   }
 
   void expectRoutePanelHidden() {

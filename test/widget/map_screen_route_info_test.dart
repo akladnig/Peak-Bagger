@@ -17,6 +17,7 @@ import 'package:peak_bagger/services/gpx_export_service.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/services/route_timing_service.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -205,12 +206,57 @@ void main() {
     expect(find.text('Visible Track'), findsOneWidget);
   });
 
-  testWidgets('shared route panel shows metrics and omits time', (
+  testWidgets('shared route panel shows metrics and estimated time', (
     tester,
   ) async {
     final route = app_route.Route(
       id: 1,
       name: '',
+      distance2d: 17500,
+      ascent: 900,
+      descent: 450,
+      startElevation: 100,
+      endElevation: 250,
+      highestElevation: 320,
+      lowestElevation: 90,
+      estimatedTime: 5400000,
+      routeTimingSource: RouteTimingSources.verifiedWalk,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: CatppuccinColors.dark,
+        home: Scaffold(
+          body: MapTrackInfoPanel(route: route, onClose: () {}),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Unnamed Route'), findsOneWidget);
+    expect(find.text('Distance (2d/3d)'), findsOneWidget);
+    expect(find.text('17.5 / 0.0 km'), findsOneWidget);
+    expect(find.text('900 m'), findsNWidgets(2));
+    expect(find.text('450 m'), findsOneWidget);
+    expect(find.text('Time'), findsOneWidget);
+    expect(find.text('Estimated Time'), findsOneWidget);
+    expect(find.text('1h 30m'), findsOneWidget);
+    expect(
+      find.text('Estimated time has been derived from a verified walk'),
+      findsOneWidget,
+    );
+    expect(find.text('Peaks Climbed'), findsNothing);
+    expect(find.text('Elevation'), findsOneWidget);
+    expect(find.text('Start Elevation'), findsOneWidget);
+    expect(find.text('End Elevation'), findsOneWidget);
+  });
+
+  testWidgets('shared route panel falls back to dash when time is missing', (
+    tester,
+  ) async {
+    final route = app_route.Route(
+      id: 2,
+      name: 'Untimed Route',
       distance2d: 17500,
       ascent: 900,
       descent: 450,
@@ -230,16 +276,9 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Unnamed Route'), findsOneWidget);
-    expect(find.text('Distance (2d/3d)'), findsOneWidget);
-    expect(find.text('17.5 / 0.0 km'), findsOneWidget);
-    expect(find.text('900 m'), findsNWidgets(2));
-    expect(find.text('450 m'), findsOneWidget);
-    expect(find.text('Time'), findsNothing);
-    expect(find.text('Peaks Climbed'), findsNothing);
-    expect(find.text('Elevation'), findsOneWidget);
-    expect(find.text('Start Elevation'), findsOneWidget);
-    expect(find.text('End Elevation'), findsOneWidget);
+    expect(find.text('Time'), findsOneWidget);
+    expect(find.text('Estimated Time'), findsOneWidget);
+    expect(find.text('—'), findsOneWidget);
   });
 
   testWidgets('route export success snackbar shows nested Routes path', (
