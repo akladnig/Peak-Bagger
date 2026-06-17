@@ -581,7 +581,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(6, 3506540890240152030),
     name: 'Route',
-    lastPropertyId: const obx_int.IdUid(16, 8462861869933376021),
+    lastPropertyId: const obx_int.IdUid(19, 3445699157426820519),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -678,6 +678,24 @@ final _entities = <obx_int.ModelEntity>[
         id: const obx_int.IdUid(16, 8462861869933376021),
         name: 'visible',
         type: 1,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(17, 6665941071022216451),
+        name: 'estimatedTime',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(18, 2344486618552624926),
+        name: 'routeTimingProfileJson',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(19, 3445699157426820519),
+        name: 'routeTimingSource',
+        type: 9,
         flags: 0,
       ),
     ],
@@ -1700,17 +1718,17 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final nameParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 6, '');
+        final regionParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 10, '');
         final peakListParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 8, '');
-        final regionParam = const fb.StringReader(
-          asciiOptimization: true,
-        ).vTableGet(buffer, rootOffset, 10, Peak.defaultRegion);
         final object = PeakList(
           peakListId: peakListIdParam,
           name: nameParam,
-          peakList: peakListParam,
           region: regionParam,
+          peakList: peakListParam,
         );
 
         return object;
@@ -1790,7 +1808,14 @@ obx_int.ModelDefinition getObjectBoxModel() {
           object.routeWaypointsJson,
         );
         final descOffset = fbb.writeString(object.desc);
-        fbb.startTable(17);
+        final routeTimingProfileJsonOffset =
+            object.routeTimingProfileJson == null
+            ? null
+            : fbb.writeString(object.routeTimingProfileJson!);
+        final routeTimingSourceOffset = object.routeTimingSource == null
+            ? null
+            : fbb.writeString(object.routeTimingSource!);
+        fbb.startTable(20);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, nameOffset);
         fbb.addOffset(2, displayRoutePointsByZoomOffset);
@@ -1807,6 +1832,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addOffset(13, routeWaypointsJsonOffset);
         fbb.addOffset(14, descOffset);
         fbb.addBool(15, object.visible);
+        fbb.addInt64(16, object.estimatedTime);
+        fbb.addOffset(17, routeTimingProfileJsonOffset);
+        fbb.addOffset(18, routeTimingSourceOffset);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -1888,6 +1916,17 @@ obx_int.ModelDefinition getObjectBoxModel() {
           26,
           0,
         );
+        final estimatedTimeParam = const fb.Int64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          36,
+        );
+        final routeTimingSourceParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 40);
+        final routeTimingProfileJsonParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 38);
         final object =
             Route(
                 id: idParam,
@@ -1904,6 +1943,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
                 endElevation: endElevationParam,
                 lowestElevation: lowestElevationParam,
                 highestElevation: highestElevationParam,
+                estimatedTime: estimatedTimeParam,
+                routeTimingSource: routeTimingSourceParam,
+                routeTimingProfileJson: routeTimingProfileJsonParam,
               )
               ..gpxRouteJson = const fb.StringReader(
                 asciiOptimization: true,
@@ -2827,6 +2869,21 @@ class Route_ {
   /// See [Route.visible].
   static final visible = obx.QueryBooleanProperty<Route>(
     _entities[5].properties[15],
+  );
+
+  /// See [Route.estimatedTime].
+  static final estimatedTime = obx.QueryIntegerProperty<Route>(
+    _entities[5].properties[16],
+  );
+
+  /// See [Route.routeTimingProfileJson].
+  static final routeTimingProfileJson = obx.QueryStringProperty<Route>(
+    _entities[5].properties[17],
+  );
+
+  /// See [Route.routeTimingSource].
+  static final routeTimingSource = obx.QueryStringProperty<Route>(
+    _entities[5].properties[18],
   );
 }
 

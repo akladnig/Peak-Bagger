@@ -39,6 +39,7 @@ import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
+import 'package:peak_bagger/services/route_timing_service.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
 import 'package:peak_bagger/services/track_peak_correlation_service.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
@@ -1541,6 +1542,10 @@ class MapNotifier extends Notifier<MapState> {
         route.colour = 0xFFFF0000;
 
         await _enrichImportedRoute(route);
+        if (route.estimatedTime == null ||
+            route.routeTimingProfileJson == null) {
+          _applyRouteTimingFromGeometry(route);
+        }
 
         final savedRoute = _routeRepository.saveRoute(route);
         addedItems.add(GpxRouteImportItem(route: savedRoute));
@@ -1652,6 +1657,43 @@ class MapNotifier extends Notifier<MapState> {
     route.endElevation = fallbackSummary.endElevation;
     route.lowestElevation = fallbackSummary.lowestElevation;
     route.highestElevation = fallbackSummary.highestElevation;
+  }
+
+  void _applyRouteTimingFromGeometry(Route route) {
+    final profile = buildNaismithProfile(
+      points: route.gpxRoute,
+      elevations: route.gpxRouteElevations,
+    );
+    route.routeTimingSource = RouteTimingSources.naismith;
+    route.routeTimingProfileJson = encodeRouteTimingProfile(profile);
+    route.estimatedTime = profileDurationSeconds(profile) * 1000;
+  }
+
+  void _applyRouteTimingForSave(Route route, Route? sourceRoute) {
+    if (sourceRoute != null &&
+        sourceRoute.estimatedTime != null &&
+        sourceRoute.routeTimingProfileJson != null) {
+      final sourceProfile = decodeRouteTimingProfile(
+        sourceRoute.routeTimingProfileJson,
+      );
+      final combinedProfile = extendVerifiedWalkTimingProfile(
+        sourcePoints: sourceRoute.gpxRoute,
+        sourceElevations: sourceRoute.gpxRouteElevations,
+        sourceProfile: sourceProfile,
+        updatedPoints: route.gpxRoute,
+        updatedElevations: route.gpxRouteElevations,
+      );
+      if (combinedProfile != null) {
+        route.routeTimingSource = combinedProfile.length == sourceProfile.length
+            ? sourceRoute.routeTimingSource
+            : RouteTimingSources.extendedRoute;
+        route.routeTimingProfileJson = encodeRouteTimingProfile(combinedProfile);
+        route.estimatedTime = profileDurationSeconds(combinedProfile) * 1000;
+        return;
+      }
+    }
+
+    _applyRouteTimingFromGeometry(route);
   }
 
   Future<void> _placeFileInManagedStorage({
@@ -3426,6 +3468,9 @@ class MapNotifier extends Notifier<MapState> {
 
     state = state.copyWith(isSavingRoute: true, clearRouteDraftNameError: true);
     try {
+      final sourceRoute = sourceRouteId == null
+          ? null
+          : _routeRepository.findById(sourceRouteId);
       final committedPoints = List<LatLng>.from(
         state.routeDraftCommittedPoints,
         growable: false,
@@ -3453,6 +3498,7 @@ class MapNotifier extends Notifier<MapState> {
         lowestElevation: elevationSummary.lowestElevation,
         highestElevation: elevationSummary.highestElevation,
       );
+      _applyRouteTimingForSave(route, sourceRoute);
       _routeRepository.saveRoute(route);
       ref.read(routeRevisionProvider.notifier).increment();
       if (sourceRouteId != null) {

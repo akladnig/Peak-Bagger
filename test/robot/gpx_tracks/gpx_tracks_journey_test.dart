@@ -1008,11 +1008,32 @@ void main() {
 
     expect(result.addedCount, 1);
     expect(routeRepository.getAllRoutes(), hasLength(1));
+    expect(routeRepository.getAllRoutes().single.estimatedTime, 10 * 60 * 1000);
     expect(
       robot.notifier.state.selectedRouteId,
       routeRepository.getAllRoutes().single.id,
     );
     expect(robot.notifier.state.showRoutes, isTrue);
+    expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
+    expect(find.byKey(const Key('route-estimated-time-row')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('route-estimated-time-row')),
+        matching: find.text('Estimated Time'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('route-estimated-time-row')),
+        matching: find.text('10m'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Estimated time has been derived from a verified walk'),
+      findsOneWidget,
+    );
   });
 }
 
@@ -1165,8 +1186,12 @@ const _selectedRouteGpx = '''
 <gpx version="1.1" creator="test">
   <rte>
     <name>Selected Route</name>
-    <rtept lat="-41.5" lon="146.5"></rtept>
-    <rtept lat="-41.6" lon="146.6"></rtept>
+    <rtept lat="-41.5" lon="146.5">
+      <time>2024-01-15T08:00:00Z</time>
+    </rtept>
+    <rtept lat="-41.6" lon="146.6">
+      <time>2024-01-15T08:10:00Z</time>
+    </rtept>
   </rte>
 </gpx>
 ''';

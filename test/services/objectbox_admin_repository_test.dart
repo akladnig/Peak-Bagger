@@ -165,6 +165,9 @@ void main() {
         'endElevation',
         'lowestElevation',
         'highestElevation',
+        'estimatedTime',
+        'routeTimingSource',
+        'routeTimingProfileJson',
       ]),
     );
     expect(entities.last.primaryKeyField, 'id');
@@ -511,6 +514,9 @@ void main() {
         endElevation: 1210,
         lowestElevation: 110,
         highestElevation: 1600,
+        estimatedTime: 5400000,
+        routeTimingSource: 'naismith',
+        routeTimingProfileJson: '[0,5400]',
       ),
     );
 
@@ -522,6 +528,9 @@ void main() {
     expect(row.values['colour'], 12);
     expect(row.values['distance2d'], 12.5);
     expect(row.values['highestElevation'], 1600);
+    expect(row.values['estimatedTime'], 5400000);
+    expect(row.values['routeTimingSource'], 'naismith');
+    expect(row.values['routeTimingProfileJson'], '[0,5400]');
   });
 
   test('peak admin field helpers expose required table and details order', () {

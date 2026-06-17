@@ -27,6 +27,7 @@ void main() {
 
     robot.expectSelectedRoute(1);
     robot.expectRoutePanelVisible('Robot Route');
+    robot.expectRouteEstimatedTime('—');
     robot.expectRoutePolylineVisible(true);
 
     await robot.toggleRouteVisibility();
@@ -63,6 +64,7 @@ void main() {
 
     robot.expectSelectedRoute(1);
     robot.expectRoutePanelVisible('Robot Route');
+    robot.expectRouteEstimatedTime('—');
 
     await robot.tapEditRoute();
 
@@ -74,6 +76,7 @@ void main() {
 
     robot.expectSelectedRoute(1);
     robot.expectRoutePanelVisible('Edited Robot Route');
+    robot.expectRouteEstimatedTime('—');
     robot.expectRouteDraftHidden();
     expect(repository.findById(1)!.name, 'Edited Robot Route');
   });
@@ -104,6 +107,7 @@ void main() {
 
     robot.expectSelectedRoute(1);
     robot.expectRoutePanelVisible('Robot Route');
+    robot.expectRouteEstimatedTime('—');
     robot.expectRouteDraftHidden();
     expect(repository.findById(1)!.name, 'Robot Route');
   });

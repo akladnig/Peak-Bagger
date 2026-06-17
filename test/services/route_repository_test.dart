@@ -3,6 +3,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/models/route_waypoint.dart';
 import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/services/route_timing_service.dart';
 
 void main() {
   test('saveRoute assigns an id on create and returns the saved entity', () {
@@ -81,5 +82,24 @@ void main() {
     expect(encoded, contains('Waypoint 1'));
     expect(decoded.routeWaypoints, hasLength(1));
     expect(decoded.routeWaypoints.single, route.routeWaypoints.single);
+  });
+
+  test('route timing metadata round-trips through persistence', () {
+    final repository = RouteRepository.test(InMemoryRouteStorage());
+    final route = Route(
+      name: 'Timed Route',
+      gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.6, 146.6)],
+      estimatedTime: 123456,
+      routeTimingSource: RouteTimingSources.naismith,
+      routeTimingProfileJson: '[0,123456]',
+    );
+
+    final saved = repository.saveRoute(route);
+
+    expect(saved.estimatedTime, 123456);
+    expect(saved.routeTimingSource, RouteTimingSources.naismith);
+    expect(repository.getAllRoutes().single.estimatedTime, 123456);
+    expect(repository.getAllRoutes().single.routeTimingSource, RouteTimingSources.naismith);
+    expect(repository.getAllRoutes().single.routeTimingProfileJson, '[0,123456]');
   });
 }

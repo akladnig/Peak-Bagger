@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
+import 'package:peak_bagger/services/route_timing_service.dart';
 
 void main() {
   test('importTracks stores filteredTrack for hiking tracks', () async {
@@ -161,6 +162,41 @@ void main() {
     expect(route.gpxRoute.last.longitude, 146.00010);
     expect(route.gpxRouteElevations, hasLength(2));
     expect(route.displayRoutePointsByZoom, isNot('{}'));
+  });
+
+  test('parseRouteFile captures timing from route timestamps', () async {
+    final tempDir = await Directory.systemTemp.createTemp('gpx-route-timing');
+    addTearDown(() async {
+      if (tempDir.existsSync()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    final routesDir = Directory('${tempDir.path}/Routes')..createSync();
+    final source = File('${routesDir.path}/timed-route.gpx');
+    const rawXml = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <rte>
+    <name>Timed Route</name>
+    <rtept lat="-42.0000" lon="146.0000">
+      <time>2024-01-15T08:00:00Z</time>
+    </rtept>
+    <rtept lat="-42.0001" lon="146.0001">
+      <time>2024-01-15T08:10:00Z</time>
+    </rtept>
+  </rte>
+</gpx>
+''';
+    await source.writeAsString(rawXml);
+
+    final importer = GpxImporter(routesFolder: routesDir.path);
+    final route = importer.parseRouteFile(source.path);
+
+    expect(route, isNotNull);
+    expect(route!.estimatedTime, 10 * 60 * 1000);
+    expect(route.routeTimingSource, RouteTimingSources.verifiedWalk);
+    expect(route.routeTimingProfileJson, '[0,600]');
   });
 
   test(

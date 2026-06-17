@@ -1,6 +1,7 @@
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/models/route_waypoint.dart';
+import 'package:peak_bagger/services/route_timing_service.dart';
 
 class RouteAdminFormState {
   const RouteAdminFormState({
@@ -175,6 +176,13 @@ class RouteAdminEditor {
       lowestElevation: lowestElevation!,
       highestElevation: highestElevation!,
     );
+    final profile = buildNaismithProfile(
+      points: updated.gpxRoute,
+      elevations: updated.gpxRouteElevations,
+    );
+    updated.routeTimingSource = RouteTimingSources.naismith;
+    updated.routeTimingProfileJson = encodeRouteTimingProfile(profile);
+    updated.estimatedTime = profileDurationSeconds(profile) * 1000;
 
     return RouteAdminValidationResult(fieldErrors: fieldErrors, route: updated);
   }

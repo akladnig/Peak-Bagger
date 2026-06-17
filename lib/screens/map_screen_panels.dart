@@ -14,6 +14,7 @@ import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/elevation_profile_series_builder.dart';
 import 'package:peak_bagger/services/map_ruler_scale.dart';
+import 'package:peak_bagger/services/route_timing_service.dart';
 import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/peak_search_results_list.dart';
 import 'package:peak_bagger/widgets/elevation_profile_chart.dart';
@@ -361,6 +362,11 @@ class MapTrackInfoPanel extends StatelessWidget {
     app_route.Route route, {
     required ValueChanged<bool>? onVisibilityChanged,
   }) {
+    final timingExplanation = routeTimingExplanation(
+      estimatedTime: route.estimatedTime,
+      routeTimingSource: route.routeTimingSource,
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -426,6 +432,26 @@ class MapTrackInfoPanel extends StatelessWidget {
         _LabeledValueRow(
           label: 'Min Elevation',
           value: formatElevation(route.lowestElevation.round()),
+        ),
+        const SizedBox(height: 20),
+        const _SectionTitle(title: 'Time'),
+        thinDivider,
+        const SizedBox(height: 16),
+        if (timingExplanation != null)
+          Padding(
+            key: const Key('route-estimated-time-explanation'),
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              timingExplanation,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        _LabeledValueRow(
+          key: const Key('route-estimated-time-row'),
+          label: 'Estimated Time',
+          value: route.estimatedTime == null
+              ? '—'
+              : formatDuration(route.estimatedTime),
         ),
         const SizedBox(height: 20),
         _VisibilityToggleRow(
@@ -959,7 +985,7 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _LabeledValueRow extends StatelessWidget {
-  const _LabeledValueRow({required this.label, required this.value});
+  const _LabeledValueRow({super.key, required this.label, required this.value});
 
   final String label;
   final String value;

@@ -232,11 +232,59 @@ void main() {
     expect(result.addedCount, 1);
     expect(result.items.single.route.name, 'Selected Route');
     expect(result.items.single.route.colour, 0xFFFF0000);
+    expect(result.items.single.route.estimatedTime, greaterThan(0));
+    expect(result.items.single.route.routeTimingSource, 'naismith');
+    expect(result.items.single.route.routeTimingProfileJson, isNotNull);
     expect(routeRepository.getAllRoutes(), hasLength(1));
     expect(routeRepository.getAllRoutes().single.colour, 0xFFFF0000);
+    expect(routeRepository.getAllRoutes().single.estimatedTime, greaterThan(0));
+    expect(routeRepository.getAllRoutes().single.routeTimingSource, 'naismith');
     expect(notifier.state.showRoutes, isTrue);
     expect(notifier.state.selectedRouteId, routeRepository.getAllRoutes().single.id);
     expect(container.read(routeRevisionProvider), 1);
+  });
+
+  test('timestamped route import preserves calculated timing', () async {
+    SharedPreferences.setMockInitialValues({});
+
+    final importDir = Directory.systemTemp.createTempSync('gpx-route-timed-import');
+    addTearDown(() => importDir.deleteSync(recursive: true));
+    final gpxFile = File('${importDir.path}/timed-route.gpx')
+      ..writeAsStringSync(_timedSelectedRouteGpx);
+
+    final tasmapRepository = await TestTasmapRepository.create();
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+    final container = ProviderContainer(
+      overrides: [
+        mapProvider.overrideWith(
+          () => MapNotifier(
+            peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+            overpassService: OverpassService(),
+            tasmapRepository: tasmapRepository,
+            gpxTrackRepository: TestWritableGpxTrackRepository(),
+            routeRepository: routeRepository,
+            peaksBaggedRepository: PeaksBaggedRepository.test(
+              InMemoryPeaksBaggedStorage(),
+            ),
+            migrationMarkerStore: const MigrationMarkerStore(),
+            loadPositionOnBuild: false,
+            loadPeaksOnBuild: false,
+            loadTracksOnBuild: false,
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(mapProvider.notifier);
+    final result = await notifier.importRouteFiles(
+      pathToEditedNames: {gpxFile.path: 'Timed Route'},
+    );
+
+    expect(result.addedCount, 1);
+    expect(result.items.single.route.estimatedTime, 10 * 60 * 1000);
+    expect(result.items.single.route.routeTimingProfileJson, '[0,600]');
+    expect(routeRepository.getAllRoutes().single.estimatedTime, 10 * 60 * 1000);
   });
 
   test('deleteTrack clears bagged summaries for removed tracks', () async {
@@ -398,5 +446,20 @@ const _selectedRouteGpx = '''
   <wpt lat="-41.55" lon="146.55">
     <name>Waypoint A</name>
   </wpt>
+</gpx>
+''';
+
+const _timedSelectedRouteGpx = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <rte>
+    <name>Original Route</name>
+    <rtept lat="-41.5" lon="146.5">
+      <time>2024-01-15T08:00:00Z</time>
+    </rtept>
+    <rtept lat="-41.6" lon="146.6">
+      <time>2024-01-15T08:10:00Z</time>
+    </rtept>
+  </rte>
 </gpx>
 ''';
