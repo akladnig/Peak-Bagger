@@ -978,7 +978,7 @@ void main() {
     },
   );
 
-  testWidgets('drawer follows map center region and updates live', (
+  testWidgets('drawer shows legacy Tasmania list values in Tasmania only', (
     tester,
   ) async {
     final peakListRepository = PeakListRepository.test(
@@ -993,7 +993,7 @@ void main() {
         )..peakListId = 2,
         PeakList(
           name: 'Alpha',
-          region: 'tasmania',
+          region: '',
           peakList: encodePeakListItems([
             const PeakListItem(peakOsmId: 6406, points: 1),
           ]),
@@ -1044,6 +1044,7 @@ void main() {
       tester.element(find.byKey(const Key('map-interaction-region'))),
     );
 
+    expect(find.byKey(const Key('peak-list-item-All Peaks')), findsOneWidget);
     expect(find.byKey(const Key('peak-list-item-Alpha')), findsOneWidget);
     expect(find.byKey(const Key('peak-list-item-Zero')), findsNothing);
     expect(find.byKey(const Key('peak-list-item-Broken')), findsNothing);

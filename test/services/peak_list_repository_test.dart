@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 
@@ -181,6 +182,27 @@ void main() {
       );
 
       expect(repository.findPeakListNamesForPeak(11), ['Valid']);
+    });
+
+    test('save normalizes Tasmania legacy region values only', () async {
+      final repository = PeakListRepository.test(InMemoryPeakListStorage());
+
+      final blank = await repository.save(
+        PeakList(name: 'Blank', region: '', peakList: '[]'),
+      );
+      final legacyCased = await repository.save(
+        PeakList(name: 'Legacy', region: 'Tasmania', peakList: '[]'),
+      );
+      final victoria = await repository.save(
+        PeakList(name: 'Victoria', region: 'victoria', peakList: '[]'),
+      );
+
+      expect(blank.region, Peak.defaultRegion);
+      expect(legacyCased.region, Peak.defaultRegion);
+      expect(victoria.region, 'victoria');
+      expect(repository.findByName('Blank')?.region, Peak.defaultRegion);
+      expect(repository.findByName('Legacy')?.region, Peak.defaultRegion);
+      expect(repository.findByName('Victoria')?.region, 'victoria');
     });
   });
 }
