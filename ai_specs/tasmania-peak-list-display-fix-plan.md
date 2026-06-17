@@ -25,10 +25,10 @@ Fix shared region matching first; then harden save paths against legacy region v
 ### Phase 2: Persisted-data hardening
 
 - **Goal**: future writes stop reintroducing non-canonical list regions; journey stays covered
-- [ ] `test/services/peak_list_repository_test.dart` - TDD: save normalizes blank/legacy Tasmania region to `Peak.defaultRegion`; explicit non-Tas region preserved
-- [ ] `lib/services/peak_list_repository.dart` - normalize `PeakList.region` at repository save boundary; keep replacement/update semantics unchanged
-- [ ] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - robot journey: open peaks drawer in Tasmania with legacy-region list, assert row visible; move to NSW, assert row disappears; existing key selectors sufficient
-- [ ] Verify: `flutter analyze` && `flutter test test/services/peak_list_repository_test.dart test/robot/gpx_tracks/gpx_tracks_journey_test.dart`
+- [x] `test/services/peak_list_repository_test.dart` - TDD: save normalizes blank/legacy Tasmania region to `Peak.defaultRegion`; explicit non-Tas region preserved
+- [x] `lib/services/peak_list_repository.dart` - normalize `PeakList.region` at repository save boundary; keep replacement/update semantics unchanged
+- [x] `test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - robot journey: open peaks drawer in Tasmania with legacy-region list, assert row visible; move to NSW, assert row disappears; existing key selectors sufficient
+- [x] Verify: `flutter analyze` && `flutter test test/services/peak_list_repository_test.dart test/robot/gpx_tracks/gpx_tracks_journey_test.dart`
 
 ## Risks / Out of scope
 

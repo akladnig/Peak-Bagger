@@ -35,7 +35,9 @@ import '../../harness/test_tasmap_repository.dart';
 import 'gpx_tracks_robot.dart';
 
 void main() {
-  testWidgets('peak drawer follows map center region changes', (tester) async {
+  testWidgets('peak drawer keeps legacy Tasmania list visible in Tasmania', (
+    tester,
+  ) async {
     final robot = GpxTracksRobot(
       tester,
       MapState(
@@ -61,7 +63,7 @@ void main() {
         InMemoryPeakListStorage([
           PeakList(
             name: 'Alpha',
-            region: 'tasmania',
+            region: '',
             peakList: encodePeakListItems([
               const PeakListItem(peakOsmId: 6406, points: 1),
             ]),

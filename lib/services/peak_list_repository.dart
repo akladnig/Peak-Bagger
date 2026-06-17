@@ -1,3 +1,4 @@
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/tassy_full_peak_list_sync_service.dart';
 
@@ -231,12 +232,16 @@ class PeakListRepository {
     PeakList peakList, {
     void Function()? beforePutForTest,
   }) async {
-    final existing = _storage.getByName(peakList.name);
+    final normalizedPeakList = _normalizePeakListForStorage(peakList);
+    final existing = _storage.getByName(normalizedPeakList.name);
     if (existing == null) {
-      return _storage.put(peakList);
+      return _storage.put(normalizedPeakList);
     }
 
-    return _storage.replaceByName(peakList, beforePutForTest: beforePutForTest);
+    return _storage.replaceByName(
+      normalizedPeakList,
+      beforePutForTest: beforePutForTest,
+    );
   }
 
   Future<TassyFullPeakListSyncResult> refreshTassyFullPeakList() {
@@ -303,6 +308,15 @@ class PeakListRepository {
     if (peakList == null) {
       throw StateError('Peak list not found');
     }
+    return peakList;
+  }
+
+  PeakList _normalizePeakListForStorage(PeakList peakList) {
+    final trimmedRegion = peakList.region.trim();
+    if (trimmedRegion.isEmpty || trimmedRegion.toLowerCase() == Peak.defaultRegion) {
+      return peakList.copyWith(region: Peak.defaultRegion);
+    }
+
     return peakList;
   }
 }
