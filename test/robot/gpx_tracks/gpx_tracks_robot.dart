@@ -125,6 +125,7 @@ class GpxTracksRobot {
       find.byKey(const Key('startup-backfill-warning-open-settings'));
   Finder get mapInteractionRegion =>
       find.byKey(const Key('map-interaction-region'));
+  Finder get mapTapActionPopup => find.byKey(const Key('map-tap-action-popup'));
   Finder get trackInfoPanel => find.byKey(const Key('track-info-panel'));
   Finder get trackInfoPanelClose =>
       find.byKey(const Key('track-info-panel-close'));

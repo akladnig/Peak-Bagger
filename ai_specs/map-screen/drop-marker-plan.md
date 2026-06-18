@@ -62,18 +62,18 @@ Persistent waypoint slice for map screen. Start with marker persistence through 
 ### Phase 4: Conditional ETA + Admin Support
 
 - **Goal**: chooser-driven ETA rows; admin list/delete for `Waypoints`
-- [ ] `lib/screens/map_screen.dart` - capture precomputed or replayable tap-time ETA context; show Home ETA only on routable taps; show Marker ETA only when current marker exists; reuse existing ETA popup contract
-- [ ] `lib/screens/map_screen_panels.dart` - render conditional ETA rows in chooser
-- [ ] `lib/services/objectbox_admin_repository.dart` - load/map `Waypoints` rows; primary-name handling; preview values
-- [ ] `lib/screens/objectbox_admin_screen.dart` - add `Waypoints` delete action wiring
-- [ ] `lib/screens/objectbox_admin_screen_table.dart` - add `objectbox-admin-waypoints-delete-<id>` key path
-- [ ] `test/widget/map_screen_drive_eta_test.dart` - chooser-driven ETA routing; routable/non-routable variants; marker-present vs marker-absent variants
-- [ ] `test/widget/objectbox_admin_waypoints_test.dart` or existing admin test file - entity list/delete coverage for `Waypoints`
-- [ ] TDD: chooser captures tap-time ETA context; later button press does not depend on popup-button tap position
-- [ ] TDD: non-routable tap omits ETA rows; routable tap shows Home ETA; Marker ETA appears only with current marker
-- [ ] TDD: chooser-triggered ETA still uses existing loading/success/error popup surface
-- [ ] Robot journey tests + selectors/seams for critical flows: reuse `map-interaction-region`, existing `drive-eta-popup-*` keys, plus chooser ETA row keys; fake route-graph hit service and fake ORS/live-location seams
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/screens/map_screen.dart` - capture precomputed or replayable tap-time ETA context; show Home ETA only on routable taps; show Marker ETA only when current marker exists; reuse existing ETA popup contract
+- [x] `lib/screens/map_screen_panels.dart` - render conditional ETA rows in chooser
+- [x] `lib/services/objectbox_admin_repository.dart` - load/map `Waypoints` rows; primary-name handling; preview values
+- [x] `lib/screens/objectbox_admin_screen.dart` - add `Waypoints` delete action wiring
+- [x] `lib/screens/objectbox_admin_screen_table.dart` - add `objectbox-admin-waypoints-delete-<id>` key path
+- [x] `test/widget/map_screen_drive_eta_test.dart` - chooser-driven ETA routing; routable/non-routable variants; marker-present vs marker-absent variants
+- [x] `test/widget/objectbox_admin_waypoints_test.dart` or existing admin test file - entity list/delete coverage for `Waypoints`
+- [x] TDD: chooser captures tap-time ETA context; later button press does not depend on popup-button tap position
+- [x] TDD: non-routable tap omits ETA rows; routable tap shows Home ETA; Marker ETA appears only with current marker
+- [x] TDD: chooser-triggered ETA still uses existing loading/success/error popup surface
+- [x] Robot journey tests + selectors/seams for critical flows: reuse `map-interaction-region`, existing `drive-eta-popup-*` keys, plus chooser ETA row keys; fake route-graph hit service and fake ORS/live-location seams
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

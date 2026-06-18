@@ -13,6 +13,7 @@ import 'package:peak_bagger/models/route_graph_manifest.dart';
 import 'package:peak_bagger/models/route_graph_trail_display_chunk.dart';
 import 'package:peak_bagger/models/route_graph_way_index.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
+import 'package:peak_bagger/models/waypoints.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:objectbox/internal.dart' as obx_int;
 
@@ -69,6 +70,7 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
       'Tasmap50k' => _loadTasmapRows(store, trimmedQuery, ascending),
       'GpxTrack' => _loadTrackRows(store, trimmedQuery, ascending),
       'PeaksBagged' => _loadPeaksBaggedRows(store, trimmedQuery, ascending),
+      'Waypoints' => _loadWaypointsRows(store, trimmedQuery, ascending),
       'Route' => _loadRouteRows(store, trimmedQuery, ascending),
       'RouteGraphChunk' => _loadRouteGraphChunkRows(
         store,
@@ -182,6 +184,7 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
       'Tasmap50k' => 'name',
       'GpxTrack' => 'trackName',
       'PeaksBagged' => 'gpxId',
+      'Waypoints' => 'name',
       'RouteGraphChunk' => 'chunkKey',
       'RouteGraphWayIndex' => 'name',
       'RouteGraphTrailDisplayChunk' => 'recordKey',
@@ -374,6 +377,28 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
     );
 
     return filtered.map(peaksBaggedToAdminRow).toList(growable: false);
+  }
+
+  List<ObjectBoxAdminRow> _loadWaypointsRows(
+    Store store,
+    String query,
+    bool ascending,
+  ) {
+    final box = store.box<Waypoints>();
+    final items = box.getAll();
+    final filtered = query.isEmpty
+        ? items
+        : items.where((row) {
+            return row.name.toLowerCase().contains(query) ||
+                row.type.toLowerCase().contains(query) ||
+                row.mgrs.toLowerCase().contains(query);
+          }).toList();
+
+    filtered.sort(
+      (a, b) => ascending ? a.id.compareTo(b.id) : b.id.compareTo(a.id),
+    );
+
+    return filtered.map(waypointsToAdminRow).toList(growable: false);
   }
 
   List<ObjectBoxAdminRow> _loadRouteRows(
@@ -709,6 +734,20 @@ ObjectBoxAdminRow peaksBaggedToAdminRow(PeaksBagged row) {
       'peakId': row.peakId,
       'gpxId': row.gpxId,
       'date': row.date,
+    },
+  );
+}
+
+ObjectBoxAdminRow waypointsToAdminRow(Waypoints row) {
+  return ObjectBoxAdminRow(
+    primaryKeyValue: row.id,
+    values: {
+      'id': row.id,
+      'name': row.name,
+      'type': row.type,
+      'latitude': row.latitude,
+      'longitude': row.longitude,
+      'mgrs': row.mgrs,
     },
   );
 }

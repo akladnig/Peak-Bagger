@@ -45,7 +45,10 @@ class ObjectBoxAdminDataGrid extends StatelessWidget {
         .toList(growable: false);
     final primaryField = tableFields.firstWhere((field) => field.isPrimaryName);
     final showActionsColumn =
-        (entity.name == 'Peak' || entity.name == 'GpxTrack' || entity.name == 'Route') &&
+        (entity.name == 'Peak' ||
+            entity.name == 'GpxTrack' ||
+            entity.name == 'Route' ||
+            entity.name == 'Waypoints') &&
         onDeletePressed != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -272,13 +275,15 @@ class ObjectBoxAdminDataRowTile extends StatelessWidget {
                 width: actionsColumnWidth,
                 child: Center(
                   child: IconButton(
-                    key: Key(
-                      entityName == 'GpxTrack'
-                          ? 'objectbox-admin-gpx-track-delete-${row.primaryKeyValue}'
-                          : entityName == 'Route'
-                          ? 'objectbox-admin-route-delete-${row.primaryKeyValue}'
-                          : 'objectbox-admin-peak-delete-${row.primaryKeyValue}',
-                    ),
+                      key: Key(
+                        entityName == 'GpxTrack'
+                            ? 'objectbox-admin-gpx-track-delete-${row.primaryKeyValue}'
+                            : entityName == 'Route'
+                            ? 'objectbox-admin-route-delete-${row.primaryKeyValue}'
+                            : entityName == 'Waypoints'
+                            ? 'objectbox-admin-waypoints-delete-${row.primaryKeyValue}'
+                            : 'objectbox-admin-peak-delete-${row.primaryKeyValue}',
+                     ),
                     tooltip: 'Delete',
                     onPressed: onDeletePressed,
                     icon: const Icon(Icons.delete_outline),

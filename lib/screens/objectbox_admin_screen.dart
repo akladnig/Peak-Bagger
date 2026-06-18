@@ -5,6 +5,8 @@ import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
+import 'package:peak_bagger/models/waypoints.dart';
+import 'package:peak_bagger/main.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen_controls.dart';
@@ -483,6 +485,41 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     );
   }
 
+  Future<void> _deleteWaypoint(ObjectBoxAdminRow row) async {
+    final waypointId = row.primaryKeyValue as int;
+    final waypointName = row.values['name']?.toString().trim().isNotEmpty == true
+        ? row.values['name']!.toString().trim()
+        : 'Waypoint';
+    final confirmed = await showDangerConfirmDialog(
+      context: context,
+      title: 'Delete Waypoint?',
+      message:
+          'This will permanently delete the $waypointName. Do you want to proceed?',
+      cancelKey: 'cancel-delete',
+      cancelLabel: 'Cancel',
+      confirmKey: 'confirm-delete',
+      confirmLabel: 'Delete',
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    final currentState = ref.read(objectboxAdminProvider);
+    final keepSelectedRowPrimaryKey =
+        currentState.selectedRow?.primaryKeyValue == row.primaryKeyValue
+        ? null
+        : currentState.selectedRow?.primaryKeyValue;
+
+    final removed = objectboxStore.box<Waypoints>().remove(waypointId);
+    if (!removed || !mounted) {
+      return;
+    }
+    await ref.read(objectboxAdminProvider.notifier).refresh(
+      keepSelectedRowPrimaryKey: keepSelectedRowPrimaryKey,
+    );
+  }
+
   void _startCreatingPeak() {
     final notifier = ref.read(objectboxAdminProvider.notifier);
     setState(() {
@@ -709,6 +746,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
               'Peak' => _deletePeak,
               'GpxTrack' => _deleteGpxTrack,
               'Route' => _deleteRoute,
+              'Waypoints' => _deleteWaypoint,
               _ => null,
             },
           ),
