@@ -891,7 +891,7 @@ void main() {
     },
   );
 
-  testWidgets('peak popup falls back to unknown map and omits empty lists', (
+  testWidgets('peak popup falls back to region and omits empty lists', (
     tester,
   ) async {
     final tasmapRepository = await TestTasmapRepository.create(maps: []);
@@ -912,9 +912,35 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Map: Unknown'), findsOneWidget);
+    expect(find.text('Region: Tasmanian'), findsOneWidget);
     expect(find.textContaining('Alt Name:'), findsNothing);
     expect(find.textContaining('List(s):'), findsNothing);
+  });
+
+  testWidgets('mgrs readout falls back to region when no sheet matches', (
+    tester,
+  ) async {
+    final tasmapRepository = await TestTasmapRepository.create(maps: []);
+
+    await _pumpMap(
+      tester,
+      _mapStateWithPeak(),
+      overrides: [
+        tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
+        tasmapStateProvider.overrideWith(
+          () => TestTasmapNotifier(tasmapRepository),
+        ),
+      ],
+    );
+
+    final mapNameRichText = tester.widget<RichText>(
+      find.descendant(
+        of: find.byKey(const Key('map-mgrs-readout')),
+        matching: find.byType(RichText),
+      ).first,
+    );
+
+    expect(mapNameRichText.text.toPlainText(), 'Tasmanian');
   });
 
   testWidgets(

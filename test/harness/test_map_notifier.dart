@@ -12,6 +12,7 @@ import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
+import 'package:peak_bagger/services/map_name_resolution.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
@@ -127,6 +128,30 @@ class TestMapNotifier extends MapNotifier {
 
   @override
   Set<int> get correlatedPeakIds => _correlatedPeakIds;
+
+  @override
+  String mapNameForMgrs(String mgrsText) {
+    try {
+      return resolveMapNameForMgrs(
+        tasmapRepository: ref.read(tasmapRepositoryProvider),
+        mgrsText: mgrsText,
+      ).displayName;
+    } catch (_) {
+      return 'Unknown';
+    }
+  }
+
+  @override
+  String mapNameForPoint(LatLng point) {
+    try {
+      return resolveMapNameForPoint(
+        tasmapRepository: ref.read(tasmapRepositoryProvider),
+        point: point,
+      ).displayName;
+    } catch (_) {
+      return 'Unknown';
+    }
+  }
 
   @override
   void addRouteDraftMarker(LatLng point, {bool straightLine = false}) {

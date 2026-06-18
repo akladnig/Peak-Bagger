@@ -161,7 +161,7 @@ class PeakInfoRobot {
   }
 
   void expectPeakPopupWithContent(String peakName) {
-    expectPeakPopupWithLines([peakName, 'Height: —', 'Map: Unknown']);
+    expectPeakPopupWithLines([peakName, 'Height: —', 'Region: Tasmanian']);
   }
 
   void expectPeakPopupWithLines(List<String> expectedLines) {

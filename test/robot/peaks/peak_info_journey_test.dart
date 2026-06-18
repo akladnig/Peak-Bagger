@@ -195,6 +195,23 @@ void main() {
     ]);
   });
 
+  testWidgets('peak info journey falls back to region without sheet coverage', (
+    tester,
+  ) async {
+    final tasmapRepository = await TestTasmapRepository.create(maps: []);
+    final r = PeakInfoRobot(tester);
+    addTearDown(r.dispose);
+
+    await r.pumpMap(tasmapRepository: tasmapRepository);
+
+    await r.clickPeak(6406);
+    r.expectPeakPopupWithLines([
+      'Bonnet Hill',
+      'Height: —',
+      'Region: Tasmanian',
+    ]);
+  });
+
   testWidgets(
     'peak info journey background click closes popup and selects map',
     (tester) async {

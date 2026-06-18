@@ -26,6 +26,7 @@ import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/import_path_helpers.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
 import 'package:peak_bagger/services/item_visibility_backfill_service.dart';
+import 'package:peak_bagger/services/map_name_resolution.dart';
 import 'package:peak_bagger/services/gpx_track_repair_service.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
@@ -1035,8 +1036,10 @@ class MapNotifier extends Notifier<MapState> {
 
   String mapNameForMgrs(String mgrsText) {
     try {
-      return _tasmapRepository.findByMgrsCodeAndCoordinates(mgrsText)?.name ??
-          'Unknown';
+      return resolveMapNameForMgrs(
+        tasmapRepository: tasmapRepository,
+        mgrsText: mgrsText,
+      ).displayName;
     } catch (_) {
       return 'Unknown';
     }
@@ -1044,7 +1047,10 @@ class MapNotifier extends Notifier<MapState> {
 
   String mapNameForPoint(LatLng point) {
     try {
-      return _tasmapRepository.findByPoint(point)?.name ?? 'Unknown';
+      return resolveMapNameForPoint(
+        tasmapRepository: tasmapRepository,
+        point: point,
+      ).displayName;
     } catch (_) {
       return 'Unknown';
     }
@@ -6014,6 +6020,7 @@ class MapNotifier extends Notifier<MapState> {
       return PeakInfoContent(
         peak: peak,
         mapName: 'Unknown',
+        mapNameOrigin: MapNameOrigin.unknown,
         listNames: const [],
         ascentRows: const [],
       );
