@@ -46,18 +46,18 @@ Persistent waypoint slice for map screen. Start with marker persistence through 
 ### Phase 3: Empty-Map Chooser + Favourites
 
 - **Goal**: replace implicit empty-map marker placement with chooser + favourite save/goto
-- [ ] `lib/screens/map_screen.dart` - bypass legacy empty-map immediate selection flow; capture tap context; open/dismiss chooser; wire chooser actions
-- [ ] `lib/screens/map_screen_panels.dart` - add tap-action popup, favourites popup, favourite naming dialog, empty state, viewport-safe placement, stable selectors
-- [ ] `lib/services/waypoints_repository.dart` - finish favourite save/list/duplicate-name helpers; marker-row normalization on save
-- [ ] `lib/providers/waypoints_provider.dart` - add repository access / refresh seam only if needed for popup list updates
-- [ ] `test/widget/map_screen_waypoint_test.dart` - chooser contents; favourite naming validation; camera-only goto-favourite; empty state
-- [ ] `test/widget/map_action_rail_grouping_test.dart` - update location-group tooltip expectations
-- [ ] `test/robot/map/drop_marker_robot.dart` - new robot helper for chooser/favourite flows, or extend existing map robot lane minimally
-- [ ] TDD: unarmed empty-map tap opens chooser instead of immediately setting marker
-- [ ] TDD: chooser always shows marker/favourite; favourite save trims, rejects blank/duplicate, saves success path
-- [ ] TDD: goto-favourite moves camera to default zoom but does not change `selectedLocation` or persisted marker row
-- [ ] Robot journey tests + selectors/seams for critical flows: `drop-marker-fab`, `goto-favourite-fab`, `map-tap-action-popup`, `map-tap-action-drop-marker`, `map-tap-action-drop-favourite`, `favourite-name-dialog`, `favourite-name-input`, `favourite-name-save`, `favourites-popup`, `favourites-popup-row-<id>`
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/screens/map_screen.dart` - bypass legacy empty-map immediate selection flow; capture tap context; open/dismiss chooser; wire chooser actions
+- [x] `lib/screens/map_screen_panels.dart` - add tap-action popup, favourites popup, favourite naming dialog, empty state, viewport-safe placement, stable selectors
+- [x] `lib/services/waypoints_repository.dart` - finish favourite save/list/duplicate-name helpers; marker-row normalization on save
+- [x] `lib/providers/waypoints_provider.dart` - add repository access / refresh seam only if needed for popup list updates (not needed; notifier/repository access stayed sufficient)
+- [x] `test/widget/map_screen_waypoint_test.dart` - chooser contents; favourite naming validation; camera-only goto-favourite; empty state
+- [x] `test/widget/map_action_rail_grouping_test.dart` - update location-group tooltip expectations
+- [x] `test/robot/map/drop_marker_robot.dart` - new robot helper for chooser/favourite flows, or extend existing map robot lane minimally
+- [x] TDD: unarmed empty-map tap opens chooser instead of immediately setting marker
+- [x] TDD: chooser always shows marker/favourite; favourite save trims, rejects blank/duplicate, saves success path
+- [x] TDD: goto-favourite moves camera to default zoom but does not change `selectedLocation` or persisted marker row
+- [x] Robot journey tests + selectors/seams for critical flows: `drop-marker-fab`, `goto-favourite-fab`, `map-tap-action-popup`, `map-tap-action-drop-marker`, `map-tap-action-drop-favourite`, `favourite-name-dialog`, `favourite-name-input`, `favourite-name-save`, `favourites-popup`, `favourites-popup-row-<id>`
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 4: Conditional ETA + Admin Support
 

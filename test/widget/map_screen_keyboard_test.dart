@@ -543,7 +543,7 @@ void main() {
     expectRouteDraftOverlaysVisible();
   });
 
-  testWidgets('tapping the map sets the selected marker', (tester) async {
+  testWidgets('tapping the map opens the chooser', (tester) async {
     await _pumpMapApp(
       tester,
       MapState(
@@ -560,10 +560,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    final selectedLocation = container.read(mapProvider).selectedLocation;
-    expect(selectedLocation, isNotNull);
-    expect(selectedLocation!.latitude, closeTo(-41.5, 0.001));
-    expect(selectedLocation.longitude, closeTo(146.5, 0.001));
+    expect(container.read(mapProvider).selectedLocation, isNull);
+    expect(find.byKey(const Key('map-tap-action-popup')), findsOneWidget);
   });
 }
 

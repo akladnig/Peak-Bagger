@@ -22,6 +22,7 @@ import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/waypoints_repository.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
+import 'package:peak_bagger/models/waypoints.dart';
 
 class TestMapNotifier extends MapNotifier {
   TestMapNotifier(
@@ -131,6 +132,30 @@ class TestMapNotifier extends MapNotifier {
 
   @override
   Set<int> get correlatedPeakIds => _correlatedPeakIds;
+
+  @override
+  List<Waypoints> favouriteWaypoints() {
+    return waypointsRepository?.getFavourites() ?? const [];
+  }
+
+  @override
+  bool favouriteNameExists(String name, {int? excludingId}) {
+    return waypointsRepository?.favouriteNameExists(name, excludingId: excludingId) ??
+        false;
+  }
+
+  @override
+  Future<bool> saveFavouriteWaypoint(
+    LatLng location, {
+    required String name,
+  }) async {
+    final repository = waypointsRepository;
+    if (repository != null) {
+      await repository.saveFavourite(name: name, location: location);
+    }
+    setSelectedLocation(location);
+    return true;
+  }
 
   @override
   Future<bool> setCurrentMarker(

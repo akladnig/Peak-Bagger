@@ -300,7 +300,7 @@ void main() {
     expect(tester.widget<MouseRegion>(region).cursor, SystemMouseCursors.grab);
   });
 
-  testWidgets('non-peak click keeps selected-location behavior', (
+  testWidgets('non-peak click opens chooser without selecting location', (
     tester,
   ) async {
     await _pumpMap(tester, _mapStateWithPeak());
@@ -314,11 +314,13 @@ void main() {
 
     final state = container.read(mapProvider);
     expect(state.peakInfoPeak, isNull);
-    expect(state.selectedLocation, isNotNull);
-    expect(state.selectedLocation!.longitude, isNot(closeTo(147.0, 0.001)));
+    expect(state.selectedLocation, isNull);
+    expect(find.byKey(const Key('map-tap-action-popup')), findsOneWidget);
   });
 
-  testWidgets('background click closes open peak popup', (tester) async {
+  testWidgets('background click closes open peak popup and opens chooser', (
+    tester,
+  ) async {
     await _pumpMap(tester, _mapStateWithPeak());
 
     final region = find.byKey(const Key('map-interaction-region'));
@@ -336,7 +338,8 @@ void main() {
 
     final state = container.read(mapProvider);
     expect(state.peakInfoPeak, isNull);
-    expect(state.selectedLocation, isNotNull);
+    expect(state.selectedLocation, isNull);
+    expect(find.byKey(const Key('map-tap-action-popup')), findsOneWidget);
   });
 
   testWidgets('hiding peaks or zooming below threshold closes peak popup', (

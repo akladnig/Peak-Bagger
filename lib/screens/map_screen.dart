@@ -123,6 +123,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
   bool _routeDraftMarkerTapConsumed = false;
   String? _routeDraftDeletePopupMarkerId;
   int? _routeDraftDeletePopupViewportRevision;
+  Offset? _mapTapActionPopupAnchor;
+  LatLng? _mapTapActionPopupLocation;
+  bool _showFavouritesPopup = false;
   List<TrackRouteChooserItem>? _trackRouteChooserItems;
   Offset? _trackRouteChooserAnchor;
   int? _trackRouteChooserViewportRevision;
@@ -302,6 +305,16 @@ class _MapScreenState extends ConsumerState<MapScreen>
       _dismissTrackRouteChooser(suppressReopen: true);
       return true;
     }
+    if (_mapTapActionPopupAnchor != null || _mapTapActionPopupLocation != null) {
+      _dismissMapTapActionPopup();
+      return true;
+    }
+    if (_showFavouritesPopup) {
+      setState(() {
+        _showFavouritesPopup = false;
+      });
+      return true;
+    }
     if (mapState.driveEtaPopup != null) {
       notifier.closeDriveEtaPopup();
       return true;
@@ -336,6 +349,66 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _mapFocusNode.requestFocus();
   }
 
+  void _openMapTapActionPopup({
+    required Offset anchor,
+    required LatLng location,
+  }) {
+    setState(() {
+      _mapTapActionPopupAnchor = anchor;
+      _mapTapActionPopupLocation = location;
+      _showFavouritesPopup = false;
+    });
+    _mapFocusNode.requestFocus();
+  }
+
+  void _dismissMapTapActionPopup() {
+    if (_mapTapActionPopupAnchor == null && _mapTapActionPopupLocation == null) {
+      return;
+    }
+    setState(() {
+      _mapTapActionPopupAnchor = null;
+      _mapTapActionPopupLocation = null;
+    });
+  }
+
+  Future<void> _handleDropMarkerFromPopup() async {
+    final location = _mapTapActionPopupLocation;
+    if (location == null) {
+      return;
+    }
+    final saved = await ref.read(mapProvider.notifier).setCurrentMarker(location);
+    if (saved && mounted) {
+      _dismissMapTapActionPopup();
+    }
+  }
+
+  Future<void> _handleDropFavouriteFromPopup() async {
+    final location = _mapTapActionPopupLocation;
+    if (location == null || !mounted) {
+      return;
+    }
+    final notifier = ref.read(mapProvider.notifier);
+    final name = await showFavouriteNameDialog(
+      context,
+      nameExists: notifier.favouriteNameExists,
+    );
+    if (!mounted || name == null) {
+      return;
+    }
+    final saved = await notifier.saveFavouriteWaypoint(location, name: name);
+    if (saved && mounted) {
+      _dismissMapTapActionPopup();
+    }
+  }
+
+  void _toggleFavouritesPopup() {
+    _dismissMapTapActionPopup();
+    _mapFocusNode.requestFocus();
+    setState(() {
+      _showFavouritesPopup = !_showFavouritesPopup;
+    });
+  }
+
   void _beginRouteDraft() {
     final scaffoldState = _scaffoldKey.currentState;
     final scaffoldContext = _scaffoldKey.currentContext;
@@ -365,6 +438,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
     notifier.clearSelectedTrack();
     notifier.clearSelectedRoute();
+    _dismissMapTapActionPopup();
+    if (_showFavouritesPopup) {
+      setState(() {
+        _showFavouritesPopup = false;
+      });
+    }
     _dismissTrackRouteChooser(suppressReopen: true);
     notifier.beginRouteDraft(peakTarget: peakTarget);
     _dismissRouteDraftMarkerDeletePopup();
@@ -2512,6 +2591,15 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               .screenOffsetToLatLng(
                                                 event.localPosition,
                                               );
+                                          if (_mapTapActionPopupAnchor != null ||
+                                              _mapTapActionPopupLocation != null) {
+                                            _dismissMapTapActionPopup();
+                                          }
+                                          if (_showFavouritesPopup) {
+                                            setState(() {
+                                              _showFavouritesPopup = false;
+                                            });
+                                          }
                                           if (routeChrome.isRouteDrafting) {
                                             if (_routeDraftMarkerTapConsumed) {
                                               _routeDraftMarkerTapConsumed =
@@ -2664,6 +2752,26 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                   .driveEtaPopup !=
                                               null) {
                                             notifier.closeDriveEtaPopup();
+                                          }
+                                          final shouldOpenMapTapActionPopup =
+                                              !_driveEtaClickConsumed &&
+                                              ref
+                                                      .read(mapProvider)
+                                                      .driveEtaPopup ==
+                                                  null &&
+                                              clickTrackId == null &&
+                                              clickRouteId == null &&
+                                              (primaryClickPending ||
+                                                  event.kind !=
+                                                      PointerDeviceKind.mouse);
+                                          if (shouldOpenMapTapActionPopup) {
+                                            notifier.clearSelectedRoute();
+                                            notifier.clearSelectedTrack();
+                                            _openMapTapActionPopup(
+                                              anchor: event.localPosition,
+                                              location: tappedLocation,
+                                            );
+                                            return;
                                           }
                                           if (!_driveEtaClickConsumed &&
                                               ref
@@ -3208,11 +3316,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     );
                   },
                 ),
-                    MapActionRail(
-                      onCreateRoute: _beginRouteDraft,
-                      onShowBasemaps: _openBasemapsDrawer,
-                      onDropMarker: _toggleDropMarkerArmed,
-                    ),
+                MapActionRail(
+                  onCreateRoute: _beginRouteDraft,
+                  onShowBasemaps: _openBasemapsDrawer,
+                  onDropMarker: _toggleDropMarkerArmed,
+                  onShowFavourites: _toggleFavouritesPopup,
+                ),
                 if (routeChrome.isRouteDrafting)
                   const Positioned(
                     key: Key('route-controls-overlay-root'),
@@ -3334,6 +3443,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
                   ),
                 if (_trackRouteChooserItems != null)
                   _buildTrackRouteChooserPopup(context),
+                if (_mapTapActionPopupAnchor != null &&
+                    _mapTapActionPopupLocation != null)
+                  _buildMapTapActionPopup(context),
+                if (_showFavouritesPopup) _buildFavouritesPopup(context),
               ],
             ),
           ),
@@ -3405,6 +3518,54 @@ class _MapScreenState extends ConsumerState<MapScreen>
           },
           onClose: () {
             ref.read(mapProvider.notifier).closePeakInfoPopup();
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMapTapActionPopup(BuildContext context) {
+    final anchor = _mapTapActionPopupAnchor!;
+    const popupWidth = 260.0;
+    const popupHeight = 128.0;
+    final size = MediaQuery.of(context).size;
+    final left = (anchor.dx + 12).clamp(8.0, size.width - popupWidth - 8);
+    final top = (anchor.dy + 12).clamp(8.0, size.height - popupHeight - 8);
+    return Positioned(
+      left: left,
+      top: top,
+      child: SizedBox(
+        width: popupWidth,
+        child: MapTapActionPopupCard(
+          onDropMarker: _handleDropMarkerFromPopup,
+          onDropFavourite: _handleDropFavouriteFromPopup,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFavouritesPopup(BuildContext context) {
+    final favourites = ref.read(mapProvider.notifier).favouriteWaypoints();
+    return Positioned(
+      right: RouterConstants.themeActionRightInset + 56,
+      top: (MediaQuery.of(context).size.height / 2 - 120).clamp(8.0, 320.0),
+      child: SizedBox(
+        width: 280,
+        child: FavouritesPopupCard(
+          favourites: favourites,
+          onSelect: (favourite) {
+            ref.read(mapProvider.notifier).requestCameraMove(
+              center: LatLng(favourite.latitude, favourite.longitude),
+              zoom: MapConstants.defaultZoom,
+              clearGotoMgrs: true,
+              clearHoveredPeakId: true,
+              clearHoveredTrackId: true,
+            );
+            if (mounted) {
+              setState(() {
+                _showFavouritesPopup = false;
+              });
+            }
           },
         ),
       ),

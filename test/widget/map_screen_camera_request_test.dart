@@ -139,7 +139,9 @@ void main() {
     container.read(mapProvider.notifier).setSelectedLocation(target);
     await tester.pump();
 
-    await tester.tap(find.widgetWithIcon(FloatingActionButton, Icons.my_location));
+    await tester.ensureVisible(find.byKey(const Key('center-marker-fab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('center-marker-fab')));
     await tester.pumpAndSettle();
 
     final state = container.read(mapProvider);

@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/waypoints.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
@@ -128,6 +130,162 @@ void main() {
 
     expect(find.byKey(const Key('peak-info-popup')), findsOneWidget);
     expect(waypointsRepository.getCurrentMarker(), isNull);
+  });
+
+  testWidgets('unarmed empty map tap opens chooser without moving marker', (
+    tester,
+  ) async {
+    final waypointsRepository = WaypointsRepository.test(
+      InMemoryWaypointsStorage(),
+    );
+    await _pumpMap(
+      tester,
+      const MapState(
+        center: LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+      waypointsRepository: waypointsRepository,
+    );
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byKey(const Key('map-tap-action-popup')), findsOneWidget);
+    expect(waypointsRepository.getCurrentMarker(), isNull);
+    expect(
+      ProviderScope.containerOf(tester.element(region)).read(mapProvider).selectedLocation,
+      isNull,
+    );
+  });
+
+  testWidgets('drop favourite validates duplicate names and saves success', (
+    tester,
+  ) async {
+    final waypointsRepository = WaypointsRepository.test(
+      InMemoryWaypointsStorage([
+        Waypoints(
+          id: 1,
+          name: 'Camp',
+          type: Waypoints.typeFavourite,
+          latitude: -42.0,
+          longitude: 146.0,
+          mgrs: '55G EN 10000 10000',
+        ),
+      ]),
+    );
+    await _pumpMap(
+      tester,
+      const MapState(
+        center: LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+      waypointsRepository: waypointsRepository,
+    );
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byKey(const Key('map-tap-action-drop-favourite')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('favourite-name-input')), 'Camp');
+    await tester.tap(find.byKey(const Key('favourite-name-save')));
+    await tester.pump();
+
+    expect(find.byKey(const Key('favourite-name-dialog')), findsOneWidget);
+    expect(find.text('A favourite with that name already exists.'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('favourite-name-input')),
+      '  South Ridge  ',
+    );
+    await tester.tap(find.byKey(const Key('favourite-name-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('favourite-name-dialog')), findsNothing);
+    expect(waypointsRepository.getFavourites(), hasLength(2));
+    expect(waypointsRepository.getFavourites().last.name, 'South Ridge');
+    expect(
+      ProviderScope.containerOf(tester.element(region)).read(mapProvider).selectedLocation,
+      isNotNull,
+    );
+  });
+
+  testWidgets('goto favourite is camera only and keeps current marker selection', (
+    tester,
+  ) async {
+    final waypointsRepository = WaypointsRepository.test(
+      InMemoryWaypointsStorage([
+        Waypoints(
+          id: 1,
+          name: 'Camp',
+          type: Waypoints.typeFavourite,
+          latitude: -42.1,
+          longitude: 146.1,
+          mgrs: '55G EN 10000 10000',
+        ),
+      ]),
+    );
+    const currentMarker = LatLng(-41.5, 146.5);
+    await _pumpMap(
+      tester,
+      const MapState(
+        center: LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        selectedLocation: currentMarker,
+      ),
+      waypointsRepository: waypointsRepository,
+    );
+
+    await tester.ensureVisible(find.byKey(const Key('goto-favourite-fab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('goto-favourite-fab')));
+    await tester.pump();
+
+    expect(find.byKey(const Key('favourites-popup')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('favourites-popup-row-1')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final state = ProviderScope.containerOf(tester.element(region)).read(
+      mapProvider,
+    );
+    expect(state.center.latitude, closeTo(-42.1, 1e-9));
+    expect(state.center.longitude, closeTo(146.1, 1e-9));
+    expect(state.zoom, MapConstants.defaultZoom);
+    expect(state.selectedLocation, currentMarker);
+  });
+
+  testWidgets('goto favourite popup shows empty state when none saved', (
+    tester,
+  ) async {
+    final waypointsRepository = WaypointsRepository.test(
+      InMemoryWaypointsStorage(),
+    );
+    await _pumpMap(
+      tester,
+      const MapState(
+        center: LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+      waypointsRepository: waypointsRepository,
+    );
+
+    await tester.ensureVisible(find.byKey(const Key('goto-favourite-fab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('goto-favourite-fab')));
+    await tester.pump();
+
+    expect(find.byKey(const Key('favourites-popup-empty')), findsOneWidget);
   });
 }
 

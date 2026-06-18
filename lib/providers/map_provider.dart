@@ -19,6 +19,7 @@ import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/models/route_waypoint.dart';
+import 'package:peak_bagger/models/waypoints.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/providers/route_planner_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
@@ -4299,6 +4300,36 @@ class MapNotifier extends Notifier<MapState> {
     } catch (error, stackTrace) {
       developer.log(
         'Failed to save current marker.',
+        error: error,
+        stackTrace: stackTrace,
+        name: 'map_provider',
+      );
+      return false;
+    }
+  }
+
+  List<Waypoints> favouriteWaypoints() {
+    return _waypointsRepository.getFavourites();
+  }
+
+  bool favouriteNameExists(String name, {int? excludingId}) {
+    return _waypointsRepository.favouriteNameExists(
+      name,
+      excludingId: excludingId,
+    );
+  }
+
+  Future<bool> saveFavouriteWaypoint(
+    LatLng location, {
+    required String name,
+  }) async {
+    try {
+      await _waypointsRepository.saveFavourite(name: name, location: location);
+      setSelectedLocation(location);
+      return true;
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to save favourite waypoint.',
         error: error,
         stackTrace: stackTrace,
         name: 'map_provider',

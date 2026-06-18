@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
@@ -226,7 +227,13 @@ void main() {
       await r.clickMapBackground();
 
       r.expectNoPeakPopup();
-      r.expectSelectedLocation();
+      expect(find.byKey(const Key('map-tap-action-popup')), findsOneWidget);
+      expect(
+        ProviderScope.containerOf(tester.element(r.mapInteractionRegion))
+            .read(mapProvider)
+            .selectedLocation,
+        isNull,
+      );
     },
   );
 
