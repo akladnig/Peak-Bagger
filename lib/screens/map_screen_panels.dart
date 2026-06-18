@@ -1533,7 +1533,7 @@ class PeakInfoPopupCard extends StatelessWidget {
                       if (content.ascentRows.isNotEmpty)
                         const SizedBox(height: 4),
                       _PeakInfoLabeledValueRow(
-                        label: 'Map:',
+                        label: content.mapLabel,
                         value: content.mapName,
                       ),
                       if (mgrsText != null) ...[

@@ -42,7 +42,8 @@
         "attribution": "Creative Commons BY-NC-ND 3.0 AU \u00A9 State of Tasmania",
         "maxZoom": 16
       }
-    ]
+    ],
+    "mapSet": ["tasmap50k"]
   },
   "new-south-wales": {
     "fingerprint": "dd12e8b1d87d73ef34581d9a92de49c73cf3765ed47e16d359181e3797a27b45",
@@ -85,7 +86,8 @@
         "attribution": "\u00A9 Department of Customer Service 2020",
         "maxZoom": 16
       }
-    ]
+    ],
+    "mapSet": []
   },
   "italy-nord-est": {
     "fingerprint": "2bbee51c74151c78920dc44178cbd1c9c38c7f631043d95d8118e9bed5a924f8",
@@ -109,7 +111,8 @@
         "attribution": "\u00A9 Tracestrack",
         "maxZoom": 24
       }
-    ]
+    ],
+    "mapSet": []
   },
   "italy-nord-ovest": {
     "fingerprint": "17c8820c686125f06ba8dbf8979c2c76743ed24e353e0a1ca22e8f517fb290bd",
@@ -133,7 +136,8 @@
         "attribution": "\u00A9 Tracestrack",
         "maxZoom": 24
       }
-    ]
+    ],
+    "mapSet": []
   },
   "italy": {
     "composite": true,
@@ -157,7 +161,8 @@
         "attribution": "\u00A9 Tracestrack",
         "maxZoom": 24
       }
-    ]
+    ],
+    "mapSet": []
   },
   "slovenia": {
     "fingerprint": "540b38d73ac92ba15b24407f037160ad205ca372e76b1878a4334e5a7f7fd388",
@@ -188,7 +193,8 @@
         "attribution": "\u00A9 Geodetska uprava Republike Slovenije",
         "maxZoom": 19
       }
-    ]
+    ],
+    "mapSet": []
   },
   "croatia": {
     "fingerprint": "43f89fd89d4bff1a13a0b3a269bee0157126e79db95b3754c2ddd5b8cac515ac",
@@ -212,6 +218,7 @@
         "attribution": "\u00A9 Tracestrack",
         "maxZoom": 24
       }
-    ]
+    ],
+    "mapSet": []
   }
 }

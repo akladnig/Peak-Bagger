@@ -87,3 +87,11 @@ MapState mapGridRobotState(Tasmap50k map) {
     selectedMap: map,
   );
 }
+
+MapState nonSheetMapGridRobotState() {
+  return const MapState(
+    center: LatLng(46.05, 14.5),
+    zoom: 12,
+    basemap: Basemap.tracestrack,
+  );
+}

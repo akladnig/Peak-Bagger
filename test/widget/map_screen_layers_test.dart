@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/map_polygon_asset.dart';
 import 'package:peak_bagger/widgets/map_chart_hover_marker.dart';
 import 'package:peak_bagger/screens/map_screen_layers.dart';
@@ -44,6 +45,35 @@ void main() {
     ]);
   });
 
+  test('buildVisibleMgrsGridGeometry keeps 1 km lines at viewport edges', () {
+    final visibleBounds = _boundsFromUtm(
+      westEasting: 440000,
+      eastEasting: 445000,
+      southNorthing: 5399000,
+      northNorthing: 5404000,
+    );
+
+    final geometry = buildVisibleMgrsGridGeometry(
+      visibleBounds: visibleBounds,
+      zoom: 15,
+      latitude: -41.5,
+    );
+    final verticalLine = geometry.lines.firstWhere(
+      (line) =>
+          (line.last.latitude - line.first.latitude).abs() >
+          (line.last.longitude - line.first.longitude).abs(),
+    );
+    final bottomLabel = geometry.labels.firstWhere(
+      (label) => label.side == MapGridLabelSide.bottom,
+    );
+    final topLabel = geometry.labels.firstWhere(
+      (label) => label.side == MapGridLabelSide.top,
+    );
+
+    expect(verticalLine.first.latitude, closeTo(bottomLabel.anchor.latitude, 0.001));
+    expect(verticalLine.last.latitude, closeTo(topLabel.anchor.latitude, 0.001));
+  });
+
   test('buildPolygonAssetLayer uses a stable layer key', () {
     final layer = buildPolygonAssetLayer([
       const MapPolygonAsset(
@@ -77,4 +107,28 @@ void main() {
     expect(layer.markers.single.width, MapChartHoverDotTheme.size);
     expect(layer.markers.single.height, MapChartHoverDotTheme.size);
   });
+}
+
+LatLngBounds _boundsFromUtm({
+  required int westEasting,
+  required int eastEasting,
+  required int southNorthing,
+  required int northNorthing,
+}) {
+  final southWest = _latLngFromUtm(westEasting, southNorthing);
+  final northWest = _latLngFromUtm(westEasting, northNorthing);
+  final southEast = _latLngFromUtm(eastEasting, southNorthing);
+  final northEast = _latLngFromUtm(eastEasting, northNorthing);
+  return LatLngBounds.fromPoints([southWest, northWest, southEast, northEast]);
+}
+
+LatLng _latLngFromUtm(int easting, int northing) {
+  final utm = mgrs.UTM(
+    easting: easting.toDouble(),
+    northing: northing.toDouble(),
+    zoneLetter: 'G',
+    zoneNumber: 55,
+  );
+  final coords = mgrs.Mgrs.toPoint(mgrs.Mgrs.encode(utm, 5));
+  return LatLng(coords[1], coords[0]);
 }

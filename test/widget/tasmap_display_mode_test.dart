@@ -85,6 +85,54 @@ void main() {
     );
     expect(_tooltipMessageFor(gridFab, tester), 'Show Map Grid');
   });
+
+  testWidgets('grid uses mgrs-only copy in non sheet-backed viewports', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(
+            () => TestMapNotifier(
+              MapState(
+                center: const LatLng(46.05, 14.5),
+                zoom: 12,
+                basemap: Basemap.tracestrack,
+              ),
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: Stack(children: [MapActionRail()])),
+        ),
+      ),
+    );
+
+    await tester.pump();
+
+    final gridFab = find.byKey(const Key('grid-map-fab'));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(MapActionRail)),
+    );
+    expect(_tooltipMessageFor(gridFab, tester), 'Show MGRS Grid');
+
+    await tester.ensureVisible(gridFab);
+    await tester.pumpAndSettle();
+    await tester.tap(gridFab);
+    await tester.pump();
+
+    expect(container.read(mapProvider).gridVisibility, MapGridVisibility.mapGridOnly);
+    expect(container.read(mapProvider).tasmapDisplayMode, TasmapDisplayMode.none);
+    expect(_tooltipMessageFor(gridFab, tester), 'Hide MGRS Grid');
+
+    await tester.ensureVisible(gridFab);
+    await tester.pumpAndSettle();
+    await tester.tap(gridFab);
+    await tester.pump();
+
+    expect(container.read(mapProvider).gridVisibility, MapGridVisibility.hidden);
+    expect(_tooltipMessageFor(gridFab, tester), 'Show MGRS Grid');
+  });
 }
 
 String _tooltipMessageFor(Finder fab, WidgetTester tester) {

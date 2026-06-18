@@ -1570,6 +1570,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     if (!_isSameCamera(request.center, request.zoom)) {
       _mapController.move(request.center, request.zoom);
     }
+    _syncVisibleBoundsFromCamera();
     _acceptCameraIntent(request, consumePendingRequest: consumePendingRequest);
   }
 
@@ -1584,6 +1585,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
       if (!mounted) {
         return;
       }
+      _mapNotifier.updateVisibleBounds(null);
+      _syncVisibleBoundsFromCamera();
       _acceptCameraIntent(
         request.copyWith(
           center: _mapController.camera.center,
@@ -1592,6 +1595,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
         consumePendingRequest: consumePendingRequest,
       );
     });
+  }
+
+  void _syncVisibleBoundsFromCamera() {
+    if (_mapController.camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      return;
+    }
+    _mapNotifier.updateVisibleBounds(_mapController.camera.visibleBounds);
   }
 
   void _acceptCameraIntent(
@@ -2112,6 +2122,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                           peakInfoPeak: state.peakInfoPeak,
                           selectedPeaks: state.selectedPeaks,
                           selectedMap: state.selectedMap,
+                          visibleBounds: state.visibleBounds,
                           showSelectedMapLayer: state.showSelectedMapLayer,
                           showMapOverlay: state.showMapOverlay,
                           showDistanceGrid: state.showDistanceGrid,
@@ -2284,6 +2295,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                         MapCamera.kImpossibleSize
                                 ? buildVisibleMgrsGridGeometry(
                                     visibleBounds:
+                                        mapScene.visibleBounds ??
                                         _mapController.camera.visibleBounds,
                                     zoom: mapScene.zoom,
                                     latitude: mapScene.center.latitude,

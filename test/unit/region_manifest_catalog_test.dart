@@ -67,6 +67,27 @@ void main() {
     );
   });
 
+  test('region mapSet stays available in typed catalog', () {
+    expect(
+      regionManifestCatalog.regionByKey('tasmania')?.mapSet,
+      const ['tasmap50k'],
+    );
+    expect(
+      regionManifestCatalog.regionByKey('new-south-wales')?.mapSet,
+      isEmpty,
+    );
+    expect(regionManifestCatalog.regionByKey('slovenia')?.mapSet, isEmpty);
+  });
+
+  test('mapSet union follows visible bounds', () {
+    expect(
+      regionManifestCatalog.mapSetForBounds(
+        LatLngBounds(const LatLng(-44.0, 143.0), const LatLng(-39.0, 149.0)),
+      ),
+      {'tasmap50k'},
+    );
+  });
+
   test('mapTileUrl reads from the manifest catalog', () {
     expect(
       mapTileUrl(Basemap.tasmap50k),

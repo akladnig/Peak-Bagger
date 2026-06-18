@@ -46,6 +46,7 @@ abstract final class MapConstants {
   static const mapMgrsGridBorderLabelRightInset = 64.0;
   static const mapMgrsGridTenKilometerThreshold = 3;
   static const mapMgrsGridHundredKilometerThreshold = 30;
+  static const mapMgrsGridThousandKilometerThreshold = 300;
   static const mapRulerMinBarWidth = 96.0;
   static const mapRulerMaxBarWidth = 160.0;
   static const mapRulerHorizontalPadding = 8.0;

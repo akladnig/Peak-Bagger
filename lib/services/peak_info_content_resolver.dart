@@ -2,6 +2,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:intl/intl.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
+import 'package:peak_bagger/services/map_name_resolution.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
@@ -25,14 +26,19 @@ class PeakInfoContent {
   const PeakInfoContent({
     required this.peak,
     required this.mapName,
+    required this.mapNameOrigin,
     required this.listNames,
     required this.ascentRows,
   });
 
   final Peak peak;
   final String mapName;
+  final MapNameOrigin mapNameOrigin;
   final List<String> listNames;
   final List<PeakInfoAscentRow> ascentRows;
+
+  String get mapLabel =>
+      mapNameOrigin == MapNameOrigin.region ? 'Region:' : 'Map:';
 }
 
 PeakInfoContent resolvePeakInfoContent({
@@ -42,9 +48,11 @@ PeakInfoContent resolvePeakInfoContent({
   required PeaksBaggedRepository peaksBaggedRepository,
   required GpxTrackRepository gpxTrackRepository,
 }) {
+  final resolvedMapName = _resolvePeakMapName(peak, tasmapRepository);
   return PeakInfoContent(
     peak: peak,
-    mapName: _resolvePeakMapName(peak, tasmapRepository),
+    mapName: resolvedMapName.displayName,
+    mapNameOrigin: resolvedMapName.origin,
     listNames: _resolvePeakListNames(peak.osmId, peakListRepository),
     ascentRows: _resolvePeakAscentRows(
       peakOsmId: peak.osmId,
@@ -54,13 +62,17 @@ PeakInfoContent resolvePeakInfoContent({
   );
 }
 
-String _resolvePeakMapName(Peak peak, TasmapRepository tasmapRepository) {
+ResolvedMapName _resolvePeakMapName(
+  Peak peak,
+  TasmapRepository tasmapRepository,
+) {
   try {
-    final pointMatch = tasmapRepository.findByPoint(
-      LatLng(peak.latitude, peak.longitude),
+    final pointResolved = resolveMapNameForPoint(
+      tasmapRepository: tasmapRepository,
+      point: LatLng(peak.latitude, peak.longitude),
     );
-    if (pointMatch != null) {
-      return pointMatch.name;
+    if (pointResolved.origin == MapNameOrigin.sheet) {
+      return pointResolved;
     }
 
     final gridZoneDesignator = peak.gridZoneDesignator.trim();
@@ -73,17 +85,22 @@ String _resolvePeakMapName(Peak peak, TasmapRepository tasmapRepository) {
         easting.isNotEmpty &&
         northing.isNotEmpty;
     if (!hasCompleteMgrs) {
-      return 'Unknown';
+      return pointResolved;
     }
 
-    return tasmapRepository
-            .findByMgrsCodeAndCoordinates(
-              '$gridZoneDesignator$mgrs100kId$easting$northing',
-            )
-            ?.name ??
-        'Unknown';
+    final mgrsResolved = resolveMapNameForMgrs(
+      tasmapRepository: tasmapRepository,
+      mgrsText: '$gridZoneDesignator$mgrs100kId$easting$northing',
+    );
+    if (mgrsResolved.origin == MapNameOrigin.sheet) {
+      return mgrsResolved;
+    }
+
+    return pointResolved.origin == MapNameOrigin.region
+        ? pointResolved
+        : mgrsResolved;
   } catch (_) {
-    return 'Unknown';
+    return const ResolvedMapName.unknown();
   }
 }
 

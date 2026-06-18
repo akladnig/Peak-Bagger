@@ -1,3 +1,4 @@
+import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/services/polygon_geometry.dart';
 
@@ -24,11 +25,13 @@ class RegionManifestRegionData {
     required this.key,
     required this.polygons,
     required this.basemapKeys,
+    required this.mapSet,
   });
 
   final String key;
   final List<List<LatLng>> polygons;
   final List<String> basemapKeys;
+  final List<String> mapSet;
 
   bool containsPoint(LatLng point) {
     for (final polygon in polygons) {
@@ -67,6 +70,8 @@ final Map<String, RegionManifestRegionData> _regionByKey = {
 class RegionManifestCatalog {
   const RegionManifestCatalog._();
 
+  static const _intersectionEpsilon = 1e-9;
+
   RegionManifestBasemapData? basemapByKey(String key) {
     return _basemapByKey[key];
   }
@@ -90,6 +95,29 @@ class RegionManifestCatalog {
 
   String? regionKeyForPoint(LatLng point) {
     return regionForPoint(point)?.key;
+  }
+
+  List<RegionManifestRegionData> regionsForBounds(LatLngBounds bounds) {
+    if (!_hasUsableBounds(bounds)) {
+      return const [];
+    }
+
+    final matches = <RegionManifestRegionData>[];
+    for (final region in regionManifestCatalogData.regions) {
+      if (_boundsIntersectRegion(bounds, region)) {
+        matches.add(region);
+      }
+    }
+
+    return List.unmodifiable(matches);
+  }
+
+  Set<String> mapSetForBounds(LatLngBounds bounds) {
+    final mapSet = <String>{};
+    for (final region in regionsForBounds(bounds)) {
+      mapSet.addAll(region.mapSet);
+    }
+    return Set.unmodifiable(mapSet);
   }
 
   List<RegionManifestBasemapData> basemapsForRegionKey(String regionKey) {
@@ -124,5 +152,128 @@ class RegionManifestCatalog {
 
   RegionManifestBasemapData? basemapForEnum(Basemap basemap) {
     return basemapByKey(basemap.name);
+  }
+
+  bool _boundsIntersectRegion(
+    LatLngBounds bounds,
+    RegionManifestRegionData region,
+  ) {
+    for (final polygon in region.polygons) {
+      if (_boundsIntersectPolygon(bounds, polygon)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _boundsIntersectPolygon(LatLngBounds bounds, List<LatLng> polygon) {
+    final rectangleCorners = _rectangleCorners(bounds);
+    for (final corner in rectangleCorners) {
+      if (polygonContainsPoint(corner, polygon)) {
+        return true;
+      }
+    }
+
+    for (final point in polygon) {
+      if (_boundsContainsPoint(bounds, point)) {
+        return true;
+      }
+    }
+
+    final rectangleEdges = _closedEdges(rectangleCorners);
+    final polygonEdges = _closedEdges(polygon);
+    for (final rectangleEdge in rectangleEdges) {
+      for (final polygonEdge in polygonEdges) {
+        if (
+            _segmentsIntersect(
+              rectangleEdge.$1,
+              rectangleEdge.$2,
+              polygonEdge.$1,
+              polygonEdge.$2,
+            )) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  List<LatLng> _rectangleCorners(LatLngBounds bounds) => [
+    LatLng(bounds.south, bounds.west),
+    LatLng(bounds.north, bounds.west),
+    LatLng(bounds.north, bounds.east),
+    LatLng(bounds.south, bounds.east),
+  ];
+
+  List<(LatLng, LatLng)> _closedEdges(List<LatLng> points) {
+    if (points.length < 2) {
+      return const [];
+    }
+
+    return [
+      for (var i = 0; i < points.length; i++) (points[i], points[(i + 1) % points.length]),
+    ];
+  }
+
+  bool _boundsContainsPoint(LatLngBounds bounds, LatLng point) {
+    return point.latitude >= bounds.south &&
+        point.latitude <= bounds.north &&
+        point.longitude >= bounds.west &&
+        point.longitude <= bounds.east;
+  }
+
+  bool _segmentsIntersect(LatLng a, LatLng b, LatLng c, LatLng d) {
+    final o1 = _orientation(a, b, c);
+    final o2 = _orientation(a, b, d);
+    final o3 = _orientation(c, d, a);
+    final o4 = _orientation(c, d, b);
+
+    if (o1 == 0 && _pointOnSegment(a, c, b)) {
+      return true;
+    }
+    if (o2 == 0 && _pointOnSegment(a, d, b)) {
+      return true;
+    }
+    if (o3 == 0 && _pointOnSegment(c, a, d)) {
+      return true;
+    }
+    if (o4 == 0 && _pointOnSegment(c, b, d)) {
+      return true;
+    }
+
+    return o1 != o2 && o3 != o4;
+  }
+
+  int _orientation(LatLng a, LatLng b, LatLng c) {
+    final cross =
+        (b.longitude - a.longitude) * (c.latitude - a.latitude) -
+        (b.latitude - a.latitude) * (c.longitude - a.longitude);
+    if (cross.abs() <= _intersectionEpsilon) {
+      return 0;
+    }
+    return cross > 0 ? 1 : 2;
+  }
+
+  bool _pointOnSegment(LatLng a, LatLng point, LatLng b) {
+    return point.latitude <=
+            (a.latitude > b.latitude ? a.latitude : b.latitude) +
+                _intersectionEpsilon &&
+        point.latitude + _intersectionEpsilon >=
+            (a.latitude < b.latitude ? a.latitude : b.latitude) &&
+        point.longitude <=
+            (a.longitude > b.longitude ? a.longitude : b.longitude) +
+                _intersectionEpsilon &&
+        point.longitude + _intersectionEpsilon >=
+            (a.longitude < b.longitude ? a.longitude : b.longitude);
+  }
+
+  bool _hasUsableBounds(LatLngBounds bounds) {
+    return bounds.south.isFinite &&
+        bounds.north.isFinite &&
+        bounds.west.isFinite &&
+        bounds.east.isFinite &&
+        bounds.south < bounds.north &&
+        bounds.west < bounds.east;
   }
 }

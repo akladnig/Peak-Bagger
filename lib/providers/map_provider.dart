@@ -26,6 +26,7 @@ import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/import_path_helpers.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
 import 'package:peak_bagger/services/item_visibility_backfill_service.dart';
+import 'package:peak_bagger/services/map_name_resolution.dart';
 import 'package:peak_bagger/services/gpx_track_repair_service.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
@@ -61,6 +62,7 @@ export 'package:peak_bagger/services/peak_info_content_resolver.dart';
 export 'package:peak_bagger/services/region_manifest_catalog.dart';
 
 const _distance = Distance();
+const _gridCapabilityFallbackDelta = 0.0001;
 
 Peak? _peakAtPoint(Iterable<Peak> peaks, LatLng point) {
   for (final peak in peaks) {
@@ -520,20 +522,72 @@ class MapState {
     return _peakAtPoint(peaks, markerLocation);
   }
 
-  bool get showMapGrid => gridVisibility != MapGridVisibility.hidden;
+  LatLngBounds get _gridCapabilityBounds =>
+      visibleBounds ??
+      LatLngBounds(
+        LatLng(
+          center.latitude - _gridCapabilityFallbackDelta,
+          center.longitude - _gridCapabilityFallbackDelta,
+        ),
+        LatLng(
+          center.latitude + _gridCapabilityFallbackDelta,
+          center.longitude + _gridCapabilityFallbackDelta,
+        ),
+      );
+
+  Set<String> get visibleMapSet =>
+      regionManifestCatalog.mapSetForBounds(_gridCapabilityBounds);
+
+  Set<String> get _centerMapSet => regionManifestCatalog.mapSetForBounds(
+    LatLngBounds(
+      LatLng(
+        center.latitude - _gridCapabilityFallbackDelta,
+        center.longitude - _gridCapabilityFallbackDelta,
+      ),
+      LatLng(
+        center.latitude + _gridCapabilityFallbackDelta,
+        center.longitude + _gridCapabilityFallbackDelta,
+      ),
+    ),
+  );
+
+  bool get hasVisibleSheetDataset {
+    if (visibleMapSet.isNotEmpty) {
+      return true;
+    }
+    return _centerMapSet.isNotEmpty;
+  }
+
+  bool get showMapGrid =>
+      gridVisibility != MapGridVisibility.hidden && hasVisibleSheetDataset;
 
   bool get showMapOverlay => showMapGrid && selectedMap == null;
 
   bool get showSelectedMapLayer => showMapGrid && selectedMap != null;
 
-  bool get showDistanceGrid =>
-      gridVisibility == MapGridVisibility.mapGridAndDistanceGrid;
+  bool get showDistanceGrid {
+    if (gridVisibility == MapGridVisibility.hidden) {
+      return false;
+    }
+    if (!hasVisibleSheetDataset) {
+      return true;
+    }
+    return gridVisibility == MapGridVisibility.mapGridAndDistanceGrid;
+  }
 
-  String get mapGridTooltipMessage => switch (gridVisibility) {
-    MapGridVisibility.hidden => 'Show Map Grid',
-    MapGridVisibility.mapGridOnly => 'Show Map and MGRS Grid',
-    MapGridVisibility.mapGridAndDistanceGrid => 'Hide Grids',
-  };
+  String get mapGridTooltipMessage {
+    if (!hasVisibleSheetDataset) {
+      return gridVisibility == MapGridVisibility.hidden
+          ? 'Show MGRS Grid'
+          : 'Hide MGRS Grid';
+    }
+
+    return switch (gridVisibility) {
+      MapGridVisibility.hidden => 'Show Map Grid',
+      MapGridVisibility.mapGridOnly => 'Show Map and MGRS Grid',
+      MapGridVisibility.mapGridAndDistanceGrid => 'Hide Grids',
+    };
+  }
 
   bool get showPeaks => peakListSelectionMode != PeakListSelectionMode.none;
 
@@ -1035,8 +1089,10 @@ class MapNotifier extends Notifier<MapState> {
 
   String mapNameForMgrs(String mgrsText) {
     try {
-      return _tasmapRepository.findByMgrsCodeAndCoordinates(mgrsText)?.name ??
-          'Unknown';
+      return resolveMapNameForMgrs(
+        tasmapRepository: tasmapRepository,
+        mgrsText: mgrsText,
+      ).displayName;
     } catch (_) {
       return 'Unknown';
     }
@@ -1044,7 +1100,10 @@ class MapNotifier extends Notifier<MapState> {
 
   String mapNameForPoint(LatLng point) {
     try {
-      return _tasmapRepository.findByPoint(point)?.name ?? 'Unknown';
+      return resolveMapNameForPoint(
+        tasmapRepository: tasmapRepository,
+        point: point,
+      ).displayName;
     } catch (_) {
       return 'Unknown';
     }
@@ -5747,23 +5806,27 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void cycleMapGridVisibility() {
-    final nextVisibility = switch (state.gridVisibility) {
-      MapGridVisibility.hidden => MapGridVisibility.mapGridOnly,
-      MapGridVisibility.mapGridOnly => MapGridVisibility.mapGridAndDistanceGrid,
-      MapGridVisibility.mapGridAndDistanceGrid => MapGridVisibility.hidden,
-    };
+    final nextVisibility = state.hasVisibleSheetDataset
+        ? switch (state.gridVisibility) {
+            MapGridVisibility.hidden => MapGridVisibility.mapGridOnly,
+            MapGridVisibility.mapGridOnly =>
+              MapGridVisibility.mapGridAndDistanceGrid,
+            MapGridVisibility.mapGridAndDistanceGrid =>
+              MapGridVisibility.hidden,
+          }
+        : switch (state.gridVisibility) {
+            MapGridVisibility.hidden => MapGridVisibility.mapGridOnly,
+            MapGridVisibility.mapGridOnly ||
+            MapGridVisibility.mapGridAndDistanceGrid =>
+              MapGridVisibility.hidden,
+          };
 
-    final nextMode = switch (nextVisibility) {
-      MapGridVisibility.hidden => TasmapDisplayMode.none,
-      MapGridVisibility.mapGridOnly =>
-        state.selectedMap == null
-            ? TasmapDisplayMode.overlay
-            : TasmapDisplayMode.selectedMap,
-      MapGridVisibility.mapGridAndDistanceGrid =>
-        state.selectedMap == null
-            ? TasmapDisplayMode.overlay
-            : TasmapDisplayMode.selectedMap,
-    };
+    final nextMode = !state.hasVisibleSheetDataset ||
+            nextVisibility == MapGridVisibility.hidden
+        ? TasmapDisplayMode.none
+        : state.selectedMap == null
+        ? TasmapDisplayMode.overlay
+        : TasmapDisplayMode.selectedMap;
 
     state = state.copyWith(
       gridVisibility: nextVisibility,
@@ -6014,6 +6077,7 @@ class MapNotifier extends Notifier<MapState> {
       return PeakInfoContent(
         peak: peak,
         mapName: 'Unknown',
+        mapNameOrigin: MapNameOrigin.unknown,
         listNames: const [],
         ascentRows: const [],
       );

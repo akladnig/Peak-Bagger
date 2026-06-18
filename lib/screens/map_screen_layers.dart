@@ -118,43 +118,9 @@ MapMgrsGridGeometry buildVisibleMgrsGridGeometry({
 }) {
   final rulerScale = selectMapRulerScale(zoom: zoom, latitude: latitude);
   final interval = mapMgrsGridIntervalForRulerMeters(rulerScale.distanceMeters);
-  final metersPerPixel = mapMetersPerPixel(zoom: zoom, latitude: latitude);
-  final verticalLabelInsetMeters =
-      MapConstants.showMgrsGridBorderLabelBackground ||
-          interval != MapMgrsGridInterval.oneKilometer
-      ? 0.0
-      : (MapConstants.mapMgrsGridBorderLabelHeight +
-                MapConstants.mapMgrsGridBorderLabelTrimGap) *
-            metersPerPixel;
-  final horizontalLabelInsetMeters =
-      MapConstants.showMgrsGridBorderLabelBackground ||
-          interval != MapMgrsGridInterval.oneKilometer
-      ? 0.0
-      : (MapConstants.mapMgrsGridBorderLabelWidth +
-                MapConstants.mapMgrsGridBorderLabelTrimGap) *
-            metersPerPixel;
-  final horizontalLabelRightInsetMeters =
-      MapConstants.showMgrsGridBorderLabelBackground ||
-          interval != MapMgrsGridInterval.oneKilometer
-      ? 0.0
-      : (MapConstants.mapMgrsGridBorderLabelRightInset +
-                MapConstants.mapMgrsGridBorderLabelWidth +
-                MapConstants.mapMgrsGridBorderLabelTrimGap) *
-            metersPerPixel;
-  final verticalLineRightInsetMeters =
-      interval != MapMgrsGridInterval.oneKilometer
-      ? 0.0
-      : (MapConstants.mapMgrsGridBorderLabelRightInset +
-                MapConstants.mapMgrsGridBorderLabelWidth +
-                MapConstants.mapMgrsGridBorderLabelTrimGap) *
-            metersPerPixel;
   return buildMapMgrsGridGeometry(
     visibleBounds: visibleBounds,
     interval: interval,
-    verticalLabelInsetMeters: verticalLabelInsetMeters,
-    verticalLineRightInsetMeters: verticalLineRightInsetMeters,
-    horizontalLabelWestInsetMeters: horizontalLabelInsetMeters,
-    horizontalLabelEastInsetMeters: horizontalLabelRightInsetMeters,
   );
 }
 
