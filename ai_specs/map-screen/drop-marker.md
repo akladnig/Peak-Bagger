@@ -66,7 +66,7 @@ Drive ETA flows:
 2. When the tap-action popup opens, the app captures the original tap-time ETA context by either precomputing the route-graph hit result or storing the original tap data needed to recompute it later.
 3. The app resolves the hardcoded Home MGRS constant to a lat/lng origin, uses the stored tap-time ETA context to resolve the tapped destination, and shows the existing ETA loading/success/error popup behavior.
 4. User taps empty map space and chooses `Get driving time from Marker`.
-5. The app uses the current persisted marker/selected marker location as origin, the stored tapped snapped destination as destination, and reuses the same ETA popup contract.
+5. The app uses the current marker location as origin, sourced from the singleton persisted `marker` row and mirrored into `selectedLocation` when restored, the stored tapped snapped destination as destination, and reuses the same ETA popup contract.
 
 Alternative flows:
 - User taps a peak, track, route, route-draft control, or cluster: existing higher-priority interactions still win; the new empty-map popup must not appear.
@@ -183,6 +183,7 @@ Implementation notes:
 - Give each new popup row and dialog control a deterministic key-first selector contract suitable for widget and robot tests.
 - Store either the precomputed `RouteGraphDriveEtaHitResult` or the original tap-time data needed to recompute it later as part of the tap-action popup state; do not try to derive ETA availability from the popup-button tap itself.
 - Do not implement settings-screen `home` editing or click-to-set-home behavior in this slice; only reserve the type and hardcoded constant for future follow-up work.
+- Keep naming consistent: use `Goto Favourite` for the action/FAB/tooltip contract, and use `Favourites` for the popup/list surface.
 
 Recommended stable selectors:
 - `Key('drop-marker-fab')`
@@ -261,7 +262,7 @@ Behavior-first slice order:
 
 Default test split:
 - `unit/service`: waypoint repository behavior, singleton marker normalization, favourite-name validation helpers, Home constant parsing helper if extracted.
-- `widget`: map popup behavior, armed-mode state transitions, favourite naming dialog, favourites popup selection, camera-only goto-favourite behavior, ETA action dispatch, action-rail ordering, and ObjectBox Admin delete behavior.
+- `widget`: popup behavior, armed-mode transitions, favourite naming, camera-only goto-favourite, ETA dispatch, rail ordering, admin delete.
 - `robot`: critical map journeys that span multiple surfaces.
 
 Robot-driven journey coverage:
