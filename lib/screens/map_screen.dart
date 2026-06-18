@@ -129,6 +129,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   bool _trackRouteChooserSuppressReopen = false;
   String? _pendingRouteDraftDragMarkerId;
   double _pendingRouteDraftDragDistance = 0;
+  bool _dropMarkerArmed = false;
   bool _pendingHoveredRouteDraftSegmentDrag = false;
   double _pendingHoveredRouteDraftSegmentDragDistance = 0;
   String? _draggingRouteDraftMarkerId;
@@ -319,7 +320,20 @@ class _MapScreenState extends ConsumerState<MapScreen>
       _mapFocusNode.requestFocus();
       return true;
     }
+    if (_dropMarkerArmed) {
+      setState(() {
+        _dropMarkerArmed = false;
+      });
+      return true;
+    }
     return false;
+  }
+
+  void _toggleDropMarkerArmed() {
+    setState(() {
+      _dropMarkerArmed = !_dropMarkerArmed;
+    });
+    _mapFocusNode.requestFocus();
   }
 
   void _beginRouteDraft() {
@@ -2578,6 +2592,20 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               suppressReopen: true,
                                             );
                                           }
+                                          if (_dropMarkerArmed &&
+                                              clickTrackId == null &&
+                                              clickRouteId == null) {
+                                            final saved = await notifier
+                                                .setCurrentMarker(
+                                                  tappedLocation,
+                                                );
+                                            if (saved && mounted) {
+                                              setState(() {
+                                                _dropMarkerArmed = false;
+                                              });
+                                            }
+                                            return;
+                                          }
                                           if (clickTrackId == null &&
                                               clickRouteId == null) {
                                             final etaConsumed =
@@ -3180,10 +3208,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     );
                   },
                 ),
-                MapActionRail(
-                  onCreateRoute: _beginRouteDraft,
-                  onShowBasemaps: _openBasemapsDrawer,
-                ),
+                    MapActionRail(
+                      onCreateRoute: _beginRouteDraft,
+                      onShowBasemaps: _openBasemapsDrawer,
+                      onDropMarker: _toggleDropMarkerArmed,
+                    ),
                 if (routeChrome.isRouteDrafting)
                   const Positioned(
                     key: Key('route-controls-overlay-root'),

@@ -33,15 +33,15 @@ Persistent waypoint slice for map screen. Start with marker persistence through 
 ### Phase 2: Rail + Armed Drop Marker
 
 - **Goal**: add new location-rail controls; arm-next-tap marker flow
-- [ ] `lib/widgets/map_action_rail.dart` - add `Drop Marker` above `Center on marker`; add `Favourites` below it; stable keys/tooltips; preserve grouping/spacing
-- [ ] `lib/providers/map_provider.dart` - add narrow armed-mode state seam only if notifier-owned state is cleaner than screen-local state
-- [ ] `lib/screens/map_screen.dart` - implement armed marker mode; cancel paths; next empty-map tap drops marker; preserve higher-priority hit targets
-- [ ] `test/widget/map_action_rail_grouping_test.dart` - assert new button order/messages/keys
-- [ ] `test/widget/map_screen_camera_request_test.dart` or new `test/widget/map_screen_waypoint_test.dart` - armed drop behavior; no recentering; cancel paths
-- [ ] TDD: rail renders `drop-marker-fab` and `goto-favourite-fab` in requested order
-- [ ] TDD: armed mode consumes next empty-map tap only; peak/track/route hits still win
-- [ ] TDD: pressing armed FAB again or dismiss paths clear armed mode
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/widgets/map_action_rail.dart` - add `Drop Marker` above `Center on marker`; add `Favourites` below it; stable keys/tooltips; preserve grouping/spacing
+- [x] `lib/providers/map_provider.dart` - add narrow armed-mode state seam only if notifier-owned state is cleaner than screen-local state (kept screen-local in `MapScreen`)
+- [x] `lib/screens/map_screen.dart` - implement armed marker mode; cancel paths; next empty-map tap drops marker; preserve higher-priority hit targets
+- [x] `test/widget/map_action_rail_grouping_test.dart` - assert new button order/messages/keys
+- [x] `test/widget/map_screen_camera_request_test.dart` or new `test/widget/map_screen_waypoint_test.dart` - armed drop behavior; no recentering; cancel paths
+- [x] TDD: rail renders `drop-marker-fab` and `goto-favourite-fab` in requested order
+- [x] TDD: armed mode consumes next empty-map tap only; peak/track/route hits still win
+- [x] TDD: pressing armed FAB again or dismiss paths clear armed mode
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Empty-Map Chooser + Favourites
 
