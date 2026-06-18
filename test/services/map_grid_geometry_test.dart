@@ -198,6 +198,29 @@ void main() {
 
     expect(geometry.isEmpty, isTrue);
   });
+
+  test('covers both sides of a multi-zone viewport', () {
+    final geometry = buildMapMgrsGridGeometry(
+      visibleBounds: LatLngBounds(
+        const LatLng(-42.2, 143.6),
+        const LatLng(-40.8, 145.4),
+      ),
+      interval: MapMgrsGridInterval.hundredKilometers,
+    );
+
+    expect(geometry.lines, isNotEmpty);
+    final minLongitude = geometry.lines
+        .expand((line) => line)
+        .map((point) => point.longitude)
+        .reduce((left, right) => left < right ? left : right);
+    final maxLongitude = geometry.lines
+        .expand((line) => line)
+        .map((point) => point.longitude)
+        .reduce((left, right) => left > right ? left : right);
+
+    expect(minLongitude, lessThan(144.0));
+    expect(maxLongitude, greaterThan(145.0));
+  });
 }
 
 LatLngBounds _boundsFromUtm({

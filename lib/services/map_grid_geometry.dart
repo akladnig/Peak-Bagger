@@ -41,7 +41,15 @@ class _MapMgrsGridLine {
   final LatLng endAnchor;
 }
 
+class _MapMgrsGridZoneSlice {
+  const _MapMgrsGridZoneSlice({required this.zoneNumber, required this.bounds});
+
+  final int zoneNumber;
+  final LatLngBounds bounds;
+}
+
 const _lineSampleCount = 16;
+const _zoneBoundaryLongitudeEpsilon = 0.000001;
 
 MapMgrsGridGeometry buildMapMgrsGridGeometry({
   required LatLngBounds visibleBounds,
@@ -56,105 +64,106 @@ MapMgrsGridGeometry buildMapMgrsGridGeometry({
   }
 
   try {
-    final corners = [
-      LatLng(visibleBounds.south, visibleBounds.west),
-      LatLng(visibleBounds.north, visibleBounds.west),
-      LatLng(visibleBounds.south, visibleBounds.east),
-      LatLng(visibleBounds.north, visibleBounds.east),
-    ];
-    final utmCorners = corners.map(_utmFromLatLng).toList(growable: false);
-    final minEasting = utmCorners.map((utm) => utm.easting).reduce(math.min);
-    final maxEasting = utmCorners.map((utm) => utm.easting).reduce(math.max);
-    final minNorthing = utmCorners.map((utm) => utm.northing).reduce(math.min);
-    final maxNorthing = utmCorners.map((utm) => utm.northing).reduce(math.max);
-    final centerLongitude = (visibleBounds.west + visibleBounds.east) / 2;
-    final zoneNumber = _utmZoneNumberForLongitude(centerLongitude);
     final lines = <List<LatLng>>[];
     final labels = <MapGridBorderLabel>[];
     final intervalMeters = interval.meters;
     final showBorderLabels = interval == MapMgrsGridInterval.oneKilometer;
 
-    final startEasting = _alignedStart(minEasting, intervalMeters);
-    final endEasting = _alignedEnd(
-      maxEasting - verticalLineRightInsetMeters,
-      intervalMeters,
-    );
-    for (
-      var easting = startEasting;
-      easting <= endEasting;
-      easting += intervalMeters
-    ) {
-      final line = _buildVerticalLine(
-        easting: easting.toDouble(),
-        minNorthing: minNorthing,
-        maxNorthing: maxNorthing,
-        zoneNumber: zoneNumber,
-        southLatitude: visibleBounds.south,
-        northLatitude: visibleBounds.north,
-        labelInsetMeters: verticalLabelInsetMeters,
-      );
-      if (line.points.isEmpty) {
-        continue;
-      }
-      lines.add(line.points);
-      if (showBorderLabels) {
-        final label = _twoDigitGridLabel(easting);
-        labels.add(
-          MapGridBorderLabel(
-            anchor: line.startAnchor,
-            label: label,
-            side: MapGridLabelSide.bottom,
-          ),
-        );
-        labels.add(
-          MapGridBorderLabel(
-            anchor: line.endAnchor,
-            label: label,
-            side: MapGridLabelSide.top,
-          ),
-        );
-      }
-    }
+    for (final slice in _zoneSlicesForBounds(visibleBounds)) {
+      final corners = [
+        LatLng(slice.bounds.south, slice.bounds.west),
+        LatLng(slice.bounds.north, slice.bounds.west),
+        LatLng(slice.bounds.south, slice.bounds.east),
+        LatLng(slice.bounds.north, slice.bounds.east),
+      ];
+      final utmCorners = corners.map(_utmFromLatLng).toList(growable: false);
+      final minEasting = utmCorners.map((utm) => utm.easting).reduce(math.min);
+      final maxEasting = utmCorners.map((utm) => utm.easting).reduce(math.max);
+      final minNorthing = utmCorners.map((utm) => utm.northing).reduce(math.min);
+      final maxNorthing = utmCorners.map((utm) => utm.northing).reduce(math.max);
 
-    final startNorthing = _alignedStart(minNorthing, intervalMeters);
-    final endNorthing = _alignedEnd(maxNorthing, intervalMeters);
-    for (
-      var northing = startNorthing;
-      northing <= endNorthing;
-      northing += intervalMeters
-    ) {
-      final line = _buildHorizontalLine(
-        northing: northing.toDouble(),
-        minEasting: minEasting,
-        maxEasting: maxEasting,
-        zoneNumber: zoneNumber,
-        southLatitude: visibleBounds.south,
-        northLatitude: visibleBounds.north,
-        minNorthing: minNorthing,
-        maxNorthing: maxNorthing,
-        westLabelInsetMeters: horizontalLabelWestInsetMeters,
-        eastLabelInsetMeters: horizontalLabelEastInsetMeters,
+      final startEasting = _alignedStart(minEasting, intervalMeters);
+      final endEasting = _alignedEnd(
+        maxEasting - verticalLineRightInsetMeters,
+        intervalMeters,
       );
-      if (line.points.isEmpty) {
-        continue;
+      for (
+        var easting = startEasting;
+        easting <= endEasting;
+        easting += intervalMeters
+      ) {
+        final line = _buildVerticalLine(
+          easting: easting.toDouble(),
+          minNorthing: minNorthing,
+          maxNorthing: maxNorthing,
+          zoneNumber: slice.zoneNumber,
+          southLatitude: slice.bounds.south,
+          northLatitude: slice.bounds.north,
+          labelInsetMeters: verticalLabelInsetMeters,
+        );
+        if (line.points.isEmpty) {
+          continue;
+        }
+        lines.add(line.points);
+        if (showBorderLabels) {
+          final label = _twoDigitGridLabel(easting);
+          labels.add(
+            MapGridBorderLabel(
+              anchor: line.startAnchor,
+              label: label,
+              side: MapGridLabelSide.bottom,
+            ),
+          );
+          labels.add(
+            MapGridBorderLabel(
+              anchor: line.endAnchor,
+              label: label,
+              side: MapGridLabelSide.top,
+            ),
+          );
+        }
       }
-      lines.add(line.points);
-      if (showBorderLabels) {
-        final label = _twoDigitGridLabel(northing);
-        labels.add(
-          MapGridBorderLabel(
-            anchor: line.startAnchor,
-            label: label,
-            side: MapGridLabelSide.left,
-          ),
+
+      final startNorthing = _alignedStart(minNorthing, intervalMeters);
+      final endNorthing = _alignedEnd(maxNorthing, intervalMeters);
+      for (
+        var northing = startNorthing;
+        northing <= endNorthing;
+        northing += intervalMeters
+      ) {
+        final line = _buildHorizontalLine(
+          northing: northing.toDouble(),
+          minEasting: minEasting,
+          maxEasting: maxEasting,
+          zoneNumber: slice.zoneNumber,
+          southLatitude: slice.bounds.south,
+          northLatitude: slice.bounds.north,
+          minNorthing: minNorthing,
+          maxNorthing: maxNorthing,
+          westLabelInsetMeters: horizontalLabelWestInsetMeters,
+          eastLabelInsetMeters: horizontalLabelEastInsetMeters,
         );
-        labels.add(
-          MapGridBorderLabel(
-            anchor: line.endAnchor,
-            label: label,
-            side: MapGridLabelSide.right,
-          ),
-        );
+        if (line.points.isEmpty) {
+          continue;
+        }
+        lines.add(line.points);
+        if (showBorderLabels) {
+          final label = _twoDigitGridLabel(northing);
+          labels.add(
+            MapGridBorderLabel(
+              anchor: line.startAnchor,
+              label: label,
+              side: MapGridLabelSide.left,
+            ),
+          );
+          labels.add(
+            MapGridBorderLabel(
+              anchor: line.endAnchor,
+              label: label,
+              side: MapGridLabelSide.right,
+            ),
+          );
+        }
       }
     }
 
@@ -309,6 +318,39 @@ LatLng _latLngFromUtm({
 
 int _utmZoneNumberForLongitude(double longitude) =>
     (((longitude + 180) / 6).floor() + 1).clamp(1, 60);
+
+List<_MapMgrsGridZoneSlice> _zoneSlicesForBounds(LatLngBounds visibleBounds) {
+  final startZone = _utmZoneNumberForLongitude(visibleBounds.west);
+  final endZone = _utmZoneNumberForLongitude(visibleBounds.east);
+  final slices = <_MapMgrsGridZoneSlice>[];
+
+  for (var zoneNumber = startZone; zoneNumber <= endZone; zoneNumber++) {
+    final zoneWest = -180.0 + (zoneNumber - 1) * 6.0;
+    final zoneEast = zoneWest + 6.0;
+    var west = math.max(visibleBounds.west, zoneWest);
+    var east = math.min(visibleBounds.east, zoneEast);
+    if (zoneNumber > startZone) {
+      west += _zoneBoundaryLongitudeEpsilon;
+    }
+    if (zoneNumber < endZone) {
+      east -= _zoneBoundaryLongitudeEpsilon;
+    }
+    if (west >= east) {
+      continue;
+    }
+    slices.add(
+      _MapMgrsGridZoneSlice(
+        zoneNumber: zoneNumber,
+        bounds: LatLngBounds(
+          LatLng(visibleBounds.south, west),
+          LatLng(visibleBounds.north, east),
+        ),
+      ),
+    );
+  }
+
+  return slices;
+}
 
 String _utmZoneLetterForLatitude(double latitude) {
   const letters = 'CDEFGHJKLMNPQRSTUVWX';
