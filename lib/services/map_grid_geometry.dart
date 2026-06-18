@@ -72,6 +72,7 @@ MapMgrsGridGeometry buildMapMgrsGridGeometry({
     final lines = <List<LatLng>>[];
     final labels = <MapGridBorderLabel>[];
     final intervalMeters = interval.meters;
+    final showBorderLabels = interval == MapMgrsGridInterval.oneKilometer;
 
     final startEasting = _alignedStart(minEasting, intervalMeters);
     final endEasting = _alignedEnd(
@@ -96,7 +97,7 @@ MapMgrsGridGeometry buildMapMgrsGridGeometry({
         continue;
       }
       lines.add(line.points);
-      if (interval == MapMgrsGridInterval.oneKilometer) {
+      if (showBorderLabels) {
         final label = _twoDigitGridLabel(easting);
         labels.add(
           MapGridBorderLabel(
@@ -138,7 +139,7 @@ MapMgrsGridGeometry buildMapMgrsGridGeometry({
         continue;
       }
       lines.add(line.points);
-      if (interval == MapMgrsGridInterval.oneKilometer) {
+      if (showBorderLabels) {
         final label = _twoDigitGridLabel(northing);
         labels.add(
           MapGridBorderLabel(

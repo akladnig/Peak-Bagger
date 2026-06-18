@@ -40,7 +40,7 @@ void main() {
     }
   });
 
-  test('suppresses edge labels for 10 km and 100 km intervals', () {
+  test('suppresses edge labels for 10 km, 100 km, and 1000 km intervals', () {
     final visibleBounds = _boundsFromUtm(
       westEasting: 440000,
       eastEasting: 480000,
@@ -59,6 +59,13 @@ void main() {
       buildMapMgrsGridGeometry(
         visibleBounds: visibleBounds,
         interval: MapMgrsGridInterval.hundredKilometers,
+      ).labels,
+      isEmpty,
+    );
+    expect(
+      buildMapMgrsGridGeometry(
+        visibleBounds: visibleBounds,
+        interval: MapMgrsGridInterval.thousandKilometers,
       ).labels,
       isEmpty,
     );

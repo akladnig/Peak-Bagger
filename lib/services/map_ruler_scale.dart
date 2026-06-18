@@ -5,7 +5,8 @@ import 'package:peak_bagger/core/constants.dart';
 enum MapMgrsGridInterval {
   oneKilometer(1000),
   tenKilometers(10000),
-  hundredKilometers(100000);
+  hundredKilometers(100000),
+  thousandKilometers(1000000);
 
   const MapMgrsGridInterval(this.meters);
 
@@ -29,6 +30,9 @@ double mapMetersPerPixel({required double zoom, required double latitude}) {
 
 MapMgrsGridInterval mapMgrsGridIntervalForRulerMeters(int rulerMeters) {
   final rulerKilometers = rulerMeters / 1000.0;
+  if (rulerKilometers >= MapConstants.mapMgrsGridThousandKilometerThreshold) {
+    return MapMgrsGridInterval.thousandKilometers;
+  }
   if (rulerKilometers >= MapConstants.mapMgrsGridHundredKilometerThreshold) {
     return MapMgrsGridInterval.hundredKilometers;
   }

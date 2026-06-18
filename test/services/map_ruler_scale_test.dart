@@ -20,6 +20,14 @@ void main() {
       mapMgrsGridIntervalForRulerMeters(30000),
       MapMgrsGridInterval.hundredKilometers,
     );
+    expect(
+      mapMgrsGridIntervalForRulerMeters(299999),
+      MapMgrsGridInterval.hundredKilometers,
+    );
+    expect(
+      mapMgrsGridIntervalForRulerMeters(300000),
+      MapMgrsGridInterval.thousandKilometers,
+    );
   });
 
   test('ruler selection prefers the largest step within width band', () {

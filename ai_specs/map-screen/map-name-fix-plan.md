@@ -52,17 +52,17 @@ Pure service seams first; then provider/UI wiring; preserve current Riverpod + r
 ### Phase 3: 1000 km + Full-Viewport Geometry
 
 - **Goal**: low-zoom interval + no trimmed gaps
-- [ ] `lib/core/constants.dart` - add `1000 km` threshold token
-- [ ] `lib/services/map_ruler_scale.dart` - add `1000 km` interval selection
-- [ ] `lib/services/map_grid_geometry.dart` - support `1000 km`; stop label-driven line shortening; preserve `1 km` label behavior
-- [ ] `lib/screens/map_screen_layers.dart` - stop passing trim insets that shorten visible lines; keep label placement stable
-- [ ] `test/services/map_ruler_scale_test.dart` - threshold + `1000 km` coverage
-- [ ] `test/services/map_grid_geometry_test.dart` - viewport-edge coverage + `1000 km` interval coverage
-- [ ] `test/widget/map_screen_layers_test.dart` - layer/key assertions if render contract changes
-- [ ] TDD: threshold boundary enters `1000 km` at configured cutoff
-- [ ] TDD: visible lines reach viewport edges while `1 km` labels remain usable
-- [ ] TDD: `10 km` / `100 km` / `1000 km` suppress border labels
-- [ ] Verify: `flutter analyze` && `flutter test test/services/map_ruler_scale_test.dart test/services/map_grid_geometry_test.dart test/widget/map_screen_layers_test.dart`
+- [x] `lib/core/constants.dart` - add `1000 km` threshold token
+- [x] `lib/services/map_ruler_scale.dart` - add `1000 km` interval selection
+- [x] `lib/services/map_grid_geometry.dart` - support `1000 km`; stop label-driven line shortening; preserve `1 km` label behavior
+- [x] `lib/screens/map_screen_layers.dart` - stop passing trim insets that shorten visible lines; keep label placement stable
+- [x] `test/services/map_ruler_scale_test.dart` - threshold + `1000 km` coverage
+- [x] `test/services/map_grid_geometry_test.dart` - viewport-edge coverage + `1000 km` interval coverage
+- [x] `test/widget/map_screen_layers_test.dart` - layer/key assertions if render contract changes
+- [x] TDD: threshold boundary enters `1000 km` at configured cutoff
+- [x] TDD: visible lines reach viewport edges while `1 km` labels remain usable
+- [x] TDD: `10 km` / `100 km` / `1000 km` suppress border labels
+- [x] Verify: `flutter analyze` && `flutter test test/services/map_ruler_scale_test.dart test/services/map_grid_geometry_test.dart test/widget/map_screen_layers_test.dart`
 
 ## Risks / Out of scope
 
