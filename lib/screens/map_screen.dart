@@ -3364,12 +3364,15 @@ class _MapScreenState extends ConsumerState<MapScreen>
         child: PeakInfoPopupSurface(
           content: content,
           bridgeOnLeft: placement.bridgeOnLeft,
-          onDropMarker: () {
+          onDropMarker: () async {
             final notifier = ref.read(mapProvider.notifier);
-            notifier.setSelectedLocation(
+            final saved = await notifier.setCurrentMarker(
               LatLng(content.peak.latitude, content.peak.longitude),
+              name: content.peak.name,
             );
-            notifier.closePeakInfoPopup();
+            if (saved) {
+              notifier.closePeakInfoPopup();
+            }
           },
           onClose: () {
             ref.read(mapProvider.notifier).closePeakInfoPopup();

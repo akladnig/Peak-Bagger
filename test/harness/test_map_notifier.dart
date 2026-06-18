@@ -20,6 +20,7 @@ import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
+import 'package:peak_bagger/services/waypoints_repository.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 
 class TestMapNotifier extends MapNotifier {
@@ -36,6 +37,7 @@ class TestMapNotifier extends MapNotifier {
     this.recalcTracks,
     this.peakRepository,
     this.peaksBaggedRepository,
+    this.waypointsRepository,
     this.gpxTrackRepository,
     this.routeRepository,
     this.routePlanningOutcomes = const [],
@@ -55,6 +57,7 @@ class TestMapNotifier extends MapNotifier {
   final List<GpxTrack>? recalcTracks;
   final PeakRepository? peakRepository;
   final PeaksBaggedRepository? peaksBaggedRepository;
+  final WaypointsRepository? waypointsRepository;
   final GpxTrackRepository? gpxTrackRepository;
   final RouteRepository? routeRepository;
   final List<Object> routePlanningOutcomes;
@@ -128,6 +131,19 @@ class TestMapNotifier extends MapNotifier {
 
   @override
   Set<int> get correlatedPeakIds => _correlatedPeakIds;
+
+  @override
+  Future<bool> setCurrentMarker(
+    LatLng location, {
+    String name = 'Marker',
+  }) async {
+    final repository = waypointsRepository;
+    if (repository != null) {
+      await repository.saveMarker(location: location, name: name);
+    }
+    setSelectedLocation(location);
+    return true;
+  }
 
   @override
   String mapNameForMgrs(String mgrsText) {

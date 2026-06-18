@@ -32,6 +32,7 @@ void main() {
       'RouteGraphManifest',
       'RouteGraphWayIndex',
       'RouteGraphTrailDisplayChunk',
+      'Waypoints',
     ]);
     expect(entities.first.primaryKeyField, 'id');
     expect(entities.first.primaryNameField, 'name');
@@ -144,6 +145,12 @@ void main() {
         'payloadJson',
       ]),
     );
+    expect(entities.last.primaryKeyField, 'id');
+    expect(entities.last.primaryNameField, 'name');
+    expect(
+      entities.last.fields.map((field) => field.name),
+      containsAll(['id', 'name', 'type', 'latitude', 'longitude', 'mgrs']),
+    );
     expect(entities[6].primaryKeyField, 'id');
     expect(entities[6].primaryNameField, 'chunkKey');
     expect(entities[5].primaryKeyField, 'id');
@@ -170,8 +177,10 @@ void main() {
         'routeTimingProfileJson',
       ]),
     );
+    expect(entities[9].primaryKeyField, 'id');
+    expect(entities[9].primaryNameField, 'recordKey');
     expect(entities.last.primaryKeyField, 'id');
-    expect(entities.last.primaryNameField, 'recordKey');
+    expect(entities.last.primaryNameField, 'name');
   });
 
   test('routeGraphChunkToAdminRow exposes chunk metadata', () {

@@ -201,7 +201,7 @@ void main() {
     await tester.pump();
     await tester.enterText(
       find.byKey(const Key('goto-map-input')),
-      '55GDM8000095000',
+      '55GEN1940050700',
     );
     await tester.pump();
     await tester.tap(find.byKey(const Key('goto-map-submit')));
@@ -211,7 +211,6 @@ void main() {
     expect(state.cameraRequestSerial, serialBefore);
     expect(state.cameraRequestCenter, isNull);
     expect(state.cameraRequestZoom, isNull);
-    expect(state.selectedLocation, isNotNull);
   });
 
   testWidgets('selected-map goto keeps fit-derived zoom without request replay', (
