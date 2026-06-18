@@ -34,20 +34,20 @@ Pure service seams first; then provider/UI wiring; preserve current Riverpod + r
 ### Phase 2: Region-Aware Grid Capability
 
 - **Goal**: viewport intersection + MGRS-only grid contract
-- [ ] `lib/services/region_manifest_catalog.dart` - add pure viewport-vs-region intersection helper; expose visible-region `mapSet` union API
-- [ ] `test/unit/region_manifest_catalog_test.dart` - extend catalog assertions for visible-region union behavior
-- [ ] `test/unit/visible_region_intersection_test.dart` - deterministic mixed-viewport intersection coverage
-- [ ] `lib/providers/map_provider.dart` - derive effective grid capability/tooltip/render state from visible-region `mapSet` union; suppress sheet-grid when union empty; preserve stored `gridVisibility`
-- [ ] `lib/screens/map_screen.dart` - pass visible bounds/effective grid state into render path
-- [ ] `lib/widgets/map_action_rail.dart` - consume new tooltip contract only; preserve `grid-map-fab`
-- [ ] `test/widget/tasmap_display_mode_test.dart` - sheet-backed vs MGRS-only tooltip/state cases
-- [ ] `test/robot/map/map_grid_robot.dart` - add non-sheet-backed fixture/seam
-- [ ] `test/robot/map/map_grid_and_ruler_journey_test.dart` - MGRS-only journey
-- [ ] TDD: viewport intersecting sheet dataset -> existing 3-state copy
-- [ ] TDD: viewport with empty `mapSet` union -> `Show MGRS Grid` / `Hide MGRS Grid`
-- [ ] TDD: stored `mapGridOnly` + empty union -> suppress selected-map sheet render, keep stored state
-- [ ] Robot journey tests + selectors/seams for MGRS-only cycle; reuse `grid-map-fab`, `map-zoom-readout`; add layer key only if widget assertions need it
-- [ ] Verify: `flutter analyze` && `flutter test test/unit/region_manifest_catalog_test.dart test/unit/visible_region_intersection_test.dart test/widget/tasmap_display_mode_test.dart test/robot/map/map_grid_and_ruler_journey_test.dart`
+- [x] `lib/services/region_manifest_catalog.dart` - add pure viewport-vs-region intersection helper; expose visible-region `mapSet` union API
+- [x] `test/unit/region_manifest_catalog_test.dart` - extend catalog assertions for visible-region union behavior
+- [x] `test/unit/visible_region_intersection_test.dart` - deterministic mixed-viewport intersection coverage
+- [x] `lib/providers/map_provider.dart` - derive effective grid capability/tooltip/render state from visible-region `mapSet` union; suppress sheet-grid when union empty; preserve stored `gridVisibility`
+- [x] `lib/screens/map_screen.dart` - pass visible bounds/effective grid state into render path
+- [x] `lib/widgets/map_action_rail.dart` - consume new tooltip contract only; preserve `grid-map-fab`
+- [x] `test/widget/tasmap_display_mode_test.dart` - sheet-backed vs MGRS-only tooltip/state cases
+- [x] `test/robot/map/map_grid_robot.dart` - add non-sheet-backed fixture/seam
+- [x] `test/robot/map/map_grid_and_ruler_journey_test.dart` - MGRS-only journey
+- [x] TDD: viewport intersecting sheet dataset -> existing 3-state copy
+- [x] TDD: viewport with empty `mapSet` union -> `Show MGRS Grid` / `Hide MGRS Grid`
+- [x] TDD: stored `mapGridOnly` + empty union -> suppress selected-map sheet render, keep stored state
+- [x] Robot journey tests + selectors/seams for MGRS-only cycle; reuse `grid-map-fab`, `map-zoom-readout`; add layer key only if widget assertions need it
+- [x] Verify: `flutter analyze` && `flutter test test/unit/region_manifest_catalog_test.dart test/unit/visible_region_intersection_test.dart test/widget/tasmap_display_mode_test.dart test/robot/map/map_grid_and_ruler_journey_test.dart`
 
 ### Phase 3: 1000 km + Full-Viewport Geometry
 

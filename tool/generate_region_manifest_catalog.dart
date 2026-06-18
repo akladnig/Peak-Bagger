@@ -65,6 +65,7 @@ void main(List<String> args) {
     }
 
     final mapKeys = <String>[];
+    final mapSet = _readStringList(regionValue['mapSet'], 'mapSet', regionKey);
     final maps = _readList(regionValue['maps'], 'maps', regionKey);
     for (final mapEntry in maps) {
       if (mapEntry is! Map<String, dynamic>) {
@@ -96,6 +97,7 @@ void main(List<String> args) {
         key: regionKey,
         polygons: polygons,
         basemapKeys: mapKeys,
+        mapSet: mapSet,
       ),
     );
   }
@@ -157,6 +159,12 @@ void main(List<String> args) {
       buffer.writeln('        ],');
     }
 
+    buffer
+      ..writeln('      ],')
+      ..writeln('      mapSet: [');
+    for (final key in region.mapSet) {
+      buffer.writeln('        ${_stringLiteral(key)},');
+    }
     buffer
       ..writeln('      ],')
       ..writeln('      basemapKeys: [');
@@ -255,9 +263,11 @@ class _RegionDefinition {
     required this.key,
     required this.polygons,
     required this.basemapKeys,
+    required this.mapSet,
   });
 
   final String key;
   final List<List<LatLng>> polygons;
   final List<String> basemapKeys;
+  final List<String> mapSet;
 }

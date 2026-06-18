@@ -50,14 +50,14 @@ class MapActionRail extends ConsumerWidget {
       :isLoadingTracks,
       :hasTrackRecoveryIssue,
       :isRouteDrafting,
-      :mapGridTooltip,
+      :gridTooltipMessage,
     ) = ref.watch(
       mapProvider.select(
         (state) => (
           isLoadingTracks: state.isLoadingTracks,
           hasTrackRecoveryIssue: state.hasTrackRecoveryIssue,
           isRouteDrafting: state.isRouteDrafting,
-          mapGridTooltip: state.mapGridTooltipMessage,
+          gridTooltipMessage: state.mapGridTooltipMessage,
         ),
       ),
     );
@@ -183,7 +183,7 @@ class MapActionRail extends ConsumerWidget {
                       ),
                       const SizedBox(height: UiConstants.railSpacing),
                       LeftTooltipFab(
-                        message: mapGridTooltip,
+                        message: gridTooltipMessage,
                         child: FloatingActionButton.small(
                           key: const Key('grid-map-fab'),
                           heroTag: 'grid',
