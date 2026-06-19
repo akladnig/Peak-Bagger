@@ -75,9 +75,10 @@ void main() {
     robot.expectTrackInfoPanelVisible('Hover Track');
 
     await robot.clickMapBackground();
-    robot.expectNoSelectedTrack();
+    expect(robot.mapTapActionPopup, findsOneWidget);
+    robot.expectSelectedTrack(7);
     robot.expectNoHoveredTrack();
-    robot.expectNoTrackInfoPanel();
+    robot.expectTrackInfoPanelVisible('Hover Track');
 
     await robot.hoverTrack();
     await robot.clickHoveredTrack();

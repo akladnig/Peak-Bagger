@@ -118,10 +118,11 @@ void main() {
     );
   });
 
-  testWidgets('GPS failure keeps ETA popup anchored with inline error', (
+  testWidgets('Home ETA does not depend on live location service', (
     tester,
   ) async {
     final tasmapRepository = await TestTasmapRepository.create();
+    final routeSummaryCompleter = Completer<OpenRouteServiceSummary>();
 
     await _pumpMapScreen(
       tester,
@@ -137,14 +138,7 @@ void main() {
       locationService: _ThrowingLiveLocationService(
         const LiveLocationException('Location permission denied'),
       ),
-      openRouteService: _FakeOpenRouteService(
-        Future.value(
-          const OpenRouteServiceSummary(
-            distanceMeters: 1000,
-            durationSeconds: 600,
-          ),
-        ),
-      ),
+      openRouteService: _FakeOpenRouteService(routeSummaryCompleter.future),
       hitService: _FakeDriveEtaHitService(
         const RouteGraphDriveEtaHitResult.hit(
           snappedPoint: LatLng(-41.5, 146.5),
@@ -156,9 +150,19 @@ void main() {
 
     await _mouseClickMapCenter(tester);
 
+    expect(find.byKey(const Key('drive-eta-popup-loading')), findsOneWidget);
+    routeSummaryCompleter.complete(
+      const OpenRouteServiceSummary(
+        distanceMeters: 1000,
+        durationSeconds: 600,
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
     expect(find.byKey(const Key('drive-eta-popup-root')), findsOneWidget);
-    expect(find.byKey(const Key('drive-eta-popup-error')), findsOneWidget);
-    expect(find.text('Location permission denied'), findsOneWidget);
+    expect(find.byKey(const Key('drive-eta-popup-error')), findsNothing);
+    expect(find.byKey(const Key('drive-eta-popup-distance-row')), findsOneWidget);
   });
 
   testWidgets('ORS failure keeps ETA popup anchored with inline error', (
@@ -305,6 +309,87 @@ void main() {
     await _mouseClickMapCenter(tester);
 
     expect(find.byKey(const Key('drive-eta-popup-root')), findsNothing);
+  });
+
+  testWidgets('routable tap shows Home ETA and omits Marker ETA without marker', (
+    tester,
+  ) async {
+    final tasmapRepository = await TestTasmapRepository.create();
+
+    await _pumpMapScreen(
+      tester,
+      mapNotifier: TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+        ),
+      ),
+      tasmapRepository: tasmapRepository,
+      routeGraphStore: _DriveEtaRouteGraphStore(),
+      locationService: _FakeLiveLocationService(const LatLng(-41.6, 146.6)),
+      openRouteService: _FakeOpenRouteService(
+        Future.value(
+          const OpenRouteServiceSummary(
+            distanceMeters: 1000,
+            durationSeconds: 600,
+          ),
+        ),
+      ),
+      hitService: _FakeDriveEtaHitService(
+        const RouteGraphDriveEtaHitResult.hit(
+          snappedPoint: LatLng(-41.5, 146.5),
+          matchedWayId: 10,
+          wayName: 'Forestry Road',
+        ),
+      ),
+    );
+
+    await _openChooserAtMapCenter(tester);
+
+    expect(find.byKey(const Key('map-tap-action-drive-home')), findsOneWidget);
+    expect(find.byKey(const Key('map-tap-action-drive-marker')), findsNothing);
+  });
+
+  testWidgets('routable tap shows Marker ETA when current marker exists', (
+    tester,
+  ) async {
+    final tasmapRepository = await TestTasmapRepository.create();
+
+    await _pumpMapScreen(
+      tester,
+      mapNotifier: TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          selectedLocation: const LatLng(-41.6, 146.6),
+        ),
+      ),
+      tasmapRepository: tasmapRepository,
+      routeGraphStore: _DriveEtaRouteGraphStore(),
+      locationService: _FakeLiveLocationService(const LatLng(-41.6, 146.6)),
+      openRouteService: _FakeOpenRouteService(
+        Future.value(
+          const OpenRouteServiceSummary(
+            distanceMeters: 1000,
+            durationSeconds: 600,
+          ),
+        ),
+      ),
+      hitService: _FakeDriveEtaHitService(
+        const RouteGraphDriveEtaHitResult.hit(
+          snappedPoint: LatLng(-41.5, 146.5),
+          matchedWayId: 10,
+          wayName: 'Forestry Road',
+        ),
+      ),
+    );
+
+    await _openChooserAtMapCenter(tester);
+
+    expect(find.byKey(const Key('map-tap-action-drive-home')), findsOneWidget);
+    expect(find.byKey(const Key('map-tap-action-drive-marker')), findsOneWidget);
   });
 
   testWidgets('second valid click suppresses stale first ETA result', (
@@ -642,6 +727,17 @@ Future<void> _pumpMapScreen(
 }
 
 Future<void> _mouseClickMapCenter(WidgetTester tester) async {
+  await _openChooserAtMapCenter(tester);
+  final driveHome = find.byKey(const Key('map-tap-action-drive-home'));
+  if (driveHome.evaluate().isNotEmpty) {
+    await tester.tap(driveHome);
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+  }
+}
+
+Future<void> _openChooserAtMapCenter(WidgetTester tester) async {
   final region = find.byKey(const Key('map-interaction-region'));
   final center = tester.getCenter(region);
   final gesture = await tester.startGesture(

@@ -8,6 +8,7 @@ enum PeakClusterAlgorithm {
 }
 
 abstract final class MapConstants {
+  static const homeMgrs = '55G EN 34028 50395';
   static const defaultCenter = LatLng(-41.5, 146.5);
   static const defaultZoom = 15.0;
   static const defaultMapZoom = 12.0;

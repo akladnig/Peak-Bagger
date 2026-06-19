@@ -19,6 +19,7 @@ import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/models/route_waypoint.dart';
+import 'package:peak_bagger/models/waypoints.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/providers/route_planner_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
@@ -37,6 +38,7 @@ import 'package:peak_bagger/services/peak_refresh_service.dart';
 import 'package:peak_bagger/services/peak_info_content_resolver.dart';
 import 'package:peak_bagger/services/peak_list_visibility.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/waypoints_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
@@ -1026,6 +1028,7 @@ class MapNotifier extends Notifier<MapState> {
     RouteElevationSampler? routeElevationSampler,
     RoutePlanner? routePlanner,
     PeaksBaggedRepository? peaksBaggedRepository,
+    WaypointsRepository? waypointsRepository,
     MigrationMarkerStore? migrationMarkerStore,
     PeakRegionAssetImportService? peakRegionAssetImportService,
     bool loadPositionOnBuild = true,
@@ -1039,6 +1042,7 @@ class MapNotifier extends Notifier<MapState> {
        _injectedRouteElevationSampler = routeElevationSampler,
        _injectedRoutePlanner = routePlanner,
        _injectedPeaksBaggedRepository = peaksBaggedRepository,
+       _injectedWaypointsRepository = waypointsRepository,
        _injectedMigrationMarkerStore = migrationMarkerStore,
        _injectedPeakRegionAssetImportService = peakRegionAssetImportService,
        _loadPositionOnBuild = loadPositionOnBuild,
@@ -1053,6 +1057,7 @@ class MapNotifier extends Notifier<MapState> {
   final RouteElevationSampler? _injectedRouteElevationSampler;
   final RoutePlanner? _injectedRoutePlanner;
   final PeaksBaggedRepository? _injectedPeaksBaggedRepository;
+  final WaypointsRepository? _injectedWaypointsRepository;
   final MigrationMarkerStore? _injectedMigrationMarkerStore;
   final PeakRegionAssetImportService? _injectedPeakRegionAssetImportService;
   final bool _loadPositionOnBuild;
@@ -1068,6 +1073,7 @@ class MapNotifier extends Notifier<MapState> {
   late final RouteElevationSampler _routeElevationSampler;
   late final RoutePlanner _routePlanner;
   late final PeaksBaggedRepository _peaksBaggedRepository;
+  late final WaypointsRepository _waypointsRepository;
   late final MigrationMarkerStore _migrationMarkerStore;
   late final ItemVisibilityBackfillService _itemVisibilityBackfillService;
   late final Future<SharedPreferences> Function() _prefsLoader;
@@ -1134,6 +1140,11 @@ class MapNotifier extends Notifier<MapState> {
     _routePlanner = _injectedRoutePlanner ?? ref.read(routePlannerProvider);
     _peaksBaggedRepository =
         _injectedPeaksBaggedRepository ?? PeaksBaggedRepository(objectboxStore);
+    _waypointsRepository = _injectedWaypointsRepository ?? _buildWaypointsRepository();
+    final restoredMarker = _waypointsRepository.getCurrentMarker();
+    final restoredMarkerLocation = restoredMarker == null
+        ? null
+        : LatLng(restoredMarker.latitude, restoredMarker.longitude);
     _migrationMarkerStore =
         _injectedMigrationMarkerStore ?? const MigrationMarkerStore();
     _itemVisibilityBackfillService = ItemVisibilityBackfillService(
@@ -1150,18 +1161,49 @@ class MapNotifier extends Notifier<MapState> {
       zoom: MapConstants.defaultZoom,
       basemap: Basemap.tracestrack,
       isFirstLaunch: true,
-      selectedLocation: MapConstants.defaultCenter,
+      selectedLocation: restoredMarkerLocation,
+      cursorMgrs: restoredMarkerLocation == null
+          ? null
+          : _convertToMgrs(restoredMarkerLocation),
+      cursorPoint: restoredMarkerLocation,
     );
   }
 
+  WaypointsRepository _buildWaypointsRepository() {
+    try {
+      return WaypointsRepository(objectboxStore);
+    } catch (_) {
+      return WaypointsRepository.test(InMemoryWaypointsStorage());
+    }
+  }
+
   Future<void> _runStartupLoad() async {
+    if (!ref.mounted) {
+      return;
+    }
     await _backfillItemVisibility();
+    if (!ref.mounted) {
+      return;
+    }
     await _restoreVisibilityPrefs();
+    if (!ref.mounted) {
+      return;
+    }
     if (_loadPositionOnBuild) {
       await _loadPosition();
+      if (!ref.mounted) {
+        return;
+      }
+    }
+    _restorePersistedMarker();
+    if (!ref.mounted) {
+      return;
     }
     if (_loadPeaksOnBuild) {
       await _loadPeaks();
+      if (!ref.mounted) {
+        return;
+      }
     }
     if (_loadTracksOnBuild) {
       await _loadTracks();
@@ -2070,7 +2112,6 @@ class MapNotifier extends Notifier<MapState> {
           zoom: zoom,
           isFirstLaunch: false,
           currentMgrs: _convertToMgrs(location),
-          selectedLocation: location,
         );
       }
 
@@ -2096,6 +2137,24 @@ class MapNotifier extends Notifier<MapState> {
     } catch (e) {
       // Keep default position on error
     }
+  }
+
+  void _restorePersistedMarker() {
+    if (!ref.mounted) {
+      return;
+    }
+    final marker = _waypointsRepository.getCurrentMarker();
+    if (marker == null) {
+      state = state.copyWith(clearSelectedLocation: true);
+      return;
+    }
+    final location = LatLng(marker.latitude, marker.longitude);
+    state = state.copyWith(
+      selectedLocation: location,
+      cursorMgrs: _convertToMgrs(location),
+      cursorPoint: location,
+      syncEnabled: false,
+    );
   }
 
   String _convertToMgrs(LatLng location) {
@@ -4228,6 +4287,55 @@ class MapNotifier extends Notifier<MapState> {
       selectedLocation: location,
       syncEnabled: false,
     );
+  }
+
+  Future<bool> setCurrentMarker(
+    LatLng location, {
+    String name = 'Marker',
+  }) async {
+    try {
+      await _waypointsRepository.saveMarker(location: location, name: name);
+      setSelectedLocation(location);
+      return true;
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to save current marker.',
+        error: error,
+        stackTrace: stackTrace,
+        name: 'map_provider',
+      );
+      return false;
+    }
+  }
+
+  List<Waypoints> favouriteWaypoints() {
+    return _waypointsRepository.getFavourites();
+  }
+
+  bool favouriteNameExists(String name, {int? excludingId}) {
+    return _waypointsRepository.favouriteNameExists(
+      name,
+      excludingId: excludingId,
+    );
+  }
+
+  Future<bool> saveFavouriteWaypoint(
+    LatLng location, {
+    required String name,
+  }) async {
+    try {
+      await _waypointsRepository.saveFavourite(name: name, location: location);
+      setSelectedLocation(location);
+      return true;
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to save favourite waypoint.',
+        error: error,
+        stackTrace: stackTrace,
+        name: 'map_provider',
+      );
+      return false;
+    }
   }
 
   void restoreSelectedLocation(LatLng? location) {

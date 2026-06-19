@@ -55,7 +55,7 @@ void main() {
 
     final state = _container(tester).read(mapProvider);
     expect(state.isRouteDrafting, isTrue);
-    expect(state.selectedLocation, isNotNull);
+    expect(state.selectedLocation, isNull);
     expectRouteDraftOverlaysVisible();
   });
 

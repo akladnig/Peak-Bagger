@@ -8,15 +8,21 @@ import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
+import 'package:peak_bagger/models/waypoints.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
+import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/route_elevation_sampler.dart';
+import 'package:peak_bagger/services/route_planner.dart';
+import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/services/waypoints_repository.dart';
 import 'package:peak_bagger/theme.dart';
 
 import '../harness/test_map_notifier.dart';
@@ -294,7 +300,7 @@ void main() {
     expect(tester.widget<MouseRegion>(region).cursor, SystemMouseCursors.grab);
   });
 
-  testWidgets('non-peak click keeps selected-location behavior', (
+  testWidgets('non-peak click opens chooser without selecting location', (
     tester,
   ) async {
     await _pumpMap(tester, _mapStateWithPeak());
@@ -308,11 +314,13 @@ void main() {
 
     final state = container.read(mapProvider);
     expect(state.peakInfoPeak, isNull);
-    expect(state.selectedLocation, isNotNull);
-    expect(state.selectedLocation!.longitude, isNot(closeTo(147.0, 0.001)));
+    expect(state.selectedLocation, isNull);
+    expect(find.byKey(const Key('map-tap-action-popup')), findsOneWidget);
   });
 
-  testWidgets('background click closes open peak popup', (tester) async {
+  testWidgets('background click closes open peak popup and opens chooser', (
+    tester,
+  ) async {
     await _pumpMap(tester, _mapStateWithPeak());
 
     final region = find.byKey(const Key('map-interaction-region'));
@@ -330,7 +338,8 @@ void main() {
 
     final state = container.read(mapProvider);
     expect(state.peakInfoPeak, isNull);
-    expect(state.selectedLocation, isNotNull);
+    expect(state.selectedLocation, isNull);
+    expect(find.byKey(const Key('map-tap-action-popup')), findsOneWidget);
   });
 
   testWidgets('hiding peaks or zooming below threshold closes peak popup', (
@@ -701,6 +710,103 @@ void main() {
     expect(after.center, equals(before.center));
     expect(after.zoom, equals(before.zoom));
     expect(find.byKey(const Key('peak-info-popup')), findsNothing);
+  });
+
+  testWidgets('drop marker persists singleton marker row', (tester) async {
+    final waypointsRepository = WaypointsRepository.test(
+      InMemoryWaypointsStorage(),
+    );
+
+    await _pumpMap(
+      tester,
+      _mapStateWithPeak(
+        peak: Peak(
+          osmId: 6406,
+          name: 'Bonnet Hill',
+          latitude: -43.0,
+          longitude: 147.0,
+        ),
+      ),
+      waypointsRepository: waypointsRepository,
+    );
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byKey(const Key('peak-info-popup-drop-marker')));
+    await tester.pump();
+
+    final marker = waypointsRepository.getCurrentMarker();
+    expect(marker, isNotNull);
+    expect(marker!.name, 'Bonnet Hill');
+    expect(marker.type, 'marker');
+    expect(marker.latitude, closeTo(-43.0, 1e-9));
+    expect(marker.longitude, closeTo(147.0, 1e-9));
+    expect(marker.mgrs, isNotEmpty);
+  });
+
+  testWidgets('map startup restores persisted marker without moving camera', (
+    tester,
+  ) async {
+    final tasmapRepository = await TestTasmapRepository.create();
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+    final waypointsRepository = WaypointsRepository.test(
+      InMemoryWaypointsStorage([
+        Waypoints(
+          id: 2,
+          name: 'Saved Marker',
+          type: Waypoints.typeMarker,
+          latitude: -42.6,
+          longitude: 146.6,
+          mgrs: '55G EN 34028 50395',
+        ),
+      ]),
+    );
+    final center = const LatLng(-41.5, 146.5);
+
+    final container = ProviderContainer(
+      overrides: [
+        mapProvider.overrideWith(
+          () => MapNotifier(
+            peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+            overpassService: OverpassService(),
+            tasmapRepository: tasmapRepository,
+            gpxTrackRepository: GpxTrackRepository.test(
+              InMemoryGpxTrackStorage(),
+            ),
+            routeRepository: routeRepository,
+            routeElevationSampler: const NoopRouteElevationSampler(),
+            routePlanner: _NoopRoutePlanner(),
+            peaksBaggedRepository: PeaksBaggedRepository.test(
+              InMemoryPeaksBaggedStorage(),
+            ),
+            waypointsRepository: waypointsRepository,
+            loadPositionOnBuild: false,
+            loadPeaksOnBuild: false,
+            loadTracksOnBuild: false,
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    expect(container.read(mapProvider).center, center);
+    expect(
+      container.read(mapProvider).selectedLocation,
+      const LatLng(-42.6, 146.6),
+    );
+
+    await tester.runAsync(() async {
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+    });
+
+    final state = container.read(mapProvider);
+
+    expect(state.center, center);
+    expect(state.selectedLocation, const LatLng(-42.6, 146.6));
   });
 
   testWidgets('open popup refreshes ascent rows when bagged revision changes', (
@@ -1161,13 +1267,18 @@ Future<void> _pumpMap(
   PeakListRepository? peakListRepository,
   PeaksBaggedRepository? peaksBaggedRepository,
   GpxTrackRepository? gpxTrackRepository,
+  WaypointsRepository? waypointsRepository,
 }) async {
   final tasmapRepository = await TestTasmapRepository.create();
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         mapProvider.overrideWith(
-          () => TestMapNotifier(state, peakRepository: peakRepository),
+          () => TestMapNotifier(
+            state,
+            peakRepository: peakRepository,
+            waypointsRepository: waypointsRepository,
+          ),
         ),
         peakListRepositoryProvider.overrideWithValue(
           peakListRepository ??
@@ -1234,4 +1345,42 @@ class _StaticPeakMarkerInfoNotifier extends PeakMarkerInfoSettingsNotifier {
 
   @override
   bool build() => value;
+}
+
+class _NoopRoutePlanner extends RoutePlanner {
+  @override
+  Future<PlannedRouteSegment> planSegment({
+    required LatLng start,
+    required LatLng end,
+  }) async {
+    return PlannedRouteSegment(
+      points: [start, end],
+      distanceMeters: 0,
+    );
+  }
+
+  @override
+  Future<RoutePlanningResult> planSegmentResult({
+    required LatLng start,
+    required LatLng end,
+  }) async {
+    return RoutePlanningResult(
+      status: RoutePlanningStatus.routed,
+      points: [start, end],
+      distanceMeters: 0,
+      startAnchor: RouteEndpointAnchor(
+        point: start,
+        type: RouteEndpointAnchorType.raw,
+      ),
+      endAnchor: RouteEndpointAnchor(
+        point: end,
+        type: RouteEndpointAnchorType.raw,
+      ),
+    );
+  }
+
+  @override
+  Future<RouteEndpointProbeResult> probeEndpoint({required LatLng point}) async {
+    return const RouteEndpointProbeResult(isOnTrack: false);
+  }
 }

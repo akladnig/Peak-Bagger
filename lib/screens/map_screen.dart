@@ -52,8 +52,10 @@ import 'package:peak_bagger/widgets/map_tracks_routes_drawer.dart';
 import 'package:peak_bagger/widgets/map_route_bottom_sheet.dart';
 import 'package:peak_bagger/widgets/map_rebuild_debug_counters.dart';
 import 'package:peak_bagger/widgets/map_chart_hover_marker.dart';
+import 'package:peak_bagger/widgets/map_marker.dart';
 import 'package:peak_bagger/widgets/tasmap_polygon_label.dart';
 import 'package:peak_bagger/widgets/dialog_helpers.dart';
+import 'package:peak_bagger/theme.dart';
 
 import 'map_screen_layers.dart';
 import 'map_screen_peak_layer.dart';
@@ -123,6 +125,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
   bool _routeDraftMarkerTapConsumed = false;
   String? _routeDraftDeletePopupMarkerId;
   int? _routeDraftDeletePopupViewportRevision;
+  Offset? _mapTapActionPopupAnchor;
+  LatLng? _mapTapActionPopupLocation;
+  RouteGraphDriveEtaHitResult? _mapTapActionPopupDriveEtaHit;
+  bool _showFavouritesPopup = false;
   List<TrackRouteChooserItem>? _trackRouteChooserItems;
   Offset? _trackRouteChooserAnchor;
   int? _trackRouteChooserViewportRevision;
@@ -301,6 +307,16 @@ class _MapScreenState extends ConsumerState<MapScreen>
       _dismissTrackRouteChooser(suppressReopen: true);
       return true;
     }
+    if (_mapTapActionPopupAnchor != null || _mapTapActionPopupLocation != null) {
+      _dismissMapTapActionPopup();
+      return true;
+    }
+    if (_showFavouritesPopup) {
+      setState(() {
+        _showFavouritesPopup = false;
+      });
+      return true;
+    }
     if (mapState.driveEtaPopup != null) {
       notifier.closeDriveEtaPopup();
       return true;
@@ -320,6 +336,196 @@ class _MapScreenState extends ConsumerState<MapScreen>
       return true;
     }
     return false;
+  }
+
+  void _showDropMarkerPopupForCurrentLocation() {
+    if (_mapTapActionPopupAnchor != null || _mapTapActionPopupLocation != null) {
+      _dismissMapTapActionPopup();
+      return;
+    }
+    final location = switch (_mapController.camera.nonRotatedSize) {
+      MapCamera.kImpossibleSize => ref.read(mapProvider).center,
+      _ => _mapController.camera.center,
+    };
+    final anchor = switch (_mapController.camera.nonRotatedSize) {
+      MapCamera.kImpossibleSize => Offset(
+        MediaQuery.of(context).size.width / 2,
+        MediaQuery.of(context).size.height / 2,
+      ),
+      _ => _screenOffsetForLatLng(location),
+    };
+    _openMapTapActionPopup(
+      anchor: anchor,
+      location: location,
+      driveEtaHit: _driveEtaHitForTap(
+        localPosition: anchor,
+        tappedLocation: location,
+        hoveredTrackId: null,
+        hoveredRouteId: null,
+      ),
+    );
+  }
+
+  void _openMapTapActionPopup({
+    required Offset anchor,
+    required LatLng location,
+    RouteGraphDriveEtaHitResult? driveEtaHit,
+  }) {
+    setState(() {
+      _mapTapActionPopupAnchor = anchor;
+      _mapTapActionPopupLocation = location;
+      _mapTapActionPopupDriveEtaHit = driveEtaHit;
+      _showFavouritesPopup = false;
+    });
+    _mapFocusNode.requestFocus();
+  }
+
+  void _dismissMapTapActionPopup() {
+    if (_mapTapActionPopupAnchor == null && _mapTapActionPopupLocation == null) {
+      return;
+    }
+    setState(() {
+      _mapTapActionPopupAnchor = null;
+      _mapTapActionPopupLocation = null;
+      _mapTapActionPopupDriveEtaHit = null;
+    });
+  }
+
+  Future<void> _handleDropMarkerFromPopup() async {
+    final location = _mapTapActionPopupLocation;
+    if (location == null) {
+      return;
+    }
+    final saved = await ref.read(mapProvider.notifier).setCurrentMarker(location);
+    if (saved && mounted) {
+      _dismissMapTapActionPopup();
+    }
+  }
+
+  Future<void> _handleDropFavouriteFromPopup() async {
+    final location = _mapTapActionPopupLocation;
+    if (location == null || !mounted) {
+      return;
+    }
+    final notifier = ref.read(mapProvider.notifier);
+    final name = await showFavouriteNameDialog(
+      context,
+      nameExists: notifier.favouriteNameExists,
+    );
+    if (!mounted || name == null) {
+      return;
+    }
+    final saved = await notifier.saveFavouriteWaypoint(location, name: name);
+    if (saved && mounted) {
+      _dismissMapTapActionPopup();
+    }
+  }
+
+  void _toggleFavouritesPopup() {
+    _dismissMapTapActionPopup();
+    _mapFocusNode.requestFocus();
+    setState(() {
+      _showFavouritesPopup = !_showFavouritesPopup;
+    });
+  }
+
+  RouteGraphDriveEtaHitResult? _driveEtaHitForTap({
+    required Offset localPosition,
+    required LatLng tappedLocation,
+    required int? hoveredTrackId,
+    required int? hoveredRouteId,
+  }) {
+    if (hoveredTrackId != null || hoveredRouteId != null) {
+      return null;
+    }
+    try {
+      final hitService = ref.read(routeGraphDriveEtaHitServiceProvider);
+      if (hitService == null) {
+        return null;
+      }
+      final hit = hitService.hitTest(
+        pointerPosition: localPosition,
+        camera: _mapController.camera,
+        tappedLocation: tappedLocation,
+      );
+      return hit.status == RouteGraphDriveEtaHitStatus.hit ? hit : null;
+    } catch (error, stackTrace) {
+      debugPrintStack(
+        label: 'Drive ETA hit-test failed: $error',
+        stackTrace: stackTrace,
+      );
+      return null;
+    }
+  }
+
+  LatLng? _homeLocation() {
+    try {
+      final coords = mgrs.Mgrs.toPoint(
+        MapConstants.homeMgrs.replaceAll(RegExp(r'\s+'), ''),
+      );
+      return LatLng(coords[1], coords[0]);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _driveEtaPopupTitleForHit(RouteGraphDriveEtaHitResult hit) {
+    return hit.wayName?.trim().isNotEmpty == true ? hit.wayName!.trim() : 'Drive ETA';
+  }
+
+  Future<void> _handleDriveEtaFromHome() async {
+    final hit = _mapTapActionPopupDriveEtaHit;
+    if (hit?.snappedPoint == null) {
+      return;
+    }
+    final requestId = ++_driveEtaRequestId;
+    final title = _driveEtaPopupTitleForHit(hit!);
+    final origin = _homeLocation();
+    if (origin == null) {
+      ref.read(mapProvider.notifier).openDriveEtaPopupError(
+        requestId: requestId,
+        anchor: hit.snappedPoint!,
+        title: title,
+        message: 'Home location is unavailable.',
+      );
+      _dismissMapTapActionPopup();
+      return;
+    }
+    ref.read(mapProvider.notifier).showDriveEtaPopupLoading(
+      requestId: requestId,
+      anchor: hit.snappedPoint!,
+      title: title,
+    );
+    _dismissMapTapActionPopup();
+    unawaited(
+      _resolveDriveEta(
+        requestId: requestId,
+        origin: origin,
+        destination: hit.snappedPoint!,
+      ),
+    );
+  }
+
+  Future<void> _handleDriveEtaFromMarker() async {
+    final hit = _mapTapActionPopupDriveEtaHit;
+    final origin = ref.read(mapProvider).selectedLocation;
+    if (hit?.snappedPoint == null || origin == null) {
+      return;
+    }
+    final requestId = ++_driveEtaRequestId;
+    ref.read(mapProvider.notifier).showDriveEtaPopupLoading(
+      requestId: requestId,
+      anchor: hit!.snappedPoint!,
+      title: _driveEtaPopupTitleForHit(hit),
+    );
+    _dismissMapTapActionPopup();
+    unawaited(
+      _resolveDriveEta(
+        requestId: requestId,
+        origin: origin,
+        destination: hit.snappedPoint!,
+      ),
+    );
   }
 
   void _beginRouteDraft() {
@@ -351,6 +557,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
     notifier.clearSelectedTrack();
     notifier.clearSelectedRoute();
+    _dismissMapTapActionPopup();
+    if (_showFavouritesPopup) {
+      setState(() {
+        _showFavouritesPopup = false;
+      });
+    }
     _dismissTrackRouteChooser(suppressReopen: true);
     notifier.beginRouteDraft(peakTarget: peakTarget);
     _dismissRouteDraftMarkerDeletePopup();
@@ -600,87 +812,17 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _bumpViewportUiRevision();
   }
 
-  Future<bool> _handleDriveEtaClick({
-    required Offset localPosition,
-    required LatLng tappedLocation,
-    required int? hoveredTrackId,
-    required int? hoveredRouteId,
-  }) async {
-    if (hoveredTrackId != null || hoveredRouteId != null || !mounted) {
-      return false;
-    }
-
-    try {
-      final notifier = ref.read(mapProvider.notifier);
-      final hitService = ref.read(routeGraphDriveEtaHitServiceProvider);
-      if (hitService == null) {
-        return false;
-      }
-
-      final hitResult = hitService.hitTest(
-        pointerPosition: localPosition,
-        camera: _mapController.camera,
-        tappedLocation: tappedLocation,
-      );
-      switch (hitResult.status) {
-        case RouteGraphDriveEtaHitStatus.noHit:
-          return false;
-        case RouteGraphDriveEtaHitStatus.unavailable:
-          _driveEtaClickConsumed = true;
-          notifier.openDriveEtaPopupError(
-            requestId: ++_driveEtaRequestId,
-            anchor: tappedLocation,
-            title: 'Drive ETA',
-            message: hitResult.message ?? 'Route graph data is unavailable.',
-          );
-          return true;
-        case RouteGraphDriveEtaHitStatus.hit:
-          final requestId = ++_driveEtaRequestId;
-          final title = hitResult.wayName?.trim().isNotEmpty == true
-              ? hitResult.wayName!.trim()
-              : 'Drive ETA';
-          _driveEtaClickConsumed = true;
-          notifier.showDriveEtaPopupLoading(
-            requestId: requestId,
-            anchor: hitResult.snappedPoint!,
-            title: title,
-          );
-          unawaited(
-            _resolveDriveEta(
-              requestId: requestId,
-              destination: hitResult.snappedPoint!,
-            ),
-          );
-          return true;
-      }
-    } catch (error, stackTrace) {
-      debugPrintStack(
-        label: 'Drive ETA preparation failed: $error',
-        stackTrace: stackTrace,
-      );
-      _driveEtaClickConsumed = true;
-      ref
-          .read(mapProvider.notifier)
-          .openDriveEtaPopupError(
-            requestId: ++_driveEtaRequestId,
-            anchor: tappedLocation,
-            title: 'Drive ETA',
-            message: 'Route graph data is unavailable.',
-          );
-      return true;
-    }
-  }
-
   Future<void> _resolveDriveEta({
     required int requestId,
+    LatLng? origin,
     required LatLng destination,
   }) async {
     try {
-      final locationService = ref.read(liveLocationServiceProvider);
       final openRouteService = ref.read(openRouteServiceProvider);
-      final origin = await locationService.getCurrentLocation();
+      final resolvedOrigin =
+          origin ?? await ref.read(liveLocationServiceProvider).getCurrentLocation();
       final summary = await openRouteService.fetchDrivingSummary(
-        origin: origin,
+        origin: resolvedOrigin,
         destination: destination,
       );
       if (!mounted) {
@@ -2234,6 +2376,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                       ),
                     );
                     final mapState = ref.read(mapProvider);
+                    final favouriteWaypoints = ref
+                        .read(mapProvider.notifier)
+                        .favouriteWaypoints();
                     _queueSelectedMapZoom(mapState);
                     _queueSelectedTrackZoom(mapState);
                     _queueSelectedRouteZoom(mapState, routes);
@@ -2498,6 +2643,15 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               .screenOffsetToLatLng(
                                                 event.localPosition,
                                               );
+                                          if (_mapTapActionPopupAnchor != null ||
+                                              _mapTapActionPopupLocation != null) {
+                                            _dismissMapTapActionPopup();
+                                          }
+                                          if (_showFavouritesPopup) {
+                                            setState(() {
+                                              _showFavouritesPopup = false;
+                                            });
+                                          }
                                           if (routeChrome.isRouteDrafting) {
                                             if (_routeDraftMarkerTapConsumed) {
                                               _routeDraftMarkerTapConsumed =
@@ -2566,43 +2720,23 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                             ref.read(mapProvider),
                                             routes,
                                           );
-                                          final previousSelectedLocation = ref
-                                              .read(mapProvider)
-                                              .selectedLocation;
-                                          final previousDriveEtaRequestId = ref
-                                              .read(mapProvider)
-                                              .driveEtaPopup
-                                              ?.requestId;
                                           if (_trackRouteChooserItems != null) {
                                             _dismissTrackRouteChooser(
                                               suppressReopen: true,
                                             );
                                           }
-                                          if (clickTrackId == null &&
-                                              clickRouteId == null) {
-                                            final etaConsumed =
-                                                await _handleDriveEtaClick(
+                                          final driveEtaHit =
+                                              clickTrackId == null &&
+                                                  clickRouteId == null
+                                              ? _driveEtaHitForTap(
                                                   localPosition:
                                                       event.localPosition,
                                                   tappedLocation:
                                                       tappedLocation,
                                                   hoveredTrackId: clickTrackId,
                                                   hoveredRouteId: clickRouteId,
-                                                );
-                                            if (etaConsumed) {
-                                              return;
-                                            }
-                                          }
-                                          final currentDriveEtaRequestId = ref
-                                              .read(mapProvider)
-                                              .driveEtaPopup
-                                              ?.requestId;
-                                          if (currentDriveEtaRequestId !=
-                                                  null &&
-                                              currentDriveEtaRequestId !=
-                                                  previousDriveEtaRequestId) {
-                                            return;
-                                          }
+                                                )
+                                              : null;
                                           final chooserItems =
                                               _buildTrackRouteChooserItems(
                                                 localPosition:
@@ -2637,6 +2771,25 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               null) {
                                             notifier.closeDriveEtaPopup();
                                           }
+                                          final shouldOpenMapTapActionPopup =
+                                              !_driveEtaClickConsumed &&
+                                              ref
+                                                      .read(mapProvider)
+                                                      .driveEtaPopup ==
+                                                  null &&
+                                              clickTrackId == null &&
+                                              clickRouteId == null &&
+                                              (primaryClickPending ||
+                                                  event.kind !=
+                                                      PointerDeviceKind.mouse);
+                                          if (shouldOpenMapTapActionPopup) {
+                                            _openMapTapActionPopup(
+                                              anchor: event.localPosition,
+                                              location: tappedLocation,
+                                              driveEtaHit: driveEtaHit,
+                                            );
+                                            return;
+                                          }
                                           if (!_driveEtaClickConsumed &&
                                               ref
                                                       .read(mapProvider)
@@ -2670,15 +2823,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                 tappedLocation,
                                               );
                                             }
-                                          }
-                                          if (_driveEtaClickConsumed &&
-                                              ref
-                                                      .read(mapProvider)
-                                                      .selectedLocation !=
-                                                  previousSelectedLocation) {
-                                            notifier.restoreSelectedLocation(
-                                              previousSelectedLocation,
-                                            );
                                           }
                                         },
                                         onPointerCancel: (event, point) {
@@ -2738,22 +2882,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                 mapScene.basemap,
                                               ),
                                         ),
-                                        if (mapScene.selectedLocation != null)
-                                          MarkerLayer(
-                                            markers: [
-                                              Marker(
-                                                point:
-                                                    mapScene.selectedLocation!,
-                                                width: 40,
-                                                height: 40,
-                                                child: const Icon(
-                                                  Icons.my_location,
-                                                  color: Colors.amber,
-                                                  size: 32,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
                                         if (trailPolylines.isNotEmpty)
                                           buildTrailPolylines(trailPolylines),
                                         if (routeChrome.isRouteDrafting)
@@ -2862,6 +2990,55 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                             mapScene.zoom,
                                             selectedTrackId:
                                                 mapScene.selectedTrackId,
+                                          ),
+                                        if (_homeLocation() != null)
+                                          MarkerLayer(
+                                            key: const Key('home-marker-layer'),
+                                            markers: [
+                                              Marker(
+                                                key: const Key('home-marker'),
+                                                point: _homeLocation()!,
+                                                width: HomeMapMarkerTheme.value.markerSize,
+                                                height: HomeMapMarkerTheme.value.markerSize,
+                                                child: const HomeMarker(),
+                                              ),
+                                            ],
+                                          ),
+                                        if (mapScene.selectedLocation != null)
+                                          MarkerLayer(
+                                            markers: [
+                                              Marker(
+                                                point:
+                                                    mapScene.selectedLocation!,
+                                                width: 40,
+                                                height: 40,
+                                                child: const Icon(
+                                                  Icons.my_location,
+                                                  color: Colors.amber,
+                                                  size: 32,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        if (favouriteWaypoints.isNotEmpty)
+                                          MarkerLayer(
+                                            key: const Key(
+                                              'favourite-marker-layer',
+                                            ),
+                                            markers: favouriteWaypoints.map((favourite) {
+                                              return Marker(
+                                                key: Key(
+                                                  'favourite-marker-${favourite.id}',
+                                                ),
+                                                point: LatLng(
+                                                  favourite.latitude,
+                                                  favourite.longitude,
+                                                ),
+                                                width: FavouriteMapMarkerTheme.value.markerSize,
+                                                height: FavouriteMapMarkerTheme.value.markerSize,
+                                                child: const FavouriteMarker(),
+                                              );
+                                            }).toList(growable: false),
                                           ),
                                         if (mapScene.showPeaks &&
                                             filteredPeaks.isNotEmpty &&
@@ -3180,10 +3357,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     );
                   },
                 ),
-                MapActionRail(
-                  onCreateRoute: _beginRouteDraft,
-                  onShowBasemaps: _openBasemapsDrawer,
-                ),
+                    MapActionRail(
+                      onCreateRoute: _beginRouteDraft,
+                      onShowBasemaps: _openBasemapsDrawer,
+                      onDropMarker: _showDropMarkerPopupForCurrentLocation,
+                      onShowFavourites: _toggleFavouritesPopup,
+                    ),
                 if (routeChrome.isRouteDrafting)
                   const Positioned(
                     key: Key('route-controls-overlay-root'),
@@ -3305,6 +3484,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
                   ),
                 if (_trackRouteChooserItems != null)
                   _buildTrackRouteChooserPopup(context),
+                if (_mapTapActionPopupAnchor != null &&
+                    _mapTapActionPopupLocation != null)
+                  _buildMapTapActionPopup(context),
+                if (_showFavouritesPopup) _buildFavouritesPopup(context),
               ],
             ),
           ),
@@ -3364,15 +3547,74 @@ class _MapScreenState extends ConsumerState<MapScreen>
         child: PeakInfoPopupSurface(
           content: content,
           bridgeOnLeft: placement.bridgeOnLeft,
-          onDropMarker: () {
+          onDropMarker: () async {
             final notifier = ref.read(mapProvider.notifier);
-            notifier.setSelectedLocation(
+            final saved = await notifier.setCurrentMarker(
               LatLng(content.peak.latitude, content.peak.longitude),
+              name: content.peak.name,
             );
-            notifier.closePeakInfoPopup();
+            if (saved) {
+              notifier.closePeakInfoPopup();
+            }
           },
           onClose: () {
             ref.read(mapProvider.notifier).closePeakInfoPopup();
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMapTapActionPopup(BuildContext context) {
+    final anchor = _mapTapActionPopupAnchor!;
+    const popupWidth = 260.0;
+    const popupHeight = 128.0;
+    final size = MediaQuery.of(context).size;
+    final left = (anchor.dx + 12).clamp(8.0, size.width - popupWidth - 8);
+    final top = (anchor.dy + 12).clamp(8.0, size.height - popupHeight - 8);
+    return Positioned(
+      left: left,
+      top: top,
+      child: SizedBox(
+        width: popupWidth,
+        child: MapTapActionPopupCard(
+          onDropMarker: _handleDropMarkerFromPopup,
+          onDropFavourite: _handleDropFavouriteFromPopup,
+          onDriveEtaHome: _mapTapActionPopupDriveEtaHit == null
+              ? null
+              : _handleDriveEtaFromHome,
+          onDriveEtaMarker:
+              _mapTapActionPopupDriveEtaHit != null &&
+                  ref.read(mapProvider).selectedLocation != null
+              ? _handleDriveEtaFromMarker
+              : null,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFavouritesPopup(BuildContext context) {
+    final favourites = ref.read(mapProvider.notifier).favouriteWaypoints();
+    return Positioned(
+      right: RouterConstants.themeActionRightInset + 56,
+      top: (MediaQuery.of(context).size.height / 2 - 120).clamp(8.0, 320.0),
+      child: SizedBox(
+        width: 280,
+        child: FavouritesPopupCard(
+          favourites: favourites,
+          onSelect: (favourite) {
+            ref.read(mapProvider.notifier).requestCameraMove(
+              center: LatLng(favourite.latitude, favourite.longitude),
+              zoom: MapConstants.defaultZoom,
+              clearGotoMgrs: true,
+              clearHoveredPeakId: true,
+              clearHoveredTrackId: true,
+            );
+            if (mounted) {
+              setState(() {
+                _showFavouritesPopup = false;
+              });
+            }
           },
         ),
       ),

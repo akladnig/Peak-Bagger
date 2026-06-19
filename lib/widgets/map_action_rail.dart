@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../core/constants.dart';
+import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
@@ -15,10 +16,18 @@ import 'package:peak_bagger/widgets/left_tooltip_fab.dart';
 import 'package:peak_bagger/widgets/map_rebuild_debug_counters.dart';
 
 class MapActionRail extends ConsumerWidget {
-  const MapActionRail({super.key, this.onCreateRoute, this.onShowBasemaps});
+  const MapActionRail({
+    super.key,
+    this.onCreateRoute,
+    this.onShowBasemaps,
+    this.onDropMarker,
+    this.onShowFavourites,
+  });
 
   final VoidCallback? onCreateRoute;
   final VoidCallback? onShowBasemaps;
+  final VoidCallback? onDropMarker;
+  final VoidCallback? onShowFavourites;
 
   void _dismissTransientUi(
     WidgetRef ref, {
@@ -325,8 +334,35 @@ class MapActionRail extends ConsumerWidget {
                         ),
                         const SizedBox(height: UiConstants.railSpacing),
                         LeftTooltipFab(
+                          message: 'Drop Marker',
+                          child: FloatingActionButton.small(
+                            key: const Key('drop-marker-fab'),
+                            heroTag: 'drop-marker',
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.surface,
+                            onPressed: onDropMarker == null
+                                ? null
+                                : () {
+                                    _dismissTransientUi(
+                                      ref,
+                                      closeInfoPopup: true,
+                                      closePeakSearch: true,
+                                      closeGotoInput: true,
+                                    );
+                                    onDropMarker!();
+                                  },
+                            child: Icon(
+                              Icons.location_pin,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: UiConstants.railSpacing),
+                        LeftTooltipFab(
                           message: 'Center on marker',
                           child: FloatingActionButton.small(
+                            key: const Key('center-marker-fab'),
                             heroTag: 'centermarker',
                             backgroundColor: Theme.of(
                               context,
@@ -345,6 +381,32 @@ class MapActionRail extends ConsumerWidget {
                             child: const Icon(
                               Icons.my_location,
                               color: Colors.amber,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: UiConstants.railSpacing),
+                        LeftTooltipFab(
+                          message: 'Goto Favourite',
+                          child: FloatingActionButton.small(
+                            key: const Key('goto-favourite-fab'),
+                            heroTag: 'goto-favourite',
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.surface,
+                            onPressed: onShowFavourites == null
+                                ? null
+                                : () {
+                                    _dismissTransientUi(
+                                      ref,
+                                      closeInfoPopup: true,
+                                      closePeakSearch: true,
+                                      closeGotoInput: true,
+                                    );
+                                    onShowFavourites!();
+                                  },
+                            child: Icon(
+                              Icons.favorite,
+                              color: favouriteMarkerColour,
                             ),
                           ),
                         ),

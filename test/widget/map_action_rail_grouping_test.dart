@@ -56,13 +56,17 @@ void main() {
     );
     expect(
       _messagesFor(find.byKey(const Key('map-action-location-group')), tester),
-      containsAll(<String>[
+      equals(<String>[
         'Search Peaks',
         'Goto Location',
+        'Drop Marker',
         'Center on marker',
+        'Goto Favourite',
         'My location',
       ]),
     );
+    expect(find.byKey(const Key('drop-marker-fab')), findsOneWidget);
+    expect(find.byKey(const Key('goto-favourite-fab')), findsOneWidget);
     expect(
       _messageForButton(find.byKey(const Key('map-info-fab')), tester),
       'Info',

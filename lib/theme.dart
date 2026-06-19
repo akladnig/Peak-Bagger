@@ -41,6 +41,49 @@ class TrailDisplayTheme {
   static const List<double> overlayDashSegments = [8, 6];
 }
 
+const defaultMarkerColour =  Colors.pinkAccent;
+const favouriteMarkerColour = Colors.pinkAccent;
+const homeMarkerColour =  Color(0xFF3DD700);
+
+class MapMarkerTheme {
+  const MapMarkerTheme({
+    this.fillColor = defaultMarkerColour,
+    this.iconColor = Colors.white,
+    this.markerSize = 28.0,
+    this.iconSize = 16.0,
+    this.borderWidth = 3.0,
+    this.borderColor = Colors.white,
+    this.boxShadow = const [
+      BoxShadow(
+        color: Color(0x33000000),
+        blurRadius: 4,
+        offset: Offset(0, 2),
+      ),
+    ],
+  });
+
+  final Color fillColor;
+  final Color iconColor;
+  final double markerSize;
+  final double iconSize;
+  final double borderWidth;
+  final Color borderColor;
+  final List<BoxShadow> boxShadow;
+}
+
+final class FavouriteMapMarkerTheme extends MapMarkerTheme {
+  const FavouriteMapMarkerTheme() : super(fillColor: favouriteMarkerColour);
+
+  static const value = FavouriteMapMarkerTheme();
+}
+
+final class HomeMapMarkerTheme extends MapMarkerTheme {
+
+  const HomeMapMarkerTheme() : super(fillColor: homeMarkerColour);
+
+  static const value = HomeMapMarkerTheme();
+}
+
 abstract final class TrackRouteLineTheme {
   static const double strokeWidth = 3.0;
   static const double inactiveOpacity = 0.6;

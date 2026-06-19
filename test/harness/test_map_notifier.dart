@@ -20,7 +20,9 @@ import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
+import 'package:peak_bagger/services/waypoints_repository.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
+import 'package:peak_bagger/models/waypoints.dart';
 
 class TestMapNotifier extends MapNotifier {
   TestMapNotifier(
@@ -36,6 +38,7 @@ class TestMapNotifier extends MapNotifier {
     this.recalcTracks,
     this.peakRepository,
     this.peaksBaggedRepository,
+    this.waypointsRepository,
     this.gpxTrackRepository,
     this.routeRepository,
     this.routePlanningOutcomes = const [],
@@ -55,6 +58,7 @@ class TestMapNotifier extends MapNotifier {
   final List<GpxTrack>? recalcTracks;
   final PeakRepository? peakRepository;
   final PeaksBaggedRepository? peaksBaggedRepository;
+  final WaypointsRepository? waypointsRepository;
   final GpxTrackRepository? gpxTrackRepository;
   final RouteRepository? routeRepository;
   final List<Object> routePlanningOutcomes;
@@ -128,6 +132,43 @@ class TestMapNotifier extends MapNotifier {
 
   @override
   Set<int> get correlatedPeakIds => _correlatedPeakIds;
+
+  @override
+  List<Waypoints> favouriteWaypoints() {
+    return waypointsRepository?.getFavourites() ?? const [];
+  }
+
+  @override
+  bool favouriteNameExists(String name, {int? excludingId}) {
+    return waypointsRepository?.favouriteNameExists(name, excludingId: excludingId) ??
+        false;
+  }
+
+  @override
+  Future<bool> saveFavouriteWaypoint(
+    LatLng location, {
+    required String name,
+  }) async {
+    final repository = waypointsRepository;
+    if (repository != null) {
+      await repository.saveFavourite(name: name, location: location);
+    }
+    setSelectedLocation(location);
+    return true;
+  }
+
+  @override
+  Future<bool> setCurrentMarker(
+    LatLng location, {
+    String name = 'Marker',
+  }) async {
+    final repository = waypointsRepository;
+    if (repository != null) {
+      await repository.saveMarker(location: location, name: name);
+    }
+    setSelectedLocation(location);
+    return true;
+  }
 
   @override
   String mapNameForMgrs(String mgrsText) {

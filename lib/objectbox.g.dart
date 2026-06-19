@@ -24,6 +24,7 @@ import 'models/route_graph_manifest.dart';
 import 'models/route_graph_trail_display_chunk.dart';
 import 'models/route_graph_way_index.dart';
 import 'models/tasmap50k.dart';
+import 'models/waypoints.dart';
 
 export 'package:objectbox/objectbox.dart'; // so that callers only have to import this file
 
@@ -1013,6 +1014,52 @@ final _entities = <obx_int.ModelEntity>[
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
   ),
+  obx_int.ModelEntity(
+    id: const obx_int.IdUid(11, 1109231805334434295),
+    name: 'Waypoints',
+    lastPropertyId: const obx_int.IdUid(6, 5831594551614125774),
+    flags: 0,
+    properties: <obx_int.ModelProperty>[
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(1, 5482988889181764970),
+        name: 'id',
+        type: 6,
+        flags: 1,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(2, 2656688927355552717),
+        name: 'name',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(3, 4099703092700724069),
+        name: 'type',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(4, 1605737103328538891),
+        name: 'latitude',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(5, 331329867840260999),
+        name: 'longitude',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(6, 5831594551614125774),
+        name: 'mgrs',
+        type: 9,
+        flags: 0,
+      ),
+    ],
+    relations: <obx_int.ModelRelation>[],
+    backlinks: <obx_int.ModelBacklink>[],
+  ),
 ];
 
 /// Shortcut for [obx.Store.new] that passes [getObjectBoxModel] and for Flutter
@@ -1058,7 +1105,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
     // Typically, this is done with `dart run build_runner build`.
     generatorVersion: obx_int.GeneratorVersion.v2025_12_16,
     entities: _entities,
-    lastEntityId: const obx_int.IdUid(10, 6059948320416146250),
+    lastEntityId: const obx_int.IdUid(11, 1109231805334434295),
     lastIndexId: const obx_int.IdUid(21, 5356499526039797575),
     lastRelationId: const obx_int.IdUid(1, 8194382659905112901),
     lastSequenceId: const obx_int.IdUid(0, 0),
@@ -2360,6 +2407,70 @@ obx_int.ModelDefinition getObjectBoxModel() {
             return object;
           },
         ),
+    Waypoints: obx_int.EntityDefinition<Waypoints>(
+      model: _entities[10],
+      toOneRelations: (Waypoints object) => [],
+      toManyRelations: (Waypoints object) => {},
+      getId: (Waypoints object) => object.id,
+      setId: (Waypoints object, int id) {
+        object.id = id;
+      },
+      objectToFB: (Waypoints object, fb.Builder fbb) {
+        final nameOffset = fbb.writeString(object.name);
+        final typeOffset = fbb.writeString(object.type);
+        final mgrsOffset = fbb.writeString(object.mgrs);
+        fbb.startTable(7);
+        fbb.addInt64(0, object.id);
+        fbb.addOffset(1, nameOffset);
+        fbb.addOffset(2, typeOffset);
+        fbb.addFloat64(3, object.latitude);
+        fbb.addFloat64(4, object.longitude);
+        fbb.addOffset(5, mgrsOffset);
+        fbb.finish(fbb.endTable());
+        return object.id;
+      },
+      objectFromFB: (obx.Store store, ByteData fbData) {
+        final buffer = fb.BufferContext(fbData);
+        final rootOffset = buffer.derefObject(0);
+        final idParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          4,
+          0,
+        );
+        final nameParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 6, '');
+        final typeParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 8, '');
+        final latitudeParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          10,
+          0,
+        );
+        final longitudeParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          12,
+          0,
+        );
+        final mgrsParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 14, '');
+        final object = Waypoints(
+          id: idParam,
+          name: nameParam,
+          type: typeParam,
+          latitude: latitudeParam,
+          longitude: longitudeParam,
+          mgrs: mgrsParam,
+        );
+
+        return object;
+      },
+    ),
   };
 
   return obx_int.ModelDefinition(model, bindings);
@@ -3110,4 +3221,37 @@ class RouteGraphTrailDisplayChunk_ {
       obx.QueryStringProperty<RouteGraphTrailDisplayChunk>(
         _entities[9].properties[5],
       );
+}
+
+/// [Waypoints] entity fields to define ObjectBox queries.
+class Waypoints_ {
+  /// See [Waypoints.id].
+  static final id = obx.QueryIntegerProperty<Waypoints>(
+    _entities[10].properties[0],
+  );
+
+  /// See [Waypoints.name].
+  static final name = obx.QueryStringProperty<Waypoints>(
+    _entities[10].properties[1],
+  );
+
+  /// See [Waypoints.type].
+  static final type = obx.QueryStringProperty<Waypoints>(
+    _entities[10].properties[2],
+  );
+
+  /// See [Waypoints.latitude].
+  static final latitude = obx.QueryDoubleProperty<Waypoints>(
+    _entities[10].properties[3],
+  );
+
+  /// See [Waypoints.longitude].
+  static final longitude = obx.QueryDoubleProperty<Waypoints>(
+    _entities[10].properties[4],
+  );
+
+  /// See [Waypoints.mgrs].
+  static final mgrs = obx.QueryStringProperty<Waypoints>(
+    _entities[10].properties[5],
+  );
 }

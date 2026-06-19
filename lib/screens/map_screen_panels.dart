@@ -11,6 +11,7 @@ import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
+import 'package:peak_bagger/models/waypoints.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/elevation_profile_series_builder.dart';
 import 'package:peak_bagger/services/map_ruler_scale.dart';
@@ -1404,6 +1405,185 @@ class MapInfoPopupCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class MapTapActionPopupCard extends StatelessWidget {
+  const MapTapActionPopupCard({
+    required this.onDropMarker,
+    required this.onDropFavourite,
+    this.onDriveEtaHome,
+    this.onDriveEtaMarker,
+    super.key,
+  });
+
+  final VoidCallback onDropMarker;
+  final VoidCallback onDropFavourite;
+  final VoidCallback? onDriveEtaHome;
+  final VoidCallback? onDriveEtaMarker;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      key: const Key('map-tap-action-popup'),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 260),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              key: const Key('map-tap-action-drop-marker'),
+              leading: const Icon(Icons.my_location, color: Colors.amber),
+              title: const Text('Drop Marker'),
+              onTap: onDropMarker,
+            ),
+            ListTile(
+              key: const Key('map-tap-action-drop-favourite'),
+              leading: const Icon(Icons.favorite, color: favouriteMarkerColour),
+              title: const Text('Drop Favourite'),
+              onTap: onDropFavourite,
+            ),
+            if (onDriveEtaHome != null)
+              ListTile(
+                key: const Key('map-tap-action-drive-home'),
+                leading: const Icon(Icons.drive_eta),
+                title: const Text('Get driving time from Home'),
+                onTap: onDriveEtaHome,
+              ),
+            if (onDriveEtaMarker != null)
+              ListTile(
+                key: const Key('map-tap-action-drive-marker'),
+                leading: const Icon(Icons.drive_eta, color: Colors.amber),
+                title: const Text('Get driving time from Marker'),
+                onTap: onDriveEtaMarker,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class FavouritesPopupCard extends StatelessWidget {
+  const FavouritesPopupCard({
+    required this.favourites,
+    required this.onSelect,
+    super.key,
+  });
+
+  final List<Waypoints> favourites;
+  final ValueChanged<Waypoints> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      key: const Key('favourites-popup'),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 280, maxHeight: 260),
+        child: favourites.isEmpty
+            ? const Padding(
+                key: Key('favourites-popup-empty'),
+                padding: EdgeInsets.all(16),
+                child: Text('No favourites saved yet.'),
+              )
+            : ListView.builder(
+                shrinkWrap: true,
+                itemCount: favourites.length,
+                itemBuilder: (context, index) {
+                  final favourite = favourites[index];
+                  return ListTile(
+                    key: Key('favourites-popup-row-${favourite.id}'),
+                    leading: const Icon(Icons.favorite, color: favouriteMarkerColour),
+                    title: Text(
+                      favourite.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      favourite.mgrs,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onTap: () => onSelect(favourite),
+                  );
+                },
+              ),
+      ),
+    );
+  }
+}
+
+Future<String?> showFavouriteNameDialog(
+  BuildContext context, {
+  required bool Function(String name) nameExists,
+}) {
+  return showDialog<String>(
+    context: context,
+    builder: (context) => FavouriteNameDialog(nameExists: nameExists),
+  );
+}
+
+class FavouriteNameDialog extends StatefulWidget {
+  const FavouriteNameDialog({required this.nameExists, super.key});
+
+  final bool Function(String name) nameExists;
+
+  @override
+  State<FavouriteNameDialog> createState() => _FavouriteNameDialogState();
+}
+
+class _FavouriteNameDialogState extends State<FavouriteNameDialog> {
+  final _controller = TextEditingController();
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final trimmed = _controller.text.trim();
+    final errorText = switch (trimmed) {
+      '' => 'Enter a favourite name.',
+      _ when widget.nameExists(trimmed) =>
+        'A favourite with that name already exists.',
+      _ => null,
+    };
+    if (errorText != null) {
+      setState(() {
+        _errorText = errorText;
+      });
+      return;
+    }
+    Navigator.of(context).pop(trimmed);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      key: const Key('favourite-name-dialog'),
+      title: const Text('Save Favourite'),
+      content: TextField(
+        key: const Key('favourite-name-input'),
+        controller: _controller,
+        autofocus: true,
+        decoration: InputDecoration(errorText: _errorText),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          key: const Key('favourite-name-cancel'),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const Key('favourite-name-save'),
+          onPressed: _submit,
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }

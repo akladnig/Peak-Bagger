@@ -124,6 +124,12 @@ class DriveEtaRobot {
     await gesture.up();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
+    final driveHomeAction = find.byKey(const Key('map-tap-action-drive-home'));
+    if (driveHomeAction.evaluate().isNotEmpty) {
+      await tester.tap(driveHomeAction);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+    }
   }
 
   void completeRoute({required double distanceMeters, required int durationSeconds}) {
