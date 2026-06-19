@@ -20,14 +20,32 @@ This keeps the app on the production URL contract while serving tiles locally.
 
 ## Prerequisites
 
-1. Apache with `ssl`, `proxy`, `proxy_http`, and `headers` modules available
+1. The built-in macOS Apache at `/usr/sbin/httpd`
 2. Dart installed
 3. `mkcert` installed for a locally trusted certificate
 
-Example install commands on macOS with Homebrew:
+This machine is using:
 
 ```bash
-brew install httpd mkcert
+which httpd
+which apachectl
+apachectl -V
+```
+
+Expected paths on this machine:
+
+```text
+/usr/sbin/httpd
+/usr/sbin/apachectl
+/private/etc/apache2/httpd.conf
+/private/etc/apache2/other/*.conf
+/private/var/log/apache2/
+```
+
+Install `mkcert` if needed:
+
+```bash
+brew install mkcert
 mkcert -install
 ```
 
@@ -89,45 +107,47 @@ Proxy logs will be written to:
 
 Copy `apache/tiles.peakbagger.com.conf` into your Apache include path.
 
-For Homebrew Apache on Apple Silicon this is commonly:
+This Apache install already includes `/private/etc/apache2/other/*.conf`, so
+copy the file there:
 
 ```bash
-sudo cp proxy/slovenia-topo-proxy/local-production/apache/tiles.peakbagger.com.conf /opt/homebrew/etc/httpd/extra/
+sudo cp proxy/slovenia-topo-proxy/local-production/apache/tiles.peakbagger.com.conf /private/etc/apache2/other/
 ```
 
-Then include it from Apache's main config if not already included:
-
-```apache
-Include /opt/homebrew/etc/httpd/extra/tiles.peakbagger.com.conf
-```
-
-If you are using a different Apache install, adjust the include path accordingly.
+No extra `Include` line is needed because `/private/etc/apache2/httpd.conf`
+already includes `/private/etc/apache2/other/*.conf`.
 
 ## 5. Ensure Required Apache Modules Are Enabled
 
-Your Apache config must load:
+On this machine, `headers_module` is already loaded, but these modules are still
+commented out in `/private/etc/apache2/httpd.conf` and must be enabled:
 
 ```apache
-LoadModule ssl_module lib/httpd/modules/mod_ssl.so
-LoadModule proxy_module lib/httpd/modules/mod_proxy.so
-LoadModule proxy_http_module lib/httpd/modules/mod_proxy_http.so
-LoadModule headers_module lib/httpd/modules/mod_headers.so
+#LoadModule proxy_module libexec/apache2/mod_proxy.so
+#LoadModule proxy_http_module libexec/apache2/mod_proxy_http.so
+#LoadModule ssl_module libexec/apache2/mod_ssl.so
 ```
 
-The exact paths vary by Apache installation.
+Edit `/private/etc/apache2/httpd.conf` and uncomment them so they become:
+
+```apache
+LoadModule proxy_module libexec/apache2/mod_proxy.so
+LoadModule proxy_http_module libexec/apache2/mod_proxy_http.so
+LoadModule ssl_module libexec/apache2/mod_ssl.so
+```
+
+You do not need to enable `httpd-ssl.conf` for this setup.
 
 ## 6. Start Or Restart Apache
 
-Homebrew Apache:
-
-```bash
-brew services restart httpd
-```
-
-Or directly:
-
 ```bash
 sudo apachectl -k restart
+```
+
+If Apache is not running yet:
+
+```bash
+sudo apachectl start
 ```
 
 ## 7. Verify End To End
@@ -162,6 +182,10 @@ sudo killall -HUP mDNSResponder
 
 - re-run `mkcert -install`
 - ensure Apache config points at the generated cert and key files
+
+`Invalid command 'SSLEngine'` or `Invalid command 'ProxyPass'`:
+
+- one or more of `ssl_module`, `proxy_module`, or `proxy_http_module` is still commented out in `/private/etc/apache2/httpd.conf`
 
 `502` from Apache:
 
