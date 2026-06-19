@@ -52,8 +52,10 @@ import 'package:peak_bagger/widgets/map_tracks_routes_drawer.dart';
 import 'package:peak_bagger/widgets/map_route_bottom_sheet.dart';
 import 'package:peak_bagger/widgets/map_rebuild_debug_counters.dart';
 import 'package:peak_bagger/widgets/map_chart_hover_marker.dart';
+import 'package:peak_bagger/widgets/map_marker.dart';
 import 'package:peak_bagger/widgets/tasmap_polygon_label.dart';
 import 'package:peak_bagger/widgets/dialog_helpers.dart';
+import 'package:peak_bagger/theme.dart';
 
 import 'map_screen_layers.dart';
 import 'map_screen_peak_layer.dart';
@@ -133,7 +135,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
   bool _trackRouteChooserSuppressReopen = false;
   String? _pendingRouteDraftDragMarkerId;
   double _pendingRouteDraftDragDistance = 0;
-  bool _dropMarkerArmed = false;
   bool _pendingHoveredRouteDraftSegmentDrag = false;
   double _pendingHoveredRouteDraftSegmentDragDistance = 0;
   String? _draggingRouteDraftMarkerId;
@@ -334,20 +335,35 @@ class _MapScreenState extends ConsumerState<MapScreen>
       _mapFocusNode.requestFocus();
       return true;
     }
-    if (_dropMarkerArmed) {
-      setState(() {
-        _dropMarkerArmed = false;
-      });
-      return true;
-    }
     return false;
   }
 
-  void _toggleDropMarkerArmed() {
-    setState(() {
-      _dropMarkerArmed = !_dropMarkerArmed;
-    });
-    _mapFocusNode.requestFocus();
+  void _showDropMarkerPopupForCurrentLocation() {
+    if (_mapTapActionPopupAnchor != null || _mapTapActionPopupLocation != null) {
+      _dismissMapTapActionPopup();
+      return;
+    }
+    final location = switch (_mapController.camera.nonRotatedSize) {
+      MapCamera.kImpossibleSize => ref.read(mapProvider).center,
+      _ => _mapController.camera.center,
+    };
+    final anchor = switch (_mapController.camera.nonRotatedSize) {
+      MapCamera.kImpossibleSize => Offset(
+        MediaQuery.of(context).size.width / 2,
+        MediaQuery.of(context).size.height / 2,
+      ),
+      _ => _screenOffsetForLatLng(location),
+    };
+    _openMapTapActionPopup(
+      anchor: anchor,
+      location: location,
+      driveEtaHit: _driveEtaHitForTap(
+        localPosition: anchor,
+        tappedLocation: location,
+        hoveredTrackId: null,
+        hoveredRouteId: null,
+      ),
+    );
   }
 
   void _openMapTapActionPopup({
@@ -2360,6 +2376,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                       ),
                     );
                     final mapState = ref.read(mapProvider);
+                    final favouriteWaypoints = ref
+                        .read(mapProvider.notifier)
+                        .favouriteWaypoints();
                     _queueSelectedMapZoom(mapState);
                     _queueSelectedTrackZoom(mapState);
                     _queueSelectedRouteZoom(mapState, routes);
@@ -2718,20 +2737,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                   hoveredRouteId: clickRouteId,
                                                 )
                                               : null;
-                                          if (_dropMarkerArmed &&
-                                              clickTrackId == null &&
-                                              clickRouteId == null) {
-                                            final saved = await notifier
-                                                .setCurrentMarker(
-                                                  tappedLocation,
-                                                );
-                                            if (saved && mounted) {
-                                              setState(() {
-                                                _dropMarkerArmed = false;
-                                              });
-                                            }
-                                            return;
-                                          }
                                           final chooserItems =
                                               _buildTrackRouteChooserItems(
                                                 localPosition:
@@ -2877,22 +2882,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                 mapScene.basemap,
                                               ),
                                         ),
-                                        if (mapScene.selectedLocation != null)
-                                          MarkerLayer(
-                                            markers: [
-                                              Marker(
-                                                point:
-                                                    mapScene.selectedLocation!,
-                                                width: 40,
-                                                height: 40,
-                                                child: const Icon(
-                                                  Icons.my_location,
-                                                  color: Colors.amber,
-                                                  size: 32,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
                                         if (trailPolylines.isNotEmpty)
                                           buildTrailPolylines(trailPolylines),
                                         if (routeChrome.isRouteDrafting)
@@ -3001,6 +2990,55 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                             mapScene.zoom,
                                             selectedTrackId:
                                                 mapScene.selectedTrackId,
+                                          ),
+                                        if (_homeLocation() != null)
+                                          MarkerLayer(
+                                            key: const Key('home-marker-layer'),
+                                            markers: [
+                                              Marker(
+                                                key: const Key('home-marker'),
+                                                point: _homeLocation()!,
+                                                width: HomeMapMarkerTheme.value.markerSize,
+                                                height: HomeMapMarkerTheme.value.markerSize,
+                                                child: const HomeMarker(),
+                                              ),
+                                            ],
+                                          ),
+                                        if (mapScene.selectedLocation != null)
+                                          MarkerLayer(
+                                            markers: [
+                                              Marker(
+                                                point:
+                                                    mapScene.selectedLocation!,
+                                                width: 40,
+                                                height: 40,
+                                                child: const Icon(
+                                                  Icons.my_location,
+                                                  color: Colors.amber,
+                                                  size: 32,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        if (favouriteWaypoints.isNotEmpty)
+                                          MarkerLayer(
+                                            key: const Key(
+                                              'favourite-marker-layer',
+                                            ),
+                                            markers: favouriteWaypoints.map((favourite) {
+                                              return Marker(
+                                                key: Key(
+                                                  'favourite-marker-${favourite.id}',
+                                                ),
+                                                point: LatLng(
+                                                  favourite.latitude,
+                                                  favourite.longitude,
+                                                ),
+                                                width: FavouriteMapMarkerTheme.value.markerSize,
+                                                height: FavouriteMapMarkerTheme.value.markerSize,
+                                                child: const FavouriteMarker(),
+                                              );
+                                            }).toList(growable: false),
                                           ),
                                         if (mapScene.showPeaks &&
                                             filteredPeaks.isNotEmpty &&
@@ -3319,12 +3357,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     );
                   },
                 ),
-                MapActionRail(
-                  onCreateRoute: _beginRouteDraft,
-                  onShowBasemaps: _openBasemapsDrawer,
-                  onDropMarker: _toggleDropMarkerArmed,
-                  onShowFavourites: _toggleFavouritesPopup,
-                ),
+                    MapActionRail(
+                      onCreateRoute: _beginRouteDraft,
+                      onShowBasemaps: _openBasemapsDrawer,
+                      onDropMarker: _showDropMarkerPopupForCurrentLocation,
+                      onShowFavourites: _toggleFavouritesPopup,
+                    ),
                 if (routeChrome.isRouteDrafting)
                   const Positioned(
                     key: Key('route-controls-overlay-root'),

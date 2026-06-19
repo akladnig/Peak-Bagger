@@ -21,7 +21,7 @@ import '../harness/test_tasmap_notifier.dart';
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
-  testWidgets('armed drop marker saves marker on next empty map tap', (
+  testWidgets('drop marker fab opens chooser and can save marker', (
     tester,
   ) async {
     final waypointsRepository = WaypointsRepository.test(
@@ -40,13 +40,13 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('drop-marker-fab')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('drop-marker-fab')));
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byKey(const Key('map-tap-action-popup')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('map-tap-action-drop-marker')));
+    await tester.pumpAndSettle();
 
     final region = find.byKey(const Key('map-interaction-region'));
-    final target = tester.getCenter(region);
-    await tester.tapAt(target);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
 
     final marker = waypointsRepository.getCurrentMarker();
     expect(marker, isNotNull);
@@ -56,9 +56,10 @@ void main() {
       mapProvider,
     );
     expect(state.selectedLocation, isNotNull);
+    expect(find.byKey(const Key('home-marker-layer')), findsOneWidget);
   });
 
-  testWidgets('pressing drop marker twice cancels armed mode', (tester) async {
+  testWidgets('pressing drop marker twice closes chooser', (tester) async {
     final waypointsRepository = WaypointsRepository.test(
       InMemoryWaypointsStorage(),
     );
@@ -75,19 +76,15 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('drop-marker-fab')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('drop-marker-fab')));
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(find.byKey(const Key('drop-marker-fab')));
-    await tester.pump();
-
-    final region = find.byKey(const Key('map-interaction-region'));
-    await tester.tapAt(tester.getCenter(region));
-    await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
+    expect(find.byKey(const Key('map-tap-action-popup')), findsNothing);
     expect(waypointsRepository.getCurrentMarker(), isNull);
   });
 
-  testWidgets('armed drop marker preserves peak tap behavior', (tester) async {
+  testWidgets('drop marker chooser preserves peak tap behavior', (tester) async {
     final waypointsRepository = WaypointsRepository.test(
       InMemoryWaypointsStorage(),
     );
@@ -112,7 +109,7 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('drop-marker-fab')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('drop-marker-fab')));
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     final region = find.byKey(const Key('map-interaction-region'));
     final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -129,6 +126,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byKey(const Key('peak-info-popup')), findsOneWidget);
+    expect(find.byKey(const Key('map-tap-action-popup')), findsNothing);
     expect(waypointsRepository.getCurrentMarker(), isNull);
   });
 
@@ -211,6 +209,8 @@ void main() {
     expect(find.byKey(const Key('favourite-name-dialog')), findsNothing);
     expect(waypointsRepository.getFavourites(), hasLength(2));
     expect(waypointsRepository.getFavourites().last.name, 'South Ridge');
+    expect(find.byKey(const Key('favourite-marker-layer')), findsOneWidget);
+    expect(find.byKey(const Key('favourite-marker-2')), findsOneWidget);
     expect(
       ProviderScope.containerOf(tester.element(region)).read(mapProvider).selectedLocation,
       isNotNull,

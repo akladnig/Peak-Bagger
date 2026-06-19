@@ -8,7 +8,7 @@ import 'package:peak_bagger/services/waypoints_repository.dart';
 import 'drop_marker_robot.dart';
 
 void main() {
-  testWidgets('drop marker journey arms rail action and drops marker', (
+  testWidgets('drop marker journey opens popup and drops marker', (
     tester,
   ) async {
     final waypointsRepository = WaypointsRepository.test(
@@ -25,8 +25,9 @@ void main() {
       waypointsRepository: waypointsRepository,
     );
 
-    await r.armDropMarker();
-    await r.tapMapCenter();
+    await r.openDropMarkerPopup();
+    expect(r.chooser, findsOneWidget);
+    await r.chooseDropMarker();
 
     final marker = waypointsRepository.getCurrentMarker();
     expect(marker, isNotNull);
@@ -64,10 +65,8 @@ void main() {
     await r.chooseDropFavourite('South Ridge');
     final favourite = waypointsRepository.getFavourites().last;
 
-    await r.armDropMarker();
-    await tester.tapAt(tester.getCenter(r.mapInteractionRegion) + const Offset(40, 40));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await r.openDropMarkerPopup();
+    await r.chooseDropMarker();
 
     final currentMarker = r.container().read(mapProvider).selectedLocation;
     expect(currentMarker, isNotNull);

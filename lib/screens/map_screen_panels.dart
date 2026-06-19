@@ -1440,7 +1440,7 @@ class MapTapActionPopupCard extends StatelessWidget {
             ),
             ListTile(
               key: const Key('map-tap-action-drop-favourite'),
-              leading: const Icon(Icons.favorite),
+              leading: const Icon(Icons.favorite, color: favouriteMarkerColour),
               title: const Text('Drop Favourite'),
               onTap: onDropFavourite,
             ),
@@ -1494,7 +1494,7 @@ class FavouritesPopupCard extends StatelessWidget {
                   final favourite = favourites[index];
                   return ListTile(
                     key: Key('favourites-popup-row-${favourite.id}'),
-                    leading: const Icon(Icons.favorite),
+                    leading: const Icon(Icons.favorite, color: favouriteMarkerColour),
                     title: Text(
                       favourite.name,
                       maxLines: 1,

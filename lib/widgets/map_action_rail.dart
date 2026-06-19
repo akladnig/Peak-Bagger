@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../core/constants.dart';
+import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
@@ -405,7 +406,7 @@ class MapActionRail extends ConsumerWidget {
                                   },
                             child: Icon(
                               Icons.favorite,
-                              color: Theme.of(context).colorScheme.onSurface,
+                              color: favouriteMarkerColour,
                             ),
                           ),
                         ),

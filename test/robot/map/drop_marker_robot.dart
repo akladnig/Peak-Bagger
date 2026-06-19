@@ -68,11 +68,16 @@ class DropMarkerRobot {
     await tester.pump(const Duration(milliseconds: 100));
   }
 
-  Future<void> armDropMarker() async {
+  Future<void> openDropMarkerPopup() async {
     await tester.ensureVisible(dropMarkerFab);
     await tester.pumpAndSettle();
     await tester.tap(dropMarkerFab);
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+  }
+
+  Future<void> chooseDropMarker() async {
+    await tester.tap(find.byKey(const Key('map-tap-action-drop-marker')));
+    await tester.pumpAndSettle();
   }
 
   Future<void> tapMapCenter() async {

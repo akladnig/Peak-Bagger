@@ -1,4 +1,5 @@
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/models/waypoints.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 
@@ -168,8 +169,8 @@ class WaypointsRepository {
     final waypoint = Waypoints(
       name: name.trim().isEmpty ? 'Marker' : name.trim(),
       type: Waypoints.typeMarker,
-      latitude: location.latitude,
-      longitude: location.longitude,
+      latitude: _persistedCoordinate(location.latitude),
+      longitude: _persistedCoordinate(location.longitude),
       mgrs: waypointMgrsFromLatLng(location),
     );
     waypoint.id = _storage.put(waypoint);
@@ -187,8 +188,8 @@ class WaypointsRepository {
     final waypoint = Waypoints(
       name: trimmedName,
       type: Waypoints.typeFavourite,
-      latitude: location.latitude,
-      longitude: location.longitude,
+      latitude: _persistedCoordinate(location.latitude),
+      longitude: _persistedCoordinate(location.longitude),
       mgrs: waypointMgrsFromLatLng(location),
     );
     waypoint.id = _storage.put(waypoint);
@@ -198,6 +199,10 @@ class WaypointsRepository {
   Future<bool> delete(int id) async {
     return _storage.remove(id);
   }
+}
+
+double _persistedCoordinate(double value) {
+  return double.parse(formatCoordinate(value));
 }
 
 String waypointMgrsFromLatLng(LatLng location) {
