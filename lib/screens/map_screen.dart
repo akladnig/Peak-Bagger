@@ -3603,7 +3603,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   Widget _buildMapTapActionPopup(BuildContext context) {
     final anchor = _mapTapActionPopupAnchor!;
     const popupWidth = 260.0;
-    const popupHeight = 128.0;
+    const popupHeight = 176.0;
     final size = MediaQuery.of(context).size;
     final left = (anchor.dx + 12).clamp(8.0, size.width - popupWidth - 8);
     final top = (anchor.dy + 12).clamp(8.0, size.height - popupHeight - 8);
@@ -3615,6 +3615,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
         child: MapTapActionPopupCard(
           onDropMarker: _handleDropMarkerFromPopup,
           onDropFavourite: _handleDropFavouriteFromPopup,
+          onClose: _dismissMapTapActionPopup,
           onDriveEtaHome: _mapTapActionPopupDriveEtaHit == null
               ? null
               : _handleDriveEtaFromHome,
