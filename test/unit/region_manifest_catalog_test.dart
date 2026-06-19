@@ -5,6 +5,14 @@ import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/screens/map_screen_layers.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
 
+List<String> _regionBasemapKeys() {
+  final keys = ['openstreetmap', 'tracestrack'];
+  if (hasMapyCzApiKey) {
+    keys.add('mapyCz');
+  }
+  return keys;
+}
+
 void main() {
   test('Basemap.values keeps the manifest-prescribed order', () {
     expect(
@@ -15,6 +23,7 @@ void main() {
         'tasmap25k',
         'tracestrack',
         'openstreetmap',
+        'mapyCz',
         'nswImagery',
         'nswBasemap',
         'nswTopo',
@@ -37,41 +46,53 @@ void main() {
           .basemapsForRegionKey('new-south-wales')
           .map((basemap) => basemap.key)
           .toList(growable: false),
-      const [
-        'openstreetmap',
-        'tracestrack',
-        'nswImagery',
-        'nswBasemap',
-        'nswTopo',
-      ],
+      [..._regionBasemapKeys(), 'nswImagery', 'nswBasemap', 'nswTopo'],
     );
     expect(
       regionManifestCatalog
           .basemapsForRegionKey('tasmania')
           .map((basemap) => basemap.key)
           .toList(growable: false),
-      const [
-        'openstreetmap',
-        'tracestrack',
-        'tasmapTopo',
-        'tasmap50k',
-        'tasmap25k',
-      ],
+      [..._regionBasemapKeys(), 'tasmapTopo', 'tasmap50k', 'tasmap25k'],
     );
     expect(
       regionManifestCatalog
           .basemapsForRegionKey('slovenia')
           .map((basemap) => basemap.key)
           .toList(growable: false),
-      const ['openstreetmap', 'tracestrack', 'sloveniaTopo'],
+      [..._regionBasemapKeys(), 'sloveniaTopo'],
+    );
+  });
+
+  test('all region manifests include mapy.cz', () {
+    for (final regionKey in const [
+      'tasmania',
+      'new-south-wales',
+      'italy-nord-est',
+      'italy-nord-ovest',
+      'italy',
+      'slovenia',
+      'croatia',
+    ]) {
+      expect(
+        regionManifestCatalog.regionByKey(regionKey)?.basemapKeys,
+        contains('mapyCz'),
+      );
+    }
+  });
+
+  test('mapy.cz availability follows MAPY_CZ_API_KEY', () {
+    expect(isBasemapAvailable(Basemap.mapyCz), hasMapyCzApiKey);
+    expect(
+      regionManifestCatalog.basemapByKey('mapyCz')?.tileUrl,
+      'https://api.mapy.com/v1/maptiles/outdoor/256/{z}/{x}/{y}?lang=en',
     );
   });
 
   test('region mapSet stays available in typed catalog', () {
-    expect(
-      regionManifestCatalog.regionByKey('tasmania')?.mapSet,
-      const ['tasmap50k'],
-    );
+    expect(regionManifestCatalog.regionByKey('tasmania')?.mapSet, const [
+      'tasmap50k',
+    ]);
     expect(
       regionManifestCatalog.regionByKey('new-south-wales')?.mapSet,
       isEmpty,
@@ -94,13 +115,24 @@ void main() {
       regionManifestCatalog.basemapByKey('tasmap50k')!.tileUrl,
     );
     expect(
+      mapTileUrl(Basemap.tracestrack),
+      hasTracestrackApiKey
+          ? 'https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp?key=${Uri.encodeQueryComponent(tracestrackApiKey)}'
+          : regionManifestCatalog.basemapByKey('tracestrack')!.tileUrl,
+    );
+    expect(
       mapTileUrl(Basemap.nswTopo),
       regionManifestCatalog.basemapByKey('nswTopo')!.tileUrl,
     );
     expect(
-      mapTileUrl(Basemap.sloveniaTopo),
-      sloveniaTopoDebugTileUrl,
+      mapTileUrl(Basemap.mapyCz),
+      hasMapyCzApiKey
+          ? 'https://api.mapy.com/v1/maptiles/outdoor/256/{z}/{x}/{y}?lang=en&apikey=${Uri.encodeQueryComponent(mapyCzApiKey)}'
+          : regionManifestCatalog
+                .basemapByKey(Basemap.tracestrack.name)!
+                .tileUrl,
     );
+    expect(mapTileUrl(Basemap.sloveniaTopo), sloveniaTopoDebugTileUrl);
   });
 
   test('Slovenia topo uses the proxy tile layer config', () {
@@ -109,9 +141,6 @@ void main() {
     expect(layer, isA<TileLayer>());
     final tileLayer = layer;
     expect(tileLayer.wmsOptions, isNull);
-    expect(
-      tileLayer.urlTemplate,
-      sloveniaTopoDebugTileUrl,
-    );
+    expect(tileLayer.urlTemplate, sloveniaTopoDebugTileUrl);
   });
 }

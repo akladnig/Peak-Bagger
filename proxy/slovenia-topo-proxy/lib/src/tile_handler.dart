@@ -80,25 +80,25 @@ class SloveniaTopoTileHandler {
             }
           } on TimeoutException {
             if (attempt == _upstreamAttempts) {
-              return _badGatewayResponse();
+              return _transientFailureTileResponse();
             }
           } catch (_) {
             if (attempt == _upstreamAttempts) {
-              return _badGatewayResponse();
+              return _transientFailureTileResponse();
             }
           }
 
           if (attempt == _upstreamAttempts) {
-            return _badGatewayResponse();
+            return _transientFailureTileResponse();
           }
 
           await Future<void>.delayed(_retryDelayForAttempt(attempt));
         }
 
-        return _badGatewayResponse();
+        return _transientFailureTileResponse();
       });
     } catch (_) {
-      return _badGatewayResponse();
+      return _transientFailureTileResponse();
     }
   }
 }
@@ -117,12 +117,11 @@ Response _transparentTileResponse() {
   );
 }
 
-Response _badGatewayResponse() {
-  return Response(
-    502,
-    body: 'Upstream WMS request failed',
+Response _transientFailureTileResponse() {
+  return Response.ok(
+    transparentTilePngBytes,
     headers: {
-      'Content-Type': 'text/plain; charset=utf-8',
+      'Content-Type': 'image/png',
       'Cache-Control': 'public, max-age=60',
     },
   );

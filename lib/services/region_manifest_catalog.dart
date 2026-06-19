@@ -4,6 +4,19 @@ import 'package:peak_bagger/services/polygon_geometry.dart';
 
 part 'package:peak_bagger/generated/region_manifest_catalog.g.dart';
 
+const mapyCzApiKey = String.fromEnvironment('MAPY_CZ_API_KEY');
+const tracestrackApiKey = String.fromEnvironment('TRACESTRACK_API_KEY');
+
+bool get hasMapyCzApiKey => mapyCzApiKey.trim().isNotEmpty;
+bool get hasTracestrackApiKey => tracestrackApiKey.trim().isNotEmpty;
+
+bool isBasemapAvailable(Basemap basemap) {
+  return switch (basemap) {
+    Basemap.mapyCz => hasMapyCzApiKey,
+    _ => true,
+  };
+}
+
 class RegionManifestBasemapData {
   const RegionManifestBasemapData({
     required this.key,
@@ -56,7 +69,8 @@ class RegionManifestCatalogData {
 const regionManifestCatalog = RegionManifestCatalog._();
 
 final Map<String, RegionManifestBasemapData> _basemapByKey = {
-  for (final basemap in regionManifestCatalogData.basemaps) basemap.key: basemap,
+  for (final basemap in regionManifestCatalogData.basemaps)
+    basemap.key: basemap,
 };
 
 final Map<String, Basemap> _basemapEnumByKey = {
@@ -132,6 +146,10 @@ class RegionManifestCatalog {
       if (!seen.add(key)) {
         continue;
       }
+      final basemapEnum = _basemapEnumByKey[key];
+      if (basemapEnum != null && !isBasemapAvailable(basemapEnum)) {
+        continue;
+      }
       final basemap = _basemapByKey[key];
       if (basemap != null) {
         basemaps.add(basemap);
@@ -184,13 +202,12 @@ class RegionManifestCatalog {
     final polygonEdges = _closedEdges(polygon);
     for (final rectangleEdge in rectangleEdges) {
       for (final polygonEdge in polygonEdges) {
-        if (
-            _segmentsIntersect(
-              rectangleEdge.$1,
-              rectangleEdge.$2,
-              polygonEdge.$1,
-              polygonEdge.$2,
-            )) {
+        if (_segmentsIntersect(
+          rectangleEdge.$1,
+          rectangleEdge.$2,
+          polygonEdge.$1,
+          polygonEdge.$2,
+        )) {
           return true;
         }
       }
@@ -212,7 +229,8 @@ class RegionManifestCatalog {
     }
 
     return [
-      for (var i = 0; i < points.length; i++) (points[i], points[(i + 1) % points.length]),
+      for (var i = 0; i < points.length; i++)
+        (points[i], points[(i + 1) % points.length]),
     ];
   }
 

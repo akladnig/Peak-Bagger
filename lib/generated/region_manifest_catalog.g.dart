@@ -9,6 +9,7 @@ enum Basemap {
   tasmap25k,
   tracestrack,
   openstreetmap,
+  mapyCz,
   nswImagery,
   nswBasemap,
   nswTopo,
@@ -41,7 +42,7 @@ const regionManifestCatalogData = RegionManifestCatalogData(
     RegionManifestBasemapData(
       key: 'tracestrack',
       name: 'Tracestrack Topo',
-      tileUrl: 'https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp?key=8bd67b17be9041b60f241c2aa45ecf0d',
+      tileUrl: 'https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp',
       attribution: '© Tracestrack',
       maxZoom: 24,
     ),
@@ -51,6 +52,13 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       tileUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       attribution: '© OpenStreetMap contributors',
       maxZoom: 24,
+    ),
+    RegionManifestBasemapData(
+      key: 'mapyCz',
+      name: 'Mapy.cz Tourist',
+      tileUrl: 'https://api.mapy.com/v1/maptiles/outdoor/256/{z}/{x}/{y}?lang=en',
+      attribution: '© Seznam.cz a.s. and others',
+      maxZoom: 19,
     ),
     RegionManifestBasemapData(
       key: 'nswImagery',
@@ -100,6 +108,7 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       basemapKeys: [
         'openstreetmap',
         'tracestrack',
+        'mapyCz',
         'tasmapTopo',
         'tasmap50k',
         'tasmap25k',
@@ -986,6 +995,7 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       basemapKeys: [
         'openstreetmap',
         'tracestrack',
+        'mapyCz',
         'nswImagery',
         'nswBasemap',
         'nswTopo',
@@ -1911,6 +1921,7 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       basemapKeys: [
         'openstreetmap',
         'tracestrack',
+        'mapyCz',
       ],
     ),
     RegionManifestRegionData(
@@ -2423,6 +2434,7 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       basemapKeys: [
         'openstreetmap',
         'tracestrack',
+        'mapyCz',
       ],
     ),
     RegionManifestRegionData(
@@ -3846,6 +3858,7 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       basemapKeys: [
         'openstreetmap',
         'tracestrack',
+        'mapyCz',
       ],
     ),
     RegionManifestRegionData(
@@ -4195,6 +4208,7 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       basemapKeys: [
         'openstreetmap',
         'tracestrack',
+        'mapyCz',
         'sloveniaTopo',
       ],
     ),
@@ -4777,6 +4791,7 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       basemapKeys: [
         'openstreetmap',
         'tracestrack',
+        'mapyCz',
       ],
     ),
   ],

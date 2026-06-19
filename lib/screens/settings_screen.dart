@@ -112,7 +112,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               key: const Key('open-route-service-api-key-tile'),
               leading: const Icon(Icons.key),
               title: const Text('OpenRouteService API Key'),
-              subtitle: Text(_describeOpenRouteServiceApiKey(openRouteServiceApiKey)),
+              subtitle: Text(
+                _describeOpenRouteServiceApiKey(openRouteServiceApiKey),
+              ),
               trailing: const Icon(Icons.chevron_right),
               onTap: _editOpenRouteServiceApiKey,
             ),
@@ -247,8 +249,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                     ],
                   ],
+                ),
               ),
-            ),
             _buildTrackFilterSection(context, filterState),
             ListTile(
               key: const Key('theme-mode-toggle-tile'),
@@ -260,7 +262,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               trailing: Switch(
                 key: const Key('theme-mode-toggle-switch'),
                 value: isDarkTheme,
-                onChanged: (_) => ref.read(themeModeProvider.notifier).toggleTheme(),
+                onChanged: (_) =>
+                    ref.read(themeModeProvider.notifier).toggleTheme(),
               ),
               onTap: () => ref.read(themeModeProvider.notifier).toggleTheme(),
             ),
@@ -1533,9 +1536,7 @@ class _TileCacheSettingsScreenState
                               )),
                           builder: (ctx, snap) {
                             if (!snap.hasData) return const Text('-');
-                            return Text(
-                              formatFileSizeKiB(snap.data!.size),
-                            );
+                            return Text(formatFileSizeKiB(snap.data!.size));
                           },
                         ),
                       ),
@@ -1555,7 +1556,7 @@ class _TileCacheSettingsScreenState
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: Basemap.values
+                  children: TileCacheService.availableBasemaps
                       .map(
                         (basemap) => FilterChip(
                           key: Key('tile-cache-basemap-chip-${basemap.name}'),
