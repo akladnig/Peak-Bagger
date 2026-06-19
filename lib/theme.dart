@@ -41,9 +41,9 @@ class TrailDisplayTheme {
   static const List<double> overlayDashSegments = [8, 6];
 }
 
-const defaultMarkerColour =  Colors.pinkAccent;
+const defaultMarkerColour = Colors.pinkAccent;
 const favouriteMarkerColour = Colors.pinkAccent;
-const homeMarkerColour =  Color(0xFF3DD700);
+const homeMarkerColour = Color(0xFF3DD700);
 
 class MapMarkerTheme {
   const MapMarkerTheme({
@@ -54,11 +54,7 @@ class MapMarkerTheme {
     this.borderWidth = 3.0,
     this.borderColor = Colors.white,
     this.boxShadow = const [
-      BoxShadow(
-        color: Color(0x33000000),
-        blurRadius: 4,
-        offset: Offset(0, 2),
-      ),
+      BoxShadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 2)),
     ],
   });
 
@@ -78,7 +74,6 @@ final class FavouriteMapMarkerTheme extends MapMarkerTheme {
 }
 
 final class HomeMapMarkerTheme extends MapMarkerTheme {
-
   const HomeMapMarkerTheme() : super(fillColor: homeMarkerColour);
 
   static const value = HomeMapMarkerTheme();
@@ -94,19 +89,26 @@ abstract final class TrackRouteLineTheme {
   static const double selectedOverlayStrokeWidth = 0.6;
 }
 
+const outlineColour = Color(0xFFF7F8FD);
+const outlineTextColour = Color(0xFF111111);
+
 class OutlinedText extends StatelessWidget {
   const OutlinedText({
     required this.text,
     super.key,
     this.style,
+    this.textColor,
+    this.outlineColor,
     this.textAlign = TextAlign.center,
-    this.maxLines,
-    this.overflow = TextOverflow.clip,
+    this.maxLines = 1,
+    this.overflow = TextOverflow.ellipsis,
     this.softWrap = true,
   });
 
   final String text;
   final TextStyle? style;
+  final Color? textColor;
+  final Color? outlineColor;
   final TextAlign textAlign;
   final int? maxLines;
   final TextOverflow overflow;
@@ -116,12 +118,14 @@ class OutlinedText extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final baseStyle = style ?? theme.textTheme.bodySmall ?? const TextStyle();
-    final fillStyle = baseStyle.copyWith(color: theme.colorScheme.surface);
+    final fillStyle = baseStyle.copyWith(
+      color: textColor ?? outlineTextColour,
+    );
     final outlineStyle = baseStyle.copyWith(
       foreground: Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3.0
-        ..color = theme.colorScheme.onSurface,
+        ..color = outlineColor ?? outlineColour,
     );
 
     return Stack(
@@ -166,6 +170,14 @@ TextStyle peakMarkerLabelTextStyle(BuildContext context) {
         fontStyle: FontStyle.italic,
       ) ??
       const TextStyle(fontSize: 10, fontStyle: FontStyle.italic);
+}
+
+TextStyle favouriteMarkerLabelTextStyle(BuildContext context) {
+  return Theme.of(context).textTheme.bodySmall?.copyWith(
+        fontSize: 12,
+        fontStyle: FontStyle.italic,
+      ) ??
+      const TextStyle(fontSize: 12, fontStyle: FontStyle.italic);
 }
 
 class CatppuccinColors {

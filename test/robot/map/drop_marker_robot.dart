@@ -27,9 +27,12 @@ class DropMarkerRobot {
   Finder get chooser => find.byKey(const Key('map-tap-action-popup'));
   Finder get chooserDropFavourite =>
       find.byKey(const Key('map-tap-action-drop-favourite'));
-  Finder get favouriteNameInput => find.byKey(const Key('favourite-name-input'));
+  Finder get favouriteNameInput =>
+      find.byKey(const Key('favourite-name-input'));
   Finder get favouriteNameSave => find.byKey(const Key('favourite-name-save'));
   Finder get favouritesPopup => find.byKey(const Key('favourites-popup'));
+  Finder favouriteMarkerName(int id) =>
+      find.byKey(Key('favourite-marker-name-$id'));
 
   Future<void> pumpMap({
     required MapState initialState,
