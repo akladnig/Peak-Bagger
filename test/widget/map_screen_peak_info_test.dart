@@ -1040,10 +1040,12 @@ void main() {
     );
 
     final mapNameRichText = tester.widget<RichText>(
-      find.descendant(
-        of: find.byKey(const Key('map-mgrs-readout')),
-        matching: find.byType(RichText),
-      ).first,
+      find
+          .descendant(
+            of: find.byKey(const Key('map-mgrs-readout')),
+            matching: find.byType(RichText),
+          )
+          .first,
     );
 
     expect(mapNameRichText.text.toPlainText(), 'Tasmanian');
@@ -1353,10 +1355,7 @@ class _NoopRoutePlanner extends RoutePlanner {
     required LatLng start,
     required LatLng end,
   }) async {
-    return PlannedRouteSegment(
-      points: [start, end],
-      distanceMeters: 0,
-    );
+    return PlannedRouteSegment(points: [start, end], distanceMeters: 0);
   }
 
   @override
@@ -1380,7 +1379,9 @@ class _NoopRoutePlanner extends RoutePlanner {
   }
 
   @override
-  Future<RouteEndpointProbeResult> probeEndpoint({required LatLng point}) async {
+  Future<RouteEndpointProbeResult> probeEndpoint({
+    required LatLng point,
+  }) async {
     return const RouteEndpointProbeResult(isOnTrack: false);
   }
 }

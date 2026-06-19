@@ -307,7 +307,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
       _dismissTrackRouteChooser(suppressReopen: true);
       return true;
     }
-    if (_mapTapActionPopupAnchor != null || _mapTapActionPopupLocation != null) {
+    if (_mapTapActionPopupAnchor != null ||
+        _mapTapActionPopupLocation != null) {
       _dismissMapTapActionPopup();
       return true;
     }
@@ -339,7 +340,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
   }
 
   void _showDropMarkerPopupForCurrentLocation() {
-    if (_mapTapActionPopupAnchor != null || _mapTapActionPopupLocation != null) {
+    if (_mapTapActionPopupAnchor != null ||
+        _mapTapActionPopupLocation != null) {
       _dismissMapTapActionPopup();
       return;
     }
@@ -381,7 +383,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
   }
 
   void _dismissMapTapActionPopup() {
-    if (_mapTapActionPopupAnchor == null && _mapTapActionPopupLocation == null) {
+    if (_mapTapActionPopupAnchor == null &&
+        _mapTapActionPopupLocation == null) {
       return;
     }
     setState(() {
@@ -396,7 +399,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
     if (location == null) {
       return;
     }
-    final saved = await ref.read(mapProvider.notifier).setCurrentMarker(location);
+    final saved = await ref
+        .read(mapProvider.notifier)
+        .setCurrentMarker(location);
     if (saved && mounted) {
       _dismissMapTapActionPopup();
     }
@@ -470,7 +475,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
   }
 
   String _driveEtaPopupTitleForHit(RouteGraphDriveEtaHitResult hit) {
-    return hit.wayName?.trim().isNotEmpty == true ? hit.wayName!.trim() : 'Drive ETA';
+    return hit.wayName?.trim().isNotEmpty == true
+        ? hit.wayName!.trim()
+        : 'Drive ETA';
   }
 
   Future<void> _handleDriveEtaFromHome() async {
@@ -482,20 +489,24 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final title = _driveEtaPopupTitleForHit(hit!);
     final origin = _homeLocation();
     if (origin == null) {
-      ref.read(mapProvider.notifier).openDriveEtaPopupError(
-        requestId: requestId,
-        anchor: hit.snappedPoint!,
-        title: title,
-        message: 'Home location is unavailable.',
-      );
+      ref
+          .read(mapProvider.notifier)
+          .openDriveEtaPopupError(
+            requestId: requestId,
+            anchor: hit.snappedPoint!,
+            title: title,
+            message: 'Home location is unavailable.',
+          );
       _dismissMapTapActionPopup();
       return;
     }
-    ref.read(mapProvider.notifier).showDriveEtaPopupLoading(
-      requestId: requestId,
-      anchor: hit.snappedPoint!,
-      title: title,
-    );
+    ref
+        .read(mapProvider.notifier)
+        .showDriveEtaPopupLoading(
+          requestId: requestId,
+          anchor: hit.snappedPoint!,
+          title: title,
+        );
     _dismissMapTapActionPopup();
     unawaited(
       _resolveDriveEta(
@@ -513,11 +524,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
       return;
     }
     final requestId = ++_driveEtaRequestId;
-    ref.read(mapProvider.notifier).showDriveEtaPopupLoading(
-      requestId: requestId,
-      anchor: hit!.snappedPoint!,
-      title: _driveEtaPopupTitleForHit(hit),
-    );
+    ref
+        .read(mapProvider.notifier)
+        .showDriveEtaPopupLoading(
+          requestId: requestId,
+          anchor: hit!.snappedPoint!,
+          title: _driveEtaPopupTitleForHit(hit),
+        );
     _dismissMapTapActionPopup();
     unawaited(
       _resolveDriveEta(
@@ -820,7 +833,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
     try {
       final openRouteService = ref.read(openRouteServiceProvider);
       final resolvedOrigin =
-          origin ?? await ref.read(liveLocationServiceProvider).getCurrentLocation();
+          origin ??
+          await ref.read(liveLocationServiceProvider).getCurrentLocation();
       final summary = await openRouteService.fetchDrivingSummary(
         origin: resolvedOrigin,
         destination: destination,
@@ -2643,8 +2657,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               .screenOffsetToLatLng(
                                                 event.localPosition,
                                               );
-                                          if (_mapTapActionPopupAnchor != null ||
-                                              _mapTapActionPopupLocation != null) {
+                                          if (_mapTapActionPopupAnchor !=
+                                                  null ||
+                                              _mapTapActionPopupLocation !=
+                                                  null) {
                                             _dismissMapTapActionPopup();
                                           }
                                           if (_showFavouritesPopup) {
@@ -2998,8 +3014,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               Marker(
                                                 key: const Key('home-marker'),
                                                 point: _homeLocation()!,
-                                                width: HomeMapMarkerTheme.value.markerSize,
-                                                height: HomeMapMarkerTheme.value.markerSize,
+                                                width: HomeMapMarkerTheme
+                                                    .value
+                                                    .markerSize,
+                                                height: HomeMapMarkerTheme
+                                                    .value
+                                                    .markerSize,
                                                 child: const HomeMarker(),
                                               ),
                                             ],
@@ -3025,20 +3045,35 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                             key: const Key(
                                               'favourite-marker-layer',
                                             ),
-                                            markers: favouriteWaypoints.map((favourite) {
-                                              return Marker(
-                                                key: Key(
-                                                  'favourite-marker-${favourite.id}',
-                                                ),
-                                                point: LatLng(
-                                                  favourite.latitude,
-                                                  favourite.longitude,
-                                                ),
-                                                width: FavouriteMapMarkerTheme.value.markerSize,
-                                                height: FavouriteMapMarkerTheme.value.markerSize,
-                                                child: const FavouriteMarker(),
-                                              );
-                                            }).toList(growable: false),
+                                            markers: favouriteWaypoints
+                                                .map((favourite) {
+                                                  final labelWidth =
+                                                      peakMarkerLabelMaxWidth(
+                                                        context,
+                                                      );
+                                                  return Marker(
+                                                    key: Key(
+                                                      'favourite-marker-${favourite.id}',
+                                                    ),
+                                                    point: LatLng(
+                                                      favourite.latitude,
+                                                      favourite.longitude,
+                                                    ),
+                                                    width: labelWidth,
+                                                    height:
+                                                        FavouriteMapMarkerTheme
+                                                            .value
+                                                            .markerSize,
+                                                    child: FavouriteMarker(
+                                                      key: Key(
+                                                        'favourite-marker-widget-${favourite.id}',
+                                                      ),
+                                                      id: favourite.id,
+                                                      name: favourite.name,
+                                                    ),
+                                                  );
+                                                })
+                                                .toList(growable: false),
                                           ),
                                         if (mapScene.showPeaks &&
                                             filteredPeaks.isNotEmpty &&
@@ -3357,12 +3392,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     );
                   },
                 ),
-                    MapActionRail(
-                      onCreateRoute: _beginRouteDraft,
-                      onShowBasemaps: _openBasemapsDrawer,
-                      onDropMarker: _showDropMarkerPopupForCurrentLocation,
-                      onShowFavourites: _toggleFavouritesPopup,
-                    ),
+                MapActionRail(
+                  onCreateRoute: _beginRouteDraft,
+                  onShowBasemaps: _openBasemapsDrawer,
+                  onDropMarker: _showDropMarkerPopupForCurrentLocation,
+                  onShowFavourites: _toggleFavouritesPopup,
+                ),
                 if (routeChrome.isRouteDrafting)
                   const Positioned(
                     key: Key('route-controls-overlay-root'),
@@ -3603,13 +3638,15 @@ class _MapScreenState extends ConsumerState<MapScreen>
         child: FavouritesPopupCard(
           favourites: favourites,
           onSelect: (favourite) {
-            ref.read(mapProvider.notifier).requestCameraMove(
-              center: LatLng(favourite.latitude, favourite.longitude),
-              zoom: MapConstants.defaultZoom,
-              clearGotoMgrs: true,
-              clearHoveredPeakId: true,
-              clearHoveredTrackId: true,
-            );
+            ref
+                .read(mapProvider.notifier)
+                .requestCameraMove(
+                  center: LatLng(favourite.latitude, favourite.longitude),
+                  zoom: MapConstants.defaultZoom,
+                  clearGotoMgrs: true,
+                  clearHoveredPeakId: true,
+                  clearHoveredTrackId: true,
+                );
             if (mounted) {
               setState(() {
                 _showFavouritesPopup = false;
