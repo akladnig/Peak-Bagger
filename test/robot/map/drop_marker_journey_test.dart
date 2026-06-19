@@ -8,6 +8,32 @@ import 'package:peak_bagger/services/waypoints_repository.dart';
 import 'drop_marker_robot.dart';
 
 void main() {
+  testWidgets('drop marker journey closes chooser from popup button', (
+    tester,
+  ) async {
+    final waypointsRepository = WaypointsRepository.test(
+      InMemoryWaypointsStorage(),
+    );
+    final r = DropMarkerRobot(tester);
+
+    await r.pumpMap(
+      initialState: const MapState(
+        center: LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+      waypointsRepository: waypointsRepository,
+    );
+
+    await r.openDropMarkerPopup();
+    expect(r.chooserClose, findsOneWidget);
+    await r.closeChooser();
+
+    expect(r.chooser, findsNothing);
+    expect(waypointsRepository.getCurrentMarker(), isNull);
+    expect(r.container().read(mapProvider).selectedLocation, isNull);
+  });
+
   testWidgets('drop marker journey opens popup and drops marker', (
     tester,
   ) async {

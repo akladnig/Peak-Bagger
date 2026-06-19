@@ -25,6 +25,7 @@ class DropMarkerRobot {
   Finder get dropMarkerFab => find.byKey(const Key('drop-marker-fab'));
   Finder get gotoFavouriteFab => find.byKey(const Key('goto-favourite-fab'));
   Finder get chooser => find.byKey(const Key('map-tap-action-popup'));
+  Finder get chooserClose => find.byKey(const Key('map-tap-action-close'));
   Finder get chooserDropFavourite =>
       find.byKey(const Key('map-tap-action-drop-favourite'));
   Finder get favouriteNameInput =>
@@ -80,6 +81,11 @@ class DropMarkerRobot {
 
   Future<void> chooseDropMarker() async {
     await tester.tap(find.byKey(const Key('map-tap-action-drop-marker')));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> closeChooser() async {
+    await tester.tap(chooserClose);
     await tester.pumpAndSettle();
   }
 

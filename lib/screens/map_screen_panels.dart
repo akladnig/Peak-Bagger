@@ -1413,6 +1413,7 @@ class MapTapActionPopupCard extends StatelessWidget {
   const MapTapActionPopupCard({
     required this.onDropMarker,
     required this.onDropFavourite,
+    required this.onClose,
     this.onDriveEtaHome,
     this.onDriveEtaMarker,
     super.key,
@@ -1420,6 +1421,7 @@ class MapTapActionPopupCard extends StatelessWidget {
 
   final VoidCallback onDropMarker;
   final VoidCallback onDropFavourite;
+  final VoidCallback onClose;
   final VoidCallback? onDriveEtaHome;
   final VoidCallback? onDriveEtaMarker;
 
@@ -1429,36 +1431,54 @@ class MapTapActionPopupCard extends StatelessWidget {
       key: const Key('map-tap-action-popup'),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 260),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              key: const Key('map-tap-action-drop-marker'),
-              leading: const Icon(Icons.my_location, color: Colors.amber),
-              title: const Text('Drop Marker'),
-              onTap: onDropMarker,
-            ),
-            ListTile(
-              key: const Key('map-tap-action-drop-favourite'),
-              leading: const Icon(Icons.favorite, color: favouriteMarkerColour),
-              title: const Text('Drop Favourite'),
-              onTap: onDropFavourite,
-            ),
-            if (onDriveEtaHome != null)
-              ListTile(
-                key: const Key('map-tap-action-drive-home'),
-                leading: const Icon(Icons.drive_eta),
-                title: const Text('Get driving time from Home'),
-                onTap: onDriveEtaHome,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Spacer(),
+                  IconButton(
+                    key: const Key('map-tap-action-close'),
+                    tooltip: 'Close Drop Marker',
+                    icon: const Icon(Icons.close, size: 16),
+                    onPressed: onClose,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
               ),
-            if (onDriveEtaMarker != null)
               ListTile(
-                key: const Key('map-tap-action-drive-marker'),
-                leading: const Icon(Icons.drive_eta, color: Colors.amber),
-                title: const Text('Get driving time from Marker'),
-                onTap: onDriveEtaMarker,
+                key: const Key('map-tap-action-drop-marker'),
+                leading: const Icon(Icons.my_location, color: Colors.amber),
+                title: const Text('Drop Marker'),
+                onTap: onDropMarker,
               ),
-          ],
+              ListTile(
+                key: const Key('map-tap-action-drop-favourite'),
+                leading: const Icon(Icons.favorite, color: favouriteMarkerColour),
+                title: const Text('Drop Favourite'),
+                onTap: onDropFavourite,
+              ),
+              if (onDriveEtaHome != null)
+                ListTile(
+                  key: const Key('map-tap-action-drive-home'),
+                  leading: const Icon(Icons.drive_eta),
+                  title: const Text('Get driving time from Home'),
+                  onTap: onDriveEtaHome,
+                ),
+              if (onDriveEtaMarker != null)
+                ListTile(
+                  key: const Key('map-tap-action-drive-marker'),
+                  leading: const Icon(Icons.drive_eta, color: Colors.amber),
+                  title: const Text('Get driving time from Marker'),
+                  onTap: onDriveEtaMarker,
+                ),
+            ],
+          ),
         ),
       ),
     );

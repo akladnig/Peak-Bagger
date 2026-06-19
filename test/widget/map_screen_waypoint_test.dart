@@ -60,6 +60,42 @@ void main() {
     expect(find.byKey(const Key('home-marker-layer')), findsOneWidget);
   });
 
+  testWidgets('drop marker chooser close button dismisses without changes', (
+    tester,
+  ) async {
+    final waypointsRepository = WaypointsRepository.test(
+      InMemoryWaypointsStorage(),
+    );
+    await _pumpMap(
+      tester,
+      const MapState(
+        center: LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+      waypointsRepository: waypointsRepository,
+    );
+
+    await tester.ensureVisible(find.byKey(const Key('drop-marker-fab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('drop-marker-fab')));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byKey(const Key('map-tap-action-popup')), findsOneWidget);
+    expect(find.byKey(const Key('map-tap-action-close')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('map-tap-action-close')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('map-tap-action-popup')), findsNothing);
+    expect(waypointsRepository.getCurrentMarker(), isNull);
+
+    final state = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    ).read(mapProvider);
+    expect(state.selectedLocation, isNull);
+  });
+
   testWidgets('pressing drop marker twice closes chooser', (tester) async {
     final waypointsRepository = WaypointsRepository.test(
       InMemoryWaypointsStorage(),
