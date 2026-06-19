@@ -9,12 +9,9 @@ work on the local machine by:
 
 This keeps the app on the production URL contract while serving tiles locally.
 
-## Target Caveats
+## Target
 
-- macOS app: supported by this setup
-- iOS simulator: usually works with the host Mac setup
-- Android emulator: does not use the Mac `/etc/hosts`; use the app's debug override instead
-- physical devices: need real DNS or device-local host mapping and trusted TLS, not just Mac `/etc/hosts`
+- macOS app only
 
 ## Files In This Folder
 

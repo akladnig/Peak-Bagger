@@ -10,8 +10,8 @@ Standalone XYZ tile proxy for Peak Bagger's Slovenia topo basemap.
   - `z10`: `SI.GURS.DK:DPK500`
   - `z11-z12`: `SI.GURS.DK:DPK250`
   - `z13+`: `SI.GURS.DK:DTK50`
-- Local debug app URL defaults to `http://127.0.0.1:8080/slovenia-topo/{z}/{x}/{y}.png` on desktop/iOS simulator and `http://10.0.2.2:8080/slovenia-topo/{z}/{x}/{y}.png` on Android emulator.
-- Override for other targets with `--dart-define=SLOVENIA_TOPO_TILE_URL=http://<host>:8080/slovenia-topo/{z}/{x}/{y}.png`.
+- Local debug app URL defaults to `http://127.0.0.1:8080/slovenia-topo/{z}/{x}/{y}.png`.
+- Override with `--dart-define=SLOVENIA_TOPO_TILE_URL=http://<host>:8080/slovenia-topo/{z}/{x}/{y}.png` if needed.
 
 ## Local run
 
