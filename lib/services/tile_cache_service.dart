@@ -12,12 +12,13 @@ class TileCacheService {
   static List<String> get storeNames => [
     for (final basemap in Basemap.values) basemap.name,
   ];
-  static Iterable<Basemap> get warmupBasemaps => Basemap.values;
+  static Iterable<Basemap> get warmupBasemaps =>
+      Basemap.values.where((basemap) => basemap != Basemap.sloveniaTopo);
   @visibleForTesting
   static const lowZoomWarmupVersionKey = 'tile_cache_low_zoom_warmup_version';
 
   @visibleForTesting
-  static const lowZoomWarmupVersion = 1;
+  static const lowZoomWarmupVersion = 3;
 
   static final Map<String, FMTCStore> _stores = {};
   static Future<void>? _lowZoomWarmupFuture;

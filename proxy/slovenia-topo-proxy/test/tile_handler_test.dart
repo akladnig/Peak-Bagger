@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:shelf/shelf.dart';
-import 'package:slovenia_ortofoto_proxy/src/tile_handler.dart';
+import 'package:slovenia_topo_proxy/src/tile_handler.dart';
 import 'package:test/test.dart';
 
 const _pngBase64 =
@@ -11,7 +11,7 @@ const _pngBase64 =
 
 void main() {
   test('returns 400 for malformed tile path', () async {
-    final handler = SloveniaOrtofotoTileHandler(
+    final handler = SloveniaTopoTileHandler(
       upstreamClient: _FakeUpstreamWmsClient(),
     );
 
@@ -26,7 +26,7 @@ void main() {
     'returns transparent tile when request does not intersect Slovenia',
     () async {
       final upstream = _FakeUpstreamWmsClient();
-      final handler = SloveniaOrtofotoTileHandler(upstreamClient: upstream);
+      final handler = SloveniaTopoTileHandler(upstreamClient: upstream);
       final tile = _tileForLatLng(latitude: 0, longitude: 0, zoom: 10);
 
       final response = await handler.handle(
@@ -47,7 +47,7 @@ void main() {
 
   test('uses exact projected bbox for intersecting tile request', () async {
     final upstream = _FakeUpstreamWmsClient();
-    final handler = SloveniaOrtofotoTileHandler(upstreamClient: upstream);
+    final handler = SloveniaTopoTileHandler(upstreamClient: upstream);
     final tile = _tileForLatLng(latitude: 46.05, longitude: 14.5, zoom: 10);
     final expectedBounds = projectTileBoundsToSloveniaCrs(tile);
 
@@ -80,7 +80,7 @@ void main() {
 
     for (final entry in cases.entries) {
       final upstream = _FakeUpstreamWmsClient();
-      final handler = SloveniaOrtofotoTileHandler(upstreamClient: upstream);
+      final handler = SloveniaTopoTileHandler(upstreamClient: upstream);
       final tile = _tileForLatLng(
         latitude: 46.05,
         longitude: 14.5,
@@ -104,7 +104,7 @@ void main() {
     'returns transparent tile above configured max zoom without upstream call',
     () async {
       final upstream = _FakeUpstreamWmsClient();
-      final handler = SloveniaOrtofotoTileHandler(upstreamClient: upstream);
+      final handler = SloveniaTopoTileHandler(upstreamClient: upstream);
 
       final response = await handler.handle(
         Request(
@@ -121,7 +121,7 @@ void main() {
   );
 
   test('maps upstream HTML failure to 502 without leaking body', () async {
-    final handler = SloveniaOrtofotoTileHandler(
+    final handler = SloveniaTopoTileHandler(
       upstreamClient: _FakeUpstreamWmsClient(
         response: const UpstreamTileResponse(
           statusCode: 500,
@@ -156,7 +156,7 @@ void main() {
         ),
       ],
     );
-    final handler = SloveniaOrtofotoTileHandler(upstreamClient: upstream);
+    final handler = SloveniaTopoTileHandler(upstreamClient: upstream);
     final tile = _tileForLatLng(latitude: 46.05, longitude: 14.5, zoom: 14);
 
     final response = await handler.handle(
@@ -175,7 +175,7 @@ void main() {
 
   test('retries transient upstream timeout before succeeding', () async {
     final upstream = _FakeUpstreamWmsClient(throwTimeoutCount: 1);
-    final handler = SloveniaOrtofotoTileHandler(upstreamClient: upstream);
+    final handler = SloveniaTopoTileHandler(upstreamClient: upstream);
     final tile = _tileForLatLng(latitude: 46.05, longitude: 14.5, zoom: 14);
 
     final response = await handler.handle(

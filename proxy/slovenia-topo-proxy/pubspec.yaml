@@ -1,5 +1,5 @@
-name: slovenia_ortofoto_proxy
-description: XYZ tile proxy for Slovenia ortho imagery.
+name: slovenia_topo_proxy
+description: XYZ tile proxy for Slovenia topo imagery.
 publish_to: none
 
 environment:

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -23,8 +24,25 @@ import '../core/number_formatters.dart';
 import '../theme.dart';
 
 String mapTileUrl(Basemap basemap) {
+  if (basemap == Basemap.sloveniaTopo && !kReleaseMode) {
+    return sloveniaTopoDebugTileUrl;
+  }
+
   return regionManifestCatalog.basemapByKey(basemap.name)?.tileUrl ??
       regionManifestCatalog.basemapByKey(Basemap.tracestrack.name)!.tileUrl;
+}
+
+String get sloveniaTopoDebugTileUrl {
+  const override = String.fromEnvironment('SLOVENIA_TOPO_TILE_URL');
+  if (override.isNotEmpty) {
+    return override;
+  }
+
+  return switch (defaultTargetPlatform) {
+    TargetPlatform.android =>
+      'http://10.0.2.2:8080/slovenia-topo/{z}/{x}/{y}.png',
+    _ => 'http://127.0.0.1:8080/slovenia-topo/{z}/{x}/{y}.png',
+  };
 }
 
 TileLayer buildBasemapTileLayer(

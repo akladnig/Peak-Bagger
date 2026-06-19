@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:slovenia_ortofoto_proxy/src/projection.dart';
+import 'package:slovenia_topo_proxy/src/projection.dart';
 import 'package:test/test.dart';
 
 void main() {

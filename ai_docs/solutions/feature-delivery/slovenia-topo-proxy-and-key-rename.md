@@ -4,7 +4,7 @@ date: 2026-06-16
 work_type: feature
 tags: [flutter, flutter_map, proxy, wms, caching]
 confidence: high
-references: [assets/region_manifest.json, lib/generated/region_manifest_catalog.g.dart, lib/screens/map_screen_layers.dart, lib/services/tile_cache_service.dart, proxy/slovenia-ortofoto-proxy/lib/src/tile_handler.dart, proxy/slovenia-ortofoto-proxy/lib/src/upstream_wms_client.dart, test/unit/region_manifest_catalog_test.dart, test/widget/map_basemaps_drawer_test.dart, test/robot/map/basemap_selection_journey_test.dart, ai_specs/map-screen/slovenia-ortofoto-proxy-plan.md]
+references: [assets/region_manifest.json, lib/generated/region_manifest_catalog.g.dart, lib/screens/map_screen_layers.dart, lib/services/tile_cache_service.dart, proxy/slovenia-topo-proxy/lib/src/tile_handler.dart, proxy/slovenia-topo-proxy/lib/src/upstream_wms_client.dart, test/unit/region_manifest_catalog_test.dart, test/widget/map_basemaps_drawer_test.dart, test/robot/map/basemap_selection_journey_test.dart, ai_specs/map-screen/slovenia-topo-proxy-plan.md]
 ---
 
 ## Summary

@@ -99,7 +99,7 @@ void main() {
     );
     expect(
       mapTileUrl(Basemap.sloveniaTopo),
-      'https://tiles.peakbagger.com/slovenia-topo/{z}/{x}/{y}.png',
+      sloveniaTopoDebugTileUrl,
     );
   });
 
@@ -111,7 +111,7 @@ void main() {
     expect(tileLayer.wmsOptions, isNull);
     expect(
       tileLayer.urlTemplate,
-      'https://tiles.peakbagger.com/slovenia-topo/{z}/{x}/{y}.png',
+      sloveniaTopoDebugTileUrl,
     );
   });
 }

@@ -16,16 +16,16 @@ export 'upstream_wms_client.dart'
     show HttpUpstreamWmsClient, UpstreamTileResponse, UpstreamWmsClient;
 
 const _routePrefix = 'slovenia-topo';
-const _defaultMaxConcurrentUpstreamRequests = 4;
-const _defaultUpstreamAttempts = 4;
-const _baseRetryDelay = Duration(milliseconds: 150);
+const _defaultMaxConcurrentUpstreamRequests = 2;
+const _defaultUpstreamAttempts = 6;
+const _baseRetryDelay = Duration(milliseconds: 400);
 
 final _sharedUpstreamSemaphore = AsyncSemaphore(
   _defaultMaxConcurrentUpstreamRequests,
 );
 
-class SloveniaOrtofotoTileHandler {
-  SloveniaOrtofotoTileHandler({
+class SloveniaTopoTileHandler {
+  SloveniaTopoTileHandler({
     required UpstreamWmsClient upstreamClient,
     int maxZoom = 19,
     int upstreamAttempts = _defaultUpstreamAttempts,

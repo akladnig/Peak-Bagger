@@ -9,12 +9,12 @@ The live Slovenian source is the public WMS endpoint at `https://storitve.eprost
 The committed app-side XYZ tile URL for this basemap should be `https://tiles.peakbagger.com/slovenia-ortofoto/{z}/{x}/{y}.png`.
 The Flutter app already renders basemaps from the manifest-backed catalog in `./assets/region_manifest.json`, generated into `./lib/generated/region_manifest_catalog.g.dart`, and selected through the existing basemap drawer and `TileLayer` XYZ URL templates.
 The app's current map/cache code assumes normal tile URLs and should not be rewritten to use direct WMS or custom map projection logic for this feature.
-The proxy should be a new standalone Dart package created under `./proxy/slovenia-ortofoto-proxy/` with its own `pubspec.yaml`, entrypoint, and tests.
+The proxy should be a new standalone Dart package created under `./proxy/slovenia-topo-proxy/` with its own `pubspec.yaml`, entrypoint, and tests.
 Files to examine: `./assets/region_manifest.json`, `./tool/generate_region_manifest_catalog.dart`, `./lib/generated/region_manifest_catalog.g.dart`, `./lib/services/region_manifest_catalog.dart`, `./lib/screens/map_screen_layers.dart`, `./lib/widgets/map_basemaps_drawer.dart`, `./lib/services/tile_cache_service.dart`, `./test/unit/region_manifest_catalog_test.dart`, `./test/unit/tile_cache_service_test.dart`, `./test/widget/map_basemaps_drawer_test.dart`.
 </background>
 
 <discovery>
-1. Confirm the proxy should be created as a standalone deployable HTTP service package in `./proxy/slovenia-ortofoto-proxy/` rather than a Flutter-side workaround or direct WMS call.
+1. Confirm the proxy should be created as a standalone deployable HTTP service package in `./proxy/slovenia-topo-proxy/` rather than a Flutter-side workaround or direct WMS call.
 2. Confirm the proxy should expose a stable XYZ endpoint of the form `/slovenia-ortofoto/{z}/{x}/{y}.png` so the existing `TileLayer` code can consume it unchanged.
 3. Confirm the proxy package should use `shelf` + `http` + `proj4dart` (or equivalent small Dart server/projection dependencies) and expose local overrides for `PORT` and the upstream WMS base URL while keeping the app manifest pointed at one stable published proxy URL.
 4. Confirm the final `maxZoom` for the proxy and manifest with a live smoke test against the upstream WMS, then keep the proxy seed/cache config and manifest entry aligned to that single value.
@@ -46,7 +46,7 @@ Error flows:
 **Functional:**
 1. Add a new Slovenian basemap entry to `./assets/region_manifest.json` under the `slovenia` region with a stable key such as `sloveniaOrtofoto`, a human-readable name such as `Slovenia Ortofoto`, attribution that matches the GURS use constraints, and the committed proxy tile URL template `https://tiles.peakbagger.com/slovenia-ortofoto/{z}/{x}/{y}.png`.
 2. Regenerate `./lib/generated/region_manifest_catalog.g.dart` from the manifest so the new basemap becomes part of `Basemap.values`, the region basemap drawer, and the tile-cache store list without manual enum edits.
-3. Implement a standalone `shelf`-based tile proxy service in `./proxy/slovenia-ortofoto-proxy/` that includes `pubspec.yaml`, a server entrypoint, projection and WMS client helpers, and tests.
+3. Implement a standalone `shelf`-based tile proxy service in `./proxy/slovenia-topo-proxy/` that includes `pubspec.yaml`, a server entrypoint, projection and WMS client helpers, and tests.
 4. The proxy must translate the incoming XYZ tile bounds from Web Mercator into the upstream WMS request for `SI.GURS.ZPDZ:DOF5` using `EPSG:3794`, calculating the request bbox from the tile's exact projected corner coordinates.
 5. The proxy must keep the app on the existing XYZ path; do not add a direct WMS code path to `./lib/screens/map_screen.dart` or `./lib/widgets/map_basemaps_drawer.dart`.
 6. The proxy must emit cache-friendly headers so the app's own tile cache and any CDN or browser cache can reuse responses safely.
@@ -90,12 +90,12 @@ Limits:
 </boundaries>
 
 <implementation>
-Create `./proxy/slovenia-ortofoto-proxy/` as a small standalone `shelf` Dart HTTP service package with `pubspec.yaml`, a server entrypoint, a thin request handler, upstream WMS client, projection helper, and tests.
+Create `./proxy/slovenia-topo-proxy/` as a small standalone `shelf` Dart HTTP service package with `pubspec.yaml`, a server entrypoint, a thin request handler, upstream WMS client, projection helper, and tests.
 The proxy should compute Web Mercator tile bounds, convert them to the WMS request CRS, call the live GURS endpoint, and return the response as a cached PNG tile.
 Add the new Slovenian basemap entry in `./assets/region_manifest.json`, then regenerate `./lib/generated/region_manifest_catalog.g.dart` so the app automatically exposes the new basemap key everywhere manifest-backed basemaps are already used.
 Keep `./lib/screens/map_screen_layers.dart` and `./lib/widgets/map_basemaps_drawer.dart` unchanged unless the manifest regeneration exposes a real compatibility issue.
 Update `./lib/services/tile_cache_service.dart` only as needed to exclude `sloveniaOrtofoto` from global low-zoom warmup while keeping per-basemap store creation intact.
-Add a proxy configuration file or README inside `./proxy/slovenia-ortofoto-proxy/` that captures the upstream WMS URL `https://storitve.eprostor.gov.si/ows-pub-wms/wms`, the single layer name `SI.GURS.ZPDZ:DOF5`, the expected bounding box, and the committed app manifest URL `https://tiles.peakbagger.com/slovenia-ortofoto/{z}/{x}/{y}.png`.
+Add a proxy configuration file or README inside `./proxy/slovenia-topo-proxy/` that captures the upstream WMS URL `https://storitve.eprostor.gov.si/ows-pub-wms/wms`, the single layer name `SI.GURS.ZPDZ:DOF5`, the expected bounding box, and the committed app manifest URL `https://tiles.peakbagger.com/slovenia-ortofoto/{z}/{x}/{y}.png`.
 Add stable test keys in the app only if the current basemap drawer tests need them; the existing `Key('basemap-option-${basemapData.key}')` pattern should already cover the new entry.
 Avoid any app-side special casing for Slovenia beyond the new manifest entry and regenerated catalog.
 </implementation>

@@ -1,7 +1,7 @@
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:slovenia_ortofoto_proxy/src/projection.dart';
-import 'package:slovenia_ortofoto_proxy/src/upstream_wms_client.dart';
+import 'package:slovenia_topo_proxy/src/projection.dart';
+import 'package:slovenia_topo_proxy/src/upstream_wms_client.dart';
 import 'package:test/test.dart';
 
 void main() {

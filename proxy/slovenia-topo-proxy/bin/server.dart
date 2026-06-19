@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
-import 'package:slovenia_ortofoto_proxy/src/tile_handler.dart';
+import 'package:slovenia_topo_proxy/src/tile_handler.dart';
 
 Future<void> main() async {
   final port = int.parse(Platform.environment['PORT'] ?? '8080');
@@ -14,7 +14,7 @@ Future<void> main() async {
   final client = HttpUpstreamWmsClient(baseUrl: upstreamWmsUrl);
   final handler = Pipeline()
       .addMiddleware(logRequests())
-      .addHandler(SloveniaOrtofotoTileHandler(upstreamClient: client).handle);
+      .addHandler(SloveniaTopoTileHandler(upstreamClient: client).handle);
 
   final server = await shelf_io.serve(handler, InternetAddress.anyIPv4, port);
   stdout.writeln('Serving Slovenia topo proxy on port ${server.port}');
