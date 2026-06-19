@@ -17,6 +17,26 @@ This keeps the app on the production URL contract while serving tiles locally.
 
 - `apache/tiles.peakbagger.com.conf`: Apache vhost and reverse proxy config
 - `launchd/com.peakbagger.slovenia-topo-proxy.plist`: auto-start the Dart proxy at login
+- `scripts/setup-local-production.sh`: first-time machine setup
+- `scripts/restart-local-production.sh`: refresh installed files and restart Apache + proxy
+
+## Script Entry Points
+
+From the repo root:
+
+```bash
+bash proxy/slovenia-topo-proxy/local-production/scripts/setup-local-production.sh
+```
+
+After later machine restarts or local config changes:
+
+```bash
+bash proxy/slovenia-topo-proxy/local-production/scripts/restart-local-production.sh
+```
+
+The scripts render machine-specific copies of the Apache vhost and `launchd`
+plist from the checked-in files, so they stay aligned with the actual repo path
+and home directory on the current machine.
 
 ## Prerequisites
 
@@ -51,6 +71,9 @@ mkcert -install
 
 ## 1. Create A Local Certificate
 
+If you are using the setup script, it will create the certificate for you. The
+manual steps are below for visibility.
+
 From the repo root:
 
 ```bash
@@ -62,6 +85,9 @@ mkcert \
 ```
 
 ## 2. Map The Hostname Locally
+
+If you are using the setup script, it will add the `/etc/hosts` entry if it is
+missing.
 
 Append this line to `/etc/hosts`:
 
@@ -76,6 +102,9 @@ printf '\n127.0.0.1 tiles.peakbagger.com\n' | sudo tee -a /etc/hosts
 ```
 
 ## 3. Install The LaunchAgent
+
+If you are using the scripts, they will render and install the `launchd` plist
+for the current machine automatically.
 
 Copy the provided plist into `~/Library/LaunchAgents/`:
 
@@ -105,6 +134,9 @@ Proxy logs will be written to:
 
 ## 4. Install The Apache Config
 
+If you are using the scripts, they will render and install the Apache vhost for
+the current machine automatically.
+
 Copy `apache/tiles.peakbagger.com.conf` into your Apache include path.
 
 This Apache install already includes `/private/etc/apache2/other/*.conf`, so
@@ -118,6 +150,9 @@ No extra `Include` line is needed because `/private/etc/apache2/httpd.conf`
 already includes `/private/etc/apache2/other/*.conf`.
 
 ## 5. Ensure Required Apache Modules Are Enabled
+
+If you are using the setup script, it will uncomment the required module lines
+in `/private/etc/apache2/httpd.conf` for you.
 
 On this machine, `headers_module` is already loaded, but these modules are still
 commented out in `/private/etc/apache2/httpd.conf` and must be enabled:
@@ -139,6 +174,8 @@ LoadModule ssl_module libexec/apache2/mod_ssl.so
 You do not need to enable `httpd-ssl.conf` for this setup.
 
 ## 6. Start Or Restart Apache
+
+The setup and restart scripts both do this for you.
 
 ```bash
 sudo apachectl -k restart
