@@ -24,6 +24,32 @@ import '../core/number_formatters.dart';
 import '../theme.dart';
 
 String mapTileUrl(Basemap basemap) {
+  if (basemap == Basemap.tracestrack) {
+    final tileUrl = regionManifestCatalog.basemapByKey(basemap.name)?.tileUrl;
+    if (tileUrl == null || !hasTracestrackApiKey) {
+      return tileUrl ??
+          regionManifestCatalog
+              .basemapByKey(Basemap.openstreetmap.name)!
+              .tileUrl;
+    }
+
+    return '$tileUrl?key=${Uri.encodeQueryComponent(tracestrackApiKey)}';
+  }
+
+  if (basemap == Basemap.mapyCz) {
+    final fallback = mapTileUrl(Basemap.tracestrack);
+    if (!hasMapyCzApiKey) {
+      return fallback;
+    }
+
+    final tileUrl = regionManifestCatalog.basemapByKey(basemap.name)?.tileUrl;
+    if (tileUrl == null) {
+      return fallback;
+    }
+
+    return '$tileUrl&apikey=${Uri.encodeQueryComponent(mapyCzApiKey)}';
+  }
+
   if (basemap == Basemap.sloveniaTopo && !kReleaseMode) {
     return sloveniaTopoDebugTileUrl;
   }

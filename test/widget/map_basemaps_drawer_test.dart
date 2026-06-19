@@ -8,6 +8,7 @@ import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/region_manifest_catalog.dart';
 
 import '../harness/test_map_notifier.dart';
 import '../harness/test_tasmap_notifier.dart';
@@ -82,7 +83,10 @@ void main() {
     await tester.tap(find.byKey(const Key('show-basemaps-fab')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('basemaps-drawer-empty-state')), findsOneWidget);
+    expect(
+      find.byKey(const Key('basemaps-drawer-empty-state')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('slovenia region shows slovenia topo option', (tester) async {
@@ -100,8 +104,34 @@ void main() {
     await tester.tap(find.byKey(const Key('show-basemaps-fab')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('basemap-option-sloveniaTopo')), findsOneWidget);
+    expect(
+      find.byKey(const Key('basemap-option-sloveniaTopo')),
+      findsOneWidget,
+    );
     expect(find.byKey(const Key('basemap-option-nswTopo')), findsNothing);
+  });
+
+  testWidgets('tasmania region gates mapy.cz behind API key config', (
+    tester,
+  ) async {
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        cursorPoint: const LatLng(-44.0, 148.8867),
+        zoom: 12,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    await _pumpRawMapScreen(tester, notifier, size: const Size(1600, 900));
+
+    await tester.tap(find.byKey(const Key('show-basemaps-fab')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('basemap-option-mapyCz')),
+      hasMapyCzApiKey ? findsOneWidget : findsNothing,
+    );
   });
 }
 
@@ -123,7 +153,9 @@ Future<void> _pumpRawMapScreen(
         ),
         gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
         tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
-        tasmapStateProvider.overrideWith(() => TestTasmapNotifier(tasmapRepository)),
+        tasmapStateProvider.overrideWith(
+          () => TestTasmapNotifier(tasmapRepository),
+        ),
       ],
       child: const MaterialApp(home: MapScreen()),
     ),

@@ -55,3 +55,4 @@ app.*.map.json
 /objectbox/data.mdb
 /objectbox/lock.mdb
 /objectbox/data.mdb
+/dart_defines.local.json

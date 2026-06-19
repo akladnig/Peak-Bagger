@@ -3544,7 +3544,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
             stores: {basemap.name: BrowseStoreStrategy.readUpdateCreate},
             loadingStrategy: BrowseLoadingStrategy.cacheFirst,
             recordHitsAndMisses: false,
-            urlTransformer: _identityUrlTransformer,
+            urlTransformer: (url) =>
+                TileCacheService.transformBrowseUrl(basemap, url),
           );
 
     _cachedTileProviderBasemap = basemap;

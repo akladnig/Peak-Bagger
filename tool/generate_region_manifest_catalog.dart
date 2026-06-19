@@ -12,6 +12,7 @@ const _baselineBasemapOrder = <String>[
   'tasmap25k',
   'tracestrack',
   'openstreetmap',
+  'mapyCz',
 ];
 
 void main(List<String> args) {
@@ -43,7 +44,11 @@ void main(List<String> args) {
     }
 
     final polygons = <List<LatLng>>[];
-    final polygonPaths = _readStringList(regionValue['poly'], 'poly', regionKey);
+    final polygonPaths = _readStringList(
+      regionValue['poly'],
+      'poly',
+      regionKey,
+    );
     for (final polygonPath in polygonPaths) {
       final polygonFile = File(polygonPath);
       if (!polygonFile.existsSync()) {
@@ -111,14 +116,16 @@ void main(List<String> args) {
 
   final buffer = StringBuffer()
     ..writeln('// GENERATED CODE - DO NOT MODIFY BY HAND.')
-    ..writeln('// ignore_for_file: constant_identifier_names, unnecessary_const')
+    ..writeln(
+      '// ignore_for_file: constant_identifier_names, unnecessary_const',
+    )
     ..writeln()
-    ..writeln("part of 'package:peak_bagger/services/region_manifest_catalog.dart';")
+    ..writeln(
+      "part of 'package:peak_bagger/services/region_manifest_catalog.dart';",
+    )
     ..writeln()
     ..writeln('enum Basemap {')
-    ..writeln(
-      orderedBasemapKeys.map((key) => '  $key,').join('\n'),
-    )
+    ..writeln(orderedBasemapKeys.map((key) => '  $key,').join('\n'))
     ..writeln('}')
     ..writeln()
     ..writeln('const regionManifestCatalogData = RegionManifestCatalogData(')
@@ -131,9 +138,7 @@ void main(List<String> args) {
       ..writeln('      key: ${_stringLiteral(basemap.key)},')
       ..writeln('      name: ${_stringLiteral(basemap.name)},')
       ..writeln('      tileUrl: ${_stringLiteral(basemap.tileUrl)},')
-      ..writeln(
-        '      attribution: ${_stringLiteral(basemap.attribution)},',
-      );
+      ..writeln('      attribution: ${_stringLiteral(basemap.attribution)},');
     if (basemap.maxZoom != null) {
       buffer.writeln('      maxZoom: ${basemap.maxZoom},');
     }
@@ -199,7 +204,8 @@ List<String> _readStringList(dynamic value, String field, String regionKey) {
   return items.cast<String>();
 }
 
-String _stringLiteral(String value) => "'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'";
+String _stringLiteral(String value) =>
+    "'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'";
 
 String _doubleLiteral(double value) {
   if (value == value.roundToDouble()) {
@@ -225,7 +231,10 @@ class _BasemapDefinition {
     final name = json['name'];
     final tileUrl = json['tileUrl'];
     final attribution = json['attribution'];
-    if (key is! String || name is! String || tileUrl is! String || attribution is! String) {
+    if (key is! String ||
+        name is! String ||
+        tileUrl is! String ||
+        attribution is! String) {
       throw StateError('Invalid basemap entry in $regionKey');
     }
 

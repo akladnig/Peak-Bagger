@@ -73,6 +73,14 @@ Offline support is a real part of the app experience. Users can initialize local
 
 Regional support is driven by bundled assets and manifests, so available basemaps and related map behavior can adapt by area. Tasmania currently has the richest support, with additional regional asset coverage including New South Wales, Slovenia, Croatia, and Italy.
 
+The Mapy.cz tourist basemap uses Mapy's official tile API and is only enabled when the app is built with `--dart-define=MAPY_CZ_API_KEY=<your-key>`.
+
+For local development in this repo, you can keep API keys out of git by using `dart_defines.local.json` and launching with `--dart-define-from-file=dart_defines.local.json`. The repo now expects both `TRACESTRACK_API_KEY` and `MAPY_CZ_API_KEY` there for the keyed basemaps.
+
+For the combined local Mapy + Slovenia debug setup, run `./run_local_maps.sh`. It starts the local Slovenia proxy on `127.0.0.1:8080` if needed, then launches `flutter run --dart-define-from-file=dart_defines.local.json`. Extra `flutter run` args are forwarded, for example `./run_local_maps.sh --verbose` or `./run_local_maps.sh -d iphone`.
+
+You can manage the local Slovenia proxy on its own with `./start_slovenia_proxy.sh`, `./stop_slovenia_proxy.sh`, and `./restart_slovenia_proxy.sh`. The helper-managed proxy PID is stored in `.dart_tool/slovenia_topo_proxy.pid`, and proxy output goes to `.dart_tool/slovenia_topo_proxy.log`.
+
 ## Local-First By Design
 
 Peak Bagger stores its working data locally with ObjectBox. That local-first approach supports fast access to peaks, tracks, routes, ascents, and list data while enabling offline workflows and richer maintenance tools than a simple viewer app.

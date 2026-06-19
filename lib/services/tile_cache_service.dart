@@ -9,16 +9,20 @@ import 'package:peak_bagger/services/tile_cache_download_scope.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class TileCacheService {
+  static List<Basemap> get availableBasemaps => [
+    for (final basemap in Basemap.values)
+      if (isBasemapAvailable(basemap)) basemap,
+  ];
   static List<String> get storeNames => [
-    for (final basemap in Basemap.values) basemap.name,
+    for (final basemap in availableBasemaps) basemap.name,
   ];
   static Iterable<Basemap> get warmupBasemaps =>
-      Basemap.values.where((basemap) => basemap != Basemap.sloveniaTopo);
+      availableBasemaps.where((basemap) => basemap != Basemap.sloveniaTopo);
   @visibleForTesting
   static const lowZoomWarmupVersionKey = 'tile_cache_low_zoom_warmup_version';
 
   @visibleForTesting
-  static const lowZoomWarmupVersion = 3;
+  static const lowZoomWarmupVersion = 4;
 
   static final Map<String, FMTCStore> _stores = {};
   static Future<void>? _lowZoomWarmupFuture;
@@ -40,6 +44,40 @@ class TileCacheService {
 
   static FMTCStore? getStoreForBasemap(Basemap basemap) {
     return _stores[basemap.name];
+  }
+
+  static String transformBrowseUrl(Basemap basemap, String url) {
+    if (basemap != Basemap.mapyCz) {
+      return url;
+    }
+
+    final uri = Uri.tryParse(url);
+    if (uri == null) {
+      return url;
+    }
+
+    final segments = uri.pathSegments.toList(growable: true);
+    if (segments.length < 7) {
+      return url;
+    }
+
+    final z = int.tryParse(segments[4]);
+    final x = int.tryParse(segments[5]);
+    final y = int.tryParse(segments[6]);
+    if (z == null || x == null || y == null || z < 0) {
+      return url;
+    }
+
+    final tileCount = 1 << z;
+    final normalizedX = ((x % tileCount) + tileCount) % tileCount;
+    final normalizedY = y.clamp(0, tileCount - 1);
+    if (normalizedX == x && normalizedY == y) {
+      return url;
+    }
+
+    segments[5] = '$normalizedX';
+    segments[6] = '$normalizedY';
+    return uri.replace(pathSegments: segments).toString();
   }
 
   static String transformUrl(Basemap basemap, int z, int x, int y) {

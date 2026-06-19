@@ -17,9 +17,16 @@
       {
         "key": "tracestrack",
         "name": "Tracestrack Topo",
-        "tileUrl": "https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp?key=8bd67b17be9041b60f241c2aa45ecf0d",
+        "tileUrl": "https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp",
         "attribution": "\u00A9 Tracestrack",
         "maxZoom": 24
+      },
+      {
+        "key": "mapyCz",
+        "name": "Mapy.cz Tourist",
+        "tileUrl": "https://api.mapy.com/v1/maptiles/outdoor/256/{z}/{x}/{y}?lang=en",
+        "attribution": "\u00A9 Seznam.cz a.s. and others",
+        "maxZoom": 19
       },
       {
         "key": "tasmapTopo",
@@ -63,9 +70,16 @@
       {
         "key": "tracestrack",
         "name": "Tracestrack Topo",
-        "tileUrl": "https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp?key=8bd67b17be9041b60f241c2aa45ecf0d",
+        "tileUrl": "https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp",
         "attribution": "\u00A9 Tracestrack",
         "maxZoom": 24
+      },
+      {
+        "key": "mapyCz",
+        "name": "Mapy.cz Tourist",
+        "tileUrl": "https://api.mapy.com/v1/maptiles/outdoor/256/{z}/{x}/{y}?lang=en",
+        "attribution": "\u00A9 Seznam.cz a.s. and others",
+        "maxZoom": 19
       },
       {
         "key": "nswImagery",
@@ -107,9 +121,16 @@
       {
         "key": "tracestrack",
         "name": "Tracestrack Topo",
-        "tileUrl": "https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp?key=8bd67b17be9041b60f241c2aa45ecf0d",
+        "tileUrl": "https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp",
         "attribution": "\u00A9 Tracestrack",
         "maxZoom": 24
+      },
+      {
+        "key": "mapyCz",
+        "name": "Mapy.cz Tourist",
+        "tileUrl": "https://api.mapy.com/v1/maptiles/outdoor/256/{z}/{x}/{y}?lang=en",
+        "attribution": "\u00A9 Seznam.cz a.s. and others",
+        "maxZoom": 19
       }
     ],
     "mapSet": []
@@ -132,9 +153,16 @@
       {
         "key": "tracestrack",
         "name": "Tracestrack Topo",
-        "tileUrl": "https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp?key=8bd67b17be9041b60f241c2aa45ecf0d",
+        "tileUrl": "https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp",
         "attribution": "\u00A9 Tracestrack",
         "maxZoom": 24
+      },
+      {
+        "key": "mapyCz",
+        "name": "Mapy.cz Tourist",
+        "tileUrl": "https://api.mapy.com/v1/maptiles/outdoor/256/{z}/{x}/{y}?lang=en",
+        "attribution": "\u00A9 Seznam.cz a.s. and others",
+        "maxZoom": 19
       }
     ],
     "mapSet": []
@@ -157,9 +185,16 @@
       {
         "key": "tracestrack",
         "name": "Tracestrack Topo",
-        "tileUrl": "https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp?key=8bd67b17be9041b60f241c2aa45ecf0d",
+        "tileUrl": "https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp",
         "attribution": "\u00A9 Tracestrack",
         "maxZoom": 24
+      },
+      {
+        "key": "mapyCz",
+        "name": "Mapy.cz Tourist",
+        "tileUrl": "https://api.mapy.com/v1/maptiles/outdoor/256/{z}/{x}/{y}?lang=en",
+        "attribution": "\u00A9 Seznam.cz a.s. and others",
+        "maxZoom": 19
       }
     ],
     "mapSet": []
@@ -182,9 +217,16 @@
       {
         "key": "tracestrack",
         "name": "Tracestrack Topo",
-        "tileUrl": "https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp?key=8bd67b17be9041b60f241c2aa45ecf0d",
+        "tileUrl": "https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp",
         "attribution": "\u00A9 Tracestrack",
         "maxZoom": 24
+      },
+      {
+        "key": "mapyCz",
+        "name": "Mapy.cz Tourist",
+        "tileUrl": "https://api.mapy.com/v1/maptiles/outdoor/256/{z}/{x}/{y}?lang=en",
+        "attribution": "\u00A9 Seznam.cz a.s. and others",
+        "maxZoom": 19
       },
       {
         "key": "sloveniaTopo",
@@ -214,9 +256,16 @@
       {
         "key": "tracestrack",
         "name": "Tracestrack Topo",
-        "tileUrl": "https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp?key=8bd67b17be9041b60f241c2aa45ecf0d",
+        "tileUrl": "https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp",
         "attribution": "\u00A9 Tracestrack",
         "maxZoom": 24
+      },
+      {
+        "key": "mapyCz",
+        "name": "Mapy.cz Tourist",
+        "tileUrl": "https://api.mapy.com/v1/maptiles/outdoor/256/{z}/{x}/{y}?lang=en",
+        "attribution": "\u00A9 Seznam.cz a.s. and others",
+        "maxZoom": 19
       }
     ],
     "mapSet": []

@@ -37,11 +37,14 @@ void main() {
 
     expect(
       TileCacheService.storeNames,
-      Basemap.values.map((b) => b.name).toList(growable: false),
+      TileCacheService.availableBasemaps
+          .map((basemap) => basemap.name)
+          .toList(growable: false),
     );
     expect(basemaps, expectedWarmupBasemaps);
     expect(regions, hasLength(expectedWarmupBasemaps.length));
     expect(basemaps, isNot(contains(Basemap.sloveniaTopo)));
+    expect(basemaps.contains(Basemap.mapyCz), hasMapyCzApiKey);
     expect(regions.first.minZoom, lowZoomTileCacheWarmupMinZoom);
     expect(regions.first.maxZoom, lowZoomTileCacheWarmupMaxZoom);
 
@@ -137,5 +140,29 @@ void main() {
     await Future.wait([first, second]);
 
     expect(callCount, TileCacheService.warmupBasemaps.length);
+  });
+
+  test('transformBrowseUrl normalizes wrapped mapy tile coordinates', () {
+    expect(
+      TileCacheService.transformBrowseUrl(
+        Basemap.mapyCz,
+        'https://api.mapy.com/v1/maptiles/outdoor/256/10/-1/-1?lang=en&apikey=test-key',
+      ),
+      'https://api.mapy.com/v1/maptiles/outdoor/256/10/1023/0?lang=en&apikey=test-key',
+    );
+    expect(
+      TileCacheService.transformBrowseUrl(
+        Basemap.mapyCz,
+        'https://api.mapy.com/v1/maptiles/outdoor/256/10/1024/1024?lang=en&apikey=test-key',
+      ),
+      'https://api.mapy.com/v1/maptiles/outdoor/256/10/0/1023?lang=en&apikey=test-key',
+    );
+    expect(
+      TileCacheService.transformBrowseUrl(
+        Basemap.openstreetmap,
+        'https://tile.openstreetmap.org/10/-1/-1.png',
+      ),
+      'https://tile.openstreetmap.org/10/-1/-1.png',
+    );
   });
 }

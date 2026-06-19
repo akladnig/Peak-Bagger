@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:shelf/shelf.dart';
 import 'package:slovenia_topo_proxy/src/tile_handler.dart';
+import 'package:slovenia_topo_proxy/src/transparent_tile.dart';
 import 'package:test/test.dart';
 
 const _pngBase64 =
@@ -120,7 +121,7 @@ void main() {
     },
   );
 
-  test('maps upstream HTML failure to 502 without leaking body', () async {
+  test('maps upstream HTML failure to transparent tile', () async {
     final handler = SloveniaTopoTileHandler(
       upstreamClient: _FakeUpstreamWmsClient(
         response: const UpstreamTileResponse(
@@ -141,9 +142,13 @@ void main() {
       ),
     );
 
-    expect(response.statusCode, 502);
+    expect(response.statusCode, 200);
+    expect(response.headers['Content-Type'], 'image/png');
     expect(response.headers['Cache-Control'], 'public, max-age=60');
-    expect(await response.readAsString(), 'Upstream WMS request failed');
+    expect(
+      await response.read().expand((chunk) => chunk).toList(),
+      transparentTilePngBytes,
+    );
   });
 
   test('retries transient upstream failure before succeeding', () async {
