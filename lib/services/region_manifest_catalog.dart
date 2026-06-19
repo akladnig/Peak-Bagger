@@ -24,6 +24,7 @@ class RegionManifestBasemapData {
     required this.tileUrl,
     required this.attribution,
     this.maxZoom,
+    this.coveragePolygons = const [],
   });
 
   final String key;
@@ -31,6 +32,21 @@ class RegionManifestBasemapData {
   final String tileUrl;
   final String attribution;
   final int? maxZoom;
+  final List<List<LatLng>> coveragePolygons;
+
+  bool isAvailableForPoint(LatLng point) {
+    if (coveragePolygons.isEmpty) {
+      return true;
+    }
+
+    for (final polygon in coveragePolygons) {
+      if (polygonContainsPoint(point, polygon)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
 }
 
 class RegionManifestRegionData {
@@ -165,7 +181,27 @@ class RegionManifestCatalog {
       return const [];
     }
 
-    return basemapsForRegionKey(region.key);
+    final basemaps = <RegionManifestBasemapData>[];
+    final seen = <String>{};
+    for (final key in region.basemapKeys) {
+      if (!seen.add(key)) {
+        continue;
+      }
+
+      final basemapEnum = _basemapEnumByKey[key];
+      if (basemapEnum != null && !isBasemapAvailable(basemapEnum)) {
+        continue;
+      }
+
+      final basemap = _basemapByKey[key];
+      if (basemap == null || !basemap.isAvailableForPoint(point)) {
+        continue;
+      }
+
+      basemaps.add(basemap);
+    }
+
+    return List.unmodifiable(basemaps);
   }
 
   RegionManifestBasemapData? basemapForEnum(Basemap basemap) {

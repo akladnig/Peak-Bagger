@@ -54,6 +54,10 @@ String mapTileUrl(Basemap basemap) {
     return sloveniaTopoDebugTileUrl;
   }
 
+  if (basemap == Basemap.fvgTopo && !kReleaseMode) {
+    return fvgTopoDebugTileUrl;
+  }
+
   return regionManifestCatalog.basemapByKey(basemap.name)?.tileUrl ??
       regionManifestCatalog.basemapByKey(Basemap.tracestrack.name)!.tileUrl;
 }
@@ -65,6 +69,15 @@ String get sloveniaTopoDebugTileUrl {
   }
 
   return 'http://127.0.0.1:8080/slovenia-topo/{z}/{x}/{y}.png';
+}
+
+String get fvgTopoDebugTileUrl {
+  const override = String.fromEnvironment('FVG_TOPO_TILE_URL');
+  if (override.isNotEmpty) {
+    return override;
+  }
+
+  return 'http://127.0.0.1:8081/fvg-topo/{z}/{x}/{y}.png';
 }
 
 TileLayer buildBasemapTileLayer(

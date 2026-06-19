@@ -4,11 +4,17 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
 
+const _regionAliases = <String, String>{
+  'friuli-venezia-giulia': 'italy-nord-est',
+};
+
 Set<int> peakIdsForRegion({
   required Iterable<Peak> peaks,
   required LatLng cursorPoint,
 }) {
-  final regionKey = regionManifestCatalog.regionKeyForPoint(cursorPoint);
+  final regionKey = canonicalRegionKey(
+    regionManifestCatalog.regionKeyForPoint(cursorPoint),
+  );
   if (regionKey == null) {
     return const <int>{};
   }
@@ -16,8 +22,10 @@ Set<int> peakIdsForRegion({
   return peaks
       .where(
         (peak) =>
-            regionManifestCatalog.regionKeyForPoint(
-              LatLng(peak.latitude, peak.longitude),
+            canonicalRegionKey(
+              regionManifestCatalog.regionKeyForPoint(
+                LatLng(peak.latitude, peak.longitude),
+              ),
             ) ==
             regionKey,
       )
@@ -83,9 +91,12 @@ Set<int> renderablePeakListIds({
 }
 
 bool peakListAppliesToRegion(PeakList peakList, String? currentRegionKey) {
-  return normalizePeakListRegionKey(currentRegionKey) != null &&
-      normalizePeakListRegionKey(peakList.region) ==
-          normalizePeakListRegionKey(currentRegionKey);
+  final normalizedCurrentRegionKey = canonicalRegionKey(
+    normalizePeakListRegionKey(currentRegionKey),
+  );
+  return normalizedCurrentRegionKey != null &&
+      canonicalRegionKey(normalizePeakListRegionKey(peakList.region)) ==
+          normalizedCurrentRegionKey;
 }
 
 String? normalizePeakListRegionKey(String? regionKey) {
@@ -98,6 +109,15 @@ String? normalizePeakListRegionKey(String? regionKey) {
   }
 
   return trimmed.toLowerCase();
+}
+
+String? canonicalRegionKey(String? regionKey) {
+  final normalized = normalizePeakListRegionKey(regionKey);
+  if (normalized == null) {
+    return null;
+  }
+
+  return _regionAliases[normalized] ?? normalized;
 }
 
 bool _isPeakWithinBounds({required Peak peak, required LatLngBounds bounds}) {

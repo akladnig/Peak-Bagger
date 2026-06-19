@@ -16,8 +16,9 @@ class TileCacheService {
   static List<String> get storeNames => [
     for (final basemap in availableBasemaps) basemap.name,
   ];
-  static Iterable<Basemap> get warmupBasemaps =>
-      availableBasemaps.where((basemap) => basemap != Basemap.sloveniaTopo);
+  static Iterable<Basemap> get warmupBasemaps => availableBasemaps.where(
+    (basemap) => basemap != Basemap.sloveniaTopo && basemap != Basemap.fvgTopo,
+  );
   @visibleForTesting
   static const lowZoomWarmupVersionKey = 'tile_cache_low_zoom_warmup_version';
 

@@ -131,6 +131,17 @@
         "tileUrl": "https://api.mapy.com/v1/maptiles/outdoor/256/{z}/{x}/{y}?lang=en",
         "attribution": "\u00A9 Seznam.cz a.s. and others",
         "maxZoom": 19
+      },
+      {
+        "key": "fvgTopo",
+        "name": "FVG Topo",
+        "tileUrl": "https://tiles.peakbagger.com/fvg-topo/{z}/{x}/{y}.png",
+        "attribution": "\u00A9 Regione Autonoma Friuli Venezia Giulia",
+        "maxZoom": 19,
+        "coveragePoly": [
+          "assets/polygons/friuli-venezia-giulia-mainland.poly",
+          "assets/polygons/friuli-venezia-giulia-islet.poly"
+        ]
       }
     ],
     "mapSet": []

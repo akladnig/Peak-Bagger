@@ -93,7 +93,6 @@ class MapScreen extends ConsumerStatefulWidget {
 class _MapScreenState extends ConsumerState<MapScreen>
     with WidgetsBindingObserver {
   static const _chartHoverResolver = MapChartHoverResolver();
-  static String _identityUrlTransformer(String url) => url;
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   late final MapController _mapController;
@@ -117,7 +116,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   int? _appliedSelectedRouteSerial;
   int? _pendingCameraRequestSerial;
   int? _appliedCameraRequestSerial;
-  String? _basemapDrawerRegionKey;
+  List<String>? _basemapDrawerBasemapKeys;
   bool _isPointerDown = false;
   Offset? _pointerDownPosition;
   bool _primaryClickPending = false;
@@ -2252,14 +2251,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
             key: _scaffoldKey,
             endDrawer: switch (routeChrome.endDrawerMode) {
               EndDrawerMode.basemaps => MapBasemapsDrawer(
-                regionKey: _basemapDrawerRegionKey,
+                basemapKeys: _basemapDrawerBasemapKeys ?? const [],
               ),
               EndDrawerMode.peakLists => const MapPeakListsDrawer(),
               EndDrawerMode.tracksRoutes => const MapTracksRoutesDrawer(),
             },
             onEndDrawerChanged: (isOpen) {
               if (!isOpen && mounted) {
-                setState(() => _basemapDrawerRegionKey = null);
+                setState(() => _basemapDrawerBasemapKeys = null);
                 _mapFocusNode.requestFocus();
               }
             },
@@ -3982,22 +3981,19 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
     final mapState = ref.read(mapProvider);
     final point = mapState.cursorPoint ?? mapState.center;
-    final regionKey = regionManifestCatalog.regionKeyForPoint(point);
-    final availableBasemapKeys = regionKey == null
-        ? const <String>{}
-        : {
-            for (final basemap in regionManifestCatalog.basemapsForRegionKey(
-              regionKey,
-            ))
-              basemap.key,
-          };
+    final availableBasemaps = regionManifestCatalog.basemapsForPoint(point);
+    final availableBasemapKeys = {
+      for (final basemap in availableBasemaps) basemap.key,
+    };
 
     if (!availableBasemapKeys.contains(mapState.basemap.name)) {
       ref.read(mapProvider.notifier).setBasemap(Basemap.tracestrack);
     }
 
     setState(() {
-      _basemapDrawerRegionKey = regionKey;
+      _basemapDrawerBasemapKeys = availableBasemaps
+          .map((basemap) => basemap.key)
+          .toList(growable: false);
     });
     ref.read(mapProvider.notifier).setEndDrawerMode(EndDrawerMode.basemaps);
     _scaffoldKey.currentState?.openEndDrawer();
