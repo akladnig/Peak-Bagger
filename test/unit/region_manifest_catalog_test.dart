@@ -28,6 +28,7 @@ void main() {
         'nswBasemap',
         'nswTopo',
         'sloveniaTopo',
+        'fvgTopo',
       ],
     );
   });
@@ -36,6 +37,10 @@ void main() {
     expect(
       regionManifestCatalog.regionKeyForPoint(const LatLng(-44.0, 148.8867)),
       'tasmania',
+    );
+    expect(
+      regionManifestCatalog.regionKeyForPoint(const LatLng(46.1, 13.2)),
+      'italy-nord-est',
     );
     expect(regionManifestCatalog.regionKeyForPoint(const LatLng(0, 0)), isNull);
   });
@@ -61,6 +66,23 @@ void main() {
           .map((basemap) => basemap.key)
           .toList(growable: false),
       [..._regionBasemapKeys(), 'sloveniaTopo'],
+    );
+  });
+
+  test('point-scoped basemaps honor FVG coverage', () {
+    expect(
+      regionManifestCatalog
+          .basemapsForPoint(const LatLng(46.1, 13.2))
+          .map((basemap) => basemap.key)
+          .toList(growable: false),
+      contains('fvgTopo'),
+    );
+    expect(
+      regionManifestCatalog
+          .basemapsForPoint(const LatLng(45.4386, 12.3267))
+          .map((basemap) => basemap.key)
+          .toList(growable: false),
+      isNot(contains('fvgTopo')),
     );
   });
 
@@ -133,6 +155,7 @@ void main() {
                 .tileUrl,
     );
     expect(mapTileUrl(Basemap.sloveniaTopo), sloveniaTopoDebugTileUrl);
+    expect(mapTileUrl(Basemap.fvgTopo), fvgTopoDebugTileUrl);
   });
 
   test('Slovenia topo uses the proxy tile layer config', () {

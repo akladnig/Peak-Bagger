@@ -8,7 +8,6 @@ import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
-import 'package:peak_bagger/services/region_manifest_catalog.dart';
 
 import '../harness/test_map_notifier.dart';
 import '../harness/test_tasmap_notifier.dart';
@@ -108,6 +107,27 @@ void main() {
       find.byKey(const Key('basemap-option-sloveniaTopo')),
       findsOneWidget,
     );
+    expect(find.byKey(const Key('basemap-option-nswTopo')), findsNothing);
+  });
+
+  testWidgets('friuli venezia giulia point shows fvg topo option', (
+    tester,
+  ) async {
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(46.1, 13.2),
+        cursorPoint: const LatLng(46.1, 13.2),
+        zoom: 12,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    await _pumpRawMapScreen(tester, notifier, size: const Size(1600, 900));
+
+    await tester.tap(find.byKey(const Key('show-basemaps-fab')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('basemap-option-fvgTopo')), findsOneWidget);
     expect(find.byKey(const Key('basemap-option-nswTopo')), findsNothing);
   });
 

@@ -1,0 +1,13 @@
+name: fvg_topo_proxy
+description: XYZ proxy for Friuli Venezia Giulia topo tiles
+publish_to: none
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  http: ^1.2.2
+  shelf: ^1.4.1
+
+dev_dependencies:
+  test: ^1.25.8

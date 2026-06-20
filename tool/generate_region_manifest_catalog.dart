@@ -15,6 +15,14 @@ const _baselineBasemapOrder = <String>[
   'mapyCz',
 ];
 
+const _postBaselineBasemapOrder = <String>[
+  'nswImagery',
+  'nswBasemap',
+  'nswTopo',
+  'sloveniaTopo',
+  'fvgTopo',
+];
+
 void main(List<String> args) {
   final manifestFile = File(_manifestPath);
   if (!manifestFile.existsSync()) {
@@ -110,8 +118,12 @@ void main(List<String> args) {
   final orderedBasemapKeys = <String>[
     for (final key in _baselineBasemapOrder)
       if (basemapDefinitions.containsKey(key)) key,
+    for (final key in _postBaselineBasemapOrder)
+      if (basemapDefinitions.containsKey(key)) key,
     for (final key in seenBasemapOrder)
-      if (!_baselineBasemapOrder.contains(key)) key,
+      if (!_baselineBasemapOrder.contains(key) &&
+          !_postBaselineBasemapOrder.contains(key))
+        key,
   ];
 
   final buffer = StringBuffer()
@@ -142,6 +154,17 @@ void main(List<String> args) {
     if (basemap.maxZoom != null) {
       buffer.writeln('      maxZoom: ${basemap.maxZoom},');
     }
+    buffer.writeln('      coveragePolygons: [');
+    for (final polygon in basemap.coveragePolygons) {
+      buffer.writeln('        [');
+      for (final point in polygon) {
+        buffer.writeln(
+          '          const LatLng(${_doubleLiteral(point.latitude)}, ${_doubleLiteral(point.longitude)}),',
+        );
+      }
+      buffer.writeln('        ],');
+    }
+    buffer.writeln('      ],');
     buffer.writeln('    ),');
   }
 
@@ -214,6 +237,72 @@ String _doubleLiteral(double value) {
   return value.toString();
 }
 
+List<String> _readOptionalStringList(
+  dynamic value,
+  String field,
+  String regionKey,
+) {
+  if (value == null) {
+    return const [];
+  }
+
+  return _readStringList(value, field, regionKey);
+}
+
+List<List<LatLng>> _loadPolygonVertices(
+  List<String> polygonPaths,
+  String context,
+  String ownerKey,
+) {
+  final polygons = <List<LatLng>>[];
+  for (final polygonPath in polygonPaths) {
+    final polygonFile = File(polygonPath);
+    if (!polygonFile.existsSync()) {
+      stderr.writeln('Missing polygon asset for $ownerKey: $polygonPath');
+      exitCode = 1;
+      return const [];
+    }
+
+    final parseResult = parsePolygonText(polygonFile.readAsStringSync());
+    if (!parseResult.isSuccess || parseResult.polygon == null) {
+      stderr.writeln(
+        'Invalid polygon asset for $ownerKey $context: $polygonPath (${parseResult.error})',
+      );
+      exitCode = 1;
+      return const [];
+    }
+
+    polygons.add(parseResult.polygon!.vertices);
+  }
+
+  return polygons;
+}
+
+bool _polygonsEqual(List<List<LatLng>> left, List<List<LatLng>> right) {
+  if (left.length != right.length) {
+    return false;
+  }
+
+  for (var polygonIndex = 0; polygonIndex < left.length; polygonIndex++) {
+    final leftPolygon = left[polygonIndex];
+    final rightPolygon = right[polygonIndex];
+    if (leftPolygon.length != rightPolygon.length) {
+      return false;
+    }
+
+    for (var pointIndex = 0; pointIndex < leftPolygon.length; pointIndex++) {
+      final leftPoint = leftPolygon[pointIndex];
+      final rightPoint = rightPolygon[pointIndex];
+      if (leftPoint.latitude != rightPoint.latitude ||
+          leftPoint.longitude != rightPoint.longitude) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
 class _BasemapDefinition {
   const _BasemapDefinition({
     required this.key,
@@ -221,6 +310,7 @@ class _BasemapDefinition {
     required this.tileUrl,
     required this.attribution,
     required this.maxZoom,
+    required this.coveragePolygons,
   });
 
   factory _BasemapDefinition.fromJson(
@@ -243,12 +333,24 @@ class _BasemapDefinition {
       throw StateError('Invalid maxZoom for $key in $regionKey');
     }
 
+    final coveragePaths = _readOptionalStringList(
+      json['coveragePoly'],
+      'coveragePoly',
+      regionKey,
+    );
+    final coveragePolygons = _loadPolygonVertices(
+      coveragePaths,
+      'coveragePoly',
+      regionKey,
+    );
+
     return _BasemapDefinition(
       key: key,
       name: name,
       tileUrl: tileUrl,
       attribution: attribution,
       maxZoom: maxZoom?.toInt(),
+      coveragePolygons: coveragePolygons,
     );
   }
 
@@ -257,13 +359,15 @@ class _BasemapDefinition {
   final String tileUrl;
   final String attribution;
   final int? maxZoom;
+  final List<List<LatLng>> coveragePolygons;
 
   bool isCompatibleWith(_BasemapDefinition other) {
     return key == other.key &&
         name == other.name &&
         tileUrl == other.tileUrl &&
         attribution == other.attribution &&
-        maxZoom == other.maxZoom;
+        maxZoom == other.maxZoom &&
+        _polygonsEqual(coveragePolygons, other.coveragePolygons);
   }
 }
 

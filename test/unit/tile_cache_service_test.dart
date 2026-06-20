@@ -44,6 +44,7 @@ void main() {
     expect(basemaps, expectedWarmupBasemaps);
     expect(regions, hasLength(expectedWarmupBasemaps.length));
     expect(basemaps, isNot(contains(Basemap.sloveniaTopo)));
+    expect(basemaps, isNot(contains(Basemap.fvgTopo)));
     expect(basemaps.contains(Basemap.mapyCz), hasMapyCzApiKey);
     expect(regions.first.minZoom, lowZoomTileCacheWarmupMinZoom);
     expect(regions.first.maxZoom, lowZoomTileCacheWarmupMaxZoom);

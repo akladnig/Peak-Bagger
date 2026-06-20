@@ -3,16 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 
 class MapBasemapsDrawer extends ConsumerWidget {
-  const MapBasemapsDrawer({super.key, required this.regionKey});
+  const MapBasemapsDrawer({super.key, required this.basemapKeys});
 
-  final String? regionKey;
+  final List<String> basemapKeys;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final basemap = ref.watch(mapProvider.select((state) => state.basemap));
-    final regionBasemaps = regionKey == null
-        ? const <RegionManifestBasemapData>[]
-        : regionManifestCatalog.basemapsForRegionKey(regionKey!);
+    final regionBasemaps = basemapKeys
+        .map(regionManifestCatalog.basemapByKey)
+        .whereType<RegionManifestBasemapData>()
+        .toList(growable: false);
 
     return Drawer(
       key: const Key('basemaps-drawer'),
@@ -40,9 +41,9 @@ class MapBasemapsDrawer extends ConsumerWidget {
                 key: Key('basemap-option-${basemapData.key}'),
                 leading: const Icon(Icons.map_outlined),
                 title: Text(basemapData.name),
-                trailing: basemap == regionManifestCatalog.basemapEnumByKey(
-                  basemapData.key,
-                )
+                trailing:
+                    basemap ==
+                        regionManifestCatalog.basemapEnumByKey(basemapData.key)
                     ? const Icon(Icons.check)
                     : null,
                 onTap: () {
