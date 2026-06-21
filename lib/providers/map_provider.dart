@@ -1140,7 +1140,8 @@ class MapNotifier extends Notifier<MapState> {
     _routePlanner = _injectedRoutePlanner ?? ref.read(routePlannerProvider);
     _peaksBaggedRepository =
         _injectedPeaksBaggedRepository ?? PeaksBaggedRepository(objectboxStore);
-    _waypointsRepository = _injectedWaypointsRepository ?? _buildWaypointsRepository();
+    _waypointsRepository =
+        _injectedWaypointsRepository ?? _buildWaypointsRepository();
     final restoredMarker = _waypointsRepository.getCurrentMarker();
     final restoredMarkerLocation = restoredMarker == null
         ? null
@@ -1788,7 +1789,9 @@ class MapNotifier extends Notifier<MapState> {
         route.routeTimingSource = combinedProfile.length == sourceProfile.length
             ? sourceRoute.routeTimingSource
             : RouteTimingSources.extendedRoute;
-        route.routeTimingProfileJson = encodeRouteTimingProfile(combinedProfile);
+        route.routeTimingProfileJson = encodeRouteTimingProfile(
+          combinedProfile,
+        );
         route.estimatedTime = profileDurationSeconds(combinedProfile) * 1000;
         return;
       }
@@ -3007,10 +3010,11 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
-    final controlEndpoints = state.routeDraftControlEndpoints;
-    if (controlEndpoints.isEmpty ||
-        controlEndpoints.first.point != committedPoints.first ||
-        controlEndpoints.last.point != committedPoints.last) {
+    final controlEndpoints = List<RouteDraftControlEndpoint>.from(
+      state.routeDraftControlEndpoints,
+      growable: false,
+    );
+    if (controlEndpoints.isEmpty) {
       state = state.copyWith(
         routeDraftError: 'Route draft is inconsistent.',
         routeDraftFailureKind: RoutePlanningFailureKind.generic,
@@ -3018,9 +3022,19 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
+    final normalizedControlEndpoints = List<RouteDraftControlEndpoint>.from(
+      controlEndpoints,
+      growable: true,
+    );
+    normalizedControlEndpoints[0] = normalizedControlEndpoints.first.copyWith(
+      point: committedPoints.first,
+    );
+    normalizedControlEndpoints[normalizedControlEndpoints.length - 1] =
+        normalizedControlEndpoints.last.copyWith(point: committedPoints.last);
+
     _completeRouteDraftReturnLeg(
       committedPoints: committedPoints,
-      controlEndpoints: controlEndpoints,
+      controlEndpoints: normalizedControlEndpoints,
       returnSegment: List<LatLng>.from(committedPoints.reversed),
       nextMarkerId: state.routeDraftNextMarkerId + 1,
       appendReturnEndpoint: true,
@@ -5929,7 +5943,8 @@ class MapNotifier extends Notifier<MapState> {
               MapGridVisibility.hidden,
           };
 
-    final nextMode = !state.hasVisibleSheetDataset ||
+    final nextMode =
+        !state.hasVisibleSheetDataset ||
             nextVisibility == MapGridVisibility.hidden
         ? TasmapDisplayMode.none
         : state.selectedMap == null

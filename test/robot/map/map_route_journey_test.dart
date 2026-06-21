@@ -16,80 +16,83 @@ import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'map_route_robot.dart';
 
 void main() {
-  testWidgets('route journey routes from one tap to the peak marker and saves', (
-    tester,
-  ) async {
-    final robot = MapRouteRobot(
-      tester,
-      MapState(
-        center: const LatLng(-41.5, 146.5),
-        zoom: 15,
-        basemap: Basemap.tracestrack,
-        peaks: [
-          Peak(
-            osmId: 6406,
-            name: 'Bonnet Hill',
-            latitude: -41.5,
-            longitude: 146.5,
+  testWidgets(
+    'route journey routes from one tap to the peak marker and saves',
+    (tester) async {
+      final robot = MapRouteRobot(
+        tester,
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          peaks: [
+            Peak(
+              osmId: 6406,
+              name: 'Bonnet Hill',
+              latitude: -41.5,
+              longitude: 146.5,
+            ),
+          ],
+        ),
+        routePlanningOutcomes: const [
+          PlannedRouteSegment(
+            points: [
+              LatLng(-41.5, 146.5),
+              LatLng(-41.55, 146.55),
+              LatLng(-41.5, 146.5),
+            ],
+            distanceMeters: 1000,
           ),
         ],
-      ),
-      routePlanningOutcomes: const [
-        PlannedRouteSegment(
-          points: [
-            LatLng(-41.5, 146.5),
-            LatLng(-41.55, 146.55),
-            LatLng(-41.5, 146.5),
-          ],
-          distanceMeters: 1000,
-        ),
-      ],
-      routeElevationOutcomes: const [
-        RouteElevationSummary(
-          requestId: 1,
-          geometryVersion: 1,
-          ascent: 321,
-          descent: 210,
-          distance3d: 1010,
-        ),
-      ],
-    );
+        routeElevationOutcomes: const [
+          RouteElevationSummary(
+            requestId: 1,
+            geometryVersion: 1,
+            ascent: 321,
+            descent: 210,
+            distance3d: 1010,
+          ),
+        ],
+      );
 
-    await robot.pumpApp();
-    await robot.openMap();
-    await robot.openPeakPopup(6406);
-    await robot.enterRouteMode();
+      await robot.pumpApp();
+      await robot.openMap();
+      await robot.openPeakPopup(6406);
+      await robot.enterRouteMode();
 
-    expect(robot.routeToPeakButton, findsOneWidget);
-    await robot.tapRoutePoint(const Offset(-40, 0));
+      expect(robot.routeToPeakButton, findsOneWidget);
+      await robot.tapRoutePoint(const Offset(-40, 0));
 
-    expect(
-      tester.widget<FilledButton>(
-        find.descendant(
-          of: robot.routeToPeakButton,
-          matching: find.byType(FilledButton),
-        ),
-      ).onPressed,
-      isNotNull,
-    );
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.descendant(
+                of: robot.routeToPeakButton,
+                matching: find.byType(FilledButton),
+              ),
+            )
+            .onPressed,
+        isNotNull,
+      );
 
-    await robot.selectRouteMode(RouteMode.routeToPeak);
+      await robot.selectRouteMode(RouteMode.routeToPeak);
 
-    expect(robot.routeDistanceText, findsOneWidget);
-    robot.expectRouteDistanceContains('/ 1.0 km');
-    expect(robot.routeAscentText, findsOneWidget);
-    expect(find.text('321 m'), findsOneWidget);
+      expect(robot.routeDistanceText, findsOneWidget);
+      robot.expectRouteDistanceContains('/ 1.0 km');
+      expect(robot.routeAscentText, findsOneWidget);
+      expect(find.text('321 m'), findsOneWidget);
 
-    await robot.enterRouteName('Peak Route');
-    await robot.saveRoute();
+      await robot.enterRouteName('Peak Route');
+      await robot.saveRoute();
 
-    robot.expectRouteDraftOverlaysHidden();
-    expect(robot.savedRoutes(), hasLength(1));
-    expect(robot.savedRoutes().single.gpxRoute, hasLength(3));
-    expect(robot.savedRoutes().single.ascent, 321);
-    expect(robot.savedRoutes().single.descent, 210);
-    expect(robot.container().read(mapProvider).showRoutes, isTrue);
-  });
+      robot.expectRouteDraftOverlaysHidden();
+      expect(robot.savedRoutes(), hasLength(1));
+      expect(robot.savedRoutes().single.gpxRoute, hasLength(3));
+      expect(robot.savedRoutes().single.ascent, 321);
+      expect(robot.savedRoutes().single.descent, 210);
+      expect(robot.container().read(mapProvider).showRoutes, isTrue);
+    },
+  );
 
   testWidgets('route journey out-and-backs and saves a waypoint route', (
     tester,
@@ -122,13 +125,18 @@ void main() {
 
     await robot.applyOutAndBack();
 
+    expect(robot.container().read(mapProvider).routeDraftError, isNull);
+
     await robot.enterRouteName('Out and Back Route');
     await robot.saveRoute();
 
     robot.expectRouteDraftOverlaysHidden();
     expect(robot.savedRoutes(), hasLength(1));
     expect(robot.savedRoutes().single.routeWaypoints, hasLength(1));
-    expect(robot.savedRoutes().single.routeWaypoints.single.label, 'Waypoint 1');
+    expect(
+      robot.savedRoutes().single.routeWaypoints.single.label,
+      'Waypoint 1',
+    );
     expect(robot.container().read(mapProvider).showRoutes, isTrue);
   });
 
@@ -286,7 +294,10 @@ void main() {
     expect(robot.savedRoutes(), hasLength(1));
     expect(robot.savedRoutes().single.gpxRoute, hasLength(greaterThan(5)));
     expect(robot.savedRoutes().single.routeWaypoints, hasLength(1));
-    expect(robot.savedRoutes().single.routeWaypoints.single.label, 'Waypoint 1');
+    expect(
+      robot.savedRoutes().single.routeWaypoints.single.label,
+      'Waypoint 1',
+    );
     expect(robot.container().read(mapProvider).showRoutes, isTrue);
   });
 
@@ -371,67 +382,71 @@ void main() {
     expect(robot.container().read(mapProvider).showRoutes, isTrue);
   });
 
-  testWidgets('route journey edits a draft with drag delete undo redo and saves', (
-    tester,
-  ) async {
-    final robot = MapRouteRobot(
-      tester,
-      MapState(
-        center: const LatLng(-41.5, 146.5),
-        zoom: 15,
-        basemap: Basemap.tracestrack,
-      ),
-      routePlanningOutcomes: const [],
-      routeElevationOutcomes: const [],
-    );
+  testWidgets(
+    'route journey edits a draft with drag delete undo redo and saves',
+    (tester) async {
+      final robot = MapRouteRobot(
+        tester,
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+        ),
+        routePlanningOutcomes: const [],
+        routeElevationOutcomes: const [],
+      );
 
-    await robot.pumpApp();
-    await robot.openMap();
-    await robot.enterRouteMode();
+      await robot.pumpApp();
+      await robot.openMap();
+      await robot.enterRouteMode();
 
-    await robot.selectRouteMode(RouteMode.straightLine);
+      await robot.selectRouteMode(RouteMode.straightLine);
 
-    await robot.tapRoutePoint(const Offset(-60, 0));
-    await robot.tapRoutePoint(const Offset(0, 0));
-    await robot.tapRoutePoint(const Offset(60, 0));
+      await robot.tapRoutePoint(const Offset(-60, 0));
+      await robot.tapRoutePoint(const Offset(0, 0));
+      await robot.tapRoutePoint(const Offset(60, 0));
 
-    final originalMiddlePoint = robot.container().read(mapProvider).routeDraftMarkers[1];
-    await robot.dragDraftMarker('1', const Offset(30, 0));
+      final originalMiddlePoint = robot
+          .container()
+          .read(mapProvider)
+          .routeDraftMarkers[1];
+      await robot.dragDraftMarker('1', const Offset(30, 0));
 
-    final movedState = robot.container().read(mapProvider);
-    expect(robot.routeDraftDeletePopup, findsNothing);
-    expect(movedState.routeDraftMarkers, hasLength(3));
-    expect(movedState.routeDraftMarkers[1], isNot(originalMiddlePoint));
+      final movedState = robot.container().read(mapProvider);
+      expect(robot.routeDraftDeletePopup, findsNothing);
+      expect(movedState.routeDraftMarkers, hasLength(3));
+      expect(movedState.routeDraftMarkers[1], isNot(originalMiddlePoint));
 
-    final movedMiddlePoint = movedState.routeDraftMarkers[1];
-    await robot.clickDraftMarker('1');
+      final movedMiddlePoint = movedState.routeDraftMarkers[1];
+      await robot.clickDraftMarker('1');
 
-    expect(robot.routeDraftDeletePopup, findsOneWidget);
+      expect(robot.routeDraftDeletePopup, findsOneWidget);
 
-    await robot.deleteDraftMarkerFromPopup();
+      await robot.deleteDraftMarkerFromPopup();
 
-    final deletedState = robot.container().read(mapProvider);
-    expect(deletedState.routeDraftMarkers, hasLength(2));
+      final deletedState = robot.container().read(mapProvider);
+      expect(deletedState.routeDraftMarkers, hasLength(2));
 
-    await robot.undoRouteEdit();
+      await robot.undoRouteEdit();
 
-    final restoredState = robot.container().read(mapProvider);
-    expect(restoredState.routeDraftMarkers, hasLength(3));
-    expect(restoredState.routeDraftMarkers[1], movedMiddlePoint);
+      final restoredState = robot.container().read(mapProvider);
+      expect(restoredState.routeDraftMarkers, hasLength(3));
+      expect(restoredState.routeDraftMarkers[1], movedMiddlePoint);
 
-    await robot.redoRouteEdit();
+      await robot.redoRouteEdit();
 
-    final redoneState = robot.container().read(mapProvider);
-    expect(redoneState.routeDraftMarkers, hasLength(2));
+      final redoneState = robot.container().read(mapProvider);
+      expect(redoneState.routeDraftMarkers, hasLength(2));
 
-    await robot.enterRouteName('Edited Robot Route');
-    await robot.saveRoute();
+      await robot.enterRouteName('Edited Robot Route');
+      await robot.saveRoute();
 
-    robot.expectRouteDraftOverlaysHidden();
-    expect(robot.savedRoutes(), hasLength(1));
-    expect(robot.savedRoutes().single.gpxRoute, hasLength(2));
-    expect(robot.container().read(mapProvider).showRoutes, isTrue);
-  });
+      robot.expectRouteDraftOverlaysHidden();
+      expect(robot.savedRoutes(), hasLength(1));
+      expect(robot.savedRoutes().single.gpxRoute, hasLength(2));
+      expect(robot.container().read(mapProvider).showRoutes, isTrue);
+    },
+  );
 
   testWidgets('route journey falls back to a straight off-track segment', (
     tester,
@@ -494,55 +509,59 @@ void main() {
     expect(robot.container().read(mapProvider).showRoutes, isTrue);
   });
 
-  testWidgets('route journey saves zero elevation while elevation sampling is still in flight', (
-    tester,
-  ) async {
-    final pendingSummary = Completer<RouteElevationSummary>();
-    final robot = MapRouteRobot(
-      tester,
-      MapState(
-        center: const LatLng(-41.5, 146.5),
-        zoom: 15,
-        basemap: Basemap.tracestrack,
-        showTracks: true,
-        tracks: [
-          _routeTrack([
-            const LatLng(-41.5, 146.498283),
-            const LatLng(-41.5, 146.501717),
-          ]),
-        ],
-      ),
-      routePlanningOutcomes: const [
-        PlannedRouteSegment(
-          points: [
-            LatLng(-41.5, 146.5),
-            LatLng(-41.55, 146.55),
-            LatLng(-41.6, 146.6),
+  testWidgets(
+    'route journey saves zero elevation while elevation sampling is still in flight',
+    (tester) async {
+      final pendingSummary = Completer<RouteElevationSummary>();
+      final robot = MapRouteRobot(
+        tester,
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          showTracks: true,
+          tracks: [
+            _routeTrack([
+              const LatLng(-41.5, 146.498283),
+              const LatLng(-41.5, 146.501717),
+            ]),
           ],
-          distanceMeters: 1000,
         ),
-      ],
-      routeElevationOutcomes: [pendingSummary],
-    );
+        routePlanningOutcomes: const [
+          PlannedRouteSegment(
+            points: [
+              LatLng(-41.5, 146.5),
+              LatLng(-41.55, 146.55),
+              LatLng(-41.6, 146.6),
+            ],
+            distanceMeters: 1000,
+          ),
+        ],
+        routeElevationOutcomes: [pendingSummary],
+      );
 
-    await robot.pumpApp();
-    await robot.openMap();
-    await robot.enterRouteMode();
+      await robot.pumpApp();
+      await robot.openMap();
+      await robot.enterRouteMode();
 
-    await robot.tapRoutePoint(const Offset(-40, 0));
-    await robot.tapRoutePoint(const Offset(40, 0));
+      await robot.tapRoutePoint(const Offset(-40, 0));
+      await robot.tapRoutePoint(const Offset(40, 0));
 
-    expect(find.byKey(const Key('route-elevation-loading-text')), findsOneWidget);
+      expect(
+        find.byKey(const Key('route-elevation-loading-text')),
+        findsOneWidget,
+      );
 
-    await robot.enterRouteName('Pending Route');
-    await robot.saveRoute();
+      await robot.enterRouteName('Pending Route');
+      await robot.saveRoute();
 
-    robot.expectRouteDraftOverlaysHidden();
-    expect(robot.savedRoutes(), hasLength(1));
-    expect(robot.savedRoutes().single.ascent, 0);
-    expect(robot.savedRoutes().single.descent, 0);
-    expect(robot.savedRoutes().single.distance3d, 0);
-  });
+      robot.expectRouteDraftOverlaysHidden();
+      expect(robot.savedRoutes(), hasLength(1));
+      expect(robot.savedRoutes().single.ascent, 0);
+      expect(robot.savedRoutes().single.descent, 0);
+      expect(robot.savedRoutes().single.distance3d, 0);
+    },
+  );
 
   testWidgets('route journey resumes snapped routing after a rejoin probe', (
     tester,
@@ -644,12 +663,16 @@ void main() {
     final showTrailsFab = find.byKey(const Key('show-trails-fab'));
     await tester.ensureVisible(showTrailsFab);
     for (var i = 0; i < 20; i++) {
-      if (tester.widget<FloatingActionButton>(showTrailsFab).onPressed != null) {
+      if (tester.widget<FloatingActionButton>(showTrailsFab).onPressed !=
+          null) {
         break;
       }
       await tester.pump(const Duration(milliseconds: 50));
     }
-    expect(tester.widget<FloatingActionButton>(showTrailsFab).onPressed, isNotNull);
+    expect(
+      tester.widget<FloatingActionButton>(showTrailsFab).onPressed,
+      isNotNull,
+    );
     await tester.tap(showTrailsFab);
     await tester.pumpAndSettle();
 
