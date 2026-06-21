@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:fvg_topo_proxy/src/tile_handler.dart';
+import 'package:fvg_topo_proxy/src/upstream_wms_client.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 
