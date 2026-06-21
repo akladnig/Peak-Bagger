@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/route_graph_refresh_service.dart';
@@ -55,6 +56,7 @@ class RouteGraphRefreshRobot {
           mapProvider.overrideWith(() => notifier),
           tasmapStateProvider.overrideWith(() => tasmapNotifier),
           tasmapRepositoryProvider.overrideWithValue(repository),
+          routeGraphStoreProvider.overrideWithValue(ReadyRouteGraphStore()),
           routeGraphRefreshServiceProvider.overrideWithValue(service),
         ],
         child: const App(),

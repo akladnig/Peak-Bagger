@@ -1073,7 +1073,7 @@ class MapNotifier extends Notifier<MapState> {
   late final RouteElevationSampler _routeElevationSampler;
   late final RoutePlanner _routePlanner;
   late final PeaksBaggedRepository _peaksBaggedRepository;
-  late final WaypointsRepository _waypointsRepository;
+  WaypointsRepository? _waypointsRepository;
   late final MigrationMarkerStore _migrationMarkerStore;
   late final ItemVisibilityBackfillService _itemVisibilityBackfillService;
   late final Future<SharedPreferences> Function() _prefsLoader;
@@ -1142,7 +1142,7 @@ class MapNotifier extends Notifier<MapState> {
         _injectedPeaksBaggedRepository ?? PeaksBaggedRepository(objectboxStore);
     _waypointsRepository =
         _injectedWaypointsRepository ?? _buildWaypointsRepository();
-    final restoredMarker = _waypointsRepository.getCurrentMarker();
+    final restoredMarker = _resolvedWaypointsRepository.getCurrentMarker();
     final restoredMarkerLocation = restoredMarker == null
         ? null
         : LatLng(restoredMarker.latitude, restoredMarker.longitude);
@@ -1177,6 +1177,9 @@ class MapNotifier extends Notifier<MapState> {
       return WaypointsRepository.test(InMemoryWaypointsStorage());
     }
   }
+
+  WaypointsRepository get _resolvedWaypointsRepository =>
+      _waypointsRepository ??= _buildWaypointsRepository();
 
   Future<void> _runStartupLoad() async {
     if (!ref.mounted) {
@@ -2146,7 +2149,7 @@ class MapNotifier extends Notifier<MapState> {
     if (!ref.mounted) {
       return;
     }
-    final marker = _waypointsRepository.getCurrentMarker();
+    final marker = _resolvedWaypointsRepository.getCurrentMarker();
     if (marker == null) {
       state = state.copyWith(clearSelectedLocation: true);
       return;
@@ -4308,7 +4311,10 @@ class MapNotifier extends Notifier<MapState> {
     String name = 'Marker',
   }) async {
     try {
-      await _waypointsRepository.saveMarker(location: location, name: name);
+      await _resolvedWaypointsRepository.saveMarker(
+        location: location,
+        name: name,
+      );
       setSelectedLocation(location);
       return true;
     } catch (error, stackTrace) {
@@ -4323,11 +4329,11 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   List<Waypoints> favouriteWaypoints() {
-    return _waypointsRepository.getFavourites();
+    return _resolvedWaypointsRepository.getFavourites();
   }
 
   bool favouriteNameExists(String name, {int? excludingId}) {
-    return _waypointsRepository.favouriteNameExists(
+    return _resolvedWaypointsRepository.favouriteNameExists(
       name,
       excludingId: excludingId,
     );
@@ -4338,7 +4344,10 @@ class MapNotifier extends Notifier<MapState> {
     required String name,
   }) async {
     try {
-      await _waypointsRepository.saveFavourite(name: name, location: location);
+      await _resolvedWaypointsRepository.saveFavourite(
+        name: name,
+        location: location,
+      );
       setSelectedLocation(location);
       return true;
     } catch (error, stackTrace) {
