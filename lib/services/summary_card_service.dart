@@ -94,24 +94,46 @@ class SummaryCardService {
     required SummaryMetricDefinition metric,
     DateTime? now,
   }) {
-    final usableTracks = tracks
-        .where(
-          (track) => track.trackDate != null && metric.valueOf(track) != null,
-        )
-        .toList(growable: false);
+    final usableTracks = <_UsableTrack>[];
+    DateTime? earliestDate;
+
+    for (final track in tracks) {
+      final trackDate = track.trackDate?.toLocal();
+      final value = metric.valueOf(track);
+      if (trackDate == null || value == null) {
+        continue;
+      }
+
+      final day = _startOfDay(trackDate);
+      earliestDate = earliestDate == null || day.isBefore(earliestDate)
+          ? day
+          : earliestDate;
+      usableTracks.add(_UsableTrack(date: day, value: value));
+    }
+
     if (usableTracks.isEmpty) {
       return SummaryTimeline.empty(period: period);
     }
 
     final referenceDate = _startOfDay((now ?? DateTime.now()).toLocal());
-    final windowStart = _timelineStart(period, usableTracks);
+    final windowStart = switch (period) {
+      SummaryPeriodPreset.week => referenceDate.subtract(
+        const Duration(days: 13),
+      ),
+      SummaryPeriodPreset.month => _startOfMonth(
+        _addMonthsClamped(referenceDate, -1),
+      ),
+      _ => _timelineStart(period, earliestDate!),
+    };
     final windowEndExclusive = switch (period) {
+      SummaryPeriodPreset.week => _startOfDay(
+        referenceDate.add(const Duration(days: 1)),
+      ),
       SummaryPeriodPreset.month => _nextMonth(_startOfMonth(referenceDate)),
       _ => _startOfDay(referenceDate.add(const Duration(days: 1))),
     };
     final buckets = _buildBuckets(
       tracks: usableTracks,
-      metric: metric,
       period: period,
       windowStart: windowStart,
       windowEndExclusive: windowEndExclusive,
@@ -267,12 +289,7 @@ DateTime _nextMonth(DateTime date) => _addMonthsClamped(date, 1);
 
 DateTime _nextYear(DateTime date) => DateTime(date.year + 1);
 
-DateTime _timelineStart(
-  SummaryPeriodPreset period,
-  List<GpxTrack> usableTracks,
-) {
-  final earliestDate = _earliestTrackDate(usableTracks);
-
+DateTime _timelineStart(SummaryPeriodPreset period, DateTime earliestDate) {
   return switch (period) {
     SummaryPeriodPreset.week => earliestDate,
     SummaryPeriodPreset.month ||
@@ -283,18 +300,8 @@ DateTime _timelineStart(
   };
 }
 
-DateTime _earliestTrackDate(List<GpxTrack> tracks) {
-  final dates = tracks
-      .map((track) => track.trackDate!.toLocal())
-      .map(_startOfDay)
-      .toList(growable: false);
-  dates.sort();
-  return dates.first;
-}
-
 List<SummaryBucket> _buildBuckets({
-  required List<GpxTrack> tracks,
-  required SummaryMetricDefinition metric,
+  required List<_UsableTrack> tracks,
   required SummaryPeriodPreset period,
   required DateTime windowStart,
   required DateTime windowEndExclusive,
@@ -325,19 +332,17 @@ List<SummaryBucket> _buildBuckets({
   final counts = List<int>.filled(buckets.length, 0);
 
   for (final track in tracks) {
-    final trackDate = _startOfDay(track.trackDate!.toLocal());
-    for (var index = 0; index < buckets.length; index++) {
-      final bucket = buckets[index];
-      final inRange =
-          !trackDate.isBefore(bucket.start) &&
-          trackDate.isBefore(bucket.endExclusive);
-      if (!inRange) {
-        continue;
-      }
-      totals[index] += metric.valueOf(track)!;
-      counts[index] += 1;
-      break;
+    final index = _bucketIndexFor(
+      period: period,
+      windowStart: windowStart,
+      trackDate: track.date,
+    );
+    if (index == null || index < 0 || index >= buckets.length) {
+      continue;
     }
+
+    totals[index] += track.value;
+    counts[index] += 1;
   }
 
   return [
@@ -350,6 +355,23 @@ List<SummaryBucket> _buildBuckets({
         trackCount: counts[index],
       ),
   ];
+}
+
+int? _bucketIndexFor({
+  required SummaryPeriodPreset period,
+  required DateTime windowStart,
+  required DateTime trackDate,
+}) {
+  return switch (period) {
+    SummaryPeriodPreset.week || SummaryPeriodPreset.month =>
+      _dateOnlyDifferenceInDays(trackDate, windowStart),
+    SummaryPeriodPreset.last3Months || SummaryPeriodPreset.last6Months =>
+      _dateOnlyDifferenceInDays(trackDate, windowStart) ~/ 7,
+    SummaryPeriodPreset.last12Months =>
+      ((trackDate.year - windowStart.year) * 12) +
+          (trackDate.month - windowStart.month),
+    SummaryPeriodPreset.allTime => trackDate.year - windowStart.year,
+  };
 }
 
 String _labelFor(SummaryPeriodPreset period, DateTime date) {
@@ -389,4 +411,17 @@ class _BucketBuilder {
   final DateTime start;
   final DateTime endExclusive;
   final String label;
+}
+
+class _UsableTrack {
+  const _UsableTrack({required this.date, required this.value});
+
+  final DateTime date;
+  final double value;
+}
+
+int _dateOnlyDifferenceInDays(DateTime a, DateTime b) {
+  final aUtc = DateTime.utc(a.year, a.month, a.day);
+  final bUtc = DateTime.utc(b.year, b.month, b.day);
+  return aUtc.difference(bUtc).inDays;
 }

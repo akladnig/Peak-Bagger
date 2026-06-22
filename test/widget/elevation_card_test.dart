@@ -70,11 +70,19 @@ void main() {
       await _selectPeriod(tester, 'All Time');
 
       expect(
-        tester.widget<Text>(find.byKey(const Key('elevation-bottom-axis-label-0'))).data,
+        tester
+            .widget<Text>(
+              find.byKey(const Key('elevation-bottom-axis-label-0')),
+            )
+            .data,
         '2022',
       );
       expect(
-        tester.widget<Text>(find.byKey(const Key('elevation-bottom-axis-label-4'))).data,
+        tester
+            .widget<Text>(
+              find.byKey(const Key('elevation-bottom-axis-label-4')),
+            )
+            .data,
         '2026',
       );
 
@@ -236,44 +244,52 @@ void main() {
 
       expect(find.byIcon(Icons.show_chart), findsOneWidget);
 
+      expect(find.byKey(const Key('elevation-y-axis-label-0')), findsOneWidget);
+      expect(find.byKey(const Key('elevation-y-axis-label-4')), findsOneWidget);
       expect(
-        find.byKey(const Key('elevation-y-axis-label-0')),
+        find.byKey(const Key('elevation-y-axis-separator')),
         findsOneWidget,
       );
-      expect(
-        find.byKey(const Key('elevation-y-axis-label-4')),
-        findsOneWidget,
-      );
-      expect(find.byKey(const Key('elevation-y-axis-separator')), findsOneWidget);
 
       await tester.tap(_cardControl('summary-mode-fab'));
       await tester.pumpAndSettle();
 
       final lineChart = tester.widget<LineChart>(find.byType(LineChart));
       expect(lineChart.data.gridData.checkToShowHorizontalLine(0), isFalse);
-      expect(lineChart.data.gridData.checkToShowHorizontalLine(lineChart.data.maxY), isFalse);
+      expect(
+        lineChart.data.gridData.checkToShowHorizontalLine(lineChart.data.maxY),
+        isFalse,
+      );
       expect(lineChart.data.extraLinesData.extraLinesOnTop, isTrue);
       expect(lineChart.data.extraLinesData.horizontalLines, hasLength(2));
       expect(lineChart.data.extraLinesData.horizontalLines[0].y, 0);
-      expect(lineChart.data.extraLinesData.horizontalLines[0].dashArray, isNull);
-      expect(lineChart.data.extraLinesData.horizontalLines[1].y, lineChart.data.maxY);
-      expect(lineChart.data.extraLinesData.horizontalLines[1].dashArray, equals([8, 4]));
+      expect(
+        lineChart.data.extraLinesData.horizontalLines[0].dashArray,
+        isNull,
+      );
+      expect(
+        lineChart.data.extraLinesData.horizontalLines[1].y,
+        lineChart.data.maxY,
+      );
+      expect(
+        lineChart.data.extraLinesData.horizontalLines[1].dashArray,
+        equals([8, 4]),
+      );
       expect(
         lineChart.data.gridData
-            .getDrawingHorizontalLine(lineChart.data.gridData.horizontalInterval!)
+            .getDrawingHorizontalLine(
+              lineChart.data.gridData.horizontalInterval!,
+            )
             .dashArray,
         equals([8, 4]),
       );
 
+      expect(find.byKey(const Key('elevation-y-axis-label-0')), findsOneWidget);
+      expect(find.byKey(const Key('elevation-y-axis-label-4')), findsOneWidget);
       expect(
-        find.byKey(const Key('elevation-y-axis-label-0')),
+        find.byKey(const Key('elevation-y-axis-separator')),
         findsOneWidget,
       );
-      expect(
-        find.byKey(const Key('elevation-y-axis-label-4')),
-        findsOneWidget,
-      );
-      expect(find.byKey(const Key('elevation-y-axis-separator')), findsOneWidget);
 
       expect(find.byIcon(Icons.bar_chart), findsOneWidget);
 
@@ -288,7 +304,7 @@ void main() {
         greaterThan(_numericValue(bottomLabel.data)),
       );
 
-      await _hoverBucket(tester, 0);
+      await _hoverBucket(tester, 30);
 
       expect(find.byKey(const Key('elevation-tooltip')), findsOneWidget);
       expect(
@@ -392,9 +408,9 @@ void main() {
 
       await _selectPeriod(tester, 'Month');
 
-      expect(find.byKey(const Key('elevation-bucket-0')), findsOneWidget);
+      expect(find.byKey(const Key('elevation-bucket-30')), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('elevation-bucket-0')));
+      await tester.tap(find.byKey(const Key('elevation-bucket-30')));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('elevation-tooltip')), findsOneWidget);

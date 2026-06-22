@@ -4,7 +4,7 @@ import 'package:peak_bagger/services/elevation_summary_service.dart';
 
 void main() {
   group('ElevationSummaryService', () {
-    test('builds available daily week buckets and sums ascent', () {
+    test('builds bounded week buckets and sums ascent', () {
       final service = ElevationSummaryService();
       final now = DateTime(2026, 5, 15, 12);
 
@@ -20,13 +20,13 @@ void main() {
         now: now,
       );
 
-      expect(timeline.buckets, hasLength(3));
+      expect(timeline.buckets, hasLength(14));
       expect(timeline.buckets.last.label, 'Fri');
       expect(timeline.buckets.last.roundedAscentMetres, 120);
-      expect(timeline.buckets.first.label, 'Wed');
-      expect(timeline.buckets.first.roundedAscentMetres, 100);
+      expect(timeline.buckets[11].label, 'Wed');
+      expect(timeline.buckets[11].roundedAscentMetres, 100);
       expect(timeline.totalMetres, 220);
-      expect(timeline.averageMetres, 73);
+      expect(timeline.averageMetres, 16);
     });
 
     test('builds month buckets with zero buckets included in average', () {
@@ -42,12 +42,12 @@ void main() {
         now: now,
       );
 
-      expect(timeline.buckets, hasLength(31));
+      expect(timeline.buckets, hasLength(61));
       expect(timeline.buckets.first.label, '1');
       expect(timeline.buckets.last.label, '31');
-      expect(timeline.buckets[2].roundedAscentMetres, 50);
+      expect(timeline.buckets[32].roundedAscentMetres, 50);
       expect(timeline.totalMetres, 150);
-      expect(timeline.averageMetres, 5);
+      expect(timeline.averageMetres, 2);
     });
 
     test(

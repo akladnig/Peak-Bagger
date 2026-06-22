@@ -96,9 +96,9 @@ void main() {
 
     await _hoverBucket(tester, 0);
 
-    final firstBucketLabel = DateFormat('d MMM').format(
-      DateTime(now.year, now.month, 1),
-    );
+    final firstBucketLabel = DateFormat(
+      'd MMM',
+    ).format(DateTime(now.year, now.month - 1, 1));
 
     expect(find.byKey(const Key('elevation-tooltip')), findsOneWidget);
     expect(
@@ -111,7 +111,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('elevation-tooltip')),
-        matching: find.text('1000 m'),
+        matching: find.text('0 m'),
       ),
       findsOneWidget,
     );

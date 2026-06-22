@@ -90,6 +90,8 @@ class SummaryCard extends StatefulWidget {
 class _SummaryCardState extends State<SummaryCard> {
   final SummaryCardService _service = const SummaryCardService();
   final ScrollController _scrollController = ScrollController();
+  final Map<SummaryPeriodPreset, SummaryTimeline> _primaryTimelineCache = {};
+  final Map<SummaryPeriodPreset, SummaryTimeline> _secondaryTimelineCache = {};
 
   SummaryPeriodPreset _period = SummaryPeriodPreset.last12Months;
   late SummaryDisplayMode _mode;
@@ -97,6 +99,9 @@ class _SummaryCardState extends State<SummaryCard> {
   double _viewportWidth = 0;
   double _maxScrollExtent = 0;
   SummaryVisibleSummary? _lastVisibleSummary;
+  DateTime? _cachedReferenceDate;
+  List<GpxTrack>? _cachedTracks;
+  SummaryCardMetricAdapter? _cachedAdapter;
 
   @override
   void initState() {
@@ -111,6 +116,12 @@ class _SummaryCardState extends State<SummaryCard> {
     if (oldWidget.tracks != widget.tracks ||
         oldWidget.isLoading != widget.isLoading) {
       _anchoredToLatest = false;
+    }
+
+    if (oldWidget.tracks != widget.tracks ||
+        oldWidget.now != widget.now ||
+        oldWidget.adapter != widget.adapter) {
+      _clearTimelineCaches();
     }
   }
 
@@ -185,6 +196,43 @@ class _SummaryCardState extends State<SummaryCard> {
     return widget.isLoading ? _buildLoadingState() : _buildContent();
   }
 
+  void _clearTimelineCaches() {
+    _primaryTimelineCache.clear();
+    _secondaryTimelineCache.clear();
+    _cachedReferenceDate = null;
+    _cachedTracks = null;
+    _cachedAdapter = null;
+  }
+
+  void _ensureTimelineCaches(DateTime referenceDate) {
+    if (_cachedTracks == widget.tracks &&
+        _cachedReferenceDate == referenceDate &&
+        _cachedAdapter == widget.adapter) {
+      return;
+    }
+
+    _clearTimelineCaches();
+    _cachedTracks = widget.tracks;
+    _cachedReferenceDate = referenceDate;
+    _cachedAdapter = widget.adapter;
+  }
+
+  SummaryTimeline _timelineFor({
+    required Map<SummaryPeriodPreset, SummaryTimeline> cache,
+    required SummaryMetricDefinition metric,
+    required DateTime referenceDate,
+  }) {
+    return cache.putIfAbsent(
+      _period,
+      () => _service.buildTimeline(
+        tracks: widget.tracks,
+        period: _period,
+        metric: metric,
+        now: referenceDate,
+      ),
+    );
+  }
+
   Widget _buildLoadingState() {
     _reportVisibleSummary(null);
     return Center(
@@ -199,19 +247,18 @@ class _SummaryCardState extends State<SummaryCard> {
   Widget _buildContent() {
     final now = (widget.now ?? DateTime.now()).toLocal();
     final referenceDate = DateTime(now.year, now.month, now.day);
-    final timeline = _service.buildTimeline(
-      tracks: widget.tracks,
-      period: _period,
+    _ensureTimelineCaches(referenceDate);
+    final timeline = _timelineFor(
+      cache: _primaryTimelineCache,
       metric: widget.adapter.metric,
-      now: widget.now,
+      referenceDate: referenceDate,
     );
     final secondaryTimeline = widget.adapter.secondaryMetric == null
         ? null
-        : _service.buildTimeline(
-            tracks: widget.tracks,
-            period: _period,
+        : _timelineFor(
+            cache: _secondaryTimelineCache,
             metric: widget.adapter.secondaryMetric!,
-            now: widget.now,
+            referenceDate: referenceDate,
           );
 
     if (timeline.isEmpty) {
