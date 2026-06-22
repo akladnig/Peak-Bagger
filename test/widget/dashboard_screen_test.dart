@@ -265,6 +265,75 @@ void main() {
       );
     });
 
+    testWidgets('shows year to date average through current month only', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => TestMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 10,
+                basemap: Basemap.tracestrack,
+                tracks: [
+                  _track(1, DateTime(2026, 1, 15, 10), ascent: 100),
+                  _track(2, DateTime(2026, 2, 15, 10), ascent: 50),
+                  _track(3, DateTime(2026, 12, 15, 10), ascent: 200),
+                ],
+              ),
+            ),
+          ),
+          peakListRepositoryProvider.overrideWithValue(
+            PeakListRepository.test(InMemoryPeakListStorage()),
+          ),
+          peaksBaggedRepositoryProvider.overrideWithValue(
+            PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.binding.setSurfaceSize(const Size(2200, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: DashboardScreen(now: DateTime(2026, 5, 15, 12)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(_elevationControl('summary-period-dropdown'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Year to Date').last);
+      await tester.pumpAndSettle();
+
+      final header = find.byKey(
+        const Key('dashboard-card-elevation-drag-handle'),
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find
+                  .descendant(
+                    of: header,
+                    matching: find.byKey(
+                      const Key('dashboard-card-summary-average-value'),
+                    ),
+                  )
+                  .first,
+            )
+            .data,
+        '30 m',
+      );
+    });
+
     testWidgets('shows distance summary in the header', (tester) async {
       SharedPreferences.setMockInitialValues({});
 

@@ -8,6 +8,7 @@ enum SummaryPeriodPreset {
   last3Months,
   last6Months,
   last12Months,
+  yearToDate,
   allTime,
 }
 
@@ -18,6 +19,7 @@ extension SummaryPeriodPresetLabel on SummaryPeriodPreset {
     SummaryPeriodPreset.last3Months => 'Last 3 Months',
     SummaryPeriodPreset.last6Months => 'Last 6 Months',
     SummaryPeriodPreset.last12Months => 'Last 12 Months',
+    SummaryPeriodPreset.yearToDate => 'Year to Date',
     SummaryPeriodPreset.allTime => 'All Time',
   };
 
@@ -26,7 +28,8 @@ extension SummaryPeriodPresetLabel on SummaryPeriodPreset {
     SummaryPeriodPreset.month => 'Weekly Avg:',
     SummaryPeriodPreset.last3Months ||
     SummaryPeriodPreset.last6Months ||
-    SummaryPeriodPreset.last12Months => 'Monthly Avg:',
+    SummaryPeriodPreset.last12Months ||
+    SummaryPeriodPreset.yearToDate => 'Monthly Avg:',
     SummaryPeriodPreset.allTime => 'Annual Avg:',
   };
 }
@@ -95,6 +98,7 @@ class SummaryCardService {
     DateTime? now,
   }) {
     final usableTracks = <_UsableTrack>[];
+    final referenceDate = _startOfDay((now ?? DateTime.now()).toLocal());
     DateTime? earliestDate;
 
     for (final track in tracks) {
@@ -105,6 +109,10 @@ class SummaryCardService {
       }
 
       final day = _startOfDay(trackDate);
+      if (period == SummaryPeriodPreset.yearToDate &&
+          day.isAfter(referenceDate)) {
+        continue;
+      }
       earliestDate = earliestDate == null || day.isBefore(earliestDate)
           ? day
           : earliestDate;
@@ -115,7 +123,6 @@ class SummaryCardService {
       return SummaryTimeline.empty(period: period);
     }
 
-    final referenceDate = _startOfDay((now ?? DateTime.now()).toLocal());
     final windowStart = switch (period) {
       SummaryPeriodPreset.week => referenceDate.subtract(
         const Duration(days: 13),
@@ -123,6 +130,7 @@ class SummaryCardService {
       SummaryPeriodPreset.month => _startOfMonth(
         _addMonthsClamped(referenceDate, -1),
       ),
+      SummaryPeriodPreset.yearToDate => _startOfYear(referenceDate),
       _ => _timelineStart(period, earliestDate!),
     };
     final windowEndExclusive = switch (period) {
@@ -130,6 +138,7 @@ class SummaryCardService {
         referenceDate.add(const Duration(days: 1)),
       ),
       SummaryPeriodPreset.month => _nextMonth(_startOfMonth(referenceDate)),
+      SummaryPeriodPreset.yearToDate => _nextYear(_startOfYear(referenceDate)),
       _ => _startOfDay(referenceDate.add(const Duration(days: 1))),
     };
     final buckets = _buildBuckets(
@@ -183,7 +192,9 @@ class SummaryCardService {
   double visibleAverageValueForPeriod({
     required SummaryPeriodPreset period,
     required Iterable<SummaryBucket> buckets,
+    DateTime? referenceDate,
   }) {
+    final bucketList = buckets.toList(growable: false);
     return switch (period) {
       SummaryPeriodPreset.week ||
       SummaryPeriodPreset.last12Months ||
@@ -191,6 +202,12 @@ class SummaryCardService {
       SummaryPeriodPreset.month => _averageByWeek(buckets),
       SummaryPeriodPreset.last3Months ||
       SummaryPeriodPreset.last6Months => _averageByMonth(buckets),
+      SummaryPeriodPreset.yearToDate => _visibleAverageValue(
+        bucketList.where(
+          (bucket) =>
+              referenceDate == null || !bucket.start.isAfter(referenceDate),
+        ),
+      ),
     };
   }
 
@@ -296,6 +313,7 @@ DateTime _timelineStart(SummaryPeriodPreset period, DateTime earliestDate) {
     SummaryPeriodPreset.last3Months ||
     SummaryPeriodPreset.last6Months ||
     SummaryPeriodPreset.last12Months => _startOfMonth(earliestDate),
+    SummaryPeriodPreset.yearToDate => _startOfYear(earliestDate),
     SummaryPeriodPreset.allTime => _startOfYear(earliestDate),
   };
 }
@@ -315,6 +333,7 @@ List<SummaryBucket> _buildBuckets({
       SummaryPeriodPreset.last3Months ||
       SummaryPeriodPreset.last6Months => _nextWeek(cursor),
       SummaryPeriodPreset.last12Months => _nextMonth(cursor),
+      SummaryPeriodPreset.yearToDate => _nextMonth(cursor),
       SummaryPeriodPreset.allTime => _nextYear(cursor),
     };
 
@@ -370,6 +389,9 @@ int? _bucketIndexFor({
     SummaryPeriodPreset.last12Months =>
       ((trackDate.year - windowStart.year) * 12) +
           (trackDate.month - windowStart.month),
+    SummaryPeriodPreset.yearToDate =>
+      ((trackDate.year - windowStart.year) * 12) +
+          (trackDate.month - windowStart.month),
     SummaryPeriodPreset.allTime => trackDate.year - windowStart.year,
   };
 }
@@ -396,7 +418,8 @@ String _labelFor(SummaryPeriodPreset period, DateTime date) {
     SummaryPeriodPreset.month => date.day.toString(),
     SummaryPeriodPreset.last3Months ||
     SummaryPeriodPreset.last6Months ||
-    SummaryPeriodPreset.last12Months => months[date.month - 1],
+    SummaryPeriodPreset.last12Months ||
+    SummaryPeriodPreset.yearToDate => months[date.month - 1],
     SummaryPeriodPreset.allTime => date.year.toString(),
   };
 }

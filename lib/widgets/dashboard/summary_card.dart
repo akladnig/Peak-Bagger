@@ -309,9 +309,16 @@ class _SummaryCardState extends State<SummaryCard> {
                   chartViewportWidth,
                 );
                 final visibleTotal = _service.visibleTotalValue(visibleBuckets);
+                final averageBuckets = _averageBucketsForPeriod(
+                  period: _period,
+                  allBuckets: timeline.buckets,
+                  visibleBuckets: visibleBuckets,
+                  referenceDate: referenceDate,
+                );
                 final visibleAverage = _service.visibleAverageValueForPeriod(
                   period: _period,
-                  buckets: visibleBuckets,
+                  buckets: averageBuckets,
+                  referenceDate: referenceDate,
                 );
                 final visibleRangeText = formatSummaryDateRange(
                   visibleBuckets.first.start,
@@ -445,6 +452,20 @@ class _SummaryCardState extends State<SummaryCard> {
         : maxStartIndex;
     final endIndex = math.min(buckets.length, startIndex + visibleCount);
     return buckets.sublist(startIndex, endIndex);
+  }
+
+  Iterable<SummaryBucket> _averageBucketsForPeriod({
+    required SummaryPeriodPreset period,
+    required List<SummaryBucket> allBuckets,
+    required List<SummaryBucket> visibleBuckets,
+    required DateTime referenceDate,
+  }) {
+    return switch (period) {
+      SummaryPeriodPreset.yearToDate => allBuckets.where(
+        (bucket) => !bucket.start.isAfter(referenceDate),
+      ),
+      _ => visibleBuckets,
+    };
   }
 }
 
@@ -593,7 +614,9 @@ int visibleColumnCountForPeriod(SummaryPeriodPreset period) {
     SummaryPeriodPreset.month => 31,
     SummaryPeriodPreset.last3Months => 13,
     SummaryPeriodPreset.last6Months => 26,
-    SummaryPeriodPreset.last12Months || SummaryPeriodPreset.allTime => 12,
+    SummaryPeriodPreset.last12Months ||
+    SummaryPeriodPreset.yearToDate ||
+    SummaryPeriodPreset.allTime => 12,
   };
 }
 

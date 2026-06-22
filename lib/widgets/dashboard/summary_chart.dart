@@ -93,7 +93,9 @@ class _SummaryChartState extends State<SummaryChart> {
         ) ??
         0;
     const yAxisLabelWidth = DashboardUI.yAxisLabelWidth;
-    final chartMaxY = widget.chartMaxYFor(math.max(maxValue, secondaryMaxValue));
+    final chartMaxY = widget.chartMaxYFor(
+      math.max(maxValue, secondaryMaxValue),
+    );
     return LayoutBuilder(
       builder: (context, constraints) {
         final chartViewportWidth = math.max<double>(
@@ -118,7 +120,9 @@ class _SummaryChartState extends State<SummaryChart> {
                         entries: [
                           for (var index = 0; index <= 4; index++)
                             DashboardChartYAxisLabelEntry(
-                              key: Key('${widget.keyPrefix}-y-axis-label-$index'),
+                              key: Key(
+                                '${widget.keyPrefix}-y-axis-label-$index',
+                              ),
                               text: widget.yAxisLabelText(
                                 chartMaxY - ((chartMaxY / 4) * index),
                               ),
@@ -134,11 +138,11 @@ class _SummaryChartState extends State<SummaryChart> {
                     top: 20,
                     bottom: 28,
                     child: IgnorePointer(
-                        child: ColoredBox(
-                          key: Key('${widget.keyPrefix}-y-axis-separator'),
-                          color: dashboardChartAxisColor(),
-                          child: const SizedBox(width: 1),
-                        ),
+                      child: ColoredBox(
+                        key: Key('${widget.keyPrefix}-y-axis-separator'),
+                        color: dashboardChartAxisColor(),
+                        child: const SizedBox(width: 1),
+                      ),
                     ),
                   ),
                   Positioned(
@@ -439,10 +443,7 @@ FlGridData _summaryGridData(double chartMaxY) {
 }
 
 ExtraLinesData _summaryExtraLinesData(double chartMaxY) {
-  return dashboardChartExtraLinesData(
-    minY: 0,
-    maxY: chartMaxY,
-  );
+  return dashboardChartExtraLinesData(minY: 0, maxY: chartMaxY);
 }
 
 class _SummaryLineChart extends StatelessWidget {
@@ -821,6 +822,7 @@ String defaultTooltipTitleText(
     SummaryPeriodPreset.last3Months ||
     SummaryPeriodPreset.last6Months => formatSummaryDayMonth(bucket.start),
     SummaryPeriodPreset.last12Months ||
+    SummaryPeriodPreset.yearToDate ||
     SummaryPeriodPreset.allTime => bucket.label,
   };
 }

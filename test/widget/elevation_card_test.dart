@@ -90,6 +90,26 @@ void main() {
       expect(barChart.data.barGroups, hasLength(5));
     });
 
+    testWidgets('lists year to date between last 12 months and all time', (
+      tester,
+    ) async {
+      await _pumpElevationCard(
+        tester,
+        tracks: [_track(10, DateTime(2026, 5, 15, 10), ascent: 100)],
+        now: DateTime(2026, 5, 15, 12),
+      );
+
+      await tester.tap(_cardControl('summary-period-dropdown'));
+      await tester.pumpAndSettle();
+
+      final last12 = tester.getTopLeft(find.text('Last 12 Months').last).dy;
+      final yearToDate = tester.getTopLeft(find.text('Year to Date').last).dy;
+      final allTime = tester.getTopLeft(find.text('All Time').last).dy;
+
+      expect(last12, lessThan(yearToDate));
+      expect(yearToDate, lessThan(allTime));
+    });
+
     testWidgets('shows the visible date range under the dropdown', (
       tester,
     ) async {

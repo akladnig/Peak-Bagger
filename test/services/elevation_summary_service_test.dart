@@ -50,6 +50,36 @@ void main() {
       expect(timeline.averageMetres, 2);
     });
 
+    test('builds year to date month buckets from Jan to Dec', () {
+      final service = ElevationSummaryService();
+      final now = DateTime(2026, 5, 15, 12);
+
+      final timeline = service.buildTimeline(
+        tracks: [
+          _track(10, DateTime(2026, 1, 15, 9), ascent: 100),
+          _track(20, DateTime(2026, 2, 15, 9), ascent: 50),
+          _track(30, DateTime(2026, 12, 15, 9), ascent: 200),
+        ],
+        period: ElevationPeriodPreset.yearToDate,
+        now: now,
+      );
+
+      expect(timeline.buckets, hasLength(12));
+      expect(timeline.buckets.first.label, 'Jan');
+      expect(timeline.buckets.last.label, 'Dec');
+      expect(timeline.buckets.first.roundedAscentMetres, 100);
+      expect(timeline.buckets.last.roundedAscentMetres, 0);
+      expect(timeline.totalMetres, 150);
+      expect(
+        service.visibleAverageMetresForPeriod(
+          period: ElevationPeriodPreset.yearToDate,
+          buckets: timeline.buckets,
+          referenceDate: now,
+        ),
+        30,
+      );
+    });
+
     test(
       'builds weekly buckets for the 3 month window with repeated month labels',
       () {

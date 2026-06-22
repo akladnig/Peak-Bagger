@@ -51,6 +51,48 @@ void main() {
       },
     );
 
+    test('lists year to date between last 12 months and all time', () {
+      expect(SummaryPeriodPreset.values.map((preset) => preset.label), [
+        'Week',
+        'Month',
+        'Last 3 Months',
+        'Last 6 Months',
+        'Last 12 Months',
+        'Year to Date',
+        'All Time',
+      ]);
+    });
+
+    test('builds year to date month buckets from Jan to Dec', () {
+      final timeline = service.buildTimeline(
+        tracks: [
+          _track(10, DateTime(2026, 1, 15, 9), distance2d: 100, ascent: 100),
+          _track(21, DateTime(2026, 2, 15, 9), distance2d: 50, ascent: 50),
+          _track(22, DateTime(2026, 12, 15, 9), distance2d: 200, ascent: 200),
+        ],
+        period: SummaryPeriodPreset.yearToDate,
+        metric: DistanceCard.metric,
+        now: DateTime(2026, 5, 15, 12),
+      );
+
+      expect(timeline.buckets, hasLength(12));
+      expect(timeline.buckets.first.label, 'Jan');
+      expect(timeline.buckets.last.label, 'Dec');
+      expect(timeline.buckets.first.roundedValue, 100);
+      expect(timeline.buckets.last.roundedValue, 0);
+      expect(timeline.roundedTotalValue, 150);
+      expect(
+        service
+            .visibleAverageValueForPeriod(
+              period: SummaryPeriodPreset.yearToDate,
+              buckets: timeline.buckets,
+              referenceDate: DateTime(2026, 5, 15, 12),
+            )
+            .round(),
+        30,
+      );
+    });
+
     test('keeps week windows bounded even with old tracks', () {
       final timeline = service.buildTimeline(
         tracks: [
