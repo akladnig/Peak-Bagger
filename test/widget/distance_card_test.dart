@@ -331,6 +331,15 @@ void main() {
       expect(lineChart.data.extraLinesData.horizontalLines[1].y, lineChart.data.maxY);
       expect(lineChart.data.extraLinesData.horizontalLines[1].dashArray, equals([8, 4]));
       expect(lineChart.data.lineBarsData, hasLength(2));
+      expect(lineChart.data.maxX, 31);
+      for (final lineBar in lineChart.data.lineBarsData) {
+        expect(lineBar.spots.first.x, 0.5);
+        expect(lineBar.spots.last.x, closeTo(lineChart.data.maxX - 0.5, 1e-9));
+      }
+      expect(
+        lineChart.data.lineBarsData[0].spots.map((spot) => spot.x),
+        equals(lineChart.data.lineBarsData[1].spots.map((spot) => spot.x)),
+      );
 
       final topLabel = tester.widget<Text>(
         find.byKey(const Key('distance-y-axis-label-0')),

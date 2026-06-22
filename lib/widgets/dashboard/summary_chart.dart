@@ -467,7 +467,7 @@ class _SummaryLineChart extends StatelessWidget {
     return LineChart(
       LineChartData(
         minX: 0,
-        maxX: math.max(0, buckets.length - 1).toDouble(),
+        maxX: buckets.length.toDouble(),
         minY: 0,
         maxY: chartMaxY,
         lineBarsData: [
@@ -475,7 +475,10 @@ class _SummaryLineChart extends StatelessWidget {
             LineChartBarData(
               spots: [
                 for (var index = 0; index < secondaryBuckets!.length; index++)
-                  FlSpot(index.toDouble(), secondaryBuckets![index].value),
+                  FlSpot(
+                    _summaryLineSpotX(index),
+                    secondaryBuckets![index].value,
+                  ),
               ],
               isCurved: true,
               color: _secondarySeriesColor,
@@ -500,7 +503,7 @@ class _SummaryLineChart extends StatelessWidget {
           LineChartBarData(
             spots: [
               for (var index = 0; index < buckets.length; index++)
-                FlSpot(index.toDouble(), buckets[index].value),
+                FlSpot(_summaryLineSpotX(index), buckets[index].value),
             ],
             isCurved: true,
             color: theme.colorScheme.primary,
@@ -535,6 +538,8 @@ class _SummaryLineChart extends StatelessWidget {
     );
   }
 }
+
+double _summaryLineSpotX(int index) => index.toDouble() + 0.5;
 
 class _BottomAxisLabels extends StatelessWidget {
   const _BottomAxisLabels({
