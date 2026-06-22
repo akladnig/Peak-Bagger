@@ -4,7 +4,6 @@ import 'dart:math' as math;
 
 import 'package:fvg_topo_proxy/src/tile_handler.dart';
 import 'package:fvg_topo_proxy/src/transparent_tile.dart';
-import 'package:fvg_topo_proxy/src/web_mercator.dart';
 import 'package:shelf/shelf.dart';
 import 'package:test/test.dart';
 

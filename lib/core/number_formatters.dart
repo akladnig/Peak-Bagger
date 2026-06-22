@@ -21,9 +21,7 @@ String formatDistance2d3d(
   double distance3d, {
   int decimalPlaces = 1,
 }) {
-  final firstKm = (distance2d / 1000).toStringAsFixed(decimalPlaces);
-  final secondKm = (distance3d / 1000).toStringAsFixed(decimalPlaces);
-  return '$firstKm / $secondKm km';
+  return '${formatDistance(distance2d, decimalPlaces: decimalPlaces)} / ${formatDistance(distance3d, decimalPlaces: decimalPlaces)}';
 }
 
 String formatFileSizeKiB(double value, {int decimalPlaces = 1}) =>

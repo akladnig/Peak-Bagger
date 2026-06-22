@@ -41,7 +41,7 @@ void main() {
     );
 
     expect(find.text('Distance (2d/3d)'), findsOneWidget);
-    expect(find.text('17.4 / 17.9 km'), findsOneWidget);
+    expect(find.text('17.4 km / 17.9 km'), findsOneWidget);
   });
 
   testWidgets('renders route timing explanation', (tester) async {

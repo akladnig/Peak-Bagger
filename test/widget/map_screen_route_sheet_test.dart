@@ -1237,7 +1237,7 @@ void main() {
         );
     expect(find.text('Distance (2d/3d)'), findsOneWidget);
     expect(find.byKey(const Key('route-distance-text')), findsOneWidget);
-    expect(find.text('13.9 / 1.3 km'), findsOneWidget);
+    expect(find.text('13.9 km / 1.3 km'), findsOneWidget);
     expect(find.text('Ascent'), findsOneWidget);
     expect(find.text('432 m'), findsOneWidget);
     expect(find.text('Descent'), findsOneWidget);
@@ -1409,7 +1409,7 @@ void main() {
     final fallbackDistance = tester.widget<Text>(
       find.byKey(const Key('route-distance-text')),
     );
-    expect(fallbackDistance.data, endsWith(' / 0.0 km'));
+    expect(fallbackDistance.data, endsWith(' / 0 m'));
     expect(find.byIcon(Icons.arrow_upward), findsOneWidget);
     expect(find.byIcon(Icons.arrow_downward), findsOneWidget);
     expect(find.byKey(const Key('route-error-text')), findsNothing);
@@ -1573,7 +1573,7 @@ void main() {
         find.byKey(const Key('route-distance-text')),
       );
       expect(find.text('Distance (2d/3d)'), findsOneWidget);
-      expect(distanceText.data, '0.8 / 0.0 km');
+      expect(distanceText.data, '850 m / 0 m');
     },
   );
 }

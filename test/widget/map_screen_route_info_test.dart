@@ -235,7 +235,7 @@ void main() {
 
     expect(find.text('Unnamed Route'), findsOneWidget);
     expect(find.text('Distance (2d/3d)'), findsOneWidget);
-    expect(find.text('17.5 / 0.0 km'), findsOneWidget);
+    expect(find.text('17.5 km / 0 m'), findsOneWidget);
     expect(find.text('900 m'), findsNWidgets(2));
     expect(find.text('450 m'), findsOneWidget);
     expect(find.text('Time'), findsOneWidget);
