@@ -639,3 +639,26 @@ String defaultAverageLabelText(SummaryPeriodPreset period) =>
 double defaultChartMaxYFor(double maxValue) {
   return math.max(4.0, (((maxValue.floor()) + 1 + 3) ~/ 4) * 4.0);
 }
+
+double roundedChartMaxYFor(double maxValue) {
+  if (!maxValue.isFinite || maxValue <= 0) {
+    return 4.0;
+  }
+
+  if (maxValue < 20) {
+    return 20.0;
+  }
+
+  final place = _roundedChartPlace(maxValue.abs());
+  final interval = ((maxValue / 4) / place).ceilToDouble() * place;
+  return math.max(4.0, interval * 4);
+}
+
+double _roundedChartPlace(double value) {
+  if (value < 100) {
+    return 10.0;
+  }
+
+  final exponent = (math.log(value) / math.ln10).floor() - 1;
+  return math.pow(10.0, exponent).toDouble();
+}

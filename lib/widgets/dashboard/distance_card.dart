@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../../core/number_formatters.dart';
@@ -29,8 +27,8 @@ class DistanceCard extends StatelessWidget {
     tooltipValueTexts: _distanceTooltipValues,
     tooltipValueTextColors: _distanceTooltipValueColors,
     headerValueText: formatDistance,
-    yAxisLabelText: formatDistance,
-    chartMaxYFor: _distanceChartMaxY,
+    yAxisLabelText: _formatDistanceAxisLabel,
+    chartMaxYFor: roundedChartMaxYFor,
   );
 
   final List<GpxTrack> tracks;
@@ -80,6 +78,14 @@ double? _trackDistance(GpxTrack track) => track.distance2d;
 
 double? _trackDistance3d(GpxTrack track) => track.distance3d;
 
-double _distanceChartMaxY(double maxValue) {
-  return math.max(4000.0, (((maxValue.floor()) + 1 + 3999) ~/ 4000) * 4000.0);
+String _formatDistanceAxisLabel(double value) {
+  final roundedMeters = value.round();
+  if (roundedMeters < 1000) {
+    return '$roundedMeters m';
+  }
+
+  final kilometers = roundedMeters / 1000;
+  return kilometers == kilometers.roundToDouble()
+      ? '${kilometers.round()} km'
+      : '${kilometers.toStringAsFixed(1)} km';
 }

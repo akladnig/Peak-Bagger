@@ -496,6 +496,46 @@ void main() {
         lighterSeriesColor(dashboardSecondarySeriesColor),
       );
     });
+
+    testWidgets('uses decimal kilometre labels for shorter distances', (
+      tester,
+    ) async {
+      await _pumpDistanceCard(
+        tester,
+        tracks: [
+          _track(
+            10,
+            DateTime(2026, 5, 1, 10),
+            distance2d: 100,
+            distance3d: 110,
+          ),
+          _track(
+            20,
+            DateTime(2026, 5, 15, 10),
+            distance2d: 300,
+            distance3d: 320,
+          ),
+          _track(
+            30,
+            DateTime(2026, 5, 31, 10),
+            distance2d: 1234,
+            distance3d: 1278,
+          ),
+        ],
+        now: DateTime(2026, 5, 15, 12),
+        width: 560,
+        theme: CatppuccinColors.light,
+      );
+
+      await _selectPeriod(tester, 'Month');
+      await tester.tap(_cardControl('summary-mode-fab'));
+      await tester.pumpAndSettle();
+
+      final topLabel = tester.widget<Text>(
+        find.byKey(const Key('distance-y-axis-label-0')),
+      );
+      expect(topLabel.data, '1.6 km');
+    });
   });
 }
 

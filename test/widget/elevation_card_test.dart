@@ -323,6 +323,7 @@ void main() {
         _numericValue(topLabel.data),
         greaterThan(_numericValue(bottomLabel.data)),
       );
+      expect(topLabel.data, '1600 m');
 
       await _hoverBucket(tester, 30);
 
