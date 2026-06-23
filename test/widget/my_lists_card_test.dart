@@ -1,3 +1,5 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +11,7 @@ import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/widgets/dashboard/my_lists_card.dart';
+import 'package:peak_bagger/theme.dart';
 
 import '../harness/test_map_notifier.dart';
 
@@ -72,6 +75,45 @@ void main() {
       expect(find.byKey(const Key('my-lists-table')), findsNothing);
       expect(find.text('No peak lists yet'), findsOneWidget);
     });
+
+    testWidgets('highlights hovered rows', (tester) async {
+      await _pumpMyListsCard(
+        tester,
+        peakLists: [
+          _peakList(10, 'Alpha', [1, 2]),
+          _peakList(11, 'Beta', [3]),
+        ],
+        climbedPeakIds: {1, 3},
+      );
+
+      final row = find.byKey(const Key('my-lists-row-10'));
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+
+      await mouse.moveTo(tester.getCenter(row));
+      await tester.pump();
+
+      final theme = Theme.of(tester.element(row));
+      final rowTheme = theme.extension<RowHoverTheme>()!;
+      expect(
+        tester
+            .widget<InkWell>(
+              find.descendant(of: row, matching: find.byType(InkWell)),
+            )
+            .mouseCursor,
+        SystemMouseCursors.click,
+      );
+      final hoveredContainer = tester.widget<AnimatedContainer>(
+        find.descendant(of: row, matching: find.byType(AnimatedContainer)),
+      );
+      final decoration = hoveredContainer.decoration! as BoxDecoration;
+      final hoveredText = tester.widget<Text>(
+        find.descendant(of: row, matching: find.text('Alpha')),
+      );
+
+      expect(decoration.color, rowTheme.hoverColor);
+      expect(hoveredText.style?.color, rowTheme.hoveredTextColor);
+    });
   });
 }
 
@@ -116,12 +158,11 @@ Future<void> _pumpMyListsCard(
         ),
       ],
       child: MaterialApp(
+        theme: CatppuccinColors.light,
+        darkTheme: CatppuccinColors.dark,
+        themeMode: ThemeMode.light,
         home: Scaffold(
-          body: SizedBox(
-            width: width,
-            height: 320,
-            child: const MyListsCard(),
-          ),
+          body: SizedBox(width: width, height: 320, child: const MyListsCard()),
         ),
       ),
     ),
@@ -130,11 +171,7 @@ Future<void> _pumpMyListsCard(
   await tester.pumpAndSettle();
 }
 
-PeakList _peakList(
-  int id,
-  String name,
-  List<int> peakIds,
-) {
+PeakList _peakList(int id, String name, List<int> peakIds) {
   return PeakList(
     peakListId: id,
     name: name,

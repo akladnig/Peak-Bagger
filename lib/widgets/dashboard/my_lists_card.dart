@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/number_formatters.dart';
 import '../../providers/my_lists_summary_provider.dart';
 import '../../services/peak_list_summary_service.dart';
+import '../../router.dart';
+import '../../theme.dart';
 
 class MyListsCard extends ConsumerWidget {
   const MyListsCard({super.key});
@@ -41,6 +43,14 @@ class MyListsCard extends ConsumerWidget {
                       row: row,
                       headerStyle: headerStyle,
                       rowStyle: rowStyle,
+                      onTap: () {
+                        router.goNamed(
+                          'peaks',
+                          queryParameters: {
+                            'selectedPeakListId': '${row.peakList.peakListId}',
+                          },
+                        );
+                      },
                     ),
                 ],
               ),
@@ -119,62 +129,101 @@ class _MyListsTableHeader extends StatelessWidget {
   }
 }
 
-class _MyListsTableRow extends StatelessWidget {
+class _MyListsTableRow extends StatefulWidget {
   const _MyListsTableRow({
     super.key,
     required this.row,
     required this.headerStyle,
     required this.rowStyle,
+    required this.onTap,
   });
 
   final PeakListSummaryRow row;
   final TextStyle? headerStyle;
   final TextStyle? rowStyle;
+  final VoidCallback onTap;
+
+  @override
+  State<_MyListsTableRow> createState() => _MyListsTableRowState();
+}
+
+class _MyListsTableRowState extends State<_MyListsTableRow> {
+  bool _isHovered = false;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final rowTheme =
+        theme.extension<RowHoverTheme>() ??
+        (theme.brightness == Brightness.dark
+            ? RowHoverTheme.dark
+            : RowHoverTheme.light);
+    final textColor = _isHovered ? rowTheme.hoveredTextColor : null;
+    final backgroundColor = _isHovered
+        ? rowTheme.hoverColor
+        : Colors.transparent;
 
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+    return InkWell(
+      onTap: widget.onTap,
+      onHover: (value) {
+        if (_isHovered == value) {
+          return;
+        }
+
+        setState(() => _isHovered = value);
+      },
+      mouseCursor: SystemMouseCursors.click,
+      hoverColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      splashColor: Colors.transparent,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          border: Border(
+            bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+          ),
         ),
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          _MyListsTableCell(
-            label: row.peakList.name,
-            flex: 5,
-            textAlign: TextAlign.start,
-            style: headerStyle?.copyWith(fontWeight: FontWeight.w600),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              _MyListsTableCell(
+                label: widget.row.peakList.name,
+                flex: 5,
+                textAlign: TextAlign.start,
+                style: widget.headerStyle?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: textColor,
+                ),
+              ),
+              _MyListsTableCell(
+                label: formatCount(widget.row.totalPeaks),
+                flex: 2,
+                textAlign: TextAlign.end,
+                style: widget.rowStyle?.copyWith(color: textColor),
+              ),
+              _MyListsTableCell(
+                label: formatCount(widget.row.climbed),
+                flex: 2,
+                textAlign: TextAlign.end,
+                style: widget.rowStyle?.copyWith(color: textColor),
+              ),
+              _MyListsTableCell(
+                label: widget.row.percentageLabel,
+                flex: 2,
+                textAlign: TextAlign.end,
+                style: widget.rowStyle?.copyWith(color: textColor),
+              ),
+              _MyListsTableCell(
+                label: formatCount(widget.row.unclimbed),
+                flex: 2,
+                textAlign: TextAlign.end,
+                style: widget.rowStyle?.copyWith(color: textColor),
+              ),
+            ],
           ),
-          _MyListsTableCell(
-            label: formatCount(row.totalPeaks),
-            flex: 2,
-            textAlign: TextAlign.end,
-            style: rowStyle,
-          ),
-          _MyListsTableCell(
-            label: formatCount(row.climbed),
-            flex: 2,
-            textAlign: TextAlign.end,
-            style: rowStyle,
-          ),
-          _MyListsTableCell(
-            label: row.percentageLabel,
-            flex: 2,
-            textAlign: TextAlign.end,
-            style: rowStyle,
-          ),
-          _MyListsTableCell(
-            label: formatCount(row.unclimbed),
-            flex: 2,
-            textAlign: TextAlign.end,
-            style: rowStyle,
-          ),
-        ],
+        ),
       ),
     );
   }

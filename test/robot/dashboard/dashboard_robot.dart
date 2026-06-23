@@ -42,6 +42,8 @@ class DashboardRobot {
   Finder get myListsTable => find.byKey(const Key('my-lists-table'));
   Finder myListsRow(int peakListId) =>
       find.byKey(Key('my-lists-row-$peakListId'));
+  Finder get peakListsSelectedTitle =>
+      find.byKey(const Key('peak-lists-selected-title'));
   Finder myListsControl(String key) =>
       find.descendant(of: myListsCard, matching: find.byKey(Key(key)));
   Finder get myAscentsCard =>
@@ -102,6 +104,11 @@ class DashboardRobot {
 
   Future<void> tapMyAscentsSortToggle() async {
     await tester.tap(myAscentsSortToggle);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapMyListsRow(int peakListId) async {
+    await tester.tap(myListsRow(peakListId));
     await tester.pumpAndSettle();
   }
 

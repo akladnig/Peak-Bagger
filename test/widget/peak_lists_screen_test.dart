@@ -26,6 +26,7 @@ import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/widgets/peak_list_import_dialog.dart';
+import 'package:peak_bagger/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../harness/test_peak_list_file_picker.dart';
@@ -68,6 +69,99 @@ void main() {
     expect(find.text('Peak Name'), findsOneWidget);
     expect(find.text('Height'), findsOneWidget);
     expect(find.text('Ascent\nDate'), findsOneWidget);
+  });
+
+  testWidgets('initialPeakListId opens the selected peak list', (tester) async {
+    await _pumpPeakListsScreen(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Alpha List', [200]),
+          _buildPeakList(2, 'Beta List', [300]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(200, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+          _buildPeak(300, 'Beta Peak', -42.1, 146.1, elevation: 1100),
+        ]),
+      ),
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage([
+          PeaksBagged(baggedId: 1, peakId: 200, gpxId: 10),
+        ]),
+      ),
+      initialPeakListId: 2,
+    );
+
+    expect(
+      tester
+          .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+          .data,
+      'Beta List',
+    );
+    expect(
+      tester
+          .widget<Container>(
+            find.byKey(const Key('peak-lists-row-decoration-2')),
+          )
+          .decoration,
+      isNotNull,
+    );
+  });
+
+  testWidgets('summary rows use click cursor and hover theme', (tester) async {
+    await _pumpPeakListsScreen(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Alpha List', [200]),
+          _buildPeakList(2, 'Beta List', [300]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(200, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+          _buildPeak(300, 'Beta Peak', -42.1, 146.1, elevation: 1100),
+        ]),
+      ),
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage([
+          PeaksBagged(baggedId: 1, peakId: 200, gpxId: 10),
+        ]),
+      ),
+      initialPeakListId: 2,
+    );
+
+    final row = find.byKey(const Key('peak-lists-row-1'));
+    expect(tester.widget<InkWell>(row).mouseCursor, SystemMouseCursors.click);
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getTopLeft(row) + const Offset(20, 20));
+    await tester.pump();
+
+    final theme = Theme.of(tester.element(row));
+    final rowTheme =
+        theme.extension<RowHoverTheme>() ??
+        (theme.brightness == Brightness.dark
+            ? RowHoverTheme.dark
+            : RowHoverTheme.light);
+    final hoveredText = tester.widget<Text>(
+      find.descendant(of: row, matching: find.text('Alpha List')),
+    );
+    final hoveredDecoration = tester.widget<Container>(
+      find.byKey(const Key('peak-lists-row-decoration-1')),
+    );
+
+    expect(hoveredDecoration.decoration, isNotNull);
+    expect(
+      (hoveredDecoration.decoration! as BoxDecoration).color,
+      rowTheme.hoverColor,
+    );
+    expect(hoveredText.style?.color, rowTheme.hoveredTextColor);
   });
 
   testWidgets('tapping a peak row opens and closes the detail dialog', (
@@ -114,6 +208,61 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-list-peak-dialog')), findsNothing);
+  });
+
+  testWidgets('detail rows use click cursor and hover theme', (tester) async {
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Tas Peaks', [200, 300, 100]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+          _buildPeak(200, 'Beta Peak', -42.1, 146.1, elevation: 1100),
+          _buildPeak(300, 'Gamma Peak', -42.2, 146.2, elevation: 1000),
+        ]),
+      ),
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage([
+          PeaksBagged(baggedId: 1, peakId: 100, gpxId: 10),
+        ]),
+      ),
+    );
+
+    final row = find.byKey(const Key('peak-lists-details-row-200'));
+    expect(
+      tester
+          .widget<InkWell>(
+            find.descendant(of: row, matching: find.byType(InkWell)),
+          )
+          .mouseCursor,
+      SystemMouseCursors.click,
+    );
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    final hoveredCell = find.descendant(
+      of: row,
+      matching: find.text('Beta Peak'),
+    );
+    await mouse.moveTo(tester.getCenter(hoveredCell));
+    await tester.pump();
+
+    final theme = Theme.of(tester.element(row));
+    final rowTheme =
+        theme.extension<RowHoverTheme>() ??
+        (theme.brightness == Brightness.dark
+            ? RowHoverTheme.dark
+            : RowHoverTheme.light);
+    final hoveredText = tester.widget<Text>(
+      find.descendant(of: row, matching: find.text('Beta Peak')),
+    );
+
+    expect(hoveredText.style?.color, rowTheme.hoveredTextColor);
   });
 
   testWidgets('bagged revision refreshes peak list counts', (tester) async {
@@ -2080,6 +2229,7 @@ Future<void> _pumpPeakListsScreen(
   PeakListImportRunner? importRunner,
   PeakListDuplicateNameChecker? duplicateNameChecker,
   TestMapNotifier? mapNotifier,
+  int? initialPeakListId,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -2121,7 +2271,9 @@ Future<void> _pumpPeakListsScreen(
           duplicateNameChecker ?? ((name) async => false),
         ),
       ],
-      child: const MaterialApp(home: PeakListsScreen()),
+      child: MaterialApp(
+        home: PeakListsScreen(initialPeakListId: initialPeakListId),
+      ),
     ),
   );
   await tester.pump();

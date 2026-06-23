@@ -29,10 +29,13 @@ import '../widgets/left_tooltip_fab.dart';
 import '../widgets/peak_list_create_dialog.dart';
 import '../widgets/peak_list_import_dialog.dart';
 import '../widgets/peak_list_peak_dialog.dart';
+import '../theme.dart';
 import 'map_screen_layers.dart';
 
 class PeakListsScreen extends ConsumerStatefulWidget {
-  const PeakListsScreen({super.key});
+  const PeakListsScreen({super.key, this.initialPeakListId});
+
+  final int? initialPeakListId;
 
   @override
   ConsumerState<PeakListsScreen> createState() => _PeakListsScreenState();
@@ -43,6 +46,23 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
   int? _selectedPeakId;
   _PeakListSortColumn _sortColumn = _PeakListSortColumn.percentage;
   bool _sortAscending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedPeakListId = widget.initialPeakListId;
+  }
+
+  @override
+  void didUpdateWidget(covariant PeakListsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialPeakListId == widget.initialPeakListId) {
+      return;
+    }
+
+    _selectedPeakListId = widget.initialPeakListId;
+    _selectedPeakId = null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1166,7 +1186,7 @@ class _SortHeaderCell extends StatelessWidget {
   }
 }
 
-class _SummaryRowCard extends StatelessWidget {
+class _SummaryRowCard extends StatefulWidget {
   const _SummaryRowCard({
     required this.row,
     required this.selectedPeakListId,
@@ -1182,93 +1202,139 @@ class _SummaryRowCard extends StatelessWidget {
   final ValueChanged<int> onDeleteRequested;
 
   @override
+  State<_SummaryRowCard> createState() => _SummaryRowCardState();
+}
+
+class _SummaryRowCardState extends State<_SummaryRowCard> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    final peakListId = row.peakList.peakListId;
-    final isSelected = peakListId == selectedPeakListId;
+    final theme = Theme.of(context);
+    final rowTheme =
+        theme.extension<RowHoverTheme>() ??
+        (theme.brightness == Brightness.dark
+            ? RowHoverTheme.dark
+            : RowHoverTheme.light);
+    final peakListId = widget.row.peakList.peakListId;
+    final isSelected = peakListId == widget.selectedPeakListId;
+    final isHovered = _isHovered && !isSelected;
+    final decoration = isSelected
+        ? _selectedRowDecoration(context)
+        : isHovered
+        ? BoxDecoration(color: rowTheme.hoverColor)
+        : null;
+
     return Card(
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       child: Container(
         key: Key('peak-lists-row-decoration-$peakListId'),
-        decoration: isSelected ? _selectedRowDecoration(context) : null,
+        decoration: decoration,
         child: InkWell(
           key: Key('peak-lists-row-$peakListId'),
-          onTap: () => onSelected(peakListId),
+          onTap: () => widget.onSelected(peakListId),
+          onHover: (value) {
+            if (_isHovered == value) {
+              return;
+            }
+            setState(() => _isHovered = value);
+          },
+          mouseCursor: SystemMouseCursors.click,
+          hoverColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          splashColor: Colors.transparent,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: Row(
               children: [
                 SizedBox(
-                  width: widths.list,
+                  width: widget.widths.list,
                   child: Text(
-                    row.peakList.name,
+                    widget.row.peakList.name,
                     maxLines: 1,
                     softWrap: false,
                     overflow: TextOverflow.clip,
-                    style: isSelected
-                        ? const TextStyle(fontWeight: FontWeight.w600)
-                        : null,
+                    style: TextStyle(
+                      fontWeight: isSelected ? FontWeight.w600 : null,
+                      color: isHovered ? rowTheme.hoveredTextColor : null,
+                    ),
                   ),
                 ),
                 SizedBox(
-                  width: widths.totalPeaks,
+                  width: widget.widths.totalPeaks,
                   child: Text(
-                    row.totalPeaksLabel,
+                    widget.row.totalPeaksLabel,
                     key: Key('peak-lists-total-$peakListId'),
                     maxLines: 1,
                     softWrap: false,
                     overflow: TextOverflow.clip,
+                    style: TextStyle(
+                      color: isHovered ? rowTheme.hoveredTextColor : null,
+                    ),
                   ),
                 ),
                 SizedBox(
-                  width: widths.climbed,
+                  width: widget.widths.climbed,
                   child: Text(
-                    row.climbedLabel,
+                    widget.row.climbedLabel,
                     key: Key('peak-lists-climbed-$peakListId'),
                     maxLines: 1,
                     softWrap: false,
                     overflow: TextOverflow.clip,
+                    style: TextStyle(
+                      color: isHovered ? rowTheme.hoveredTextColor : null,
+                    ),
                   ),
                 ),
                 SizedBox(
-                  width: widths.percentage,
+                  width: widget.widths.percentage,
                   child: Text(
-                    row.percentageLabel,
+                    widget.row.percentageLabel,
                     key: Key('peak-lists-percentage-$peakListId'),
                     maxLines: 1,
                     softWrap: false,
                     overflow: TextOverflow.clip,
+                    style: TextStyle(
+                      color: isHovered ? rowTheme.hoveredTextColor : null,
+                    ),
                   ),
                 ),
                 SizedBox(
-                  width: widths.unclimbed,
+                  width: widget.widths.unclimbed,
                   child: Text(
-                    row.unclimbedLabel,
+                    widget.row.unclimbedLabel,
                     key: Key('peak-lists-unclimbed-$peakListId'),
                     maxLines: 1,
                     softWrap: false,
                     overflow: TextOverflow.clip,
+                    style: TextStyle(
+                      color: isHovered ? rowTheme.hoveredTextColor : null,
+                    ),
                   ),
                 ),
                 SizedBox(
-                  width: widths.ascents,
+                  width: widget.widths.ascents,
                   child: Text(
-                    row.ascentCountLabel,
+                    widget.row.ascentCountLabel,
                     key: Key('peak-lists-ascents-$peakListId'),
                     maxLines: 1,
                     softWrap: false,
                     overflow: TextOverflow.clip,
+                    style: TextStyle(
+                      color: isHovered ? rowTheme.hoveredTextColor : null,
+                    ),
                   ),
                 ),
                 SizedBox(
-                  width: widths.actions,
+                  width: widget.widths.actions,
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Tooltip(
-                      message: 'Delete ${row.peakList.name}',
+                      message: 'Delete ${widget.row.peakList.name}',
                       child: InkResponse(
                         key: Key('peak-lists-delete-$peakListId'),
-                        onTap: () => onDeleteRequested(peakListId),
+                        onTap: () => widget.onDeleteRequested(peakListId),
                         radius: 16,
                         child: const Padding(
                           padding: EdgeInsets.all(4),
@@ -1462,73 +1528,12 @@ class _PeakDetailsTableCardState extends State<_PeakDetailsTableCard> {
                                       key: Key(
                                         'peak-lists-details-row-${row.peakId}',
                                       ),
-                                      child: Container(
+                                      child: _PeakDetailsTableRow(
                                         key: _rowKeyFor(row.peakId),
-                                        decoration:
-                                            row.peakId == widget.selectedPeakId
-                                            ? _selectedRowDecoration(context)
-                                            : null,
-                                        child: InkWell(
-                                          onTap: () async {
-                                            await widget.onPeakSelected(
-                                              row.peakId,
-                                            );
-                                          },
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 6,
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                SizedBox(
-                                                  width: widths.peakName,
-                                                  child: Text(
-                                                    row.name,
-                                                    maxLines: 2,
-                                                    softWrap: true,
-                                                    overflow: TextOverflow.clip,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 12),
-                                                SizedBox(
-                                                  width: widths.elevation,
-                                                  child: Text(
-                                                    row.elevationLabel,
-                                                    maxLines: 1,
-                                                    softWrap: false,
-                                                    overflow: TextOverflow.clip,
-                                                    textAlign: TextAlign.right,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 12),
-                                                SizedBox(
-                                                  width: widths.ascentDate,
-                                                  child: Text(
-                                                    row.ascentDateLabel,
-                                                    maxLines: 1,
-                                                    softWrap: false,
-                                                    overflow: TextOverflow.clip,
-                                                    textAlign: TextAlign.right,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 12),
-                                                SizedBox(
-                                                  width: widths.ascents,
-                                                  child: Text(
-                                                    row.ascentCountLabel,
-                                                    key: Key(
-                                                      'peak-lists-details-ascents-${row.peakId}',
-                                                    ),
-                                                    maxLines: 1,
-                                                    softWrap: false,
-                                                    overflow: TextOverflow.clip,
-                                                    textAlign: TextAlign.right,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
+                                        row: row,
+                                        widths: widths,
+                                        selectedPeakId: widget.selectedPeakId,
+                                        onPeakSelected: widget.onPeakSelected,
                                       ),
                                     ),
                                 ],
@@ -1704,6 +1709,121 @@ int _compareNullableDates(DateTime? left, DateTime? right) {
     return -1;
   }
   return left.compareTo(right);
+}
+
+class _PeakDetailsTableRow extends StatefulWidget {
+  const _PeakDetailsTableRow({
+    super.key,
+    required this.row,
+    required this.widths,
+    required this.selectedPeakId,
+    required this.onPeakSelected,
+  });
+
+  final _PeakDetailRow row;
+  final _PeakTableWidths widths;
+  final int? selectedPeakId;
+  final Future<void> Function(int) onPeakSelected;
+
+  @override
+  State<_PeakDetailsTableRow> createState() => _PeakDetailsTableRowState();
+}
+
+class _PeakDetailsTableRowState extends State<_PeakDetailsTableRow> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final rowTheme =
+        theme.extension<RowHoverTheme>() ??
+        (theme.brightness == Brightness.dark
+            ? RowHoverTheme.dark
+            : RowHoverTheme.light);
+    final isSelected = widget.row.peakId == widget.selectedPeakId;
+    final isHovered = _isHovered && !isSelected;
+    final decoration = isSelected
+        ? _selectedRowDecoration(context)
+        : isHovered
+        ? BoxDecoration(color: rowTheme.hoverColor)
+        : null;
+    final textStyle = isHovered
+        ? theme.textTheme.bodyMedium?.copyWith(color: rowTheme.hoveredTextColor)
+        : null;
+
+    return Container(
+      decoration: decoration,
+      child: InkWell(
+        onTap: () async {
+          await widget.onPeakSelected(widget.row.peakId);
+        },
+        onHover: (value) {
+          if (_isHovered == value) {
+            return;
+          }
+          setState(() => _isHovered = value);
+        },
+        mouseCursor: SystemMouseCursors.click,
+        hoverColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        splashColor: Colors.transparent,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              SizedBox(
+                width: widget.widths.peakName,
+                child: Text(
+                  widget.row.name,
+                  maxLines: 2,
+                  softWrap: true,
+                  overflow: TextOverflow.clip,
+                  style: textStyle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: widget.widths.elevation,
+                child: Text(
+                  widget.row.elevationLabel,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.clip,
+                  textAlign: TextAlign.right,
+                  style: textStyle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: widget.widths.ascentDate,
+                child: Text(
+                  widget.row.ascentDateLabel,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.clip,
+                  textAlign: TextAlign.right,
+                  style: textStyle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: widget.widths.ascents,
+                child: Text(
+                  widget.row.ascentCountLabel,
+                  key: Key('peak-lists-details-ascents-${widget.row.peakId}'),
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.clip,
+                  textAlign: TextAlign.right,
+                  style: textStyle,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _PeakDetailsHeaderRow extends StatelessWidget {
