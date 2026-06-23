@@ -500,10 +500,11 @@ List<Marker> buildRouteDraftMarkers({
   ValueChanged<Offset>? onHoveredSegmentPanUpdate,
   VoidCallback? onHoveredSegmentPanEnd,
 }) {
+  final markerKeyCounts = <String, int>{};
   final routeMarkers = <Marker>[
     for (final marker in markers)
       Marker(
-        key: Key('route-draft-marker-${marker.id}'),
+        key: Key(_routeDraftMarkerKey(marker.id, markerKeyCounts)),
         point: marker.point,
         width: _routeDraftMarkerSize(marker.kind, marker.id == hoveredMarkerId),
         height: _routeDraftMarkerSize(
@@ -567,6 +568,14 @@ List<Marker> buildRouteDraftMarkers({
   }
 
   return routeMarkers;
+}
+
+String _routeDraftMarkerKey(String markerId, Map<String, int> markerKeyCounts) {
+  final occurrence = markerKeyCounts[markerId] ?? 0;
+  markerKeyCounts[markerId] = occurrence + 1;
+  return occurrence == 0
+      ? 'route-draft-marker-$markerId'
+      : 'route-draft-marker-$markerId-$occurrence';
 }
 
 double _routeDraftMarkerSize(RouteMarkerKind kind, bool hovered) {

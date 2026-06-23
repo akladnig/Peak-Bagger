@@ -7,7 +7,9 @@ import 'package:peak_bagger/screens/map_screen_layers.dart';
 
 void main() {
   Widget host(Widget child) {
-    return MaterialApp(home: Scaffold(body: Center(child: child)));
+    return MaterialApp(
+      home: Scaffold(body: Center(child: child)),
+    );
   }
 
   testWidgets('draft marker layer renders RouteMarker widgets in order', (
@@ -87,7 +89,9 @@ void main() {
     expect(find.byKey(const Key('route-marker-numbered-label')), findsNothing);
   });
 
-  testWidgets('hovered numbered marker scales and keeps its label', (tester) async {
+  testWidgets('hovered numbered marker scales and keeps its label', (
+    tester,
+  ) async {
     final markers = buildRouteDraftMarkers(
       markers: const [
         RouteMarkerDisplay(
@@ -112,11 +116,21 @@ void main() {
     await tester.pumpWidget(host(markers[1].child));
 
     expect(find.byKey(const Key('route-draft-marker-hover-1')), findsOneWidget);
-    expect(find.byKey(const Key('route-marker-numbered-label')), findsOneWidget);
-    expect(tester.widget<Text>(find.byKey(const Key('route-marker-numbered-label'))).data, '01');
+    expect(
+      find.byKey(const Key('route-marker-numbered-label')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<Text>(find.byKey(const Key('route-marker-numbered-label')))
+          .data,
+      '01',
+    );
   });
 
-  testWidgets('hovered circle marker scales and shows the hover shell', (tester) async {
+  testWidgets('hovered circle marker scales and shows the hover shell', (
+    tester,
+  ) async {
     final markers = buildRouteDraftMarkers(
       markers: const [
         RouteMarkerDisplay(
@@ -173,5 +187,27 @@ void main() {
     await tester.pumpWidget(host(markers.last.child));
 
     expect(find.byKey(const Key('route-marker-circle')), findsOneWidget);
+  });
+
+  test('draft marker keys stay unique when ids repeat', () {
+    final markers = buildRouteDraftMarkers(
+      markers: const [
+        RouteMarkerDisplay(
+          id: '3',
+          point: LatLng(-41.5, 146.5),
+          kind: RouteMarkerKind.circle,
+        ),
+        RouteMarkerDisplay(
+          id: '3',
+          point: LatLng(-41.55, 146.55),
+          kind: RouteMarkerKind.target,
+        ),
+      ],
+      colour: 0xFFFF0000,
+    );
+
+    expect(markers, hasLength(2));
+    expect(markers[0].key, const Key('route-draft-marker-3'));
+    expect(markers[1].key, const Key('route-draft-marker-3-1'));
   });
 }
