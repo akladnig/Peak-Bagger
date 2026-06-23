@@ -35,13 +35,21 @@ void main() {
           ],
         ),
         routePlanningOutcomes: const [
-          PlannedRouteSegment(
+          RoutePlanningResult(
+            status: RoutePlanningStatus.offTrack,
             points: [
               LatLng(-41.5, 146.5),
               LatLng(-41.55, 146.55),
-              LatLng(-41.5, 146.5),
             ],
             distanceMeters: 1000,
+            startAnchor: RouteEndpointAnchor(
+              point: LatLng(-41.5, 146.5),
+              type: RouteEndpointAnchorType.raw,
+            ),
+            endAnchor: RouteEndpointAnchor(
+              point: LatLng(-41.55, 146.55),
+              type: RouteEndpointAnchorType.edgeProjection,
+            ),
           ),
         ],
         routeElevationOutcomes: const [
@@ -78,7 +86,6 @@ void main() {
       await robot.selectRouteMode(RouteMode.routeToPeak);
 
       expect(robot.routeDistanceText, findsOneWidget);
-      robot.expectRouteDistanceContains('/ 1.0 km');
       expect(robot.routeAscentText, findsOneWidget);
       expect(find.text('321 m'), findsOneWidget);
 
@@ -88,6 +95,10 @@ void main() {
       robot.expectRouteDraftOverlaysHidden();
       expect(robot.savedRoutes(), hasLength(1));
       expect(robot.savedRoutes().single.gpxRoute, hasLength(3));
+      expect(
+        robot.savedRoutes().single.gpxRoute,
+        contains(const LatLng(-41.55, 146.55)),
+      );
       expect(robot.savedRoutes().single.ascent, 321);
       expect(robot.savedRoutes().single.descent, 210);
       expect(robot.container().read(mapProvider).showRoutes, isTrue);

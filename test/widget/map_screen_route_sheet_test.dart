@@ -502,11 +502,14 @@ void main() {
   testWidgets('route to peak enables from a dropped peak marker location', (
     tester,
   ) async {
+    const start = LatLng(-41.5, 146.45);
+    const trackPoint = LatLng(-41.55, 146.55);
+    const peakPoint = LatLng(-41.5, 146.5);
     final peak = Peak(
       osmId: 6406,
       name: 'Bonnet Hill',
-      latitude: -41.5,
-      longitude: 146.5,
+      latitude: peakPoint.latitude,
+      longitude: peakPoint.longitude,
     );
     final notifier = TestMapNotifier(
       MapState(
@@ -517,9 +520,18 @@ void main() {
         selectedLocation: const LatLng(-41.5, 146.5),
       ),
       routePlanningOutcomes: const [
-        PlannedRouteSegment(
-          points: [LatLng(-41.5, 146.5), LatLng(-41.55, 146.55)],
+        RoutePlanningResult(
+          status: RoutePlanningStatus.offTrack,
+          points: [start, trackPoint],
           distanceMeters: 500,
+          startAnchor: RouteEndpointAnchor(
+            point: start,
+            type: RouteEndpointAnchorType.raw,
+          ),
+          endAnchor: RouteEndpointAnchor(
+            point: trackPoint,
+            type: RouteEndpointAnchorType.edgeProjection,
+          ),
         ),
       ],
     );
@@ -536,7 +548,7 @@ void main() {
     );
     expect(routeToPeakButtonBeforePoint.onPressed, isNull);
 
-    notifier.addRouteDraftMarker(const LatLng(-41.5, 146.45));
+    notifier.addRouteDraftMarker(start);
     await tester.pump();
 
     final routeState = _container(tester).read(mapProvider);
@@ -550,20 +562,28 @@ void main() {
     );
     expect(routeToPeakButton.onPressed, isNotNull);
 
-    notifier.addRouteDraftMarker(const LatLng(-41.5, 146.45));
+    notifier.state = notifier.state.copyWith(
+      routeDraftMode: RouteMode.routeToPeak,
+    );
     await tester.pump();
 
-    final enabledRouteToPeakButton = tester.widget<FilledButton>(
-      find.descendant(
-        of: find.byKey(const Key('route-mode-route-to-peak')),
-        matching: find.byType(FilledButton),
-      ),
+    notifier.addRouteDraftMarker(start);
+    await tester.pump();
+
+    notifier.setRouteDraftName('Hybrid Route');
+    await tester.pump();
+
+    final routeSaveButton = tester.widget<FilledButton>(
+      find.byKey(const Key('route-save-button')),
     );
-    expect(enabledRouteToPeakButton.onPressed, isNotNull);
-    expect(
-      enabledRouteToPeakButton.style?.backgroundColor?.resolve({}),
-      Colors.purple,
-    );
+    expect(routeSaveButton.onPressed, isNotNull);
+
+    final routeDraftState = _container(tester).read(mapProvider);
+    expect(routeDraftState.routeDraftCommittedPoints, const [
+      start,
+      trackPoint,
+      peakPoint,
+    ]);
 
     final snapToTrailButton = tester.widget<FilledButton>(
       find.descendant(

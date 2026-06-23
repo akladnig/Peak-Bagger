@@ -1235,6 +1235,126 @@ void main() {
   );
 
   test(
+    'route to peak preserves partial off-track geometry and appends the peak',
+    () async {
+      final routePlanner = _ControlledRoutePlanner();
+      final realNotifier = await _buildRouteTestNotifier(
+        routePlanner: routePlanner,
+      );
+      final container = ProviderContainer(
+        overrides: [mapProvider.overrideWith(() => realNotifier)],
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(mapProvider.notifier);
+      notifier.state = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      );
+
+      const start = LatLng(-41.5, 146.5);
+      const trackPoint = LatLng(-41.55, 146.55);
+      const peakPoint = LatLng(-41.6, 146.6);
+      final peak = Peak(
+        osmId: 6406,
+        name: 'Bonnet Hill',
+        latitude: peakPoint.latitude,
+        longitude: peakPoint.longitude,
+      );
+
+      notifier.beginRouteDraft(peakTarget: peak);
+      notifier.setRouteDraftMode(RouteMode.routeToPeak);
+      notifier.addRouteDraftMarker(start);
+      await Future<void>.delayed(Duration.zero);
+      routePlanner.completeResult(
+        RoutePlanningResult(
+          status: RoutePlanningStatus.offTrack,
+          points: const [start, trackPoint],
+          distanceMeters: 1000,
+          startAnchor: const RouteEndpointAnchor(
+            point: start,
+            type: RouteEndpointAnchorType.raw,
+          ),
+          endAnchor: const RouteEndpointAnchor(
+            point: trackPoint,
+            type: RouteEndpointAnchorType.edgeProjection,
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final state = container.read(mapProvider);
+      expect(routePlanner.requests, const [(start: start, end: peakPoint)]);
+      expect(state.routeDraftMarkers, const [start, peakPoint]);
+      expect(state.routeDraftCommittedPoints, const [start, trackPoint, peakPoint]);
+      expect(
+        state.routeDraftDistanceMeters,
+        closeTo(
+          const Distance().as(LengthUnit.Meter, start, trackPoint) +
+              const Distance().as(LengthUnit.Meter, trackPoint, peakPoint),
+          0.001,
+        ),
+      );
+      expect(state.routeDraftMode, RouteMode.snapToTrail);
+      expect(state.routeDraftPeak, isNull);
+    },
+  );
+
+  test(
+    'route to peak falls back straight when route graph load fails',
+    () async {
+      final routePlanner = _ControlledRoutePlanner();
+      final realNotifier = await _buildRouteTestNotifier(
+        routePlanner: routePlanner,
+      );
+      final container = ProviderContainer(
+        overrides: [mapProvider.overrideWith(() => realNotifier)],
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(mapProvider.notifier);
+      notifier.state = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      );
+
+      const start = LatLng(-41.5, 146.5);
+      const peakPoint = LatLng(-41.6, 146.6);
+      final peak = Peak(
+        osmId: 6406,
+        name: 'Bonnet Hill',
+        latitude: peakPoint.latitude,
+        longitude: peakPoint.longitude,
+      );
+
+      notifier.beginRouteDraft(peakTarget: peak);
+      notifier.setRouteDraftMode(RouteMode.routeToPeak);
+      notifier.addRouteDraftMarker(start);
+      await Future<void>.delayed(Duration.zero);
+      routePlanner.completeResult(
+        const RoutePlanningResult(
+          status: RoutePlanningStatus.failed,
+          points: [],
+          distanceMeters: 0,
+          startAnchor: null,
+          endAnchor: null,
+          failureKind: RoutePlanningFailureKind.routeGraphLoad,
+          errorMessage: 'Route graph unavailable.',
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final state = container.read(mapProvider);
+      expect(routePlanner.requests, const [(start: start, end: peakPoint)]);
+      expect(state.routeDraftStage, RouteDraftStage.awaitingNextPoint);
+      expect(state.routeDraftCommittedPoints, const [start, peakPoint]);
+      expect(state.routeDraftError, isNull);
+      expect(state.routeDraftMode, RouteMode.snapToTrail);
+      expect(state.routeDraftPeak, isNull);
+    },
+  );
+
+  test(
     'adding a point after a routed peak keeps the peak marker as target',
     () async {
       final routePlanner = _ControlledRoutePlanner();
