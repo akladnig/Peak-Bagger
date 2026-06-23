@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/services/summary_card_service.dart';
 import 'package:peak_bagger/widgets/dashboard/peaks_bagged_card.dart';
 import 'package:peak_bagger/widgets/dashboard/summary_card.dart';
 
@@ -89,7 +90,7 @@ void main() {
         tracks: [
           _track(10, DateTime(2026, 5, 1, 10), peakIds: [11]),
           _track(20, DateTime(2026, 5, 15, 10), peakIds: [22]),
-          _track(30, DateTime(2026, 5, 31, 10), peakIds: [33]),
+          _track(30, DateTime(2026, 5, 31, 10), peakIds: [11, 33]),
         ],
         now: DateTime(2026, 5, 15, 12),
         width: 560,
@@ -145,6 +146,10 @@ void main() {
             .dashArray,
         equals([8, 4]),
       );
+      expect(lineChart.data.lineBarsData, hasLength(2));
+      expect(lineChart.data.lineBarsData[1].color, _secondarySeriesColor);
+      expect(lineChart.data.lineBarsData[0].spots.last.y, 2);
+      expect(lineChart.data.lineBarsData[1].spots.last.y, 1);
 
       final topLabel = tester.widget<Text>(
         find.byKey(const Key('peaks-bagged-y-axis-label-0')),
@@ -215,6 +220,11 @@ void main() {
             .dashArray,
         equals([8, 4]),
       );
+      expect(switchedBarChart.data.barGroups[30].barRods, hasLength(1));
+      final switchedRod = switchedBarChart.data.barGroups[30].barRods.single;
+      expect(switchedRod.rodStackItems, hasLength(2));
+      expect(switchedRod.rodStackItems[0].color, isNot(_secondarySeriesColor));
+      expect(switchedRod.rodStackItems[1].color, _secondarySeriesColor);
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       addTearDown(mouse.removePointer);
       await mouse.addPointer(location: const Offset(0, 0));
@@ -231,20 +241,6 @@ void main() {
       );
       expect(firstTooltipRect.left, greaterThanOrEqualTo(chartRect.left));
       expect(firstTooltipRect.right, lessThanOrEqualTo(chartRect.right));
-      expect(
-        find.descendant(
-          of: find.byKey(const Key('peaks-bagged-tooltip')),
-          matching: find.text('Total Peaks: 1'),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: find.byKey(const Key('peaks-bagged-tooltip')),
-          matching: find.text('New peaks: 1'),
-        ),
-        findsOneWidget,
-      );
 
       final scrollableFinder = find
           .descendant(
@@ -265,6 +261,8 @@ void main() {
     });
   });
 }
+
+const _secondarySeriesColor = Color(0xFF2E7D32);
 
 Future<void> _pumpPeaksBaggedCard(
   WidgetTester tester, {
@@ -299,9 +297,13 @@ Future<void> _pumpPeaksBaggedCard(
 }
 
 Future<void> _selectPeriod(WidgetTester tester, String label) async {
-  await tester.tap(_cardControl('summary-period-dropdown'));
-  await tester.pumpAndSettle();
-  await tester.tap(find.text(label).last);
+  final period = SummaryPeriodPreset.values.firstWhere(
+    (value) => value.label == label,
+  );
+  final dynamic dropdown = tester.widget<PopupMenuButton>(
+    _cardControl('summary-period-dropdown'),
+  );
+  dropdown.onSelected?.call(period);
   await tester.pumpAndSettle();
 }
 

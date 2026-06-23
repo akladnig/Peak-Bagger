@@ -44,6 +44,7 @@ class SummaryCardMetricAdapter {
     this.tooltipTitleText = defaultTooltipTitleText,
     this.averageLabelText = defaultAverageLabelText,
     this.secondaryMetric,
+    this.secondarySeriesOnTop = false,
     this.barSeriesStyle = SummaryBarSeriesStyle.stacked,
   });
 
@@ -62,6 +63,7 @@ class SummaryCardMetricAdapter {
   final String Function(SummaryBucket bucket, SummaryPeriodPreset period)
   tooltipTitleText;
   final String Function(SummaryPeriodPreset period) averageLabelText;
+  final bool secondarySeriesOnTop;
   final SummaryBarSeriesStyle barSeriesStyle;
 }
 
@@ -366,6 +368,8 @@ class _SummaryCardState extends State<SummaryCard> {
                         tooltipValueTexts: widget.adapter.tooltipValueTexts,
                         tooltipTitleText: widget.adapter.tooltipTitleText,
                         yAxisLabelText: widget.adapter.yAxisLabelText,
+                        secondarySeriesOnTop:
+                            widget.adapter.secondarySeriesOnTop,
                       ),
                     ),
                   ],

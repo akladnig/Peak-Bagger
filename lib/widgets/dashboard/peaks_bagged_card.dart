@@ -69,6 +69,7 @@ class _PeaksBaggedCardState extends State<PeaksBaggedCard> {
       secondaryMetric: SummaryMetricDefinition(valueOf: series.newValueOf),
       tooltipValueTexts: _tooltipValueTexts,
       headerValueText: _formatHeaderValue,
+      secondarySeriesOnTop: true,
       barSeriesStyle: SummaryBarSeriesStyle.stacked,
       yAxisLabelText: (value) => formatCount(value.round()),
     );

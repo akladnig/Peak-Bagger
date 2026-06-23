@@ -155,33 +155,58 @@ void main() {
       await _selectPeriod(tester, 'Month');
 
       expect(
-        tester.widget<Text>(
-          find.byKey(const Key('distance-bottom-axis-label-2')),
-        ).data,
+        tester
+            .widget<Text>(
+              find.descendant(
+                of: find.byKey(const Key('distance-scroll-view')),
+                matching: find.text('3'),
+              ),
+            )
+            .data,
         '3',
       );
       expect(
-        tester.widget<Text>(
-          find.byKey(const Key('distance-bottom-axis-label-9')),
-        ).data,
+        tester
+            .widget<Text>(
+              find.descendant(
+                of: find.byKey(const Key('distance-scroll-view')),
+                matching: find.text('10'),
+              ),
+            )
+            .data,
         '10',
       );
       expect(
-        tester.widget<Text>(
-          find.byKey(const Key('distance-bottom-axis-label-16')),
-        ).data,
+        tester
+            .widget<Text>(
+              find.descendant(
+                of: find.byKey(const Key('distance-scroll-view')),
+                matching: find.text('17'),
+              ),
+            )
+            .data,
         '17',
       );
       expect(
-        tester.widget<Text>(
-          find.byKey(const Key('distance-bottom-axis-label-23')),
-        ).data,
+        tester
+            .widget<Text>(
+              find.descendant(
+                of: find.byKey(const Key('distance-scroll-view')),
+                matching: find.text('24'),
+              ),
+            )
+            .data,
         '24',
       );
       expect(
-        tester.widget<Text>(
-          find.byKey(const Key('distance-bottom-axis-label-30')),
-        ).data,
+        tester
+            .widget<Text>(
+              find.descendant(
+                of: find.byKey(const Key('distance-scroll-view')),
+                matching: find.text('31'),
+              ),
+            )
+            .data,
         '31',
       );
     });
@@ -218,26 +243,41 @@ void main() {
       await _selectPeriod(tester, 'Month');
 
       expect(
-        tester.widget<Text>(
-          find.byKey(const Key('distance-bottom-axis-label-0')),
-        ).data,
+        tester
+            .widget<Text>(
+              find.descendant(
+                of: find.byKey(const Key('distance-scroll-view')),
+                matching: find.text('1'),
+              ),
+            )
+            .data,
         '1',
       );
       expect(
-        tester.widget<Text>(
-          find.byKey(const Key('distance-bottom-axis-label-14')),
-        ).data,
+        tester
+            .widget<Text>(
+              find.descendant(
+                of: find.byKey(const Key('distance-scroll-view')),
+                matching: find.text('15'),
+              ),
+            )
+            .data,
         '15',
       );
 
       final barChart = tester.widget<BarChart>(find.byType(BarChart));
       expect(find.byKey(const Key('distance-y-axis-label-0')), findsOneWidget);
       expect(find.byKey(const Key('distance-y-axis-label-4')), findsOneWidget);
-      expect(find.byKey(const Key('distance-y-axis-separator')), findsOneWidget);
+      expect(
+        find.byKey(const Key('distance-y-axis-separator')),
+        findsOneWidget,
+      );
       expect(
         tester.getCenter(find.byKey(const Key('distance-y-axis-label-0'))).dy,
         closeTo(
-          tester.getTopLeft(find.byKey(const Key('distance-y-axis-separator'))).dy,
+          tester
+              .getTopLeft(find.byKey(const Key('distance-y-axis-separator')))
+              .dy,
           0.5,
         ),
       );
@@ -258,16 +298,27 @@ void main() {
         closeTo(barChart.data.maxY / 4, 1e-9),
       );
       expect(barChart.data.gridData.checkToShowHorizontalLine(0), isFalse);
-      expect(barChart.data.gridData.checkToShowHorizontalLine(barChart.data.maxY), isFalse);
+      expect(
+        barChart.data.gridData.checkToShowHorizontalLine(barChart.data.maxY),
+        isFalse,
+      );
       expect(barChart.data.extraLinesData.extraLinesOnTop, isTrue);
       expect(barChart.data.extraLinesData.horizontalLines, hasLength(2));
       expect(barChart.data.extraLinesData.horizontalLines[0].y, 0);
       expect(barChart.data.extraLinesData.horizontalLines[0].dashArray, isNull);
-      expect(barChart.data.extraLinesData.horizontalLines[1].y, barChart.data.maxY);
-      expect(barChart.data.extraLinesData.horizontalLines[1].dashArray, equals([8, 4]));
+      expect(
+        barChart.data.extraLinesData.horizontalLines[1].y,
+        barChart.data.maxY,
+      );
+      expect(
+        barChart.data.extraLinesData.horizontalLines[1].dashArray,
+        equals([8, 4]),
+      );
       expect(
         barChart.data.gridData
-            .getDrawingHorizontalLine(barChart.data.gridData.horizontalInterval!)
+            .getDrawingHorizontalLine(
+              barChart.data.gridData.horizontalInterval!,
+            )
             .dashArray,
         equals([8, 4]),
       );
@@ -276,8 +327,7 @@ void main() {
         closeTo(
           DashboardUI.rodWidthFor(
             DashboardUI.columnWidthFor(
-              availableWidth:
-                  560 - 24 - DashboardUI.yAxisLabelWidth,
+              availableWidth: 560 - 24 - DashboardUI.yAxisLabelWidth,
               visibleColumnCount: visibleColumnCountForPeriod(
                 SummaryPeriodPreset.month,
               ),
@@ -287,10 +337,10 @@ void main() {
         ),
       );
       expect(barChart.data.barGroups[30].barRods, hasLength(1));
-      expect(
-        barChart.data.barGroups[30].barRods.single.rodStackItems,
-        hasLength(2),
-      );
+      final stackedRod = barChart.data.barGroups[30].barRods.single;
+      expect(stackedRod.rodStackItems, hasLength(2));
+      expect(stackedRod.rodStackItems[0].color, isNot(_secondarySeriesColor));
+      expect(stackedRod.rodStackItems[1].color, _secondarySeriesColor);
 
       await tester.tap(_cardControl('summary-mode-fab'));
       await tester.pumpAndSettle();
@@ -298,11 +348,16 @@ void main() {
       final lineChart = tester.widget<LineChart>(find.byType(LineChart));
       expect(find.byKey(const Key('distance-y-axis-label-0')), findsOneWidget);
       expect(find.byKey(const Key('distance-y-axis-label-4')), findsOneWidget);
-      expect(find.byKey(const Key('distance-y-axis-separator')), findsOneWidget);
+      expect(
+        find.byKey(const Key('distance-y-axis-separator')),
+        findsOneWidget,
+      );
       expect(
         tester.getCenter(find.byKey(const Key('distance-y-axis-label-0'))).dy,
         closeTo(
-          tester.getTopLeft(find.byKey(const Key('distance-y-axis-separator'))).dy,
+          tester
+              .getTopLeft(find.byKey(const Key('distance-y-axis-separator')))
+              .dy,
           0.5,
         ),
       );
@@ -323,15 +378,35 @@ void main() {
         closeTo(lineChart.data.maxY / 4, 1e-9),
       );
       expect(lineChart.data.gridData.checkToShowHorizontalLine(0), isFalse);
-      expect(lineChart.data.gridData.checkToShowHorizontalLine(lineChart.data.maxY), isFalse);
+      expect(
+        lineChart.data.gridData.checkToShowHorizontalLine(lineChart.data.maxY),
+        isFalse,
+      );
       expect(lineChart.data.extraLinesData.extraLinesOnTop, isTrue);
       expect(lineChart.data.extraLinesData.horizontalLines, hasLength(2));
       expect(lineChart.data.extraLinesData.horizontalLines[0].y, 0);
-      expect(lineChart.data.extraLinesData.horizontalLines[0].dashArray, isNull);
-      expect(lineChart.data.extraLinesData.horizontalLines[1].y, lineChart.data.maxY);
-      expect(lineChart.data.extraLinesData.horizontalLines[1].dashArray, equals([8, 4]));
+      expect(
+        lineChart.data.extraLinesData.horizontalLines[0].dashArray,
+        isNull,
+      );
+      expect(
+        lineChart.data.extraLinesData.horizontalLines[1].y,
+        lineChart.data.maxY,
+      );
+      expect(
+        lineChart.data.extraLinesData.horizontalLines[1].dashArray,
+        equals([8, 4]),
+      );
       expect(lineChart.data.lineBarsData, hasLength(2));
-      expect(lineChart.data.maxX, 31);
+      expect(lineChart.data.lineBarsData[0].color, _secondarySeriesColor);
+      expect(
+        lineChart.data.lineBarsData[1].color,
+        isNot(_secondarySeriesColor),
+      );
+      expect(
+        lineChart.data.maxX,
+        lineChart.data.lineBarsData[0].spots.length.toDouble(),
+      );
       for (final lineBar in lineChart.data.lineBarsData) {
         expect(lineBar.spots.first.x, 0.5);
         expect(lineBar.spots.last.x, closeTo(lineChart.data.maxX - 0.5, 1e-9));
@@ -358,10 +433,12 @@ void main() {
       );
 
       await tester.drag(
-        find.descendant(
-          of: find.byKey(const Key('distance-scroll-view')),
-          matching: find.byType(Scrollable),
-        ).first,
+        find
+            .descendant(
+              of: find.byKey(const Key('distance-scroll-view')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
         const Offset(-240, 0),
       );
       await tester.pumpAndSettle();
@@ -372,7 +449,8 @@ void main() {
       expect(topLeftAfter.dx, closeTo(topLeftBefore.dx, 0.5));
       expect(topLeftAfter.dx, lessThan(16));
 
-      await _hoverBucket(tester, 0);
+      await tester.tap(find.byKey(const Key('distance-bucket-30')));
+      await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('distance-tooltip')), findsOneWidget);
       expect(
@@ -399,6 +477,8 @@ void main() {
     });
   });
 }
+
+const _secondarySeriesColor = Color(0xFF2E7D32);
 
 Future<void> _pumpDistanceCard(
   WidgetTester tester, {
@@ -433,9 +513,13 @@ Future<void> _pumpDistanceCard(
 }
 
 Future<void> _selectPeriod(WidgetTester tester, String label) async {
-  await tester.tap(_cardControl('summary-period-dropdown'));
-  await tester.pumpAndSettle();
-  await tester.tap(find.text(label).last);
+  final period = SummaryPeriodPreset.values.firstWhere(
+    (value) => value.label == label,
+  );
+  final dynamic dropdown = tester.widget<PopupMenuButton>(
+    _cardControl('summary-period-dropdown'),
+  );
+  dropdown.onSelected?.call(period);
   await tester.pumpAndSettle();
 }
 
