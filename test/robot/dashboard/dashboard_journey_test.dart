@@ -137,6 +137,37 @@ void main() {
     );
   });
 
+  testWidgets('dashboard journey opens the selected peak list', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+
+    final robot = DashboardRobot(tester);
+    final container = await _createContainer(
+      notifier: TestMapNotifier(
+        const MapState(
+          center: LatLng(-41.5, 146.5),
+          zoom: 12,
+          basemap: Basemap.tracestrack,
+        ),
+      ),
+      peakLists: [
+        _peakList(1, 'Alpha List', [101]),
+        _peakList(2, 'Beta List', [102]),
+      ],
+      peaks: [_peak(101, 'Alpha Peak'), _peak(102, 'Beta Peak')],
+    );
+    addTearDown(container.dispose);
+
+    await robot.pumpApp(container: container);
+    await robot.openDashboard();
+
+    expect(robot.myListsCard, findsOneWidget);
+
+    await robot.tapMyListsRow(2);
+
+    expect(robot.peakListsSelectedTitle, findsOneWidget);
+    expect(tester.widget<Text>(robot.peakListsSelectedTitle).data, 'Beta List');
+  });
+
   testWidgets(
     'dashboard journey refreshes latest walk card after track update',
     (tester) async {

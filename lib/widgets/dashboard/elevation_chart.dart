@@ -23,6 +23,7 @@ String formatElevationTooltipTitle(
     SummaryPeriodPreset.last3Months ||
     SummaryPeriodPreset.last6Months => formatSummaryDayMonth(bucket.start),
     SummaryPeriodPreset.last12Months ||
+    SummaryPeriodPreset.yearToDate ||
     SummaryPeriodPreset.allTime => bucket.label,
   };
 }

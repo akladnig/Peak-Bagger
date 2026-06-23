@@ -1,3 +1,5 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +10,7 @@ import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/widgets/dashboard/my_ascents_card.dart';
+import 'package:peak_bagger/theme.dart';
 
 void main() {
   group('MyAscentsCard', () {
@@ -47,10 +50,7 @@ void main() {
       await _pumpCard(
         tester,
         peakRepository: PeakRepository.test(
-          InMemoryPeakStorage([
-            _peak(10, 'Alpha'),
-            _peak(20, 'Beta'),
-          ]),
+          InMemoryPeakStorage([_peak(10, 'Alpha'), _peak(20, 'Beta')]),
         ),
         peaksBaggedRepository: PeaksBaggedRepository.test(
           InMemoryPeaksBaggedStorage([
@@ -67,16 +67,54 @@ void main() {
       await tester.tap(find.byKey(const Key('my-ascents-sort-toggle')));
       await tester.pumpAndSettle();
 
-      expect(tester.getTopLeft(row1).dy, greaterThan(tester.getTopLeft(row2).dy));
+      expect(
+        tester.getTopLeft(row1).dy,
+        greaterThan(tester.getTopLeft(row2).dy),
+      );
+    });
+
+    testWidgets('uses themed hover colours on hovered rows', (tester) async {
+      await _pumpCard(
+        tester,
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([_peak(10, 'Alpha', elevation: 1234)]),
+        ),
+        peaksBaggedRepository: PeaksBaggedRepository.test(
+          InMemoryPeaksBaggedStorage([
+            _bagged(1, peakId: 10, date: DateTime.utc(2026, 5, 15)),
+          ]),
+        ),
+      );
+
+      final row = find.byKey(const Key('my-ascents-row-1'));
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+
+      await mouse.addPointer(location: tester.getCenter(row));
+      await tester.pump();
+      await mouse.moveTo(tester.getCenter(row));
+      await tester.pump();
+
+      final theme = Theme.of(tester.element(row));
+      final rowTheme = theme.extension<RowHoverTheme>()!;
+      final text = tester.widget<Text>(
+        find.descendant(of: row, matching: find.text('Alpha')),
+      );
+      final container = tester.widget<AnimatedContainer>(
+        find.descendant(of: row, matching: find.byType(AnimatedContainer)),
+      );
+      final decoration = container.decoration! as BoxDecoration;
+
+      expect(text.style?.color, rowTheme.hoveredTextColor);
+      expect(decoration.color, rowTheme.hoverColor);
     });
 
     testWidgets('shows empty state and scrolls the list', (tester) async {
       final rows = [
-        for (var i = 1; i <= 8; i++) _bagged(i, peakId: i, date: DateTime.utc(2026, 5, i)),
+        for (var i = 1; i <= 8; i++)
+          _bagged(i, peakId: i, date: DateTime.utc(2026, 5, i)),
       ];
-      final peaks = [
-        for (var i = 1; i <= 8; i++) _peak(i, 'Peak $i'),
-      ];
+      final peaks = [for (var i = 1; i <= 8; i++) _peak(i, 'Peak $i')];
 
       await _pumpCard(
         tester,
@@ -99,9 +137,7 @@ void main() {
         tester,
         peakRepository: PeakRepository.test(InMemoryPeakStorage()),
         peaksBaggedRepository: PeaksBaggedRepository.test(
-          InMemoryPeaksBaggedStorage([
-            _bagged(9, peakId: 9, date: null),
-          ]),
+          InMemoryPeaksBaggedStorage([_bagged(9, peakId: 9, date: null)]),
         ),
       );
 
@@ -124,6 +160,9 @@ Future<void> _pumpCard(
         peaksBaggedRepositoryProvider.overrideWithValue(peaksBaggedRepository),
       ],
       child: MaterialApp(
+        theme: CatppuccinColors.light,
+        darkTheme: CatppuccinColors.dark,
+        themeMode: ThemeMode.light,
         home: Scaffold(
           body: SizedBox(
             width: width,
@@ -138,11 +177,7 @@ Future<void> _pumpCard(
   await tester.pumpAndSettle();
 }
 
-Peak _peak(
-  int osmId,
-  String name, {
-  double? elevation,
-}) {
+Peak _peak(int osmId, String name, {double? elevation}) {
   return Peak(
     osmId: osmId,
     name: name,

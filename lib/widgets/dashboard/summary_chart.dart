@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants.dart';
 import '../../core/date_formatters.dart';
 import '../../services/summary_card_service.dart';
+import 'dashboard_series_colors.dart';
 import '../dashboard_chart_chrome.dart';
 
 enum SummaryBarSeriesStyle { stacked, grouped }
@@ -26,8 +27,10 @@ class SummaryChart extends StatefulWidget {
     required this.referenceDate,
     required this.chartMaxYFor,
     required this.tooltipValueTexts,
+    this.tooltipValueTextColors,
     required this.tooltipTitleText,
     required this.yAxisLabelText,
+    this.secondarySeriesOnTop = false,
   });
 
   final String keyPrefix;
@@ -45,9 +48,16 @@ class SummaryChart extends StatefulWidget {
     SummaryBucket? secondaryBucket,
   )
   tooltipValueTexts;
+  final List<Color> Function(
+    BuildContext context,
+    SummaryBucket bucket,
+    SummaryBucket? secondaryBucket,
+  )?
+  tooltipValueTextColors;
   final String Function(SummaryBucket bucket, SummaryPeriodPreset period)
   tooltipTitleText;
   final String Function(double value) yAxisLabelText;
+  final bool secondarySeriesOnTop;
 
   @override
   State<SummaryChart> createState() => _SummaryChartState();
@@ -56,6 +66,7 @@ class SummaryChart extends StatefulWidget {
 class _SummaryChartState extends State<SummaryChart> {
   int? _selectedBucketIndex;
   bool _selectedIsPinned = false;
+  static const double _tooltipMaxWidth = 220;
 
   void _selectBucket(int index, {required bool pinned}) {
     setState(() {
@@ -93,13 +104,18 @@ class _SummaryChartState extends State<SummaryChart> {
         ) ??
         0;
     const yAxisLabelWidth = DashboardUI.yAxisLabelWidth;
-    final chartMaxY = widget.chartMaxYFor(math.max(maxValue, secondaryMaxValue));
+    final chartMaxY = widget.chartMaxYFor(
+      math.max(maxValue, secondaryMaxValue),
+    );
     return LayoutBuilder(
       builder: (context, constraints) {
         final chartViewportWidth = math.max<double>(
           constraints.maxWidth - yAxisLabelWidth,
           1,
         );
+        final scrollOffset = widget.controller.hasClients
+            ? widget.controller.offset
+            : 0.0;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -118,7 +134,9 @@ class _SummaryChartState extends State<SummaryChart> {
                         entries: [
                           for (var index = 0; index <= 4; index++)
                             DashboardChartYAxisLabelEntry(
-                              key: Key('${widget.keyPrefix}-y-axis-label-$index'),
+                              key: Key(
+                                '${widget.keyPrefix}-y-axis-label-$index',
+                              ),
                               text: widget.yAxisLabelText(
                                 chartMaxY - ((chartMaxY / 4) * index),
                               ),
@@ -134,11 +152,11 @@ class _SummaryChartState extends State<SummaryChart> {
                     top: 20,
                     bottom: 28,
                     child: IgnorePointer(
-                        child: ColoredBox(
-                          key: Key('${widget.keyPrefix}-y-axis-separator'),
-                          color: dashboardChartAxisColor(),
-                          child: const SizedBox(width: 1),
-                        ),
+                      child: ColoredBox(
+                        key: Key('${widget.keyPrefix}-y-axis-separator'),
+                        color: dashboardChartAxisColor(),
+                        child: const SizedBox(width: 1),
+                      ),
                     ),
                   ),
                   Positioned(
@@ -178,6 +196,8 @@ class _SummaryChartState extends State<SummaryChart> {
                                         selectedBucketIndex:
                                             _selectedBucketIndex,
                                         yAxisLabelText: widget.yAxisLabelText,
+                                        secondarySeriesOnTop:
+                                            widget.secondarySeriesOnTop,
                                       ),
                               ),
                             ),
@@ -263,33 +283,58 @@ class _SummaryChartState extends State<SummaryChart> {
                               ),
                             ),
                             if (_selectedBucketIndex != null)
-                              Positioned(
-                                top: 0,
-                                left:
-                                    (_selectedBucketIndex! *
-                                        widget.bucketExtent) +
-                                    (widget.bucketExtent / 2),
-                                child: FractionalTranslation(
-                                  translation: const Offset(-0.5, 0),
-                                  child: IgnorePointer(
-                                    child: ConstrainedBox(
-                                      constraints: const BoxConstraints(
-                                        maxWidth: 220,
-                                      ),
-                                      child: _SummaryTooltipCard(
-                                        key: Key('${widget.keyPrefix}-tooltip'),
-                                        titleText: widget.tooltipTitleText(
-                                          buckets[_selectedBucketIndex!],
-                                          widget.period,
-                                        ),
-                                        valueTexts: widget.tooltipValueTexts(
-                                          buckets[_selectedBucketIndex!],
-                                          secondaryBuckets?[_selectedBucketIndex!],
+                              Builder(
+                                builder: (context) {
+                                  final selectedBucket =
+                                      buckets[_selectedBucketIndex!];
+                                  final tooltipTitleText = widget
+                                      .tooltipTitleText(
+                                        selectedBucket,
+                                        widget.period,
+                                      );
+                                  final tooltipValueTexts = widget
+                                      .tooltipValueTexts(
+                                        selectedBucket,
+                                        secondaryBuckets?[_selectedBucketIndex!],
+                                      );
+                                  final tooltipValueTextColors = widget
+                                      .tooltipValueTextColors
+                                      ?.call(
+                                        context,
+                                        selectedBucket,
+                                        secondaryBuckets?[_selectedBucketIndex!],
+                                      );
+                                  final tooltipWidth = _tooltipWidth(
+                                    context: context,
+                                    titleText: tooltipTitleText,
+                                    valueTexts: tooltipValueTexts,
+                                  );
+
+                                  return Positioned(
+                                    top: 0,
+                                    left: _tooltipLeft(
+                                      index: _selectedBucketIndex!,
+                                      bucketExtent: widget.bucketExtent,
+                                      viewportWidth: chartViewportWidth,
+                                      scrollOffset: scrollOffset,
+                                      tooltipWidth: tooltipWidth,
+                                    ),
+                                    child: SizedBox(
+                                      width: tooltipWidth,
+                                      child: IgnorePointer(
+                                        child: _SummaryTooltipCard(
+                                          key: Key(
+                                            '${widget.keyPrefix}-tooltip',
+                                          ),
+                                          titleText: tooltipTitleText,
+                                          valueTexts: tooltipValueTexts,
+                                          valueTextColors:
+                                              tooltipValueTextColors,
                                         ),
                                       ),
                                     ),
-                                  ),
-                                ),
+                                  );
+                                },
                               ),
                           ],
                         ),
@@ -304,6 +349,61 @@ class _SummaryChartState extends State<SummaryChart> {
       },
     );
   }
+}
+
+double _tooltipLeft({
+  required int index,
+  required double bucketExtent,
+  required double viewportWidth,
+  required double scrollOffset,
+  required double tooltipWidth,
+}) {
+  final bucketCenter = (index * bucketExtent) + (bucketExtent / 2);
+  final leftBound = scrollOffset;
+  final rightBound = math.max(
+    leftBound,
+    scrollOffset + viewportWidth - tooltipWidth,
+  );
+  return (bucketCenter - (tooltipWidth / 2))
+      .clamp(leftBound, rightBound)
+      .toDouble();
+}
+
+double _tooltipWidth({
+  required BuildContext context,
+  required String titleText,
+  required List<String> valueTexts,
+}) {
+  final theme = Theme.of(context);
+  final titleStyle = theme.textTheme.bodyMedium?.copyWith(
+    fontWeight: FontWeight.w600,
+  );
+  final valueStyle = theme.textTheme.bodySmall;
+  final titleWidth = _measureTextWidth(context, titleText, titleStyle);
+  final valueWidth = valueTexts.fold<double>(
+    0,
+    (maxWidth, text) =>
+        math.max(maxWidth, _measureTextWidth(context, text, valueStyle)),
+  );
+
+  const horizontalPadding = 12 * 2;
+  const cardMargin = 4 * 2;
+  return math
+      .min(
+        _SummaryChartState._tooltipMaxWidth,
+        math.max(titleWidth, valueWidth) + horizontalPadding + cardMargin,
+      )
+      .ceilToDouble();
+}
+
+double _measureTextWidth(BuildContext context, String text, TextStyle? style) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+    maxLines: 1,
+  )..layout();
+  return painter.width;
 }
 
 class _SummaryBarChart extends StatelessWidget {
@@ -352,7 +452,7 @@ class _SummaryBarChart extends StatelessWidget {
                     _seriesRod(
                       value: secondaryBuckets![index].value,
                       width: DashboardUI.rodWidthFor(bucketExtent) / 2,
-                      color: _secondarySeriesColor,
+                      color: dashboardSecondarySeriesColor,
                     ),
                 ],
               ),
@@ -371,30 +471,19 @@ class _SummaryBarChart extends StatelessWidget {
                     borderRadius: BorderRadius.circular(DashboardUI.rodRadius),
                     color: Colors.transparent,
                     rodStackItems: [
-                      if (secondaryBuckets != null &&
-                          secondaryBuckets![index].value < buckets[index].value)
-                        BarChartRodStackItem(
-                          0,
-                          secondaryBuckets![index].value,
-                          _secondarySeriesColor,
-                        ),
                       BarChartRodStackItem(
-                        secondaryBuckets != null &&
-                                secondaryBuckets![index].value <
-                                    buckets[index].value
-                            ? secondaryBuckets![index].value
-                            : 0,
+                        0,
                         buckets[index].value,
                         index == selectedBucketIndex
                             ? theme.colorScheme.tertiary
                             : theme.colorScheme.primary,
                       ),
                       if (secondaryBuckets != null &&
-                          secondaryBuckets![index].value > buckets[index].value)
+                          secondaryBuckets![index].value > 0)
                         BarChartRodStackItem(
                           buckets[index].value,
                           secondaryBuckets![index].value,
-                          _secondarySeriesColor,
+                          dashboardSecondarySeriesColor,
                         ),
                     ],
                   ),
@@ -439,10 +528,7 @@ FlGridData _summaryGridData(double chartMaxY) {
 }
 
 ExtraLinesData _summaryExtraLinesData(double chartMaxY) {
-  return dashboardChartExtraLinesData(
-    minY: 0,
-    maxY: chartMaxY,
-  );
+  return dashboardChartExtraLinesData(minY: 0, maxY: chartMaxY);
 }
 
 class _SummaryLineChart extends StatelessWidget {
@@ -452,6 +538,7 @@ class _SummaryLineChart extends StatelessWidget {
     required this.chartMaxY,
     required this.selectedBucketIndex,
     required this.yAxisLabelText,
+    required this.secondarySeriesOnTop,
   });
 
   final List<SummaryBucket> buckets;
@@ -459,6 +546,7 @@ class _SummaryLineChart extends StatelessWidget {
   final double chartMaxY;
   final int? selectedBucketIndex;
   final String Function(double value) yAxisLabelText;
+  final bool secondarySeriesOnTop;
 
   @override
   Widget build(BuildContext context) {
@@ -471,6 +559,32 @@ class _SummaryLineChart extends StatelessWidget {
         minY: 0,
         maxY: chartMaxY,
         lineBarsData: [
+          if (secondarySeriesOnTop && secondaryBuckets != null)
+            LineChartBarData(
+              spots: [
+                for (var index = 0; index < buckets.length; index++)
+                  FlSpot(_summaryLineSpotX(index), buckets[index].value),
+              ],
+              isCurved: true,
+              color: theme.colorScheme.primary,
+              barWidth: ChartUI.barWidth,
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (spot, percent, barData, index) {
+                  final isSelected = index == selectedBucketIndex;
+                  return FlDotCirclePainter(
+                    radius: isSelected
+                        ? ChartUI.radiusSelected
+                        : ChartUI.radius,
+                    color: dashboardChartSurfaceColor(theme),
+                    strokeColor: isSelected
+                        ? theme.colorScheme.tertiary
+                        : theme.colorScheme.primary,
+                    strokeWidth: ChartUI.strokeWidth,
+                  );
+                },
+              ),
+            ),
           if (secondaryBuckets != null)
             LineChartBarData(
               spots: [
@@ -481,7 +595,7 @@ class _SummaryLineChart extends StatelessWidget {
                   ),
               ],
               isCurved: true,
-              color: _secondarySeriesColor,
+              color: dashboardSecondarySeriesColor,
               barWidth: ChartUI.barWidth,
               dotData: FlDotData(
                 show: true,
@@ -500,29 +614,32 @@ class _SummaryLineChart extends StatelessWidget {
                 },
               ),
             ),
-          LineChartBarData(
-            spots: [
-              for (var index = 0; index < buckets.length; index++)
-                FlSpot(_summaryLineSpotX(index), buckets[index].value),
-            ],
-            isCurved: true,
-            color: theme.colorScheme.primary,
-            barWidth: ChartUI.barWidth,
-            dotData: FlDotData(
-              show: true,
-              getDotPainter: (spot, percent, barData, index) {
-                final isSelected = index == selectedBucketIndex;
-                return FlDotCirclePainter(
-                  radius: isSelected ? ChartUI.radiusSelected : ChartUI.radius,
-                  color: dashboardChartSurfaceColor(theme),
-                  strokeColor: isSelected
-                      ? theme.colorScheme.tertiary
-                      : theme.colorScheme.primary,
-                  strokeWidth: ChartUI.strokeWidth,
-                );
-              },
+          if (!secondarySeriesOnTop)
+            LineChartBarData(
+              spots: [
+                for (var index = 0; index < buckets.length; index++)
+                  FlSpot(_summaryLineSpotX(index), buckets[index].value),
+              ],
+              isCurved: true,
+              color: theme.colorScheme.primary,
+              barWidth: ChartUI.barWidth,
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (spot, percent, barData, index) {
+                  final isSelected = index == selectedBucketIndex;
+                  return FlDotCirclePainter(
+                    radius: isSelected
+                        ? ChartUI.radiusSelected
+                        : ChartUI.radius,
+                    color: dashboardChartSurfaceColor(theme),
+                    strokeColor: isSelected
+                        ? theme.colorScheme.tertiary
+                        : theme.colorScheme.primary,
+                    strokeWidth: ChartUI.strokeWidth,
+                  );
+                },
+              ),
             ),
-          ),
         ],
         titlesData: const FlTitlesData(
           leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -777,10 +894,12 @@ class _SummaryTooltipCard extends StatelessWidget {
     super.key,
     required this.titleText,
     required this.valueTexts,
+    this.valueTextColors,
   });
 
   final String titleText;
   final List<String> valueTexts;
+  final List<Color>? valueTextColors;
 
   @override
   Widget build(BuildContext context) {
@@ -802,7 +921,15 @@ class _SummaryTooltipCard extends StatelessWidget {
             ),
             for (var index = 0; index < valueTexts.length; index++) ...[
               SizedBox(height: index == 0 ? 4 : 2),
-              Text(valueTexts[index], style: theme.textTheme.bodySmall),
+              Text(
+                valueTexts[index],
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color:
+                      valueTextColors != null && index < valueTextColors!.length
+                      ? valueTextColors![index]
+                      : null,
+                ),
+              ),
             ],
           ],
         ),
@@ -821,8 +948,7 @@ String defaultTooltipTitleText(
     SummaryPeriodPreset.last3Months ||
     SummaryPeriodPreset.last6Months => formatSummaryDayMonth(bucket.start),
     SummaryPeriodPreset.last12Months ||
+    SummaryPeriodPreset.yearToDate ||
     SummaryPeriodPreset.allTime => bucket.label,
   };
 }
-
-const _secondarySeriesColor = Color(0xFF2E7D32);

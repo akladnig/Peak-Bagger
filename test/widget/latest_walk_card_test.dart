@@ -11,10 +11,19 @@ import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/widgets/dashboard/latest_walk_card.dart';
 
 void main() {
-  test('buildLatestWalkTileProvider returns cached provider when available', () {
-    expect(buildLatestWalkTileProvider(cacheAvailable: false), isA<NetworkTileProvider>());
-    expect(buildLatestWalkTileProvider(cacheAvailable: true), isA<FMTCTileProvider>());
-  });
+  test(
+    'buildLatestWalkTileProvider returns cached provider when available',
+    () {
+      expect(
+        buildLatestWalkTileProvider(cacheAvailable: false),
+        isA<NetworkTileProvider>(),
+      );
+      expect(
+        buildLatestWalkTileProvider(cacheAvailable: true),
+        isA<FMTCTileProvider>(),
+      );
+    },
+  );
 
   testWidgets('renders empty placeholder when no usable track exists', (
     tester,
@@ -22,11 +31,11 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
-            body: SizedBox(
-              width: 420,
-              height: 320,
-              child: LatestWalkCard(tracks: [], showPeakInfo: false),
-            ),
+          body: SizedBox(
+            width: 420,
+            height: 320,
+            child: LatestWalkCard(tracks: [], showPeakInfo: false),
+          ),
         ),
       ),
     );
@@ -79,18 +88,84 @@ void main() {
     expect(find.byKey(const Key('latest-walk-prev-track')), findsOneWidget);
     expect(find.byKey(const Key('latest-walk-next-track')), findsOneWidget);
     expect(
-      tester.widget<IconButton>(find.byKey(const Key('latest-walk-prev-track'))).tooltip,
+      tester
+          .widget<IconButton>(find.byKey(const Key('latest-walk-prev-track')))
+          .tooltip,
       'Previous track',
     );
     expect(
-      tester.widget<IconButton>(find.byKey(const Key('latest-walk-next-track'))).tooltip,
+      tester
+          .widget<IconButton>(find.byKey(const Key('latest-walk-next-track')))
+          .tooltip,
       'Next track',
     );
     expect(
-      tester.widget<IconButton>(find.byKey(const Key('latest-walk-next-track'))).onPressed,
+      tester
+          .widget<IconButton>(find.byKey(const Key('latest-walk-next-track')))
+          .onPressed,
       isNull,
     );
     expect(find.byKey(const ValueKey('latest-walk-map-20')), findsOneWidget);
+  });
+
+  testWidgets('walk name and mini-map open the selected track', (tester) async {
+    final openedTrackIds = <int>[];
+    final tracks = [
+      _track(
+        10,
+        DateTime.utc(2026, 5, 14, 10),
+        segments: [
+          [const LatLng(-41.5, 146.5), const LatLng(-41.4, 146.6)],
+        ],
+      ),
+      _track(
+        20,
+        DateTime.utc(2026, 5, 15, 10),
+        segments: [
+          [const LatLng(-41.6, 146.6), const LatLng(-41.7, 146.7)],
+        ],
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 420,
+            height: 320,
+            child: LatestWalkCard(
+              tracks: tracks,
+              showPeakInfo: false,
+              onOpenTrack: openedTrackIds.add,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final titleLink = tester.widget<InkWell>(
+      find.byKey(const Key('latest-walk-track-title-link')),
+    );
+    final miniMapCursor = tester.widget<MouseRegion>(
+      find.byKey(const Key('latest-walk-mini-map-cursor')),
+    );
+
+    expect(titleLink.mouseCursor, SystemMouseCursors.click);
+    expect(miniMapCursor.cursor, SystemMouseCursors.click);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const Key('latest-walk-track-title')))
+          .style
+          ?.fontWeight,
+      FontWeight.w700,
+    );
+
+    await tester.tap(find.byKey(const Key('latest-walk-track-title-link')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('latest-walk-mini-map-link')));
+    await tester.pump();
+
+    expect(openedTrackIds, [20, 20]);
   });
 
   testWidgets('paginates tracks with next disabled at latest', (tester) async {
@@ -133,11 +208,15 @@ void main() {
 
     expect(find.text('Track 20'), findsOneWidget);
     expect(
-      tester.widget<IconButton>(find.byKey(const Key('latest-walk-next-track'))).onPressed,
+      tester
+          .widget<IconButton>(find.byKey(const Key('latest-walk-next-track')))
+          .onPressed,
       isNull,
     );
     expect(
-      tester.widget<IconButton>(find.byKey(const Key('latest-walk-prev-track'))).onPressed,
+      tester
+          .widget<IconButton>(find.byKey(const Key('latest-walk-prev-track')))
+          .onPressed,
       isNotNull,
     );
 
@@ -147,7 +226,9 @@ void main() {
     expect(find.text('Track 10'), findsOneWidget);
     expect(find.byKey(const ValueKey('latest-walk-map-10')), findsOneWidget);
     expect(
-      tester.widget<IconButton>(find.byKey(const Key('latest-walk-next-track'))).onPressed,
+      tester
+          .widget<IconButton>(find.byKey(const Key('latest-walk-next-track')))
+          .onPressed,
       isNotNull,
     );
 
@@ -175,7 +256,12 @@ void main() {
                     [const LatLng(-41.5, 146.5), const LatLng(-41.4, 146.6)],
                   ],
                   peaks: [
-                    Peak(osmId: 501, name: 'Alpha Peak', latitude: -41.45, longitude: 146.55),
+                    Peak(
+                      osmId: 501,
+                      name: 'Alpha Peak',
+                      latitude: -41.45,
+                      longitude: 146.55,
+                    ),
                   ],
                   peakCorrelationProcessed: true,
                 ),
@@ -190,10 +276,7 @@ void main() {
     final markerLayer = tester.widget<MarkerLayer>(find.byType(MarkerLayer));
     expect(markerLayer.markers, hasLength(1));
     expect(markerLayer.markers.single.key, const Key('peak-marker-hitbox-501'));
-    expect(
-      markerLayer.markers.single.point,
-      const LatLng(-41.45, 146.55),
-    );
+    expect(markerLayer.markers.single.point, const LatLng(-41.45, 146.55));
     expect(find.byKey(const Key('peak-marker-name-501')), findsOneWidget);
     expect(find.byKey(const Key('peak-marker-height-501')), findsOneWidget);
   });
@@ -242,10 +325,7 @@ void main() {
                   10,
                   DateTime.utc(2026, 5, 14, 10),
                   segments: [
-                    [
-                      const LatLng(-41.5, 146.5),
-                      const LatLng(-41.4, 146.6),
-                    ],
+                    [const LatLng(-41.5, 146.5), const LatLng(-41.4, 146.6)],
                   ],
                 ),
               ],

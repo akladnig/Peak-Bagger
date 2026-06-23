@@ -148,11 +148,13 @@ class ElevationSummaryService {
   int visibleAverageMetresForPeriod({
     required ElevationPeriodPreset period,
     required Iterable<ElevationBucket> buckets,
+    DateTime? referenceDate,
   }) {
     return _service
         .visibleAverageValueForPeriod(
           period: period,
           buckets: buckets.map((bucket) => bucket.toSummaryBucket()),
+          referenceDate: referenceDate,
         )
         .round();
   }

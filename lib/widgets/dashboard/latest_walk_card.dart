@@ -18,10 +18,12 @@ class LatestWalkCard extends StatefulWidget {
     super.key,
     required this.tracks,
     required this.showPeakInfo,
+    this.onOpenTrack,
   });
 
   final List<GpxTrack> tracks;
   final bool showPeakInfo;
+  final ValueChanged<int>? onOpenTrack;
 
   @override
   State<LatestWalkCard> createState() => _LatestWalkCardState();
@@ -33,20 +35,27 @@ class _LatestWalkCardState extends State<LatestWalkCard> {
   @override
   void initState() {
     super.initState();
-    _selectedTrackId = LatestWalkSummary.selectLatestTrack(widget.tracks)?.gpxTrackId;
+    _selectedTrackId = LatestWalkSummary.selectLatestTrack(
+      widget.tracks,
+    )?.gpxTrackId;
   }
 
   @override
   void didUpdateWidget(covariant LatestWalkCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (_selectedTrackId == null) {
-      _selectedTrackId = LatestWalkSummary.selectLatestTrack(widget.tracks)?.gpxTrackId;
+      _selectedTrackId = LatestWalkSummary.selectLatestTrack(
+        widget.tracks,
+      )?.gpxTrackId;
       return;
     }
 
     final orderedTracks = LatestWalkSummary.orderedTracks(widget.tracks);
-    if (LatestWalkSummary.indexOfTrackId(orderedTracks, _selectedTrackId!) == -1) {
-      _selectedTrackId = LatestWalkSummary.selectLatestTrack(widget.tracks)?.gpxTrackId;
+    if (LatestWalkSummary.indexOfTrackId(orderedTracks, _selectedTrackId!) ==
+        -1) {
+      _selectedTrackId = LatestWalkSummary.selectLatestTrack(
+        widget.tracks,
+      )?.gpxTrackId;
     }
   }
 
@@ -72,8 +81,11 @@ class _LatestWalkCardState extends State<LatestWalkCard> {
               selectedIndex: selectedIndex,
               trackCount: orderedTracks.length,
               showPeakInfo: widget.showPeakInfo,
-              onPrevious: () => _selectTrack(orderedTracks[selectedIndex + 1].gpxTrackId),
-              onNext: () => _selectTrack(orderedTracks[selectedIndex - 1].gpxTrackId),
+              onOpenTrack: widget.onOpenTrack,
+              onPrevious: () =>
+                  _selectTrack(orderedTracks[selectedIndex + 1].gpxTrackId),
+              onNext: () =>
+                  _selectTrack(orderedTracks[selectedIndex - 1].gpxTrackId),
             ),
     );
   }
@@ -129,6 +141,7 @@ class _LatestWalkContent extends StatelessWidget {
     required this.selectedIndex,
     required this.trackCount,
     required this.showPeakInfo,
+    required this.onOpenTrack,
     required this.onPrevious,
     required this.onNext,
   });
@@ -137,6 +150,7 @@ class _LatestWalkContent extends StatelessWidget {
   final int selectedIndex;
   final int trackCount;
   final bool showPeakInfo;
+  final ValueChanged<int>? onOpenTrack;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
 
@@ -147,6 +161,7 @@ class _LatestWalkContent extends StatelessWidget {
       fontWeight: FontWeight.w700,
     );
     final textStyle = theme.textTheme.bodySmall;
+    final isClickable = summary.track != null && onOpenTrack != null;
 
     return Padding(
       padding: const EdgeInsets.all(12),
@@ -156,12 +171,26 @@ class _LatestWalkContent extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  summary.title,
-                  key: const Key('latest-walk-track-title'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: titleStyle,
+                child: InkWell(
+                  key: const Key('latest-walk-track-title-link'),
+                  onTap: isClickable
+                      ? () => onOpenTrack!.call(summary.track!.gpxTrackId)
+                      : null,
+                  mouseCursor: isClickable
+                      ? SystemMouseCursors.click
+                      : SystemMouseCursors.basic,
+                  hoverColor: Colors.transparent,
+                  highlightColor: Colors.transparent,
+                  splashColor: Colors.transparent,
+                  child: Text(
+                    summary.title,
+                    key: const Key('latest-walk-track-title'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: isClickable
+                        ? titleStyle?.copyWith(color: theme.colorScheme.primary)
+                        : titleStyle,
+                  ),
                 ),
               ),
               IconButton(
@@ -196,6 +225,7 @@ class _LatestWalkContent extends StatelessWidget {
             child: _LatestWalkMiniMap(
               summary: summary,
               showPeakInfo: showPeakInfo,
+              onOpenTrack: onOpenTrack,
             ),
           ),
         ],
@@ -208,10 +238,12 @@ class _LatestWalkMiniMap extends StatelessWidget {
   const _LatestWalkMiniMap({
     required this.summary,
     required this.showPeakInfo,
+    required this.onOpenTrack,
   });
 
   final LatestWalkSummary summary;
   final bool showPeakInfo;
+  final ValueChanged<int>? onOpenTrack;
 
   static final _tickedPeakMarker = SvgPicture.asset(
     'assets/peak_marker_ticked.svg',
@@ -228,6 +260,7 @@ class _LatestWalkMiniMap extends StatelessWidget {
     final trackPeaks = track.peaks.toList(growable: false);
     final correlatedPeakIds = buildCorrelatedPeakIds([track]);
     final theme = Theme.of(context);
+    final isClickable = summary.track != null && onOpenTrack != null;
 
     final options = points.length == 1
         ? MapOptions(
@@ -251,63 +284,85 @@ class _LatestWalkMiniMap extends StatelessWidget {
       key: const Key('latest-walk-mini-map'),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: theme.colorScheme.outlineVariant),
-            color: theme.colorScheme.surfaceContainerHighest,
-          ),
-          child: FlutterMap(
-            key: ValueKey('latest-walk-map-${track.gpxTrackId}'),
-            options: options,
-            children: [
-              TileLayer(
-                urlTemplate: mapTileUrl(Basemap.openstreetmap),
-                userAgentPackageName: 'com.peak_bagger.app',
-                tileProvider: buildLatestWalkTileProvider(
-                  cacheAvailable:
-                      TileCacheService.getStoreForBasemap(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: theme.colorScheme.outlineVariant),
+                color: theme.colorScheme.surfaceContainerHighest,
+              ),
+              child: FlutterMap(
+                key: ValueKey('latest-walk-map-${track.gpxTrackId}'),
+                options: options,
+                children: [
+                  TileLayer(
+                    urlTemplate: mapTileUrl(Basemap.openstreetmap),
+                    userAgentPackageName: 'com.peak_bagger.app',
+                    tileProvider: buildLatestWalkTileProvider(
+                      cacheAvailable:
+                          TileCacheService.getStoreForBasemap(
                             Basemap.openstreetmap,
                           ) !=
-                      null,
+                          null,
+                    ),
+                  ),
+                  if (points.length == 1)
+                    CircleLayer(
+                      circles: [
+                        CircleMarker(
+                          point: points.single,
+                          radius: 7,
+                          color: Color(
+                            track.trackColour,
+                          ).withValues(alpha: 0.25),
+                          borderColor: Color(track.trackColour),
+                          borderStrokeWidth: 2,
+                        ),
+                      ],
+                    )
+                  else
+                    PolylineLayer(
+                      polylines: [
+                        for (final segment in summary.segments)
+                          Polyline(
+                            points: segment,
+                            color: Color(track.trackColour),
+                            strokeWidth: 3,
+                          ),
+                      ],
+                    ),
+                  if (trackPeaks.isNotEmpty)
+                    MarkerLayer(
+                      markers: buildPeakMarkers(
+                        peaks: trackPeaks,
+                        zoom: MapConstants.peakInfoMinZoom,
+                        showPeakInfo: showPeakInfo,
+                        correlatedPeakIds: correlatedPeakIds,
+                        tickedPeakMarker: _tickedPeakMarker,
+                        untickedPeakMarker: _untickedPeakMarker,
+                        suppressBelowZoom: false,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Positioned.fill(
+              child: MouseRegion(
+                key: const Key('latest-walk-mini-map-cursor'),
+                cursor: isClickable
+                    ? SystemMouseCursors.click
+                    : SystemMouseCursors.basic,
+                child: GestureDetector(
+                  key: const Key('latest-walk-mini-map-link'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: isClickable
+                      ? () => onOpenTrack!.call(summary.track!.gpxTrackId)
+                      : null,
                 ),
               ),
-              if (points.length == 1)
-                CircleLayer(
-                  circles: [
-                    CircleMarker(
-                      point: points.single,
-                      radius: 7,
-                      color: Color(track.trackColour).withValues(alpha: 0.25),
-                      borderColor: Color(track.trackColour),
-                      borderStrokeWidth: 2,
-                    ),
-                  ],
-                )
-              else
-                PolylineLayer(
-                  polylines: [
-                    for (final segment in summary.segments)
-                      Polyline(
-                        points: segment,
-                        color: Color(track.trackColour),
-                        strokeWidth: 3,
-                      ),
-                  ],
-                ),
-              if (trackPeaks.isNotEmpty)
-                MarkerLayer(
-                  markers: buildPeakMarkers(
-                    peaks: trackPeaks,
-                    zoom: MapConstants.peakInfoMinZoom,
-                    showPeakInfo: showPeakInfo,
-                    correlatedPeakIds: correlatedPeakIds,
-                    tickedPeakMarker: _tickedPeakMarker,
-                    untickedPeakMarker: _untickedPeakMarker,
-                    suppressBelowZoom: false,
-                  ),
-                ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -325,9 +380,7 @@ TileProvider buildLatestWalkTileProvider({required bool cacheAvailable}) {
   }
 
   return FMTCTileProvider(
-    stores: {
-      'openstreetmap': BrowseStoreStrategy.readUpdateCreate,
-    },
+    stores: {'openstreetmap': BrowseStoreStrategy.readUpdateCreate},
     loadingStrategy: BrowseLoadingStrategy.cacheFirst,
     urlTransformer: (url) => url,
   );

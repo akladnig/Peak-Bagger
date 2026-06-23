@@ -25,6 +25,7 @@ class ElevationCard extends StatelessWidget {
     headerValueText: _formatHeaderValue,
     tooltipTitleText: formatElevationTooltipTitle,
     yAxisLabelText: formatElevationAxisLabel,
+    chartMaxYFor: roundedChartMaxYFor,
   );
 
   final List<GpxTrack> tracks;

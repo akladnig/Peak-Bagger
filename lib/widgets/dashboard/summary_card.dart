@@ -38,12 +38,14 @@ class SummaryCardMetricAdapter {
     required this.emptyStateText,
     required this.metric,
     required this.tooltipValueTexts,
+    this.tooltipValueTextColors,
     required this.headerValueText,
     required this.yAxisLabelText,
     this.chartMaxYFor = defaultChartMaxYFor,
     this.tooltipTitleText = defaultTooltipTitleText,
     this.averageLabelText = defaultAverageLabelText,
     this.secondaryMetric,
+    this.secondarySeriesOnTop = false,
     this.barSeriesStyle = SummaryBarSeriesStyle.stacked,
   });
 
@@ -56,12 +58,19 @@ class SummaryCardMetricAdapter {
     SummaryBucket? secondaryBucket,
   )
   tooltipValueTexts;
+  final List<Color> Function(
+    BuildContext context,
+    SummaryBucket bucket,
+    SummaryBucket? secondaryBucket,
+  )?
+  tooltipValueTextColors;
   final String Function(double value) headerValueText;
   final String Function(double value) yAxisLabelText;
   final double Function(double maxValue) chartMaxYFor;
   final String Function(SummaryBucket bucket, SummaryPeriodPreset period)
   tooltipTitleText;
   final String Function(SummaryPeriodPreset period) averageLabelText;
+  final bool secondarySeriesOnTop;
   final SummaryBarSeriesStyle barSeriesStyle;
 }
 
@@ -90,6 +99,8 @@ class SummaryCard extends StatefulWidget {
 class _SummaryCardState extends State<SummaryCard> {
   final SummaryCardService _service = const SummaryCardService();
   final ScrollController _scrollController = ScrollController();
+  final Map<SummaryPeriodPreset, SummaryTimeline> _primaryTimelineCache = {};
+  final Map<SummaryPeriodPreset, SummaryTimeline> _secondaryTimelineCache = {};
 
   SummaryPeriodPreset _period = SummaryPeriodPreset.last12Months;
   late SummaryDisplayMode _mode;
@@ -97,6 +108,9 @@ class _SummaryCardState extends State<SummaryCard> {
   double _viewportWidth = 0;
   double _maxScrollExtent = 0;
   SummaryVisibleSummary? _lastVisibleSummary;
+  DateTime? _cachedReferenceDate;
+  List<GpxTrack>? _cachedTracks;
+  SummaryCardMetricAdapter? _cachedAdapter;
 
   @override
   void initState() {
@@ -111,6 +125,12 @@ class _SummaryCardState extends State<SummaryCard> {
     if (oldWidget.tracks != widget.tracks ||
         oldWidget.isLoading != widget.isLoading) {
       _anchoredToLatest = false;
+    }
+
+    if (oldWidget.tracks != widget.tracks ||
+        oldWidget.now != widget.now ||
+        oldWidget.adapter != widget.adapter) {
+      _clearTimelineCaches();
     }
   }
 
@@ -185,6 +205,43 @@ class _SummaryCardState extends State<SummaryCard> {
     return widget.isLoading ? _buildLoadingState() : _buildContent();
   }
 
+  void _clearTimelineCaches() {
+    _primaryTimelineCache.clear();
+    _secondaryTimelineCache.clear();
+    _cachedReferenceDate = null;
+    _cachedTracks = null;
+    _cachedAdapter = null;
+  }
+
+  void _ensureTimelineCaches(DateTime referenceDate) {
+    if (_cachedTracks == widget.tracks &&
+        _cachedReferenceDate == referenceDate &&
+        _cachedAdapter == widget.adapter) {
+      return;
+    }
+
+    _clearTimelineCaches();
+    _cachedTracks = widget.tracks;
+    _cachedReferenceDate = referenceDate;
+    _cachedAdapter = widget.adapter;
+  }
+
+  SummaryTimeline _timelineFor({
+    required Map<SummaryPeriodPreset, SummaryTimeline> cache,
+    required SummaryMetricDefinition metric,
+    required DateTime referenceDate,
+  }) {
+    return cache.putIfAbsent(
+      _period,
+      () => _service.buildTimeline(
+        tracks: widget.tracks,
+        period: _period,
+        metric: metric,
+        now: referenceDate,
+      ),
+    );
+  }
+
   Widget _buildLoadingState() {
     _reportVisibleSummary(null);
     return Center(
@@ -199,19 +256,18 @@ class _SummaryCardState extends State<SummaryCard> {
   Widget _buildContent() {
     final now = (widget.now ?? DateTime.now()).toLocal();
     final referenceDate = DateTime(now.year, now.month, now.day);
-    final timeline = _service.buildTimeline(
-      tracks: widget.tracks,
-      period: _period,
+    _ensureTimelineCaches(referenceDate);
+    final timeline = _timelineFor(
+      cache: _primaryTimelineCache,
       metric: widget.adapter.metric,
-      now: widget.now,
+      referenceDate: referenceDate,
     );
     final secondaryTimeline = widget.adapter.secondaryMetric == null
         ? null
-        : _service.buildTimeline(
-            tracks: widget.tracks,
-            period: _period,
+        : _timelineFor(
+            cache: _secondaryTimelineCache,
             metric: widget.adapter.secondaryMetric!,
-            now: widget.now,
+            referenceDate: referenceDate,
           );
 
     if (timeline.isEmpty) {
@@ -262,9 +318,16 @@ class _SummaryCardState extends State<SummaryCard> {
                   chartViewportWidth,
                 );
                 final visibleTotal = _service.visibleTotalValue(visibleBuckets);
+                final averageBuckets = _averageBucketsForPeriod(
+                  period: _period,
+                  allBuckets: timeline.buckets,
+                  visibleBuckets: visibleBuckets,
+                  referenceDate: referenceDate,
+                );
                 final visibleAverage = _service.visibleAverageValueForPeriod(
                   period: _period,
-                  buckets: visibleBuckets,
+                  buckets: averageBuckets,
+                  referenceDate: referenceDate,
                 );
                 final visibleRangeText = formatSummaryDateRange(
                   visibleBuckets.first.start,
@@ -310,8 +373,12 @@ class _SummaryCardState extends State<SummaryCard> {
                         referenceDate: referenceDate,
                         chartMaxYFor: widget.adapter.chartMaxYFor,
                         tooltipValueTexts: widget.adapter.tooltipValueTexts,
+                        tooltipValueTextColors:
+                            widget.adapter.tooltipValueTextColors,
                         tooltipTitleText: widget.adapter.tooltipTitleText,
                         yAxisLabelText: widget.adapter.yAxisLabelText,
+                        secondarySeriesOnTop:
+                            widget.adapter.secondarySeriesOnTop,
                       ),
                     ),
                   ],
@@ -398,6 +465,20 @@ class _SummaryCardState extends State<SummaryCard> {
         : maxStartIndex;
     final endIndex = math.min(buckets.length, startIndex + visibleCount);
     return buckets.sublist(startIndex, endIndex);
+  }
+
+  Iterable<SummaryBucket> _averageBucketsForPeriod({
+    required SummaryPeriodPreset period,
+    required List<SummaryBucket> allBuckets,
+    required List<SummaryBucket> visibleBuckets,
+    required DateTime referenceDate,
+  }) {
+    return switch (period) {
+      SummaryPeriodPreset.yearToDate => allBuckets.where(
+        (bucket) => !bucket.start.isAfter(referenceDate),
+      ),
+      _ => visibleBuckets,
+    };
   }
 }
 
@@ -546,7 +627,9 @@ int visibleColumnCountForPeriod(SummaryPeriodPreset period) {
     SummaryPeriodPreset.month => 31,
     SummaryPeriodPreset.last3Months => 13,
     SummaryPeriodPreset.last6Months => 26,
-    SummaryPeriodPreset.last12Months || SummaryPeriodPreset.allTime => 12,
+    SummaryPeriodPreset.last12Months ||
+    SummaryPeriodPreset.yearToDate ||
+    SummaryPeriodPreset.allTime => 12,
   };
 }
 
@@ -555,4 +638,27 @@ String defaultAverageLabelText(SummaryPeriodPreset period) =>
 
 double defaultChartMaxYFor(double maxValue) {
   return math.max(4.0, (((maxValue.floor()) + 1 + 3) ~/ 4) * 4.0);
+}
+
+double roundedChartMaxYFor(double maxValue) {
+  if (!maxValue.isFinite || maxValue <= 0) {
+    return 4.0;
+  }
+
+  if (maxValue < 20) {
+    return 20.0;
+  }
+
+  final place = _roundedChartPlace(maxValue.abs());
+  final interval = ((maxValue / 4) / place).ceilToDouble() * place;
+  return math.max(4.0, interval * 4);
+}
+
+double _roundedChartPlace(double value) {
+  if (value < 100) {
+    return 10.0;
+  }
+
+  final exponent = (math.log(value) / math.ln10).floor() - 1;
+  return math.pow(10.0, exponent).toDouble();
 }
