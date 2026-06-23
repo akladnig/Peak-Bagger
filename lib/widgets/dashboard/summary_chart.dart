@@ -56,6 +56,7 @@ class SummaryChart extends StatefulWidget {
 class _SummaryChartState extends State<SummaryChart> {
   int? _selectedBucketIndex;
   bool _selectedIsPinned = false;
+  static const double _tooltipMaxWidth = 220;
 
   void _selectBucket(int index, {required bool pinned}) {
     setState(() {
@@ -102,6 +103,9 @@ class _SummaryChartState extends State<SummaryChart> {
           constraints.maxWidth - yAxisLabelWidth,
           1,
         );
+        final scrollOffset = widget.controller.hasClients
+            ? widget.controller.offset
+            : 0.0;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -267,33 +271,48 @@ class _SummaryChartState extends State<SummaryChart> {
                               ),
                             ),
                             if (_selectedBucketIndex != null)
-                              Positioned(
-                                top: 0,
-                                left:
-                                    (_selectedBucketIndex! *
-                                        widget.bucketExtent) +
-                                    (widget.bucketExtent / 2),
-                                child: FractionalTranslation(
-                                  translation: const Offset(-0.5, 0),
-                                  child: IgnorePointer(
-                                    child: ConstrainedBox(
-                                      constraints: const BoxConstraints(
-                                        maxWidth: 220,
-                                      ),
-                                      child: _SummaryTooltipCard(
-                                        key: Key('${widget.keyPrefix}-tooltip'),
-                                        titleText: widget.tooltipTitleText(
-                                          buckets[_selectedBucketIndex!],
-                                          widget.period,
-                                        ),
-                                        valueTexts: widget.tooltipValueTexts(
-                                          buckets[_selectedBucketIndex!],
-                                          secondaryBuckets?[_selectedBucketIndex!],
+                              Builder(
+                                builder: (context) {
+                                  final selectedBucket =
+                                      buckets[_selectedBucketIndex!];
+                                  final tooltipTitleText = widget.tooltipTitleText(
+                                    selectedBucket,
+                                    widget.period,
+                                  );
+                                  final tooltipValueTexts = widget
+                                      .tooltipValueTexts(
+                                        selectedBucket,
+                                        secondaryBuckets?[_selectedBucketIndex!],
+                                      );
+                                  final tooltipWidth = _tooltipWidth(
+                                    context: context,
+                                    titleText: tooltipTitleText,
+                                    valueTexts: tooltipValueTexts,
+                                  );
+
+                                  return Positioned(
+                                    top: 0,
+                                    left: _tooltipLeft(
+                                      index: _selectedBucketIndex!,
+                                      bucketExtent: widget.bucketExtent,
+                                      viewportWidth: chartViewportWidth,
+                                      scrollOffset: scrollOffset,
+                                      tooltipWidth: tooltipWidth,
+                                    ),
+                                    child: SizedBox(
+                                      width: tooltipWidth,
+                                      child: IgnorePointer(
+                                        child: _SummaryTooltipCard(
+                                          key: Key(
+                                            '${widget.keyPrefix}-tooltip',
+                                          ),
+                                          titleText: tooltipTitleText,
+                                          valueTexts: tooltipValueTexts,
                                         ),
                                       ),
                                     ),
-                                  ),
-                                ),
+                                  );
+                                },
                               ),
                           ],
                         ),
@@ -308,6 +327,60 @@ class _SummaryChartState extends State<SummaryChart> {
       },
     );
   }
+}
+
+double _tooltipLeft({
+  required int index,
+  required double bucketExtent,
+  required double viewportWidth,
+  required double scrollOffset,
+  required double tooltipWidth,
+}) {
+  final bucketCenter = (index * bucketExtent) + (bucketExtent / 2);
+  final leftBound = scrollOffset;
+  final rightBound = math.max(leftBound, scrollOffset + viewportWidth - tooltipWidth);
+  return (bucketCenter - (tooltipWidth / 2)).clamp(leftBound, rightBound).toDouble();
+}
+
+double _tooltipWidth({
+  required BuildContext context,
+  required String titleText,
+  required List<String> valueTexts,
+}) {
+  final theme = Theme.of(context);
+  final titleStyle = theme.textTheme.bodyMedium?.copyWith(
+    fontWeight: FontWeight.w600,
+  );
+  final valueStyle = theme.textTheme.bodySmall;
+  final titleWidth = _measureTextWidth(context, titleText, titleStyle);
+  final valueWidth = valueTexts.fold<double>(
+    0,
+    (maxWidth, text) => math.max(
+      maxWidth,
+      _measureTextWidth(context, text, valueStyle),
+    ),
+  );
+
+  const horizontalPadding = 12 * 2;
+  const cardMargin = 4 * 2;
+  return math.min(
+    _SummaryChartState._tooltipMaxWidth,
+    math.max(titleWidth, valueWidth) + horizontalPadding + cardMargin,
+  ).ceilToDouble();
+}
+
+double _measureTextWidth(
+  BuildContext context,
+  String text,
+  TextStyle? style,
+) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+    maxLines: 1,
+  )..layout();
+  return painter.width;
 }
 
 class _SummaryBarChart extends StatelessWidget {

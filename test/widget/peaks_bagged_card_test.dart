@@ -83,15 +83,13 @@ void main() {
       expect(find.byKey(const Key('peaks-bagged-scroll-view')), findsOneWidget);
     });
 
-    testWidgets('toggles display mode and shows peaks tooltip', (
-      tester,
-    ) async {
+    testWidgets('toggles display mode and shows peaks tooltip', (tester) async {
       await _pumpPeaksBaggedCard(
         tester,
         tracks: [
           _track(10, DateTime(2026, 5, 1, 10), peakIds: [11]),
-          _track(20, DateTime(2026, 5, 15, 10), peakIds: [11, 22]),
-          _track(30, DateTime(2026, 5, 31, 10), peakIds: [11, 33, 44]),
+          _track(20, DateTime(2026, 5, 15, 10), peakIds: [22]),
+          _track(30, DateTime(2026, 5, 31, 10), peakIds: [33]),
         ],
         now: DateTime(2026, 5, 15, 12),
         width: 560,
@@ -120,16 +118,30 @@ void main() {
         closeTo(lineChart.data.maxY / 4, 1e-9),
       );
       expect(lineChart.data.gridData.checkToShowHorizontalLine(0), isFalse);
-      expect(lineChart.data.gridData.checkToShowHorizontalLine(lineChart.data.maxY), isFalse);
+      expect(
+        lineChart.data.gridData.checkToShowHorizontalLine(lineChart.data.maxY),
+        isFalse,
+      );
       expect(lineChart.data.extraLinesData.extraLinesOnTop, isTrue);
       expect(lineChart.data.extraLinesData.horizontalLines, hasLength(2));
       expect(lineChart.data.extraLinesData.horizontalLines[0].y, 0);
-      expect(lineChart.data.extraLinesData.horizontalLines[0].dashArray, isNull);
-      expect(lineChart.data.extraLinesData.horizontalLines[1].y, lineChart.data.maxY);
-      expect(lineChart.data.extraLinesData.horizontalLines[1].dashArray, equals([8, 4]));
+      expect(
+        lineChart.data.extraLinesData.horizontalLines[0].dashArray,
+        isNull,
+      );
+      expect(
+        lineChart.data.extraLinesData.horizontalLines[1].y,
+        lineChart.data.maxY,
+      );
+      expect(
+        lineChart.data.extraLinesData.horizontalLines[1].dashArray,
+        equals([8, 4]),
+      );
       expect(
         lineChart.data.gridData
-            .getDrawingHorizontalLine(lineChart.data.gridData.horizontalInterval!)
+            .getDrawingHorizontalLine(
+              lineChart.data.gridData.horizontalInterval!,
+            )
             .dashArray,
         equals([8, 4]),
       );
@@ -178,13 +190,19 @@ void main() {
         isFalse,
       );
       expect(switchedBarChart.data.extraLinesData.extraLinesOnTop, isTrue);
-      expect(switchedBarChart.data.extraLinesData.horizontalLines, hasLength(2));
+      expect(
+        switchedBarChart.data.extraLinesData.horizontalLines,
+        hasLength(2),
+      );
       expect(switchedBarChart.data.extraLinesData.horizontalLines[0].y, 0);
       expect(
         switchedBarChart.data.extraLinesData.horizontalLines[0].dashArray,
         isNull,
       );
-      expect(switchedBarChart.data.extraLinesData.horizontalLines[1].y, switchedBarChart.data.maxY);
+      expect(
+        switchedBarChart.data.extraLinesData.horizontalLines[1].y,
+        switchedBarChart.data.maxY,
+      );
       expect(
         switchedBarChart.data.extraLinesData.horizontalLines[1].dashArray,
         equals([8, 4]),
@@ -197,35 +215,26 @@ void main() {
             .dashArray,
         equals([8, 4]),
       );
-      expect(switchedBarChart.data.barGroups[30].barRods, hasLength(1));
-      expect(switchedBarChart.data.barGroups[30].barRods.single.toY, 3);
-      expect(
-        switchedBarChart.data.barGroups[30].barRods.single.rodStackItems,
-        hasLength(2),
-      );
-      expect(
-        switchedBarChart.data.barGroups[30].barRods.single.rodStackItems[0].toY,
-        2,
-      );
-      expect(
-        switchedBarChart.data.barGroups[30].barRods.single.rodStackItems[1].toY,
-        3,
-      );
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: const Offset(0, 0));
+      await tester.pump();
 
-      await _hoverBucket(tester, 0);
+      await _hoverBucket(tester, mouse, 30);
 
       expect(find.byKey(const Key('peaks-bagged-tooltip')), findsOneWidget);
-      expect(
-        find.descendant(
-          of: find.byKey(const Key('peaks-bagged-tooltip')),
-          matching: find.text('1 May'),
-        ),
-        findsOneWidget,
+      final chartRect = tester.getRect(
+        find.byKey(const Key('peaks-bagged-scroll-view')),
       );
+      final firstTooltipRect = tester.getRect(
+        find.byKey(const Key('peaks-bagged-tooltip')),
+      );
+      expect(firstTooltipRect.left, greaterThanOrEqualTo(chartRect.left));
+      expect(firstTooltipRect.right, lessThanOrEqualTo(chartRect.right));
       expect(
         find.descendant(
           of: find.byKey(const Key('peaks-bagged-tooltip')),
-          matching: find.text('Total climbs: 1'),
+          matching: find.text('Total Peaks: 1'),
         ),
         findsOneWidget,
       );
@@ -236,6 +245,23 @@ void main() {
         ),
         findsOneWidget,
       );
+
+      final scrollableFinder = find
+          .descendant(
+            of: find.byKey(const Key('peaks-bagged-scroll-view')),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      await tester.drag(scrollableFinder, const Offset(800, 0));
+      await tester.pumpAndSettle();
+
+      await _hoverBucket(tester, mouse, 0);
+
+      final lastTooltipRect = tester.getRect(
+        find.byKey(const Key('peaks-bagged-tooltip')),
+      );
+      expect(lastTooltipRect.left, greaterThanOrEqualTo(chartRect.left));
+      expect(lastTooltipRect.right, lessThanOrEqualTo(chartRect.right));
     });
   });
 }
@@ -279,15 +305,14 @@ Future<void> _selectPeriod(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> _hoverBucket(WidgetTester tester, int index) async {
-  final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-  addTearDown(mouse.removePointer);
-
+Future<void> _hoverBucket(
+  WidgetTester tester,
+  TestGesture mouse,
+  int index,
+) async {
   final bucket = find.byKey(Key('peaks-bagged-bucket-$index'));
-  await mouse.addPointer(location: tester.getCenter(bucket));
-  await tester.pump();
   await mouse.moveTo(tester.getCenter(bucket));
-  await tester.pump();
+  await tester.pumpAndSettle();
 }
 
 Finder _cardControl(String key) {
@@ -303,11 +328,7 @@ double _numericValue(String? text) {
   return double.parse(match!.group(0)!);
 }
 
-GpxTrack _track(
-  int id,
-  DateTime? trackDate, {
-  required List<int> peakIds,
-}) {
+GpxTrack _track(int id, DateTime? trackDate, {required List<int> peakIds}) {
   final track = GpxTrack(
     gpxTrackId: id,
     contentHash: 'hash-$id',

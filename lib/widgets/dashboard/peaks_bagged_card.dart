@@ -101,7 +101,7 @@ List<String> _tooltipValueTexts(
   SummaryBucket? secondaryBucket,
 ) {
   return [
-    'Total climbs: ${formatCount(bucket.value.round())}',
+    'Total Peaks: ${formatCount(bucket.value.round())}',
     if (secondaryBucket != null)
       'New peaks: ${formatCount(secondaryBucket.value.round())}',
   ];
