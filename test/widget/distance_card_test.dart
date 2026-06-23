@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/services/summary_card_service.dart';
+import 'package:peak_bagger/theme.dart';
+import 'package:peak_bagger/widgets/dashboard/dashboard_series_colors.dart';
 import 'package:peak_bagger/widgets/dashboard/distance_card.dart';
 import 'package:peak_bagger/widgets/dashboard/summary_card.dart';
 
@@ -238,6 +240,7 @@ void main() {
         ],
         now: DateTime(2026, 5, 15, 12),
         width: 560,
+        theme: CatppuccinColors.light,
       );
 
       await _selectPeriod(tester, 'Month');
@@ -474,6 +477,24 @@ void main() {
         ),
         findsOneWidget,
       );
+
+      final tooltipTextWidgets = tester
+          .widgetList<Text>(
+            find.descendant(
+              of: find.byKey(const Key('distance-tooltip')),
+              matching: find.byType(Text),
+            ),
+          )
+          .toList();
+      expect(tooltipTextWidgets, hasLength(3));
+      expect(
+        tooltipTextWidgets[1].style?.color,
+        lighterSeriesColor(CatppuccinColors.light.colorScheme.primary),
+      );
+      expect(
+        tooltipTextWidgets[2].style?.color,
+        lighterSeriesColor(dashboardSecondarySeriesColor),
+      );
     });
   });
 }
@@ -487,10 +508,12 @@ Future<void> _pumpDistanceCard(
   DateTime? now,
   bool settle = true,
   double width = 420,
+  ThemeData? theme,
   ValueChanged<SummaryVisibleSummary?>? onVisibleSummaryChanged,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
+      theme: theme,
       home: Scaffold(
         body: SizedBox(
           width: width,

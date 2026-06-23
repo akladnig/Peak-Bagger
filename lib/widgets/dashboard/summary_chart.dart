@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants.dart';
 import '../../core/date_formatters.dart';
 import '../../services/summary_card_service.dart';
+import 'dashboard_series_colors.dart';
 import '../dashboard_chart_chrome.dart';
 
 enum SummaryBarSeriesStyle { stacked, grouped }
@@ -26,6 +27,7 @@ class SummaryChart extends StatefulWidget {
     required this.referenceDate,
     required this.chartMaxYFor,
     required this.tooltipValueTexts,
+    this.tooltipValueTextColors,
     required this.tooltipTitleText,
     required this.yAxisLabelText,
     this.secondarySeriesOnTop = false,
@@ -46,6 +48,12 @@ class SummaryChart extends StatefulWidget {
     SummaryBucket? secondaryBucket,
   )
   tooltipValueTexts;
+  final List<Color> Function(
+    BuildContext context,
+    SummaryBucket bucket,
+    SummaryBucket? secondaryBucket,
+  )?
+  tooltipValueTextColors;
   final String Function(SummaryBucket bucket, SummaryPeriodPreset period)
   tooltipTitleText;
   final String Function(double value) yAxisLabelText;
@@ -289,6 +297,13 @@ class _SummaryChartState extends State<SummaryChart> {
                                         selectedBucket,
                                         secondaryBuckets?[_selectedBucketIndex!],
                                       );
+                                  final tooltipValueTextColors = widget
+                                      .tooltipValueTextColors
+                                      ?.call(
+                                        context,
+                                        selectedBucket,
+                                        secondaryBuckets?[_selectedBucketIndex!],
+                                      );
                                   final tooltipWidth = _tooltipWidth(
                                     context: context,
                                     titleText: tooltipTitleText,
@@ -313,6 +328,8 @@ class _SummaryChartState extends State<SummaryChart> {
                                           ),
                                           titleText: tooltipTitleText,
                                           valueTexts: tooltipValueTexts,
+                                          valueTextColors:
+                                              tooltipValueTextColors,
                                         ),
                                       ),
                                     ),
@@ -435,7 +452,7 @@ class _SummaryBarChart extends StatelessWidget {
                     _seriesRod(
                       value: secondaryBuckets![index].value,
                       width: DashboardUI.rodWidthFor(bucketExtent) / 2,
-                      color: _secondarySeriesColor,
+                      color: dashboardSecondarySeriesColor,
                     ),
                 ],
               ),
@@ -466,7 +483,7 @@ class _SummaryBarChart extends StatelessWidget {
                         BarChartRodStackItem(
                           buckets[index].value,
                           secondaryBuckets![index].value,
-                          _secondarySeriesColor,
+                          dashboardSecondarySeriesColor,
                         ),
                     ],
                   ),
@@ -578,7 +595,7 @@ class _SummaryLineChart extends StatelessWidget {
                   ),
               ],
               isCurved: true,
-              color: _secondarySeriesColor,
+              color: dashboardSecondarySeriesColor,
               barWidth: ChartUI.barWidth,
               dotData: FlDotData(
                 show: true,
@@ -877,10 +894,12 @@ class _SummaryTooltipCard extends StatelessWidget {
     super.key,
     required this.titleText,
     required this.valueTexts,
+    this.valueTextColors,
   });
 
   final String titleText;
   final List<String> valueTexts;
+  final List<Color>? valueTextColors;
 
   @override
   Widget build(BuildContext context) {
@@ -902,7 +921,15 @@ class _SummaryTooltipCard extends StatelessWidget {
             ),
             for (var index = 0; index < valueTexts.length; index++) ...[
               SizedBox(height: index == 0 ? 4 : 2),
-              Text(valueTexts[index], style: theme.textTheme.bodySmall),
+              Text(
+                valueTexts[index],
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color:
+                      valueTextColors != null && index < valueTextColors!.length
+                      ? valueTextColors![index]
+                      : null,
+                ),
+              ),
             ],
           ],
         ),
@@ -925,5 +952,3 @@ String defaultTooltipTitleText(
     SummaryPeriodPreset.allTime => bucket.label,
   };
 }
-
-const _secondarySeriesColor = Color(0xFF2E7D32);

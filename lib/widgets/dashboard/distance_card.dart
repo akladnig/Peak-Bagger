@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/number_formatters.dart';
 import '../../models/gpx_track.dart';
 import '../../services/summary_card_service.dart';
+import 'dashboard_series_colors.dart';
 import 'summary_card.dart';
 
 class DistanceCard extends StatelessWidget {
@@ -26,6 +27,7 @@ class DistanceCard extends StatelessWidget {
     metric: metric,
     secondaryMetric: secondaryMetric,
     tooltipValueTexts: _distanceTooltipValues,
+    tooltipValueTextColors: _distanceTooltipValueColors,
     headerValueText: formatDistance,
     yAxisLabelText: formatDistance,
     chartMaxYFor: _distanceChartMaxY,
@@ -58,6 +60,19 @@ List<String> _distanceTooltipValues(
   return [
     '2D: ${formatDistance(bucket.value)}',
     if (secondaryBucket != null) '3D: ${formatDistance(secondaryBucket.value)}',
+  ];
+}
+
+List<Color> _distanceTooltipValueColors(
+  BuildContext context,
+  SummaryBucket _bucket,
+  SummaryBucket? secondaryBucket,
+) {
+  final theme = Theme.of(context);
+  return [
+    lighterSeriesColor(theme.colorScheme.primary),
+    if (secondaryBucket != null)
+      lighterSeriesColor(dashboardSecondarySeriesColor),
   ];
 }
 

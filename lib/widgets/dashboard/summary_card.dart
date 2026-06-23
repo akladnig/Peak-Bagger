@@ -38,6 +38,7 @@ class SummaryCardMetricAdapter {
     required this.emptyStateText,
     required this.metric,
     required this.tooltipValueTexts,
+    this.tooltipValueTextColors,
     required this.headerValueText,
     required this.yAxisLabelText,
     this.chartMaxYFor = defaultChartMaxYFor,
@@ -57,6 +58,12 @@ class SummaryCardMetricAdapter {
     SummaryBucket? secondaryBucket,
   )
   tooltipValueTexts;
+  final List<Color> Function(
+    BuildContext context,
+    SummaryBucket bucket,
+    SummaryBucket? secondaryBucket,
+  )?
+  tooltipValueTextColors;
   final String Function(double value) headerValueText;
   final String Function(double value) yAxisLabelText;
   final double Function(double maxValue) chartMaxYFor;
@@ -366,6 +373,8 @@ class _SummaryCardState extends State<SummaryCard> {
                         referenceDate: referenceDate,
                         chartMaxYFor: widget.adapter.chartMaxYFor,
                         tooltipValueTexts: widget.adapter.tooltipValueTexts,
+                        tooltipValueTextColors:
+                            widget.adapter.tooltipValueTextColors,
                         tooltipTitleText: widget.adapter.tooltipTitleText,
                         yAxisLabelText: widget.adapter.yAxisLabelText,
                         secondarySeriesOnTop:

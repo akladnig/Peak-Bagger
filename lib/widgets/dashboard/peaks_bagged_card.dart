@@ -4,6 +4,7 @@ import '../../core/number_formatters.dart';
 import '../../models/gpx_track.dart';
 import '../../services/peaks_bagged_summary_service.dart';
 import '../../services/summary_card_service.dart';
+import 'dashboard_series_colors.dart';
 import 'summary_card.dart';
 import 'summary_chart.dart';
 
@@ -68,6 +69,7 @@ class _PeaksBaggedCardState extends State<PeaksBaggedCard> {
       metric: SummaryMetricDefinition(valueOf: series.totalValueOf),
       secondaryMetric: SummaryMetricDefinition(valueOf: series.newValueOf),
       tooltipValueTexts: _tooltipValueTexts,
+      tooltipValueTextColors: _tooltipValueColors,
       headerValueText: _formatHeaderValue,
       secondarySeriesOnTop: true,
       barSeriesStyle: SummaryBarSeriesStyle.stacked,
@@ -105,5 +107,18 @@ List<String> _tooltipValueTexts(
     'Total Peaks: ${formatCount(bucket.value.round())}',
     if (secondaryBucket != null)
       'New peaks: ${formatCount(secondaryBucket.value.round())}',
+  ];
+}
+
+List<Color> _tooltipValueColors(
+  BuildContext context,
+  SummaryBucket _bucket,
+  SummaryBucket? secondaryBucket,
+) {
+  final theme = Theme.of(context);
+  return [
+    lighterSeriesColor(theme.colorScheme.primary),
+    if (secondaryBucket != null)
+      lighterSeriesColor(dashboardSecondarySeriesColor),
   ];
 }
