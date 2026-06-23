@@ -1354,6 +1354,7 @@ class _NoopRoutePlanner extends RoutePlanner {
   Future<PlannedRouteSegment> planSegment({
     required LatLng start,
     required LatLng end,
+    double maxSnapDistanceMeters = 50.0,
   }) async {
     return PlannedRouteSegment(points: [start, end], distanceMeters: 0);
   }
@@ -1362,6 +1363,7 @@ class _NoopRoutePlanner extends RoutePlanner {
   Future<RoutePlanningResult> planSegmentResult({
     required LatLng start,
     required LatLng end,
+    double maxSnapDistanceMeters = 50.0,
   }) async {
     return RoutePlanningResult(
       status: RoutePlanningStatus.routed,
@@ -1381,6 +1383,7 @@ class _NoopRoutePlanner extends RoutePlanner {
   @override
   Future<RouteEndpointProbeResult> probeEndpoint({
     required LatLng point,
+    double maxSnapDistanceMeters = 50.0,
   }) async {
     return const RouteEndpointProbeResult(isOnTrack: false);
   }

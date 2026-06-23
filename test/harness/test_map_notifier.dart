@@ -243,13 +243,19 @@ class TestMapNotifier extends MapNotifier {
                 points: (outcome as RoutePlanningResult).points,
                 distanceMeters: outcome.distanceMeters,
               );
+        final segmentPoints = _routeToPeakSegmentPoints(
+          segment.points,
+          point,
+          peakPoint,
+        );
         state = state.copyWith(
           routeDraftCommittedPoints: _appendRouteSegment(
             state.routeDraftCommittedPoints,
-            segment.points,
+            segmentPoints,
           ),
           routeDraftDistanceMeters:
-              state.routeDraftDistanceMeters + segment.distanceMeters,
+              state.routeDraftDistanceMeters +
+              _polylineDistanceMeters(segmentPoints),
           routeDraftProvisionalPoints: const [],
           routeDraftStage: RouteDraftStage.awaitingNextPoint,
           routeDraftMode: RouteMode.snapToTrail,
@@ -261,15 +267,21 @@ class TestMapNotifier extends MapNotifier {
 
       if (outcome is RoutePlanningResult &&
           (outcome.status == RoutePlanningStatus.offTrack ||
-              outcome.status == RoutePlanningStatus.noPath)) {
+              outcome.status == RoutePlanningStatus.noPath ||
+              outcome.status == RoutePlanningStatus.failed)) {
+        final segmentPoints = _routeToPeakSegmentPoints(
+          outcome.points,
+          point,
+          peakPoint,
+        );
         state = state.copyWith(
           routeDraftCommittedPoints: _appendRouteSegment(
             state.routeDraftCommittedPoints,
-            [point, peakPoint],
+            segmentPoints,
           ),
           routeDraftDistanceMeters:
               state.routeDraftDistanceMeters +
-              const Distance().as(LengthUnit.Meter, point, peakPoint),
+              _polylineDistanceMeters(segmentPoints),
           routeDraftProvisionalPoints: const [],
           routeDraftStage: RouteDraftStage.awaitingNextPoint,
           routeDraftMode: RouteMode.snapToTrail,
@@ -967,4 +979,32 @@ List<LatLng> _appendRouteSegment(List<LatLng> existing, List<LatLng> segment) {
       ? segment.skip(1)
       : segment;
   return [...existing, ...nextSegment];
+}
+
+List<LatLng> _routeToPeakSegmentPoints(
+  List<LatLng> points,
+  LatLng start,
+  LatLng peakPoint,
+) {
+  final routedPoints = points.isEmpty ? [start] : points;
+  if (routedPoints.last == peakPoint) {
+    return List<LatLng>.from(routedPoints, growable: false);
+  }
+  return [...routedPoints, peakPoint];
+}
+
+double _polylineDistanceMeters(List<LatLng> points) {
+  if (points.length < 2) {
+    return 0;
+  }
+
+  var distance = 0.0;
+  for (var index = 0; index < points.length - 1; index++) {
+    distance += const Distance().as(
+      LengthUnit.Meter,
+      points[index],
+      points[index + 1],
+    );
+  }
+  return distance;
 }

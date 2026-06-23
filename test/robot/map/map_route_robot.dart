@@ -291,6 +291,7 @@ class _QueueRoutePlanner implements RoutePlanner {
   Future<RoutePlanningResult> planSegmentResult({
     required LatLng start,
     required LatLng end,
+    double maxSnapDistanceMeters = 50.0,
   }) async {
     final outcome = await _nextOutcome();
     if (outcome is RoutePlanningResult) {
@@ -336,7 +337,10 @@ class _QueueRoutePlanner implements RoutePlanner {
   }
 
   @override
-  Future<RouteEndpointProbeResult> probeEndpoint({required LatLng point}) async {
+  Future<RouteEndpointProbeResult> probeEndpoint({
+    required LatLng point,
+    double maxSnapDistanceMeters = 50.0,
+  }) async {
     if (_index >= _outcomes.length) {
       return const RouteEndpointProbeResult(isOnTrack: false);
     }
@@ -369,6 +373,7 @@ class _QueueRoutePlanner implements RoutePlanner {
   Future<PlannedRouteSegment> planSegment({
     required LatLng start,
     required LatLng end,
+    double maxSnapDistanceMeters = 50.0,
   }) async {
     final result = await planSegmentResult(start: start, end: end);
     if (result.status != RoutePlanningStatus.routed) {

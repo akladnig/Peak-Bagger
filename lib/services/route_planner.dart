@@ -84,15 +84,18 @@ abstract class RoutePlanner {
   Future<RoutePlanningResult> planSegmentResult({
     required LatLng start,
     required LatLng end,
+    double maxSnapDistanceMeters = RouteConstants.maxSnapDistanceMeters,
   });
 
   Future<RouteEndpointProbeResult> probeEndpoint({
     required LatLng point,
+    double maxSnapDistanceMeters = RouteConstants.maxSnapDistanceMeters,
   });
 
   Future<PlannedRouteSegment> planSegment({
     required LatLng start,
     required LatLng end,
+    double maxSnapDistanceMeters = RouteConstants.maxSnapDistanceMeters,
   });
 }
 
@@ -254,8 +257,6 @@ class TripRoutingRoutePlanner implements RoutePlanner {
 
   final TripRoutingClient _client;
 
-  static const _maxSnapDistanceMeters = RouteConstants.maxSnapDistanceMeters;
-
   RouteEndpointAnchor? _mapAnchor(trip_routing.EndpointAnchor? anchor) {
     if (anchor == null) {
       return null;
@@ -327,12 +328,13 @@ class TripRoutingRoutePlanner implements RoutePlanner {
   Future<RoutePlanningResult> planSegmentResult({
     required LatLng start,
     required LatLng end,
+    double maxSnapDistanceMeters = RouteConstants.maxSnapDistanceMeters,
   }) async {
     try {
       final result = await _client.findAnchoredSegment(
         start: start,
         end: end,
-        maxSnapDistanceMeters: _maxSnapDistanceMeters,
+        maxSnapDistanceMeters: maxSnapDistanceMeters,
       );
       return _mapSegmentResult(result);
     } on RouteGraphLoadException catch (error) {
@@ -358,11 +360,14 @@ class TripRoutingRoutePlanner implements RoutePlanner {
   }
 
   @override
-  Future<RouteEndpointProbeResult> probeEndpoint({required LatLng point}) async {
+  Future<RouteEndpointProbeResult> probeEndpoint({
+    required LatLng point,
+    double maxSnapDistanceMeters = RouteConstants.maxSnapDistanceMeters,
+  }) async {
     try {
       final result = await _client.probeEndpointAnchor(
         point: point,
-        maxSnapDistanceMeters: _maxSnapDistanceMeters,
+        maxSnapDistanceMeters: maxSnapDistanceMeters,
       );
       return RouteEndpointProbeResult(
         isOnTrack: result.isOnTrack,
@@ -384,8 +389,13 @@ class TripRoutingRoutePlanner implements RoutePlanner {
   Future<PlannedRouteSegment> planSegment({
     required LatLng start,
     required LatLng end,
+    double maxSnapDistanceMeters = RouteConstants.maxSnapDistanceMeters,
   }) async {
-    final result = await planSegmentResult(start: start, end: end);
+    final result = await planSegmentResult(
+      start: start,
+      end: end,
+      maxSnapDistanceMeters: maxSnapDistanceMeters,
+    );
     if (result.status != RoutePlanningStatus.routed) {
       throw RoutePlanningException(
         result.errorMessage ?? 'Routing returned no usable segment.',

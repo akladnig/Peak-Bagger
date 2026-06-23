@@ -90,6 +90,7 @@ abstract final class RouterConstants {
 abstract final class RouteConstants {
   static const sheetHeight = 340.0;
   static const maxSnapDistanceMeters = 50.0;
+  static const routeToPeakSnapDistanceMeters = 1500.0;
 }
 
 abstract final class RouteTimingConstants {

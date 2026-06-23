@@ -1330,6 +1330,7 @@ class MapNotifier extends Notifier<MapState> {
         await _maybeBackfillPeaksBaggedOnStartup(tracks);
         return;
     }
+
   }
 
   Future<void> _maybeBackfillPeaksBaggedOnStartup(List<GpxTrack> tracks) async {
@@ -2427,6 +2428,21 @@ class MapNotifier extends Notifier<MapState> {
     return [...points, peakPoint];
   }
 
+  List<LatLng> _routeToPeakSegmentPoints(
+    List<LatLng> points,
+    LatLng startPoint,
+    LatLng peakPoint,
+  ) {
+    final routedPoints = points.isEmpty ? [startPoint] : points;
+    return _appendPeakTerminalLegIfNeeded(routedPoints, peakPoint);
+  }
+
+  double _routeSnapDistanceMeters(RouteMode mode) {
+    return mode == RouteMode.routeToPeak
+        ? RouteConstants.routeToPeakSnapDistanceMeters
+        : RouteConstants.maxSnapDistanceMeters;
+  }
+
   List<LatLng> _attachRouteDraftEndpoints(
     List<LatLng> points, {
     required LatLng start,
@@ -3291,7 +3307,10 @@ class MapNotifier extends Notifier<MapState> {
     required RouteDraftControlEndpoint startEndpoint,
     required RouteDraftControlEndpoint endEndpoint,
   }) async {
-    final probe = await _routePlanner.probeEndpoint(point: endEndpoint.point);
+    final probe = await _routePlanner.probeEndpoint(
+      point: endEndpoint.point,
+      maxSnapDistanceMeters: _routeSnapDistanceMeters(state.routeDraftMode),
+    );
     if (!_isActiveRouteDraftRequest(requestId)) {
       return;
     }
@@ -3782,6 +3801,9 @@ class MapNotifier extends Notifier<MapState> {
     final result = await _routePlanner.planSegmentResult(
       start: startEndpoint.point,
       end: endEndpoint.point,
+      maxSnapDistanceMeters: _routeSnapDistanceMeters(
+        state.routeDraftMode,
+      ),
     );
     if (!_isActiveRouteDraftRequest(requestId)) {
       return;
@@ -3808,7 +3830,11 @@ class MapNotifier extends Notifier<MapState> {
         );
         final segmentPoints = peakPoint == null
             ? result.points
-            : _appendPeakTerminalLegIfNeeded(result.points, peakPoint);
+            : _routeToPeakSegmentPoints(
+                result.points,
+                startEndpoint.point,
+                peakPoint,
+              );
         _setRouteDraftControlState(
           controlEndpoints: updatedEndpoints,
           stage: RouteDraftStage.awaitingNextPoint,
@@ -3831,6 +3857,44 @@ class MapNotifier extends Notifier<MapState> {
         return;
       case RoutePlanningStatus.offTrack:
       case RoutePlanningStatus.noPath:
+        if (resetRouteToPeak) {
+          final updatedEndpoints = _replaceEndpoints(
+            controlEndpoints: state.routeDraftControlEndpoints,
+            startEndpoint: startEndpoint,
+            startAnchor: result.startAnchor,
+            endEndpoint: endEndpoint,
+            endAnchor: result.endAnchor,
+            keepEndRaw: true,
+            endIsPeakTarget: true,
+          );
+          final segmentPoints = peakPoint == null
+              ? result.points
+              : _routeToPeakSegmentPoints(
+                  result.points,
+                  startEndpoint.point,
+                  peakPoint,
+                );
+          _setRouteDraftControlState(
+            controlEndpoints: updatedEndpoints,
+            stage: RouteDraftStage.awaitingNextPoint,
+            provisionalPoints: const [],
+            distanceMeters:
+                state.routeDraftDistanceMeters +
+                _polylineDistanceMeters(segmentPoints),
+            offTrackProbeActive: false,
+            clearRouteDraftError: true,
+            routeDraftMode: RouteMode.snapToTrail,
+            clearRouteDraftPeak: true,
+          );
+          state = state.copyWith(
+            routeDraftCommittedPoints: _appendRouteSegment(
+              state.routeDraftCommittedPoints,
+              segmentPoints,
+            ),
+          );
+          _resampleRouteDraftElevation();
+          return;
+        }
         final endPoint =
             result.status == RoutePlanningStatus.noPath &&
                 result.endAnchor != null
@@ -3842,35 +3906,67 @@ class MapNotifier extends Notifier<MapState> {
           startAnchor: result.startAnchor,
           endEndpoint: endEndpoint,
           endAnchor: result.endAnchor,
-          keepEndRaw:
-              result.status == RoutePlanningStatus.offTrack || resetRouteToPeak,
-          endIsPeakTarget: resetRouteToPeak,
+          keepEndRaw: result.status == RoutePlanningStatus.offTrack,
+          endIsPeakTarget: false,
         );
         final baseSegmentPoints = [startEndpoint.point, endPoint];
-        final segmentPoints = peakPoint != null && endPoint != peakPoint
-            ? [...baseSegmentPoints, peakPoint]
-            : baseSegmentPoints;
         _setRouteDraftControlState(
           controlEndpoints: updatedEndpoints,
           stage: RouteDraftStage.awaitingNextPoint,
           provisionalPoints: const [],
           distanceMeters:
               state.routeDraftDistanceMeters +
-              _polylineDistanceMeters(segmentPoints),
-          offTrackProbeActive: resetRouteToPeak ? false : true,
+              _polylineDistanceMeters(baseSegmentPoints),
+          offTrackProbeActive: true,
           clearRouteDraftError: true,
-          routeDraftMode: resetRouteToPeak ? RouteMode.snapToTrail : null,
-          clearRouteDraftPeak: resetRouteToPeak,
         );
         state = state.copyWith(
           routeDraftCommittedPoints: _appendRouteSegment(
             state.routeDraftCommittedPoints,
-            segmentPoints,
+            baseSegmentPoints,
           ),
         );
         _resampleRouteDraftElevation();
         return;
       case RoutePlanningStatus.failed:
+        if (resetRouteToPeak) {
+          final updatedEndpoints = _replaceEndpoints(
+            controlEndpoints: state.routeDraftControlEndpoints,
+            startEndpoint: startEndpoint,
+            startAnchor: result.startAnchor,
+            endEndpoint: endEndpoint,
+            endAnchor: result.endAnchor,
+            keepEndRaw: true,
+            endIsPeakTarget: true,
+          );
+          final segmentPoints = peakPoint == null
+              ? result.points
+              : _routeToPeakSegmentPoints(
+                  result.points,
+                  startEndpoint.point,
+                  peakPoint,
+                );
+          _setRouteDraftControlState(
+            controlEndpoints: updatedEndpoints,
+            stage: RouteDraftStage.awaitingNextPoint,
+            provisionalPoints: const [],
+            distanceMeters:
+                state.routeDraftDistanceMeters +
+                _polylineDistanceMeters(segmentPoints),
+            offTrackProbeActive: false,
+            clearRouteDraftError: true,
+            routeDraftMode: RouteMode.snapToTrail,
+            clearRouteDraftPeak: true,
+          );
+          state = state.copyWith(
+            routeDraftCommittedPoints: _appendRouteSegment(
+              state.routeDraftCommittedPoints,
+              segmentPoints,
+            ),
+          );
+          _resampleRouteDraftElevation();
+          return;
+        }
         _setRouteDraftControlState(
           controlEndpoints: state.routeDraftControlEndpoints,
           stage: RouteDraftStage.segmentFailure,
@@ -4955,6 +5051,7 @@ class MapNotifier extends Notifier<MapState> {
       final result = await _routePlanner.planSegmentResult(
         start: startEndpoint.point,
         end: endEndpoint.point,
+        maxSnapDistanceMeters: _routeSnapDistanceMeters(routeMode),
       );
       if (!_isActiveRouteDraftRequest(requestId)) {
         return;
@@ -5013,12 +5110,13 @@ class MapNotifier extends Notifier<MapState> {
                 result.errorMessage ?? 'Failed to calculate route.',
             routeDraftMode: routeMode,
             clearRouteDraftPeak: invalidatePeakTarget,
-            routeDraftPeakTargetLocked: invalidatePeakTarget
-                ? true
-                : state.routeDraftPeakTargetLocked,
-          );
-          return;
-      }
+          routeDraftPeakTargetLocked: invalidatePeakTarget
+              ? true
+              : state.routeDraftPeakTargetLocked,
+        );
+        return;
+    }
+
     }
 
     state = state.copyWith(
