@@ -2437,6 +2437,12 @@ class MapNotifier extends Notifier<MapState> {
     return _appendPeakTerminalLegIfNeeded(routedPoints, peakPoint);
   }
 
+  double _routeSnapDistanceMeters(RouteMode mode) {
+    return mode == RouteMode.routeToPeak
+        ? RouteConstants.routeToPeakSnapDistanceMeters
+        : RouteConstants.maxSnapDistanceMeters;
+  }
+
   List<LatLng> _attachRouteDraftEndpoints(
     List<LatLng> points, {
     required LatLng start,
@@ -3301,7 +3307,10 @@ class MapNotifier extends Notifier<MapState> {
     required RouteDraftControlEndpoint startEndpoint,
     required RouteDraftControlEndpoint endEndpoint,
   }) async {
-    final probe = await _routePlanner.probeEndpoint(point: endEndpoint.point);
+    final probe = await _routePlanner.probeEndpoint(
+      point: endEndpoint.point,
+      maxSnapDistanceMeters: _routeSnapDistanceMeters(state.routeDraftMode),
+    );
     if (!_isActiveRouteDraftRequest(requestId)) {
       return;
     }
@@ -3792,6 +3801,9 @@ class MapNotifier extends Notifier<MapState> {
     final result = await _routePlanner.planSegmentResult(
       start: startEndpoint.point,
       end: endEndpoint.point,
+      maxSnapDistanceMeters: _routeSnapDistanceMeters(
+        state.routeDraftMode,
+      ),
     );
     if (!_isActiveRouteDraftRequest(requestId)) {
       return;
@@ -5039,6 +5051,7 @@ class MapNotifier extends Notifier<MapState> {
       final result = await _routePlanner.planSegmentResult(
         start: startEndpoint.point,
         end: endEndpoint.point,
+        maxSnapDistanceMeters: _routeSnapDistanceMeters(routeMode),
       );
       if (!_isActiveRouteDraftRequest(requestId)) {
         return;

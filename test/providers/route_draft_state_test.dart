@@ -2674,6 +2674,7 @@ class _ControlledRoutePlanner implements RoutePlanner {
   Future<RoutePlanningResult> planSegmentResult({
     required LatLng start,
     required LatLng end,
+    double maxSnapDistanceMeters = 50.0,
   }) {
     requests.add((start: start, end: end));
     final completer = Completer<RoutePlanningResult>();
@@ -2684,6 +2685,7 @@ class _ControlledRoutePlanner implements RoutePlanner {
   @override
   Future<RouteEndpointProbeResult> probeEndpoint({
     required LatLng point,
+    double maxSnapDistanceMeters = 50.0,
   }) async {
     final completer = Completer<RouteEndpointProbeResult>();
     _probeCompleters.add(completer);
@@ -2694,6 +2696,7 @@ class _ControlledRoutePlanner implements RoutePlanner {
   Future<PlannedRouteSegment> planSegment({
     required LatLng start,
     required LatLng end,
+    double maxSnapDistanceMeters = 50.0,
   }) async {
     final result = await planSegmentResult(start: start, end: end);
     if (result.status != RoutePlanningStatus.routed) {
@@ -2748,6 +2751,7 @@ class _ImmediateStraightRoutePlanner implements RoutePlanner {
   Future<RoutePlanningResult> planSegmentResult({
     required LatLng start,
     required LatLng end,
+    double maxSnapDistanceMeters = 50.0,
   }) async {
     return RoutePlanningResult(
       status: RoutePlanningStatus.routed,
@@ -2761,6 +2765,7 @@ class _ImmediateStraightRoutePlanner implements RoutePlanner {
   @override
   Future<RouteEndpointProbeResult> probeEndpoint({
     required LatLng point,
+    double maxSnapDistanceMeters = 50.0,
   }) async {
     return const RouteEndpointProbeResult(isOnTrack: false);
   }
@@ -2769,6 +2774,7 @@ class _ImmediateStraightRoutePlanner implements RoutePlanner {
   Future<PlannedRouteSegment> planSegment({
     required LatLng start,
     required LatLng end,
+    double maxSnapDistanceMeters = 50.0,
   }) async {
     return PlannedRouteSegment(
       points: [start, end],

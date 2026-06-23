@@ -146,6 +146,7 @@ class _NoopRoutePlanner implements RoutePlanner {
   Future<PlannedRouteSegment> planSegment({
     required start,
     required end,
+    double maxSnapDistanceMeters = 50.0,
   }) async {
     return const PlannedRouteSegment(points: [], distanceMeters: 0);
   }
@@ -154,6 +155,7 @@ class _NoopRoutePlanner implements RoutePlanner {
   Future<RoutePlanningResult> planSegmentResult({
     required start,
     required end,
+    double maxSnapDistanceMeters = 50.0,
   }) async {
     return const RoutePlanningResult(
       status: RoutePlanningStatus.failed,
@@ -165,7 +167,10 @@ class _NoopRoutePlanner implements RoutePlanner {
   }
 
   @override
-  Future<RouteEndpointProbeResult> probeEndpoint({required point}) async {
+  Future<RouteEndpointProbeResult> probeEndpoint({
+    required point,
+    double maxSnapDistanceMeters = 50.0,
+  }) async {
     return const RouteEndpointProbeResult(isOnTrack: false);
   }
 }

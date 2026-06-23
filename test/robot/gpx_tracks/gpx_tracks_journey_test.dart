@@ -1048,6 +1048,7 @@ class _ImmediateRoutePlanner implements RoutePlanner {
   Future<RoutePlanningResult> planSegmentResult({
     required LatLng start,
     required LatLng end,
+    double maxSnapDistanceMeters = 50.0,
   }) async {
     return RoutePlanningResult(
       status: RoutePlanningStatus.routed,
@@ -1061,6 +1062,7 @@ class _ImmediateRoutePlanner implements RoutePlanner {
   @override
   Future<RouteEndpointProbeResult> probeEndpoint({
     required LatLng point,
+    double maxSnapDistanceMeters = 50.0,
   }) async {
     return const RouteEndpointProbeResult(isOnTrack: false);
   }
@@ -1069,6 +1071,7 @@ class _ImmediateRoutePlanner implements RoutePlanner {
   Future<PlannedRouteSegment> planSegment({
     required LatLng start,
     required LatLng end,
+    double maxSnapDistanceMeters = 50.0,
   }) async {
     return segment;
   }
