@@ -5,6 +5,7 @@ import '../../providers/map_provider.dart';
 import '../../providers/my_ascents_summary_provider.dart';
 import '../../router.dart';
 import '../../services/my_ascents_summary_service.dart';
+import '../../theme.dart';
 
 class MyAscentsCard extends ConsumerStatefulWidget {
   const MyAscentsCard({super.key});
@@ -58,9 +59,7 @@ class _MyAscentsCardState extends ConsumerState<MyAscentsCard> {
                         padding: EdgeInsets.zero,
                         children: [
                           for (final section in summary.sections) ...[
-                            _MyAscentsYearHeader(
-                              year: section.year,
-                            ),
+                            _MyAscentsYearHeader(year: section.year),
                             for (final row in section.rows)
                               _MyAscentsTableRow(
                                 row: row,
@@ -167,23 +166,47 @@ class _MyAscentsYearHeader extends StatelessWidget {
   }
 }
 
-class _MyAscentsTableRow extends StatelessWidget {
+class _MyAscentsTableRow extends StatefulWidget {
   const _MyAscentsTableRow({required this.row, required this.onTap});
 
   final MyAscentsRow row;
   final VoidCallback onTap;
 
   @override
+  State<_MyAscentsTableRow> createState() => _MyAscentsTableRowState();
+}
+
+class _MyAscentsTableRowState extends State<_MyAscentsTableRow> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final rowTheme = theme.extension<RowHoverTheme>()!;
+    final textStyle = theme.textTheme.bodyMedium?.copyWith(
+      color: _isHovered ? rowTheme.hoveredTextColor : null,
+    );
 
     return KeyedSubtree(
-      key: Key('my-ascents-row-${row.baggedId}'),
+      key: Key('my-ascents-row-${widget.row.baggedId}'),
       child: InkWell(
-        onTap: onTap,
+        onTap: widget.onTap,
+        onHover: (value) {
+          if (_isHovered == value) {
+            return;
+          }
+          setState(() {
+            _isHovered = value;
+          });
+        },
         mouseCursor: SystemMouseCursors.click,
-        child: Container(
+        hoverColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        splashColor: Colors.transparent,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
           decoration: BoxDecoration(
+            color: _isHovered ? rowTheme.hoverColor : Colors.transparent,
             border: Border(
               bottom: BorderSide(color: theme.colorScheme.outlineVariant),
             ),
@@ -192,22 +215,22 @@ class _MyAscentsTableRow extends StatelessWidget {
           child: Row(
             children: [
               _MyAscentsTableCell(
-                label: row.peakName,
+                label: widget.row.peakName,
                 flex: 5,
                 textAlign: TextAlign.start,
-                style: theme.textTheme.bodyMedium,
+                style: textStyle,
               ),
               _MyAscentsTableCell(
-                label: row.elevationText,
+                label: widget.row.elevationText,
                 flex: 2,
                 textAlign: TextAlign.end,
-                style: theme.textTheme.bodyMedium,
+                style: textStyle,
               ),
               _MyAscentsTableCell(
-                label: row.dateText,
+                label: widget.row.dateText,
                 flex: 4,
                 textAlign: TextAlign.end,
-                style: theme.textTheme.bodyMedium,
+                style: textStyle,
               ),
             ],
           ),

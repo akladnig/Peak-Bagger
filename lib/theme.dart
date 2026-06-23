@@ -45,6 +45,49 @@ const defaultMarkerColour = Colors.pinkAccent;
 const favouriteMarkerColour = Colors.pinkAccent;
 const homeMarkerColour = Color(0xFF3DD700);
 
+@immutable
+class RowHoverTheme extends ThemeExtension<RowHoverTheme> {
+  const RowHoverTheme({
+    required this.hoverColor,
+    required this.hoveredTextColor,
+  });
+
+  final Color hoverColor;
+  final Color hoveredTextColor;
+
+  static const light = RowHoverTheme(
+    hoverColor: Color(0xFFE8ECFF),
+    hoveredTextColor: Color(0xFF4C4F69),
+  );
+
+  static const dark = RowHoverTheme(
+    hoverColor: Color(0xFF2A214B),
+    hoveredTextColor: Color(0xFFA89FFF),
+  );
+
+  @override
+  RowHoverTheme copyWith({Color? hoverColor, Color? hoveredTextColor}) {
+    return RowHoverTheme(
+      hoverColor: hoverColor ?? this.hoverColor,
+      hoveredTextColor: hoveredTextColor ?? this.hoveredTextColor,
+    );
+  }
+
+  @override
+  RowHoverTheme lerp(ThemeExtension<RowHoverTheme>? other, double t) {
+    if (other is! RowHoverTheme) {
+      return this;
+    }
+
+    return RowHoverTheme(
+      hoverColor: Color.lerp(hoverColor, other.hoverColor, t) ?? hoverColor,
+      hoveredTextColor:
+          Color.lerp(hoveredTextColor, other.hoveredTextColor, t) ??
+          hoveredTextColor,
+    );
+  }
+}
+
 class MapMarkerTheme {
   const MapMarkerTheme({
     this.fillColor = defaultMarkerColour,
@@ -118,9 +161,7 @@ class OutlinedText extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final baseStyle = style ?? theme.textTheme.bodySmall ?? const TextStyle();
-    final fillStyle = baseStyle.copyWith(
-      color: textColor ?? outlineTextColour,
-    );
+    final fillStyle = baseStyle.copyWith(color: textColor ?? outlineTextColour);
     final outlineStyle = baseStyle.copyWith(
       foreground: Paint()
         ..style = PaintingStyle.stroke
@@ -227,6 +268,7 @@ class CatppuccinColors {
         ),
         titleSmall: TextStyle(color: Color(0xFFBAC2DE)),
       ),
+      extensions: const [RowHoverTheme.dark],
     );
   }
 
@@ -266,6 +308,7 @@ class CatppuccinColors {
         ),
         titleSmall: TextStyle(color: Color(0xFF5C5F77)),
       ),
+      extensions: const [RowHoverTheme.light],
     );
   }
 }
