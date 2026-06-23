@@ -8,6 +8,7 @@ import '../core/number_formatters.dart';
 import '../providers/dashboard_layout_provider.dart';
 import '../providers/map_provider.dart';
 import '../providers/peak_marker_info_settings_provider.dart';
+import '../router.dart';
 import '../services/latest_walk_summary.dart';
 import '../services/summary_card_service.dart';
 import '../widgets/dashboard/distance_card.dart';
@@ -124,6 +125,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       ),
                       tracks: tracks,
                       showPeakInfo: showPeakInfo,
+                      onOpenTrack: (trackId) {
+                        ref.read(mapProvider.notifier).showTrack(trackId);
+                        router.go('/map');
+                      },
                     ),
                     'elevation' => ElevationCard(
                       tracks: tracks,
