@@ -97,6 +97,7 @@ class _ObjectBoxAdminReadOnlyDetailsPane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final title = _objectBoxAdminDetailsTitle(entity, row);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -107,9 +108,7 @@ class _ObjectBoxAdminReadOnlyDetailsPane extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    row == null
-                        ? 'Details'
-                        : '${entity.displayName} #${objectBoxAdminFormatValue(row!.primaryKeyValue)}',
+                    row == null ? 'Details' : title,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
@@ -494,6 +493,11 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
 
   @override
   Widget build(BuildContext context) {
+    final title = widget.createMode
+        ? 'Add Peak'
+        : (_peak.name.trim().isNotEmpty
+              ? _peak.name.trim()
+              : _objectBoxAdminDetailsTitle(widget.entity, widget.row!));
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -504,9 +508,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
               children: [
                 Expanded(
                   child: Text(
-                    widget.createMode
-                        ? 'Add Peak'
-                        : 'Peak #${objectBoxAdminFormatValue(widget.row!.primaryKeyValue)}',
+                    title,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
@@ -801,6 +803,9 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
 
   @override
   Widget build(BuildContext context) {
+    final title = widget.route.name.trim().isNotEmpty
+        ? widget.route.name.trim()
+        : _objectBoxAdminDetailsTitle(widget.entity, widget.row!);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -811,7 +816,7 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
               children: [
                 Expanded(
                   child: Text(
-                    'Route #${objectBoxAdminFormatValue(widget.row!.primaryKeyValue)}',
+                    title,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
@@ -1232,6 +1237,35 @@ class ObjectBoxAdminDetailsValue extends StatelessWidget {
       ),
     );
   }
+}
+
+String _objectBoxAdminDetailsTitle(
+  ObjectBoxAdminEntityDescriptor entity,
+  ObjectBoxAdminRow? row,
+) {
+  const namedEntities = {
+    'GpxTrack',
+    'Peak',
+    'PeakList',
+    'Route',
+    'Tasmap50k',
+    'Waypoints',
+  };
+
+  if (row == null || !namedEntities.contains(entity.name)) {
+    if (row == null) {
+      return entity.displayName;
+    }
+    return '${entity.displayName} #${objectBoxAdminFormatValue(row.primaryKeyValue)}';
+  }
+
+  final value = row.values[entity.primaryNameField];
+  final title = objectBoxAdminFormatValue(value).trim();
+  if (title.isNotEmpty && title != '—') {
+    return title;
+  }
+
+  return '${entity.displayName} #${objectBoxAdminFormatValue(row.primaryKeyValue)}';
 }
 
 class _PeakEditForm extends StatelessWidget {

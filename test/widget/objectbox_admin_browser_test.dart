@@ -89,7 +89,7 @@ void main() {
     await tester.tap(find.text('Mt Ossa Route'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Route #1'), findsOneWidget);
+    expect(find.text('Mt Ossa Route').last, findsOneWidget);
     expect(
       find.byKey(const Key('objectbox-admin-route-view-on-map')),
       findsOneWidget,
@@ -278,7 +278,7 @@ void main() {
 
     await tester.tap(find.text('Mt Ossa'));
     await tester.pumpAndSettle();
-    expect(find.text('Peak #1'), findsOneWidget);
+    expect(find.text('Mt Ossa').last, findsOneWidget);
 
     await tester.tap(find.byKey(const Key('objectbox-admin-peak-delete-2')));
     await tester.pumpAndSettle();
@@ -289,8 +289,42 @@ void main() {
       find.byKey(const Key('objectbox-admin-peak-delete-2')),
       findsNothing,
     );
-    expect(find.text('Peak #1'), findsOneWidget);
+    expect(find.text('Mt Ossa').last, findsOneWidget);
     expect(find.text('Mt Ossa'), findsWidgets);
+  });
+
+  testWidgets('admin browser opens GpxTrack details pane', (tester) async {
+    await _pumpApp(
+      tester,
+      repository: TestObjectBoxAdminRepository(
+        rowsByEntity: {
+          'GpxTrack': [
+            const ObjectBoxAdminRow(
+              primaryKeyValue: 1,
+              values: {
+                'gpxTrackId': 1,
+                'trackName': 'Ridge Walk',
+              },
+            ),
+          ],
+        },
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('side-menu-objectbox-admin')));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-entity-dropdown')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('GpxTrack').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Ridge Walk'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ridge Walk'), findsWidgets);
+    expect(find.byKey(const Key('objectbox-admin-details-close')), findsOneWidget);
   });
 
   testWidgets('non-Peak entities stay browse-only', (tester) async {
@@ -305,6 +339,9 @@ void main() {
     await tester.tap(find.text('PeakList').last);
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Abels'));
+    await tester.pumpAndSettle();
+
     expect(find.byKey(const Key('objectbox-admin-peak-edit')), findsNothing);
     expect(find.byKey(const Key('objectbox-admin-peak-add')), findsNothing);
     expect(
@@ -312,6 +349,7 @@ void main() {
       findsNothing,
     );
     expect(find.text('Delete'), findsNothing);
+    expect(find.text('Abels'), findsWidgets);
   });
 
   testWidgets('admin browser loads rows in chunks of 50', (tester) async {

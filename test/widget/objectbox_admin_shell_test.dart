@@ -1345,7 +1345,7 @@ void main() {
       3,
     );
     expect(repository.findByOsmId(303)?.name, 'New Peak');
-    expect(find.text('Peak #3'), findsOneWidget);
+    expect(find.text('New Peak').last, findsOneWidget);
   });
 
   testWidgets('Peak save success surfaces PeakList warnings', (tester) async {
