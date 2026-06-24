@@ -34,6 +34,10 @@ void main() {
       'RouteGraphTrailDisplayChunk',
       'Waypoints',
     ]);
+    expect(
+      entities.map((entity) => entity.name).toSet().length,
+      entities.length,
+    );
     expect(entities.first.primaryKeyField, 'id');
     expect(entities.first.primaryNameField, 'name');
     expect(

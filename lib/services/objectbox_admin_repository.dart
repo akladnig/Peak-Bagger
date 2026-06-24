@@ -44,9 +44,15 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
 
   @override
   List<ObjectBoxAdminEntityDescriptor> getEntities() {
-    return _modelDefinition.model.entities
-        .map(_toEntityDescriptor)
-        .toList(growable: false);
+    final entitiesByName = <String, ObjectBoxAdminEntityDescriptor>{};
+    for (final entity in _modelDefinition.model.entities) {
+      entitiesByName.putIfAbsent(
+        entity.name,
+        () => _toEntityDescriptor(entity),
+      );
+    }
+
+    return entitiesByName.values.toList(growable: false);
   }
 
   @override
