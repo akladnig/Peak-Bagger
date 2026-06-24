@@ -275,7 +275,7 @@ void main() {
     );
   });
 
-  test('projection cache keeps peak screen position stable across updates', () {
+  test('projection cache invalidates while keeping peak screen position stable', () {
     final cache = PeakProjectionCache();
     final camera = _camera(zoom: 15);
     final base = cache.getOrBuild(
@@ -305,7 +305,7 @@ void main() {
       algorithm: PeakClusterAlgorithm.compactCircular,
     );
 
-    expect(identical(base, relocated), isTrue);
+    expect(identical(base, relocated), isFalse);
     expect(
       relocated.individualCandidates
           .firstWhere((candidate) => candidate.peak.osmId == 1)

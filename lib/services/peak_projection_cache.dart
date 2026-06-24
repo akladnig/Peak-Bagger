@@ -19,7 +19,7 @@ class PeakProjectionCache {
     PeakClusterAlgorithm algorithm = MapConstants.peakClusterAlgorithm,
   }) {
     final stablePeaks = _stablePeaks(peaks);
-    final peakFingerprints = _peakRenderFingerprints(stablePeaks);
+    final peakFingerprints = _peakRenderFingerprints(peaks);
     final key = _PeakProjectionCacheKey(
       center: camera.center,
       zoom: camera.zoom,
@@ -180,6 +180,8 @@ List<String> _peakRenderFingerprints(Iterable<Peak> peaks) {
 String _peakRenderFingerprint(Peak peak) {
   return [
     peak.osmId,
+    peak.latitude,
+    peak.longitude,
     peak.name,
     peak.elevation,
     peak.prominence,
