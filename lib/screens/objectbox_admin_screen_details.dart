@@ -281,6 +281,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
       _sourceOfTruth = Peak.sourceOfTruthOsm;
       _verified = false;
       _isEditing = true;
+      _activeCoordinateSource = null;
     } else {
       _peak = peakFromAdminRow(widget.row!);
       final form = PeakAdminEditor.normalize(_peak);
@@ -298,9 +299,9 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
       _sourceOfTruth = form.sourceOfTruth;
       _verified = form.verified;
       _isEditing = false;
+      _activeCoordinateSource = null;
     }
     _isSaving = false;
-    _activeCoordinateSource = null;
     _submitError = null;
     _validation = const PeakAdminValidationResult(fieldErrors: {});
   }
@@ -324,7 +325,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
     final validation = PeakAdminEditor.validateAndBuild(
       source: _peak,
       form: _currentFormState(),
-      coordinateSource: _activeCoordinateSource,
+      coordinateSource: _effectiveSubmitCoordinateSource(),
     );
     return validation.peak ?? _peak;
   }
@@ -372,7 +373,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
     final validation = PeakAdminEditor.validateAndBuild(
       source: _peak,
       form: _currentFormState(),
-      coordinateSource: _activeCoordinateSource,
+      coordinateSource: _effectiveSubmitCoordinateSource(),
     );
 
     setState(() {
@@ -402,6 +403,11 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
         _submitError = error;
       }
     });
+  }
+
+  PeakAdminCoordinateSource? _effectiveSubmitCoordinateSource() {
+    return _activeCoordinateSource ??
+        (widget.createMode ? null : PeakAdminCoordinateSource.latLng);
   }
 
   void _handleLatLngChanged() {

@@ -291,7 +291,7 @@ void main() {
     expect(mapNotifier.state.tasmapDisplayMode, TasmapDisplayMode.selectedMap);
   });
 
-  testWidgets('tapping gpx link updates the selected location to the peak', (
+  testWidgets('tapping gpx link preserves the current selected marker', (
     tester,
   ) async {
     final peak = _buildPeak(
@@ -350,12 +350,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-list-peak-dialog')), findsNothing);
-    expect(mapNotifier.state.selectedLocation, isNotNull);
-    expect(mapNotifier.state.selectedLocation!.latitude, closeTo(-41.0, 0.001));
-    expect(
-      mapNotifier.state.selectedLocation!.longitude,
-      closeTo(146.0, 0.001),
-    );
+    expect(mapNotifier.state.selectedLocation, const LatLng(-42.0, 147.0));
     expect(mapNotifier.state.selectedTrackId, 10);
     expect(mapNotifier.state.showTracks, isTrue);
   });
@@ -531,12 +526,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(mapNotifier.state.selectedTrackId, 20);
-    expect(mapNotifier.state.selectedLocation, isNotNull);
-    expect(mapNotifier.state.selectedLocation!.latitude, closeTo(-42.5, 0.001));
-    expect(
-      mapNotifier.state.selectedLocation!.longitude,
-      closeTo(147.5, 0.001),
-    );
+    expect(mapNotifier.state.selectedLocation, isNull);
     expect(mapNotifier.state.selectedTrackFocusSerial, 2);
   });
 

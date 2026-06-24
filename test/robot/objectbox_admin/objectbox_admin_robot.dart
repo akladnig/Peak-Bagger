@@ -171,6 +171,7 @@ class ObjectBoxAdminRobot {
 
   Future<void> enterPeakField(String fieldName, String value) async {
     final finder = peakField(fieldName);
+    await _scrollPeakFormTo(finder);
     await tester.tap(finder);
     await tester.pump();
     tester.testTextInput.enterText(value);
@@ -178,9 +179,30 @@ class ObjectBoxAdminRobot {
   }
 
   Future<void> enterPeakAltName(String value) async {
+    final form = find.byKey(const Key('objectbox-admin-peak-edit-form'));
+    for (var i = 0; i < 8 && peakAltNameField.evaluate().isEmpty; i++) {
+      await tester.drag(form, const Offset(0, 120));
+      await tester.pumpAndSettle();
+    }
+    if (peakAltNameField.evaluate().isNotEmpty) {
+      await tester.ensureVisible(peakAltNameField);
+      await tester.pumpAndSettle();
+    }
     await tester.tap(peakAltNameField);
     await tester.pump();
     tester.testTextInput.enterText(value);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> _scrollPeakFormTo(Finder finder) async {
+    final form = find.byKey(const Key('objectbox-admin-peak-edit-form'));
+    for (var i = 0; i < 8 && finder.evaluate().isEmpty; i++) {
+      await tester.drag(form, const Offset(0, -120));
+      await tester.pumpAndSettle();
+    }
+    if (finder.evaluate().isNotEmpty) {
+      await tester.ensureVisible(finder);
+    }
     await tester.pumpAndSettle();
   }
 
