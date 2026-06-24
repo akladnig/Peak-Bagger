@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
@@ -46,7 +48,9 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     _headerHorizontalController.addListener(
       () => _syncHorizontalScroll(_headerHorizontalController),
     );
-    _lastRoutePath = _currentPath();
+    _lastRoutePath = peekObjectBoxAdminPendingPeakId() == null
+        ? _currentPath()
+        : '/objectbox-admin';
     _routerListener = _handleRouteChange;
     router.routerDelegate.addListener(_routerListener);
   }

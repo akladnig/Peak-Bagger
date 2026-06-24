@@ -21,6 +21,70 @@ import '../../harness/test_objectbox_admin_repository.dart';
 import 'objectbox_admin_robot.dart';
 
 void main() {
+  testWidgets('map peak popup edit opens matching admin row', (tester) async {
+    final robot = ObjectBoxAdminRobot(tester);
+    final peak = _buildPeak(
+      id: 1,
+      osmId: 101,
+      name: 'Mt Ossa',
+      region: 'Old Area',
+    );
+    final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
+      'Peak': [_peakRow(peak)],
+      'PeakList': const [],
+      'Tasmap50k': const [],
+      'GpxTrack': const [],
+      'PeaksBagged': const [],
+    };
+    final peakRepository = _MutablePeakRepository([peak], rowsByEntity);
+
+    await robot.pumpApp(
+      repository: TestObjectBoxAdminRepository(
+        entities: [_peakEntity()],
+        rowsByEntity: rowsByEntity,
+      ),
+      peakRepository: peakRepository,
+      peakDeleteGuard: PeakDeleteGuard(_NoopPeakDeleteGuardSource()),
+      mapState: MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        peaks: [peak],
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('nav-map')));
+    await tester.pumpAndSettle();
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byKey(const Key('peak-info-popup-edit')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('peak-info-popup-edit')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('objectbox-admin-entity-dropdown')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('app-bar-title')),
+        matching: find.text('ObjectBox Admin'),
+      ),
+      findsOneWidget,
+    );
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shared-app-bar'))),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+    final adminState = container.read(objectboxAdminProvider);
+    expect(adminState.selectedEntity?.name, 'Peak');
+    expect(adminState.selectedRow?.primaryKeyValue, 1);
+  });
+
   testWidgets('admin shell edits and saves a peak row', (tester) async {
     final robot = ObjectBoxAdminRobot(tester);
     final peak = _buildPeak(

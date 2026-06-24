@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
+import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/map_polygon_asset.dart';
@@ -22,6 +23,7 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/drive_eta_provider.dart';
 import 'package:peak_bagger/providers/polygon_assets_provider.dart';
+import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/map_chart_hover_provider.dart';
@@ -3582,6 +3584,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
         child: PeakInfoPopupSurface(
           content: content,
           bridgeOnLeft: placement.bridgeOnLeft,
+          onEdit: () {
+            setObjectBoxAdminPendingPeakId(content.peak.id);
+            context.goNamed('objectboxAdmin');
+          },
           onDropMarker: () async {
             final notifier = ref.read(mapProvider.notifier);
             final saved = await notifier.setCurrentMarker(

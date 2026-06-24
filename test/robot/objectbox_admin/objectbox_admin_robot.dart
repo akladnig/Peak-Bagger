@@ -85,6 +85,7 @@ class ObjectBoxAdminRobot {
     PeakRepository? peakRepository,
     PeakDeleteGuard? peakDeleteGuard,
     RouteRepository? routeRepository,
+    MapState? mapState,
     Size size = const Size(1280, 900),
   }) async {
     await tester.binding.setSurfaceSize(size);
@@ -97,11 +98,12 @@ class ObjectBoxAdminRobot {
         overrides: [
           mapProvider.overrideWith(
             () => TestMapNotifier(
-              MapState(
-                center: const LatLng(-41.5, 146.5),
-                zoom: 10,
-                basemap: Basemap.tracestrack,
-              ),
+              mapState ??
+                  MapState(
+                    center: const LatLng(-41.5, 146.5),
+                    zoom: 10,
+                    basemap: Basemap.tracestrack,
+                  ),
               peakRepository:
                   peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
               routeRepository: routeRepository,
@@ -145,7 +147,7 @@ class ObjectBoxAdminRobot {
   }
 
   Future<void> selectRow(String label) async {
-    await tester.tap(find.text(label));
+    await tester.tap(find.text(label).last);
     await tester.pumpAndSettle();
   }
 
