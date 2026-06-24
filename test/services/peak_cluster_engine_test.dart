@@ -275,7 +275,7 @@ void main() {
     );
   });
 
-  test('projection cache invalidates when peak render fields change', () {
+  test('projection cache keeps peak screen position stable across updates', () {
     final cache = PeakProjectionCache();
     final camera = _camera(zoom: 15);
     final base = cache.getOrBuild(
@@ -305,20 +305,30 @@ void main() {
       algorithm: PeakClusterAlgorithm.compactCircular,
     );
 
-    expect(identical(base, relocated), isFalse);
+    expect(identical(base, relocated), isTrue);
     expect(
       relocated.individualCandidates
           .firstWhere((candidate) => candidate.peak.osmId == 1)
           .screenPosition,
-      isNot(equals(base.individualCandidates
-          .firstWhere((candidate) => candidate.peak.osmId == 1)
-          .screenPosition)),
+      equals(
+        base.individualCandidates
+            .firstWhere((candidate) => candidate.peak.osmId == 1)
+            .screenPosition,
+      ),
     );
     expect(identical(relocated, reworded), isFalse);
     final updatedCandidate = reworded.individualCandidates
         .firstWhere((candidate) => candidate.peak.osmId == 1);
     expect(updatedCandidate.peak.name, 'A+');
     expect(updatedCandidate.peak.elevation, 1234);
+    expect(
+      updatedCandidate.screenPosition,
+      equals(
+        base.individualCandidates
+            .firstWhere((candidate) => candidate.peak.osmId == 1)
+            .screenPosition,
+      ),
+    );
   });
 }
 
