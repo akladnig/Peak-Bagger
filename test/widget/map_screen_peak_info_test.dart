@@ -14,8 +14,10 @@ import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
+import 'package:peak_bagger/screens/map_screen_panels.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
+import 'package:peak_bagger/services/map_name_resolution.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
@@ -237,6 +239,66 @@ void main() {
     expect(state.selectedLocation, beforeLocation);
     expect(find.byKey(const Key('peak-info-popup')), findsOneWidget);
     expect(find.text('Bonnet Hill'), findsOneWidget);
+  });
+
+  testWidgets('peak popup edit action is shown before drop marker', (
+    tester,
+  ) async {
+    final content = PeakInfoContent(
+      peak: Peak(
+        id: 1,
+        osmId: 6406,
+        name: 'Bonnet Hill',
+        latitude: -43.0,
+        longitude: 147.0,
+      ),
+      mapName: 'Adamsons',
+      mapNameOrigin: MapNameOrigin.sheet,
+      listNames: const [],
+      ascentRows: const [],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: PeakInfoPopupCard(
+              content: content,
+              onClose: () {},
+              onEdit: () {},
+              onDropMarker: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-info-popup-edit')), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.byKey(const Key('peak-info-popup-edit'))).dx,
+      lessThan(
+        tester.getTopLeft(find.byKey(const Key('peak-info-popup-drop-marker'))).dx,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: PeakInfoPopupCard(
+              content: content,
+              onClose: () {},
+              onDropMarker: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-info-popup-edit')), findsNothing);
   });
 
   testWidgets('pinned peak popup suppresses the overlapping label', (

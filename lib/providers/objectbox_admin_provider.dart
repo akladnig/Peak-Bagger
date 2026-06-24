@@ -11,6 +11,22 @@ final objectboxAdminRepositoryProvider = Provider<ObjectBoxAdminRepository>((
   );
 });
 
+int? _objectBoxAdminPendingPeakId;
+
+void setObjectBoxAdminPendingPeakId(int? peakId) {
+  _objectBoxAdminPendingPeakId = peakId;
+}
+
+int? peekObjectBoxAdminPendingPeakId() {
+  return _objectBoxAdminPendingPeakId;
+}
+
+int? consumeObjectBoxAdminPendingPeakId() {
+  final peakId = _objectBoxAdminPendingPeakId;
+  _objectBoxAdminPendingPeakId = null;
+  return peakId;
+}
+
 enum ObjectBoxAdminViewMode { schema, data }
 
 class ObjectBoxAdminState {
@@ -88,7 +104,19 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
   ObjectBoxAdminState build() {
     _repository = ref.read(objectboxAdminRepositoryProvider);
     final entities = _repository.getEntities();
-    final initialEntity = entities.isNotEmpty ? entities.first : null;
+    final launchPeakId = consumeObjectBoxAdminPendingPeakId();
+    ObjectBoxAdminEntityDescriptor? initialEntity;
+    if (launchPeakId == null) {
+      initialEntity = entities.isNotEmpty ? entities.first : null;
+    } else {
+      for (final entity in entities) {
+        if (entity.name == 'Peak') {
+          initialEntity = entity;
+          break;
+        }
+      }
+      initialEntity ??= entities.isNotEmpty ? entities.first : null;
+    }
 
     final initialState = ObjectBoxAdminState(
       entities: entities,
@@ -103,13 +131,20 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
     );
 
     if (initialEntity != null) {
-      Future.microtask(_loadSelectedEntity);
+      Future.microtask(
+        () => _loadSelectedEntity(
+          keepSelectedRowPrimaryKey: launchPeakId,
+        ),
+      );
     }
 
     return initialState;
   }
 
-  Future<void> selectEntity(ObjectBoxAdminEntityDescriptor entity) async {
+  Future<void> selectEntity(
+    ObjectBoxAdminEntityDescriptor entity, {
+    Object? keepSelectedRowPrimaryKey,
+  }) async {
     state = state.copyWith(
       selectedEntity: entity,
       isLoading: true,
@@ -122,7 +157,9 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
       sortAscending: true,
     );
 
-    await _loadSelectedEntity();
+    await _loadSelectedEntity(
+      keepSelectedRowPrimaryKey: keepSelectedRowPrimaryKey,
+    );
   }
 
   Future<void> refresh({Object? keepSelectedRowPrimaryKey}) async {

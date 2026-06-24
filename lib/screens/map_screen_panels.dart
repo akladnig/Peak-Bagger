@@ -1612,12 +1612,14 @@ class PeakInfoPopupCard extends StatelessWidget {
   const PeakInfoPopupCard({
     required this.content,
     required this.onClose,
+    this.onEdit,
     this.onDropMarker,
     super.key,
   });
 
   final PeakInfoContent content;
   final VoidCallback onClose;
+  final VoidCallback? onEdit;
   final VoidCallback? onDropMarker;
 
   @override
@@ -1653,25 +1655,36 @@ class PeakInfoPopupCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.terrain, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.terrain, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
                       peak.name,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
+                        ),
                       ),
                     ),
-                  ),
-                  if (onDropMarker != null) ...[
-                    IconButton(
-                      key: const Key('peak-info-popup-drop-marker'),
-                      tooltip: 'Drop a Marker on the Peak',
-                      icon: const Icon(
+                    if (onEdit != null) ...[
+                      IconButton(
+                        key: const Key('peak-info-popup-edit'),
+                        tooltip: 'Edit Peak',
+                        icon: const Icon(Icons.edit, size: 16),
+                        onPressed: onEdit,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    if (onDropMarker != null) ...[
+                      IconButton(
+                        key: const Key('peak-info-popup-drop-marker'),
+                        tooltip: 'Drop a Marker on the Peak',
+                        icon: const Icon(
                         Icons.my_location,
                         color: Colors.amber,
                         size: 16,
@@ -1767,6 +1780,7 @@ class PeakInfoPopupSurface extends StatelessWidget {
   const PeakInfoPopupSurface({
     required this.content,
     required this.onClose,
+    this.onEdit,
     this.onDropMarker,
     required this.bridgeOnLeft,
     super.key,
@@ -1776,6 +1790,7 @@ class PeakInfoPopupSurface extends StatelessWidget {
 
   final PeakInfoContent content;
   final VoidCallback onClose;
+  final VoidCallback? onEdit;
   final VoidCallback? onDropMarker;
   final bool bridgeOnLeft;
 
@@ -1797,6 +1812,7 @@ class PeakInfoPopupSurface extends StatelessWidget {
               key: const Key('peak-info-popup'),
               content: content,
               onClose: onClose,
+              onEdit: onEdit,
               onDropMarker: onDropMarker,
             ),
           ),
