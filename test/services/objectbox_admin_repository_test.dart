@@ -7,6 +7,7 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/models/route.dart';
+import 'package:peak_bagger/models/route_waypoint.dart';
 import 'package:peak_bagger/models/route_graph_chunk.dart';
 import 'package:peak_bagger/models/route_graph_manifest.dart';
 import 'package:peak_bagger/models/route_graph_trail_display_chunk.dart';
@@ -517,8 +518,18 @@ void main() {
         desc: 'A scenic route',
         gpxRoute: [const LatLng(-41.5, 146.5)],
         gpxRouteElevations: [456],
+        routeWaypoints: [
+          const RouteWaypoint(
+            latitude: -41.5,
+            longitude: 146.5,
+            label: 'Waypoint 1',
+            sequence: 1,
+            isPeakDerived: false,
+          ),
+        ],
         displayRoutePointsByZoom: '{"10":[]}',
         colour: 12,
+        visible: false,
         distance2d: 12.5,
         distance3d: 13.2,
         ascent: 850,
@@ -537,8 +548,13 @@ void main() {
     expect(row.values['name'], 'Mt Ossa Route');
     expect(row.values['desc'], 'A scenic route');
     expect(row.values['gpxRouteJson'], '[[-41.5,146.5,456]]');
+    expect(
+      row.values['routeWaypointsJson'],
+      '[{"latitude":-41.5,"longitude":146.5,"label":"Waypoint 1","sequence":1,"isPeakDerived":false,"peakOsmId":null,"peakName":null}]',
+    );
     expect(row.values['displayRoutePointsByZoom'], '{"10":[]}');
     expect(row.values['colour'], 12);
+    expect(row.values['visible'], isFalse);
     expect(row.values['distance2d'], 12.5);
     expect(row.values['highestElevation'], 1600);
     expect(row.values['estimatedTime'], 5400000);
