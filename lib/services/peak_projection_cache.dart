@@ -10,7 +10,6 @@ class PeakProjectionCache {
   PeakClusterViewportData? _data;
   _PeakSuperclusterIndexKey? _superclusterKey;
   PeakSuperclusterIndex? _superclusterIndex;
-  final Map<int, LatLng> _stablePeakLocationsById = {};
 
   PeakClusterViewportData getOrBuild({
     required List<Peak> peaks,
@@ -18,7 +17,6 @@ class PeakProjectionCache {
     required Set<int> correlatedPeakIds,
     PeakClusterAlgorithm algorithm = MapConstants.peakClusterAlgorithm,
   }) {
-    final stablePeaks = _stablePeaks(peaks);
     final peakFingerprints = _peakRenderFingerprints(peaks);
     final key = _PeakProjectionCacheKey(
       center: camera.center,
@@ -34,12 +32,12 @@ class PeakProjectionCache {
 
     final data = switch (algorithm) {
       PeakClusterAlgorithm.supercluster => _buildSuperclusterViewportData(
-        peaks: stablePeaks,
+        peaks: peaks,
         camera: camera,
         correlatedPeakIds: correlatedPeakIds,
       ),
       _ => buildPeakClusterViewportData(
-        peaks: stablePeaks,
+        peaks: peaks,
         camera: camera,
         correlatedPeakIds: correlatedPeakIds,
         algorithm: algorithm,
@@ -79,32 +77,6 @@ class PeakProjectionCache {
     _data = null;
     _superclusterKey = null;
     _superclusterIndex = null;
-    _stablePeakLocationsById.clear();
-  }
-
-  List<Peak> _stablePeaks(List<Peak> peaks) {
-    return [for (final peak in peaks) _stablePeakFor(peak)];
-  }
-
-  Peak _stablePeakFor(Peak peak) {
-    final stableLocation = _stablePeakLocationsById[peak.osmId];
-    if (stableLocation == null) {
-      _stablePeakLocationsById[peak.osmId] = LatLng(
-        peak.latitude,
-        peak.longitude,
-      );
-      return peak;
-    }
-
-    if (peak.latitude == stableLocation.latitude &&
-        peak.longitude == stableLocation.longitude) {
-      return peak;
-    }
-
-    return peak.copyWith(
-      latitude: stableLocation.latitude,
-      longitude: stableLocation.longitude,
-    );
   }
 }
 
