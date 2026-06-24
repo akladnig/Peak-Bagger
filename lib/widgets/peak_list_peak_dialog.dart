@@ -732,12 +732,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
       return;
     }
 
-    ref.read(mapProvider.notifier).showTrack(
-      track.gpxTrackId,
-      selectedLocation: widget.peak == null
-          ? null
-          : LatLng(widget.peak!.latitude, widget.peak!.longitude),
-    );
+    ref.read(mapProvider.notifier).showTrack(track.gpxTrackId);
     _closeDialogAndGoMap();
   }
 

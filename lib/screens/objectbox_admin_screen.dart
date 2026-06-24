@@ -285,8 +285,6 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     mapNotifier.requestCameraMove(
       center: location,
       zoom: MapConstants.defaultZoom,
-      selectedLocation: location,
-      updateSelectedLocation: true,
     );
     router.go('/map');
   }
