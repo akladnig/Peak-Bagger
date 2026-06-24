@@ -637,7 +637,6 @@ List<ObjectBoxAdminFieldDescriptor> peakAdminDetailsFields(
 ) {
   return _orderedPeakFields(entity, const [
     'id',
-    'name',
     'altName',
     'elevation',
     'peakbaggerPid',

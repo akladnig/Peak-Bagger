@@ -135,24 +135,29 @@ class _ObjectBoxAdminReadOnlyDetailsPane extends StatelessWidget {
               )
             else
               Expanded(
-                child: ListView.separated(
-                  key: const Key('objectbox-admin-details-list'),
-                  itemCount: entity.fields.length,
-                  separatorBuilder: (context, index) =>
-                      const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final field = entity.fields[index];
-                    final selectedRow = row!;
-                    final value = selectedRow.values[field.name];
-                    return ListTile(
-                      dense: true,
-                      title: Text(field.name),
-                      subtitle: objectBoxAdminDetailsValue(
-                        entityName: entity.name,
-                        fieldName: field.name,
-                        label: field.name,
-                        value: value,
-                      ),
+                child: Builder(
+                  builder: (context) {
+                    final detailsFields = _objectBoxAdminDetailsFields(entity);
+                    return ListView.separated(
+                      key: const Key('objectbox-admin-details-list'),
+                      itemCount: detailsFields.length,
+                      separatorBuilder: (context, index) =>
+                          const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final field = detailsFields[index];
+                        final selectedRow = row!;
+                        final value = selectedRow.values[field.name];
+                        return ListTile(
+                          dense: true,
+                          title: Text(field.name),
+                          subtitle: objectBoxAdminDetailsValue(
+                            entityName: entity.name,
+                            fieldName: field.name,
+                            label: field.name,
+                            value: value,
+                          ),
+                        );
+                      },
                     );
                   },
                 ),
@@ -627,6 +632,14 @@ class _PeakReadOnlyDetails extends StatelessWidget {
   }
 }
 
+List<ObjectBoxAdminFieldDescriptor> _objectBoxAdminDetailsFields(
+  ObjectBoxAdminEntityDescriptor entity,
+) {
+  return entity.fields
+      .where((field) => field.name != entity.primaryNameField)
+      .toList(growable: false);
+}
+
 class _RouteAdminDetailsPane extends StatefulWidget {
   const _RouteAdminDetailsPane({
     required this.row,
@@ -889,12 +902,13 @@ class _RouteReadOnlyDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final detailsFields = _objectBoxAdminDetailsFields(entity);
     return ListView.separated(
       key: const Key('objectbox-admin-details-list'),
-      itemCount: entity.fields.length,
+      itemCount: detailsFields.length,
       separatorBuilder: (context, index) => const Divider(height: 1),
       itemBuilder: (context, index) {
-        final field = entity.fields[index];
+        final field = detailsFields[index];
         final value = row.values[field.name];
         return ListTile(
           dense: true,

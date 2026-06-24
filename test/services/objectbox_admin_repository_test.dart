@@ -593,7 +593,6 @@ void main() {
     ]);
     expect(peakAdminDetailsFields(peakEntity).map((field) => field.name), [
       'id',
-      'name',
       'altName',
       'elevation',
       'peakbaggerPid',
