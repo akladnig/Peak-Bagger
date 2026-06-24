@@ -19,7 +19,7 @@ Fix cache invalidation on peak field changes; prove with service + UI coverage.
 - **Goal**: rebuild peak viewport data when render-relevant fields change
 - [x] `lib/services/peak_projection_cache.dart` - key cached viewport/index data on a peak render fingerprint, not ids only; keep compact + supercluster keys aligned
 - [x] `test/services/peak_cluster_engine_test.dart` - extend cache invalidation coverage for changed `latitude`/`longitude`, `name`, `elevation`
-- [x] TDD: changed metadata keeps marker position stable; label text refreshes
+- [x] TDD: changed location rebuilds marker positions + cluster membership
 - [x] TDD: changed height/name rebuilds label text + seed order
 - [x] Verify: `flutter analyze` && `flutter test test/services/peak_cluster_engine_test.dart`
 
