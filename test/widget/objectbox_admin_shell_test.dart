@@ -1164,11 +1164,14 @@ void main() {
     final details = find.byKey(const Key('objectbox-admin-details-close'));
     expect(
       tester.getTopLeft(find.text('id').last).dy,
-      lessThan(tester.getTopLeft(find.text('name').last).dy),
+      lessThan(tester.getTopLeft(find.text('altName').last).dy),
     );
     expect(
-      tester.getTopLeft(find.text('name').last).dy,
-      lessThan(tester.getTopLeft(find.text('altName').last).dy),
+      find.descendant(
+        of: find.byKey(const Key('objectbox-admin-details-list')),
+        matching: find.text('name'),
+      ),
+      findsNothing,
     );
     expect(find.text('peakbaggerPid'), findsWidgets);
     expect(find.text('prominence'), findsWidgets);
@@ -1345,7 +1348,7 @@ void main() {
       3,
     );
     expect(repository.findByOsmId(303)?.name, 'New Peak');
-    expect(find.text('Peak #3'), findsOneWidget);
+    expect(find.text('New Peak').last, findsOneWidget);
   });
 
   testWidgets('Peak save success surfaces PeakList warnings', (tester) async {

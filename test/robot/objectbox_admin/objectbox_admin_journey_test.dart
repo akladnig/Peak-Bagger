@@ -87,7 +87,7 @@ void main() {
 
     await robot.selectRow('Mt Ossa Route');
 
-    expect(find.text('Route #1'), findsOneWidget);
+    expect(find.text('Mt Ossa Route').last, findsOneWidget);
     expect(find.text('gpxRouteJson').last, findsOneWidget);
     expect(
       find.byKey(const Key('objectbox-admin-details-close')),
@@ -298,7 +298,7 @@ void main() {
       3,
     );
     expect(peakRepository.findByOsmId(303)?.name, 'New Peak');
-    expect(find.text('Peak #3'), findsOneWidget);
+    expect(find.text('New Peak').last, findsOneWidget);
   });
 
   testWidgets('admin shell views a peak on the main map', (tester) async {

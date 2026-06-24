@@ -637,7 +637,6 @@ List<ObjectBoxAdminFieldDescriptor> peakAdminDetailsFields(
 ) {
   return _orderedPeakFields(entity, const [
     'id',
-    'name',
     'altName',
     'elevation',
     'peakbaggerPid',
@@ -766,8 +765,10 @@ ObjectBoxAdminRow routeToAdminRow(Route route) {
       'name': route.name,
       'desc': route.desc,
       'gpxRouteJson': route.gpxRouteJson,
+      'routeWaypointsJson': route.routeWaypointsJson,
       'displayRoutePointsByZoom': route.displayRoutePointsByZoom,
       'colour': route.colour,
+      'visible': route.visible,
       'distance2d': route.distance2d,
       'distance3d': route.distance3d,
       'ascent': route.ascent,

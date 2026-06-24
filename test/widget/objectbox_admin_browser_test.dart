@@ -89,7 +89,14 @@ void main() {
     await tester.tap(find.text('Mt Ossa Route'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Route #1'), findsOneWidget);
+    expect(find.text('Mt Ossa Route').last, findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('objectbox-admin-details-list')),
+        matching: find.widgetWithText(ListTile, 'name'),
+      ),
+      findsNothing,
+    );
     expect(
       find.byKey(const Key('objectbox-admin-route-view-on-map')),
       findsOneWidget,
@@ -278,7 +285,7 @@ void main() {
 
     await tester.tap(find.text('Mt Ossa'));
     await tester.pumpAndSettle();
-    expect(find.text('Peak #1'), findsOneWidget);
+    expect(find.text('Mt Ossa').last, findsOneWidget);
 
     await tester.tap(find.byKey(const Key('objectbox-admin-peak-delete-2')));
     await tester.pumpAndSettle();
@@ -289,8 +296,42 @@ void main() {
       find.byKey(const Key('objectbox-admin-peak-delete-2')),
       findsNothing,
     );
-    expect(find.text('Peak #1'), findsOneWidget);
+    expect(find.text('Mt Ossa').last, findsOneWidget);
     expect(find.text('Mt Ossa'), findsWidgets);
+  });
+
+  testWidgets('admin browser opens GpxTrack details pane', (tester) async {
+    await _pumpApp(
+      tester,
+      repository: TestObjectBoxAdminRepository(
+        rowsByEntity: {
+          'GpxTrack': [
+            const ObjectBoxAdminRow(
+              primaryKeyValue: 1,
+              values: {
+                'gpxTrackId': 1,
+                'trackName': 'Ridge Walk',
+              },
+            ),
+          ],
+        },
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('side-menu-objectbox-admin')));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-entity-dropdown')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('GpxTrack').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Ridge Walk'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ridge Walk'), findsWidgets);
+    expect(find.byKey(const Key('objectbox-admin-details-close')), findsOneWidget);
   });
 
   testWidgets('non-Peak entities stay browse-only', (tester) async {
@@ -305,6 +346,9 @@ void main() {
     await tester.tap(find.text('PeakList').last);
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Abels'));
+    await tester.pumpAndSettle();
+
     expect(find.byKey(const Key('objectbox-admin-peak-edit')), findsNothing);
     expect(find.byKey(const Key('objectbox-admin-peak-add')), findsNothing);
     expect(
@@ -312,6 +356,7 @@ void main() {
       findsNothing,
     );
     expect(find.text('Delete'), findsNothing);
+    expect(find.text('Abels'), findsWidgets);
   });
 
   testWidgets('admin browser loads rows in chunks of 50', (tester) async {
@@ -562,6 +607,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No gpxFile selected'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('objectbox-admin-details-list')),
+        matching: find.widgetWithText(ListTile, 'trackName'),
+      ),
+      findsNothing,
+    );
     expect(find.widgetWithText(ListTile, 'filteredTrack'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('objectbox-admin-export-gpx')));
@@ -959,112 +1011,53 @@ void main() {
         .first;
 
     await tester.scrollUntilVisible(
-      find.widgetWithText(ListTile, 'totalTimeMillis'),
+      find.text('totalTimeMillis').last,
       200,
       scrollable: detailsScrollable,
     );
-    expect(
-      (tester
-                  .widget<ListTile>(
-                    find.widgetWithText(ListTile, 'totalTimeMillis'),
-                  )
-                  .subtitle
-              as SelectableText)
-          .data,
-      '00:54:35',
-    );
+    expect(find.text('00:54:35'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.widgetWithText(ListTile, 'movingTime'),
+      find.text('movingTime').last,
       200,
       scrollable: detailsScrollable,
     );
-    expect(
-      (tester
-                  .widget<ListTile>(find.widgetWithText(ListTile, 'movingTime'))
-                  .subtitle
-              as SelectableText)
-          .data,
-      '00:00:30',
-    );
+    expect(find.text('00:00:30'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.widgetWithText(ListTile, 'restingTime'),
+      find.text('restingTime').last,
       200,
       scrollable: detailsScrollable,
     );
-    expect(
-      (tester
-                  .widget<ListTile>(
-                    find.widgetWithText(ListTile, 'restingTime'),
-                  )
-                  .subtitle
-              as SelectableText)
-          .data,
-      '00:25:05',
-    );
+    expect(find.text('00:25:05'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.widgetWithText(ListTile, 'pausedTime'),
+      find.text('pausedTime').last,
       200,
       scrollable: detailsScrollable,
     );
-    expect(
-      (tester
-                  .widget<ListTile>(find.widgetWithText(ListTile, 'pausedTime'))
-                  .subtitle
-              as SelectableText)
-          .data,
-      '00:29:00',
-    );
+    expect(find.text('00:29:00'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.widgetWithText(ListTile, 'averageSpeedKmh'),
+      find.text('averageSpeedKmh').last,
       200,
       scrollable: detailsScrollable,
     );
-    expect(
-      (tester
-                  .widget<ListTile>(
-                    find.widgetWithText(ListTile, 'averageSpeedKmh'),
-                  )
-                  .subtitle
-              as SelectableText)
-          .data,
-      '8.2',
-    );
+    expect(find.text('8.2'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.widgetWithText(ListTile, 'movingSpeedKmh'),
+      find.text('movingSpeedKmh').last,
       200,
       scrollable: detailsScrollable,
     );
-    expect(
-      (tester
-                  .widget<ListTile>(
-                    find.widgetWithText(ListTile, 'movingSpeedKmh'),
-                  )
-                  .subtitle
-              as SelectableText)
-          .data,
-      '8.4',
-    );
+    expect(find.text('8.4'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.widgetWithText(ListTile, 'maxSpeedKmh'),
+      find.text('maxSpeedKmh').last,
       200,
       scrollable: detailsScrollable,
     );
-    expect(
-      (tester
-                  .widget<ListTile>(
-                    find.widgetWithText(ListTile, 'maxSpeedKmh'),
-                  )
-                  .subtitle
-              as SelectableText)
-          .data,
-      '12.1',
-    );
+    expect(find.text('12.1'), findsOneWidget);
   });
 }
 
