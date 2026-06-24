@@ -51,6 +51,7 @@ void main() {
     await robot.selectRow('Mt Ossa');
     await robot.startEditingPeak();
     await robot.enterPeakField('name', 'Mt Ossa Peak');
+    await robot.enterPeakField('elevation', '1617');
     await robot.enterPeakAltName('Ossa');
     await robot.setPeakVerified(verified: true);
     await robot.submitPeakEdit();
@@ -66,12 +67,68 @@ void main() {
     final editMapState = editContainer.read(mapProvider);
     expect(editMapState.peaks, hasLength(1));
     expect(editMapState.peaks.single.name, 'Mt Ossa Peak');
+    expect(editMapState.peaks.single.elevation, 1617);
     expect(editMapState.peaks.single.altName, 'Ossa');
     expect(editMapState.peaks.single.verified, isTrue);
+    expect(editMapState.peaks.single.latitude, peak.latitude);
+    expect(editMapState.peaks.single.longitude, peak.longitude);
     expect(peakRepository.findById(1)?.name, 'Mt Ossa Peak');
+    expect(peakRepository.findById(1)?.elevation, 1617);
     expect(peakRepository.findById(1)?.altName, 'Ossa');
     expect(peakRepository.findById(1)?.verified, isTrue);
+    expect(peakRepository.findById(1)?.latitude, peak.latitude);
+    expect(peakRepository.findById(1)?.longitude, peak.longitude);
     expect(find.text('Mt Ossa Peak'), findsWidgets);
+  });
+
+  testWidgets('admin shell saves direct latitude edits without calculate', (
+    tester,
+  ) async {
+    final robot = ObjectBoxAdminRobot(tester);
+    final peak = _buildPeak(
+      id: 1,
+      osmId: 101,
+      name: 'Mt Ossa',
+      region: 'Old Area',
+    );
+    final peaks = [peak];
+    final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
+      'Peak': [_peakRow(peak)],
+      'PeakList': const [],
+      'Tasmap50k': const [],
+      'GpxTrack': const [],
+      'PeaksBagged': const [],
+    };
+    final peakRepository = _MutablePeakRepository(peaks, rowsByEntity);
+
+    await robot.pumpApp(
+      repository: TestObjectBoxAdminRepository(
+        entities: [_peakEntity()],
+        rowsByEntity: rowsByEntity,
+      ),
+      peakRepository: peakRepository,
+      peakDeleteGuard: PeakDeleteGuard(_NoopPeakDeleteGuardSource()),
+    );
+
+    await robot.openAdminFromMenu();
+    await robot.selectRow('Mt Ossa');
+    await robot.startEditingPeak();
+    await robot.enterPeakField('latitude', '-41.600000');
+    await robot.submitPeakEdit();
+
+    expect(find.text('Update Successful'), findsOneWidget);
+
+    final saved = peakRepository.findById(1)!;
+    expect(saved.latitude, -41.6);
+    expect(saved.longitude, 146.5);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shared-app-bar'))),
+    );
+    final mapState = container.read(mapProvider);
+    expect(mapState.peaks, hasLength(1));
+    expect(mapState.peaks.single.latitude, -41.6);
+    expect(mapState.peaks.single.longitude, 146.5);
   });
 
   testWidgets('admin shell browses a Route row', (tester) async {

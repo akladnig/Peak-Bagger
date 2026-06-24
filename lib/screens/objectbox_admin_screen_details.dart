@@ -277,6 +277,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
       _sourceOfTruth = Peak.sourceOfTruthOsm;
       _verified = false;
       _isEditing = true;
+      _activeCoordinateSource = null;
     } else {
       _peak = peakFromAdminRow(widget.row!);
       final form = PeakAdminEditor.normalize(_peak);
@@ -294,9 +295,9 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
       _sourceOfTruth = form.sourceOfTruth;
       _verified = form.verified;
       _isEditing = false;
+      _activeCoordinateSource = PeakAdminCoordinateSource.latLng;
     }
     _isSaving = false;
-    _activeCoordinateSource = null;
     _submitError = null;
     _validation = const PeakAdminValidationResult(fieldErrors: {});
   }
@@ -304,7 +305,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   void _startEditing() {
     setState(() {
       _isEditing = true;
-      _activeCoordinateSource = null;
+      _activeCoordinateSource = PeakAdminCoordinateSource.latLng;
       _submitError = null;
       _validation = const PeakAdminValidationResult(fieldErrors: {});
     });
