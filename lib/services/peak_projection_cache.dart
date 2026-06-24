@@ -17,11 +17,12 @@ class PeakProjectionCache {
     required Set<int> correlatedPeakIds,
     PeakClusterAlgorithm algorithm = MapConstants.peakClusterAlgorithm,
   }) {
+    final peakFingerprints = _peakRenderFingerprints(peaks);
     final key = _PeakProjectionCacheKey(
       center: camera.center,
       zoom: camera.zoom,
       size: camera.nonRotatedSize,
-      peakIds: [for (final peak in peaks) peak.osmId],
+      peakFingerprints: peakFingerprints,
       correlatedPeakIds: correlatedPeakIds.toList(growable: false)..sort(),
       algorithm: algorithm,
     );
@@ -52,8 +53,9 @@ class PeakProjectionCache {
     required MapCamera camera,
     required Set<int> correlatedPeakIds,
   }) {
+    final peakFingerprints = _peakRenderFingerprints(peaks);
     final key = _PeakSuperclusterIndexKey(
-      peakIds: [for (final peak in peaks) peak.osmId],
+      peakFingerprints: peakFingerprints,
       correlatedPeakIds: correlatedPeakIds.toList(growable: false)..sort(),
     );
     if (_superclusterKey != key || _superclusterIndex == null) {
@@ -83,7 +85,7 @@ class _PeakProjectionCacheKey {
     required this.center,
     required this.zoom,
     required this.size,
-    required this.peakIds,
+    required this.peakFingerprints,
     required this.correlatedPeakIds,
     required this.algorithm,
   });
@@ -91,7 +93,7 @@ class _PeakProjectionCacheKey {
   final LatLng center;
   final double zoom;
   final Size size;
-  final List<int> peakIds;
+  final List<String> peakFingerprints;
   final List<int> correlatedPeakIds;
   final PeakClusterAlgorithm algorithm;
 
@@ -103,7 +105,7 @@ class _PeakProjectionCacheKey {
             other.zoom == zoom &&
             other.size == size &&
             other.algorithm == algorithm &&
-            _listEquals(other.peakIds, peakIds) &&
+            _listEquals(other.peakFingerprints, peakFingerprints) &&
             _listEquals(other.correlatedPeakIds, correlatedPeakIds);
   }
 
@@ -113,34 +115,52 @@ class _PeakProjectionCacheKey {
     zoom,
     size,
     algorithm,
-    Object.hashAll(peakIds),
+    Object.hashAll(peakFingerprints),
     Object.hashAll(correlatedPeakIds),
   );
 }
 
 class _PeakSuperclusterIndexKey {
   const _PeakSuperclusterIndexKey({
-    required this.peakIds,
+    required this.peakFingerprints,
     required this.correlatedPeakIds,
   });
 
-  final List<int> peakIds;
+  final List<String> peakFingerprints;
   final List<int> correlatedPeakIds;
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         other is _PeakSuperclusterIndexKey &&
-            _listEquals(other.peakIds, peakIds) &&
+            _listEquals(other.peakFingerprints, peakFingerprints) &&
             _listEquals(other.correlatedPeakIds, correlatedPeakIds);
   }
 
   @override
   int get hashCode =>
-      Object.hash(Object.hashAll(peakIds), Object.hashAll(correlatedPeakIds));
+      Object.hash(
+        Object.hashAll(peakFingerprints),
+        Object.hashAll(correlatedPeakIds),
+      );
 }
 
-bool _listEquals(List<int> left, List<int> right) {
+List<String> _peakRenderFingerprints(Iterable<Peak> peaks) {
+  return [for (final peak in peaks) _peakRenderFingerprint(peak)];
+}
+
+String _peakRenderFingerprint(Peak peak) {
+  return [
+    peak.osmId,
+    peak.latitude,
+    peak.longitude,
+    peak.name,
+    peak.elevation,
+    peak.prominence,
+  ].join('|');
+}
+
+bool _listEquals<T>(List<T> left, List<T> right) {
   if (left.length != right.length) {
     return false;
   }

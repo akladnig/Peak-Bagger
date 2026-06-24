@@ -274,6 +274,52 @@ void main() {
       isTrue,
     );
   });
+
+  test('projection cache invalidates when peak render fields change', () {
+    final cache = PeakProjectionCache();
+    final camera = _camera(zoom: 15);
+    final base = cache.getOrBuild(
+      peaks: [closeA, closeB],
+      camera: camera,
+      correlatedPeakIds: const {},
+      algorithm: PeakClusterAlgorithm.compactCircular,
+    );
+    final relocatedPeak = closeA.copyWith(
+      latitude: -43.01,
+      longitude: 147.02,
+    );
+    final relocated = cache.getOrBuild(
+      peaks: [relocatedPeak, closeB],
+      camera: camera,
+      correlatedPeakIds: const {},
+      algorithm: PeakClusterAlgorithm.compactCircular,
+    );
+    final rewordedPeak = relocatedPeak.copyWith(
+      name: 'A+',
+      elevation: 1234,
+    );
+    final reworded = cache.getOrBuild(
+      peaks: [rewordedPeak, closeB],
+      camera: camera,
+      correlatedPeakIds: const {},
+      algorithm: PeakClusterAlgorithm.compactCircular,
+    );
+
+    expect(identical(base, relocated), isFalse);
+    expect(
+      relocated.individualCandidates
+          .firstWhere((candidate) => candidate.peak.osmId == 1)
+          .screenPosition,
+      isNot(equals(base.individualCandidates
+          .firstWhere((candidate) => candidate.peak.osmId == 1)
+          .screenPosition)),
+    );
+    expect(identical(relocated, reworded), isFalse);
+    final updatedCandidate = reworded.individualCandidates
+        .firstWhere((candidate) => candidate.peak.osmId == 1);
+    expect(updatedCandidate.peak.name, 'A+');
+    expect(updatedCandidate.peak.elevation, 1234);
+  });
 }
 
 MapCamera _camera({required double zoom}) {

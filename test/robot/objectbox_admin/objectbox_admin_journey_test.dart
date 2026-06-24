@@ -233,6 +233,14 @@ void main() {
       expect(saved.mgrs100kId, expectedComponents.mgrs100kId);
       expect(saved.easting, expectedComponents.easting);
       expect(saved.northing, expectedComponents.northing);
+
+      final mapContainer = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('shared-app-bar'))),
+      );
+      final mapState = mapContainer.read(mapProvider);
+      expect(mapState.peaks, hasLength(1));
+      expect(mapState.peaks.single.latitude, closeTo(-41.6, 0.001));
+      expect(mapState.peaks.single.longitude, closeTo(146.5, 0.001));
     },
   );
 
