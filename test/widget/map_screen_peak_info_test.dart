@@ -12,6 +12,7 @@ import 'package:peak_bagger/models/waypoints.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
+import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/screens/map_screen_panels.dart';
@@ -19,6 +20,7 @@ import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/map_name_resolution.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peak_admin_editor.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
@@ -266,6 +268,7 @@ void main() {
               content: content,
               onClose: () {},
               onEdit: () {},
+              onSaveEdit: (_) async => null,
               onDropMarker: () {},
             ),
           ),
@@ -279,7 +282,9 @@ void main() {
     expect(
       tester.getTopLeft(find.byKey(const Key('peak-info-popup-edit'))).dx,
       lessThan(
-        tester.getTopLeft(find.byKey(const Key('peak-info-popup-drop-marker'))).dx,
+        tester
+            .getTopLeft(find.byKey(const Key('peak-info-popup-drop-marker')))
+            .dx,
       ),
     );
 
@@ -299,6 +304,150 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-info-popup-edit')), findsNothing);
+  });
+
+  testWidgets('editing hovered peak pins popup and shows inline form', (
+    tester,
+  ) async {
+    await _pumpMap(tester, _mapStateWithPeak());
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final container = ProviderScope.containerOf(tester.element(region));
+    final center = tester.getCenter(region);
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(gesture.removePointer);
+
+    await gesture.addPointer(location: center);
+    await tester.pump();
+    await gesture.moveTo(center);
+    await tester.pump();
+
+    expect(container.read(mapProvider).isPeakInfoHovered, isTrue);
+
+    await tester.tap(find.byKey(const Key('peak-info-popup-edit')));
+    await tester.pumpAndSettle();
+
+    expect(container.read(mapProvider).isPeakInfoPinned, isTrue);
+    expect(find.byKey(const Key('peak-info-popup-edit-form')), findsOneWidget);
+    expect(find.byKey(const Key('peak-info-popup-drop-marker')), findsNothing);
+  });
+
+  testWidgets('inline popup edit shows saving feedback and saves peak', (
+    tester,
+  ) async {
+    final peak = Peak(
+      id: 1,
+      osmId: 6406,
+      name: 'Bonnet Hill',
+      latitude: -43.0,
+      longitude: 147.0,
+    );
+    final peakRepository = _DelayedPeakRepository(
+      const Duration(milliseconds: 50),
+      InMemoryPeakStorage([peak]),
+    );
+
+    await _pumpMap(
+      tester,
+      _mapStateWithPeak(peak: peak),
+      peakRepository: peakRepository,
+    );
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    final container = ProviderScope.containerOf(tester.element(region));
+
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byKey(const Key('peak-info-popup-edit')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('peak-info-popup-name')),
+      'Bonnet Hill Summit',
+    );
+    await tester.enterText(
+      find.byKey(const Key('peak-info-popup-elevation')),
+      '1234',
+    );
+
+    await tester.tap(find.byKey(const Key('peak-info-popup-save')));
+    await tester.pump();
+
+    expect(find.text('Saving...'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 60));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-info-popup-edit-form')), findsNothing);
+    expect(
+      container.read(mapProvider).peakInfoPeak?.name,
+      'Bonnet Hill Summit',
+    );
+    expect(find.text('Bonnet Hill Summit'), findsOneWidget);
+    expect(find.text('Height: 1234 m'), findsOneWidget);
+
+    final saved = peakRepository.findById(1)!;
+    expect(saved.name, 'Bonnet Hill Summit');
+    expect(saved.elevation, 1234);
+    expect(saved.sourceOfTruth, Peak.sourceOfTruthHwc);
+    expect(saved.verified, isTrue);
+  });
+
+  testWidgets('inline popup edit validates name and elevation', (tester) async {
+    await _pumpMap(tester, _mapStateWithPeak());
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byKey(const Key('peak-info-popup-edit')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('peak-info-popup-name')), '');
+    await tester.enterText(
+      find.byKey(const Key('peak-info-popup-elevation')),
+      'abc',
+    );
+
+    await tester.tap(find.byKey(const Key('peak-info-popup-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-info-popup-edit-form')), findsOneWidget);
+    expect(find.text(PeakAdminEditor.nameRequiredError), findsOneWidget);
+    expect(find.text(PeakAdminEditor.elevationError), findsOneWidget);
+  });
+
+  testWidgets('inline popup edit preserves draft on save failure', (
+    tester,
+  ) async {
+    final peakRepository = _ThrowingPeakRepository();
+
+    await _pumpMap(tester, _mapStateWithPeak(), peakRepository: peakRepository);
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byKey(const Key('peak-info-popup-edit')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('peak-info-popup-name')),
+      'Broken Name',
+    );
+
+    await tester.tap(find.byKey(const Key('peak-info-popup-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-info-popup-edit-form')), findsOneWidget);
+    expect(find.byKey(const Key('peak-info-popup-error')), findsOneWidget);
+    expect(find.textContaining('Failed to save peak:'), findsOneWidget);
+
+    final nameField = tester.widget<TextField>(
+      find.byKey(const Key('peak-info-popup-name')),
+    );
+    expect(nameField.controller?.text, 'Broken Name');
   });
 
   testWidgets('pinned peak popup suppresses the overlapping label', (
@@ -1344,6 +1493,9 @@ Future<void> _pumpMap(
             waypointsRepository: waypointsRepository,
           ),
         ),
+        peakRepositoryProvider.overrideWithValue(
+          peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
+        ),
         peakListRepositoryProvider.overrideWithValue(
           peakListRepository ??
               PeakListRepository.test(InMemoryPeakListStorage()),
@@ -1409,6 +1561,38 @@ class _StaticPeakMarkerInfoNotifier extends PeakMarkerInfoSettingsNotifier {
 
   @override
   bool build() => value;
+}
+
+class _DelayedPeakRepository extends PeakRepository {
+  _DelayedPeakRepository(this.delay, PeakStorage storage) : super.test(storage);
+
+  final Duration delay;
+
+  @override
+  Future<PeakSaveResult> saveDetailed(Peak peak) async {
+    await Future<void>.delayed(delay);
+    return super.saveDetailed(peak);
+  }
+}
+
+class _ThrowingPeakRepository extends PeakRepository {
+  _ThrowingPeakRepository()
+    : super.test(
+        InMemoryPeakStorage([
+          Peak(
+            id: 1,
+            osmId: 6406,
+            name: 'Bonnet Hill',
+            latitude: -43.0,
+            longitude: 147.0,
+          ),
+        ]),
+      );
+
+  @override
+  Future<PeakSaveResult> saveDetailed(Peak peak) async {
+    throw StateError('boom');
+  }
 }
 
 class _NoopRoutePlanner extends RoutePlanner {

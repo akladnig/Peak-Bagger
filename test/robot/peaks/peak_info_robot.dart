@@ -7,10 +7,12 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 
@@ -33,6 +35,17 @@ class PeakInfoRobot {
       find.byKey(const Key('peak-info-popup-close'));
   Finder get peakInfoPopupDropMarker =>
       find.byKey(const Key('peak-info-popup-drop-marker'));
+  Finder get peakInfoPopupEdit => find.byKey(const Key('peak-info-popup-edit'));
+  Finder get peakInfoPopupEditForm =>
+      find.byKey(const Key('peak-info-popup-edit-form'));
+  Finder get peakInfoPopupName => find.byKey(const Key('peak-info-popup-name'));
+  Finder get peakInfoPopupElevation =>
+      find.byKey(const Key('peak-info-popup-elevation'));
+  Finder get peakInfoPopupSave => find.byKey(const Key('peak-info-popup-save'));
+  Finder get peakInfoPopupCancel =>
+      find.byKey(const Key('peak-info-popup-cancel'));
+  Finder get peakInfoPopupError =>
+      find.byKey(const Key('peak-info-popup-error'));
   Finder get peakListsSelectedLocationMarker =>
       find.byKey(const Key('peak-lists-selected-location-marker'));
 
@@ -45,27 +58,40 @@ class PeakInfoRobot {
     PeaksBaggedRepository? peaksBaggedRepository,
     GpxTrackRepository? gpxTrackRepository,
     TasmapRepository? tasmapRepository,
+    PeakRepository? peakRepository,
   }) async {
     final resolvedPeakListRepository =
-        peakListRepository ?? PeakListRepository.test(InMemoryPeakListStorage());
+        peakListRepository ??
+        PeakListRepository.test(InMemoryPeakListStorage());
     final resolvedPeaksBaggedRepository =
         peaksBaggedRepository ??
         PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage());
     final resolvedGpxTrackRepository =
-        gpxTrackRepository ?? GpxTrackRepository.test(InMemoryGpxTrackStorage());
+        gpxTrackRepository ??
+        GpxTrackRepository.test(InMemoryGpxTrackStorage());
     final resolvedTasmapRepository =
         tasmapRepository ?? await TestTasmapRepository.create();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           mapProvider.overrideWith(
-            () => TestMapNotifier(initialState ?? _defaultMapState()),
+            () => TestMapNotifier(
+              initialState ?? _defaultMapState(),
+              peakRepository: peakRepository,
+            ),
           ),
-          peakListRepositoryProvider.overrideWithValue(resolvedPeakListRepository),
+          peakRepositoryProvider.overrideWithValue(
+            peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
+          ),
+          peakListRepositoryProvider.overrideWithValue(
+            resolvedPeakListRepository,
+          ),
           peaksBaggedRepositoryProvider.overrideWithValue(
             resolvedPeaksBaggedRepository,
           ),
-          gpxTrackRepositoryProvider.overrideWithValue(resolvedGpxTrackRepository),
+          gpxTrackRepositoryProvider.overrideWithValue(
+            resolvedGpxTrackRepository,
+          ),
           tasmapRepositoryProvider.overrideWithValue(resolvedTasmapRepository),
           tasmapStateProvider.overrideWith(
             () => TestTasmapNotifier(resolvedTasmapRepository),
@@ -119,6 +145,26 @@ class PeakInfoRobot {
   Future<void> dropMarkerFromPeakPopup() async {
     await tester.tap(peakInfoPopupDropMarker);
     await tester.pump();
+  }
+
+  Future<void> startEditingPeakPopup() async {
+    await tester.tap(peakInfoPopupEdit);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> enterPeakName(String value) async {
+    await tester.enterText(peakInfoPopupName, value);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> enterPeakElevation(String value) async {
+    await tester.enterText(peakInfoPopupElevation, value);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> savePeakPopupEdit() async {
+    await tester.tap(peakInfoPopupSave);
+    await tester.pumpAndSettle();
   }
 
   Future<void> clickMapBackground() async {

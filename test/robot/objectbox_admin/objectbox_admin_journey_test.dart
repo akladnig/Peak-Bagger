@@ -21,7 +21,7 @@ import '../../harness/test_objectbox_admin_repository.dart';
 import 'objectbox_admin_robot.dart';
 
 void main() {
-  testWidgets('map peak popup edit opens matching admin row', (tester) async {
+  testWidgets('map peak popup edit opens inline popup editor', (tester) async {
     final robot = ObjectBoxAdminRobot(tester);
     final peak = _buildPeak(
       id: 1,
@@ -66,23 +66,14 @@ void main() {
     await tester.tap(find.byKey(const Key('peak-info-popup-edit')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('objectbox-admin-entity-dropdown')), findsOneWidget);
+    expect(find.byKey(const Key('peak-info-popup-edit-form')), findsOneWidget);
     expect(
-      find.descendant(
-        of: find.byKey(const Key('app-bar-title')),
-        matching: find.text('ObjectBox Admin'),
-      ),
-      findsOneWidget,
+      find.byKey(const Key('objectbox-admin-entity-dropdown')),
+      findsNothing,
     );
 
-    final container = ProviderScope.containerOf(
-      tester.element(find.byKey(const Key('shared-app-bar'))),
-    );
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.pumpAndSettle();
-    final adminState = container.read(objectboxAdminProvider);
-    expect(adminState.selectedEntity?.name, 'Peak');
-    expect(adminState.selectedRow?.primaryKeyValue, 1);
+    final container = ProviderScope.containerOf(tester.element(region));
+    expect(container.read(mapProvider).isPeakInfoPinned, isTrue);
   });
 
   testWidgets('admin shell edits and saves a peak row', (tester) async {
@@ -304,9 +295,7 @@ void main() {
       lowestElevation: 110,
       highestElevation: 1600,
     );
-    final routeRepository = RouteRepository.test(
-      InMemoryRouteStorage([route]),
-    );
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage([route]));
     final objectboxRepository = _RouteAwareObjectBoxAdminRepository(
       base: TestObjectBoxAdminRepository(),
       routeRepository: routeRepository,
@@ -363,7 +352,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(routeRepository.findById(1), isNull);
-    expect(find.byKey(const Key('objectbox-admin-route-delete-1')), findsNothing);
+    expect(
+      find.byKey(const Key('objectbox-admin-route-delete-1')),
+      findsNothing,
+    );
 
     await tester.tap(find.byKey(const Key('nav-map')));
     await tester.pumpAndSettle();

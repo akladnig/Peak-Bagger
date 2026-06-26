@@ -9,6 +9,7 @@ import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 
 import '../../harness/test_tasmap_repository.dart';
@@ -74,6 +75,50 @@ void main() {
     );
     expect(container.read(mapProvider).isPeakInfoPinned, isTrue);
     r.expectPeakPopupWithContent('Bonnet Hill');
+  });
+
+  testWidgets('peak info journey edit saves popup changes in place', (
+    tester,
+  ) async {
+    final peak = Peak(
+      id: 1,
+      osmId: 6406,
+      name: 'Bonnet Hill',
+      latitude: -43.0,
+      longitude: 147.0,
+    );
+    final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+    final r = PeakInfoRobot(tester);
+    addTearDown(r.dispose);
+
+    await r.pumpMap(
+      initialState: MapState(
+        center: const LatLng(-43.0, 147.0),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        peaks: [peak],
+      ),
+      peakRepository: peakRepository,
+    );
+
+    await r.clickPeak(6406);
+    await r.startEditingPeakPopup();
+    await r.enterPeakName('Bonnet Hill Summit');
+    await r.enterPeakElevation('1234');
+    await r.savePeakPopupEdit();
+
+    r.expectPeakPopupWithLines([
+      'Bonnet Hill Summit',
+      'Height: 1234 m',
+      'Region: Tasmanian',
+    ]);
+    expect(r.container().read(mapProvider).isPeakInfoPinned, isTrue);
+
+    final saved = peakRepository.findById(1)!;
+    expect(saved.name, 'Bonnet Hill Summit');
+    expect(saved.elevation, 1234);
+    expect(saved.sourceOfTruth, Peak.sourceOfTruthHwc);
+    expect(saved.verified, isTrue);
   });
 
   testWidgets('peak info journey hover away closes transient popup', (
@@ -229,9 +274,9 @@ void main() {
       r.expectNoPeakPopup();
       expect(find.byKey(const Key('map-tap-action-popup')), findsOneWidget);
       expect(
-        ProviderScope.containerOf(tester.element(r.mapInteractionRegion))
-            .read(mapProvider)
-            .selectedLocation,
+        ProviderScope.containerOf(
+          tester.element(r.mapInteractionRegion),
+        ).read(mapProvider).selectedLocation,
         isNull,
       );
     },

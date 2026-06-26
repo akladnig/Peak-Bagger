@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:flutter/gestures.dart'
     show
         PointerPanZoomEndEvent,
@@ -12,7 +13,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
-import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/map_polygon_asset.dart';
@@ -23,11 +23,11 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/drive_eta_provider.dart';
 import 'package:peak_bagger/providers/polygon_assets_provider.dart';
-import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/map_chart_hover_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
+import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/show_polygons_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
@@ -3584,10 +3584,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
         child: PeakInfoPopupSurface(
           content: content,
           bridgeOnLeft: placement.bridgeOnLeft,
-          onEdit: () {
-            setObjectBoxAdminPendingPeakId(content.peak.id);
-            context.goNamed('objectboxAdmin');
+          onEdit: () async {
+            ref.read(mapProvider.notifier).pinPeakInfoPopup();
           },
+          onSaveEdit: _savePeakInfoPopupEdit,
           onDropMarker: () async {
             final notifier = ref.read(mapProvider.notifier);
             final saved = await notifier.setCurrentMarker(
@@ -3604,6 +3604,24 @@ class _MapScreenState extends ConsumerState<MapScreen>
         ),
       ),
     );
+  }
+
+  Future<String?> _savePeakInfoPopupEdit(Peak peak) async {
+    final repository = ref.read(peakRepositoryProvider);
+    try {
+      await repository.saveDetailed(peak);
+      ref.read(peakRevisionProvider.notifier).increment();
+      await ref.read(mapProvider.notifier).reloadPeakMarkers();
+      return null;
+    } catch (error, stackTrace) {
+      developer.log(
+        'Peak popup save failed for ${peak.name}',
+        error: error,
+        stackTrace: stackTrace,
+        name: 'map_screen',
+      );
+      return 'Failed to save peak: $error';
+    }
   }
 
   Widget _buildMapTapActionPopup(BuildContext context) {

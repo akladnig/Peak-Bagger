@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -15,10 +16,14 @@ import 'package:peak_bagger/models/waypoints.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/elevation_profile_series_builder.dart';
 import 'package:peak_bagger/services/map_ruler_scale.dart';
+import 'package:peak_bagger/services/peak_admin_editor.dart';
 import 'package:peak_bagger/services/route_timing_service.dart';
 import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/peak_search_results_list.dart';
 import 'package:peak_bagger/widgets/elevation_profile_chart.dart';
+
+typedef PeakInfoPopupEditCallback = FutureOr<void> Function();
+typedef PeakInfoPopupSaveCallback = Future<String?> Function(Peak peak);
 
 class PeakInfoPopupPlacement {
   const PeakInfoPopupPlacement({
@@ -668,9 +673,8 @@ class TrackRouteChooserItem {
   final app_route.Route? route;
   final List<List<LatLng>> segments;
 
-  int get id => kind == TrackRouteChooserItemKind.track
-      ? track!.gpxTrackId
-      : route!.id;
+  int get id =>
+      kind == TrackRouteChooserItemKind.track ? track!.gpxTrackId : route!.id;
 
   String get displayName => switch (kind) {
     TrackRouteChooserItemKind.track => _chooserTrackName(track!),
@@ -686,9 +690,8 @@ class TrackRouteChooserItem {
 
   Color get color => switch (kind) {
     TrackRouteChooserItemKind.track => Color(track!.trackColour),
-    TrackRouteChooserItemKind.route => route!.colour == 0
-        ? const Color(0xFF4C8BF5)
-        : Color(route!.colour),
+    TrackRouteChooserItemKind.route =>
+      route!.colour == 0 ? const Color(0xFF4C8BF5) : Color(route!.colour),
   };
 }
 
@@ -713,7 +716,10 @@ class TrackRouteChooserPopup extends StatelessWidget {
       key: const Key('track-route-chooser-popup'),
       margin: EdgeInsets.zero,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: width, maxHeight: maxHeight),
+        constraints: const BoxConstraints(
+          maxWidth: width,
+          maxHeight: maxHeight,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -755,7 +761,9 @@ class TrackRouteChooserPopup extends StatelessWidget {
 }
 
 String _chooserTrackName(GpxTrack track) {
-  return track.trackName.trim().isEmpty ? 'Unnamed Track' : track.trackName.trim();
+  return track.trackName.trim().isEmpty
+      ? 'Unnamed Track'
+      : track.trackName.trim();
 }
 
 String _chooserRouteName(app_route.Route route) {
@@ -784,7 +792,9 @@ class _TrackRouteChooserRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               SizedBox(
-                key: Key('track-route-chooser-thumbnail-${item.kind.name}-${item.id}'),
+                key: Key(
+                  'track-route-chooser-thumbnail-${item.kind.name}-${item.id}',
+                ),
                 width: 44,
                 height: 44,
                 child: _TrackRouteChooserThumbnail(item: item),
@@ -898,7 +908,10 @@ class _TrackRouteChooserThumbnailPainter extends CustomPainter {
     final lngSpan = math.max((maxLng - minLng).abs(), 0.000001);
     final padding = 6.0;
     final usableWidth = (size.width - padding * 2).clamp(1.0, double.infinity);
-    final usableHeight = (size.height - padding * 2).clamp(1.0, double.infinity);
+    final usableHeight = (size.height - padding * 2).clamp(
+      1.0,
+      double.infinity,
+    );
     final scale = math.min(usableWidth / lngSpan, usableHeight / latSpan);
     final pathPaint = Paint()
       ..color = color
@@ -1080,10 +1093,7 @@ String formatDuration(int? millis) {
   return '${totalMinutes}m';
 }
 
-String _formatTrackSpeed(
-  double speedKmh, {
-  required int? durationMillis,
-}) {
+String _formatTrackSpeed(double speedKmh, {required int? durationMillis}) {
   if (durationMillis == null || durationMillis == 0) {
     return 'Unknown';
   }
@@ -1459,7 +1469,10 @@ class MapTapActionPopupCard extends StatelessWidget {
               ),
               ListTile(
                 key: const Key('map-tap-action-drop-favourite'),
-                leading: const Icon(Icons.favorite, color: favouriteMarkerColour),
+                leading: const Icon(
+                  Icons.favorite,
+                  color: favouriteMarkerColour,
+                ),
                 title: const Text('Drop Favourite'),
                 onTap: onDropFavourite,
               ),
@@ -1514,7 +1527,10 @@ class FavouritesPopupCard extends StatelessWidget {
                   final favourite = favourites[index];
                   return ListTile(
                     key: Key('favourites-popup-row-${favourite.id}'),
-                    leading: const Icon(Icons.favorite, color: favouriteMarkerColour),
+                    leading: const Icon(
+                      Icons.favorite,
+                      color: favouriteMarkerColour,
+                    ),
                     title: Text(
                       favourite.name,
                       maxLines: 1,
@@ -1608,23 +1624,190 @@ class _FavouriteNameDialogState extends State<FavouriteNameDialog> {
   }
 }
 
-class PeakInfoPopupCard extends StatelessWidget {
+class PeakInfoPopupCard extends StatefulWidget {
   const PeakInfoPopupCard({
     required this.content,
     required this.onClose,
     this.onEdit,
+    this.onSaveEdit,
     this.onDropMarker,
     super.key,
   });
 
   final PeakInfoContent content;
   final VoidCallback onClose;
-  final VoidCallback? onEdit;
+  final PeakInfoPopupEditCallback? onEdit;
+  final PeakInfoPopupSaveCallback? onSaveEdit;
   final VoidCallback? onDropMarker;
 
   @override
+  State<PeakInfoPopupCard> createState() => _PeakInfoPopupCardState();
+}
+
+class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _elevationController;
+  late Peak _draftPeak;
+  String? _nameError;
+  String? _elevationError;
+  String? _submitError;
+  bool _isEditing = false;
+  bool _isSaving = false;
+
+  bool get _canEdit => widget.onEdit != null && widget.onSaveEdit != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController();
+    _elevationController = TextEditingController();
+    _syncDraftFromContent();
+  }
+
+  @override
+  void didUpdateWidget(covariant PeakInfoPopupCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.content.peak.osmId != widget.content.peak.osmId ||
+        (!_isEditing && oldWidget.content.peak != widget.content.peak)) {
+      _syncDraftFromContent();
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _elevationController.dispose();
+    super.dispose();
+  }
+
+  void _syncDraftFromContent() {
+    _draftPeak = widget.content.peak;
+    _nameController.text = _draftPeak.name;
+    _elevationController.text = _formatOptionalElevation(_draftPeak.elevation);
+    _nameError = null;
+    _elevationError = null;
+    _submitError = null;
+    _isSaving = false;
+  }
+
+  Future<void> _startEditing() async {
+    final onEdit = widget.onEdit;
+    if (onEdit == null || _isSaving) {
+      return;
+    }
+
+    await onEdit();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _syncDraftFromContent();
+      _isEditing = true;
+    });
+  }
+
+  void _cancelEditing() {
+    if (_isSaving) {
+      return;
+    }
+
+    setState(() {
+      _syncDraftFromContent();
+      _isEditing = false;
+    });
+  }
+
+  void _clearFieldErrors() {
+    if (_nameError == null && _elevationError == null && _submitError == null) {
+      return;
+    }
+
+    setState(() {
+      _nameError = null;
+      _elevationError = null;
+      _submitError = null;
+    });
+  }
+
+  Future<void> _saveEditing() async {
+    final onSaveEdit = widget.onSaveEdit;
+    if (onSaveEdit == null || _isSaving) {
+      return;
+    }
+
+    final name = _nameController.text.trim();
+    final elevationText = _elevationController.text.trim();
+    String? nameError;
+    String? elevationError;
+    double? elevation;
+
+    if (name.isEmpty) {
+      nameError = PeakAdminEditor.nameRequiredError;
+    }
+    if (elevationText.isNotEmpty) {
+      final parsedElevation = int.tryParse(elevationText);
+      if (parsedElevation == null) {
+        elevationError = PeakAdminEditor.elevationError;
+      } else {
+        elevation = parsedElevation.toDouble();
+      }
+    }
+
+    if (nameError != null || elevationError != null) {
+      setState(() {
+        _nameError = nameError;
+        _elevationError = elevationError;
+        _submitError = null;
+      });
+      return;
+    }
+
+    final draft = _draftPeak.copyWith(
+      name: name,
+      elevation: elevation,
+      verified: true,
+      sourceOfTruth: Peak.sourceOfTruthHwc,
+    );
+
+    setState(() {
+      _nameError = null;
+      _elevationError = null;
+      _submitError = null;
+      _isSaving = true;
+    });
+
+    final error = await onSaveEdit(draft);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = false;
+      if (error == null) {
+        _draftPeak = draft;
+        _isEditing = false;
+        _submitError = null;
+      } else {
+        _submitError = error;
+      }
+    });
+  }
+
+  static String _formatOptionalElevation(double? value) {
+    if (value == null) {
+      return '';
+    }
+    if (value == value.roundToDouble()) {
+      return value.toInt().toString();
+    }
+    return value.toString();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final peak = content.peak;
+    final content = widget.content;
+    final peak = _draftPeak;
     final altName = peak.altName.trim();
     final listNames = content.listNames
         .map((name) => name.trim())
@@ -1655,41 +1838,41 @@ class PeakInfoPopupCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.terrain, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.terrain, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
                       peak.name,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
-                        ),
                       ),
                     ),
-                    if (onEdit != null) ...[
-                      IconButton(
-                        key: const Key('peak-info-popup-edit'),
-                        tooltip: 'Edit Peak',
-                        icon: const Icon(Icons.edit, size: 16),
-                        onPressed: onEdit,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                      const SizedBox(width: 4),
-                    ],
-                    if (onDropMarker != null) ...[
-                      IconButton(
-                        key: const Key('peak-info-popup-drop-marker'),
-                        tooltip: 'Drop a Marker on the Peak',
-                        icon: const Icon(
+                  ),
+                  if (_canEdit) ...[
+                    IconButton(
+                      key: const Key('peak-info-popup-edit'),
+                      tooltip: 'Edit Peak',
+                      icon: const Icon(Icons.edit, size: 16),
+                      onPressed: _isEditing ? null : _startEditing,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  if (!_isEditing && widget.onDropMarker != null) ...[
+                    IconButton(
+                      key: const Key('peak-info-popup-drop-marker'),
+                      tooltip: 'Drop a Marker on the Peak',
+                      icon: const Icon(
                         Icons.my_location,
                         color: Colors.amber,
                         size: 16,
                       ),
-                      onPressed: onDropMarker,
+                      onPressed: _isSaving ? null : widget.onDropMarker,
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
@@ -1699,7 +1882,7 @@ class PeakInfoPopupCard extends StatelessWidget {
                     key: const Key('peak-info-popup-close'),
                     tooltip: 'Close Peak Info',
                     icon: const Icon(Icons.close, size: 16),
-                    onPressed: onClose,
+                    onPressed: _isEditing || _isSaving ? null : widget.onClose,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -1710,64 +1893,130 @@ class PeakInfoPopupCard extends StatelessWidget {
                 fit: FlexFit.loose,
                 child: SingleChildScrollView(
                   child: Column(
+                    key: _isEditing
+                        ? const Key('peak-info-popup-edit-form')
+                        : null,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (altName.isNotEmpty) ...[
-                        _PeakInfoLabeledValueRow(
-                          label: 'Alt Name:',
-                          value: altName,
-                        ),
-                        const SizedBox(height: 4),
-                      ],
-                      _PeakInfoLabeledValueRow(
-                        label: 'Height:',
-                        value: peak.elevation == null
-                            ? '—'
-                            : formatElevation(peak.elevation!.round()),
-                      ),
-                      if (content.ascentRows.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        const Padding(
-                          padding: EdgeInsets.only(bottom: 4),
-                          child: Text(
-                            'My Ascents:',
-                            style: TextStyle(fontSize: 13),
+                      if (_isEditing) ...[
+                        TextField(
+                          key: const Key('peak-info-popup-name'),
+                          controller: _nameController,
+                          enabled: !_isSaving,
+                          decoration: InputDecoration(
+                            labelText: 'Name',
+                            isDense: true,
+                            border: const OutlineInputBorder(),
+                            errorText: _nameError,
                           ),
+                          onChanged: (_) => _clearFieldErrors(),
                         ),
-                        for (final ascent in content.ascentRows)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 12, bottom: 4),
-                            child: Text(
-                              '${ascent.trackLabel} (${ascent.dateText})',
-                              style: const TextStyle(fontSize: 13),
+                        const SizedBox(height: 8),
+                        TextField(
+                          key: const Key('peak-info-popup-elevation'),
+                          controller: _elevationController,
+                          enabled: !_isSaving,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: 'Height',
+                            isDense: true,
+                            border: const OutlineInputBorder(),
+                            suffixText: 'm',
+                            errorText: _elevationError,
+                          ),
+                          onChanged: (_) => _clearFieldErrors(),
+                        ),
+                        if (_submitError != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            _submitError!,
+                            key: const Key('peak-info-popup-error'),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
                             ),
                           ),
-                      ],
-                      if (content.ascentRows.isNotEmpty)
-                        const SizedBox(height: 4),
-                      _PeakInfoLabeledValueRow(
-                        label: content.mapLabel,
-                        value: content.mapName,
-                      ),
-                      if (mgrsText != null) ...[
-                        const SizedBox(height: 4),
+                        ],
+                      ] else ...[
+                        if (altName.isNotEmpty) ...[
+                          _PeakInfoLabeledValueRow(
+                            label: 'Alt Name:',
+                            value: altName,
+                          ),
+                          const SizedBox(height: 4),
+                        ],
                         _PeakInfoLabeledValueRow(
-                          label: 'MGRS:',
-                          value: mgrsText,
-                          monospaceValue: true,
+                          label: 'Height:',
+                          value: peak.elevation == null
+                              ? '—'
+                              : formatElevation(peak.elevation!.round()),
                         ),
-                      ],
-                      if (listNames.isNotEmpty) ...[
-                        const SizedBox(height: 4),
+                        if (content.ascentRows.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              'My Ascents:',
+                              style: TextStyle(fontSize: 13),
+                            ),
+                          ),
+                          for (final ascent in content.ascentRows)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                left: 12,
+                                bottom: 4,
+                              ),
+                              child: Text(
+                                '${ascent.trackLabel} (${ascent.dateText})',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ),
+                        ],
+                        if (content.ascentRows.isNotEmpty)
+                          const SizedBox(height: 4),
                         _PeakInfoLabeledValueRow(
-                          label: '$listLabel:',
-                          value: listNames.join(', '),
+                          label: content.mapLabel,
+                          value: content.mapName,
                         ),
+                        if (mgrsText != null) ...[
+                          const SizedBox(height: 4),
+                          _PeakInfoLabeledValueRow(
+                            label: 'MGRS:',
+                            value: mgrsText,
+                            monospaceValue: true,
+                          ),
+                        ],
+                        if (listNames.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          _PeakInfoLabeledValueRow(
+                            label: '$listLabel:',
+                            value: listNames.join(', '),
+                          ),
+                        ],
                       ],
                     ],
                   ),
                 ),
               ),
+              if (_isEditing) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FilledButton.tonal(
+                      key: const Key('peak-info-popup-cancel'),
+                      onPressed: _isSaving ? null : _cancelEditing,
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      key: const Key('peak-info-popup-save'),
+                      onPressed: _isSaving ? null : _saveEditing,
+                      child: Text(_isSaving ? 'Saving...' : 'Save'),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -1781,6 +2030,7 @@ class PeakInfoPopupSurface extends StatelessWidget {
     required this.content,
     required this.onClose,
     this.onEdit,
+    this.onSaveEdit,
     this.onDropMarker,
     required this.bridgeOnLeft,
     super.key,
@@ -1790,7 +2040,8 @@ class PeakInfoPopupSurface extends StatelessWidget {
 
   final PeakInfoContent content;
   final VoidCallback onClose;
-  final VoidCallback? onEdit;
+  final PeakInfoPopupEditCallback? onEdit;
+  final PeakInfoPopupSaveCallback? onSaveEdit;
   final VoidCallback? onDropMarker;
   final bool bridgeOnLeft;
 
@@ -1813,6 +2064,7 @@ class PeakInfoPopupSurface extends StatelessWidget {
               content: content,
               onClose: onClose,
               onEdit: onEdit,
+              onSaveEdit: onSaveEdit,
               onDropMarker: onDropMarker,
             ),
           ),
@@ -2052,9 +2304,9 @@ class _DriveEtaLabeledValueRow extends StatelessWidget {
           const TextSpan(text: ' '),
           TextSpan(
             text: value,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
           ),
         ],
       ),
