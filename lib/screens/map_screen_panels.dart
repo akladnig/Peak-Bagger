@@ -1631,6 +1631,7 @@ class PeakInfoPopupCard extends StatefulWidget {
     this.onEdit,
     this.onSaveEdit,
     this.currentMarker,
+    this.onEditInAdmin,
     this.onDropMarker,
     super.key,
   });
@@ -1640,6 +1641,7 @@ class PeakInfoPopupCard extends StatefulWidget {
   final PeakInfoPopupEditCallback? onEdit;
   final PeakInfoPopupSaveCallback? onSaveEdit;
   final Waypoints? currentMarker;
+  final VoidCallback? onEditInAdmin;
   final VoidCallback? onDropMarker;
 
   @override
@@ -2091,6 +2093,13 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
                     ),
                   ],
                 ),
+              ] else if (widget.onEditInAdmin != null) ...[
+                const SizedBox(height: 8),
+                FilledButton.tonal(
+                  key: const Key('peak-info-popup-edit-admin'),
+                  onPressed: widget.onEditInAdmin,
+                  child: const Text('Edit in Peak Admin'),
+                ),
               ],
             ],
           ),
@@ -2107,6 +2116,7 @@ class PeakInfoPopupSurface extends StatelessWidget {
     this.onEdit,
     this.onSaveEdit,
     this.currentMarker,
+    this.onEditInAdmin,
     this.onDropMarker,
     required this.bridgeOnLeft,
     super.key,
@@ -2119,6 +2129,7 @@ class PeakInfoPopupSurface extends StatelessWidget {
   final PeakInfoPopupEditCallback? onEdit;
   final PeakInfoPopupSaveCallback? onSaveEdit;
   final Waypoints? currentMarker;
+  final VoidCallback? onEditInAdmin;
   final VoidCallback? onDropMarker;
   final bool bridgeOnLeft;
 
@@ -2143,6 +2154,7 @@ class PeakInfoPopupSurface extends StatelessWidget {
               onEdit: onEdit,
               onSaveEdit: onSaveEdit,
               currentMarker: currentMarker,
+              onEditInAdmin: onEditInAdmin,
               onDropMarker: onDropMarker,
             ),
           ),

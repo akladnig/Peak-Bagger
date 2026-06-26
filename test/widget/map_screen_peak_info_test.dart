@@ -451,6 +451,24 @@ void main() {
     expect(nameField.controller?.text, 'Broken Name');
   });
 
+  testWidgets('edit in peak admin button hides during inline editing', (
+    tester,
+  ) async {
+    await _pumpMap(tester, _mapStateWithPeak());
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byKey(const Key('peak-info-popup-edit-admin')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('peak-info-popup-edit')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-info-popup-edit-admin')), findsNothing);
+  });
+
   testWidgets('move to marker is disabled without a persisted marker', (
     tester,
   ) async {

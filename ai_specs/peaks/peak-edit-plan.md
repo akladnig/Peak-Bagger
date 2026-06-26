@@ -47,17 +47,19 @@ Thin slice first: hover->pinned popup, name/height save, popup refresh.
 ### Phase 3: Admin Handoff Slice
 
 - **Goal**: Peak-admin deep link; first-load + mounted re-entry
-- [ ] `lib/providers/objectbox_admin_provider.dart` - expand pending handoff to peak id + search text; consume once from build and re-entry refresh
-- [ ] `lib/screens/objectbox_admin_screen.dart` - apply pending handoff on visible-entry refresh path; preserve existing branch-refresh behavior
-- [ ] `lib/screens/objectbox_admin_screen_controls.dart` - add stable search-field key; keep controller/state sync intact
-- [ ] `test/robot/objectbox_admin/objectbox_admin_robot.dart` - add helpers/assertions for search field, selected entity, selected row
-- [ ] `test/robot/objectbox_admin/objectbox_admin_journey_test.dart` - cover popup -> admin handoff on first admin load and already-mounted admin branch
-- [ ] `test/widget/map_screen_peak_info_test.dart` - cover read-only `Edit in Peak Admin` presence and edit-mode disable/block behavior
-- [ ] TDD: pending handoff on first admin build -> Peak entity + filtered rows + selected row + prefilled search
-- [ ] TDD: pending handoff on mounted admin re-entry -> refresh consumes pending state once + same visible result
-- [ ] TDD: inline edit dirty state -> admin handoff hidden/disabled; no silent draft loss
-- [ ] Robot journey tests + selectors/seams for critical flows: first-load + re-entry admin handoff; key `objectbox-admin-search-field`; seam via fake admin repository + reset-on-consume pending state
-- [ ] Verify: `flutter analyze && flutter test`
+- [x] `lib/providers/objectbox_admin_provider.dart` - expand pending handoff to peak id + search text; consume once from build and re-entry refresh
+- [x] `lib/screens/objectbox_admin_screen.dart` - apply pending handoff on visible-entry refresh path; preserve existing branch-refresh behavior
+- [x] `lib/screens/objectbox_admin_screen_controls.dart` - add stable search-field key; keep controller/state sync intact
+- [x] `lib/screens/map_screen.dart` - send read-only popup admin handoff with peak id + search text
+- [x] `lib/screens/map_screen_panels.dart` - add read-only `Edit in Peak Admin` button and hide it during inline editing
+- [x] `test/robot/objectbox_admin/objectbox_admin_robot.dart` - add helpers/assertions for search field, selected entity, selected row
+- [x] `test/robot/objectbox_admin/objectbox_admin_journey_test.dart` - cover popup -> admin handoff on first admin load and already-mounted admin branch
+- [x] `test/widget/map_screen_peak_info_test.dart` - cover read-only `Edit in Peak Admin` presence and edit-mode disable/block behavior
+- [x] TDD: pending handoff on first admin build -> Peak entity + filtered rows + selected row + prefilled search
+- [x] TDD: pending handoff on mounted admin re-entry -> refresh consumes pending state once + same visible result
+- [x] TDD: inline edit dirty state -> admin handoff hidden/disabled; no silent draft loss
+- [x] Robot journey tests + selectors/seams for critical flows: first-load + re-entry admin handoff; key `objectbox-admin-search-field`; seam via fake admin repository + reset-on-consume pending state
+- [x] Verify: `flutter analyze && flutter test`
 
 ## Risks / Out of scope
 

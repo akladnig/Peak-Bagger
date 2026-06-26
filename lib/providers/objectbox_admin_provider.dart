@@ -12,19 +12,61 @@ final objectboxAdminRepositoryProvider = Provider<ObjectBoxAdminRepository>((
 });
 
 int? _objectBoxAdminPendingPeakId;
+String _objectBoxAdminPendingPeakSearchQuery = '';
+
+class ObjectBoxAdminPendingPeakSelection {
+  const ObjectBoxAdminPendingPeakSelection({
+    required this.peakId,
+    required this.searchQuery,
+  });
+
+  final int peakId;
+  final String searchQuery;
+}
 
 void setObjectBoxAdminPendingPeakId(int? peakId) {
   _objectBoxAdminPendingPeakId = peakId;
+  if (peakId == null) {
+    _objectBoxAdminPendingPeakSearchQuery = '';
+  }
+}
+
+void setObjectBoxAdminPendingPeakSelection({
+  required int peakId,
+  required String searchQuery,
+}) {
+  _objectBoxAdminPendingPeakId = peakId;
+  _objectBoxAdminPendingPeakSearchQuery = searchQuery.trim();
 }
 
 int? peekObjectBoxAdminPendingPeakId() {
   return _objectBoxAdminPendingPeakId;
 }
 
+ObjectBoxAdminPendingPeakSelection? peekObjectBoxAdminPendingPeakSelection() {
+  final peakId = _objectBoxAdminPendingPeakId;
+  if (peakId == null) {
+    return null;
+  }
+  return ObjectBoxAdminPendingPeakSelection(
+    peakId: peakId,
+    searchQuery: _objectBoxAdminPendingPeakSearchQuery,
+  );
+}
+
 int? consumeObjectBoxAdminPendingPeakId() {
   final peakId = _objectBoxAdminPendingPeakId;
   _objectBoxAdminPendingPeakId = null;
+  _objectBoxAdminPendingPeakSearchQuery = '';
   return peakId;
+}
+
+ObjectBoxAdminPendingPeakSelection?
+consumeObjectBoxAdminPendingPeakSelection() {
+  final selection = peekObjectBoxAdminPendingPeakSelection();
+  _objectBoxAdminPendingPeakId = null;
+  _objectBoxAdminPendingPeakSearchQuery = '';
+  return selection;
 }
 
 enum ObjectBoxAdminViewMode { schema, data }
@@ -104,17 +146,13 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
   ObjectBoxAdminState build() {
     _repository = ref.read(objectboxAdminRepositoryProvider);
     final entities = _repository.getEntities();
-    final launchPeakId = consumeObjectBoxAdminPendingPeakId();
+    final launchSelection = consumeObjectBoxAdminPendingPeakSelection();
+    final launchPeakId = launchSelection?.peakId;
     ObjectBoxAdminEntityDescriptor? initialEntity;
     if (launchPeakId == null) {
       initialEntity = entities.isNotEmpty ? entities.first : null;
     } else {
-      for (final entity in entities) {
-        if (entity.name == 'Peak') {
-          initialEntity = entity;
-          break;
-        }
-      }
+      initialEntity = _peakEntity(entities);
       initialEntity ??= entities.isNotEmpty ? entities.first : null;
     }
 
@@ -122,7 +160,7 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
       entities: entities,
       selectedEntity: initialEntity,
       mode: ObjectBoxAdminViewMode.data,
-      searchQuery: '',
+      searchQuery: launchSelection?.searchQuery ?? '',
       sortAscending: true,
       isLoading: initialEntity != null,
       rows: const [],
@@ -132,9 +170,7 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
 
     if (initialEntity != null) {
       Future.microtask(
-        () => _loadSelectedEntity(
-          keepSelectedRowPrimaryKey: launchPeakId,
-        ),
+        () => _loadSelectedEntity(keepSelectedRowPrimaryKey: launchPeakId),
       );
     }
 
@@ -164,7 +200,13 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
 
   Future<void> refresh({Object? keepSelectedRowPrimaryKey}) async {
     final entities = _repository.getEntities();
-    final selectedEntity = _resolveSelectedEntity(entities);
+    final pendingSelection = consumeObjectBoxAdminPendingPeakSelection();
+    final selectedEntity = pendingSelection != null
+        ? (_peakEntity(entities) ?? _resolveSelectedEntity(entities))
+        : _resolveSelectedEntity(entities);
+    final searchQuery = pendingSelection?.searchQuery ?? state.searchQuery;
+    final selectedRowPrimaryKey =
+        pendingSelection?.peakId ?? keepSelectedRowPrimaryKey;
 
     if (selectedEntity == null) {
       state = state.copyWith(
@@ -183,6 +225,8 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
     state = state.copyWith(
       entities: entities,
       selectedEntity: selectedEntity,
+      mode: pendingSelection != null ? ObjectBoxAdminViewMode.data : state.mode,
+      searchQuery: searchQuery,
       isLoading: true,
       clearError: true,
       clearSelectedRow: true,
@@ -191,9 +235,7 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
       noMatches: false,
     );
 
-    await _loadSelectedEntity(
-      keepSelectedRowPrimaryKey: keepSelectedRowPrimaryKey,
-    );
+    await _loadSelectedEntity(keepSelectedRowPrimaryKey: selectedRowPrimaryKey);
   }
 
   void setMode(ObjectBoxAdminViewMode mode) {
@@ -278,7 +320,8 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
         visibleRowCount: rows.isEmpty ? 0 : min(50, rows.length),
         noMatches: rows.isEmpty,
         selectedRow: nextSelectedRow,
-        clearSelectedRow: keepSelectedRowPrimaryKey == null || nextSelectedRow == null,
+        clearSelectedRow:
+            keepSelectedRowPrimaryKey == null || nextSelectedRow == null,
       );
     } catch (error, stackTrace) {
       logObjectBoxAdminError(
@@ -310,6 +353,17 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
       }
     }
 
+    return null;
+  }
+
+  ObjectBoxAdminEntityDescriptor? _peakEntity(
+    List<ObjectBoxAdminEntityDescriptor> entities,
+  ) {
+    for (final entity in entities) {
+      if (entity.name == 'Peak') {
+        return entity;
+      }
+    }
     return null;
   }
 
