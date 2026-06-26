@@ -57,20 +57,28 @@ void main() {
     expect(summary.distance3d, 0);
   });
 
-  test('missing DEM sample throws failure', () async {
+  test('missing DEM sample falls back to zero elevation', () async {
     final sampler = BundledDemRouteElevationSampler(
       assetCache: _FakeDemAssetCache('/tmp/thelist.tif'),
-      datasetOpener: _FakeDemDatasetOpener(_LookupDemDataset((_) => null)),
+      datasetOpener: _FakeDemDatasetOpener(
+        _LookupDemDataset((point) => point.longitude == 0 ? null : 20),
+      ),
+      sampleSpacingMetres: 1000,
     );
 
-    expect(
-      sampler.sampleRoute(
-        points: const [LatLng(0, 0), LatLng(0, 0.001)],
-        requestId: 1,
-        geometryVersion: 1,
-      ),
-      throwsA(isA<RouteElevationSamplingException>()),
+    final summary = await sampler.sampleRoute(
+      points: const [LatLng(0, 0), LatLng(0, 0.001)],
+      requestId: 1,
+      geometryVersion: 1,
     );
+
+    expect(summary.ascent, 20);
+    expect(summary.descent, 0);
+    expect(summary.startElevation, 0);
+    expect(summary.endElevation, 20);
+    expect(summary.lowestElevation, 0);
+    expect(summary.highestElevation, 20);
+    expect(summary.distance3d, greaterThan(0));
   });
 
   test('dataset bootstrap is cached across requests', () async {

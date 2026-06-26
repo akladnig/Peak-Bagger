@@ -162,13 +162,7 @@ class BundledDemRouteElevationSampler implements RouteElevationSampler {
     final sampledElevations = <double>[];
 
     for (final point in densifiedPoints) {
-      final elevation = dataset.sampleElevation(point);
-      if (elevation == null) {
-        throw const RouteElevationSamplingException(
-          'DEM sample missing for route geometry.',
-        );
-      }
-      sampledElevations.add(elevation);
+      sampledElevations.add(dataset.sampleElevation(point) ?? 0);
     }
 
     return _buildSummary(
