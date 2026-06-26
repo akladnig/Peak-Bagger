@@ -112,7 +112,7 @@ List<String> _tooltipValueTexts(
 
 List<Color> _tooltipValueColors(
   BuildContext context,
-  SummaryBucket _bucket,
+  SummaryBucket bucket,
   SummaryBucket? secondaryBucket,
 ) {
   final theme = Theme.of(context);

@@ -535,5 +535,55 @@ void main() {
       expect(result.peak, isNull);
       expect(result.fieldErrors['mgrs100kId'], PeakAdminEditor.mgrs100kIdError);
     });
+
+    test('updates a peak from persisted marker coordinates', () {
+      final location = const LatLng(-41.6, 146.5);
+      final result = PeakAdminEditor.updatePeakFromLatLng(
+        source: Peak(
+          id: 7,
+          osmId: 123,
+          name: 'Cradle',
+          latitude: -41.5,
+          longitude: 146.6,
+          gridZoneDesignator: '55G',
+          mgrs100kId: 'EN',
+          easting: '12345',
+          northing: '67890',
+        ),
+        location: location,
+      );
+
+      final expected = PeakMgrsConverter.fromLatLng(location);
+      expect(result.isValid, isTrue);
+      expect(result.coordinateError, isNull);
+      expect(result.peak?.latitude, location.latitude);
+      expect(result.peak?.longitude, location.longitude);
+      expect(result.peak?.gridZoneDesignator, expected.gridZoneDesignator);
+      expect(result.peak?.mgrs100kId, expected.mgrs100kId);
+      expect(result.peak?.easting, expected.easting);
+      expect(result.peak?.northing, expected.northing);
+    });
+
+    test('rejects marker coordinates outside Tasmania', () {
+      final result = PeakAdminEditor.updatePeakFromLatLng(
+        source: Peak(name: 'Cradle', latitude: -41.5, longitude: 146.5),
+        location: const LatLng(-35.0, 146.5),
+      );
+
+      expect(result.isValid, isFalse);
+      expect(result.coordinateError, PeakAdminEditor.tasmaniaError);
+      expect(result.peak, isNull);
+    });
+
+    test('fails closed when marker coordinate conversion breaks', () {
+      final result = PeakAdminEditor.updatePeakFromLatLng(
+        source: Peak(name: 'Cradle', latitude: -41.5, longitude: 146.5),
+        location: const LatLng(double.nan, 146.5),
+      );
+
+      expect(result.isValid, isFalse);
+      expect(result.coordinateError, PeakAdminEditor.latLngConversionError);
+      expect(result.peak, isNull);
+    });
   });
 }

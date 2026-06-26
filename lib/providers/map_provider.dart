@@ -4399,6 +4399,10 @@ class MapNotifier extends Notifier<MapState> {
     );
   }
 
+  Waypoints? getCurrentMarker() {
+    return _resolvedWaypointsRepository.getCurrentMarker();
+  }
+
   Future<bool> setCurrentMarker(
     LatLng location, {
     String name = 'Marker',

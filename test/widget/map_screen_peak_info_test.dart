@@ -21,6 +21,7 @@ import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/map_name_resolution.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_admin_editor.dart';
+import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
@@ -448,6 +449,114 @@ void main() {
       find.byKey(const Key('peak-info-popup-name')),
     );
     expect(nameField.controller?.text, 'Broken Name');
+  });
+
+  testWidgets('move to marker is disabled without a persisted marker', (
+    tester,
+  ) async {
+    await _pumpMap(tester, _mapStateWithPeak());
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byKey(const Key('peak-info-popup-edit')));
+    await tester.pumpAndSettle();
+
+    final moveRow = tester.widget<InkWell>(
+      find.byKey(const Key('peak-info-popup-move-to-marker')),
+    );
+    expect(moveRow.onTap, isNull);
+  });
+
+  testWidgets('move to marker updates draft MGRS from persisted marker', (
+    tester,
+  ) async {
+    final markerLocation = const LatLng(-42.9995, 147.0005);
+    final waypointsRepository = WaypointsRepository.test(
+      InMemoryWaypointsStorage(),
+    );
+    await waypointsRepository.saveMarker(
+      location: markerLocation,
+      name: 'Saved',
+    );
+    final marker = waypointsRepository.getCurrentMarker()!;
+    final expected = PeakMgrsConverter.fromLatLng(
+      LatLng(marker.latitude, marker.longitude),
+    );
+
+    await _pumpMap(
+      tester,
+      _mapStateWithPeak(),
+      waypointsRepository: waypointsRepository,
+    );
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byKey(const Key('peak-info-popup-edit')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('peak-info-popup-move-to-marker')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'MGRS: ${expected.gridZoneDesignator} ${expected.mgrs100kId} ${expected.easting} ${expected.northing}',
+      ),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('peak-info-popup-error')), findsNothing);
+  });
+
+  testWidgets('move to marker preserves original draft on invalid marker', (
+    tester,
+  ) async {
+    final peak = Peak(
+      osmId: 6406,
+      name: 'Bonnet Hill',
+      latitude: -43.0,
+      longitude: 147.0,
+      gridZoneDesignator: '55G',
+      mgrs100kId: 'DM',
+      easting: '80000',
+      northing: '95000',
+    );
+    final waypointsRepository = WaypointsRepository.test(
+      InMemoryWaypointsStorage(),
+    );
+    await waypointsRepository.saveMarker(
+      location: const LatLng(-35.0, 146.5),
+      name: 'Outside',
+    );
+
+    await _pumpMap(
+      tester,
+      _mapStateWithPeak(peak: peak),
+      waypointsRepository: waypointsRepository,
+    );
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byKey(const Key('peak-info-popup-edit')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('peak-info-popup-move-to-marker')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-info-popup-error')), findsOneWidget);
+    expect(find.text(PeakAdminEditor.tasmaniaError), findsOneWidget);
+    expect(find.text('MGRS: 55G DM 80000 95000'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('peak-info-popup-cancel')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-info-popup-edit-form')), findsNothing);
+    expect(find.text('MGRS: 55G DM 80000 95000'), findsOneWidget);
   });
 
   testWidgets('pinned peak popup suppresses the overlapping label', (

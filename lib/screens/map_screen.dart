@@ -3588,6 +3588,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
             ref.read(mapProvider.notifier).pinPeakInfoPopup();
           },
           onSaveEdit: _savePeakInfoPopupEdit,
+          currentMarker: ref.read(mapProvider.notifier).getCurrentMarker(),
           onDropMarker: () async {
             final notifier = ref.read(mapProvider.notifier);
             final saved = await notifier.setCurrentMarker(

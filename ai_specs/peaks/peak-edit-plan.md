@@ -32,17 +32,17 @@ Thin slice first: hover->pinned popup, name/height save, popup refresh.
 ### Phase 2: Marker Relocation Slice
 
 - **Goal**: persisted-marker relocate; draft coord refresh; safe validation
-- [ ] `lib/providers/map_provider.dart` - add/expose persisted-current-marker lookup; keep `selectedLocation` out of relocate source-of-truth
-- [ ] `lib/services/peak_admin_editor.dart` - extract/reuse narrow coord conversion/validation helpers only if needed; do not reuse `validateAndBuild()` for popup save assembly
-- [ ] `lib/screens/map_screen_panels.dart` - add edit-mode-only move-to-marker row, disabled state, inline error path, draft MGRS refresh
-- [ ] `test/services/peak_admin_editor_test.dart` - cover marker-driven coord recalc, Tasmania rejection, conversion failure, same-coordinate no-op if helper lives here
-- [ ] `test/widget/map_screen_peak_info_test.dart` - cover no persisted marker, valid relocate draft update, invalid relocate error, cancel rollback after relocate
-- [ ] `test/robot/peaks/peak_info_journey_test.dart` - extend happy path with marker-present relocate flow
-- [ ] TDD: persisted marker relocate -> draft lat/lng + MGRS update before save
-- [ ] TDD: no persisted marker / invalid marker -> disabled or inline error; draft unchanged
-- [ ] TDD: cancel after relocate -> original coordinates restored
-- [ ] Robot journey tests + selectors/seams for critical flows: relocate flow; key `peak-info-popup-move-to-marker`; seam via `TestMapNotifier` / fake waypoints storage
-- [ ] Verify: `flutter analyze && flutter test`
+- [x] `lib/providers/map_provider.dart` - add/expose persisted-current-marker lookup; keep `selectedLocation` out of relocate source-of-truth
+- [x] `lib/services/peak_admin_editor.dart` - extract/reuse narrow coord conversion/validation helpers only if needed; do not reuse `validateAndBuild()` for popup save assembly
+- [x] `lib/screens/map_screen_panels.dart` - add edit-mode-only move-to-marker row, disabled state, inline error path, draft MGRS refresh
+- [x] `test/services/peak_admin_editor_test.dart` - cover marker-driven coord recalc, Tasmania rejection, conversion failure, same-coordinate no-op if helper lives here
+- [x] `test/widget/map_screen_peak_info_test.dart` - cover no persisted marker, valid relocate draft update, invalid relocate error, cancel rollback after relocate
+- [x] `test/robot/peaks/peak_info_journey_test.dart` - extend happy path with marker-present relocate flow
+- [x] TDD: persisted marker relocate -> draft lat/lng + MGRS update before save
+- [x] TDD: no persisted marker / invalid marker -> disabled or inline error; draft unchanged
+- [x] TDD: cancel after relocate -> original coordinates restored
+- [x] Robot journey tests + selectors/seams for critical flows: relocate flow; key `peak-info-popup-move-to-marker`; seam via `TestMapNotifier` / fake waypoints storage
+- [x] Verify: `flutter analyze && flutter test`
 
 ### Phase 3: Admin Handoff Slice
 

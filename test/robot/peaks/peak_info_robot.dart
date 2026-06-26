@@ -15,6 +15,7 @@ import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
+import 'package:peak_bagger/services/waypoints_repository.dart';
 
 import '../../harness/test_map_notifier.dart';
 import '../../harness/test_tasmap_notifier.dart';
@@ -41,6 +42,8 @@ class PeakInfoRobot {
   Finder get peakInfoPopupName => find.byKey(const Key('peak-info-popup-name'));
   Finder get peakInfoPopupElevation =>
       find.byKey(const Key('peak-info-popup-elevation'));
+  Finder get peakInfoPopupMoveToMarker =>
+      find.byKey(const Key('peak-info-popup-move-to-marker'));
   Finder get peakInfoPopupSave => find.byKey(const Key('peak-info-popup-save'));
   Finder get peakInfoPopupCancel =>
       find.byKey(const Key('peak-info-popup-cancel'));
@@ -59,6 +62,7 @@ class PeakInfoRobot {
     GpxTrackRepository? gpxTrackRepository,
     TasmapRepository? tasmapRepository,
     PeakRepository? peakRepository,
+    WaypointsRepository? waypointsRepository,
   }) async {
     final resolvedPeakListRepository =
         peakListRepository ??
@@ -78,6 +82,7 @@ class PeakInfoRobot {
             () => TestMapNotifier(
               initialState ?? _defaultMapState(),
               peakRepository: peakRepository,
+              waypointsRepository: waypointsRepository,
             ),
           ),
           peakRepositoryProvider.overrideWithValue(
@@ -159,6 +164,11 @@ class PeakInfoRobot {
 
   Future<void> enterPeakElevation(String value) async {
     await tester.enterText(peakInfoPopupElevation, value);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> movePeakToMarker() async {
+    await tester.tap(peakInfoPopupMoveToMarker);
     await tester.pumpAndSettle();
   }
 

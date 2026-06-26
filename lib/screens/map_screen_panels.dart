@@ -1630,6 +1630,7 @@ class PeakInfoPopupCard extends StatefulWidget {
     required this.onClose,
     this.onEdit,
     this.onSaveEdit,
+    this.currentMarker,
     this.onDropMarker,
     super.key,
   });
@@ -1638,6 +1639,7 @@ class PeakInfoPopupCard extends StatefulWidget {
   final VoidCallback onClose;
   final PeakInfoPopupEditCallback? onEdit;
   final PeakInfoPopupSaveCallback? onSaveEdit;
+  final Waypoints? currentMarker;
   final VoidCallback? onDropMarker;
 
   @override
@@ -1794,6 +1796,28 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
     });
   }
 
+  void _moveToMarker() {
+    final marker = widget.currentMarker;
+    if (marker == null || _isSaving) {
+      return;
+    }
+
+    final result = PeakAdminEditor.updatePeakFromLatLng(
+      source: _draftPeak,
+      location: LatLng(marker.latitude, marker.longitude),
+    );
+    final peak = result.peak;
+    setState(() {
+      if (peak != null) {
+        _draftPeak = peak;
+        _submitError = null;
+      } else {
+        _submitError =
+            result.coordinateError ?? PeakAdminEditor.latLngConversionError;
+      }
+    });
+  }
+
   static String _formatOptionalElevation(double? value) {
     if (value == null) {
       return '';
@@ -1912,6 +1936,49 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
                           onChanged: (_) => _clearFieldErrors(),
                         ),
                         const SizedBox(height: 8),
+                        Tooltip(
+                          message: 'Move Peak to Marker',
+                          child: InkWell(
+                            key: const Key('peak-info-popup-move-to-marker'),
+                            onTap: widget.currentMarker == null || _isSaving
+                                ? null
+                                : _moveToMarker,
+                            borderRadius: BorderRadius.circular(8),
+                            child: Opacity(
+                              opacity: widget.currentMarker == null ? 0.5 : 1,
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.outlineVariant,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: const [
+                                    Icon(Icons.terrain, size: 16),
+                                    SizedBox(width: 8),
+                                    Icon(Icons.arrow_right_alt, size: 16),
+                                    SizedBox(width: 8),
+                                    Icon(
+                                      Icons.my_location,
+                                      size: 16,
+                                      color: Colors.amber,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
                         TextField(
                           key: const Key('peak-info-popup-elevation'),
                           controller: _elevationController,
@@ -1926,6 +1993,14 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
                           ),
                           onChanged: (_) => _clearFieldErrors(),
                         ),
+                        if (mgrsText != null) ...[
+                          const SizedBox(height: 8),
+                          _PeakInfoLabeledValueRow(
+                            label: 'MGRS:',
+                            value: mgrsText,
+                            monospaceValue: true,
+                          ),
+                        ],
                         if (_submitError != null) ...[
                           const SizedBox(height: 8),
                           Text(
@@ -2031,6 +2106,7 @@ class PeakInfoPopupSurface extends StatelessWidget {
     required this.onClose,
     this.onEdit,
     this.onSaveEdit,
+    this.currentMarker,
     this.onDropMarker,
     required this.bridgeOnLeft,
     super.key,
@@ -2042,6 +2118,7 @@ class PeakInfoPopupSurface extends StatelessWidget {
   final VoidCallback onClose;
   final PeakInfoPopupEditCallback? onEdit;
   final PeakInfoPopupSaveCallback? onSaveEdit;
+  final Waypoints? currentMarker;
   final VoidCallback? onDropMarker;
   final bool bridgeOnLeft;
 
@@ -2065,6 +2142,7 @@ class PeakInfoPopupSurface extends StatelessWidget {
               onClose: onClose,
               onEdit: onEdit,
               onSaveEdit: onSaveEdit,
+              currentMarker: currentMarker,
               onDropMarker: onDropMarker,
             ),
           ),
