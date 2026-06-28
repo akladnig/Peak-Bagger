@@ -100,6 +100,23 @@ class TestMapNotifier extends MapNotifier {
   }
 
   @override
+  void updateRouteWalkingSpeed(int routeId, double walkingSpeedKmh) {
+    final repository = routeRepository;
+    if (repository == null) {
+      return;
+    }
+
+    final route = repository.findById(routeId);
+    if (route == null) {
+      return;
+    }
+
+    route.walkingSpeedKmh = walkingSpeedKmh;
+    repository.saveRoute(route);
+    ref.read(routeRevisionProvider.notifier).increment();
+  }
+
+  @override
   void setTrackVisibility(int trackId, bool visible) {
     final repository = gpxTrackRepository;
     if (repository != null) {

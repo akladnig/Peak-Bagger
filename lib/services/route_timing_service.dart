@@ -40,6 +40,52 @@ class RouteTimingDisplayState {
   final bool naismithUsesStoredMixedTotal;
 }
 
+String routeTimingNaismithInfo({
+  required RouteTimingDisplayState displayState,
+  required String? routeTimingSource,
+}) {
+  if (displayState.naismithDurationMillis == null) {
+    return 'Naismith timing is unavailable for this route.';
+  }
+
+  if (displayState.naismithUsesStoredMixedTotal) {
+    return 'Stored mixed total. This legacy route combines pre-existing preserved timing with older manual estimates. Adjustable timing is unavailable because segment provenance was never stored.';
+  }
+
+  return switch (routeTimingSource) {
+    RouteTimingSources.verifiedWalk =>
+      'Displayed time comes from stored verified timing. Walking speed changes affect only manual segments, so a fully verified route stays fixed.',
+    RouteTimingSources.naismith =>
+      'Displayed time is recalculated from the current route geometry using the selected walking speed plus Naismith ascent and descent penalties.',
+    RouteTimingSources.extendedRoute ||
+    RouteTimingSources.verifiedWalkPlusNaismith =>
+      'Displayed time combines preserved stored segment timing with manual segments recalculated using the selected walking speed plus Naismith ascent and descent penalties.',
+    _ =>
+      'Displayed time follows the stored route timing where available and recalculates manual segments with Naismith penalties.',
+  };
+}
+
+String routeTimingScarfInfo({
+  required RouteTimingDisplayState displayState,
+  required String? routeTimingSource,
+}) {
+  if (displayState.scarfDurationMillis == null) {
+    return 'Scarf timing is unavailable for this route. This legacy mixed route does not have the segment provenance required to recalculate a Scarf estimate.';
+  }
+
+  return switch (routeTimingSource) {
+    RouteTimingSources.verifiedWalk =>
+      'Displayed time reuses stored verified timing. Because no manual segments exist, the Scarf row matches the stored verified total.',
+    RouteTimingSources.naismith =>
+      'Displayed time is recalculated from the current route geometry using the selected walking speed plus Scarf weighted ascent.',
+    RouteTimingSources.extendedRoute ||
+    RouteTimingSources.verifiedWalkPlusNaismith =>
+      'Displayed time combines preserved stored segment timing with manual segments recalculated using the selected walking speed plus Scarf weighted ascent.',
+    _ =>
+      'Displayed time follows the stored route timing where available and recalculates manual segments with Scarf weighted ascent.',
+  };
+}
+
 double scarfDistance({
   required double distanceMetres,
   required double ascentMetres,

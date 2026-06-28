@@ -117,4 +117,30 @@ void main() {
       expect(display.limitationMessage, isNotNull);
     },
   );
+
+  test('resolveRouteTimingDisplay keeps fully preserved routes fixed', () {
+    final slow = resolveRouteTimingDisplay(
+      points: const [LatLng(-41.5, 146.5), LatLng(-41.5, 146.51)],
+      elevations: const [100, 120],
+      estimatedTimeMillis: 5400000,
+      routeTimingSource: RouteTimingSources.verifiedWalk,
+      routeTimingProfileJson: '[0,5400]',
+      routeTimingSegmentKindsJson: '["${RouteTimingSegmentKinds.preserved}"]',
+      walkingSpeedKmh: 4.0,
+    );
+    final fast = resolveRouteTimingDisplay(
+      points: const [LatLng(-41.5, 146.5), LatLng(-41.5, 146.51)],
+      elevations: const [100, 120],
+      estimatedTimeMillis: 5400000,
+      routeTimingSource: RouteTimingSources.verifiedWalk,
+      routeTimingProfileJson: '[0,5400]',
+      routeTimingSegmentKindsJson: '["${RouteTimingSegmentKinds.preserved}"]',
+      walkingSpeedKmh: 5.0,
+    );
+
+    expect(slow.naismithDurationMillis, 5400000);
+    expect(slow.scarfDurationMillis, 5400000);
+    expect(fast.naismithDurationMillis, 5400000);
+    expect(fast.scarfDurationMillis, 5400000);
+  });
 }

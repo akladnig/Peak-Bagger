@@ -47,14 +47,14 @@ Keep timing math in services; keep panel callback-driven; follow existing Riverp
 ### Phase 3: Fallbacks + popup UX
 
 - **Goal**: full panel behavior; legacy fallback; typed-entry semantics
-- [ ] `./lib/screens/map_screen_panels.dart` - add info popups, inline limitation copy, direct-entry field, submit/blur persistence, focus-scoped shortcuts, disabled legacy mixed state
-- [ ] `./lib/services/route_timing_service.dart` - add legacy verified/manual/mixed fallback copy + stored-mixed-total result states
-- [ ] `./test/widget/map_route_info_panel_test.dart` - popup copy, typed-entry local state, submit/blur persist, disabled fallback assertions
-- [ ] `./test/widget/map_screen_route_info_test.dart` - selected-route refresh, reopen persistence, legacy safety
-- [ ] TDD: typed edits stay local until submit/blur, invalid text keeps last valid totals; then implement
-- [ ] TDD: fully preserved route stays fixed across speed changes; then implement
-- [ ] TDD: legacy mixed route shows stored mixed total, Scarf dash, disabled speed, inline + popup limitation copy; then implement
-- [ ] Verify: `flutter test test/widget/map_route_info_panel_test.dart test/widget/map_screen_route_info_test.dart test/services/route_timing_service_test.dart && flutter analyze`
+- [x] `./lib/screens/map_screen_panels.dart` - add info popups, inline limitation copy, direct-entry field, submit/blur persistence, focus-scoped shortcuts, disabled legacy mixed state
+- [x] `./lib/services/route_timing_service.dart` - add legacy verified/manual/mixed fallback copy + stored-mixed-total result states
+- [x] `./test/widget/map_route_info_panel_test.dart` - popup copy, typed-entry local state, submit/blur persist, disabled fallback assertions
+- [x] `./test/widget/map_screen_route_info_test.dart` - selected-route refresh, reopen persistence, legacy safety
+- [x] TDD: typed edits stay local until submit/blur, invalid text keeps last valid totals; then implement
+- [x] TDD: fully preserved route stays fixed across speed changes; then implement
+- [x] TDD: legacy mixed route shows stored mixed total, Scarf dash, disabled speed, inline + popup limitation copy; then implement
+- [x] Verify: `flutter test test/widget/map_route_info_panel_test.dart test/widget/map_screen_route_info_test.dart test/services/route_timing_service_test.dart && flutter analyze`
 
 ### Phase 4: Robot + blast-radius cleanup
 

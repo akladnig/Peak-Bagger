@@ -92,6 +92,66 @@ void main() {
     expect(find.text('1h 30m'), findsNWidgets(2));
   });
 
+  testWidgets('opens timing info popups with distinct copy', (tester) async {
+    final route = app_route.Route(
+      name: 'Timed Route',
+      distance2d: 17450,
+      distance3d: 17920,
+      ascent: 912,
+      descent: 456,
+      estimatedTime: 5400000,
+      routeTimingSource: RouteTimingSources.verifiedWalk,
+      gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.5, 146.51)],
+      gpxRouteElevations: const [100, 120],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 600,
+            child: MapTrackInfoPanel(
+              route: route,
+              onClose: () {},
+              onExport: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final naismithInfoButton = find.byKey(
+      const Key('route-estimated-time-naismith-info'),
+    );
+    await tester.ensureVisible(naismithInfoButton);
+    await tester.pumpAndSettle();
+    await tester.tap(naismithInfoButton, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('route-estimated-time-naismith-popup')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('stored verified timing'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('route-timing-info-popup-close')));
+    await tester.pumpAndSettle();
+
+    final scarfInfoButton = find.byKey(
+      const Key('route-estimated-time-scarf-info'),
+    );
+    await tester.ensureVisible(scarfInfoButton);
+    await tester.pumpAndSettle();
+    await tester.tap(scarfInfoButton, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('route-estimated-time-scarf-popup')),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Scarf row matches the stored verified total'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('updates manual-route walking speed through callback', (
     tester,
   ) async {
@@ -131,7 +191,8 @@ void main() {
       ),
     );
 
-    expect(find.text('4.0 km/h'), findsOneWidget);
+    final speedField = find.byKey(const Key('route-walking-speed-field'));
+    expect(tester.widget<TextField>(speedField).controller!.text, '4.0');
 
     final incrementButton = find.byKey(
       const Key('route-walking-speed-increment'),
@@ -141,7 +202,7 @@ void main() {
     await tester.tap(incrementButton, warnIfMissed: false);
     await tester.pump();
 
-    expect(find.text('4.1 km/h'), findsOneWidget);
+    expect(tester.widget<TextField>(speedField).controller!.text, '4.1');
   });
 
   testWidgets('increments walking speed with focused keyboard shortcut', (
@@ -187,7 +248,109 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.equal);
     await tester.pump();
 
-    expect(find.text('4.1 km/h'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('route-walking-speed-field')))
+          .controller!
+          .text,
+      '4.1',
+    );
+  });
+
+  testWidgets('typed speed stays local until submit then persists', (
+    tester,
+  ) async {
+    final route = app_route.Route(
+      name: 'Typed Route',
+      routeTimingSource: RouteTimingSources.naismith,
+      walkingSpeedKmh: 4.0,
+      gpxRoute: const [LatLng(0, 0), LatLng(0, 0.08983)],
+      gpxRouteElevations: const [0, 0],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              return SizedBox(
+                width: 600,
+                child: MapTrackInfoPanel(
+                  route: route,
+                  onClose: () {},
+                  onExport: () {},
+                  onRouteWalkingSpeedChanged: (value) {
+                    setState(() {
+                      route.walkingSpeedKmh = value;
+                    });
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    final speedField = find.byKey(const Key('route-walking-speed-field'));
+    await tester.ensureVisible(speedField);
+    await tester.tap(speedField);
+    await tester.enterText(speedField, '4.5');
+    await tester.pump();
+
+    expect(route.walkingSpeedKmh, 4.0);
+
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+
+    expect(route.walkingSpeedKmh, 4.5);
+    expect(tester.widget<TextField>(speedField).controller!.text, '4.5');
+  });
+
+  testWidgets('invalid typed speed shows inline validation', (tester) async {
+    final route = app_route.Route(
+      name: 'Invalid Route',
+      routeTimingSource: RouteTimingSources.naismith,
+      walkingSpeedKmh: 4.0,
+      gpxRoute: const [LatLng(0, 0), LatLng(0, 0.08983)],
+      gpxRouteElevations: const [0, 0],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              return SizedBox(
+                width: 600,
+                child: MapTrackInfoPanel(
+                  route: route,
+                  onClose: () {},
+                  onExport: () {},
+                  onRouteWalkingSpeedChanged: (value) {
+                    setState(() {
+                      route.walkingSpeedKmh = value;
+                    });
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    final speedField = find.byKey(const Key('route-walking-speed-field'));
+    await tester.ensureVisible(speedField);
+    await tester.tap(speedField);
+    await tester.enterText(speedField, '11');
+    await tester.pump();
+
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+
+    expect(find.byKey(const Key('route-walking-speed-error')), findsOneWidget);
+    expect(route.walkingSpeedKmh, 4.0);
   });
 
   testWidgets('renders an edit action before close for a saved route', (
@@ -448,5 +611,14 @@ void main() {
     );
     expect(find.text('Estimated Time (Scarf)'), findsOneWidget);
     expect(find.text('—'), findsOneWidget);
+
+    final naismithInfoButton = find.byKey(
+      const Key('route-estimated-time-naismith-info'),
+    );
+    await tester.ensureVisible(naismithInfoButton);
+    await tester.pumpAndSettle();
+    await tester.tap(naismithInfoButton, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Stored mixed total'), findsOneWidget);
   });
 }
