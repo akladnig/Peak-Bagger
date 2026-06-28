@@ -238,13 +238,10 @@ void main() {
     expect(find.text('17.5 km / 0 m'), findsOneWidget);
     expect(find.text('900 m'), findsNWidgets(2));
     expect(find.text('450 m'), findsOneWidget);
-    expect(find.text('Time'), findsOneWidget);
-    expect(find.text('Estimated Time'), findsOneWidget);
-    expect(find.text('1h 30m'), findsOneWidget);
-    expect(
-      find.text('Estimated time has been derived from a verified walk'),
-      findsOneWidget,
-    );
+    expect(find.text('Estimated Time'), findsNWidgets(2));
+    expect(find.text('Estimated Time (Naismith)'), findsOneWidget);
+    expect(find.text('Estimated Time (Scarf)'), findsOneWidget);
+    expect(find.text('1h 30m'), findsNWidgets(2));
     expect(find.text('Peaks Climbed'), findsNothing);
     expect(find.text('Elevation'), findsOneWidget);
     expect(find.text('Start Elevation'), findsOneWidget);
@@ -276,9 +273,10 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Time'), findsOneWidget);
-    expect(find.text('Estimated Time'), findsOneWidget);
-    expect(find.text('—'), findsOneWidget);
+    expect(find.text('Estimated Time'), findsNWidgets(2));
+    expect(find.text('Estimated Time (Naismith)'), findsOneWidget);
+    expect(find.text('Estimated Time (Scarf)'), findsOneWidget);
+    expect(find.text('—'), findsNWidgets(2));
   });
 
   testWidgets('route export success snackbar shows nested Routes path', (

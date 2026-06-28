@@ -38,6 +38,8 @@ class Route {
   int? estimatedTime;
   String? routeTimingSource;
   String? routeTimingProfileJson;
+  double? walkingSpeedKmh;
+  String? routeTimingSegmentKindsJson;
 
   @Transient()
   Map<int, List<List<LatLng>>>? _decodedDisplayRoutePointsByZoomCache;
@@ -66,6 +68,8 @@ class Route {
     this.estimatedTime,
     this.routeTimingSource,
     this.routeTimingProfileJson,
+    this.walkingSpeedKmh,
+    this.routeTimingSegmentKindsJson,
   }) : gpxRoute = List<LatLng>.from(gpxRoute ?? const []),
        gpxRouteElevations = _normalizeElevations(
          pointCount: (gpxRoute ?? const <LatLng>[]).length,

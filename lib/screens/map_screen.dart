@@ -3367,6 +3367,25 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                   );
                                                 }
                                               },
+                                              onRouteWalkingSpeedChanged:
+                                                  selectedRoute == null
+                                                  ? null
+                                                  : (value) {
+                                                      final route =
+                                                          selectedRoute;
+                                                      if (route == null) {
+                                                        return;
+                                                      }
+                                                      ref
+                                                          .read(
+                                                            mapProvider
+                                                                .notifier,
+                                                          )
+                                                          .updateRouteWalkingSpeed(
+                                                            route.id,
+                                                            value,
+                                                          );
+                                                    },
                                               onExport: () {
                                                 unawaited(
                                                   _exportInfoSelection(

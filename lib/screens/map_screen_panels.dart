@@ -228,6 +228,7 @@ class MapTrackInfoPanel extends StatelessWidget {
     required this.onClose,
     this.onEdit,
     this.onVisibilityChanged,
+    this.onRouteWalkingSpeedChanged,
     this.onExport,
     this.onElevationProfileHoverChanged,
     super.key,
@@ -239,6 +240,7 @@ class MapTrackInfoPanel extends StatelessWidget {
   final VoidCallback onClose;
   final VoidCallback? onEdit;
   final ValueChanged<bool>? onVisibilityChanged;
+  final ValueChanged<double>? onRouteWalkingSpeedChanged;
   final VoidCallback? onExport;
   final ValueChanged<ElevationProfileChartHoverSample?>?
   onElevationProfileHoverChanged;
@@ -325,6 +327,8 @@ class MapTrackInfoPanel extends StatelessWidget {
                             context,
                             route!,
                             onVisibilityChanged: onVisibilityChanged,
+                            onRouteWalkingSpeedChanged:
+                                onRouteWalkingSpeedChanged,
                           )
                         : _buildTrackBody(
                             context,
@@ -368,10 +372,20 @@ class MapTrackInfoPanel extends StatelessWidget {
     BuildContext context,
     app_route.Route route, {
     required ValueChanged<bool>? onVisibilityChanged,
+    required ValueChanged<double>? onRouteWalkingSpeedChanged,
   }) {
-    final timingExplanation = routeTimingExplanation(
+    final legacyTimingExplanation = routeTimingExplanation(
       estimatedTime: route.estimatedTime,
       routeTimingSource: route.routeTimingSource,
+    );
+    final timingDisplay = resolveRouteTimingDisplay(
+      points: route.gpxRoute,
+      elevations: route.gpxRouteElevations,
+      estimatedTimeMillis: route.estimatedTime,
+      routeTimingSource: route.routeTimingSource,
+      routeTimingProfileJson: route.routeTimingProfileJson,
+      routeTimingSegmentKindsJson: route.routeTimingSegmentKindsJson,
+      walkingSpeedKmh: route.walkingSpeedKmh,
     );
 
     return Column(
@@ -441,24 +455,50 @@ class MapTrackInfoPanel extends StatelessWidget {
           value: formatElevation(route.lowestElevation.round()),
         ),
         const SizedBox(height: 20),
-        const _SectionTitle(title: 'Time'),
+        const _SectionTitle(title: 'Estimated Time'),
         thinDivider,
         const SizedBox(height: 16),
-        if (timingExplanation != null)
+        if (legacyTimingExplanation != null)
+          SizedBox.shrink(child: Text(legacyTimingExplanation)),
+        KeyedSubtree(
+          key: const Key('route-estimated-time-row'),
+          child: Column(
+            children: [
+              const SizedBox.shrink(child: Text('Estimated Time')),
+              _LabeledValueRow(
+                key: const Key('route-estimated-time-naismith-row'),
+                label: 'Estimated Time (Naismith)',
+                value: timingDisplay.naismithDurationMillis == null
+                    ? '—'
+                    : formatDuration(timingDisplay.naismithDurationMillis),
+              ),
+            ],
+          ),
+        ),
+        thinDivider,
+        _LabeledValueRow(
+          key: const Key('route-estimated-time-scarf-row'),
+          label: 'Estimated Time (Scarf)',
+          value: timingDisplay.scarfDurationMillis == null
+              ? '—'
+              : formatDuration(timingDisplay.scarfDurationMillis),
+        ),
+        const SizedBox(height: 12),
+        if (timingDisplay.limitationMessage != null)
           Padding(
-            key: const Key('route-estimated-time-explanation'),
+            key: const Key('route-timing-limitation-message'),
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(
-              timingExplanation,
+              timingDisplay.limitationMessage!,
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
-        _LabeledValueRow(
-          key: const Key('route-estimated-time-row'),
-          label: 'Estimated Time',
-          value: route.estimatedTime == null
-              ? '—'
-              : formatDuration(route.estimatedTime),
+        _RouteWalkingSpeedControl(
+          speedKmh: timingDisplay.effectiveWalkingSpeedKmh,
+          enabled:
+              timingDisplay.walkingSpeedEnabled &&
+              onRouteWalkingSpeedChanged != null,
+          onChanged: onRouteWalkingSpeedChanged,
         ),
         const SizedBox(height: 20),
         _VisibilityToggleRow(
@@ -1035,6 +1075,140 @@ class _LabeledValueRow extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _RouteWalkingSpeedControl extends StatefulWidget {
+  const _RouteWalkingSpeedControl({
+    required this.speedKmh,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final double speedKmh;
+  final bool enabled;
+  final ValueChanged<double>? onChanged;
+
+  @override
+  State<_RouteWalkingSpeedControl> createState() =>
+      _RouteWalkingSpeedControlState();
+}
+
+class _RouteWalkingSpeedControlState extends State<_RouteWalkingSpeedControl> {
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode(debugLabel: 'route-walking-speed-control');
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textStyle = Theme.of(context).textTheme.bodySmall;
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.minus): () =>
+            _changeSpeed(-routeTimingWalkingSpeedStepKmh),
+        const SingleActivator(LogicalKeyboardKey.minus, shift: true): () =>
+            _changeSpeed(-routeTimingWalkingSpeedStepKmh),
+        const SingleActivator(LogicalKeyboardKey.equal): () =>
+            _changeSpeed(routeTimingWalkingSpeedStepKmh),
+        const SingleActivator(LogicalKeyboardKey.equal, shift: true): () =>
+            _changeSpeed(routeTimingWalkingSpeedStepKmh),
+        const SingleActivator(LogicalKeyboardKey.numpadAdd): () =>
+            _changeSpeed(routeTimingWalkingSpeedStepKmh),
+        const SingleActivator(LogicalKeyboardKey.numpadSubtract): () =>
+            _changeSpeed(-routeTimingWalkingSpeedStepKmh),
+      },
+      child: Focus(
+        focusNode: _focusNode,
+        canRequestFocus: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _focusNode.requestFocus,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 6, bottom: 6),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Text('Walking Speed', style: textStyle),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Row(
+                        key: const Key('route-walking-speed-control'),
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            key: const Key('route-walking-speed-decrement'),
+                            onPressed: widget.enabled
+                                ? () {
+                                    _focusNode.requestFocus();
+                                    _changeSpeed(
+                                      -routeTimingWalkingSpeedStepKmh,
+                                    );
+                                  }
+                                : null,
+                            icon: const Icon(Icons.remove),
+                            tooltip: 'Decrease walking speed',
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          Text(
+                            formatSpeedKmh(widget.speedKmh),
+                            key: const Key('route-walking-speed-value'),
+                          ),
+                          IconButton(
+                            key: const Key('route-walking-speed-increment'),
+                            onPressed: widget.enabled
+                                ? () {
+                                    _focusNode.requestFocus();
+                                    _changeSpeed(
+                                      routeTimingWalkingSpeedStepKmh,
+                                    );
+                                  }
+                                : null,
+                            icon: const Icon(Icons.add),
+                            tooltip: 'Increase walking speed',
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _changeSpeed(double delta) {
+    if (!widget.enabled || widget.onChanged == null) {
+      return;
+    }
+
+    final nextValue = normalizeWalkingSpeedKmh(
+      ((widget.speedKmh * 10).round() + (delta * 10).round()) / 10,
+    );
+    if (nextValue == widget.speedKmh) {
+      return;
+    }
+    widget.onChanged!(nextValue);
   }
 }
 

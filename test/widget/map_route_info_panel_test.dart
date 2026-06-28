@@ -2,6 +2,7 @@ import 'dart:ui' show PointerDeviceKind;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
@@ -44,7 +45,9 @@ void main() {
     expect(find.text('17.4 km / 17.9 km'), findsOneWidget);
   });
 
-  testWidgets('renders route timing explanation', (tester) async {
+  testWidgets('renders dual route timing rows and removes inline explanation', (
+    tester,
+  ) async {
     final route = app_route.Route(
       name: 'Timed Route',
       distance2d: 17450,
@@ -72,11 +75,119 @@ void main() {
       ),
     );
 
-    expect(find.byKey(const Key('route-estimated-time-explanation')), findsOneWidget);
     expect(
-      find.text('Estimated time has been derived from a verified walk'),
+      find.byKey(const Key('route-estimated-time-explanation')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const Key('route-estimated-time-naismith-row')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const Key('route-estimated-time-scarf-row')),
+      findsOneWidget,
+    );
+    expect(find.text('Estimated Time (Naismith)'), findsOneWidget);
+    expect(find.text('Estimated Time (Scarf)'), findsOneWidget);
+    expect(find.text('1h 30m'), findsNWidgets(2));
+  });
+
+  testWidgets('updates manual-route walking speed through callback', (
+    tester,
+  ) async {
+    final route = app_route.Route(
+      name: 'Manual Route',
+      distance2d: 17450,
+      distance3d: 17920,
+      ascent: 0,
+      descent: 0,
+      routeTimingSource: RouteTimingSources.naismith,
+      walkingSpeedKmh: 4.0,
+      gpxRoute: const [LatLng(0, 0), LatLng(0, 0.08983)],
+      gpxRouteElevations: const [0, 0],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              return SizedBox(
+                width: 600,
+                child: MapTrackInfoPanel(
+                  route: route,
+                  onClose: () {},
+                  onExport: () {},
+                  onRouteWalkingSpeedChanged: (value) {
+                    setState(() {
+                      route.walkingSpeedKmh = value;
+                    });
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('4.0 km/h'), findsOneWidget);
+
+    final incrementButton = find.byKey(
+      const Key('route-walking-speed-increment'),
+    );
+    await tester.ensureVisible(incrementButton);
+    await tester.pumpAndSettle();
+    await tester.tap(incrementButton, warnIfMissed: false);
+    await tester.pump();
+
+    expect(find.text('4.1 km/h'), findsOneWidget);
+  });
+
+  testWidgets('increments walking speed with focused keyboard shortcut', (
+    tester,
+  ) async {
+    final route = app_route.Route(
+      name: 'Shortcut Route',
+      routeTimingSource: RouteTimingSources.naismith,
+      walkingSpeedKmh: 4.0,
+      gpxRoute: const [LatLng(0, 0), LatLng(0, 0.08983)],
+      gpxRouteElevations: const [0, 0],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              return SizedBox(
+                width: 600,
+                child: MapTrackInfoPanel(
+                  route: route,
+                  onClose: () {},
+                  onExport: () {},
+                  onRouteWalkingSpeedChanged: (value) {
+                    setState(() {
+                      route.walkingSpeedKmh = value;
+                    });
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    final speedControl = find.byKey(const Key('route-walking-speed-control'));
+    await tester.ensureVisible(speedControl);
+    await tester.pumpAndSettle();
+    await tester.tap(speedControl, warnIfMissed: false);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.equal);
+    await tester.pump();
+
+    expect(find.text('4.1 km/h'), findsOneWidget);
   });
 
   testWidgets('renders an edit action before close for a saved route', (
@@ -110,7 +221,10 @@ void main() {
     final editButton = find.byKey(const Key('track-info-panel-edit-button'));
     final closeButton = find.byKey(const Key('track-info-panel-close'));
     expect(find.byTooltip('Edit Route'), findsOneWidget);
-    expect(tester.getRect(editButton).right, lessThan(tester.getRect(closeButton).left));
+    expect(
+      tester.getRect(editButton).right,
+      lessThan(tester.getRect(closeButton).left),
+    );
 
     await tester.tap(editButton);
     await tester.pump();
@@ -248,7 +362,7 @@ void main() {
     expect(tester.widget<Switch>(switchFinder).value, isFalse);
   });
 
-  testWidgets('renders Naismith explanation for untimed route source', (
+  testWidgets('renders manual-route timing rows for untimed route source', (
     tester,
   ) async {
     final route = app_route.Route(
@@ -278,16 +392,21 @@ void main() {
       ),
     );
 
-    expect(find.byKey(const Key('route-estimated-time-explanation')), findsOneWidget);
     expect(
-      find.text(
-        "Estimated time has been derived using Naismith's rule using 5.0 km/h, 100:00m per 1000 m ascent and 30:00m per 1000 m descent",
-      ),
+      find.byKey(const Key('route-estimated-time-naismith-row')),
       findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('route-estimated-time-scarf-row')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('route-estimated-time-explanation')),
+      findsNothing,
     );
   });
 
-  testWidgets('renders mixed explanation for extended verified walk route', (
+  testWidgets('renders legacy mixed fallback for extended verified walk route', (
     tester,
   ) async {
     final route = app_route.Route(
@@ -317,12 +436,17 @@ void main() {
       ),
     );
 
-    expect(find.byKey(const Key('route-estimated-time-explanation')), findsOneWidget);
+    expect(
+      find.byKey(const Key('route-timing-limitation-message')),
+      findsOneWidget,
+    );
     expect(
       find.text(
-        "Estimated time has been derived from the original route plus manually added segments estimated using Naismith's rule using 5.0 km/h, 100:00m per 1000 m ascent and 30:00m per 1000 m descent",
+        'Adjusted timing unavailable for this legacy mixed route because segment provenance was never stored.',
       ),
       findsOneWidget,
     );
+    expect(find.text('Estimated Time (Scarf)'), findsOneWidget);
+    expect(find.text('—'), findsOneWidget);
   });
 }

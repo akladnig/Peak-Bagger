@@ -5449,6 +5449,22 @@ class MapNotifier extends Notifier<MapState> {
     }
   }
 
+  void updateRouteWalkingSpeed(int routeId, double walkingSpeedKmh) {
+    final route = _routeRepository.findById(routeId);
+    if (route == null) {
+      return;
+    }
+
+    final normalizedSpeed = normalizeWalkingSpeedKmh(walkingSpeedKmh);
+    if (route.walkingSpeedKmh == normalizedSpeed) {
+      return;
+    }
+
+    route.walkingSpeedKmh = normalizedSpeed;
+    _routeRepository.saveRoute(route);
+    ref.read(routeRevisionProvider.notifier).increment();
+  }
+
   void clearSelectedRoute() {
     state = state.copyWith(clearSelectedRouteId: true);
   }
