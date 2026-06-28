@@ -8,6 +8,7 @@ import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/open_route_service_api_key_provider.dart';
 import 'package:peak_bagger/providers/peak_csv_export_provider.dart';
+import 'package:peak_bagger/providers/peak_list_mini_map_cluster_display_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_map_cluster_display_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_list_csv_export_provider.dart';
@@ -70,6 +71,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final mapState = ref.watch(mapProvider);
     final filterState = ref.watch(gpxFilterSettingsProvider);
     final openRouteServiceApiKey = ref.watch(openRouteServiceApiKeyProvider);
+    final showPeakListMiniMapClusters = ref.watch(
+      peakListMiniMapClusterDisplaySettingsProvider,
+    );
     final showMapPeakClusters = ref.watch(
       peakMapClusterDisplaySettingsProvider,
     );
@@ -272,6 +276,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onTap: () => ref.read(themeModeProvider.notifier).toggleTheme(),
             ),
             _buildPeakCorrelationSection(context, peakCorrelationState),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: ListTile(
+                key: const Key('show-peak-list-mini-map-clusters-tile'),
+                leading: const Icon(Icons.map_outlined),
+                title: const Text('Show Peak List Mini-Map Clusters'),
+                subtitle: const Text(
+                  'Toggle clustered peak display on peak list mini-maps',
+                ),
+                trailing: Switch(
+                  key: const Key('show-peak-list-mini-map-clusters-switch'),
+                  value: showPeakListMiniMapClusters,
+                  onChanged: (value) {
+                    unawaited(
+                      ref
+                          .read(
+                            peakListMiniMapClusterDisplaySettingsProvider
+                                .notifier,
+                          )
+                          .setShowPeakClusters(value),
+                    );
+                  },
+                ),
+                onTap: () {
+                  unawaited(
+                    ref
+                        .read(
+                          peakListMiniMapClusterDisplaySettingsProvider
+                              .notifier,
+                        )
+                        .setShowPeakClusters(!showPeakListMiniMapClusters),
+                  );
+                },
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: ListTile(

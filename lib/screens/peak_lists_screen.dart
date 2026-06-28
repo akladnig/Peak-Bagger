@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../core/constants.dart';
@@ -15,13 +14,17 @@ import '../models/peaks_bagged.dart';
 import '../providers/peak_list_provider.dart';
 import '../providers/peak_list_selection_provider.dart';
 import '../providers/map_provider.dart';
+import '../providers/peak_list_mini_map_cluster_display_settings_provider.dart';
 import '../providers/peak_marker_info_settings_provider.dart';
 import '../providers/peak_provider.dart';
 import '../providers/tasmap_provider.dart';
 import 'map_screen_panels.dart';
 import '../services/peak_list_file_picker.dart';
+import '../services/peak_cluster_engine.dart';
 import '../services/peak_hover_detector.dart';
+import '../services/peak_hit_test.dart';
 import '../services/peak_list_repository.dart';
+import '../services/peak_projection_cache.dart';
 import '../services/gpx_track_repository.dart';
 import '../services/peaks_bagged_repository.dart';
 import '../widgets/dialog_helpers.dart';
@@ -31,6 +34,7 @@ import '../widgets/peak_list_import_dialog.dart';
 import '../widgets/peak_list_peak_dialog.dart';
 import '../theme.dart';
 import 'map_screen_layers.dart';
+import 'map_screen_peak_layer.dart';
 
 class PeakListsScreen extends ConsumerStatefulWidget {
   const PeakListsScreen({super.key, this.initialPeakListId});
@@ -2021,14 +2025,8 @@ class _MiniPeakMap extends ConsumerStatefulWidget {
 }
 
 class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
-  static final _tickedPeakMarker = SvgPicture.asset(
-    'assets/peak_marker_ticked.svg',
-  );
-  static final _untickedPeakMarker = SvgPicture.asset(
-    'assets/peak_marker.svg',
-    colorFilter: const ColorFilter.mode(Color(0xFFD66A6D), BlendMode.srcIn),
-  );
   final _mapController = MapController();
+  final _peakProjectionCache = PeakProjectionCache();
   PeakInfoContent? _popupContent;
   int? _hoveredPeakId;
   static const _tapThreshold = 24.0;
@@ -2072,26 +2070,21 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
       return;
     }
 
-    final candidates = [
-      for (final peak in summaryRow.mapPeaks)
-        PeakHoverCandidate(
-          peakId: peak.peak.osmId,
-          screenPosition: camera.latLngToScreenOffset(
-            LatLng(peak.peak.latitude, peak.peak.longitude),
-          ),
-        ),
-    ];
-    final result = PeakHoverDetector.findHoveredPeak(
+    final viewportData = _buildPeakViewportData(
+      summaryRow.mapPeaks,
+      clusteringEnabled: ref.read(peakListMiniMapClusterDisplaySettingsProvider),
+    );
+    final peak = hitTestPeakFromViewportData(
       pointerPosition: localPosition,
-      candidates: candidates,
+      data: viewportData,
     );
 
-    if (result.hoveredPeakId == _hoveredPeakId) {
+    if (peak?.osmId == _hoveredPeakId) {
       return;
     }
 
     setState(() {
-      _hoveredPeakId = result.hoveredPeakId;
+      _hoveredPeakId = peak?.osmId;
     });
   }
 
@@ -2115,24 +2108,30 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
       return;
     }
 
-    final candidates = [
-      for (final peak in summaryRow.mapPeaks)
-        PeakHoverCandidate(
-          peakId: peak.peak.osmId,
-          screenPosition: camera.latLngToScreenOffset(
-            LatLng(peak.peak.latitude, peak.peak.longitude),
-          ),
-        ),
-    ];
-    final result = PeakHoverDetector.findHoveredPeak(
+    final viewportData = _buildPeakViewportData(
+      summaryRow.mapPeaks,
+      clusteringEnabled: ref.read(peakListMiniMapClusterDisplaySettingsProvider),
+    );
+    final tappedCluster = hitTestPeakCluster(
       pointerPosition: localPosition,
-      candidates: candidates,
+      data: viewportData,
+    );
+    if (tappedCluster != null) {
+      _clearHover();
+      _clearPopup();
+      _expandPeakCluster(tappedCluster);
+      return;
+    }
+
+    final hitPeak = hitTestPeakFromViewportData(
+      pointerPosition: localPosition,
+      data: viewportData,
     );
     final peakId =
-        result.hoveredPeakId ??
+        hitPeak?.osmId ??
         _findNearestPeakId(
           pointerPosition: localPosition,
-          candidates: candidates,
+          candidates: buildPeakHoverCandidatesFromViewportData(viewportData),
         );
     if (peakId == null) {
       _clearPopup();
@@ -2202,6 +2201,56 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
     return nearestPeakId;
   }
 
+  PeakClusterViewportData _buildPeakViewportData(
+    List<_MapPeak> peaks, {
+    required bool clusteringEnabled,
+  }) {
+    MapCamera camera;
+    try {
+      camera = _mapController.camera;
+    } catch (_) {
+      return const PeakClusterViewportData(
+        individualCandidates: [],
+        clusters: [],
+      );
+    }
+
+    return _peakProjectionCache.getOrBuild(
+      peaks: [for (final peak in peaks) peak.peak],
+      camera: camera,
+      correlatedPeakIds: {
+        for (final peak in peaks.where((peak) => peak.isClimbed)) peak.peak.osmId,
+      },
+      clusteringEnabled: clusteringEnabled,
+    );
+  }
+
+  void _expandPeakCluster(PeakCluster cluster) {
+    final points = cluster.points;
+    if (points.isEmpty) {
+      return;
+    }
+
+    final camera = _mapController.camera;
+    if (peakClusterNeedsZoomFallback(points)) {
+      _mapController.move(
+        points.first,
+        (camera.zoom + 2).clamp(
+          MapConstants.peakMinZoom.toDouble(),
+          MapConstants.peakMaxZoom.toDouble(),
+        ),
+      );
+      return;
+    }
+
+    _mapController.fitCamera(
+      CameraFit.bounds(
+        bounds: LatLngBounds.fromPoints(points),
+        padding: const EdgeInsets.all(MapConstants.peakClusterExpandPadding),
+      ),
+    );
+  }
+
   Offset _screenOffsetForPeak(Peak peak) {
     return _mapController.camera.latLngToScreenOffset(
       LatLng(peak.latitude, peak.longitude),
@@ -2215,7 +2264,10 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
     final selectedLocation = ref.watch(
       mapProvider.select((state) => state.selectedLocation),
     );
-    final showPeakInfo = ref.watch(peakMarkerInfoSettingsProvider);
+    ref.watch(peakMarkerInfoSettingsProvider);
+    final showPeakListMiniMapClusters = ref.watch(
+      peakListMiniMapClusterDisplaySettingsProvider,
+    );
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -2224,6 +2276,16 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
             final viewportSize = Size(
               constraints.maxWidth,
               constraints.maxHeight,
+            );
+            double effectiveZoom;
+            try {
+              effectiveZoom = _mapController.camera.zoom;
+            } catch (_) {
+              effectiveZoom = 0;
+            }
+            final viewportData = _buildPeakViewportData(
+              markerPeaks,
+              clusteringEnabled: showPeakListMiniMapClusters,
             );
             return Stack(
               clipBehavior: Clip.none,
@@ -2237,6 +2299,16 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                     mapController: _mapController,
                     options: MapOptions(
                       initialCameraFit: _resolveInitialCameraFit(markerPeaks),
+                      onMapReady: () {
+                        if (mounted) {
+                          setState(() {});
+                        }
+                      },
+                      onPositionChanged: (camera, hasGesture) {
+                        if (mounted) {
+                          setState(() {});
+                        }
+                      },
                       interactionOptions: const InteractionOptions(
                         flags: InteractiveFlag.none,
                       ),
@@ -2247,44 +2319,16 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                         userAgentPackageName: 'com.peak_bagger.app',
                         tileProvider: NetworkTileProvider(),
                       ),
-                      MarkerLayer(
-                        markers:
-                            buildPeakMarkers(
-                                  peaks: [
-                                    for (final peak in markerPeaks) peak.peak,
-                                  ],
-                                  zoom: 0,
-                                  showPeakInfo: showPeakInfo,
-                                  correlatedPeakIds: {
-                                    for (final peak in markerPeaks.where(
-                                      (peak) => peak.isClimbed,
-                                    ))
-                                      peak.peak.osmId,
-                                  },
-                                  hoveredPeakId: _hoveredPeakId,
-                                  tickedPeakMarker: _tickedPeakMarker,
-                                  untickedPeakMarker: _untickedPeakMarker,
-                                  suppressBelowZoom: false,
-                                )
-                                .asMap()
-                                .entries
-                                .map((entry) {
-                                  final marker = entry.value;
-                                  final peak = markerPeaks[entry.key];
-                                  return Marker(
-                                    point: marker.point,
-                                    width: marker.width,
-                                    height: marker.height,
-                                    child: SizedBox(
-                                      key: Key(
-                                        'peak-lists-mini-map-marker-${peak.peak.osmId}-${peak.isClimbed ? 'ticked' : 'unticked'}',
-                                      ),
-                                      child: marker.child,
-                                    ),
-                                  );
-                                })
-                                .toList(growable: false),
-                      ),
+                      if (markerPeaks.isNotEmpty)
+                        MapScreenPeakLayer(
+                          zoom: effectiveZoom,
+                          showPeakInfo: false,
+                          hoveredPeakId: _hoveredPeakId,
+                          popupPeakId: _popupContent?.peak.osmId,
+                          viewportData: viewportData,
+                        ),
+                      if (markerPeaks.isNotEmpty)
+                        _MiniPeakMapAffordanceLayer(viewportData: viewportData),
                       if (selectedLocation != null)
                         MarkerLayer(
                           markers: [
@@ -2400,6 +2444,60 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniPeakMapAffordanceLayer extends StatelessWidget {
+  const _MiniPeakMapAffordanceLayer({required this.viewportData});
+
+  final PeakClusterViewportData viewportData;
+
+  @override
+  Widget build(BuildContext context) {
+    final camera = MapCamera.of(context);
+    final size = camera.nonRotatedSize;
+    if (size == MapCamera.kImpossibleSize) {
+      return const SizedBox.shrink();
+    }
+
+    return MobileLayerTransformer(
+      child: SizedBox(
+        width: size.width,
+        height: size.height,
+        child: Stack(
+          key: const Key('peak-lists-mini-map-peak-marker-layer'),
+          clipBehavior: Clip.none,
+          children: [
+            for (final candidate in viewportData.individualCandidates)
+              Positioned(
+                left: candidate.screenPosition.dx - 16,
+                top: candidate.screenPosition.dy - 16,
+                width: 32,
+                height: 32,
+                child: SizedBox(
+                  key: Key(
+                    'peak-lists-mini-map-marker-${candidate.peak.osmId}-${candidate.isTicked ? 'ticked' : 'unticked'}',
+                  ),
+                ),
+              ),
+            for (var i = 0; i < viewportData.clusters.length; i++)
+              Positioned(
+                left:
+                    viewportData.clusters[i].screenPosition.dx -
+                    peakClusterVisualRadius(viewportData.clusters[i]),
+                top:
+                    viewportData.clusters[i].screenPosition.dy -
+                    peakClusterVisualRadius(viewportData.clusters[i]),
+                width: peakClusterVisualRadius(viewportData.clusters[i]) * 2,
+                height: peakClusterVisualRadius(viewportData.clusters[i]) * 2,
+                child: SizedBox(
+                  key: Key('peak-lists-mini-map-cluster-$i'),
+                ),
+              ),
+          ],
         ),
       ),
     );

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_mini_map_cluster_display_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_map_cluster_display_settings_provider.dart';
 import 'package:peak_bagger/screens/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -34,6 +35,37 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Show Map Peak Clusters'), findsOneWidget);
+  });
+
+  testWidgets('settings screen shows peak list mini-map cluster row', (
+    tester,
+  ) async {
+    SharedPreferences.resetStatic();
+    SharedPreferences.setMockInitialValues({});
+
+    await _pumpSettingsScreen(tester);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('show-peak-list-mini-map-clusters-tile')),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('settings-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const Key('show-peak-list-mini-map-clusters-tile')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('show-peak-list-mini-map-clusters-switch')),
+      findsOneWidget,
+    );
+    expect(find.text('Show Peak List Mini-Map Clusters'), findsOneWidget);
   });
 
   testWidgets('map peak cluster toggle persists across rebuilds', (
@@ -99,6 +131,82 @@ void main() {
     expect(
       tester
           .widget<Switch>(find.byKey(const Key('show-map-peak-clusters-switch')))
+          .value,
+      isFalse,
+    );
+  });
+
+  testWidgets('peak list mini-map cluster toggle persists across rebuilds', (
+    tester,
+  ) async {
+    SharedPreferences.resetStatic();
+    SharedPreferences.setMockInitialValues({});
+
+    await _pumpSettingsScreen(tester);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('show-peak-list-mini-map-clusters-tile')),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('settings-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pump();
+
+    expect(
+      tester
+          .widget<Switch>(
+            find.byKey(const Key('show-peak-list-mini-map-clusters-switch')),
+          )
+          .value,
+      isTrue,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('show-peak-list-mini-map-clusters-tile')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<Switch>(
+            find.byKey(const Key('show-peak-list-mini-map-clusters-switch')),
+          )
+          .value,
+      isFalse,
+    );
+    expect(
+      ProviderScope.containerOf(tester.element(find.byType(SettingsScreen)))
+          .read(peakListMiniMapClusterDisplaySettingsProvider),
+      isFalse,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+
+    await _pumpSettingsScreen(tester);
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('show-peak-list-mini-map-clusters-tile')),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('settings-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pump();
+
+    expect(
+      tester
+          .widget<Switch>(
+            find.byKey(const Key('show-peak-list-mini-map-clusters-switch')),
+          )
           .value,
       isFalse,
     );

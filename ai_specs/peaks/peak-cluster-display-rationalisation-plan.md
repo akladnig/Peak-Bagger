@@ -31,20 +31,20 @@ Unify peak rendering: viewport layer for map surfaces, marker helper for non-map
 ### Phase 2: Peak-list mini-map parity
 
 - **Goal**: viewport layer reuse; interaction parity with explicit contract
-- [ ] `lib/providers/peak_list_mini_map_cluster_display_settings_provider.dart` - add bool setting; hydrate/persist
-- [ ] `lib/screens/settings_screen.dart` - add `Show Peak List Mini-Map Clusters` tile/switch; stable keys/subtitle
-- [ ] `lib/screens/peak_lists_screen.dart` - replace SVG marker layer with shared viewport layer; preserve selected-location / selected-peak overlays
-- [ ] `lib/screens/peak_lists_screen.dart` - align hit-testing with viewport data; explicit rules for peak hover/tap and cluster tap expand
-- [ ] `lib/screens/map_screen_peak_layer.dart` or adjacent helper - expose reusable map-surface API for mini-map use without map-screen-only state coupling
-- [ ] `test/providers/peak_list_mini_map_cluster_display_settings_provider_test.dart` - provider coverage
-- [ ] `test/widget/peak_lists_screen_test.dart` - mini-map cluster toggle + popup/selection behavior
-- [ ] `test/widget/map_screen_peak_cluster_toggle_test.dart` - shared viewport layer regression if API changes
-- [ ] `test/robot/peaks/peak_lists_journey_test.dart` - mini-map settings-to-behavior journey
-- [ ] TDD: mini-map toggle defaults on, persists, survives hydrate failure
-- [ ] TDD: peak tap selects + opens popup; hover does not change selection
-- [ ] TDD: cluster tap expands camera, clears hover, closes popup, preserves selected peak
-- [ ] Robot journey tests + selectors/seams for toggle, viewport root, painted peak affordance, cluster affordance, popup shell/anchor
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/providers/peak_list_mini_map_cluster_display_settings_provider.dart` - add bool setting; hydrate/persist
+- [x] `lib/screens/settings_screen.dart` - add `Show Peak List Mini-Map Clusters` tile/switch; stable keys/subtitle
+- [x] `lib/screens/peak_lists_screen.dart` - replace SVG marker layer with shared viewport layer; preserve selected-location / selected-peak overlays
+- [x] `lib/screens/peak_lists_screen.dart` - align hit-testing with viewport data; explicit rules for peak hover/tap and cluster tap expand
+- [x] `lib/screens/map_screen_peak_layer.dart` or adjacent helper - expose reusable map-surface API for mini-map use without map-screen-only state coupling
+- [x] `test/providers/peak_list_mini_map_cluster_display_settings_provider_test.dart` - provider coverage
+- [x] `test/widget/peak_lists_screen_test.dart` - mini-map cluster toggle + popup/selection behavior
+- [x] `test/widget/map_screen_peak_cluster_toggle_test.dart` - shared viewport layer regression if API changes
+- [x] `test/robot/peaks/peak_lists_journey_test.dart` - mini-map settings-to-behavior journey
+- [x] TDD: mini-map toggle defaults on, persists, survives hydrate failure
+- [x] TDD: peak tap selects + opens popup; hover does not change selection
+- [x] TDD: cluster tap expands camera, clears hover, closes popup, preserves selected peak
+- [x] Robot journey tests + selectors/seams for toggle, viewport root, painted peak affordance, cluster affordance, popup shell/anchor
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Non-map helper + SVG removal
 

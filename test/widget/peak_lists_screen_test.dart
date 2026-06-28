@@ -16,6 +16,7 @@ import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_mini_map_cluster_display_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
@@ -649,6 +650,120 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const Key('peak-marker-hover-200')), findsNothing);
+  });
+
+  testWidgets('peak list mini-map clusters when toggle is on', (tester) async {
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Clustered Peaks', [100, 200]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+          _buildPeak(200, 'Beta Peak', -42.00005, 146.00005, elevation: 1100),
+        ]),
+      ),
+      overrides: [
+        peakListMiniMapClusterDisplaySettingsProvider.overrideWith(
+          _StaticPeakListMiniMapClusterDisplayOnNotifier.new,
+        ),
+      ],
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-lists-mini-map-cluster-0')), findsOneWidget);
+  });
+
+  testWidgets('peak list mini-map shows individual markers when toggle is off', (
+    tester,
+  ) async {
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Clustered Peaks', [100, 200]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+          _buildPeak(200, 'Beta Peak', -42.0, 146.01, elevation: 1100),
+        ]),
+      ),
+      overrides: [
+        peakListMiniMapClusterDisplaySettingsProvider.overrideWith(
+          _StaticPeakListMiniMapClusterDisplayOffNotifier.new,
+        ),
+      ],
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-lists-mini-map-cluster-0')), findsNothing);
+    expect(find.byKey(const Key('peak-lists-mini-map-marker-100-unticked')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-mini-map-marker-200-unticked')), findsOneWidget);
+  });
+
+  testWidgets('peak list mini-map cluster tap expands camera and keeps selection', (
+    tester,
+  ) async {
+    final mapNotifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Clustered Peaks', [100, 200]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+          _buildPeak(200, 'Beta Peak', -42.00005, 146.00005, elevation: 1100),
+        ]),
+      ),
+      mapNotifier: mapNotifier,
+      overrides: [
+        peakListMiniMapClusterDisplaySettingsProvider.overrideWith(
+          _StaticPeakListMiniMapClusterDisplayOnNotifier.new,
+        ),
+      ],
+    );
+
+    await tester.pumpAndSettle();
+
+    tester
+        .widget<InkWell>(
+          find
+              .descendant(
+                of: find.byKey(const Key('peak-lists-details-row-100')),
+                matching: find.byType(InkWell),
+              )
+              .first,
+        )
+        .onTap!();
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-lists-selected-peak-circle-layer')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('peak-lists-mini-map-cluster-0')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-lists-mini-map-popup')), findsNothing);
+    expect(find.byKey(const Key('peak-lists-selected-peak-circle-layer')), findsOneWidget);
   });
 
   testWidgets('selecting an offscreen peak centers the details row', (
@@ -2168,6 +2283,7 @@ Future<void> _pumpPeakListsApp(
   PeakListImportRunner? importRunner,
   PeakListDuplicateNameChecker? duplicateNameChecker,
   TestMapNotifier? mapNotifier,
+  List overrides = const [],
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -2208,6 +2324,7 @@ Future<void> _pumpPeakListsApp(
         peakListDuplicateNameCheckerProvider.overrideWithValue(
           duplicateNameChecker ?? ((name) async => false),
         ),
+        ...overrides,
       ],
       child: const App(),
     ),
@@ -2230,6 +2347,7 @@ Future<void> _pumpPeakListsScreen(
   PeakListDuplicateNameChecker? duplicateNameChecker,
   TestMapNotifier? mapNotifier,
   int? initialPeakListId,
+  List overrides = const [],
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -2270,6 +2388,7 @@ Future<void> _pumpPeakListsScreen(
         peakListDuplicateNameCheckerProvider.overrideWithValue(
           duplicateNameChecker ?? ((name) async => false),
         ),
+        ...overrides,
       ],
       child: MaterialApp(
         home: PeakListsScreen(initialPeakListId: initialPeakListId),
@@ -2346,4 +2465,16 @@ Peak _buildPeak(
     longitude: longitude,
     elevation: elevation,
   );
+}
+
+class _StaticPeakListMiniMapClusterDisplayOnNotifier
+    extends PeakListMiniMapClusterDisplaySettingsNotifier {
+  @override
+  bool build() => true;
+}
+
+class _StaticPeakListMiniMapClusterDisplayOffNotifier
+    extends PeakListMiniMapClusterDisplaySettingsNotifier {
+  @override
+  bool build() => false;
 }
