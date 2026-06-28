@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/services/route_timing_service.dart';
 
 import 'route_info_robot.dart';
 
@@ -169,4 +171,47 @@ void main() {
       robot.expectRoutePanelHidden();
     },
   );
+
+  testWidgets('route journey adjusts walking speed and restores it on reopen', (
+    tester,
+  ) async {
+    final route = app_route.Route(
+      id: 1,
+      name: 'Adjustable Robot Route',
+      routeTimingSource: RouteTimingSources.naismith,
+      walkingSpeedKmh: 4.0,
+      gpxRoute: const [LatLng(-41.5, 146.49), LatLng(-41.5, 146.89)],
+      gpxRouteElevations: const [0, 0],
+    );
+    final repository = RouteRepository.test(InMemoryRouteStorage([route]));
+    final robot = RouteInfoRobot(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showRoutes: true,
+      ),
+      routeRepository: repository,
+    );
+
+    await robot.pumpApp();
+    await robot.hoverRoute();
+    await robot.clickRoute();
+
+    robot.expectRoutePanelVisible('Adjustable Robot Route');
+    robot.expectWalkingSpeed('4.0');
+
+    await robot.incrementWalkingSpeed();
+
+    robot.expectWalkingSpeed('4.1');
+    expect(repository.findById(1)!.walkingSpeedKmh, 4.1);
+
+    await robot.closeRoutePanel();
+    await robot.hoverRoute();
+    await robot.clickRoute();
+
+    robot.expectRoutePanelVisible('Adjustable Robot Route');
+    robot.expectWalkingSpeed('4.1');
+  });
 }

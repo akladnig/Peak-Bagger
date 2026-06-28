@@ -59,13 +59,13 @@ Keep timing math in services; keep panel callback-driven; follow existing Riverp
 ### Phase 4: Robot + blast-radius cleanup
 
 - **Goal**: critical journeys; selector migration; residual regressions
-- [ ] `./test/robot/map/route_info_robot.dart` - add selectors/actions/assertions for dual rows, speed control, info popups, reopen persistence
-- [ ] `./test/robot/map/route_info_journey_test.dart` - critical journey: open route -> adjust speed -> totals update -> close/reopen -> persisted speed restored
-- [ ] `./test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - replace old single-row route timing assertions with dual-row contract
-- [ ] `./lib/screens/map_screen_panels.dart` - add any remaining stable keys/seams required by robot tests
-- [ ] TDD: robot happy path for route timing controls; then implement
-- [ ] Robot journey tests + selectors/seams for critical flows: dual timing row keys, info-popup keys, speed field/stepper keys, deterministic repository-backed route fixture
-- [ ] Verify: `flutter test test/robot/map/route_info_journey_test.dart test/robot/gpx_tracks/gpx_tracks_journey_test.dart test/widget/map_route_info_panel_test.dart test/widget/map_screen_route_info_test.dart && flutter analyze`
+- [x] `./test/robot/map/route_info_robot.dart` - add selectors/actions/assertions for dual rows, speed control, info popups, reopen persistence
+- [x] `./test/robot/map/route_info_journey_test.dart` - critical journey: open route -> adjust speed -> totals update -> close/reopen -> persisted speed restored
+- [x] `./test/robot/gpx_tracks/gpx_tracks_journey_test.dart` - replace old single-row route timing assertions with dual-row contract
+- [x] `./lib/screens/map_screen_panels.dart` - add any remaining stable keys/seams required by robot tests
+- [x] TDD: robot happy path for route timing controls; then implement
+- [x] Robot journey tests + selectors/seams for critical flows: dual timing row keys, info-popup keys, speed field/stepper keys, deterministic repository-backed route fixture
+- [x] Verify: `flutter test test/robot/map/route_info_journey_test.dart test/robot/gpx_tracks/gpx_tracks_journey_test.dart test/widget/map_route_info_panel_test.dart test/widget/map_screen_route_info_test.dart && flutter analyze`
 
 ## Risks / Out of scope
 
