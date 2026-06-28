@@ -49,18 +49,18 @@ Unify peak rendering: viewport layer for map surfaces, marker helper for non-map
 ### Phase 3: Non-map helper + SVG removal
 
 - **Goal**: latest-walk + popup UI off SVG path; asset registration removed
-- [ ] `lib/widgets/peak_marker_glyph.dart` - add shared peak marker helper; ticked/unticked + optional hover/info affordances only as needed
-- [ ] `lib/widgets/dashboard/latest_walk_card.dart` - replace SVG markers with shared helper; keep individual peaks only; preserve `Show Peak Info`
-- [ ] `lib/screens/map_screen_panels.dart` - replace inline `SvgPicture.asset` in `Move Peak to Marker`
-- [ ] `lib/screens/map_screen_layers.dart` - remove or retire `buildPeakMarkers()` and related SVG-only peak content if dead
-- [ ] `pubspec.yaml` - remove `assets/peak_marker.svg` and `assets/peak_marker_ticked.svg` registrations
-- [ ] `test/widget/latest_walk_card_test.dart` - helper rendering + `Show Peak Info` on latest-walk peaks
-- [ ] `test/widget/peak_info_popup_placement_test.dart` or focused popup widget test - `Move Peak to Marker` helper regression
-- [ ] `test/widget/peak_runtime_asset_removal_test.dart` - static/runtime guard for no migrated SVG peak usage, if practical; else assert via focused grep-backed test seam/doc check in execution notes
-- [ ] TDD: latest-walk never clusters, always individual peaks, still honors `Show Peak Info`
-- [ ] TDD: popup action uses shared peak marker helper, not SVG asset
-- [ ] TDD: migrated runtime code no longer references registered peak SVG assets
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/widgets/peak_marker_glyph.dart` - add shared peak marker helper; ticked/unticked + optional hover/info affordances only as needed
+- [x] `lib/widgets/dashboard/latest_walk_card.dart` - replace SVG markers with shared helper; keep individual peaks only; preserve `Show Peak Info`
+- [x] `lib/screens/map_screen_panels.dart` - replace inline `SvgPicture.asset` in `Move Peak to Marker`
+- [x] `lib/screens/map_screen_layers.dart` - remove or retire `buildPeakMarkers()` and related SVG-only peak content if dead
+- [x] `pubspec.yaml` - remove `assets/peak_marker.svg` and `assets/peak_marker_ticked.svg` registrations
+- [x] `test/widget/latest_walk_card_test.dart` - helper rendering + `Show Peak Info` on latest-walk peaks
+- [x] `test/widget/peak_info_popup_placement_test.dart` or focused popup widget test - `Move Peak to Marker` helper regression
+- [x] `test/widget/peak_runtime_asset_removal_test.dart` - static/runtime guard for no migrated SVG peak usage, if practical; else assert via focused grep-backed test seam/doc check in execution notes
+- [x] TDD: latest-walk never clusters, always individual peaks, still honors `Show Peak Info`
+- [x] TDD: popup action uses shared peak marker helper, not SVG asset
+- [x] TDD: migrated runtime code no longer references registered peak SVG assets
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 4: Journey hardening
 

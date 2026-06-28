@@ -3,7 +3,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
 
 import 'package:peak_bagger/core/constants.dart';
@@ -20,6 +19,7 @@ import 'package:peak_bagger/services/map_ruler_scale.dart';
 import 'package:peak_bagger/services/peak_admin_editor.dart';
 import 'package:peak_bagger/services/route_timing_service.dart';
 import 'package:peak_bagger/theme.dart';
+import 'package:peak_bagger/widgets/peak_marker_glyph.dart';
 import 'package:peak_bagger/widgets/peak_search_results_list.dart';
 import 'package:peak_bagger/widgets/elevation_profile_chart.dart';
 
@@ -1969,12 +1969,9 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
                                     SizedBox(
                                       width: 16,
                                       height: 16,
-                                      child: SvgPicture.asset(
-                                        'assets/peak_marker.svg',
-                                        colorFilter: const ColorFilter.mode(
-                                          Color(0xFFD66A6D),
-                                          BlendMode.srcIn,
-                                        ),
+                                      child: const PeakMarkerGlyph(
+                                        ticked: false,
+                                        size: 16,
                                       ),
                                     ),
                                     SizedBox(width: 8),

@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../core/constants.dart';
 import '../../models/gpx_track.dart';
@@ -12,6 +12,7 @@ import '../../screens/map_screen_layers.dart';
 import '../../services/latest_walk_summary.dart';
 import '../../services/tile_cache_service.dart';
 import '../../theme.dart';
+import '../peak_marker_glyph.dart';
 
 class LatestWalkCard extends StatefulWidget {
   const LatestWalkCard({
@@ -245,14 +246,6 @@ class _LatestWalkMiniMap extends StatelessWidget {
   final bool showPeakInfo;
   final ValueChanged<int>? onOpenTrack;
 
-  static final _tickedPeakMarker = SvgPicture.asset(
-    'assets/peak_marker_ticked.svg',
-  );
-  static final _untickedPeakMarker = SvgPicture.asset(
-    'assets/peak_marker.svg',
-    colorFilter: const ColorFilter.mode(Color(0xFFD66A6D), BlendMode.srcIn),
-  );
-
   @override
   Widget build(BuildContext context) {
     final track = summary.track!;
@@ -334,15 +327,25 @@ class _LatestWalkMiniMap extends StatelessWidget {
                     ),
                   if (trackPeaks.isNotEmpty)
                     MarkerLayer(
-                      markers: buildPeakMarkers(
-                        peaks: trackPeaks,
-                        zoom: MapConstants.peakInfoMinZoom,
-                        showPeakInfo: showPeakInfo,
-                        correlatedPeakIds: correlatedPeakIds,
-                        tickedPeakMarker: _tickedPeakMarker,
-                        untickedPeakMarker: _untickedPeakMarker,
-                        suppressBelowZoom: false,
-                      ),
+                      markers: [
+                        for (final peak in trackPeaks)
+                          Marker(
+                            key: Key('peak-marker-hitbox-${peak.osmId}'),
+                            point: LatLng(peak.latitude, peak.longitude),
+                            width: 20,
+                            height: 20,
+                            child: KeyedSubtree(
+                              key: Key(
+                                'latest-walk-peak-marker-${peak.osmId}-${correlatedPeakIds.contains(peak.osmId) ? 'ticked' : 'unticked'}',
+                              ),
+                              child: PeakMarkerHelper(
+                                peak: peak,
+                                ticked: correlatedPeakIds.contains(peak.osmId),
+                                showPeakInfo: showPeakInfo,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                 ],
               ),
