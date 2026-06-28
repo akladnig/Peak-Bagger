@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/screens/map_screen_panels.dart';
 import 'package:peak_bagger/services/route_timing_service.dart';
@@ -93,6 +94,9 @@ void main() {
   });
 
   testWidgets('opens timing info popups with distinct copy', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     final route = app_route.Route(
       name: 'Timed Route',
       distance2d: 17450,
@@ -129,8 +133,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       find.byKey(const Key('route-estimated-time-naismith-popup')),
-      findsOneWidget,
+      findsNWidgets(2),
     );
+    final panelRect = tester.getRect(find.byKey(const Key('track-info-panel')));
+    final popupRect = tester.getRect(
+      find.descendant(of: find.byType(Dialog), matching: find.byType(Card)),
+    );
+    expect(popupRect.width, UiConstants.peakInfoPopupSize.width);
+    expect(popupRect.left, greaterThanOrEqualTo(panelRect.right));
     expect(find.textContaining('stored verified timing'), findsOneWidget);
     await tester.tap(find.byKey(const Key('route-timing-info-popup-close')));
     await tester.pumpAndSettle();
@@ -144,7 +154,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       find.byKey(const Key('route-estimated-time-scarf-popup')),
-      findsOneWidget,
+      findsNWidgets(2),
     );
     expect(
       find.textContaining('Scarf row matches the stored verified total'),
@@ -572,6 +582,9 @@ void main() {
   testWidgets('renders legacy mixed fallback for extended verified walk route', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     final route = app_route.Route(
       name: 'Extended Route',
       distance2d: 17450,

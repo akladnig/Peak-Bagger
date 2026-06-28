@@ -480,14 +480,13 @@ class MapTrackInfoPanel extends StatelessWidget {
                     ? '—'
                     : formatDuration(timingDisplay.naismithDurationMillis),
                 infoButtonKey: const Key('route-estimated-time-naismith-info'),
-                onInfoPressed: () {
-                  showDialog<void>(
-                    context: context,
-                    builder: (context) => RouteTimingInfoDialog(
-                      key: const Key('route-estimated-time-naismith-popup'),
-                      title: 'Estimated Time (Naismith)',
-                      message: naismithInfo,
-                    ),
+                onInfoPressed: (anchorContext) {
+                  _showRouteTimingInfoDialog(
+                    panelContext: context,
+                    anchorContext: anchorContext,
+                    popupKey: const Key('route-estimated-time-naismith-popup'),
+                    title: 'Estimated Time (Naismith)',
+                    message: naismithInfo,
                   );
                 },
               ),
@@ -502,14 +501,13 @@ class MapTrackInfoPanel extends StatelessWidget {
               ? '—'
               : formatDuration(timingDisplay.scarfDurationMillis),
           infoButtonKey: const Key('route-estimated-time-scarf-info'),
-          onInfoPressed: () {
-            showDialog<void>(
-              context: context,
-              builder: (context) => RouteTimingInfoDialog(
-                key: const Key('route-estimated-time-scarf-popup'),
-                title: 'Estimated Time (Scarf)',
-                message: scarfInfo,
-              ),
+          onInfoPressed: (anchorContext) {
+            _showRouteTimingInfoDialog(
+              panelContext: context,
+              anchorContext: anchorContext,
+              popupKey: const Key('route-estimated-time-scarf-popup'),
+              title: 'Estimated Time (Scarf)',
+              message: scarfInfo,
             );
           },
         ),
@@ -1120,7 +1118,7 @@ class _RouteTimingLabeledValueRow extends StatelessWidget {
   final String label;
   final String value;
   final Key infoButtonKey;
-  final VoidCallback onInfoPressed;
+  final ValueChanged<BuildContext> onInfoPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -1142,12 +1140,16 @@ class _RouteTimingLabeledValueRow extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
-                IconButton(
-                  key: infoButtonKey,
-                  onPressed: onInfoPressed,
-                  icon: const Icon(Icons.info_outline, size: 16),
-                  tooltip: '$label info',
-                  visualDensity: VisualDensity.compact,
+                Builder(
+                  builder: (buttonContext) {
+                    return IconButton(
+                      key: infoButtonKey,
+                      onPressed: () => onInfoPressed(buttonContext),
+                      icon: const Icon(Icons.info_outline, size: 16),
+                      tooltip: '$label info',
+                      visualDensity: VisualDensity.compact,
+                    );
+                  },
                 ),
               ],
             ),
@@ -1170,49 +1172,122 @@ class _RouteTimingLabeledValueRow extends StatelessWidget {
 
 class RouteTimingInfoDialog extends StatelessWidget {
   const RouteTimingInfoDialog({
+    required this.leftInset,
+    required this.topInset,
     required this.title,
     required this.message,
     super.key,
   });
 
+  final double leftInset;
+  final double topInset;
   final String title;
   final String message;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final onSurfaceColor = theme.colorScheme.onSurface;
     return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      key: key,
+      alignment: Alignment.topLeft,
+      insetPadding: EdgeInsets.only(
+        left: leftInset,
+        top: topInset,
+        right: UiConstants.dialogMargin,
+        bottom: UiConstants.dialogMargin,
+      ),
       backgroundColor: Colors.transparent,
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+      child: SizedBox(
+        width: UiConstants.peakInfoPopupSize.width,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: UiConstants.peakInfoPopupSize.height,
+          ),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(title, style: theme.textTheme.titleMedium),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.info_outline, size: 18, color: onSurfaceColor),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: onSurfaceColor,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        key: const Key('route-timing-info-popup-close'),
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: Icon(
+                          Icons.close,
+                          size: 16,
+                          color: onSurfaceColor,
+                        ),
+                        tooltip: 'Close route timing info',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    key: const Key('route-timing-info-popup-close'),
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close),
-                    tooltip: 'Close route timing info',
-                    visualDensity: VisualDensity.compact,
+                  const SizedBox(height: 8),
+                  Flexible(
+                    fit: FlexFit.loose,
+                    child: SingleChildScrollView(
+                      child: Text(
+                        message,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: onSurfaceColor,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Text(message, style: theme.textTheme.bodyMedium),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+void _showRouteTimingInfoDialog({
+  required BuildContext panelContext,
+  required BuildContext anchorContext,
+  required Key popupKey,
+  required String title,
+  required String message,
+}) {
+  final panelRenderBox = panelContext.findRenderObject() as RenderBox?;
+  final anchorRenderBox = anchorContext.findRenderObject() as RenderBox?;
+  final panelTopLeft =
+      panelRenderBox?.localToGlobal(Offset.zero) ?? Offset.zero;
+  final anchorTopLeft =
+      anchorRenderBox?.localToGlobal(Offset.zero) ?? panelTopLeft;
+  final panelWidth =
+      panelRenderBox?.size.width ?? UiConstants.preferredLeftWidth;
+  showDialog<void>(
+    context: panelContext,
+    builder: (context) => RouteTimingInfoDialog(
+      key: popupKey,
+      leftInset: panelTopLeft.dx + panelWidth + UiConstants.dialogMargin,
+      topInset: anchorTopLeft.dy,
+      title: title,
+      message: message,
+    ),
+  );
 }
 
 class _RouteWalkingSpeedControl extends StatefulWidget {
