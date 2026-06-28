@@ -215,6 +215,77 @@ void main() {
     expect(tester.widget<TextField>(speedField).controller!.text, '4.1');
   });
 
+  testWidgets('recalculates using the selected timing row algorithm', (
+    tester,
+  ) async {
+    final route = app_route.Route(
+      name: 'Recalc Route',
+      routeTimingSource: RouteTimingSources.verifiedWalk,
+      estimatedTime: 5400000,
+      walkingSpeedKmh: 4.0,
+      gpxRoute: const [LatLng(0, 0), LatLng(0, 0.08983)],
+      gpxRouteElevations: const [0, 0],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              return SizedBox(
+                width: 600,
+                child: MapTrackInfoPanel(
+                  route: route,
+                  onClose: () {},
+                  onExport: () {},
+                  onRouteWalkingSpeedChanged: (value) {
+                    setState(() {
+                      route.walkingSpeedKmh = value;
+                    });
+                  },
+                  onRouteTimingRecalculate: (algorithm) {
+                    setState(() {
+                      final profile = buildRouteTimingProfileForAlgorithm(
+                        algorithm: algorithm,
+                        points: route.gpxRoute,
+                        elevations: route.gpxRouteElevations,
+                        walkingSpeedKmh: route.walkingSpeedKmh!,
+                      );
+                      route.routeTimingSource = routeTimingSourceForAlgorithm(
+                        algorithm,
+                      );
+                      route.routeTimingProfileJson = encodeRouteTimingProfile(
+                        profile,
+                      );
+                      route.estimatedTime =
+                          profileDurationSeconds(profile) * 1000;
+                      route.routeTimingSegmentKindsJson =
+                          buildRouteTimingSegmentKindsJson(
+                            segmentCount: route.gpxRoute.length - 1,
+                            kind: RouteTimingSegmentKinds.manualEstimated,
+                          );
+                    });
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    final recalculateButton = find.byKey(
+      const Key('route-estimated-time-scarf-recalculate'),
+    );
+    await tester.ensureVisible(recalculateButton);
+    await tester.pumpAndSettle();
+    await tester.tap(recalculateButton, warnIfMissed: false);
+    await tester.pump();
+
+    expect(route.routeTimingSource, RouteTimingSources.scarf);
+    expect(find.text('1h 30m'), findsNothing);
+  });
+
   testWidgets('increments walking speed with focused keyboard shortcut', (
     tester,
   ) async {
@@ -361,6 +432,48 @@ void main() {
 
     expect(find.byKey(const Key('route-walking-speed-error')), findsOneWidget);
     expect(route.walkingSpeedKmh, 4.0);
+  });
+
+  testWidgets('legacy mixed routes keep walking speed controls enabled', (
+    tester,
+  ) async {
+    final route = app_route.Route(
+      name: 'Legacy Mixed Route',
+      routeTimingSource: RouteTimingSources.extendedRoute,
+      estimatedTime: 5400000,
+      walkingSpeedKmh: 4.0,
+      gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.5, 146.51)],
+      gpxRouteElevations: const [100, 120],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              return SizedBox(
+                width: 600,
+                child: MapTrackInfoPanel(
+                  route: route,
+                  onClose: () {},
+                  onExport: () {},
+                  onRouteWalkingSpeedChanged: (value) {
+                    setState(() {
+                      route.walkingSpeedKmh = value;
+                    });
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    final incrementButton = tester.widget<IconButton>(
+      find.byKey(const Key('route-walking-speed-increment')),
+    );
+    expect(incrementButton.onPressed, isNotNull);
   });
 
   testWidgets('renders an edit action before close for a saved route', (

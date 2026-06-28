@@ -229,6 +229,7 @@ class MapTrackInfoPanel extends StatelessWidget {
     this.onEdit,
     this.onVisibilityChanged,
     this.onRouteWalkingSpeedChanged,
+    this.onRouteTimingRecalculate,
     this.onExport,
     this.onElevationProfileHoverChanged,
     super.key,
@@ -241,6 +242,7 @@ class MapTrackInfoPanel extends StatelessWidget {
   final VoidCallback? onEdit;
   final ValueChanged<bool>? onVisibilityChanged;
   final ValueChanged<double>? onRouteWalkingSpeedChanged;
+  final ValueChanged<RouteTimingAlgorithm>? onRouteTimingRecalculate;
   final VoidCallback? onExport;
   final ValueChanged<ElevationProfileChartHoverSample?>?
   onElevationProfileHoverChanged;
@@ -329,6 +331,7 @@ class MapTrackInfoPanel extends StatelessWidget {
                             onVisibilityChanged: onVisibilityChanged,
                             onRouteWalkingSpeedChanged:
                                 onRouteWalkingSpeedChanged,
+                            onRouteTimingRecalculate: onRouteTimingRecalculate,
                           )
                         : _buildTrackBody(
                             context,
@@ -373,6 +376,7 @@ class MapTrackInfoPanel extends StatelessWidget {
     app_route.Route route, {
     required ValueChanged<bool>? onVisibilityChanged,
     required ValueChanged<double>? onRouteWalkingSpeedChanged,
+    required ValueChanged<RouteTimingAlgorithm>? onRouteTimingRecalculate,
   }) {
     final legacyTimingExplanation = routeTimingExplanation(
       estimatedTime: route.estimatedTime,
@@ -480,6 +484,9 @@ class MapTrackInfoPanel extends StatelessWidget {
                     ? '—'
                     : formatDuration(timingDisplay.naismithDurationMillis),
                 infoButtonKey: const Key('route-estimated-time-naismith-info'),
+                recalculateButtonKey: const Key(
+                  'route-estimated-time-naismith-recalculate',
+                ),
                 onInfoPressed: (anchorContext) {
                   _showRouteTimingInfoDialog(
                     panelContext: context,
@@ -489,6 +496,11 @@ class MapTrackInfoPanel extends StatelessWidget {
                     message: naismithInfo,
                   );
                 },
+                onRecalculate: onRouteTimingRecalculate == null
+                    ? null
+                    : () => onRouteTimingRecalculate(
+                        RouteTimingAlgorithm.naismith,
+                      ),
               ),
             ],
           ),
@@ -501,6 +513,9 @@ class MapTrackInfoPanel extends StatelessWidget {
               ? '—'
               : formatDuration(timingDisplay.scarfDurationMillis),
           infoButtonKey: const Key('route-estimated-time-scarf-info'),
+          recalculateButtonKey: const Key(
+            'route-estimated-time-scarf-recalculate',
+          ),
           onInfoPressed: (anchorContext) {
             _showRouteTimingInfoDialog(
               panelContext: context,
@@ -510,6 +525,9 @@ class MapTrackInfoPanel extends StatelessWidget {
               message: scarfInfo,
             );
           },
+          onRecalculate: onRouteTimingRecalculate == null
+              ? null
+              : () => onRouteTimingRecalculate(RouteTimingAlgorithm.scarf),
         ),
         const SizedBox(height: 12),
         if (timingDisplay.limitationMessage != null)
@@ -523,9 +541,7 @@ class MapTrackInfoPanel extends StatelessWidget {
           ),
         _RouteWalkingSpeedControl(
           speedKmh: timingDisplay.effectiveWalkingSpeedKmh,
-          enabled:
-              timingDisplay.walkingSpeedEnabled &&
-              onRouteWalkingSpeedChanged != null,
+          enabled: onRouteWalkingSpeedChanged != null,
           onChanged: onRouteWalkingSpeedChanged,
         ),
         const SizedBox(height: 20),
@@ -1111,14 +1127,18 @@ class _RouteTimingLabeledValueRow extends StatelessWidget {
     required this.label,
     required this.value,
     required this.infoButtonKey,
+    required this.recalculateButtonKey,
     required this.onInfoPressed,
+    this.onRecalculate,
     super.key,
   });
 
   final String label;
   final String value;
   final Key infoButtonKey;
+  final Key recalculateButtonKey;
   final ValueChanged<BuildContext> onInfoPressed;
+  final VoidCallback? onRecalculate;
 
   @override
   Widget build(BuildContext context) {
@@ -1128,7 +1148,7 @@ class _RouteTimingLabeledValueRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
-            flex: 3,
+            flex: 2,
             child: Row(
               children: [
                 Flexible(
@@ -1156,12 +1176,25 @@ class _RouteTimingLabeledValueRow extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            flex: 1,
-            child: Text(
-              value,
-              maxLines: 1,
-              softWrap: false,
-              textAlign: TextAlign.end,
+            flex: 3,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  softWrap: false,
+                  textAlign: TextAlign.end,
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  key: recalculateButtonKey,
+                  onPressed: onRecalculate,
+                  icon: const Icon(Icons.refresh, size: 16),
+                  tooltip: 'Recalculate $label',
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
             ),
           ),
         ],

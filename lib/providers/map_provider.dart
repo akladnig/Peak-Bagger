@@ -5502,6 +5502,33 @@ class MapNotifier extends Notifier<MapState> {
     ref.read(routeRevisionProvider.notifier).increment();
   }
 
+  void recalculateRouteTiming(int routeId, RouteTimingAlgorithm algorithm) {
+    final route = _routeRepository.findById(routeId);
+    if (route == null || route.gpxRoute.length < 2) {
+      return;
+    }
+
+    final profile = buildRouteTimingProfileForAlgorithm(
+      algorithm: algorithm,
+      points: route.gpxRoute,
+      elevations: route.gpxRouteElevations,
+      walkingSpeedKmh:
+          route.walkingSpeedKmh ?? routeTimingDefaultWalkingSpeedKmh,
+    );
+    route.walkingSpeedKmh = normalizeWalkingSpeedKmh(
+      route.walkingSpeedKmh ?? routeTimingDefaultWalkingSpeedKmh,
+    );
+    route.routeTimingSource = routeTimingSourceForAlgorithm(algorithm);
+    route.routeTimingProfileJson = encodeRouteTimingProfile(profile);
+    route.routeTimingSegmentKindsJson = buildRouteTimingSegmentKindsJson(
+      segmentCount: route.gpxRoute.length - 1,
+      kind: RouteTimingSegmentKinds.manualEstimated,
+    );
+    route.estimatedTime = profileDurationSeconds(profile) * 1000;
+    _routeRepository.saveRoute(route);
+    ref.read(routeRevisionProvider.notifier).increment();
+  }
+
   void clearSelectedRoute() {
     state = state.copyWith(clearSelectedRouteId: true);
   }

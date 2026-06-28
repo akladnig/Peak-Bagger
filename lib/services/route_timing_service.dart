@@ -15,7 +15,10 @@ class RouteTimingSources {
   static const verifiedWalkPlusNaismith = 'verified-walk-plus-naismith';
   static const extendedRoute = 'extended-route';
   static const naismith = 'naismith';
+  static const scarf = 'scarf';
 }
+
+enum RouteTimingAlgorithm { naismith, scarf }
 
 class RouteTimingSegmentKinds {
   static const preserved = 'preserved';
@@ -57,6 +60,8 @@ String routeTimingNaismithInfo({
       'Displayed time comes from stored verified timing. Walking speed changes affect only manual segments, so a fully verified route stays fixed.',
     RouteTimingSources.naismith =>
       'Displayed time is recalculated from the current route geometry using the selected walking speed plus Naismith ascent and descent penalties.',
+    RouteTimingSources.scarf =>
+      'Displayed time is recalculated from the current route geometry using the selected walking speed plus Scarf weighted ascent.',
     RouteTimingSources.extendedRoute ||
     RouteTimingSources.verifiedWalkPlusNaismith =>
       'Displayed time combines preserved stored segment timing with manual segments recalculated using the selected walking speed plus Naismith ascent and descent penalties.',
@@ -77,6 +82,8 @@ String routeTimingScarfInfo({
     RouteTimingSources.verifiedWalk =>
       'Displayed time reuses stored verified timing. Because no manual segments exist, the Scarf row matches the stored verified total.',
     RouteTimingSources.naismith =>
+      'Displayed time is recalculated from the current route geometry using the selected walking speed plus Scarf weighted ascent.',
+    RouteTimingSources.scarf =>
       'Displayed time is recalculated from the current route geometry using the selected walking speed plus Scarf weighted ascent.',
     RouteTimingSources.extendedRoute ||
     RouteTimingSources.verifiedWalkPlusNaismith =>
@@ -247,6 +254,8 @@ List<int> buildProfileFromTimestamps(List<DateTime?> timestamps) {
 List<int> buildNaismithProfile({
   required List<LatLng> points,
   required List<int?> elevations,
+  double speedMetresPerSecond =
+      RouteTimingConstants.naismithSpeedMetresPerSecond,
 }) {
   if (points.length < 2) {
     return points.isEmpty ? const [] : const [0];
@@ -271,11 +280,72 @@ List<int> buildNaismithProfile({
       distanceMetres: distanceMetres,
       ascentMetres: ascentMetres,
       descentMetres: descentMetres,
+      speedMetresPerSecond: speedMetresPerSecond,
     );
     profile.add(cumulativeSeconds);
   }
 
   return profile;
+}
+
+List<int> buildScarfProfile({
+  required List<LatLng> points,
+  required List<int?> elevations,
+  double speedMetresPerSecond =
+      RouteTimingConstants.naismithSpeedMetresPerSecond,
+}) {
+  if (points.length < 2) {
+    return points.isEmpty ? const [] : const [0];
+  }
+
+  final profile = <int>[0];
+  var cumulativeSeconds = 0;
+
+  for (var index = 1; index < points.length; index++) {
+    final start = points[index - 1];
+    final end = points[index];
+    final distanceMetres = _distance.as(LengthUnit.Meter, start, end);
+    final ascentMetres = _positiveDelta(
+      from: index - 1 < elevations.length ? elevations[index - 1] : null,
+      to: index < elevations.length ? elevations[index] : null,
+    );
+    cumulativeSeconds += scarfTime(
+      distanceMetres: distanceMetres,
+      ascentMetres: ascentMetres,
+      speedMetresPerSecond: speedMetresPerSecond,
+    );
+    profile.add(cumulativeSeconds);
+  }
+
+  return profile;
+}
+
+List<int> buildRouteTimingProfileForAlgorithm({
+  required RouteTimingAlgorithm algorithm,
+  required List<LatLng> points,
+  required List<int?> elevations,
+  required double walkingSpeedKmh,
+}) {
+  final speedMetresPerSecond = normalizeWalkingSpeedKmh(walkingSpeedKmh) / 3.6;
+  return switch (algorithm) {
+    RouteTimingAlgorithm.naismith => buildNaismithProfile(
+      points: points,
+      elevations: elevations,
+      speedMetresPerSecond: speedMetresPerSecond,
+    ),
+    RouteTimingAlgorithm.scarf => buildScarfProfile(
+      points: points,
+      elevations: elevations,
+      speedMetresPerSecond: speedMetresPerSecond,
+    ),
+  };
+}
+
+String routeTimingSourceForAlgorithm(RouteTimingAlgorithm algorithm) {
+  return switch (algorithm) {
+    RouteTimingAlgorithm.naismith => RouteTimingSources.naismith,
+    RouteTimingAlgorithm.scarf => RouteTimingSources.scarf,
+  };
 }
 
 int profileDurationSeconds(List<int> profile) =>
@@ -550,6 +620,8 @@ String? routeTimingExplanation({
       return 'Estimated time has been derived from the original route plus manually added segments estimated using Naismith\'s rule using ${_formatKilometresPerHour(RouteTimingConstants.naismithSpeedMetresPerSecond)} km/h, ${_formatMinutesPer1000Metres(RouteTimingConstants.naismithAscentSecondsPerMetre)} per 1000 m ascent and ${_formatMinutesPer1000Metres(RouteTimingConstants.naismithDescentSecondsPerMetre)} per 1000 m descent';
     case RouteTimingSources.naismith:
       return 'Estimated time has been derived using Naismith\'s rule using ${_formatKilometresPerHour(RouteTimingConstants.naismithSpeedMetresPerSecond)} km/h, ${_formatMinutesPer1000Metres(RouteTimingConstants.naismithAscentSecondsPerMetre)} per 1000 m ascent and ${_formatMinutesPer1000Metres(RouteTimingConstants.naismithDescentSecondsPerMetre)} per 1000 m descent';
+    case RouteTimingSources.scarf:
+      return 'Estimated time has been derived using Scarf\'s rule using ${_formatKilometresPerHour(RouteTimingConstants.naismithSpeedMetresPerSecond)} km/h and weighted ascent distance';
     default:
       return null;
   }
