@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
+import 'package:peak_bagger/providers/tasmap_provider.dart';
+import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/screens/peak_lists_screen.dart';
 import 'package:peak_bagger/services/peak_list_file_picker.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
@@ -13,6 +16,7 @@ import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/widgets/peak_list_import_dialog.dart';
 
 import '../../harness/test_map_notifier.dart';
+import '../../harness/test_tasmap_repository.dart';
 
 class PeakListsRobot {
   PeakListsRobot(this.tester);
@@ -34,6 +38,10 @@ class PeakListsRobot {
   Finder get detailsPane => find.byKey(const Key('peak-lists-details-pane'));
   Finder get selectedTitle =>
       find.byKey(const Key('peak-lists-selected-title'));
+  Finder get miniMap => find.byKey(const Key('peak-lists-mini-map'));
+  Finder get settingsScrollable => find.byKey(const Key('settings-scrollable'));
+  Finder get navPeaks => find.byKey(const Key('nav-peak-lists'));
+  Finder get navSettings => find.byKey(const Key('nav-settings'));
   Finder get selectFileButton => find.byKey(const Key('peak-list-select-file'));
   Finder get nameField => find.byKey(const Key('peak-list-name-field'));
   Finder get importButton => find.byKey(const Key('peak-list-import-button'));
@@ -61,6 +69,19 @@ class PeakListsRobot {
       find.byKey(Key('peak-selected-checkbox-$peakId'));
   Finder addPointsField(int peakId) =>
       find.byKey(Key('peak-selected-points-$peakId'));
+  Finder miniMapMarker(int peakId, {required bool ticked}) =>
+      find.byKey(
+        Key('peak-lists-mini-map-marker-$peakId-${ticked ? 'ticked' : 'unticked'}'),
+      );
+  Finder miniMapCluster(int index) =>
+      find.byKey(Key('peak-lists-mini-map-cluster-$index'));
+  Finder get peakListMiniMapClustersTile =>
+      find.byKey(const Key('show-peak-list-mini-map-clusters-tile'));
+  Finder get peakListMiniMapClustersSwitch =>
+      find.byKey(const Key('show-peak-list-mini-map-clusters-switch'));
+  Finder get miniMapPopup => find.byKey(const Key('peak-lists-mini-map-popup'));
+  Finder get selectedPeakCircle =>
+      find.byKey(const Key('peak-lists-selected-peak-circle-layer'));
 
   Future<void> pumpApp({
     required PeakListFilePicker filePicker,
@@ -69,6 +90,7 @@ class PeakListsRobot {
     PeaksBaggedRepository? peaksBaggedRepository,
     PeakListImportRunner? importRunner,
     PeakListDuplicateNameChecker? duplicateNameChecker,
+    List overrides = const [],
   }) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -106,12 +128,90 @@ class PeakListsRobot {
           peakListDuplicateNameCheckerProvider.overrideWithValue(
             duplicateNameChecker ?? ((name) async => false),
           ),
+          ...overrides,
         ],
         child: const MaterialApp(home: PeakListsScreen()),
       ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  Future<void> pumpJourneyApp({
+    required PeakListFilePicker filePicker,
+    PeakListRepository? repository,
+    PeakRepository? peakRepository,
+    PeaksBaggedRepository? peaksBaggedRepository,
+    TestTasmapRepository? tasmapRepository,
+    List overrides = const [],
+  }) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(
+            () => TestMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 15,
+                basemap: Basemap.tracestrack,
+              ),
+            ),
+          ),
+          peakRepositoryProvider.overrideWithValue(
+            peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
+          ),
+          peakListRepositoryProvider.overrideWithValue(
+            repository ?? PeakListRepository.test(InMemoryPeakListStorage()),
+          ),
+          peaksBaggedRepositoryProvider.overrideWithValue(
+            peaksBaggedRepository ??
+                PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
+          ),
+          tasmapRepositoryProvider.overrideWithValue(
+            tasmapRepository ?? await TestTasmapRepository.create(),
+          ),
+          peakListFilePickerProvider.overrideWithValue(filePicker),
+          ...overrides,
+        ],
+        child: const App(),
+      ),
+    );
+    await tester.pump();
+    router.go('/peaks');
+    await tester.pump();
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> goToSettings() async {
+    await tester.tap(navSettings, warnIfMissed: false);
+    await tester.pump();
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> goToPeaks() async {
+    await tester.tap(navPeaks, warnIfMissed: false);
+    await tester.pump();
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapMiniMapMarker(int peakId, {required bool ticked}) async {
+    await tester.tap(
+      miniMapMarker(peakId, ticked: ticked),
+      warnIfMissed: false,
+    );
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapMiniMapCluster(int index) async {
+    await tester.tap(miniMapCluster(index), warnIfMissed: false);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> scrollSettingsTo(Finder target) async {
+    for (var i = 0; i < 6 && target.evaluate().isEmpty; i++) {
+      await tester.drag(settingsScrollable, const Offset(0, -300));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
   }
 
   Future<void> openImportDialog() async {

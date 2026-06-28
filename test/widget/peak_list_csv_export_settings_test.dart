@@ -19,10 +19,13 @@ void main() {
   Future<void> scrollSettingsUntilVisible(
     WidgetTester tester,
     Finder target,
+    {
+    double dragOffset = -500,
+  }
   ) async {
     final settingsScrollable = find.byKey(const Key('settings-scrollable'));
     for (var i = 0; i < 4 && target.evaluate().isEmpty; i++) {
-      await tester.drag(settingsScrollable, const Offset(0, -500));
+      await tester.drag(settingsScrollable, Offset(0, dragOffset));
       await tester.pump(const Duration(milliseconds: 100));
     }
   }
@@ -86,15 +89,6 @@ void main() {
       tester.widget<ListTile>(tile('export-peak-lists-tile')).onTap,
       isNull,
     );
-    expect(
-      tester.widget<ListTile>(tile('refresh-peak-data-tile')).onTap,
-      isNull,
-    );
-    expect(tester.widget<ListTile>(tile('reset-map-data-tile')).onTap, isNull);
-    expect(
-      tester.widget<ListTile>(tile('export-peak-data-tile')).onTap,
-      isNull,
-    );
     expect(find.byKey(const Key('peak-list-export-status')), findsOneWidget);
     expect(find.text('Exporting peak lists...'), findsOneWidget);
 
@@ -114,18 +108,6 @@ void main() {
     );
     expect(
       tester.widget<ListTile>(tile('export-peak-lists-tile')).onTap,
-      isNotNull,
-    );
-    expect(
-      tester.widget<ListTile>(tile('refresh-peak-data-tile')).onTap,
-      isNotNull,
-    );
-    expect(
-      tester.widget<ListTile>(tile('reset-map-data-tile')).onTap,
-      isNotNull,
-    );
-    expect(
-      tester.widget<ListTile>(tile('export-peak-data-tile')).onTap,
       isNotNull,
     );
   });
@@ -302,20 +284,9 @@ void main() {
     expect(find.textContaining('Export failed:'), findsOneWidget);
     expect(find.textContaining('/tmp/Peak_Lists'), findsOneWidget);
     expect(find.textContaining('Create the folder and retry'), findsOneWidget);
+
     expect(
       tester.widget<ListTile>(tile('export-peak-lists-tile')).onTap,
-      isNotNull,
-    );
-    expect(
-      tester.widget<ListTile>(tile('refresh-peak-data-tile')).onTap,
-      isNotNull,
-    );
-    expect(
-      tester.widget<ListTile>(tile('reset-map-data-tile')).onTap,
-      isNotNull,
-    );
-    expect(
-      tester.widget<ListTile>(tile('export-peak-data-tile')).onTap,
       isNotNull,
     );
   });

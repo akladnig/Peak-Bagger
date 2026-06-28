@@ -1,11 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/map_polygon_asset.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
-import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/route_marker_display.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
@@ -20,7 +18,6 @@ import 'package:peak_bagger/widgets/tasmap_outline_layer.dart';
 import 'package:peak_bagger/widgets/tasmap_polygon_label.dart';
 
 import '../core/constants.dart';
-import '../core/number_formatters.dart';
 import '../theme.dart';
 
 String mapTileUrl(Basemap basemap) {
@@ -268,151 +265,6 @@ class _MapMgrsGridBorderLabelWidget extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-List<Marker> buildPeakMarkers({
-  required List<Peak> peaks,
-  required double zoom,
-  required bool showPeakInfo,
-  required Set<int> correlatedPeakIds,
-  required SvgPicture tickedPeakMarker,
-  required SvgPicture untickedPeakMarker,
-  int? hoveredPeakId,
-  bool suppressBelowZoom = true,
-}) {
-  // Main-map peak rendering now lives in MapScreenPeakLayer; keep this helper
-  // for mini-maps and other small widget-based renderers.
-  if (suppressBelowZoom && zoom < 8) {
-    return const [];
-  }
-
-  final untickedMarkers = <Marker>[];
-  final tickedMarkers = <Marker>[];
-
-  for (final peak in peaks) {
-    final markerChild = correlatedPeakIds.contains(peak.osmId)
-        ? tickedPeakMarker
-        : untickedPeakMarker;
-    final keyedMarkerChild = KeyedSubtree(
-      key: Key('peak-marker-${peak.osmId}'),
-      child: markerChild,
-    );
-    final isHovered = peak.osmId == hoveredPeakId;
-    final marker = Marker(
-      key: Key('peak-marker-hitbox-${peak.osmId}'),
-      point: LatLng(peak.latitude, peak.longitude),
-      width: isHovered ? 32 : 20,
-      height: isHovered ? 32 : 20,
-      child: _PeakMarkerContent(
-        peak: peak,
-        markerChild: keyedMarkerChild,
-        hovered: isHovered,
-        showPeakInfo: showPeakInfo && zoom >= MapConstants.peakInfoMinZoom,
-      ),
-    );
-    if (correlatedPeakIds.contains(peak.osmId)) {
-      tickedMarkers.add(marker);
-    } else {
-      untickedMarkers.add(marker);
-    }
-  }
-
-  return [...untickedMarkers, ...tickedMarkers];
-}
-
-class _PeakMarkerContent extends StatelessWidget {
-  const _PeakMarkerContent({
-    required this.peak,
-    required this.markerChild,
-    required this.hovered,
-    required this.showPeakInfo,
-  });
-
-  final Peak peak;
-  final Widget markerChild;
-  final bool hovered;
-  final bool showPeakInfo;
-
-  @override
-  Widget build(BuildContext context) {
-    final markerSize = hovered ? 32.0 : 20.0;
-    final labelTop = markerSize;
-    final labelWidth = peakMarkerLabelMaxWidth(context);
-
-    return SizedBox(
-      width: markerSize,
-      height: markerSize,
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: Alignment.center,
-        children: [
-          if (hovered)
-            Stack(
-              key: Key('peak-marker-hover-${peak.osmId}'),
-              alignment: Alignment.center,
-              children: [
-                Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.amber, width: 3),
-                  ),
-                ),
-                SizedBox.square(dimension: 20, child: markerChild),
-              ],
-            )
-          else
-            SizedBox.square(dimension: 20, child: markerChild),
-          if (showPeakInfo)
-            Positioned(
-              top: labelTop,
-              left: (markerSize - labelWidth) / 2,
-              width: labelWidth,
-              child: _PeakMarkerLabels(peak: peak),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PeakMarkerLabels extends StatelessWidget {
-  const _PeakMarkerLabels({required this.peak});
-
-  final Peak peak;
-
-  @override
-  Widget build(BuildContext context) {
-    final maxWidth = peakMarkerLabelMaxWidth(context);
-    final name = peak.name.trim().isEmpty ? '—' : peak.name.trim();
-    final height = peak.elevation == null
-        ? '—'
-        : formatElevation(peak.elevation!.round(), showUnits: false);
-    final labelStyle = peakMarkerLabelTextStyle(context);
-
-    return ConstrainedBox(
-      key: Key('peak-marker-labels-${peak.osmId}'),
-      constraints: BoxConstraints(maxWidth: maxWidth),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          OutlinedText(
-            key: Key('peak-marker-name-${peak.osmId}'),
-            text: name,
-            style: labelStyle,
-            maxLines: 2,
-          ),
-          OutlinedText(
-            key: Key('peak-marker-height-${peak.osmId}'),
-            text: height,
-            style: labelStyle,
-          ),
-        ],
       ),
     );
   }

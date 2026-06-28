@@ -13,6 +13,7 @@ import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:peak_bagger/widgets/peak_list_import_dialog.dart';
 
 import '../../harness/test_peak_list_file_picker.dart';
@@ -91,6 +92,68 @@ void main() {
       [(100, 3), (200, 5), (300, 7)],
     );
     expect(tester.widget<Text>(robot.selectedTitle).data, 'Journey List');
+  });
+
+  testWidgets('peak lists journey preserves selection on cluster expand', (
+    tester,
+  ) async {
+    SharedPreferences.resetStatic();
+    SharedPreferences.setMockInitialValues({});
+
+    final robot = PeakListsRobot(tester);
+    final peakListRepository = PeakListRepository.test(
+      InMemoryPeakListStorage([
+        PeakList(
+          name: 'Journey List',
+          peakList: encodePeakListItems([
+            const PeakListItem(peakOsmId: 100, points: 3),
+            const PeakListItem(peakOsmId: 200, points: 5),
+          ]),
+        )..peakListId = 1,
+      ]),
+    );
+    final peakRepository = PeakRepository.test(
+      InMemoryPeakStorage([
+        _buildPeak(
+          osmId: 100,
+          name: 'Alpha Peak',
+          elevation: 1250,
+          latitude: -42.0,
+          longitude: 146.0,
+        ),
+        _buildPeak(
+          osmId: 200,
+          name: 'Beta Peak',
+          elevation: 1300,
+          latitude: -42.00005,
+          longitude: 146.00005,
+        ),
+      ]),
+    );
+
+    await robot.pumpJourneyApp(
+      filePicker: TestPeakListFilePicker(),
+      repository: peakListRepository,
+      peakRepository: peakRepository,
+    );
+
+    tester
+        .widget<InkWell>(
+          find
+              .descendant(
+                of: find.byKey(const Key('peak-lists-details-row-100')),
+                matching: find.byType(InkWell),
+              )
+              .first,
+        )
+        .onTap!();
+    await tester.pumpAndSettle();
+
+    expect(robot.selectedPeakCircle, findsOneWidget);
+
+    await robot.tapMiniMapCluster(0);
+
+    expect(robot.selectedPeakCircle, findsOneWidget);
   });
 
   testWidgets('peak lists journey refreshes selected title after rename', (

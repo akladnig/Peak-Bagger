@@ -28,6 +28,7 @@ import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/map_chart_hover_provider.dart';
+import 'package:peak_bagger/providers/peak_map_cluster_display_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/show_polygons_settings_provider.dart';
@@ -1040,6 +1041,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
       peaks: peaks,
       camera: camera,
       correlatedPeakIds: ref.read(mapProvider.notifier).correlatedPeakIds,
+      clusteringEnabled: ref.read(peakMapClusterDisplaySettingsProvider),
     );
   }
 
@@ -3087,6 +3089,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                 MapConstants.peakMinZoom)
                                           Consumer(
                                             builder: (context, ref, child) {
+                                              ref.watch(
+                                                peakMapClusterDisplaySettingsProvider,
+                                              );
                                               final peakUiState = ref.watch(
                                                 mapProvider.select(
                                                   (state) => (
