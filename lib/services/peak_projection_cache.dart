@@ -15,6 +15,7 @@ class PeakProjectionCache {
     required List<Peak> peaks,
     required MapCamera camera,
     required Set<int> correlatedPeakIds,
+    bool clusteringEnabled = true,
     PeakClusterAlgorithm algorithm = MapConstants.peakClusterAlgorithm,
   }) {
     final peakFingerprints = _peakRenderFingerprints(peaks);
@@ -24,25 +25,32 @@ class PeakProjectionCache {
       size: camera.nonRotatedSize,
       peakFingerprints: peakFingerprints,
       correlatedPeakIds: correlatedPeakIds.toList(growable: false)..sort(),
+      clusteringEnabled: clusteringEnabled,
       algorithm: algorithm,
     );
     if (_key == key && _data != null) {
       return _data!;
     }
 
-    final data = switch (algorithm) {
-      PeakClusterAlgorithm.supercluster => _buildSuperclusterViewportData(
-        peaks: peaks,
-        camera: camera,
-        correlatedPeakIds: correlatedPeakIds,
-      ),
-      _ => buildPeakClusterViewportData(
-        peaks: peaks,
-        camera: camera,
-        correlatedPeakIds: correlatedPeakIds,
-        algorithm: algorithm,
-      ),
-    };
+    final data = clusteringEnabled
+        ? switch (algorithm) {
+            PeakClusterAlgorithm.supercluster => _buildSuperclusterViewportData(
+              peaks: peaks,
+              camera: camera,
+              correlatedPeakIds: correlatedPeakIds,
+            ),
+            _ => buildPeakClusterViewportData(
+              peaks: peaks,
+              camera: camera,
+              correlatedPeakIds: correlatedPeakIds,
+              algorithm: algorithm,
+            ),
+          }
+        : buildUnclusteredPeakViewportData(
+            peaks: peaks,
+            camera: camera,
+            correlatedPeakIds: correlatedPeakIds,
+          );
     _key = key;
     _data = data;
     return data;
@@ -87,6 +95,7 @@ class _PeakProjectionCacheKey {
     required this.size,
     required this.peakFingerprints,
     required this.correlatedPeakIds,
+    required this.clusteringEnabled,
     required this.algorithm,
   });
 
@@ -95,6 +104,7 @@ class _PeakProjectionCacheKey {
   final Size size;
   final List<String> peakFingerprints;
   final List<int> correlatedPeakIds;
+  final bool clusteringEnabled;
   final PeakClusterAlgorithm algorithm;
 
   @override
@@ -104,6 +114,7 @@ class _PeakProjectionCacheKey {
             other.center == center &&
             other.zoom == zoom &&
             other.size == size &&
+            other.clusteringEnabled == clusteringEnabled &&
             other.algorithm == algorithm &&
             _listEquals(other.peakFingerprints, peakFingerprints) &&
             _listEquals(other.correlatedPeakIds, correlatedPeakIds);
@@ -112,11 +123,12 @@ class _PeakProjectionCacheKey {
   @override
   int get hashCode => Object.hash(
     center,
-    zoom,
-    size,
-    algorithm,
-    Object.hashAll(peakFingerprints),
-    Object.hashAll(correlatedPeakIds),
+      zoom,
+      size,
+      clusteringEnabled,
+      algorithm,
+      Object.hashAll(peakFingerprints),
+      Object.hashAll(correlatedPeakIds),
   );
 }
 

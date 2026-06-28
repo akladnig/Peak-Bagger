@@ -1,0 +1,124 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_map_cluster_display_settings_provider.dart';
+import 'package:peak_bagger/providers/tasmap_provider.dart';
+import 'package:peak_bagger/screens/map_screen.dart';
+
+import '../harness/test_map_notifier.dart';
+import '../harness/test_tasmap_notifier.dart';
+import '../harness/test_tasmap_repository.dart';
+
+void main() {
+  testWidgets('main map hides clusters when map cluster toggle is off', (
+    tester,
+  ) async {
+    final repository = await TestTasmapRepository.create();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(
+            () => TestMapNotifier(
+              MapState(
+                center: const LatLng(-43.0, 147.0),
+                zoom: 8,
+                basemap: Basemap.tracestrack,
+                peaks: [
+                  Peak(
+                    osmId: 6406,
+                    name: 'Bonnet Hill',
+                    latitude: -43.0,
+                    longitude: 147.0,
+                  ),
+                  Peak(
+                    osmId: 7000,
+                    name: 'Other Peak',
+                    latitude: -43.0,
+                    longitude: 147.0,
+                  ),
+                ],
+              ),
+              correlatedPeakIds: {6406},
+            ),
+          ),
+          peakMapClusterDisplaySettingsProvider.overrideWith(
+            _StaticPeakMapClusterDisplayNotifier.new,
+          ),
+          tasmapStateProvider.overrideWith(() => TestTasmapNotifier(repository)),
+          tasmapRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(home: MapScreen()),
+      ),
+    );
+
+    await tester.pump();
+
+    expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
+    expect(find.byKey(const Key('peak-cluster-layer')), findsNothing);
+    expect(find.byKey(const Key('peak-marker-hover-6406')), findsNothing);
+  });
+
+  testWidgets('main map shows clusters when map cluster toggle is on', (
+    tester,
+  ) async {
+    final repository = await TestTasmapRepository.create();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(
+            () => TestMapNotifier(
+              MapState(
+                center: const LatLng(-43.0, 147.0),
+                zoom: 8,
+                basemap: Basemap.tracestrack,
+                peaks: [
+                  Peak(
+                    osmId: 6406,
+                    name: 'Bonnet Hill',
+                    latitude: -43.0,
+                    longitude: 147.0,
+                  ),
+                  Peak(
+                    osmId: 7000,
+                    name: 'Other Peak',
+                    latitude: -43.0,
+                    longitude: 147.0,
+                  ),
+                ],
+              ),
+              correlatedPeakIds: {6406},
+            ),
+          ),
+          peakMapClusterDisplaySettingsProvider.overrideWith(
+            _StaticPeakMapClusterDisplayOnNotifier.new,
+          ),
+          tasmapStateProvider.overrideWith(() => TestTasmapNotifier(repository)),
+          tasmapRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(home: MapScreen()),
+      ),
+    );
+
+    await tester.pump();
+
+    expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
+    expect(find.byKey(const Key('peak-cluster-layer')), findsOneWidget);
+  });
+}
+
+class _StaticPeakMapClusterDisplayNotifier
+    extends PeakMapClusterDisplaySettingsNotifier {
+  @override
+  bool build() => false;
+}
+
+class _StaticPeakMapClusterDisplayOnNotifier
+    extends PeakMapClusterDisplaySettingsNotifier {
+  @override
+  bool build() => true;
+}

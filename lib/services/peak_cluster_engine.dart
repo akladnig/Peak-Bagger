@@ -265,6 +265,59 @@ PeakClusterViewportData buildPeakClusterViewportData({
   };
 }
 
+PeakClusterViewportData buildUnclusteredPeakViewportData({
+  required List<Peak> peaks,
+  required MapCamera camera,
+  required Set<int> correlatedPeakIds,
+}) {
+  final size = camera.nonRotatedSize;
+  if (size == MapCamera.kImpossibleSize) {
+    return const PeakClusterViewportData(
+      individualCandidates: [],
+      clusters: [],
+    );
+  }
+
+  final paddedViewport = ui.Rect.fromLTWH(
+    -MapConstants.peakViewportPadding,
+    -MapConstants.peakViewportPadding,
+    size.width + MapConstants.peakViewportPadding * 2,
+    size.height + MapConstants.peakViewportPadding * 2,
+  );
+
+  final unticked = <ProjectedPeakCandidate>[];
+  final ticked = <ProjectedPeakCandidate>[];
+  for (final peak in peaks) {
+    if (!peak.latitude.isFinite || !peak.longitude.isFinite) {
+      continue;
+    }
+    final screenPosition = camera.latLngToScreenOffset(
+      LatLng(peak.latitude, peak.longitude),
+    );
+    if (!screenPosition.dx.isFinite || !screenPosition.dy.isFinite) {
+      continue;
+    }
+    if (!paddedViewport.contains(screenPosition)) {
+      continue;
+    }
+    final candidate = ProjectedPeakCandidate(
+      peak: peak,
+      screenPosition: screenPosition,
+      isTicked: correlatedPeakIds.contains(peak.osmId),
+    );
+    if (candidate.isTicked) {
+      ticked.add(candidate);
+    } else {
+      unticked.add(candidate);
+    }
+  }
+
+  return PeakClusterViewportData(
+    individualCandidates: [...unticked, ...ticked],
+    clusters: const [],
+  );
+}
+
 PeakClusterViewportData _buildCompactPeakClusterViewportData(
   List<ProjectedPeakCandidate> projected,
 ) {
