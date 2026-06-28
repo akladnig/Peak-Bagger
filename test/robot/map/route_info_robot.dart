@@ -41,7 +41,17 @@ class RouteInfoRobot {
   Finder get routeInfoPanelClose =>
       find.byKey(const Key('track-info-panel-close'));
   Finder get routeEstimatedTimeRow =>
-      find.byKey(const Key('route-estimated-time-row'));
+      find.byKey(const Key('route-estimated-time-naismith-row'));
+  Finder get routeScarfTimeRow =>
+      find.byKey(const Key('route-estimated-time-scarf-row'));
+  Finder get walkingSpeedField =>
+      find.byKey(const Key('route-walking-speed-field'));
+  Finder get walkingSpeedIncrement =>
+      find.byKey(const Key('route-walking-speed-increment'));
+  Finder get naismithInfoButton =>
+      find.byKey(const Key('route-estimated-time-naismith-info'));
+  Finder get naismithInfoPopup =>
+      find.byKey(const Key('route-estimated-time-naismith-popup'));
   Finder get visibilitySwitch =>
       find.byKey(const Key('track-info-panel-visibility-switch'));
   Finder get routeDraftNameField => find.byKey(const Key('route-name-field'));
@@ -132,6 +142,20 @@ class RouteInfoRobot {
     await tester.pumpAndSettle();
   }
 
+  Future<void> incrementWalkingSpeed() async {
+    await tester.ensureVisible(walkingSpeedIncrement);
+    await tester.pumpAndSettle();
+    await tester.tap(walkingSpeedIncrement, warnIfMissed: false);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> openNaismithInfo() async {
+    await tester.ensureVisible(naismithInfoButton);
+    await tester.pumpAndSettle();
+    await tester.tap(naismithInfoButton, warnIfMissed: false);
+    await tester.pumpAndSettle();
+  }
+
   void expectRoutePolylineVisible(bool visible) {
     final layer = tester.widget<PolylineLayer>(
       find.byKey(const Key('route-polyline-layer')),
@@ -156,7 +180,7 @@ class RouteInfoRobot {
     expect(
       find.descendant(
         of: routeEstimatedTimeRow,
-        matching: find.text('Estimated Time'),
+        matching: find.text('Estimated Time (Naismith)'),
       ),
       findsOneWidget,
     );
@@ -164,6 +188,26 @@ class RouteInfoRobot {
       find.descendant(of: routeEstimatedTimeRow, matching: find.text(value)),
       findsOneWidget,
     );
+  }
+
+  void expectRouteScarfTime(String value) {
+    expect(routeScarfTimeRow, findsOneWidget);
+    expect(
+      find.descendant(
+        of: routeScarfTimeRow,
+        matching: find.text('Estimated Time (Scarf)'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: routeScarfTimeRow, matching: find.text(value)),
+      findsOneWidget,
+    );
+  }
+
+  void expectWalkingSpeed(String value) {
+    expect(walkingSpeedField, findsOneWidget);
+    expect(tester.widget<TextField>(walkingSpeedField).controller!.text, value);
   }
 
   void expectRoutePanelHidden() {

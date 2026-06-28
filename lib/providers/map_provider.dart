@@ -1771,6 +1771,10 @@ class MapNotifier extends Notifier<MapState> {
     );
     route.routeTimingSource = RouteTimingSources.naismith;
     route.routeTimingProfileJson = encodeRouteTimingProfile(profile);
+    route.routeTimingSegmentKindsJson = buildRouteTimingSegmentKindsJson(
+      segmentCount: route.gpxRoute.length > 1 ? route.gpxRoute.length - 1 : 0,
+      kind: RouteTimingSegmentKinds.manualEstimated,
+    );
     route.estimatedTime = profileDurationSeconds(profile) * 1000;
   }
 
@@ -1788,12 +1792,45 @@ class MapNotifier extends Notifier<MapState> {
         updatedPoints: route.gpxRoute,
         updatedElevations: route.gpxRouteElevations,
       );
+      final sourceSegmentKinds =
+          resolveRouteTimingSegmentKinds(
+            segmentCount: sourceRoute.gpxRoute.length > 1
+                ? sourceRoute.gpxRoute.length - 1
+                : 0,
+            routeTimingSource: sourceRoute.routeTimingSource,
+            routeTimingSegmentKindsJson:
+                sourceRoute.routeTimingSegmentKindsJson,
+          ) ??
+          (sourceRoute.routeTimingSource == null
+              ? buildRouteTimingSegmentKinds(
+                  segmentCount: sourceRoute.gpxRoute.length > 1
+                      ? sourceRoute.gpxRoute.length - 1
+                      : 0,
+                  kind: RouteTimingSegmentKinds.preserved,
+                )
+              : null);
       if (combinedProfile != null) {
+        if (sourceSegmentKinds == null) {
+          _applyRouteTimingFromGeometry(route);
+          return;
+        }
+        final combinedSegmentKinds = extendRouteTimingSegmentKinds(
+          sourcePoints: sourceRoute.gpxRoute,
+          sourceSegmentKinds: sourceSegmentKinds,
+          updatedPoints: route.gpxRoute,
+        );
+        if (combinedSegmentKinds == null) {
+          _applyRouteTimingFromGeometry(route);
+          return;
+        }
         route.routeTimingSource = combinedProfile.length == sourceProfile.length
             ? sourceRoute.routeTimingSource
             : RouteTimingSources.extendedRoute;
         route.routeTimingProfileJson = encodeRouteTimingProfile(
           combinedProfile,
+        );
+        route.routeTimingSegmentKindsJson = encodeRouteTimingSegmentKinds(
+          combinedSegmentKinds,
         );
         route.estimatedTime = profileDurationSeconds(combinedProfile) * 1000;
         return;
@@ -5447,6 +5484,49 @@ class MapNotifier extends Notifier<MapState> {
     if (!visible && state.hoveredRouteId == routeId) {
       state = state.copyWith(clearHoveredRouteId: true);
     }
+  }
+
+  void updateRouteWalkingSpeed(int routeId, double walkingSpeedKmh) {
+    final route = _routeRepository.findById(routeId);
+    if (route == null) {
+      return;
+    }
+
+    final normalizedSpeed = normalizeWalkingSpeedKmh(walkingSpeedKmh);
+    if (route.walkingSpeedKmh == normalizedSpeed) {
+      return;
+    }
+
+    route.walkingSpeedKmh = normalizedSpeed;
+    _routeRepository.saveRoute(route);
+    ref.read(routeRevisionProvider.notifier).increment();
+  }
+
+  void recalculateRouteTiming(int routeId, RouteTimingAlgorithm algorithm) {
+    final route = _routeRepository.findById(routeId);
+    if (route == null || route.gpxRoute.length < 2) {
+      return;
+    }
+
+    final profile = buildRouteTimingProfileForAlgorithm(
+      algorithm: algorithm,
+      points: route.gpxRoute,
+      elevations: route.gpxRouteElevations,
+      walkingSpeedKmh:
+          route.walkingSpeedKmh ?? routeTimingDefaultWalkingSpeedKmh,
+    );
+    route.walkingSpeedKmh = normalizeWalkingSpeedKmh(
+      route.walkingSpeedKmh ?? routeTimingDefaultWalkingSpeedKmh,
+    );
+    route.routeTimingSource = routeTimingSourceForAlgorithm(algorithm);
+    route.routeTimingProfileJson = encodeRouteTimingProfile(profile);
+    route.routeTimingSegmentKindsJson = buildRouteTimingSegmentKindsJson(
+      segmentCount: route.gpxRoute.length - 1,
+      kind: RouteTimingSegmentKinds.manualEstimated,
+    );
+    route.estimatedTime = profileDurationSeconds(profile) * 1000;
+    _routeRepository.saveRoute(route);
+    ref.read(routeRevisionProvider.notifier).increment();
   }
 
   void clearSelectedRoute() {

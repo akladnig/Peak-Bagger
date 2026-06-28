@@ -13,6 +13,7 @@ import 'package:peak_bagger/models/route_graph_manifest.dart';
 import 'package:peak_bagger/models/route_graph_trail_display_chunk.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
+import 'package:peak_bagger/services/route_timing_service.dart';
 
 void main() {
   test('getEntities exposes current schema metadata', () {
@@ -180,6 +181,8 @@ void main() {
         'estimatedTime',
         'routeTimingSource',
         'routeTimingProfileJson',
+        'walkingSpeedKmh',
+        'routeTimingSegmentKindsJson',
       ]),
     );
     expect(entities[9].primaryKeyField, 'id');
@@ -541,6 +544,9 @@ void main() {
         estimatedTime: 5400000,
         routeTimingSource: 'naismith',
         routeTimingProfileJson: '[0,5400]',
+        walkingSpeedKmh: 4.2,
+        routeTimingSegmentKindsJson:
+            '["${RouteTimingSegmentKinds.manualEstimated}"]',
       ),
     );
 
@@ -560,6 +566,11 @@ void main() {
     expect(row.values['estimatedTime'], 5400000);
     expect(row.values['routeTimingSource'], 'naismith');
     expect(row.values['routeTimingProfileJson'], '[0,5400]');
+    expect(row.values['walkingSpeedKmh'], 4.2);
+    expect(
+      row.values['routeTimingSegmentKindsJson'],
+      '["${RouteTimingSegmentKinds.manualEstimated}"]',
+    );
   });
 
   test('peak admin field helpers expose required table and details order', () {

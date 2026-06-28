@@ -32,6 +32,7 @@ void main() {
       endElevation: 15,
       lowestElevation: 16,
       highestElevation: 17,
+      walkingSpeedKmh: 4.4,
     );
 
     final result = RouteAdminEditor.validateAndBuild(
@@ -87,6 +88,11 @@ void main() {
       profileDurationSeconds(expectedProfile) * 1000,
     );
     expect(result.route!.routeTimingSource, RouteTimingSources.naismith);
+    expect(result.route!.walkingSpeedKmh, 4.4);
+    expect(
+      result.route!.routeTimingSegmentKindsJson,
+      '["${RouteTimingSegmentKinds.manualEstimated}"]',
+    );
     expect(RouteAdminEditor.normalize(source).colour, '0x00000001');
   });
 }

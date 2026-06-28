@@ -175,6 +175,7 @@ class RouteAdminEditor {
       endElevation: endElevation!,
       lowestElevation: lowestElevation!,
       highestElevation: highestElevation!,
+      walkingSpeedKmh: source.walkingSpeedKmh,
     );
     final profile = buildNaismithProfile(
       points: updated.gpxRoute,
@@ -182,6 +183,10 @@ class RouteAdminEditor {
     );
     updated.routeTimingSource = RouteTimingSources.naismith;
     updated.routeTimingProfileJson = encodeRouteTimingProfile(profile);
+    updated.routeTimingSegmentKindsJson = buildRouteTimingSegmentKindsJson(
+      segmentCount: updated.gpxRoute.length > 1 ? updated.gpxRoute.length - 1 : 0,
+      kind: RouteTimingSegmentKinds.manualEstimated,
+    );
     updated.estimatedTime = profileDurationSeconds(profile) * 1000;
 
     return RouteAdminValidationResult(fieldErrors: fieldErrors, route: updated);

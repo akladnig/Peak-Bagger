@@ -19,6 +19,7 @@ import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/services/route_timing_service.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/waypoints_repository.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
@@ -95,6 +96,53 @@ class TestMapNotifier extends MapNotifier {
     }
 
     route.visible = visible;
+    repository.saveRoute(route);
+    ref.read(routeRevisionProvider.notifier).increment();
+  }
+
+  @override
+  void updateRouteWalkingSpeed(int routeId, double walkingSpeedKmh) {
+    final repository = routeRepository;
+    if (repository == null) {
+      return;
+    }
+
+    final route = repository.findById(routeId);
+    if (route == null) {
+      return;
+    }
+
+    route.walkingSpeedKmh = walkingSpeedKmh;
+    repository.saveRoute(route);
+    ref.read(routeRevisionProvider.notifier).increment();
+  }
+
+  @override
+  void recalculateRouteTiming(int routeId, RouteTimingAlgorithm algorithm) {
+    final repository = routeRepository;
+    if (repository == null) {
+      return;
+    }
+
+    final route = repository.findById(routeId);
+    if (route == null || route.gpxRoute.length < 2) {
+      return;
+    }
+
+    final profile = buildRouteTimingProfileForAlgorithm(
+      algorithm: algorithm,
+      points: route.gpxRoute,
+      elevations: route.gpxRouteElevations,
+      walkingSpeedKmh:
+          route.walkingSpeedKmh ?? routeTimingDefaultWalkingSpeedKmh,
+    );
+    route.routeTimingSource = routeTimingSourceForAlgorithm(algorithm);
+    route.routeTimingProfileJson = encodeRouteTimingProfile(profile);
+    route.routeTimingSegmentKindsJson = buildRouteTimingSegmentKindsJson(
+      segmentCount: route.gpxRoute.length - 1,
+      kind: RouteTimingSegmentKinds.manualEstimated,
+    );
+    route.estimatedTime = profileDurationSeconds(profile) * 1000;
     repository.saveRoute(route);
     ref.read(routeRevisionProvider.notifier).increment();
   }

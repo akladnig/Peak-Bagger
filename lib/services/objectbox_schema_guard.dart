@@ -58,6 +58,8 @@ class ObjectBoxSchemaGuard {
       'Route.estimatedTime:${_hasProperty(route, 'estimatedTime')}',
       'Route.routeTimingSource:${_hasProperty(route, 'routeTimingSource')}',
       'Route.routeTimingProfileJson:${_hasProperty(route, 'routeTimingProfileJson')}',
+      'Route.walkingSpeedKmh:${_hasProperty(route, 'walkingSpeedKmh')}',
+      'Route.routeTimingSegmentKindsJson:${_hasProperty(route, 'routeTimingSegmentKindsJson')}',
       'Route.displayRoutePointsByZoom:${_hasProperty(route, 'displayRoutePointsByZoom')}',
       'Route.colour:${_hasProperty(route, 'colour')}',
     ].join('|');

@@ -3367,6 +3367,44 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                   );
                                                 }
                                               },
+                                              onRouteWalkingSpeedChanged:
+                                                  selectedRoute == null
+                                                      ? null
+                                                      : (value) {
+                                                      final route =
+                                                          selectedRoute;
+                                                      if (route == null) {
+                                                        return;
+                                                      }
+                                                      ref
+                                                          .read(
+                                                            mapProvider
+                                                                .notifier,
+                                                          )
+                                                          .updateRouteWalkingSpeed(
+                                                            route.id,
+                                                            value,
+                                                          );
+                                                      },
+                                              onRouteTimingRecalculate:
+                                                  selectedRoute == null
+                                                      ? null
+                                                      : (algorithm) {
+                                                          final route =
+                                                              selectedRoute;
+                                                          if (route == null) {
+                                                            return;
+                                                          }
+                                                          ref
+                                                              .read(
+                                                                mapProvider
+                                                                    .notifier,
+                                                              )
+                                                              .recalculateRouteTiming(
+                                                                route.id,
+                                                                algorithm,
+                                                              );
+                                                        },
                                               onExport: () {
                                                 unawaited(
                                                   _exportInfoSelection(

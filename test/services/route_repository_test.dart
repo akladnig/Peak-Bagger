@@ -92,14 +92,29 @@ void main() {
       estimatedTime: 123456,
       routeTimingSource: RouteTimingSources.naismith,
       routeTimingProfileJson: '[0,123456]',
+      walkingSpeedKmh: 4.2,
+      routeTimingSegmentKindsJson:
+          '["${RouteTimingSegmentKinds.manualEstimated}"]',
     );
 
     final saved = repository.saveRoute(route);
 
     expect(saved.estimatedTime, 123456);
     expect(saved.routeTimingSource, RouteTimingSources.naismith);
+    expect(saved.walkingSpeedKmh, 4.2);
     expect(repository.getAllRoutes().single.estimatedTime, 123456);
-    expect(repository.getAllRoutes().single.routeTimingSource, RouteTimingSources.naismith);
-    expect(repository.getAllRoutes().single.routeTimingProfileJson, '[0,123456]');
+    expect(
+      repository.getAllRoutes().single.routeTimingSource,
+      RouteTimingSources.naismith,
+    );
+    expect(
+      repository.getAllRoutes().single.routeTimingProfileJson,
+      '[0,123456]',
+    );
+    expect(repository.getAllRoutes().single.walkingSpeedKmh, 4.2);
+    expect(
+      repository.getAllRoutes().single.routeTimingSegmentKindsJson,
+      '["${RouteTimingSegmentKinds.manualEstimated}"]',
+    );
   });
 }

@@ -238,13 +238,10 @@ void main() {
     expect(find.text('17.5 km / 0 m'), findsOneWidget);
     expect(find.text('900 m'), findsNWidgets(2));
     expect(find.text('450 m'), findsOneWidget);
-    expect(find.text('Time'), findsOneWidget);
-    expect(find.text('Estimated Time'), findsOneWidget);
-    expect(find.text('1h 30m'), findsOneWidget);
-    expect(
-      find.text('Estimated time has been derived from a verified walk'),
-      findsOneWidget,
-    );
+    expect(find.text('Estimated Time'), findsNWidgets(2));
+    expect(find.text('Estimated Time (Naismith)'), findsOneWidget);
+    expect(find.text('Estimated Time (Scarf)'), findsOneWidget);
+    expect(find.text('1h 30m'), findsNWidgets(2));
     expect(find.text('Peaks Climbed'), findsNothing);
     expect(find.text('Elevation'), findsOneWidget);
     expect(find.text('Start Elevation'), findsOneWidget);
@@ -276,9 +273,64 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Time'), findsOneWidget);
-    expect(find.text('Estimated Time'), findsOneWidget);
-    expect(find.text('—'), findsOneWidget);
+    expect(find.text('Estimated Time'), findsNWidgets(2));
+    expect(find.text('Estimated Time (Naismith)'), findsOneWidget);
+    expect(find.text('Estimated Time (Scarf)'), findsOneWidget);
+    expect(find.text('—'), findsNWidgets(2));
+  });
+
+  testWidgets('selected route refreshes persisted walking speed on reopen', (
+    tester,
+  ) async {
+    final route = app_route.Route(
+      id: 1,
+      name: 'Adjustable Route',
+      routeTimingSource: RouteTimingSources.naismith,
+      walkingSpeedKmh: 4.0,
+      gpxRoute: const [LatLng(0, 0), LatLng(0, 0.08983)],
+      gpxRouteElevations: const [0, 0],
+    );
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage([route]));
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showRoutes: true,
+        selectedRouteId: 1,
+      ),
+      routeRepository: routeRepository,
+    );
+
+    await _pumpRawMapScreen(
+      tester,
+      notifier,
+      routeRepository,
+      size: const Size(1600, 900),
+    );
+
+    final incrementButton = find.byKey(
+      const Key('route-walking-speed-increment'),
+    );
+    await tester.ensureVisible(incrementButton);
+    await tester.tap(incrementButton, warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    expect(routeRepository.findById(1)!.walkingSpeedKmh, 4.1);
+
+    await tester.tap(find.byKey(const Key('track-info-panel-close')));
+    await tester.pumpAndSettle();
+
+    notifier.selectRoute(1);
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('route-walking-speed-field')))
+          .controller!
+          .text,
+      '4.1',
+    );
   });
 
   testWidgets('route export success snackbar shows nested Routes path', (

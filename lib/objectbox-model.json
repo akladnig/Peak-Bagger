@@ -470,7 +470,7 @@
     },
     {
       "id": "6:3506540890240152030",
-      "lastPropertyId": "19:3445699157426820519",
+      "lastPropertyId": "21:7896680070633107587",
       "name": "Route",
       "properties": [
         {
@@ -567,6 +567,16 @@
         {
           "id": "19:3445699157426820519",
           "name": "routeTimingSource",
+          "type": 9
+        },
+        {
+          "id": "20:2829340908629725475",
+          "name": "walkingSpeedKmh",
+          "type": 8
+        },
+        {
+          "id": "21:7896680070633107587",
+          "name": "routeTimingSegmentKindsJson",
           "type": 9
         }
       ],

@@ -1017,23 +1017,27 @@ void main() {
     );
     expect(robot.notifier.state.showRoutes, isTrue);
     expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
-    expect(find.byKey(const Key('route-estimated-time-row')), findsOneWidget);
+    expect(find.byKey(const Key('route-estimated-time-naismith-row')), findsOneWidget);
+    expect(find.byKey(const Key('route-estimated-time-scarf-row')), findsOneWidget);
     expect(
       find.descendant(
-        of: find.byKey(const Key('route-estimated-time-row')),
-        matching: find.text('Estimated Time'),
+        of: find.byKey(const Key('route-estimated-time-naismith-row')),
+        matching: find.text('Estimated Time (Naismith)'),
       ),
       findsOneWidget,
     );
     expect(
       find.descendant(
-        of: find.byKey(const Key('route-estimated-time-row')),
+        of: find.byKey(const Key('route-estimated-time-naismith-row')),
         matching: find.text('10m'),
       ),
       findsOneWidget,
     );
     expect(
-      find.text('Estimated time has been derived from a verified walk'),
+      find.descendant(
+        of: find.byKey(const Key('route-estimated-time-scarf-row')),
+        matching: find.text('10m'),
+      ),
       findsOneWidget,
     );
   });

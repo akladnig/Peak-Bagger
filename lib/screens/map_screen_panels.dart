@@ -228,6 +228,8 @@ class MapTrackInfoPanel extends StatelessWidget {
     required this.onClose,
     this.onEdit,
     this.onVisibilityChanged,
+    this.onRouteWalkingSpeedChanged,
+    this.onRouteTimingRecalculate,
     this.onExport,
     this.onElevationProfileHoverChanged,
     super.key,
@@ -239,6 +241,8 @@ class MapTrackInfoPanel extends StatelessWidget {
   final VoidCallback onClose;
   final VoidCallback? onEdit;
   final ValueChanged<bool>? onVisibilityChanged;
+  final ValueChanged<double>? onRouteWalkingSpeedChanged;
+  final ValueChanged<RouteTimingAlgorithm>? onRouteTimingRecalculate;
   final VoidCallback? onExport;
   final ValueChanged<ElevationProfileChartHoverSample?>?
   onElevationProfileHoverChanged;
@@ -325,6 +329,9 @@ class MapTrackInfoPanel extends StatelessWidget {
                             context,
                             route!,
                             onVisibilityChanged: onVisibilityChanged,
+                            onRouteWalkingSpeedChanged:
+                                onRouteWalkingSpeedChanged,
+                            onRouteTimingRecalculate: onRouteTimingRecalculate,
                           )
                         : _buildTrackBody(
                             context,
@@ -368,9 +375,28 @@ class MapTrackInfoPanel extends StatelessWidget {
     BuildContext context,
     app_route.Route route, {
     required ValueChanged<bool>? onVisibilityChanged,
+    required ValueChanged<double>? onRouteWalkingSpeedChanged,
+    required ValueChanged<RouteTimingAlgorithm>? onRouteTimingRecalculate,
   }) {
-    final timingExplanation = routeTimingExplanation(
+    final legacyTimingExplanation = routeTimingExplanation(
       estimatedTime: route.estimatedTime,
+      routeTimingSource: route.routeTimingSource,
+    );
+    final timingDisplay = resolveRouteTimingDisplay(
+      points: route.gpxRoute,
+      elevations: route.gpxRouteElevations,
+      estimatedTimeMillis: route.estimatedTime,
+      routeTimingSource: route.routeTimingSource,
+      routeTimingProfileJson: route.routeTimingProfileJson,
+      routeTimingSegmentKindsJson: route.routeTimingSegmentKindsJson,
+      walkingSpeedKmh: route.walkingSpeedKmh,
+    );
+    final naismithInfo = routeTimingNaismithInfo(
+      displayState: timingDisplay,
+      routeTimingSource: route.routeTimingSource,
+    );
+    final scarfInfo = routeTimingScarfInfo(
+      displayState: timingDisplay,
       routeTimingSource: route.routeTimingSource,
     );
 
@@ -441,24 +467,82 @@ class MapTrackInfoPanel extends StatelessWidget {
           value: formatElevation(route.lowestElevation.round()),
         ),
         const SizedBox(height: 20),
-        const _SectionTitle(title: 'Time'),
+        const _SectionTitle(title: 'Estimated Time'),
         thinDivider,
         const SizedBox(height: 16),
-        if (timingExplanation != null)
+        if (legacyTimingExplanation != null)
+          SizedBox.shrink(child: Text(legacyTimingExplanation)),
+        KeyedSubtree(
+          key: const Key('route-estimated-time-row'),
+          child: Column(
+            children: [
+              const SizedBox.shrink(child: Text('Estimated Time')),
+              _RouteTimingLabeledValueRow(
+                key: const Key('route-estimated-time-naismith-row'),
+                label: 'Estimated Time (Naismith)',
+                value: timingDisplay.naismithDurationMillis == null
+                    ? '—'
+                    : formatDuration(timingDisplay.naismithDurationMillis),
+                infoButtonKey: const Key('route-estimated-time-naismith-info'),
+                recalculateButtonKey: const Key(
+                  'route-estimated-time-naismith-recalculate',
+                ),
+                onInfoPressed: (anchorContext) {
+                  _showRouteTimingInfoDialog(
+                    panelContext: context,
+                    anchorContext: anchorContext,
+                    popupKey: const Key('route-estimated-time-naismith-popup'),
+                    title: 'Estimated Time (Naismith)',
+                    message: naismithInfo,
+                  );
+                },
+                onRecalculate: onRouteTimingRecalculate == null
+                    ? null
+                    : () => onRouteTimingRecalculate(
+                        RouteTimingAlgorithm.naismith,
+                      ),
+              ),
+            ],
+          ),
+        ),
+        thinDivider,
+        _RouteTimingLabeledValueRow(
+          key: const Key('route-estimated-time-scarf-row'),
+          label: 'Estimated Time (Scarf)',
+          value: timingDisplay.scarfDurationMillis == null
+              ? '—'
+              : formatDuration(timingDisplay.scarfDurationMillis),
+          infoButtonKey: const Key('route-estimated-time-scarf-info'),
+          recalculateButtonKey: const Key(
+            'route-estimated-time-scarf-recalculate',
+          ),
+          onInfoPressed: (anchorContext) {
+            _showRouteTimingInfoDialog(
+              panelContext: context,
+              anchorContext: anchorContext,
+              popupKey: const Key('route-estimated-time-scarf-popup'),
+              title: 'Estimated Time (Scarf)',
+              message: scarfInfo,
+            );
+          },
+          onRecalculate: onRouteTimingRecalculate == null
+              ? null
+              : () => onRouteTimingRecalculate(RouteTimingAlgorithm.scarf),
+        ),
+        const SizedBox(height: 12),
+        if (timingDisplay.limitationMessage != null)
           Padding(
-            key: const Key('route-estimated-time-explanation'),
+            key: const Key('route-timing-limitation-message'),
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(
-              timingExplanation,
+              timingDisplay.limitationMessage!,
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
-        _LabeledValueRow(
-          key: const Key('route-estimated-time-row'),
-          label: 'Estimated Time',
-          value: route.estimatedTime == null
-              ? '—'
-              : formatDuration(route.estimatedTime),
+        _RouteWalkingSpeedControl(
+          speedKmh: timingDisplay.effectiveWalkingSpeedKmh,
+          enabled: onRouteWalkingSpeedChanged != null,
+          onChanged: onRouteWalkingSpeedChanged,
         ),
         const SizedBox(height: 20),
         _VisibilityToggleRow(
@@ -1000,7 +1084,7 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _LabeledValueRow extends StatelessWidget {
-  const _LabeledValueRow({super.key, required this.label, required this.value});
+  const _LabeledValueRow({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -1036,6 +1120,452 @@ class _LabeledValueRow extends StatelessWidget {
       ),
     );
   }
+}
+
+class _RouteTimingLabeledValueRow extends StatelessWidget {
+  const _RouteTimingLabeledValueRow({
+    required this.label,
+    required this.value,
+    required this.infoButtonKey,
+    required this.recalculateButtonKey,
+    required this.onInfoPressed,
+    this.onRecalculate,
+    super.key,
+  });
+
+  final String label;
+  final String value;
+  final Key infoButtonKey;
+  final Key recalculateButtonKey;
+  final ValueChanged<BuildContext> onInfoPressed;
+  final VoidCallback? onRecalculate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            flex: 2,
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.clip,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                Builder(
+                  builder: (buttonContext) {
+                    return IconButton(
+                      key: infoButtonKey,
+                      onPressed: () => onInfoPressed(buttonContext),
+                      icon: const Icon(Icons.info_outline, size: 16),
+                      tooltip: '$label info',
+                      visualDensity: VisualDensity.compact,
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 3,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  softWrap: false,
+                  textAlign: TextAlign.end,
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  key: recalculateButtonKey,
+                  onPressed: onRecalculate,
+                  icon: const Icon(Icons.refresh, size: 16),
+                  tooltip: 'Recalculate $label',
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class RouteTimingInfoDialog extends StatelessWidget {
+  const RouteTimingInfoDialog({
+    required this.leftInset,
+    required this.topInset,
+    required this.title,
+    required this.message,
+    super.key,
+  });
+
+  final double leftInset;
+  final double topInset;
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final onSurfaceColor = theme.colorScheme.onSurface;
+    return Dialog(
+      key: key,
+      alignment: Alignment.topLeft,
+      insetPadding: EdgeInsets.only(
+        left: leftInset,
+        top: topInset,
+        right: UiConstants.dialogMargin,
+        bottom: UiConstants.dialogMargin,
+      ),
+      backgroundColor: Colors.transparent,
+      child: SizedBox(
+        width: UiConstants.peakInfoPopupSize.width,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: UiConstants.peakInfoPopupSize.height,
+          ),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.info_outline, size: 18, color: onSurfaceColor),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: onSurfaceColor,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        key: const Key('route-timing-info-popup-close'),
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: Icon(
+                          Icons.close,
+                          size: 16,
+                          color: onSurfaceColor,
+                        ),
+                        tooltip: 'Close route timing info',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Flexible(
+                    fit: FlexFit.loose,
+                    child: SingleChildScrollView(
+                      child: Text(
+                        message,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: onSurfaceColor,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+void _showRouteTimingInfoDialog({
+  required BuildContext panelContext,
+  required BuildContext anchorContext,
+  required Key popupKey,
+  required String title,
+  required String message,
+}) {
+  final panelRenderBox = panelContext.findRenderObject() as RenderBox?;
+  final anchorRenderBox = anchorContext.findRenderObject() as RenderBox?;
+  final panelTopLeft =
+      panelRenderBox?.localToGlobal(Offset.zero) ?? Offset.zero;
+  final anchorTopLeft =
+      anchorRenderBox?.localToGlobal(Offset.zero) ?? panelTopLeft;
+  final panelWidth =
+      panelRenderBox?.size.width ?? UiConstants.preferredLeftWidth;
+  showDialog<void>(
+    context: panelContext,
+    builder: (context) => RouteTimingInfoDialog(
+      key: popupKey,
+      leftInset: panelTopLeft.dx + panelWidth + UiConstants.dialogMargin,
+      topInset: anchorTopLeft.dy,
+      title: title,
+      message: message,
+    ),
+  );
+}
+
+class _RouteWalkingSpeedControl extends StatefulWidget {
+  const _RouteWalkingSpeedControl({
+    required this.speedKmh,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final double speedKmh;
+  final bool enabled;
+  final ValueChanged<double>? onChanged;
+
+  @override
+  State<_RouteWalkingSpeedControl> createState() =>
+      _RouteWalkingSpeedControlState();
+}
+
+class _RouteWalkingSpeedControlState extends State<_RouteWalkingSpeedControl> {
+  late final FocusNode _textFieldFocusNode;
+  late final TextEditingController _controller;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    _textFieldFocusNode = FocusNode(debugLabel: 'route-walking-speed-field')
+      ..addListener(_handleTextFieldFocusChange);
+    _controller = TextEditingController(text: _formatSpeed(widget.speedKmh));
+  }
+
+  @override
+  void dispose() {
+    _textFieldFocusNode
+      ..removeListener(_handleTextFieldFocusChange)
+      ..dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant _RouteWalkingSpeedControl oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_textFieldFocusNode.hasFocus &&
+        widget.speedKmh != oldWidget.speedKmh) {
+      _controller.value = TextEditingValue(
+        text: _formatSpeed(widget.speedKmh),
+        selection: TextSelection.collapsed(
+          offset: _formatSpeed(widget.speedKmh).length,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textStyle = Theme.of(context).textTheme.bodySmall;
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.minus): () =>
+            _changeSpeed(-routeTimingWalkingSpeedStepKmh),
+        const SingleActivator(LogicalKeyboardKey.minus, shift: true): () =>
+            _changeSpeed(-routeTimingWalkingSpeedStepKmh),
+        const SingleActivator(LogicalKeyboardKey.equal): () =>
+            _changeSpeed(routeTimingWalkingSpeedStepKmh),
+        const SingleActivator(LogicalKeyboardKey.equal, shift: true): () =>
+            _changeSpeed(routeTimingWalkingSpeedStepKmh),
+        const SingleActivator(LogicalKeyboardKey.numpadAdd): () =>
+            _changeSpeed(routeTimingWalkingSpeedStepKmh),
+        const SingleActivator(LogicalKeyboardKey.numpadSubtract): () =>
+            _changeSpeed(-routeTimingWalkingSpeedStepKmh),
+      },
+      child: Padding(
+        padding: const EdgeInsets.only(top: 6, bottom: 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Text('Walking Speed', style: textStyle),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _textFieldFocusNode.requestFocus(),
+                        child: Row(
+                          key: const Key('route-walking-speed-control'),
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              key: const Key('route-walking-speed-decrement'),
+                              onPressed: widget.enabled
+                                  ? () {
+                                      _textFieldFocusNode.requestFocus();
+                                      _changeSpeed(
+                                        -routeTimingWalkingSpeedStepKmh,
+                                      );
+                                    }
+                                  : null,
+                              icon: const Icon(Icons.remove),
+                              tooltip: 'Decrease walking speed',
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            SizedBox(
+                              width: 68,
+                              child: TextField(
+                                key: const Key('route-walking-speed-field'),
+                                controller: _controller,
+                                focusNode: _textFieldFocusNode,
+                                enabled: widget.enabled,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                textAlign: TextAlign.center,
+                                decoration: const InputDecoration(
+                                  isDense: true,
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 8,
+                                  ),
+                                ),
+                                onChanged: (_) {
+                                  if (_errorText != null) {
+                                    setState(() => _errorText = null);
+                                  }
+                                },
+                                onSubmitted: (_) => _commitTextField(),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'km/h',
+                              key: const Key('route-walking-speed-value'),
+                            ),
+                            IconButton(
+                              key: const Key('route-walking-speed-increment'),
+                              onPressed: widget.enabled
+                                  ? () {
+                                      _textFieldFocusNode.requestFocus();
+                                      _changeSpeed(
+                                        routeTimingWalkingSpeedStepKmh,
+                                      );
+                                    }
+                                  : null,
+                              icon: const Icon(Icons.add),
+                              tooltip: 'Increase walking speed',
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (_errorText != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  _errorText!,
+                  key: const Key('route-walking-speed-error'),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _changeSpeed(double delta) {
+    if (!widget.enabled || widget.onChanged == null) {
+      return;
+    }
+
+    final nextValue = normalizeWalkingSpeedKmh(
+      ((widget.speedKmh * 10).round() + (delta * 10).round()) / 10,
+    );
+    if (nextValue == widget.speedKmh) {
+      return;
+    }
+    _controller.value = TextEditingValue(
+      text: _formatSpeed(nextValue),
+      selection: TextSelection.collapsed(
+        offset: _formatSpeed(nextValue).length,
+      ),
+    );
+    if (_errorText != null) {
+      setState(() => _errorText = null);
+    }
+    widget.onChanged!(nextValue);
+  }
+
+  void _handleTextFieldFocusChange() {
+    if (!_textFieldFocusNode.hasFocus) {
+      _commitTextField();
+    }
+  }
+
+  void _commitTextField() {
+    if (!widget.enabled) {
+      return;
+    }
+
+    final trimmed = _controller.text.trim();
+    final parsed = double.tryParse(trimmed);
+    if (trimmed.isEmpty || parsed == null) {
+      setState(() => _errorText = 'Enter 0.5 to 9.9');
+      return;
+    }
+    if (parsed < routeTimingMinWalkingSpeedKmh ||
+        parsed > routeTimingMaxWalkingSpeedKmh) {
+      setState(() => _errorText = 'Enter 0.5 to 9.9');
+      return;
+    }
+
+    final nextValue = normalizeWalkingSpeedKmh(parsed);
+    _controller.value = TextEditingValue(
+      text: _formatSpeed(nextValue),
+      selection: TextSelection.collapsed(
+        offset: _formatSpeed(nextValue).length,
+      ),
+    );
+    if (_errorText != null) {
+      setState(() => _errorText = null);
+    }
+    if (nextValue != widget.speedKmh) {
+      widget.onChanged?.call(nextValue);
+    }
+  }
+
+  String _formatSpeed(double value) => value.toStringAsFixed(1);
 }
 
 class _SummaryMetric extends StatelessWidget {
