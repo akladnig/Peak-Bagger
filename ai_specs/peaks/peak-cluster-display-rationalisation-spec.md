@@ -198,15 +198,16 @@ Use vertical-slice TDD:
 Baseline automated coverage outcomes:
 - Logic/state: provider default, hydrate, toggle, and persistence-failure fallback for both settings.
 - UI/widget: Settings switches render and toggle; shared viewport layer renders clustered and unclustered states; latest-walk card renders individual peak markers with `Show Peak Info` support; shared peak marker helper renders without the SVG path.
-- Critical journeys: toggling the main-map setting changes the main map presentation; toggling the peak-list mini-map setting changes the peak-list mini-map on the next rebuild/navigation cycle; cluster taps on the peak-list mini-map expand the camera, clear hover, close any open popup, and preserve the selected peak.
+- Critical journeys: toggling the main-map setting changes the main map presentation; widget coverage proves the peak-list mini-map setting changes the mini-map on the next rebuild/navigation cycle; robot coverage proves cluster taps on the peak-list mini-map expand the camera, clear hover, close any open popup, and preserve the selected peak.
 
 Required test split:
 1. Provider tests for default-on behavior, persisted values, and failed preference access fallback for both settings.
 2. Widget tests for the Settings screen switches and for `MapScreenPeakLayer` in both cluster-enabled and cluster-disabled modes.
 3. Widget tests for the peak-list mini-map and latest-walk card proving the peak-list mini-map respects the mini-map toggle, follows the explicit interaction contract for peak and cluster taps, and the latest-walk card remains individual-peaks only with `Show Peak Info` support.
-4. Robot/journey test for opening Settings, toggling the relevant switch, returning to the map, and seeing the corresponding cluster mode change.
-5. Regression test for `Move Peak to Marker` proving it no longer depends on the inline SVG marker asset.
-6. Static or test-assisted verification that `assets/peak_marker.svg` and `assets/peak_marker_ticked.svg` are no longer referenced by migrated runtime peak-rendering code and are no longer registered in `./pubspec.yaml`.
+4. Robot/journey test for opening Settings, toggling the main-map switch, returning to the map, and seeing the corresponding cluster mode change.
+5. Robot/journey test for peak-list mini-map cluster/selection interaction, including cluster expansion preserving the selected peak.
+6. Regression test for `Move Peak to Marker` proving it no longer depends on the inline SVG marker asset.
+7. Static or test-assisted verification that `assets/peak_marker.svg` and `assets/peak_marker_ticked.svg` are no longer referenced by migrated runtime peak-rendering code and are no longer registered in `./pubspec.yaml`.
 
 Stable selectors and seams:
 - Keep stable keys on the new switches, the peak-list mini-map viewport layer, cluster affordances, individual painted peak affordances, popup shell/anchor, and latest-walk peak marker helper instances needed by widget/robot tests.

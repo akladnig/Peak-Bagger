@@ -39,8 +39,7 @@ Unify peak rendering: viewport layer for map surfaces, marker helper for non-map
 - [x] `test/providers/peak_list_mini_map_cluster_display_settings_provider_test.dart` - provider coverage
 - [x] `test/widget/peak_lists_screen_test.dart` - mini-map cluster toggle + popup/selection behavior
 - [x] `test/widget/map_screen_peak_cluster_toggle_test.dart` - shared viewport layer regression if API changes
-- [ ] `test/robot/peaks/peak_lists_journey_test.dart` - mini-map settings-to-behavior journey
-- Blocker: shell-app settings navigation for a peak-lists robot journey was flaky under the current harness; widget settings coverage is green, and robot coverage exists for peak-list cluster/selection behavior.
+- [x] `test/robot/peaks/peak_lists_journey_test.dart` - cluster/selection robot journey; widget settings coverage accepted for mini-map toggle behavior
 - [x] TDD: mini-map toggle defaults on, persists, survives hydrate failure
 - [x] TDD: peak tap selects + opens popup; hover does not change selection
 - [x] TDD: cluster tap expands camera, clears hover, closes popup, preserves selected peak
