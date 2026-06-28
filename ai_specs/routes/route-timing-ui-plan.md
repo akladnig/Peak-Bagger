@@ -32,17 +32,17 @@ Keep timing math in services; keep panel callback-driven; follow existing Riverp
 ### Phase 2: Import/edit/admin/schema wiring
 
 - **Goal**: provenance populated at creation/update boundaries
-- [ ] `./lib/services/gpx_importer.dart` - mark timestamp imports preserved; untimed imports manual-estimated; default speed fallback semantics
-- [ ] `./lib/providers/map_provider.dart` - populate provenance on geometry fallback + route-draft save; preserve unchanged segments where possible
-- [ ] `./lib/services/route_admin_editor.dart` - preserve new timing fields or recompute/provenance per spec
-- [ ] `./lib/services/objectbox_admin_repository.dart` - expose new route fields in admin rows
-- [ ] `./lib/services/objectbox_schema_guard.dart` - include new route fields in schema signature
-- [ ] `./test/services/objectbox_admin_repository_test.dart` - cover new route timing fields in admin rows
-- [ ] `./test/services/objectbox_schema_guard_test.dart` - cover new route timing fields in schema signature
-- [ ] TDD: timestamp import gets preserved provenance; untimed import gets manual provenance; then implement
-- [ ] TDD: route edit/save preserves unchanged verified spans and marks inserted spans manual; then implement
-- [ ] TDD: admin/schema surfaces include new fields; then implement
-- [ ] Verify: `flutter test test/services/objectbox_admin_repository_test.dart test/services/objectbox_schema_guard_test.dart test/services/route_admin_editor_test.dart test/providers/map_provider_import_test.dart test/services/gpx_importer_filter_test.dart && flutter analyze`
+- [x] `./lib/services/gpx_importer.dart` - mark timestamp imports preserved; untimed imports manual-estimated; default speed fallback semantics
+- [x] `./lib/providers/map_provider.dart` - populate provenance on geometry fallback + route-draft save; preserve unchanged segments where possible
+- [x] `./lib/services/route_admin_editor.dart` - preserve new timing fields or recompute/provenance per spec
+- [x] `./lib/services/objectbox_admin_repository.dart` - expose new route fields in admin rows
+- [x] `./lib/services/objectbox_schema_guard.dart` - include new route fields in schema signature
+- [x] `./test/services/objectbox_admin_repository_test.dart` - cover new route timing fields in admin rows
+- [x] `./test/services/objectbox_schema_guard_test.dart` - cover new route timing fields in schema signature
+- [x] TDD: timestamp import gets preserved provenance; untimed import gets manual provenance; then implement
+- [x] TDD: route edit/save preserves unchanged verified spans and marks inserted spans manual; then implement
+- [x] TDD: admin/schema surfaces include new fields; then implement
+- [x] Verify: `flutter test test/services/objectbox_admin_repository_test.dart test/services/objectbox_schema_guard_test.dart test/services/route_admin_editor_test.dart test/providers/map_provider_import_test.dart test/services/gpx_importer_filter_test.dart && flutter analyze`
 
 ### Phase 3: Fallbacks + popup UX
 

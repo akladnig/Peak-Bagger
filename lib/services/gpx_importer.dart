@@ -339,6 +339,14 @@ class GpxImporter {
         routeTimingProfileJson: movingTimeMillis == null
             ? null
             : encodeRouteTimingProfile(timingProfile),
+        routeTimingSegmentKindsJson: buildRouteTimingSegmentKindsJson(
+          segmentCount: simplifiedRoutePoints.length > 1
+              ? simplifiedRoutePoints.length - 1
+              : 0,
+          kind: movingTimeMillis == null
+              ? RouteTimingSegmentKinds.manualEstimated
+              : RouteTimingSegmentKinds.preserved,
+        ),
       );
       return route;
     } catch (_) {

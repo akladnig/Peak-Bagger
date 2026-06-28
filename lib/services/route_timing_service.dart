@@ -283,6 +283,97 @@ String encodeRouteTimingSegmentKinds(List<String> kinds) {
   return jsonEncode(kinds);
 }
 
+List<String> buildRouteTimingSegmentKinds({
+  required int segmentCount,
+  required String kind,
+}) {
+  if (segmentCount <= 0) {
+    return const [];
+  }
+  return List<String>.filled(segmentCount, kind, growable: false);
+}
+
+String buildRouteTimingSegmentKindsJson({
+  required int segmentCount,
+  required String kind,
+}) {
+  return encodeRouteTimingSegmentKinds(
+    buildRouteTimingSegmentKinds(segmentCount: segmentCount, kind: kind),
+  );
+}
+
+List<String>? resolveRouteTimingSegmentKinds({
+  required int segmentCount,
+  required String? routeTimingSource,
+  required String? routeTimingSegmentKindsJson,
+}) {
+  return _resolveSegmentKinds(
+    routeTimingSource: routeTimingSource,
+    routeTimingSegmentKindsJson: routeTimingSegmentKindsJson,
+    segmentCount: segmentCount,
+  );
+}
+
+List<String>? extendRouteTimingSegmentKinds({
+  required List<LatLng> sourcePoints,
+  required List<String> sourceSegmentKinds,
+  required List<LatLng> updatedPoints,
+}) {
+  if (sourcePoints.length < 2 ||
+      sourceSegmentKinds.length != sourcePoints.length - 1 ||
+      updatedPoints.length < sourcePoints.length) {
+    return null;
+  }
+
+  var prefix = 0;
+  while (prefix < sourcePoints.length &&
+      prefix < updatedPoints.length &&
+      _samePoint(sourcePoints[prefix], updatedPoints[prefix])) {
+    prefix += 1;
+  }
+
+  var suffix = 0;
+  while (suffix < sourcePoints.length - prefix &&
+      suffix < updatedPoints.length - prefix &&
+      _samePoint(
+        sourcePoints[sourcePoints.length - 1 - suffix],
+        updatedPoints[updatedPoints.length - 1 - suffix],
+      )) {
+    suffix += 1;
+  }
+
+  if (prefix == sourcePoints.length) {
+    final appendedSegmentCount = updatedPoints.length - sourcePoints.length;
+    return [
+      ...sourceSegmentKinds,
+      ...buildRouteTimingSegmentKinds(
+        segmentCount: appendedSegmentCount,
+        kind: RouteTimingSegmentKinds.manualEstimated,
+      ),
+    ];
+  }
+
+  if (prefix + suffix != sourcePoints.length || prefix == 0 || suffix == 0) {
+    return null;
+  }
+
+  final insertedCount = updatedPoints.length - sourcePoints.length;
+  if (insertedCount <= 0) {
+    return null;
+  }
+
+  final leftAnchorIndex = prefix - 1;
+  final rightAnchorIndex = prefix;
+  return [
+    ...sourceSegmentKinds.take(leftAnchorIndex),
+    ...buildRouteTimingSegmentKinds(
+      segmentCount: insertedCount + 1,
+      kind: RouteTimingSegmentKinds.manualEstimated,
+    ),
+    ...sourceSegmentKinds.skip(rightAnchorIndex),
+  ];
+}
+
 double normalizeWalkingSpeedKmh(double? value) {
   if (value == null || !value.isFinite) {
     return routeTimingDefaultWalkingSpeedKmh;

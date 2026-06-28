@@ -162,6 +162,10 @@ void main() {
     expect(route.gpxRoute.last.longitude, 146.00010);
     expect(route.gpxRouteElevations, hasLength(2));
     expect(route.displayRoutePointsByZoom, isNot('{}'));
+    expect(
+      route.routeTimingSegmentKindsJson,
+      '["${RouteTimingSegmentKinds.manualEstimated}"]',
+    );
   });
 
   test('parseRouteFile captures timing from route timestamps', () async {
@@ -197,6 +201,10 @@ void main() {
     expect(route!.estimatedTime, 10 * 60 * 1000);
     expect(route.routeTimingSource, RouteTimingSources.verifiedWalk);
     expect(route.routeTimingProfileJson, '[0,600]');
+    expect(
+      route.routeTimingSegmentKindsJson,
+      '["${RouteTimingSegmentKinds.preserved}"]',
+    );
   });
 
   test(

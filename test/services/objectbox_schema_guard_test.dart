@@ -50,6 +50,8 @@ void main() {
     expect(signature, contains('Route.estimatedTime:'));
     expect(signature, contains('Route.routeTimingSource:'));
     expect(signature, contains('Route.routeTimingProfileJson:'));
+    expect(signature, contains('Route.walkingSpeedKmh:'));
+    expect(signature, contains('Route.routeTimingSegmentKindsJson:'));
     expect(signature, contains('Route.displayRoutePointsByZoom:'));
     expect(signature, contains('Route.colour:'));
   });

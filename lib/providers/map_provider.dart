@@ -1771,6 +1771,10 @@ class MapNotifier extends Notifier<MapState> {
     );
     route.routeTimingSource = RouteTimingSources.naismith;
     route.routeTimingProfileJson = encodeRouteTimingProfile(profile);
+    route.routeTimingSegmentKindsJson = buildRouteTimingSegmentKindsJson(
+      segmentCount: route.gpxRoute.length > 1 ? route.gpxRoute.length - 1 : 0,
+      kind: RouteTimingSegmentKinds.manualEstimated,
+    );
     route.estimatedTime = profileDurationSeconds(profile) * 1000;
   }
 
@@ -1788,12 +1792,45 @@ class MapNotifier extends Notifier<MapState> {
         updatedPoints: route.gpxRoute,
         updatedElevations: route.gpxRouteElevations,
       );
+      final sourceSegmentKinds =
+          resolveRouteTimingSegmentKinds(
+            segmentCount: sourceRoute.gpxRoute.length > 1
+                ? sourceRoute.gpxRoute.length - 1
+                : 0,
+            routeTimingSource: sourceRoute.routeTimingSource,
+            routeTimingSegmentKindsJson:
+                sourceRoute.routeTimingSegmentKindsJson,
+          ) ??
+          (sourceRoute.routeTimingSource == null
+              ? buildRouteTimingSegmentKinds(
+                  segmentCount: sourceRoute.gpxRoute.length > 1
+                      ? sourceRoute.gpxRoute.length - 1
+                      : 0,
+                  kind: RouteTimingSegmentKinds.preserved,
+                )
+              : null);
       if (combinedProfile != null) {
+        if (sourceSegmentKinds == null) {
+          _applyRouteTimingFromGeometry(route);
+          return;
+        }
+        final combinedSegmentKinds = extendRouteTimingSegmentKinds(
+          sourcePoints: sourceRoute.gpxRoute,
+          sourceSegmentKinds: sourceSegmentKinds,
+          updatedPoints: route.gpxRoute,
+        );
+        if (combinedSegmentKinds == null) {
+          _applyRouteTimingFromGeometry(route);
+          return;
+        }
         route.routeTimingSource = combinedProfile.length == sourceProfile.length
             ? sourceRoute.routeTimingSource
             : RouteTimingSources.extendedRoute;
         route.routeTimingProfileJson = encodeRouteTimingProfile(
           combinedProfile,
+        );
+        route.routeTimingSegmentKindsJson = encodeRouteTimingSegmentKinds(
+          combinedSegmentKinds,
         );
         route.estimatedTime = profileDurationSeconds(combinedProfile) * 1000;
         return;

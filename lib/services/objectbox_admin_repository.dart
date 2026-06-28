@@ -780,6 +780,8 @@ ObjectBoxAdminRow routeToAdminRow(Route route) {
       'estimatedTime': route.estimatedTime,
       'routeTimingSource': route.routeTimingSource,
       'routeTimingProfileJson': route.routeTimingProfileJson,
+      'walkingSpeedKmh': route.walkingSpeedKmh,
+      'routeTimingSegmentKindsJson': route.routeTimingSegmentKindsJson,
     },
   );
 }

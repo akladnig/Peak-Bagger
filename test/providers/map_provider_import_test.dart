@@ -17,6 +17,7 @@ import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/services/route_timing_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../harness/test_tasmap_repository.dart';
@@ -235,10 +236,12 @@ void main() {
     expect(result.items.single.route.estimatedTime, greaterThan(0));
     expect(result.items.single.route.routeTimingSource, 'naismith');
     expect(result.items.single.route.routeTimingProfileJson, isNotNull);
+    expect(result.items.single.route.routeTimingSegmentKindsJson, isNotNull);
     expect(routeRepository.getAllRoutes(), hasLength(1));
     expect(routeRepository.getAllRoutes().single.colour, 0xFFFF0000);
     expect(routeRepository.getAllRoutes().single.estimatedTime, greaterThan(0));
     expect(routeRepository.getAllRoutes().single.routeTimingSource, 'naismith');
+    expect(routeRepository.getAllRoutes().single.routeTimingSegmentKindsJson, isNotNull);
     expect(notifier.state.showRoutes, isTrue);
     expect(notifier.state.selectedRouteId, routeRepository.getAllRoutes().single.id);
     expect(container.read(routeRevisionProvider), 1);
@@ -283,7 +286,12 @@ void main() {
 
     expect(result.addedCount, 1);
     expect(result.items.single.route.estimatedTime, 10 * 60 * 1000);
+    expect(result.items.single.route.routeTimingSource, RouteTimingSources.verifiedWalk);
     expect(result.items.single.route.routeTimingProfileJson, '[0,600]');
+    expect(
+      result.items.single.route.routeTimingSegmentKindsJson,
+      '["${RouteTimingSegmentKinds.preserved}"]',
+    );
     expect(routeRepository.getAllRoutes().single.estimatedTime, 10 * 60 * 1000);
   });
 
