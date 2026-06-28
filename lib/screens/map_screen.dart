@@ -2114,7 +2114,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
           focusNode: _mapFocusNode,
           autofocus: true,
           onKeyEvent: (node, event) {
-            if (_searchFocusNode.hasFocus || _gotoFocusNode.hasFocus) {
+            if (_searchFocusNode.hasFocus ||
+                _gotoFocusNode.hasFocus ||
+                (_isEditableTextFocused() &&
+                    event.logicalKey != LogicalKeyboardKey.escape)) {
               return KeyEventResult.ignored;
             }
             if (routeChrome.routeDraftNameFieldFocused &&
@@ -3617,6 +3620,16 @@ class _MapScreenState extends ConsumerState<MapScreen>
         ),
       ),
     );
+  }
+
+  bool _isEditableTextFocused() {
+    final focusedContext = FocusManager.instance.primaryFocus?.context;
+    if (focusedContext == null) {
+      return false;
+    }
+
+    return focusedContext.widget is EditableText ||
+        focusedContext.findAncestorWidgetOfExactType<EditableText>() != null;
   }
 
   Future<String?> _savePeakInfoPopupEdit(Peak peak) async {

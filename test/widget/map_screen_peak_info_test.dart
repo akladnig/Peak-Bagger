@@ -1,6 +1,7 @@
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -331,6 +332,26 @@ void main() {
     expect(container.read(mapProvider).isPeakInfoPinned, isTrue);
     expect(find.byKey(const Key('peak-info-popup-edit-form')), findsOneWidget);
     expect(find.byKey(const Key('peak-info-popup-drop-marker')), findsNothing);
+  });
+
+  testWidgets('typing in inline edit field keeps popup open', (tester) async {
+    await _pumpMap(tester, _mapStateWithPeak());
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byKey(const Key('peak-info-popup-edit')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('peak-info-popup-name')));
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyA);
+    await tester.pump();
+
+    expect(find.byKey(const Key('peak-info-popup')), findsOneWidget);
+    expect(find.byKey(const Key('peak-info-popup-edit-form')), findsOneWidget);
   });
 
   testWidgets('inline popup edit shows saving feedback and saves peak', (

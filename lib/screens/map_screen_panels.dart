@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
 
 import 'package:peak_bagger/core/constants.dart';
@@ -1945,7 +1946,7 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
                             onTap: widget.currentMarker == null || _isSaving
                                 ? null
                                 : _moveToMarker,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(4),
                             child: Opacity(
                               opacity: widget.currentMarker == null ? 0.5 : 1,
                               child: Container(
@@ -1960,16 +1961,26 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
                                       context,
                                     ).colorScheme.outlineVariant,
                                   ),
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
-                                  children: const [
-                                    Icon(Icons.terrain, size: 16),
+                                  children: [
+                                    SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: SvgPicture.asset(
+                                        'assets/peak_marker.svg',
+                                        colorFilter: const ColorFilter.mode(
+                                          Color(0xFFD66A6D),
+                                          BlendMode.srcIn,
+                                        ),
+                                      ),
+                                    ),
                                     SizedBox(width: 8),
-                                    Icon(Icons.arrow_right_alt, size: 16),
-                                    SizedBox(width: 8),
-                                    Icon(
+                                    const Icon(Icons.arrow_right_alt, size: 16),
+                                    const SizedBox(width: 8),
+                                    const Icon(
                                       Icons.my_location,
                                       size: 16,
                                       color: Colors.amber,
