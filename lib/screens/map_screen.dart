@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:flutter/gestures.dart'
     show
         PointerPanZoomEndEvent,
@@ -28,6 +29,7 @@ import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/map_chart_hover_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
+import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/show_polygons_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
@@ -2112,7 +2114,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
           focusNode: _mapFocusNode,
           autofocus: true,
           onKeyEvent: (node, event) {
-            if (_searchFocusNode.hasFocus || _gotoFocusNode.hasFocus) {
+            if (_searchFocusNode.hasFocus ||
+                _gotoFocusNode.hasFocus ||
+                (_isEditableTextFocused() &&
+                    event.logicalKey != LogicalKeyboardKey.escape)) {
               return KeyEventResult.ignored;
             }
             if (routeChrome.routeDraftNameFieldFocused &&
@@ -3558,6 +3563,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   }
 
   Widget _buildPeakInfoPopup(BuildContext context, PeakInfoContent content) {
+    final isPinned = ref.read(mapProvider).isPeakInfoPinned;
     final placement = resolvePeakInfoPopupPlacement(
       anchorScreenOffset: _screenOffsetForPeak(content.peak),
       viewportSize: MediaQuery.of(context).size,
@@ -3584,10 +3590,20 @@ class _MapScreenState extends ConsumerState<MapScreen>
         child: PeakInfoPopupSurface(
           content: content,
           bridgeOnLeft: placement.bridgeOnLeft,
-          onEdit: () {
-            setObjectBoxAdminPendingPeakId(content.peak.id);
-            context.goNamed('objectboxAdmin');
+          onEdit: () async {
+            ref.read(mapProvider.notifier).pinPeakInfoPopup();
           },
+          onSaveEdit: _savePeakInfoPopupEdit,
+          currentMarker: ref.read(mapProvider.notifier).getCurrentMarker(),
+          onEditInAdmin: !isPinned
+              ? null
+              : () {
+                  setObjectBoxAdminPendingPeakSelection(
+                    peakId: content.peak.id,
+                    searchQuery: content.peak.name,
+                  );
+                  context.goNamed('objectboxAdmin');
+                },
           onDropMarker: () async {
             final notifier = ref.read(mapProvider.notifier);
             final saved = await notifier.setCurrentMarker(
@@ -3604,6 +3620,34 @@ class _MapScreenState extends ConsumerState<MapScreen>
         ),
       ),
     );
+  }
+
+  bool _isEditableTextFocused() {
+    final focusedContext = FocusManager.instance.primaryFocus?.context;
+    if (focusedContext == null) {
+      return false;
+    }
+
+    return focusedContext.widget is EditableText ||
+        focusedContext.findAncestorWidgetOfExactType<EditableText>() != null;
+  }
+
+  Future<String?> _savePeakInfoPopupEdit(Peak peak) async {
+    final repository = ref.read(peakRepositoryProvider);
+    try {
+      await repository.saveDetailed(peak);
+      ref.read(peakRevisionProvider.notifier).increment();
+      await ref.read(mapProvider.notifier).reloadPeakMarkers();
+      return null;
+    } catch (error, stackTrace) {
+      developer.log(
+        'Peak popup save failed for ${peak.name}',
+        error: error,
+        stackTrace: stackTrace,
+        name: 'map_screen',
+      );
+      return 'Failed to save peak: $error';
+    }
   }
 
   Widget _buildMapTapActionPopup(BuildContext context) {

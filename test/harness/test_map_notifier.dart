@@ -139,8 +139,16 @@ class TestMapNotifier extends MapNotifier {
   }
 
   @override
+  Waypoints? getCurrentMarker() {
+    return waypointsRepository?.getCurrentMarker();
+  }
+
+  @override
   bool favouriteNameExists(String name, {int? excludingId}) {
-    return waypointsRepository?.favouriteNameExists(name, excludingId: excludingId) ??
+    return waypointsRepository?.favouriteNameExists(
+          name,
+          excludingId: excludingId,
+        ) ??
         false;
   }
 
@@ -628,14 +636,16 @@ class TestMapNotifier extends MapNotifier {
             state.routeDraftCommittedPoints,
             growable: false,
           ),
-          gpxRouteElevations: existingRoute?.gpxRouteElevations ??
+          gpxRouteElevations:
+              existingRoute?.gpxRouteElevations ??
               List<int?>.filled(
                 state.routeDraftCommittedPoints.length,
                 null,
                 growable: false,
               ),
           routeWaypoints: existingRoute?.routeWaypoints ?? const [],
-          displayRoutePointsByZoom: existingRoute?.displayRoutePointsByZoom ??
+          displayRoutePointsByZoom:
+              existingRoute?.displayRoutePointsByZoom ??
               TrackDisplayCacheBuilder.buildJson([
                 List<LatLng>.from(
                   state.routeDraftCommittedPoints,

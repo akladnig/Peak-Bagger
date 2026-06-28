@@ -9,7 +9,10 @@ import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
+import 'package:peak_bagger/services/peak_mgrs_converter.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/waypoints_repository.dart';
 
 import '../../harness/test_tasmap_repository.dart';
 import 'peak_info_robot.dart';
@@ -74,6 +77,103 @@ void main() {
     );
     expect(container.read(mapProvider).isPeakInfoPinned, isTrue);
     r.expectPeakPopupWithContent('Bonnet Hill');
+  });
+
+  testWidgets('peak info journey edit saves popup changes in place', (
+    tester,
+  ) async {
+    final peak = Peak(
+      id: 1,
+      osmId: 6406,
+      name: 'Bonnet Hill',
+      latitude: -43.0,
+      longitude: 147.0,
+    );
+    final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+    final r = PeakInfoRobot(tester);
+    addTearDown(r.dispose);
+
+    await r.pumpMap(
+      initialState: MapState(
+        center: const LatLng(-43.0, 147.0),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        peaks: [peak],
+      ),
+      peakRepository: peakRepository,
+    );
+
+    await r.clickPeak(6406);
+    await r.startEditingPeakPopup();
+    await r.enterPeakName('Bonnet Hill Summit');
+    await r.enterPeakElevation('1234');
+    await r.savePeakPopupEdit();
+
+    r.expectPeakPopupWithLines([
+      'Bonnet Hill Summit',
+      'Height: 1234 m',
+      'Region: Tasmanian',
+    ]);
+    expect(r.container().read(mapProvider).isPeakInfoPinned, isTrue);
+
+    final saved = peakRepository.findById(1)!;
+    expect(saved.name, 'Bonnet Hill Summit');
+    expect(saved.elevation, 1234);
+    expect(saved.sourceOfTruth, Peak.sourceOfTruthHwc);
+    expect(saved.verified, isTrue);
+  });
+
+  testWidgets('peak info journey move to marker updates popup draft', (
+    tester,
+  ) async {
+    final markerLocation = const LatLng(-42.9995, 147.0005);
+    final waypointsRepository = WaypointsRepository.test(
+      InMemoryWaypointsStorage(),
+    );
+    await waypointsRepository.saveMarker(
+      location: markerLocation,
+      name: 'Saved',
+    );
+    final marker = waypointsRepository.getCurrentMarker()!;
+    final expected = PeakMgrsConverter.fromLatLng(
+      LatLng(marker.latitude, marker.longitude),
+    );
+    final peak = Peak(
+      id: 1,
+      osmId: 6406,
+      name: 'Bonnet Hill',
+      latitude: -43.0,
+      longitude: 147.0,
+    );
+    final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+    final r = PeakInfoRobot(tester);
+    addTearDown(r.dispose);
+
+    await r.pumpMap(
+      initialState: MapState(
+        center: const LatLng(-43.0, 147.0),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        peaks: [peak],
+      ),
+      peakRepository: peakRepository,
+      waypointsRepository: waypointsRepository,
+    );
+
+    await r.clickPeak(6406);
+    await r.startEditingPeakPopup();
+    await r.movePeakToMarker();
+    await r.savePeakPopupEdit();
+
+    expect(r.peakInfoPopup, findsOneWidget);
+    expect(find.text('Bonnet Hill'), findsOneWidget);
+    expect(find.text('Height: —'), findsOneWidget);
+    expect(
+      find.text(
+        'MGRS: ${expected.gridZoneDesignator} ${expected.mgrs100kId} ${expected.easting} ${expected.northing}',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('peak info journey hover away closes transient popup', (
@@ -229,9 +329,9 @@ void main() {
       r.expectNoPeakPopup();
       expect(find.byKey(const Key('map-tap-action-popup')), findsOneWidget);
       expect(
-        ProviderScope.containerOf(tester.element(r.mapInteractionRegion))
-            .read(mapProvider)
-            .selectedLocation,
+        ProviderScope.containerOf(
+          tester.element(r.mapInteractionRegion),
+        ).read(mapProvider).selectedLocation,
         isNull,
       );
     },

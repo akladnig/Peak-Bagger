@@ -33,6 +33,8 @@ class ObjectBoxAdminRobot {
       find.byKey(const Key('objectbox-admin-entity-dropdown'));
   Finder get schemaDataToggle =>
       find.byKey(const Key('objectbox-admin-schema-data-toggle'));
+  Finder get searchField =>
+      find.byKey(const Key('objectbox-admin-search-field'));
   Finder get exportButton =>
       find.byKey(const Key('objectbox-admin-export-gpx'));
   Finder get exportError =>
@@ -57,8 +59,10 @@ class ObjectBoxAdminRobot {
       find.byKey(const Key('objectbox-admin-peak-update-success-close'));
   Finder get routeViewOnMapButton =>
       find.byKey(const Key('objectbox-admin-route-view-on-map'));
-  Finder get routeEditButton => find.byKey(const Key('objectbox-admin-route-edit'));
-  Finder get routeSaveButton => find.byKey(const Key('objectbox-admin-route-save'));
+  Finder get routeEditButton =>
+      find.byKey(const Key('objectbox-admin-route-edit'));
+  Finder get routeSaveButton =>
+      find.byKey(const Key('objectbox-admin-route-save'));
   Finder get routeUpdateSuccessClose =>
       find.byKey(const Key('objectbox-admin-route-update-success-close'));
   Finder get routeSaveErrorClose =>

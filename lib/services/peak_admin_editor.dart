@@ -116,6 +116,8 @@ class PeakAdminEditor {
   static const String osmIdError = 'osmId must be an integer';
   static const String elevationError = 'Elevation must be an integer';
   static const String tasmaniaError = 'Entered location is not with Tasmania.';
+  static const String latLngConversionError =
+      'Failed to derive coordinates from marker.';
 
   static PeakAdminFormState normalize(Peak peak) {
     return PeakAdminFormState(
@@ -336,6 +338,37 @@ class PeakAdminEditor {
         northing: peak.northing,
       ),
     );
+  }
+
+  static PeakAdminValidationResult updatePeakFromLatLng({
+    required Peak source,
+    required LatLng location,
+  }) {
+    try {
+      final components = PeakMgrsConverter.fromLatLng(location);
+      if (!_isInsideTasmania(location.latitude, location.longitude)) {
+        return const PeakAdminValidationResult(
+          fieldErrors: {},
+          coordinateError: tasmaniaError,
+        );
+      }
+      return PeakAdminValidationResult(
+        fieldErrors: const {},
+        peak: source.copyWith(
+          latitude: location.latitude,
+          longitude: location.longitude,
+          gridZoneDesignator: components.gridZoneDesignator,
+          mgrs100kId: components.mgrs100kId,
+          easting: components.easting,
+          northing: components.northing,
+        ),
+      );
+    } catch (_) {
+      return const PeakAdminValidationResult(
+        fieldErrors: {},
+        coordinateError: latLngConversionError,
+      );
+    }
   }
 
   static String _formatOptionalNumber(double? value) {

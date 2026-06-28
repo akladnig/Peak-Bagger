@@ -1,5 +1,3 @@
-import 'dart:ui' show PointerDeviceKind;
-
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -584,17 +582,6 @@ Future<void> _selectPeriod(WidgetTester tester, String label) async {
   );
   dropdown.onSelected?.call(period);
   await tester.pumpAndSettle();
-}
-
-Future<void> _hoverBucket(WidgetTester tester, int index) async {
-  final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-  addTearDown(mouse.removePointer);
-
-  final bucket = find.byKey(Key('distance-bucket-$index'));
-  await mouse.addPointer(location: tester.getCenter(bucket));
-  await tester.pump();
-  await mouse.moveTo(tester.getCenter(bucket));
-  await tester.pump();
 }
 
 Finder _cardControl(String key) {

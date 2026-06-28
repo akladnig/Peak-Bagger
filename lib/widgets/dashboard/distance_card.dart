@@ -63,7 +63,7 @@ List<String> _distanceTooltipValues(
 
 List<Color> _distanceTooltipValueColors(
   BuildContext context,
-  SummaryBucket _bucket,
+  SummaryBucket bucket,
   SummaryBucket? secondaryBucket,
 ) {
   final theme = Theme.of(context);

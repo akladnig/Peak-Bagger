@@ -92,6 +92,7 @@ class ObjectBoxAdminControls extends StatelessWidget {
               SizedBox(
                 width: 360,
                 child: TextField(
+                  key: const Key('objectbox-admin-search-field'),
                   controller: searchController,
                   decoration: InputDecoration(
                     labelText: 'Search',

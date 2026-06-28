@@ -1330,7 +1330,6 @@ class MapNotifier extends Notifier<MapState> {
         await _maybeBackfillPeaksBaggedOnStartup(tracks);
         return;
     }
-
   }
 
   Future<void> _maybeBackfillPeaksBaggedOnStartup(List<GpxTrack> tracks) async {
@@ -3801,9 +3800,7 @@ class MapNotifier extends Notifier<MapState> {
     final result = await _routePlanner.planSegmentResult(
       start: startEndpoint.point,
       end: endEndpoint.point,
-      maxSnapDistanceMeters: _routeSnapDistanceMeters(
-        state.routeDraftMode,
-      ),
+      maxSnapDistanceMeters: _routeSnapDistanceMeters(state.routeDraftMode),
     );
     if (!_isActiveRouteDraftRequest(requestId)) {
       return;
@@ -4402,6 +4399,10 @@ class MapNotifier extends Notifier<MapState> {
     );
   }
 
+  Waypoints? getCurrentMarker() {
+    return _resolvedWaypointsRepository.getCurrentMarker();
+  }
+
   Future<bool> setCurrentMarker(
     LatLng location, {
     String name = 'Marker',
@@ -4509,6 +4510,21 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
     state = state.copyWith(clearHoveredPeakId: true);
+  }
+
+  void pinPeakInfoPopup() {
+    final peak = state.peakInfoPeak;
+    if (peak == null || state.isPeakInfoPinned) {
+      return;
+    }
+
+    state = state.copyWith(
+      peakInfo: _resolvePeakInfoContentForPeak(peak),
+      peakInfoPopupMode: PeakInfoPopupMode.pinned,
+      clearDriveEtaPopup: true,
+      clearInfoPopup: true,
+      clearHoveredTrackId: true,
+    );
   }
 
   void openPeakInfoPopup(Peak peak) {
@@ -5110,13 +5126,12 @@ class MapNotifier extends Notifier<MapState> {
                 result.errorMessage ?? 'Failed to calculate route.',
             routeDraftMode: routeMode,
             clearRouteDraftPeak: invalidatePeakTarget,
-          routeDraftPeakTargetLocked: invalidatePeakTarget
-              ? true
-              : state.routeDraftPeakTargetLocked,
-        );
-        return;
-    }
-
+            routeDraftPeakTargetLocked: invalidatePeakTarget
+                ? true
+                : state.routeDraftPeakTargetLocked,
+          );
+          return;
+      }
     }
 
     state = state.copyWith(

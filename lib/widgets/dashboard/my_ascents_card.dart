@@ -182,7 +182,11 @@ class _MyAscentsTableRowState extends State<_MyAscentsTableRow> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final rowTheme = theme.extension<RowHoverTheme>()!;
+    final rowTheme =
+        theme.extension<RowHoverTheme>() ??
+        (theme.brightness == Brightness.dark
+            ? RowHoverTheme.dark
+            : RowHoverTheme.light);
     final textStyle = theme.textTheme.bodyMedium?.copyWith(
       color: _isHovered ? rowTheme.hoveredTextColor : null,
     );

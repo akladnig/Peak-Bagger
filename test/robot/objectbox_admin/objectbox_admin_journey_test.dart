@@ -21,7 +21,7 @@ import '../../harness/test_objectbox_admin_repository.dart';
 import 'objectbox_admin_robot.dart';
 
 void main() {
-  testWidgets('map peak popup edit opens matching admin row', (tester) async {
+  testWidgets('map peak popup edit opens inline popup editor', (tester) async {
     final robot = ObjectBoxAdminRobot(tester);
     final peak = _buildPeak(
       id: 1,
@@ -66,23 +66,132 @@ void main() {
     await tester.tap(find.byKey(const Key('peak-info-popup-edit')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('objectbox-admin-entity-dropdown')), findsOneWidget);
+    expect(find.byKey(const Key('peak-info-popup-edit-form')), findsOneWidget);
     expect(
-      find.descendant(
-        of: find.byKey(const Key('app-bar-title')),
-        matching: find.text('ObjectBox Admin'),
+      find.byKey(const Key('objectbox-admin-entity-dropdown')),
+      findsNothing,
+    );
+
+    final container = ProviderScope.containerOf(tester.element(region));
+    expect(container.read(mapProvider).isPeakInfoPinned, isTrue);
+  });
+
+  testWidgets('map peak popup admin button opens matching admin row', (
+    tester,
+  ) async {
+    final robot = ObjectBoxAdminRobot(tester);
+    final peak = _buildPeak(
+      id: 1,
+      osmId: 101,
+      name: 'Mt Ossa',
+      region: 'Old Area',
+    );
+    final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
+      'Peak': [_peakRow(peak)],
+      'PeakList': const [],
+      'Tasmap50k': const [],
+      'GpxTrack': const [],
+      'PeaksBagged': const [],
+    };
+    final peakRepository = _MutablePeakRepository([peak], rowsByEntity);
+
+    await robot.pumpApp(
+      repository: TestObjectBoxAdminRepository(
+        entities: [_peakEntity()],
+        rowsByEntity: rowsByEntity,
       ),
+      peakRepository: peakRepository,
+      peakDeleteGuard: PeakDeleteGuard(_NoopPeakDeleteGuardSource()),
+      mapState: MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        peaks: [peak],
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('nav-map')));
+    await tester.pumpAndSettle();
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byKey(const Key('peak-info-popup-edit-admin')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('peak-info-popup-edit-admin')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('objectbox-admin-entity-dropdown')),
       findsOneWidget,
     );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shared-app-bar'))),
+    );
+    final adminState = container.read(objectboxAdminProvider);
+    expect(adminState.selectedEntity?.name, 'Peak');
+    expect(adminState.selectedRow?.primaryKeyValue, 1);
+    expect(adminState.searchQuery, 'Mt Ossa');
+    final searchField = tester.widget<TextField>(robot.searchField);
+    expect(searchField.controller?.text, 'Mt Ossa');
+  });
+
+  testWidgets('map peak popup admin button refreshes mounted admin branch', (
+    tester,
+  ) async {
+    final robot = ObjectBoxAdminRobot(tester);
+    final peak = _buildPeak(
+      id: 1,
+      osmId: 101,
+      name: 'Mt Ossa',
+      region: 'Old Area',
+    );
+    final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
+      'Peak': [_peakRow(peak)],
+      'PeakList': const [],
+      'Tasmap50k': const [],
+      'GpxTrack': const [],
+      'PeaksBagged': const [],
+    };
+    final peakRepository = _MutablePeakRepository([peak], rowsByEntity);
+
+    await robot.pumpApp(
+      repository: TestObjectBoxAdminRepository(
+        entities: [_peakEntity()],
+        rowsByEntity: rowsByEntity,
+      ),
+      peakRepository: peakRepository,
+      peakDeleteGuard: PeakDeleteGuard(_NoopPeakDeleteGuardSource()),
+      mapState: MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        peaks: [peak],
+      ),
+    );
+
+    await robot.openAdminFromMenu();
+    await tester.tap(find.byKey(const Key('nav-map')));
+    await tester.pumpAndSettle();
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byKey(const Key('peak-info-popup-edit-admin')));
+    await tester.pumpAndSettle();
 
     final container = ProviderScope.containerOf(
       tester.element(find.byKey(const Key('shared-app-bar'))),
     );
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.pumpAndSettle();
     final adminState = container.read(objectboxAdminProvider);
     expect(adminState.selectedEntity?.name, 'Peak');
     expect(adminState.selectedRow?.primaryKeyValue, 1);
+    expect(adminState.searchQuery, 'Mt Ossa');
+    final searchField = tester.widget<TextField>(robot.searchField);
+    expect(searchField.controller?.text, 'Mt Ossa');
   });
 
   testWidgets('admin shell edits and saves a peak row', (tester) async {
@@ -304,9 +413,7 @@ void main() {
       lowestElevation: 110,
       highestElevation: 1600,
     );
-    final routeRepository = RouteRepository.test(
-      InMemoryRouteStorage([route]),
-    );
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage([route]));
     final objectboxRepository = _RouteAwareObjectBoxAdminRepository(
       base: TestObjectBoxAdminRepository(),
       routeRepository: routeRepository,
@@ -363,7 +470,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(routeRepository.findById(1), isNull);
-    expect(find.byKey(const Key('objectbox-admin-route-delete-1')), findsNothing);
+    expect(
+      find.byKey(const Key('objectbox-admin-route-delete-1')),
+      findsNothing,
+    );
 
     await tester.tap(find.byKey(const Key('nav-map')));
     await tester.pumpAndSettle();
