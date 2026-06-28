@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
+import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
@@ -31,6 +33,11 @@ class PeakInfoRobot {
   Finder get mapInteractionRegion =>
       find.byKey(const Key('map-interaction-region'));
   Finder get peakClusterLayer => find.byKey(const Key('peak-cluster-layer'));
+  Finder get settingsScrollable => find.byKey(const Key('settings-scrollable'));
+  Finder get showMapPeakClustersTile =>
+      find.byKey(const Key('show-map-peak-clusters-tile'));
+  Finder get navMap => find.byKey(const Key('nav-map'));
+  Finder get navSettings => find.byKey(const Key('nav-settings'));
   Finder get peakInfoPopup => find.byKey(const Key('peak-info-popup'));
   Finder get peakInfoPopupClose =>
       find.byKey(const Key('peak-info-popup-close'));
@@ -107,6 +114,81 @@ class PeakInfoRobot {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  Future<void> pumpJourneyApp({
+    MapState? initialState,
+    PeakListRepository? peakListRepository,
+    PeaksBaggedRepository? peaksBaggedRepository,
+    GpxTrackRepository? gpxTrackRepository,
+    TasmapRepository? tasmapRepository,
+    PeakRepository? peakRepository,
+    WaypointsRepository? waypointsRepository,
+    List overrides = const [],
+  }) async {
+    final resolvedPeakListRepository =
+        peakListRepository ?? PeakListRepository.test(InMemoryPeakListStorage());
+    final resolvedPeaksBaggedRepository =
+        peaksBaggedRepository ??
+        PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage());
+    final resolvedGpxTrackRepository =
+        gpxTrackRepository ?? GpxTrackRepository.test(InMemoryGpxTrackStorage());
+    final resolvedTasmapRepository =
+        tasmapRepository ?? await TestTasmapRepository.create();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(
+            () => TestMapNotifier(
+              initialState ?? _defaultMapState(),
+              peakRepository: peakRepository,
+              waypointsRepository: waypointsRepository,
+            ),
+          ),
+          peakRepositoryProvider.overrideWithValue(
+            peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
+          ),
+          peakListRepositoryProvider.overrideWithValue(
+            resolvedPeakListRepository,
+          ),
+          peaksBaggedRepositoryProvider.overrideWithValue(
+            resolvedPeaksBaggedRepository,
+          ),
+          gpxTrackRepositoryProvider.overrideWithValue(
+            resolvedGpxTrackRepository,
+          ),
+          tasmapRepositoryProvider.overrideWithValue(resolvedTasmapRepository),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(resolvedTasmapRepository),
+          ),
+          ...overrides,
+        ],
+        child: const App(),
+      ),
+    );
+    await tester.pump();
+    router.go('/map');
+    await tester.pump();
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> goToSettings() async {
+    await tester.tap(navSettings, warnIfMissed: false);
+    await tester.pump();
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> goToMap() async {
+    await tester.tap(navMap, warnIfMissed: false);
+    await tester.pump();
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> scrollSettingsTo(Finder target) async {
+    for (var i = 0; i < 6 && target.evaluate().isEmpty; i++) {
+      await tester.drag(settingsScrollable, const Offset(0, -300));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
   }
 
   Future<void> hoverPeak(int peakOsmId) async {

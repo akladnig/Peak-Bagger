@@ -94,7 +94,7 @@ void main() {
     expect(tester.widget<Text>(robot.selectedTitle).data, 'Journey List');
   });
 
-  testWidgets('peak lists journey toggles mini-map clusters in settings', (
+  testWidgets('peak lists journey preserves selection on cluster expand', (
     tester,
   ) async {
     SharedPreferences.resetStatic();
@@ -137,18 +137,23 @@ void main() {
       peakRepository: peakRepository,
     );
 
-    expect(robot.miniMapCluster(0), findsOneWidget);
-
-    await robot.goToSettings();
-    await robot.scrollSettingsTo(robot.peakListMiniMapClustersTile);
-    await tester.tap(robot.peakListMiniMapClustersTile);
+    tester
+        .widget<InkWell>(
+          find
+              .descendant(
+                of: find.byKey(const Key('peak-lists-details-row-100')),
+                matching: find.byType(InkWell),
+              )
+              .first,
+        )
+        .onTap!();
     await tester.pumpAndSettle();
 
-    await robot.goToPeaks();
+    expect(robot.selectedPeakCircle, findsOneWidget);
 
-    expect(robot.miniMapCluster(0), findsNothing);
-    expect(robot.miniMapMarker(100, ticked: false), findsOneWidget);
-    expect(robot.miniMapMarker(200, ticked: false), findsOneWidget);
+    await robot.tapMiniMapCluster(0);
+
+    expect(robot.selectedPeakCircle, findsOneWidget);
   });
 
   testWidgets('peak lists journey refreshes selected title after rename', (

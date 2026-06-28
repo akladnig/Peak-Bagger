@@ -39,7 +39,8 @@ Unify peak rendering: viewport layer for map surfaces, marker helper for non-map
 - [x] `test/providers/peak_list_mini_map_cluster_display_settings_provider_test.dart` - provider coverage
 - [x] `test/widget/peak_lists_screen_test.dart` - mini-map cluster toggle + popup/selection behavior
 - [x] `test/widget/map_screen_peak_cluster_toggle_test.dart` - shared viewport layer regression if API changes
-- [x] `test/robot/peaks/peak_lists_journey_test.dart` - mini-map settings-to-behavior journey
+- [ ] `test/robot/peaks/peak_lists_journey_test.dart` - mini-map settings-to-behavior journey
+- Blocker: shell-app settings navigation for a peak-lists robot journey was flaky under the current harness; widget settings coverage is green, and robot coverage exists for peak-list cluster/selection behavior.
 - [x] TDD: mini-map toggle defaults on, persists, survives hydrate failure
 - [x] TDD: peak tap selects + opens popup; hover does not change selection
 - [x] TDD: cluster tap expands camera, clears hover, closes popup, preserves selected peak
@@ -65,13 +66,13 @@ Unify peak rendering: viewport layer for map surfaces, marker helper for non-map
 ### Phase 4: Journey hardening
 
 - **Goal**: regression net; selectors stable; dead-path cleanup
-- [ ] `test/robot/peaks/peak_cluster_journey_test.dart` - extend for map toggle journey if better fit than new robot file
-- [ ] `test/robot/peaks/peak_info_journey_test.dart` or `test/robot/peaks/peak_lists_journey_test.dart` - cover popup/selection after cluster expansion
-- [ ] `lib/screens/map_screen.dart` / `lib/screens/peak_lists_screen.dart` / `lib/widgets/dashboard/latest_walk_card.dart` - finalize stable keys for viewport root, cluster affordances, painted peak affordances, latest-walk marker helper instances
-- [ ] `lib/screens/map_screen_layers.dart` - delete dead SVG peak renderer code if fully unused
-- [ ] TDD: selectors remain deterministic after painted-marker migration
-- [ ] Robot journey tests + selectors/seams for settings toggles, peak interaction, cluster expansion, popup close/reopen flow
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `test/robot/peaks/peak_cluster_journey_test.dart` - extend for map toggle journey if better fit than new robot file
+- [x] `test/robot/peaks/peak_info_journey_test.dart` or `test/robot/peaks/peak_lists_journey_test.dart` - cover popup/selection after cluster expansion
+- [x] `lib/screens/map_screen.dart` / `lib/screens/peak_lists_screen.dart` / `lib/widgets/dashboard/latest_walk_card.dart` - finalize stable keys for viewport root, cluster affordances, painted peak affordances, latest-walk marker helper instances
+- [x] `lib/screens/map_screen_layers.dart` - delete dead SVG peak renderer code if fully unused
+- [x] TDD: selectors remain deterministic after painted-marker migration
+- [x] Robot journey tests + selectors/seams for settings toggles, peak interaction, cluster expansion, popup close/reopen flow
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

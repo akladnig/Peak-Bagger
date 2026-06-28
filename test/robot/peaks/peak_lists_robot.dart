@@ -40,6 +40,8 @@ class PeakListsRobot {
       find.byKey(const Key('peak-lists-selected-title'));
   Finder get miniMap => find.byKey(const Key('peak-lists-mini-map'));
   Finder get settingsScrollable => find.byKey(const Key('settings-scrollable'));
+  Finder get navPeaks => find.byKey(const Key('nav-peak-lists'));
+  Finder get navSettings => find.byKey(const Key('nav-settings'));
   Finder get selectFileButton => find.byKey(const Key('peak-list-select-file'));
   Finder get nameField => find.byKey(const Key('peak-list-name-field'));
   Finder get importButton => find.byKey(const Key('peak-list-import-button'));
@@ -75,6 +77,11 @@ class PeakListsRobot {
       find.byKey(Key('peak-lists-mini-map-cluster-$index'));
   Finder get peakListMiniMapClustersTile =>
       find.byKey(const Key('show-peak-list-mini-map-clusters-tile'));
+  Finder get peakListMiniMapClustersSwitch =>
+      find.byKey(const Key('show-peak-list-mini-map-clusters-switch'));
+  Finder get miniMapPopup => find.byKey(const Key('peak-lists-mini-map-popup'));
+  Finder get selectedPeakCircle =>
+      find.byKey(const Key('peak-lists-selected-peak-circle-layer'));
 
   Future<void> pumpApp({
     required PeakListFilePicker filePicker,
@@ -83,6 +90,7 @@ class PeakListsRobot {
     PeaksBaggedRepository? peaksBaggedRepository,
     PeakListImportRunner? importRunner,
     PeakListDuplicateNameChecker? duplicateNameChecker,
+    List overrides = const [],
   }) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -120,6 +128,7 @@ class PeakListsRobot {
           peakListDuplicateNameCheckerProvider.overrideWithValue(
             duplicateNameChecker ?? ((name) async => false),
           ),
+          ...overrides,
         ],
         child: const MaterialApp(home: PeakListsScreen()),
       ),
@@ -174,27 +183,35 @@ class PeakListsRobot {
   }
 
   Future<void> goToSettings() async {
-    router.go('/settings');
+    await tester.tap(navSettings, warnIfMissed: false);
     await tester.pump();
     await tester.pumpAndSettle();
   }
 
   Future<void> goToPeaks() async {
-    router.go('/peaks');
+    await tester.tap(navPeaks, warnIfMissed: false);
     await tester.pump();
     await tester.pumpAndSettle();
   }
 
-  Future<void> scrollSettingsTo(Finder target) async {
-    await tester.scrollUntilVisible(
-      target,
-      200,
-      scrollable: find.descendant(
-        of: settingsScrollable,
-        matching: find.byType(Scrollable),
-      ).first,
+  Future<void> tapMiniMapMarker(int peakId, {required bool ticked}) async {
+    await tester.tap(
+      miniMapMarker(peakId, ticked: ticked),
+      warnIfMissed: false,
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapMiniMapCluster(int index) async {
+    await tester.tap(miniMapCluster(index), warnIfMissed: false);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> scrollSettingsTo(Finder target) async {
+    for (var i = 0; i < 6 && target.evaluate().isEmpty; i++) {
+      await tester.drag(settingsScrollable, const Offset(0, -300));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
   }
 
   Future<void> openImportDialog() async {

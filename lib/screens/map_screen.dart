@@ -3089,6 +3089,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                 MapConstants.peakMinZoom)
                                           Consumer(
                                             builder: (context, ref, child) {
+                                              ref.watch(
+                                                peakMapClusterDisplaySettingsProvider,
+                                              );
                                               final peakUiState = ref.watch(
                                                 mapProvider.select(
                                                   (state) => (
