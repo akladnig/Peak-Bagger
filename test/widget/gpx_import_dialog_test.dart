@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/services/gpx_file_picker.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
 import 'package:peak_bagger/widgets/gpx_import_dialog.dart';
@@ -58,7 +59,7 @@ void main() {
       );
       expect(
         headerPadding.padding,
-        const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        const EdgeInsets.all(PopupUIConstants.surfacePadding),
       );
 
       final bodyPadding = tester.widget<Padding>(
@@ -66,7 +67,12 @@ void main() {
       );
       expect(
         bodyPadding.padding,
-        const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        const EdgeInsets.fromLTRB(
+          PopupUIConstants.surfacePadding,
+          0,
+          PopupUIConstants.surfacePadding,
+          PopupUIConstants.surfacePadding,
+        ),
       );
 
       final actionsPadding = tester.widget<Padding>(
@@ -74,7 +80,12 @@ void main() {
       );
       expect(
         actionsPadding.padding,
-        const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        const EdgeInsets.fromLTRB(
+          PopupUIConstants.surfacePadding,
+          0,
+          PopupUIConstants.surfacePadding,
+          PopupUIConstants.surfacePadding,
+        ),
       );
 
       final title = tester.widget<Text>(
@@ -83,6 +94,50 @@ void main() {
       expect(title.maxLines, 1);
       expect(title.softWrap, isFalse);
       expect(title.overflow, TextOverflow.ellipsis);
+      expect(find.byKey(const Key('gpx-import-close')), findsOneWidget);
+    });
+
+    testWidgets('dismisses on escape and ctrl+c', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                child: const Text('Open'),
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (_) => GpxImportDialog(
+                    filePicker: _FakeGpxFilePicker(),
+                    importAsRoute: false,
+                    onImport: fakeImportRunner,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('gpx-import-dialog')), findsOneWidget);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('gpx-import-dialog')), findsNothing);
+
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('gpx-import-dialog')), findsOneWidget);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyC);
+      await tester.pumpAndSettle();
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyC);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('gpx-import-dialog')), findsNothing);
     });
 
     testWidgets('shows "No files selected" when empty', (tester) async {

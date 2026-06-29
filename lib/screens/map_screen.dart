@@ -2105,6 +2105,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
     return Shortcuts(
       shortcuts: const {
         SingleActivator(LogicalKeyboardKey.escape): DismissSurfaceIntent(),
+        SingleActivator(LogicalKeyboardKey.keyC, control: true):
+            DismissSurfaceIntent(),
       },
       child: Actions(
         actions: {
@@ -2138,8 +2140,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
               notifier.closePeakInfoPopup();
             }
 
-            if (mapState.showInfoPopup && event is KeyDownEvent && isCtrlC) {
-              notifier.closeInfoPopup();
+            if (event is KeyDownEvent && isCtrlC &&
+                _dismissHighestPrioritySurface()) {
               return KeyEventResult.handled;
             }
 
@@ -3738,6 +3740,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
         width: 280,
         child: FavouritesPopupCard(
           favourites: favourites,
+          onClose: () {
+            if (mounted) {
+              setState(() {
+                _showFavouritesPopup = false;
+              });
+            }
+          },
           onSelect: (favourite) {
             ref
                 .read(mapProvider.notifier)

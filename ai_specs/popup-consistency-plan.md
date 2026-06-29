@@ -31,16 +31,16 @@ Unify popup shell, tokens, dismiss paths. Keep special layouts intact.
 ### Phase 2: Overlay Family + GPX Dialog
 
 - **Goal**: migrate remaining transient overlays; align custom GPX dialog
-- [ ] `lib/screens/map_screen_panels.dart` - migrate `RouteTimingInfoDialog`, `MapTapActionPopupCard`, `FavouritesPopupCard`, `PeakInfoPopupCard`, `DriveEtaPopupCard`, `RouteDraftMarkerDeletePopupCard`, `TrackRouteChooserPopup`
-- [ ] `lib/screens/map_screen.dart` - pass any new close callbacks / keys; keep placement logic unchanged
-- [ ] `lib/widgets/gpx_import_dialog.dart` - adopt shared shell chrome for visible header/body/actions; keep outer `Dialog`, measurement, growth/scroll behavior
-- [ ] `test/widget/gpx_import_dialog_test.dart` - update layout assertions to tokenized shell values; add keyboard dismiss coverage
-- [ ] `test/widget/` - add representative overlay regressions for explicit close affordance on formerly dismiss-only surfaces
-- [ ] `test/robot/map/` - extend popup robot journeys for one formerly dismiss-only overlay
-- [ ] TDD: each migrated overlay preserves existing dismiss callback + gains explicit close affordance
-- [ ] TDD: `GpxImportDialog` keeps measured scrolling/layout behavior while adopting shell chrome
-- [ ] TDD: `GpxImportDialog` closes on `Escape` and `Ctrl+C`; then implement wrapper usage
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/screens/map_screen_panels.dart` - migrate `RouteTimingInfoDialog`, `MapTapActionPopupCard`, `FavouritesPopupCard`, `PeakInfoPopupCard`, `DriveEtaPopupCard`, `RouteDraftMarkerDeletePopupCard`, `TrackRouteChooserPopup`
+- [x] `lib/screens/map_screen.dart` - pass any new close callbacks / keys; keep placement logic unchanged
+- [x] `lib/widgets/gpx_import_dialog.dart` - adopt shared shell chrome for visible header/body/actions; keep outer `Dialog`, measurement, growth/scroll behavior
+- [x] `test/widget/gpx_import_dialog_test.dart` - update layout assertions to tokenized shell values; add keyboard dismiss coverage
+- [x] `test/widget/` - add representative overlay regressions for explicit close affordance on formerly dismiss-only surfaces
+- [x] `test/robot/map/` - extend popup robot journeys for one formerly dismiss-only overlay
+- [x] TDD: each migrated overlay preserves existing dismiss callback + gains explicit close affordance
+- [x] TDD: `GpxImportDialog` keeps measured scrolling/layout behavior while adopting shell chrome
+- [x] TDD: `GpxImportDialog` closes on `Escape` and `Ctrl+C`; then implement wrapper usage
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Dialog Helpers + Peak List Panel
 

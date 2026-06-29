@@ -798,48 +798,36 @@ class TrackRouteChooserPopup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      key: const Key('track-route-chooser-popup'),
-      margin: EdgeInsets.zero,
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: width,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: width,
-          maxHeight: maxHeight,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                IconButton(
-                  key: const Key('track-route-chooser-close'),
-                  tooltip: 'Close chooser',
-                  onPressed: onClose,
-                  icon: const Icon(Icons.close, size: 18),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-                const SizedBox(width: 8),
-              ],
+        constraints: const BoxConstraints(maxHeight: maxHeight),
+        child: PopupShell(
+          key: const Key('track-route-chooser-popup'),
+          title: Text(
+            'Select Track or Route',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
             ),
-            Flexible(
-              child: ListView.separated(
-                shrinkWrap: true,
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                itemCount: items.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 8),
-                itemBuilder: (context, index) {
-                  final item = items[index];
-                  return _TrackRouteChooserRow(
-                    item: item,
-                    onTap: () => onSelected(item),
-                  );
-                },
-              ),
-            ),
-          ],
+          ),
+          onClose: onClose,
+          closeButtonKey: const Key('track-route-chooser-close'),
+          closeTooltip: 'Close chooser',
+          bodyFlexible: true,
+          body: ListView.separated(
+            primary: false,
+            padding: EdgeInsets.zero,
+            itemCount: items.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              final item = items[index];
+              return _TrackRouteChooserRow(
+                item: item,
+                onTap: () => onSelected(item),
+              );
+            },
+          ),
         ),
       ),
     );
@@ -1238,56 +1226,30 @@ class RouteTimingInfoDialog extends StatelessWidget {
           constraints: BoxConstraints(
             maxHeight: UiConstants.peakInfoPopupSize.height,
           ),
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.info_outline, size: 18, color: onSurfaceColor),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: onSurfaceColor,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        key: const Key('route-timing-info-popup-close'),
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: Icon(
-                          Icons.close,
-                          size: 16,
-                          color: onSurfaceColor,
-                        ),
-                        tooltip: 'Close route timing info',
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Flexible(
-                    fit: FlexFit.loose,
-                    child: SingleChildScrollView(
-                      child: Text(
-                        message,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: onSurfaceColor,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+          child: PopupShell(
+            title: Text(
+              title,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: onSurfaceColor,
+              ),
+            ),
+            leading: Icon(
+              Icons.info_outline,
+              size: PopupUIConstants.headerIconSize,
+              color: onSurfaceColor,
+            ),
+            onClose: () => Navigator.of(context).pop(),
+            closeButtonKey: const Key('route-timing-info-popup-close'),
+            closeTooltip: 'Close route timing info',
+            bodyFlexible: true,
+            body: SingleChildScrollView(
+              child: Text(
+                message,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: onSurfaceColor,
+                ),
               ),
             ),
           ),
@@ -1956,61 +1918,58 @@ class MapTapActionPopupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      key: const Key('map-tap-action-popup'),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 260),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Spacer(),
-                  IconButton(
-                    key: const Key('map-tap-action-close'),
-                    tooltip: 'Close Drop Marker',
-                    icon: const Icon(Icons.close, size: 16),
-                    onPressed: onClose,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-              ListTile(
-                key: const Key('map-tap-action-drop-marker'),
-                leading: const Icon(Icons.my_location, color: Colors.amber),
-                title: const Text('Drop Marker'),
-                onTap: onDropMarker,
-              ),
-              ListTile(
-                key: const Key('map-tap-action-drop-favourite'),
-                leading: const Icon(
-                  Icons.favorite,
-                  color: favouriteMarkerColour,
-                ),
-                title: const Text('Drop Favourite'),
-                onTap: onDropFavourite,
-              ),
-              if (onDriveEtaHome != null)
-                ListTile(
-                  key: const Key('map-tap-action-drive-home'),
-                  leading: const Icon(Icons.drive_eta),
-                  title: const Text('Get driving time from Home'),
-                  onTap: onDriveEtaHome,
-                ),
-              if (onDriveEtaMarker != null)
-                ListTile(
-                  key: const Key('map-tap-action-drive-marker'),
-                  leading: const Icon(Icons.drive_eta, color: Colors.amber),
-                  title: const Text('Get driving time from Marker'),
-                  onTap: onDriveEtaMarker,
-                ),
-            ],
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: 260,
+      child: PopupShell(
+        key: const Key('map-tap-action-popup'),
+        title: Text(
+          'Point Actions',
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
           ),
+        ),
+        onClose: onClose,
+        closeButtonKey: const Key('map-tap-action-close'),
+        closeTooltip: 'Close Drop Marker',
+        body: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              key: const Key('map-tap-action-drop-marker'),
+              leading: const Icon(Icons.my_location, color: Colors.amber),
+              title: const Text('Drop Marker'),
+              onTap: onDropMarker,
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              key: const Key('map-tap-action-drop-favourite'),
+              leading: const Icon(
+                Icons.favorite,
+                color: favouriteMarkerColour,
+              ),
+              title: const Text('Drop Favourite'),
+              onTap: onDropFavourite,
+            ),
+            if (onDriveEtaHome != null)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                key: const Key('map-tap-action-drive-home'),
+                leading: const Icon(Icons.drive_eta),
+                title: const Text('Get driving time from Home'),
+                onTap: onDriveEtaHome,
+              ),
+            if (onDriveEtaMarker != null)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                key: const Key('map-tap-action-drive-marker'),
+                leading: const Icon(Icons.drive_eta, color: Colors.amber),
+                title: const Text('Get driving time from Marker'),
+                onTap: onDriveEtaMarker,
+              ),
+          ],
         ),
       ),
     );
@@ -2021,49 +1980,66 @@ class FavouritesPopupCard extends StatelessWidget {
   const FavouritesPopupCard({
     required this.favourites,
     required this.onSelect,
+    required this.onClose,
     super.key,
   });
 
   final List<Waypoints> favourites;
   final ValueChanged<Waypoints> onSelect;
+  final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      key: const Key('favourites-popup'),
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: 280,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 280, maxHeight: 260),
-        child: favourites.isEmpty
-            ? const Padding(
-                key: Key('favourites-popup-empty'),
-                padding: EdgeInsets.all(16),
-                child: Text('No favourites saved yet.'),
-              )
-            : ListView.builder(
-                shrinkWrap: true,
-                itemCount: favourites.length,
-                itemBuilder: (context, index) {
-                  final favourite = favourites[index];
-                  return ListTile(
-                    key: Key('favourites-popup-row-${favourite.id}'),
-                    leading: const Icon(
-                      Icons.favorite,
-                      color: favouriteMarkerColour,
-                    ),
-                    title: Text(
-                      favourite.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: Text(
-                      favourite.mgrs,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    onTap: () => onSelect(favourite),
-                  );
-                },
-              ),
+        constraints: const BoxConstraints(maxHeight: 260),
+        child: PopupShell(
+          key: const Key('favourites-popup'),
+          title: Text(
+            'Favourites',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          onClose: onClose,
+          closeButtonKey: const Key('favourites-popup-close'),
+          closeTooltip: 'Close favourites',
+          bodyFlexible: favourites.isNotEmpty,
+          body: favourites.isEmpty
+              ? const Padding(
+                  key: Key('favourites-popup-empty'),
+                  padding: EdgeInsets.only(top: 4),
+                  child: Text('No favourites saved yet.'),
+                )
+              : ListView.builder(
+                  primary: false,
+                  itemCount: favourites.length,
+                  itemBuilder: (context, index) {
+                    final favourite = favourites[index];
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      key: Key('favourites-popup-row-${favourite.id}'),
+                      leading: const Icon(
+                        Icons.favorite,
+                        color: favouriteMarkerColour,
+                      ),
+                      title: Text(
+                        favourite.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        favourite.mgrs,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () => onSelect(favourite),
+                    );
+                  },
+                ),
+        ),
       ),
     );
   }
@@ -2351,6 +2327,7 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final content = widget.content;
     final peak = _draftPeak;
     final altName = peak.altName.trim();
@@ -2372,264 +2349,225 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
         ? mgrsParts.join(' ')
         : null;
 
+    final headerActions = <Widget>[
+      if (_canEdit)
+        IconButton(
+          key: const Key('peak-info-popup-edit'),
+          tooltip: 'Edit Peak',
+          icon: const Icon(Icons.edit, size: PopupUIConstants.closeIconSize),
+          onPressed: _isEditing ? null : _startEditing,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+        ),
+      if (!_isEditing && widget.onDropMarker != null)
+        IconButton(
+          key: const Key('peak-info-popup-drop-marker'),
+          tooltip: 'Drop a Marker on the Peak',
+          icon: const Icon(
+            Icons.my_location,
+            color: Colors.amber,
+            size: PopupUIConstants.closeIconSize,
+          ),
+          onPressed: _isSaving ? null : widget.onDropMarker,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+        ),
+    ];
+
+    final footer = switch ((_isEditing, widget.onEditInAdmin)) {
+      (true, _) => Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FilledButton.tonal(
+              key: const Key('peak-info-popup-cancel'),
+              onPressed: _isSaving ? null : _cancelEditing,
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              key: const Key('peak-info-popup-save'),
+              onPressed: _isSaving ? null : _saveEditing,
+              child: Text(_isSaving ? 'Saving...' : 'Save'),
+            ),
+          ],
+        ),
+      (false, final onEditInAdmin?) => FilledButton.tonal(
+          key: const Key('peak-info-popup-edit-admin'),
+          onPressed: onEditInAdmin,
+          child: const Text('Edit in Peak Admin'),
+        ),
+      _ => null,
+    };
+
     return ConstrainedBox(
       constraints: BoxConstraints(
         maxHeight: UiConstants.peakInfoPopupSize.height,
       ),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
+      child: PopupShell(
+        leading: const Icon(
+          Icons.terrain,
+          size: PopupUIConstants.headerIconSize,
+        ),
+        title: Text(
+          peak.name,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        ),
+        headerActions: headerActions,
+        onClose: _isEditing || _isSaving ? null : widget.onClose,
+        closeButtonKey: const Key('peak-info-popup-close'),
+        closeTooltip: 'Close Peak Info',
+        bodyFlexible: true,
+        body: SingleChildScrollView(
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            key: _isEditing ? const Key('peak-info-popup-edit-form') : null,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.terrain, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      peak.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+              if (_isEditing) ...[
+                TextField(
+                  key: const Key('peak-info-popup-name'),
+                  controller: _nameController,
+                  enabled: !_isSaving,
+                  decoration: InputDecoration(
+                    labelText: 'Name',
+                    isDense: true,
+                    border: const OutlineInputBorder(),
+                    errorText: _nameError,
+                  ),
+                  onChanged: (_) => _clearFieldErrors(),
+                ),
+                const SizedBox(height: 8),
+                Tooltip(
+                  message: 'Move Peak to Marker',
+                  child: InkWell(
+                    key: const Key('peak-info-popup-move-to-marker'),
+                    onTap: widget.currentMarker == null || _isSaving
+                        ? null
+                        : _moveToMarker,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Opacity(
+                      opacity: widget.currentMarker == null ? 0.5 : 1,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.outlineVariant,
+                          ),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: PeakMarkerGlyph(
+                                ticked: false,
+                                size: 16,
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Icon(Icons.arrow_right_alt, size: 16),
+                            SizedBox(width: 8),
+                            Icon(
+                              Icons.my_location,
+                              size: 16,
+                              color: Colors.amber,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                  if (_canEdit) ...[
-                    IconButton(
-                      key: const Key('peak-info-popup-edit'),
-                      tooltip: 'Edit Peak',
-                      icon: const Icon(Icons.edit, size: 16),
-                      onPressed: _isEditing ? null : _startEditing,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                    const SizedBox(width: 4),
-                  ],
-                  if (!_isEditing && widget.onDropMarker != null) ...[
-                    IconButton(
-                      key: const Key('peak-info-popup-drop-marker'),
-                      tooltip: 'Drop a Marker on the Peak',
-                      icon: const Icon(
-                        Icons.my_location,
-                        color: Colors.amber,
-                        size: 16,
-                      ),
-                      onPressed: _isSaving ? null : widget.onDropMarker,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                    const SizedBox(width: 4),
-                  ],
-                  IconButton(
-                    key: const Key('peak-info-popup-close'),
-                    tooltip: 'Close Peak Info',
-                    icon: const Icon(Icons.close, size: 16),
-                    onPressed: _isEditing || _isSaving ? null : widget.onClose,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  key: const Key('peak-info-popup-elevation'),
+                  controller: _elevationController,
+                  enabled: !_isSaving,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Height',
+                    isDense: true,
+                    border: const OutlineInputBorder(),
+                    suffixText: 'm',
+                    errorText: _elevationError,
+                  ),
+                  onChanged: (_) => _clearFieldErrors(),
+                ),
+                if (mgrsText != null) ...[
+                  const SizedBox(height: 8),
+                  _PeakInfoLabeledValueRow(
+                    label: 'MGRS:',
+                    value: mgrsText,
+                    monospaceValue: true,
                   ),
                 ],
-              ),
-              const SizedBox(height: 8),
-              Flexible(
-                fit: FlexFit.loose,
-                child: SingleChildScrollView(
-                  child: Column(
-                    key: _isEditing
-                        ? const Key('peak-info-popup-edit-form')
-                        : null,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (_isEditing) ...[
-                        TextField(
-                          key: const Key('peak-info-popup-name'),
-                          controller: _nameController,
-                          enabled: !_isSaving,
-                          decoration: InputDecoration(
-                            labelText: 'Name',
-                            isDense: true,
-                            border: const OutlineInputBorder(),
-                            errorText: _nameError,
-                          ),
-                          onChanged: (_) => _clearFieldErrors(),
-                        ),
-                        const SizedBox(height: 8),
-                        Tooltip(
-                          message: 'Move Peak to Marker',
-                          child: InkWell(
-                            key: const Key('peak-info-popup-move-to-marker'),
-                            onTap: widget.currentMarker == null || _isSaving
-                                ? null
-                                : _moveToMarker,
-                            borderRadius: BorderRadius.circular(4),
-                            child: Opacity(
-                              opacity: widget.currentMarker == null ? 0.5 : 1,
-                              child: Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
-                                ),
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.outlineVariant,
-                                  ),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: const PeakMarkerGlyph(
-                                        ticked: false,
-                                        size: 16,
-                                      ),
-                                    ),
-                                    SizedBox(width: 8),
-                                    const Icon(Icons.arrow_right_alt, size: 16),
-                                    const SizedBox(width: 8),
-                                    const Icon(
-                                      Icons.my_location,
-                                      size: 16,
-                                      color: Colors.amber,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          key: const Key('peak-info-popup-elevation'),
-                          controller: _elevationController,
-                          enabled: !_isSaving,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: 'Height',
-                            isDense: true,
-                            border: const OutlineInputBorder(),
-                            suffixText: 'm',
-                            errorText: _elevationError,
-                          ),
-                          onChanged: (_) => _clearFieldErrors(),
-                        ),
-                        if (mgrsText != null) ...[
-                          const SizedBox(height: 8),
-                          _PeakInfoLabeledValueRow(
-                            label: 'MGRS:',
-                            value: mgrsText,
-                            monospaceValue: true,
-                          ),
-                        ],
-                        if (_submitError != null) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            _submitError!,
-                            key: const Key('peak-info-popup-error'),
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.error,
-                            ),
-                          ),
-                        ],
-                      ] else ...[
-                        if (altName.isNotEmpty) ...[
-                          _PeakInfoLabeledValueRow(
-                            label: 'Alt Name:',
-                            value: altName,
-                          ),
-                          const SizedBox(height: 4),
-                        ],
-                        _PeakInfoLabeledValueRow(
-                          label: 'Height:',
-                          value: peak.elevation == null
-                              ? '—'
-                              : formatElevation(peak.elevation!.round()),
-                        ),
-                        if (content.ascentRows.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          const Padding(
-                            padding: EdgeInsets.only(bottom: 4),
-                            child: Text(
-                              'My Ascents:',
-                              style: TextStyle(fontSize: 13),
-                            ),
-                          ),
-                          for (final ascent in content.ascentRows)
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                left: 12,
-                                bottom: 4,
-                              ),
-                              child: Text(
-                                '${ascent.trackLabel} (${ascent.dateText})',
-                                style: const TextStyle(fontSize: 13),
-                              ),
-                            ),
-                        ],
-                        if (content.ascentRows.isNotEmpty)
-                          const SizedBox(height: 4),
-                        _PeakInfoLabeledValueRow(
-                          label: content.mapLabel,
-                          value: content.mapName,
-                        ),
-                        if (mgrsText != null) ...[
-                          const SizedBox(height: 4),
-                          _PeakInfoLabeledValueRow(
-                            label: 'MGRS:',
-                            value: mgrsText,
-                            monospaceValue: true,
-                          ),
-                        ],
-                        if (listNames.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          _PeakInfoLabeledValueRow(
-                            label: '$listLabel:',
-                            value: listNames.join(', '),
-                          ),
-                        ],
-                      ],
-                    ],
+                if (_submitError != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _submitError!,
+                    key: const Key('peak-info-popup-error'),
+                    style: TextStyle(color: theme.colorScheme.error),
                   ),
+                ],
+              ] else ...[
+                if (altName.isNotEmpty) ...[
+                  _PeakInfoLabeledValueRow(label: 'Alt Name:', value: altName),
+                  const SizedBox(height: 4),
+                ],
+                _PeakInfoLabeledValueRow(
+                  label: 'Height:',
+                  value: peak.elevation == null
+                      ? '—'
+                      : formatElevation(peak.elevation!.round()),
                 ),
-              ),
-              if (_isEditing) ...[
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    FilledButton.tonal(
-                      key: const Key('peak-info-popup-cancel'),
-                      onPressed: _isSaving ? null : _cancelEditing,
-                      child: const Text('Cancel'),
+                if (content.ascentRows.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      'My Ascents:',
+                      style: TextStyle(fontSize: 13),
                     ),
-                    const SizedBox(width: 8),
-                    FilledButton(
-                      key: const Key('peak-info-popup-save'),
-                      onPressed: _isSaving ? null : _saveEditing,
-                      child: Text(_isSaving ? 'Saving...' : 'Save'),
+                  ),
+                  for (final ascent in content.ascentRows)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 12, bottom: 4),
+                      child: Text(
+                        '${ascent.trackLabel} (${ascent.dateText})',
+                        style: const TextStyle(fontSize: 13),
+                      ),
                     ),
-                  ],
+                ],
+                if (content.ascentRows.isNotEmpty) const SizedBox(height: 4),
+                _PeakInfoLabeledValueRow(
+                  label: content.mapLabel,
+                  value: content.mapName,
                 ),
-              ] else if (widget.onEditInAdmin != null) ...[
-                const SizedBox(height: 8),
-                FilledButton.tonal(
-                  key: const Key('peak-info-popup-edit-admin'),
-                  onPressed: widget.onEditInAdmin,
-                  child: const Text('Edit in Peak Admin'),
-                ),
+                if (mgrsText != null) ...[
+                  const SizedBox(height: 4),
+                  _PeakInfoLabeledValueRow(
+                    label: 'MGRS:',
+                    value: mgrsText,
+                    monospaceValue: true,
+                  ),
+                ],
+                if (listNames.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  _PeakInfoLabeledValueRow(
+                    label: '$listLabel:',
+                    value: listNames.join(', '),
+                  ),
+                ],
               ],
             ],
           ),
         ),
+        footer: footer,
       ),
     );
   }
@@ -2736,81 +2674,59 @@ class DriveEtaPopupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      key: const Key('drive-eta-popup-root'),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+    final body = switch (state.status) {
+      DriveEtaPopupStatus.loading => const Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Calculating Route',
+            key: Key('drive-eta-popup-loading'),
+          ),
+        ),
+      DriveEtaPopupStatus.error => Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            state.errorMessage ?? 'Drive ETA unavailable.',
+            key: const Key('drive-eta-popup-error'),
+          ),
+        ),
+      DriveEtaPopupStatus.success => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.directions_car, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    state.title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  key: const Key('drive-eta-popup-close'),
-                  tooltip: 'Close drive ETA',
-                  icon: const Icon(Icons.close, size: 16),
-                  onPressed: onClose,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
+            _DriveEtaLabeledValueRow(
+              key: const Key('drive-eta-popup-duration-row'),
+              label: 'Duration:',
+              value: formatDuration(
+                (state.durationSeconds ?? 0) * Duration.millisecondsPerSecond,
+              ),
             ),
-            const SizedBox(height: 8),
-            switch (state.status) {
-              DriveEtaPopupStatus.loading => const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Calculating Route',
-                  key: Key('drive-eta-popup-loading'),
-                ),
+            const SizedBox(height: 4),
+            _DriveEtaLabeledValueRow(
+              key: const Key('drive-eta-popup-distance-row'),
+              label: 'Distance:',
+              value: formatDistance(
+                state.distanceMeters ?? 0,
+                decimalPlaces: 1,
               ),
-              DriveEtaPopupStatus.error => Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  state.errorMessage ?? 'Drive ETA unavailable.',
-                  key: const Key('drive-eta-popup-error'),
-                ),
-              ),
-              DriveEtaPopupStatus.success => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _DriveEtaLabeledValueRow(
-                    key: const Key('drive-eta-popup-duration-row'),
-                    label: 'Duration:',
-                    value: formatDuration(
-                      (state.durationSeconds ?? 0) *
-                          Duration.millisecondsPerSecond,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  _DriveEtaLabeledValueRow(
-                    key: const Key('drive-eta-popup-distance-row'),
-                    label: 'Distance:',
-                    value: formatDistance(
-                      state.distanceMeters ?? 0,
-                      decimalPlaces: 1,
-                    ),
-                  ),
-                ],
-              ),
-            },
+            ),
           ],
         ),
+    };
+
+    return PopupShell(
+      key: const Key('drive-eta-popup-root'),
+      leading: const Icon(
+        Icons.directions_car,
+        size: PopupUIConstants.headerIconSize,
       ),
+      title: Text(
+        state.title,
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+      ),
+      onClose: onClose,
+      closeButtonKey: const Key('drive-eta-popup-close'),
+      closeTooltip: 'Close drive ETA',
+      body: body,
     );
   }
 }
@@ -2829,41 +2745,20 @@ class RouteDraftMarkerDeletePopupCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text('Edit Point', style: theme.textTheme.titleSmall),
-                ),
-                IconButton(
-                  key: const Key('route-draft-delete-popup-close'),
-                  tooltip: 'Close point actions',
-                  icon: const Icon(Icons.close, size: 16),
-                  onPressed: onClose,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            TextButton.icon(
-              key: const Key('route-draft-delete-action'),
-              onPressed: onDelete,
-              style: TextButton.styleFrom(
-                foregroundColor: theme.colorScheme.error,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              ),
-              icon: const Icon(Icons.delete_forever),
-              label: const Text('Delete Point'),
-            ),
-          ],
+    return PopupShell(
+      title: Text('Edit Point', style: theme.textTheme.titleSmall),
+      onClose: onClose,
+      closeButtonKey: const Key('route-draft-delete-popup-close'),
+      closeTooltip: 'Close point actions',
+      body: TextButton.icon(
+        key: const Key('route-draft-delete-action'),
+        onPressed: onDelete,
+        style: TextButton.styleFrom(
+          foregroundColor: theme.colorScheme.error,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         ),
+        icon: const Icon(Icons.delete_forever),
+        label: const Text('Delete Point'),
       ),
     );
   }

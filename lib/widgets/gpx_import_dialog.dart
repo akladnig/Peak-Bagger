@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:xml/xml.dart';
 
+import 'package:peak_bagger/core/widgets/popup_shell.dart';
 import 'package:peak_bagger/services/gpx_file_picker.dart';
 import 'dialog_helpers.dart';
 
@@ -38,7 +39,6 @@ typedef GpxTrackImportDialog = GpxImportDialog;
 
 class _GpxImportDialogState extends State<GpxImportDialog> {
   static const double _panelHorizontalPadding = 16;
-  static const double _panelVerticalPadding = 12;
   static const double _dialogMaxWidth = 320;
   static const double _dialogChromeHeightEstimate = 320;
   static const double _estimatedFileRowHeight = 96;
@@ -127,160 +127,119 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
               );
             }
 
-            return Card(
-              key: const Key('gpx-import-dialog'),
-              margin: EdgeInsets.zero,
-              clipBehavior: Clip.antiAlias,
-              child: SafeArea(
-                child: Column(
+            return SafeArea(
+              child: PopupShell(
+                key: const Key('gpx-import-dialog'),
+                title: Text(
+                  'Import GPX File(s)',
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                onClose: _isImporting ? null : () => Navigator.of(context).pop(),
+                closeButtonKey: const Key('gpx-import-close'),
+                closeTooltip: 'Close import dialog',
+                headerMeasureKey: _headerMeasureKey,
+                headerPaddingKey: const Key('gpx-import-header-padding'),
+                bodyPaddingKey: const Key('gpx-import-body-padding'),
+                footerMeasureKey: _actionsMeasureKey,
+                footerPaddingKey: const Key('gpx-import-actions-padding'),
+                body: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     KeyedSubtree(
-                      key: _headerMeasureKey,
-                      child: Padding(
-                        key: const Key('gpx-import-header-padding'),
-                        padding: const EdgeInsets.fromLTRB(
-                          _panelHorizontalPadding,
-                          _panelVerticalPadding,
-                          _panelHorizontalPadding,
-                          _panelVerticalPadding,
-                        ),
-                        child: Text(
-                          'Import GPX File(s)',
-                          maxLines: 1,
-                          softWrap: false,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                      ),
-                    ),
-                    const Divider(height: 1),
-                    Padding(
-                      key: const Key('gpx-import-body-padding'),
-                      padding: const EdgeInsets.fromLTRB(
-                        _panelHorizontalPadding,
-                        _panelVerticalPadding,
-                        _panelHorizontalPadding,
-                        _panelVerticalPadding,
-                      ),
+                      key: _bodyStaticMeasureKey,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          KeyedSubtree(
-                            key: _bodyStaticMeasureKey,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                FilledButton.tonal(
-                                  key: const Key('gpx-import-select-files'),
-                                  onPressed: _isImporting || _isSelectingFiles
-                                      ? null
-                                      : _selectFiles,
-                                  child: const Text('Select GPX Files'),
-                                ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  key: const Key('gpx-import-as-route'),
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        'Import as Route',
-                                        style: Theme.of(context).textTheme.bodyMedium,
-                                      ),
-                                    ),
-                                    Switch(
-                                      value: _importAsRoute,
-                                      onChanged: _isImporting || _isSelectingFiles
-                                          ? null
-                                          : (value) {
-                                              setState(() {
-                                                _importAsRoute = value;
-                                                _nameErrors = {};
-                                              });
-                                            },
-                                    ),
-                                  ],
-                                ),
-                                if (_selectedFiles.isNotEmpty)
-                                  const SizedBox(height: 12)
-                                else if (_isSelectingFiles) ...[
-                                  const SizedBox(height: 8),
-                                  const SizedBox(
-                                    key: Key('gpx-import-file-selection-progress'),
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                ]
-                                else ...[
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'No files selected',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurfaceVariant,
-                                        ),
-                                  ),
-                                ],
-                              ],
-                            ),
+                          FilledButton.tonal(
+                            key: const Key('gpx-import-select-files'),
+                            onPressed: _isImporting || _isSelectingFiles
+                                ? null
+                                : _selectFiles,
+                            child: const Text('Select GPX Files'),
                           ),
-                          if (_selectedFiles.isNotEmpty) fileSection(),
+                          const SizedBox(height: 12),
+                          Row(
+                            key: const Key('gpx-import-as-route'),
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Import as Route',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                              ),
+                              Switch(
+                                value: _importAsRoute,
+                                onChanged: _isImporting || _isSelectingFiles
+                                    ? null
+                                    : (value) {
+                                        setState(() {
+                                          _importAsRoute = value;
+                                          _nameErrors = {};
+                                        });
+                                      },
+                              ),
+                            ],
+                          ),
+                          if (_selectedFiles.isNotEmpty)
+                            const SizedBox(height: 12)
+                          else if (_isSelectingFiles) ...[
+                            const SizedBox(height: 8),
+                            const SizedBox(
+                              key: Key('gpx-import-file-selection-progress'),
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ]
+                          else ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              'No files selected',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
-                    const Divider(height: 1),
-                    KeyedSubtree(
-                      key: _actionsMeasureKey,
-                      child: Padding(
-                        key: const Key('gpx-import-actions-padding'),
-                        padding: const EdgeInsets.fromLTRB(
-                          _panelHorizontalPadding,
-                          _panelVerticalPadding,
-                          _panelHorizontalPadding,
-                          16,
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            TextButton(
-                              key: const Key('gpx-import-cancel'),
-                              onPressed: _isImporting
-                                  ? null
-                                  : () => Navigator.of(context).pop(),
-                              child: const Text('Cancel'),
-                            ),
-                            const SizedBox(width: 12),
-                            FilledButton(
-                              key: const Key('gpx-import-button'),
-                              onPressed: _selectedFiles.isEmpty ||
-                                      _isImporting ||
-                                      _isSelectingFiles
-                                  ? null
-                                  : _import,
-                              child: _isImporting
-                                  ? const SizedBox(
-                                      key: Key('gpx-import-progress'),
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Text('Import'),
-                            ),
-                          ],
-                        ),
-                      ),
+                    if (_selectedFiles.isNotEmpty) fileSection(),
+                  ],
+                ),
+                footer: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      key: const Key('gpx-import-cancel'),
+                      onPressed: _isImporting
+                          ? null
+                          : () => Navigator.of(context).pop(),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 12),
+                    FilledButton(
+                      key: const Key('gpx-import-button'),
+                      onPressed: _selectedFiles.isEmpty ||
+                              _isImporting ||
+                              _isSelectingFiles
+                          ? null
+                          : _import,
+                      child: _isImporting
+                          ? const SizedBox(
+                              key: Key('gpx-import-progress'),
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Import'),
                     ),
                   ],
                 ),

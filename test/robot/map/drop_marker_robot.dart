@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -32,6 +33,8 @@ class DropMarkerRobot {
       find.byKey(const Key('favourite-name-input'));
   Finder get favouriteNameSave => find.byKey(const Key('favourite-name-save'));
   Finder get favouritesPopup => find.byKey(const Key('favourites-popup'));
+  Finder get favouritesPopupClose =>
+      find.byKey(const Key('favourites-popup-close'));
   Finder favouriteMarkerName(int id) =>
       find.byKey(Key('favourite-marker-name-$id'));
 
@@ -114,6 +117,25 @@ class DropMarkerRobot {
     await tester.tap(find.byKey(Key('favourites-popup-row-$id')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  Future<void> closeFavouritesPopup() async {
+    await tester.tap(favouritesPopupClose);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> dismissFavouritesWithEscape() async {
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> dismissFavouritesWithCtrlC() async {
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyC);
+    await tester.pumpAndSettle();
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyC);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
   }
 
   ProviderContainer container() {
