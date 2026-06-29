@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:peak_bagger/core/widgets/popup_keyboard_dismiss.dart';
 
 import '../services/peak_list_file_picker.dart';
 import 'dialog_helpers.dart';
@@ -65,58 +66,62 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      key: const Key('peak-list-import-dialog'),
-      title: const Text('Import Peak List'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          FilledButton.tonal(
-            key: const Key('peak-list-select-file'),
-            onPressed: _isImporting ? null : _selectFile,
-            child: const Text('Select Peak Lists'),
+    return PopupKeyboardDismiss(
+      enabled: !_isImporting,
+      onDismiss: () => Navigator.of(context).pop(),
+      child: AlertDialog(
+        key: const Key('peak-list-import-dialog'),
+        title: const Text('Import Peak List'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            FilledButton.tonal(
+              key: const Key('peak-list-select-file'),
+              onPressed: _isImporting ? null : _selectFile,
+              child: const Text('Select Peak Lists'),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _selectedFilePath ?? 'No file selected',
+              key: const Key('peak-list-selected-file'),
+            ),
+            const SizedBox(height: 16),
+            PeakListNameField(
+              fieldKey: const Key('peak-list-name-field'),
+              controller: _nameController,
+              enabled: !_isImporting,
+              errorText: _nameError,
+              onChanged: (_) {
+                if (_nameError != null) {
+                  setState(() {
+                    _nameError = null;
+                  });
+                }
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            key: const Key('peak-list-import-cancel'),
+            onPressed: _isImporting ? null : () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
           ),
-          const SizedBox(height: 12),
-          Text(
-            _selectedFilePath ?? 'No file selected',
-            key: const Key('peak-list-selected-file'),
-          ),
-          const SizedBox(height: 16),
-          PeakListNameField(
-            fieldKey: const Key('peak-list-name-field'),
-            controller: _nameController,
-            enabled: !_isImporting,
-            errorText: _nameError,
-            onChanged: (_) {
-              if (_nameError != null) {
-                setState(() {
-                  _nameError = null;
-                });
-              }
-            },
+          FilledButton(
+            key: const Key('peak-list-import-button'),
+            onPressed: _selectedFilePath == null || _isImporting ? null : _import,
+            child: _isImporting
+                ? const SizedBox(
+                    key: Key('peak-list-import-progress'),
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Import'),
           ),
         ],
       ),
-      actions: [
-        TextButton(
-          key: const Key('peak-list-import-cancel'),
-          onPressed: _isImporting ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          key: const Key('peak-list-import-button'),
-          onPressed: _selectedFilePath == null || _isImporting ? null : _import,
-          child: _isImporting
-              ? const SizedBox(
-                  key: Key('peak-list-import-progress'),
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Import'),
-        ),
-      ],
     );
   }
 

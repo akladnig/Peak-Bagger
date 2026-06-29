@@ -16,6 +16,7 @@ import '../providers/peak_list_selection_provider.dart';
 import '../providers/tasmap_provider.dart';
 import '../router.dart';
 import '../services/peak_list_repository.dart';
+import '../core/widgets/popup_keyboard_dismiss.dart';
 import 'dialog_helpers.dart';
 import 'peak_multi_select_results_list.dart';
 import 'peak_selected_peaks_list.dart';
@@ -111,146 +112,196 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
             padding: EdgeInsets.all(UiConstants.dialogMargin),
             child: Transform.translate(
               offset: clampedOffset,
-              child: Material(
-                key: const Key('peak-list-peak-dialog'),
-                color: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
-                elevation: 6,
-                shadowColor: Colors.black54,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(28),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: dialogWidth,
-                    maxHeight: size.height - (UiConstants.dialogMargin * 2),
+              child: PopupKeyboardDismiss(
+                enabled: !_saving,
+                autofocus: false,
+                onDismiss: () => Navigator.of(context).pop(),
+                child: Material(
+                  key: const Key('peak-list-peak-dialog'),
+                  color: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
+                  elevation: 6,
+                  shadowColor: Colors.black54,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(
+                      PopupUIConstants.surfaceRadius,
+                    ),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      GestureDetector(
-                        key: const Key('peak-list-peak-dialog-drag-handle'),
-                        onPanUpdate: (details) {
-                          setState(() {
-                            _dialogOffset += details.delta;
-                          });
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 24, 16, 0),
-                          // Header Row: Title, Edit & Trash
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: _mode == PeakListPeakDialogMode.view
-                                    ? InkWell(
-                                        key: const Key('peak-list-peak-name'),
-                                        onTap: _navigateToPeakOnMap,
-                                        hoverColor: theme.colorScheme.primary
-                                            .withValues(alpha: 0.08),
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
+                  clipBehavior: Clip.antiAlias,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: dialogWidth,
+                      maxHeight: size.height - (UiConstants.dialogMargin * 2),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        GestureDetector(
+                          key: const Key('peak-list-peak-dialog-drag-handle'),
+                          onPanUpdate: (details) {
+                            setState(() {
+                              _dialogOffset += details.delta;
+                            });
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              PopupUIConstants.surfacePadding,
+                              PopupUIConstants.surfacePadding,
+                              PopupUIConstants.surfacePadding,
+                              0,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _mode == PeakListPeakDialogMode.view
+                                      ? InkWell(
+                                          key: const Key('peak-list-peak-name'),
+                                          onTap: _navigateToPeakOnMap,
+                                          hoverColor: theme.colorScheme.primary
+                                              .withValues(alpha: 0.08),
+                                          borderRadius: BorderRadius.circular(8),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            child: Text(
+                                              _titleLabel,
+                                              style: theme.textTheme.titleLarge
+                                                  ?.copyWith(
+                                                    color: theme.colorScheme.primary,
+                                                  ),
+                                            ),
                                           ),
-                                          child: Text(
-                                            _titleLabel,
-                                            style: theme.textTheme.titleLarge
-                                                ?.copyWith(
-                                                  color:
-                                                      theme.colorScheme.primary,
-                                                ),
-                                          ),
+                                        )
+                                      : Text(
+                                          _titleLabel,
+                                          style: theme.textTheme.titleLarge,
                                         ),
-                                      )
-                                    : Text(
-                                        _titleLabel,
-                                        style: theme.textTheme.titleLarge,
-                                      ),
-                              ),
-                              if (_mode == PeakListPeakDialogMode.view) ...[
-                                IconButton(
-                                  key: const Key('peak-list-peak-edit'),
-                                  onPressed: _saving ? null : _enterEditMode,
-                                  icon: const Icon(Icons.edit),
-                                  tooltip: 'Edit',
                                 ),
+                                if (_mode == PeakListPeakDialogMode.view) ...[
+                                  IconButton(
+                                    key: const Key('peak-list-peak-edit'),
+                                    onPressed: _saving ? null : _enterEditMode,
+                                    icon: const Icon(
+                                      Icons.edit,
+                                      size: PopupUIConstants.closeIconSize,
+                                    ),
+                                    tooltip: 'Edit',
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    key: const Key('peak-list-peak-delete'),
+                                    onPressed: _saving
+                                        ? null
+                                        : _deleteSelectedPeak,
+                                    icon: const Icon(
+                                      Icons.delete_forever,
+                                      size: PopupUIConstants.closeIconSize,
+                                    ),
+                                    tooltip: 'Delete',
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
                                 IconButton(
-                                  key: const Key('peak-list-peak-delete'),
+                                  key: const Key('peak-list-peak-close-icon'),
                                   onPressed: _saving
                                       ? null
-                                      : _deleteSelectedPeak,
-                                  icon: const Icon(Icons.delete_forever),
-                                  tooltip: 'Delete',
+                                      : () => Navigator.of(context).pop(),
+                                  icon: const Icon(
+                                    Icons.close,
+                                    size: PopupUIConstants.closeIconSize,
+                                  ),
+                                  tooltip: _mode == PeakListPeakDialogMode.view
+                                      ? 'Close'
+                                      : 'Cancel',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Flexible(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              PopupUIConstants.surfacePadding,
+                              PopupUIConstants.surfacePadding,
+                              PopupUIConstants.surfacePadding,
+                              0,
+                            ),
+                            child: SizedBox(
+                              width:
+                                  dialogWidth - (PopupUIConstants.surfacePadding * 2),
+                              child: switch (_mode) {
+                                PeakListPeakDialogMode.view =>
+                                  SingleChildScrollView(
+                                    child: _buildViewContent(context),
+                                  ),
+                                PeakListPeakDialogMode.add => _buildAddContent(
+                                  context,
+                                ),
+                                PeakListPeakDialogMode.edit =>
+                                  SingleChildScrollView(
+                                    child: _buildEditContent(context),
+                                  ),
+                              },
+                            ),
+                          ),
+                        ),
+                        Divider(height: PopupUIConstants.surfacePadding),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            PopupUIConstants.surfacePadding,
+                            0,
+                            PopupUIConstants.surfacePadding,
+                            PopupUIConstants.surfacePadding,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton(
+                                key: Key(
+                                  _mode == PeakListPeakDialogMode.view
+                                      ? 'peak-list-peak-close'
+                                      : 'peak-list-peak-cancel',
+                                ),
+                                onPressed: _saving
+                                    ? null
+                                    : () => Navigator.of(context).pop(),
+                                child: Text(
+                                  _mode == PeakListPeakDialogMode.view
+                                      ? 'Close'
+                                      : 'Cancel',
+                                ),
+                              ),
+                              if (_mode != PeakListPeakDialogMode.view) ...[
+                                const SizedBox(
+                                  width: PopupUIConstants.actionSpacing,
+                                ),
+                                FilledButton(
+                                  key: const Key('peak-list-peak-save'),
+                                  onPressed: _saving ? null : _saveCurrentMode,
+                                  child: _saving
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Text('Save'),
                                 ),
                               ],
                             ],
                           ),
                         ),
-                      ),
-                      Flexible(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-                          child: SizedBox(
-                            width: dialogWidth - 48,
-                            child: switch (_mode) {
-                              PeakListPeakDialogMode.view =>
-                                SingleChildScrollView(
-                                  child: _buildViewContent(context),
-                                ),
-                              PeakListPeakDialogMode.add => _buildAddContent(
-                                context,
-                              ),
-                              PeakListPeakDialogMode.edit =>
-                                SingleChildScrollView(
-                                  child: _buildEditContent(context),
-                                ),
-                            },
-                          ),
-                        ),
-                      ),
-                      const Divider(height: 24),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            TextButton(
-                              key: Key(
-                                _mode == PeakListPeakDialogMode.view
-                                    ? 'peak-list-peak-close'
-                                    : 'peak-list-peak-cancel',
-                              ),
-                              onPressed: _saving
-                                  ? null
-                                  : () => Navigator.of(context).pop(),
-                              child: Text(
-                                _mode == PeakListPeakDialogMode.view
-                                    ? 'Close'
-                                    : 'Cancel',
-                              ),
-                            ),
-                            if (_mode != PeakListPeakDialogMode.view) ...[
-                              const SizedBox(width: 12),
-                              FilledButton(
-                                key: const Key('peak-list-peak-save'),
-                                onPressed: _saving ? null : _saveCurrentMode,
-                                child: _saving
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : const Text('Save'),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

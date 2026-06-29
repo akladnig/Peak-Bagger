@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:peak_bagger/core/widgets/popup_keyboard_dismiss.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
@@ -464,29 +465,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final shouldSave = await showDialog<bool>(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('OpenRouteService API Key'),
-          content: TextField(
-            key: const Key('open-route-service-api-key-field'),
-            controller: controller,
-            decoration: const InputDecoration(
-              labelText: 'API key',
-              border: OutlineInputBorder(),
+        return PopupKeyboardDismiss(
+          onDismiss: () => Navigator.of(context).pop(false),
+          child: AlertDialog(
+            title: const Text('OpenRouteService API Key'),
+            content: TextField(
+              key: const Key('open-route-service-api-key-field'),
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'API key',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
             ),
-            maxLines: 2,
+            actions: [
+              TextButton(
+                key: const Key('open-route-service-api-key-cancel'),
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                key: const Key('open-route-service-api-key-save'),
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Save'),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              key: const Key('open-route-service-api-key-cancel'),
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              key: const Key('open-route-service-api-key-save'),
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Save'),
-            ),
-          ],
         );
       },
     );
@@ -1846,23 +1850,26 @@ class _TileCacheSettingsScreenState
   Future<void> _clearCache() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Clear Cache?'),
-        content: Text(
-          _selectedBasemaps.length == 1
-              ? 'Delete all cached tiles for ${_selectedBasemaps.first.name}?'
-              : 'Delete all cached tiles for selected basemaps?',
+      builder: (ctx) => PopupKeyboardDismiss(
+        onDismiss: () => Navigator.pop(ctx, false),
+        child: AlertDialog(
+          title: const Text('Clear Cache?'),
+          content: Text(
+            _selectedBasemaps.length == 1
+                ? 'Delete all cached tiles for ${_selectedBasemaps.first.name}?'
+                : 'Delete all cached tiles for selected basemaps?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Clear'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Clear'),
-          ),
-        ],
       ),
     );
     if (confirmed == true) {

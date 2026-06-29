@@ -106,6 +106,36 @@ class DropMarkerRobot {
     await tester.pumpAndSettle();
   }
 
+  Future<void> openDropFavouriteDialog() async {
+    await tester.tap(chooserDropFavourite);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> cancelFavouriteNameDialog() async {
+    await tester.tap(find.byKey(const Key('favourite-name-cancel')));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> saveFavouriteName(String name) async {
+    await tester.enterText(favouriteNameInput, name);
+    await tester.tap(favouriteNameSave);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> dismissFavouriteNameWithEscape() async {
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> dismissFavouriteNameWithCtrlC() async {
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyC);
+    await tester.pumpAndSettle();
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyC);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+  }
+
   Future<void> openFavourites() async {
     await tester.ensureVisible(gotoFavouriteFab);
     await tester.pumpAndSettle();

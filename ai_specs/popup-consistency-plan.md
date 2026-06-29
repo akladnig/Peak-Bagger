@@ -45,17 +45,17 @@ Unify popup shell, tokens, dismiss paths. Keep special layouts intact.
 ### Phase 3: Dialog Helpers + Peak List Panel
 
 - **Goal**: normalize modal dialogs; align bespoke peak-list panel
-- [ ] `lib/widgets/dialog_helpers.dart` - normalize action hierarchy; remove `showExportConflictDialog` hover-primary swap; add shared keyboard dismiss where dialog is dismissible
-- [ ] `lib/screens/settings_screen.dart` - route ad-hoc dialogs through shared dialog action/keyboard pattern where in scope
-- [ ] `lib/widgets/peak_list_create_dialog.dart` - keep `AlertDialog`; adopt shared keyboard dismiss + shared action pattern
-- [ ] `lib/widgets/peak_list_import_dialog.dart` - keep `AlertDialog`; adopt shared keyboard dismiss + shared action pattern
-- [ ] `lib/widgets/peak_list_peak_dialog.dart` - adopt `PopupUIConstants` tokens + keyboard dismiss; keep drag behavior/layout structure
-- [ ] `test/widget/` - add helper-dialog regressions for action ordering + keyboard dismiss
-- [ ] `test/robot/` - add one modal dialog journey; open, cancel, confirm, dismiss by keyboard
-- [ ] TDD: confirm dialogs preserve return values while action emphasis/order normalize
-- [ ] TDD: `PeakListPeakDialog` visual tokens align without regressing drag/save/delete flows
-- [ ] TDD: keyboard dismiss disabled while save/import work blocks exit
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/widgets/dialog_helpers.dart` - normalize action hierarchy; remove `showExportConflictDialog` hover-primary swap; add shared keyboard dismiss where dialog is dismissible
+- [x] `lib/screens/settings_screen.dart` - route ad-hoc dialogs through shared dialog action/keyboard pattern where in scope
+- [x] `lib/widgets/peak_list_create_dialog.dart` - keep `AlertDialog`; adopt shared keyboard dismiss + shared action pattern
+- [x] `lib/widgets/peak_list_import_dialog.dart` - keep `AlertDialog`; adopt shared keyboard dismiss + shared action pattern
+- [x] `lib/widgets/peak_list_peak_dialog.dart` - adopt `PopupUIConstants` tokens + keyboard dismiss; keep drag behavior/layout structure
+- [x] `test/widget/` - add helper-dialog regressions for action ordering + keyboard dismiss
+- [x] `test/robot/` - add one modal dialog journey; open, cancel, confirm, dismiss by keyboard
+- [x] TDD: confirm dialogs preserve return values while action emphasis/order normalize
+- [x] TDD: `PeakListPeakDialog` visual tokens align without regressing drag/save/delete flows
+- [x] TDD: keyboard dismiss disabled while save/import work blocks exit
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

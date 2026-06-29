@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/core/date_formatters.dart';
 import 'package:peak_bagger/core/number_formatters.dart';
+import 'package:peak_bagger/core/widgets/popup_keyboard_dismiss.dart';
 import 'package:peak_bagger/core/widgets/popup_shell.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
@@ -2093,28 +2094,31 @@ class _FavouriteNameDialogState extends State<FavouriteNameDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      key: const Key('favourite-name-dialog'),
-      title: const Text('Save Favourite'),
-      content: TextField(
-        key: const Key('favourite-name-input'),
-        controller: _controller,
-        autofocus: true,
-        decoration: InputDecoration(errorText: _errorText),
-        onSubmitted: (_) => _submit(),
+    return PopupKeyboardDismiss(
+      onDismiss: () => Navigator.of(context).pop(),
+      child: AlertDialog(
+        key: const Key('favourite-name-dialog'),
+        title: const Text('Save Favourite'),
+        content: TextField(
+          key: const Key('favourite-name-input'),
+          controller: _controller,
+          autofocus: true,
+          decoration: InputDecoration(errorText: _errorText),
+          onSubmitted: (_) => _submit(),
+        ),
+        actions: [
+          TextButton(
+            key: const Key('favourite-name-cancel'),
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const Key('favourite-name-save'),
+            onPressed: _submit,
+            child: const Text('Save'),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          key: const Key('favourite-name-cancel'),
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          key: const Key('favourite-name-save'),
-          onPressed: _submit,
-          child: const Text('Save'),
-        ),
-      ],
     );
   }
 }
