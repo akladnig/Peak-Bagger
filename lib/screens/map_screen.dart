@@ -2129,9 +2129,24 @@ class _MapScreenState extends ConsumerState<MapScreen>
             final mapState = ref.read(mapProvider);
             final key = event.logicalKey;
             final notifier = ref.read(mapProvider.notifier);
+            final isCtrlC =
+                key == LogicalKeyboardKey.keyC &&
+                HardwareKeyboard.instance.isControlPressed &&
+                !HardwareKeyboard.instance.isMetaPressed;
 
             if (event is KeyDownEvent && mapState.peakInfoPeak != null) {
               notifier.closePeakInfoPopup();
+            }
+
+            if (mapState.showInfoPopup && event is KeyDownEvent && isCtrlC) {
+              notifier.closeInfoPopup();
+              return KeyEventResult.handled;
+            }
+
+            if (mapState.showInfoPopup && event is KeyDownEvent &&
+                key == LogicalKeyboardKey.keyG) {
+              notifier.closeInfoPopup();
+              return KeyEventResult.handled;
             }
 
             if (mapState.isRouteDrafting &&
@@ -2147,14 +2162,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 }
               } else if (mapState.routeDraftCanUndo) {
                 notifier.undoRouteDraftEdit();
-              }
-              return KeyEventResult.handled;
-            }
-
-            // Close popup on any key press (except I which toggles it)
-            if (mapState.showInfoPopup && key != LogicalKeyboardKey.keyI) {
-              if (event is KeyDownEvent) {
-                notifier.toggleInfoPopup();
               }
               return KeyEventResult.handled;
             }

@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/core/date_formatters.dart';
 import 'package:peak_bagger/core/number_formatters.dart';
+import 'package:peak_bagger/core/widgets/popup_shell.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/peak.dart';
@@ -1859,92 +1860,79 @@ class MapInfoPopupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    final theme = Theme.of(context);
+    return PopupShell(
+      key: const Key('map-info-popup'),
+      leading: const Icon(Icons.map, size: PopupUIConstants.headerIconSize),
+      title: Text(
+        infoMapName ?? 'Unknown',
+        style: theme.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+        ),
+      ),
+      closeButtonKey: const Key('map-info-popup-close'),
+      closeTooltip: 'Close map info',
+      onClose: onClose,
+      body: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (infoMgrs != null)
+            Text(
+              infoMgrs!,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          if (infoPeakName != null) ...[
+            if (infoMgrs != null) const SizedBox(height: 8),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.map, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  infoMapName ?? 'Unknown',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.close, size: 16),
-                  onPressed: onClose,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-            if (infoMgrs != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                infoMgrs!,
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-            ],
-            if (infoPeakName != null) ...[
-              const SizedBox(height: 8),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.terrain, size: 16),
-                  const SizedBox(width: 4),
-                  Text(infoPeakName!, style: const TextStyle(fontSize: 13)),
-                  if (infoPeakElevation != null) ...[
-                    const Text(' '),
-                    Text(
-                      formatCompactElevation(infoPeakElevation!),
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ],
-                ],
-              ),
-            ],
-            if (hasTrackRecoveryIssue) ...[
-              const SizedBox(height: 8),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.warning_amber_rounded, size: 16),
-                  SizedBox(width: 4),
+                const Icon(Icons.terrain, size: 16),
+                const SizedBox(width: 4),
+                Text(infoPeakName!, style: const TextStyle(fontSize: 13)),
+                if (infoPeakElevation != null) ...[
+                  const Text(' '),
                   Text(
-                    'Some tracks need to be rebuilt.',
-                    style: TextStyle(fontSize: 13),
-                  ),
-                ],
-              ),
-            ] else if (trackCount > 0) ...[
-              const SizedBox(height: 8),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.route, size: 16),
-                  const SizedBox(width: 4),
-                  Text(
-                    '$trackCount tracks available',
+                    formatCompactElevation(infoPeakElevation!),
                     style: const TextStyle(fontSize: 13),
                   ),
                 ],
-              ),
-            ],
+              ],
+            ),
           ],
-        ),
+          if (hasTrackRecoveryIssue) ...[
+            const SizedBox(height: 8),
+            const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.warning_amber_rounded, size: 16),
+                SizedBox(width: 4),
+                Text(
+                  'Some tracks need to be rebuilt.',
+                  style: TextStyle(fontSize: 13),
+                ),
+              ],
+            ),
+          ] else if (trackCount > 0) ...[
+            const SizedBox(height: 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.route, size: 16),
+                const SizedBox(width: 4),
+                Text(
+                  '$trackCount tracks available',
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }

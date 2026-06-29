@@ -180,6 +180,15 @@ abstract final class UiConstants {
   static const sideMenuColumnWidth = 70.0;
 }
 
+abstract final class PopupUIConstants {
+  static const surfacePadding = 12.0;
+  static const surfaceRadius = 12.0;
+  static const closeIconSize = 16.0;
+  static const headerIconSize = 18.0;
+  static const headerSpacing = 8.0;
+  static const actionSpacing = 12.0;
+}
+
 abstract final class DashboardUI {
   static final cardBorderRadius = BorderRadius.circular(12);
   static const fullHeightLabelGuides = true;
