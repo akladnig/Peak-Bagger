@@ -22,7 +22,7 @@ Future<bool?> showDangerConfirmDialog({
           title: Text(title),
           content: Text(message),
           actions: [
-            TextButton(
+            FilledButton(
               key: Key(cancelKey),
               onPressed: () => Navigator.of(dialogContext).pop(false),
               child: Text(cancelLabel),

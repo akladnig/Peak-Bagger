@@ -155,7 +155,7 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          FilledButton.tonal(
+                          FilledButton(
                             key: const Key('gpx-import-select-files'),
                             onPressed: _isImporting || _isSelectingFiles
                                 ? null
@@ -217,7 +217,7 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
                 footer: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    TextButton(
+                    FilledButton(
                       key: const Key('gpx-import-cancel'),
                       onPressed: _isImporting
                           ? null

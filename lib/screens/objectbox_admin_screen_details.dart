@@ -625,7 +625,7 @@ class _PeakReadOnlyDetails extends StatelessWidget {
               value: row.values[field.name],
             ),
             trailing: isSourceOfTruth
-                ? TextButton(
+                ? FilledButton(
                     key: const Key('objectbox-admin-peak-source-of-truth'),
                     onPressed: onMarkAsHwc,
                     child: const Text('Mark as HWC'),
@@ -1512,7 +1512,7 @@ class _PeakEditForm extends StatelessWidget {
                       ),
                     ),
                   ),
-                  TextButton(
+                  FilledButton(
                     key: const Key('objectbox-admin-peak-source-of-truth'),
                     onPressed: isSaving ? null : onMarkAsHwc,
                     child: const Text('Mark as HWC'),
@@ -1534,7 +1534,7 @@ class _PeakEditForm extends StatelessWidget {
           Text(submitError!, style: TextStyle(color: errorColor)),
         ],
         const SizedBox(height: 12),
-        FilledButton.tonal(
+        FilledButton(
           key: const Key('objectbox-admin-peak-calculate'),
           onPressed: isSaving || !canCalculate ? null : onCalculate,
           child: const Text('Calculate'),

@@ -2139,7 +2139,7 @@ class _FavouriteNameDialogState extends State<FavouriteNameDialog> {
           onSubmitted: (_) => _submit(),
         ),
         actions: [
-          TextButton(
+          FilledButton(
             key: const Key('favourite-name-cancel'),
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Cancel'),
@@ -2420,7 +2420,7 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
         spacing: 8,
         runSpacing: 8,
         children: [
-          FilledButton.tonal(
+          FilledButton(
             key: const Key('peak-info-popup-cancel'),
             onPressed: _isSaving ? null : _cancelEditing,
             child: const Text('Cancel'),
@@ -2432,7 +2432,7 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
           ),
         ],
       ),
-      (false, final onEditInAdmin?) => FilledButton.tonal(
+      (false, final onEditInAdmin?) => FilledButton(
         key: const Key('peak-info-popup-edit-admin'),
         onPressed: onEditInAdmin,
         child: const Text('Edit in Peak Admin'),

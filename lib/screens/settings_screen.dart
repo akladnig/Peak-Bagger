@@ -480,7 +480,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               maxLines: 2,
             ),
             actions: [
-              TextButton(
+              FilledButton(
                 key: const Key('open-route-service-api-key-cancel'),
                 onPressed: () => Navigator.of(context).pop(false),
                 child: const Text('Cancel'),
@@ -1861,7 +1861,7 @@ class _TileCacheSettingsScreenState
                 : 'Delete all cached tiles for selected basemaps?',
           ),
           actions: [
-            TextButton(
+            FilledButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Cancel'),
             ),

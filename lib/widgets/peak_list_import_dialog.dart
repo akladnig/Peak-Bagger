@@ -76,7 +76,7 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            FilledButton.tonal(
+            FilledButton(
               key: const Key('peak-list-select-file'),
               onPressed: _isImporting ? null : _selectFile,
               child: const Text('Select Peak Lists'),
@@ -103,7 +103,7 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
           ],
         ),
         actions: [
-          TextButton(
+          FilledButton(
             key: const Key('peak-list-import-cancel'),
             onPressed: _isImporting ? null : () => Navigator.of(context).pop(),
             child: const Text('Cancel'),

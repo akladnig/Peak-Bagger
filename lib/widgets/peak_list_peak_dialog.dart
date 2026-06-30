@@ -276,7 +276,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
-                              TextButton(
+                              FilledButton(
                                 key: Key(
                                   _mode == PeakListPeakDialogMode.view
                                       ? 'peak-list-peak-close'

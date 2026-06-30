@@ -221,6 +221,29 @@ TextStyle favouriteMarkerLabelTextStyle(BuildContext context) {
       const TextStyle(fontSize: 12, fontStyle: FontStyle.italic);
 }
 
+@immutable
+class SelectedButtonThemeData extends ThemeExtension<SelectedButtonThemeData> {
+  const SelectedButtonThemeData({required this.style});
+
+  final ButtonStyle style;
+
+  @override
+  SelectedButtonThemeData copyWith({ButtonStyle? style}) {
+    return SelectedButtonThemeData(style: style ?? this.style);
+  }
+
+  @override
+  SelectedButtonThemeData lerp(
+    covariant ThemeExtension<SelectedButtonThemeData>? other,
+    double t,
+  ) {
+    if (other is! SelectedButtonThemeData) return this;
+    return SelectedButtonThemeData(
+      style: ButtonStyle.lerp(style, other.style, t)!,
+    );
+  }
+}
+
 class CatppuccinColors {
   static ThemeData get dark => _createDarkTheme();
   static ThemeData get light => _createLightTheme();
@@ -230,7 +253,7 @@ class CatppuccinColors {
       brightness: Brightness.dark,
       colorScheme: const ColorScheme.dark(
         primary: Color(0xFF6347EA),
-        onPrimary: Color(0xFFA89FFF),
+        onPrimary: Color(0xFFEBE8FC),
         secondary: Color(0xFF191919),
         onSecondary: Color(0xFFCDD6F4),
         tertiary: Color(0xFF2A2A2A),
@@ -268,7 +291,16 @@ class CatppuccinColors {
         ),
         titleSmall: TextStyle(color: Color(0xFFBAC2DE)),
       ),
-      extensions: const [RowHoverTheme.dark],
+      extensions: [
+        RowHoverTheme.dark,
+        SelectedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            side: BorderSide(color: Color(0xFFEBE8FC)),
+            foregroundColor: Color(0xFF6347EA),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
+        ),
+      ],
     );
   }
 

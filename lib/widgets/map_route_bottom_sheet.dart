@@ -778,7 +778,7 @@ class _RouteActionsGroup extends StatelessWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextButton(
+            FilledButton(
               key: const Key('route-cancel-button'),
               onPressed: onCancel,
               child: const Text('Cancel'),
