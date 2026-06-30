@@ -108,6 +108,7 @@ void main(List<String> args) {
     regions.add(
       _RegionDefinition(
         key: regionKey,
+        name: _readRegionName(regionValue, regionKey),
         polygons: polygons,
         basemapKeys: mapKeys,
         mapSet: mapSet,
@@ -175,6 +176,7 @@ void main(List<String> args) {
     buffer
       ..writeln('    RegionManifestRegionData(')
       ..writeln('      key: ${_stringLiteral(region.key)},')
+      ..writeln('      name: ${_stringLiteral(region.name)},')
       ..writeln('      polygons: [');
 
     for (final polygon in region.polygons) {
@@ -225,6 +227,18 @@ List<dynamic> _readList(dynamic value, String field, String regionKey) {
 List<String> _readStringList(dynamic value, String field, String regionKey) {
   final items = _readList(value, field, regionKey);
   return items.cast<String>();
+}
+
+String _readRegionName(Map<String, dynamic> regionValue, String regionKey) {
+  final name = regionValue['name'];
+  if (name is! String || name.trim().isEmpty) {
+    stderr.writeln(
+      'Region $regionKey must define a non-empty string for name.',
+    );
+    exitCode = 1;
+    return regionKey;
+  }
+  return name;
 }
 
 String _stringLiteral(String value) =>
@@ -374,12 +388,14 @@ class _BasemapDefinition {
 class _RegionDefinition {
   const _RegionDefinition({
     required this.key,
+    required this.name,
     required this.polygons,
     required this.basemapKeys,
     required this.mapSet,
   });
 
   final String key;
+  final String name;
   final List<List<LatLng>> polygons;
   final List<String> basemapKeys;
   final List<String> mapSet;

@@ -98,7 +98,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.descendant(of: tile, matching: find.text('Resolved Map')),
+      find.descendant(of: tile, matching: find.textContaining('Resolved Map')),
       findsOneWidget,
     );
   });
@@ -122,7 +122,7 @@ void main() {
     expect(tile, findsOneWidget);
     expect(find.descendant(of: tile, matching: find.text('—')), findsOneWidget);
     expect(
-      find.descendant(of: tile, matching: find.text('Resolved Map')),
+      find.descendant(of: tile, matching: find.textContaining('Resolved Map')),
       findsOneWidget,
     );
   });

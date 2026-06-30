@@ -1,5 +1,6 @@
 {
   "tasmania": {
+    "name": "Tasmania",
     "fingerprint": "78608ed1c4c4a5b7786774eb97eff026e92abacf54b3d7e7fc8ce9f3b6c567f7",
     "ISO_3166-1": "AU",
     "ISO_3166-2": ["AU-TAS"],
@@ -53,6 +54,7 @@
     "mapSet": ["tasmap50k"]
   },
   "new-south-wales": {
+    "name": "New South Wales",
     "fingerprint": "dd12e8b1d87d73ef34581d9a92de49c73cf3765ed47e16d359181e3797a27b45",
     "ISO_3166-1": "AU",
     "ISO_3166-2": ["AU-NSW"],
@@ -104,6 +106,7 @@
     "mapSet": []
   },
   "italy-nord-est": {
+    "name": "Italy North East",
     "fingerprint": "2bbee51c74151c78920dc44178cbd1c9c38c7f631043d95d8118e9bed5a924f8",
     "ISO_3166-1": "IT",
     "ISO_3166-2": ["IT-32", "IT-34", "IT-36", "IT-45"],
@@ -147,6 +150,7 @@
     "mapSet": []
   },
   "italy-nord-ovest": {
+    "name": "Italy North West",
     "fingerprint": "17c8820c686125f06ba8dbf8979c2c76743ed24e353e0a1ca22e8f517fb290bd",
     "ISO_3166-1": "IT",
     "ISO_3166-2": ["IT-21", "IT-23", "IT-25", "IT-42"],
@@ -179,6 +183,7 @@
     "mapSet": []
   },
   "italy": {
+    "name": "Italy",
     "composite": true,
     "ISO_3166-1": "IT",
     "ISO_3166-2": ["IT-21", "IT-23", "IT-25", "IT-32", "IT-34", "IT-36", "IT-42", "IT-45"],
@@ -211,6 +216,7 @@
     "mapSet": []
   },
   "slovenia": {
+    "name": "Slovenia",
     "fingerprint": "540b38d73ac92ba15b24407f037160ad205ca372e76b1878a4334e5a7f7fd388",
     "ISO_3166-1": "SI",
     "ISO_3166-2": [],
@@ -250,6 +256,7 @@
     "mapSet": []
   },
   "croatia": {
+    "name": "Croatia",
     "fingerprint": "43f89fd89d4bff1a13a0b3a269bee0157126e79db95b3754c2ddd5b8cac515ac",
     "ISO_3166-1": "HR",
     "ISO_3166-2": [],

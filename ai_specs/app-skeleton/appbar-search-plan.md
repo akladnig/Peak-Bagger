@@ -30,18 +30,18 @@ Shared AppBar search for map shell. Peak/track/route/map search; popup-shell UI;
 ### Phase 2: Search Domain Expansion
 
 - **Goal**: add tracks/routes/maps; anchor projection; labels
-- [ ] `lib/services/map_search_service.dart` - add track, route, map queries; unify result model, sort, type filter, region filter
-- [ ] `lib/models/map_search_result.dart` - typed result payloads + anchor/summary contract
-- [ ] `lib/services/map_name_resolution.dart` - extend/reuse point-based map label resolution for result summaries if needed
-- [ ] `lib/services/gpx_storage_destination_resolver.dart` or adjacent runtime helper - expose reusable point->region resolution for search, not importer-private flow
-- [ ] `lib/providers/map_provider.dart` - add map-specific atomic selection helper; wire track/route selections to existing `showTrack` / `showRoute` paths with derived marker anchor
-- [ ] `lib/screens/map_screen.dart` - route selection callbacks for map/track/route result types
-- [ ] `lib/services/region_manifest_catalog.dart` - surface region display name from manifest data
-- [ ] `lib/generated/region_manifest_catalog.g.dart` - regenerate from source inputs; no manual edits
-- [ ] TDD: first runtime geometry point projects anchor for track/route results; missing geometry excludes result
-- [ ] TDD: map result selection updates `selectedMap`, `selectedLocation`, `selectedMapFocusSerial`; track/route selection uses type-specific focus serials
-- [ ] TDD: track/route rows defer metric formatting to existing helpers from panel conventions
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/services/map_search_service.dart` - add track, route, map queries; unify result model, sort, type filter, region filter
+- [x] `lib/models/map_search_result.dart` - typed result payloads + anchor/summary contract
+- [x] `lib/services/map_name_resolution.dart` - extend/reuse point-based map label resolution for result summaries if needed
+- [x] `lib/services/gpx_storage_destination_resolver.dart` or adjacent runtime helper - expose reusable point->region resolution for search, not importer-private flow
+- [x] `lib/providers/map_provider.dart` - add map-specific atomic selection helper; wire track/route selections to existing `showTrack` / `showRoute` paths with derived marker anchor
+- [x] `lib/screens/map_screen.dart` - route selection callbacks for map/track/route result types
+- [x] `lib/services/region_manifest_catalog.dart` - surface region display name from manifest data
+- [x] `lib/generated/region_manifest_catalog.g.dart` - regenerate from source inputs; no manual edits
+- [x] TDD: first runtime geometry point projects anchor for track/route results; missing geometry excludes result
+- [x] TDD: map result selection updates `selectedMap`, `selectedLocation`, `selectedMapFocusSerial`; track/route selection uses type-specific focus serials
+- [x] TDD: track/route rows defer metric formatting to existing helpers from panel conventions
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Full Popup Controls
 

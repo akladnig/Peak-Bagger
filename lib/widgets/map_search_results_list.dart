@@ -1,22 +1,19 @@
 import 'package:flutter/material.dart';
 
-import '../core/number_formatters.dart';
-import '../models/peak.dart';
+import '../models/map_search_result.dart';
 import '../theme.dart';
 
 class MapSearchResultsList extends StatelessWidget {
   const MapSearchResultsList({
     required this.searchResults,
     required this.searchQuery,
-    required this.onSelectPeak,
-    required this.mapNameForPeak,
+    required this.onSelectResult,
     super.key,
   });
 
-  final List<Peak> searchResults;
+  final List<MapSearchResult> searchResults;
   final String searchQuery;
-  final ValueChanged<Peak> onSelectPeak;
-  final String Function(Peak peak) mapNameForPeak;
+  final ValueChanged<MapSearchResult> onSelectResult;
 
   @override
   Widget build(BuildContext context) {
@@ -26,22 +23,24 @@ class MapSearchResultsList extends StatelessWidget {
         itemCount: searchResults.length,
         separatorBuilder: (context, index) => thinDivider,
         itemBuilder: (context, index) {
-          final peak = searchResults[index];
+          final result = searchResults[index];
           return ListTile(
-            key: Key('map-search-result-peak-${peak.osmId}'),
+            key: Key('map-search-result-${result.type.name}-${result.id}'),
             dense: true,
-            leading: const Icon(Icons.landscape),
+            leading: Icon(_iconFor(result.type)),
             title: Row(
               children: [
                 Expanded(
-                  child: Text(peak.name, overflow: TextOverflow.ellipsis),
+                  child: Text(result.title, overflow: TextOverflow.ellipsis),
                 ),
-                const SizedBox(width: 8),
-                Text(_heightFor(peak)),
+                if (result.trailingText case final trailingText?) ...[
+                  const SizedBox(width: 8),
+                  Text(trailingText),
+                ],
               ],
             ),
-            subtitle: Text(mapNameForPeak(peak)),
-            onTap: () => onSelectPeak(peak),
+            subtitle: Text(result.subtitle),
+            onTap: () => onSelectResult(result),
           );
         },
       );
@@ -57,9 +56,12 @@ class MapSearchResultsList extends StatelessWidget {
     return const SizedBox.shrink();
   }
 
-  String _heightFor(Peak peak) {
-    return peak.elevation != null
-        ? formatElevation(peak.elevation!.round())
-        : '—';
+  IconData _iconFor(MapSearchResultType type) {
+    return switch (type) {
+      MapSearchResultType.peak => Icons.landscape,
+      MapSearchResultType.track => Icons.hiking,
+      MapSearchResultType.route => Icons.route,
+      MapSearchResultType.map => Icons.map,
+    };
   }
 }

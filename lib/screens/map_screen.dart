@@ -18,6 +18,7 @@ import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/map_polygon_asset.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/map_search_result.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/route_marker_display.dart';
 import 'package:peak_bagger/models/peak.dart';
@@ -2067,8 +2068,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
         (state) => (
           endDrawerMode: state.endDrawerMode,
           showPeakSearch: state.showPeakSearch,
-          searchResults: state.searchResults,
-          searchQuery: state.searchQuery,
+          searchResults: state.searchPopupResults,
+          searchQuery: state.searchPopupQuery,
           showGotoInput: state.showGotoInput,
           mapSuggestions: state.mapSuggestions,
           showInfoPopup: state.showInfoPopup,
@@ -3496,11 +3497,34 @@ class _MapScreenState extends ConsumerState<MapScreen>
                           _searchFocusNode.unfocus();
                           ref.read(mapProvider.notifier).closeSearchPopup();
                         },
-                        onSelectPeak: (peak) {
-                          _focusPeakDirect(peak);
+                        onSelectResult: (result) {
+                          switch (result.type) {
+                            case MapSearchResultType.peak:
+                              _focusPeakDirect(result.peak!);
+                            case MapSearchResultType.track:
+                              ref
+                                  .read(mapProvider.notifier)
+                                  .showTrack(
+                                    result.track!.gpxTrackId,
+                                    selectedLocation: result.anchor,
+                                  );
+                            case MapSearchResultType.route:
+                              ref
+                                  .read(mapProvider.notifier)
+                                  .showRoute(
+                                    result.route!.id,
+                                    selectedLocation: result.anchor,
+                                  );
+                            case MapSearchResultType.map:
+                              ref
+                                  .read(mapProvider.notifier)
+                                  .selectMapFromSearch(
+                                    result.map!,
+                                    selectedLocation: result.anchor,
+                                  );
+                          }
                           ref.read(mapProvider.notifier).closeSearchPopup();
                         },
-                        mapNameForPeak: _mapNameForPeak,
                       ),
                     ),
                   ),
@@ -4134,18 +4158,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
       return _mapNotifier.mapNameForPoint(liveCamera.center);
     }
     return _mapNotifier.mapNameForPoint(currentCenter);
-  }
-
-  String _mapNameForPeak(Peak peak) {
-    try {
-      return ref
-              .read(tasmapRepositoryProvider)
-              .findByPoint(LatLng(peak.latitude, peak.longitude))
-              ?.name ??
-          'Unknown';
-    } catch (_) {
-      return 'Unknown';
-    }
   }
 
   Offset _screenOffsetForPeak(Peak peak) {

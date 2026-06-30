@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/constants.dart';
 import '../core/widgets/popup_shell.dart';
-import '../models/peak.dart';
+import '../models/map_search_result.dart';
 import '../theme.dart';
 import 'map_search_results_list.dart';
 
@@ -13,18 +13,16 @@ class MapSearchPopup extends StatelessWidget {
     required this.searchQuery,
     required this.onChanged,
     required this.onClose,
-    required this.onSelectPeak,
-    required this.mapNameForPeak,
+    required this.onSelectResult,
     super.key,
   });
 
   final FocusNode focusNode;
-  final List<Peak> searchResults;
+  final List<MapSearchResult> searchResults;
   final String searchQuery;
   final ValueChanged<String> onChanged;
   final VoidCallback onClose;
-  final ValueChanged<Peak> onSelectPeak;
-  final String Function(Peak peak) mapNameForPeak;
+  final ValueChanged<MapSearchResult> onSelectResult;
 
   @override
   Widget build(BuildContext context) {
@@ -64,8 +62,7 @@ class MapSearchPopup extends StatelessWidget {
                   child: MapSearchResultsList(
                     searchResults: searchResults,
                     searchQuery: searchQuery,
-                    mapNameForPeak: mapNameForPeak,
-                    onSelectPeak: onSelectPeak,
+                    onSelectResult: onSelectResult,
                   ),
                 ),
               ],
