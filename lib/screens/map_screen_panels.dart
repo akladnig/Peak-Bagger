@@ -818,6 +818,7 @@ class TrackRouteChooserPopup extends StatelessWidget {
           bodyFlexible: true,
           body: ListView.separated(
             primary: false,
+            shrinkWrap: true,
             padding: EdgeInsets.zero,
             itemCount: items.length,
             separatorBuilder: (context, index) => const SizedBox(height: 8),
@@ -1769,11 +1770,6 @@ class MapGotoPanel extends StatelessWidget {
                   icon: const Icon(Icons.close),
                   onPressed: onClose,
                 ),
-                IconButton(
-                  key: const Key('goto-map-submit'),
-                  icon: const Icon(Icons.arrow_forward),
-                  onPressed: onNavigate,
-                ),
               ],
             ),
           ),
@@ -1925,7 +1921,7 @@ class MapTapActionPopupCard extends StatelessWidget {
       child: PopupShell(
         key: const Key('map-tap-action-popup'),
         title: Text(
-          'Point Actions',
+          'Drop Marker',
           style: theme.textTheme.titleSmall?.copyWith(
             fontWeight: FontWeight.w700,
           ),
@@ -1939,6 +1935,9 @@ class MapTapActionPopupCard extends StatelessWidget {
           children: [
             ListTile(
               contentPadding: EdgeInsets.zero,
+              dense: true,
+              visualDensity: VisualDensity.compact,
+              minTileHeight: 44,
               key: const Key('map-tap-action-drop-marker'),
               leading: const Icon(Icons.my_location, color: Colors.amber),
               title: const Text('Drop Marker'),
@@ -1946,6 +1945,9 @@ class MapTapActionPopupCard extends StatelessWidget {
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
+              dense: true,
+              visualDensity: VisualDensity.compact,
+              minTileHeight: 44,
               key: const Key('map-tap-action-drop-favourite'),
               leading: const Icon(
                 Icons.favorite,
@@ -1957,6 +1959,9 @@ class MapTapActionPopupCard extends StatelessWidget {
             if (onDriveEtaHome != null)
               ListTile(
                 contentPadding: EdgeInsets.zero,
+                dense: true,
+                visualDensity: VisualDensity.compact,
+                minTileHeight: 44,
                 key: const Key('map-tap-action-drive-home'),
                 leading: const Icon(Icons.drive_eta),
                 title: const Text('Get driving time from Home'),
@@ -1965,6 +1970,9 @@ class MapTapActionPopupCard extends StatelessWidget {
             if (onDriveEtaMarker != null)
               ListTile(
                 contentPadding: EdgeInsets.zero,
+                dense: true,
+                visualDensity: VisualDensity.compact,
+                minTileHeight: 44,
                 key: const Key('map-tap-action-drive-marker'),
                 leading: const Icon(Icons.drive_eta, color: Colors.amber),
                 title: const Text('Get driving time from Marker'),
@@ -2016,11 +2024,15 @@ class FavouritesPopupCard extends StatelessWidget {
                 )
               : ListView.builder(
                   primary: false,
+                  shrinkWrap: true,
                   itemCount: favourites.length,
                   itemBuilder: (context, index) {
                     final favourite = favourites[index];
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      visualDensity: VisualDensity.compact,
+                      minTileHeight: 44,
                       key: Key('favourites-popup-row-${favourite.id}'),
                       leading: const Icon(
                         Icons.favorite,

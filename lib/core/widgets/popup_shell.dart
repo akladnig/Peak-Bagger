@@ -60,36 +60,63 @@ class PopupShell extends StatelessWidget {
       padding: bodyPadding,
       child: body,
     );
+    final trailingActions = Row(
+      key: const Key('popup-shell-trailing-actions'),
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final action in headerActions) ...[
+          action,
+          const SizedBox(width: PopupUIConstants.headerSpacing),
+        ],
+        IconButton(
+          key: closeButtonKey ?? const Key('popup-shell-close'),
+          onPressed: onClose,
+          tooltip: closeTooltip,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(
+            Icons.close,
+            size: PopupUIConstants.closeIconSize,
+          ),
+        ),
+      ],
+    );
     final headerSection = Padding(
       key: headerPaddingKey ?? const Key('popup-shell-header-padding'),
       padding: headerPadding,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (leading != null) ...[
-            leading!,
-            const SizedBox(width: PopupUIConstants.headerSpacing),
-          ],
-          Flexible(child: title),
-          for (final action in headerActions) ...[
-            const SizedBox(width: PopupUIConstants.headerSpacing),
-            action,
-          ],
-          const SizedBox(width: PopupUIConstants.headerSpacing),
-          IconButton(
-            key: closeButtonKey ?? const Key('popup-shell-close'),
-            onPressed: onClose,
-            tooltip: closeTooltip,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            visualDensity: VisualDensity.compact,
-            icon: const Icon(
-              Icons.close,
-              size: PopupUIConstants.closeIconSize,
-            ),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth.isFinite) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (leading != null) ...[
+                  leading!,
+                  const SizedBox(width: PopupUIConstants.headerSpacing),
+                ],
+                Expanded(child: title),
+                const SizedBox(width: PopupUIConstants.headerSpacing),
+                trailingActions,
+              ],
+            );
+          }
+
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (leading != null) ...[
+                leading!,
+                const SizedBox(width: PopupUIConstants.headerSpacing),
+              ],
+              Flexible(child: title),
+              const SizedBox(width: PopupUIConstants.headerSpacing),
+              trailingActions,
+            ],
+          );
+        },
       ),
     );
 

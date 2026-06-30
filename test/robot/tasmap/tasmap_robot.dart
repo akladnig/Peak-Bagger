@@ -40,7 +40,6 @@ class TasmapRobot {
   Finder get gridMapFab => find.byKey(const Key('grid-map-fab'));
   Finder get mapInfoFab => find.byKey(const Key('map-info-fab'));
   Finder get gotoMapInput => find.byKey(const Key('goto-map-input'));
-  Finder get gotoMapSubmit => find.byKey(const Key('goto-map-submit'));
   Finder get resetMapDataTile => find.byKey(const Key('reset-map-data-tile'));
   Finder get resetMapDataConfirm =>
       find.byKey(const Key('reset-map-data-confirm'));

@@ -206,7 +206,7 @@ void main() {
       '55GEN1940050700',
     );
     await tester.pump();
-    await tester.tap(find.byKey(const Key('goto-map-submit')));
+    await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
 
     final state = container.read(mapProvider);
@@ -245,7 +245,7 @@ void main() {
       'Adamsons 80000 95000',
     );
     await tester.pump();
-    await tester.tap(find.byKey(const Key('goto-map-submit')));
+    await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
 
     final state = container.read(mapProvider);

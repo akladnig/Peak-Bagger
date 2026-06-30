@@ -91,5 +91,44 @@ void main() {
 
       expect(find.text('Popup Title'), findsNothing);
     });
+
+    testWidgets('header action icons stay grouped on the right', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 320,
+                child: PopupShell(
+                  title: const Text('Popup Title'),
+                  body: const Text('Popup Body'),
+                  headerActions: [
+                    IconButton(
+                      key: const Key('popup-shell-extra-action'),
+                      onPressed: () {},
+                      icon: const Icon(Icons.edit),
+                    ),
+                  ],
+                  onClose: () {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final titleRight = tester.getTopRight(find.text('Popup Title')).dx;
+      final extraActionLeft = tester
+          .getTopLeft(find.byKey(const Key('popup-shell-extra-action')))
+          .dx;
+      final closeLeft = tester
+          .getTopLeft(find.byKey(const Key('popup-shell-close')))
+          .dx;
+
+      expect(extraActionLeft, greaterThan(titleRight));
+      expect(closeLeft, greaterThan(extraActionLeft));
+    });
   });
 }
