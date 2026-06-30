@@ -4,11 +4,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/app.dart';
+import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/map_search_result.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
+import 'package:peak_bagger/services/gpx_track_repository.dart';
+import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/services/track_display_cache_builder.dart';
 
 import '../harness/test_map_notifier.dart';
 import '../harness/test_tasmap_notifier.dart';
@@ -33,6 +38,24 @@ void main() {
 
     expect(find.byKey(const Key('map-search-input')), findsNothing);
     expect(container.read(mapProvider).showPeakSearch, isFalse);
+  });
+
+  testWidgets('search opens with default filter region sort and empty query', (
+    tester,
+  ) async {
+    await _pumpMapApp(tester, _mapStateWithPeaks());
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+    await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+    await tester.pumpAndSettle();
+
+    final state = container.read(mapProvider);
+    expect(state.searchPopupEntityFilter, MapSearchEntityFilter.all);
+    expect(state.searchPopupRegionKey, isNull);
+    expect(state.searchPopupSort, MapSearchSort.nameAscending);
+    expect(state.searchPopupQuery, isEmpty);
   });
 
   testWidgets('peak search shows empty state for no matches', (tester) async {
@@ -126,6 +149,82 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'entity buttons filter results and disabled placeholders stay inert',
+    (tester) async {
+      final trackRepository = GpxTrackRepository.test(
+        InMemoryGpxTrackStorage([_track(1, 'Bonnet Track')]),
+      );
+      final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+      final notifier = TestMapNotifier(
+        _mapStateWithPeaks(),
+        gpxTrackRepository: trackRepository,
+        routeRepository: routeRepository,
+      );
+      await _pumpMapAppWithNotifier(tester, notifier);
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('map-interaction-region'))),
+      );
+
+      await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('map-search-input')),
+        'Bonnet',
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('map-search-result-peak-6406')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('map-search-result-track-1')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('map-search-entity-peaks')));
+      await tester.pumpAndSettle();
+
+      expect(
+        container.read(mapProvider).searchPopupEntityFilter,
+        MapSearchEntityFilter.peaks,
+      );
+      expect(
+        find.byKey(const Key('map-search-result-peak-6406')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('map-search-result-track-1')), findsNothing);
+
+      final naturalButton = tester.widget<OutlinedButton>(
+        find.byKey(const Key('map-search-entity-natural')),
+      );
+      expect(naturalButton.onPressed, isNull);
+    },
+  );
+
+  testWidgets('region menu shows manifest labels and stores canonical key', (
+    tester,
+  ) async {
+    await _pumpMapApp(tester, _mapStateWithPeaks());
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+    await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('map-search-filter-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tasmania'), findsWidgets);
+    await tester.tap(find.byKey(const Key('map-search-region-tasmania')).last);
+    await tester.pumpAndSettle();
+
+    expect(container.read(mapProvider).searchPopupRegionKey, 'tasmania');
+  });
 }
 
 Future<void> _pumpMapApp(WidgetTester tester, MapState state) async {
@@ -137,6 +236,33 @@ Future<void> _pumpMapApp(WidgetTester tester, MapState state) async {
     ProviderScope(
       overrides: [
         mapProvider.overrideWith(() => TestMapNotifier(state)),
+        tasmapStateProvider.overrideWith(
+          () => TestTasmapNotifier(tasmapRepository),
+        ),
+        tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
+      ],
+      child: const App(),
+    ),
+  );
+  await tester.pump();
+  router.go('/map');
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 100));
+  await tester.pump(const Duration(milliseconds: 100));
+}
+
+Future<void> _pumpMapAppWithNotifier(
+  WidgetTester tester,
+  MapNotifier notifier,
+) async {
+  final tasmapRepository = await TestTasmapRepository.create(
+    maps: [_resolvedMap()],
+  );
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        mapProvider.overrideWith(() => notifier),
         tasmapStateProvider.overrideWith(
           () => TestTasmapNotifier(tasmapRepository),
         ),
@@ -231,6 +357,22 @@ Tasmap50k _resolvedMap() {
     p2: pointStrings[1],
     p3: pointStrings[2],
     p4: pointStrings[3],
+  );
+}
+
+GpxTrack _track(int id, String name) {
+  final segments = [
+    [const LatLng(-43.0, 147.0), const LatLng(-43.001, 147.001)],
+  ];
+  return GpxTrack(
+    gpxTrackId: id,
+    contentHash: '$id',
+    trackName: name,
+    displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson(segments),
+    distance2d: 1200,
+    distance3d: 1230,
+    highestElevation: 500,
+    ascent: 120,
   );
 }
 

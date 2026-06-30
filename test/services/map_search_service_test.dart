@@ -80,6 +80,51 @@ void main() {
 
     expect(results, isEmpty);
   });
+
+  test(
+    'region filter uses canonical keys while keeping manifest labels',
+    () async {
+      final service = await _service(
+        peaks: [
+          _peak(1, 'Tas Peak'),
+          Peak(
+            osmId: 2,
+            name: 'NSW Peak',
+            latitude: -33.7,
+            longitude: 149.0,
+            elevation: 500,
+            region: 'new-south-wales',
+          ),
+        ],
+      );
+
+      final results = service.search(
+        query: 'peak',
+        entityFilter: MapSearchEntityFilter.peaks,
+        regionKey: 'new-south-wales',
+        sort: MapSearchSort.nameAscending,
+      );
+
+      expect(results, hasLength(1));
+      expect(results.single.regionKey, 'new-south-wales');
+      expect(results.single.regionName, 'New South Wales');
+    },
+  );
+
+  test('descending sort reorders results live', () async {
+    final service = await _service(
+      peaks: [_peak(1, 'Alpha Peak'), _peak(2, 'Beta Peak')],
+    );
+
+    final results = service.search(
+      query: 'peak',
+      entityFilter: MapSearchEntityFilter.peaks,
+      sort: MapSearchSort.nameDescending,
+    );
+
+    expect(results.first.title, 'Beta Peak');
+    expect(results.last.title, 'Alpha Peak');
+  });
 }
 
 Future<MapSearchService> _service({

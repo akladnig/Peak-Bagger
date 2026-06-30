@@ -57,7 +57,7 @@ void main() {
     expect(
       _messagesFor(find.byKey(const Key('map-action-location-group')), tester),
       equals(<String>[
-        'Search Peaks',
+        'Search',
         'Goto Location',
         'Drop Marker',
         'Center on marker',
@@ -143,7 +143,9 @@ void main() {
     );
     await tester.pump();
 
-    await tester.ensureVisible(find.byKey(const Key('map-action-location-group')));
+    await tester.ensureVisible(
+      find.byKey(const Key('map-action-location-group')),
+    );
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
@@ -167,7 +169,10 @@ void main() {
 
     expect(toolsTop.dy, lessThan(viewTop.dy));
     expect(viewTop.dy, lessThan(locationTop.dy));
-    expect(viewTop.dy - toolsBottom.dy, closeTo(UiConstants.groupSpacing, 0.001));
+    expect(
+      viewTop.dy - toolsBottom.dy,
+      closeTo(UiConstants.groupSpacing, 0.001),
+    );
     expect(
       locationTop.dy - viewBottom.dy,
       closeTo(UiConstants.groupSpacing, 0.001),
@@ -208,7 +213,9 @@ Future<void> _pumpRail(WidgetTester tester, TestMapNotifier notifier) async {
           RouteRepository.test(InMemoryRouteStorage()),
         ),
         tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
-        tasmapStateProvider.overrideWith(() => TestTasmapNotifier(tasmapRepository)),
+        tasmapStateProvider.overrideWith(
+          () => TestTasmapNotifier(tasmapRepository),
+        ),
       ],
       child: MaterialApp(
         home: Scaffold(

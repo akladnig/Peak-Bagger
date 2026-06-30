@@ -291,7 +291,7 @@ class MapActionRail extends ConsumerWidget {
                       sortOrder: 2,
                       children: [
                         LeftTooltipFab(
-                          message: 'Search Peaks',
+                          message: 'Search',
                           child: FloatingActionButton.small(
                             key: const Key('search-peaks-fab'),
                             heroTag: 'search',
@@ -299,7 +299,11 @@ class MapActionRail extends ConsumerWidget {
                               context,
                             ).colorScheme.surface,
                             onPressed: () {
-                              _dismissTransientUi(ref, closeInfoPopup: true);
+                              _dismissTransientUi(
+                                ref,
+                                closeInfoPopup: true,
+                                closeGotoInput: true,
+                              );
                               ref.read(mapProvider.notifier).togglePeakSearch();
                             },
                             child: Icon(

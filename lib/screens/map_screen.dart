@@ -2070,6 +2070,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
           showPeakSearch: state.showPeakSearch,
           searchResults: state.searchPopupResults,
           searchQuery: state.searchPopupQuery,
+          searchEntityFilter: state.searchPopupEntityFilter,
+          searchRegionKey: state.searchPopupRegionKey,
+          searchSort: state.searchPopupSort,
           showGotoInput: state.showGotoInput,
           mapSuggestions: state.mapSuggestions,
           showInfoPopup: state.showInfoPopup,
@@ -3488,10 +3491,29 @@ class _MapScreenState extends ConsumerState<MapScreen>
                         focusNode: _searchFocusNode,
                         searchResults: routeChrome.searchResults,
                         searchQuery: routeChrome.searchQuery,
+                        entityFilter: routeChrome.searchEntityFilter,
+                        selectedRegionKey: routeChrome.searchRegionKey,
+                        sort: routeChrome.searchSort,
+                        availableRegions: regionManifestCatalog.allRegions(),
                         onChanged: (value) {
                           ref
                               .read(mapProvider.notifier)
                               .updateSearchPopupQuery(value);
+                        },
+                        onSelectEntityFilter: (value) {
+                          ref
+                              .read(mapProvider.notifier)
+                              .setSearchPopupEntityFilter(value);
+                        },
+                        onSelectRegionKey: (value) {
+                          ref
+                              .read(mapProvider.notifier)
+                              .setSearchPopupRegionKey(value);
+                        },
+                        onSelectSort: (value) {
+                          ref
+                              .read(mapProvider.notifier)
+                              .setSearchPopupSort(value);
                         },
                         onClose: () {
                           _searchFocusNode.unfocus();

@@ -46,14 +46,14 @@ Shared AppBar search for map shell. Peak/track/route/map search; popup-shell UI;
 ### Phase 3: Full Popup Controls
 
 - **Goal**: entity buttons, filter/sort menus, placeholders, cleanup
-- [ ] `lib/widgets/map_search_popup.dart` - add All / Peaks / Tracks-Routes / Natural / Roads / Maps buttons; selected-button theme; disabled placeholders
-- [ ] `lib/providers/map_provider.dart` or `lib/providers/map_search_provider.dart` - add search UI state: entity filter, region filter, name sort, reset-on-close
-- [ ] `lib/services/map_search_service.dart` - apply type filter, region filter, name asc/desc ordering, 20-result cap
-- [ ] `lib/screens/map_screen.dart` - dismiss competing overlays on open; remove/delegate old peak-only popup path and rail trigger behavior
-- [ ] TDD: default state = All + no region + name asc + empty query
-- [ ] TDD: entity button exclusivity; disabled Natural/Roads inert; filter/sort update results live
-- [ ] TDD: region menu uses manifest `name` labels while filtering by canonical keys
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/widgets/map_search_popup.dart` - add All / Peaks / Tracks-Routes / Natural / Roads / Maps buttons; selected-button theme; disabled placeholders
+- [x] `lib/providers/map_provider.dart` or `lib/providers/map_search_provider.dart` - add search UI state: entity filter, region filter, name sort, reset-on-close
+- [x] `lib/services/map_search_service.dart` - apply type filter, region filter, name asc/desc ordering, 20-result cap
+- [x] `lib/screens/map_screen.dart` - dismiss competing overlays on open; remove/delegate old peak-only popup path and rail trigger behavior
+- [x] TDD: default state = All + no region + name asc + empty query
+- [x] TDD: entity button exclusivity; disabled Natural/Roads inert; filter/sort update results live
+- [x] TDD: region menu uses manifest `name` labels while filtering by canonical keys
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 4: Journey Coverage
 

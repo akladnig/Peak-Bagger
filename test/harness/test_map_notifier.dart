@@ -742,6 +742,31 @@ class TestMapNotifier extends MapNotifier {
 
   @override
   void updateSearchPopupQuery(String query) {
+    _refreshSearchPopupResults(query: query);
+  }
+
+  @override
+  void setSearchPopupEntityFilter(MapSearchEntityFilter entityFilter) {
+    _refreshSearchPopupResults(entityFilter: entityFilter);
+  }
+
+  @override
+  void setSearchPopupRegionKey(String? regionKey) {
+    _refreshSearchPopupResults(regionKey: regionKey, regionKeyChanged: true);
+  }
+
+  @override
+  void setSearchPopupSort(MapSearchSort sort) {
+    _refreshSearchPopupResults(sort: sort);
+  }
+
+  void _refreshSearchPopupResults({
+    String? query,
+    MapSearchEntityFilter? entityFilter,
+    String? regionKey,
+    bool regionKeyChanged = false,
+    MapSearchSort? sort,
+  }) {
     final service = MapSearchService(
       peakRepository:
           peakRepository ??
@@ -754,19 +779,27 @@ class TestMapNotifier extends MapNotifier {
       tasmapRepository: ref.read(tasmapRepositoryProvider),
     );
     final results = service.search(
-      query: query,
-      entityFilter: state.searchPopupEntityFilter,
-      regionKey: state.searchPopupRegionKey,
-      sort: state.searchPopupSort,
+      query: query ?? state.searchPopupQuery,
+      entityFilter: entityFilter ?? state.searchPopupEntityFilter,
+      regionKey: regionKeyChanged
+          ? regionKey
+          : (regionKey ?? state.searchPopupRegionKey),
+      sort: sort ?? state.searchPopupSort,
     );
     final peakResults = results
         .where((result) => result.type == MapSearchResultType.peak)
         .map((result) => result.peak!)
         .toList(growable: false);
     state = state.copyWith(
-      searchPopupQuery: query,
+      searchPopupQuery: query ?? state.searchPopupQuery,
       searchPopupResults: results,
-      searchQuery: query,
+      searchPopupEntityFilter: entityFilter ?? state.searchPopupEntityFilter,
+      searchPopupRegionKey: regionKeyChanged
+          ? regionKey
+          : (regionKey ?? state.searchPopupRegionKey),
+      clearSearchPopupRegionKey: regionKeyChanged && regionKey == null,
+      searchPopupSort: sort ?? state.searchPopupSort,
+      searchQuery: query ?? state.searchPopupQuery,
       searchResults: peakResults,
     );
   }
