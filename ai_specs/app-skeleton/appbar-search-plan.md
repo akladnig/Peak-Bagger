@@ -58,13 +58,13 @@ Shared AppBar search for map shell. Peak/track/route/map search; popup-shell UI;
 ### Phase 4: Journey Coverage
 
 - **Goal**: robust user-flow coverage; selector contract
-- [ ] `test/widget/map_screen_appbar_search_test.dart` - widget coverage for AppBar layout, popup shell, controls, empty states, per-type result rendering
-- [ ] `test/widget/map_screen_keyboard_test.dart` - `Cmd+F`, close/escape, focus restoration, overlay dismissal interactions
-- [ ] `test/robot/map/appbar_search_robot.dart` - robot API for trigger, query, filters, result taps, selectors
-- [ ] `test/robot/map/appbar_search_journey_test.dart` - critical journeys: open from AppBar, open from `Cmd+F`, peak select, track/route select, map select
-- [ ] TDD: robot happy path one assertion at a time; add only keys/seams needed for declared journeys
-- [ ] Robot journey tests + selectors/seams for critical flows: `app-bar-search-trigger`, popup root, field, entity buttons, filter/sort buttons, result rows; deterministic fake repos + `TestTasmapRepository`/`TestMapNotifier`
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `test/widget/map_screen_appbar_search_test.dart` - widget coverage for AppBar layout, popup shell, controls, empty states, per-type result rendering
+- [x] `test/widget/map_screen_keyboard_test.dart` - `Cmd+F`, close/escape, focus restoration, overlay dismissal interactions
+- [x] `test/robot/map/appbar_search_robot.dart` - robot API for trigger, query, filters, result taps, selectors
+- [x] `test/robot/map/appbar_search_journey_test.dart` - critical journeys: open from AppBar, open from `Cmd+F`, peak select, track/route select, map select
+- [x] TDD: robot happy path one assertion at a time; add only keys/seams needed for declared journeys
+- [x] Robot journey tests + selectors/seams for critical flows: `app-bar-search-trigger`, popup root, field, entity buttons, filter/sort buttons, result rows; deterministic fake repos + `TestTasmapRepository`/`TestMapNotifier`
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

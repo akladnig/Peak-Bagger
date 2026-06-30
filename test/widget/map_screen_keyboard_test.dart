@@ -231,6 +231,26 @@ void main() {
     expect(find.byKey(const Key('map-search-input')), findsOneWidget);
   });
 
+  testWidgets('escape closes app bar search popup', (tester) async {
+    await _pumpMapApp(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('map-search-input')), findsOneWidget);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('map-search-input')), findsNothing);
+  });
+
   testWidgets('keyboard i opens info popup', (tester) async {
     await _pumpMapApp(
       tester,
