@@ -449,13 +449,13 @@ void main() {
       tester.widget<Widget>(
         find.byKey(const Key('tracks-routes-export-new-version')),
       ),
-      isA<FilledButton>(),
+      isA<OutlinedButton>(),
     );
     expect(
       tester.widget<Widget>(
         find.byKey(const Key('tracks-routes-export-confirm')),
       ),
-      isA<OutlinedButton>(),
+      isA<FilledButton>(),
     );
 
     await tester.tap(find.byKey(const Key('tracks-routes-export-new-version')));

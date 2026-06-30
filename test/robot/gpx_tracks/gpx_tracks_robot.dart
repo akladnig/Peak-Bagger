@@ -1,6 +1,7 @@
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -74,6 +75,8 @@ class GpxTracksRobot {
       find.byKey(const Key('tracks-routes-drawer'));
   Finder get importFab => find.byKey(const Key('import-tracks-fab'));
   Finder get infoFab => find.byKey(const Key('map-info-fab'));
+  Finder get mapInfoPopup => find.byKey(const Key('map-info-popup'));
+  Finder get mapInfoPopupClose => find.byKey(const Key('map-info-popup-close'));
   Finder get showPeaksFab => find.byKey(const Key('show-peaks-fab'));
   Finder get peakListsDrawer => find.byKey(const Key('peak-lists-drawer'));
   Finder get peakListSelectionSummary =>
@@ -183,6 +186,41 @@ class GpxTracksRobot {
     expect(tracksRoutesDrawer, findsOneWidget);
     await tester.tap(find.text('Show Tracks'));
     await tester.pumpAndSettle();
+  }
+
+  Future<void> openMapInfoPopup() async {
+    await tester.ensureVisible(infoFab);
+    await tester.pumpAndSettle();
+    await tester.tap(infoFab);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> closeMapInfoPopup() async {
+    await tester.tap(mapInfoPopupClose);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> dismissMapInfoPopupWithEscape() async {
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> dismissMapInfoPopupWithCtrlC() async {
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyC);
+    await tester.pumpAndSettle();
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyC);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+  }
+
+  void expectMapInfoPopupVisible() {
+    expect(mapInfoPopup, findsOneWidget);
+    expect(mapInfoPopupClose, findsOneWidget);
+  }
+
+  void expectMapInfoPopupHidden() {
+    expect(mapInfoPopup, findsNothing);
   }
 
   Future<void> toggleRoutes() async {

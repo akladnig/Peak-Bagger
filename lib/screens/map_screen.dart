@@ -2105,6 +2105,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
     return Shortcuts(
       shortcuts: const {
         SingleActivator(LogicalKeyboardKey.escape): DismissSurfaceIntent(),
+        SingleActivator(LogicalKeyboardKey.keyC, control: true):
+            DismissSurfaceIntent(),
       },
       child: Actions(
         actions: {
@@ -2129,9 +2131,24 @@ class _MapScreenState extends ConsumerState<MapScreen>
             final mapState = ref.read(mapProvider);
             final key = event.logicalKey;
             final notifier = ref.read(mapProvider.notifier);
+            final isCtrlC =
+                key == LogicalKeyboardKey.keyC &&
+                HardwareKeyboard.instance.isControlPressed &&
+                !HardwareKeyboard.instance.isMetaPressed;
 
             if (event is KeyDownEvent && mapState.peakInfoPeak != null) {
               notifier.closePeakInfoPopup();
+            }
+
+            if (event is KeyDownEvent && isCtrlC &&
+                _dismissHighestPrioritySurface()) {
+              return KeyEventResult.handled;
+            }
+
+            if (mapState.showInfoPopup && event is KeyDownEvent &&
+                key == LogicalKeyboardKey.keyG) {
+              notifier.closeInfoPopup();
+              return KeyEventResult.handled;
             }
 
             if (mapState.isRouteDrafting &&
@@ -2147,14 +2164,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 }
               } else if (mapState.routeDraftCanUndo) {
                 notifier.undoRouteDraftEdit();
-              }
-              return KeyEventResult.handled;
-            }
-
-            // Close popup on any key press (except I which toggles it)
-            if (mapState.showInfoPopup && key != LogicalKeyboardKey.keyI) {
-              if (event is KeyDownEvent) {
-                notifier.toggleInfoPopup();
               }
               return KeyEventResult.handled;
             }
@@ -3731,6 +3740,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
         width: 280,
         child: FavouritesPopupCard(
           favourites: favourites,
+          onClose: () {
+            if (mounted) {
+              setState(() {
+                _showFavouritesPopup = false;
+              });
+            }
+          },
           onSelect: (favourite) {
             ref
                 .read(mapProvider.notifier)
