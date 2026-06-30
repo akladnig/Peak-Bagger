@@ -739,6 +739,11 @@ class TestMapNotifier extends MapNotifier {
   }
 
   @override
+  void updateSearchPopupQuery(String query) {
+    searchPeaks(query);
+  }
+
+  @override
   void searchPeaks(String query) {
     final lowered = query.toLowerCase();
     final results = state.peaks

@@ -20,9 +20,7 @@ import '../harness/test_ready_route_graph_store.dart';
 import '../harness/test_tasmap_notifier.dart';
 import '../harness/test_tasmap_repository.dart';
 
-final routeGraphOverlayRoot = find.byKey(
-  const Key('route-graph-overlay-root'),
-);
+final routeGraphOverlayRoot = find.byKey(const Key('route-graph-overlay-root'));
 final routeControlsOverlayRoot = find.byKey(
   const Key('route-controls-overlay-root'),
 );
@@ -33,7 +31,9 @@ void expectRouteDraftOverlaysVisible() {
 }
 
 void main() {
-  testWidgets('keyboard zoom shortcut commits once immediately', (tester) async {
+  testWidgets('keyboard zoom shortcut commits once immediately', (
+    tester,
+  ) async {
     final notifier = _CountingKeyboardMapNotifier(
       MapState(
         center: const LatLng(-41.5, 146.5),
@@ -161,14 +161,16 @@ void main() {
     final container = ProviderScope.containerOf(
       tester.element(find.byKey(const Key('map-interaction-region'))),
     );
-    container.read(mapProvider.notifier).openPeakInfoPopup(
-      Peak(
-        osmId: 6406,
-        name: 'Bonnet Hill',
-        latitude: -41.5,
-        longitude: 146.5,
-      ),
-    );
+    container
+        .read(mapProvider.notifier)
+        .openPeakInfoPopup(
+          Peak(
+            osmId: 6406,
+            name: 'Bonnet Hill',
+            latitude: -41.5,
+            longitude: 146.5,
+          ),
+        );
     await tester.pump();
 
     await tester.tap(find.byKey(const Key('nav-dashboard')));
@@ -196,7 +198,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    await tester.tap(find.byKey(const Key('peak-search-close')));
+    await tester.tap(find.byKey(const Key('map-search-close')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
@@ -204,6 +206,29 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const Key('goto-map-input')), findsOneWidget);
+  });
+
+  testWidgets('cmd+f opens app bar search popup', (tester) async {
+    await _pumpMapApp(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    await tester.sendKeyDownEvent(
+      LogicalKeyboardKey.metaLeft,
+      platform: 'macos',
+    );
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyF, platform: 'macos');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyF, platform: 'macos');
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft, platform: 'macos');
+
+    expect(find.byKey(const Key('map-search-input')), findsOneWidget);
   });
 
   testWidgets('keyboard i opens info popup', (tester) async {
@@ -225,16 +250,19 @@ void main() {
     await tester.pump();
 
     expect(container.read(mapProvider).showInfoPopup, isTrue);
-    expect(container.read(mapProvider).infoMapName, 'Outside Tasmania 50k coverage');
+    expect(
+      container.read(mapProvider).infoMapName,
+      'Outside Tasmania 50k coverage',
+    );
   });
 
   testWidgets('keyboard i resolves info popup map from center point', (
     tester,
   ) async {
     final tasmapRepository = await TestTasmapRepository.create();
-    final mapCenter = tasmapRepository.getMapPolygonPoints(
-      tasmapRepository.getAllMaps().first,
-    ).first;
+    final mapCenter = tasmapRepository
+        .getMapPolygonPoints(tasmapRepository.getAllMaps().first)
+        .first;
     await _pumpMapApp(
       tester,
       MapState(
@@ -482,33 +510,34 @@ void main() {
     expect(container.read(mapProvider).selectedTrackId, 10);
   });
 
-  testWidgets('escape clears selected track when no higher priority surface is open', (
-    tester,
-  ) async {
-    final state = MapState(
-      center: const LatLng(-41.5, 146.5),
-      zoom: 15,
-      basemap: Basemap.tracestrack,
-      showTracks: true,
-      tracks: [_track(10)],
-      selectedTrackId: 10,
-    );
-    await _pumpRawMapScreen(tester, state);
+  testWidgets(
+    'escape clears selected track when no higher priority surface is open',
+    (tester) async {
+      final state = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showTracks: true,
+        tracks: [_track(10)],
+        selectedTrackId: 10,
+      );
+      await _pumpRawMapScreen(tester, state);
 
-    final container = ProviderScope.containerOf(
-      tester.element(find.byKey(const Key('map-interaction-region'))),
-    );
-    tester.widget<Focus>(find.byType(Focus).first).focusNode?.requestFocus();
-    await tester.pump();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('map-interaction-region'))),
+      );
+      tester.widget<Focus>(find.byType(Focus).first).focusNode?.requestFocus();
+      await tester.pump();
 
-    Actions.invoke(
-      tester.element(find.byType(Scaffold).first),
-      const DismissSurfaceIntent(),
-    );
-    await tester.pump();
+      Actions.invoke(
+        tester.element(find.byType(Scaffold).first),
+        const DismissSurfaceIntent(),
+      );
+      await tester.pump();
 
-    expect(container.read(mapProvider).selectedTrackId, isNull);
-  });
+      expect(container.read(mapProvider).selectedTrackId, isNull);
+    },
+  );
 
   testWidgets('escape closes drawer and keeps route draft active', (
     tester,
@@ -583,7 +612,9 @@ Future<void> _pumpMapApp(
           PeakListRepository.test(InMemoryPeakListStorage()),
         ),
         tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
-        tasmapStateProvider.overrideWith(() => TestTasmapNotifier(tasmapRepository)),
+        tasmapStateProvider.overrideWith(
+          () => TestTasmapNotifier(tasmapRepository),
+        ),
       ],
       child: const App(),
     ),
@@ -597,8 +628,7 @@ Future<void> _pumpMapApp(
 
 Future<void> _pumpMapAppWithNotifier(
   WidgetTester tester,
-  MapNotifier notifier,
-  {
+  MapNotifier notifier, {
   Size size = const Size(1600, 900),
 }) async {
   final tasmapRepository = await TestTasmapRepository.create();
@@ -613,7 +643,9 @@ Future<void> _pumpMapAppWithNotifier(
           PeakListRepository.test(InMemoryPeakListStorage()),
         ),
         tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
-        tasmapStateProvider.overrideWith(() => TestTasmapNotifier(tasmapRepository)),
+        tasmapStateProvider.overrideWith(
+          () => TestTasmapNotifier(tasmapRepository),
+        ),
       ],
       child: const App(),
     ),

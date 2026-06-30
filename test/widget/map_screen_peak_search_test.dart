@@ -15,23 +15,23 @@ import '../harness/test_tasmap_notifier.dart';
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
-  testWidgets('peak search opens and closes', (tester) async {
+  testWidgets('app bar search opens and closes', (tester) async {
     await _pumpMapApp(tester, _mapStateWithPeaks());
 
     final container = ProviderScope.containerOf(
       tester.element(find.byKey(const Key('map-interaction-region'))),
     );
-    container.read(mapProvider.notifier).togglePeakSearch();
+    await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.byKey(const Key('peak-search-input')), findsOneWidget);
+    expect(find.byKey(const Key('map-search-input')), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('peak-search-close')));
+    await tester.tap(find.byKey(const Key('map-search-close')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.byKey(const Key('peak-search-input')), findsNothing);
+    expect(find.byKey(const Key('map-search-input')), findsNothing);
     expect(container.read(mapProvider).showPeakSearch, isFalse);
   });
 
@@ -45,10 +45,10 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    await tester.enterText(find.byKey(const Key('peak-search-input')), 'zzz');
+    await tester.enterText(find.byKey(const Key('map-search-input')), 'zzz');
     await tester.pump();
 
-    expect(find.text('No peaks found'), findsOneWidget);
+    expect(find.text('No results found'), findsOneWidget);
   });
 
   testWidgets('selecting a peak search result centers on the peak', (
@@ -63,17 +63,14 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    await tester.enterText(
-      find.byKey(const Key('peak-search-input')),
-      'Bonnet',
-    );
+    await tester.enterText(find.byKey(const Key('map-search-input')), 'Bonnet');
     await tester.pump();
 
     await tester.tap(find.widgetWithText(ListTile, 'Bonnet Hill'));
     await tester.pump();
 
     final state = container.read(mapProvider);
-    expect(find.byKey(const Key('peak-search-input')), findsNothing);
+    expect(find.byKey(const Key('map-search-input')), findsNothing);
     expect(state.selectedPeaks.map((peak) => peak.osmId), contains(6406));
     expect(state.center, const LatLng(-43.0, 147.0));
     expect(state.selectedLocation, isNull);
@@ -91,15 +88,15 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    await tester.enterText(
-      find.byKey(const Key('peak-search-input')),
-      'Bonnet',
-    );
+    await tester.enterText(find.byKey(const Key('map-search-input')), 'Bonnet');
     await tester.pump();
 
     final tile = find.widgetWithText(ListTile, 'Bonnet Hill');
     expect(tile, findsOneWidget);
-    expect(find.descendant(of: tile, matching: find.text('410 m')), findsOneWidget);
+    expect(
+      find.descendant(of: tile, matching: find.text('410 m')),
+      findsOneWidget,
+    );
     expect(
       find.descendant(of: tile, matching: find.text('Resolved Map')),
       findsOneWidget,
@@ -118,10 +115,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    await tester.enterText(
-      find.byKey(const Key('peak-search-input')),
-      'Bonnet',
-    );
+    await tester.enterText(find.byKey(const Key('map-search-input')), 'Bonnet');
     await tester.pump();
 
     final tile = find.widgetWithText(ListTile, 'Bonnet Hill');
@@ -136,9 +130,7 @@ void main() {
 
 Future<void> _pumpMapApp(WidgetTester tester, MapState state) async {
   final tasmapRepository = await TestTasmapRepository.create(
-    maps: [
-      _resolvedMap(),
-    ],
+    maps: [_resolvedMap()],
   );
 
   await tester.pumpWidget(
@@ -243,7 +235,8 @@ Tasmap50k _resolvedMap() {
 }
 
 String _pointString(LatLng point) {
-  return mgrs.Mgrs.forward([point.longitude, point.latitude], 5)
-      .replaceAll(RegExp(r'[\n\s]'), '')
-      .substring(3);
+  return mgrs.Mgrs.forward([
+    point.longitude,
+    point.latitude,
+  ], 5).replaceAll(RegExp(r'[\n\s]'), '').substring(3);
 }

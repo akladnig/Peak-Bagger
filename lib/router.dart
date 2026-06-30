@@ -269,12 +269,25 @@ GoRouter createRouter() {
                     ),
                   ),
                   titleSpacing: 0,
-                  title: Align(
-                    alignment: Alignment.centerLeft,
-                    child: KeyedSubtree(
-                      key: const Key('app-bar-title'),
-                      child: Text(currentDestination.title),
-                    ),
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: KeyedSubtree(
+                            key: const Key('app-bar-title'),
+                            child: Text(currentDestination.title),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Center(
+                          child: currentDestination.branchIndex == 1
+                              ? const _AppBarSearchTrigger()
+                              : const SizedBox.shrink(),
+                        ),
+                      ),
+                    ],
                   ),
                   actions: [
                     Padding(
@@ -344,6 +357,38 @@ GoRouter createRouter() {
       ),
     ],
   );
+}
+
+class _AppBarSearchTrigger extends ConsumerWidget {
+  const _AppBarSearchTrigger();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return OutlinedButton.icon(
+      key: const Key('app-bar-search-trigger'),
+      style: OutlinedButton.styleFrom(
+        side: BorderSide(color: colorScheme.outlineVariant),
+      ),
+      onPressed: () {
+        final mapState = ref.read(mapProvider);
+        final notifier = ref.read(mapProvider.notifier);
+        if (mapState.peakInfoPeak != null) {
+          notifier.closePeakInfoPopup();
+        }
+        if (mapState.showInfoPopup) {
+          notifier.toggleInfoPopup();
+        }
+        if (mapState.showGotoInput) {
+          notifier.setGotoInputVisible(false);
+        }
+        notifier.openSearchPopup();
+      },
+      icon: const Icon(Icons.search),
+      label: const Text('Search ⌘F'),
+    );
+  }
 }
 
 GoRouter router = createRouter();

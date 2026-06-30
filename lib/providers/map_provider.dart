@@ -28,6 +28,7 @@ import 'package:peak_bagger/services/import_path_helpers.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
 import 'package:peak_bagger/services/item_visibility_backfill_service.dart';
 import 'package:peak_bagger/services/map_name_resolution.dart';
+import 'package:peak_bagger/services/map_search_service.dart';
 import 'package:peak_bagger/services/gpx_track_repair_service.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
@@ -1067,6 +1068,7 @@ class MapNotifier extends Notifier<MapState> {
   late final PeakRepository _peakRepository;
   late final PeakRefreshService _peakRefreshService;
   late final PeakRegionAssetImportService _peakRegionAssetImportService;
+  late final MapSearchService _mapSearchService;
   late final TasmapRepository _tasmapRepository;
   late final GpxTrackRepository _gpxTrackRepository;
   late final RouteRepository _routeRepository;
@@ -1128,6 +1130,7 @@ class MapNotifier extends Notifier<MapState> {
       _injectedOverpassService ?? ref.read(overpassServiceProvider),
       _peakRepository,
     );
+    _mapSearchService = MapSearchService(peakRepository: _peakRepository);
     _tasmapRepository =
         _injectedTasmapRepository ?? ref.read(tasmapRepositoryProvider);
     _gpxTrackRepository =
@@ -6226,7 +6229,11 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void togglePeakSearch() {
-    state = state.copyWith(showPeakSearch: !state.showPeakSearch);
+    if (state.showPeakSearch) {
+      closeSearchPopup();
+      return;
+    }
+    openSearchPopup();
   }
 
   void toggleTracks() {
@@ -6245,12 +6252,36 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void setPeakSearchVisible(bool visible) {
-    state = state.copyWith(showPeakSearch: visible);
+    if (visible) {
+      openSearchPopup();
+      return;
+    }
+    closeSearchPopup();
+  }
+
+  void openSearchPopup() {
+    state = state.copyWith(
+      showPeakSearch: true,
+      searchQuery: '',
+      searchResults: const [],
+    );
+  }
+
+  void closeSearchPopup() {
+    state = state.copyWith(
+      showPeakSearch: false,
+      searchQuery: '',
+      searchResults: const [],
+    );
+  }
+
+  void updateSearchPopupQuery(String query) {
+    final results = _mapSearchService.searchPeaks(query);
+    state = state.copyWith(searchQuery: query, searchResults: results);
   }
 
   void searchPeaks(String query) {
-    final results = _peakRepository.searchPeaks(query).take(20).toList();
-    state = state.copyWith(searchQuery: query, searchResults: results);
+    updateSearchPopupQuery(query);
   }
 
   void clearSearch() {

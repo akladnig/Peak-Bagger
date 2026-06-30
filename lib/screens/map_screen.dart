@@ -59,6 +59,7 @@ import 'package:peak_bagger/widgets/map_rebuild_debug_counters.dart';
 import 'package:peak_bagger/widgets/map_chart_hover_marker.dart';
 import 'package:peak_bagger/widgets/map_marker.dart';
 import 'package:peak_bagger/widgets/tasmap_polygon_label.dart';
+import 'package:peak_bagger/widgets/map_search_popup.dart';
 import 'package:peak_bagger/widgets/dialog_helpers.dart';
 import 'package:peak_bagger/theme.dart';
 
@@ -332,6 +333,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
     }
     if (mapState.showInfoPopup) {
       notifier.toggleInfoPopup();
+      return true;
+    }
+    if (mapState.showPeakSearch) {
+      notifier.closeSearchPopup();
       return true;
     }
     if (panelVisible) {
@@ -2140,12 +2145,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
               notifier.closePeakInfoPopup();
             }
 
-            if (event is KeyDownEvent && isCtrlC &&
+            if (event is KeyDownEvent &&
+                isCtrlC &&
                 _dismissHighestPrioritySurface()) {
               return KeyEventResult.handled;
             }
 
-            if (mapState.showInfoPopup && event is KeyDownEvent &&
+            if (mapState.showInfoPopup &&
+                event is KeyDownEvent &&
                 key == LogicalKeyboardKey.keyG) {
               notifier.closeInfoPopup();
               return KeyEventResult.handled;
@@ -2165,6 +2172,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
               } else if (mapState.routeDraftCanUndo) {
                 notifier.undoRouteDraftEdit();
               }
+              return KeyEventResult.handled;
+            }
+
+            if (event is KeyDownEvent &&
+                HardwareKeyboard.instance.isMetaPressed &&
+                key == LogicalKeyboardKey.keyF) {
+              _dismissTransientUi(closeInfoPopup: true, closeGotoInput: true);
+              notifier.openSearchPopup();
               return KeyEventResult.handled;
             }
 
@@ -3378,8 +3393,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               },
                                               onRouteWalkingSpeedChanged:
                                                   selectedRoute == null
-                                                      ? null
-                                                      : (value) {
+                                                  ? null
+                                                  : (value) {
                                                       final route =
                                                           selectedRoute;
                                                       if (route == null) {
@@ -3394,26 +3409,26 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                             route.id,
                                                             value,
                                                           );
-                                                      },
+                                                    },
                                               onRouteTimingRecalculate:
                                                   selectedRoute == null
-                                                      ? null
-                                                      : (algorithm) {
-                                                          final route =
-                                                              selectedRoute;
-                                                          if (route == null) {
-                                                            return;
-                                                          }
-                                                          ref
-                                                              .read(
-                                                                mapProvider
-                                                                    .notifier,
-                                                              )
-                                                              .recalculateRouteTiming(
-                                                                route.id,
-                                                                algorithm,
-                                                              );
-                                                        },
+                                                  ? null
+                                                  : (algorithm) {
+                                                      final route =
+                                                          selectedRoute;
+                                                      if (route == null) {
+                                                        return;
+                                                      }
+                                                      ref
+                                                          .read(
+                                                            mapProvider
+                                                                .notifier,
+                                                          )
+                                                          .recalculateRouteTiming(
+                                                            route.id,
+                                                            algorithm,
+                                                          );
+                                                    },
                                               onExport: () {
                                                 unawaited(
                                                   _exportInfoSelection(
@@ -3464,34 +3479,29 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     child: RouteDraftControlsOverlay(),
                   ),
                 if (routeChrome.showPeakSearch)
-                  Positioned(
-                    right: 72,
-                    top: 16,
-                    child: MapPeakSearchPanel(
-                      focusNode: _searchFocusNode,
-                      searchResults: routeChrome.searchResults,
-                      searchQuery: routeChrome.searchQuery,
-                      onChanged: (value) {
-                        ref.read(mapProvider.notifier).searchPeaks(value);
-                      },
-                      onSubmitted: (_) {
-                        ref.read(mapProvider.notifier).selectAllSearchResults();
-                        _searchFocusNode.unfocus();
-                      },
-                      onClose: () {
-                        _searchFocusNode.unfocus();
-                        ref
-                            .read(mapProvider.notifier)
-                            .setPeakSearchVisible(false);
-                      },
-                      onSelectPeak: (peak) {
-                        _focusPeakDirect(peak);
-                        ref
-                            .read(mapProvider.notifier)
-                            .setPeakSearchVisible(false);
-                        ref.read(mapProvider.notifier).clearSearch();
-                      },
-                      mapNameForPeak: _mapNameForPeak,
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: MapSearchPopup(
+                        focusNode: _searchFocusNode,
+                        searchResults: routeChrome.searchResults,
+                        searchQuery: routeChrome.searchQuery,
+                        onChanged: (value) {
+                          ref
+                              .read(mapProvider.notifier)
+                              .updateSearchPopupQuery(value);
+                        },
+                        onClose: () {
+                          _searchFocusNode.unfocus();
+                          ref.read(mapProvider.notifier).closeSearchPopup();
+                        },
+                        onSelectPeak: (peak) {
+                          _focusPeakDirect(peak);
+                          ref.read(mapProvider.notifier).closeSearchPopup();
+                        },
+                        mapNameForPeak: _mapNameForPeak,
+                      ),
                     ),
                   ),
                 if (routeChrome.showGotoInput)
