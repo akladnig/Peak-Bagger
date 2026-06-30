@@ -1156,7 +1156,11 @@ class _RouteTimingLabeledValueRow extends StatelessWidget {
                     return IconButton(
                       key: infoButtonKey,
                       onPressed: () => onInfoPressed(buttonContext),
-                      icon: const Icon(Icons.info_outline, size: 16),
+                      icon: Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: Theme.of(buttonContext).colorScheme.onSurface,
+                      ),
                       tooltip: '$label info',
                       visualDensity: VisualDensity.compact,
                     );

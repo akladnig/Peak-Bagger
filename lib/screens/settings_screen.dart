@@ -345,9 +345,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: ListTile(
                 key: const Key('show-peak-info-tile'),
-                leading: const Icon(
+                leading: Icon(
                   Icons.info_outline,
-                  key: Key('show-peak-info-icon'),
+                  key: const Key('show-peak-info-icon'),
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
                 title: const Text('Show Peak Info'),
                 subtitle: const Text(
