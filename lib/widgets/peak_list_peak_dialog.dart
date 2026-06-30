@@ -94,6 +94,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final onSurfaceColor = theme.colorScheme.onSurface;
     final size = MediaQuery.sizeOf(context);
     final dialogWidth = (size.width - (UiConstants.dialogMargin * 2))
         .clamp(320.0, 700.0)
@@ -190,9 +191,10 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                                   IconButton(
                                     key: const Key('peak-list-peak-edit'),
                                     onPressed: _saving ? null : _enterEditMode,
-                                    icon: const Icon(
+                                    icon: Icon(
                                       Icons.edit,
                                       size: PopupUIConstants.closeIconSize,
+                                      color: onSurfaceColor,
                                     ),
                                     tooltip: 'Edit',
                                     padding: EdgeInsets.zero,
@@ -220,9 +222,10 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                                   onPressed: _saving
                                       ? null
                                       : () => Navigator.of(context).pop(),
-                                  icon: const Icon(
+                                  icon: Icon(
                                     Icons.close,
                                     size: PopupUIConstants.closeIconSize,
+                                    color: onSurfaceColor,
                                   ),
                                   tooltip: _mode == PeakListPeakDialogMode.view
                                       ? 'Close'
@@ -405,6 +408,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   }
 
   Widget _buildAddContent(BuildContext context) {
+    final onSurfaceColor = Theme.of(context).colorScheme.onSurface;
     final existingIds = widget.peakItems.map((item) => item.peakOsmId).toSet();
     final searchResults = _searchResults();
     final selectedPeaks = _selectedPeaks();
@@ -416,9 +420,9 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
           key: const Key('peak-list-peak-search-input'),
           controller: _searchController,
           autofocus: true,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Search peaks',
-            prefixIcon: Icon(Icons.search),
+            prefixIcon: Icon(Icons.search, color: onSurfaceColor),
             border: OutlineInputBorder(),
           ),
           onChanged: (value) {

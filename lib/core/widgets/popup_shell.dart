@@ -76,9 +76,10 @@ class PopupShell extends StatelessWidget {
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
           visualDensity: VisualDensity.compact,
-          icon: const Icon(
+          icon: Icon(
             Icons.close,
             size: PopupUIConstants.closeIconSize,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
       ],

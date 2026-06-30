@@ -1181,6 +1181,7 @@ class _SortHeaderCell extends StatelessWidget {
               icon,
               key: Key('peak-lists-sort-icon-${column.name}'),
               size: 18,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
             const SizedBox(width: 12),
           ],
@@ -1957,6 +1958,7 @@ class _DetailSortHeaderCell extends StatelessWidget {
               icon,
               key: Key('peak-lists-details-sort-icon-${column.name}'),
               size: 18,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ],
         ),
@@ -2348,7 +2350,7 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                               point: selectedLocation,
                               width: 40,
                               height: 40,
-                              child: const Icon(
+                              child: Icon(
                                 Icons.my_location,
                                 color: Colors.amber,
                                 size: 32,
