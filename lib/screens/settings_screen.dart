@@ -1751,7 +1751,7 @@ class _TileCacheSettingsScreenState
           if (_status.isNotEmpty) ListTile(title: Text(_status)),
           const Divider(),
           ListTile(
-            leading: const Icon(Icons.delete),
+            leading: const Icon(Icons.delete_forever, color: Colors.red),
             title: const Text('Clear Cache'),
             subtitle: const Text(
               'Delete all cached tiles for selected basemaps',

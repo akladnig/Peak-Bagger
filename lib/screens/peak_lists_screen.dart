@@ -1342,7 +1342,11 @@ class _SummaryRowCardState extends State<_SummaryRowCard> {
                         radius: 16,
                         child: const Padding(
                           padding: EdgeInsets.all(4),
-                          child: Icon(Icons.delete_forever, size: 18),
+                          child: Icon(
+                            Icons.delete_forever,
+                            size: 18,
+                            color: Colors.red,
+                          ),
                         ),
                       ),
                     ),
@@ -2072,7 +2076,9 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
 
     final viewportData = _buildPeakViewportData(
       summaryRow.mapPeaks,
-      clusteringEnabled: ref.read(peakListMiniMapClusterDisplaySettingsProvider),
+      clusteringEnabled: ref.read(
+        peakListMiniMapClusterDisplaySettingsProvider,
+      ),
     );
     final peak = hitTestPeakFromViewportData(
       pointerPosition: localPosition,
@@ -2110,7 +2116,9 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
 
     final viewportData = _buildPeakViewportData(
       summaryRow.mapPeaks,
-      clusteringEnabled: ref.read(peakListMiniMapClusterDisplaySettingsProvider),
+      clusteringEnabled: ref.read(
+        peakListMiniMapClusterDisplaySettingsProvider,
+      ),
     );
     final tappedCluster = hitTestPeakCluster(
       pointerPosition: localPosition,
@@ -2219,7 +2227,8 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
       peaks: [for (final peak in peaks) peak.peak],
       camera: camera,
       correlatedPeakIds: {
-        for (final peak in peaks.where((peak) => peak.isClimbed)) peak.peak.osmId,
+        for (final peak in peaks.where((peak) => peak.isClimbed))
+          peak.peak.osmId,
       },
       clusteringEnabled: clusteringEnabled,
     );
@@ -2493,9 +2502,7 @@ class _MiniPeakMapAffordanceLayer extends StatelessWidget {
                     peakClusterVisualRadius(viewportData.clusters[i]),
                 width: peakClusterVisualRadius(viewportData.clusters[i]) * 2,
                 height: peakClusterVisualRadius(viewportData.clusters[i]) * 2,
-                child: SizedBox(
-                  key: Key('peak-lists-mini-map-cluster-$i'),
-                ),
+                child: SizedBox(key: Key('peak-lists-mini-map-cluster-$i')),
               ),
           ],
         ),

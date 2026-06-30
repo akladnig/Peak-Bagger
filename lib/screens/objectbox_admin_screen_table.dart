@@ -275,18 +275,18 @@ class ObjectBoxAdminDataRowTile extends StatelessWidget {
                 width: actionsColumnWidth,
                 child: Center(
                   child: IconButton(
-                      key: Key(
-                        entityName == 'GpxTrack'
-                            ? 'objectbox-admin-gpx-track-delete-${row.primaryKeyValue}'
-                            : entityName == 'Route'
-                            ? 'objectbox-admin-route-delete-${row.primaryKeyValue}'
-                            : entityName == 'Waypoints'
-                            ? 'objectbox-admin-waypoints-delete-${row.primaryKeyValue}'
-                            : 'objectbox-admin-peak-delete-${row.primaryKeyValue}',
-                     ),
+                    key: Key(
+                      entityName == 'GpxTrack'
+                          ? 'objectbox-admin-gpx-track-delete-${row.primaryKeyValue}'
+                          : entityName == 'Route'
+                          ? 'objectbox-admin-route-delete-${row.primaryKeyValue}'
+                          : entityName == 'Waypoints'
+                          ? 'objectbox-admin-waypoints-delete-${row.primaryKeyValue}'
+                          : 'objectbox-admin-peak-delete-${row.primaryKeyValue}',
+                    ),
                     tooltip: 'Delete',
                     onPressed: onDeletePressed,
-                    icon: const Icon(Icons.delete_outline),
+                    icon: const Icon(Icons.delete_forever, color: Colors.red),
                   ),
                 ),
               ),

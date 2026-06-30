@@ -1949,10 +1949,7 @@ class MapTapActionPopupCard extends StatelessWidget {
               visualDensity: VisualDensity.compact,
               minTileHeight: 44,
               key: const Key('map-tap-action-drop-favourite'),
-              leading: const Icon(
-                Icons.favorite,
-                color: favouriteMarkerColour,
-              ),
+              leading: const Icon(Icons.favorite, color: favouriteMarkerColour),
               title: const Text('Drop Favourite'),
               onTap: onDropFavourite,
             ),
@@ -2392,26 +2389,26 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
 
     final footer = switch ((_isEditing, widget.onEditInAdmin)) {
       (true, _) => Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            FilledButton.tonal(
-              key: const Key('peak-info-popup-cancel'),
-              onPressed: _isSaving ? null : _cancelEditing,
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              key: const Key('peak-info-popup-save'),
-              onPressed: _isSaving ? null : _saveEditing,
-              child: Text(_isSaving ? 'Saving...' : 'Save'),
-            ),
-          ],
-        ),
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          FilledButton.tonal(
+            key: const Key('peak-info-popup-cancel'),
+            onPressed: _isSaving ? null : _cancelEditing,
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const Key('peak-info-popup-save'),
+            onPressed: _isSaving ? null : _saveEditing,
+            child: Text(_isSaving ? 'Saving...' : 'Save'),
+          ),
+        ],
+      ),
       (false, final onEditInAdmin?) => FilledButton.tonal(
-          key: const Key('peak-info-popup-edit-admin'),
-          onPressed: onEditInAdmin,
-          child: const Text('Edit in Peak Admin'),
-        ),
+        key: const Key('peak-info-popup-edit-admin'),
+        onPressed: onEditInAdmin,
+        child: const Text('Edit in Peak Admin'),
+      ),
       _ => null,
     };
 
@@ -2480,10 +2477,7 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
                             SizedBox(
                               width: 16,
                               height: 16,
-                              child: PeakMarkerGlyph(
-                                ticked: false,
-                                size: 16,
-                              ),
+                              child: PeakMarkerGlyph(ticked: false, size: 16),
                             ),
                             SizedBox(width: 8),
                             Icon(Icons.arrow_right_alt, size: 16),
@@ -2545,10 +2539,7 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
                   const SizedBox(height: 4),
                   const Padding(
                     padding: EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      'My Ascents:',
-                      style: TextStyle(fontSize: 13),
-                    ),
+                    child: Text('My Ascents:', style: TextStyle(fontSize: 13)),
                   ),
                   for (final ascent in content.ascentRows)
                     Padding(
@@ -2692,41 +2683,35 @@ class DriveEtaPopupCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final body = switch (state.status) {
       DriveEtaPopupStatus.loading => const Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            'Calculating Route',
-            key: Key('drive-eta-popup-loading'),
-          ),
-        ),
+        alignment: Alignment.centerLeft,
+        child: Text('Calculating Route', key: Key('drive-eta-popup-loading')),
+      ),
       DriveEtaPopupStatus.error => Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            state.errorMessage ?? 'Drive ETA unavailable.',
-            key: const Key('drive-eta-popup-error'),
-          ),
+        alignment: Alignment.centerLeft,
+        child: Text(
+          state.errorMessage ?? 'Drive ETA unavailable.',
+          key: const Key('drive-eta-popup-error'),
         ),
+      ),
       DriveEtaPopupStatus.success => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _DriveEtaLabeledValueRow(
-              key: const Key('drive-eta-popup-duration-row'),
-              label: 'Duration:',
-              value: formatDuration(
-                (state.durationSeconds ?? 0) * Duration.millisecondsPerSecond,
-              ),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _DriveEtaLabeledValueRow(
+            key: const Key('drive-eta-popup-duration-row'),
+            label: 'Duration:',
+            value: formatDuration(
+              (state.durationSeconds ?? 0) * Duration.millisecondsPerSecond,
             ),
-            const SizedBox(height: 4),
-            _DriveEtaLabeledValueRow(
-              key: const Key('drive-eta-popup-distance-row'),
-              label: 'Distance:',
-              value: formatDistance(
-                state.distanceMeters ?? 0,
-                decimalPlaces: 1,
-              ),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 4),
+          _DriveEtaLabeledValueRow(
+            key: const Key('drive-eta-popup-distance-row'),
+            label: 'Distance:',
+            value: formatDistance(state.distanceMeters ?? 0, decimalPlaces: 1),
+          ),
+        ],
+      ),
     };
 
     return PopupShell(
@@ -2773,7 +2758,7 @@ class RouteDraftMarkerDeletePopupCard extends StatelessWidget {
           foregroundColor: theme.colorScheme.error,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         ),
-        icon: const Icon(Icons.delete_forever),
+        icon: const Icon(Icons.delete_forever, color: Colors.red),
         label: const Text('Delete Point'),
       ),
     );
