@@ -345,9 +345,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: ListTile(
                 key: const Key('show-peak-info-tile'),
-                leading: const Icon(
+                leading: Icon(
                   Icons.info_outline,
-                  key: Key('show-peak-info-icon'),
+                  key: const Key('show-peak-info-icon'),
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
                 title: const Text('Show Peak Info'),
                 subtitle: const Text(
@@ -1751,7 +1752,7 @@ class _TileCacheSettingsScreenState
           if (_status.isNotEmpty) ListTile(title: Text(_status)),
           const Divider(),
           ListTile(
-            leading: const Icon(Icons.delete),
+            leading: const Icon(Icons.delete_forever, color: Colors.red),
             title: const Text('Clear Cache'),
             subtitle: const Text(
               'Delete all cached tiles for selected basemaps',

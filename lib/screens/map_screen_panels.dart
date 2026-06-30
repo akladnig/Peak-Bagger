@@ -253,6 +253,7 @@ class MapTrackInfoPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final isRoute = route != null;
     final displayName = isRoute ? _routeName(route!) : _trackName(track!);
+    final onSurfaceColor = Theme.of(context).colorScheme.onSurface;
 
     return SizedBox(
       width: UiConstants.preferredLeftWidth,
@@ -289,7 +290,7 @@ class MapTrackInfoPanel extends StatelessWidget {
                               key: const Key('track-info-panel-edit-button'),
                               tooltip: 'Edit Route',
                               onPressed: onEdit,
-                              icon: const Icon(Icons.edit),
+                              icon: Icon(Icons.edit, color: onSurfaceColor),
                             ),
                           if (isRoute) const SizedBox(width: 4),
                           IconButton(
@@ -298,7 +299,7 @@ class MapTrackInfoPanel extends StatelessWidget {
                                 ? 'Close route info'
                                 : 'Close track info',
                             onPressed: onClose,
-                            icon: const Icon(Icons.close),
+                            icon: Icon(Icons.close, color: onSurfaceColor),
                           ),
                         ],
                       ),
@@ -350,7 +351,7 @@ class MapTrackInfoPanel extends StatelessWidget {
                     child: FilledButton.icon(
                       key: const Key('track-info-panel-export-button'),
                       onPressed: onExport,
-                      icon: const Icon(Icons.download),
+                      icon: Icon(Icons.download, color: onSurfaceColor),
                       label: const Text('Export'),
                     ),
                   ),
@@ -1133,6 +1134,7 @@ class _RouteTimingLabeledValueRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final onSurfaceColor = Theme.of(context).colorScheme.onSurface;
     return Padding(
       padding: const EdgeInsets.only(top: 6, bottom: 6),
       child: Row(
@@ -1156,7 +1158,11 @@ class _RouteTimingLabeledValueRow extends StatelessWidget {
                     return IconButton(
                       key: infoButtonKey,
                       onPressed: () => onInfoPressed(buttonContext),
-                      icon: const Icon(Icons.info_outline, size: 16),
+                      icon: Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: Theme.of(buttonContext).colorScheme.onSurface,
+                      ),
                       tooltip: '$label info',
                       visualDensity: VisualDensity.compact,
                     );
@@ -1181,7 +1187,7 @@ class _RouteTimingLabeledValueRow extends StatelessWidget {
                 IconButton(
                   key: recalculateButtonKey,
                   onPressed: onRecalculate,
-                  icon: const Icon(Icons.refresh, size: 16),
+                  icon: Icon(Icons.refresh, size: 16, color: onSurfaceColor),
                   tooltip: 'Recalculate $label',
                   visualDensity: VisualDensity.compact,
                 ),
@@ -1343,6 +1349,7 @@ class _RouteWalkingSpeedControlState extends State<_RouteWalkingSpeedControl> {
   @override
   Widget build(BuildContext context) {
     final textStyle = Theme.of(context).textTheme.bodySmall;
+    final onSurfaceColor = Theme.of(context).colorScheme.onSurface;
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.minus): () =>
@@ -1393,7 +1400,7 @@ class _RouteWalkingSpeedControlState extends State<_RouteWalkingSpeedControl> {
                                       );
                                     }
                                   : null,
-                              icon: const Icon(Icons.remove),
+                              icon: Icon(Icons.remove, color: onSurfaceColor),
                               tooltip: 'Decrease walking speed',
                               visualDensity: VisualDensity.compact,
                             ),
@@ -1440,7 +1447,7 @@ class _RouteWalkingSpeedControlState extends State<_RouteWalkingSpeedControl> {
                                       );
                                     }
                                   : null,
-                              icon: const Icon(Icons.add),
+                              icon: Icon(Icons.add, color: onSurfaceColor),
                               tooltip: 'Increase walking speed',
                               visualDensity: VisualDensity.compact,
                             ),
@@ -1650,6 +1657,7 @@ class MapPeakSearchPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final onSurfaceColor = Theme.of(context).colorScheme.onSurface;
     return Card(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1664,11 +1672,15 @@ class MapPeakSearchPanel extends StatelessWidget {
                     key: const Key('peak-search-input'),
                     focusNode: focusNode,
                     autofocus: true,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Search peaks',
                       isDense: true,
                       border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.search, size: 20),
+                      prefixIcon: Icon(
+                        Icons.search,
+                        size: 20,
+                        color: onSurfaceColor,
+                      ),
                     ),
                     onChanged: onChanged,
                     onSubmitted: onSubmitted,
@@ -1677,7 +1689,7 @@ class MapPeakSearchPanel extends StatelessWidget {
                 const SizedBox(width: 8),
                 IconButton(
                   key: const Key('peak-search-close'),
-                  icon: const Icon(Icons.close),
+                  icon: Icon(Icons.close, color: onSurfaceColor),
                   onPressed: onClose,
                 ),
               ],
@@ -1734,6 +1746,7 @@ class MapGotoPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final onSurfaceColor = Theme.of(context).colorScheme.onSurface;
     return Card(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1767,7 +1780,7 @@ class MapGotoPanel extends StatelessWidget {
                 const SizedBox(width: 8),
                 IconButton(
                   key: const Key('goto-map-close'),
-                  icon: const Icon(Icons.close),
+                  icon: Icon(Icons.close, color: onSurfaceColor),
                   onPressed: onClose,
                 ),
               ],
@@ -1820,9 +1833,14 @@ class MapInfoPopupCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final onSurfaceColor = theme.colorScheme.onSurface;
     return PopupShell(
       key: const Key('map-info-popup'),
-      leading: const Icon(Icons.map, size: PopupUIConstants.headerIconSize),
+      leading: Icon(
+        Icons.map,
+        size: PopupUIConstants.headerIconSize,
+        color: onSurfaceColor,
+      ),
       title: Text(
         infoMapName ?? 'Unknown',
         style: theme.textTheme.titleMedium?.copyWith(
@@ -1851,7 +1869,7 @@ class MapInfoPopupCard extends StatelessWidget {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.terrain, size: 16),
+                Icon(Icons.terrain, size: 16, color: onSurfaceColor),
                 const SizedBox(width: 4),
                 Text(infoPeakName!, style: const TextStyle(fontSize: 13)),
                 if (infoPeakElevation != null) ...[
@@ -1866,10 +1884,14 @@ class MapInfoPopupCard extends StatelessWidget {
           ],
           if (hasTrackRecoveryIssue) ...[
             const SizedBox(height: 8),
-            const Row(
+            Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.warning_amber_rounded, size: 16),
+                Icon(
+                  Icons.warning_amber_rounded,
+                  size: 16,
+                  color: onSurfaceColor,
+                ),
                 SizedBox(width: 4),
                 Text(
                   'Some tracks need to be rebuilt.',
@@ -1882,7 +1904,7 @@ class MapInfoPopupCard extends StatelessWidget {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.route, size: 16),
+                Icon(Icons.route, size: 16, color: onSurfaceColor),
                 const SizedBox(width: 4),
                 Text(
                   '$trackCount tracks available',
@@ -1916,6 +1938,7 @@ class MapTapActionPopupCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final onSurfaceColor = theme.colorScheme.onSurface;
     return SizedBox(
       width: 260,
       child: PopupShell(
@@ -1949,10 +1972,7 @@ class MapTapActionPopupCard extends StatelessWidget {
               visualDensity: VisualDensity.compact,
               minTileHeight: 44,
               key: const Key('map-tap-action-drop-favourite'),
-              leading: const Icon(
-                Icons.favorite,
-                color: favouriteMarkerColour,
-              ),
+              leading: const Icon(Icons.favorite, color: favouriteMarkerColour),
               title: const Text('Drop Favourite'),
               onTap: onDropFavourite,
             ),
@@ -1963,7 +1983,7 @@ class MapTapActionPopupCard extends StatelessWidget {
                 visualDensity: VisualDensity.compact,
                 minTileHeight: 44,
                 key: const Key('map-tap-action-drive-home'),
-                leading: const Icon(Icons.drive_eta),
+                leading: Icon(Icons.drive_eta, color: onSurfaceColor),
                 title: const Text('Get driving time from Home'),
                 onTap: onDriveEtaHome,
               ),
@@ -1974,7 +1994,7 @@ class MapTapActionPopupCard extends StatelessWidget {
                 visualDensity: VisualDensity.compact,
                 minTileHeight: 44,
                 key: const Key('map-tap-action-drive-marker'),
-                leading: const Icon(Icons.drive_eta, color: Colors.amber),
+                leading: Icon(Icons.drive_eta, color: onSurfaceColor),
                 title: const Text('Get driving time from Marker'),
                 onTap: onDriveEtaMarker,
               ),
@@ -2344,6 +2364,7 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final onSurfaceColor = theme.colorScheme.onSurface;
     final content = widget.content;
     final peak = _draftPeak;
     final altName = peak.altName.trim();
@@ -2370,7 +2391,11 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
         IconButton(
           key: const Key('peak-info-popup-edit'),
           tooltip: 'Edit Peak',
-          icon: const Icon(Icons.edit, size: PopupUIConstants.closeIconSize),
+          icon: Icon(
+            Icons.edit,
+            size: PopupUIConstants.closeIconSize,
+            color: onSurfaceColor,
+          ),
           onPressed: _isEditing ? null : _startEditing,
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
@@ -2379,7 +2404,7 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
         IconButton(
           key: const Key('peak-info-popup-drop-marker'),
           tooltip: 'Drop a Marker on the Peak',
-          icon: const Icon(
+          icon: Icon(
             Icons.my_location,
             color: Colors.amber,
             size: PopupUIConstants.closeIconSize,
@@ -2392,26 +2417,26 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
 
     final footer = switch ((_isEditing, widget.onEditInAdmin)) {
       (true, _) => Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            FilledButton.tonal(
-              key: const Key('peak-info-popup-cancel'),
-              onPressed: _isSaving ? null : _cancelEditing,
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              key: const Key('peak-info-popup-save'),
-              onPressed: _isSaving ? null : _saveEditing,
-              child: Text(_isSaving ? 'Saving...' : 'Save'),
-            ),
-          ],
-        ),
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          FilledButton.tonal(
+            key: const Key('peak-info-popup-cancel'),
+            onPressed: _isSaving ? null : _cancelEditing,
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const Key('peak-info-popup-save'),
+            onPressed: _isSaving ? null : _saveEditing,
+            child: Text(_isSaving ? 'Saving...' : 'Save'),
+          ),
+        ],
+      ),
       (false, final onEditInAdmin?) => FilledButton.tonal(
-          key: const Key('peak-info-popup-edit-admin'),
-          onPressed: onEditInAdmin,
-          child: const Text('Edit in Peak Admin'),
-        ),
+        key: const Key('peak-info-popup-edit-admin'),
+        onPressed: onEditInAdmin,
+        child: const Text('Edit in Peak Admin'),
+      ),
       _ => null,
     };
 
@@ -2420,9 +2445,10 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
         maxHeight: UiConstants.peakInfoPopupSize.height,
       ),
       child: PopupShell(
-        leading: const Icon(
+        leading: Icon(
           Icons.terrain,
           size: PopupUIConstants.headerIconSize,
+          color: onSurfaceColor,
         ),
         title: Text(
           peak.name,
@@ -2474,19 +2500,20 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
                           ),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             SizedBox(
                               width: 16,
                               height: 16,
-                              child: PeakMarkerGlyph(
-                                ticked: false,
-                                size: 16,
-                              ),
+                              child: PeakMarkerGlyph(ticked: false, size: 16),
                             ),
                             SizedBox(width: 8),
-                            Icon(Icons.arrow_right_alt, size: 16),
+                            Icon(
+                              Icons.arrow_right_alt,
+                              size: 16,
+                              color: onSurfaceColor,
+                            ),
                             SizedBox(width: 8),
                             Icon(
                               Icons.my_location,
@@ -2545,10 +2572,7 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
                   const SizedBox(height: 4),
                   const Padding(
                     padding: EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      'My Ascents:',
-                      style: TextStyle(fontSize: 13),
-                    ),
+                    child: Text('My Ascents:', style: TextStyle(fontSize: 13)),
                   ),
                   for (final ascent in content.ascentRows)
                     Padding(
@@ -2690,50 +2714,46 @@ class DriveEtaPopupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final onSurfaceColor = Theme.of(context).colorScheme.onSurface;
     final body = switch (state.status) {
       DriveEtaPopupStatus.loading => const Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            'Calculating Route',
-            key: Key('drive-eta-popup-loading'),
-          ),
-        ),
+        alignment: Alignment.centerLeft,
+        child: Text('Calculating Route', key: Key('drive-eta-popup-loading')),
+      ),
       DriveEtaPopupStatus.error => Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            state.errorMessage ?? 'Drive ETA unavailable.',
-            key: const Key('drive-eta-popup-error'),
-          ),
+        alignment: Alignment.centerLeft,
+        child: Text(
+          state.errorMessage ?? 'Drive ETA unavailable.',
+          key: const Key('drive-eta-popup-error'),
         ),
+      ),
       DriveEtaPopupStatus.success => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _DriveEtaLabeledValueRow(
-              key: const Key('drive-eta-popup-duration-row'),
-              label: 'Duration:',
-              value: formatDuration(
-                (state.durationSeconds ?? 0) * Duration.millisecondsPerSecond,
-              ),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _DriveEtaLabeledValueRow(
+            key: const Key('drive-eta-popup-duration-row'),
+            label: 'Duration:',
+            value: formatDuration(
+              (state.durationSeconds ?? 0) * Duration.millisecondsPerSecond,
             ),
-            const SizedBox(height: 4),
-            _DriveEtaLabeledValueRow(
-              key: const Key('drive-eta-popup-distance-row'),
-              label: 'Distance:',
-              value: formatDistance(
-                state.distanceMeters ?? 0,
-                decimalPlaces: 1,
-              ),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 4),
+          _DriveEtaLabeledValueRow(
+            key: const Key('drive-eta-popup-distance-row'),
+            label: 'Distance:',
+            value: formatDistance(state.distanceMeters ?? 0, decimalPlaces: 1),
+          ),
+        ],
+      ),
     };
 
     return PopupShell(
       key: const Key('drive-eta-popup-root'),
-      leading: const Icon(
+      leading: Icon(
         Icons.directions_car,
         size: PopupUIConstants.headerIconSize,
+        color: onSurfaceColor,
       ),
       title: Text(
         state.title,
@@ -2773,7 +2793,7 @@ class RouteDraftMarkerDeletePopupCard extends StatelessWidget {
           foregroundColor: theme.colorScheme.error,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         ),
-        icon: const Icon(Icons.delete_forever),
+        icon: const Icon(Icons.delete_forever, color: Colors.red),
         label: const Text('Delete Point'),
       ),
     );

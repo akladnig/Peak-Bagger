@@ -94,11 +94,13 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final onSurfaceColor = theme.colorScheme.onSurface;
     final size = MediaQuery.sizeOf(context);
     final dialogWidth = (size.width - (UiConstants.dialogMargin * 2))
         .clamp(320.0, 700.0)
         .toDouble();
-    final maxLeftShift = size.width - dialogWidth - (UiConstants.dialogMargin * 2);
+    final maxLeftShift =
+        size.width - dialogWidth - (UiConstants.dialogMargin * 2);
     final clampedOffset = Offset(
       _dialogOffset.dx.clamp(-maxLeftShift, 0).toDouble(),
       _dialogOffset.dy.clamp(-(size.height * 0.5), 0).toDouble(),
@@ -118,7 +120,9 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                 onDismiss: () => Navigator.of(context).pop(),
                 child: Material(
                   key: const Key('peak-list-peak-dialog'),
-                  color: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
+                  color:
+                      theme.dialogTheme.backgroundColor ??
+                      theme.colorScheme.surface,
                   elevation: 6,
                   shadowColor: Colors.black54,
                   shape: RoundedRectangleBorder(
@@ -159,7 +163,9 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                                           onTap: _navigateToPeakOnMap,
                                           hoverColor: theme.colorScheme.primary
                                               .withValues(alpha: 0.08),
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                           child: Padding(
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 8,
@@ -169,7 +175,9 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                                               _titleLabel,
                                               style: theme.textTheme.titleLarge
                                                   ?.copyWith(
-                                                    color: theme.colorScheme.primary,
+                                                    color: theme
+                                                        .colorScheme
+                                                        .primary,
                                                   ),
                                             ),
                                           ),
@@ -183,9 +191,10 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                                   IconButton(
                                     key: const Key('peak-list-peak-edit'),
                                     onPressed: _saving ? null : _enterEditMode,
-                                    icon: const Icon(
+                                    icon: Icon(
                                       Icons.edit,
                                       size: PopupUIConstants.closeIconSize,
+                                      color: onSurfaceColor,
                                     ),
                                     tooltip: 'Edit',
                                     padding: EdgeInsets.zero,
@@ -199,6 +208,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                                         : _deleteSelectedPeak,
                                     icon: const Icon(
                                       Icons.delete_forever,
+                                      color: Colors.red,
                                       size: PopupUIConstants.closeIconSize,
                                     ),
                                     tooltip: 'Delete',
@@ -212,9 +222,10 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                                   onPressed: _saving
                                       ? null
                                       : () => Navigator.of(context).pop(),
-                                  icon: const Icon(
+                                  icon: Icon(
                                     Icons.close,
                                     size: PopupUIConstants.closeIconSize,
+                                    color: onSurfaceColor,
                                   ),
                                   tooltip: _mode == PeakListPeakDialogMode.view
                                       ? 'Close'
@@ -236,7 +247,8 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                             ),
                             child: SizedBox(
                               width:
-                                  dialogWidth - (PopupUIConstants.surfacePadding * 2),
+                                  dialogWidth -
+                                  (PopupUIConstants.surfacePadding * 2),
                               child: switch (_mode) {
                                 PeakListPeakDialogMode.view =>
                                   SingleChildScrollView(
@@ -396,6 +408,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   }
 
   Widget _buildAddContent(BuildContext context) {
+    final onSurfaceColor = Theme.of(context).colorScheme.onSurface;
     final existingIds = widget.peakItems.map((item) => item.peakOsmId).toSet();
     final searchResults = _searchResults();
     final selectedPeaks = _selectedPeaks();
@@ -407,9 +420,9 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
           key: const Key('peak-list-peak-search-input'),
           controller: _searchController,
           autofocus: true,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Search peaks',
-            prefixIcon: Icon(Icons.search),
+            prefixIcon: Icon(Icons.search, color: onSurfaceColor),
             border: OutlineInputBorder(),
           ),
           onChanged: (value) {
@@ -534,7 +547,9 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   Tasmap50k? _resolveMap(Peak peak) {
     try {
       final tasmapRepository = ref.read(tasmapRepositoryProvider);
-      return tasmapRepository.findByPoint(LatLng(peak.latitude, peak.longitude));
+      return tasmapRepository.findByPoint(
+        LatLng(peak.latitude, peak.longitude),
+      );
     } catch (_) {
       return null;
     }
@@ -552,10 +567,12 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   void _navigateToPeakOnMap() {
     final peak = widget.peak;
     if (peak == null) return;
-    ref.read(mapProvider.notifier).requestCameraMove(
-      center: LatLng(peak.latitude, peak.longitude),
-      zoom: MapConstants.defaultZoom,
-    );
+    ref
+        .read(mapProvider.notifier)
+        .requestCameraMove(
+          center: LatLng(peak.latitude, peak.longitude),
+          zoom: MapConstants.defaultZoom,
+        );
     _closeDialogAndGoMap();
   }
 
