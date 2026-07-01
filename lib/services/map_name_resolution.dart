@@ -60,6 +60,17 @@ ResolvedMapName resolveMapNameForPoint({
   return const ResolvedMapName.unknown();
 }
 
+String? resolveSheetMapNameForPoint({
+  required TasmapRepository tasmapRepository,
+  required LatLng point,
+}) {
+  try {
+    return tasmapRepository.findByPoint(point)?.name;
+  } catch (_) {
+    return null;
+  }
+}
+
 ResolvedMapName resolveMapNameForMgrs({
   required TasmapRepository tasmapRepository,
   required String mgrsText,

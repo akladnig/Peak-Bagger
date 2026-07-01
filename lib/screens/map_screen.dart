@@ -18,6 +18,7 @@ import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/map_polygon_asset.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/map_search_result.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/route_marker_display.dart';
 import 'package:peak_bagger/models/peak.dart';
@@ -59,6 +60,7 @@ import 'package:peak_bagger/widgets/map_rebuild_debug_counters.dart';
 import 'package:peak_bagger/widgets/map_chart_hover_marker.dart';
 import 'package:peak_bagger/widgets/map_marker.dart';
 import 'package:peak_bagger/widgets/tasmap_polygon_label.dart';
+import 'package:peak_bagger/widgets/map_search_popup.dart';
 import 'package:peak_bagger/widgets/dialog_helpers.dart';
 import 'package:peak_bagger/theme.dart';
 
@@ -332,6 +334,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
     }
     if (mapState.showInfoPopup) {
       notifier.toggleInfoPopup();
+      return true;
+    }
+    if (mapState.showPeakSearch) {
+      notifier.closeSearchPopup();
       return true;
     }
     if (panelVisible) {
@@ -2062,8 +2068,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
         (state) => (
           endDrawerMode: state.endDrawerMode,
           showPeakSearch: state.showPeakSearch,
-          searchResults: state.searchResults,
-          searchQuery: state.searchQuery,
+          searchResults: state.searchPopupResults,
+          searchQuery: state.searchPopupQuery,
+          searchEntityFilter: state.searchPopupEntityFilter,
+          searchRegionKey: state.searchPopupRegionKey,
+          searchSort: state.searchPopupSort,
+          searchGroup: state.searchPopupGroup,
           showGotoInput: state.showGotoInput,
           mapSuggestions: state.mapSuggestions,
           showInfoPopup: state.showInfoPopup,
@@ -2140,12 +2150,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
               notifier.closePeakInfoPopup();
             }
 
-            if (event is KeyDownEvent && isCtrlC &&
+            if (event is KeyDownEvent &&
+                isCtrlC &&
                 _dismissHighestPrioritySurface()) {
               return KeyEventResult.handled;
             }
 
-            if (mapState.showInfoPopup && event is KeyDownEvent &&
+            if (mapState.showInfoPopup &&
+                event is KeyDownEvent &&
                 key == LogicalKeyboardKey.keyG) {
               notifier.closeInfoPopup();
               return KeyEventResult.handled;
@@ -2165,6 +2177,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
               } else if (mapState.routeDraftCanUndo) {
                 notifier.undoRouteDraftEdit();
               }
+              return KeyEventResult.handled;
+            }
+
+            if (event is KeyDownEvent &&
+                HardwareKeyboard.instance.isMetaPressed &&
+                key == LogicalKeyboardKey.keyF) {
+              _dismissTransientUi(closeInfoPopup: true, closeGotoInput: true);
+              notifier.openSearchPopup();
               return KeyEventResult.handled;
             }
 
@@ -3378,8 +3398,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               },
                                               onRouteWalkingSpeedChanged:
                                                   selectedRoute == null
-                                                      ? null
-                                                      : (value) {
+                                                  ? null
+                                                  : (value) {
                                                       final route =
                                                           selectedRoute;
                                                       if (route == null) {
@@ -3394,26 +3414,26 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                             route.id,
                                                             value,
                                                           );
-                                                      },
+                                                    },
                                               onRouteTimingRecalculate:
                                                   selectedRoute == null
-                                                      ? null
-                                                      : (algorithm) {
-                                                          final route =
-                                                              selectedRoute;
-                                                          if (route == null) {
-                                                            return;
-                                                          }
-                                                          ref
-                                                              .read(
-                                                                mapProvider
-                                                                    .notifier,
-                                                              )
-                                                              .recalculateRouteTiming(
-                                                                route.id,
-                                                                algorithm,
-                                                              );
-                                                        },
+                                                  ? null
+                                                  : (algorithm) {
+                                                      final route =
+                                                          selectedRoute;
+                                                      if (route == null) {
+                                                        return;
+                                                      }
+                                                      ref
+                                                          .read(
+                                                            mapProvider
+                                                                .notifier,
+                                                          )
+                                                          .recalculateRouteTiming(
+                                                            route.id,
+                                                            algorithm,
+                                                          );
+                                                    },
                                               onExport: () {
                                                 unawaited(
                                                   _exportInfoSelection(
@@ -3464,34 +3484,77 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     child: RouteDraftControlsOverlay(),
                   ),
                 if (routeChrome.showPeakSearch)
-                  Positioned(
-                    right: 72,
-                    top: 16,
-                    child: MapPeakSearchPanel(
-                      focusNode: _searchFocusNode,
-                      searchResults: routeChrome.searchResults,
-                      searchQuery: routeChrome.searchQuery,
-                      onChanged: (value) {
-                        ref.read(mapProvider.notifier).searchPeaks(value);
-                      },
-                      onSubmitted: (_) {
-                        ref.read(mapProvider.notifier).selectAllSearchResults();
-                        _searchFocusNode.unfocus();
-                      },
-                      onClose: () {
-                        _searchFocusNode.unfocus();
-                        ref
-                            .read(mapProvider.notifier)
-                            .setPeakSearchVisible(false);
-                      },
-                      onSelectPeak: (peak) {
-                        _focusPeakDirect(peak);
-                        ref
-                            .read(mapProvider.notifier)
-                            .setPeakSearchVisible(false);
-                        ref.read(mapProvider.notifier).clearSearch();
-                      },
-                      mapNameForPeak: _mapNameForPeak,
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: MapSearchPopup(
+                        focusNode: _searchFocusNode,
+                        searchResults: routeChrome.searchResults,
+                        searchQuery: routeChrome.searchQuery,
+                        entityFilter: routeChrome.searchEntityFilter,
+                        selectedRegionKey: routeChrome.searchRegionKey,
+                        sort: routeChrome.searchSort,
+                        group: routeChrome.searchGroup,
+                        availableRegions: regionManifestCatalog.allRegions(),
+                        onChanged: (value) {
+                          ref
+                              .read(mapProvider.notifier)
+                              .updateSearchPopupQuery(value);
+                        },
+                        onSelectEntityFilter: (value) {
+                          ref
+                              .read(mapProvider.notifier)
+                              .setSearchPopupEntityFilter(value);
+                        },
+                        onSelectRegionKey: (value) {
+                          ref
+                              .read(mapProvider.notifier)
+                              .setSearchPopupRegionKey(value);
+                        },
+                        onSelectSort: (value) {
+                          ref
+                              .read(mapProvider.notifier)
+                              .setSearchPopupSort(value);
+                        },
+                        onSelectGroup: (value) {
+                          ref
+                              .read(mapProvider.notifier)
+                              .setSearchPopupGroup(value);
+                        },
+                        onClose: () {
+                          _searchFocusNode.unfocus();
+                          ref.read(mapProvider.notifier).closeSearchPopup();
+                        },
+                        onSelectResult: (result) {
+                          switch (result.type) {
+                            case MapSearchResultType.peak:
+                              _focusPeakDirect(result.peak!);
+                            case MapSearchResultType.track:
+                              ref
+                                  .read(mapProvider.notifier)
+                                  .showTrack(
+                                    result.track!.gpxTrackId,
+                                    selectedLocation: result.anchor,
+                                  );
+                            case MapSearchResultType.route:
+                              ref
+                                  .read(mapProvider.notifier)
+                                  .showRoute(
+                                    result.route!.id,
+                                    selectedLocation: result.anchor,
+                                  );
+                            case MapSearchResultType.map:
+                              ref
+                                  .read(mapProvider.notifier)
+                                  .selectMapFromSearch(
+                                    result.map!,
+                                    selectedLocation: result.anchor,
+                                  );
+                          }
+                          ref.read(mapProvider.notifier).closeSearchPopup();
+                        },
+                      ),
                     ),
                   ),
                 if (routeChrome.showGotoInput)
@@ -4124,18 +4187,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
       return _mapNotifier.mapNameForPoint(liveCamera.center);
     }
     return _mapNotifier.mapNameForPoint(currentCenter);
-  }
-
-  String _mapNameForPeak(Peak peak) {
-    try {
-      return ref
-              .read(tasmapRepositoryProvider)
-              .findByPoint(LatLng(peak.latitude, peak.longitude))
-              ?.name ??
-          'Unknown';
-    } catch (_) {
-      return 'Unknown';
-    }
   }
 
   Offset _screenOffsetForPeak(Peak peak) {

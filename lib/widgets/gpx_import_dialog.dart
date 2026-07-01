@@ -9,10 +9,11 @@ import 'package:peak_bagger/core/widgets/popup_shell.dart';
 import 'package:peak_bagger/services/gpx_file_picker.dart';
 import 'dialog_helpers.dart';
 
-typedef GpxImportRunner = Future<dynamic> Function({
-  required bool importAsRoute,
-  required Map<String, String> pathToEditedNames,
-});
+typedef GpxImportRunner =
+    Future<dynamic> Function({
+      required bool importAsRoute,
+      required Map<String, String> pathToEditedNames,
+    });
 
 typedef GpxTrackImportRunner = GpxImportRunner;
 typedef GpxPrefilledNameResolver = Future<String> Function(String filePath);
@@ -87,7 +88,8 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final chromeHeight = _measuredChromeHeight ?? _dialogChromeHeightEstimate;
+            final chromeHeight =
+                _measuredChromeHeight ?? _dialogChromeHeightEstimate;
             final availableFileHeight = math.max(
               0.0,
               constraints.maxHeight - chromeHeight,
@@ -106,9 +108,11 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    for (var index = 0;
-                        index < _selectedFiles.length;
-                        index += 1)
+                    for (
+                      var index = 0;
+                      index < _selectedFiles.length;
+                      index += 1
+                    )
                       _buildFileRow(_selectedFiles[index], index),
                   ],
                 );
@@ -137,7 +141,9 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
-                onClose: _isImporting ? null : () => Navigator.of(context).pop(),
+                onClose: _isImporting
+                    ? null
+                    : () => Navigator.of(context).pop(),
                 closeButtonKey: const Key('gpx-import-close'),
                 closeTooltip: 'Close import dialog',
                 headerMeasureKey: _headerMeasureKey,
@@ -195,8 +201,7 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
                               height: 24,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             ),
-                          ]
-                          else ...[
+                          ] else ...[
                             const SizedBox(height: 8),
                             Text(
                               'No files selected',
@@ -214,8 +219,10 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
                     if (_selectedFiles.isNotEmpty) fileSection(),
                   ],
                 ),
-                footer: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                footer: OverflowBar(
+                  alignment: MainAxisAlignment.end,
+                  spacing: 12,
+                  overflowAlignment: OverflowBarAlignment.end,
                   children: [
                     FilledButton(
                       key: const Key('gpx-import-cancel'),
@@ -224,10 +231,10 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
                           : () => Navigator.of(context).pop(),
                       child: const Text('Cancel'),
                     ),
-                    const SizedBox(width: 12),
                     FilledButton(
                       key: const Key('gpx-import-button'),
-                      onPressed: _selectedFiles.isEmpty ||
+                      onPressed:
+                          _selectedFiles.isEmpty ||
                               _isImporting ||
                               _isSelectingFiles
                           ? null
@@ -257,7 +264,9 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
     final headerHeight = _heightFor(_headerMeasureKey);
     final bodyStaticHeight = _heightFor(_bodyStaticMeasureKey);
     final actionsHeight = _heightFor(_actionsMeasureKey);
-    if (headerHeight == null || bodyStaticHeight == null || actionsHeight == null) {
+    if (headerHeight == null ||
+        bodyStaticHeight == null ||
+        actionsHeight == null) {
       return;
     }
 
@@ -330,11 +339,13 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
         return;
       }
 
-      final resolvePrefilledName = widget.prefilledNameResolver ??
-          _derivePrefilledName;
+      final resolvePrefilledName =
+          widget.prefilledNameResolver ?? _derivePrefilledName;
       final newFiles = await Future.wait(
         selected.map((path) async {
-          final existingIndex = _selectedFiles.indexWhere((f) => f.path == path);
+          final existingIndex = _selectedFiles.indexWhere(
+            (f) => f.path == path,
+          );
           if (existingIndex >= 0) {
             return _selectedFiles[existingIndex];
           }
@@ -464,10 +475,7 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
     }
   }
 
-  Future<void> _showResultDialog(
-    BuildContext dialogContext,
-    dynamic result,
-  ) {
+  Future<void> _showResultDialog(BuildContext dialogContext, dynamic result) {
     return showSingleActionDialog(
       context: dialogContext,
       title: 'Import Complete',

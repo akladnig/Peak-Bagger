@@ -4,6 +4,7 @@ import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/map_search_result.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
@@ -13,6 +14,7 @@ import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
 import 'package:peak_bagger/services/map_name_resolution.dart';
+import 'package:peak_bagger/services/map_search_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
@@ -739,6 +741,77 @@ class TestMapNotifier extends MapNotifier {
   }
 
   @override
+  void updateSearchPopupQuery(String query) {
+    _refreshSearchPopupResults(query: query);
+  }
+
+  @override
+  void setSearchPopupEntityFilter(MapSearchEntityFilter entityFilter) {
+    _refreshSearchPopupResults(entityFilter: entityFilter);
+  }
+
+  @override
+  void setSearchPopupRegionKey(String? regionKey) {
+    _refreshSearchPopupResults(regionKey: regionKey, regionKeyChanged: true);
+  }
+
+  @override
+  void setSearchPopupSort(MapSearchSort sort) {
+    _refreshSearchPopupResults(sort: sort);
+  }
+
+  @override
+  void setSearchPopupGroup(MapSearchGroup group) {
+    _refreshSearchPopupResults(group: group);
+  }
+
+  void _refreshSearchPopupResults({
+    String? query,
+    MapSearchEntityFilter? entityFilter,
+    String? regionKey,
+    bool regionKeyChanged = false,
+    MapSearchSort? sort,
+    MapSearchGroup? group,
+  }) {
+    final service = MapSearchService(
+      peakRepository:
+          peakRepository ??
+          PeakRepository.test(InMemoryPeakStorage(state.peaks)),
+      gpxTrackRepository:
+          gpxTrackRepository ??
+          GpxTrackRepository.test(InMemoryGpxTrackStorage(state.tracks)),
+      routeRepository:
+          routeRepository ?? RouteRepository.test(InMemoryRouteStorage()),
+      tasmapRepository: ref.read(tasmapRepositoryProvider),
+    );
+    final results = service.search(
+      query: query ?? state.searchPopupQuery,
+      entityFilter: entityFilter ?? state.searchPopupEntityFilter,
+      regionKey: regionKeyChanged
+          ? regionKey
+          : (regionKey ?? state.searchPopupRegionKey),
+      sort: sort ?? state.searchPopupSort,
+    );
+    final peakResults = results
+        .where((result) => result.type == MapSearchResultType.peak)
+        .map((result) => result.peak!)
+        .toList(growable: false);
+    state = state.copyWith(
+      searchPopupQuery: query ?? state.searchPopupQuery,
+      searchPopupResults: results,
+      searchPopupEntityFilter: entityFilter ?? state.searchPopupEntityFilter,
+      searchPopupRegionKey: regionKeyChanged
+          ? regionKey
+          : (regionKey ?? state.searchPopupRegionKey),
+      clearSearchPopupRegionKey: regionKeyChanged && regionKey == null,
+      searchPopupSort: sort ?? state.searchPopupSort,
+      searchPopupGroup: group ?? state.searchPopupGroup,
+      searchQuery: query ?? state.searchPopupQuery,
+      searchResults: peakResults,
+    );
+  }
+
+  @override
   void searchPeaks(String query) {
     final lowered = query.toLowerCase();
     final results = state.peaks
@@ -869,7 +942,7 @@ class TestMapNotifier extends MapNotifier {
   }
 
   @override
-  void showRoute(int routeId) {
+  void showRoute(int routeId, {LatLng? selectedLocation}) {
     final route = routeRepository?.findById(routeId);
     if (route == null) {
       state = state.copyWith(
@@ -883,6 +956,7 @@ class TestMapNotifier extends MapNotifier {
     state = state.copyWith(
       selectedRouteId: routeId,
       clearSelectedTrackId: true,
+      selectedLocation: selectedLocation,
       showRoutes: true,
       clearHoveredRouteId: true,
       clearGotoMgrs: true,

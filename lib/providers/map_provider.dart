@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
+import 'package:peak_bagger/models/map_search_result.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/route_marker_display.dart';
@@ -28,6 +29,7 @@ import 'package:peak_bagger/services/import_path_helpers.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
 import 'package:peak_bagger/services/item_visibility_backfill_service.dart';
 import 'package:peak_bagger/services/map_name_resolution.dart';
+import 'package:peak_bagger/services/map_search_service.dart';
 import 'package:peak_bagger/services/gpx_track_repair_service.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
@@ -360,6 +362,12 @@ class MapState {
   final bool isLoadingPeaks;
   final List<Peak> searchResults;
   final String searchQuery;
+  final List<MapSearchResult> searchPopupResults;
+  final String searchPopupQuery;
+  final MapSearchEntityFilter searchPopupEntityFilter;
+  final String? searchPopupRegionKey;
+  final MapSearchSort searchPopupSort;
+  final MapSearchGroup searchPopupGroup;
   final List<Peak> selectedPeaks;
   final Tasmap50k? selectedMap;
   final TasmapDisplayMode tasmapDisplayMode;
@@ -453,6 +461,12 @@ class MapState {
     this.isLoadingPeaks = false,
     this.searchResults = const [],
     this.searchQuery = '',
+    this.searchPopupResults = const [],
+    this.searchPopupQuery = '',
+    this.searchPopupEntityFilter = MapSearchEntityFilter.all,
+    this.searchPopupRegionKey,
+    this.searchPopupSort = MapSearchSort.nameAscending,
+    this.searchPopupGroup = MapSearchGroup.none,
     this.selectedPeaks = const [],
     this.selectedMap,
     this.tasmapDisplayMode = TasmapDisplayMode.none,
@@ -662,6 +676,13 @@ class MapState {
     bool? isLoadingPeaks,
     List<Peak>? searchResults,
     String? searchQuery,
+    List<MapSearchResult>? searchPopupResults,
+    String? searchPopupQuery,
+    MapSearchEntityFilter? searchPopupEntityFilter,
+    String? searchPopupRegionKey,
+    bool clearSearchPopupRegionKey = false,
+    MapSearchSort? searchPopupSort,
+    MapSearchGroup? searchPopupGroup,
     List<Peak>? selectedPeaks,
     LatLngBounds? visibleBounds,
     Tasmap50k? selectedMap,
@@ -807,6 +828,15 @@ class MapState {
       isLoadingPeaks: isLoadingPeaks ?? this.isLoadingPeaks,
       searchResults: searchResults ?? this.searchResults,
       searchQuery: searchQuery ?? this.searchQuery,
+      searchPopupResults: searchPopupResults ?? this.searchPopupResults,
+      searchPopupQuery: searchPopupQuery ?? this.searchPopupQuery,
+      searchPopupEntityFilter:
+          searchPopupEntityFilter ?? this.searchPopupEntityFilter,
+      searchPopupRegionKey: clearSearchPopupRegionKey
+          ? null
+          : (searchPopupRegionKey ?? this.searchPopupRegionKey),
+      searchPopupSort: searchPopupSort ?? this.searchPopupSort,
+      searchPopupGroup: searchPopupGroup ?? this.searchPopupGroup,
       selectedPeaks: selectedPeaks ?? this.selectedPeaks,
       selectedMap: selectedMap ?? this.selectedMap,
       tasmapDisplayMode: tasmapDisplayMode ?? this.tasmapDisplayMode,
@@ -1067,6 +1097,7 @@ class MapNotifier extends Notifier<MapState> {
   late final PeakRepository _peakRepository;
   late final PeakRefreshService _peakRefreshService;
   late final PeakRegionAssetImportService _peakRegionAssetImportService;
+  late final MapSearchService _mapSearchService;
   late final TasmapRepository _tasmapRepository;
   late final GpxTrackRepository _gpxTrackRepository;
   late final RouteRepository _routeRepository;
@@ -1134,6 +1165,12 @@ class MapNotifier extends Notifier<MapState> {
         _injectedGpxTrackRepository ?? GpxTrackRepository(objectboxStore);
     _routeRepository =
         _injectedRouteRepository ?? ref.read(routeRepositoryProvider);
+    _mapSearchService = MapSearchService(
+      peakRepository: _peakRepository,
+      gpxTrackRepository: _gpxTrackRepository,
+      routeRepository: _routeRepository,
+      tasmapRepository: _tasmapRepository,
+    );
     _routeElevationSampler =
         _injectedRouteElevationSampler ??
         ref.read(routeElevationSamplerProvider);
@@ -5444,7 +5481,7 @@ class MapNotifier extends Notifier<MapState> {
     );
   }
 
-  void showRoute(int routeId) {
+  void showRoute(int routeId, {LatLng? selectedLocation}) {
     final route = _routeRepository.findById(routeId);
     if (route == null) {
       state = state.copyWith(
@@ -5460,6 +5497,7 @@ class MapNotifier extends Notifier<MapState> {
     state = state.copyWith(
       selectedRouteId: routeId,
       clearSelectedTrackId: true,
+      selectedLocation: selectedLocation,
       showRoutes: true,
       clearHoveredRouteId: true,
       clearGotoMgrs: true,
@@ -6098,6 +6136,18 @@ class MapNotifier extends Notifier<MapState> {
     }
   }
 
+  void selectMapFromSearch(Tasmap50k map, {required LatLng selectedLocation}) {
+    state = state.copyWith(
+      selectedMap: map,
+      selectedLocation: selectedLocation,
+      tasmapDisplayMode: TasmapDisplayMode.selectedMap,
+      selectedMapFocusSerial: state.selectedMapFocusSerial + 1,
+      mapSuggestions: [],
+      mapSearchQuery: '',
+      clearGotoMgrs: true,
+    );
+  }
+
   Future<void> prefetchRouteGraphVisibleBounds(LatLngBounds bounds) async {
     final queryService = ref.read(routeGraphQueryServiceProvider);
     if (queryService == null) {
@@ -6226,7 +6276,11 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void togglePeakSearch() {
-    state = state.copyWith(showPeakSearch: !state.showPeakSearch);
+    if (state.showPeakSearch) {
+      closeSearchPopup();
+      return;
+    }
+    openSearchPopup();
   }
 
   void toggleTracks() {
@@ -6245,16 +6299,115 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void setPeakSearchVisible(bool visible) {
-    state = state.copyWith(showPeakSearch: visible);
+    if (visible) {
+      openSearchPopup();
+      return;
+    }
+    closeSearchPopup();
+  }
+
+  void openSearchPopup() {
+    state = state.copyWith(
+      showPeakSearch: true,
+      searchQuery: '',
+      searchResults: const [],
+      searchPopupQuery: '',
+      searchPopupResults: const [],
+      searchPopupEntityFilter: MapSearchEntityFilter.all,
+      clearSearchPopupRegionKey: true,
+      searchPopupSort: MapSearchSort.nameAscending,
+      searchPopupGroup: MapSearchGroup.none,
+    );
+  }
+
+  void closeSearchPopup() {
+    state = state.copyWith(
+      showPeakSearch: false,
+      searchQuery: '',
+      searchResults: const [],
+      searchPopupQuery: '',
+      searchPopupResults: const [],
+      searchPopupEntityFilter: MapSearchEntityFilter.all,
+      clearSearchPopupRegionKey: true,
+      searchPopupSort: MapSearchSort.nameAscending,
+      searchPopupGroup: MapSearchGroup.none,
+    );
+  }
+
+  void updateSearchPopupQuery(String query) {
+    _refreshSearchPopupResults(query: query);
+  }
+
+  void setSearchPopupEntityFilter(MapSearchEntityFilter entityFilter) {
+    _refreshSearchPopupResults(entityFilter: entityFilter);
+  }
+
+  void setSearchPopupRegionKey(String? regionKey) {
+    _refreshSearchPopupResults(regionKey: regionKey, regionKeyChanged: true);
+  }
+
+  void setSearchPopupSort(MapSearchSort sort) {
+    _refreshSearchPopupResults(sort: sort);
+  }
+
+  void setSearchPopupGroup(MapSearchGroup group) {
+    _refreshSearchPopupResults(group: group);
   }
 
   void searchPeaks(String query) {
-    final results = _peakRepository.searchPeaks(query).take(20).toList();
+    final results = _mapSearchService.searchPeaks(query);
     state = state.copyWith(searchQuery: query, searchResults: results);
   }
 
   void clearSearch() {
-    state = state.copyWith(searchQuery: '', searchResults: []);
+    state = state.copyWith(
+      searchQuery: '',
+      searchResults: [],
+      searchPopupQuery: '',
+      searchPopupResults: const [],
+      searchPopupEntityFilter: MapSearchEntityFilter.all,
+      clearSearchPopupRegionKey: true,
+      searchPopupSort: MapSearchSort.nameAscending,
+      searchPopupGroup: MapSearchGroup.none,
+    );
+  }
+
+  void _refreshSearchPopupResults({
+    String? query,
+    MapSearchEntityFilter? entityFilter,
+    String? regionKey,
+    bool regionKeyChanged = false,
+    MapSearchSort? sort,
+    MapSearchGroup? group,
+  }) {
+    final nextQuery = query ?? state.searchPopupQuery;
+    final nextEntityFilter = entityFilter ?? state.searchPopupEntityFilter;
+    final nextRegionKey = regionKeyChanged
+        ? regionKey
+        : (regionKey ?? state.searchPopupRegionKey);
+    final nextSort = sort ?? state.searchPopupSort;
+    final nextGroup = group ?? state.searchPopupGroup;
+    final results = _mapSearchService.search(
+      query: nextQuery,
+      entityFilter: nextEntityFilter,
+      regionKey: nextRegionKey,
+      sort: nextSort,
+    );
+    final peakResults = results
+        .where((result) => result.type == MapSearchResultType.peak)
+        .map((result) => result.peak!)
+        .toList(growable: false);
+    state = state.copyWith(
+      searchPopupQuery: nextQuery,
+      searchPopupResults: results,
+      searchPopupEntityFilter: nextEntityFilter,
+      searchPopupRegionKey: nextRegionKey,
+      clearSearchPopupRegionKey: regionKeyChanged && nextRegionKey == null,
+      searchPopupSort: nextSort,
+      searchPopupGroup: nextGroup,
+      searchQuery: nextQuery,
+      searchResults: peakResults,
+    );
   }
 
   void selectAllSearchResults() {

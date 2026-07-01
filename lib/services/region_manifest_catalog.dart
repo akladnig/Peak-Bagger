@@ -52,12 +52,14 @@ class RegionManifestBasemapData {
 class RegionManifestRegionData {
   const RegionManifestRegionData({
     required this.key,
+    required this.name,
     required this.polygons,
     required this.basemapKeys,
     required this.mapSet,
   });
 
   final String key;
+  final String name;
   final List<List<LatLng>> polygons;
   final List<String> basemapKeys;
   final List<String> mapSet;
@@ -112,6 +114,10 @@ class RegionManifestCatalog {
 
   RegionManifestRegionData? regionByKey(String key) {
     return _regionByKey[key];
+  }
+
+  List<RegionManifestRegionData> allRegions() {
+    return List.unmodifiable(regionManifestCatalogData.regions);
   }
 
   RegionManifestRegionData? regionForPoint(LatLng point) {

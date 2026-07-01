@@ -22,29 +22,29 @@ const regionManifestCatalogData = RegionManifestCatalogData(
     RegionManifestBasemapData(
       key: 'tasmapTopo',
       name: 'TasMap Topographic',
-      tileUrl:
-          'https://services.thelist.tas.gov.au/arcgis/rest/services/Basemaps/Topographic/MapServer/tile/{z}/{y}/{x}',
+      tileUrl: 'https://services.thelist.tas.gov.au/arcgis/rest/services/Basemaps/Topographic/MapServer/tile/{z}/{y}/{x}',
       attribution: 'Creative Commons BY 3.0 AU © State of Tasmania',
       maxZoom: 18,
-      coveragePolygons: [],
+      coveragePolygons: [
+      ],
     ),
     RegionManifestBasemapData(
       key: 'tasmap50k',
       name: 'TasMap 50k',
-      tileUrl:
-          'https://services.thelist.tas.gov.au/arcgis/rest/services/Basemaps/TasmapRaster/MapServer/tile/{z}/{y}/{x}',
+      tileUrl: 'https://services.thelist.tas.gov.au/arcgis/rest/services/Basemaps/TasmapRaster/MapServer/tile/{z}/{y}/{x}',
       attribution: 'Creative Commons BY-NC-ND 3.0 AU © State of Tasmania',
       maxZoom: 16,
-      coveragePolygons: [],
+      coveragePolygons: [
+      ],
     ),
     RegionManifestBasemapData(
       key: 'tasmap25k',
       name: 'TasMap 25k',
-      tileUrl:
-          'https://services.thelist.tas.gov.au/arcgis/rest/services/Basemaps/Tasmap25K/MapServer/tile/{z}/{y}/{x}',
+      tileUrl: 'https://services.thelist.tas.gov.au/arcgis/rest/services/Basemaps/Tasmap25K/MapServer/tile/{z}/{y}/{x}',
       attribution: 'Creative Commons BY-NC-ND 3.0 AU © State of Tasmania',
       maxZoom: 16,
-      coveragePolygons: [],
+      coveragePolygons: [
+      ],
     ),
     RegionManifestBasemapData(
       key: 'tracestrack',
@@ -52,7 +52,8 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       tileUrl: 'https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp',
       attribution: '© Tracestrack',
       maxZoom: 24,
-      coveragePolygons: [],
+      coveragePolygons: [
+      ],
     ),
     RegionManifestBasemapData(
       key: 'openstreetmap',
@@ -60,41 +61,42 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       tileUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       attribution: '© OpenStreetMap contributors',
       maxZoom: 24,
-      coveragePolygons: [],
+      coveragePolygons: [
+      ],
     ),
     RegionManifestBasemapData(
       key: 'mapyCz',
       name: 'Mapy.cz Tourist',
-      tileUrl:
-          'https://api.mapy.com/v1/maptiles/outdoor/256/{z}/{x}/{y}?lang=en',
+      tileUrl: 'https://api.mapy.com/v1/maptiles/outdoor/256/{z}/{x}/{y}?lang=en',
       attribution: '© Seznam.cz a.s. and others',
       maxZoom: 19,
-      coveragePolygons: [],
+      coveragePolygons: [
+      ],
     ),
     RegionManifestBasemapData(
       key: 'nswImagery',
       name: 'NSW Imagery',
-      tileUrl:
-          'http://maps.six.nsw.gov.au/arcgis/rest/services/public/NSW_Imagery/MapServer/tile/{z}/{y}/{x}',
+      tileUrl: 'http://maps.six.nsw.gov.au/arcgis/rest/services/public/NSW_Imagery/MapServer/tile/{z}/{y}/{x}',
       attribution: '© Department of Customer Service 2020',
-      coveragePolygons: [],
+      coveragePolygons: [
+      ],
     ),
     RegionManifestBasemapData(
       key: 'nswBasemap',
       name: 'NSW Basemap',
-      tileUrl:
-          'http://maps.six.nsw.gov.au/arcgis/rest/services/public/NSW_Base_Map/MapServer/tile/{z}/{y}/{x}',
+      tileUrl: 'http://maps.six.nsw.gov.au/arcgis/rest/services/public/NSW_Base_Map/MapServer/tile/{z}/{y}/{x}',
       attribution: '© Department of Customer Service 2020',
-      coveragePolygons: [],
+      coveragePolygons: [
+      ],
     ),
     RegionManifestBasemapData(
       key: 'nswTopo',
       name: 'NSW Topo',
-      tileUrl:
-          'http://maps.six.nsw.gov.au/arcgis/rest/services/public/NSW_Topo_Map/MapServer/tile/{z}/{y}/{x}/jpg',
+      tileUrl: 'http://maps.six.nsw.gov.au/arcgis/rest/services/public/NSW_Topo_Map/MapServer/tile/{z}/{y}/{x}/jpg',
       attribution: '© Department of Customer Service 2020',
       maxZoom: 16,
-      coveragePolygons: [],
+      coveragePolygons: [
+      ],
     ),
     RegionManifestBasemapData(
       key: 'sloveniaTopo',
@@ -102,7 +104,8 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       tileUrl: 'https://tiles.peakbagger.com/slovenia-topo/{z}/{x}/{y}.png',
       attribution: '© Geodetska uprava Republike Slovenije',
       maxZoom: 19,
-      coveragePolygons: [],
+      coveragePolygons: [
+      ],
     ),
     RegionManifestBasemapData(
       key: 'fvgTopo',
@@ -241,6 +244,7 @@ const regionManifestCatalogData = RegionManifestCatalogData(
   regions: [
     RegionManifestRegionData(
       key: 'tasmania',
+      name: 'Tasmania',
       polygons: [
         [
           const LatLng(-44.0, 148.8867),
@@ -253,7 +257,9 @@ const regionManifestCatalogData = RegionManifestCatalogData(
           const LatLng(-39.52946, 148.8867),
         ],
       ],
-      mapSet: ['tasmap50k'],
+      mapSet: [
+        'tasmap50k',
+      ],
       basemapKeys: [
         'openstreetmap',
         'tracestrack',
@@ -265,6 +271,7 @@ const regionManifestCatalogData = RegionManifestCatalogData(
     ),
     RegionManifestRegionData(
       key: 'new-south-wales',
+      name: 'New South Wales',
       polygons: [
         [
           const LatLng(-37.75984, 158.7979),
@@ -1139,7 +1146,8 @@ const regionManifestCatalogData = RegionManifestCatalogData(
           const LatLng(-31.55308, 160.0747),
         ],
       ],
-      mapSet: [],
+      mapSet: [
+      ],
       basemapKeys: [
         'openstreetmap',
         'tracestrack',
@@ -1151,6 +1159,7 @@ const regionManifestCatalogData = RegionManifestCatalogData(
     ),
     RegionManifestRegionData(
       key: 'italy-nord-est',
+      name: 'Italy North East',
       polygons: [
         [
           const LatLng(44.55021, 13.26463),
@@ -2064,11 +2073,18 @@ const regionManifestCatalogData = RegionManifestCatalogData(
           const LatLng(44.76851, 13.00979),
         ],
       ],
-      mapSet: [],
-      basemapKeys: ['openstreetmap', 'tracestrack', 'mapyCz', 'fvgTopo'],
+      mapSet: [
+      ],
+      basemapKeys: [
+        'openstreetmap',
+        'tracestrack',
+        'mapyCz',
+        'fvgTopo',
+      ],
     ),
     RegionManifestRegionData(
       key: 'italy-nord-ovest',
+      name: 'Italy North West',
       polygons: [
         [
           const LatLng(43.48231, 7.729716),
@@ -2572,11 +2588,17 @@ const regionManifestCatalogData = RegionManifestCatalogData(
           const LatLng(43.88412, 9.949801),
         ],
       ],
-      mapSet: [],
-      basemapKeys: ['openstreetmap', 'tracestrack', 'mapyCz'],
+      mapSet: [
+      ],
+      basemapKeys: [
+        'openstreetmap',
+        'tracestrack',
+        'mapyCz',
+      ],
     ),
     RegionManifestRegionData(
       key: 'italy',
+      name: 'Italy',
       polygons: [
         [
           const LatLng(44.55021, 13.26463),
@@ -3991,11 +4013,17 @@ const regionManifestCatalogData = RegionManifestCatalogData(
           const LatLng(43.88412, 9.949801),
         ],
       ],
-      mapSet: [],
-      basemapKeys: ['openstreetmap', 'tracestrack', 'mapyCz'],
+      mapSet: [
+      ],
+      basemapKeys: [
+        'openstreetmap',
+        'tracestrack',
+        'mapyCz',
+      ],
     ),
     RegionManifestRegionData(
       key: 'slovenia',
+      name: 'Slovenia',
       polygons: [
         [
           const LatLng(45.42099, 15.16336),
@@ -4336,11 +4364,18 @@ const regionManifestCatalogData = RegionManifestCatalogData(
           const LatLng(45.42081, 15.17796),
         ],
       ],
-      mapSet: [],
-      basemapKeys: ['openstreetmap', 'tracestrack', 'mapyCz', 'sloveniaTopo'],
+      mapSet: [
+      ],
+      basemapKeys: [
+        'openstreetmap',
+        'tracestrack',
+        'mapyCz',
+        'sloveniaTopo',
+      ],
     ),
     RegionManifestRegionData(
       key: 'croatia',
+      name: 'Croatia',
       polygons: [
         [
           const LatLng(42.43746, 18.51463),
@@ -4913,8 +4948,13 @@ const regionManifestCatalogData = RegionManifestCatalogData(
           const LatLng(42.48915, 18.44582),
         ],
       ],
-      mapSet: [],
-      basemapKeys: ['openstreetmap', 'tracestrack', 'mapyCz'],
+      mapSet: [
+      ],
+      basemapKeys: [
+        'openstreetmap',
+        'tracestrack',
+        'mapyCz',
+      ],
     ),
   ],
 );
