@@ -218,6 +218,7 @@ void main() {
     await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.byKey(const Key('map-search-filter-button')));
     await tester.tap(find.byKey(const Key('map-search-filter-button')));
     await tester.pumpAndSettle();
 
@@ -227,6 +228,7 @@ void main() {
 
     expect(container.read(mapProvider).searchPopupRegionKey, 'tasmania');
 
+    await tester.ensureVisible(find.byKey(const Key('map-search-filter-button')));
     await tester.tap(find.byKey(const Key('map-search-filter-button')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('map-search-region-none')).last);
@@ -266,18 +268,25 @@ void main() {
     await tester.enterText(find.byKey(const Key('map-search-input')), 'A');
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.byKey(const Key('map-search-group-button')));
     await tester.tap(find.byKey(const Key('map-search-group-button')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('map-search-group-type')).last);
     await tester.pumpAndSettle();
 
     expect(container.read(mapProvider).searchPopupGroup, MapSearchGroup.type);
-    expect(find.byKey(const Key('map-search-group-header-peaks')), findsOneWidget);
+    expect(
+      find.byKey(const Key('map-search-group-header-peaks')),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const Key('map-search-group-header-tracks-routes')),
       findsOneWidget,
     );
-    expect(find.byKey(const Key('map-search-group-header-maps')), findsOneWidget);
+    expect(
+      find.byKey(const Key('map-search-group-header-maps')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('group menu groups by region and clears back to none', (
@@ -296,18 +305,23 @@ void main() {
     await tester.enterText(find.byKey(const Key('map-search-input')), 'Peak');
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.byKey(const Key('map-search-group-button')));
     await tester.tap(find.byKey(const Key('map-search-group-button')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('map-search-group-region')).last);
     await tester.pumpAndSettle();
 
     expect(container.read(mapProvider).searchPopupGroup, MapSearchGroup.region);
-    expect(find.byKey(const Key('map-search-group-header-tasmania')), findsOneWidget);
+    expect(
+      find.byKey(const Key('map-search-group-header-tasmania')),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const Key('map-search-group-header-new-south-wales')),
       findsOneWidget,
     );
 
+    await tester.ensureVisible(find.byKey(const Key('map-search-group-button')));
     await tester.tap(find.byKey(const Key('map-search-group-button')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('map-search-group-none')).last);
@@ -319,6 +333,7 @@ void main() {
 }
 
 Future<void> _pumpMapApp(WidgetTester tester, MapState state) async {
+  await tester.binding.setSurfaceSize(const Size(1600, 900));
   final tasmapRepository = await TestTasmapRepository.create(
     maps: [_resolvedMap()],
   );
@@ -346,6 +361,7 @@ Future<void> _pumpMapAppWithNotifier(
   WidgetTester tester,
   MapNotifier notifier,
 ) async {
+  await tester.binding.setSurfaceSize(const Size(1600, 900));
   final tasmapRepository = await TestTasmapRepository.create(
     maps: [_resolvedMap()],
   );

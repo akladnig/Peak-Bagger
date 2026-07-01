@@ -125,6 +125,41 @@ void main() {
     expect(results.first.title, 'Beta Peak');
     expect(results.last.title, 'Alpha Peak');
   });
+
+  test(
+    'type grouping can be derived from result kinds and sorted descending',
+    () async {
+      final service = await _service(
+        peaks: [_peak(1, 'Alpha Peak')],
+        tracks: [_track(1, 'Alpha Track')],
+        routes: [_route(1, 'Alpha Route')],
+        maps: [_resolvedMap()],
+      );
+
+      final results = service.search(
+        query: 'alpha',
+        entityFilter: MapSearchEntityFilter.all,
+        sort: MapSearchSort.nameDescending,
+      );
+
+      expect(
+        results.map((result) => result.type),
+        contains(MapSearchResultType.peak),
+      );
+      expect(
+        results.map((result) => result.type),
+        contains(MapSearchResultType.track),
+      );
+      expect(
+        results.map((result) => result.type),
+        contains(MapSearchResultType.route),
+      );
+      expect(
+        results.map((result) => result.type),
+        contains(MapSearchResultType.map),
+      );
+    },
+  );
 }
 
 Future<MapSearchService> _service({
