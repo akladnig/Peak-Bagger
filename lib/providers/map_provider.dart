@@ -367,6 +367,7 @@ class MapState {
   final MapSearchEntityFilter searchPopupEntityFilter;
   final String? searchPopupRegionKey;
   final MapSearchSort searchPopupSort;
+  final MapSearchGroup searchPopupGroup;
   final List<Peak> selectedPeaks;
   final Tasmap50k? selectedMap;
   final TasmapDisplayMode tasmapDisplayMode;
@@ -465,6 +466,7 @@ class MapState {
     this.searchPopupEntityFilter = MapSearchEntityFilter.all,
     this.searchPopupRegionKey,
     this.searchPopupSort = MapSearchSort.nameAscending,
+    this.searchPopupGroup = MapSearchGroup.none,
     this.selectedPeaks = const [],
     this.selectedMap,
     this.tasmapDisplayMode = TasmapDisplayMode.none,
@@ -680,6 +682,7 @@ class MapState {
     String? searchPopupRegionKey,
     bool clearSearchPopupRegionKey = false,
     MapSearchSort? searchPopupSort,
+    MapSearchGroup? searchPopupGroup,
     List<Peak>? selectedPeaks,
     LatLngBounds? visibleBounds,
     Tasmap50k? selectedMap,
@@ -833,6 +836,7 @@ class MapState {
           ? null
           : (searchPopupRegionKey ?? this.searchPopupRegionKey),
       searchPopupSort: searchPopupSort ?? this.searchPopupSort,
+      searchPopupGroup: searchPopupGroup ?? this.searchPopupGroup,
       selectedPeaks: selectedPeaks ?? this.selectedPeaks,
       selectedMap: selectedMap ?? this.selectedMap,
       tasmapDisplayMode: tasmapDisplayMode ?? this.tasmapDisplayMode,
@@ -6312,6 +6316,7 @@ class MapNotifier extends Notifier<MapState> {
       searchPopupEntityFilter: MapSearchEntityFilter.all,
       clearSearchPopupRegionKey: true,
       searchPopupSort: MapSearchSort.nameAscending,
+      searchPopupGroup: MapSearchGroup.none,
     );
   }
 
@@ -6325,6 +6330,7 @@ class MapNotifier extends Notifier<MapState> {
       searchPopupEntityFilter: MapSearchEntityFilter.all,
       clearSearchPopupRegionKey: true,
       searchPopupSort: MapSearchSort.nameAscending,
+      searchPopupGroup: MapSearchGroup.none,
     );
   }
 
@@ -6344,6 +6350,10 @@ class MapNotifier extends Notifier<MapState> {
     _refreshSearchPopupResults(sort: sort);
   }
 
+  void setSearchPopupGroup(MapSearchGroup group) {
+    _refreshSearchPopupResults(group: group);
+  }
+
   void searchPeaks(String query) {
     final results = _mapSearchService.searchPeaks(query);
     state = state.copyWith(searchQuery: query, searchResults: results);
@@ -6358,6 +6368,7 @@ class MapNotifier extends Notifier<MapState> {
       searchPopupEntityFilter: MapSearchEntityFilter.all,
       clearSearchPopupRegionKey: true,
       searchPopupSort: MapSearchSort.nameAscending,
+      searchPopupGroup: MapSearchGroup.none,
     );
   }
 
@@ -6367,6 +6378,7 @@ class MapNotifier extends Notifier<MapState> {
     String? regionKey,
     bool regionKeyChanged = false,
     MapSearchSort? sort,
+    MapSearchGroup? group,
   }) {
     final nextQuery = query ?? state.searchPopupQuery;
     final nextEntityFilter = entityFilter ?? state.searchPopupEntityFilter;
@@ -6374,6 +6386,7 @@ class MapNotifier extends Notifier<MapState> {
         ? regionKey
         : (regionKey ?? state.searchPopupRegionKey);
     final nextSort = sort ?? state.searchPopupSort;
+    final nextGroup = group ?? state.searchPopupGroup;
     final results = _mapSearchService.search(
       query: nextQuery,
       entityFilter: nextEntityFilter,
@@ -6391,6 +6404,7 @@ class MapNotifier extends Notifier<MapState> {
       searchPopupRegionKey: nextRegionKey,
       clearSearchPopupRegionKey: regionKeyChanged && nextRegionKey == null,
       searchPopupSort: nextSort,
+      searchPopupGroup: nextGroup,
       searchQuery: nextQuery,
       searchResults: peakResults,
     );

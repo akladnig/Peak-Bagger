@@ -244,6 +244,53 @@ class SelectedButtonThemeData extends ThemeExtension<SelectedButtonThemeData> {
   }
 }
 
+@immutable
+class SearchButtonThemeData extends ThemeExtension<SearchButtonThemeData> {
+  const SearchButtonThemeData({
+    required this.selectedStyle,
+    required this.unselectedStyle,
+  });
+
+  final ButtonStyle selectedStyle;
+  final ButtonStyle unselectedStyle;
+
+  ButtonStyle styleFor(bool isSelected) {
+    return isSelected ? selectedStyle : unselectedStyle;
+  }
+
+  @override
+  SearchButtonThemeData copyWith({
+    ButtonStyle? selectedStyle,
+    ButtonStyle? unselectedStyle,
+  }) {
+    return SearchButtonThemeData(
+      selectedStyle: selectedStyle ?? this.selectedStyle,
+      unselectedStyle: unselectedStyle ?? this.unselectedStyle,
+    );
+  }
+
+  @override
+  SearchButtonThemeData lerp(
+    covariant ThemeExtension<SearchButtonThemeData>? other,
+    double t,
+  ) {
+    if (other is! SearchButtonThemeData) return this;
+    return SearchButtonThemeData(
+      selectedStyle: ButtonStyle.lerp(selectedStyle, other.selectedStyle, t)!,
+      unselectedStyle: ButtonStyle.lerp(
+        unselectedStyle,
+        other.unselectedStyle,
+        t,
+      )!,
+    );
+  }
+}
+
+const searchControlIconSize = PopupUIConstants.closeIconSize;
+const searchControlFontSize = 11.0;
+const _searchButtonPadding = EdgeInsets.symmetric(horizontal: 10, vertical: 8);
+const _searchButtonMinimumSize = Size(0, 30);
+
 class CatppuccinColors {
   static ThemeData get dark => _createDarkTheme();
   static ThemeData get light => _createLightTheme();
@@ -300,6 +347,74 @@ class CatppuccinColors {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
         ),
+        SearchButtonThemeData(
+          selectedStyle: ButtonStyle(
+            padding: const WidgetStatePropertyAll(_searchButtonPadding),
+            minimumSize: const WidgetStatePropertyAll(_searchButtonMinimumSize),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+            foregroundColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.disabled)) {
+                return const Color(0xFFCDD6F4).withValues(alpha: 0.38);
+              }
+              if (states.contains(WidgetState.hovered)) {
+                return const Color(0xFFFFFFFF);
+              }
+              return const Color(0xFFEBE8FC);
+            }),
+            backgroundColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.hovered)) {
+                return const Color(0xFF4E39C9);
+              }
+              return const Color(0xFF2D1F7A);
+            }),
+            side: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.hovered)) {
+                return const BorderSide(color: Color(0xFF8B7CFF));
+              }
+              return const BorderSide(color: Color(0xFF6347EA));
+            }),
+            overlayColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.hovered)) {
+                return const Color(0x1AFFFFFF);
+              }
+              return null;
+            }),
+          ),
+          unselectedStyle: ButtonStyle(
+            padding: const WidgetStatePropertyAll(_searchButtonPadding),
+            minimumSize: const WidgetStatePropertyAll(_searchButtonMinimumSize),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+            foregroundColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.disabled)) {
+                return const Color(0xFFCDD6F4).withValues(alpha: 0.38);
+              }
+              if (states.contains(WidgetState.hovered)) {
+                return const Color(0xFFEBE8FC);
+              }
+              return const Color(0xFFCDD6F4);
+            }),
+            backgroundColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.hovered)) {
+                return const Color(0xFF2A214B);
+              }
+              return const Color(0x00000000);
+            }),
+            side: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.hovered)) {
+                return const BorderSide(color: Color(0xFF6347EA));
+              }
+              return const BorderSide(color: Color(0xFF7B7B7B));
+            }),
+            overlayColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.hovered)) {
+                return const Color(0x146347EA);
+              }
+              return null;
+            }),
+          ),
+        ),
       ],
     );
   }
@@ -340,7 +455,77 @@ class CatppuccinColors {
         ),
         titleSmall: TextStyle(color: Color(0xFF5C5F77)),
       ),
-      extensions: const [RowHoverTheme.light],
+      extensions: [
+        RowHoverTheme.light,
+        SearchButtonThemeData(
+          selectedStyle: ButtonStyle(
+            padding: const WidgetStatePropertyAll(_searchButtonPadding),
+            minimumSize: const WidgetStatePropertyAll(_searchButtonMinimumSize),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+            foregroundColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.disabled)) {
+                return const Color(0xFF4C4F69).withValues(alpha: 0.38);
+              }
+              if (states.contains(WidgetState.hovered)) {
+                return const Color(0xFFFFFFFF);
+              }
+              return const Color(0xFF1E66F5);
+            }),
+            backgroundColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.hovered)) {
+                return const Color(0xFF184FC6);
+              }
+              return const Color(0xFFDCE7FF);
+            }),
+            side: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.hovered)) {
+                return const BorderSide(color: Color(0xFF3B82F6));
+              }
+              return const BorderSide(color: Color(0xFF1E66F5));
+            }),
+            overlayColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.hovered)) {
+                return const Color(0x14000000);
+              }
+              return null;
+            }),
+          ),
+          unselectedStyle: ButtonStyle(
+            padding: const WidgetStatePropertyAll(_searchButtonPadding),
+            minimumSize: const WidgetStatePropertyAll(_searchButtonMinimumSize),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+            foregroundColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.disabled)) {
+                return const Color(0xFF4C4F69).withValues(alpha: 0.38);
+              }
+              if (states.contains(WidgetState.hovered)) {
+                return const Color(0xFF1E66F5);
+              }
+              return const Color(0xFF4C4F69);
+            }),
+            backgroundColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.hovered)) {
+                return const Color(0xFFDCE7FF);
+              }
+              return const Color(0x00000000);
+            }),
+            side: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.hovered)) {
+                return const BorderSide(color: Color(0xFF1E66F5));
+              }
+              return const BorderSide(color: Color(0xFF9CA0B0));
+            }),
+            overlayColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.hovered)) {
+                return const Color(0x12000000);
+              }
+              return null;
+            }),
+          ),
+        ),
+      ],
     );
   }
 }

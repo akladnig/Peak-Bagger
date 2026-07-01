@@ -11,6 +11,8 @@ enum MapSearchEntityFilter { all, peaks, tracksRoutes, natural, roads, maps }
 
 enum MapSearchSort { nameAscending, nameDescending }
 
+enum MapSearchGroup { none, region, type }
+
 class MapSearchResult {
   const MapSearchResult._({
     required this.type,

@@ -2073,6 +2073,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
           searchEntityFilter: state.searchPopupEntityFilter,
           searchRegionKey: state.searchPopupRegionKey,
           searchSort: state.searchPopupSort,
+          searchGroup: state.searchPopupGroup,
           showGotoInput: state.showGotoInput,
           mapSuggestions: state.mapSuggestions,
           showInfoPopup: state.showInfoPopup,
@@ -3494,6 +3495,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                         entityFilter: routeChrome.searchEntityFilter,
                         selectedRegionKey: routeChrome.searchRegionKey,
                         sort: routeChrome.searchSort,
+                        group: routeChrome.searchGroup,
                         availableRegions: regionManifestCatalog.allRegions(),
                         onChanged: (value) {
                           ref
@@ -3514,6 +3516,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
                           ref
                               .read(mapProvider.notifier)
                               .setSearchPopupSort(value);
+                        },
+                        onSelectGroup: (value) {
+                          ref
+                              .read(mapProvider.notifier)
+                              .setSearchPopupGroup(value);
                         },
                         onClose: () {
                           _searchFocusNode.unfocus();

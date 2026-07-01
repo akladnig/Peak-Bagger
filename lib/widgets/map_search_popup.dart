@@ -7,6 +7,8 @@ import '../services/region_manifest_catalog.dart';
 import '../theme.dart';
 import 'map_search_results_list.dart';
 
+const _noRegionSelection = '__map_search_no_region__';
+
 class MapSearchPopup extends StatelessWidget {
   const MapSearchPopup({
     required this.focusNode,
@@ -15,11 +17,13 @@ class MapSearchPopup extends StatelessWidget {
     required this.entityFilter,
     required this.selectedRegionKey,
     required this.sort,
+    required this.group,
     required this.availableRegions,
     required this.onChanged,
     required this.onSelectEntityFilter,
     required this.onSelectRegionKey,
     required this.onSelectSort,
+    required this.onSelectGroup,
     required this.onClose,
     required this.onSelectResult,
     super.key,
@@ -31,11 +35,13 @@ class MapSearchPopup extends StatelessWidget {
   final MapSearchEntityFilter entityFilter;
   final String? selectedRegionKey;
   final MapSearchSort sort;
+  final MapSearchGroup group;
   final List<RegionManifestRegionData> availableRegions;
   final ValueChanged<String> onChanged;
   final ValueChanged<MapSearchEntityFilter> onSelectEntityFilter;
   final ValueChanged<String?> onSelectRegionKey;
   final ValueChanged<MapSearchSort> onSelectSort;
+  final ValueChanged<MapSearchGroup> onSelectGroup;
   final VoidCallback onClose;
   final ValueChanged<MapSearchResult> onSelectResult;
 
@@ -60,9 +66,10 @@ class MapSearchPopup extends StatelessWidget {
                 autofocus: true,
                 decoration: const InputDecoration(
                   labelText: 'Search',
+                  labelStyle: TextStyle(fontSize: searchControlFontSize),
                   isDense: true,
                   border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.search, size: 20),
+                  prefixIcon: Icon(Icons.search, size: searchControlIconSize),
                 ),
                 onChanged: onChanged,
               ),
@@ -129,17 +136,21 @@ class MapSearchPopup extends StatelessWidget {
                         onSelectEntityFilter(MapSearchEntityFilter.maps),
                   ),
                   const SizedBox(height: 32, child: VerticalDivider()),
-                  PopupMenuButton<String?>(
+                  PopupMenuButton<String>(
                     key: const Key('map-search-filter-button'),
-                    onSelected: onSelectRegionKey,
+                    onSelected: (value) {
+                      onSelectRegionKey(
+                        value == _noRegionSelection ? null : value,
+                      );
+                    },
                     itemBuilder: (context) => [
-                      const PopupMenuItem<String?>(
+                      const PopupMenuItem<String>(
                         key: Key('map-search-region-none'),
-                        value: null,
+                        value: _noRegionSelection,
                         child: Text('None'),
                       ),
                       ...availableRegions.map(
-                        (region) => PopupMenuItem<String?>(
+                        (region) => PopupMenuItem<String>(
                           key: Key('map-search-region-${region.key}'),
                           value: region.key,
                           child: Text(region.name),
@@ -150,7 +161,9 @@ class MapSearchPopup extends StatelessWidget {
                       context,
                       key: const Key('map-search-filter-trigger'),
                       icon: Icons.filter_list,
+                      isSelected: selectedRegionKey != null,
                       label: _regionLabel(),
+                      compact: true,
                     ),
                   ),
                   PopupMenuButton<MapSearchSort>(
@@ -172,9 +185,44 @@ class MapSearchPopup extends StatelessWidget {
                       context,
                       key: const Key('map-search-sort-trigger'),
                       icon: Icons.sort,
+                      isSelected: true,
                       label: sort == MapSearchSort.nameAscending
                           ? 'Sort A-Z'
                           : 'Sort Z-A',
+                      compact: true,
+                    ),
+                  ),
+                  PopupMenuButton<MapSearchGroup>(
+                    key: const Key('map-search-group-button'),
+                    onSelected: onSelectGroup,
+                    itemBuilder: (context) => const [
+                      PopupMenuItem<MapSearchGroup>(
+                        key: Key('map-search-group-none'),
+                        value: MapSearchGroup.none,
+                        child: Text('None'),
+                      ),
+                      PopupMenuItem<MapSearchGroup>(
+                        key: Key('map-search-group-region'),
+                        value: MapSearchGroup.region,
+                        child: Text('Region'),
+                      ),
+                      PopupMenuItem<MapSearchGroup>(
+                        key: Key('map-search-group-type'),
+                        value: MapSearchGroup.type,
+                        child: Text('Type'),
+                      ),
+                    ],
+                    child: _menuButton(
+                      context,
+                      key: const Key('map-search-group-trigger'),
+                      icon: Icons.layers,
+                      isSelected: group != MapSearchGroup.none,
+                      label: switch (group) {
+                        MapSearchGroup.none => 'Group',
+                        MapSearchGroup.region => 'Group Region',
+                        MapSearchGroup.type => 'Group Type',
+                      },
+                      compact: true,
                     ),
                   ),
                 ],
@@ -186,6 +234,8 @@ class MapSearchPopup extends StatelessWidget {
                 child: MapSearchResultsList(
                   searchResults: searchResults,
                   searchQuery: searchQuery,
+                  sort: sort,
+                  group: group,
                   onSelectResult: onSelectResult,
                 ),
               ),
@@ -204,15 +254,18 @@ class MapSearchPopup extends StatelessWidget {
     required bool isSelected,
     required VoidCallback? onPressed,
   }) {
-    final selectedStyle = Theme.of(
+    final searchButtonTheme = Theme.of(
       context,
-    ).extension<SelectedButtonThemeData>()?.style;
+    ).extension<SearchButtonThemeData>();
     return OutlinedButton.icon(
       key: key,
-      style: isSelected ? selectedStyle : null,
+      style: searchButtonTheme?.styleFor(isSelected),
       onPressed: onPressed,
-      icon: Icon(icon),
-      label: Text(label),
+      icon: Icon(icon, size: searchControlIconSize),
+      label: Text(
+        label,
+        style: const TextStyle(fontSize: searchControlFontSize),
+      ),
     );
   }
 
@@ -220,17 +273,21 @@ class MapSearchPopup extends StatelessWidget {
     BuildContext context, {
     required Key key,
     required IconData icon,
+    required bool isSelected,
     required String label,
+    bool compact = false,
   }) {
-    final style = Theme.of(context).extension<SelectedButtonThemeData>()?.style;
-    return IgnorePointer(
-      child: OutlinedButton.icon(
+      return _SearchMenuButton(
         key: key,
-        style: style,
-        onPressed: () {},
-        icon: Icon(icon),
-        label: Text(label),
-      ),
+        icon: icon,
+        iconSize: compact ? searchControlIconSize : null,
+        label: label,
+        labelStyle: compact
+          ? const TextStyle(fontSize: searchControlFontSize)
+          : null,
+      style: Theme.of(
+        context,
+      ).extension<SearchButtonThemeData>()?.styleFor(isSelected),
     );
   }
 
@@ -244,5 +301,59 @@ class MapSearchPopup extends StatelessWidget {
       }
     }
     return 'Filter';
+  }
+}
+
+class _SearchMenuButton extends StatefulWidget {
+  const _SearchMenuButton({
+    required this.icon,
+    required this.label,
+    this.iconSize,
+    this.labelStyle,
+    this.style,
+    super.key,
+  });
+
+  final IconData icon;
+  final String label;
+  final double? iconSize;
+  final TextStyle? labelStyle;
+  final ButtonStyle? style;
+
+  @override
+  State<_SearchMenuButton> createState() => _SearchMenuButtonState();
+}
+
+class _SearchMenuButtonState extends State<_SearchMenuButton> {
+  late final WidgetStatesController _statesController;
+
+  @override
+  void initState() {
+    super.initState();
+    _statesController = WidgetStatesController();
+  }
+
+  @override
+  void dispose() {
+    _statesController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => _statesController.update(WidgetState.hovered, true),
+      onExit: (_) => _statesController.update(WidgetState.hovered, false),
+      child: IgnorePointer(
+        child: OutlinedButton.icon(
+          statesController: _statesController,
+          style: widget.style,
+          onPressed: () {},
+          icon: Icon(widget.icon, size: widget.iconSize),
+          label: Text(widget.label, style: widget.labelStyle),
+        ),
+      ),
+    );
   }
 }

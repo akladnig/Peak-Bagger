@@ -760,12 +760,18 @@ class TestMapNotifier extends MapNotifier {
     _refreshSearchPopupResults(sort: sort);
   }
 
+  @override
+  void setSearchPopupGroup(MapSearchGroup group) {
+    _refreshSearchPopupResults(group: group);
+  }
+
   void _refreshSearchPopupResults({
     String? query,
     MapSearchEntityFilter? entityFilter,
     String? regionKey,
     bool regionKeyChanged = false,
     MapSearchSort? sort,
+    MapSearchGroup? group,
   }) {
     final service = MapSearchService(
       peakRepository:
@@ -799,6 +805,7 @@ class TestMapNotifier extends MapNotifier {
           : (regionKey ?? state.searchPopupRegionKey),
       clearSearchPopupRegionKey: regionKeyChanged && regionKey == null,
       searchPopupSort: sort ?? state.searchPopupSort,
+      searchPopupGroup: group ?? state.searchPopupGroup,
       searchQuery: query ?? state.searchPopupQuery,
       searchResults: peakResults,
     );

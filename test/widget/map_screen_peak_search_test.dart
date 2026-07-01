@@ -7,6 +7,7 @@ import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/map_search_result.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
@@ -55,6 +56,7 @@ void main() {
     expect(state.searchPopupEntityFilter, MapSearchEntityFilter.all);
     expect(state.searchPopupRegionKey, isNull);
     expect(state.searchPopupSort, MapSearchSort.nameAscending);
+    expect(state.searchPopupGroup, MapSearchGroup.none);
     expect(state.searchPopupQuery, isEmpty);
   });
 
@@ -224,6 +226,95 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(container.read(mapProvider).searchPopupRegionKey, 'tasmania');
+
+    await tester.tap(find.byKey(const Key('map-search-filter-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('map-search-region-none')).last);
+    await tester.pumpAndSettle();
+
+    expect(container.read(mapProvider).searchPopupRegionKey, isNull);
+
+    final filterButton = tester.widget<OutlinedButton>(
+      find.descendant(
+        of: find.byKey(const Key('map-search-filter-trigger')),
+        matching: find.byType(OutlinedButton),
+      ),
+    );
+    expect(filterButton.style, isNotNull);
+    expect(find.text('Filter'), findsOneWidget);
+  });
+
+  testWidgets('group menu stores selection and groups by type', (tester) async {
+    final trackRepository = GpxTrackRepository.test(
+      InMemoryGpxTrackStorage([_track(1, 'A Track')]),
+    );
+    final routeRepository = RouteRepository.test(
+      InMemoryRouteStorage([_route(1, 'A Route')]),
+    );
+    final notifier = TestMapNotifier(
+      _mapStateForGrouping(),
+      gpxTrackRepository: trackRepository,
+      routeRepository: routeRepository,
+    );
+    await _pumpMapAppWithNotifier(tester, notifier);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+    await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('map-search-input')), 'A');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('map-search-group-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('map-search-group-type')).last);
+    await tester.pumpAndSettle();
+
+    expect(container.read(mapProvider).searchPopupGroup, MapSearchGroup.type);
+    expect(find.byKey(const Key('map-search-group-header-peaks')), findsOneWidget);
+    expect(
+      find.byKey(const Key('map-search-group-header-tracks-routes')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('map-search-group-header-maps')), findsOneWidget);
+  });
+
+  testWidgets('group menu groups by region and clears back to none', (
+    tester,
+  ) async {
+    await _pumpMapApp(tester, _mapStateWithRegionalPeaks());
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+    await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('map-search-entity-peaks')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('map-search-input')), 'Peak');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('map-search-group-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('map-search-group-region')).last);
+    await tester.pumpAndSettle();
+
+    expect(container.read(mapProvider).searchPopupGroup, MapSearchGroup.region);
+    expect(find.byKey(const Key('map-search-group-header-tasmania')), findsOneWidget);
+    expect(
+      find.byKey(const Key('map-search-group-header-new-south-wales')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('map-search-group-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('map-search-group-none')).last);
+    await tester.pumpAndSettle();
+
+    expect(container.read(mapProvider).searchPopupGroup, MapSearchGroup.none);
+    expect(find.text('Group'), findsOneWidget);
   });
 }
 
@@ -331,6 +422,50 @@ MapState _mapStateWithUnknownHeightPeak() {
   );
 }
 
+MapState _mapStateForGrouping() {
+  return MapState(
+    center: const LatLng(-41.5, 146.5),
+    zoom: 15,
+    basemap: Basemap.tracestrack,
+    peaks: [
+      Peak(
+        osmId: 6406,
+        name: 'A Peak',
+        latitude: -43.0,
+        longitude: 147.0,
+        elevation: 410,
+        region: 'tasmania',
+      ),
+    ],
+  );
+}
+
+MapState _mapStateWithRegionalPeaks() {
+  return MapState(
+    center: const LatLng(-41.5, 146.5),
+    zoom: 15,
+    basemap: Basemap.tracestrack,
+    peaks: [
+      Peak(
+        osmId: 6406,
+        name: 'Tas Peak',
+        latitude: -43.0,
+        longitude: 147.0,
+        elevation: 410,
+        region: 'tasmania',
+      ),
+      Peak(
+        osmId: 7000,
+        name: 'NSW Peak',
+        latitude: -33.7,
+        longitude: 149.0,
+        elevation: 500,
+        region: 'new-south-wales',
+      ),
+    ],
+  );
+}
+
 Tasmap50k _resolvedMap() {
   const center = LatLng(-43.0, 147.0);
   final vertices = [
@@ -373,6 +508,19 @@ GpxTrack _track(int id, String name) {
     distance3d: 1230,
     highestElevation: 500,
     ascent: 120,
+  );
+}
+
+app_route.Route _route(int id, String name) {
+  return app_route.Route(
+    id: id,
+    name: name,
+    gpxRoute: const [LatLng(-43.0, 147.0), LatLng(-43.001, 147.001)],
+    distance2d: 900,
+    distance3d: 930,
+    ascent: 80,
+    descent: 70,
+    highestElevation: 450,
   );
 }
 
