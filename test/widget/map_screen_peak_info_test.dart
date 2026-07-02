@@ -354,6 +354,28 @@ void main() {
     expect(find.byKey(const Key('peak-info-popup-edit-form')), findsOneWidget);
   });
 
+  testWidgets('top-right close icon closes popup during inline editing', (
+    tester,
+  ) async {
+    await _pumpMap(tester, _mapStateWithPeak());
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byKey(const Key('peak-info-popup-edit')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-info-popup-edit-form')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('peak-info-popup-close')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-info-popup')), findsNothing);
+    expect(find.byKey(const Key('peak-info-popup-edit-form')), findsNothing);
+  });
+
   testWidgets('inline popup edit shows saving feedback and saves peak', (
     tester,
   ) async {
@@ -488,6 +510,59 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-info-popup-edit-admin')), findsNothing);
+  });
+
+  testWidgets('footer text buttons align to the right edge', (tester) async {
+    final content = PeakInfoContent(
+      peak: Peak(
+        id: 1,
+        osmId: 6406,
+        name: 'Bonnet Hill',
+        latitude: -43.0,
+        longitude: 147.0,
+      ),
+      mapName: 'Adamsons',
+      mapNameOrigin: MapNameOrigin.sheet,
+      listNames: const [],
+      ascentRows: const [],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: PeakInfoPopupCard(
+              key: const Key('peak-info-popup-card-under-test'),
+              content: content,
+              onClose: () {},
+              onEdit: () async {},
+              onSaveEdit: (_) async => null,
+              onEditInAdmin: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final popupRight = tester
+        .getTopRight(find.byKey(const Key('peak-info-popup-card-under-test')))
+        .dx;
+    final adminButtonRight = tester
+        .getTopRight(find.byKey(const Key('peak-info-popup-edit-admin')))
+        .dx;
+
+    expect(popupRight - adminButtonRight, inInclusiveRange(0, 16));
+
+    await tester.tap(find.byKey(const Key('peak-info-popup-edit')));
+    await tester.pumpAndSettle();
+
+    final saveRight = tester
+        .getTopRight(find.byKey(const Key('peak-info-popup-save')))
+        .dx;
+
+    expect(popupRight - saveRight, inInclusiveRange(0, 16));
   });
 
   testWidgets('move to marker is disabled without a persisted marker', (

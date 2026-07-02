@@ -37,10 +37,7 @@ void main() {
         routePlanningOutcomes: const [
           RoutePlanningResult(
             status: RoutePlanningStatus.offTrack,
-            points: [
-              LatLng(-41.5, 146.5),
-              LatLng(-41.55, 146.55),
-            ],
+            points: [LatLng(-41.5, 146.5), LatLng(-41.55, 146.55)],
             distanceMeters: 1000,
             startAnchor: RouteEndpointAnchor(
               point: LatLng(-41.5, 146.5),
@@ -696,8 +693,8 @@ void main() {
     await tester.tap(showTracksFab);
     await tester.pumpAndSettle();
 
-    final trailsSwitch = find.byKey(const Key('show-trails-switch'));
-    expect(tester.widget<Switch>(trailsSwitch).value, isTrue);
+    final trailsButton = find.byKey(const Key('show-trails-button'));
+    expect(trailsButton, findsOneWidget);
     expect(find.byKey(const Key('tracks-routes-drawer')), findsOneWidget);
 
     await tester.drag(robot.mapInteractionRegion, const Offset(-60, 20));
@@ -705,7 +702,7 @@ void main() {
 
     expect(find.byKey(const Key('trail-polyline-layer')), findsOneWidget);
 
-    await tester.tap(trailsSwitch);
+    await tester.tap(trailsButton);
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('trail-polyline-layer')), findsNothing);

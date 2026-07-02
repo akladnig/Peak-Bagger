@@ -162,6 +162,15 @@ abstract final class RouteUI {
 abstract final class UiConstants {
   static const scrollSpeed = 0.001;
   static const scrollInterval = Duration(milliseconds: 16);
+  static const drawerTitleFontSize = 20.0;
+  static const drawerControlFontSize = 14.0;
+  static const drawerSupportingFontSize = 13.0;
+  static const drawerHorizontalPadding = 16.0;
+  static const drawerMinWidth = 220.0;
+  static const drawerMaxWidth = 304.0;
+  static const drawerButtonHorizontalPadding = 10.0;
+  static const drawerButtonIconGap = 8.0;
+  static const drawerWidthSlack = 12.0;
   static const peakInfoPopupSize = Size(320, 280);
   static const dialogMargin = 24.0;
   static const dividerWidth = 1.0;

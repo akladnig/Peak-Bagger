@@ -165,8 +165,14 @@ void main() {
     expect(track11Top, lessThan(track12Top));
     expect(track12Top, lessThan(route22Top));
     expect(route22Top, lessThan(route21Top));
-    expect(find.textContaining('Track • 6.8 km'), findsOneWidget);
-    expect(find.textContaining('Track • 7.2 km'), findsOneWidget);
+    expect(
+      find.text('Track • 6.8 km • Wed, 7 Jan 2026 • 2h 0m'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Track • 7.2 km • Wed, 31 Dec 2025 • 1h 30m'),
+      findsOneWidget,
+    );
     expect(find.textContaining('Route • 7.5 km'), findsOneWidget);
     expect(find.textContaining('Route • 7.4 km'), findsOneWidget);
   });

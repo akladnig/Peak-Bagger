@@ -83,8 +83,8 @@ class GpxTracksRobot {
       find.byKey(const Key('peak-list-selection-summary'));
   Finder get peakListAllPeaksRow =>
       find.byKey(const Key('peak-list-selection-all-peaks-row'));
-  Finder get peakListAllPeaksSwitch =>
-      find.byKey(const Key('peak-list-selection-all-peaks-switch'));
+  Finder get peakListAllPeaksButton =>
+      find.byKey(const Key('peak-list-item-All Peaks'));
   Finder get peakListChipAllPeaks =>
       find.byKey(const Key('peak-list-selection-chip-all-peaks'));
   Finder get peakListChipNone =>
@@ -255,8 +255,8 @@ class GpxTracksRobot {
     return find.byKey(Key('peak-list-selection-row-$peakListId'));
   }
 
-  Finder peakListSwitch(int peakListId) {
-    return find.byKey(Key('peak-list-selection-switch-$peakListId'));
+  Finder peakListButton(String name) {
+    return find.byKey(Key('peak-list-item-$name'));
   }
 
   Finder peakListChip(int peakListId) {

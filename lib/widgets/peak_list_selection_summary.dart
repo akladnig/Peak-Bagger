@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 
+import '../core/constants.dart';
+import '../theme.dart';
+
 class PeakListSelectionSummaryStrip extends StatelessWidget {
-  const PeakListSelectionSummaryStrip({
-    super.key,
-    required this.summary,
-  });
+  const PeakListSelectionSummaryStrip({super.key, required this.summary});
 
   final PeakListSelectionSummary summary;
 
@@ -37,20 +37,33 @@ class _PeakListSelectionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final searchButtonTheme = Theme.of(
+      context,
+    ).extension<SearchButtonThemeData>();
     final key = switch ((chip.isAllPeaks, chip.isNone, chip.peakListId)) {
       (true, _, _) => const Key('peak-list-selection-chip-all-peaks'),
       (_, true, _) => const Key('peak-list-selection-chip-none'),
-      (_, _, final int peakListId) => Key('peak-list-selection-chip-$peakListId'),
+      (_, _, final int peakListId) => Key(
+        'peak-list-selection-chip-$peakListId',
+      ),
       _ => null,
     };
 
-    return Chip(
-      key: key,
-      label: Text(
-        chip.label,
-        overflow: TextOverflow.ellipsis,
+    return Semantics(
+      button: true,
+      selected: true,
+      child: IgnorePointer(
+        child: OutlinedButton(
+          key: key,
+          style: searchButtonTheme?.selectedStyle,
+          onPressed: () {},
+          child: Text(
+            chip.label,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: UiConstants.drawerControlFontSize),
+          ),
+        ),
       ),
-      visualDensity: VisualDensity.compact,
     );
   }
 }

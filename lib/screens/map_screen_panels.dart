@@ -771,7 +771,7 @@ class TrackRouteChooserItem {
 
   String get subtitle => switch (kind) {
     TrackRouteChooserItemKind.track =>
-      'Track • ${formatDistance(track!.distance2d, decimalPlaces: 1)} • ${formatTrackDate(track!.trackDate)} • ${formatDuration(track!.totalTimeMillis)}',
+      'Track • ${formatDistance(track!.distance2d, decimalPlaces: 1)} • ${formatTrackDateShortMonth(track!.trackDate)} • ${formatDuration(track!.totalTimeMillis)}',
     TrackRouteChooserItemKind.route =>
       'Route • ${formatDistance(route!.distance2d, decimalPlaces: 1)}',
   };
@@ -2415,10 +2415,11 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
         ),
     ];
 
-    final footer = switch ((_isEditing, widget.onEditInAdmin)) {
+    final footerChild = switch ((_isEditing, widget.onEditInAdmin)) {
       (true, _) => Wrap(
         spacing: 8,
         runSpacing: 8,
+        alignment: WrapAlignment.end,
         children: [
           FilledButton(
             key: const Key('peak-info-popup-cancel'),
@@ -2439,6 +2440,9 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
       ),
       _ => null,
     };
+    final footer = footerChild == null
+        ? null
+        : Align(alignment: Alignment.centerRight, child: footerChild);
 
     return ConstrainedBox(
       constraints: BoxConstraints(
@@ -2455,7 +2459,7 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
         ),
         headerActions: headerActions,
-        onClose: _isEditing || _isSaving ? null : widget.onClose,
+        onClose: _isSaving ? null : widget.onClose,
         closeButtonKey: const Key('peak-info-popup-close'),
         closeTooltip: 'Close Peak Info',
         bodyFlexible: true,

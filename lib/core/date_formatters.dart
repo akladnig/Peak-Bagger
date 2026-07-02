@@ -18,6 +18,20 @@ const _trackDateMonths = [
   'November',
   'December',
 ];
+const _trackDateShortMonths = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
 
 String formatSummaryDateRange(DateTime start, DateTime end) {
   final startText = start.year == end.year
@@ -35,6 +49,14 @@ String formatTrackDate(DateTime? trackDate) {
   }
 
   return '${_trackDateWeekdays[trackDate.weekday - 1]}, ${trackDate.day} ${_trackDateMonths[trackDate.month - 1]} ${trackDate.year}';
+}
+
+String formatTrackDateShortMonth(DateTime? trackDate) {
+  if (trackDate == null) {
+    return 'Unknown';
+  }
+
+  return '${_trackDateWeekdays[trackDate.weekday - 1]}, ${trackDate.day} ${_trackDateShortMonths[trackDate.month - 1]} ${trackDate.year}';
 }
 
 String formatElevationDateRange(DateTime start, DateTime end) =>
