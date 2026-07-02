@@ -91,8 +91,8 @@ class _InteractivePeakListSelectionChip extends ConsumerWidget {
 
     return KeyedSubtree(
       key: Key('peak-list-app-bar-item-$peakListId'),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Stack(
+        alignment: Alignment.centerRight,
         children: [
           KeyedSubtree(
             key: Key('peak-list-app-bar-toggle-$peakListId'),
@@ -102,49 +102,54 @@ class _InteractivePeakListSelectionChip extends ConsumerWidget {
               onPressed: () {
                 ref.read(mapProvider.notifier).togglePeakListSelection(peakListId);
               },
-              child: Text(
-                chip.label,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: UiConstants.drawerControlFontSize,
+              child: Padding(
+                padding: const EdgeInsets.only(right: searchControlIconSize + 16),
+                child: Text(
+                  chip.label,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: UiConstants.drawerControlFontSize,
+                  ),
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 4),
-          OutlinedButton(
-            key: Key(
-              chip.isPinned
-                  ? 'peak-list-app-bar-unpin-$peakListId'
-                  : 'peak-list-app-bar-pin-$peakListId',
-            ),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(40, 40),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            ),
-            onPressed: chip.regionKey == null
-                ? null
-                : () {
-                    final notifier = ref.read(mapProvider.notifier);
-                    if (chip.isPinned) {
-                      notifier.unpinPeakListForRegion(
-                        regionKey: chip.regionKey!,
-                        peakListId: peakListId,
-                      );
-                    } else {
-                      notifier.pinPeakListForRegion(
-                        regionKey: chip.regionKey!,
-                        peakListId: peakListId,
-                      );
-                    }
-                  },
-            child: SvgPicture.asset(
-              chip.isPinned ? 'assets/svg/unpin.svg' : 'assets/svg/pin.svg',
-              width: 16,
-              height: 16,
-              colorFilter: ColorFilter.mode(
-                Theme.of(context).colorScheme.onSurface,
-                BlendMode.srcIn,
+          Positioned(
+            right: 6,
+            child: IconButton(
+              key: Key(
+                chip.isPinned
+                    ? 'peak-list-app-bar-unpin-$peakListId'
+                    : 'peak-list-app-bar-pin-$peakListId',
+              ),
+              iconSize: searchControlIconSize,
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+              onPressed: chip.regionKey == null
+                  ? null
+                  : () {
+                      final notifier = ref.read(mapProvider.notifier);
+                      if (chip.isPinned) {
+                        notifier.unpinPeakListForRegion(
+                          regionKey: chip.regionKey!,
+                          peakListId: peakListId,
+                        );
+                      } else {
+                        notifier.pinPeakListForRegion(
+                          regionKey: chip.regionKey!,
+                          peakListId: peakListId,
+                        );
+                      }
+                    },
+              icon: SvgPicture.asset(
+                chip.isPinned ? 'assets/svg/unpin.svg' : 'assets/svg/pin.svg',
+                width: searchControlIconSize,
+                height: searchControlIconSize,
+                colorFilter: ColorFilter.mode(
+                  Theme.of(context).colorScheme.onSurface,
+                  BlendMode.srcIn,
+                ),
               ),
             ),
           ),

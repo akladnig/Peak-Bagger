@@ -107,11 +107,47 @@ class DrawerOutlineButton extends StatelessWidget {
 
     return SizedBox(
       width: double.infinity,
-      child: Row(
+      child: Stack(
+        alignment: Alignment.centerRight,
         children: [
-          Expanded(child: button),
-          const SizedBox(width: 8),
-          trailing!,
+          SizedBox(
+            width: double.infinity,
+            child: icon == null
+                ? OutlinedButton(
+                    key: buttonKey,
+                    style: style,
+                    onPressed: onPressed,
+                    child: Padding(
+                      padding: const EdgeInsets.only(
+                        right: searchControlIconSize + 20,
+                      ),
+                      child: Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: UiConstants.drawerControlFontSize,
+                        ),
+                      ),
+                    ),
+                  )
+                : OutlinedButton.icon(
+                    key: buttonKey,
+                    style: style,
+                    onPressed: onPressed,
+                    icon: Icon(icon, size: searchControlIconSize),
+                    label: Padding(
+                      padding: const EdgeInsets.only(
+                        right: searchControlIconSize + 20,
+                      ),
+                      child: Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: UiConstants.drawerControlFontSize,
+                        ),
+                      ),
+                    ),
+                  ),
+          ),
+          Positioned(right: 8, child: trailing!),
         ],
       ),
     );

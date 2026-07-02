@@ -394,6 +394,13 @@ void main() {
     expect(container.read(mapProvider).pinnedPeakListIdsByRegion, {
       'tasmania': {1},
     });
+    expect(find.byKey(const Key('peak-list-unpin-icon-1')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('peak-list-pin-1')));
+    await tester.pumpAndSettle();
+
+    expect(container.read(mapProvider).pinnedPeakListIdsByRegion, isEmpty);
+    expect(find.byKey(const Key('peak-list-pin-icon-1')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('peak-list-item-Alpha')));
     await tester.pumpAndSettle();
