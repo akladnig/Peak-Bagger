@@ -364,16 +364,16 @@ class _SharedAppBarTitle extends StatelessWidget {
                   ),
                 ),
               ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: _laneGap, right: 8),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: PeakListSelectionSummaryStrip(summary: summary),
-                  ),
-                ),
-              ),
-            ],
+               Expanded(
+                 child: Padding(
+                   padding: const EdgeInsets.only(left: _laneGap, right: 8),
+                   child: const Align(
+                     alignment: Alignment.centerRight,
+                     child: SizedBox.shrink(),
+                   ),
+                 ),
+               ),
+             ],
           );
         }
 

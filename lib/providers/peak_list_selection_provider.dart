@@ -5,6 +5,7 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/services/peak_list_visibility.dart';
 
 final peakListRevisionProvider =
     NotifierProvider<PeakListRevisionNotifier, int>(
@@ -27,39 +28,75 @@ final peakListsLoadFailedProvider = Provider<bool>((ref) {
 final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((
   ref,
 ) {
-  final peakListSelectionMode = ref.watch(
-    mapProvider.select((state) => state.peakListSelectionMode),
-  );
-  final selectedPeakListIds = ref.watch(
-    mapProvider.select((state) => state.selectedPeakListIds),
+  final (
+    :peakListSelectionMode,
+    :selectedPeakListIds,
+    :pinnedPeakListIdsByRegion,
+    :visibleBounds,
+  ) = ref.watch(
+    mapProvider.select(
+      (state) => (
+        peakListSelectionMode: state.peakListSelectionMode,
+        selectedPeakListIds: state.selectedPeakListIds,
+        pinnedPeakListIdsByRegion: state.pinnedPeakListIdsByRegion,
+        visibleBounds: state.visibleBounds,
+      ),
+    ),
   );
   final peakLists = ref.watch(peakListsProvider);
+  final visibleRegionKeys = visibleRegionKeysForBounds(visibleBounds);
+  final hasResolvedVisibleBounds = visibleBounds != null;
+  if (hasResolvedVisibleBounds && visibleRegionKeys.isEmpty) {
+    return const PeakListSelectionSummary(chips: []);
+  }
   final labelsById = {
     for (final peakList in peakLists) peakList.peakListId: peakList.name,
   };
-
-  return switch (peakListSelectionMode) {
-    PeakListSelectionMode.none => const PeakListSelectionSummary(
-      chips: [PeakListSelectionChip.none()],
-    ),
-    PeakListSelectionMode.allPeaks => const PeakListSelectionSummary(
-      chips: [PeakListSelectionChip.allPeaks()],
-    ),
-    PeakListSelectionMode.specificList => PeakListSelectionSummary(
-      chips:
-          [
-            for (final peakListId in selectedPeakListIds)
-              PeakListSelectionChip.list(
-                peakListId: peakListId,
-                label: labelsById[peakListId] ?? 'List #$peakListId',
-              ),
-          ]..sort((left, right) {
-            return left.label.toLowerCase().compareTo(
-              right.label.toLowerCase(),
-            );
-          }),
-    ),
+  final regionKeysById = {
+    for (final peakList in peakLists)
+      peakList.peakListId: canonicalRegionKey(
+        normalizePeakListRegionKey(peakList.region),
+      ),
   };
+  final visiblePinnedPeakListIds = hasResolvedVisibleBounds
+      ? <int>{
+          for (final regionKey in visibleRegionKeys)
+            ...?pinnedPeakListIdsByRegion[regionKey],
+        }
+      : <int>{
+          for (final ids in pinnedPeakListIdsByRegion.values) ...ids,
+        };
+  final visibleSelectedPeakListIds = hasResolvedVisibleBounds
+      ? {
+          for (final peakListId in selectedPeakListIds)
+            if (visibleRegionKeys.contains(regionKeysById[peakListId])) peakListId,
+        }
+      : selectedPeakListIds.toSet();
+  final visibleSpecificPeakListIds = {
+    ...visiblePinnedPeakListIds,
+    ...visibleSelectedPeakListIds,
+  }.toList()
+    ..sort((left, right) {
+      return (labelsById[left] ?? 'List #$left').toLowerCase().compareTo(
+        (labelsById[right] ?? 'List #$right').toLowerCase(),
+      );
+    });
+  final chips = <PeakListSelectionChip>[
+    if (peakListSelectionMode == PeakListSelectionMode.allPeaks)
+      const PeakListSelectionChip.allPeaks(),
+    if (peakListSelectionMode == PeakListSelectionMode.none)
+      const PeakListSelectionChip.none(),
+    for (final peakListId in visibleSpecificPeakListIds)
+      PeakListSelectionChip.list(
+        peakListId: peakListId,
+        label: labelsById[peakListId] ?? 'List #$peakListId',
+        regionKey: regionKeysById[peakListId],
+        isSelected: visibleSelectedPeakListIds.contains(peakListId),
+        isPinned: visiblePinnedPeakListIds.contains(peakListId),
+      ),
+  ];
+
+  return PeakListSelectionSummary(chips: chips);
 });
 
 final filteredPeaksProvider = Provider<List<Peak>>((ref) {
@@ -150,7 +187,13 @@ class PeakListSelectionSummary {
 }
 
 class PeakListSelectionChip {
-  const PeakListSelectionChip._({required this.label, this.peakListId});
+  const PeakListSelectionChip._({
+    required this.label,
+    this.peakListId,
+    this.regionKey,
+    this.isSelected = true,
+    this.isPinned = false,
+  });
 
   const PeakListSelectionChip.allPeaks() : this._(label: 'All Peaks');
 
@@ -159,10 +202,22 @@ class PeakListSelectionChip {
   const PeakListSelectionChip.list({
     required int peakListId,
     required String label,
-  }) : this._(label: label, peakListId: peakListId);
+    required String? regionKey,
+    required bool isSelected,
+    required bool isPinned,
+  }) : this._(
+         label: label,
+         peakListId: peakListId,
+         regionKey: regionKey,
+         isSelected: isSelected,
+         isPinned: isPinned,
+       );
 
   final String label;
   final int? peakListId;
+  final String? regionKey;
+  final bool isSelected;
+  final bool isPinned;
 
   bool get isAllPeaks => peakListId == null && label == 'All Peaks';
 

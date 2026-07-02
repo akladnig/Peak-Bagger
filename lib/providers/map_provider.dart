@@ -94,6 +94,41 @@ bool _samePeakListIds(Set<int> left, Set<int> right) {
   return true;
 }
 
+Map<String, Set<int>> _immutablePinnedPeakListIdsByRegion(
+  Map<String, Iterable<int>> values,
+) {
+  final entries = <String, Set<int>>{};
+  final sortedKeys = values.keys.toList()..sort();
+  for (final key in sortedKeys) {
+    final normalizedKey = canonicalRegionKey(normalizePeakListRegionKey(key));
+    if (normalizedKey == null) {
+      continue;
+    }
+    final ids = values[normalizedKey] ?? values[key] ?? const <int>{};
+    if (ids.isEmpty) {
+      continue;
+    }
+    entries[normalizedKey] = _immutablePeakListIds(ids);
+  }
+  return Map<String, Set<int>>.unmodifiable(entries);
+}
+
+bool _samePinnedPeakListIdsByRegion(
+  Map<String, Set<int>> left,
+  Map<String, Set<int>> right,
+) {
+  if (left.length != right.length) {
+    return false;
+  }
+  for (final entry in left.entries) {
+    final rightIds = right[entry.key];
+    if (rightIds == null || !_samePeakListIds(entry.value, rightIds)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 String _encodePeakListIds(Iterable<int> values) {
   final sorted = values.toSet().toList()..sort();
   return convert.jsonEncode(sorted);
@@ -119,12 +154,65 @@ Set<int>? _decodePeakListIds(String? payload) {
   return _immutablePeakListIds(ids);
 }
 
+String _encodePinnedPeakListIdsByRegion(Map<String, Set<int>> values) {
+  final sortedKeys = values.keys.toList()..sort();
+  final encoded = <String, List<int>>{};
+  for (final key in sortedKeys) {
+    final ids = values[key];
+    if (ids == null || ids.isEmpty) {
+      continue;
+    }
+    encoded[key] = ids.toList()..sort();
+  }
+  return convert.jsonEncode(encoded);
+}
+
+Map<String, Set<int>>? _decodePinnedPeakListIdsByRegion(String? payload) {
+  if (payload == null) {
+    return const <String, Set<int>>{};
+  }
+
+  Object? decoded;
+  try {
+    decoded = convert.jsonDecode(payload);
+  } on FormatException {
+    return null;
+  }
+  if (decoded is! Map<String, dynamic>) {
+    return null;
+  }
+
+  final idsByRegion = <String, Set<int>>{};
+  for (final entry in decoded.entries) {
+    final normalizedKey = canonicalRegionKey(
+      normalizePeakListRegionKey(entry.key),
+    );
+    final rawIds = entry.value;
+    if (normalizedKey == null || rawIds is! List) {
+      return null;
+    }
+    final ids = <int>{};
+    for (final rawId in rawIds) {
+      if (rawId is! int) {
+        return null;
+      }
+      ids.add(rawId);
+    }
+    if (ids.isNotEmpty) {
+      idsByRegion[normalizedKey] = _immutablePeakListIds(ids);
+    }
+  }
+
+  return _immutablePinnedPeakListIdsByRegion(idsByRegion);
+}
+
 const _latKey = 'map_position_lat';
 const _lngKey = 'map_position_lng';
 const _zoomKey = 'map_zoom';
 const _peakListSelectionModeV2Key = 'peak_list_selection_mode_v2';
 const _peakListSelectedIdsV2Key = 'peak_list_selected_ids_v2';
 const _peakListPreviousSpecificIdsV2Key = 'peak_list_previous_specific_ids_v2';
+const _peakListPinnedIdsByRegionV1Key = 'peak_list_pinned_ids_by_region_v1';
 const _legacyPeakListSelectionModeKey = 'peak_list_selection_mode';
 const _legacyPeakListIdKey = 'peak_list_id';
 const _showTracksKey = 'show_tracks';
@@ -389,6 +477,7 @@ class MapState {
   final PeakListSelectionMode peakListSelectionMode;
   final Set<int> selectedPeakListIds;
   final Set<int> previousSpecificPeakListIds;
+  final Map<String, Set<int>> pinnedPeakListIdsByRegion;
   final EndDrawerMode endDrawerMode;
   final bool isLoadingTracks;
   final String? trackImportError;
@@ -488,6 +577,7 @@ class MapState {
     this.peakListSelectionMode = PeakListSelectionMode.allPeaks,
     this.selectedPeakListIds = const <int>{},
     this.previousSpecificPeakListIds = const <int>{},
+    this.pinnedPeakListIdsByRegion = const <String, Set<int>>{},
     this.endDrawerMode = EndDrawerMode.basemaps,
     this.isLoadingTracks = false,
     this.trackImportError,
@@ -702,6 +792,8 @@ class MapState {
     bool clearSelectedPeakListIds = false,
     Set<int>? previousSpecificPeakListIds,
     bool clearPreviousSpecificPeakListIds = false,
+    Map<String, Set<int>>? pinnedPeakListIdsByRegion,
+    bool clearPinnedPeakListIdsByRegion = false,
     EndDrawerMode? endDrawerMode,
     bool? isLoadingTracks,
     String? trackImportError,
@@ -884,6 +976,11 @@ class MapState {
           : previousSpecificPeakListIds == null
           ? this.previousSpecificPeakListIds
           : _immutablePeakListIds(previousSpecificPeakListIds),
+      pinnedPeakListIdsByRegion: clearPinnedPeakListIdsByRegion
+          ? const <String, Set<int>>{}
+          : pinnedPeakListIdsByRegion == null
+          ? this.pinnedPeakListIdsByRegion
+          : _immutablePinnedPeakListIdsByRegion(pinnedPeakListIdsByRegion),
       endDrawerMode: endDrawerMode ?? this.endDrawerMode,
       isLoadingTracks: isLoadingTracks ?? this.isLoadingTracks,
       trackImportError: clearTrackImportError
@@ -2184,6 +2281,9 @@ class MapNotifier extends Notifier<MapState> {
       final previousSpecificPeakListIds = _decodePeakListIds(
         prefs.getString(_peakListPreviousSpecificIdsV2Key),
       );
+      final pinnedPeakListIdsByRegion = _decodePinnedPeakListIdsByRegion(
+        prefs.getString(_peakListPinnedIdsByRegionV1Key),
+      );
 
       if (lat != null && lng != null && zoom != null) {
         final location = LatLng(lat, lng);
@@ -2192,6 +2292,13 @@ class MapNotifier extends Notifier<MapState> {
           zoom: zoom,
           isFirstLaunch: false,
           currentMgrs: _convertToMgrs(location),
+        );
+      }
+
+      if (pinnedPeakListIdsByRegion == null) {
+        developer.log(
+          'Resetting corrupt pinned peak list prefs.',
+          name: 'map_provider',
         );
       }
 
@@ -2204,6 +2311,9 @@ class MapNotifier extends Notifier<MapState> {
           peakListSelectionMode: PeakListSelectionMode.allPeaks,
           clearSelectedPeakListIds: true,
           clearPreviousSpecificPeakListIds: true,
+          pinnedPeakListIdsByRegion:
+              pinnedPeakListIdsByRegion ?? const <String, Set<int>>{},
+          clearPinnedPeakListIdsByRegion: pinnedPeakListIdsByRegion == null,
         );
         return;
       }
@@ -2212,6 +2322,9 @@ class MapNotifier extends Notifier<MapState> {
         peakListSelectionMode: peakListSelectionMode,
         selectedPeakListIds: selectedPeakListIds,
         previousSpecificPeakListIds: previousSpecificPeakListIds,
+        pinnedPeakListIdsByRegion:
+            pinnedPeakListIdsByRegion ?? const <String, Set<int>>{},
+        clearPinnedPeakListIdsByRegion: pinnedPeakListIdsByRegion == null,
       );
       reconcileSelectedPeakList();
     } catch (e) {
@@ -2271,6 +2384,7 @@ class MapNotifier extends Notifier<MapState> {
     final mode = state.peakListSelectionMode;
     final selectedPeakListIds = state.selectedPeakListIds;
     final previousSpecificPeakListIds = state.previousSpecificPeakListIds;
+    final pinnedPeakListIdsByRegion = state.pinnedPeakListIdsByRegion;
     _peakListSelectionPersistChain = _peakListSelectionPersistChain.then((
       _,
     ) async {
@@ -2284,6 +2398,10 @@ class MapNotifier extends Notifier<MapState> {
         await prefs.setString(
           _peakListPreviousSpecificIdsV2Key,
           _encodePeakListIds(previousSpecificPeakListIds),
+        );
+        await prefs.setString(
+          _peakListPinnedIdsByRegionV1Key,
+          _encodePinnedPeakListIdsByRegion(pinnedPeakListIdsByRegion),
         );
         await prefs.remove(_legacyPeakListSelectionModeKey);
         await prefs.remove(_legacyPeakListIdKey);
@@ -4349,6 +4467,72 @@ class MapNotifier extends Notifier<MapState> {
     );
   }
 
+  void pinPeakListForRegion({required String regionKey, required int peakListId}) {
+    final normalizedRegionKey = canonicalRegionKey(
+      normalizePeakListRegionKey(regionKey),
+    );
+    if (normalizedRegionKey == null) {
+      return;
+    }
+
+    final nextPinnedPeakListIdsByRegion = <String, Set<int>>{
+      for (final entry in state.pinnedPeakListIdsByRegion.entries)
+        entry.key: Set<int>.of(entry.value),
+    };
+    final pinnedIds = Set<int>.of(
+      nextPinnedPeakListIdsByRegion[normalizedRegionKey] ?? const <int>{},
+    );
+    if (!pinnedIds.add(peakListId)) {
+      return;
+    }
+    nextPinnedPeakListIdsByRegion[normalizedRegionKey] = pinnedIds;
+    _updatePinnedPeakListIdsByRegion(nextPinnedPeakListIdsByRegion);
+  }
+
+  void unpinPeakListForRegion({
+    required String regionKey,
+    required int peakListId,
+  }) {
+    final normalizedRegionKey = canonicalRegionKey(
+      normalizePeakListRegionKey(regionKey),
+    );
+    if (normalizedRegionKey == null) {
+      return;
+    }
+
+    final nextPinnedPeakListIdsByRegion = <String, Set<int>>{
+      for (final entry in state.pinnedPeakListIdsByRegion.entries)
+        entry.key: Set<int>.of(entry.value),
+    };
+    final pinnedIds = nextPinnedPeakListIdsByRegion[normalizedRegionKey];
+    if (pinnedIds == null || !pinnedIds.remove(peakListId)) {
+      return;
+    }
+    if (pinnedIds.isEmpty) {
+      nextPinnedPeakListIdsByRegion.remove(normalizedRegionKey);
+    } else {
+      nextPinnedPeakListIdsByRegion[normalizedRegionKey] = pinnedIds;
+    }
+    _updatePinnedPeakListIdsByRegion(nextPinnedPeakListIdsByRegion);
+  }
+
+  void _updatePinnedPeakListIdsByRegion(Map<String, Set<int>> idsByRegion) {
+    final nextPinnedPeakListIdsByRegion = _immutablePinnedPeakListIdsByRegion(
+      idsByRegion,
+    );
+    if (_samePinnedPeakListIdsByRegion(
+      state.pinnedPeakListIdsByRegion,
+      nextPinnedPeakListIdsByRegion,
+    )) {
+      return;
+    }
+
+    state = state.copyWith(
+      pinnedPeakListIdsByRegion: nextPinnedPeakListIdsByRegion,
+    );
+    unawaited(persistPeakListSelection());
+  }
+
   void _updatePeakListSelection({
     required PeakListSelectionMode mode,
     required Set<int> selectedPeakListIds,
@@ -4389,14 +4573,19 @@ class MapNotifier extends Notifier<MapState> {
     } catch (_) {
       return;
     }
-    final currentRegionKey = regionManifestCatalog.regionKeyForPoint(
-      state.center,
-    );
+    final bounds = state.visibleBounds;
+    if (bounds == null) {
+      return;
+    }
+    final visibleRegionKeys = visibleRegionKeysForBounds(bounds);
+    if (visibleRegionKeys.isEmpty) {
+      return;
+    }
 
-    final validPeakListIds = renderablePeakListIds(
+    final validPeakListIds = renderablePeakListIdsForVisibleRegions(
       peakLists: peakLists,
       selectedPeakListIds: state.selectedPeakListIds,
-      currentRegionKey: currentRegionKey,
+      visibleRegionKeys: visibleRegionKeys,
     );
 
     if (validPeakListIds.isEmpty) {
@@ -4427,6 +4616,7 @@ class MapNotifier extends Notifier<MapState> {
     }
 
     state = state.copyWith(visibleBounds: bounds);
+    reconcileSelectedPeakList();
   }
 
   bool _sameVisibleBounds(LatLngBounds? left, LatLngBounds? right) {

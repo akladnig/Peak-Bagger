@@ -198,6 +198,29 @@ void main() {
     );
     },
   );
+
+  test(
+    'renderablePeakListIdsForVisibleRegions unions matching lists across visible regions',
+    () {
+      final peakLists = [
+        PeakList(name: 'Alpha', region: 'tasmania', peakList: '[]')
+          ..peakListId = 7,
+        PeakList(name: 'Bravo', region: 'new-south-wales', peakList: '[]')
+          ..peakListId = 8,
+        PeakList(name: 'Charlie', region: 'victoria', peakList: '[]')
+          ..peakListId = 9,
+      ];
+
+      expect(
+        renderablePeakListIdsForVisibleRegions(
+          peakLists: peakLists,
+          selectedPeakListIds: {7, 8, 9},
+          visibleRegionKeys: {'tasmania', 'new-south-wales'},
+        ),
+        {7, 8},
+      );
+    },
+  );
 }
 
 class _TestMapNotifier extends MapNotifier {

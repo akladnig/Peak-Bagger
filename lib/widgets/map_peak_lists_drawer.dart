@@ -1,32 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/peak_list_visibility.dart';
 
 import '../core/constants.dart';
-import '../services/region_manifest_catalog.dart';
+import '../theme.dart';
 import 'drawer_outline_button.dart';
 
 class MapPeakListsDrawer extends ConsumerWidget {
   const MapPeakListsDrawer({super.key});
 
   static const _allPeaksLabel = 'All Peaks';
+  static const _drawerTrailingButtonWidth = 32.0;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final (:peakListSelectionMode, :selectedPeakListIds) = ref.watch(
+    final (
+      :peakListSelectionMode,
+      :selectedPeakListIds,
+      :pinnedPeakListIdsByRegion,
+    ) = ref.watch(
       mapProvider.select(
         (state) => (
           peakListSelectionMode: state.peakListSelectionMode,
           selectedPeakListIds: state.selectedPeakListIds,
+          pinnedPeakListIdsByRegion: state.pinnedPeakListIdsByRegion,
         ),
       ),
     );
-    final currentRegionKey = ref.watch(
+    final visibleRegionKeys = ref.watch(
       mapProvider.select(
-        (state) => regionManifestCatalog.regionKeyForPoint(state.center),
+        (state) => visibleRegionKeysForBounds(state.visibleBounds),
       ),
     );
     final peakListsLoadState = ref.watch(peakListsLoadProvider);
@@ -34,7 +41,7 @@ class MapPeakListsDrawer extends ConsumerWidget {
     final visiblePeakLists = <({PeakList peakList, int renderableCount})>[];
 
     for (final peakList in peakLists) {
-      if (!peakListAppliesToRegion(peakList, currentRegionKey)) {
+      if (!peakListAppliesToVisibleRegions(peakList, visibleRegionKeys)) {
         continue;
       }
 
@@ -56,7 +63,7 @@ class MapPeakListsDrawer extends ConsumerWidget {
       width: drawerWidthForLabels(context, [
         _allPeaksLabel,
         ...visiblePeakLists.map((entry) => entry.peakList.name),
-      ]),
+      ], trailingWidth: _drawerTrailingButtonWidth),
       child: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(UiConstants.drawerHorizontalPadding),
@@ -107,21 +114,73 @@ class MapPeakListsDrawer extends ConsumerWidget {
                   key: Key(
                     'peak-list-selection-row-${entry.peakList.peakListId}',
                   ),
-                  child: DrawerOutlineButton(
-                    buttonKey: Key('peak-list-item-${entry.peakList.name}'),
-                    icon: Icons.landscape,
-                    label: entry.peakList.name,
-                    isSelected:
-                        peakListSelectionMode ==
-                            PeakListSelectionMode.specificList &&
-                        selectedPeakListIds.contains(entry.peakList.peakListId),
-                    onPressed: () {
-                      ref
-                          .read(mapProvider.notifier)
-                          .togglePeakListSelection(entry.peakList.peakListId);
+                  child: Builder(
+                    builder: (context) {
+                      final regionKey = canonicalRegionKey(
+                        normalizePeakListRegionKey(entry.peakList.region),
+                      );
+                      final isPinned =
+                          regionKey != null &&
+                          (pinnedPeakListIdsByRegion[regionKey]?.contains(
+                                entry.peakList.peakListId,
+                              ) ??
+                              false);
+
+                      return DrawerOutlineButton(
+                     buttonKey: Key('peak-list-item-${entry.peakList.name}'),
+                     icon: Icons.landscape,
+                     label: entry.peakList.name,
+                     isSelected:
+                         peakListSelectionMode ==
+                             PeakListSelectionMode.specificList &&
+                         selectedPeakListIds.contains(entry.peakList.peakListId),
+                     onPressed: () {
+                       ref
+                           .read(mapProvider.notifier)
+                           .togglePeakListSelection(entry.peakList.peakListId);
+                     },
+                     trailing: IconButton(
+                       key: Key('peak-list-pin-${entry.peakList.peakListId}'),
+                       iconSize: searchControlIconSize,
+                       visualDensity: VisualDensity.compact,
+                       padding: EdgeInsets.zero,
+                       constraints: const BoxConstraints.tightFor(
+                         width: _drawerTrailingButtonWidth,
+                         height: 32,
+                       ),
+                       onPressed: () {
+                         final notifier = ref.read(mapProvider.notifier);
+                         if (isPinned) {
+                           notifier.unpinPeakListForRegion(
+                             regionKey: entry.peakList.region,
+                             peakListId: entry.peakList.peakListId,
+                           );
+                         } else {
+                           notifier.pinPeakListForRegion(
+                             regionKey: entry.peakList.region,
+                             peakListId: entry.peakList.peakListId,
+                           );
+                         }
+                       },
+                       icon: SvgPicture.asset(
+                         isPinned ? 'assets/svg/unpin.svg' : 'assets/svg/pin.svg',
+                         width: searchControlIconSize,
+                         height: searchControlIconSize,
+                         key: Key(
+                           isPinned
+                               ? 'peak-list-unpin-icon-${entry.peakList.peakListId}'
+                               : 'peak-list-pin-icon-${entry.peakList.peakListId}',
+                         ),
+                         colorFilter: ColorFilter.mode(
+                           Theme.of(context).colorScheme.onSurface,
+                           BlendMode.srcIn,
+                         ),
+                       ),
+                     ),
+                    );
                     },
                   ),
-                ),
+                  ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
                   child: Text(

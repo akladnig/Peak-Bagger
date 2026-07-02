@@ -93,7 +93,10 @@ void main() {
     expect(robot.peakListRow(2), findsNothing);
     expect(robot.peakListRow(3), findsNothing);
 
-    await robot.setMapCenter(const LatLng(-37.75984, 158.7979));
+    robot.notifier.updateVisibleBounds(
+      LatLngBounds(const LatLng(-34.5, 147.0), const LatLng(-33.0, 150.5)),
+    );
+    await tester.pumpAndSettle();
 
     expect(robot.peakListRow(1), findsNothing);
     expect(robot.peakListRow(2), findsOneWidget);
@@ -833,10 +836,11 @@ void main() {
     expect(robot.peakListChip(1), findsOneWidget);
 
     await robot.openSettings();
-    expect(robot.peakListChip(1), findsOneWidget);
+    expect(robot.peakListChip(1), findsNothing);
     router.go('/map');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
+    expect(robot.peakListChip(1), findsOneWidget);
 
     final container = ProviderScope.containerOf(
       tester.element(robot.mapInteractionRegion),

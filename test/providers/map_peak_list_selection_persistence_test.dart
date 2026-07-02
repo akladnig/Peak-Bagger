@@ -104,6 +104,92 @@ void main() {
     expect(container.read(mapProvider).previousSpecificPeakListIds, isEmpty);
   });
 
+  test('startup restores pinned ids by region', () async {
+    SharedPreferences.setMockInitialValues({
+      'peak_list_selection_mode_v2': 'specificList',
+      'peak_list_selected_ids_v2': '[7]',
+      'peak_list_previous_specific_ids_v2': '[7]',
+      'peak_list_pinned_ids_by_region_v1': '{"tasmania":[7],"new-south-wales":[8]}',
+    });
+
+    final tasmapRepository = await TestTasmapRepository.create();
+    final container = ProviderContainer(
+      overrides: [
+        peakListRepositoryProvider.overrideWithValue(
+          PeakListRepository.test(InMemoryPeakListStorage()),
+        ),
+        mapProvider.overrideWith(
+          () => MapNotifier(
+            peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+            overpassService: OverpassService(),
+            tasmapRepository: tasmapRepository,
+            gpxTrackRepository: GpxTrackRepository.test(
+              InMemoryGpxTrackStorage(),
+            ),
+            peaksBaggedRepository: PeaksBaggedRepository.test(
+              InMemoryPeaksBaggedStorage(),
+            ),
+            loadPeaksOnBuild: false,
+            loadTracksOnBuild: false,
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    container.read(mapProvider.notifier);
+    await _drainAsync();
+
+    expect(container.read(mapProvider).peakListSelectionMode, PeakListSelectionMode.specificList);
+    expect(container.read(mapProvider).selectedPeakListIds, {7});
+    expect(container.read(mapProvider).pinnedPeakListIdsByRegion, {
+      'new-south-wales': {8},
+      'tasmania': {7},
+    });
+  });
+
+  test('startup clears corrupt pinned payload without disturbing selection', () async {
+    SharedPreferences.setMockInitialValues({
+      'peak_list_selection_mode_v2': 'specificList',
+      'peak_list_selected_ids_v2': '[7]',
+      'peak_list_previous_specific_ids_v2': '[7]',
+      'peak_list_pinned_ids_by_region_v1': '{oops}',
+    });
+
+    final tasmapRepository = await TestTasmapRepository.create();
+    final container = ProviderContainer(
+      overrides: [
+        peakListRepositoryProvider.overrideWithValue(
+          PeakListRepository.test(InMemoryPeakListStorage()),
+        ),
+        mapProvider.overrideWith(
+          () => MapNotifier(
+            peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+            overpassService: OverpassService(),
+            tasmapRepository: tasmapRepository,
+            gpxTrackRepository: GpxTrackRepository.test(
+              InMemoryGpxTrackStorage(),
+            ),
+            peaksBaggedRepository: PeaksBaggedRepository.test(
+              InMemoryPeaksBaggedStorage(),
+            ),
+            loadPeaksOnBuild: false,
+            loadTracksOnBuild: false,
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    container.read(mapProvider.notifier);
+    await _drainAsync();
+
+    expect(container.read(mapProvider).peakListSelectionMode, PeakListSelectionMode.specificList);
+    expect(container.read(mapProvider).selectedPeakListIds, {7});
+    expect(container.read(mapProvider).previousSpecificPeakListIds, {7});
+    expect(container.read(mapProvider).pinnedPeakListIdsByRegion, isEmpty);
+  });
+
   test('import runner bumps revision and reconciles selected list', () async {
     final container = ProviderContainer(
       overrides: [
@@ -132,9 +218,9 @@ void main() {
     expect(container.read(peakListRevisionProvider), 1);
     expect(
       container.read(mapProvider).peakListSelectionMode,
-      PeakListSelectionMode.allPeaks,
+      PeakListSelectionMode.specificList,
     );
-    expect(container.read(mapProvider).selectedPeakListId, isNull);
+    expect(container.read(mapProvider).selectedPeakListIds, {7});
   });
 
   test('repository failure during reconcile preserves specific-list selection', () async {
@@ -249,6 +335,49 @@ void main() {
     expect(prefs.getString('peak_list_selected_ids_v2'), '[8]');
     expect(prefs.getString('peak_list_previous_specific_ids_v2'), '[8]');
   });
+
+  test('pinning peak list persists per-region ids without changing selection', () async {
+    SharedPreferences.setMockInitialValues({});
+
+    final container = ProviderContainer(
+      overrides: [
+        mapProvider.overrideWith(
+          () => _InitialStateMapNotifier(
+            MapState(
+              center: const LatLng(-41.5, 146.5),
+              zoom: 15,
+              basemap: Basemap.tracestrack,
+              peakListSelectionMode: PeakListSelectionMode.specificList,
+              selectedPeakListIds: {7},
+              previousSpecificPeakListIds: {7},
+            ),
+          ),
+        ),
+        peakListRepositoryProvider.overrideWithValue(
+          PeakListRepository.test(InMemoryPeakListStorage()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    container.read(mapProvider.notifier).pinPeakListForRegion(
+      regionKey: 'tasmania',
+      peakListId: 9,
+    );
+    await _drainAsync();
+
+    expect(container.read(mapProvider).selectedPeakListIds, {7});
+    expect(container.read(mapProvider).previousSpecificPeakListIds, {7});
+    expect(container.read(mapProvider).pinnedPeakListIdsByRegion, {
+      'tasmania': {9},
+    });
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      prefs.getString('peak_list_pinned_ids_by_region_v1'),
+      '{"tasmania":[9]}',
+    );
+  });
 }
 
 Future<void> _drainAsync() async {
@@ -270,6 +399,7 @@ class _InitialStateMapNotifier extends MapNotifier {
     final mode = state.peakListSelectionMode;
     final selectedPeakListIds = state.selectedPeakListIds;
     final previousSpecificPeakListIds = state.previousSpecificPeakListIds;
+    final pinnedPeakListIdsByRegion = state.pinnedPeakListIdsByRegion;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       'peak_list_selection_mode_v2',
@@ -283,12 +413,25 @@ class _InitialStateMapNotifier extends MapNotifier {
       'peak_list_previous_specific_ids_v2',
       _sortedIdsJson(previousSpecificPeakListIds),
     );
+    await prefs.setString(
+      'peak_list_pinned_ids_by_region_v1',
+      _sortedRegionIdsJson(pinnedPeakListIdsByRegion),
+    );
   }
 }
 
 String _sortedIdsJson(Set<int> ids) {
   final sorted = ids.toList()..sort();
   return '[${sorted.join(',')}]';
+}
+
+String _sortedRegionIdsJson(Map<String, Set<int>> idsByRegion) {
+  final sortedKeys = idsByRegion.keys.toList()..sort();
+  final parts = <String>[];
+  for (final key in sortedKeys) {
+    parts.add('"$key":${_sortedIdsJson(idsByRegion[key] ?? const <int>{})}');
+  }
+  return '{${parts.join(',')}}';
 }
 
 class _FakeImportService extends PeakListImportService {
