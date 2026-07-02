@@ -314,30 +314,6 @@ class MapActionRail extends ConsumerWidget {
                         ),
                         const SizedBox(height: UiConstants.railSpacing),
                         LeftTooltipFab(
-                          message: 'Goto Location',
-                          child: FloatingActionButton.small(
-                            key: const Key('goto-map-fab'),
-                            heroTag: 'goto',
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.surface,
-                            onPressed: () {
-                              _dismissTransientUi(
-                                ref,
-                                closeInfoPopup: true,
-                                closePeakSearch: true,
-                                closeGotoInput: true,
-                              );
-                              ref.read(mapProvider.notifier).toggleGotoInput();
-                            },
-                            child: Icon(
-                              Icons.directions,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: UiConstants.railSpacing),
-                        LeftTooltipFab(
                           message: 'Drop Marker',
                           child: FloatingActionButton.small(
                             key: const Key('drop-marker-fab'),

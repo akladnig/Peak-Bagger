@@ -344,7 +344,7 @@ class _SharedAppBarTitle extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         if (!showSearch) {
-                  return Row(
+          return Row(
             children: [
               Expanded(
                 child: Padding(
@@ -378,9 +378,14 @@ class _SharedAppBarTitle extends StatelessWidget {
         }
 
         final sideWidth =
-            (constraints.maxWidth - _centerSearchWidth).clamp(0.0, double.infinity) /
+            (constraints.maxWidth - _centerSearchWidth).clamp(
+              0.0,
+              double.infinity,
+            ) /
             2;
-        final laneWidth = sideWidth > _laneGap ? sideWidth - _laneGap : sideWidth;
+        final laneWidth = sideWidth > _laneGap
+            ? sideWidth - _laneGap
+            : sideWidth;
 
         return SizedBox(
           height: kToolbarHeight,
@@ -446,6 +451,7 @@ class _AppBarSearchTrigger extends ConsumerWidget {
     return OutlinedButton.icon(
       key: const Key('app-bar-search-trigger'),
       style: OutlinedButton.styleFrom(
+        foregroundColor: colorScheme.onSurface,
         side: BorderSide(color: colorScheme.outlineVariant),
       ),
       onPressed: () {

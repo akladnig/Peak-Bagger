@@ -52,6 +52,7 @@ void main() {
     await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('map-search-input')), 'Bonnet');
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
 
     expect(find.text('Bonnet Hill'), findsOneWidget);
@@ -80,6 +81,7 @@ void main() {
     await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('map-search-input')), 'Bonnet');
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('map-search-result-track-1')));
@@ -90,6 +92,7 @@ void main() {
     await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('map-search-input')), 'Bonnet');
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('map-search-result-route-1')));
@@ -100,6 +103,7 @@ void main() {
     await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('map-search-input')), 'Alpha');
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
 
     await tester.tap(

@@ -58,7 +58,6 @@ void main() {
       _messagesFor(find.byKey(const Key('map-action-location-group')), tester),
       equals(<String>[
         'Search',
-        'Goto Location',
         'Drop Marker',
         'Center on marker',
         'Goto Favourite',
