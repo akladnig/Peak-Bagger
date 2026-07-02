@@ -2459,7 +2459,7 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
         ),
         headerActions: headerActions,
-        onClose: _isEditing || _isSaving ? null : widget.onClose,
+        onClose: _isSaving ? null : widget.onClose,
         closeButtonKey: const Key('peak-info-popup-close'),
         closeTooltip: 'Close Peak Info',
         bodyFlexible: true,

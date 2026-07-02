@@ -354,6 +354,28 @@ void main() {
     expect(find.byKey(const Key('peak-info-popup-edit-form')), findsOneWidget);
   });
 
+  testWidgets('top-right close icon closes popup during inline editing', (
+    tester,
+  ) async {
+    await _pumpMap(tester, _mapStateWithPeak());
+
+    final region = find.byKey(const Key('map-interaction-region'));
+    await tester.tapAt(tester.getCenter(region));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byKey(const Key('peak-info-popup-edit')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-info-popup-edit-form')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('peak-info-popup-close')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-info-popup')), findsNothing);
+    expect(find.byKey(const Key('peak-info-popup-edit-form')), findsNothing);
+  });
+
   testWidgets('inline popup edit shows saving feedback and saves peak', (
     tester,
   ) async {
