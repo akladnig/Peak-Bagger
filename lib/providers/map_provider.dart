@@ -6307,6 +6307,7 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void openSearchPopup() {
+    final initialRegionKey = _initialSearchPopupRegionKey();
     state = state.copyWith(
       showPeakSearch: true,
       searchQuery: '',
@@ -6314,10 +6315,25 @@ class MapNotifier extends Notifier<MapState> {
       searchPopupQuery: '',
       searchPopupResults: const [],
       searchPopupEntityFilter: MapSearchEntityFilter.all,
-      clearSearchPopupRegionKey: true,
+      searchPopupRegionKey: initialRegionKey,
+      clearSearchPopupRegionKey: initialRegionKey == null,
       searchPopupSort: MapSearchSort.nameAscending,
       searchPopupGroup: MapSearchGroup.none,
     );
+  }
+
+  String? _initialSearchPopupRegionKey() {
+    final bounds = state.visibleBounds;
+    if (bounds == null) {
+      return null;
+    }
+
+    final visibleRegions = regionManifestCatalog.regionsForBounds(bounds);
+    if (visibleRegions.length != 1) {
+      return null;
+    }
+
+    return visibleRegions.single.key;
   }
 
   void closeSearchPopup() {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -53,19 +54,34 @@ class MapSearchPopup extends StatefulWidget {
 }
 
 class _MapSearchPopupState extends State<MapSearchPopup> {
+  static const _searchDebounceDuration = Duration(milliseconds: 180);
+
   final _controlsKey = GlobalKey();
+  Timer? _searchDebounceTimer;
   double? _popupWidth;
+  String _pendingQuery = '';
 
   @override
   void initState() {
     super.initState();
+    _pendingQuery = widget.searchQuery;
     WidgetsBinding.instance.addPostFrameCallback((_) => _updatePopupWidth());
   }
 
   @override
   void didUpdateWidget(covariant MapSearchPopup oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.searchQuery != oldWidget.searchQuery &&
+        widget.searchQuery.isEmpty) {
+      _pendingQuery = widget.searchQuery;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => _updatePopupWidth());
+  }
+
+  @override
+  void dispose() {
+    _searchDebounceTimer?.cancel();
+    super.dispose();
   }
 
   void _updatePopupWidth() {
@@ -96,6 +112,29 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
     setState(() {
       _popupWidth = nextWidth;
     });
+  }
+
+  void _handleQueryChanged(String value) {
+    _pendingQuery = value;
+    _searchDebounceTimer?.cancel();
+    if (value.trim().isEmpty) {
+      widget.onChanged(value);
+      return;
+    }
+    _searchDebounceTimer = Timer(_searchDebounceDuration, () {
+      if (!mounted) {
+        return;
+      }
+      widget.onChanged(value);
+    });
+  }
+
+  void _flushPendingQuery() {
+    if (!(_searchDebounceTimer?.isActive ?? false)) {
+      return;
+    }
+    _searchDebounceTimer?.cancel();
+    widget.onChanged(_pendingQuery);
   }
 
   @override
@@ -130,7 +169,8 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.search, size: searchControlIconSize),
                 ),
-                onChanged: widget.onChanged,
+                onChanged: _handleQueryChanged,
+                onSubmitted: (_) => _flushPendingQuery(),
               ),
               const SizedBox(height: PopupUIConstants.actionSpacing),
               thinDivider,
@@ -148,9 +188,10 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                       label: 'All',
                       isSelected:
                           widget.entityFilter == MapSearchEntityFilter.all,
-                      onPressed: () => widget.onSelectEntityFilter(
-                        MapSearchEntityFilter.all,
-                      ),
+                      onPressed: () {
+                        _flushPendingQuery();
+                        widget.onSelectEntityFilter(MapSearchEntityFilter.all);
+                      },
                     ),
                     const SizedBox(width: 8),
                     _entityButton(
@@ -160,9 +201,12 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                       label: 'Peaks',
                       isSelected:
                           widget.entityFilter == MapSearchEntityFilter.peaks,
-                      onPressed: () => widget.onSelectEntityFilter(
-                        MapSearchEntityFilter.peaks,
-                      ),
+                      onPressed: () {
+                        _flushPendingQuery();
+                        widget.onSelectEntityFilter(
+                          MapSearchEntityFilter.peaks,
+                        );
+                      },
                     ),
                     const SizedBox(width: 8),
                     _entityButton(
@@ -173,9 +217,12 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                       isSelected:
                           widget.entityFilter ==
                           MapSearchEntityFilter.tracksRoutes,
-                      onPressed: () => widget.onSelectEntityFilter(
-                        MapSearchEntityFilter.tracksRoutes,
-                      ),
+                      onPressed: () {
+                        _flushPendingQuery();
+                        widget.onSelectEntityFilter(
+                          MapSearchEntityFilter.tracksRoutes,
+                        );
+                      },
                     ),
                     const SizedBox(width: 8),
                     _entityButton(
@@ -203,9 +250,10 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                       label: 'Maps',
                       isSelected:
                           widget.entityFilter == MapSearchEntityFilter.maps,
-                      onPressed: () => widget.onSelectEntityFilter(
-                        MapSearchEntityFilter.maps,
-                      ),
+                      onPressed: () {
+                        _flushPendingQuery();
+                        widget.onSelectEntityFilter(MapSearchEntityFilter.maps);
+                      },
                     ),
                     const SizedBox(width: 8),
                     const SizedBox(height: 32, child: VerticalDivider()),
@@ -213,6 +261,7 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                     PopupMenuButton<String>(
                       key: const Key('map-search-filter-button'),
                       onSelected: (value) {
+                        _flushPendingQuery();
                         widget.onSelectRegionKey(
                           value == _noRegionSelection ? null : value,
                         );
@@ -243,7 +292,10 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                     const SizedBox(width: 8),
                     PopupMenuButton<MapSearchSort>(
                       key: const Key('map-search-sort-button'),
-                      onSelected: widget.onSelectSort,
+                      onSelected: (value) {
+                        _flushPendingQuery();
+                        widget.onSelectSort(value);
+                      },
                       itemBuilder: (context) => const [
                         PopupMenuItem<MapSearchSort>(
                           key: Key('map-search-sort-name-ascending'),
@@ -270,7 +322,10 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                     const SizedBox(width: 8),
                     PopupMenuButton<MapSearchGroup>(
                       key: const Key('map-search-group-button'),
-                      onSelected: widget.onSelectGroup,
+                      onSelected: (value) {
+                        _flushPendingQuery();
+                        widget.onSelectGroup(value);
+                      },
                       itemBuilder: (context) => const [
                         PopupMenuItem<MapSearchGroup>(
                           key: Key('map-search-group-none'),

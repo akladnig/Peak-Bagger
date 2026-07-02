@@ -1,3 +1,4 @@
+import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -101,6 +102,30 @@ void main() {
     final state = container.read(mapProvider);
     expect(state.searchPopupQuery, 'alpha');
     expect(state.searchPopupResults, isNotEmpty);
+  });
+
+  test('openSearchPopup preselects the single visible region', () {
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        visibleBounds: LatLngBounds(
+          const LatLng(-43.01, 146.99),
+          const LatLng(-42.99, 147.01),
+        ),
+      ),
+    );
+    final container = ProviderContainer(
+      overrides: [mapProvider.overrideWith(() => notifier)],
+    );
+    addTearDown(container.dispose);
+
+    container.read(mapProvider.notifier).openSearchPopup();
+
+    final state = container.read(mapProvider);
+    expect(state.showPeakSearch, isTrue);
+    expect(state.searchPopupRegionKey, 'tasmania');
   });
 }
 
