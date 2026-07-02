@@ -22,7 +22,11 @@ void main() {
         zoom: 12,
         basemap: Basemap.tracestrack,
         tracks: [
-          GpxTrack(contentHash: 'hash', trackName: 'Track 1', gpxFile: '<gpx></gpx>'),
+          GpxTrack(
+            contentHash: 'hash',
+            trackName: 'Track 1',
+            gpxFile: '<gpx></gpx>',
+          ),
         ],
       ),
     );
@@ -37,9 +41,7 @@ void main() {
             ),
           ),
         ],
-        child: const MaterialApp(
-          home: Scaffold(body: MapTracksRoutesDrawer()),
-        ),
+        child: const MaterialApp(home: Scaffold(body: MapTracksRoutesDrawer())),
       ),
     );
     await tester.pump();
@@ -57,7 +59,7 @@ void main() {
     expect(notifier.state.showTrails, isTrue);
   });
 
-  testWidgets('disabled switches keep stored values and show helper text', (
+  testWidgets('disabled buttons keep stored values and show helper text', (
     tester,
   ) async {
     final notifier = TestMapNotifier(
@@ -78,9 +80,7 @@ void main() {
             RouteRepository.test(InMemoryRouteStorage()),
           ),
         ],
-        child: const MaterialApp(
-          home: Scaffold(body: MapTracksRoutesDrawer()),
-        ),
+        child: const MaterialApp(home: Scaffold(body: MapTracksRoutesDrawer())),
       ),
     );
     await tester.pump();
@@ -88,16 +88,14 @@ void main() {
     expect(find.text('No tracks loaded'), findsOneWidget);
     expect(find.text('No routes available'), findsOneWidget);
 
-    final tracksSwitch = tester.widget<Switch>(
-      find.byKey(const Key('show-tracks-switch')),
+    final tracksButton = tester.widget<OutlinedButton>(
+      find.byKey(const Key('show-tracks-button')),
     );
-    final routesSwitch = tester.widget<Switch>(
-      find.byKey(const Key('show-routes-switch')),
+    final routesButton = tester.widget<OutlinedButton>(
+      find.byKey(const Key('show-routes-button')),
     );
-    expect(tracksSwitch.value, isTrue);
-    expect(tracksSwitch.onChanged, isNull);
-    expect(routesSwitch.value, isTrue);
-    expect(routesSwitch.onChanged, isNull);
+    expect(tracksButton.onPressed, isNull);
+    expect(routesButton.onPressed, isNull);
   });
 
   testWidgets('show trails is disabled when route graph is unavailable', (
@@ -122,9 +120,7 @@ void main() {
             RouteRepository.test(InMemoryRouteStorage()),
           ),
         ],
-        child: const MaterialApp(
-          home: Scaffold(body: MapTracksRoutesDrawer()),
-        ),
+        child: const MaterialApp(home: Scaffold(body: MapTracksRoutesDrawer())),
       ),
     );
     await tester.pump();
@@ -134,11 +130,10 @@ void main() {
       findsOneWidget,
     );
 
-    final trailsSwitch = tester.widget<Switch>(
-      find.byKey(const Key('show-trails-switch')),
+    final trailsButton = tester.widget<OutlinedButton>(
+      find.byKey(const Key('show-trails-button')),
     );
-    expect(trailsSwitch.value, isFalse);
-    expect(trailsSwitch.onChanged, isNull);
+    expect(trailsButton.onPressed, isNull);
   });
 
   testWidgets('show trails stays enabled while route graph is preloading', (
@@ -163,17 +158,15 @@ void main() {
             RouteRepository.test(InMemoryRouteStorage()),
           ),
         ],
-        child: const MaterialApp(
-          home: Scaffold(body: MapTracksRoutesDrawer()),
-        ),
+        child: const MaterialApp(home: Scaffold(body: MapTracksRoutesDrawer())),
       ),
     );
     await tester.pump();
 
-    final trailsSwitch = tester.widget<Switch>(
-      find.byKey(const Key('show-trails-switch')),
+    final trailsButton = tester.widget<OutlinedButton>(
+      find.byKey(const Key('show-trails-button')),
     );
-    expect(trailsSwitch.onChanged, isNotNull);
+    expect(trailsButton.onPressed, isNotNull);
   });
 }
 

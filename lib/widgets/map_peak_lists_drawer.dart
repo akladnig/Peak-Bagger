@@ -5,6 +5,10 @@ import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/peak_list_visibility.dart';
 
+import '../core/constants.dart';
+import '../services/region_manifest_catalog.dart';
+import 'drawer_outline_button.dart';
+
 class MapPeakListsDrawer extends ConsumerWidget {
   const MapPeakListsDrawer({super.key});
 
@@ -49,75 +53,85 @@ class MapPeakListsDrawer extends ConsumerWidget {
 
     return Drawer(
       key: const Key('peak-lists-drawer'),
+      width: drawerWidthForLabels(context, [
+        _allPeaksLabel,
+        ...visiblePeakLists.map((entry) => entry.peakList.name),
+      ]),
       child: SafeArea(
         child: ListView(
+          padding: const EdgeInsets.all(UiConstants.drawerHorizontalPadding),
           children: [
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                'Peak Lists',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            const Text(
+              'Peak Lists',
+              style: TextStyle(
+                fontSize: UiConstants.drawerTitleFontSize,
+                fontWeight: FontWeight.bold,
               ),
             ),
+            const SizedBox(height: 12),
             KeyedSubtree(
               key: const Key('peak-list-selection-all-peaks-row'),
-              child: ListTile(
-                key: const Key('peak-list-item-All Peaks'),
-                title: const Text(_allPeaksLabel),
-                onTap: () {
+              child: DrawerOutlineButton(
+                buttonKey: const Key('peak-list-item-All Peaks'),
+                icon: Icons.landscape,
+                label: _allPeaksLabel,
+                isSelected:
+                    peakListSelectionMode == PeakListSelectionMode.allPeaks,
+                onPressed: () {
                   ref
                       .read(mapProvider.notifier)
                       .setAllPeaksSelected(
                         peakListSelectionMode != PeakListSelectionMode.allPeaks,
                       );
                 },
-                leading: IgnorePointer(
-                  child: Switch.adaptive(
-                    key: const Key('peak-list-selection-all-peaks-switch'),
-                    value:
-                        peakListSelectionMode == PeakListSelectionMode.allPeaks,
-                    onChanged: (_) {},
-                  ),
-                ),
               ),
             ),
+            const SizedBox(height: 8),
             if (peakListsLoadState.failed)
               const ListTile(
                 key: Key('peak-list-selection-unavailable-message'),
-                title: Text('Peak lists unavailable'),
-                subtitle: Text('Using current selection until lists reload.'),
+                title: Text(
+                  'Peak lists unavailable',
+                  style: TextStyle(fontSize: UiConstants.drawerControlFontSize),
+                ),
+                subtitle: Text(
+                  'Using current selection until lists reload.',
+                  style: TextStyle(
+                    fontSize: UiConstants.drawerSupportingFontSize,
+                  ),
+                ),
               )
             else
-              for (final entry in visiblePeakLists)
+              for (final entry in visiblePeakLists) ...[
                 KeyedSubtree(
                   key: Key(
                     'peak-list-selection-row-${entry.peakList.peakListId}',
                   ),
-                  child: ListTile(
-                    key: Key('peak-list-item-${entry.peakList.name}'),
-                    title: Text(entry.peakList.name),
-                    subtitle: Text(_renderablePeakLabel(entry.renderableCount)),
-                    onTap: () {
+                  child: DrawerOutlineButton(
+                    buttonKey: Key('peak-list-item-${entry.peakList.name}'),
+                    icon: Icons.landscape,
+                    label: entry.peakList.name,
+                    isSelected:
+                        peakListSelectionMode ==
+                            PeakListSelectionMode.specificList &&
+                        selectedPeakListIds.contains(entry.peakList.peakListId),
+                    onPressed: () {
                       ref
                           .read(mapProvider.notifier)
                           .togglePeakListSelection(entry.peakList.peakListId);
                     },
-                    leading: IgnorePointer(
-                      child: Switch.adaptive(
-                        key: Key(
-                          'peak-list-selection-switch-${entry.peakList.peakListId}',
-                        ),
-                        value:
-                            peakListSelectionMode ==
-                                PeakListSelectionMode.specificList &&
-                            selectedPeakListIds.contains(
-                              entry.peakList.peakListId,
-                            ),
-                        onChanged: (_) {},
-                      ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+                  child: Text(
+                    _renderablePeakLabel(entry.renderableCount),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontSize: UiConstants.drawerSupportingFontSize,
                     ),
                   ),
                 ),
+              ],
           ],
         ),
       ),
