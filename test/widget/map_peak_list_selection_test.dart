@@ -293,6 +293,117 @@ void main() {
     expect(find.byKey(const Key('peak-list-app-bar-item-1')), findsOneWidget);
     expect(find.byKey(const Key('peak-list-app-bar-item-2')), findsOneWidget);
   });
+
+  testWidgets('unpinned app-bar deselect removes the visible list item', (
+    tester,
+  ) async {
+    await _pumpApp(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        visibleBounds: _tasmaniaBounds,
+        peakListSelectionMode: PeakListSelectionMode.specificList,
+        selectedPeakListIds: {1},
+        previousSpecificPeakListIds: {1},
+      ),
+      peakListRepository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(name: 'Alpha', region: 'tasmania', peakList: '[]')
+            ..peakListId = 1,
+        ]),
+      ),
+    );
+
+    router.go('/map');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('peak-list-selection-chip-1')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-list-app-bar-item-1')), findsNothing);
+  });
+
+  testWidgets('pinned app-bar deselect keeps the visible list item', (tester) async {
+    await _pumpApp(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        visibleBounds: _tasmaniaBounds,
+        peakListSelectionMode: PeakListSelectionMode.specificList,
+        selectedPeakListIds: {1},
+        previousSpecificPeakListIds: {1},
+        pinnedPeakListIdsByRegion: {
+          'tasmania': {1},
+        },
+      ),
+      peakListRepository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(name: 'Alpha', region: 'tasmania', peakList: '[]')
+            ..peakListId = 1,
+        ]),
+      ),
+    );
+
+    router.go('/map');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('peak-list-selection-chip-1')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-list-app-bar-item-1')), findsOneWidget);
+  });
+
+  testWidgets('drawer pin tap pins only and main tap toggles selection', (
+    tester,
+  ) async {
+    await _pumpApp(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        visibleBounds: _tasmaniaBounds,
+        peakListSelectionMode: PeakListSelectionMode.allPeaks,
+      ),
+      peakListRepository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(name: 'Alpha', region: 'tasmania', peakList: '[]')
+            ..peakListId = 1,
+        ]),
+      ),
+    );
+
+    router.go('/map');
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shared-app-bar'))),
+    );
+
+    await tester.tap(find.byKey(const Key('show-peaks-fab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('peak-list-pin-1')));
+    await tester.pumpAndSettle();
+
+    expect(container.read(mapProvider).peakListSelectionMode, PeakListSelectionMode.allPeaks);
+    expect(container.read(mapProvider).selectedPeakListIds, isEmpty);
+    expect(container.read(mapProvider).pinnedPeakListIdsByRegion, {
+      'tasmania': {1},
+    });
+
+    await tester.tap(find.byKey(const Key('peak-list-item-Alpha')));
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(mapProvider).peakListSelectionMode,
+      PeakListSelectionMode.specificList,
+    );
+    expect(container.read(mapProvider).selectedPeakListIds, {1});
+  });
 }
 
 final _tasmaniaBounds = LatLngBounds(

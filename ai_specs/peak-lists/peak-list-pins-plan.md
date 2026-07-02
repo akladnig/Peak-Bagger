@@ -45,17 +45,17 @@ Follow existing Riverpod/shared-app-bar patterns; replace center-based region lo
 ### Phase 3: Drawer Actions + Journeys
 
 - **Goal**: split drawer actions; full map journey coverage
-- [ ] `lib/widgets/drawer_outline_button.dart` - extend only if needed for trailing action slot without breaking existing drawer styling
-- [ ] `lib/widgets/map_peak_lists_drawer.dart` - add trailing pin action + stable keys; preserve existing list-button keys
-- [ ] `lib/widgets/peak_list_selection_summary.dart` - add app-bar pin/unpin/toggle controls + stable keys + width-safe scroll behavior
-- [ ] `test/widget/map_screen_peak_info_test.dart` - cover drawer filtering against visible-region-set rules
-- [ ] `test/robot/map/peak_list_pins_robot.dart` - helpers: open drawer, pin, toggle, unpin, set visible bounds deterministically
-- [ ] `test/robot/map/peak_list_pins_journey_test.dart` - critical flows: select, transient app-bar row, pin, deselect while visible, multi-region union, zero-region hide, return, unpin
-- [ ] TDD: drawer main tap toggles selection; trailing tap pins only
-- [ ] TDD: pinned deselect stays visible; unpinned deselect disappears
-- [ ] TDD: robot journey one assertion slice at a time; selectors + deterministic bounds seam
-- [ ] Robot journey tests + selectors/seams for critical flows
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/widgets/drawer_outline_button.dart` - extend only if needed for trailing action slot without breaking existing drawer styling
+- [x] `lib/widgets/map_peak_lists_drawer.dart` - add trailing pin action + stable keys; preserve existing list-button keys
+- [x] `lib/widgets/peak_list_selection_summary.dart` - add app-bar pin/unpin/toggle controls + stable keys + width-safe scroll behavior
+- [x] `test/widget/map_screen_peak_info_test.dart` - cover drawer filtering against visible-region-set rules
+- [x] `test/robot/map/peak_list_pins_robot.dart` - helpers: open drawer, pin, toggle, unpin, set visible bounds deterministically
+- [x] `test/robot/map/peak_list_pins_journey_test.dart` - critical flows: select, transient app-bar row, pin, deselect while visible, multi-region union, zero-region hide, return, unpin
+- [x] TDD: drawer main tap toggles selection; trailing tap pins only
+- [x] TDD: pinned deselect stays visible; unpinned deselect disappears
+- [x] TDD: robot journey one assertion slice at a time; selectors + deterministic bounds seam
+- [x] Robot journey tests + selectors/seams for critical flows
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ## Risks / Out of scope
 

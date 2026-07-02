@@ -9,6 +9,7 @@ double drawerWidthForLabels(
   BuildContext context,
   Iterable<String> labels, {
   bool includeIcon = true,
+  double trailingWidth = 0.0,
 }) {
   final textStyle =
       Theme.of(context).textTheme.labelLarge?.copyWith(
@@ -33,6 +34,7 @@ double drawerWidthForLabels(
   final buttonWidth =
       widestLabel +
       iconWidth +
+      trailingWidth +
       (UiConstants.drawerButtonHorizontalPadding * 2) +
       UiConstants.drawerWidthSlack;
   final drawerWidth = buttonWidth + (UiConstants.drawerHorizontalPadding * 2);
@@ -50,6 +52,7 @@ class DrawerOutlineButton extends StatelessWidget {
     required this.isSelected,
     super.key,
     this.icon,
+    this.trailing,
     this.onPressed,
   });
 
@@ -57,6 +60,7 @@ class DrawerOutlineButton extends StatelessWidget {
   final String label;
   final bool isSelected;
   final IconData? icon;
+  final Widget? trailing;
   final VoidCallback? onPressed;
 
   @override
@@ -68,35 +72,47 @@ class DrawerOutlineButton extends StatelessWidget {
         ?.styleFor(isSelected)
         .merge(OutlinedButton.styleFrom(alignment: Alignment.centerLeft));
 
-    return Semantics(
+    final button = Semantics(
       button: true,
       selected: isSelected,
-      child: SizedBox(
-        width: double.infinity,
-        child: icon == null
-            ? OutlinedButton(
-                key: buttonKey,
-                style: style,
-                onPressed: onPressed,
-                child: Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: UiConstants.drawerControlFontSize,
-                  ),
-                ),
-              )
-            : OutlinedButton.icon(
-                key: buttonKey,
-                style: style,
-                onPressed: onPressed,
-                icon: Icon(icon, size: searchControlIconSize),
-                label: Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: UiConstants.drawerControlFontSize,
-                  ),
+      child: icon == null
+          ? OutlinedButton(
+              key: buttonKey,
+              style: style,
+              onPressed: onPressed,
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: UiConstants.drawerControlFontSize,
                 ),
               ),
+            )
+          : OutlinedButton.icon(
+              key: buttonKey,
+              style: style,
+              onPressed: onPressed,
+              icon: Icon(icon, size: searchControlIconSize),
+              label: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: UiConstants.drawerControlFontSize,
+                ),
+              ),
+            ),
+    );
+
+    if (trailing == null) {
+      return SizedBox(width: double.infinity, child: button);
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      child: Row(
+        children: [
+          Expanded(child: button),
+          const SizedBox(width: 8),
+          trailing!,
+        ],
       ),
     );
   }

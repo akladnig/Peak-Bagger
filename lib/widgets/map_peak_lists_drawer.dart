@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
@@ -12,6 +13,7 @@ class MapPeakListsDrawer extends ConsumerWidget {
   const MapPeakListsDrawer({super.key});
 
   static const _allPeaksLabel = 'All Peaks';
+  static const _drawerTrailingButtonWidth = 48.0;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -55,7 +57,7 @@ class MapPeakListsDrawer extends ConsumerWidget {
       width: drawerWidthForLabels(context, [
         _allPeaksLabel,
         ...visiblePeakLists.map((entry) => entry.peakList.name),
-      ]),
+      ], trailingWidth: _drawerTrailingButtonWidth),
       child: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(UiConstants.drawerHorizontalPadding),
@@ -107,20 +109,45 @@ class MapPeakListsDrawer extends ConsumerWidget {
                     'peak-list-selection-row-${entry.peakList.peakListId}',
                   ),
                   child: DrawerOutlineButton(
-                    buttonKey: Key('peak-list-item-${entry.peakList.name}'),
-                    icon: Icons.landscape,
-                    label: entry.peakList.name,
+                     buttonKey: Key('peak-list-item-${entry.peakList.name}'),
+                     icon: Icons.landscape,
+                     label: entry.peakList.name,
                     isSelected:
                         peakListSelectionMode ==
                             PeakListSelectionMode.specificList &&
                         selectedPeakListIds.contains(entry.peakList.peakListId),
-                    onPressed: () {
-                      ref
-                          .read(mapProvider.notifier)
-                          .togglePeakListSelection(entry.peakList.peakListId);
-                    },
-                  ),
-                ),
+                     onPressed: () {
+                       ref
+                           .read(mapProvider.notifier)
+                           .togglePeakListSelection(entry.peakList.peakListId);
+                     },
+                     trailing: OutlinedButton(
+                       key: Key('peak-list-pin-${entry.peakList.peakListId}'),
+                       style: OutlinedButton.styleFrom(
+                         minimumSize: const Size(
+                           _drawerTrailingButtonWidth,
+                           40,
+                         ),
+                         padding: const EdgeInsets.symmetric(horizontal: 10),
+                       ),
+                       onPressed: () {
+                         ref.read(mapProvider.notifier).pinPeakListForRegion(
+                           regionKey: entry.peakList.region,
+                           peakListId: entry.peakList.peakListId,
+                         );
+                       },
+                       child: SvgPicture.asset(
+                         'assets/svg/pin.svg',
+                         width: 16,
+                         height: 16,
+                         colorFilter: ColorFilter.mode(
+                           Theme.of(context).colorScheme.onSurface,
+                           BlendMode.srcIn,
+                         ),
+                       ),
+                     ),
+                   ),
+                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
                   child: Text(
