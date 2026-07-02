@@ -2415,10 +2415,11 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
         ),
     ];
 
-    final footer = switch ((_isEditing, widget.onEditInAdmin)) {
+    final footerChild = switch ((_isEditing, widget.onEditInAdmin)) {
       (true, _) => Wrap(
         spacing: 8,
         runSpacing: 8,
+        alignment: WrapAlignment.end,
         children: [
           FilledButton(
             key: const Key('peak-info-popup-cancel'),
@@ -2439,6 +2440,9 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
       ),
       _ => null,
     };
+    final footer = footerChild == null
+        ? null
+        : Align(alignment: Alignment.centerRight, child: footerChild);
 
     return ConstrainedBox(
       constraints: BoxConstraints(

@@ -490,6 +490,59 @@ void main() {
     expect(find.byKey(const Key('peak-info-popup-edit-admin')), findsNothing);
   });
 
+  testWidgets('footer text buttons align to the right edge', (tester) async {
+    final content = PeakInfoContent(
+      peak: Peak(
+        id: 1,
+        osmId: 6406,
+        name: 'Bonnet Hill',
+        latitude: -43.0,
+        longitude: 147.0,
+      ),
+      mapName: 'Adamsons',
+      mapNameOrigin: MapNameOrigin.sheet,
+      listNames: const [],
+      ascentRows: const [],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: PeakInfoPopupCard(
+              key: const Key('peak-info-popup-card-under-test'),
+              content: content,
+              onClose: () {},
+              onEdit: () async {},
+              onSaveEdit: (_) async => null,
+              onEditInAdmin: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final popupRight = tester
+        .getTopRight(find.byKey(const Key('peak-info-popup-card-under-test')))
+        .dx;
+    final adminButtonRight = tester
+        .getTopRight(find.byKey(const Key('peak-info-popup-edit-admin')))
+        .dx;
+
+    expect(popupRight - adminButtonRight, inInclusiveRange(0, 16));
+
+    await tester.tap(find.byKey(const Key('peak-info-popup-edit')));
+    await tester.pumpAndSettle();
+
+    final saveRight = tester
+        .getTopRight(find.byKey(const Key('peak-info-popup-save')))
+        .dx;
+
+    expect(popupRight - saveRight, inInclusiveRange(0, 16));
+  });
+
   testWidgets('move to marker is disabled without a persisted marker', (
     tester,
   ) async {
