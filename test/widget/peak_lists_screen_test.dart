@@ -676,95 +676,115 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('peak-lists-mini-map-cluster-0')), findsOneWidget);
+    expect(
+      find.byKey(const Key('peak-lists-mini-map-cluster-0')),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('peak list mini-map shows individual markers when toggle is off', (
-    tester,
-  ) async {
-    await _pumpPeakListsApp(
-      tester,
-      filePicker: TestPeakListFilePicker(),
-      repository: PeakListRepository.test(
-        InMemoryPeakListStorage([
-          _buildPeakList(1, 'Clustered Peaks', [100, 200]),
-        ]),
-      ),
-      peakRepository: PeakRepository.test(
-        InMemoryPeakStorage([
-          _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
-          _buildPeak(200, 'Beta Peak', -42.0, 146.01, elevation: 1100),
-        ]),
-      ),
-      overrides: [
-        peakListMiniMapClusterDisplaySettingsProvider.overrideWith(
-          _StaticPeakListMiniMapClusterDisplayOffNotifier.new,
+  testWidgets(
+    'peak list mini-map shows individual markers when toggle is off',
+    (tester) async {
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Clustered Peaks', [100, 200]),
+          ]),
         ),
-      ],
-    );
-
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const Key('peak-lists-mini-map-cluster-0')), findsNothing);
-    expect(find.byKey(const Key('peak-lists-mini-map-marker-100-unticked')), findsOneWidget);
-    expect(find.byKey(const Key('peak-lists-mini-map-marker-200-unticked')), findsOneWidget);
-  });
-
-  testWidgets('peak list mini-map cluster tap expands camera and keeps selection', (
-    tester,
-  ) async {
-    final mapNotifier = TestMapNotifier(
-      MapState(
-        center: const LatLng(-41.5, 146.5),
-        zoom: 15,
-        basemap: Basemap.tracestrack,
-      ),
-    );
-
-    await _pumpPeakListsApp(
-      tester,
-      filePicker: TestPeakListFilePicker(),
-      repository: PeakListRepository.test(
-        InMemoryPeakListStorage([
-          _buildPeakList(1, 'Clustered Peaks', [100, 200]),
-        ]),
-      ),
-      peakRepository: PeakRepository.test(
-        InMemoryPeakStorage([
-          _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
-          _buildPeak(200, 'Beta Peak', -42.00005, 146.00005, elevation: 1100),
-        ]),
-      ),
-      mapNotifier: mapNotifier,
-      overrides: [
-        peakListMiniMapClusterDisplaySettingsProvider.overrideWith(
-          _StaticPeakListMiniMapClusterDisplayOnNotifier.new,
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+            _buildPeak(200, 'Beta Peak', -42.0, 146.01, elevation: 1100),
+          ]),
         ),
-      ],
-    );
+        overrides: [
+          peakListMiniMapClusterDisplaySettingsProvider.overrideWith(
+            _StaticPeakListMiniMapClusterDisplayOffNotifier.new,
+          ),
+        ],
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    tester
-        .widget<InkWell>(
-          find
-              .descendant(
-                of: find.byKey(const Key('peak-lists-details-row-100')),
-                matching: find.byType(InkWell),
-              )
-              .first,
-        )
-        .onTap!();
-    await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('peak-lists-mini-map-cluster-0')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('peak-lists-mini-map-marker-100-unticked')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('peak-lists-mini-map-marker-200-unticked')),
+        findsOneWidget,
+      );
+    },
+  );
 
-    expect(find.byKey(const Key('peak-lists-selected-peak-circle-layer')), findsOneWidget);
+  testWidgets(
+    'peak list mini-map cluster tap expands camera and keeps selection',
+    (tester) async {
+      final mapNotifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+        ),
+      );
 
-    await tester.tap(find.byKey(const Key('peak-lists-mini-map-cluster-0')));
-    await tester.pumpAndSettle();
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Clustered Peaks', [100, 200]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+            _buildPeak(200, 'Beta Peak', -42.00005, 146.00005, elevation: 1100),
+          ]),
+        ),
+        mapNotifier: mapNotifier,
+        overrides: [
+          peakListMiniMapClusterDisplaySettingsProvider.overrideWith(
+            _StaticPeakListMiniMapClusterDisplayOnNotifier.new,
+          ),
+        ],
+      );
 
-    expect(find.byKey(const Key('peak-lists-mini-map-popup')), findsNothing);
-    expect(find.byKey(const Key('peak-lists-selected-peak-circle-layer')), findsOneWidget);
-  });
+      await tester.pumpAndSettle();
+
+      tester
+          .widget<InkWell>(
+            find
+                .descendant(
+                  of: find.byKey(const Key('peak-lists-details-row-100')),
+                  matching: find.byType(InkWell),
+                )
+                .first,
+          )
+          .onTap!();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('peak-lists-selected-peak-circle-layer')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('peak-lists-mini-map-cluster-0')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('peak-lists-mini-map-popup')), findsNothing);
+      expect(
+        find.byKey(const Key('peak-lists-selected-peak-circle-layer')),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('selecting an offscreen peak centers the details row', (
     tester,
@@ -1369,6 +1389,51 @@ void main() {
     expect(
       find.byKey(const Key('peak-lists-selected-peak-circle-layer')),
       findsOneWidget,
+    );
+  });
+
+  testWidgets('summary metrics format large counts and point totals', (
+    tester,
+  ) async {
+    final peakIds = List<int>.generate(1234, (index) => index + 1);
+
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(
+            1,
+            'Tas Peaks',
+            peakIds,
+            pointsByPeakId: {for (final peakId in peakIds) peakId: 1},
+          ),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage(),
+      ),
+    );
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('peak-lists-total-1'))).data,
+      '1,234',
+    );
+    expect(
+      tester.widget<Text>(find.byKey(const Key('peak-lists-unclimbed-1'))).data,
+      '1,234',
+    );
+
+    final summaryText = tester
+        .widget<Text>(find.byKey(const Key('peak-lists-summary-sentence')))
+        .data;
+    expect(summaryText, contains('Tas Peaks contains 1,234 peaks.'));
+    expect(
+      summaryText,
+      contains(
+        'Climbed 0 of 1,234 peaks (0%) and earned a total 0 points out of 1,234.',
+      ),
     );
   });
 
@@ -2197,8 +2262,8 @@ void main() {
             importCallCount += 1;
             return const PeakListImportPresentationResult(
               updated: true,
-              importedCount: 3,
-              skippedCount: 1,
+              importedCount: 1234,
+              skippedCount: 1234,
             );
           },
     );
@@ -2226,8 +2291,8 @@ void main() {
 
     expect(importCallCount, 1);
     expect(find.text('Peak List Updated'), findsOneWidget);
-    expect(find.text('3 Peaks imported'), findsOneWidget);
-    expect(find.text('1 peaks skipped'), findsOneWidget);
+    expect(find.text('1,234 Peaks imported'), findsOneWidget);
+    expect(find.text('1,234 peaks skipped'), findsOneWidget);
   });
 
   testWidgets('loading state disables import and failure uses modal pattern', (

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:peak_bagger/core/widgets/popup_keyboard_dismiss.dart';
 
+import '../core/number_formatters.dart';
 import '../services/peak_list_file_picker.dart';
 import 'dialog_helpers.dart';
 import 'peak_list_name_field.dart';
@@ -110,7 +111,9 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
           ),
           FilledButton(
             key: const Key('peak-list-import-button'),
-            onPressed: _selectedFilePath == null || _isImporting ? null : _import,
+            onPressed: _selectedFilePath == null || _isImporting
+                ? null
+                : _import,
             child: _isImporting
                 ? const SizedBox(
                     key: Key('peak-list-import-progress'),
@@ -238,12 +241,12 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('${result.importedCount} Peaks imported'),
-          Text('${result.skippedCount} peaks skipped'),
+          Text('${formatCount(result.importedCount)} Peaks imported'),
+          Text('${formatCount(result.skippedCount)} peaks skipped'),
           if (result.warningCount > 0) ...[
             const SizedBox(height: 12),
             Text(
-              '${result.warningCount} warnings. See import.log for details.',
+              '${formatCount(result.warningCount)} warnings. See import.log for details.',
             ),
           ],
           if (result.warningMessage != null) ...[

@@ -40,9 +40,7 @@ void main() {
       elevation: 1234,
     );
     final tasmapRepository = await TestTasmapRepository.create(
-      maps: [
-        _resolvedMap(const LatLng(-41.0, 146.0)),
-      ],
+      maps: [_resolvedMap(const LatLng(-41.0, 146.0))],
     );
     final peakListRepository = PeakListRepository.test(
       InMemoryPeakListStorage([
@@ -67,7 +65,7 @@ void main() {
         mode: PeakListPeakDialogMode.view,
         peakList: PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
         peakListRepository: peakListRepository,
-        peakItems: [const PeakListItem(peakOsmId: 101, points: 4)],
+        peakItems: [const PeakListItem(peakOsmId: 101, points: 1234)],
         ascentRows: [
           PeaksBagged(
             baggedId: 1,
@@ -77,7 +75,7 @@ void main() {
           ),
         ],
         peak: peak,
-        points: 4,
+        points: 1234,
       ),
       peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
       tasmapRepository: tasmapRepository,
@@ -97,14 +95,11 @@ void main() {
 
     expect(find.byKey(const Key('peak-list-peak-dialog')), findsOneWidget);
     expect(find.text('Mount View'), findsWidgets);
+    expect(find.byKey(const Key('peak-list-peak-memberships')), findsOneWidget);
     expect(
-      find.byKey(const Key('peak-list-peak-memberships')),
-      findsOneWidget,
-    );
-    expect(
-      tester.widget<Text>(
-        find.byKey(const Key('peak-list-peak-memberships')),
-      ).data,
+      tester
+          .widget<Text>(find.byKey(const Key('peak-list-peak-memberships')))
+          .data,
       'Alpha, Zeta',
     );
     expect(
@@ -113,6 +108,7 @@ void main() {
     );
     expect(find.byKey(const Key('peak-list-peak-map-link')), findsOneWidget);
     expect(find.text('Resolved Map'), findsOneWidget);
+    expect(find.text('1,234'), findsOneWidget);
     expect(find.byKey(const Key('peak-list-peak-track-10')), findsOneWidget);
     expect(find.text('Sat, Mar 2 2024'), findsOneWidget);
     expect(find.text('Ridge Walk'), findsOneWidget);
@@ -230,14 +226,17 @@ void main() {
     expect(initialRect.right, closeTo(screenSize.width - 24, 8));
     expect(initialRect.bottom, closeTo(screenSize.height - 24, 8));
 
-     await tester.drag(
-       find.byKey(const Key('peak-list-peak-dialog-drag-handle')),
-       const Offset(-180, -120),
-       warnIfMissed: false,
-     );
-     await tester.pump();
+    await tester.drag(
+      find.byKey(const Key('peak-list-peak-dialog-drag-handle')),
+      const Offset(-180, -120),
+      warnIfMissed: false,
+    );
+    await tester.pump();
 
-     expect(find.byKey(const Key('peak-list-peak-dialog-drag-handle')), findsOneWidget);
+    expect(
+      find.byKey(const Key('peak-list-peak-dialog-drag-handle')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('tapping map name selects the map for navigation', (
@@ -275,9 +274,7 @@ void main() {
       ),
       peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
       tasmapRepository: await TestTasmapRepository.create(
-        maps: [
-          _resolvedMap(const LatLng(-41.0, 146.0)),
-        ],
+        maps: [_resolvedMap(const LatLng(-41.0, 146.0))],
       ),
       gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
       mapNotifier: mapNotifier,
@@ -334,9 +331,7 @@ void main() {
       ),
       peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
       tasmapRepository: await TestTasmapRepository.create(
-        maps: [
-          _resolvedMap(const LatLng(-41.0, 146.0)),
-        ],
+        maps: [_resolvedMap(const LatLng(-41.0, 146.0))],
       ),
       gpxTrackRepository: GpxTrackRepository.test(
         InMemoryGpxTrackStorage([
@@ -530,9 +525,7 @@ void main() {
     expect(mapNotifier.state.selectedTrackFocusSerial, 2);
   });
 
-  testWidgets('add mode autofocuses and renders inline points', (
-    tester,
-  ) async {
+  testWidgets('add mode autofocuses and renders inline points', (tester) async {
     final peak = _buildPeak(
       osmId: 202,
       name: 'New Peak',
@@ -556,9 +549,7 @@ void main() {
       ),
       peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
       tasmapRepository: await TestTasmapRepository.create(
-        maps: [
-          _resolvedMap(const LatLng(-42.0, 147.0)),
-        ],
+        maps: [_resolvedMap(const LatLng(-42.0, 147.0))],
       ),
       gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
     );
@@ -572,7 +563,10 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const Key('peak-multi-select-row-202')), findsOneWidget);
-    expect(find.byKey(const Key('peak-multi-select-checkbox-202')), findsOneWidget);
+    expect(
+      find.byKey(const Key('peak-multi-select-checkbox-202')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-202')));
     await tester.pump();
@@ -596,9 +590,7 @@ void main() {
     );
     expect(
       tester
-          .widget<TextField>(
-            find.byKey(const Key('peak-selected-points-202')),
-          )
+          .widget<TextField>(find.byKey(const Key('peak-selected-points-202')))
           .controller!
           .text,
       '1',
@@ -654,11 +646,19 @@ void main() {
 
     expect(find.byKey(const Key('peak-multi-select-row-101')), findsOneWidget);
     expect(
-      tester.widget<Checkbox>(find.byKey(const Key('peak-multi-select-checkbox-101'))).value,
+      tester
+          .widget<Checkbox>(
+            find.byKey(const Key('peak-multi-select-checkbox-101')),
+          )
+          .value,
       isTrue,
     );
     expect(
-      tester.widget<Checkbox>(find.byKey(const Key('peak-multi-select-checkbox-101'))).onChanged,
+      tester
+          .widget<Checkbox>(
+            find.byKey(const Key('peak-multi-select-checkbox-101')),
+          )
+          .onChanged,
       isNull,
     );
     expect(find.byKey(const Key('peak-multi-select-row-202')), findsOneWidget);
@@ -738,7 +738,11 @@ void main() {
 
     expect(find.byKey(const Key('peak-multi-select-row-100')), findsOneWidget);
     expect(
-      tester.widget<Checkbox>(find.byKey(const Key('peak-multi-select-checkbox-100'))).value,
+      tester
+          .widget<Checkbox>(
+            find.byKey(const Key('peak-multi-select-checkbox-100')),
+          )
+          .value,
       isTrue,
     );
     expect(find.byKey(const Key('peak-selected-row-100')), findsOneWidget);
@@ -770,7 +774,9 @@ void main() {
     );
   });
 
-  testWidgets('add mode splits search and selected panes evenly', (tester) async {
+  testWidgets('add mode splits search and selected panes evenly', (
+    tester,
+  ) async {
     final listRepository = PeakListRepository.test(
       InMemoryPeakListStorage([
         PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
@@ -788,9 +794,24 @@ void main() {
       ),
       peakRepository: PeakRepository.test(
         InMemoryPeakStorage([
-          _buildPeak(osmId: 300, name: 'Zulu Peak', latitude: -41, longitude: 146),
-          _buildPeak(osmId: 100, name: 'Alpha Peak', latitude: -41.1, longitude: 146.1),
-          _buildPeak(osmId: 200, name: 'Mike Peak', latitude: -41.2, longitude: 146.2),
+          _buildPeak(
+            osmId: 300,
+            name: 'Zulu Peak',
+            latitude: -41,
+            longitude: 146,
+          ),
+          _buildPeak(
+            osmId: 100,
+            name: 'Alpha Peak',
+            latitude: -41.1,
+            longitude: 146.1,
+          ),
+          _buildPeak(
+            osmId: 200,
+            name: 'Mike Peak',
+            latitude: -41.2,
+            longitude: 146.2,
+          ),
         ]),
       ),
       tasmapRepository: await TestTasmapRepository.create(),
@@ -800,12 +821,12 @@ void main() {
     await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-100')));
     await tester.pump();
 
-    final resultsPanelHeight = tester.getSize(
-      find.byKey(const Key('peak-list-peak-results-panel')),
-    ).height;
-    final selectedPanelHeight = tester.getSize(
-      find.byKey(const Key('peak-list-peak-selected-panel')),
-    ).height;
+    final resultsPanelHeight = tester
+        .getSize(find.byKey(const Key('peak-list-peak-results-panel')))
+        .height;
+    final selectedPanelHeight = tester
+        .getSize(find.byKey(const Key('peak-list-peak-selected-panel')))
+        .height;
 
     expect(resultsPanelHeight, closeTo(selectedPanelHeight, 0.1));
     expect(find.byKey(const Key('peak-selected-row-100')), findsOneWidget);
@@ -1023,9 +1044,9 @@ void main() {
       expect(find.textContaining('Failed to add:'), findsOneWidget);
       expect(container.read(peakListRevisionProvider), 1);
       expect(
-        decodePeakListItems(listRepository.getAllPeakLists().single.peakList)
-            .map((item) => item.peakOsmId)
-            .toList(),
+        decodePeakListItems(
+          listRepository.getAllPeakLists().single.peakList,
+        ).map((item) => item.peakOsmId).toList(),
         [101, 202],
       );
     },
@@ -1087,10 +1108,7 @@ void main() {
       expect(mapNotifier.state.center.latitude, closeTo(-42.5, 0.001));
       expect(mapNotifier.state.center.longitude, closeTo(147.5, 0.001));
       expect(mapNotifier.state.zoom, 10);
-      expect(
-        mapNotifier.state.cameraRequestCenter,
-        const LatLng(-41.0, 146.0),
-      );
+      expect(mapNotifier.state.cameraRequestCenter, const LatLng(-41.0, 146.0));
       expect(mapNotifier.state.cameraRequestZoom, MapConstants.defaultZoom);
       expect(mapNotifier.state.selectedLocation, isNull);
       expect(mapNotifier.state.selectedPeaks.map((peak) => peak.osmId), [202]);
@@ -1126,7 +1144,8 @@ Future<Completer<PeakListPeakDialogOutcome?>> _pumpDialog(
         ),
         peakRepositoryProvider.overrideWithValue(peakRepository),
         peakListRepositoryProvider.overrideWithValue(
-          peakListRepository ?? PeakListRepository.test(InMemoryPeakListStorage()),
+          peakListRepository ??
+              PeakListRepository.test(InMemoryPeakListStorage()),
         ),
         tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
         gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
@@ -1199,9 +1218,10 @@ Tasmap50k _resolvedMap(LatLng center) {
 }
 
 String _pointString(LatLng point) {
-  return mgrs.Mgrs.forward([point.longitude, point.latitude], 5)
-      .replaceAll(RegExp(r'[\n\s]'), '')
-      .substring(3);
+  return mgrs.Mgrs.forward([
+    point.longitude,
+    point.latitude,
+  ], 5).replaceAll(RegExp(r'[\n\s]'), '').substring(3);
 }
 
 Peak _buildPeak({

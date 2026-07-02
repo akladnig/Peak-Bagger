@@ -354,7 +354,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
         _DetailLine(label: 'Height', value: Text(elevationLabel)),
         _DetailLine(
           label: 'Points',
-          value: Text(_pointsForPeak(peak.osmId).toString()),
+          value: Text(formatCount(_pointsForPeak(peak.osmId))),
         ),
         _DetailLine(label: 'MGRS', value: Text(_displayMgrs(peak))),
         _DetailLine(

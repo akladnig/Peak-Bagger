@@ -7,6 +7,7 @@ import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/peak_list_visibility.dart';
 
 import '../core/constants.dart';
+import '../core/number_formatters.dart';
 import '../theme.dart';
 import 'drawer_outline_button.dart';
 
@@ -127,60 +128,68 @@ class MapPeakListsDrawer extends ConsumerWidget {
                               false);
 
                       return DrawerOutlineButton(
-                     buttonKey: Key('peak-list-item-${entry.peakList.name}'),
-                     icon: Icons.landscape,
-                     label: entry.peakList.name,
-                     isSelected:
-                         peakListSelectionMode ==
-                             PeakListSelectionMode.specificList &&
-                         selectedPeakListIds.contains(entry.peakList.peakListId),
-                     onPressed: () {
-                       ref
-                           .read(mapProvider.notifier)
-                           .togglePeakListSelection(entry.peakList.peakListId);
-                     },
-                     trailing: IconButton(
-                       key: Key('peak-list-pin-${entry.peakList.peakListId}'),
-                       iconSize: searchControlIconSize,
-                       visualDensity: VisualDensity.compact,
-                       padding: EdgeInsets.zero,
-                       constraints: const BoxConstraints.tightFor(
-                         width: _drawerTrailingButtonWidth,
-                         height: 32,
-                       ),
-                       onPressed: () {
-                         final notifier = ref.read(mapProvider.notifier);
-                         if (isPinned) {
-                           notifier.unpinPeakListForRegion(
-                             regionKey: entry.peakList.region,
-                             peakListId: entry.peakList.peakListId,
-                           );
-                         } else {
-                           notifier.pinPeakListForRegion(
-                             regionKey: entry.peakList.region,
-                             peakListId: entry.peakList.peakListId,
-                           );
-                         }
-                       },
-                       icon: SvgPicture.asset(
-                         isPinned ? 'assets/svg/unpin.svg' : 'assets/svg/pin.svg',
-                         width: searchControlIconSize,
-                         height: searchControlIconSize,
-                         key: Key(
-                           isPinned
-                               ? 'peak-list-unpin-icon-${entry.peakList.peakListId}'
-                               : 'peak-list-pin-icon-${entry.peakList.peakListId}',
-                         ),
-                         colorFilter: ColorFilter.mode(
-                           Theme.of(context).colorScheme.onSurface,
-                           BlendMode.srcIn,
-                         ),
-                       ),
-                     ),
-                    );
+                        buttonKey: Key('peak-list-item-${entry.peakList.name}'),
+                        icon: Icons.landscape,
+                        label: entry.peakList.name,
+                        isSelected:
+                            peakListSelectionMode ==
+                                PeakListSelectionMode.specificList &&
+                            selectedPeakListIds.contains(
+                              entry.peakList.peakListId,
+                            ),
+                        onPressed: () {
+                          ref
+                              .read(mapProvider.notifier)
+                              .togglePeakListSelection(
+                                entry.peakList.peakListId,
+                              );
+                        },
+                        trailing: IconButton(
+                          key: Key(
+                            'peak-list-pin-${entry.peakList.peakListId}',
+                          ),
+                          iconSize: searchControlIconSize,
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(
+                            width: _drawerTrailingButtonWidth,
+                            height: 32,
+                          ),
+                          onPressed: () {
+                            final notifier = ref.read(mapProvider.notifier);
+                            if (isPinned) {
+                              notifier.unpinPeakListForRegion(
+                                regionKey: entry.peakList.region,
+                                peakListId: entry.peakList.peakListId,
+                              );
+                            } else {
+                              notifier.pinPeakListForRegion(
+                                regionKey: entry.peakList.region,
+                                peakListId: entry.peakList.peakListId,
+                              );
+                            }
+                          },
+                          icon: SvgPicture.asset(
+                            isPinned
+                                ? 'assets/svg/unpin.svg'
+                                : 'assets/svg/pin.svg',
+                            width: searchControlIconSize,
+                            height: searchControlIconSize,
+                            key: Key(
+                              isPinned
+                                  ? 'peak-list-unpin-icon-${entry.peakList.peakListId}'
+                                  : 'peak-list-pin-icon-${entry.peakList.peakListId}',
+                            ),
+                            colorFilter: ColorFilter.mode(
+                              Theme.of(context).colorScheme.onSurface,
+                              BlendMode.srcIn,
+                            ),
+                          ),
+                        ),
+                      );
                     },
                   ),
-                  ),
+                ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
                   child: Text(
@@ -198,6 +207,7 @@ class MapPeakListsDrawer extends ConsumerWidget {
   }
 
   String _renderablePeakLabel(int count) {
-    return count == 1 ? '1 peak' : '$count peaks';
+    final formattedCount = formatCount(count);
+    return count == 1 ? '$formattedCount peak' : '$formattedCount peaks';
   }
 }
