@@ -49,9 +49,9 @@ void main() {
     expect(container.read(peakListRevisionProvider), 1);
     expect(
       container.read(mapProvider).peakListSelectionMode,
-      PeakListSelectionMode.allPeaks,
+      PeakListSelectionMode.specificList,
     );
-    expect(container.read(mapProvider).selectedPeakListId, isNull);
+    expect(container.read(mapProvider).selectedPeakListId, 999);
     expect(
       decodePeakListItems(repository.findByName('Tassy Full')!.peakList)
           .map((item) => (item.peakOsmId, item.points))

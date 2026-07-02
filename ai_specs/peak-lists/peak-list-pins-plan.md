@@ -31,16 +31,16 @@ Follow existing Riverpod/shared-app-bar patterns; replace center-based region lo
 ### Phase 2: Bounds Semantics
 
 - **Goal**: zero-region/multi-region correctness; reconcile via visible bounds
-- [ ] `lib/providers/map_provider.dart` - trigger visible-region updates from `updateVisibleBounds`; bounds-based reconcile rules: zero => skip prune, multi => union prune
-- [ ] `lib/widgets/map_peak_lists_drawer.dart` - swap `state.center` region lookup for visible-region-set filtering; union visible lists; zero-region empty state
-- [ ] `lib/providers/peak_list_selection_provider.dart` - `All Peaks`/`None` chips + pinned union + zero-region hide rules
-- [ ] `test/providers/map_peak_list_selection_state_test.dart` - cover zero/multi-region reconcile behavior
-- [ ] `test/providers/map_peak_list_selection_persistence_test.dart` - cover pinned prefs restore/corrupt payload path
-- [ ] `test/widget/map_peak_list_selection_test.dart` - cover zero-region hidden row, multi-region union row, constrained-width layout
-- [ ] TDD: visible-bounds helper returns normalized region sets; multi-region union includes all applicable lists
-- [ ] TDD: zero visible regions hides map-route right-lane peak-list UI and preserves in-memory state
-- [ ] TDD: reconcile prunes against visible union only; zero-region never forces fallback mode
-- [ ] Verify: `flutter analyze` && `flutter test`
+- [x] `lib/providers/map_provider.dart` - trigger visible-region updates from `updateVisibleBounds`; bounds-based reconcile rules: zero => skip prune, multi => union prune
+- [x] `lib/widgets/map_peak_lists_drawer.dart` - swap `state.center` region lookup for visible-region-set filtering; union visible lists; zero-region empty state
+- [x] `lib/providers/peak_list_selection_provider.dart` - `All Peaks`/`None` chips + pinned union + zero-region hide rules
+- [x] `test/providers/map_peak_list_selection_state_test.dart` - cover zero/multi-region reconcile behavior
+- [x] `test/providers/map_peak_list_selection_persistence_test.dart` - cover pinned prefs restore/corrupt payload path
+- [x] `test/widget/map_peak_list_selection_test.dart` - cover zero-region hidden row, multi-region union row, constrained-width layout
+- [x] TDD: visible-bounds helper returns normalized region sets; multi-region union includes all applicable lists
+- [x] TDD: zero visible regions hides map-route right-lane peak-list UI and preserves in-memory state
+- [x] TDD: reconcile prunes against visible union only; zero-region never forces fallback mode
+- [x] Verify: `flutter analyze` && `flutter test`
 
 ### Phase 3: Drawer Actions + Journeys
 

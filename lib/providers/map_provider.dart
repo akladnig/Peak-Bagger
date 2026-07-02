@@ -172,7 +172,12 @@ Map<String, Set<int>>? _decodePinnedPeakListIdsByRegion(String? payload) {
     return const <String, Set<int>>{};
   }
 
-  final decoded = convert.jsonDecode(payload);
+  Object? decoded;
+  try {
+    decoded = convert.jsonDecode(payload);
+  } on FormatException {
+    return null;
+  }
   if (decoded is! Map<String, dynamic>) {
     return null;
   }
@@ -4568,14 +4573,19 @@ class MapNotifier extends Notifier<MapState> {
     } catch (_) {
       return;
     }
-    final currentRegionKey = regionManifestCatalog.regionKeyForPoint(
-      state.center,
-    );
+    final bounds = state.visibleBounds;
+    if (bounds == null) {
+      return;
+    }
+    final visibleRegionKeys = visibleRegionKeysForBounds(bounds);
+    if (visibleRegionKeys.isEmpty) {
+      return;
+    }
 
-    final validPeakListIds = renderablePeakListIds(
+    final validPeakListIds = renderablePeakListIdsForVisibleRegions(
       peakLists: peakLists,
       selectedPeakListIds: state.selectedPeakListIds,
-      currentRegionKey: currentRegionKey,
+      visibleRegionKeys: visibleRegionKeys,
     );
 
     if (validPeakListIds.isEmpty) {
@@ -4606,6 +4616,7 @@ class MapNotifier extends Notifier<MapState> {
     }
 
     state = state.copyWith(visibleBounds: bounds);
+    reconcileSelectedPeakList();
   }
 
   bool _sameVisibleBounds(LatLngBounds? left, LatLngBounds? right) {

@@ -208,6 +208,91 @@ void main() {
 
     expect(find.byKey(const Key('peak-list-selection-summary')), findsOneWidget);
   });
+
+  testWidgets('zero-region map views hide the peak list row', (tester) async {
+    await _pumpApp(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        visibleBounds: LatLngBounds(
+          const LatLng(-10.0, 10.0),
+          const LatLng(-5.0, 15.0),
+        ),
+        peakListSelectionMode: PeakListSelectionMode.allPeaks,
+      ),
+    );
+
+    router.go('/map');
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shared-app-bar'))),
+    );
+    container.read(mapProvider.notifier).updateVisibleBounds(
+      LatLngBounds(
+        const LatLng(-10.0, 10.0),
+        const LatLng(-5.0, 15.0),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-list-selection-summary')), findsNothing);
+  });
+
+  testWidgets('multi-region map views show the union of applicable lists', (
+    tester,
+  ) async {
+    await _pumpApp(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        visibleBounds: LatLngBounds(
+          const LatLng(-89.0, -179.0),
+          const LatLng(89.0, 179.0),
+        ),
+        peakListSelectionMode: PeakListSelectionMode.specificList,
+        selectedPeakListIds: {1, 2},
+      ),
+      peakListRepository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(name: 'Alpha', region: 'tasmania', peakList: '[]')
+            ..peakListId = 1,
+          PeakList(name: 'Bravo', region: 'new-south-wales', peakList: '[]')
+            ..peakListId = 2,
+        ]),
+      ),
+    );
+
+    router.go('/map');
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shared-app-bar'))),
+    );
+    container.read(mapProvider.notifier).state = container
+        .read(mapProvider.notifier)
+        .state
+        .copyWith(
+          peakListSelectionMode: PeakListSelectionMode.specificList,
+          selectedPeakListIds: {1, 2},
+          previousSpecificPeakListIds: {1, 2},
+        );
+    container.read(mapProvider.notifier).updateVisibleBounds(
+      LatLngBounds(
+        const LatLng(-44.0, 145.0),
+        const LatLng(-33.0, 149.5),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-list-selection-summary')), findsOneWidget);
+    expect(find.byKey(const Key('peak-list-app-bar-item-1')), findsOneWidget);
+    expect(find.byKey(const Key('peak-list-app-bar-item-2')), findsOneWidget);
+  });
 }
 
 final _tasmaniaBounds = LatLngBounds(

@@ -93,7 +93,10 @@ void main() {
     expect(robot.peakListRow(2), findsNothing);
     expect(robot.peakListRow(3), findsNothing);
 
-    await robot.setMapCenter(const LatLng(-37.75984, 158.7979));
+    robot.notifier.updateVisibleBounds(
+      LatLngBounds(const LatLng(-34.5, 147.0), const LatLng(-33.0, 150.5)),
+    );
+    await tester.pumpAndSettle();
 
     expect(robot.peakListRow(1), findsNothing);
     expect(robot.peakListRow(2), findsOneWidget);

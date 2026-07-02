@@ -23,9 +23,9 @@ class MapPeakListsDrawer extends ConsumerWidget {
         ),
       ),
     );
-    final currentRegionKey = ref.watch(
+    final visibleRegionKeys = ref.watch(
       mapProvider.select(
-        (state) => regionManifestCatalog.regionKeyForPoint(state.center),
+        (state) => visibleRegionKeysForBounds(state.visibleBounds),
       ),
     );
     final peakListsLoadState = ref.watch(peakListsLoadProvider);
@@ -33,7 +33,7 @@ class MapPeakListsDrawer extends ConsumerWidget {
     final visiblePeakLists = <({PeakList peakList, int renderableCount})>[];
 
     for (final peakList in peakLists) {
-      if (!peakListAppliesToRegion(peakList, currentRegionKey)) {
+      if (!peakListAppliesToVisibleRegions(peakList, visibleRegionKeys)) {
         continue;
       }
 

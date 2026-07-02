@@ -1,6 +1,7 @@
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -1617,10 +1618,9 @@ void main() {
     expect(find.byKey(const Key('peak-list-item-Zero')), findsNothing);
     expect(find.byKey(const Key('peak-list-item-Broken')), findsNothing);
 
-    container.read(mapProvider.notifier).state = container
-        .read(mapProvider.notifier)
-        .state
-        .copyWith(center: const LatLng(-37.75984, 158.7979));
+    container.read(mapProvider.notifier).updateVisibleBounds(
+      LatLngBounds(const LatLng(-34.5, 147.0), const LatLng(-33.0, 150.5)),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-list-item-Alpha')), findsNothing);

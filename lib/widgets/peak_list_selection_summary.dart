@@ -14,6 +14,10 @@ class PeakListSelectionSummaryStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (summary.chips.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     final chips = [
       for (final chip in summary.chips)
         Padding(

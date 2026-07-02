@@ -133,9 +133,9 @@ void main() {
     robot.expectUpdateTassyFullResultVisible(added: 1, updated: 1);
     expect(
       robot.notifier.state.peakListSelectionMode,
-      PeakListSelectionMode.allPeaks,
+      PeakListSelectionMode.specificList,
     );
-    expect(robot.notifier.state.selectedPeakListId, isNull);
+    expect(robot.notifier.state.selectedPeakListId, 999);
     expect(
       decodePeakListItems(repository.findByName('Tassy Full')!.peakList)
           .map((item) => (item.peakOsmId, item.points))

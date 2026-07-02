@@ -46,6 +46,9 @@ final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((
   final peakLists = ref.watch(peakListsProvider);
   final visibleRegionKeys = visibleRegionKeysForBounds(visibleBounds);
   final hasResolvedVisibleBounds = visibleBounds != null;
+  if (hasResolvedVisibleBounds && visibleRegionKeys.isEmpty) {
+    return const PeakListSelectionSummary(chips: []);
+  }
   final labelsById = {
     for (final peakList in peakLists) peakList.peakListId: peakList.name,
   };
