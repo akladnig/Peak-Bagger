@@ -17,4 +17,17 @@ void main() {
       );
     });
   });
+
+  group('formatTrackDateShortMonth', () {
+    test('renders a three-letter month', () {
+      expect(
+        formatTrackDateShortMonth(DateTime.utc(2026, 1, 7, 23, 30)),
+        'Wed, 7 Jan 2026',
+      );
+    });
+
+    test('renders Unknown for null', () {
+      expect(formatTrackDateShortMonth(null), 'Unknown');
+    });
+  });
 }

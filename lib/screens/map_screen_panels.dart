@@ -771,7 +771,7 @@ class TrackRouteChooserItem {
 
   String get subtitle => switch (kind) {
     TrackRouteChooserItemKind.track =>
-      'Track • ${formatDistance(track!.distance2d, decimalPlaces: 1)} • ${formatTrackDate(track!.trackDate)} • ${formatDuration(track!.totalTimeMillis)}',
+      'Track • ${formatDistance(track!.distance2d, decimalPlaces: 1)} • ${formatTrackDateShortMonth(track!.trackDate)} • ${formatDuration(track!.totalTimeMillis)}',
     TrackRouteChooserItemKind.route =>
       'Route • ${formatDistance(route!.distance2d, decimalPlaces: 1)}',
   };
