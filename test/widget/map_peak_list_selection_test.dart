@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/models/peak_list.dart';
@@ -13,7 +14,7 @@ import '../harness/test_map_notifier.dart';
 
 void main() {
   testWidgets(
-    'specific-list selection shows summary buttons in shared app bar',
+    'map route shows selected transient and pinned app-bar items',
     (tester) async {
       await _pumpApp(
         tester,
@@ -21,9 +22,13 @@ void main() {
           center: const LatLng(-41.5, 146.5),
           zoom: 15,
           basemap: Basemap.tracestrack,
+          visibleBounds: _tasmaniaBounds,
           peakListSelectionMode: PeakListSelectionMode.specificList,
-          selectedPeakListIds: {1, 2},
-          previousSpecificPeakListIds: {1, 2},
+          selectedPeakListIds: {1},
+          previousSpecificPeakListIds: {1},
+          pinnedPeakListIdsByRegion: {
+            'tasmania': {2},
+          },
         ),
         peakListRepository: PeakListRepository.test(
           InMemoryPeakListStorage([
@@ -32,29 +37,29 @@ void main() {
           ]),
         ),
       );
+      router.go('/map');
+      await tester.pumpAndSettle();
 
       expect(
         find.byKey(const Key('peak-list-selection-summary')),
         findsOneWidget,
       );
       expect(
-        find.byKey(const Key('peak-list-selection-chip-1')),
+        find.byKey(const Key('peak-list-app-bar-item-1')),
         findsOneWidget,
       );
       expect(
-        find.byKey(const Key('peak-list-selection-chip-2')),
+        find.byKey(const Key('peak-list-app-bar-item-2')),
         findsOneWidget,
       );
       expect(
-        tester.widget<OutlinedButton>(
-          find.byKey(const Key('peak-list-selection-chip-1')),
-        ),
-        isNotNull,
+        find.byKey(const Key('peak-list-app-bar-item-3')),
+        findsNothing,
       );
     },
   );
 
-  testWidgets('all peaks and none show exactly one special chip', (
+  testWidgets('all peaks and none show exactly one special chip on map route', (
     tester,
   ) async {
     await _pumpApp(
@@ -63,9 +68,12 @@ void main() {
         center: const LatLng(-41.5, 146.5),
         zoom: 15,
         basemap: Basemap.tracestrack,
+        visibleBounds: _tasmaniaBounds,
         peakListSelectionMode: PeakListSelectionMode.allPeaks,
       ),
     );
+    router.go('/map');
+    await tester.pumpAndSettle();
 
     expect(
       find.byKey(const Key('peak-list-selection-chip-all-peaks')),
@@ -100,15 +108,16 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(900, 700));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await _pumpApp(
-      tester,
-      MapState(
-        center: const LatLng(-41.5, 146.5),
-        zoom: 15,
-        basemap: Basemap.tracestrack,
-        peakListSelectionMode: PeakListSelectionMode.specificList,
-        selectedPeakListIds: {1, 2},
-      ),
+      await _pumpApp(
+        tester,
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          visibleBounds: _tasmaniaBounds,
+          peakListSelectionMode: PeakListSelectionMode.specificList,
+          selectedPeakListIds: {1, 2},
+        ),
       peakListRepository: PeakListRepository.test(
         InMemoryPeakListStorage([
           PeakList(name: 'Alpha Long List Name', peakList: '[]')
@@ -118,10 +127,10 @@ void main() {
       ),
     );
 
-    expect(
-      find.byKey(const Key('peak-list-selection-summary')),
-      findsOneWidget,
-    );
+      router.go('/map');
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('peak-list-selection-summary')), findsOneWidget);
   });
 
   testWidgets(
@@ -136,6 +145,7 @@ void main() {
           center: const LatLng(-41.5, 146.5),
           zoom: 15,
           basemap: Basemap.tracestrack,
+          visibleBounds: _tasmaniaBounds,
           peakListSelectionMode: PeakListSelectionMode.specificList,
           selectedPeakListIds: {1, 2, 3},
         ),
@@ -161,7 +171,7 @@ void main() {
         find.byKey(const Key('peak-list-selection-summary')),
       );
       final rightChipRect = tester.getRect(
-        find.byKey(const Key('peak-list-selection-chip-3')),
+        find.byKey(const Key('peak-list-app-bar-item-3')),
       );
 
       expect(searchRect.center.dx, closeTo(appBarRect.center.dx, 1.0));
@@ -169,7 +179,41 @@ void main() {
       expect(rightChipRect.right, lessThanOrEqualTo(appBarRect.right));
     },
   );
+
+  testWidgets('non-map routes omit peak list summary container', (tester) async {
+    await _pumpApp(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        visibleBounds: _tasmaniaBounds,
+        peakListSelectionMode: PeakListSelectionMode.specificList,
+        selectedPeakListIds: {1},
+      ),
+      peakListRepository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(name: 'Alpha', peakList: '[]')..peakListId = 1,
+        ]),
+      ),
+    );
+
+    router.go('/settings');
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-list-selection-summary')), findsNothing);
+
+    router.go('/map');
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-list-selection-summary')), findsOneWidget);
+  });
 }
+
+final _tasmaniaBounds = LatLngBounds(
+  const LatLng(-43.5, 145.5),
+  const LatLng(-40.5, 148.5),
+);
 
 Future<void> _pumpApp(
   WidgetTester tester,

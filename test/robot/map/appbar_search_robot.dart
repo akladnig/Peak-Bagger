@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/app.dart';
@@ -10,9 +11,13 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
+import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 
@@ -29,16 +34,24 @@ class AppBarSearchRobot {
   Finder get searchInput => find.byKey(const Key('map-search-input'));
 
   Future<void> pumpApp() async {
+    final peakRepository = PeakRepository.test(
+      InMemoryPeakStorage([_peak(6406, 'Bonnet Hill')]),
+    );
     final notifier = TestMapNotifier(
       MapState(
         center: const LatLng(-41.5, 146.5),
         zoom: 15,
         basemap: Basemap.tracestrack,
+        visibleBounds: LatLngBounds(
+          const LatLng(-43.5, 145.5),
+          const LatLng(-40.5, 148.5),
+        ),
         peaks: [_peak(6406, 'Bonnet Hill')],
       ),
       gpxTrackRepository: GpxTrackRepository.test(
         InMemoryGpxTrackStorage([_track(1, 'Bonnet Track')]),
       ),
+      peakRepository: peakRepository,
       routeRepository: RouteRepository.test(
         InMemoryRouteStorage([_route(1, 'Bonnet Route')]),
       ),
@@ -51,6 +64,10 @@ class AppBarSearchRobot {
       ProviderScope(
         overrides: [
           mapProvider.overrideWith(() => notifier),
+          peakListRepositoryProvider.overrideWithValue(
+            PeakListRepository.test(InMemoryPeakListStorage()),
+          ),
+          peakRepositoryProvider.overrideWithValue(peakRepository),
           tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
           tasmapStateProvider.overrideWith(
             () => TestTasmapNotifier(tasmapRepository),
@@ -84,6 +101,7 @@ class AppBarSearchRobot {
 
   Future<void> enterQuery(String query) async {
     await tester.enterText(searchInput, query);
+    await tester.pump(const Duration(milliseconds: 250));
     await tester.pumpAndSettle();
   }
 

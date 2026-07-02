@@ -6,7 +6,6 @@ import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/peak_list_visibility.dart';
 
 import '../core/constants.dart';
-import '../services/region_manifest_catalog.dart';
 import 'drawer_outline_button.dart';
 
 class MapPeakListsDrawer extends ConsumerWidget {

@@ -54,7 +54,7 @@ void main() {
 
     final state = container.read(mapProvider);
     expect(state.searchPopupEntityFilter, MapSearchEntityFilter.all);
-    expect(state.searchPopupRegionKey, isNull);
+    expect(state.searchPopupRegionKey, 'tasmania');
     expect(state.searchPopupSort, MapSearchSort.nameAscending);
     expect(state.searchPopupGroup, MapSearchGroup.none);
     expect(state.searchPopupQuery, isEmpty);
@@ -71,7 +71,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     await tester.enterText(find.byKey(const Key('map-search-input')), 'zzz');
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
 
     expect(find.text('No results found'), findsOneWidget);
   });
@@ -89,7 +89,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     await tester.enterText(find.byKey(const Key('map-search-input')), 'Bonnet');
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
 
     await tester.tap(find.widgetWithText(ListTile, 'Bonnet Hill'));
     await tester.pump();
@@ -114,7 +114,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     await tester.enterText(find.byKey(const Key('map-search-input')), 'Bonnet');
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
 
     final tile = find.widgetWithText(ListTile, 'Bonnet Hill');
     expect(tile, findsOneWidget);
@@ -141,7 +141,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     await tester.enterText(find.byKey(const Key('map-search-input')), 'Bonnet');
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
 
     final tile = find.widgetWithText(ListTile, 'Bonnet Hill');
     expect(tile, findsOneWidget);
@@ -176,6 +176,7 @@ void main() {
         find.byKey(const Key('map-search-input')),
         'Bonnet',
       );
+      await tester.pump(const Duration(milliseconds: 250));
       await tester.pumpAndSettle();
 
       expect(
@@ -266,6 +267,7 @@ void main() {
     await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('map-search-input')), 'A');
+    await tester.pump(const Duration(milliseconds: 250));
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.byKey(const Key('map-search-group-button')));
@@ -300,9 +302,13 @@ void main() {
     await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
     await tester.pumpAndSettle();
 
+    container.read(mapProvider.notifier).setSearchPopupRegionKey(null);
+    await tester.pumpAndSettle();
+
     await tester.tap(find.byKey(const Key('map-search-entity-peaks')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('map-search-input')), 'Peak');
+    await tester.pump(const Duration(milliseconds: 250));
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.byKey(const Key('map-search-group-button')));

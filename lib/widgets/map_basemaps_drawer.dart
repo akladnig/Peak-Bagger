@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 
 import '../core/constants.dart';
-import '../services/region_manifest_catalog.dart';
 import 'drawer_outline_button.dart';
 
 class MapBasemapsDrawer extends ConsumerWidget {

@@ -64,17 +64,51 @@ int renderablePeakCount({
       .length;
 }
 
-Set<int> renderablePeakListIds({
+Set<String> visibleRegionKeysForBounds(LatLngBounds? bounds) {
+  if (bounds == null) {
+    return const <String>{};
+  }
+
+  final regionKeys = <String>{};
+  for (final region in regionManifestCatalog.regionsForBounds(bounds)) {
+    final normalizedKey = canonicalRegionKey(normalizePeakListRegionKey(region.key));
+    if (normalizedKey != null) {
+      regionKeys.add(normalizedKey);
+    }
+  }
+  return Set<String>.unmodifiable(regionKeys);
+}
+
+Set<String> visibleRegionKeysForRegionKey(String? regionKey) {
+  final normalizedKey = canonicalRegionKey(normalizePeakListRegionKey(regionKey));
+  if (normalizedKey == null) {
+    return const <String>{};
+  }
+  return {normalizedKey};
+}
+
+bool peakListAppliesToVisibleRegions(
+  PeakList peakList,
+  Set<String> visibleRegionKeys,
+) {
+  final normalizedPeakListRegionKey = canonicalRegionKey(
+    normalizePeakListRegionKey(peakList.region),
+  );
+  return normalizedPeakListRegionKey != null &&
+      visibleRegionKeys.contains(normalizedPeakListRegionKey);
+}
+
+Set<int> renderablePeakListIdsForVisibleRegions({
   required Iterable<PeakList> peakLists,
   required Iterable<int> selectedPeakListIds,
-  required String? currentRegionKey,
+  required Set<String> visibleRegionKeys,
 }) {
   final selectedIds = selectedPeakListIds.toSet();
   final validPeakListIds = <int>{};
 
   for (final peakList in peakLists) {
     if (!selectedIds.contains(peakList.peakListId) ||
-        !peakListAppliesToRegion(peakList, currentRegionKey)) {
+        !peakListAppliesToVisibleRegions(peakList, visibleRegionKeys)) {
       continue;
     }
 
@@ -90,13 +124,23 @@ Set<int> renderablePeakListIds({
   return validPeakListIds;
 }
 
-bool peakListAppliesToRegion(PeakList peakList, String? currentRegionKey) {
-  final normalizedCurrentRegionKey = canonicalRegionKey(
-    normalizePeakListRegionKey(currentRegionKey),
+Set<int> renderablePeakListIds({
+  required Iterable<PeakList> peakLists,
+  required Iterable<int> selectedPeakListIds,
+  required String? currentRegionKey,
+}) {
+  return renderablePeakListIdsForVisibleRegions(
+    peakLists: peakLists,
+    selectedPeakListIds: selectedPeakListIds,
+    visibleRegionKeys: visibleRegionKeysForRegionKey(currentRegionKey),
   );
-  return normalizedCurrentRegionKey != null &&
-      canonicalRegionKey(normalizePeakListRegionKey(peakList.region)) ==
-          normalizedCurrentRegionKey;
+}
+
+bool peakListAppliesToRegion(PeakList peakList, String? currentRegionKey) {
+  return peakListAppliesToVisibleRegions(
+    peakList,
+    visibleRegionKeysForRegionKey(currentRegionKey),
+  );
 }
 
 String? normalizePeakListRegionKey(String? regionKey) {

@@ -833,10 +833,11 @@ void main() {
     expect(robot.peakListChip(1), findsOneWidget);
 
     await robot.openSettings();
-    expect(robot.peakListChip(1), findsOneWidget);
+    expect(robot.peakListChip(1), findsNothing);
     router.go('/map');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
+    expect(robot.peakListChip(1), findsOneWidget);
 
     final container = ProviderScope.containerOf(
       tester.element(robot.mapInteractionRegion),
