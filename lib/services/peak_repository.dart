@@ -3,6 +3,7 @@ import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/services/peak_source.dart';
 
+import '../core/number_formatters.dart';
 import '../objectbox.g.dart';
 
 abstract class PeakStorage {
@@ -44,7 +45,7 @@ class PeakListRewriteResult {
       0 => null,
       1 => '1 PeakList has been skipped as it\'s malformed.',
       _ =>
-        '$skippedMalformedCount PeakLists have been skipped as they\'re malformed.',
+        '${formatCount(skippedMalformedCount)} PeakLists have been skipped as they\'re malformed.',
     };
   }
 }

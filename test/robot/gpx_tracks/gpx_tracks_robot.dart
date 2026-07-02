@@ -7,6 +7,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
+import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
@@ -684,7 +685,7 @@ class GpxTracksRobot {
       find.descendant(
         of: find.byType(AlertDialog),
         matching: find.textContaining(
-          'Updated $updatedCount tracks, refreshed peak correlation, skipped $skippedCount tracks',
+          'Updated ${formatCount(updatedCount)} tracks, refreshed peak correlation, skipped ${formatCount(skippedCount)} tracks',
         ),
       ),
       findsOneWidget,

@@ -27,7 +27,9 @@ void main() {
       ProviderScope(
         overrides: [
           mapProvider.overrideWith(() => notifier),
-          tasmapStateProvider.overrideWith(() => TestTasmapNotifier(repository)),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
           tasmapRepositoryProvider.overrideWithValue(repository),
         ],
         child: const App(),
@@ -42,7 +44,7 @@ void main() {
     await tester.tap(find.byKey(const Key('refresh-route-graph-tile')));
     await tester.pump();
 
-     expect(find.text('Refresh Route Graph?'), findsOneWidget);
+    expect(find.text('Refresh Route Graph?'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('route-graph-refresh-cancel')));
     await tester.pump();
@@ -60,7 +62,9 @@ void main() {
       ProviderScope(
         overrides: [
           mapProvider.overrideWith(() => notifier),
-          tasmapStateProvider.overrideWith(() => TestTasmapNotifier(repository)),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
           tasmapRepositoryProvider.overrideWithValue(repository),
           routeGraphRefreshServiceProvider.overrideWithValue(service),
         ],
@@ -86,7 +90,7 @@ void main() {
     expect(tile.onTap, isNull);
     expect(service.refreshCallCount, 1);
 
-    completer.complete(const RouteGraphRefreshResult(elementCount: 2));
+    completer.complete(const RouteGraphRefreshResult(elementCount: 1234));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
@@ -94,7 +98,7 @@ void main() {
     expect(
       find.descendant(
         of: resultDialog,
-        matching: find.text('2 route graph elements refreshed.'),
+        matching: find.text('1,234 route graph elements refreshed.'),
       ),
       findsOneWidget,
     );
@@ -104,14 +108,16 @@ void main() {
     final repository = await TestTasmapRepository.create();
     final notifier = TestPeakNotifier(_baseState());
     final service = _TestRouteGraphRefreshService(
-      () async => const RouteGraphRefreshResult(elementCount: 12),
+      () async => const RouteGraphRefreshResult(elementCount: 1234),
     );
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           mapProvider.overrideWith(() => notifier),
-          tasmapStateProvider.overrideWith(() => TestTasmapNotifier(repository)),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
           tasmapRepositoryProvider.overrideWithValue(repository),
           routeGraphRefreshServiceProvider.overrideWithValue(service),
         ],
@@ -142,27 +148,30 @@ void main() {
     expect(
       find.descendant(
         of: resultDialog,
-        matching: find.text('12 route graph elements refreshed.'),
+        matching: find.text('1,234 route graph elements refreshed.'),
       ),
       findsOneWidget,
     );
-    expect(find.byKey(const Key('route-graph-refresh-result-close')), findsOneWidget);
+    expect(
+      find.byKey(const Key('route-graph-refresh-result-close')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('refresh route graph shows failure dialog', (tester) async {
     final repository = await TestTasmapRepository.create();
     final notifier = TestPeakNotifier(_baseState());
-    final service = _TestRouteGraphRefreshService(
-      () async {
-        throw StateError('boom');
-      },
-    );
+    final service = _TestRouteGraphRefreshService(() async {
+      throw StateError('boom');
+    });
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           mapProvider.overrideWith(() => notifier),
-          tasmapStateProvider.overrideWith(() => TestTasmapNotifier(repository)),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
           tasmapRepositoryProvider.overrideWithValue(repository),
           routeGraphRefreshServiceProvider.overrideWithValue(service),
         ],
@@ -193,7 +202,10 @@ void main() {
       find.descendant(of: failureDialog, matching: find.textContaining('boom')),
       findsOneWidget,
     );
-    expect(find.byKey(const Key('route-graph-refresh-error-close')), findsOneWidget);
+    expect(
+      find.byKey(const Key('route-graph-refresh-error-close')),
+      findsOneWidget,
+    );
     expect(
       _container(tester).read(routeGraphReadinessProvider).status,
       RouteGraphReadinessStatus.failed,
@@ -203,9 +215,7 @@ void main() {
     await tester.pump();
 
     expect(
-      find.text(
-        'Route graph unavailable. Use Refresh Route Graph to retry.',
-      ),
+      find.text('Route graph unavailable. Use Refresh Route Graph to retry.'),
       findsOneWidget,
     );
   });
@@ -213,19 +223,19 @@ void main() {
   testWidgets('refresh route graph shows db full guidance', (tester) async {
     final repository = await TestTasmapRepository.create();
     final notifier = TestPeakNotifier(_baseState());
-    final service = _TestRouteGraphRefreshService(
-      () async {
-        throw StateError(
-          'DbFull exception: object put failed: Could not put (OBX_ERROR code 10101)',
-        );
-      },
-    );
+    final service = _TestRouteGraphRefreshService(() async {
+      throw StateError(
+        'DbFull exception: object put failed: Could not put (OBX_ERROR code 10101)',
+      );
+    });
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           mapProvider.overrideWith(() => notifier),
-          tasmapStateProvider.overrideWith(() => TestTasmapNotifier(repository)),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
           tasmapRepositoryProvider.overrideWithValue(repository),
           routeGraphRefreshServiceProvider.overrideWithValue(service),
         ],
@@ -288,7 +298,8 @@ class _NoopRouteGraphStore implements RouteGraphStore {
   Future<void> bootstrapData() async {}
 
   @override
-  Future<trip_routing.TripService> preload() async => trip_routing.TripService();
+  Future<trip_routing.TripService> preload() async =>
+      trip_routing.TripService();
 
   @override
   Future<trip_routing.TripService> reload() async => trip_routing.TripService();

@@ -24,14 +24,14 @@ void main() {
       ),
       () async => const PeakListCsvExportResult(
         outputDirectoryPath: '/Users/adrian/Documents/Bushwalking/Peak_Lists',
-        exportedFileCount: 2,
+        exportedFileCount: 1234,
       ),
     );
 
     await robot.pumpApp();
     await robot.runExport();
 
-    robot.expectStatusVisible('Exported 2 peak lists. Skipped 0 lists.');
+    robot.expectStatusVisible('Exported 1,234 peak lists. Skipped 0 lists.');
   });
 
   testWidgets('export peak lists warning path shows final warning summary', (
@@ -48,11 +48,11 @@ void main() {
           basemap: Basemap.tracestrack,
         ),
       ),
-      () async => const PeakListCsvExportResult(
+      () async => PeakListCsvExportResult(
         outputDirectoryPath: '/Users/adrian/Documents/Bushwalking/Peak_Lists',
-        exportedFileCount: 1,
-        skippedZeroResolvedRowListCount: 1,
-        warningEntries: ['warning 1', 'warning 2'],
+        exportedFileCount: 1234,
+        skippedZeroResolvedRowListCount: 1234,
+        warningEntries: List<String>.filled(1234, 'warning'),
       ),
     );
 
@@ -60,7 +60,7 @@ void main() {
     await robot.runExport();
 
     robot.expectStatusVisible(
-      'Exported 1 peak list. Skipped 1 list. 2 warnings. Older files may remain for skipped lists.',
+      'Exported 1,234 peak lists. Skipped 1,234 lists. 1,234 warnings. Older files may remain for skipped lists.',
     );
   });
 }

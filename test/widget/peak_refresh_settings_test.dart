@@ -100,7 +100,7 @@ void main() {
     expect(notifier.refreshCallCount, 1);
 
     completer.complete(
-      const PeakRefreshResult(importedCount: 2, skippedCount: 0),
+      const PeakRefreshResult(importedCount: 1234, skippedCount: 0),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
@@ -109,7 +109,7 @@ void main() {
     expect(
       find.descendant(
         of: resultDialog,
-        matching: find.text('2 Peaks imported'),
+        matching: find.text('1,234 Peaks imported'),
       ),
       findsOneWidget,
     );
@@ -126,9 +126,9 @@ void main() {
         basemap: Basemap.tracestrack,
       ),
       refreshHandler: () async => const PeakRefreshResult(
-        importedCount: 3,
-        skippedCount: 1,
-        warning: '1 peaks skipped',
+        importedCount: 1234,
+        skippedCount: 1234,
+        warning: '1,234 peaks skipped',
       ),
     );
 
@@ -168,12 +168,15 @@ void main() {
     expect(
       find.descendant(
         of: resultDialog,
-        matching: find.text('3 Peaks imported'),
+        matching: find.text('1,234 Peaks imported'),
       ),
       findsOneWidget,
     );
     expect(
-      find.descendant(of: resultDialog, matching: find.text('1 peaks skipped')),
+      find.descendant(
+        of: resultDialog,
+        matching: find.text('1,234 peaks skipped'),
+      ),
       findsOneWidget,
     );
     expect(find.byKey(const Key('peak-refresh-result-close')), findsOneWidget);

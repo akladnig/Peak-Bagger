@@ -111,7 +111,7 @@ void main() {
     completer.complete(
       const PeakCsvExportResult(
         path: '/Users/adrian/Documents/Bushwalking/Features/peaks.csv',
-        exportedCount: 2,
+        exportedCount: 1234,
       ),
     );
     await tester.pump();
@@ -121,7 +121,7 @@ void main() {
     expect(find.byKey(const Key('peak-export-status')), findsOneWidget);
     expect(
       find.text(
-        'Exported 2 peaks to /Users/adrian/Documents/Bushwalking/Features/peaks.csv',
+        'Exported 1,234 peaks to /Users/adrian/Documents/Bushwalking/Features/peaks.csv',
       ),
       findsOneWidget,
     );

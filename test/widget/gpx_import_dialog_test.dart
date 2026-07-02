@@ -88,9 +88,7 @@ void main() {
         ),
       );
 
-      final title = tester.widget<Text>(
-        find.text('Import GPX File(s)'),
-      );
+      final title = tester.widget<Text>(find.text('Import GPX File(s)'));
       expect(title.maxLines, 1);
       expect(title.softWrap, isFalse);
       expect(title.overflow, TextOverflow.ellipsis);
@@ -335,7 +333,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.widget<Switch>(routeSwitch).value, isTrue);
-
     });
 
     testWidgets('Import button disabled when no files selected', (
@@ -489,13 +486,13 @@ void main() {
       await tester.binding.setSurfaceSize(const Size(360, 900));
 
       final oneFilePath = '${tempDir.path}/track-1.gpx';
-      File(oneFilePath).writeAsStringSync(
-        '<gpx><trk><name>Track 1</name></trk></gpx>',
-      );
+      File(
+        oneFilePath,
+      ).writeAsStringSync('<gpx><trk><name>Track 1</name></trk></gpx>');
       for (var i = 0; i < 6; i += 1) {
-        File('${tempDir.path}/track-$i.gpx').writeAsStringSync(
-          '<gpx><trk><name>Track $i</name></trk></gpx>',
-        );
+        File(
+          '${tempDir.path}/track-$i.gpx',
+        ).writeAsStringSync('<gpx><trk><name>Track $i</name></trk></gpx>');
       }
 
       final oneFileHeight = await openWithPaths([oneFilePath]);
@@ -504,6 +501,60 @@ void main() {
       ]);
 
       expect(manyFileHeight, greaterThan(oneFileHeight));
+    });
+
+    testWidgets('import result dialog formats grouped counts', (tester) async {
+      final tempDir = Directory.systemTemp.createTempSync('gpx-import-dialog');
+      addTearDown(() => tempDir.deleteSync(recursive: true));
+      final file = File('${tempDir.path}/track-1.gpx')
+        ..writeAsStringSync('<gpx><trk><name>Track 1</name></trk></gpx>');
+
+      Future<GpxTrackImportResult> importRunner({
+        required bool importAsRoute,
+        required Map<String, String> pathToEditedNames,
+      }) async {
+        return const GpxTrackImportResult(
+          items: [],
+          addedCount: 1234,
+          unchangedCount: 1234,
+          unsupportedCount: 1234,
+          errorCount: 1234,
+        );
+      }
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                child: const Text('Open'),
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (_) => GpxImportDialog(
+                    filePicker: _FakeSelectedGpxFilePicker([file.path]),
+                    importAsRoute: false,
+                    prefilledNameResolver: fastPrefilledNameResolver,
+                    onImport: importRunner,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('gpx-import-select-files')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('gpx-import-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Import Complete'), findsOneWidget);
+      expect(find.text('1,234 track(s) added'), findsOneWidget);
+      expect(find.text('1,234 unchanged'), findsOneWidget);
+      expect(find.text('1,234 unsupported'), findsOneWidget);
+      expect(find.text('1,234 error(s)'), findsOneWidget);
     });
 
     testWidgets('shows select files button', (tester) async {

@@ -30,9 +30,9 @@ void main() {
           basemap: Basemap.tracestrack,
         ),
         refreshHandler: () async => const PeakRefreshResult(
-          importedCount: 3,
-          skippedCount: 1,
-          warning: '1 peaks skipped',
+          importedCount: 1234,
+          skippedCount: 1234,
+          warning: '1,234 peaks skipped',
         ),
       ),
     );
@@ -43,7 +43,7 @@ void main() {
 
     await robot.confirmRefresh();
     expect(robot.notifier.refreshCallCount, 1);
-    robot.expectResultVisible('3', warning: '1 peaks skipped');
+    robot.expectResultVisible('1,234', warning: '1,234 peaks skipped');
   });
 
   testWidgets('refresh peak data flow shows failure dialog', (tester) async {
@@ -137,9 +137,9 @@ void main() {
     );
     expect(robot.notifier.state.selectedPeakListId, 999);
     expect(
-      decodePeakListItems(repository.findByName('Tassy Full')!.peakList)
-          .map((item) => (item.peakOsmId, item.points))
-          .toList(),
+      decodePeakListItems(
+        repository.findByName('Tassy Full')!.peakList,
+      ).map((item) => (item.peakOsmId, item.points)).toList(),
       [(11, 5), (22, 4), (33, 1)],
     );
   });

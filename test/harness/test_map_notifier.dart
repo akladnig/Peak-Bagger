@@ -26,6 +26,7 @@ import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/waypoints_repository.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/models/waypoints.dart';
+import 'package:peak_bagger/core/number_formatters.dart';
 
 class TestMapNotifier extends MapNotifier {
   TestMapNotifier(
@@ -1041,7 +1042,7 @@ class TestMapNotifier extends MapNotifier {
       showTracks: false,
       tracks: const [],
       trackOperationStatus:
-          'Imported 1, replaced 0, unchanged 0, unsupported 0, errors 0',
+          'Imported ${formatCount(1)}, replaced ${formatCount(0)}, unchanged ${formatCount(0)}, unsupported ${formatCount(0)}, errors ${formatCount(0)}',
       trackOperationWarning: null,
       clearHoveredTrackId: true,
       clearSelectedTrackId: true,
@@ -1065,7 +1066,7 @@ class TestMapNotifier extends MapNotifier {
       isLoadingTracks: false,
       tracks: recalcTracks ?? state.tracks,
       trackOperationStatus:
-          'Updated $recalcUpdatedCount tracks, refreshed peak correlation, skipped $recalcSkippedCount tracks',
+          'Updated ${formatCount(recalcUpdatedCount)} tracks, refreshed peak correlation, skipped ${formatCount(recalcSkippedCount)} tracks',
       trackOperationWarning: recalcWarning,
       clearSelectedTrackId: true,
     );

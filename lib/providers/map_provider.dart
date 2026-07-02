@@ -61,6 +61,7 @@ import 'package:peak_bagger/main.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 
 import '../core/constants.dart';
+import '../core/number_formatters.dart';
 
 export 'package:peak_bagger/services/peak_info_content_resolver.dart';
 export 'package:peak_bagger/services/region_manifest_catalog.dart';
@@ -1591,7 +1592,7 @@ class MapNotifier extends Notifier<MapState> {
       }
       final statusMessage = result.noGpxFilesFound
           ? 'No GPX files found in watched folder'
-          : 'Imported ${result.importedCount}, replaced ${result.replacedCount}, unchanged ${result.unchangedCount}, unsupported ${result.unsupportedCount}, errors ${result.errorSkippedCount}';
+          : 'Imported ${formatCount(result.importedCount)}, replaced ${formatCount(result.replacedCount)}, unchanged ${formatCount(result.unchangedCount)}, unsupported ${formatCount(result.unsupportedCount)}, errors ${formatCount(result.errorSkippedCount)}';
       if (surfaceNotifications) {
         _pendingTrackSnackbarMessage = statusMessage;
       }
@@ -2113,7 +2114,7 @@ class MapNotifier extends Notifier<MapState> {
           : null;
       final hasRecoveryIssue = _hasTrackRecoveryIssue(refreshedTracks);
       final statusMessage =
-          'Updated $updatedCount tracks, refreshed peak correlation, skipped $skippedCount tracks';
+          'Updated ${formatCount(updatedCount)} tracks, refreshed peak correlation, skipped ${formatCount(skippedCount)} tracks';
 
       state = state.copyWith(
         tracks: refreshedTracks,
@@ -4467,7 +4468,10 @@ class MapNotifier extends Notifier<MapState> {
     );
   }
 
-  void pinPeakListForRegion({required String regionKey, required int peakListId}) {
+  void pinPeakListForRegion({
+    required String regionKey,
+    required int peakListId,
+  }) {
     final normalizedRegionKey = canonicalRegionKey(
       normalizePeakListRegionKey(regionKey),
     );
