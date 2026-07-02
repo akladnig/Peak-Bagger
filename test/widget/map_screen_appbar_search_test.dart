@@ -25,9 +25,16 @@ void main() {
   ) async {
     await _pumpApp(tester, TestMapNotifier(_baseState()));
 
+    final appBarRect = tester.getRect(find.byKey(const Key('shared-app-bar')));
+    final searchRect = tester.getRect(
+      find.byKey(const Key('app-bar-search-trigger')),
+    );
+
     expect(find.byKey(const Key('shared-app-bar')), findsOneWidget);
     expect(find.byKey(const Key('app-bar-title')), findsOneWidget);
     expect(find.byKey(const Key('app-bar-search-trigger')), findsOneWidget);
+    expect(find.byKey(const Key('app-bar-home')), findsNothing);
+    expect(searchRect.center.dx, closeTo(appBarRect.center.dx, 1.0));
   });
 
   testWidgets('popup renders peak track route and map results', (tester) async {
@@ -45,6 +52,7 @@ void main() {
     await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('map-search-input')), 'Bonnet');
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
 
     expect(find.text('Bonnet Hill'), findsOneWidget);
@@ -73,6 +81,7 @@ void main() {
     await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('map-search-input')), 'Bonnet');
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('map-search-result-track-1')));
@@ -83,6 +92,7 @@ void main() {
     await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('map-search-input')), 'Bonnet');
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('map-search-result-route-1')));
@@ -93,6 +103,7 @@ void main() {
     await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('map-search-input')), 'Alpha');
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
 
     await tester.tap(

@@ -13,7 +13,7 @@ class DashboardRobot {
   final WidgetTester tester;
   late ProviderContainer container;
 
-  Finder get homeButton => find.byKey(const Key('app-bar-home'));
+  Finder get dashboardButton => find.byKey(const Key('nav-dashboard'));
   Finder get mapButton => find.byKey(const Key('nav-map'));
   Finder get board => find.byKey(const Key('dashboard-board'));
   Finder card(String id) => find.byKey(Key('dashboard-card-$id'));
@@ -70,7 +70,7 @@ class DashboardRobot {
   }
 
   Future<void> openDashboard() async {
-    await tester.tap(homeButton);
+    await tester.tap(dashboardButton);
     await tester.pumpAndSettle();
   }
 

@@ -14,6 +14,8 @@ import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 
 class MapSearchService {
+  static const _maxResults = 20;
+
   MapSearchService({
     required PeakRepository peakRepository,
     required GpxTrackRepository gpxTrackRepository,
@@ -34,7 +36,10 @@ class MapSearchService {
     if (trimmedQuery.isEmpty) {
       return const [];
     }
-    return _peakRepository.searchPeaks(trimmedQuery).take(20).toList();
+    return _peakRepository
+        .searchPeaks(trimmedQuery)
+        .take(_maxResults)
+        .toList(growable: false);
   }
 
   List<MapSearchResult> search({
@@ -50,27 +55,28 @@ class MapSearchService {
 
     final results = switch (entityFilter) {
       MapSearchEntityFilter.all => [
-        ..._peakResults(trimmedQuery),
-        ..._trackResults(trimmedQuery),
-        ..._routeResults(trimmedQuery),
-        ..._mapResults(trimmedQuery),
+        ..._peakResults(trimmedQuery, regionKey: regionKey),
+        ..._trackResults(trimmedQuery, regionKey: regionKey),
+        ..._routeResults(trimmedQuery, regionKey: regionKey),
+        ..._mapResults(trimmedQuery, regionKey: regionKey),
       ],
-      MapSearchEntityFilter.peaks => _peakResults(trimmedQuery),
+      MapSearchEntityFilter.peaks => _peakResults(
+        trimmedQuery,
+        regionKey: regionKey,
+      ),
       MapSearchEntityFilter.tracksRoutes => [
-        ..._trackResults(trimmedQuery),
-        ..._routeResults(trimmedQuery),
+        ..._trackResults(trimmedQuery, regionKey: regionKey),
+        ..._routeResults(trimmedQuery, regionKey: regionKey),
       ],
-      MapSearchEntityFilter.maps => _mapResults(trimmedQuery),
+      MapSearchEntityFilter.maps => _mapResults(
+        trimmedQuery,
+        regionKey: regionKey,
+      ),
       MapSearchEntityFilter.natural ||
       MapSearchEntityFilter.roads => const <MapSearchResult>[],
     };
 
-    final filteredResults = regionKey == null
-        ? results
-        : results
-              .where((result) => result.regionKey == regionKey)
-              .toList(growable: false);
-    final sortedResults = List<MapSearchResult>.from(filteredResults)
+    final sortedResults = List<MapSearchResult>.from(results)
       ..sort((left, right) {
         final comparison = left.normalizedTitle.compareTo(
           right.normalizedTitle,
@@ -80,51 +86,56 @@ class MapSearchService {
         }
         return left.id.compareTo(right.id);
       });
-    if (sortedResults.length <= 20) {
+    if (sortedResults.length <= _maxResults) {
       return sortedResults;
     }
-    return sortedResults.take(20).toList(growable: false);
+    return sortedResults.take(_maxResults).toList(growable: false);
   }
 
-  List<MapSearchResult> _peakResults(String query) {
+  List<MapSearchResult> _peakResults(String query, {String? regionKey}) {
     return _peakRepository
         .searchPeaks(query)
-        .map((peak) => _peakResult(peak))
+        .map((peak) => _peakResult(peak, regionKey: regionKey))
+        .whereType<MapSearchResult>()
         .toList(growable: false);
   }
 
-  List<MapSearchResult> _trackResults(String query) {
+  List<MapSearchResult> _trackResults(String query, {String? regionKey}) {
     final loweredQuery = query.toLowerCase();
     return _gpxTrackRepository
         .getAllTracks()
         .where((track) => track.trackName.toLowerCase().contains(loweredQuery))
-        .map(_trackResult)
+        .map((track) => _trackResult(track, regionKey: regionKey))
         .whereType<MapSearchResult>()
         .toList(growable: false);
   }
 
-  List<MapSearchResult> _routeResults(String query) {
+  List<MapSearchResult> _routeResults(String query, {String? regionKey}) {
     final loweredQuery = query.toLowerCase();
     return _routeRepository
         .getAllRoutes()
         .where((route) => route.name.toLowerCase().contains(loweredQuery))
-        .map(_routeResult)
+        .map((route) => _routeResult(route, regionKey: regionKey))
         .whereType<MapSearchResult>()
         .toList(growable: false);
   }
 
-  List<MapSearchResult> _mapResults(String query) {
+  List<MapSearchResult> _mapResults(String query, {String? regionKey}) {
     return _tasmapRepository
         .findByName(query)
-        .map(_mapResult)
+        .map((map) => _mapResult(map, regionKey: regionKey))
         .whereType<MapSearchResult>()
         .toList(growable: false);
   }
 
-  MapSearchResult _peakResult(Peak peak) {
+  MapSearchResult? _peakResult(Peak peak, {String? regionKey}) {
     final anchor = LatLng(peak.latitude, peak.longitude);
-    final mapName = _mapNameForPoint(anchor);
     final regionData = _regionForPoint(anchor, fallbackRegionKey: peak.region);
+    final resolvedRegionKey = regionData?.key ?? peak.region;
+    if (!_matchesRegion(resolvedRegionKey, regionKey)) {
+      return null;
+    }
+    final mapName = _mapNameForPoint(anchor);
     final subtitle = _joinSummaryParts([mapName, regionData?.name]);
     return MapSearchResult.peak(
       id: '${peak.osmId}',
@@ -134,20 +145,23 @@ class MapSearchService {
       trailingText: peak.elevation == null
           ? '—'
           : formatElevation(peak.elevation!.round()),
-      regionKey: regionData?.key ?? peak.region,
+      regionKey: resolvedRegionKey,
       regionName: regionData?.name,
       mapName: mapName,
       peak: peak,
     );
   }
 
-  MapSearchResult? _trackResult(GpxTrack track) {
+  MapSearchResult? _trackResult(GpxTrack track, {String? regionKey}) {
     final anchor = _firstPointForTrack(track);
     if (anchor == null) {
       return null;
     }
-    final mapName = _mapNameForPoint(anchor);
     final regionData = _regionForPoint(anchor);
+    if (!_matchesRegion(regionData?.key, regionKey)) {
+      return null;
+    }
+    final mapName = _mapNameForPoint(anchor);
     return MapSearchResult.track(
       id: '${track.gpxTrackId}',
       title: track.trackName.trim().isEmpty ? 'Unnamed Track' : track.trackName,
@@ -165,13 +179,16 @@ class MapSearchService {
     );
   }
 
-  MapSearchResult? _routeResult(app_route.Route route) {
+  MapSearchResult? _routeResult(app_route.Route route, {String? regionKey}) {
     final anchor = _firstPointForRoute(route);
     if (anchor == null) {
       return null;
     }
-    final mapName = _mapNameForPoint(anchor);
     final regionData = _regionForPoint(anchor);
+    if (!_matchesRegion(regionData?.key, regionKey)) {
+      return null;
+    }
+    final mapName = _mapNameForPoint(anchor);
     return MapSearchResult.route(
       id: '${route.id}',
       title: route.name.trim().isEmpty ? 'Unnamed Route' : route.name,
@@ -191,12 +208,15 @@ class MapSearchService {
     );
   }
 
-  MapSearchResult? _mapResult(Tasmap50k map) {
+  MapSearchResult? _mapResult(Tasmap50k map, {String? regionKey}) {
     final anchor = _anchorForMap(map);
     if (anchor == null) {
       return null;
     }
     final regionData = _regionForPoint(anchor);
+    if (!_matchesRegion(regionData?.key, regionKey)) {
+      return null;
+    }
     return MapSearchResult.map(
       id: '${map.id}:${map.series}:${map.name}',
       title: map.name,
@@ -281,6 +301,10 @@ class MapSearchService {
       return null;
     }
     return regionManifestCatalog.regionByKey(fallbackRegionKey);
+  }
+
+  bool _matchesRegion(String? resolvedRegionKey, String? regionKey) {
+    return regionKey == null || resolvedRegionKey == regionKey;
   }
 
   String _joinSummaryParts(Iterable<String?> parts) {

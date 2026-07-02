@@ -28,7 +28,6 @@ class ObjectBoxAdminRobot {
 
   Finder get adminMenuItem => find.byKey(const Key('nav-objectbox-admin'));
   Finder get appBarTitle => find.byKey(const Key('app-bar-title'));
-  Finder get homeAction => find.byKey(const Key('app-bar-home'));
   Finder get entityDropdown =>
       find.byKey(const Key('objectbox-admin-entity-dropdown'));
   Finder get schemaDataToggle =>

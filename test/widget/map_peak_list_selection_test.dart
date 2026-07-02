@@ -6,6 +6,7 @@ import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 
 import '../harness/test_map_notifier.dart';
@@ -85,6 +86,49 @@ void main() {
     );
 
     expect(find.byKey(const Key('peak-list-selection-summary')), findsOneWidget);
+  });
+
+  testWidgets('summary stays to the right of centered search without clipping', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await _pumpApp(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        peakListSelectionMode: PeakListSelectionMode.specificList,
+        selectedPeakListIds: {1, 2, 3},
+      ),
+      peakListRepository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(name: 'Abels', peakList: '[]')..peakListId = 1,
+          PeakList(name: 'HWC Peak Baggers', peakList: '[]')..peakListId = 2,
+          PeakList(name: 'Poimena Reserve West Ridge', peakList: '[]')
+            ..peakListId = 3,
+        ]),
+      ),
+    );
+    router.go('/map');
+    await tester.pumpAndSettle();
+
+    final appBarRect = tester.getRect(find.byKey(const Key('shared-app-bar')));
+    final searchRect = tester.getRect(
+      find.byKey(const Key('app-bar-search-trigger')),
+    );
+    final summaryRect = tester.getRect(
+      find.byKey(const Key('peak-list-selection-summary')),
+    );
+    final rightChipRect = tester.getRect(
+      find.byKey(const Key('peak-list-selection-chip-3')),
+    );
+
+    expect(searchRect.center.dx, closeTo(appBarRect.center.dx, 1.0));
+    expect(summaryRect.left, greaterThan(searchRect.right));
+    expect(rightChipRect.right, lessThanOrEqualTo(appBarRect.right));
   });
 }
 

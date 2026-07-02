@@ -21,12 +21,10 @@ class PeakListSelectionSummaryStrip extends StatelessWidget {
 
     return KeyedSubtree(
       key: const Key('peak-list-selection-summary'),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 320),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(children: chips),
-        ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        reverse: true,
+        child: Row(children: chips),
       ),
     );
   }
