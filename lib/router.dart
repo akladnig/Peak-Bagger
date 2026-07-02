@@ -257,46 +257,12 @@ GoRouter createRouter() {
                   key: const Key('shared-app-bar'),
                   automaticallyImplyLeading: false,
                   centerTitle: false,
-                  leadingWidth: RouterConstants.wideNavigationWidth,
-                  leading: Center(
-                    child: IconButton(
-                      key: const Key('app-bar-home'),
-                      tooltip: 'Dashboard',
-                      onPressed: () {
-                        goToDestination(shellDestinations.first);
-                      },
-                      icon: const FaIcon(FontAwesomeIcons.mountain),
-                    ),
-                  ),
                   titleSpacing: 0,
-                  title: Row(
-                    children: [
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: KeyedSubtree(
-                            key: const Key('app-bar-title'),
-                            child: Text(currentDestination.title),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Center(
-                          child: currentDestination.branchIndex == 1
-                              ? const _AppBarSearchTrigger()
-                              : const SizedBox.shrink(),
-                        ),
-                      ),
-                    ],
+                  title: _SharedAppBarTitle(
+                    currentDestination: currentDestination,
+                    showSearch: currentDestination.branchIndex == 1,
+                    summary: ref.watch(peakListSelectionSummaryProvider),
                   ),
-                  actions: [
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: PeakListSelectionSummaryStrip(
-                        summary: ref.watch(peakListSelectionSummaryProvider),
-                      ),
-                    ),
-                  ],
                 ),
                 body: buildShellBody(),
               );
@@ -357,6 +323,117 @@ GoRouter createRouter() {
       ),
     ],
   );
+}
+
+class _SharedAppBarTitle extends StatelessWidget {
+  const _SharedAppBarTitle({
+    required this.currentDestination,
+    required this.showSearch,
+    required this.summary,
+  });
+
+  static const _centerSearchWidth = 220.0;
+  static const _laneGap = 12.0;
+
+  final ShellDestination currentDestination;
+  final bool showSearch;
+  final PeakListSelectionSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (!showSearch) {
+                  return Row(
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(
+                    left: RouterConstants.wideNavigationWidth,
+                    right: _laneGap,
+                  ),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: KeyedSubtree(
+                      key: const Key('app-bar-title'),
+                      child: Text(
+                        currentDestination.title,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: _laneGap, right: 8),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: PeakListSelectionSummaryStrip(summary: summary),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+
+        final sideWidth =
+            (constraints.maxWidth - _centerSearchWidth).clamp(0.0, double.infinity) /
+            2;
+        final laneWidth = sideWidth > _laneGap ? sideWidth - _laneGap : sideWidth;
+
+        return SizedBox(
+          height: kToolbarHeight,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: laneWidth,
+                child: Padding(
+                  padding: const EdgeInsets.only(
+                    left: RouterConstants.wideNavigationWidth,
+                    right: _laneGap,
+                  ),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: KeyedSubtree(
+                      key: const Key('app-bar-title'),
+                      child: Text(
+                        currentDestination.title,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const Center(
+                child: SizedBox(
+                  width: _centerSearchWidth,
+                  child: Center(child: _AppBarSearchTrigger()),
+                ),
+              ),
+              Positioned(
+                right: 0,
+                top: 0,
+                bottom: 0,
+                width: laneWidth,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: _laneGap, right: 8),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: PeakListSelectionSummaryStrip(summary: summary),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _AppBarSearchTrigger extends ConsumerWidget {

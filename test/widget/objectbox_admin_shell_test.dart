@@ -341,7 +341,7 @@ void main() {
     );
   });
 
-  testWidgets('home action returns to dashboard and is a no-op there', (
+  testWidgets('dashboard nav returns to dashboard and is a no-op there', (
     tester,
   ) async {
     await _pumpApp(tester);
@@ -356,7 +356,7 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(find.byKey(const Key('app-bar-home')));
+    await tester.tap(find.byKey(const Key('nav-dashboard')));
     await tester.pumpAndSettle();
 
     expect(
@@ -367,7 +367,7 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(find.byKey(const Key('app-bar-home')));
+    await tester.tap(find.byKey(const Key('nav-dashboard')));
     await tester.pumpAndSettle();
 
     expect(
@@ -399,21 +399,15 @@ void main() {
   });
 
   testWidgets(
-    'wide home icon aligns with nav icons and title is left-aligned',
+    'shared app bar omits the home icon and keeps the title left-aligned',
     (tester) async {
       await _pumpApp(tester);
 
-      final homeCenter = tester.getCenter(
-        find.byKey(const Key('app-bar-home')),
-      );
-      final dashboardCenter = tester.getCenter(
-        find.byKey(const Key('nav-dashboard')),
-      );
       final titleTopLeft = tester.getTopLeft(
         find.byKey(const Key('app-bar-title')),
       );
 
-      expect(homeCenter.dx, greaterThan(dashboardCenter.dx));
+      expect(find.byKey(const Key('app-bar-home')), findsNothing);
       expect(
         titleTopLeft.dx,
         closeTo(RouterConstants.wideNavigationWidth, 0.001),
