@@ -31,16 +31,16 @@ Thin slice first: explicit theme contract, then direct panel consumer, then othe
 ### Phase 2: Panel Foreground Slice
 
 - **Goal**: `secondary` panel surface + local `onSecondary` foreground contract
-- [ ] `lib/screens/map_screen_panels.dart` - add panel-scoped foreground override for `MapTrackInfoPanel`; direct descendants on the `secondary` card resolve text/icon semantics from `colorScheme.onSecondary`
-- [ ] `lib/screens/map_screen_panels.dart` - remove panel-local `onSurface` icon coloring for close, edit, timing info, recalc, walking-speed controls where they are direct panel foreground descendants
-- [ ] `lib/screens/map_screen_panels.dart` - keep visibility `Switch` default Material semantics; no local thumb/track/overlay overrides
-- [ ] `lib/screens/map_screen_panels.dart` - keep export control as separate button surface via `FilledButton.icon`; no manual icon color or local foreground override
-- [ ] `test/widget/map_track_info_panel_test.dart` - pump `CatppuccinColors.light`; assert panel card uses `secondary`, direct descendants use `onSecondary`, switch stays default, export button does not inherit panel override
-- [ ] `test/widget/map_route_info_panel_test.dart` - pump `CatppuccinColors.light`; assert route branch timing labels/icons/edit-close controls follow panel contract; export button and switch remain explicit exceptions
-- [ ] TDD: track branch panel title, section titles, row labels/values, close icon, visibility label resolve to `onSecondary` -> then implement
-- [ ] TDD: route branch edit/close, timing info/recalculate icons, timing labels, walking-speed controls resolve to `onSecondary` -> then implement
-- [ ] TDD: switch keeps default semantics; export button stays separate surface and avoids inherited `onSecondary` foreground -> then implement
-- [ ] Verify: `flutter analyze` && `flutter test test/widget/map_track_info_panel_test.dart` && `flutter test test/widget/map_route_info_panel_test.dart` && `flutter test`
+- [x] `lib/screens/map_screen_panels.dart` - add panel-scoped foreground override for `MapTrackInfoPanel`; direct descendants on the `secondary` card resolve text/icon semantics from `colorScheme.onSecondary`
+- [x] `lib/screens/map_screen_panels.dart` - remove panel-local `onSurface` icon coloring for close, edit, timing info, recalc, walking-speed controls where they are direct panel foreground descendants
+- [x] `lib/screens/map_screen_panels.dart` - keep visibility `Switch` default Material semantics; no local thumb/track/overlay overrides
+- [x] `lib/screens/map_screen_panels.dart` - keep export control as separate button surface via `FilledButton.icon`; no manual icon color or local foreground override
+- [x] `test/widget/map_track_info_panel_test.dart` - pump `CatppuccinColors.light`; assert panel card uses `secondary`, direct descendants use `onSecondary`, switch stays default, export button does not inherit panel override
+- [x] `test/widget/map_route_info_panel_test.dart` - pump `CatppuccinColors.light`; assert route branch timing labels/icons/edit-close controls follow panel contract; export button and switch remain explicit exceptions
+- [x] TDD: track branch panel title, section titles, row labels/values, close icon, visibility label resolve to `onSecondary` -> then implement
+- [x] TDD: route branch edit/close, timing info/recalculate icons, timing labels, walking-speed controls resolve to `onSecondary` -> then implement
+- [x] TDD: switch keeps default semantics; export button stays separate surface and avoids inherited `onSecondary` foreground -> then implement
+- [x] Verify: `flutter analyze` && `flutter test test/widget/map_track_info_panel_test.dart` && `flutter test test/widget/map_route_info_panel_test.dart` && `flutter test`
 
 ### Phase 3: Consumer Regression Slice
 

@@ -9,6 +9,7 @@ import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/screens/map_screen_panels.dart';
 import 'package:peak_bagger/services/route_timing_service.dart';
+import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/elevation_profile_chart.dart';
 
 void main() {
@@ -29,6 +30,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: CatppuccinColors.light,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -63,6 +65,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: CatppuccinColors.light,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -111,6 +114,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: CatppuccinColors.light,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -179,6 +183,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: CatppuccinColors.light,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -229,6 +234,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: CatppuccinColors.light,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -299,6 +305,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: CatppuccinColors.light,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -351,6 +358,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: CatppuccinColors.light,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -399,6 +407,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: CatppuccinColors.light,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -448,6 +457,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: CatppuccinColors.light,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -488,6 +498,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: CatppuccinColors.light,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -529,6 +540,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: CatppuccinColors.light,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -556,6 +568,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: CatppuccinColors.light,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -593,6 +606,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: CatppuccinColors.light,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -648,6 +662,130 @@ void main() {
     expect(tester.widget<Switch>(switchFinder).value, isFalse);
   });
 
+  testWidgets('uses scoped onSecondary semantics for route content only', (
+    tester,
+  ) async {
+    final route = app_route.Route(
+      name: 'Timed Route',
+      distance2d: 17450,
+      distance3d: 17920,
+      ascent: 912,
+      descent: 456,
+      estimatedTime: 5400000,
+      routeTimingSource: RouteTimingSources.verifiedWalk,
+      walkingSpeedKmh: 4.0,
+      visible: true,
+      gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.5, 146.51)],
+      gpxRouteElevations: const [100, 120],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: CatppuccinColors.light,
+        home: Scaffold(
+          body: SizedBox(
+            width: 600,
+            child: MapTrackInfoPanel(
+              route: route,
+              onClose: () {},
+              onEdit: () {},
+              onExport: () {},
+              onVisibilityChanged: (_) {},
+              onRouteWalkingSpeedChanged: (_) {},
+              onRouteTimingRecalculate: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final contentThemeFinder = find.byKey(
+      const Key('track-info-panel-content-theme'),
+    );
+    final contentTheme = tester.widget<Theme>(contentThemeFinder).data;
+    final visibilitySwitch = tester.widget<Switch>(
+      find.byKey(const Key('track-info-panel-visibility-switch')),
+    );
+    final editIcon = tester.widget<Icon>(
+      find.descendant(
+        of: find.byKey(const Key('track-info-panel-edit-button')),
+        matching: find.byIcon(Icons.edit),
+      ),
+    );
+    final closeIcon = tester.widget<Icon>(
+      find.descendant(
+        of: find.byKey(const Key('track-info-panel-close')),
+        matching: find.byIcon(Icons.close),
+      ),
+    );
+    final infoIcon = tester.widget<Icon>(
+      find.descendant(
+        of: find.byKey(const Key('route-estimated-time-naismith-info')),
+        matching: find.byIcon(Icons.info_outline),
+      ),
+    );
+    final recalculateIcon = tester.widget<Icon>(
+      find.descendant(
+        of: find.byKey(const Key('route-estimated-time-scarf-recalculate')),
+        matching: find.byIcon(Icons.refresh),
+      ),
+    );
+    final exportButton = tester.widget<FilledButton>(
+      find.byKey(const Key('track-info-panel-export-button')),
+    );
+    final exportIcon = tester.widget<Icon>(
+      find.descendant(
+        of: find.byKey(const Key('track-info-panel-export-button')),
+        matching: find.byIcon(Icons.download),
+      ),
+    );
+
+    expect(contentTheme.iconTheme.color, contentTheme.colorScheme.onSecondary);
+    expect(
+      contentTheme.textTheme.titleMedium?.color,
+      contentTheme.colorScheme.onSecondary,
+    );
+    expect(
+      contentTheme.textTheme.bodySmall?.color,
+      contentTheme.colorScheme.onSecondary,
+    );
+    expect(editIcon.color, isNull);
+    expect(closeIcon.color, isNull);
+    expect(infoIcon.color, isNull);
+    expect(recalculateIcon.color, isNull);
+    expect(
+      DefaultTextStyle.of(
+        tester.element(
+          find.descendant(
+            of: find.byKey(const Key('route-estimated-time-naismith-row')),
+            matching: find.text('1h 30m'),
+          ),
+        ),
+      ).style.color,
+      contentTheme.colorScheme.onSecondary,
+    );
+    expect(
+      tester.widget<Text>(find.text('Walking Speed')).style?.color,
+      contentTheme.colorScheme.onSecondary,
+    );
+    expect(
+      DefaultTextStyle.of(tester.element(find.text('km/h'))).style.color,
+      contentTheme.colorScheme.onSecondary,
+    );
+    expect(
+      find.descendant(
+        of: contentThemeFinder,
+        matching: find.byKey(const Key('track-info-panel-export-button')),
+      ),
+      findsNothing,
+    );
+    expect(visibilitySwitch.thumbColor, isNull);
+    expect(visibilitySwitch.trackColor, isNull);
+    expect(visibilitySwitch.overlayColor, isNull);
+    expect(exportButton.style, isNull);
+    expect(exportIcon.color, isNull);
+  });
+
   testWidgets('renders manual-route timing rows for untimed route source', (
     tester,
   ) async {
@@ -665,6 +803,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: CatppuccinColors.light,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -712,6 +851,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: CatppuccinColors.light,
         home: Scaffold(
           body: SizedBox(
             width: 600,
