@@ -45,13 +45,13 @@ Thin slice first: explicit theme contract, then direct panel consumer, then othe
 ### Phase 3: Consumer Regression Slice
 
 - **Goal**: real `primaryContainer` and `surfaceContainer` consumers guarded
-- [ ] `test/widget/objectbox_admin_shell_test.dart` - add concrete `SideMenu` selected/unselected inversion assertions against `primaryContainer` and theme icon color; add `test/widget/side_menu_test.dart` only if shell assertions are too indirect
-- [ ] `test/widget/elevation_profile_chart_test.dart` - pump `CatppuccinColors.light`; assert disabled time toggle background resolves from `theme.colorScheme.surfaceContainer`
-- [ ] `lib/widgets/side_menu.dart` - touch only if tests expose a mismatch between selected/unselected inversion and centralized theme contract
-- [ ] `lib/widgets/elevation_profile_chart.dart` - touch only if test exposes a missing seam or non-theme fallback
-- [ ] TDD: real `primaryContainer` consumer preserves selected/unselected inversion under light theme -> then implement only if failing
-- [ ] TDD: disabled time toggle resolves disabled background from `surfaceContainer` under light theme -> then implement only if failing
-- [ ] Verify: `flutter analyze` && `flutter test test/widget/objectbox_admin_shell_test.dart` && `flutter test test/widget/elevation_profile_chart_test.dart` && `flutter test`
+- [x] `test/widget/objectbox_admin_shell_test.dart` - add concrete `SideMenu` selected/unselected inversion assertions against `primaryContainer` and theme icon color; add `test/widget/side_menu_test.dart` only if shell assertions are too indirect
+- [x] `test/widget/elevation_profile_chart_test.dart` - pump `CatppuccinColors.light`; assert disabled time toggle background resolves from `theme.colorScheme.surfaceContainer`
+- [x] `lib/widgets/side_menu.dart` - no production change needed; shell assertions confirmed selected/unselected inversion matches the centralized theme contract
+- [x] `lib/widgets/elevation_profile_chart.dart` - no production change needed; disabled time toggle already resolves from the theme seam
+- [x] TDD: real `primaryContainer` consumer preserves selected/unselected inversion under light theme -> then implement only if failing
+- [x] TDD: disabled time toggle resolves disabled background from `surfaceContainer` under light theme -> then implement only if failing
+- [x] Verify: `flutter analyze` && `flutter test test/widget/objectbox_admin_shell_test.dart` && `flutter test test/widget/elevation_profile_chart_test.dart` && `flutter test`
 
 ## Risks / Out of scope
 

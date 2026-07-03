@@ -341,6 +341,60 @@ void main() {
     );
   });
 
+  testWidgets('side menu selected and unselected icons invert against primaryContainer', (
+    tester,
+  ) async {
+    await _pumpApp(tester, size: const Size(1280, 900));
+
+    final theme = Theme.of(tester.element(find.byKey(const Key('shared-app-bar'))));
+    await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+    await tester.pumpAndSettle();
+
+    final selectedAdminButton = tester.widget<IconButton>(
+      find.descendant(
+        of: find.byKey(const Key('nav-objectbox-admin')),
+        matching: find.byType(IconButton),
+      ),
+    );
+    final unselectedDashboardButton = tester.widget<IconButton>(
+      find.descendant(
+        of: find.byKey(const Key('nav-dashboard')),
+        matching: find.byType(IconButton),
+      ),
+    );
+    expect(selectedAdminButton.isSelected, isTrue);
+    expect(unselectedDashboardButton.isSelected, isFalse);
+
+    final selectedAdminStates = selectedAdminButton.isSelected == true
+        ? {WidgetState.selected}
+        : <WidgetState>{};
+    final unselectedDashboardStates =
+        unselectedDashboardButton.isSelected == true
+        ? {WidgetState.selected}
+        : <WidgetState>{};
+
+    expect(
+      selectedAdminButton.style!.backgroundColor!.resolve(selectedAdminStates),
+      theme.iconTheme.color,
+    );
+    expect(
+      selectedAdminButton.style!.foregroundColor!.resolve(selectedAdminStates),
+      theme.colorScheme.primaryContainer,
+    );
+    expect(
+      unselectedDashboardButton.style!.backgroundColor!.resolve(
+        unselectedDashboardStates,
+      ),
+      theme.colorScheme.primaryContainer,
+    );
+    expect(
+      unselectedDashboardButton.style!.foregroundColor!.resolve(
+        unselectedDashboardStates,
+      ),
+      theme.iconTheme.color,
+    );
+  });
+
   testWidgets('dashboard nav returns to dashboard and is a no-op there', (
     tester,
   ) async {
