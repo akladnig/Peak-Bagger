@@ -166,7 +166,7 @@ class PeakListCsvExportService {
         continue;
       }
 
-      final csvText = const ListToCsvConverter(eol: '\n').convert(rows);
+      final csvText = const CsvEncoder(lineDelimiter: '\n').convert(rows);
       final outputPath = p.join(outputDirectory.path, fileName);
       try {
         await _fileWriter.write(outputPath, csvText);

@@ -80,10 +80,7 @@ class PeakBaggerCsvImportService {
     String contents, {
     bool includeSyncColumns = true,
   }) {
-    final rows = const CsvToListConverter(
-      shouldParseNumbers: false,
-      eol: '\n',
-    ).convert(contents);
+    final rows = const CsvDecoder().convert(contents);
     if (rows.isEmpty) {
       final document = PeakBaggerCsvDocument(headers: const [], rows: const []);
       _ensureSyncColumns(document);
@@ -114,7 +111,7 @@ class PeakBaggerCsvImportService {
       document.headers,
       ...document.rows.map((row) => row.cells),
     ];
-    return const ListToCsvConverter(eol: '\n').convert(rows);
+    return const CsvEncoder(lineDelimiter: '\n').convert(rows);
   }
 
   int? peakbaggerPidForRow(PeakBaggerCsvDocument document, int rowIndex) {

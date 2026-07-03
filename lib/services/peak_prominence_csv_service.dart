@@ -51,15 +51,13 @@ class PeakProminenceCsvRow {
 
 class PeakProminenceCsvDocument {
   PeakProminenceCsvDocument({required List<PeakProminenceCsvRow> rows})
-      : rows = List<PeakProminenceCsvRow>.unmodifiable(rows);
+    : rows = List<PeakProminenceCsvRow>.unmodifiable(rows);
 
   final List<PeakProminenceCsvRow> rows;
 
   String write() {
-    final csvRows = <List<dynamic>>[
-      for (final row in rows) row.toCsvRow(),
-    ];
-    return const ListToCsvConverter(eol: '\n').convert(csvRows);
+    final csvRows = <List<dynamic>>[for (final row in rows) row.toCsvRow()];
+    return const CsvEncoder(lineDelimiter: '\n').convert(csvRows);
   }
 }
 
@@ -68,7 +66,9 @@ class PeakProminenceCsvService {
 
   PeakProminenceCsvDocument parse(String contents) {
     return PeakProminenceCsvDocument(
-      rows: parseRows(const LineSplitter().convert(contents)).toList(growable: false),
+      rows: parseRows(
+        const LineSplitter().convert(contents),
+      ).toList(growable: false),
     );
   }
 
@@ -100,7 +100,8 @@ class PeakProminenceCsvService {
     double? previousProminence;
     for (final row in document.rows) {
       final currentProminence = row.prominence;
-      if (previousProminence != null && currentProminence > previousProminence) {
+      if (previousProminence != null &&
+          currentProminence > previousProminence) {
         throw PeakProminenceCsvFormatException(
           'expected prominence to be sorted descending, but line ${row.lineNumber} has ${currentProminence.toStringAsFixed(2)} after ${previousProminence.toStringAsFixed(2)}',
           lineNumber: row.lineNumber,
@@ -115,7 +116,10 @@ class PeakProminenceCsvService {
     required int lineNumber,
     required int column,
   }) {
-    final text = '$value'.replaceAll('\r', '').replaceFirst('\uFEFF', '').trim();
+    final text = '$value'
+        .replaceAll('\r', '')
+        .replaceFirst('\uFEFF', '')
+        .trim();
     final parsed = double.tryParse(text);
     if (parsed == null) {
       throw PeakProminenceCsvFormatException(
@@ -145,8 +149,16 @@ class PeakProminenceCsvService {
       latitude: _parseDouble(rawRow[0], lineNumber: lineNumber, column: 1),
       longitude: _parseDouble(rawRow[1], lineNumber: lineNumber, column: 2),
       elevation: _parseDouble(rawRow[2], lineNumber: lineNumber, column: 3),
-      keySaddleLatitude: _parseDouble(rawRow[3], lineNumber: lineNumber, column: 4),
-      keySaddleLongitude: _parseDouble(rawRow[4], lineNumber: lineNumber, column: 5),
+      keySaddleLatitude: _parseDouble(
+        rawRow[3],
+        lineNumber: lineNumber,
+        column: 4,
+      ),
+      keySaddleLongitude: _parseDouble(
+        rawRow[4],
+        lineNumber: lineNumber,
+        column: 5,
+      ),
       prominence: _parseDouble(rawRow[5], lineNumber: lineNumber, column: 6),
     );
   }
