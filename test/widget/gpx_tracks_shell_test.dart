@@ -79,7 +79,7 @@ void main() {
       TestMapNotifier(
         _baseState(),
         rescanStatus:
-            'Imported 1, replaced 0, unchanged 0, unsupported 2, errors 1',
+            'Imported 1,234, replaced 0, unchanged 0, unsupported 2,345, errors 1',
         rescanWarning: 'Some files need manual review. See import.log.',
       ),
     );
@@ -93,7 +93,7 @@ void main() {
 
     expect(
       find.text(
-        'Imported 1, replaced 0, unchanged 0, unsupported 2, errors 1',
+        'Imported 1,234, replaced 0, unchanged 0, unsupported 2,345, errors 1',
       ),
       findsOneWidget,
     );
@@ -167,8 +167,8 @@ void main() {
       tester,
       TestMapNotifier(
         _baseState(),
-        recalcUpdatedCount: 3,
-        recalcSkippedCount: 1,
+        recalcUpdatedCount: 1234,
+        recalcSkippedCount: 2345,
         recalcWarning:
             'Some tracks could not be recalculated, so their previous statistics and peak correlation were kept.',
       ),
@@ -200,7 +200,7 @@ void main() {
       find.descendant(
         of: find.byType(AlertDialog),
         matching: find.textContaining(
-          'Updated 3 tracks, refreshed peak correlation, skipped 1 tracks',
+          'Updated 1,234 tracks, refreshed peak correlation, skipped 2,345 tracks',
         ),
       ),
       findsOneWidget,
@@ -263,7 +263,10 @@ void main() {
       scrollable: settingsScrollable,
     );
 
-    expect(find.byKey(const Key('update-tassy-full-peak-list-tile')), findsOneWidget);
+    expect(
+      find.byKey(const Key('update-tassy-full-peak-list-tile')),
+      findsOneWidget,
+    );
     expect(
       find.descendant(
         of: find.byKey(const Key('update-tassy-full-peak-list-tile')),
@@ -273,23 +276,23 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.byKey(const Key('recalculate-track-statistics-tile')), findsOneWidget);
+    expect(
+      find.byKey(const Key('recalculate-track-statistics-tile')),
+      findsOneWidget,
+    );
   });
 
-  testWidgets(
-    'shell app bar no longer shows theme action',
-    (tester) async {
-      await _pumpApp(tester, TestMapNotifier(_baseState()));
+  testWidgets('shell app bar no longer shows theme action', (tester) async {
+    await _pumpApp(tester, TestMapNotifier(_baseState()));
 
-      expect(find.byKey(const Key('shared-app-bar')), findsOneWidget);
-      final searchFabKey = find.byKey(const Key('search-peaks-fab'));
-      await tester.ensureVisible(searchFabKey);
-      await tester.pumpAndSettle();
+    expect(find.byKey(const Key('shared-app-bar')), findsOneWidget);
+    final searchFabKey = find.byKey(const Key('search-peaks-fab'));
+    await tester.ensureVisible(searchFabKey);
+    await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('app-bar-theme-action')), findsNothing);
-      expect(find.byKey(const Key('map-info-fab')), findsOneWidget);
-    },
-  );
+    expect(find.byKey(const Key('app-bar-theme-action')), findsNothing);
+    expect(find.byKey(const Key('map-info-fab')), findsOneWidget);
+  });
 }
 
 Future<void> _pumpApp(WidgetTester tester, TestMapNotifier notifier) async {

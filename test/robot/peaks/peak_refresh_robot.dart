@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/app.dart';
+import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
@@ -161,15 +162,18 @@ class PeakRefreshRobot {
     expect(
       find.descendant(
         of: find.byType(AlertDialog),
-        matching: find.text('Added $added ${added == 1 ? 'peak' : 'peaks'}'),
+        matching: find.text(
+          'Added ${formatCount(added)} ${added == 1 ? 'peak' : 'peaks'}',
+        ),
       ),
       findsOneWidget,
     );
     expect(
       find.descendant(
         of: find.byType(AlertDialog),
-        matching:
-            find.text('Updated $updated ${updated == 1 ? 'peak' : 'peaks'}'),
+        matching: find.text(
+          'Updated ${formatCount(updated)} ${updated == 1 ? 'peak' : 'peaks'}',
+        ),
       ),
       findsOneWidget,
     );

@@ -18,11 +18,9 @@ import '../harness/test_tasmap_repository.dart';
 void main() {
   Future<void> scrollSettingsUntilVisible(
     WidgetTester tester,
-    Finder target,
-    {
+    Finder target, {
     double dragOffset = -500,
-  }
-  ) async {
+  }) async {
     final settingsScrollable = find.byKey(const Key('settings-scrollable'));
     for (var i = 0; i < 4 && target.evaluate().isEmpty; i++) {
       await tester.drag(settingsScrollable, Offset(0, dragOffset));
@@ -95,7 +93,7 @@ void main() {
     completer.complete(
       const PeakListCsvExportResult(
         outputDirectoryPath: '/Users/adrian/Documents/Bushwalking/Peak_Lists',
-        exportedFileCount: 2,
+        exportedFileCount: 1234,
       ),
     );
     await tester.pump();
@@ -103,7 +101,7 @@ void main() {
 
     expect(find.byKey(const Key('peak-list-export-status')), findsOneWidget);
     expect(
-      find.text('Exported 2 peak lists. Skipped 0 lists.'),
+      find.text('Exported 1,234 peak lists. Skipped 0 lists.'),
       findsOneWidget,
     );
     expect(
@@ -129,12 +127,12 @@ void main() {
         overrides: [
           mapProvider.overrideWith(() => notifier),
           peakListCsvExportRunnerProvider.overrideWithValue(() async {
-            return const PeakListCsvExportResult(
+            return PeakListCsvExportResult(
               outputDirectoryPath:
                   '/Users/adrian/Documents/Bushwalking/Peak_Lists',
-              exportedFileCount: 1,
-              skippedMalformedListCount: 1,
-              warningEntries: ['warning 1', 'warning 2'],
+              exportedFileCount: 1234,
+              skippedMalformedListCount: 1234,
+              warningEntries: List<String>.filled(1234, 'warning'),
             );
           }),
           tasmapStateProvider.overrideWith(
@@ -167,7 +165,7 @@ void main() {
 
     expect(
       find.text(
-        'Exported 1 peak list. Skipped 1 list. 2 warnings. Older files may remain for skipped lists.',
+        'Exported 1,234 peak lists. Skipped 1,234 lists. 1,234 warnings. Older files may remain for skipped lists.',
       ),
       findsOneWidget,
     );

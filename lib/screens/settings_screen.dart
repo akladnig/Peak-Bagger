@@ -553,7 +553,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         return;
       }
 
-      _setStatus('${result.importedCount} Peaks imported');
+      _setStatus('${formatCount(result.importedCount)} Peaks imported');
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -611,7 +611,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
       ref.read(routeGraphReadinessProvider.notifier).markReady();
       _setStatus(
-        '${result.elementCount} route graph elements refreshed',
+        '${formatCount(result.elementCount)} route graph elements refreshed',
         key: const Key('route-graph-refresh-status'),
       );
 
@@ -730,7 +730,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       }
 
       _setStatus(
-        'Exported ${result.exportedCount} peaks to ${result.path}',
+        'Exported ${formatCount(result.exportedCount)} peaks to ${result.path}',
         key: const Key('peak-export-status'),
       );
     } catch (e) {
@@ -787,16 +787,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   String _formatPeakListExportStatus(PeakListCsvExportResult result) {
     final parts = <String>[
-      'Exported ${result.exportedFileCount} '
+      'Exported ${formatCount(result.exportedFileCount)} '
           '${_pluralize(result.exportedFileCount, 'peak list', 'peak lists')}.',
-      'Skipped ${result.skippedListCount} '
+      'Skipped ${formatCount(result.skippedListCount)} '
           '${_pluralize(result.skippedListCount, 'list', 'lists')}.',
     ];
 
     final warningCount = result.warningEntries.length;
     if (warningCount > 0) {
       parts.add(
-        '$warningCount ${_pluralize(warningCount, 'warning', 'warnings')}.',
+        '${formatCount(warningCount)} ${_pluralize(warningCount, 'warning', 'warnings')}.',
       );
     }
     if (result.skippedListCount > 0) {
@@ -910,7 +910,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Imported ${result.importedCount}, replaced ${result.replacedCount}, unchanged ${result.unchangedCount}, unsupported ${result.unsupportedCount}, errors ${result.errorSkippedCount}',
+            'Imported ${formatCount(result.importedCount)}, replaced ${formatCount(result.replacedCount)}, unchanged ${formatCount(result.unchangedCount)}, unsupported ${formatCount(result.unsupportedCount)}, errors ${formatCount(result.errorSkippedCount)}',
           ),
           if (result.warning != null) ...[
             const SizedBox(height: 12),
@@ -952,7 +952,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('${result.importedCount} Peaks imported'),
+          Text('${formatCount(result.importedCount)} Peaks imported'),
           if (result.warning != null) ...[
             const SizedBox(height: 12),
             Text(result.warning!),
@@ -973,7 +973,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context: context,
       title: 'Route Graph Refreshed',
       closeKey: 'route-graph-refresh-result-close',
-      content: Text('${result.elementCount} route graph elements refreshed.'),
+      content: Text(
+        '${formatCount(result.elementCount)} route graph elements refreshed.',
+      ),
     );
   }
 
@@ -1025,7 +1027,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Updated ${result.updatedCount} tracks, refreshed peak correlation, skipped ${result.skippedCount} tracks',
+            'Updated ${formatCount(result.updatedCount)} tracks, refreshed peak correlation, skipped ${formatCount(result.skippedCount)} tracks',
           ),
           if (result.warning != null) ...[
             const SizedBox(height: 12),
@@ -1066,10 +1068,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Added ${result.addedCount} ${_pluralize(result.addedCount, "peak", "peaks")}',
+            'Added ${formatCount(result.addedCount)} ${_pluralize(result.addedCount, "peak", "peaks")}',
           ),
           Text(
-            'Updated ${result.updatedCount} ${_pluralize(result.updatedCount, "peak", "peaks")}',
+            'Updated ${formatCount(result.updatedCount)} ${_pluralize(result.updatedCount, "peak", "peaks")}',
           ),
         ],
       ),

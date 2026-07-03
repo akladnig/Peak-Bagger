@@ -2699,26 +2699,32 @@ class _PeakListSummaryRow {
   final List<String> latestAscentPeakNames;
   final String? unsupportedMessage;
 
-  String get totalPeaksLabel => totalPeaks?.toString() ?? '-';
-  String get climbedLabel => climbed?.toString() ?? '-';
-  String get unclimbedLabel => unclimbed?.toString() ?? '-';
-  String get ascentCountLabel => ascentCount == 0 ? '' : ascentCount.toString();
+  String get totalPeaksLabel => _formattedCountOrDash(totalPeaks);
+  String get climbedLabel => _formattedCountOrDash(climbed);
+  String get unclimbedLabel => _formattedCountOrDash(unclimbed);
+  String get ascentCountLabel =>
+      ascentCount == 0 ? '' : formatCount(ascentCount);
   String get percentageLabel {
     if (!isSupported) {
       return '-';
     }
-    return '${(percentageValue * 100).round()}%';
+    return formatPercentage(percentageValue * 100, decimalPlaces: 0);
   }
 
   String? buildSummarySentence() {
-    if (!isSupported || totalPeaks == null || climbed == null) {
+    if (!isSupported ||
+        totalPeaks == null ||
+        climbed == null ||
+        earnedPoints == null ||
+        totalPoints == null) {
       return unsupportedMessage;
     }
 
-    final infoSentence = '${peakList.name} contains $totalPeaks peaks.';
+    final infoSentence =
+        '${peakList.name} contains ${formatCount(totalPeaks!)} peaks.';
 
     final metricsSentence =
-        'Climbed $climbed of $totalPeaks peaks (${(percentageValue * 100).round()}%) and earned a total $earnedPoints points out of $totalPoints.';
+        'Climbed ${formatCount(climbed!)} of ${formatCount(totalPeaks!)} peaks (${formatPercentage(percentageValue * 100, decimalPlaces: 0)}) and earned a total ${formatCount(earnedPoints!)} points out of ${formatCount(totalPoints!)}.';
     if (latestAscentDate == null || latestAscentPeakNames.isEmpty) {
       return '$infoSentence\n\n$metricsSentence';
     }
@@ -2731,6 +2737,10 @@ class _PeakListSummaryRow {
   static DateTime _dateOnly(DateTime value) {
     final local = value.toLocal();
     return DateTime(local.year, local.month, local.day);
+  }
+
+  String _formattedCountOrDash(int? value) {
+    return value == null ? '-' : formatCount(value);
   }
 }
 

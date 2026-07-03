@@ -1907,7 +1907,7 @@ class MapInfoPopupCard extends StatelessWidget {
                 Icon(Icons.route, size: 16, color: onSurfaceColor),
                 const SizedBox(width: 4),
                 Text(
-                  '$trackCount tracks available',
+                  '${formatCount(trackCount)} tracks available',
                   style: const TextStyle(fontSize: 13),
                 ),
               ],

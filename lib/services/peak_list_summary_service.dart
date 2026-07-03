@@ -1,3 +1,4 @@
+import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 
 class PeakListSummaryRow {
@@ -15,7 +16,8 @@ class PeakListSummaryRow {
   final int unclimbed;
   final double percentageValue;
 
-  String get percentageLabel => '${(percentageValue * 100).round()}%';
+  String get percentageLabel =>
+      formatPercentage(percentageValue * 100, decimalPlaces: 0);
 
   @override
   bool operator ==(Object other) =>
@@ -90,7 +92,9 @@ class PeakListSummaryService {
   }
 
   int _compareRows(PeakListSummaryRow left, PeakListSummaryRow right) {
-    final percentageCompare = right.percentageValue.compareTo(left.percentageValue);
+    final percentageCompare = right.percentageValue.compareTo(
+      left.percentageValue,
+    );
     if (percentageCompare != 0) {
       return percentageCompare;
     }

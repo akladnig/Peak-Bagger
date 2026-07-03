@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:xml/xml.dart';
 
+import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/core/widgets/popup_shell.dart';
 import 'package:peak_bagger/services/gpx_file_picker.dart';
 import 'dialog_helpers.dart';
@@ -485,14 +486,15 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${result.addedCount} ${_importAsRoute ? 'route(s)' : 'track(s)'} added',
+            '${formatCount(result.addedCount)} ${_importAsRoute ? 'route(s)' : 'track(s)'} added',
             key: const Key('gpx-import-summary'),
           ),
           if (result.unchangedCount > 0)
-            Text('${result.unchangedCount} unchanged'),
+            Text('${formatCount(result.unchangedCount)} unchanged'),
           if (result.unsupportedCount > 0)
-            Text('${result.unsupportedCount} unsupported'),
-          if (result.errorCount > 0) Text('${result.errorCount} error(s)'),
+            Text('${formatCount(result.unsupportedCount)} unsupported'),
+          if (result.errorCount > 0)
+            Text('${formatCount(result.errorCount)} error(s)'),
           if (result.warningMessage != null) ...[
             const SizedBox(height: 12),
             Text(result.warningMessage!),

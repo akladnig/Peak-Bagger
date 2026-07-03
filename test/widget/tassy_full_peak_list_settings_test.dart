@@ -71,13 +71,14 @@ void main() {
 
   testWidgets('update tassy full shows success dialog', (tester) async {
     _setLargeViewport(tester);
+    final peakIds = List<int>.generate(1234, (index) => index + 1);
     final repository = PeakListRepository.test(
       InMemoryPeakListStorage([
         PeakList(
           name: 'Abels',
           peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 11, points: 2),
-            const PeakListItem(peakOsmId: 22, points: 4),
+            for (final peakId in peakIds)
+              PeakListItem(peakOsmId: peakId, points: 1),
           ]),
         )..peakListId = 1,
       ]),
@@ -128,19 +129,22 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.descendant(of: dialog, matching: find.text('Added 2 peaks')),
+      find.descendant(of: dialog, matching: find.text('Added 1,234 peaks')),
       findsOneWidget,
     );
     expect(
       find.descendant(of: dialog, matching: find.text('Updated 0 peaks')),
       findsOneWidget,
     );
-    expect(find.byKey(const Key('update-tassy-full-result-close')), findsOneWidget);
     expect(
-      decodePeakListItems(repository.findByName('Tassy Full')!.peakList)
-          .map((item) => (item.peakOsmId, item.points))
-          .toList(),
-      [(11, 2), (22, 4)],
+      find.byKey(const Key('update-tassy-full-result-close')),
+      findsOneWidget,
+    );
+    expect(
+      decodePeakListItems(
+        repository.findByName('Tassy Full')!.peakList,
+      ).map((item) => (item.peakOsmId, item.points)).toList(),
+      [for (final peakId in peakIds) (peakId, 1)],
     );
   });
 
@@ -200,13 +204,15 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.descendant(of: dialog, matching: find.textContaining('boom')),
-        findsOneWidget);
     expect(
-      repository.findByName('Tassy Full'),
-      isNull,
+      find.descendant(of: dialog, matching: find.textContaining('boom')),
+      findsOneWidget,
     );
-    expect(find.byKey(const Key('update-tassy-full-error-close')), findsOneWidget);
+    expect(repository.findByName('Tassy Full'), isNull);
+    expect(
+      find.byKey(const Key('update-tassy-full-error-close')),
+      findsOneWidget,
+    );
   });
 }
 

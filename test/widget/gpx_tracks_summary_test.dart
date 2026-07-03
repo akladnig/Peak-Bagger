@@ -16,7 +16,7 @@ void main() {
         zoom: 10,
         basemap: Basemap.tracestrack,
         trackOperationStatus:
-            'Imported 1, replaced 0, unchanged 0, unsupported 2, errors 0',
+            'Imported 1,234, replaced 0, unchanged 0, unsupported 2,345, errors 0',
       );
 
       await tester.pumpWidget(
@@ -28,10 +28,10 @@ void main() {
         ),
       );
 
-      expect(find.textContaining('Imported 1'), findsOneWidget);
+      expect(find.textContaining('Imported 1,234'), findsOneWidget);
       expect(find.textContaining('replaced 0'), findsOneWidget);
       expect(find.textContaining('unchanged 0'), findsOneWidget);
-      expect(find.textContaining('unsupported 2'), findsOneWidget);
+      expect(find.textContaining('unsupported 2,345'), findsOneWidget);
       expect(find.textContaining('errors 0'), findsOneWidget);
     },
   );
@@ -44,7 +44,7 @@ void main() {
       zoom: 10,
       basemap: Basemap.tracestrack,
       trackOperationStatus:
-          'Updated 3 tracks, refreshed peak correlation, skipped 1 tracks',
+          'Updated 1,234 tracks, refreshed peak correlation, skipped 2,345 tracks',
       trackOperationWarning:
           'Some tracks could not be recalculated, so their previous statistics and peak correlation were kept.',
     );
@@ -58,9 +58,9 @@ void main() {
       ),
     );
 
-    expect(find.textContaining('Updated 3 tracks'), findsOneWidget);
+    expect(find.textContaining('Updated 1,234 tracks'), findsOneWidget);
     expect(find.textContaining('refreshed peak correlation'), findsOneWidget);
-    expect(find.textContaining('skipped 1 tracks'), findsOneWidget);
+    expect(find.textContaining('skipped 2,345 tracks'), findsOneWidget);
     expect(
       find.textContaining(
         'Some tracks could not be recalculated, so their previous statistics and peak correlation were kept.',

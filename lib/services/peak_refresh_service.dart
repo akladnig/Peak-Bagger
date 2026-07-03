@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/geo.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
@@ -121,7 +122,9 @@ class PeakRefreshService {
     return PeakRefreshResult(
       importedCount: renumberedPeaks.length,
       skippedCount: skippedCount,
-      warning: skippedCount > 0 ? '$skippedCount peaks skipped' : null,
+      warning: skippedCount > 0
+          ? '${formatCount(skippedCount)} peaks skipped'
+          : null,
     );
   }
 
