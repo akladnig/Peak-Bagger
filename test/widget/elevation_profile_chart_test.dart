@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/services/elevation_profile_series_builder.dart';
+import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/elevation_profile_chart.dart';
 
 void main() {
@@ -136,6 +137,22 @@ void main() {
     expect(timeChip.onSelected, isNull);
   });
 
+  testWidgets('disabled time toggle uses surfaceContainer in light theme', (
+    tester,
+  ) async {
+    final series = ElevationProfileSeriesBuilder.fromRoutePoints(
+      points: const [LatLng(0, 0), LatLng(0, 0.01)],
+      elevations: const [100, 120],
+    );
+
+    await _pumpChart(tester, series);
+
+    final timeChip = tester.widget<ChoiceChip>(
+      find.byKey(const Key('elevation-profile-time-toggle')),
+    );
+    expect(timeChip.disabledColor, CatppuccinColors.light.colorScheme.surfaceContainer);
+  });
+
   testWidgets('reports hovered samples and clears on exit', (tester) async {
     final hoverEvents = <ElevationProfileChartHoverSample?>[];
     final series = ElevationProfileSeriesBuilder.fromTrackProfileJson('''
@@ -200,6 +217,7 @@ Future<void> _pumpChart(
 }) async {
   await tester.pumpWidget(
     MaterialApp(
+      theme: CatppuccinColors.light,
       home: Scaffold(
         body: Center(
           child: SizedBox(

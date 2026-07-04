@@ -6,6 +6,10 @@ part 'package:peak_bagger/generated/region_manifest_catalog.g.dart';
 
 const mapyCzApiKey = String.fromEnvironment('MAPY_CZ_API_KEY');
 const tracestrackApiKey = String.fromEnvironment('TRACESTRACK_API_KEY');
+const tracestrackReferer = String.fromEnvironment(
+  'TRACESTRACK_REFERER',
+  defaultValue: 'https://tracestrack.com/',
+);
 
 bool get hasMapyCzApiKey => mapyCzApiKey.trim().isNotEmpty;
 bool get hasTracestrackApiKey => tracestrackApiKey.trim().isNotEmpty;

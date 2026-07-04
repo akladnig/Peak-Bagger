@@ -103,12 +103,12 @@ void main() {
       expect(await alphaFile.exists(), isTrue);
       expect(await zetaFile.exists(), isTrue);
 
-      final alphaRows = const CsvToListConverter(
-        eol: '\n',
-      ).convert(await alphaFile.readAsString());
-      final zetaRows = const CsvToListConverter(
-        eol: '\n',
-      ).convert(await zetaFile.readAsString());
+      final alphaRows = const CsvDecoder().convert(
+        await alphaFile.readAsString(),
+      );
+      final zetaRows = const CsvDecoder().convert(
+        await zetaFile.readAsString(),
+      );
 
       expect(alphaRows.first.cast<String>(), [
         'Name',
@@ -301,9 +301,9 @@ void main() {
           '${outputDirectory.path}/same-2-peak-list.csv',
         );
         expect(await exportedFile.exists(), isTrue);
-        final rows = const CsvToListConverter(
-          eol: '\n',
-        ).convert(await exportedFile.readAsString());
+        final rows = const CsvDecoder().convert(
+          await exportedFile.readAsString(),
+        );
         expect(rows, hasLength(3));
         expect(rows[1][7].toString(), '2');
         expect(rows[2][7].toString(), '9');

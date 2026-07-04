@@ -3660,11 +3660,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
     final previousProvider = cachedProvider;
     final nextProvider = TileCacheService.getStoreForBasemap(basemap) == null
-        ? NetworkTileProvider()
+        ? NetworkTileProvider(headers: mapTileHeaders(basemap))
         : FMTCTileProvider(
             stores: {basemap.name: BrowseStoreStrategy.readUpdateCreate},
             loadingStrategy: BrowseLoadingStrategy.cacheFirst,
             recordHitsAndMisses: false,
+            headers: mapTileHeaders(basemap),
             urlTransformer: (url) =>
                 TileCacheService.transformBrowseUrl(basemap, url),
           );

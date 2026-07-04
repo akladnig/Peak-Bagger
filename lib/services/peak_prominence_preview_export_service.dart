@@ -37,8 +37,8 @@ class PeakProminencePreviewExportService {
     Directory? outputDirectory,
     PeakProminencePreviewFileWriter? fileWriter,
   }) : _peakSource = peakSource,
-       _outputDirectory = outputDirectory ??
-           Directory(p.join(Directory.current.path, 'tool')),
+       _outputDirectory =
+           outputDirectory ?? Directory(p.join(Directory.current.path, 'tool')),
        _fileWriter = fileWriter ?? const IoPeakProminencePreviewFileWriter();
 
   static const String fileName = 'peak-prominence-objectbox-preview.csv';
@@ -55,7 +55,15 @@ class PeakProminencePreviewExportService {
     final peaks = List<Peak>.from(_peakSource.getAllPeaks())
       ..sort((left, right) => left.id.compareTo(right.id));
     final rows = <List<dynamic>>[
-      ['id', 'region', 'name', 'latitude', 'longitude', 'elevation', 'prominence'],
+      [
+        'id',
+        'region',
+        'name',
+        'latitude',
+        'longitude',
+        'elevation',
+        'prominence',
+      ],
       ...peaks.map(
         (peak) => [
           peak.id,
@@ -71,7 +79,7 @@ class PeakProminencePreviewExportService {
       ),
     ];
 
-    final csvText = const ListToCsvConverter(eol: '\n').convert(rows);
+    final csvText = const CsvEncoder(lineDelimiter: '\n').convert(rows);
     final outputPath = p.join(_outputDirectory.path, fileName);
     await _fileWriter.write(outputPath, csvText);
 

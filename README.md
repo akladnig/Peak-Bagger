@@ -75,7 +75,7 @@ Regional support is driven by bundled assets and manifests, so available basemap
 
 The Mapy.cz tourist basemap uses Mapy's official tile API and is only enabled when the app is built with `--dart-define=MAPY_CZ_API_KEY=<your-key>`.
 
-For local development in this repo, you can keep API keys out of git by using `dart_defines.local.json` and launching with `--dart-define-from-file=dart_defines.local.json`. The repo now expects both `TRACESTRACK_API_KEY` and `MAPY_CZ_API_KEY` there for the keyed basemaps.
+For local development in this repo, you can keep API keys out of git by using `dart_defines.local.json` and launching with `--dart-define-from-file=dart_defines.local.json`. The repo now expects both `TRACESTRACK_API_KEY` and `MAPY_CZ_API_KEY` there for the keyed basemaps. Tracestrack requests also send a `Referer` header; override it with `--dart-define=TRACESTRACK_REFERER=<your-origin>` if your Tracestrack app key is restricted to a specific origin.
 
 For the combined local Mapy + Slovenia debug setup, run `./run_local_maps.sh`. It starts the local Slovenia proxy on `127.0.0.1:8080` if needed, then launches `flutter run --dart-define-from-file=dart_defines.local.json`. Extra `flutter run` args are forwarded, for example `./run_local_maps.sh --verbose` or `./run_local_maps.sh -d iphone`.
 

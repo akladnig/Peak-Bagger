@@ -253,7 +253,25 @@ class MapTrackInfoPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final isRoute = route != null;
     final displayName = isRoute ? _routeName(route!) : _trackName(track!);
-    final onSurfaceColor = Theme.of(context).colorScheme.onSurface;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final panelContentTheme = theme.copyWith(
+      iconTheme: theme.iconTheme.copyWith(color: colorScheme.onSecondary),
+      textTheme: theme.textTheme.copyWith(
+        bodyLarge: theme.textTheme.bodyLarge?.copyWith(
+          color: colorScheme.onSecondary,
+        ),
+        bodyMedium: theme.textTheme.bodyMedium?.copyWith(
+          color: colorScheme.onSecondary,
+        ),
+        bodySmall: theme.textTheme.bodySmall?.copyWith(
+          color: colorScheme.onSecondary,
+        ),
+        titleMedium: theme.textTheme.titleMedium?.copyWith(
+          color: colorScheme.onSecondary,
+        ),
+      ),
+    );
 
     return SizedBox(
       width: UiConstants.preferredLeftWidth,
@@ -267,80 +285,106 @@ class MapTrackInfoPanel extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                Expanded(
+                  child: Theme(
+                    key: const Key('track-info-panel-content-theme'),
+                    data: panelContentTheme,
+                    child: DefaultTextStyle.merge(
+                      style: TextStyle(color: colorScheme.onSecondary),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Text(
-                              displayName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.titleMedium,
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        displayName,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: panelContentTheme
+                                            .textTheme
+                                            .titleMedium,
+                                      ),
+                                    ),
+                                    if (isRoute)
+                                      IconButton(
+                                        key: const Key(
+                                          'track-info-panel-edit-button',
+                                        ),
+                                        tooltip: 'Edit Route',
+                                        onPressed: onEdit,
+                                        icon: const Icon(Icons.edit),
+                                      ),
+                                    if (isRoute) const SizedBox(width: 4),
+                                    IconButton(
+                                      key: const Key('track-info-panel-close'),
+                                      tooltip: isRoute
+                                          ? 'Close route info'
+                                          : 'Close track info',
+                                      onPressed: onClose,
+                                      icon: const Icon(Icons.close),
+                                    ),
+                                  ],
+                                ),
+                                if (!isRoute) ...[
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(formatTrackDate(track!.trackDate)),
+                                      Text(
+                                        formatTrackTimeRange(
+                                          track!.startDateTime,
+                                          track!.endDateTime,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
-                          if (isRoute)
-                            IconButton(
-                              key: const Key('track-info-panel-edit-button'),
-                              tooltip: 'Edit Route',
-                              onPressed: onEdit,
-                              icon: Icon(Icons.edit, color: onSurfaceColor),
+                          const Divider(height: 1),
+                          Expanded(
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              child: Builder(
+                                builder: (context) {
+                                  return isRoute
+                                      ? _buildRouteBody(
+                                          context,
+                                          route!,
+                                          onVisibilityChanged:
+                                              onVisibilityChanged,
+                                          onRouteWalkingSpeedChanged:
+                                              onRouteWalkingSpeedChanged,
+                                          onRouteTimingRecalculate:
+                                              onRouteTimingRecalculate,
+                                        )
+                                      : _buildTrackBody(
+                                          context,
+                                          track!,
+                                          onVisibilityChanged:
+                                              onVisibilityChanged,
+                                        );
+                                },
+                              ),
                             ),
-                          if (isRoute) const SizedBox(width: 4),
-                          IconButton(
-                            key: const Key('track-info-panel-close'),
-                            tooltip: isRoute
-                                ? 'Close route info'
-                                : 'Close track info',
-                            onPressed: onClose,
-                            icon: Icon(Icons.close, color: onSurfaceColor),
                           ),
                         ],
                       ),
-                      if (!isRoute) ...[
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(formatTrackDate(track!.trackDate)),
-                            Text(
-                              formatTrackTimeRange(
-                                track!.startDateTime,
-                                track!.endDateTime,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const Divider(height: 1),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
                     ),
-                    child: isRoute
-                        ? _buildRouteBody(
-                            context,
-                            route!,
-                            onVisibilityChanged: onVisibilityChanged,
-                            onRouteWalkingSpeedChanged:
-                                onRouteWalkingSpeedChanged,
-                            onRouteTimingRecalculate: onRouteTimingRecalculate,
-                          )
-                        : _buildTrackBody(
-                            context,
-                            track!,
-                            onVisibilityChanged: onVisibilityChanged,
-                          ),
                   ),
                 ),
                 const Divider(height: 1),
@@ -351,7 +395,7 @@ class MapTrackInfoPanel extends StatelessWidget {
                     child: FilledButton.icon(
                       key: const Key('track-info-panel-export-button'),
                       onPressed: onExport,
-                      icon: Icon(Icons.download, color: onSurfaceColor),
+                      icon: const Icon(Icons.download),
                       label: const Text('Export'),
                     ),
                   ),
@@ -1134,7 +1178,6 @@ class _RouteTimingLabeledValueRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final onSurfaceColor = Theme.of(context).colorScheme.onSurface;
     return Padding(
       padding: const EdgeInsets.only(top: 6, bottom: 6),
       child: Row(
@@ -1158,10 +1201,9 @@ class _RouteTimingLabeledValueRow extends StatelessWidget {
                     return IconButton(
                       key: infoButtonKey,
                       onPressed: () => onInfoPressed(buttonContext),
-                      icon: Icon(
+                      icon: const Icon(
                         Icons.info_outline,
                         size: 16,
-                        color: Theme.of(buttonContext).colorScheme.onSurface,
                       ),
                       tooltip: '$label info',
                       visualDensity: VisualDensity.compact,
@@ -1187,7 +1229,7 @@ class _RouteTimingLabeledValueRow extends StatelessWidget {
                 IconButton(
                   key: recalculateButtonKey,
                   onPressed: onRecalculate,
-                  icon: Icon(Icons.refresh, size: 16, color: onSurfaceColor),
+                  icon: const Icon(Icons.refresh, size: 16),
                   tooltip: 'Recalculate $label',
                   visualDensity: VisualDensity.compact,
                 ),
@@ -1349,7 +1391,6 @@ class _RouteWalkingSpeedControlState extends State<_RouteWalkingSpeedControl> {
   @override
   Widget build(BuildContext context) {
     final textStyle = Theme.of(context).textTheme.bodySmall;
-    final onSurfaceColor = Theme.of(context).colorScheme.onSurface;
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.minus): () =>
@@ -1400,7 +1441,7 @@ class _RouteWalkingSpeedControlState extends State<_RouteWalkingSpeedControl> {
                                       );
                                     }
                                   : null,
-                              icon: Icon(Icons.remove, color: onSurfaceColor),
+                              icon: const Icon(Icons.remove),
                               tooltip: 'Decrease walking speed',
                               visualDensity: VisualDensity.compact,
                             ),
@@ -1447,7 +1488,7 @@ class _RouteWalkingSpeedControlState extends State<_RouteWalkingSpeedControl> {
                                       );
                                     }
                                   : null,
-                              icon: Icon(Icons.add, color: onSurfaceColor),
+                              icon: const Icon(Icons.add),
                               tooltip: 'Increase walking speed',
                               visualDensity: VisualDensity.compact,
                             ),

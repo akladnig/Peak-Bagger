@@ -17,8 +17,7 @@ class PlatformGpxFilePicker implements GpxFilePicker {
   @override
   Future<List<String>?> pickGpxFiles() async {
     final initialDirectory = await resolveImportRoot();
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
+    final result = await FilePicker.pickFiles(
       dialogTitle: 'Select GPX Files',
       initialDirectory: initialDirectory,
       type: FileType.custom,

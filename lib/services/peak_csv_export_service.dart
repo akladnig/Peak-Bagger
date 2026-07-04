@@ -60,12 +60,9 @@ class PeakCsvExportService {
     await _outputDirectory.create(recursive: true);
 
     final peaks = List<Peak>.from(_peakRepository.getAllPeaks());
-    final rows = <List<dynamic>>[
-      _headers,
-      ...peaks.map(_toCsvRow),
-    ];
+    final rows = <List<dynamic>>[_headers, ...peaks.map(_toCsvRow)];
 
-    final csvText = const ListToCsvConverter(eol: '\n').convert(rows);
+    final csvText = const CsvEncoder(lineDelimiter: '\n').convert(rows);
     final outputPath = p.join(_outputDirectory.path, fileName);
     await _fileWriter.write(outputPath, csvText);
 

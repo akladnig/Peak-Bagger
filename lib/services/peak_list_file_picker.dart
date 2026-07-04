@@ -18,19 +18,14 @@ class PlatformPeakListFilePicker implements PeakListFilePicker {
   @override
   Future<String?> pickCsvFile() async {
     final initialDirectory = await resolveImportRoot();
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: false,
+    final file = await FilePicker.pickFile(
       dialogTitle: 'Select Peak Lists',
       initialDirectory: initialDirectory,
       type: FileType.custom,
       allowedExtensions: const ['csv'],
     );
 
-    if (result == null || result.files.isEmpty) {
-      return null;
-    }
-
-    return result.files.single.path;
+    return file?.path;
   }
 
   @override

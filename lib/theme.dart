@@ -340,13 +340,6 @@ class CatppuccinColors {
       ),
       extensions: [
         RowHoverTheme.dark,
-        SelectedButtonThemeData(
-          style: OutlinedButton.styleFrom(
-            side: BorderSide(color: Color(0xFFEBE8FC)),
-            foregroundColor: Color(0xFF6347EA),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          ),
-        ),
         SearchButtonThemeData(
           selectedStyle: ButtonStyle(
             padding: const WidgetStatePropertyAll(_searchButtonPadding),
@@ -425,16 +418,23 @@ class CatppuccinColors {
       colorScheme: const ColorScheme.light(
         primary: Color(0xFF1E66F5),
         onPrimary: Color(0xFF4C4F69),
-        secondary: Color(0xFF8839EF),
+        secondary: Color(0xFFDCE0E8),
         onSecondary: Color(0xFF4C4F69),
+        tertiary: Color(0xFFBCC0CC),
+        onTertiary: Color(0xFF4C4F69),
+        primaryContainer: Color(0xFFCCD0DA),
+        onPrimaryContainer: Color(0xFF4C4F69),
         surface: Color(0xFFEFF1F5),
         onSurface: Color(0xFF4C4F69),
+        surfaceContainer: Color(0xFFDCE0E8),
+        outline: Color(0xFF9CA0B0),
+        outlineVariant: Color(0xFF1E66F5),
         error: Color(0xFFD20F39),
         onError: Color(0xFF4C4F69),
       ),
       scaffoldBackgroundColor: const Color(0xFFEFF1F5),
       appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFFCCD0DA),
+        backgroundColor: Color(0xFFEFF1F5),
         foregroundColor: Color(0xFF4C4F69),
         elevation: 2,
         surfaceTintColor: Colors.transparent,

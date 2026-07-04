@@ -202,10 +202,7 @@ class PeakListImportService {
   }
 
   List<List<dynamic>> _parseCsv(String contents) {
-    final rows = const CsvToListConverter(
-      shouldParseNumbers: false,
-      eol: '\n',
-    ).convert(contents);
+    final rows = const CsvDecoder().convert(contents);
     if (rows.isEmpty) {
       throw const FormatException('CSV file is empty.');
     }
@@ -266,7 +263,9 @@ class PeakListImportService {
       final longitudeValue = data['Longitude']!.trim();
       final hasLatLng = latitudeValue.isNotEmpty && longitudeValue.isNotEmpty;
       final hasUtm =
-          zone.isNotEmpty && eastingValue.isNotEmpty && northingValue.isNotEmpty;
+          zone.isNotEmpty &&
+          eastingValue.isNotEmpty &&
+          northingValue.isNotEmpty;
       if (!hasLatLng && !hasUtm) {
         return _PeakListCsvRowParseResult(
           error: 'Row $rowNumber: incomplete coordinate data for $name',
