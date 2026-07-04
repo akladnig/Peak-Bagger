@@ -24,10 +24,9 @@ String mapTileUrl(Basemap basemap) {
   if (basemap == Basemap.tracestrack) {
     final tileUrl = regionManifestCatalog.basemapByKey(basemap.name)?.tileUrl;
     if (tileUrl == null || !hasTracestrackApiKey) {
-      return tileUrl ??
-          regionManifestCatalog
-              .basemapByKey(Basemap.openstreetmap.name)!
-              .tileUrl;
+      return regionManifestCatalog
+          .basemapByKey(Basemap.openstreetmap.name)!
+          .tileUrl;
     }
 
     return '$tileUrl?key=${Uri.encodeQueryComponent(tracestrackApiKey)}';
@@ -59,6 +58,14 @@ String mapTileUrl(Basemap basemap) {
       regionManifestCatalog.basemapByKey(Basemap.tracestrack.name)!.tileUrl;
 }
 
+Map<String, String> mapTileHeaders(Basemap basemap) {
+  if (basemap == Basemap.tracestrack && hasTracestrackApiKey) {
+    return {'Referer': tracestrackReferer};
+  }
+
+  return <String, String>{};
+}
+
 String get sloveniaTopoDebugTileUrl {
   const override = String.fromEnvironment('SLOVENIA_TOPO_TILE_URL');
   if (override.isNotEmpty) {
@@ -82,11 +89,19 @@ TileLayer buildBasemapTileLayer(
   TileProvider? tileProvider,
   String? userAgentPackageName,
 }) {
+  final headers = mapTileHeaders(basemap);
+  final resolvedTileProvider =
+      tileProvider ??
+      (headers.isEmpty ? null : NetworkTileProvider(headers: headers));
+
   return userAgentPackageName == null
-      ? TileLayer(urlTemplate: mapTileUrl(basemap), tileProvider: tileProvider)
+      ? TileLayer(
+          urlTemplate: mapTileUrl(basemap),
+          tileProvider: resolvedTileProvider,
+        )
       : TileLayer(
           urlTemplate: mapTileUrl(basemap),
-          tileProvider: tileProvider,
+          tileProvider: resolvedTileProvider,
           userAgentPackageName: userAgentPackageName,
         );
 }

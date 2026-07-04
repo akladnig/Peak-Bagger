@@ -111,6 +111,14 @@ void main() {
     );
   });
 
+  test('tracestrack headers follow TRACESTRACK_API_KEY', () {
+    expect(
+      mapTileHeaders(Basemap.tracestrack),
+      hasTracestrackApiKey ? {'Referer': tracestrackReferer} : const {},
+    );
+    expect(mapTileHeaders(Basemap.openstreetmap), const {});
+  });
+
   test('region mapSet stays available in typed catalog', () {
     expect(regionManifestCatalog.regionByKey('tasmania')?.mapSet, const [
       'tasmap50k',
@@ -140,7 +148,7 @@ void main() {
       mapTileUrl(Basemap.tracestrack),
       hasTracestrackApiKey
           ? 'https://tile.tracestrack.com/topo__/{z}/{x}/{y}.webp?key=${Uri.encodeQueryComponent(tracestrackApiKey)}'
-          : regionManifestCatalog.basemapByKey('tracestrack')!.tileUrl,
+          : regionManifestCatalog.basemapByKey('openstreetmap')!.tileUrl,
     );
     expect(
       mapTileUrl(Basemap.nswTopo),
@@ -150,9 +158,7 @@ void main() {
       mapTileUrl(Basemap.mapyCz),
       hasMapyCzApiKey
           ? 'https://api.mapy.com/v1/maptiles/outdoor/256/{z}/{x}/{y}?lang=en&apikey=${Uri.encodeQueryComponent(mapyCzApiKey)}'
-          : regionManifestCatalog
-                .basemapByKey(Basemap.tracestrack.name)!
-                .tileUrl,
+          : mapTileUrl(Basemap.tracestrack),
     );
     expect(mapTileUrl(Basemap.sloveniaTopo), sloveniaTopoDebugTileUrl);
     expect(mapTileUrl(Basemap.fvgTopo), fvgTopoDebugTileUrl);
