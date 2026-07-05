@@ -387,6 +387,30 @@ const searchControlFontSize = 11.0;
 const _searchButtonPadding = EdgeInsets.symmetric(horizontal: 10, vertical: 8);
 const _searchButtonMinimumSize = Size(0, 30);
 
+FilledButtonThemeData _filledButtonTheme(ColorScheme colorScheme) {
+  return FilledButtonThemeData(
+    style: FilledButton.styleFrom(
+      backgroundColor: colorScheme.primaryContainer,
+      foregroundColor: colorScheme.onPrimaryContainer,
+    ),
+  );
+}
+
+TextButtonThemeData _textButtonTheme(ColorScheme colorScheme) {
+  return TextButtonThemeData(
+    style: TextButton.styleFrom(foregroundColor: colorScheme.primary),
+  );
+}
+
+OutlinedButtonThemeData _outlinedButtonTheme(ColorScheme colorScheme) {
+  return OutlinedButtonThemeData(
+    style: OutlinedButton.styleFrom(
+      foregroundColor: colorScheme.primary,
+      side: BorderSide(color: colorScheme.outline),
+    ),
+  );
+}
+
 class CatppuccinColors {
   static ThemeData get dark => _createDarkTheme();
   static ThemeData get light => _createLightTheme();
@@ -435,6 +459,9 @@ class CatppuccinColors {
     return ThemeData(
       brightness: Brightness.dark,
       colorScheme: colorScheme,
+      filledButtonTheme: _filledButtonTheme(colorScheme),
+      textButtonTheme: _textButtonTheme(colorScheme),
+      outlinedButtonTheme: _outlinedButtonTheme(colorScheme),
       scaffoldBackgroundColor: colorScheme.surface,
       appBarTheme: AppBarTheme(
         backgroundColor: colorScheme.surface,
@@ -573,6 +600,9 @@ class CatppuccinColors {
     return ThemeData(
       brightness: Brightness.light,
       colorScheme: colorScheme,
+      filledButtonTheme: _filledButtonTheme(colorScheme),
+      textButtonTheme: _textButtonTheme(colorScheme),
+      outlinedButtonTheme: _outlinedButtonTheme(colorScheme),
       scaffoldBackgroundColor: colorScheme.surface,
       appBarTheme: AppBarTheme(
         backgroundColor: colorScheme.surface,

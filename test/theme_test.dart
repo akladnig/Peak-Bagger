@@ -103,6 +103,114 @@ void main() {
       expect(lightTheme.extension<SelectedButtonThemeData>(), isNull);
     });
 
+    test('button themes are wired from the resolved color scheme', () {
+      final darkTheme = CatppuccinColors.dark;
+      final lightTheme = CatppuccinColors.light;
+      final darkFilledStyle = darkTheme.filledButtonTheme.style!;
+      final darkTextStyle = darkTheme.textButtonTheme.style!;
+      final darkOutlinedStyle = darkTheme.outlinedButtonTheme.style!;
+      final lightFilledStyle = lightTheme.filledButtonTheme.style!;
+      final lightTextStyle = lightTheme.textButtonTheme.style!;
+      final lightOutlinedStyle = lightTheme.outlinedButtonTheme.style!;
+
+      expect(
+        darkFilledStyle.backgroundColor?.resolve({}),
+        darkTheme.colorScheme.primary,
+      );
+      expect(
+        darkFilledStyle.foregroundColor?.resolve({}),
+        darkTheme.colorScheme.onPrimary,
+      );
+      expect(
+        darkTextStyle.foregroundColor?.resolve({}),
+        darkTheme.colorScheme.primary,
+      );
+      expect(
+        darkOutlinedStyle.foregroundColor?.resolve({}),
+        darkTheme.colorScheme.primary,
+      );
+      expect(
+        darkOutlinedStyle.side?.resolve({})?.color,
+        darkTheme.colorScheme.outline,
+      );
+
+      expect(
+        lightFilledStyle.backgroundColor?.resolve({}),
+        lightTheme.colorScheme.primary,
+      );
+      expect(
+        lightFilledStyle.foregroundColor?.resolve({}),
+        lightTheme.colorScheme.onPrimary,
+      );
+      expect(
+        lightTextStyle.foregroundColor?.resolve({}),
+        lightTheme.colorScheme.primary,
+      );
+      expect(
+        lightOutlinedStyle.foregroundColor?.resolve({}),
+        lightTheme.colorScheme.primary,
+      );
+      expect(
+        lightOutlinedStyle.side?.resolve({})?.color,
+        lightTheme.colorScheme.outline,
+      );
+    });
+
+    test('button themes stay wired in seeded mode', () {
+      useSeedGeneratedColorScheme = true;
+
+      final darkTheme = CatppuccinColors.dark;
+      final lightTheme = CatppuccinColors.light;
+      final darkFilledStyle = darkTheme.filledButtonTheme.style!;
+      final darkTextStyle = darkTheme.textButtonTheme.style!;
+      final darkOutlinedStyle = darkTheme.outlinedButtonTheme.style!;
+      final lightFilledStyle = lightTheme.filledButtonTheme.style!;
+      final lightTextStyle = lightTheme.textButtonTheme.style!;
+      final lightOutlinedStyle = lightTheme.outlinedButtonTheme.style!;
+
+      expect(
+        darkFilledStyle.backgroundColor?.resolve({}),
+        darkTheme.colorScheme.primary,
+      );
+      expect(
+        darkFilledStyle.foregroundColor?.resolve({}),
+        darkTheme.colorScheme.onPrimary,
+      );
+      expect(
+        darkTextStyle.foregroundColor?.resolve({}),
+        darkTheme.colorScheme.primary,
+      );
+      expect(
+        darkOutlinedStyle.foregroundColor?.resolve({}),
+        darkTheme.colorScheme.primary,
+      );
+      expect(
+        darkOutlinedStyle.side?.resolve({})?.color,
+        darkTheme.colorScheme.outline,
+      );
+
+      expect(
+        lightFilledStyle.backgroundColor?.resolve({}),
+        lightTheme.colorScheme.primary,
+      );
+      expect(
+        lightFilledStyle.foregroundColor?.resolve({}),
+        lightTheme.colorScheme.onPrimary,
+      );
+      expect(
+        lightTextStyle.foregroundColor?.resolve({}),
+        lightTheme.colorScheme.primary,
+      );
+      expect(
+        lightOutlinedStyle.foregroundColor?.resolve({}),
+        lightTheme.colorScheme.primary,
+      );
+      expect(
+        lightOutlinedStyle.side?.resolve({})?.color,
+        lightTheme.colorScheme.outline,
+      );
+    });
+
     test('chart series theme mirrors the resolved color scheme', () {
       final darkTheme = CatppuccinColors.dark;
       final lightTheme = CatppuccinColors.light;
