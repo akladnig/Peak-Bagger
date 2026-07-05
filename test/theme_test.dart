@@ -95,10 +95,50 @@ void main() {
 
       expect(darkTheme.extension<RowHoverTheme>(), isNotNull);
       expect(lightTheme.extension<RowHoverTheme>(), isNotNull);
+      expect(darkTheme.extension<ChartSeriesTheme>(), isNotNull);
+      expect(lightTheme.extension<ChartSeriesTheme>(), isNotNull);
       expect(darkTheme.extension<SearchButtonThemeData>(), isNotNull);
       expect(lightTheme.extension<SearchButtonThemeData>(), isNotNull);
       expect(darkTheme.extension<SelectedButtonThemeData>(), isNull);
       expect(lightTheme.extension<SelectedButtonThemeData>(), isNull);
+    });
+
+    test('chart series theme mirrors the resolved color scheme', () {
+      final darkTheme = CatppuccinColors.dark;
+      final lightTheme = CatppuccinColors.light;
+
+      expect(
+        darkTheme.extension<ChartSeriesTheme>()?.primarySeriesColor,
+        darkTheme.colorScheme.primaryContainer,
+      );
+      expect(
+        darkTheme.extension<ChartSeriesTheme>()?.selectedPrimarySeriesColor,
+        lighten(darkTheme.colorScheme.primaryContainer, 0.12),
+      );
+      expect(
+        darkTheme.extension<ChartSeriesTheme>()?.secondarySeriesColor,
+        const Color(0xFF2E7D32),
+      );
+      expect(
+        darkTheme.extension<ChartSeriesTheme>()?.selectedSecondarySeriesColor,
+        lighten(const Color(0xFF2E7D32), 0.12),
+      );
+      expect(
+        lightTheme.extension<ChartSeriesTheme>()?.primarySeriesColor,
+        lightTheme.colorScheme.primaryContainer,
+      );
+      expect(
+        lightTheme.extension<ChartSeriesTheme>()?.selectedPrimarySeriesColor,
+        lighten(lightTheme.colorScheme.primaryContainer, 0.12),
+      );
+      expect(
+        lightTheme.extension<ChartSeriesTheme>()?.secondarySeriesColor,
+        const Color(0xFF2E7D32),
+      );
+      expect(
+        lightTheme.extension<ChartSeriesTheme>()?.selectedSecondarySeriesColor,
+        lighten(const Color(0xFF2E7D32), 0.12),
+      );
     });
 
     test('dark theme keeps existing guarded semantic roles', () {

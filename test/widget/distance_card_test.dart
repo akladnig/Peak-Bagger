@@ -5,7 +5,6 @@ import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/services/summary_card_service.dart';
 import 'package:peak_bagger/theme.dart';
-import 'package:peak_bagger/widgets/dashboard/dashboard_series_colors.dart';
 import 'package:peak_bagger/widgets/dashboard/distance_card.dart';
 import 'package:peak_bagger/widgets/dashboard/summary_card.dart';
 
@@ -487,11 +486,19 @@ void main() {
       expect(tooltipTextWidgets, hasLength(3));
       expect(
         tooltipTextWidgets[1].style?.color,
-        lighterSeriesColor(CatppuccinColors.light.colorScheme.primary),
+        lighten(
+          CatppuccinColors.light
+              .extension<ChartSeriesTheme>()!
+              .primarySeriesColor,
+        ),
       );
       expect(
         tooltipTextWidgets[2].style?.color,
-        lighterSeriesColor(dashboardSecondarySeriesColor),
+        lighten(
+          CatppuccinColors.light
+              .extension<ChartSeriesTheme>()!
+              .secondarySeriesColor,
+        ),
       );
     });
 

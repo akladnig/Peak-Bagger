@@ -24,6 +24,79 @@ Color darken(Color color, [double amount = 0.1]) {
       .toColor();
 }
 
+const _secondarySeriesColor = Color(0xFF2E7D32);
+
+@immutable
+class ChartSeriesTheme extends ThemeExtension<ChartSeriesTheme> {
+  const ChartSeriesTheme({
+    required this.primarySeriesColor,
+    required this.secondarySeriesColor,
+    required this.selectedPrimarySeriesColor,
+    required this.selectedSecondarySeriesColor,
+  });
+
+  final Color primarySeriesColor;
+  final Color secondarySeriesColor;
+  final Color selectedPrimarySeriesColor;
+  final Color selectedSecondarySeriesColor;
+
+  static ChartSeriesTheme fromColorScheme(ColorScheme colorScheme) {
+    return ChartSeriesTheme(
+      primarySeriesColor: colorScheme.primaryContainer,
+      secondarySeriesColor: _secondarySeriesColor,
+      selectedPrimarySeriesColor: lighten(colorScheme.primaryContainer, 0.12),
+      selectedSecondarySeriesColor: lighten(_secondarySeriesColor, 0.12),
+    );
+  }
+
+  @override
+  ChartSeriesTheme copyWith({
+    Color? primarySeriesColor,
+    Color? secondarySeriesColor,
+    Color? selectedPrimarySeriesColor,
+    Color? selectedSecondarySeriesColor,
+  }) {
+    return ChartSeriesTheme(
+      primarySeriesColor: primarySeriesColor ?? this.primarySeriesColor,
+      secondarySeriesColor: secondarySeriesColor ?? this.secondarySeriesColor,
+      selectedPrimarySeriesColor:
+          selectedPrimarySeriesColor ?? this.selectedPrimarySeriesColor,
+      selectedSecondarySeriesColor:
+          selectedSecondarySeriesColor ?? this.selectedSecondarySeriesColor,
+    );
+  }
+
+  @override
+  ChartSeriesTheme lerp(
+    covariant ThemeExtension<ChartSeriesTheme>? other,
+    double t,
+  ) {
+    if (other is! ChartSeriesTheme) return this;
+    return ChartSeriesTheme(
+      primarySeriesColor:
+          Color.lerp(primarySeriesColor, other.primarySeriesColor, t) ??
+          primarySeriesColor,
+      secondarySeriesColor:
+          Color.lerp(secondarySeriesColor, other.secondarySeriesColor, t) ??
+          secondarySeriesColor,
+      selectedPrimarySeriesColor:
+          Color.lerp(
+            selectedPrimarySeriesColor,
+            other.selectedPrimarySeriesColor,
+            t,
+          ) ??
+          selectedPrimarySeriesColor,
+      selectedSecondarySeriesColor:
+          Color.lerp(
+            selectedSecondarySeriesColor,
+            other.selectedSecondarySeriesColor,
+            t,
+          ) ??
+          selectedSecondarySeriesColor,
+    );
+  }
+}
+
 const thinDivider = Divider(height: 0, color: Color(0xff7b7b7b));
 const mapGridColour = Colors.blue;
 const polygonColour = Colors.blue;
@@ -387,6 +460,7 @@ class CatppuccinColors {
       ),
       extensions: [
         RowHoverTheme.dark,
+        ChartSeriesTheme.fromColorScheme(colorScheme),
         SearchButtonThemeData(
           selectedStyle: ButtonStyle(
             padding: const WidgetStatePropertyAll(_searchButtonPadding),
@@ -524,6 +598,7 @@ class CatppuccinColors {
       ),
       extensions: [
         RowHoverTheme.light,
+        ChartSeriesTheme.fromColorScheme(colorScheme),
         SearchButtonThemeData(
           selectedStyle: ButtonStyle(
             padding: const WidgetStatePropertyAll(_searchButtonPadding),
