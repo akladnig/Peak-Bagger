@@ -4,6 +4,14 @@ import 'package:peak_bagger/theme.dart';
 
 void main() {
   group('CatppuccinColors', () {
+    setUp(() {
+      useSeedGeneratedColorScheme = false;
+    });
+
+    tearDown(() {
+      useSeedGeneratedColorScheme = false;
+    });
+
     test('dark theme has dark brightness', () {
       final theme = CatppuccinColors.dark;
       expect(theme.brightness, Brightness.dark);
@@ -19,9 +27,9 @@ void main() {
       expect(theme.colorScheme.primary, const Color(0xFF6347EA));
     });
 
-    test('light theme uses Latte blue as primary', () {
+    test('light theme uses configured primary color', () {
       final theme = CatppuccinColors.light;
-      expect(theme.colorScheme.primary, const Color(0xFF1E66F5));
+      expect(theme.colorScheme.primary, const Color(0xFF6347EA));
     });
 
     test('dark theme uses configured secondary color', () {
@@ -40,7 +48,7 @@ void main() {
       expect(theme.colorScheme.onPrimaryContainer, const Color(0xFF4C4F69));
       expect(theme.colorScheme.surfaceContainer, const Color(0xFFDCE0E8));
       expect(theme.colorScheme.outline, const Color(0xFF9CA0B0));
-      expect(theme.colorScheme.outlineVariant, const Color(0xFF1E66F5));
+      expect(theme.colorScheme.outlineVariant, const Color(0xFF6347EA));
     });
 
     test('dark theme uses configured scaffold background', () {
@@ -56,10 +64,7 @@ void main() {
     test('light app bar mirrors dark theme structure with light values', () {
       final theme = CatppuccinColors.light;
 
-      expect(
-        theme.appBarTheme.backgroundColor,
-        theme.scaffoldBackgroundColor,
-      );
+      expect(theme.appBarTheme.backgroundColor, theme.scaffoldBackgroundColor);
       expect(theme.appBarTheme.foregroundColor, const Color(0xFF4C4F69));
       expect(theme.appBarTheme.elevation, 2);
       expect(theme.appBarTheme.surfaceTintColor, Colors.transparent);
@@ -109,6 +114,119 @@ void main() {
       expect(theme.appBarTheme.elevation, 2);
       expect(theme.appBarTheme.surfaceTintColor, Colors.transparent);
       expect(theme.appBarTheme.shadowColor, const Color(0x66000000));
+    });
+
+    test('lighten increases HSL lightness and saturation', () {
+      final baseColor = catppuccinSeedColor;
+      final original = HSLColor.fromColor(baseColor);
+      final adjusted = HSLColor.fromColor(lighten(baseColor, 0.1));
+
+      expect(adjusted.lightness, greaterThan(original.lightness));
+      expect(adjusted.saturation, greaterThan(original.saturation));
+    });
+
+    test('darken decreases HSL lightness and saturation', () {
+      final baseColor = catppuccinSeedColor;
+      final original = HSLColor.fromColor(baseColor);
+      final adjusted = HSLColor.fromColor(darken(baseColor, 0.1));
+
+      expect(adjusted.lightness, lessThan(original.lightness));
+      expect(adjusted.saturation, lessThan(original.saturation));
+    });
+
+    test('lighten and darken clamp adjusted HSL channels', () {
+      final lightened = HSLColor.fromColor(lighten(Colors.white, 1.0));
+      final darkened = HSLColor.fromColor(darken(Colors.black, 1.0));
+
+      expect(lightened.lightness, 1.0);
+      expect(lightened.saturation, inInclusiveRange(0.0, 1.0));
+      expect(darkened.lightness, 0.0);
+      expect(darkened.saturation, inInclusiveRange(0.0, 1.0));
+    });
+
+    test(
+      'dark selected search button hover background derives from primary',
+      () {
+        final theme = CatppuccinColors.dark;
+        final searchButtonTheme = theme.extension<SearchButtonThemeData>()!;
+        final hoveredBackground = searchButtonTheme
+            .selectedStyle
+            .backgroundColor
+            ?.resolve({WidgetState.hovered});
+
+        expect(hoveredBackground, darken(theme.colorScheme.primary, 0.08));
+      },
+    );
+
+    test('manual color schemes remain the default branch', () {
+      useSeedGeneratedColorScheme = false;
+
+      expect(
+        CatppuccinColors.dark.colorScheme,
+        const ColorScheme.dark(
+          primary: Color(0xFF6347EA),
+          onPrimary: Color(0xFFEBE8FC),
+          secondary: Color(0xFF191919),
+          onSecondary: Color(0xFFCDD6F4),
+          tertiary: Color(0xFF2A2A2A),
+          onTertiary: Color(0xFFCDD6F4),
+          primaryContainer: Color(0xFF221B52),
+          onPrimaryContainer: Colors.white,
+          surface: Color(0xFF111111),
+          onSurface: Color(0xFFCDD6F4),
+          surfaceContainer: Color(0xFF191919),
+          outline: Color(0xFF7B7B7B),
+          outlineVariant: Color(0xFF6347EA),
+          error: Color(0xFFF38BA8),
+          onError: Color(0xFFCDD6F4),
+        ),
+      );
+      expect(
+        CatppuccinColors.light.colorScheme,
+        const ColorScheme.light(
+          primary: Color(0xFF6347EA),
+          onPrimary: Color(0xFF4C4F69),
+          secondary: Color(0xFFDCE0E8),
+          onSecondary: Color(0xFF4C4F69),
+          tertiary: Color(0xFFBCC0CC),
+          onTertiary: Color(0xFF4C4F69),
+          primaryContainer: Color(0xFFCCD0DA),
+          onPrimaryContainer: Color(0xFF4C4F69),
+          surface: Color(0xFFEFF1F5),
+          onSurface: Color(0xFF4C4F69),
+          surfaceContainer: Color(0xFFDCE0E8),
+          outline: Color(0xFF9CA0B0),
+          outlineVariant: Color(0xFF6347EA),
+          error: Color(0xFFD20F39),
+          onError: Color(0xFF4C4F69),
+        ),
+      );
+    });
+
+    test('dark theme can opt into a seeded color scheme', () {
+      useSeedGeneratedColorScheme = true;
+
+      expect(
+        CatppuccinColors.dark.colorScheme,
+        ColorScheme.fromSeed(
+          seedColor: catppuccinSeedColor,
+          brightness: Brightness.dark,
+          dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
+        ),
+      );
+    });
+
+    test('light theme can opt into a seeded color scheme', () {
+      useSeedGeneratedColorScheme = true;
+
+      expect(
+        CatppuccinColors.light.colorScheme,
+        ColorScheme.fromSeed(
+          seedColor: catppuccinSeedColor,
+          brightness: Brightness.light,
+          dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
+        ),
+      );
     });
   });
 }

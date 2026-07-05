@@ -83,6 +83,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final peakCorrelationState = ref.watch(peakCorrelationSettingsProvider);
     final routeGraphReadiness = ref.watch(routeGraphReadinessProvider);
     final themeMode = ref.watch(themeModeProvider);
+    final themeColorPalette = ref.watch(themeColorPaletteProvider);
     final isDarkTheme = themeMode == ThemeMode.dark;
 
     return Scaffold(
@@ -275,6 +276,43 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ref.read(themeModeProvider.notifier).toggleTheme(),
               ),
               onTap: () => ref.read(themeModeProvider.notifier).toggleTheme(),
+            ),
+            ListTile(
+              key: const Key('theme-colour-palette-tile'),
+              leading: const Icon(Icons.palette_outlined),
+              title: const Text('Theme Colours'),
+              subtitle: Text(switch (themeColorPalette) {
+                ThemeColorPalette.catppuccin => 'Catppuccin colours enabled',
+                ThemeColorPalette.seeded => 'Seeded colours enabled',
+              }),
+              trailing: DropdownButtonHideUnderline(
+                child: DropdownButton<ThemeColorPalette>(
+                  key: const Key('theme-colour-palette-dropdown'),
+                  value: themeColorPalette,
+                  isDense: true,
+                  onChanged: (value) {
+                    if (value == null) {
+                      return;
+                    }
+
+                    unawaited(
+                      ref
+                          .read(themeColorPaletteProvider.notifier)
+                          .setThemeColorPalette(value),
+                    );
+                  },
+                  items: const [
+                    DropdownMenuItem(
+                      value: ThemeColorPalette.catppuccin,
+                      child: Text('Catppuccin'),
+                    ),
+                    DropdownMenuItem(
+                      value: ThemeColorPalette.seeded,
+                      child: Text('Seeded'),
+                    ),
+                  ],
+                ),
+              ),
             ),
             _buildPeakCorrelationSection(context, peakCorrelationState),
             Padding(

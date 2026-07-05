@@ -11,7 +11,10 @@ class App extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
+    final themeColorPalette = ref.watch(themeColorPaletteProvider);
     ref.watch(routeGraphBootstrapProvider);
+
+    useSeedGeneratedColorScheme = themeColorPalette == ThemeColorPalette.seeded;
 
     return MaterialApp.router(
       title: 'Peak Bagger',

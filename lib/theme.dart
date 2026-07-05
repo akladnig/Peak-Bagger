@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:peak_bagger/core/constants.dart';
 
+const catppuccinSeedColor = Color(0xFF6347EA);
+
+bool useSeedGeneratedColorScheme = false;
+
 Color lighten(Color color, [double amount = 0.1]) {
   final hsl = HSLColor.fromColor(color);
   return hsl
@@ -311,8 +315,16 @@ class CatppuccinColors {
   static ThemeData get dark => _createDarkTheme();
   static ThemeData get light => _createLightTheme();
 
-  static ThemeData _createDarkTheme() {
-    const colorScheme = ColorScheme.dark(
+  static ColorScheme _darkColorScheme() {
+    if (useSeedGeneratedColorScheme) {
+      return ColorScheme.fromSeed(
+        seedColor: catppuccinSeedColor,
+        brightness: Brightness.dark,
+        dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
+      );
+    }
+
+    return const ColorScheme.dark(
       primary: Color(0xFF6347EA),
       onPrimary: Color(0xFFEBE8FC),
       secondary: Color(0xFF191919),
@@ -329,6 +341,10 @@ class CatppuccinColors {
       error: Color(0xFFF38BA8),
       onError: Color(0xFFCDD6F4),
     );
+  }
+
+  static ThemeData _createDarkTheme() {
+    final colorScheme = _darkColorScheme();
     return ThemeData(
       brightness: Brightness.dark,
       colorScheme: colorScheme,
@@ -429,8 +445,16 @@ class CatppuccinColors {
     );
   }
 
-  static ThemeData _createLightTheme() {
-    const colorScheme = ColorScheme.light(
+  static ColorScheme _lightColorScheme() {
+    if (useSeedGeneratedColorScheme) {
+      return ColorScheme.fromSeed(
+        seedColor: catppuccinSeedColor,
+        brightness: Brightness.light,
+        dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
+      );
+    }
+
+    return const ColorScheme.light(
       primary: Color(0xFF6347EA),
       onPrimary: Color(0xFF4C4F69),
       secondary: Color(0xFFDCE0E8),
@@ -447,6 +471,10 @@ class CatppuccinColors {
       error: Color(0xFFD20F39),
       onError: Color(0xFF4C4F69),
     );
+  }
+
+  static ThemeData _createLightTheme() {
+    final colorScheme = _lightColorScheme();
     return ThemeData(
       brightness: Brightness.light,
       colorScheme: colorScheme,
