@@ -16,14 +16,17 @@ class App extends ConsumerWidget {
     final themeContrastLevel = ref.watch(themeContrastLevelProvider);
     ref.watch(routeGraphBootstrapProvider);
 
-    useSeedGeneratedColorScheme = themeColorPalette == ThemeColorPalette.seeded;
-    seededDynamicSchemeVariant = themeSchemeVariant;
-    seededContrastLevel = themeContrastLevel;
+    final themeConfig = ThemeConfig(
+      useSeedGeneratedColorScheme: themeColorPalette == ThemeColorPalette.seeded,
+      seedColor: const Color(0xFF7E47EB),
+      dynamicSchemeVariant: themeSchemeVariant,
+      contrastLevel: themeContrastLevel,
+    );
 
     return MaterialApp.router(
       title: 'Peak Bagger',
-      theme: CatppuccinColors.light,
-      darkTheme: CatppuccinColors.dark,
+      theme: CatppuccinColors.lightWith(themeConfig),
+      darkTheme: CatppuccinColors.darkWith(themeConfig),
       themeMode: themeMode,
       routerConfig: router,
       debugShowCheckedModeBanner: false,

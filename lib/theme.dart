@@ -2,11 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:peak_bagger/core/constants.dart';
 
 const catppuccinSeedColor = Color(0xFF6347EA);
-const mySeedColor = Color(0xFF7E47EB);
+const _seedColor = Color(0xFF7E47EB);
 
-bool useSeedGeneratedColorScheme = false;
-DynamicSchemeVariant seededDynamicSchemeVariant = DynamicSchemeVariant.vibrant;
-double seededContrastLevel = 0.0;
+@immutable
+class ThemeConfig {
+  const ThemeConfig({
+    required this.useSeedGeneratedColorScheme,
+    required this.seedColor,
+    required this.dynamicSchemeVariant,
+    required this.contrastLevel,
+  });
+
+  final bool useSeedGeneratedColorScheme;
+  final Color seedColor;
+  final DynamicSchemeVariant dynamicSchemeVariant;
+  final double contrastLevel;
+}
+
+const _defaultThemeConfig = ThemeConfig(
+  useSeedGeneratedColorScheme: false,
+  seedColor: _seedColor,
+  dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
+  contrastLevel: 0.0,
+);
 
 Color lighten(Color color, [double amount = 0.1]) {
   final hsl = HSLColor.fromColor(color);
@@ -95,6 +113,35 @@ class ChartSeriesTheme extends ThemeExtension<ChartSeriesTheme> {
           selectedSecondarySeriesColor,
     );
   }
+}
+
+@immutable
+class SeedColourTheme extends ThemeExtension<SeedColourTheme> {
+  const SeedColourTheme(this.seedColor);
+
+  final Color seedColor;
+
+  @override
+  SeedColourTheme copyWith({Color? seedColor}) {
+    return SeedColourTheme(seedColor ?? this.seedColor);
+  }
+
+  @override
+  SeedColourTheme lerp(ThemeExtension<SeedColourTheme>? other, double t) {
+    if (other is! SeedColourTheme) {
+      return this;
+    }
+
+    return SeedColourTheme(
+      Color.lerp(seedColor, other.seedColor, t) ?? seedColor,
+    );
+  }
+}
+
+extension SeedColourThemeDataX on ThemeData {
+  Color get seedColor => extension<SeedColourTheme>()?.seedColor ?? _seedColor;
+
+  Color get seedColour => seedColor;
 }
 
 const thinDivider = Divider(height: 0, color: Color(0xff7b7b7b));
@@ -412,21 +459,25 @@ OutlinedButtonThemeData _outlinedButtonTheme(ColorScheme colorScheme) {
 }
 
 class CatppuccinColors {
-  static ThemeData get dark => _createDarkTheme();
-  static ThemeData get light => _createLightTheme();
+  static ThemeData get dark => darkWith(_defaultThemeConfig);
+  static ThemeData get light => lightWith(_defaultThemeConfig);
+
+  static ThemeData darkWith(ThemeConfig config) => _createDarkTheme(config);
+
+  static ThemeData lightWith(ThemeConfig config) => _createLightTheme(config);
 
   static ColorScheme _withOutlineVariantMatchingPrimary(ColorScheme scheme) {
     return scheme.copyWith(outlineVariant: scheme.onPrimary);
   }
 
-  static ColorScheme _darkColorScheme() {
-    if (useSeedGeneratedColorScheme) {
+  static ColorScheme _darkColorScheme(ThemeConfig config) {
+    if (config.useSeedGeneratedColorScheme) {
       return _withOutlineVariantMatchingPrimary(
         ColorScheme.fromSeed(
-          seedColor: mySeedColor,
+          seedColor: config.seedColor,
           brightness: Brightness.dark,
-          dynamicSchemeVariant: seededDynamicSchemeVariant,
-          contrastLevel: seededContrastLevel,
+          dynamicSchemeVariant: config.dynamicSchemeVariant,
+          contrastLevel: config.contrastLevel,
         ),
       );
     }
@@ -454,8 +505,8 @@ class CatppuccinColors {
     );
   }
 
-  static ThemeData _createDarkTheme() {
-    final colorScheme = _darkColorScheme();
+  static ThemeData _createDarkTheme(ThemeConfig config) {
+    final colorScheme = _darkColorScheme(config);
     return ThemeData(
       brightness: Brightness.dark,
       colorScheme: colorScheme,
@@ -486,6 +537,7 @@ class CatppuccinColors {
         titleSmall: TextStyle(color: colorScheme.onSurface),
       ),
       extensions: [
+        SeedColourTheme(config.seedColor),
         RowHoverTheme.dark,
         ChartSeriesTheme.fromColorScheme(colorScheme),
         SearchButtonThemeData(
@@ -560,14 +612,14 @@ class CatppuccinColors {
     );
   }
 
-  static ColorScheme _lightColorScheme() {
-    if (useSeedGeneratedColorScheme) {
+  static ColorScheme _lightColorScheme(ThemeConfig config) {
+    if (config.useSeedGeneratedColorScheme) {
       return _withOutlineVariantMatchingPrimary(
         ColorScheme.fromSeed(
           seedColor: catppuccinSeedColor,
           brightness: Brightness.light,
-          dynamicSchemeVariant: seededDynamicSchemeVariant,
-          contrastLevel: seededContrastLevel,
+          dynamicSchemeVariant: config.dynamicSchemeVariant,
+          contrastLevel: config.contrastLevel,
         ),
       );
     }
@@ -595,8 +647,8 @@ class CatppuccinColors {
     );
   }
 
-  static ThemeData _createLightTheme() {
-    final colorScheme = _lightColorScheme();
+  static ThemeData _createLightTheme(ThemeConfig config) {
+    final colorScheme = _lightColorScheme(config);
     return ThemeData(
       brightness: Brightness.light,
       colorScheme: colorScheme,
@@ -627,6 +679,7 @@ class CatppuccinColors {
         titleSmall: TextStyle(color: colorScheme.onSurface),
       ),
       extensions: [
+        const SeedColourTheme(catppuccinSeedColor),
         RowHoverTheme.light,
         ChartSeriesTheme.fromColorScheme(colorScheme),
         SearchButtonThemeData(

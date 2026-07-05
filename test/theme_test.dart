@@ -4,18 +4,6 @@ import 'package:peak_bagger/theme.dart';
 
 void main() {
   group('CatppuccinColors', () {
-    setUp(() {
-      useSeedGeneratedColorScheme = false;
-      seededDynamicSchemeVariant = DynamicSchemeVariant.vibrant;
-      seededContrastLevel = 0.0;
-    });
-
-    tearDown(() {
-      useSeedGeneratedColorScheme = false;
-      seededDynamicSchemeVariant = DynamicSchemeVariant.vibrant;
-      seededContrastLevel = 0.0;
-    });
-
     test('dark theme has dark brightness', () {
       final theme = CatppuccinColors.dark;
       expect(theme.brightness, Brightness.dark);
@@ -95,6 +83,8 @@ void main() {
 
       expect(darkTheme.extension<RowHoverTheme>(), isNotNull);
       expect(lightTheme.extension<RowHoverTheme>(), isNotNull);
+      expect(darkTheme.extension<SeedColourTheme>(), isNotNull);
+      expect(lightTheme.extension<SeedColourTheme>(), isNotNull);
       expect(darkTheme.extension<ChartSeriesTheme>(), isNotNull);
       expect(lightTheme.extension<ChartSeriesTheme>(), isNotNull);
       expect(darkTheme.extension<SearchButtonThemeData>(), isNotNull);
@@ -115,11 +105,11 @@ void main() {
 
       expect(
         darkFilledStyle.backgroundColor?.resolve({}),
-        darkTheme.colorScheme.primary,
+        darkTheme.colorScheme.primaryContainer,
       );
       expect(
         darkFilledStyle.foregroundColor?.resolve({}),
-        darkTheme.colorScheme.onPrimary,
+        darkTheme.colorScheme.onPrimaryContainer,
       );
       expect(
         darkTextStyle.foregroundColor?.resolve({}),
@@ -136,11 +126,11 @@ void main() {
 
       expect(
         lightFilledStyle.backgroundColor?.resolve({}),
-        lightTheme.colorScheme.primary,
+        lightTheme.colorScheme.primaryContainer,
       );
       expect(
         lightFilledStyle.foregroundColor?.resolve({}),
-        lightTheme.colorScheme.onPrimary,
+        lightTheme.colorScheme.onPrimaryContainer,
       );
       expect(
         lightTextStyle.foregroundColor?.resolve({}),
@@ -157,10 +147,15 @@ void main() {
     });
 
     test('button themes stay wired in seeded mode', () {
-      useSeedGeneratedColorScheme = true;
+      const themeConfig = ThemeConfig(
+        useSeedGeneratedColorScheme: true,
+        seedColor: Color(0xFF7E47EB),
+        dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
+        contrastLevel: 0.0,
+      );
 
-      final darkTheme = CatppuccinColors.dark;
-      final lightTheme = CatppuccinColors.light;
+      final darkTheme = CatppuccinColors.darkWith(themeConfig);
+      final lightTheme = CatppuccinColors.lightWith(themeConfig);
       final darkFilledStyle = darkTheme.filledButtonTheme.style!;
       final darkTextStyle = darkTheme.textButtonTheme.style!;
       final darkOutlinedStyle = darkTheme.outlinedButtonTheme.style!;
@@ -170,11 +165,11 @@ void main() {
 
       expect(
         darkFilledStyle.backgroundColor?.resolve({}),
-        darkTheme.colorScheme.primary,
+        darkTheme.colorScheme.primaryContainer,
       );
       expect(
         darkFilledStyle.foregroundColor?.resolve({}),
-        darkTheme.colorScheme.onPrimary,
+        darkTheme.colorScheme.onPrimaryContainer,
       );
       expect(
         darkTextStyle.foregroundColor?.resolve({}),
@@ -191,11 +186,11 @@ void main() {
 
       expect(
         lightFilledStyle.backgroundColor?.resolve({}),
-        lightTheme.colorScheme.primary,
+        lightTheme.colorScheme.primaryContainer,
       );
       expect(
         lightFilledStyle.foregroundColor?.resolve({}),
-        lightTheme.colorScheme.onPrimary,
+        lightTheme.colorScheme.onPrimaryContainer,
       );
       expect(
         lightTextStyle.foregroundColor?.resolve({}),
@@ -311,8 +306,6 @@ void main() {
     );
 
     test('manual color schemes remain the default branch', () {
-      useSeedGeneratedColorScheme = false;
-
       final darkScheme = CatppuccinColors.dark.colorScheme;
       final lightScheme = CatppuccinColors.light.colorScheme;
 
@@ -330,18 +323,23 @@ void main() {
     });
 
     test('dark theme can opt into a seeded color scheme', () {
-      useSeedGeneratedColorScheme = true;
+      const themeConfig = ThemeConfig(
+        useSeedGeneratedColorScheme: true,
+        seedColor: Color(0xFF7E47EB),
+        dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
+        contrastLevel: 0.0,
+      );
 
       expect(
-        CatppuccinColors.dark.colorScheme,
+        CatppuccinColors.darkWith(themeConfig).colorScheme,
         ColorScheme.fromSeed(
-          seedColor: mySeedColor,
+          seedColor: themeConfig.seedColor,
           brightness: Brightness.dark,
           dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
           contrastLevel: 0.0,
         ).copyWith(
           outlineVariant: ColorScheme.fromSeed(
-            seedColor: mySeedColor,
+            seedColor: themeConfig.seedColor,
             brightness: Brightness.dark,
             dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
             contrastLevel: 0.0,
@@ -351,10 +349,15 @@ void main() {
     });
 
     test('light theme can opt into a seeded color scheme', () {
-      useSeedGeneratedColorScheme = true;
+      const themeConfig = ThemeConfig(
+        useSeedGeneratedColorScheme: true,
+        seedColor: Color(0xFF7E47EB),
+        dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
+        contrastLevel: 0.0,
+      );
 
       expect(
-        CatppuccinColors.light.colorScheme,
+        CatppuccinColors.lightWith(themeConfig).colorScheme,
         ColorScheme.fromSeed(
           seedColor: catppuccinSeedColor,
           brightness: Brightness.light,
@@ -372,26 +375,35 @@ void main() {
     });
 
     test('seeded branch uses configured scheme variant and contrast level', () {
-      useSeedGeneratedColorScheme = true;
-      seededDynamicSchemeVariant = DynamicSchemeVariant.expressive;
-      seededContrastLevel = 0.5;
+      const themeConfig = ThemeConfig(
+        useSeedGeneratedColorScheme: true,
+        seedColor: Color(0xFF7E47EB),
+        dynamicSchemeVariant: DynamicSchemeVariant.expressive,
+        contrastLevel: 0.5,
+      );
 
       expect(
-        CatppuccinColors.dark.colorScheme,
+        CatppuccinColors.darkWith(themeConfig).colorScheme,
         ColorScheme.fromSeed(
-          seedColor: mySeedColor,
+          seedColor: themeConfig.seedColor,
           brightness: Brightness.dark,
           dynamicSchemeVariant: DynamicSchemeVariant.expressive,
           contrastLevel: 0.5,
         ).copyWith(
           outlineVariant: ColorScheme.fromSeed(
-            seedColor: mySeedColor,
+            seedColor: themeConfig.seedColor,
             brightness: Brightness.dark,
             dynamicSchemeVariant: DynamicSchemeVariant.expressive,
             contrastLevel: 0.5,
           ).onPrimary,
         ),
       );
+    });
+
+    test('theme exposes seed color through ThemeData', () {
+      expect(CatppuccinColors.dark.seedColor, const Color(0xFF7E47EB));
+      expect(CatppuccinColors.dark.seedColour, const Color(0xFF7E47EB));
+      expect(CatppuccinColors.light.seedColor, catppuccinSeedColor);
     });
   });
 }
