@@ -53,6 +53,7 @@ class DrawerOutlineButton extends StatelessWidget {
     super.key,
     this.icon,
     this.trailing,
+    this.style,
     this.onPressed,
   });
 
@@ -61,6 +62,7 @@ class DrawerOutlineButton extends StatelessWidget {
   final bool isSelected;
   final IconData? icon;
   final Widget? trailing;
+  final ButtonStyle? style;
   final VoidCallback? onPressed;
 
   @override
@@ -68,9 +70,11 @@ class DrawerOutlineButton extends StatelessWidget {
     final searchButtonTheme = Theme.of(
       context,
     ).extension<SearchButtonThemeData>();
-    final style = searchButtonTheme
-        ?.styleFor(isSelected)
-        .merge(OutlinedButton.styleFrom(alignment: Alignment.centerLeft));
+    final resolvedStyle =
+        (style ??
+                searchButtonTheme?.styleFor(isSelected) ??
+                const ButtonStyle())
+            .merge(OutlinedButton.styleFrom(alignment: Alignment.centerLeft));
 
     final button = Semantics(
       button: true,
@@ -78,7 +82,7 @@ class DrawerOutlineButton extends StatelessWidget {
       child: icon == null
           ? OutlinedButton(
               key: buttonKey,
-              style: style,
+              style: resolvedStyle,
               onPressed: onPressed,
               child: Text(
                 label,
@@ -89,7 +93,7 @@ class DrawerOutlineButton extends StatelessWidget {
             )
           : OutlinedButton.icon(
               key: buttonKey,
-              style: style,
+              style: resolvedStyle,
               onPressed: onPressed,
               icon: Icon(icon, size: searchControlIconSize),
               label: Text(
@@ -115,7 +119,7 @@ class DrawerOutlineButton extends StatelessWidget {
             child: icon == null
                 ? OutlinedButton(
                     key: buttonKey,
-                    style: style,
+                    style: resolvedStyle,
                     onPressed: onPressed,
                     child: Padding(
                       padding: const EdgeInsets.only(
@@ -131,7 +135,7 @@ class DrawerOutlineButton extends StatelessWidget {
                   )
                 : OutlinedButton.icon(
                     key: buttonKey,
-                    style: style,
+                    style: resolvedStyle,
                     onPressed: onPressed,
                     icon: Icon(icon, size: searchControlIconSize),
                     label: Padding(

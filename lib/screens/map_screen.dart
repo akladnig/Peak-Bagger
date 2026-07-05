@@ -1047,6 +1047,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
       peaks: peaks,
       camera: camera,
       correlatedPeakIds: ref.read(mapProvider.notifier).correlatedPeakIds,
+      untickedPeakColours: ref.read(peakMarkerColourAssignmentsProvider),
       clusteringEnabled: ref.read(peakMapClusterDisplaySettingsProvider),
     );
   }
@@ -2355,6 +2356,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                         ? ref.watch(polygonAssetsProvider)
                         : null;
                     final filteredPeaks = ref.watch(filteredPeaksProvider);
+                    ref.watch(peakMarkerColourAssignmentsProvider);
                     final routes = ref.watch(routeListProvider);
                     final routeDraftSourceRouteId = ref.watch(
                       mapProvider.select((state) => state.sourceRouteId),

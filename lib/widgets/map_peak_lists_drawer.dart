@@ -4,12 +4,14 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
+import 'package:peak_bagger/services/peak_list_colour_resolver.dart';
 import 'package:peak_bagger/services/peak_list_visibility.dart';
 
 import '../core/constants.dart';
 import '../core/number_formatters.dart';
 import '../theme.dart';
 import 'drawer_outline_button.dart';
+import 'peak_list_control_visual_style.dart';
 
 class MapPeakListsDrawer extends ConsumerWidget {
   const MapPeakListsDrawer({super.key});
@@ -126,6 +128,16 @@ class MapPeakListsDrawer extends ConsumerWidget {
                                 entry.peakList.peakListId,
                               ) ??
                               false);
+                      final controlStyle = peakListControlVisualStyle(
+                        context,
+                        isSelected:
+                            peakListSelectionMode ==
+                                PeakListSelectionMode.specificList &&
+                            selectedPeakListIds.contains(
+                              entry.peakList.peakListId,
+                            ),
+                        colourValue: resolvePeakListColour(entry.peakList),
+                      );
 
                       return DrawerOutlineButton(
                         buttonKey: Key('peak-list-item-${entry.peakList.name}'),
@@ -137,6 +149,7 @@ class MapPeakListsDrawer extends ConsumerWidget {
                             selectedPeakListIds.contains(
                               entry.peakList.peakListId,
                             ),
+                        style: controlStyle.buttonStyle,
                         onPressed: () {
                           ref
                               .read(mapProvider.notifier)
@@ -181,7 +194,7 @@ class MapPeakListsDrawer extends ConsumerWidget {
                                   : 'peak-list-pin-icon-${entry.peakList.peakListId}',
                             ),
                             colorFilter: ColorFilter.mode(
-                              Theme.of(context).colorScheme.onSurface,
+                              controlStyle.iconColor,
                               BlendMode.srcIn,
                             ),
                           ),

@@ -125,7 +125,7 @@ void main() {
   });
 
   test(
-    'explicit reconcile follows visible bounds, unions regions, and skips zero-region pruning',
+    'explicit reconcile follows visible bounds, preserves malformed visible selections, and skips zero-region pruning',
     () {
       final repository = PeakListRepository.test(
         InMemoryPeakListStorage([
@@ -185,8 +185,8 @@ void main() {
         container.read(mapProvider).peakListSelectionMode,
         PeakListSelectionMode.specificList,
       );
-      expect(container.read(mapProvider).selectedPeakListIds, {7});
-      expect(container.read(mapProvider).previousSpecificPeakListIds, {7});
+      expect(container.read(mapProvider).selectedPeakListIds, {7, 9});
+      expect(container.read(mapProvider).previousSpecificPeakListIds, {7, 9});
 
       container.read(mapProvider.notifier).state = container
           .read(mapProvider.notifier)
@@ -209,7 +209,11 @@ void main() {
         PeakListSelectionMode.specificList,
       );
       expect(container.read(mapProvider).selectedPeakListIds, {7, 8, 9});
-      expect(container.read(mapProvider).previousSpecificPeakListIds, {7, 8, 9});
+      expect(container.read(mapProvider).previousSpecificPeakListIds, {
+        7,
+        8,
+        9,
+      });
 
       container
           .read(mapProvider.notifier)
@@ -226,8 +230,12 @@ void main() {
         container.read(mapProvider).peakListSelectionMode,
         PeakListSelectionMode.specificList,
       );
-      expect(container.read(mapProvider).selectedPeakListIds, {7, 8});
-      expect(container.read(mapProvider).previousSpecificPeakListIds, {7, 8});
+      expect(container.read(mapProvider).selectedPeakListIds, {7, 8, 9});
+      expect(container.read(mapProvider).previousSpecificPeakListIds, {
+        7,
+        8,
+        9,
+      });
     },
   );
 }

@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 import 'package:peak_bagger/services/peak_admin_editor.dart';
+import 'package:peak_bagger/services/peak_list_admin_editor.dart';
 import 'package:peak_bagger/services/route_admin_editor.dart';
 
 class ObjectBoxAdminDetailsPane extends StatelessWidget {
   const ObjectBoxAdminDetailsPane({
     required this.row,
     required this.entity,
+    required this.peakList,
     required this.route,
     required this.isCreatingPeak,
     required this.onClose,
@@ -17,12 +20,14 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
     required this.onViewGpxTrackOnMap,
     required this.onViewRouteOnMap,
     required this.onPeakSubmit,
+    required this.onPeakListSubmit,
     required this.onRouteSubmit,
     super.key,
   });
 
   final ObjectBoxAdminRow? row;
   final ObjectBoxAdminEntityDescriptor entity;
+  final PeakList? peakList;
   final app_route.Route? route;
   final bool isCreatingPeak;
   final VoidCallback onClose;
@@ -31,6 +36,7 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
   final void Function(ObjectBoxAdminRow row)? onViewGpxTrackOnMap;
   final void Function(app_route.Route route)? onViewRouteOnMap;
   final Future<String?> Function(Peak peak) onPeakSubmit;
+  final Future<String?> Function(PeakListAdminFormState form) onPeakListSubmit;
   final Future<String?> Function(RouteAdminFormState form) onRouteSubmit;
 
   @override
@@ -65,6 +71,16 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
             ? null
             : () => onViewRouteOnMap!(route!),
         onRouteSubmit: onRouteSubmit,
+      );
+    }
+
+    if (entity.name == 'PeakList' && peakList != null) {
+      return _PeakListAdminDetailsPane(
+        row: row,
+        entity: entity,
+        peakList: peakList!,
+        onClose: onClose,
+        onPeakListSubmit: onPeakListSubmit,
       );
     }
 
@@ -927,6 +943,317 @@ class _RouteReadOnlyDetails extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _PeakListAdminDetailsPane extends StatefulWidget {
+  const _PeakListAdminDetailsPane({
+    required this.row,
+    required this.entity,
+    required this.peakList,
+    required this.onClose,
+    required this.onPeakListSubmit,
+  });
+
+  final ObjectBoxAdminRow? row;
+  final ObjectBoxAdminEntityDescriptor entity;
+  final PeakList peakList;
+  final VoidCallback onClose;
+  final Future<String?> Function(PeakListAdminFormState form) onPeakListSubmit;
+
+  @override
+  State<_PeakListAdminDetailsPane> createState() =>
+      _PeakListAdminDetailsPaneState();
+}
+
+class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
+  late final TextEditingController _colourController;
+  bool _isEditing = false;
+  bool _isSaving = false;
+  String? _submitError;
+  PeakListAdminValidationResult _validation =
+      const PeakListAdminValidationResult(fieldErrors: {});
+
+  @override
+  void initState() {
+    super.initState();
+    _colourController = TextEditingController();
+    _syncFromPeakList();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PeakListAdminDetailsPane oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.row != widget.row ||
+        oldWidget.peakList.peakListId != widget.peakList.peakListId ||
+        oldWidget.peakList.colour != widget.peakList.colour) {
+      _syncFromPeakList();
+    }
+  }
+
+  @override
+  void dispose() {
+    _colourController.dispose();
+    super.dispose();
+  }
+
+  void _syncFromPeakList() {
+    final form = PeakListAdminEditor.normalize(widget.peakList);
+    _colourController.text = form.colour;
+    _isEditing = false;
+    _isSaving = false;
+    _submitError = null;
+    _validation = const PeakListAdminValidationResult(fieldErrors: {});
+  }
+
+  void _startEditing() {
+    setState(() {
+      _isEditing = true;
+      _submitError = null;
+    });
+  }
+
+  PeakListAdminFormState _currentFormState() {
+    return PeakListAdminFormState(colour: _colourController.text);
+  }
+
+  void _updateValidation() {
+    final validation = PeakListAdminEditor.validateAndBuild(
+      source: widget.peakList,
+      form: _currentFormState(),
+    );
+    setState(() {
+      _validation = validation;
+      if (_submitError != null) {
+        _submitError = null;
+      }
+    });
+  }
+
+  Future<void> _submit() async {
+    if (_isSaving) {
+      return;
+    }
+
+    final validation = PeakListAdminEditor.validateAndBuild(
+      source: widget.peakList,
+      form: _currentFormState(),
+    );
+    setState(() {
+      _validation = validation;
+      _submitError = null;
+    });
+    if (!validation.isValid || validation.peakList == null) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    final error = await widget.onPeakListSubmit(_currentFormState());
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = false;
+      _submitError = error;
+      if (error == null) {
+        _isEditing = false;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title = widget.peakList.name.trim().isNotEmpty
+        ? widget.peakList.name.trim()
+        : _objectBoxAdminDetailsTitle(widget.entity, widget.row!);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                if (!_isEditing)
+                  IconButton(
+                    key: const Key('objectbox-admin-peak-list-edit'),
+                    onPressed: _isSaving ? null : _startEditing,
+                    icon: const Icon(Icons.edit),
+                  ),
+                IconButton(
+                  key: const Key('objectbox-admin-details-close'),
+                  onPressed: _isSaving ? null : widget.onClose,
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const Divider(),
+            Expanded(
+              child: _isEditing
+                  ? _PeakListEditForm(
+                      peakList: widget.peakList,
+                      isSaving: _isSaving,
+                      colourController: _colourController,
+                      submitError: _submitError,
+                      validation: _validation,
+                      onChanged: _updateValidation,
+                      onSubmit: _submit,
+                    )
+                  : _PeakListReadOnlyDetails(
+                      row: widget.row!,
+                      entity: widget.entity,
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PeakListReadOnlyDetails extends StatelessWidget {
+  const _PeakListReadOnlyDetails({required this.row, required this.entity});
+
+  final ObjectBoxAdminRow row;
+  final ObjectBoxAdminEntityDescriptor entity;
+
+  @override
+  Widget build(BuildContext context) {
+    final detailsFields = _objectBoxAdminDetailsFields(entity);
+    return ListView.separated(
+      key: const Key('objectbox-admin-details-list'),
+      itemCount: detailsFields.length,
+      separatorBuilder: (context, index) => const Divider(height: 1),
+      itemBuilder: (context, index) {
+        final field = detailsFields[index];
+        final value = row.values[field.name];
+        return ListTile(
+          dense: true,
+          title: Text(field.name),
+          subtitle: objectBoxAdminDetailsValue(
+            entityName: entity.name,
+            fieldName: field.name,
+            label: field.name,
+            value: value,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _PeakListEditForm extends StatelessWidget {
+  const _PeakListEditForm({
+    required this.peakList,
+    required this.isSaving,
+    required this.colourController,
+    required this.submitError,
+    required this.validation,
+    required this.onChanged,
+    required this.onSubmit,
+  });
+
+  final PeakList peakList;
+  final bool isSaving;
+  final TextEditingController colourController;
+  final String? submitError;
+  final PeakListAdminValidationResult validation;
+  final VoidCallback onChanged;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    final errorColor = Theme.of(context).colorScheme.error;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: ListView(
+            key: const Key('objectbox-admin-peak-list-edit-form'),
+            children: [
+              _buildReadOnlyField(
+                label: 'peakListId',
+                value: peakList.peakListId.toString(),
+                keyName: 'objectbox-admin-peak-list-id',
+              ),
+              const SizedBox(height: 8),
+              _buildReadOnlyField(
+                label: 'Name',
+                value: peakList.name,
+                keyName: 'objectbox-admin-peak-list-name-read-only',
+              ),
+              const SizedBox(height: 8),
+              _buildReadOnlyField(
+                label: 'Region',
+                value: peakList.region,
+                keyName: 'objectbox-admin-peak-list-region-read-only',
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                key: const Key('objectbox-admin-peak-list-colour'),
+                controller: colourController,
+                enabled: !isSaving,
+                decoration: InputDecoration(
+                  labelText: 'Colour',
+                  border: const OutlineInputBorder(),
+                  errorText: validation.fieldErrors['colour'],
+                ),
+                keyboardType: TextInputType.number,
+                onChanged: (_) => onChanged(),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                dense: true,
+                title: const Text('peakList'),
+                subtitle: objectBoxAdminDetailsValue(
+                  entityName: 'PeakList',
+                  fieldName: 'peakList',
+                  label: 'peakList',
+                  value: peakList.peakList,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (submitError != null) ...[
+          const SizedBox(height: 8),
+          Text(submitError!, style: TextStyle(color: errorColor)),
+        ],
+        const SizedBox(height: 12),
+        FilledButton(
+          key: const Key('objectbox-admin-peak-list-save'),
+          onPressed: isSaving ? null : onSubmit,
+          child: Text(isSaving ? 'Saving...' : 'Save'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReadOnlyField({
+    required String label,
+    required String value,
+    required String keyName,
+  }) {
+    return TextFormField(
+      key: Key(keyName),
+      initialValue: value,
+      enabled: false,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+      ),
     );
   }
 }

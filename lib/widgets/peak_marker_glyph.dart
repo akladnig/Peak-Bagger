@@ -7,18 +7,23 @@ import '../theme.dart';
 class PeakMarkerGlyph extends StatelessWidget {
   const PeakMarkerGlyph({
     required this.ticked,
+    this.untickedColourValue,
     this.size = 20,
     super.key,
   });
 
   final bool ticked;
+  final int? untickedColourValue;
   final double size;
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
       size: Size.square(size),
-      painter: _PeakMarkerGlyphPainter(ticked: ticked),
+      painter: _PeakMarkerGlyphPainter(
+        ticked: ticked,
+        untickedColourValue: untickedColourValue,
+      ),
     );
   }
 }
@@ -28,6 +33,7 @@ class PeakMarkerHelper extends StatelessWidget {
     required this.peak,
     required this.ticked,
     required this.showPeakInfo,
+    this.untickedColourValue,
     this.hovered = false,
     super.key,
   });
@@ -35,6 +41,7 @@ class PeakMarkerHelper extends StatelessWidget {
   final Peak peak;
   final bool ticked;
   final bool showPeakInfo;
+  final int? untickedColourValue;
   final bool hovered;
 
   @override
@@ -63,11 +70,17 @@ class PeakMarkerHelper extends StatelessWidget {
                     border: Border.all(color: Colors.amber, width: 3),
                   ),
                 ),
-                PeakMarkerGlyph(ticked: ticked),
+                PeakMarkerGlyph(
+                  ticked: ticked,
+                  untickedColourValue: untickedColourValue,
+                ),
               ],
             )
           else
-            PeakMarkerGlyph(ticked: ticked),
+            PeakMarkerGlyph(
+              ticked: ticked,
+              untickedColourValue: untickedColourValue,
+            ),
           if (showPeakInfo)
             Positioned(
               top: labelTop,
@@ -120,9 +133,13 @@ class _PeakMarkerLabels extends StatelessWidget {
 }
 
 class _PeakMarkerGlyphPainter extends CustomPainter {
-  const _PeakMarkerGlyphPainter({required this.ticked});
+  const _PeakMarkerGlyphPainter({
+    required this.ticked,
+    this.untickedColourValue,
+  });
 
   final bool ticked;
+  final int? untickedColourValue;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -133,7 +150,12 @@ class _PeakMarkerGlyphPainter extends CustomPainter {
       ..lineTo(center.dx - 7 * scale, center.dy + 7 * scale)
       ..lineTo(center.dx + 7 * scale, center.dy + 7 * scale)
       ..close();
-    final fill = Paint()..color = ticked ? tickedColour : untickedColour;
+    final fill = Paint()
+      ..color = ticked
+          ? tickedColour
+          : (untickedColourValue == null
+                ? untickedColour
+                : Color(untickedColourValue!));
     final stroke = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.stroke
@@ -144,6 +166,7 @@ class _PeakMarkerGlyphPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _PeakMarkerGlyphPainter oldDelegate) {
-    return oldDelegate.ticked != ticked;
+    return oldDelegate.ticked != ticked ||
+        oldDelegate.untickedColourValue != untickedColourValue;
   }
 }

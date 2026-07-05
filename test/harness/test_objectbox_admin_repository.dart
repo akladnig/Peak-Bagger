@@ -145,8 +145,22 @@ class TestObjectBoxAdminRepository implements ObjectBoxAdminRepository {
           isPrimaryName: true,
         ),
         ObjectBoxAdminFieldDescriptor(
+          name: 'region',
+          typeLabel: 'String',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
           name: 'peakList',
           typeLabel: 'String',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'colour',
+          typeLabel: 'int',
           nullable: false,
           isPrimaryKey: false,
           isPrimaryName: false,
@@ -381,7 +395,9 @@ class TestObjectBoxAdminRepository implements ObjectBoxAdminRepository {
         values: {
           'peakListId': 1,
           'name': 'Abels',
+          'region': 'tasmania',
           'peakList': '[{"peakOsmId":101,"points":"3"}]',
+          'colour': 0xFF4C8BF5,
         },
       ),
     ],

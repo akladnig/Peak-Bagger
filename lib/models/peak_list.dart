@@ -15,11 +15,14 @@ class PeakList {
 
   String peakList;
 
+  int colour;
+
   PeakList({
     this.peakListId = 0,
     required this.name,
     this.region = Peak.defaultRegion,
     required this.peakList,
+    this.colour = 0,
   });
 
   PeakList copyWith({
@@ -27,12 +30,14 @@ class PeakList {
     String? name,
     String? region,
     String? peakList,
+    int? colour,
   }) {
     return PeakList(
       peakListId: peakListId ?? this.peakListId,
       name: name ?? this.name,
       region: region ?? this.region,
       peakList: peakList ?? this.peakList,
+      colour: colour ?? this.colour,
     );
   }
 }

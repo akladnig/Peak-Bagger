@@ -23,7 +23,7 @@ class SideMenu extends StatelessWidget {
       padding: EdgeInsetsDirectional.all(0),
       margin: EdgeInsetsDirectional.all(8),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer,
+        color: theme.colorScheme.onPrimaryFixed,
         borderRadius: BorderRadius.circular(20),
       ),
       width: UiConstants.sideMenuColumnWidth,
@@ -105,14 +105,14 @@ class _WideMenuItemNew extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                     icon: icon,
+                    icon: icon,
                     style: IconButton.styleFrom(
                       backgroundColor: isSelected
-                          ? theme.iconTheme.color
-                          : theme.colorScheme.primaryContainer,
+                          ? theme.colorScheme.primaryFixed
+                          : theme.colorScheme.onPrimaryFixed,
                       foregroundColor: isSelected
-                          ? theme.colorScheme.primaryContainer
-                          : theme.iconTheme.color,
+                          ? theme.colorScheme.onPrimaryFixed
+                          : theme.colorScheme.primaryFixed,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -126,7 +126,10 @@ class _WideMenuItemNew extends StatelessWidget {
                     onTap: onTap,
                     child: Text(
                       label,
-                      style: TextStyle(fontSize: 10),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: theme.colorScheme.primaryFixed,
+                      ),
                       textAlign: TextAlign.center,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,

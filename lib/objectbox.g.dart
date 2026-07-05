@@ -513,7 +513,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(4, 5754024077279183606),
     name: 'PeakList',
-    lastPropertyId: const obx_int.IdUid(4, 1234567890123456789),
+    lastPropertyId: const obx_int.IdUid(5, 8650224279841628195),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -539,6 +539,12 @@ final _entities = <obx_int.ModelEntity>[
         id: const obx_int.IdUid(4, 1234567890123456789),
         name: 'region',
         type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(5, 8650224279841628195),
+        name: 'colour',
+        type: 6,
         flags: 0,
       ),
     ],
@@ -1757,11 +1763,12 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final nameOffset = fbb.writeString(object.name);
         final peakListOffset = fbb.writeString(object.peakList);
         final regionOffset = fbb.writeString(object.region);
-        fbb.startTable(5);
+        fbb.startTable(6);
         fbb.addInt64(0, object.peakListId);
         fbb.addOffset(1, nameOffset);
         fbb.addOffset(2, peakListOffset);
         fbb.addOffset(3, regionOffset);
+        fbb.addInt64(4, object.colour);
         fbb.finish(fbb.endTable());
         return object.peakListId;
       },
@@ -1783,11 +1790,18 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final peakListParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 8, '');
+        final colourParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          12,
+          0,
+        );
         final object = PeakList(
           peakListId: peakListIdParam,
           name: nameParam,
           region: regionParam,
           peakList: peakListParam,
+          colour: colourParam,
         );
 
         return object;
@@ -2904,6 +2918,11 @@ class PeakList_ {
   /// See [PeakList.region].
   static final region = obx.QueryStringProperty<PeakList>(
     _entities[3].properties[3],
+  );
+
+  /// See [PeakList.colour].
+  static final colour = obx.QueryIntegerProperty<PeakList>(
+    _entities[3].properties[4],
   );
 }
 

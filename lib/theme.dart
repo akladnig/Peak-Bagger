@@ -1,6 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:peak_bagger/core/constants.dart';
 
+const catppuccinSeedColor = Color(0xFF6347EA);
+const mySeedColor = Color(0xFF7E47EB);
+
+bool useSeedGeneratedColorScheme = false;
+DynamicSchemeVariant seededDynamicSchemeVariant = DynamicSchemeVariant.vibrant;
+double seededContrastLevel = 0.0;
+
+Color lighten(Color color, [double amount = 0.1]) {
+  final hsl = HSLColor.fromColor(color);
+  return hsl
+      .withSaturation((hsl.saturation + amount).clamp(0.0, 1.0))
+      .withLightness((hsl.lightness + amount).clamp(0.0, 1.0))
+      .toColor();
+}
+
+Color darken(Color color, [double amount = 0.1]) {
+  final hsl = HSLColor.fromColor(color);
+  return hsl
+      .withSaturation((hsl.saturation - amount).clamp(0.0, 1.0))
+      .withLightness((hsl.lightness - amount).clamp(0.0, 1.0))
+      .toColor();
+}
+
 const thinDivider = Divider(height: 0, color: Color(0xff7b7b7b));
 const mapGridColour = Colors.blue;
 const polygonColour = Colors.blue;
@@ -295,18 +318,34 @@ class CatppuccinColors {
   static ThemeData get dark => _createDarkTheme();
   static ThemeData get light => _createLightTheme();
 
-  static ThemeData _createDarkTheme() {
-    return ThemeData(
-      brightness: Brightness.dark,
-      colorScheme: const ColorScheme.dark(
-        primary: Color(0xFF6347EA),
-        onPrimary: Color(0xFFEBE8FC),
+  static ColorScheme _withOutlineVariantMatchingPrimary(ColorScheme scheme) {
+    return scheme.copyWith(outlineVariant: scheme.onPrimary);
+  }
+
+  static ColorScheme _darkColorScheme() {
+    if (useSeedGeneratedColorScheme) {
+      return _withOutlineVariantMatchingPrimary(
+        ColorScheme.fromSeed(
+          seedColor: mySeedColor,
+          brightness: Brightness.dark,
+          dynamicSchemeVariant: seededDynamicSchemeVariant,
+          contrastLevel: seededContrastLevel,
+        ),
+      );
+    }
+
+    return _withOutlineVariantMatchingPrimary(
+      const ColorScheme.dark(
+        primary: Color(0xFFEBE8FC),
+        onPrimary: Color(0xFF6347EA),
         secondary: Color(0xFF191919),
         onSecondary: Color(0xFFCDD6F4),
         tertiary: Color(0xFF2A2A2A),
         onTertiary: Color(0xFFCDD6F4),
-        primaryContainer: Color(0xFF221B52),
-        onPrimaryContainer: Colors.white,
+        primaryContainer: Color(0xFFCDD6F4),
+        onPrimaryContainer: Color(0xFF221B52),
+        onPrimaryFixed: Color(0xFF221B52),
+        primaryFixed: Color(0xFFCDD6F4),
         surface: Color(0xFF111111),
         onSurface: Color(0xFFCDD6F4),
         surfaceContainer: Color(0xFF191919),
@@ -315,28 +354,36 @@ class CatppuccinColors {
         error: Color(0xFFF38BA8),
         onError: Color(0xFFCDD6F4),
       ),
-      scaffoldBackgroundColor: const Color(0xFF111111),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFF111111),
-        foregroundColor: Color(0xFFCDD6F4),
+    );
+  }
+
+  static ThemeData _createDarkTheme() {
+    final colorScheme = _darkColorScheme();
+    return ThemeData(
+      brightness: Brightness.dark,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: colorScheme.surface,
+      appBarTheme: AppBarTheme(
+        backgroundColor: colorScheme.surface,
+        foregroundColor: colorScheme.onSurface,
         elevation: 2,
         surfaceTintColor: Colors.transparent,
         shadowColor: Color(0x66000000),
       ),
-      iconTheme: const IconThemeData(color: Color(0xFFFFFFFF), size: 24),
-      textTheme: const TextTheme(
-        bodyLarge: TextStyle(color: Color(0xFFCDD6F4)),
-        bodyMedium: TextStyle(color: Color(0xFFCDD6F4)),
-        bodySmall: TextStyle(color: Color(0xFFBAC2DE)),
+      iconTheme: IconThemeData(color: colorScheme.onPrimaryContainer, size: 24),
+      textTheme: TextTheme(
+        bodyLarge: TextStyle(color: colorScheme.onSurface),
+        bodyMedium: TextStyle(color: colorScheme.onSurface),
+        bodySmall: TextStyle(color: colorScheme.onSurface),
         titleLarge: TextStyle(
-          color: Color(0xFFCDD6F4),
+          color: colorScheme.onSurface,
           fontWeight: FontWeight.w600,
         ),
         titleMedium: TextStyle(
-          color: Color(0xFFCDD6F4),
+          color: colorScheme.onSurface,
           fontWeight: FontWeight.w500,
         ),
-        titleSmall: TextStyle(color: Color(0xFFBAC2DE)),
+        titleSmall: TextStyle(color: colorScheme.onSurface),
       ),
       extensions: [
         RowHoverTheme.dark,
@@ -348,24 +395,24 @@ class CatppuccinColors {
             visualDensity: VisualDensity.compact,
             foregroundColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.disabled)) {
-                return const Color(0xFFCDD6F4).withValues(alpha: 0.38);
+                return colorScheme.onSurface.withValues(alpha: 0.38);
               }
               if (states.contains(WidgetState.hovered)) {
-                return const Color(0xFFFFFFFF);
+                return colorScheme.onPrimaryContainer;
               }
-              return const Color(0xFFEBE8FC);
+              return colorScheme.onPrimary;
             }),
             backgroundColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.hovered)) {
-                return const Color(0xFF4E39C9);
+                return darken(colorScheme.primary, 0.08);
               }
-              return const Color(0xFF2D1F7A);
+              return darken(colorScheme.primary, 0.24);
             }),
             side: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.hovered)) {
-                return const BorderSide(color: Color(0xFF8B7CFF));
+                return BorderSide(color: lighten(colorScheme.primary, 0.12));
               }
-              return const BorderSide(color: Color(0xFF6347EA));
+              return BorderSide(color: colorScheme.primary);
             }),
             overlayColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.hovered)) {
@@ -381,24 +428,24 @@ class CatppuccinColors {
             visualDensity: VisualDensity.compact,
             foregroundColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.disabled)) {
-                return const Color(0xFFCDD6F4).withValues(alpha: 0.38);
+                return colorScheme.onSurface.withValues(alpha: 0.38);
               }
               if (states.contains(WidgetState.hovered)) {
-                return const Color(0xFFEBE8FC);
+                return colorScheme.onPrimary;
               }
-              return const Color(0xFFCDD6F4);
+              return colorScheme.onSurface;
             }),
             backgroundColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.hovered)) {
-                return const Color(0xFF2A214B);
+                return darken(colorScheme.primary, 0.4);
               }
-              return const Color(0x00000000);
+              return colorScheme.surface;
             }),
             side: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.hovered)) {
-                return const BorderSide(color: Color(0xFF6347EA));
+                return BorderSide(color: colorScheme.primary);
               }
-              return const BorderSide(color: Color(0xFF7B7B7B));
+              return BorderSide(color: colorScheme.outline);
             }),
             overlayColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.hovered)) {
@@ -412,11 +459,21 @@ class CatppuccinColors {
     );
   }
 
-  static ThemeData _createLightTheme() {
-    return ThemeData(
-      brightness: Brightness.light,
-      colorScheme: const ColorScheme.light(
-        primary: Color(0xFF1E66F5),
+  static ColorScheme _lightColorScheme() {
+    if (useSeedGeneratedColorScheme) {
+      return _withOutlineVariantMatchingPrimary(
+        ColorScheme.fromSeed(
+          seedColor: catppuccinSeedColor,
+          brightness: Brightness.light,
+          dynamicSchemeVariant: seededDynamicSchemeVariant,
+          contrastLevel: seededContrastLevel,
+        ),
+      );
+    }
+
+    return _withOutlineVariantMatchingPrimary(
+      const ColorScheme.light(
+        primary: Color(0xFF6347EA),
         onPrimary: Color(0xFF4C4F69),
         secondary: Color(0xFFDCE0E8),
         onSecondary: Color(0xFF4C4F69),
@@ -424,36 +481,46 @@ class CatppuccinColors {
         onTertiary: Color(0xFF4C4F69),
         primaryContainer: Color(0xFFCCD0DA),
         onPrimaryContainer: Color(0xFF4C4F69),
+        primaryFixed: Color(0xFF221B52),
+        onPrimaryFixed: Color(0xFFCDD6F4),
         surface: Color(0xFFEFF1F5),
         onSurface: Color(0xFF4C4F69),
         surfaceContainer: Color(0xFFDCE0E8),
         outline: Color(0xFF9CA0B0),
-        outlineVariant: Color(0xFF1E66F5),
+        outlineVariant: Color(0xFF6347EA),
         error: Color(0xFFD20F39),
         onError: Color(0xFF4C4F69),
       ),
-      scaffoldBackgroundColor: const Color(0xFFEFF1F5),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFFEFF1F5),
-        foregroundColor: Color(0xFF4C4F69),
+    );
+  }
+
+  static ThemeData _createLightTheme() {
+    final colorScheme = _lightColorScheme();
+    return ThemeData(
+      brightness: Brightness.light,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: colorScheme.surface,
+      appBarTheme: AppBarTheme(
+        backgroundColor: colorScheme.surface,
+        foregroundColor: colorScheme.onSurface,
         elevation: 2,
         surfaceTintColor: Colors.transparent,
         shadowColor: Color(0x33000000),
       ),
-      iconTheme: const IconThemeData(color: Color(0xFF4C4F69), size: 24),
-      textTheme: const TextTheme(
-        bodyLarge: TextStyle(color: Color(0xFF4C4F69)),
-        bodyMedium: TextStyle(color: Color(0xFF4C4F69)),
-        bodySmall: TextStyle(color: Color(0xFF5C5F77)),
+      iconTheme: IconThemeData(color: colorScheme.onSurface, size: 24),
+      textTheme: TextTheme(
+        bodyLarge: TextStyle(color: colorScheme.onSurface),
+        bodyMedium: TextStyle(color: colorScheme.onSurface),
+        bodySmall: TextStyle(color: colorScheme.onSurface),
         titleLarge: TextStyle(
-          color: Color(0xFF4C4F69),
+          color: colorScheme.onSurface,
           fontWeight: FontWeight.w600,
         ),
         titleMedium: TextStyle(
-          color: Color(0xFF4C4F69),
+          color: colorScheme.onSurface,
           fontWeight: FontWeight.w500,
         ),
-        titleSmall: TextStyle(color: Color(0xFF5C5F77)),
+        titleSmall: TextStyle(color: colorScheme.onSurface),
       ),
       extensions: [
         RowHoverTheme.light,
@@ -465,7 +532,7 @@ class CatppuccinColors {
             visualDensity: VisualDensity.compact,
             foregroundColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.disabled)) {
-                return const Color(0xFF4C4F69).withValues(alpha: 0.38);
+                return colorScheme.onSurface.withValues(alpha: 0.38);
               }
               if (states.contains(WidgetState.hovered)) {
                 return const Color(0xFFFFFFFF);
@@ -498,12 +565,12 @@ class CatppuccinColors {
             visualDensity: VisualDensity.compact,
             foregroundColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.disabled)) {
-                return const Color(0xFF4C4F69).withValues(alpha: 0.38);
+                return colorScheme.onSurface.withValues(alpha: 0.38);
               }
               if (states.contains(WidgetState.hovered)) {
                 return const Color(0xFF1E66F5);
               }
-              return const Color(0xFF4C4F69);
+              return colorScheme.onSurface;
             }),
             backgroundColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.hovered)) {
@@ -515,7 +582,7 @@ class CatppuccinColors {
               if (states.contains(WidgetState.hovered)) {
                 return const BorderSide(color: Color(0xFF1E66F5));
               }
-              return const BorderSide(color: Color(0xFF9CA0B0));
+              return BorderSide(color: colorScheme.outline);
             }),
             overlayColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.hovered)) {

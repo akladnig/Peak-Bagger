@@ -685,7 +685,9 @@ ObjectBoxAdminRow peakListToAdminRow(PeakList peakList) {
     values: {
       'peakListId': peakList.peakListId,
       'name': peakList.name,
+      'region': peakList.region,
       'peakList': peakList.peakList,
+      'colour': peakList.colour,
     },
   );
 }
