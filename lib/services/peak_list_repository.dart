@@ -1,5 +1,6 @@
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
+import 'package:peak_bagger/services/peak_list_colour_resolver.dart';
 import 'package:peak_bagger/services/tassy_full_peak_list_sync_service.dart';
 
 import '../objectbox.g.dart';
@@ -235,13 +236,15 @@ class PeakListRepository {
     final normalizedPeakList = _normalizePeakListForStorage(peakList);
     final existing = _storage.getByName(normalizedPeakList.name);
     if (existing == null) {
-      return _storage.put(normalizedPeakList);
+      final saved = await _storage.put(normalizedPeakList);
+      return _ensureStoredColour(saved);
     }
 
-    return _storage.replaceByName(
+    final saved = await _storage.replaceByName(
       normalizedPeakList,
       beforePutForTest: beforePutForTest,
     );
+    return _ensureStoredColour(saved);
   }
 
   Future<TassyFullPeakListSyncResult> refreshTassyFullPeakList() {
@@ -318,5 +321,16 @@ class PeakListRepository {
     }
 
     return peakList;
+  }
+
+  Future<PeakList> _ensureStoredColour(PeakList peakList) async {
+    if (peakList.colour != 0) {
+      return peakList;
+    }
+
+    final updated = peakList.copyWith(
+      colour: defaultPeakListColourForId(peakList.peakListId),
+    );
+    return _storage.put(updated);
   }
 }

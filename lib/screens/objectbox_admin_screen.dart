@@ -7,6 +7,8 @@ import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/models/waypoints.dart';
 import 'package:peak_bagger/main.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
@@ -17,6 +19,7 @@ import 'package:peak_bagger/screens/objectbox_admin_screen_states.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen_table.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 import 'package:peak_bagger/services/peak_delete_guard.dart';
+import 'package:peak_bagger/services/peak_list_admin_editor.dart';
 import 'package:peak_bagger/services/route_admin_editor.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
@@ -446,6 +449,71 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     }
   }
 
+  Future<String?> _savePeakList(PeakListAdminFormState form) async {
+    final repository = ref.read(peakListRepositoryProvider);
+    final notifier = ref.read(objectboxAdminProvider.notifier);
+    final currentState = ref.read(objectboxAdminProvider);
+    final selectedRow = currentState.selectedRow;
+    if (selectedRow == null) {
+      return 'Failed to save PeakList: no selected row';
+    }
+
+    final peakListId = selectedRow.primaryKeyValue as int;
+    final existing = repository.findById(peakListId);
+    if (existing == null) {
+      return 'Failed to save PeakList: peak list not found';
+    }
+
+    final validation = PeakListAdminEditor.validateAndBuild(
+      source: existing,
+      form: form,
+    );
+    if (!validation.isValid || validation.peakList == null) {
+      return 'Failed to save PeakList: invalid form';
+    }
+
+    try {
+      final savedPeakList = await repository.save(validation.peakList!);
+      ref.read(peakListRevisionProvider.notifier).increment();
+      ref.read(mapProvider.notifier).reconcileSelectedPeakList();
+      if (!mounted) {
+        return null;
+      }
+
+      await notifier.refresh(
+        keepSelectedRowPrimaryKey: savedPeakList.peakListId,
+      );
+      if (!mounted) {
+        return null;
+      }
+
+      await showSingleActionDialog(
+        context: context,
+        title: 'Update Successful',
+        content: Text('${savedPeakList.name} updated.'),
+        closeKey: 'objectbox-admin-peak-list-update-success-close',
+      );
+      return null;
+    } catch (error, stackTrace) {
+      logObjectBoxAdminError(
+        error,
+        stackTrace,
+        'PeakList save failed for ${existing.name}',
+      );
+      if (!mounted) {
+        return 'Failed to save PeakList: $error';
+      }
+
+      await showSingleActionDialog(
+        context: context,
+        title: 'Save Failed',
+        content: Text('Failed to save PeakList: $error'),
+        closeKey: 'objectbox-admin-peak-list-save-error-close',
+      );
+      return 'Failed to save PeakList: $error';
+    }
+  }
+
   Future<void> _deleteRoute(ObjectBoxAdminRow row) async {
     final repository = ref.read(routeRepositoryProvider);
     final notifier = ref.read(objectboxAdminProvider.notifier);
@@ -693,6 +761,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
                 row: null,
                 entity: entity,
                 isCreatingPeak: true,
+                peakList: null,
                 route: null,
                 createOsmId: createOsmId,
                 onClose: () {
@@ -705,6 +774,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
                 onViewGpxTrackOnMap: _viewGpxTrackOnMainMap,
                 onViewRouteOnMap: _viewRouteOnMainMap,
                 onPeakSubmit: _savePeak,
+                onPeakListSubmit: _savePeakList,
                 onRouteSubmit: _saveRoute,
               ),
             ),
@@ -759,6 +829,11 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
           child: ObjectBoxAdminDetailsPane(
             row: state.selectedRow,
             entity: entity,
+            peakList: entity.name == 'PeakList' && state.selectedRow != null
+                ? ref
+                      .read(peakListRepositoryProvider)
+                      .findById(state.selectedRow!.primaryKeyValue as int)
+                : null,
             route: entity.name == 'Route' && state.selectedRow != null
                 ? ref
                       .read(routeRepositoryProvider)
@@ -771,6 +846,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
             onViewGpxTrackOnMap: _viewGpxTrackOnMainMap,
             onViewRouteOnMap: _viewRouteOnMainMap,
             onPeakSubmit: _savePeak,
+            onPeakListSubmit: _savePeakList,
             onRouteSubmit: _saveRoute,
           ),
         ),

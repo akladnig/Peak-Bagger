@@ -204,5 +204,32 @@ void main() {
       expect(repository.findByName('Legacy')?.region, Peak.defaultRegion);
       expect(repository.findByName('Victoria')?.region, 'victoria');
     });
+
+    test('save assigns the default palette colour when colour is zero', () async {
+      final repository = PeakListRepository.test(InMemoryPeakListStorage());
+
+      final saved = await repository.save(
+        PeakList(name: 'Abels', peakList: '[]'),
+      );
+
+      expect(saved.peakListId, 1);
+      expect(saved.colour, 0xFF4C8BF5);
+      expect(repository.findById(saved.peakListId)?.colour, 0xFF4C8BF5);
+    });
+
+    test('save preserves an explicit non-zero colour', () async {
+      final repository = PeakListRepository.test(InMemoryPeakListStorage());
+
+      final saved = await repository.save(
+        PeakList(
+          name: 'Abels',
+          peakList: '[]',
+          colour: 0xFF123456,
+        ),
+      );
+
+      expect(saved.colour, 0xFF123456);
+      expect(repository.findById(saved.peakListId)?.colour, 0xFF123456);
+    });
   });
 }

@@ -13,6 +13,7 @@ import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen_details.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
@@ -20,6 +21,7 @@ import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_admin_editor.dart';
 import 'package:peak_bagger/services/peak_delete_guard.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
+import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 
 import '../harness/test_map_notifier.dart';
@@ -109,6 +111,73 @@ void main() {
       expect(text.maxLines, 5);
       expect(text.data, contains('line1'));
     }
+  });
+
+  testWidgets('PeakList admin edit updates colour only', (tester) async {
+    final peakLists = [
+      PeakList(
+        peakListId: 1,
+        name: 'Abels',
+        region: 'tasmania',
+        peakList: '[{"peakOsmId":101,"points":3}]',
+        colour: 0xFF4C8BF5,
+      ),
+    ];
+    final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
+      'Peak': const [],
+      'PeakList': peakLists.map(peakListToAdminRow).toList(growable: false),
+      'Tasmap50k': const [],
+      'GpxTrack': const [],
+      'PeaksBagged': const [],
+      'Route': const [],
+      'Waypoints': const [],
+    };
+    final peakListRepository = _MutablePeakListRepository(peakLists, rowsByEntity);
+
+    await _pumpApp(
+      tester,
+      repository: TestObjectBoxAdminRepository(rowsByEntity: rowsByEntity),
+      peakListRepository: peakListRepository,
+    );
+
+    await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-entity-dropdown')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('PeakList').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Abels'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-list-edit')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('objectbox-admin-peak-list-edit-form')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('objectbox-admin-peak-list-name')), findsNothing);
+
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-list-colour')),
+      '0xFF123456',
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-list-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Update Successful'), findsOneWidget);
+    expect(peakListRepository.findById(1)?.colour, 0xFF123456);
+    expect(peakListRepository.findById(1)?.name, 'Abels');
+    expect(peakListRepository.findById(1)?.region, 'tasmania');
+    expect(
+      peakListRepository.findById(1)?.peakList,
+      '[{"peakOsmId":101,"points":3}]',
+    );
   });
 
   testWidgets('gpx track row shows view and delete actions', (tester) async {
@@ -1557,6 +1626,7 @@ Future<void> _pumpApp(
   List<ObjectBoxAdminEntityDescriptor>? entities,
   TestObjectBoxAdminRepository? repository,
   PeakRepository? peakRepository,
+  PeakListRepository? peakListRepository,
   GpxTrackRepository? gpxTrackRepository,
   MapState? mapState,
   PeakDeleteGuard? peakDeleteGuard,
@@ -1590,6 +1660,9 @@ Future<void> _pumpApp(
         ),
         peakRepositoryProvider.overrideWithValue(
           peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
+        ),
+        peakListRepositoryProvider.overrideWithValue(
+          peakListRepository ?? PeakListRepository.test(InMemoryPeakListStorage()),
         ),
         gpxTrackRepositoryProvider.overrideWithValue(
           gpxTrackRepository ??
@@ -1888,6 +1961,41 @@ class _MutablePeakRepository extends PeakRepository {
 
   void _syncRows() {
     _rowsByEntity['Peak'] = _peaks.map(_peakRow).toList(growable: false);
+  }
+}
+
+class _MutablePeakListRepository extends PeakListRepository {
+  _MutablePeakListRepository(this._peakLists, this._rowsByEntity)
+    : super.test(InMemoryPeakListStorage(_peakLists));
+
+  final List<PeakList> _peakLists;
+  final Map<String, List<ObjectBoxAdminRow>> _rowsByEntity;
+
+  @override
+  Future<PeakList> save(
+    PeakList peakList, {
+    void Function()? beforePutForTest,
+  }) async {
+    final saved = await super.save(
+      peakList,
+      beforePutForTest: beforePutForTest,
+    );
+    final index = _peakLists.indexWhere(
+      (entry) => entry.peakListId == saved.peakListId,
+    );
+    if (index == -1) {
+      _peakLists.add(saved);
+    } else {
+      _peakLists[index] = saved;
+    }
+    _syncRows();
+    return saved;
+  }
+
+  void _syncRows() {
+    _rowsByEntity['PeakList'] = _peakLists
+        .map(peakListToAdminRow)
+        .toList(growable: false);
   }
 }
 
