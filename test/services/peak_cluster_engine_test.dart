@@ -33,6 +33,7 @@ void main() {
       peaks: [closeA, closeB],
       camera: camera,
       correlatedPeakIds: const {},
+      untickedPeakColours: const {1: 0xFF4C8BF5},
     );
 
     expect(data.clusters, isEmpty);
@@ -40,6 +41,8 @@ void main() {
       1,
       2,
     ]);
+    expect(data.individualCandidates.first.untickedColourValue, 0xFF4C8BF5);
+    expect(data.individualCandidates.last.untickedColourValue, isNull);
   });
 
   test('invalid coordinates are skipped safely', () {
@@ -236,35 +239,48 @@ void main() {
       peaks: [closeA, closeB],
       camera: _camera(zoom: 8),
       correlatedPeakIds: const {},
+      untickedPeakColours: const {},
       algorithm: PeakClusterAlgorithm.compactCircular,
     );
     final same = cache.getOrBuild(
       peaks: [closeA, closeB],
       camera: _camera(zoom: 8),
       correlatedPeakIds: const {},
+      untickedPeakColours: const {},
       algorithm: PeakClusterAlgorithm.compactCircular,
     );
     final changedZoom = cache.getOrBuild(
       peaks: [closeA, closeB],
       camera: _camera(zoom: 9),
       correlatedPeakIds: const {},
+      untickedPeakColours: const {},
       algorithm: PeakClusterAlgorithm.compactCircular,
     );
     final changedCorrelation = cache.getOrBuild(
       peaks: [closeA, closeB],
       camera: _camera(zoom: 9),
       correlatedPeakIds: {2},
+      untickedPeakColours: const {},
+      algorithm: PeakClusterAlgorithm.compactCircular,
+    );
+    final changedUntickedColours = cache.getOrBuild(
+      peaks: [closeA, closeB],
+      camera: _camera(zoom: 9),
+      correlatedPeakIds: {2},
+      untickedPeakColours: const {1: 0xFF4C8BF5},
       algorithm: PeakClusterAlgorithm.compactCircular,
     );
     final changedAlgorithm = cache.getOrBuild(
       peaks: [closeA, closeB],
       camera: _camera(zoom: 9),
       correlatedPeakIds: {2},
+      untickedPeakColours: const {1: 0xFF4C8BF5},
       algorithm: PeakClusterAlgorithm.supercluster,
     );
 
     expect(identical(base, same), isTrue);
     expect(identical(base, changedZoom), isFalse);
+    expect(identical(changedCorrelation, changedUntickedColours), isFalse);
     expect(identical(changedCorrelation, changedAlgorithm), isFalse);
     expect(
       changedCorrelation.individualCandidates.any(
@@ -282,6 +298,7 @@ void main() {
       peaks: [closeA, closeB],
       camera: camera,
       correlatedPeakIds: const {},
+      untickedPeakColours: const {},
       algorithm: PeakClusterAlgorithm.compactCircular,
     );
     final relocatedPeak = closeA.copyWith(
@@ -292,6 +309,7 @@ void main() {
       peaks: [relocatedPeak, closeB],
       camera: camera,
       correlatedPeakIds: const {},
+      untickedPeakColours: const {},
       algorithm: PeakClusterAlgorithm.compactCircular,
     );
     final rewordedPeak = relocatedPeak.copyWith(
@@ -302,6 +320,7 @@ void main() {
       peaks: [rewordedPeak, closeB],
       camera: camera,
       correlatedPeakIds: const {},
+      untickedPeakColours: const {},
       algorithm: PeakClusterAlgorithm.compactCircular,
     );
 

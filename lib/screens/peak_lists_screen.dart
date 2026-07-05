@@ -2232,6 +2232,7 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
         for (final peak in peaks.where((peak) => peak.isClimbed))
           peak.peak.osmId,
       },
+      untickedPeakColours: const <int, int>{},
       clusteringEnabled: clusteringEnabled,
     );
   }

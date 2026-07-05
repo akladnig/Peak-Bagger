@@ -12,11 +12,13 @@ class ProjectedPeakCandidate {
     required this.peak,
     required this.screenPosition,
     required this.isTicked,
+    this.untickedColourValue,
   });
 
   final Peak peak;
   final ui.Offset screenPosition;
   final bool isTicked;
+  final int? untickedColourValue;
 }
 
 class PeakCluster {
@@ -56,10 +58,15 @@ class PeakClusterViewportData {
 }
 
 class PeakSuperclusterPoint {
-  const PeakSuperclusterPoint({required this.peak, required this.isTicked});
+  const PeakSuperclusterPoint({
+    required this.peak,
+    required this.isTicked,
+    this.untickedColourValue,
+  });
 
   final Peak peak;
   final bool isTicked;
+  final int? untickedColourValue;
 }
 
 class PeakSuperclusterIndex {
@@ -108,6 +115,7 @@ int comparePeakClusterSeedPriority(
 PeakSuperclusterIndex buildPeakSuperclusterIndex({
   required List<Peak> peaks,
   required Set<int> correlatedPeakIds,
+  Map<int, int> untickedPeakColours = const <int, int>{},
 }) {
   final index = SuperclusterImmutable<PeakSuperclusterPoint>(
     getX: (point) => point.peak.longitude,
@@ -122,6 +130,7 @@ PeakSuperclusterIndex buildPeakSuperclusterIndex({
         PeakSuperclusterPoint(
           peak: peak,
           isTicked: correlatedPeakIds.contains(peak.osmId),
+          untickedColourValue: untickedPeakColours[peak.osmId],
         ),
   ]);
   return PeakSuperclusterIndex(index: index);
@@ -209,6 +218,7 @@ PeakClusterViewportData buildPeakClusterViewportData({
   required List<Peak> peaks,
   required MapCamera camera,
   required Set<int> correlatedPeakIds,
+  Map<int, int> untickedPeakColours = const <int, int>{},
   PeakClusterAlgorithm algorithm = MapConstants.peakClusterAlgorithm,
 }) {
   final size = camera.nonRotatedSize;
@@ -245,6 +255,7 @@ PeakClusterViewportData buildPeakClusterViewportData({
         peak: peak,
         screenPosition: screenPosition,
         isTicked: correlatedPeakIds.contains(peak.osmId),
+        untickedColourValue: untickedPeakColours[peak.osmId],
       ),
     );
   }
@@ -259,6 +270,7 @@ PeakClusterViewportData buildPeakClusterViewportData({
         index: buildPeakSuperclusterIndex(
           peaks: peaks,
           correlatedPeakIds: correlatedPeakIds,
+          untickedPeakColours: untickedPeakColours,
         ),
         camera: camera,
       ),
@@ -269,6 +281,7 @@ PeakClusterViewportData buildUnclusteredPeakViewportData({
   required List<Peak> peaks,
   required MapCamera camera,
   required Set<int> correlatedPeakIds,
+  Map<int, int> untickedPeakColours = const <int, int>{},
 }) {
   final size = camera.nonRotatedSize;
   if (size == MapCamera.kImpossibleSize) {
@@ -304,6 +317,7 @@ PeakClusterViewportData buildUnclusteredPeakViewportData({
       peak: peak,
       screenPosition: screenPosition,
       isTicked: correlatedPeakIds.contains(peak.osmId),
+      untickedColourValue: untickedPeakColours[peak.osmId],
     );
     if (candidate.isTicked) {
       ticked.add(candidate);
@@ -537,6 +551,7 @@ ProjectedPeakCandidate? _projectIndexedPeakPoint(
     peak: point.peak,
     screenPosition: screenPosition,
     isTicked: point.isTicked,
+    untickedColourValue: point.untickedColourValue,
   );
 }
 

@@ -15,6 +15,7 @@ class PeakProjectionCache {
     required List<Peak> peaks,
     required MapCamera camera,
     required Set<int> correlatedPeakIds,
+    required Map<int, int> untickedPeakColours,
     bool clusteringEnabled = true,
     PeakClusterAlgorithm algorithm = MapConstants.peakClusterAlgorithm,
   }) {
@@ -25,6 +26,10 @@ class PeakProjectionCache {
       size: camera.nonRotatedSize,
       peakFingerprints: peakFingerprints,
       correlatedPeakIds: correlatedPeakIds.toList(growable: false)..sort(),
+      untickedPeakColours: untickedPeakColours.entries
+          .map((entry) => (entry.key, entry.value))
+          .toList(growable: false)
+        ..sort((left, right) => left.$1.compareTo(right.$1)),
       clusteringEnabled: clusteringEnabled,
       algorithm: algorithm,
     );
@@ -38,11 +43,13 @@ class PeakProjectionCache {
               peaks: peaks,
               camera: camera,
               correlatedPeakIds: correlatedPeakIds,
+              untickedPeakColours: untickedPeakColours,
             ),
             _ => buildPeakClusterViewportData(
               peaks: peaks,
               camera: camera,
               correlatedPeakIds: correlatedPeakIds,
+              untickedPeakColours: untickedPeakColours,
               algorithm: algorithm,
             ),
           }
@@ -50,6 +57,7 @@ class PeakProjectionCache {
             peaks: peaks,
             camera: camera,
             correlatedPeakIds: correlatedPeakIds,
+            untickedPeakColours: untickedPeakColours,
           );
     _key = key;
     _data = data;
@@ -60,17 +68,23 @@ class PeakProjectionCache {
     required List<Peak> peaks,
     required MapCamera camera,
     required Set<int> correlatedPeakIds,
+    required Map<int, int> untickedPeakColours,
   }) {
     final peakFingerprints = _peakRenderFingerprints(peaks);
     final key = _PeakSuperclusterIndexKey(
       peakFingerprints: peakFingerprints,
       correlatedPeakIds: correlatedPeakIds.toList(growable: false)..sort(),
+      untickedPeakColours: untickedPeakColours.entries
+          .map((entry) => (entry.key, entry.value))
+          .toList(growable: false)
+        ..sort((left, right) => left.$1.compareTo(right.$1)),
     );
     if (_superclusterKey != key || _superclusterIndex == null) {
       _superclusterKey = key;
       _superclusterIndex = buildPeakSuperclusterIndex(
         peaks: peaks,
         correlatedPeakIds: correlatedPeakIds,
+        untickedPeakColours: untickedPeakColours,
       );
     }
 
@@ -95,6 +109,7 @@ class _PeakProjectionCacheKey {
     required this.size,
     required this.peakFingerprints,
     required this.correlatedPeakIds,
+    required this.untickedPeakColours,
     required this.clusteringEnabled,
     required this.algorithm,
   });
@@ -104,6 +119,7 @@ class _PeakProjectionCacheKey {
   final Size size;
   final List<String> peakFingerprints;
   final List<int> correlatedPeakIds;
+  final List<(int, int)> untickedPeakColours;
   final bool clusteringEnabled;
   final PeakClusterAlgorithm algorithm;
 
@@ -117,7 +133,8 @@ class _PeakProjectionCacheKey {
             other.clusteringEnabled == clusteringEnabled &&
             other.algorithm == algorithm &&
             _listEquals(other.peakFingerprints, peakFingerprints) &&
-            _listEquals(other.correlatedPeakIds, correlatedPeakIds);
+            _listEquals(other.correlatedPeakIds, correlatedPeakIds) &&
+            _listEquals(other.untickedPeakColours, untickedPeakColours);
   }
 
   @override
@@ -129,24 +146,28 @@ class _PeakProjectionCacheKey {
       algorithm,
       Object.hashAll(peakFingerprints),
       Object.hashAll(correlatedPeakIds),
-  );
+      Object.hashAll(untickedPeakColours),
+    );
 }
 
 class _PeakSuperclusterIndexKey {
   const _PeakSuperclusterIndexKey({
     required this.peakFingerprints,
     required this.correlatedPeakIds,
+    required this.untickedPeakColours,
   });
 
   final List<String> peakFingerprints;
   final List<int> correlatedPeakIds;
+  final List<(int, int)> untickedPeakColours;
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         other is _PeakSuperclusterIndexKey &&
             _listEquals(other.peakFingerprints, peakFingerprints) &&
-            _listEquals(other.correlatedPeakIds, correlatedPeakIds);
+            _listEquals(other.correlatedPeakIds, correlatedPeakIds) &&
+            _listEquals(other.untickedPeakColours, untickedPeakColours);
   }
 
   @override
@@ -154,6 +175,7 @@ class _PeakSuperclusterIndexKey {
       Object.hash(
         Object.hashAll(peakFingerprints),
         Object.hashAll(correlatedPeakIds),
+        Object.hashAll(untickedPeakColours),
       );
 }
 

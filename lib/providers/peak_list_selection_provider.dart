@@ -130,6 +130,42 @@ final filteredPeaksProvider = Provider<List<Peak>>((ref) {
   };
 });
 
+final peakMarkerColourAssignmentsProvider = Provider<Map<int, int>>((ref) {
+  final peakListSelectionMode = ref.watch(
+    mapProvider.select((state) => state.peakListSelectionMode),
+  );
+  if (peakListSelectionMode != PeakListSelectionMode.specificList) {
+    return const <int, int>{};
+  }
+
+  final selectedPeakListIds = ref.watch(
+    mapProvider.select((state) => state.selectedPeakListIds),
+  );
+  final peakLists = ref.watch(peakListsProvider);
+  final sortedSelectedPeakListIds = selectedPeakListIds.toList()..sort();
+  final coloursByPeakId = <int, int>{};
+
+  for (final peakListId in sortedSelectedPeakListIds) {
+    PeakList? peakList;
+    for (final candidate in peakLists) {
+      if (candidate.peakListId == peakListId) {
+        peakList = candidate;
+        break;
+      }
+    }
+    if (peakList == null || !_isReadablePeakList(peakList)) {
+      continue;
+    }
+
+    final colourValue = resolvePeakListColour(peakList);
+    for (final item in decodePeakListItems(peakList.peakList)) {
+      coloursByPeakId.putIfAbsent(item.peakOsmId, () => colourValue);
+    }
+  }
+
+  return Map<int, int>.unmodifiable(coloursByPeakId);
+});
+
 List<Peak> _filterSpecificListPeaks({
   required List<Peak> peaks,
   required List<PeakList> peakLists,

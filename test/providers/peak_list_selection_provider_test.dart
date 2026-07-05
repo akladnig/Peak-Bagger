@@ -194,6 +194,89 @@ void main() {
   );
 
   test(
+    'peakMarkerColourAssignmentsProvider uses the lowest selected peakListId winner',
+    () {
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(
+            name: 'Bravo',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 6406, points: 1),
+            ]),
+            colour: 0xFFE67E22,
+          )..peakListId = 8,
+          PeakList(
+            name: 'Alpha',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 6406, points: 1),
+              const PeakListItem(peakOsmId: 7000, points: 1),
+            ]),
+            colour: 0xFF4C8BF5,
+          )..peakListId = 7,
+        ]),
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => _TestMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 15,
+                basemap: Basemap.tracestrack,
+                peakListSelectionMode: PeakListSelectionMode.specificList,
+                selectedPeakListIds: {7, 8},
+              ),
+            ),
+          ),
+          peakListRepositoryProvider.overrideWithValue(peakListRepository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(container.read(peakMarkerColourAssignmentsProvider), {
+        6406: 0xFF4C8BF5,
+        7000: 0xFF4C8BF5,
+      });
+    },
+  );
+
+  test(
+    'peakMarkerColourAssignmentsProvider skips malformed selected lists',
+    () {
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(
+            name: 'Broken',
+            peakList: '{not-json}',
+            colour: 0xFFD6336C,
+          )..peakListId = 7,
+        ]),
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => _TestMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 15,
+                basemap: Basemap.tracestrack,
+                peakListSelectionMode: PeakListSelectionMode.specificList,
+                selectedPeakListIds: {7},
+              ),
+            ),
+          ),
+          peakListRepositoryProvider.overrideWithValue(peakListRepository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(container.read(peakMarkerColourAssignmentsProvider), isEmpty);
+    },
+  );
+
+  test(
     'renderablePeakListIds keeps Tasmania lists with legacy region values',
     () {
       final peakLists = [

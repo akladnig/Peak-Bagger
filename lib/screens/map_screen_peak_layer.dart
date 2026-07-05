@@ -151,7 +151,14 @@ class _PeakViewportPainter extends CustomPainter {
         ..lineTo(center.dx - 7, center.dy + 7)
         ..lineTo(center.dx + 7, center.dy + 7)
         ..close();
-      canvas.drawPath(path, candidate.isTicked ? tickedFill : untickedFill);
+      canvas.drawPath(
+        path,
+        candidate.isTicked
+            ? tickedFill
+            : (candidate.untickedColourValue == null
+                  ? untickedFill
+                  : (Paint()..color = Color(candidate.untickedColourValue!))),
+      );
       canvas.drawPath(path, markerStroke);
     }
 
