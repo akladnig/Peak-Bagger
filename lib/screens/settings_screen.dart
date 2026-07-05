@@ -84,6 +84,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final routeGraphReadiness = ref.watch(routeGraphReadinessProvider);
     final themeMode = ref.watch(themeModeProvider);
     final themeColorPalette = ref.watch(themeColorPaletteProvider);
+    final themeSchemeVariant = ref.watch(themeSchemeVariantProvider);
+    final themeContrastLevel = ref.watch(themeContrastLevelProvider);
     final isDarkTheme = themeMode == ThemeMode.dark;
 
     return Scaffold(
@@ -314,6 +316,64 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
             ),
+            ListTile(
+              key: const Key('theme-scheme-variant-tile'),
+              leading: const Icon(Icons.auto_awesome_outlined),
+              title: const Text('Seeded Scheme Variant'),
+              subtitle: Text(_themeSchemeVariantLabel(themeSchemeVariant)),
+              trailing: DropdownButtonHideUnderline(
+                child: DropdownButton<DynamicSchemeVariant>(
+                  key: const Key('theme-scheme-variant-dropdown'),
+                  value: themeSchemeVariant,
+                  isDense: true,
+                  onChanged: (value) {
+                    if (value == null) {
+                      return;
+                    }
+
+                    unawaited(
+                      ref
+                          .read(themeSchemeVariantProvider.notifier)
+                          .setThemeSchemeVariant(value),
+                    );
+                  },
+                  items: DynamicSchemeVariant.values
+                      .map(
+                        (variant) => DropdownMenuItem(
+                          value: variant,
+                          child: Text(_themeSchemeVariantLabel(variant)),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+              ),
+            ),
+            ListTile(
+              key: const Key('theme-contrast-level-tile'),
+              leading: const Icon(Icons.contrast_outlined),
+              title: const Text('Seeded Contrast Level'),
+              subtitle: Text(
+                'Contrast level ${themeContrastLevel.toStringAsFixed(1)}',
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Slider(
+                key: const Key('theme-contrast-level-slider'),
+                value: themeContrastLevel,
+                min: -1.0,
+                max: 1.0,
+                divisions: 20,
+                label: themeContrastLevel.toStringAsFixed(1),
+                onChanged: (value) {
+                  unawaited(
+                    ref
+                        .read(themeContrastLevelProvider.notifier)
+                        .setThemeContrastLevel(value),
+                  );
+                },
+              ),
+            ),
             _buildPeakCorrelationSection(context, peakCorrelationState),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -478,6 +538,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  String _themeSchemeVariantLabel(DynamicSchemeVariant variant) {
+    return switch (variant) {
+      DynamicSchemeVariant.tonalSpot => 'Tonal Spot',
+      DynamicSchemeVariant.fidelity => 'Fidelity',
+      DynamicSchemeVariant.content => 'Content',
+      DynamicSchemeVariant.monochrome => 'Monochrome',
+      DynamicSchemeVariant.neutral => 'Neutral',
+      DynamicSchemeVariant.vibrant => 'Vibrant',
+      DynamicSchemeVariant.expressive => 'Expressive',
+      DynamicSchemeVariant.rainbow => 'Rainbow',
+      DynamicSchemeVariant.fruitSalad => 'Fruit Salad',
+    };
   }
 
   void _clearStatusWhenHidden() {

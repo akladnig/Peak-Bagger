@@ -12,9 +12,13 @@ class App extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
     final themeColorPalette = ref.watch(themeColorPaletteProvider);
+    final themeSchemeVariant = ref.watch(themeSchemeVariantProvider);
+    final themeContrastLevel = ref.watch(themeContrastLevelProvider);
     ref.watch(routeGraphBootstrapProvider);
 
     useSeedGeneratedColorScheme = themeColorPalette == ThemeColorPalette.seeded;
+    seededDynamicSchemeVariant = themeSchemeVariant;
+    seededContrastLevel = themeContrastLevel;
 
     return MaterialApp.router(
       title: 'Peak Bagger',

@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:peak_bagger/core/constants.dart';
 
 const catppuccinSeedColor = Color(0xFF6347EA);
+const mySeedColor = Color(0xFF7E47EB);
 
 bool useSeedGeneratedColorScheme = false;
+DynamicSchemeVariant seededDynamicSchemeVariant = DynamicSchemeVariant.vibrant;
+double seededContrastLevel = 0.0;
 
 Color lighten(Color color, [double amount = 0.1]) {
   final hsl = HSLColor.fromColor(color);
@@ -315,31 +318,42 @@ class CatppuccinColors {
   static ThemeData get dark => _createDarkTheme();
   static ThemeData get light => _createLightTheme();
 
+  static ColorScheme _withOutlineVariantMatchingPrimary(ColorScheme scheme) {
+    return scheme.copyWith(outlineVariant: scheme.onPrimary);
+  }
+
   static ColorScheme _darkColorScheme() {
     if (useSeedGeneratedColorScheme) {
-      return ColorScheme.fromSeed(
-        seedColor: catppuccinSeedColor,
-        brightness: Brightness.dark,
-        dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
+      return _withOutlineVariantMatchingPrimary(
+        ColorScheme.fromSeed(
+          seedColor: mySeedColor,
+          brightness: Brightness.dark,
+          dynamicSchemeVariant: seededDynamicSchemeVariant,
+          contrastLevel: seededContrastLevel,
+        ),
       );
     }
 
-    return const ColorScheme.dark(
-      primary: Color(0xFF6347EA),
-      onPrimary: Color(0xFFEBE8FC),
-      secondary: Color(0xFF191919),
-      onSecondary: Color(0xFFCDD6F4),
-      tertiary: Color(0xFF2A2A2A),
-      onTertiary: Color(0xFFCDD6F4),
-      primaryContainer: Color(0xFF221B52),
-      onPrimaryContainer: Colors.white,
-      surface: Color(0xFF111111),
-      onSurface: Color(0xFFCDD6F4),
-      surfaceContainer: Color(0xFF191919),
-      outline: Color(0xFF7B7B7B),
-      outlineVariant: Color(0xFF6347EA),
-      error: Color(0xFFF38BA8),
-      onError: Color(0xFFCDD6F4),
+    return _withOutlineVariantMatchingPrimary(
+      const ColorScheme.dark(
+        primary: Color(0xFFEBE8FC),
+        onPrimary: Color(0xFF6347EA),
+        secondary: Color(0xFF191919),
+        onSecondary: Color(0xFFCDD6F4),
+        tertiary: Color(0xFF2A2A2A),
+        onTertiary: Color(0xFFCDD6F4),
+        primaryContainer: Color(0xFFCDD6F4),
+        onPrimaryContainer: Color(0xFF221B52),
+        onPrimaryFixed: Color(0xFF221B52),
+        primaryFixed: Color(0xFFCDD6F4),
+        surface: Color(0xFF111111),
+        onSurface: Color(0xFFCDD6F4),
+        surfaceContainer: Color(0xFF191919),
+        outline: Color(0xFF7B7B7B),
+        outlineVariant: Color(0xFF6347EA),
+        error: Color(0xFFF38BA8),
+        onError: Color(0xFFCDD6F4),
+      ),
     );
   }
 
@@ -447,29 +461,36 @@ class CatppuccinColors {
 
   static ColorScheme _lightColorScheme() {
     if (useSeedGeneratedColorScheme) {
-      return ColorScheme.fromSeed(
-        seedColor: catppuccinSeedColor,
-        brightness: Brightness.light,
-        dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
+      return _withOutlineVariantMatchingPrimary(
+        ColorScheme.fromSeed(
+          seedColor: catppuccinSeedColor,
+          brightness: Brightness.light,
+          dynamicSchemeVariant: seededDynamicSchemeVariant,
+          contrastLevel: seededContrastLevel,
+        ),
       );
     }
 
-    return const ColorScheme.light(
-      primary: Color(0xFF6347EA),
-      onPrimary: Color(0xFF4C4F69),
-      secondary: Color(0xFFDCE0E8),
-      onSecondary: Color(0xFF4C4F69),
-      tertiary: Color(0xFFBCC0CC),
-      onTertiary: Color(0xFF4C4F69),
-      primaryContainer: Color(0xFFCCD0DA),
-      onPrimaryContainer: Color(0xFF4C4F69),
-      surface: Color(0xFFEFF1F5),
-      onSurface: Color(0xFF4C4F69),
-      surfaceContainer: Color(0xFFDCE0E8),
-      outline: Color(0xFF9CA0B0),
-      outlineVariant: Color(0xFF6347EA),
-      error: Color(0xFFD20F39),
-      onError: Color(0xFF4C4F69),
+    return _withOutlineVariantMatchingPrimary(
+      const ColorScheme.light(
+        primary: Color(0xFF6347EA),
+        onPrimary: Color(0xFF4C4F69),
+        secondary: Color(0xFFDCE0E8),
+        onSecondary: Color(0xFF4C4F69),
+        tertiary: Color(0xFFBCC0CC),
+        onTertiary: Color(0xFF4C4F69),
+        primaryContainer: Color(0xFFCCD0DA),
+        onPrimaryContainer: Color(0xFF4C4F69),
+        primaryFixed: Color(0xFF221B52),
+        onPrimaryFixed: Color(0xFFCDD6F4),
+        surface: Color(0xFFEFF1F5),
+        onSurface: Color(0xFF4C4F69),
+        surfaceContainer: Color(0xFFDCE0E8),
+        outline: Color(0xFF9CA0B0),
+        outlineVariant: Color(0xFF6347EA),
+        error: Color(0xFFD20F39),
+        onError: Color(0xFF4C4F69),
+      ),
     );
   }
 

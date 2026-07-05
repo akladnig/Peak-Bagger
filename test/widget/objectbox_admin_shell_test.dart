@@ -132,7 +132,10 @@ void main() {
       'Route': const [],
       'Waypoints': const [],
     };
-    final peakListRepository = _MutablePeakListRepository(peakLists, rowsByEntity);
+    final peakListRepository = _MutablePeakListRepository(
+      peakLists,
+      rowsByEntity,
+    );
 
     await _pumpApp(
       tester,
@@ -159,7 +162,10 @@ void main() {
       find.byKey(const Key('objectbox-admin-peak-list-edit-form')),
       findsOneWidget,
     );
-    expect(find.byKey(const Key('objectbox-admin-peak-list-name')), findsNothing);
+    expect(
+      find.byKey(const Key('objectbox-admin-peak-list-name')),
+      findsNothing,
+    );
 
     await tester.enterText(
       find.byKey(const Key('objectbox-admin-peak-list-colour')),
@@ -410,59 +416,66 @@ void main() {
     );
   });
 
-  testWidgets('side menu selected and unselected icons invert against primaryContainer', (
-    tester,
-  ) async {
-    await _pumpApp(tester, size: const Size(1280, 900));
+  testWidgets(
+    'side menu selected and unselected icons invert against primaryFixed',
+    (tester) async {
+      await _pumpApp(tester, size: const Size(1280, 900));
 
-    final theme = Theme.of(tester.element(find.byKey(const Key('shared-app-bar'))));
-    await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
-    await tester.pumpAndSettle();
+      final theme = Theme.of(
+        tester.element(find.byKey(const Key('shared-app-bar'))),
+      );
+      await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+      await tester.pumpAndSettle();
 
-    final selectedAdminButton = tester.widget<IconButton>(
-      find.descendant(
-        of: find.byKey(const Key('nav-objectbox-admin')),
-        matching: find.byType(IconButton),
-      ),
-    );
-    final unselectedDashboardButton = tester.widget<IconButton>(
-      find.descendant(
-        of: find.byKey(const Key('nav-dashboard')),
-        matching: find.byType(IconButton),
-      ),
-    );
-    expect(selectedAdminButton.isSelected, isTrue);
-    expect(unselectedDashboardButton.isSelected, isFalse);
+      final selectedAdminButton = tester.widget<IconButton>(
+        find.descendant(
+          of: find.byKey(const Key('nav-objectbox-admin')),
+          matching: find.byType(IconButton),
+        ),
+      );
+      final unselectedDashboardButton = tester.widget<IconButton>(
+        find.descendant(
+          of: find.byKey(const Key('nav-dashboard')),
+          matching: find.byType(IconButton),
+        ),
+      );
+      expect(selectedAdminButton.isSelected, isTrue);
+      expect(unselectedDashboardButton.isSelected, isFalse);
 
-    final selectedAdminStates = selectedAdminButton.isSelected == true
-        ? {WidgetState.selected}
-        : <WidgetState>{};
-    final unselectedDashboardStates =
-        unselectedDashboardButton.isSelected == true
-        ? {WidgetState.selected}
-        : <WidgetState>{};
+      final selectedAdminStates = selectedAdminButton.isSelected == true
+          ? {WidgetState.selected}
+          : <WidgetState>{};
+      final unselectedDashboardStates =
+          unselectedDashboardButton.isSelected == true
+          ? {WidgetState.selected}
+          : <WidgetState>{};
 
-    expect(
-      selectedAdminButton.style!.backgroundColor!.resolve(selectedAdminStates),
-      theme.iconTheme.color,
-    );
-    expect(
-      selectedAdminButton.style!.foregroundColor!.resolve(selectedAdminStates),
-      theme.colorScheme.primaryContainer,
-    );
-    expect(
-      unselectedDashboardButton.style!.backgroundColor!.resolve(
-        unselectedDashboardStates,
-      ),
-      theme.colorScheme.primaryContainer,
-    );
-    expect(
-      unselectedDashboardButton.style!.foregroundColor!.resolve(
-        unselectedDashboardStates,
-      ),
-      theme.iconTheme.color,
-    );
-  });
+      expect(
+        selectedAdminButton.style!.backgroundColor!.resolve(
+          selectedAdminStates,
+        ),
+        theme.colorScheme.primaryFixed,
+      );
+      expect(
+        selectedAdminButton.style!.foregroundColor!.resolve(
+          selectedAdminStates,
+        ),
+        theme.colorScheme.onPrimaryFixed,
+      );
+      expect(
+        unselectedDashboardButton.style!.backgroundColor!.resolve(
+          unselectedDashboardStates,
+        ),
+        theme.colorScheme.onPrimaryFixed,
+      );
+      expect(
+        unselectedDashboardButton.style!.foregroundColor!.resolve(
+          unselectedDashboardStates,
+        ),
+        theme.colorScheme.primaryFixed,
+      );
+    },
+  );
 
   testWidgets('dashboard nav returns to dashboard and is a no-op there', (
     tester,
@@ -631,7 +644,10 @@ void main() {
     );
     final mapState = container.read(mapProvider);
     expect(mapState.peaks, hasLength(2));
-    expect(mapState.peaks.singleWhere((peak) => peak.id == 1).region, 'New Area');
+    expect(
+      mapState.peaks.singleWhere((peak) => peak.id == 1).region,
+      'New Area',
+    );
     expect(mapState.peaks.singleWhere((peak) => peak.id == 1).altName, 'Ossa');
     expect(mapState.peaks.singleWhere((peak) => peak.id == 1).verified, isTrue);
     expect(find.text('New Area'), findsWidgets);
@@ -1662,7 +1678,8 @@ Future<void> _pumpApp(
           peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
         ),
         peakListRepositoryProvider.overrideWithValue(
-          peakListRepository ?? PeakListRepository.test(InMemoryPeakListStorage()),
+          peakListRepository ??
+              PeakListRepository.test(InMemoryPeakListStorage()),
         ),
         gpxTrackRepositoryProvider.overrideWithValue(
           gpxTrackRepository ??

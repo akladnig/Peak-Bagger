@@ -59,4 +59,71 @@ void main() {
       );
     });
   });
+
+  group('ThemeSchemeVariantNotifier', () {
+    setUp(() {
+      SharedPreferences.resetStatic();
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    test('initial state is vibrant', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      expect(
+        container.read(themeSchemeVariantProvider),
+        DynamicSchemeVariant.vibrant,
+      );
+    });
+
+    test('setThemeSchemeVariant updates state', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await container
+          .read(themeSchemeVariantProvider.notifier)
+          .setThemeSchemeVariant(DynamicSchemeVariant.expressive);
+
+      expect(
+        container.read(themeSchemeVariantProvider),
+        DynamicSchemeVariant.expressive,
+      );
+    });
+  });
+
+  group('ThemeContrastLevelNotifier', () {
+    setUp(() {
+      SharedPreferences.resetStatic();
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    test('initial state is zero contrast', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      expect(container.read(themeContrastLevelProvider), 0.0);
+    });
+
+    test('setThemeContrastLevel updates state', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await container
+          .read(themeContrastLevelProvider.notifier)
+          .setThemeContrastLevel(0.5);
+
+      expect(container.read(themeContrastLevelProvider), 0.5);
+    });
+
+    test('setThemeContrastLevel clamps state', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await container
+          .read(themeContrastLevelProvider.notifier)
+          .setThemeContrastLevel(2.0);
+
+      expect(container.read(themeContrastLevelProvider), 1.0);
+    });
+  });
 }

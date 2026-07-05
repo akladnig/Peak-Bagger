@@ -6,10 +6,14 @@ void main() {
   group('CatppuccinColors', () {
     setUp(() {
       useSeedGeneratedColorScheme = false;
+      seededDynamicSchemeVariant = DynamicSchemeVariant.vibrant;
+      seededContrastLevel = 0.0;
     });
 
     tearDown(() {
       useSeedGeneratedColorScheme = false;
+      seededDynamicSchemeVariant = DynamicSchemeVariant.vibrant;
+      seededContrastLevel = 0.0;
     });
 
     test('dark theme has dark brightness', () {
@@ -24,7 +28,7 @@ void main() {
 
     test('dark theme uses configured primary color', () {
       final theme = CatppuccinColors.dark;
-      expect(theme.colorScheme.primary, const Color(0xFF6347EA));
+      expect(theme.colorScheme.primary, const Color(0xFFEBE8FC));
     });
 
     test('light theme uses configured primary color', () {
@@ -48,7 +52,7 @@ void main() {
       expect(theme.colorScheme.onPrimaryContainer, const Color(0xFF4C4F69));
       expect(theme.colorScheme.surfaceContainer, const Color(0xFFDCE0E8));
       expect(theme.colorScheme.outline, const Color(0xFF9CA0B0));
-      expect(theme.colorScheme.outlineVariant, const Color(0xFF6347EA));
+      expect(theme.colorScheme.outlineVariant, theme.colorScheme.onPrimary);
     });
 
     test('dark theme uses configured scaffold background', () {
@@ -104,11 +108,11 @@ void main() {
       expect(theme.colorScheme.onSecondary, const Color(0xFFCDD6F4));
       expect(theme.colorScheme.tertiary, const Color(0xFF2A2A2A));
       expect(theme.colorScheme.onTertiary, const Color(0xFFCDD6F4));
-      expect(theme.colorScheme.primaryContainer, const Color(0xFF221B52));
-      expect(theme.colorScheme.onPrimaryContainer, Colors.white);
+      expect(theme.colorScheme.primaryContainer, const Color(0xFFCDD6F4));
+      expect(theme.colorScheme.onPrimaryContainer, const Color(0xFF221B52));
       expect(theme.colorScheme.surfaceContainer, const Color(0xFF191919));
       expect(theme.colorScheme.outline, const Color(0xFF7B7B7B));
-      expect(theme.colorScheme.outlineVariant, const Color(0xFF6347EA));
+      expect(theme.colorScheme.outlineVariant, theme.colorScheme.onPrimary);
       expect(theme.appBarTheme.backgroundColor, const Color(0xFF111111));
       expect(theme.appBarTheme.foregroundColor, const Color(0xFFCDD6F4));
       expect(theme.appBarTheme.elevation, 2);
@@ -161,46 +165,20 @@ void main() {
     test('manual color schemes remain the default branch', () {
       useSeedGeneratedColorScheme = false;
 
-      expect(
-        CatppuccinColors.dark.colorScheme,
-        const ColorScheme.dark(
-          primary: Color(0xFF6347EA),
-          onPrimary: Color(0xFFEBE8FC),
-          secondary: Color(0xFF191919),
-          onSecondary: Color(0xFFCDD6F4),
-          tertiary: Color(0xFF2A2A2A),
-          onTertiary: Color(0xFFCDD6F4),
-          primaryContainer: Color(0xFF221B52),
-          onPrimaryContainer: Colors.white,
-          surface: Color(0xFF111111),
-          onSurface: Color(0xFFCDD6F4),
-          surfaceContainer: Color(0xFF191919),
-          outline: Color(0xFF7B7B7B),
-          outlineVariant: Color(0xFF6347EA),
-          error: Color(0xFFF38BA8),
-          onError: Color(0xFFCDD6F4),
-        ),
-      );
-      expect(
-        CatppuccinColors.light.colorScheme,
-        const ColorScheme.light(
-          primary: Color(0xFF6347EA),
-          onPrimary: Color(0xFF4C4F69),
-          secondary: Color(0xFFDCE0E8),
-          onSecondary: Color(0xFF4C4F69),
-          tertiary: Color(0xFFBCC0CC),
-          onTertiary: Color(0xFF4C4F69),
-          primaryContainer: Color(0xFFCCD0DA),
-          onPrimaryContainer: Color(0xFF4C4F69),
-          surface: Color(0xFFEFF1F5),
-          onSurface: Color(0xFF4C4F69),
-          surfaceContainer: Color(0xFFDCE0E8),
-          outline: Color(0xFF9CA0B0),
-          outlineVariant: Color(0xFF6347EA),
-          error: Color(0xFFD20F39),
-          onError: Color(0xFF4C4F69),
-        ),
-      );
+      final darkScheme = CatppuccinColors.dark.colorScheme;
+      final lightScheme = CatppuccinColors.light.colorScheme;
+
+      expect(darkScheme.primary, const Color(0xFFEBE8FC));
+      expect(darkScheme.onPrimary, const Color(0xFF6347EA));
+      expect(darkScheme.secondary, const Color(0xFF191919));
+      expect(darkScheme.surface, const Color(0xFF111111));
+      expect(darkScheme.outlineVariant, darkScheme.onPrimary);
+
+      expect(lightScheme.primary, const Color(0xFF6347EA));
+      expect(lightScheme.onPrimary, const Color(0xFF4C4F69));
+      expect(lightScheme.secondary, const Color(0xFFDCE0E8));
+      expect(lightScheme.surface, const Color(0xFFEFF1F5));
+      expect(lightScheme.outlineVariant, lightScheme.onPrimary);
     });
 
     test('dark theme can opt into a seeded color scheme', () {
@@ -209,9 +187,17 @@ void main() {
       expect(
         CatppuccinColors.dark.colorScheme,
         ColorScheme.fromSeed(
-          seedColor: catppuccinSeedColor,
+          seedColor: mySeedColor,
           brightness: Brightness.dark,
           dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
+          contrastLevel: 0.0,
+        ).copyWith(
+          outlineVariant: ColorScheme.fromSeed(
+            seedColor: mySeedColor,
+            brightness: Brightness.dark,
+            dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
+            contrastLevel: 0.0,
+          ).onPrimary,
         ),
       );
     });
@@ -225,6 +211,37 @@ void main() {
           seedColor: catppuccinSeedColor,
           brightness: Brightness.light,
           dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
+          contrastLevel: 0.0,
+        ).copyWith(
+          outlineVariant: ColorScheme.fromSeed(
+            seedColor: catppuccinSeedColor,
+            brightness: Brightness.light,
+            dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
+            contrastLevel: 0.0,
+          ).onPrimary,
+        ),
+      );
+    });
+
+    test('seeded branch uses configured scheme variant and contrast level', () {
+      useSeedGeneratedColorScheme = true;
+      seededDynamicSchemeVariant = DynamicSchemeVariant.expressive;
+      seededContrastLevel = 0.5;
+
+      expect(
+        CatppuccinColors.dark.colorScheme,
+        ColorScheme.fromSeed(
+          seedColor: mySeedColor,
+          brightness: Brightness.dark,
+          dynamicSchemeVariant: DynamicSchemeVariant.expressive,
+          contrastLevel: 0.5,
+        ).copyWith(
+          outlineVariant: ColorScheme.fromSeed(
+            seedColor: mySeedColor,
+            brightness: Brightness.dark,
+            dynamicSchemeVariant: DynamicSchemeVariant.expressive,
+            contrastLevel: 0.5,
+          ).onPrimary,
         ),
       );
     });

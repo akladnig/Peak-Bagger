@@ -325,7 +325,7 @@ class _DashboardCardHeader extends StatelessWidget {
         ),
         child: Container(
           key: Key('dashboard-card-${definition.id}-drag-handle'),
-          color: theme.colorScheme.primaryContainer,
+          color: theme.colorScheme.onPrimary,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: _DashboardCardHeaderRow(
             title: definition.title,
@@ -377,7 +377,7 @@ class _DashboardCardDragFeedback extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Container(
-                color: theme.colorScheme.primaryContainer,
+                color: theme.colorScheme.onPrimary,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 12,

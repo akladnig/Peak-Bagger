@@ -60,6 +60,69 @@ void main() {
     expect(find.text('Catppuccin'), findsOneWidget);
   });
 
+  testWidgets('settings screen shows theme scheme variant row', (tester) async {
+    SharedPreferences.resetStatic();
+    SharedPreferences.setMockInitialValues({});
+
+    await _pumpSettingsScreen(tester);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('theme-scheme-variant-tile')),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('settings-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pump();
+
+    expect(find.byKey(const Key('theme-scheme-variant-tile')), findsOneWidget);
+    expect(
+      find.byKey(const Key('theme-scheme-variant-dropdown')),
+      findsOneWidget,
+    );
+    expect(find.text('Seeded Scheme Variant'), findsOneWidget);
+    expect(
+      tester
+          .widget<DropdownButton<DynamicSchemeVariant>>(
+            find.byKey(const Key('theme-scheme-variant-dropdown')),
+          )
+          .value,
+      DynamicSchemeVariant.vibrant,
+    );
+  });
+
+  testWidgets('settings screen shows theme contrast slider row', (
+    tester,
+  ) async {
+    SharedPreferences.resetStatic();
+    SharedPreferences.setMockInitialValues({});
+
+    await _pumpSettingsScreen(tester);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('theme-contrast-level-tile')),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('settings-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pump();
+
+    expect(find.byKey(const Key('theme-contrast-level-tile')), findsOneWidget);
+    expect(
+      find.byKey(const Key('theme-contrast-level-slider')),
+      findsOneWidget,
+    );
+    expect(find.text('Seeded Contrast Level'), findsOneWidget);
+    expect(find.text('Contrast level 0.0'), findsOneWidget);
+  });
+
   testWidgets('theme toggle persists across rebuilds', (tester) async {
     SharedPreferences.resetStatic();
     SharedPreferences.setMockInitialValues({});
@@ -167,6 +230,135 @@ void main() {
         tester.element(find.byType(SettingsScreen)),
       ).read(themeColorPaletteProvider),
       ThemeColorPalette.seeded,
+    );
+  });
+
+  testWidgets('theme scheme variant persists across rebuilds', (tester) async {
+    SharedPreferences.resetStatic();
+    SharedPreferences.setMockInitialValues({});
+
+    await _pumpSettingsScreen(tester);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('theme-scheme-variant-tile')),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('settings-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('theme-scheme-variant-dropdown')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Expressive').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<DropdownButton<DynamicSchemeVariant>>(
+            find.byKey(const Key('theme-scheme-variant-dropdown')),
+          )
+          .value,
+      DynamicSchemeVariant.expressive,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+
+    await _pumpSettingsScreen(tester);
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('theme-scheme-variant-tile')),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('settings-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<DropdownButton<DynamicSchemeVariant>>(
+            find.byKey(const Key('theme-scheme-variant-dropdown')),
+          )
+          .value,
+      DynamicSchemeVariant.expressive,
+    );
+    expect(
+      ProviderScope.containerOf(
+        tester.element(find.byType(SettingsScreen)),
+      ).read(themeSchemeVariantProvider),
+      DynamicSchemeVariant.expressive,
+    );
+  });
+
+  testWidgets('theme contrast level persists across rebuilds', (tester) async {
+    SharedPreferences.resetStatic();
+    SharedPreferences.setMockInitialValues({});
+
+    await _pumpSettingsScreen(tester);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('theme-contrast-level-tile')),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('settings-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+
+    final sliderRect = tester.getRect(
+      find.byKey(const Key('theme-contrast-level-slider')),
+    );
+    await tester.tapAt(sliderRect.centerRight - const Offset(4, 0));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<Slider>(find.byKey(const Key('theme-contrast-level-slider')))
+          .value,
+      1.0,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+
+    await _pumpSettingsScreen(tester);
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('theme-contrast-level-tile')),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('settings-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<Slider>(find.byKey(const Key('theme-contrast-level-slider')))
+          .value,
+      1.0,
+    );
+    expect(
+      ProviderScope.containerOf(
+        tester.element(find.byType(SettingsScreen)),
+      ).read(themeContrastLevelProvider),
+      1.0,
     );
   });
 }
