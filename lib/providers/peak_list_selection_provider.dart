@@ -5,6 +5,7 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/services/peak_list_colour_resolver.dart';
 import 'package:peak_bagger/services/peak_list_visibility.dart';
 
 final peakListRevisionProvider =
@@ -52,6 +53,9 @@ final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((
   final labelsById = {
     for (final peakList in peakLists) peakList.peakListId: peakList.name,
   };
+  final peakListsById = {
+    for (final peakList in peakLists) peakList.peakListId: peakList,
+  };
   final regionKeysById = {
     for (final peakList in peakLists)
       peakList.peakListId: canonicalRegionKey(
@@ -63,37 +67,43 @@ final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((
           for (final regionKey in visibleRegionKeys)
             ...?pinnedPeakListIdsByRegion[regionKey],
         }
-      : <int>{
-          for (final ids in pinnedPeakListIdsByRegion.values) ...ids,
-        };
+      : <int>{for (final ids in pinnedPeakListIdsByRegion.values) ...ids};
   final visibleSelectedPeakListIds = hasResolvedVisibleBounds
       ? {
           for (final peakListId in selectedPeakListIds)
-            if (visibleRegionKeys.contains(regionKeysById[peakListId])) peakListId,
+            if (visibleRegionKeys.contains(regionKeysById[peakListId]))
+              peakListId,
         }
       : selectedPeakListIds.toSet();
-  final visibleSpecificPeakListIds = {
-    ...visiblePinnedPeakListIds,
-    ...visibleSelectedPeakListIds,
-  }.toList()
-    ..sort((left, right) {
-      return (labelsById[left] ?? 'List #$left').toLowerCase().compareTo(
-        (labelsById[right] ?? 'List #$right').toLowerCase(),
-      );
-    });
+  final visibleSpecificPeakListIds =
+      {...visiblePinnedPeakListIds, ...visibleSelectedPeakListIds}.toList()
+        ..sort((left, right) {
+          return (labelsById[left] ?? 'List #$left').toLowerCase().compareTo(
+            (labelsById[right] ?? 'List #$right').toLowerCase(),
+          );
+        });
   final chips = <PeakListSelectionChip>[
     if (peakListSelectionMode == PeakListSelectionMode.allPeaks)
       const PeakListSelectionChip.allPeaks(),
     if (peakListSelectionMode == PeakListSelectionMode.none)
       const PeakListSelectionChip.none(),
     for (final peakListId in visibleSpecificPeakListIds)
-      PeakListSelectionChip.list(
-        peakListId: peakListId,
-        label: labelsById[peakListId] ?? 'List #$peakListId',
-        regionKey: regionKeysById[peakListId],
-        isSelected: visibleSelectedPeakListIds.contains(peakListId),
-        isPinned: visiblePinnedPeakListIds.contains(peakListId),
-      ),
+      () {
+        final peakList = peakListsById[peakListId];
+        final usesNeutralStyle =
+            peakList != null && !_isReadablePeakList(peakList);
+        return PeakListSelectionChip.list(
+          peakListId: peakListId,
+          label: labelsById[peakListId] ?? 'List #$peakListId',
+          regionKey: regionKeysById[peakListId],
+          isSelected: visibleSelectedPeakListIds.contains(peakListId),
+          isPinned: visiblePinnedPeakListIds.contains(peakListId),
+          colourValue: usesNeutralStyle || peakList == null
+              ? null
+              : resolvePeakListColour(peakList),
+          usesNeutralStyle: usesNeutralStyle,
+        );
+      }(),
   ];
 
   return PeakListSelectionSummary(chips: chips);
@@ -193,6 +203,8 @@ class PeakListSelectionChip {
     this.regionKey,
     this.isSelected = true,
     this.isPinned = false,
+    this.colourValue,
+    this.usesNeutralStyle = false,
   });
 
   const PeakListSelectionChip.allPeaks() : this._(label: 'All Peaks');
@@ -205,12 +217,16 @@ class PeakListSelectionChip {
     required String? regionKey,
     required bool isSelected,
     required bool isPinned,
+    required int? colourValue,
+    required bool usesNeutralStyle,
   }) : this._(
          label: label,
          peakListId: peakListId,
          regionKey: regionKey,
          isSelected: isSelected,
          isPinned: isPinned,
+         colourValue: colourValue,
+         usesNeutralStyle: usesNeutralStyle,
        );
 
   final String label;
@@ -218,10 +234,21 @@ class PeakListSelectionChip {
   final String? regionKey;
   final bool isSelected;
   final bool isPinned;
+  final int? colourValue;
+  final bool usesNeutralStyle;
 
   bool get isAllPeaks => peakListId == null && label == 'All Peaks';
 
   bool get isNone => peakListId == null && label == 'None';
+}
+
+bool _isReadablePeakList(PeakList peakList) {
+  try {
+    decodePeakListItems(peakList.peakList);
+    return true;
+  } catch (_) {
+    return false;
+  }
 }
 
 class PeakListsLoadNotifier extends Notifier<PeakListsLoadState> {

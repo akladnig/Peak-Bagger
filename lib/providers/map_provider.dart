@@ -4591,18 +4591,38 @@ class MapNotifier extends Notifier<MapState> {
       selectedPeakListIds: state.selectedPeakListIds,
       visibleRegionKeys: visibleRegionKeys,
     );
+    final unreadableVisiblePeakListIds = {
+      for (final peakList in peakLists)
+        if (state.selectedPeakListIds.contains(peakList.peakListId) &&
+            peakListAppliesToVisibleRegions(peakList, visibleRegionKeys) &&
+            !_isReadablePeakListPayload(peakList))
+          peakList.peakListId,
+    };
+    final nextSelectedPeakListIds = {
+      ...validPeakListIds,
+      ...unreadableVisiblePeakListIds,
+    };
 
-    if (validPeakListIds.isEmpty) {
+    if (nextSelectedPeakListIds.isEmpty) {
       _resetToAllPeaks();
       return;
     }
 
-    if (!_samePeakListIds(validPeakListIds, state.selectedPeakListIds)) {
+    if (!_samePeakListIds(nextSelectedPeakListIds, state.selectedPeakListIds)) {
       _updatePeakListSelection(
         mode: PeakListSelectionMode.specificList,
-        selectedPeakListIds: validPeakListIds,
-        previousSpecificPeakListIds: validPeakListIds,
+        selectedPeakListIds: nextSelectedPeakListIds,
+        previousSpecificPeakListIds: nextSelectedPeakListIds,
       );
+    }
+  }
+
+  bool _isReadablePeakListPayload(PeakList peakList) {
+    try {
+      decodePeakListItems(peakList.peakList);
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 

@@ -6,6 +6,7 @@ import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 
 import '../core/constants.dart';
 import '../theme.dart';
+import 'peak_list_control_visual_style.dart';
 
 class PeakListSelectionSummaryStrip extends StatelessWidget {
   const PeakListSelectionSummaryStrip({super.key, required this.summary});
@@ -84,10 +85,13 @@ class _InteractivePeakListSelectionChip extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final searchButtonTheme = Theme.of(
-      context,
-    ).extension<SearchButtonThemeData>();
     final peakListId = chip.peakListId!;
+    final controlStyle = peakListControlVisualStyle(
+      context,
+      isSelected: chip.isSelected,
+      colourValue: chip.colourValue,
+      useNeutralStyle: chip.usesNeutralStyle,
+    );
 
     return KeyedSubtree(
       key: Key('peak-list-app-bar-item-$peakListId'),
@@ -98,12 +102,16 @@ class _InteractivePeakListSelectionChip extends ConsumerWidget {
             key: Key('peak-list-app-bar-toggle-$peakListId'),
             child: OutlinedButton(
               key: Key('peak-list-selection-chip-$peakListId'),
-              style: searchButtonTheme?.styleFor(chip.isSelected),
+              style: controlStyle.buttonStyle,
               onPressed: () {
-                ref.read(mapProvider.notifier).togglePeakListSelection(peakListId);
+                ref
+                    .read(mapProvider.notifier)
+                    .togglePeakListSelection(peakListId);
               },
               child: Padding(
-                padding: const EdgeInsets.only(right: searchControlIconSize + 16),
+                padding: const EdgeInsets.only(
+                  right: searchControlIconSize + 16,
+                ),
                 child: Text(
                   chip.label,
                   overflow: TextOverflow.ellipsis,
@@ -147,7 +155,7 @@ class _InteractivePeakListSelectionChip extends ConsumerWidget {
                 width: searchControlIconSize,
                 height: searchControlIconSize,
                 colorFilter: ColorFilter.mode(
-                  Theme.of(context).colorScheme.onSurface,
+                  controlStyle.iconColor,
                   BlendMode.srcIn,
                 ),
               ),

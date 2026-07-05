@@ -10,11 +10,13 @@ import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 import 'package:peak_bagger/services/peak_delete_guard.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
+import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 
@@ -334,7 +336,7 @@ void main() {
     expect(find.byKey(const Key('objectbox-admin-details-close')), findsOneWidget);
   });
 
-  testWidgets('non-Peak entities stay browse-only', (tester) async {
+  testWidgets('PeakList exposes edit without add or delete actions', (tester) async {
     await _pumpApp(tester, repository: TestObjectBoxAdminRepository());
 
     await tester.tap(find.byKey(const Key('side-menu-objectbox-admin')));
@@ -349,7 +351,7 @@ void main() {
     await tester.tap(find.text('Abels'));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('objectbox-admin-peak-edit')), findsNothing);
+    expect(find.byKey(const Key('objectbox-admin-peak-list-edit')), findsOneWidget);
     expect(find.byKey(const Key('objectbox-admin-peak-add')), findsNothing);
     expect(
       find.byKey(const Key('objectbox-admin-peak-delete-1')),
@@ -1066,6 +1068,7 @@ Future<void> _pumpApp(
   ObjectBoxAdminRepository? repository,
   List<ObjectBoxAdminEntityDescriptor>? entities,
   PeakRepository? peakRepository,
+  PeakListRepository? peakListRepository,
   PeakDeleteGuard? peakDeleteGuard,
   RouteRepository? routeRepository,
 }) async {
@@ -1089,6 +1092,20 @@ Future<void> _pumpApp(
         routeRepositoryProvider.overrideWithValue(
           routeRepository ??
               RouteRepository.test(InMemoryRouteStorage()),
+        ),
+        peakListRepositoryProvider.overrideWithValue(
+          peakListRepository ??
+              PeakListRepository.test(
+                InMemoryPeakListStorage([
+                  PeakList(
+                    peakListId: 1,
+                    name: 'Abels',
+                    region: 'tasmania',
+                    peakList: '[{"peakOsmId":101,"points":"3"}]',
+                    colour: 0xFF4C8BF5,
+                  ),
+                ]),
+              ),
         ),
         if (peakRepository != null)
           peakRepositoryProvider.overrideWithValue(peakRepository),
