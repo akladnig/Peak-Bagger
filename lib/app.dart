@@ -24,8 +24,8 @@ class App extends ConsumerWidget {
 
     return MaterialApp.router(
       title: 'Peak Bagger',
-      theme: CatppuccinColors.lightWith(themeConfig),
-      darkTheme: CatppuccinColors.darkWith(themeConfig),
+      theme: MyTheme.lightWith(themeConfig),
+      darkTheme: MyTheme.darkWith(themeConfig),
       themeMode: themeMode,
       routerConfig: router,
       debugShowCheckedModeBanner: false,

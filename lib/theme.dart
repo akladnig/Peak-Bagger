@@ -573,7 +573,7 @@ SearchButtonThemeData _searchButtonTheme(ColorScheme colorScheme, Color seedColo
   );
 }
 
-class CatppuccinColors {
+class MyTheme {
   static ThemeData get dark => darkWith(_defaultThemeConfig);
   static ThemeData get light => lightWith(_defaultThemeConfig);
 
