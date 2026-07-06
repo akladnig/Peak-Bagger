@@ -11,14 +11,13 @@ class App extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
-    final themeColorPalette = ref.watch(themeColorPaletteProvider);
+    final themeSeedColor = ref.watch(themeSeedColorProvider);
     final themeSchemeVariant = ref.watch(themeSchemeVariantProvider);
     final themeContrastLevel = ref.watch(themeContrastLevelProvider);
     ref.watch(routeGraphBootstrapProvider);
 
     final themeConfig = ThemeConfig(
-      useSeedGeneratedColorScheme: themeColorPalette == ThemeColorPalette.seeded,
-      seedColor: const Color(0xFF7E47EB),
+      seedColor: themeSeedColor.color,
       dynamicSchemeVariant: themeSchemeVariant,
       contrastLevel: themeContrastLevel,
     );

@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/theme_provider.dart';
 import 'package:peak_bagger/screens/settings_screen.dart';
+import 'package:peak_bagger/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../harness/test_map_notifier.dart';
@@ -33,31 +36,29 @@ void main() {
     expect(find.text('Theme'), findsOneWidget);
   });
 
-  testWidgets('settings screen shows theme colour palette row', (tester) async {
+  testWidgets('settings screen shows theme seed swatch row', (tester) async {
     SharedPreferences.resetStatic();
     SharedPreferences.setMockInitialValues({});
 
     await _pumpSettingsScreen(tester);
 
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('theme-colour-palette-tile')),
-      200,
-      scrollable: find
-          .descendant(
-            of: find.byKey(const Key('settings-scrollable')),
-            matching: find.byType(Scrollable),
-          )
-          .first,
-    );
+    await _scrollToThemeSeedSection(tester);
     await tester.pump();
 
     expect(find.byKey(const Key('theme-colour-palette-tile')), findsOneWidget);
+    expect(find.byKey(const Key('theme-colour-palette-dropdown')), findsNothing);
+    expect(find.byKey(const Key('theme-seed-colour-scroll')), findsOneWidget);
     expect(
-      find.byKey(const Key('theme-colour-palette-dropdown')),
-      findsOneWidget,
+      find.text('Catppuccin'),
+      findsNothing,
     );
     expect(find.text('Theme Colours'), findsOneWidget);
-    expect(find.text('Catppuccin'), findsOneWidget);
+    expect(find.text('My Seed Colour'), findsOneWidget);
+
+    for (final swatch in themeSeedSwatches) {
+      expect(find.byKey(Key('theme-seed-colour-swatch-${swatch.id}')), findsOneWidget);
+      expect(find.bySemanticsLabel(swatch.label), findsOneWidget);
+    }
   });
 
   testWidgets('settings screen shows theme scheme variant row', (tester) async {
@@ -179,32 +180,62 @@ void main() {
     );
   });
 
-  testWidgets('theme colour palette persists across rebuilds', (tester) async {
+  testWidgets('theme seed swatch restore shows selected state after preferences load', (tester) async {
+    SharedPreferences.resetStatic();
+    SharedPreferences.setMockInitialValues({'theme_seed_color': 'teal'});
+
+    final semanticsHandle = tester.ensureSemantics();
+
+    await _pumpSettingsScreen(tester);
+
+    await _scrollToThemeSeedSection(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Teal'), findsOneWidget);
+    expect(
+      find.byKey(const Key('theme-seed-colour-swatch-selected-indicator-teal')),
+      findsOneWidget,
+    );
+    final semantics = tester.getSemantics(
+      find.byKey(const Key('theme-seed-colour-swatch-teal')),
+    );
+    final semanticsData = semantics.getSemanticsData();
+    expect(
+      semanticsData.label,
+      'Teal',
+    );
+    expect(semanticsData.flagsCollection.isButton, isTrue);
+    expect(semanticsData.flagsCollection.isSelected, ui.Tristate.isTrue);
+
+    semanticsHandle.dispose();
+  });
+
+  testWidgets('tapping a theme seed swatch updates selection and persists across rebuilds', (tester) async {
     SharedPreferences.resetStatic();
     SharedPreferences.setMockInitialValues({});
 
     await _pumpSettingsScreen(tester);
 
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('theme-colour-palette-tile')),
-      200,
-      scrollable: find
-          .descendant(
-            of: find.byKey(const Key('settings-scrollable')),
-            matching: find.byType(Scrollable),
-          )
-          .first,
+    await _scrollToThemeSeedSection(tester);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('theme-seed-colour-swatch-pink')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pink'), findsOneWidget);
+    expect(
+      find.byKey(const Key('theme-seed-colour-swatch-selected-indicator-pink')),
+      findsOneWidget,
     );
-    await tester.pumpAndSettle();
 
-    expect(find.text('Catppuccin'), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('theme-colour-palette-dropdown')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Seeded').last);
-    await tester.pumpAndSettle();
-
-    expect(find.text('Seeded'), findsOneWidget);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('theme_seed_color'), 'pink');
+    expect(
+      ProviderScope.containerOf(
+        tester.element(find.byType(SettingsScreen)),
+      ).read(themeSeedColorProvider).id,
+      'pink',
+    );
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
@@ -212,25 +243,43 @@ void main() {
     await _pumpSettingsScreen(tester);
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('theme-colour-palette-tile')),
-      200,
-      scrollable: find
-          .descendant(
-            of: find.byKey(const Key('settings-scrollable')),
-            matching: find.byType(Scrollable),
-          )
-          .first,
+    await _scrollToThemeSeedSection(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pink'), findsOneWidget);
+    expect(
+      find.byKey(const Key('theme-seed-colour-swatch-selected-indicator-pink')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('theme seed swatch row scrolls horizontally on narrow large-text layouts', (tester) async {
+    SharedPreferences.resetStatic();
+    SharedPreferences.setMockInitialValues({});
+
+    await _pumpSettingsScreen(
+      tester,
+      viewportSize: const Size(320, 800),
+      textScaleFactor: 2.0,
+    );
+
+    await _scrollToThemeSeedSection(tester);
+    await tester.pumpAndSettle();
+
+    final firstSwatchRect = tester.getRect(
+      find.byKey(const Key('theme-seed-colour-swatch-baseColor')),
+    );
+    expect(firstSwatchRect.width, greaterThanOrEqualTo(48));
+    expect(firstSwatchRect.height, greaterThanOrEqualTo(48));
+
+    await tester.dragUntilVisible(
+      find.byKey(const Key('theme-seed-colour-swatch-brightRed')),
+      find.byKey(const Key('theme-seed-colour-scroll')),
+      const Offset(-200, 0),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Seeded colours enabled'), findsOneWidget);
-    expect(
-      ProviderScope.containerOf(
-        tester.element(find.byType(SettingsScreen)),
-      ).read(themeColorPaletteProvider),
-      ThemeColorPalette.seeded,
-    );
+    expect(find.byKey(const Key('theme-seed-colour-swatch-brightRed')), findsOneWidget);
   });
 
   testWidgets('theme scheme variant persists across rebuilds', (tester) async {
@@ -363,7 +412,16 @@ void main() {
   });
 }
 
-Future<void> _pumpSettingsScreen(WidgetTester tester) async {
+Future<void> _pumpSettingsScreen(
+  WidgetTester tester, {
+  Size viewportSize = const Size(800, 1200),
+  double textScaleFactor = 1.0,
+}) async {
+  tester.view.devicePixelRatio = 1.0;
+  tester.view.physicalSize = viewportSize;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -377,9 +435,27 @@ Future<void> _pumpSettingsScreen(WidgetTester tester) async {
           ),
         ),
       ],
-      child: const MaterialApp(home: SettingsScreen()),
+      child: MaterialApp(
+        home: MediaQuery(
+          data: MediaQueryData(textScaler: TextScaler.linear(textScaleFactor)),
+          child: const SettingsScreen(),
+        ),
+      ),
     ),
   );
   await tester.pump();
   await tester.pumpAndSettle();
+}
+
+Future<void> _scrollToThemeSeedSection(WidgetTester tester) {
+  return tester.scrollUntilVisible(
+    find.byKey(const Key('theme-colour-palette-tile')),
+    200,
+    scrollable: find
+        .descendant(
+          of: find.byKey(const Key('settings-scrollable')),
+          matching: find.byType(Scrollable),
+        )
+        .first,
+  );
 }

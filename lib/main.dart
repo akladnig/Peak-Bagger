@@ -19,7 +19,9 @@ import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
+import 'package:peak_bagger/providers/theme_provider.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 late final Store objectboxStore;
 
@@ -63,6 +65,8 @@ void main() async {
     // Continue with an empty database if the import fails.
   }
 
+  final themePreferences = await SharedPreferences.getInstance();
+
   runApp(
     ProviderScope(
       overrides: [
@@ -76,6 +80,7 @@ void main() async {
         objectboxAdminRepositoryProvider.overrideWithValue(
           ObjectBoxAdminRepositoryImpl(store: objectboxStore),
         ),
+        bootstrappedThemePreferencesProvider.overrideWithValue(themePreferences),
       ],
       child: const App(),
     ),

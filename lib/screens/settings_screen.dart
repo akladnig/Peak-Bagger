@@ -27,6 +27,7 @@ import 'package:peak_bagger/services/peak_list_csv_export_service.dart';
 import 'package:peak_bagger/services/route_graph_refresh_service.dart';
 import 'package:peak_bagger/services/tassy_full_peak_list_sync_service.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
+import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
@@ -83,7 +84,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final peakCorrelationState = ref.watch(peakCorrelationSettingsProvider);
     final routeGraphReadiness = ref.watch(routeGraphReadinessProvider);
     final themeMode = ref.watch(themeModeProvider);
-    final themeColorPalette = ref.watch(themeColorPaletteProvider);
+    final themeSeedColor = ref.watch(themeSeedColorProvider);
     final themeSchemeVariant = ref.watch(themeSchemeVariantProvider);
     final themeContrastLevel = ref.watch(themeContrastLevelProvider);
     final isDarkTheme = themeMode == ThemeMode.dark;
@@ -279,75 +280,107 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               onTap: () => ref.read(themeModeProvider.notifier).toggleTheme(),
             ),
-            ListTile(
+            Padding(
               key: const Key('theme-colour-palette-tile'),
-              leading: const Icon(Icons.palette_outlined),
-              title: const Text('Theme Colours'),
-              subtitle: Text(switch (themeColorPalette) {
-                ThemeColorPalette.catppuccin => 'Catppuccin colours enabled',
-                ThemeColorPalette.seeded => 'Seeded colours enabled',
-              }),
-              trailing: DropdownButtonHideUnderline(
-                child: DropdownButton<ThemeColorPalette>(
-                  key: const Key('theme-colour-palette-dropdown'),
-                  value: themeColorPalette,
-                  isDense: true,
-                  onChanged: (value) {
-                    if (value == null) {
-                      return;
-                    }
-
-                    unawaited(
-                      ref
-                          .read(themeColorPaletteProvider.notifier)
-                          .setThemeColorPalette(value),
-                    );
-                  },
-                  items: const [
-                    DropdownMenuItem(
-                      value: ThemeColorPalette.catppuccin,
-                      child: Text('Catppuccin'),
-                    ),
-                    DropdownMenuItem(
-                      value: ThemeColorPalette.seeded,
-                      child: Text('Seeded'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            ListTile(
-              key: const Key('theme-scheme-variant-tile'),
-              leading: const Icon(Icons.auto_awesome_outlined),
-              title: const Text('Seeded Scheme Variant'),
-              subtitle: Text(_themeSchemeVariantLabel(themeSchemeVariant)),
-              trailing: DropdownButtonHideUnderline(
-                child: DropdownButton<DynamicSchemeVariant>(
-                  key: const Key('theme-scheme-variant-dropdown'),
-                  value: themeSchemeVariant,
-                  isDense: true,
-                  onChanged: (value) {
-                    if (value == null) {
-                      return;
-                    }
-
-                    unawaited(
-                      ref
-                          .read(themeSchemeVariantProvider.notifier)
-                          .setThemeSchemeVariant(value),
-                    );
-                  },
-                  items: DynamicSchemeVariant.values
-                      .map(
-                        (variant) => DropdownMenuItem(
-                          value: variant,
-                          child: Text(_themeSchemeVariantLabel(variant)),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 10),
+                    child: Icon(Icons.palette_outlined),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Theme Colours',
+                          style: Theme.of(context).textTheme.titleMedium,
                         ),
-                      )
-                      .toList(growable: false),
-                ),
+                        const SizedBox(height: 4),
+                        Text(themeSeedColor.label),
+                        const SizedBox(height: 12),
+                        SingleChildScrollView(
+                          key: const Key('theme-seed-colour-scroll'),
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              for (final swatch in themeSeedSwatches)
+                                _buildThemeSeedColourSwatch(
+                                  context,
+                                  swatch,
+                                  themeSeedColor,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
+            const SizedBox(height: 8),
+            Padding(
+              key: const Key('theme-scheme-variant-tile'),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 10),
+                    child: Icon(Icons.auto_awesome_outlined),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Seeded Scheme Variant',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(_themeSchemeVariantLabel(themeSchemeVariant)),
+                        const SizedBox(height: 8),
+                        DropdownButtonHideUnderline(
+                          child: DropdownButton<DynamicSchemeVariant>(
+                            key: const Key('theme-scheme-variant-dropdown'),
+                            value: themeSchemeVariant,
+                            isDense: true,
+                            isExpanded: true,
+                            onChanged: (value) {
+                              if (value == null) {
+                                return;
+                              }
+
+                              unawaited(
+                                ref
+                                    .read(themeSchemeVariantProvider.notifier)
+                                    .setThemeSchemeVariant(value),
+                              );
+                            },
+                            items: DynamicSchemeVariant.values
+                                .map(
+                                  (variant) => DropdownMenuItem(
+                                    value: variant,
+                                    child: Text(
+                                      _themeSchemeVariantLabel(variant),
+                                    ),
+                                  ),
+                                )
+                                .toList(growable: false),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
             ListTile(
               key: const Key('theme-contrast-level-tile'),
               leading: const Icon(Icons.contrast_outlined),
@@ -552,6 +585,78 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       DynamicSchemeVariant.rainbow => 'Rainbow',
       DynamicSchemeVariant.fruitSalad => 'Fruit Salad',
     };
+  }
+
+  Widget _buildThemeSeedColourSwatch(
+    BuildContext context,
+    ThemeSeedSwatch swatch,
+    ThemeSeedSwatch selectedSwatch,
+  ) {
+    final isSelected = swatch.id == selectedSwatch.id;
+    final indicatorUsesDarkForeground =
+        ThemeData.estimateBrightnessForColor(swatch.color) == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 12, bottom: 8),
+      child: Semantics(
+        button: true,
+        selected: isSelected,
+        label: swatch.label,
+        child: ExcludeSemantics(
+          child: Material(
+            color: swatch.color,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: isSelected
+                    ? Theme.of(context).colorScheme.onSurface
+                    : Theme.of(context).colorScheme.outline,
+                width: isSelected ? 3 : 1.5,
+              ),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              key: Key('theme-seed-colour-swatch-${swatch.id}'),
+              onTap: () {
+                unawaited(
+                  ref
+                      .read(themeSeedColorProvider.notifier)
+                      .setThemeSeedColor(swatch),
+                );
+              },
+              child: SizedBox.square(
+                dimension: 48,
+                child: isSelected
+                    ? Center(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: indicatorUsesDarkForeground
+                                ? Colors.white.withValues(alpha: 0.9)
+                                : Colors.black.withValues(alpha: 0.7),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: Icon(
+                              Icons.check,
+                              key: Key(
+                                'theme-seed-colour-swatch-selected-indicator-${swatch.id}',
+                              ),
+                              size: 18,
+                              color: indicatorUsesDarkForeground
+                                  ? Colors.black
+                                  : Colors.white,
+                            ),
+                          ),
+                        ),
+                      )
+                    : null,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _clearStatusWhenHidden() {

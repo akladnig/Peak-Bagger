@@ -1,27 +1,67 @@
 import 'package:flutter/material.dart';
 import 'package:peak_bagger/core/constants.dart';
 
-const catppuccinSeedColor = Color(0xFF6347EA);
-const _seedColor = Color(0xFF7E47EB);
+const _defaultSeedColor = Color(0xFF7E47EB);
+
+@immutable
+class ThemeSeedSwatch {
+  const ThemeSeedSwatch(this.id, this.label, this.color);
+
+  final String id;
+  final String label;
+  final Color color;
+}
+
+const defaultThemeSeedSwatch = ThemeSeedSwatch(
+  'baseColor',
+  'My Seed Colour',
+  Color(0xFF7E47EB),
+);
+
+const themeSeedSwatches = [
+  defaultThemeSeedSwatch,
+  ThemeSeedSwatch('indigo', 'Indigo', Colors.indigo),
+  ThemeSeedSwatch('blue', 'Blue', Colors.blue),
+  ThemeSeedSwatch('teal', 'Teal', Colors.teal),
+  ThemeSeedSwatch('green', 'Green', Colors.green),
+  ThemeSeedSwatch('yellow', 'Yellow', Colors.yellow),
+  ThemeSeedSwatch('orange', 'Orange', Colors.orange),
+  ThemeSeedSwatch('deepOrange', 'Deep Orange', Colors.deepOrange),
+  ThemeSeedSwatch('pink', 'Pink', Colors.pink),
+  ThemeSeedSwatch('brightBlue', 'Bright Blue', Color(0xFF0000FF)),
+  ThemeSeedSwatch('brightGreen', 'Bright Green', Color(0xFF00FF00)),
+  ThemeSeedSwatch('brightRed', 'Bright Red', Color(0xFFFF0000)),
+];
+
+ThemeSeedSwatch? themeSeedSwatchById(String? id) {
+  if (id == null) {
+    return null;
+  }
+
+  for (final swatch in themeSeedSwatches) {
+    if (swatch.id == id) {
+      return swatch;
+    }
+  }
+
+  return null;
+}
 
 @immutable
 class ThemeConfig {
   const ThemeConfig({
-    required this.useSeedGeneratedColorScheme,
     required this.seedColor,
     required this.dynamicSchemeVariant,
     required this.contrastLevel,
   });
 
-  final bool useSeedGeneratedColorScheme;
   final Color seedColor;
   final DynamicSchemeVariant dynamicSchemeVariant;
   final double contrastLevel;
 }
 
 const _defaultThemeConfig = ThemeConfig(
-  useSeedGeneratedColorScheme: false,
-  seedColor: _seedColor,
+  seedColor: _defaultSeedColor,
   dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
   contrastLevel: 0.0,
 );
@@ -139,7 +179,8 @@ class SeedColourTheme extends ThemeExtension<SeedColourTheme> {
 }
 
 extension SeedColourThemeDataX on ThemeData {
-  Color get seedColor => extension<SeedColourTheme>()?.seedColor ?? _seedColor;
+  Color get seedColor =>
+      extension<SeedColourTheme>()?.seedColor ?? _defaultSeedColor;
 
   Color get seedColour => seedColor;
 }
@@ -429,8 +470,8 @@ class SearchButtonThemeData extends ThemeExtension<SearchButtonThemeData> {
   }
 }
 
-const searchControlIconSize = PopupUIConstants.closeIconSize;
-const searchControlFontSize = 11.0;
+const searchControlIconSize = PopupUIConstants.searchIconSize;
+const searchControlFontSize = 12.0;
 const _searchButtonPadding = EdgeInsets.symmetric(horizontal: 10, vertical: 8);
 const _searchButtonMinimumSize = Size(0, 30);
 
@@ -443,17 +484,91 @@ FilledButtonThemeData _filledButtonTheme(ColorScheme colorScheme) {
   );
 }
 
-TextButtonThemeData _textButtonTheme(ColorScheme colorScheme) {
+TextButtonThemeData _textButtonTheme(ColorScheme colorScheme, Color seedColor) {
   return TextButtonThemeData(
-    style: TextButton.styleFrom(foregroundColor: lighten(_seedColor, 0.08)),
+    style: TextButton.styleFrom(foregroundColor: lighten(seedColor, 0.08)),
   );
 }
 
-OutlinedButtonThemeData _outlinedButtonTheme(ColorScheme colorScheme) {
+OutlinedButtonThemeData _outlinedButtonTheme(
+  ColorScheme colorScheme,
+  Color seedColor,
+) {
   return OutlinedButtonThemeData(
     style: OutlinedButton.styleFrom(
-      foregroundColor: _seedColor,
+      foregroundColor: seedColor,
       side: BorderSide(color: colorScheme.outline),
+    ),
+  );
+}
+
+SearchButtonThemeData _searchButtonTheme(ColorScheme colorScheme, Color seedColor) {
+  return SearchButtonThemeData(
+    selectedStyle: ButtonStyle(
+      padding: const WidgetStatePropertyAll(_searchButtonPadding),
+      minimumSize: const WidgetStatePropertyAll(_searchButtonMinimumSize),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
+      foregroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return colorScheme.onSurface.withValues(alpha: 0.38);
+        }
+        return colorScheme.primary;
+      }),
+      backgroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.hovered)) {
+          return lighten(colorScheme.primaryContainer, 0.08);
+        }
+        return colorScheme.primaryContainer;
+      }),
+      side: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.hovered)) {
+          return BorderSide(color: lighten(colorScheme.primary, 0.12));
+        }
+        return BorderSide(color: colorScheme.primary);
+      }),
+      overlayColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.hovered)) {
+          return colorScheme.primary.withValues(alpha: 0.08);
+        }
+        return null;
+      }),
+    ),
+    unselectedStyle: ButtonStyle(
+      padding: const WidgetStatePropertyAll(_searchButtonPadding),
+      minimumSize: const WidgetStatePropertyAll(_searchButtonMinimumSize),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
+      foregroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return colorScheme.onSurface.withValues(alpha: 0.38);
+        }
+        if (states.contains(WidgetState.hovered)) {
+          return colorScheme.primary;
+        }
+        return lighten(seedColor, 0.12);
+      }),
+      backgroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.hovered)) {
+          return colorScheme.primaryContainer.withValues(alpha: 0.5);
+        }
+        return colorScheme.surface;
+      }),
+      side: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return BorderSide(color: colorScheme.onSurface.withValues(alpha: 0.38));
+        }
+        if (states.contains(WidgetState.hovered)) {
+          return BorderSide(color: colorScheme.primary);
+        }
+        return BorderSide(color: lighten(seedColor, 0.12));
+      }),
+      overlayColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.hovered)) {
+          return seedColor.withValues(alpha: 0.08);
+        }
+        return null;
+      }),
     ),
   );
 }
@@ -467,40 +582,16 @@ class CatppuccinColors {
   static ThemeData lightWith(ThemeConfig config) => _createLightTheme(config);
 
   static ColorScheme _withOutlineVariantMatchingPrimary(ColorScheme scheme) {
-    return scheme.copyWith(outlineVariant: _seedColor);
+    return scheme.copyWith(outlineVariant: scheme.onPrimary);
   }
 
   static ColorScheme _darkColorScheme(ThemeConfig config) {
-    if (config.useSeedGeneratedColorScheme) {
-      return _withOutlineVariantMatchingPrimary(
-        ColorScheme.fromSeed(
-          seedColor: config.seedColor,
-          brightness: Brightness.dark,
-          dynamicSchemeVariant: config.dynamicSchemeVariant,
-          contrastLevel: config.contrastLevel,
-        ),
-      );
-    }
-
     return _withOutlineVariantMatchingPrimary(
-      const ColorScheme.dark(
-        primary: Color(0xFFEBE8FC),
-        onPrimary: Color(0xFF6347EA),
-        secondary: Color(0xFF191919),
-        onSecondary: Color(0xFFCDD6F4),
-        tertiary: Color(0xFF2A2A2A),
-        onTertiary: Color(0xFFCDD6F4),
-        primaryContainer: Color(0xFFCDD6F4),
-        onPrimaryContainer: Color(0xFF221B52),
-        onPrimaryFixed: Color(0xFF221B52),
-        primaryFixed: Color(0xFFCDD6F4),
-        surface: Color(0xFF111111),
-        onSurface: Color(0xFFCDD6F4),
-        surfaceContainer: Color(0xFF191919),
-        outline: Color(0xFF7B7B7B),
-        outlineVariant: Color(0xFF6347EA),
-        error: Color(0xFFF38BA8),
-        onError: Color(0xFFCDD6F4),
+      ColorScheme.fromSeed(
+        seedColor: config.seedColor,
+        brightness: Brightness.dark,
+        dynamicSchemeVariant: config.dynamicSchemeVariant,
+        contrastLevel: config.contrastLevel,
       ),
     );
   }
@@ -511,8 +602,8 @@ class CatppuccinColors {
       brightness: Brightness.dark,
       colorScheme: colorScheme,
       filledButtonTheme: _filledButtonTheme(colorScheme),
-      textButtonTheme: _textButtonTheme(colorScheme),
-      outlinedButtonTheme: _outlinedButtonTheme(colorScheme),
+      textButtonTheme: _textButtonTheme(colorScheme, config.seedColor),
+      outlinedButtonTheme: _outlinedButtonTheme(colorScheme, config.seedColor),
       scaffoldBackgroundColor: colorScheme.surface,
       appBarTheme: AppBarTheme(
         backgroundColor: colorScheme.surface,
@@ -540,112 +631,18 @@ class CatppuccinColors {
         SeedColourTheme(config.seedColor),
         RowHoverTheme.dark,
         ChartSeriesTheme.fromColorScheme(colorScheme),
-        SearchButtonThemeData(
-          selectedStyle: ButtonStyle(
-            padding: const WidgetStatePropertyAll(_searchButtonPadding),
-            minimumSize: const WidgetStatePropertyAll(_searchButtonMinimumSize),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-            foregroundColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.disabled)) {
-                return colorScheme.onSurface.withValues(alpha: 0.38);
-              }
-              if (states.contains(WidgetState.hovered)) {
-                return colorScheme.primary;
-              }
-              return colorScheme.primary;
-            }),
-            backgroundColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.hovered)) {
-                return lighten(colorScheme.onPrimary, 0.08);
-              }
-              return darken(colorScheme.onPrimary, 0.0);
-            }),
-            side: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.hovered)) {
-                return BorderSide(color: lighten(colorScheme.primary, 0.12));
-              }
-              return BorderSide(color: colorScheme.primary);
-            }),
-            overlayColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.hovered)) {
-                return const Color(0x1AFFFFFF);
-              }
-              return null;
-            }),
-          ),
-          unselectedStyle: ButtonStyle(
-            padding: const WidgetStatePropertyAll(_searchButtonPadding),
-            minimumSize: const WidgetStatePropertyAll(_searchButtonMinimumSize),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-            foregroundColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.disabled)) {
-                return colorScheme.onSurface.withValues(alpha: 0.38);
-              }
-              if (states.contains(WidgetState.hovered)) {
-                return colorScheme.primary;
-              }
-              return lighten(_seedColor, 0.12);
-            }),
-            backgroundColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.hovered)) {
-                return lighten(colorScheme.onPrimary, 0.08);
-              }
-              return colorScheme.surface;
-            }),
-            side: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.disabled)) {
-                return BorderSide(color: colorScheme.onSurface.withValues(alpha: 0.38));
-              }
-              if (states.contains(WidgetState.hovered)) {
-                return BorderSide(color: colorScheme.primary);
-              }
-              return BorderSide(color: lighten(_seedColor, 0.12));
-            }),
-            overlayColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.hovered)) {
-                return const Color(0x146347EA);
-              }
-              return null;
-            }),
-          ),
-        ),
+        _searchButtonTheme(colorScheme, config.seedColor),
       ],
     );
   }
 
   static ColorScheme _lightColorScheme(ThemeConfig config) {
-    if (config.useSeedGeneratedColorScheme) {
-      return _withOutlineVariantMatchingPrimary(
-        ColorScheme.fromSeed(
-          seedColor: catppuccinSeedColor,
-          brightness: Brightness.light,
-          dynamicSchemeVariant: config.dynamicSchemeVariant,
-          contrastLevel: config.contrastLevel,
-        ),
-      );
-    }
-
     return _withOutlineVariantMatchingPrimary(
-      const ColorScheme.light(
-        primary: Color(0xFF6347EA),
-        onPrimary: Color(0xFF4C4F69),
-        secondary: Color(0xFFDCE0E8),
-        onSecondary: Color(0xFF4C4F69),
-        tertiary: Color(0xFFBCC0CC),
-        onTertiary: Color(0xFF4C4F69),
-        primaryContainer: Color(0xFFCCD0DA),
-        onPrimaryContainer: Color(0xFF4C4F69),
-        primaryFixed: Color(0xFF221B52),
-        onPrimaryFixed: Color(0xFFCDD6F4),
-        surface: Color(0xFFEFF1F5),
-        onSurface: Color(0xFF4C4F69),
-        surfaceContainer: Color(0xFFDCE0E8),
-        outline: Color(0xFF9CA0B0),
-        outlineVariant: Color(0xFF6347EA),
-        error: Color(0xFFD20F39),
-        onError: Color(0xFF4C4F69),
+      ColorScheme.fromSeed(
+        seedColor: config.seedColor,
+        brightness: Brightness.light,
+        dynamicSchemeVariant: config.dynamicSchemeVariant,
+        contrastLevel: config.contrastLevel,
       ),
     );
   }
@@ -656,8 +653,8 @@ class CatppuccinColors {
       brightness: Brightness.light,
       colorScheme: colorScheme,
       filledButtonTheme: _filledButtonTheme(colorScheme),
-      textButtonTheme: _textButtonTheme(colorScheme),
-      outlinedButtonTheme: _outlinedButtonTheme(colorScheme),
+      textButtonTheme: _textButtonTheme(colorScheme, config.seedColor),
+      outlinedButtonTheme: _outlinedButtonTheme(colorScheme, config.seedColor),
       scaffoldBackgroundColor: colorScheme.surface,
       appBarTheme: AppBarTheme(
         backgroundColor: colorScheme.surface,
@@ -682,77 +679,10 @@ class CatppuccinColors {
         titleSmall: TextStyle(color: colorScheme.onSurface),
       ),
       extensions: [
-        const SeedColourTheme(catppuccinSeedColor),
+        SeedColourTheme(config.seedColor),
         RowHoverTheme.light,
         ChartSeriesTheme.fromColorScheme(colorScheme),
-        SearchButtonThemeData(
-          selectedStyle: ButtonStyle(
-            padding: const WidgetStatePropertyAll(_searchButtonPadding),
-            minimumSize: const WidgetStatePropertyAll(_searchButtonMinimumSize),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-            foregroundColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.disabled)) {
-                return colorScheme.onSurface.withValues(alpha: 0.38);
-              }
-              if (states.contains(WidgetState.hovered)) {
-                return const Color(0xFFFFFFFF);
-              }
-              return const Color(0xFF1E66F5);
-            }),
-            backgroundColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.hovered)) {
-                return const Color(0xFF184FC6);
-              }
-              return const Color(0xFFDCE7FF);
-            }),
-            side: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.hovered)) {
-                return const BorderSide(color: Color(0xFF3B82F6));
-              }
-              return const BorderSide(color: Color(0xFF1E66F5));
-            }),
-            overlayColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.hovered)) {
-                return const Color(0x14000000);
-              }
-              return null;
-            }),
-          ),
-          unselectedStyle: ButtonStyle(
-            padding: const WidgetStatePropertyAll(_searchButtonPadding),
-            minimumSize: const WidgetStatePropertyAll(_searchButtonMinimumSize),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-            foregroundColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.disabled)) {
-                return colorScheme.onSurface.withValues(alpha: 0.38);
-              }
-              if (states.contains(WidgetState.hovered)) {
-                return const Color(0xFF1E66F5);
-              }
-              return colorScheme.onSurface;
-            }),
-            backgroundColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.hovered)) {
-                return const Color(0xFFDCE7FF);
-              }
-              return const Color(0x00000000);
-            }),
-            side: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.hovered)) {
-                return const BorderSide(color: Color(0xFF1E66F5));
-              }
-              return BorderSide(color: colorScheme.outline);
-            }),
-            overlayColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.hovered)) {
-                return const Color(0x12000000);
-              }
-              return null;
-            }),
-          ),
-        ),
+        _searchButtonTheme(colorScheme, config.seedColor),
       ],
     );
   }
