@@ -3,17 +3,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/theme.dart';
 
 void main() {
-  group('CatppuccinColors', () {
+  group('MyTheme', () {
     test('dark theme has dark brightness', () {
-      expect(CatppuccinColors.dark.brightness, Brightness.dark);
+      expect(MyTheme.dark.brightness, Brightness.dark);
     });
 
     test('light theme has light brightness', () {
-      expect(CatppuccinColors.light.brightness, Brightness.light);
+      expect(MyTheme.light.brightness, Brightness.light);
     });
 
     test('default dark theme derives from My Seed Colour', () {
-      final theme = CatppuccinColors.dark;
+      final theme = MyTheme.dark;
 
       expect(
         theme.colorScheme,
@@ -27,7 +27,7 @@ void main() {
     });
 
     test('default light theme derives from My Seed Colour', () {
-      final theme = CatppuccinColors.light;
+      final theme = MyTheme.light;
 
       expect(
         theme.colorScheme,
@@ -47,7 +47,7 @@ void main() {
       );
 
       expect(
-        CatppuccinColors.darkWith(themeConfig).colorScheme,
+        MyTheme.darkWith(themeConfig).colorScheme,
         _expectedColorScheme(
           seedColor: themeConfig.seedColor,
           brightness: Brightness.dark,
@@ -56,7 +56,7 @@ void main() {
         ),
       );
       expect(
-        CatppuccinColors.lightWith(themeConfig).colorScheme,
+        MyTheme.lightWith(themeConfig).colorScheme,
         _expectedColorScheme(
           seedColor: themeConfig.seedColor,
           brightness: Brightness.light,
@@ -67,8 +67,8 @@ void main() {
     });
 
     test('both themes expose only live theme extensions', () {
-      final darkTheme = CatppuccinColors.dark;
-      final lightTheme = CatppuccinColors.light;
+      final darkTheme = MyTheme.dark;
+      final lightTheme = MyTheme.light;
 
       expect(darkTheme.extension<RowHoverTheme>(), isNotNull);
       expect(lightTheme.extension<RowHoverTheme>(), isNotNull);
@@ -83,8 +83,8 @@ void main() {
     });
 
     test('button themes are wired from the resolved color scheme', () {
-      final darkTheme = CatppuccinColors.dark;
-      final lightTheme = CatppuccinColors.light;
+      final darkTheme = MyTheme.dark;
+      final lightTheme = MyTheme.light;
 
       expect(
         darkTheme.filledButtonTheme.style?.backgroundColor?.resolve({}),
@@ -122,8 +122,8 @@ void main() {
     });
 
     test('chart series theme mirrors the resolved color scheme', () {
-      final darkTheme = CatppuccinColors.dark;
-      final lightTheme = CatppuccinColors.light;
+      final darkTheme = MyTheme.dark;
+      final lightTheme = MyTheme.light;
 
       expect(
         darkTheme.extension<ChartSeriesTheme>()?.primarySeriesColor,
