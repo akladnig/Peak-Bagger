@@ -445,14 +445,14 @@ FilledButtonThemeData _filledButtonTheme(ColorScheme colorScheme) {
 
 TextButtonThemeData _textButtonTheme(ColorScheme colorScheme) {
   return TextButtonThemeData(
-    style: TextButton.styleFrom(foregroundColor: colorScheme.primary),
+    style: TextButton.styleFrom(foregroundColor: lighten(_seedColor, 0.08)),
   );
 }
 
 OutlinedButtonThemeData _outlinedButtonTheme(ColorScheme colorScheme) {
   return OutlinedButtonThemeData(
     style: OutlinedButton.styleFrom(
-      foregroundColor: colorScheme.primary,
+      foregroundColor: _seedColor,
       side: BorderSide(color: colorScheme.outline),
     ),
   );
@@ -467,7 +467,7 @@ class CatppuccinColors {
   static ThemeData lightWith(ThemeConfig config) => _createLightTheme(config);
 
   static ColorScheme _withOutlineVariantMatchingPrimary(ColorScheme scheme) {
-    return scheme.copyWith(outlineVariant: scheme.onPrimary);
+    return scheme.copyWith(outlineVariant: _seedColor);
   }
 
   static ColorScheme _darkColorScheme(ThemeConfig config) {
@@ -551,15 +551,15 @@ class CatppuccinColors {
                 return colorScheme.onSurface.withValues(alpha: 0.38);
               }
               if (states.contains(WidgetState.hovered)) {
-                return colorScheme.onPrimaryContainer;
+                return colorScheme.primary;
               }
-              return colorScheme.onPrimary;
+              return colorScheme.primary;
             }),
             backgroundColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.hovered)) {
-                return darken(colorScheme.primary, 0.08);
+                return lighten(colorScheme.onPrimary, 0.08);
               }
-              return darken(colorScheme.primary, 0.24);
+              return darken(colorScheme.onPrimary, 0.0);
             }),
             side: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.hovered)) {
@@ -584,21 +584,24 @@ class CatppuccinColors {
                 return colorScheme.onSurface.withValues(alpha: 0.38);
               }
               if (states.contains(WidgetState.hovered)) {
-                return colorScheme.onPrimary;
+                return colorScheme.primary;
               }
-              return colorScheme.onSurface;
+              return lighten(_seedColor, 0.12);
             }),
             backgroundColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.hovered)) {
-                return darken(colorScheme.primary, 0.4);
+                return lighten(colorScheme.onPrimary, 0.08);
               }
               return colorScheme.surface;
             }),
             side: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.disabled)) {
+                return BorderSide(color: colorScheme.onSurface.withValues(alpha: 0.38));
+              }
               if (states.contains(WidgetState.hovered)) {
                 return BorderSide(color: colorScheme.primary);
               }
-              return BorderSide(color: colorScheme.outline);
+              return BorderSide(color: lighten(_seedColor, 0.12));
             }),
             overlayColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.hovered)) {
