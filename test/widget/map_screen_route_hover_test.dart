@@ -845,7 +845,7 @@ Future<void> _pumpMapScreen(
           GpxTrackRepository.test(InMemoryGpxTrackStorage()),
         ),
       ],
-      child: MaterialApp(theme: CatppuccinColors.dark, home: MapScreen()),
+      child: MaterialApp(theme: MyTheme.dark, home: MapScreen()),
     ),
   );
   await tester.pump();

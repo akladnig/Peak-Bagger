@@ -145,7 +145,7 @@ Future<void> _pumpMapScreen(
         if (readinessOverride != null)
           routeGraphReadinessProvider.overrideWith(readinessOverride),
       ],
-      child: MaterialApp(theme: CatppuccinColors.dark, home: MapScreen()),
+      child: MaterialApp(theme: MyTheme.dark, home: MapScreen()),
     ),
   );
   await tester.pump();

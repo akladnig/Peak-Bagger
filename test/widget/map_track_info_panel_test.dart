@@ -27,7 +27,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.light,
+        theme: MyTheme.light,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -61,7 +61,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.light,
+        theme: MyTheme.light,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -101,7 +101,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.light,
+        theme: MyTheme.light,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -145,7 +145,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.light,
+        theme: MyTheme.light,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -231,7 +231,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.light,
+        theme: MyTheme.light,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -269,7 +269,7 @@ void main() {
       ),
     );
 
-    expect(panel.color, CatppuccinColors.light.colorScheme.secondary);
+    expect(panel.color, MyTheme.light.colorScheme.secondary);
     expect(contentThemeFinder, findsOneWidget);
 
     final contentTheme = tester.widget<Theme>(contentThemeFinder).data;

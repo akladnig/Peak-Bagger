@@ -225,7 +225,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.dark,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: MapTrackInfoPanel(route: route, onClose: () {}),
         ),
@@ -265,7 +265,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.dark,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: MapTrackInfoPanel(route: route, onClose: () {}),
         ),

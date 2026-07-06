@@ -150,7 +150,7 @@ void main() {
     final timeChip = tester.widget<ChoiceChip>(
       find.byKey(const Key('elevation-profile-time-toggle')),
     );
-    expect(timeChip.disabledColor, CatppuccinColors.light.colorScheme.surfaceContainer);
+    expect(timeChip.disabledColor, MyTheme.light.colorScheme.surfaceContainer);
   });
 
   testWidgets('reports hovered samples and clears on exit', (tester) async {
@@ -217,7 +217,7 @@ Future<void> _pumpChart(
 }) async {
   await tester.pumpWidget(
     MaterialApp(
-      theme: CatppuccinColors.light,
+      theme: MyTheme.light,
       home: Scaffold(
         body: Center(
           child: SizedBox(

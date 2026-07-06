@@ -158,8 +158,8 @@ Future<void> _pumpMyListsCard(
         ),
       ],
       child: MaterialApp(
-        theme: CatppuccinColors.light,
-        darkTheme: CatppuccinColors.dark,
+        theme: MyTheme.light,
+        darkTheme: MyTheme.dark,
         themeMode: ThemeMode.light,
         home: Scaffold(
           body: SizedBox(width: width, height: 320, child: const MyListsCard()),

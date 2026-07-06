@@ -237,7 +237,7 @@ void main() {
         ],
         now: DateTime(2026, 5, 15, 12),
         width: 560,
-        theme: CatppuccinColors.light,
+        theme: MyTheme.light,
       );
 
       await _selectPeriod(tester, 'Month');
@@ -487,7 +487,7 @@ void main() {
       expect(
         tooltipTextWidgets[1].style?.color,
         lighten(
-          CatppuccinColors.light
+          MyTheme.light
               .extension<ChartSeriesTheme>()!
               .primarySeriesColor,
         ),
@@ -495,7 +495,7 @@ void main() {
       expect(
         tooltipTextWidgets[2].style?.color,
         lighten(
-          CatppuccinColors.light
+          MyTheme.light
               .extension<ChartSeriesTheme>()!
               .secondarySeriesColor,
         ),
@@ -529,7 +529,7 @@ void main() {
         ],
         now: DateTime(2026, 5, 15, 12),
         width: 560,
-        theme: CatppuccinColors.light,
+        theme: MyTheme.light,
       );
 
       await _selectPeriod(tester, 'Month');
