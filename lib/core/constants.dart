@@ -193,6 +193,7 @@ abstract final class PopupUIConstants {
   static const surfacePadding = 12.0;
   static const surfaceRadius = 12.0;
   static const closeIconSize = 16.0;
+  static const searchIconSize = 20.0;
   static const headerIconSize = 18.0;
   static const headerSpacing = 8.0;
   static const actionSpacing = 12.0;
