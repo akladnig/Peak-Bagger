@@ -717,7 +717,7 @@ Future<void> _pumpMapScreen(
         openRouteServiceProvider.overrideWithValue(openRouteService),
         routeGraphDriveEtaHitServiceProvider.overrideWithValue(hitService),
       ],
-      child: MaterialApp(theme: CatppuccinColors.dark, home: const MapScreen()),
+      child: MaterialApp(theme: MyTheme.dark, home: const MapScreen()),
     ),
   );
   await tester.pump();

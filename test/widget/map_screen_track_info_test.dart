@@ -199,7 +199,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.dark,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: MapTrackInfoPanel(track: track, onClose: () {}),
         ),
@@ -214,7 +214,7 @@ void main() {
     expect(find.text('Unnamed Track'), findsOneWidget);
     expect(find.text('Wed, 7 January 2026'), findsOneWidget);
     expect(find.text('from Unknown to Unknown'), findsOneWidget);
-    expect(panel.color, CatppuccinColors.dark.colorScheme.secondary);
+    expect(panel.color, MyTheme.dark.colorScheme.secondary);
     expect(find.text('Distance (2d/3d)'), findsOneWidget);
     expect(
       find.descendant(

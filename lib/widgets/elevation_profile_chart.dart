@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:peak_bagger/theme.dart';
 
 import '../core/constants.dart';
 import '../core/number_formatters.dart';
@@ -308,7 +309,7 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
           LineChartBarData(
             spots: segment.spots,
             isCurved: false,
-            color: theme.colorScheme.primary,
+            color: theme.seedColour,
             barWidth: ChartUI.barWidth,
             dotData: const FlDotData(show: false),
           ),
@@ -405,15 +406,15 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
               .map(
                 (spotIndex) => TouchedSpotIndicatorData(
                   FlLine(
-                    color: theme.colorScheme.primary,
+                    color: theme.seedColour,
                     strokeWidth: ChartUI.hoverLineStrokeWidth,
                   ),
                   FlDotData(
                     getDotPainter: (spot, percent, bar, index) {
                       return FlDotCirclePainter(
                         radius: ChartUI.radiusTouched,
-                        color: theme.colorScheme.primary,
-                        strokeColor: theme.colorScheme.primary,
+                        color: theme.seedColour,
+                        strokeColor: theme.seedColour,
                         strokeWidth: 0,
                       );
                     },

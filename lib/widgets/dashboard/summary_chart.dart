@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants.dart';
 import '../../core/date_formatters.dart';
 import '../../services/summary_card_service.dart';
-import 'dashboard_series_colors.dart';
+import '../../theme.dart';
 import '../dashboard_chart_chrome.dart';
 
 enum SummaryBarSeriesStyle { stacked, grouped }
@@ -87,6 +87,9 @@ class _SummaryChartState extends State<SummaryChart> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final chartSeriesTheme =
+        theme.extension<ChartSeriesTheme>() ??
+        ChartSeriesTheme.fromColorScheme(theme.colorScheme);
     final buckets = widget.buckets;
     final secondaryBuckets = widget.secondaryBuckets;
     final bucketContentWidth = math.max<double>(
@@ -259,7 +262,8 @@ class _SummaryChartState extends State<SummaryChart> {
                                             decoration: BoxDecoration(
                                               color:
                                                   _selectedBucketIndex == index
-                                                  ? theme.colorScheme.primary
+                                                  ? chartSeriesTheme
+                                                        .primarySeriesColor
                                                         .withValues(alpha: 0.10)
                                                   : Colors.transparent,
                                               border: Border(
@@ -267,9 +271,8 @@ class _SummaryChartState extends State<SummaryChart> {
                                                   color:
                                                       _selectedBucketIndex ==
                                                           index
-                                                      ? theme
-                                                            .colorScheme
-                                                            .primary
+                                                      ? chartSeriesTheme
+                                                            .primarySeriesColor
                                                       : Colors.transparent,
                                                   width: 2,
                                                 ),
@@ -428,6 +431,9 @@ class _SummaryBarChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final chartSeriesTheme =
+        theme.extension<ChartSeriesTheme>() ??
+        ChartSeriesTheme.fromColorScheme(theme.colorScheme);
 
     return BarChart(
       BarChartData(
@@ -445,14 +451,16 @@ class _SummaryBarChart extends StatelessWidget {
                     value: buckets[index].value,
                     width: DashboardUI.rodWidthFor(bucketExtent) / 2,
                     color: index == selectedBucketIndex
-                        ? theme.colorScheme.tertiary
-                        : theme.colorScheme.primary,
+                        ? chartSeriesTheme.selectedPrimarySeriesColor
+                        : chartSeriesTheme.primarySeriesColor,
                   ),
                   if (secondaryBuckets != null)
                     _seriesRod(
                       value: secondaryBuckets![index].value,
                       width: DashboardUI.rodWidthFor(bucketExtent) / 2,
-                      color: dashboardSecondarySeriesColor,
+                      color: index == selectedBucketIndex
+                          ? chartSeriesTheme.selectedSecondarySeriesColor
+                          : chartSeriesTheme.secondarySeriesColor,
                     ),
                 ],
               ),
@@ -475,15 +483,17 @@ class _SummaryBarChart extends StatelessWidget {
                         0,
                         buckets[index].value,
                         index == selectedBucketIndex
-                            ? theme.colorScheme.tertiary
-                            : theme.colorScheme.primary,
+                            ? chartSeriesTheme.selectedPrimarySeriesColor
+                            : chartSeriesTheme.primarySeriesColor,
                       ),
                       if (secondaryBuckets != null &&
                           secondaryBuckets![index].value > 0)
                         BarChartRodStackItem(
                           buckets[index].value,
                           secondaryBuckets![index].value,
-                          dashboardSecondarySeriesColor,
+                          index == selectedBucketIndex
+                              ? chartSeriesTheme.selectedSecondarySeriesColor
+                              : chartSeriesTheme.secondarySeriesColor,
                         ),
                     ],
                   ),
@@ -551,6 +561,9 @@ class _SummaryLineChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final chartSeriesTheme =
+        theme.extension<ChartSeriesTheme>() ??
+        ChartSeriesTheme.fromColorScheme(theme.colorScheme);
 
     return LineChart(
       LineChartData(
@@ -566,7 +579,7 @@ class _SummaryLineChart extends StatelessWidget {
                   FlSpot(_summaryLineSpotX(index), buckets[index].value),
               ],
               isCurved: true,
-              color: theme.colorScheme.primary,
+              color: chartSeriesTheme.primarySeriesColor,
               barWidth: ChartUI.barWidth,
               dotData: FlDotData(
                 show: true,
@@ -578,8 +591,8 @@ class _SummaryLineChart extends StatelessWidget {
                         : ChartUI.radius,
                     color: dashboardChartSurfaceColor(theme),
                     strokeColor: isSelected
-                        ? theme.colorScheme.tertiary
-                        : theme.colorScheme.primary,
+                        ? chartSeriesTheme.selectedPrimarySeriesColor
+                        : chartSeriesTheme.primarySeriesColor,
                     strokeWidth: ChartUI.strokeWidth,
                   );
                 },
@@ -595,7 +608,7 @@ class _SummaryLineChart extends StatelessWidget {
                   ),
               ],
               isCurved: true,
-              color: dashboardSecondarySeriesColor,
+              color: chartSeriesTheme.secondarySeriesColor,
               barWidth: ChartUI.barWidth,
               dotData: FlDotData(
                 show: true,
@@ -607,8 +620,8 @@ class _SummaryLineChart extends StatelessWidget {
                         : ChartUI.radius,
                     color: dashboardChartSurfaceColor(theme),
                     strokeColor: isSelected
-                        ? ChartUI.colourSelected
-                        : ChartUI.colour,
+                        ? chartSeriesTheme.selectedSecondarySeriesColor
+                        : chartSeriesTheme.secondarySeriesColor,
                     strokeWidth: ChartUI.strokeWidth,
                   );
                 },
@@ -621,7 +634,7 @@ class _SummaryLineChart extends StatelessWidget {
                   FlSpot(_summaryLineSpotX(index), buckets[index].value),
               ],
               isCurved: true,
-              color: theme.colorScheme.primary,
+              color: chartSeriesTheme.primarySeriesColor,
               barWidth: ChartUI.barWidth,
               dotData: FlDotData(
                 show: true,
@@ -633,8 +646,8 @@ class _SummaryLineChart extends StatelessWidget {
                         : ChartUI.radius,
                     color: dashboardChartSurfaceColor(theme),
                     strokeColor: isSelected
-                        ? theme.colorScheme.tertiary
-                        : theme.colorScheme.primary,
+                        ? chartSeriesTheme.selectedPrimarySeriesColor
+                        : chartSeriesTheme.primarySeriesColor,
                     strokeWidth: ChartUI.strokeWidth,
                   );
                 },

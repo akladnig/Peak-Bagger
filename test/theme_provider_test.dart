@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/providers/theme_provider.dart';
+import 'package:peak_bagger/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -35,19 +36,28 @@ void main() {
       SharedPreferences.setMockInitialValues({});
     });
 
-    test('initial state is catppuccin', () {
+    test('initial state is seeded', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
       expect(
         container.read(themeColorPaletteProvider),
-        ThemeColorPalette.catppuccin,
+        ThemeColorPalette.seeded,
       );
     });
 
-    test('setThemeColorPalette updates state', () async {
+    test('setThemeColorPalette keeps seeded state', () async {
       final container = ProviderContainer();
       addTearDown(container.dispose);
+
+      await container
+          .read(themeColorPaletteProvider.notifier)
+          .setThemeColorPalette(ThemeColorPalette.catppuccin);
+
+      expect(
+        container.read(themeColorPaletteProvider),
+        ThemeColorPalette.seeded,
+      );
 
       await container
           .read(themeColorPaletteProvider.notifier)
@@ -57,6 +67,93 @@ void main() {
         container.read(themeColorPaletteProvider),
         ThemeColorPalette.seeded,
       );
+    });
+  });
+
+  group('ThemeSeedColorNotifier', () {
+    setUp(() {
+      SharedPreferences.resetStatic();
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    test('initial state defaults to My Seed Colour', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      expect(container.read(themeSeedColorProvider), defaultThemeSeedSwatch);
+    });
+
+    test('bootstrapped preferences restore stored swatch and clear legacy key', () async {
+      SharedPreferences.setMockInitialValues({
+        'theme_seed_color': 'brightRed',
+        'theme_color_palette': 'catppuccin',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final container = ProviderContainer(
+        overrides: [
+          bootstrappedThemePreferencesProvider.overrideWithValue(prefs),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(container.read(themeSeedColorProvider), themeSeedSwatches.last);
+
+      await Future<void>.delayed(Duration.zero);
+
+      expect(prefs.containsKey('theme_color_palette'), isFalse);
+    });
+
+    test('invalid stored swatch falls back to My Seed Colour', () async {
+      SharedPreferences.setMockInitialValues({'theme_seed_color': 'nope'});
+      final prefs = await SharedPreferences.getInstance();
+      final container = ProviderContainer(
+        overrides: [
+          bootstrappedThemePreferencesProvider.overrideWithValue(prefs),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(container.read(themeSeedColorProvider), defaultThemeSeedSwatch);
+    });
+
+    test('setThemeSeedColor persists across rebuilds', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final firstContainer = ProviderContainer(
+        overrides: [
+          bootstrappedThemePreferencesProvider.overrideWithValue(prefs),
+        ],
+      );
+      addTearDown(firstContainer.dispose);
+
+      await firstContainer
+          .read(themeSeedColorProvider.notifier)
+          .setThemeSeedColor(themeSeedSwatches[3]);
+
+      final secondContainer = ProviderContainer(
+        overrides: [
+          bootstrappedThemePreferencesProvider.overrideWithValue(prefs),
+        ],
+      );
+      addTearDown(secondContainer.dispose);
+
+      expect(secondContainer.read(themeSeedColorProvider), themeSeedSwatches[3]);
+    });
+
+    test('setThemeSeedColor keeps the in-memory choice when loading prefs fails', () async {
+      final container = ProviderContainer(
+        overrides: [
+          themePreferencesLoaderProvider.overrideWith((ref) {
+            return () async => throw Exception('prefs unavailable');
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container
+          .read(themeSeedColorProvider.notifier)
+          .setThemeSeedColor(themeSeedSwatches[1]);
+
+      expect(container.read(themeSeedColorProvider).id, themeSeedSwatches[1].id);
     });
   });
 

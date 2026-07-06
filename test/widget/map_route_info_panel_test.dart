@@ -30,7 +30,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.light,
+        theme: MyTheme.light,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -65,7 +65,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.light,
+        theme: MyTheme.light,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -114,7 +114,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.light,
+        theme: MyTheme.light,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -183,7 +183,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.light,
+        theme: MyTheme.light,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -234,7 +234,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.light,
+        theme: MyTheme.light,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -305,7 +305,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.light,
+        theme: MyTheme.light,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -358,7 +358,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.light,
+        theme: MyTheme.light,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -407,7 +407,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.light,
+        theme: MyTheme.light,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -457,7 +457,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.light,
+        theme: MyTheme.light,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -498,7 +498,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.light,
+        theme: MyTheme.light,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -540,7 +540,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.light,
+        theme: MyTheme.light,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -568,7 +568,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.light,
+        theme: MyTheme.light,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -606,7 +606,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.light,
+        theme: MyTheme.light,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -681,7 +681,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.light,
+        theme: MyTheme.light,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -803,7 +803,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.light,
+        theme: MyTheme.light,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -851,7 +851,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: CatppuccinColors.light,
+        theme: MyTheme.light,
         home: Scaffold(
           body: SizedBox(
             width: 600,

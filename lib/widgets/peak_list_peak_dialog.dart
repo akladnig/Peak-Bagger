@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/theme.dart';
 
 import '../core/constants.dart';
 import '../core/number_formatters.dart';
@@ -122,7 +123,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                   key: const Key('peak-list-peak-dialog'),
                   color:
                       theme.dialogTheme.backgroundColor ??
-                      theme.colorScheme.surface,
+                      theme.colorScheme.surfaceContainerHigh,
                   elevation: 6,
                   shadowColor: Colors.black54,
                   shape: RoundedRectangleBorder(
@@ -161,8 +162,10 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                                       ? InkWell(
                                           key: const Key('peak-list-peak-name'),
                                           onTap: _navigateToPeakOnMap,
-                                          hoverColor: theme.colorScheme.primary
-                                              .withValues(alpha: 0.08),
+                                          hoverColor: lighten(
+                                            theme.colorScheme.surfaceContainer,
+                                            0.08,
+                                          ),
                                           borderRadius: BorderRadius.circular(
                                             8,
                                           ),
@@ -175,9 +178,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                                               _titleLabel,
                                               style: theme.textTheme.titleLarge
                                                   ?.copyWith(
-                                                    color: theme
-                                                        .colorScheme
-                                                        .primary,
+                                                    color: theme.seedColour,
                                                   ),
                                             ),
                                           ),
@@ -379,6 +380,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
         SizedBox(
           height: 260,
           child: Card(
+            color: theme.colorScheme.surfaceContainer,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

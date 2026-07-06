@@ -57,7 +57,7 @@ void main() {
           ),
           tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
         ],
-        child: MaterialApp(theme: CatppuccinColors.dark, home: const MapScreen()),
+        child: MaterialApp(theme: MyTheme.dark, home: const MapScreen()),
       ),
     );
 

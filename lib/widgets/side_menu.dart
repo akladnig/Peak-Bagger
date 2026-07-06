@@ -24,7 +24,7 @@ class SideMenu extends StatelessWidget {
       margin: EdgeInsetsDirectional.all(8),
       decoration: BoxDecoration(
         color: theme.colorScheme.onPrimaryFixed,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
       ),
       width: UiConstants.sideMenuColumnWidth,
       child: ListView(
@@ -59,9 +59,6 @@ class SideMenu extends StatelessWidget {
     }
 
     return Container(
-      // color: Colors.cyan,
-      // margin: EdgeInsetsGeometry.symmetric(vertical: 0, horizontal: 0),
-      // padding: EdgeInsetsGeometry.symmetric(vertical: 0, horizontal: 0),
       key: Key(destination.legacyKeyName!),
       child: child,
     );
@@ -90,10 +87,6 @@ class _WideMenuItemNew extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Material(
         color: Colors.transparent,
-        // color: isSelected
-        // ? (isDark ? const Color(0xFF45475A) : const Color(0xFFBCC0CC))
-        // ? (isDark ? const Color(0xFF6347EA) : const Color(0xFFBCC0CC))
-        // : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
         child: SizedBox(
           width: double.infinity,

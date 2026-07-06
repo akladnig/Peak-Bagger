@@ -189,7 +189,7 @@ class _LatestWalkContent extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: isClickable
-                        ? titleStyle?.copyWith(color: theme.colorScheme.primary)
+                        ? titleStyle?.copyWith(color: theme.colorScheme.primaryContainer)
                         : titleStyle,
                   ),
                 ),
@@ -283,7 +283,7 @@ class _LatestWalkMiniMap extends StatelessWidget {
             Container(
               decoration: BoxDecoration(
                 border: Border.all(color: theme.colorScheme.outlineVariant),
-                color: theme.colorScheme.surfaceContainerHighest,
+                color: theme.colorScheme.surfaceContainer,
               ),
               child: FlutterMap(
                 key: ValueKey('latest-walk-map-${track.gpxTrackId}'),

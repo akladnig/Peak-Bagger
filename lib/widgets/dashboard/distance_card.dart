@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/number_formatters.dart';
 import '../../models/gpx_track.dart';
 import '../../services/summary_card_service.dart';
-import 'dashboard_series_colors.dart';
+import '../../theme.dart';
 import 'summary_card.dart';
 
 class DistanceCard extends StatelessWidget {
@@ -67,10 +67,12 @@ List<Color> _distanceTooltipValueColors(
   SummaryBucket? secondaryBucket,
 ) {
   final theme = Theme.of(context);
+  final chartSeriesTheme =
+      theme.extension<ChartSeriesTheme>() ??
+      ChartSeriesTheme.fromColorScheme(theme.colorScheme);
   return [
-    lighterSeriesColor(theme.colorScheme.primary),
-    if (secondaryBucket != null)
-      lighterSeriesColor(dashboardSecondarySeriesColor),
+    lighten(chartSeriesTheme.primarySeriesColor),
+    if (secondaryBucket != null) lighten(chartSeriesTheme.secondarySeriesColor),
   ];
 }
 
