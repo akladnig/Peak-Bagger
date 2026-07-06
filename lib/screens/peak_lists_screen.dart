@@ -1363,11 +1363,12 @@ class _SummaryRowCardState extends State<_SummaryRowCard> {
 }
 
 BoxDecoration _selectedRowDecoration(BuildContext context) {
+  var rowColour =  Theme.of(context).colorScheme.primaryContainer;
   return BoxDecoration(
-    color: Theme.of(context).colorScheme.primaryContainer,
-    border: const Border(
-      top: BorderSide(color: Color(0xFF5c47cd)),
-      bottom: BorderSide(color: Color(0xFF5c47cd)),
+    color: darken(rowColour, 0.30),
+    border: Border(
+      top: BorderSide(color: darken(rowColour, 0.08)),
+      bottom: BorderSide(color: darken(rowColour, 0.08)),
     ),
   );
 }

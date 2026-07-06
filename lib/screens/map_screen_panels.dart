@@ -256,21 +256,7 @@ class MapTrackInfoPanel extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final panelContentTheme = theme.copyWith(
-      iconTheme: theme.iconTheme.copyWith(color: colorScheme.onSecondary),
-      textTheme: theme.textTheme.copyWith(
-        bodyLarge: theme.textTheme.bodyLarge?.copyWith(
-          color: colorScheme.onSecondary,
-        ),
-        bodyMedium: theme.textTheme.bodyMedium?.copyWith(
-          color: colorScheme.onSecondary,
-        ),
-        bodySmall: theme.textTheme.bodySmall?.copyWith(
-          color: colorScheme.onSecondary,
-        ),
-        titleMedium: theme.textTheme.titleMedium?.copyWith(
-          color: colorScheme.onSecondary,
-        ),
-      ),
+      iconTheme: theme.iconTheme.copyWith(color: colorScheme.onSurface),
     );
 
     return SizedBox(
@@ -279,7 +265,7 @@ class MapTrackInfoPanel extends StatelessWidget {
         constraints: const BoxConstraints(maxHeight: 520),
         child: Card(
           key: const Key('track-info-panel'),
-          color: Theme.of(context).colorScheme.secondary,
+          color: Theme.of(context).colorScheme.surfaceContainer,
           margin: EdgeInsets.zero,
           child: SafeArea(
             child: Column(
@@ -290,7 +276,7 @@ class MapTrackInfoPanel extends StatelessWidget {
                     key: const Key('track-info-panel-content-theme'),
                     data: panelContentTheme,
                     child: DefaultTextStyle.merge(
-                      style: TextStyle(color: colorScheme.onSecondary),
+                      style: TextStyle(color: colorScheme.onSurface),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
