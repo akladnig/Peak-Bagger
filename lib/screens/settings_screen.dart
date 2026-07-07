@@ -21,6 +21,7 @@ import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/theme_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/screens/map_screen_layers.dart';
+import 'package:peak_bagger/screens/track_speed_analysis_screen.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/peak_list_csv_export_service.dart';
@@ -213,6 +214,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onTap: mapState.isLoadingTracks
                   ? null
                   : _confirmRecalculateTrackStatistics,
+            ),
+            ListTile(
+              key: const Key('track-speed-analysis-tile'),
+              leading: const Icon(Icons.analytics_outlined),
+              title: const Text('Track Speed Analysis'),
+              subtitle: const Text(
+                'Analyse walking speed by track metadata and gradient',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const TrackSpeedAnalysisScreen(),
+                  ),
+                );
+              },
             ),
             ListTile(
               key: const Key('update-tassy-full-peak-list-tile'),
