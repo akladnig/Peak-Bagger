@@ -8,6 +8,7 @@ import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/map_name_resolution.dart';
+import 'package:peak_bagger/services/map_search_region_filter.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
 import 'package:peak_bagger/services/route_repository.dart';
@@ -132,11 +133,19 @@ class MapSearchService {
     final anchor = LatLng(peak.latitude, peak.longitude);
     final regionData = _regionForPoint(anchor, fallbackRegionKey: peak.region);
     final resolvedRegionKey = regionData?.key ?? peak.region;
-    if (!_matchesRegion(resolvedRegionKey, regionKey)) {
+    if (!peakMatchesSearchRegion(
+      storedPeakRegionKey: peak.region,
+      resolvedRegionKey: resolvedRegionKey,
+      filterRegionKey: regionKey,
+    )) {
       return null;
     }
     final mapName = _mapNameForPoint(anchor);
-    final subtitle = _joinSummaryParts([mapName, regionData?.name]);
+    final displayRegionKey = isNorthEastSubregionKey(peak.region)
+        ? peak.region
+        : resolvedRegionKey;
+    final displayRegionName = mapSearchRegionLabel(displayRegionKey);
+    final subtitle = _joinSummaryParts([mapName, displayRegionName]);
     return MapSearchResult.peak(
       id: '${peak.osmId}',
       title: peak.name,
@@ -145,8 +154,8 @@ class MapSearchService {
       trailingText: peak.elevation == null
           ? '—'
           : formatElevation(peak.elevation!.round()),
-      regionKey: resolvedRegionKey,
-      regionName: regionData?.name,
+      regionKey: displayRegionKey,
+      regionName: displayRegionName,
       mapName: mapName,
       peak: peak,
     );
@@ -158,7 +167,10 @@ class MapSearchService {
       return null;
     }
     final regionData = _regionForPoint(anchor);
-    if (!_matchesRegion(regionData?.key, regionKey)) {
+    if (!nonPeakMatchesSearchRegion(
+      resolvedRegionKey: regionData?.key,
+      filterRegionKey: regionKey,
+    )) {
       return null;
     }
     final mapName = _mapNameForPoint(anchor);
@@ -185,7 +197,10 @@ class MapSearchService {
       return null;
     }
     final regionData = _regionForPoint(anchor);
-    if (!_matchesRegion(regionData?.key, regionKey)) {
+    if (!nonPeakMatchesSearchRegion(
+      resolvedRegionKey: regionData?.key,
+      filterRegionKey: regionKey,
+    )) {
       return null;
     }
     final mapName = _mapNameForPoint(anchor);
@@ -214,7 +229,10 @@ class MapSearchService {
       return null;
     }
     final regionData = _regionForPoint(anchor);
-    if (!_matchesRegion(regionData?.key, regionKey)) {
+    if (!nonPeakMatchesSearchRegion(
+      resolvedRegionKey: regionData?.key,
+      filterRegionKey: regionKey,
+    )) {
       return null;
     }
     return MapSearchResult.map(
@@ -301,10 +319,6 @@ class MapSearchService {
       return null;
     }
     return regionManifestCatalog.regionByKey(fallbackRegionKey);
-  }
-
-  bool _matchesRegion(String? resolvedRegionKey, String? regionKey) {
-    return regionKey == null || resolvedRegionKey == regionKey;
   }
 
   String _joinSummaryParts(Iterable<String?> parts) {

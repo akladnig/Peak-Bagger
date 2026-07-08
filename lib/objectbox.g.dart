@@ -32,7 +32,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(1, 6887978098338940139),
     name: 'Peak',
-    lastPropertyId: const obx_int.IdUid(19, 6639928261090114468),
+    lastPropertyId: const obx_int.IdUid(23, 1253639641707322738),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -147,6 +147,30 @@ final _entities = <obx_int.ModelEntity>[
       obx_int.ModelProperty(
         id: const obx_int.IdUid(19, 6639928261090114468),
         name: 'range',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(20, 4464124210883891844),
+        name: 'rating',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(21, 6148070469945997993),
+        name: 'difficulty',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(22, 5218194221303526383),
+        name: 'viaFerrata',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(23, 1253639641707322738),
+        name: 'notes',
         type: 9,
         flags: 0,
       ),
@@ -1171,7 +1195,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final countryOffset = fbb.writeString(object.country);
         final countyOffset = fbb.writeString(object.county);
         final rangeOffset = fbb.writeString(object.range);
-        fbb.startTable(20);
+        final difficultyOffset = fbb.writeString(object.difficulty);
+        final viaFerrataOffset = fbb.writeString(object.viaFerrata);
+        final notesOffset = fbb.writeString(object.notes);
+        fbb.startTable(24);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, nameOffset);
         fbb.addFloat64(2, object.elevation);
@@ -1191,6 +1218,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addOffset(16, countryOffset);
         fbb.addOffset(17, countyOffset);
         fbb.addOffset(18, rangeOffset);
+        fbb.addFloat64(19, object.rating);
+        fbb.addOffset(20, difficultyOffset);
+        fbb.addOffset(21, viaFerrataOffset);
+        fbb.addOffset(22, notesOffset);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -1239,6 +1270,20 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final rangeParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 40, '');
+        final ratingParam = const fb.Float64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          42,
+        );
+        final difficultyParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 44, '');
+        final viaFerrataParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 46, '');
+        final notesParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 48, '');
         final latitudeParam = const fb.Float64Reader().vTableGet(
           buffer,
           rootOffset,
@@ -1286,6 +1331,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
           country: countryParam,
           county: countyParam,
           range: rangeParam,
+          rating: ratingParam,
+          difficulty: difficultyParam,
+          viaFerrata: viaFerrataParam,
+          notes: notesParam,
           latitude: latitudeParam,
           longitude: longitudeParam,
           region: regionParam,
@@ -2609,6 +2658,26 @@ class Peak_ {
   /// See [Peak.range].
   static final range = obx.QueryStringProperty<Peak>(
     _entities[0].properties[18],
+  );
+
+  /// See [Peak.rating].
+  static final rating = obx.QueryDoubleProperty<Peak>(
+    _entities[0].properties[19],
+  );
+
+  /// See [Peak.difficulty].
+  static final difficulty = obx.QueryStringProperty<Peak>(
+    _entities[0].properties[20],
+  );
+
+  /// See [Peak.viaFerrata].
+  static final viaFerrata = obx.QueryStringProperty<Peak>(
+    _entities[0].properties[21],
+  );
+
+  /// See [Peak.notes].
+  static final notes = obx.QueryStringProperty<Peak>(
+    _entities[0].properties[22],
   );
 }
 

@@ -75,7 +75,30 @@ class PeakListImportService {
     }
 
     final existing = _peakListRepository.findByName(trimmedListName);
-    final rows = _parseCsv(await _csvLoader(csvPath));
+    final rows = _decodeCsv(await _csvLoader(csvPath));
+    if (_isRankedPeakListCsv(rows.first)) {
+      return _importRankedPeakList(
+        listName: trimmedListName,
+        csvPath: csvPath,
+        existing: existing,
+        rows: rows,
+      );
+    }
+
+    return _importHwcPeakList(
+      listName: trimmedListName,
+      csvPath: csvPath,
+      existing: existing,
+      rows: _parseHwcCsv(rows),
+    );
+  }
+
+  Future<PeakListImportResult> _importHwcPeakList({
+    required String listName,
+    required String csvPath,
+    required PeakList? existing,
+    required List<List<dynamic>> rows,
+  }) async {
     final peaks = List<Peak>.from(_peakRepository.getAllPeaks());
     final items = <PeakListItem>[];
     final correctedPeaksByOsmId = <int, Peak>{};
@@ -171,7 +194,7 @@ class PeakListImportService {
     }
 
     final saved = await _peakListRepository.save(
-      PeakList(name: trimmedListName, peakList: encodePeakListItems(items)),
+      PeakList(name: listName, peakList: encodePeakListItems(items)),
     );
 
     String? warningMessage;
@@ -201,11 +224,99 @@ class PeakListImportService {
     );
   }
 
-  List<List<dynamic>> _parseCsv(String contents) {
+  Future<PeakListImportResult> _importRankedPeakList({
+    required String listName,
+    required String csvPath,
+    required PeakList? existing,
+    required List<List<dynamic>> rows,
+  }) async {
+    final headers = rows.first
+        .map((value) => _rankedHeaderValue('$value'))
+        .toList(growable: false);
+    final peaksByOsmId = {
+      for (final peak in _peakRepository.getAllPeaks()) peak.osmId: peak,
+    };
+    final items = <PeakListItem>[];
+    final correctedPeaksByOsmId = <int, Peak>{};
+    final seenOsmIds = <int>{};
+    _RankedRegionMapping? fileRegionMapping;
+
+    for (var rowIndex = 1; rowIndex < rows.length; rowIndex++) {
+      final row = rows[rowIndex];
+      if (_isRowBlank(row)) {
+        continue;
+      }
+
+      final rankedRow = _parseRankedRow(
+        headers: headers,
+        row: row,
+        rowNumber: rowIndex + 1,
+        seenOsmIds: seenOsmIds,
+        peaksByOsmId: peaksByOsmId,
+        currentMapping: fileRegionMapping,
+      );
+      fileRegionMapping ??= rankedRow.regionMapping;
+      correctedPeaksByOsmId[rankedRow.osmId] = _applyRankedRow(
+        rankedRow,
+        peaksByOsmId[rankedRow.osmId]!,
+      );
+      items.add(PeakListItem(peakOsmId: rankedRow.osmId, points: 1));
+    }
+
+    for (final correctedPeak in correctedPeaksByOsmId.values) {
+      if (_peakNeedsSave(peaksByOsmId[correctedPeak.osmId]!, correctedPeak)) {
+        await _peakRepository.save(correctedPeak);
+      }
+    }
+
+    final saved = await _peakListRepository.save(
+      PeakList(
+        name: listName,
+        region: fileRegionMapping?.peakListRegion ??
+            existing?.region ??
+            Peak.defaultRegion,
+        peakList: encodePeakListItems(items),
+      ),
+    );
+
+    return PeakListImportResult(
+      peakListId: saved.peakListId,
+      updated: existing != null,
+      importedCount: items.length,
+      skippedCount: 0,
+      matchedCount: items.length,
+      ambiguousCount: 0,
+      warningEntries: const [],
+      logEntries: const [],
+    );
+  }
+
+  List<List<dynamic>> _decodeCsv(String contents) {
     final rows = const CsvDecoder().convert(contents);
     if (rows.isEmpty) {
       throw const FormatException('CSV file is empty.');
     }
+
+    return rows;
+  }
+
+  bool _isRankedPeakListCsv(List<dynamic> headerRow) {
+    final headers = headerRow
+        .map((value) => _rankedHeaderValue('$value'))
+        .toList(growable: false);
+    if (headers.length != _rankedPeakListHeaders.length) {
+      return false;
+    }
+
+    for (var index = 0; index < headers.length; index++) {
+      if (headers[index] != _rankedPeakListHeaders[index]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  List<List<dynamic>> _parseHwcCsv(List<List<dynamic>> rows) {
 
     final headers = rows.first
         .map((value) => _normalizeHeader('$value'))
@@ -223,6 +334,149 @@ class PeakListImportService {
 
     rows[0] = headers;
     return rows;
+  }
+
+  _RankedPeakListCsvRow _parseRankedRow({
+    required List<String> headers,
+    required List<dynamic> row,
+    required int rowNumber,
+    required Set<int> seenOsmIds,
+    required Map<int, Peak> peaksByOsmId,
+    required _RankedRegionMapping? currentMapping,
+  }) {
+    final data = <String, String>{};
+    for (var index = 0; index < headers.length; index++) {
+      data[headers[index]] = index < row.length ? '${row[index]}'.trim() : '';
+    }
+
+    final name = data['name'] ?? '';
+    final rawOsmId = data['osmId'] ?? '';
+    if (rawOsmId.isEmpty) {
+      throw FormatException('row $rowNumber is missing osmId ($name)');
+    }
+
+    final osmId = int.tryParse(rawOsmId);
+    if (osmId == null || !peaksByOsmId.containsKey(osmId)) {
+      throw FormatException(
+        'row $rowNumber references unknown osmId $rawOsmId ($name)',
+      );
+    }
+    if (!seenOsmIds.add(osmId)) {
+      throw FormatException('duplicate osmId $osmId on row $rowNumber');
+    }
+
+    final regionValue = data['region'] ?? '';
+    final regionMapping = _rankedRegionMappings[regionValue];
+    if (regionMapping == null) {
+      throw FormatException(
+        'unsupported region "$regionValue" on row $rowNumber',
+      );
+    }
+    if (currentMapping != null && currentMapping != regionMapping) {
+      throw const FormatException('mixed ranked-import regions in one file');
+    }
+
+    return _RankedPeakListCsvRow(
+      rowNumber: rowNumber,
+      osmId: osmId,
+      name: name,
+      rating: _parseRankedRating(data['rating'] ?? '', rowNumber: rowNumber, name: name),
+      elevation: _parseRankedNumber(
+        data['elevation'] ?? '',
+        fieldName: 'elevation',
+        rowNumber: rowNumber,
+        name: name,
+      ),
+      prominence: _parseRankedNumber(
+        data['prominence'] ?? '',
+        fieldName: 'prominence',
+        rowNumber: rowNumber,
+        name: name,
+      ),
+      latitude: _parseRankedNumber(
+        data['latitude'] ?? '',
+        fieldName: 'latitude',
+        rowNumber: rowNumber,
+        name: name,
+      ),
+      longitude: _parseRankedNumber(
+        data['longitude'] ?? '',
+        fieldName: 'longitude',
+        rowNumber: rowNumber,
+        name: name,
+      ),
+      country: data['country'] ?? '',
+      range: data['range'] ?? '',
+      county: data['county'] ?? '',
+      difficulty: data['difficulty'] ?? '',
+      viaFerrata: data['viaFerrata'] ?? '',
+      notes: data['notes'] ?? '',
+      regionMapping: regionMapping,
+    );
+  }
+
+  double? _parseRankedRating(
+    String rawValue, {
+    required int rowNumber,
+    required String name,
+  }) {
+    final parsed = _parseRankedNumber(
+      rawValue,
+      fieldName: 'rating',
+      rowNumber: rowNumber,
+      name: name,
+    );
+    if (parsed == null) {
+      return null;
+    }
+    if (parsed < 0 || parsed > 5) {
+      throw FormatException('invalid rating "$rawValue" on row $rowNumber ($name)');
+    }
+    return (parsed * 10).round() / 10;
+  }
+
+  double? _parseRankedNumber(
+    String rawValue, {
+    required String fieldName,
+    required int rowNumber,
+    required String name,
+  }) {
+    if (rawValue.isEmpty) {
+      return null;
+    }
+    final parsed = double.tryParse(rawValue);
+    if (parsed != null) {
+      return parsed;
+    }
+    throw FormatException(
+      'invalid $fieldName "$rawValue" on row $rowNumber ($name)',
+    );
+  }
+
+  Peak _applyRankedRow(_RankedPeakListCsvRow row, Peak peak) {
+    final latitude = row.latitude ?? peak.latitude;
+    final longitude = row.longitude ?? peak.longitude;
+    final mgrs = PeakMgrsConverter.fromLatLng(LatLng(latitude, longitude));
+    return peak.copyWith(
+      name: row.name.isEmpty ? peak.name : row.name,
+      elevation: row.elevation ?? peak.elevation,
+      prominence: row.prominence ?? peak.prominence,
+      latitude: latitude,
+      longitude: longitude,
+      country: row.country.isEmpty ? peak.country : row.country,
+      region: row.regionMapping.peakRegion,
+      range: row.range.isEmpty ? peak.range : row.range,
+      county: row.county.isEmpty ? peak.county : row.county,
+      rating: row.rating ?? peak.rating,
+      difficulty: row.difficulty.isEmpty ? peak.difficulty : row.difficulty,
+      viaFerrata: row.viaFerrata.isEmpty ? peak.viaFerrata : row.viaFerrata,
+      notes: row.notes.isEmpty ? peak.notes : row.notes,
+      gridZoneDesignator: mgrs.gridZoneDesignator,
+      mgrs100kId: mgrs.mgrs100kId,
+      easting: mgrs.easting,
+      northing: mgrs.northing,
+      sourceOfTruth: row.regionMapping.sourceOfTruth,
+    );
   }
 
   _PeakListCsvRowParseResult _parseRow(
@@ -489,9 +743,21 @@ class PeakListImportService {
   }
 
   bool _peakNeedsSave(Peak original, Peak corrected) {
-    return original.latitude != corrected.latitude ||
+    return original.name != corrected.name ||
+        original.latitude != corrected.latitude ||
         original.longitude != corrected.longitude ||
         original.elevation != corrected.elevation ||
+        original.prominence != corrected.prominence ||
+        original.country != corrected.country ||
+        original.county != corrected.county ||
+        original.range != corrected.range ||
+        original.rating != corrected.rating ||
+        original.difficulty != corrected.difficulty ||
+        original.viaFerrata != corrected.viaFerrata ||
+        original.notes != corrected.notes ||
+        original.region != corrected.region ||
+        original.gridZoneDesignator != corrected.gridZoneDesignator ||
+        original.mgrs100kId != corrected.mgrs100kId ||
         original.easting != corrected.easting ||
         original.northing != corrected.northing ||
         original.sourceOfTruth != corrected.sourceOfTruth;
@@ -507,6 +773,10 @@ class PeakListImportService {
       return 'Height';
     }
     return trimmed;
+  }
+
+  String _rankedHeaderValue(String header) {
+    return header.replaceFirst('\u{FEFF}', '');
   }
 
   void _requireHeaders(List<dynamic> headers, List<String> requiredHeaders) {
@@ -688,6 +958,84 @@ class _PeakMatchResolution {
   final bool hadSpatialCandidates;
   final bool wasAmbiguous;
 }
+
+class _RankedPeakListCsvRow {
+  const _RankedPeakListCsvRow({
+    required this.rowNumber,
+    required this.osmId,
+    required this.name,
+    required this.rating,
+    required this.elevation,
+    required this.prominence,
+    required this.latitude,
+    required this.longitude,
+    required this.country,
+    required this.range,
+    required this.county,
+    required this.difficulty,
+    required this.viaFerrata,
+    required this.notes,
+    required this.regionMapping,
+  });
+
+  final int rowNumber;
+  final int osmId;
+  final String name;
+  final double? rating;
+  final double? elevation;
+  final double? prominence;
+  final double? latitude;
+  final double? longitude;
+  final String country;
+  final String range;
+  final String county;
+  final String difficulty;
+  final String viaFerrata;
+  final String notes;
+  final _RankedRegionMapping regionMapping;
+}
+
+class _RankedRegionMapping {
+  const _RankedRegionMapping({
+    required this.peakRegion,
+    required this.peakListRegion,
+    required this.sourceOfTruth,
+  });
+
+  final String peakRegion;
+  final String peakListRegion;
+  final String sourceOfTruth;
+}
+
+const _rankedPeakListHeaders = [
+  'name',
+  'osmId',
+  'rating',
+  'elevation',
+  'prominence',
+  'latitude',
+  'longitude',
+  'country',
+  'region',
+  'range',
+  'county',
+  'difficulty',
+  'viaFerrata',
+  'notes',
+];
+
+const _rankedRegionMappings = {
+  'Friuli Venezia Giulia': _RankedRegionMapping(
+    peakRegion: 'fvg',
+    peakListRegion: 'italy-nord-est',
+    sourceOfTruth: Peak.sourceOfTruthFvg,
+  ),
+  'Veneto': _RankedRegionMapping(
+    peakRegion: 'veneto',
+    peakListRegion: 'italy-nord-est',
+    sourceOfTruth: Peak.sourceOfTruthVeneto,
+  ),
+};
 
 const _candidateThresholdsMeters = [
   50,
