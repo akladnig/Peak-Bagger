@@ -73,6 +73,14 @@ void main() {
         'osmId',
         'name',
         'elevation',
+        'prominence',
+        'country',
+        'county',
+        'range',
+        'rating',
+        'difficulty',
+        'viaFerrata',
+        'notes',
         'latitude',
         'longitude',
         'region',
@@ -457,6 +465,10 @@ void main() {
         northing: '03594',
         verified: true,
         sourceOfTruth: Peak.sourceOfTruthHwc,
+        rating: 4.4,
+        difficulty: 'EE',
+        viaFerrata: 'Optional',
+        notes: 'Ridge scramble',
       ),
     );
 
@@ -467,6 +479,10 @@ void main() {
     expect(row.values['country'], '');
     expect(row.values['county'], '');
     expect(row.values['range'], '');
+    expect(row.values['rating'], 4.4);
+    expect(row.values['difficulty'], 'EE');
+    expect(row.values['viaFerrata'], 'Optional');
+    expect(row.values['notes'], 'Ridge scramble');
     expect(row.values['gridZoneDesignator'], '55G');
     expect(row.values['mgrs100kId'], 'DN');
     expect(row.values['easting'], '17710');
@@ -490,6 +506,10 @@ void main() {
           'country': 'Australia',
           'county': 'Tasmania',
           'range': 'Central Highlands',
+          'rating': 4.3,
+          'difficulty': 'EE',
+          'viaFerrata': 'Optional',
+          'notes': 'Ridge scramble',
           'latitude': -41.2,
           'longitude': 146.1,
           'region': 'Central',
@@ -510,7 +530,118 @@ void main() {
     expect(peak.country, 'Australia');
     expect(peak.county, 'Tasmania');
     expect(peak.range, 'Central Highlands');
+    expect(peak.rating, 4.3);
+    expect(peak.difficulty, 'EE');
+    expect(peak.viaFerrata, 'Optional');
+    expect(peak.notes, 'Ridge scramble');
     expect(peak.verified, isTrue);
+  });
+
+  test('peakAdminDetailsFields includes ranked metadata fields', () {
+    final peakEntity = ObjectBoxAdminEntityDescriptor(
+      name: 'Peak',
+      displayName: 'Peak',
+      primaryKeyField: 'id',
+      primaryNameField: 'name',
+      fields: const [
+        ObjectBoxAdminFieldDescriptor(
+          name: 'id',
+          typeLabel: 'int',
+          nullable: false,
+          isPrimaryKey: true,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'name',
+          typeLabel: 'String',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: true,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'altName',
+          typeLabel: 'String',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'elevation',
+          typeLabel: 'double',
+          nullable: true,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'peakbaggerPid',
+          typeLabel: 'int',
+          nullable: true,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'prominence',
+          typeLabel: 'double',
+          nullable: true,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'country',
+          typeLabel: 'String',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'county',
+          typeLabel: 'String',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'range',
+          typeLabel: 'String',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'rating',
+          typeLabel: 'double',
+          nullable: true,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'difficulty',
+          typeLabel: 'String',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'viaFerrata',
+          typeLabel: 'String',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'notes',
+          typeLabel: 'String',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+      ],
+    );
+
+    expect(
+      peakAdminDetailsFields(peakEntity).map((field) => field.name),
+      containsAll(['rating', 'difficulty', 'viaFerrata', 'notes']),
+    );
   });
 
   test('routeToAdminRow exposes persisted route fields', () {

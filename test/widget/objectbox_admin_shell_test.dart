@@ -1307,10 +1307,16 @@ void main() {
       findsNothing,
     );
     expect(find.text('peakbaggerPid'), findsWidgets);
-    expect(find.text('prominence'), findsWidgets);
-    expect(find.text('country'), findsWidgets);
-    expect(find.text('county'), findsWidgets);
-    expect(find.text('range'), findsWidgets);
+    expect(find.byKey(const Key('objectbox-admin-peak-details-prominence')), findsOneWidget);
+    expect(find.byKey(const Key('objectbox-admin-peak-details-country')), findsOneWidget);
+    expect(find.byKey(const Key('objectbox-admin-peak-details-county')), findsOneWidget);
+    expect(find.byKey(const Key('objectbox-admin-peak-details-range')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('objectbox-admin-peak-details-rating')));
+    expect(find.byKey(const Key('objectbox-admin-peak-details-rating')), findsOneWidget);
+    expect(find.byKey(const Key('objectbox-admin-peak-details-difficulty')), findsOneWidget);
+    expect(find.byKey(const Key('objectbox-admin-peak-details-viaFerrata')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('objectbox-admin-peak-details-notes')));
+    expect(find.byKey(const Key('objectbox-admin-peak-details-notes')), findsOneWidget);
     expect(details, findsOneWidget);
   });
 
@@ -1832,6 +1838,34 @@ ObjectBoxAdminEntityDescriptor _peakEntity() {
       ),
       ObjectBoxAdminFieldDescriptor(
         name: 'range',
+        typeLabel: 'String',
+        nullable: false,
+        isPrimaryKey: false,
+        isPrimaryName: false,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'rating',
+        typeLabel: 'double',
+        nullable: true,
+        isPrimaryKey: false,
+        isPrimaryName: false,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'difficulty',
+        typeLabel: 'String',
+        nullable: false,
+        isPrimaryKey: false,
+        isPrimaryName: false,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'viaFerrata',
+        typeLabel: 'String',
+        nullable: false,
+        isPrimaryKey: false,
+        isPrimaryName: false,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'notes',
         typeLabel: 'String',
         nullable: false,
         isPrimaryKey: false,
