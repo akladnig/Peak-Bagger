@@ -111,6 +111,125 @@ void main() {
     },
   );
 
+  test('subregion filter matches peaks by stored peak region only', () async {
+    final service = await _service(
+      peaks: [
+        Peak(
+          osmId: 1,
+          name: 'FVG Peak',
+          latitude: 46.4084,
+          longitude: 13.0475,
+          elevation: 1906,
+          region: 'fvg',
+        ),
+        Peak(
+          osmId: 2,
+          name: 'Legacy North East Peak',
+          latitude: 46.4084,
+          longitude: 13.0475,
+          elevation: 1800,
+          region: 'italy-nord-est',
+        ),
+        Peak(
+          osmId: 3,
+          name: 'Veneto Peak',
+          latitude: 45.7332,
+          longitude: 10.8061,
+          elevation: 2218,
+          region: 'veneto',
+        ),
+      ],
+    );
+
+    final results = service.search(
+      query: 'peak',
+      entityFilter: MapSearchEntityFilter.peaks,
+      regionKey: 'fvg',
+      sort: MapSearchSort.nameAscending,
+    );
+
+    expect(results, hasLength(1));
+    expect(results.single.title, 'FVG Peak');
+    expect(results.single.regionKey, 'fvg');
+    expect(results.single.regionName, 'FVG');
+  });
+
+  test('all mode keeps non-peak results on broader model for subregion filter', () async {
+    final service = await _service(
+      peaks: [
+        Peak(
+          osmId: 1,
+          name: 'Alpha Peak',
+          latitude: 46.4084,
+          longitude: 13.0475,
+          elevation: 1906,
+          region: 'fvg',
+        ),
+        Peak(
+          osmId: 2,
+          name: 'Alpha Veneto Peak',
+          latitude: 45.7332,
+          longitude: 10.8061,
+          elevation: 2218,
+          region: 'veneto',
+        ),
+      ],
+      tracks: [_trackAt(1, 'Alpha Track', const LatLng(46.4084, 13.0475))],
+    );
+
+    final results = service.search(
+      query: 'alpha',
+      entityFilter: MapSearchEntityFilter.all,
+      regionKey: 'fvg',
+      sort: MapSearchSort.nameAscending,
+    );
+
+    expect(results.map((result) => result.type), contains(MapSearchResultType.peak));
+    expect(results.map((result) => result.type), contains(MapSearchResultType.track));
+    expect(results.where((result) => result.type == MapSearchResultType.peak), hasLength(1));
+    expect(
+      results.firstWhere((result) => result.type == MapSearchResultType.peak).title,
+      'Alpha Peak',
+    );
+    expect(
+      results.firstWhere((result) => result.type == MapSearchResultType.track).regionKey,
+      'italy-nord-est',
+    );
+  });
+
+  test('broader italy north east filter includes subregion peaks', () async {
+    final service = await _service(
+      peaks: [
+        Peak(
+          osmId: 1,
+          name: 'FVG Peak',
+          latitude: 46.4084,
+          longitude: 13.0475,
+          elevation: 1906,
+          region: 'fvg',
+        ),
+        Peak(
+          osmId: 2,
+          name: 'Legacy North East Peak',
+          latitude: 46.3,
+          longitude: 12.9,
+          elevation: 1800,
+          region: 'italy-nord-est',
+        ),
+      ],
+    );
+
+    final results = service.search(
+      query: 'peak',
+      entityFilter: MapSearchEntityFilter.peaks,
+      regionKey: 'italy-nord-est',
+      sort: MapSearchSort.nameAscending,
+    );
+
+    expect(results, hasLength(2));
+    expect(results.map((result) => result.title), containsAll(['FVG Peak', 'Legacy North East Peak']));
+  });
+
   test('descending sort reorders results live', () async {
     final service = await _service(
       peaks: [_peak(1, 'Alpha Peak'), _peak(2, 'Beta Peak')],
@@ -191,8 +310,12 @@ Peak _peak(int osmId, String name) {
 }
 
 GpxTrack _track(int id, String name) {
+  return _trackAt(id, name, const LatLng(-43.0, 147.0));
+}
+
+GpxTrack _trackAt(int id, String name, LatLng start) {
   final segments = [
-    [const LatLng(-43.0, 147.0), const LatLng(-43.001, 147.001)],
+    [start, LatLng(start.latitude - 0.001, start.longitude + 0.001)],
   ];
   return GpxTrack(
     gpxTrackId: id,

@@ -2336,6 +2336,41 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('ranked import failure shows the exact validation message', (
+    tester,
+  ) async {
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(selectedFilePath: '/tmp/test.csv'),
+      repository: PeakListRepository.test(InMemoryPeakListStorage()),
+      importRunner: ({required String listName, required String csvPath}) async {
+        throw const FormatException('row 2 is missing osmId (Monte Amariana)');
+      },
+    );
+
+    await tester.tap(find.byKey(const Key('peak-lists-import-fab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('peak-list-select-file')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('peak-list-name-field')),
+      'FVG Ranked',
+    );
+    await tester.tap(find.byKey(const Key('peak-list-import-button')));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Peak List Import Failed'), findsOneWidget);
+    expect(
+      find.text('row 2 is missing osmId (Monte Amariana)'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('FormatException: row 2 is missing osmId (Monte Amariana)'),
+      findsNothing,
+    );
+  });
 }
 
 Future<void> _pumpPeakListsApp(

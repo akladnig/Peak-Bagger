@@ -47,6 +47,7 @@ import 'package:peak_bagger/services/track_hover_detector.dart';
 import 'package:peak_bagger/services/map_chart_hover_resolver.dart';
 import 'package:peak_bagger/services/map_trackpad_gesture_classifier.dart';
 import 'package:peak_bagger/services/live_location_service.dart';
+import 'package:peak_bagger/services/map_search_region_filter.dart';
 import 'package:peak_bagger/services/open_route_service.dart';
 import 'package:peak_bagger/services/route_graph_drive_eta_hit_service.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
@@ -3498,7 +3499,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                         selectedRegionKey: routeChrome.searchRegionKey,
                         sort: routeChrome.searchSort,
                         group: routeChrome.searchGroup,
-                        availableRegions: regionManifestCatalog.allRegions(),
+                        availableRegions: buildMapSearchRegionOptions(),
                         onChanged: (value) {
                           ref
                               .read(mapProvider.notifier)

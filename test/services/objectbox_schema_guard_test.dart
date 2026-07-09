@@ -36,6 +36,10 @@ void main() {
     expect(signature, contains('Peak.country:'));
     expect(signature, contains('Peak.county:'));
     expect(signature, contains('Peak.range:'));
+    expect(signature, contains('Peak.rating:'));
+    expect(signature, contains('Peak.difficulty:'));
+    expect(signature, contains('Peak.viaFerrata:'));
+    expect(signature, contains('Peak.notes:'));
     expect(signature, contains('Peak.verified:'));
     expect(signature, contains('Peak.sourceOfTruth:'));
     expect(signature, contains('PeakList.name:'));

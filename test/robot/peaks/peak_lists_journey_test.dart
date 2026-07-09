@@ -373,6 +373,83 @@ void main() {
     );
   });
 
+  testWidgets('peak lists journey imports a ranked csv through the dialog', (
+    tester,
+  ) async {
+    final robot = PeakListsRobot(tester);
+    final peak = _buildPeak(
+      osmId: 101,
+      name: 'Monte Old',
+      elevation: 900,
+      latitude: 46.2001,
+      longitude: 13.1001,
+    ).copyWith(sourceOfTruth: Peak.sourceOfTruthHwc, region: 'italy-nord-est');
+    final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+    final peakListRepository = PeakListRepository.test(
+      InMemoryPeakListStorage(),
+    );
+    final importService = PeakListImportService(
+      peakRepository: peakRepository,
+      peakListRepository: peakListRepository,
+      csvLoader: (_) async =>
+          'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes\n'
+          'Monte Amariana,101,4.35,1906,544,46.4084,13.0475,Italy,Friuli Venezia Giulia,Carnic Alps,Udine,EE,Optional,Ridge scramble\n',
+      importRootLoader: () async => '/tmp/Bushwalking',
+      logWriter: (logPath, entries) async {},
+    );
+
+    Future<PeakListImportPresentationResult> importRunner({
+      required String listName,
+      required String csvPath,
+    }) async {
+      final result = await importService.importPeakList(
+        listName: listName,
+        csvPath: csvPath,
+      );
+      await peakListRepository.refreshTassyFullPeakList();
+      ProviderScope.containerOf(tester.element(robot.summaryPane))
+          .read(peakListRevisionProvider.notifier)
+          .increment();
+      return PeakListImportPresentationResult(
+        updated: result.updated,
+        importedCount: result.importedCount,
+        skippedCount: result.skippedCount,
+        warningCount: result.warningEntries.length,
+        warningMessage: result.warningMessage,
+        peakListId: result.peakListId,
+        listName: listName,
+      );
+    }
+
+    await robot.pumpApp(
+      filePicker: TestPeakListFilePicker(selectedFilePath: '/tmp/ranked.csv'),
+      repository: peakListRepository,
+      peakRepository: peakRepository,
+      importRunner: importRunner,
+      duplicateNameChecker: (name) async => false,
+    );
+
+    await robot.openImportDialog();
+    await robot.chooseFile();
+    await robot.enterName('FVG Ranked');
+    await robot.submitImport();
+
+    expect(find.text('Peak List Created'), findsOneWidget);
+    expect(find.text('1 Peaks imported'), findsOneWidget);
+    expect(find.text('0 peaks skipped'), findsOneWidget);
+
+    await robot.closeResultDialog();
+
+    expect(tester.widget<Text>(robot.selectedTitle).data, 'FVG Ranked');
+    expect(peakRepository.findByOsmId(101)?.sourceOfTruth, Peak.sourceOfTruthFvg);
+    expect(peakRepository.findByOsmId(101)?.region, 'fvg');
+    expect(peakListRepository.findByName('FVG Ranked')?.region, 'italy-nord-est');
+    expect(
+      peakListRepository.findByName('FVG Ranked')?.peakList,
+      encodePeakListItems([const PeakListItem(peakOsmId: 101, points: 1)]),
+    );
+  });
+
   testWidgets('peak lists journey selects and deletes targeted row', (
     tester,
   ) async {

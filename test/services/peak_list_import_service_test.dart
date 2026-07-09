@@ -11,6 +11,298 @@ import 'package:peak_bagger/services/peak_repository.dart';
 void main() {
   group('PeakListImportService', () {
     test(
+      'ranked csv exact header imports by osmId and updates peak metadata',
+      () async {
+        final peak = _buildPeak(
+          osmId: 101,
+          name: 'Monte Old',
+          elevation: 900,
+          latitude: 46.2001,
+          longitude: 13.1001,
+        ).copyWith(
+          prominence: 222,
+          country: 'Italy',
+          county: 'Old County',
+          range: 'Old Range',
+          region: 'italy-nord-est',
+          sourceOfTruth: Peak.sourceOfTruthHwc,
+        );
+        final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+        final peakListRepository = PeakListRepository.test(
+          InMemoryPeakListStorage(),
+        );
+        final service = PeakListImportService(
+          peakRepository: peakRepository,
+          peakListRepository: peakListRepository,
+          csvLoader: (_) async =>
+              'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes\n'
+              'Monte Amariana,101,4.35,1906,544,46.4084,13.0475,Italy,Friuli Venezia Giulia,Carnic Alps,Udine,EE,Optional,Ridge scramble\n',
+          importRootLoader: () async => '/tmp/Bushwalking',
+          logWriter: (logPath, entries) async {},
+        );
+
+        final result = await service.importPeakList(
+          listName: '  FVG Ranked  ',
+          csvPath: '/tmp/fvg-ranked.csv',
+        );
+
+        final storedPeak = peakRepository.findByOsmId(101);
+        final storedList = peakListRepository.getAllPeakLists().single;
+
+        expect(result.updated, isFalse);
+        expect(result.importedCount, 1);
+        expect(result.skippedCount, 0);
+        expect(result.warningEntries, isEmpty);
+        expect(peakRepository.getAllPeaks(), hasLength(1));
+        expect(storedPeak, isNotNull);
+        expect(storedPeak?.name, 'Monte Amariana');
+        expect(storedPeak?.elevation, 1906);
+        expect(storedPeak?.prominence, 544);
+        expect(storedPeak?.latitude, 46.4084);
+        expect(storedPeak?.longitude, 13.0475);
+        expect(storedPeak?.country, 'Italy');
+        expect(storedPeak?.county, 'Udine');
+        expect(storedPeak?.range, 'Carnic Alps');
+        expect(storedPeak?.region, 'fvg');
+        expect(storedPeak?.sourceOfTruth, 'FVG');
+        expect(storedPeak?.rating, 4.4);
+        expect(storedPeak?.difficulty, 'EE');
+        expect(storedPeak?.viaFerrata, 'Optional');
+        expect(storedPeak?.notes, 'Ridge scramble');
+        expect(storedList.name, 'FVG Ranked');
+        expect(storedList.region, 'italy-nord-est');
+        expect(
+          storedList.peakList,
+          encodePeakListItems([const PeakListItem(peakOsmId: 101, points: 1)]),
+      );
+    },
+    );
+
+    test('ranked csv missing osmId fails atomically', () async {
+      final peak = _buildPeak(
+        osmId: 101,
+        name: 'Monte Amariana',
+        elevation: 1906,
+        latitude: 46.4084,
+        longitude: 13.0475,
+      ).copyWith(
+        region: 'italy-nord-est',
+        sourceOfTruth: Peak.sourceOfTruthHwc,
+      );
+      final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+      );
+      final service = PeakListImportService(
+        peakRepository: peakRepository,
+        peakListRepository: peakListRepository,
+        csvLoader: (_) async =>
+            'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes\n'
+            'Monte Amariana,,4.3,1906,544,46.4084,13.0475,Italy,Friuli Venezia Giulia,Carnic Alps,Udine,EE,Optional,Ridge scramble\n',
+        importRootLoader: () async => '/tmp/Bushwalking',
+        logWriter: (logPath, entries) async {},
+      );
+
+      await expectLater(
+        service.importPeakList(
+          listName: 'FVG Ranked',
+          csvPath: '/tmp/fvg-ranked.csv',
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            'row 2 is missing osmId (Monte Amariana)',
+          ),
+        ),
+      );
+
+      expect(peakRepository.findByOsmId(101)?.sourceOfTruth, Peak.sourceOfTruthHwc);
+      expect(peakListRepository.getAllPeakLists(), isEmpty);
+    });
+
+    test('ranked csv blank values keep existing stored fields', () async {
+      final peak = _buildPeak(
+        osmId: 101,
+        name: 'Monte Amariana',
+        elevation: 1906,
+        latitude: 46.4084,
+        longitude: 13.0475,
+      ).copyWith(
+        prominence: 544,
+        country: 'Italy',
+        county: 'Udine',
+        range: 'Carnic Alps',
+        rating: 4.2,
+        difficulty: 'EE',
+        viaFerrata: 'Optional',
+        notes: 'Keep me',
+        region: 'italy-nord-est',
+      );
+      final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+      );
+      final service = PeakListImportService(
+        peakRepository: peakRepository,
+        peakListRepository: peakListRepository,
+        csvLoader: (_) async =>
+            'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes\n'
+            'Monte Amariana,101,,,,,,,Friuli Venezia Giulia,,,,\n',
+        importRootLoader: () async => '/tmp/Bushwalking',
+        logWriter: (logPath, entries) async {},
+      );
+
+      await service.importPeakList(
+        listName: 'FVG Ranked',
+        csvPath: '/tmp/fvg-ranked.csv',
+      );
+
+      final storedPeak = peakRepository.findByOsmId(101);
+      expect(storedPeak?.prominence, 544);
+      expect(storedPeak?.country, 'Italy');
+      expect(storedPeak?.county, 'Udine');
+      expect(storedPeak?.range, 'Carnic Alps');
+      expect(storedPeak?.rating, 4.2);
+      expect(storedPeak?.difficulty, 'EE');
+      expect(storedPeak?.viaFerrata, 'Optional');
+      expect(storedPeak?.notes, 'Keep me');
+      expect(storedPeak?.region, 'fvg');
+      expect(storedPeak?.sourceOfTruth, 'FVG');
+    });
+
+    test('ranked csv unsupported region fails atomically', () async {
+      final peak = _buildPeak(
+        osmId: 101,
+        name: 'Monte Amariana',
+        elevation: 1906,
+        latitude: 46.4084,
+        longitude: 13.0475,
+      );
+      final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+      );
+      final service = PeakListImportService(
+        peakRepository: peakRepository,
+        peakListRepository: peakListRepository,
+        csvLoader: (_) async =>
+            'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes\n'
+            'Monte Amariana,101,4.3,1906,544,46.4084,13.0475,Italy,Slovenia,Carnic Alps,Udine,EE,Optional,Ridge scramble\n',
+        importRootLoader: () async => '/tmp/Bushwalking',
+        logWriter: (logPath, entries) async {},
+      );
+
+      await expectLater(
+        service.importPeakList(
+          listName: 'FVG Ranked',
+          csvPath: '/tmp/fvg-ranked.csv',
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            'unsupported region "Slovenia" on row 2',
+          ),
+        ),
+      );
+
+      expect(peakRepository.findByOsmId(101)?.region, Peak.defaultRegion);
+      expect(peakListRepository.getAllPeakLists(), isEmpty);
+    });
+
+    test('ranked csv mixed supported regions fail atomically', () async {
+      final peakA = _buildPeak(
+        osmId: 101,
+        name: 'Monte Amariana',
+        elevation: 1906,
+        latitude: 46.4084,
+        longitude: 13.0475,
+      );
+      final peakB = _buildPeak(
+        osmId: 202,
+        name: 'Monte Baldo',
+        elevation: 2218,
+        latitude: 45.7332,
+        longitude: 10.8061,
+      );
+      final peakRepository = PeakRepository.test(
+        InMemoryPeakStorage([peakA, peakB]),
+      );
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+      );
+      final service = PeakListImportService(
+        peakRepository: peakRepository,
+        peakListRepository: peakListRepository,
+        csvLoader: (_) async =>
+            'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes\n'
+            'Monte Amariana,101,4.3,1906,544,46.4084,13.0475,Italy,Friuli Venezia Giulia,Carnic Alps,Udine,EE,Optional,Ridge scramble\n'
+            'Monte Baldo,202,4.1,2218,1800,45.7332,10.8061,Italy,Veneto,Monte Baldo,Verona,EEA,No,Lake view\n',
+        importRootLoader: () async => '/tmp/Bushwalking',
+        logWriter: (logPath, entries) async {},
+      );
+
+      await expectLater(
+        service.importPeakList(
+          listName: 'Italy North East Ranked',
+          csvPath: '/tmp/north-east-ranked.csv',
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            'mixed ranked-import regions in one file',
+          ),
+        ),
+      );
+
+      expect(peakRepository.findByOsmId(101)?.region, Peak.defaultRegion);
+      expect(peakRepository.findByOsmId(202)?.region, Peak.defaultRegion);
+      expect(peakListRepository.getAllPeakLists(), isEmpty);
+    });
+
+    test('ranked csv invalid rating fails atomically', () async {
+      final peak = _buildPeak(
+        osmId: 101,
+        name: 'Monte Amariana',
+        elevation: 1906,
+        latitude: 46.4084,
+        longitude: 13.0475,
+      );
+      final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+      );
+      final service = PeakListImportService(
+        peakRepository: peakRepository,
+        peakListRepository: peakListRepository,
+        csvLoader: (_) async =>
+            'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes\n'
+            'Monte Amariana,101,5.4,1906,544,46.4084,13.0475,Italy,Friuli Venezia Giulia,Carnic Alps,Udine,EE,Optional,Ridge scramble\n',
+        importRootLoader: () async => '/tmp/Bushwalking',
+        logWriter: (logPath, entries) async {},
+      );
+
+      await expectLater(
+        service.importPeakList(
+          listName: 'FVG Ranked',
+          csvPath: '/tmp/fvg-ranked.csv',
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            'invalid rating "5.4" on row 2 (Monte Amariana)',
+          ),
+        ),
+      );
+
+      expect(peakRepository.findByOsmId(101)?.sourceOfTruth, Peak.sourceOfTruthOsm);
+      expect(peakListRepository.getAllPeakLists(), isEmpty);
+    });
+
+    test(
       'quoted-comma row parses and imports when hard match rules pass',
       () async {
         final peak = _buildPeak(

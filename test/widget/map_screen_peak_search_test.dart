@@ -247,6 +247,42 @@ void main() {
     expect(find.text('Filter'), findsOneWidget);
   });
 
+  testWidgets('subregion menu options are available before typing and update label', (
+    tester,
+  ) async {
+    await _pumpMapApp(tester, _mapStateWithPeaks());
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+    await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No results found'), findsNothing);
+
+    await tester.ensureVisible(find.byKey(const Key('map-search-filter-button')));
+    await tester.tap(find.byKey(const Key('map-search-filter-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('map-search-region-fvg')), findsWidgets);
+    expect(find.byKey(const Key('map-search-region-veneto')), findsWidgets);
+    expect(
+      find.byKey(const Key('map-search-region-trentino-alto-adige')),
+      findsWidgets,
+    );
+    expect(
+      find.byKey(const Key('map-search-region-emilia-romagna')),
+      findsWidgets,
+    );
+    expect(find.text('Italy North East'), findsWidgets);
+
+    await tester.tap(find.byKey(const Key('map-search-region-fvg')).last);
+    await tester.pumpAndSettle();
+
+    expect(container.read(mapProvider).searchPopupRegionKey, 'fvg');
+    expect(find.text('FVG'), findsOneWidget);
+  });
+
   testWidgets('group menu stores selection and groups by type', (tester) async {
     final trackRepository = GpxTrackRepository.test(
       InMemoryGpxTrackStorage([_track(1, 'A Track')]),

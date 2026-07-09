@@ -158,6 +158,14 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
     return error.toString();
   }
 
+  String _formatImportError(Object error) {
+    if (error case FormatException(:final message)) {
+      return message.toString();
+    }
+
+    return error.toString();
+  }
+
   Future<void> _import() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
@@ -206,7 +214,7 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
         return;
       }
       rootNavigator.pop();
-      await _showFailureDialog(rootNavigator.context, error.toString());
+      await _showFailureDialog(rootNavigator.context, _formatImportError(error));
     } finally {
       if (mounted && _isImporting) {
         setState(() {

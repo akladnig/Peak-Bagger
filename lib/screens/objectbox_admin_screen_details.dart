@@ -623,6 +623,7 @@ class _PeakReadOnlyDetails extends StatelessWidget {
   Widget build(BuildContext context) {
     final detailsFields = peakAdminDetailsFields(entity);
     return ListView(
+      key: const Key('objectbox-admin-details-list'),
       children: [
         ...detailsFields.map((field) {
           final isSourceOfTruth = field.name == 'sourceOfTruth';
@@ -630,6 +631,7 @@ class _PeakReadOnlyDetails extends StatelessWidget {
               ? 'sourceOfTruth'
               : field.name;
           return ListTile(
+            key: Key('objectbox-admin-peak-details-${field.name}'),
             dense: true,
             title: Text(title),
             subtitle: objectBoxAdminDetailsValue(

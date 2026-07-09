@@ -4,6 +4,8 @@ import 'package:objectbox/objectbox.dart';
 class Peak {
   static const sourceOfTruthOsm = 'OSM';
   static const sourceOfTruthHwc = 'HWC';
+  static const sourceOfTruthFvg = 'FVG';
+  static const sourceOfTruthVeneto = 'VENETO';
   static const sourceOfTruthPeakBagger = 'peakbagger.com';
   static const defaultRegion = 'tasmania';
 
@@ -22,6 +24,10 @@ class Peak {
   String country;
   String county;
   String range;
+  double? rating;
+  String difficulty;
+  String viaFerrata;
+  String notes;
   double latitude;
   double longitude;
   String? region;
@@ -43,6 +49,10 @@ class Peak {
     this.country = '',
     this.county = '',
     this.range = '',
+    this.rating,
+    this.difficulty = '',
+    this.viaFerrata = '',
+    this.notes = '',
     required this.latitude,
     required this.longitude,
     this.region = defaultRegion,
@@ -64,6 +74,10 @@ class Peak {
     String? country,
     String? county,
     String? range,
+    double? rating,
+    String? difficulty,
+    String? viaFerrata,
+    String? notes,
     double? latitude,
     double? longitude,
     String? region,
@@ -85,6 +99,10 @@ class Peak {
       country: country ?? this.country,
       county: county ?? this.county,
       range: range ?? this.range,
+      rating: rating ?? this.rating,
+      difficulty: difficulty ?? this.difficulty,
+      viaFerrata: viaFerrata ?? this.viaFerrata,
+      notes: notes ?? this.notes,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       region: region ?? this.region,

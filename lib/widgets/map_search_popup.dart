@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:peak_bagger/services/map_search_region_filter.dart';
 
 import '../core/constants.dart';
 import '../core/widgets/popup_shell.dart';
 import '../models/map_search_result.dart';
-import '../services/region_manifest_catalog.dart';
 import '../theme.dart';
 import 'map_search_results_list.dart';
 
@@ -40,7 +40,7 @@ class MapSearchPopup extends StatefulWidget {
   final String? selectedRegionKey;
   final MapSearchSort sort;
   final MapSearchGroup group;
-  final List<RegionManifestRegionData> availableRegions;
+  final List<MapSearchRegionOption> availableRegions;
   final ValueChanged<String> onChanged;
   final ValueChanged<MapSearchEntityFilter> onSelectEntityFilter;
   final ValueChanged<String?> onSelectRegionKey;
