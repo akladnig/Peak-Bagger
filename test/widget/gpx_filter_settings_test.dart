@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +21,9 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         mapProvider.overrideWith(() => TestMapNotifier(_baseState())),
+        gpxFilterSettingsProvider.overrideWith(
+          () => _PendingGpxFilterSettingsNotifier(),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -28,7 +33,13 @@ void main() {
     );
     await tester.pump();
     router.go('/settings');
-    await tester.pump();
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Loading filter settings...'),
+      300,
+      scrollable: _settingsScrollable(),
+    );
 
     expect(find.text('Loading filter settings...'), findsOneWidget);
   });
@@ -50,8 +61,13 @@ void main() {
     );
     await tester.pump();
     router.go('/settings');
-    await tester.pump();
     await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('gpx-filter-settings-section')),
+      300,
+      scrollable: _settingsScrollable(),
+    );
 
     expect(
       find.byKey(const Key('gpx-filter-settings-section')),
@@ -61,9 +77,7 @@ void main() {
     await tester.tap(find.byKey(const Key('gpx-filter-settings-section')));
     await tester.pumpAndSettle();
 
-    await container
-        .read(gpxFilterSettingsProvider.notifier)
-        .setHampelWindow(9);
+    await container.read(gpxFilterSettingsProvider.notifier).setHampelWindow(9);
     await tester.pumpAndSettle();
 
     final config = await container.read(gpxFilterSettingsProvider.future);
@@ -85,20 +99,24 @@ void main() {
     );
     await tester.pump();
     router.go('/settings');
-    await tester.pump();
     await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('gpx-filter-settings-section')),
+      300,
+      scrollable: _settingsScrollable(),
+    );
 
     await tester.tap(find.byKey(const Key('gpx-filter-settings-section')));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('gpx-filter-outlier-filter')), findsOneWidget);
 
-    await tester.drag(
-      find.byKey(const Key('settings-scrollable')),
-      const Offset(0, -500),
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('gpx-filter-outlier-filter')),
+      200,
+      scrollable: _settingsScrollable(),
     );
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const Key('gpx-filter-outlier-filter')));
 
     await tester.tap(find.byKey(const Key('gpx-filter-outlier-filter')));
     await tester.pumpAndSettle();
@@ -125,8 +143,13 @@ void main() {
     );
     await tester.pump();
     router.go('/settings');
-    await tester.pump();
     await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('gpx-filter-settings-section')),
+      300,
+      scrollable: _settingsScrollable(),
+    );
 
     await tester.tap(find.byKey(const Key('gpx-filter-settings-section')));
     await tester.pumpAndSettle();
@@ -144,7 +167,10 @@ void main() {
 
     expect(find.textContaining('Outlier Filter: None'), findsOneWidget);
     expect(
-      find.widgetWithText(DropdownButtonFormField<GpxTrackOutlierFilter>, 'None'),
+      find.widgetWithText(
+        DropdownButtonFormField<GpxTrackOutlierFilter>,
+        'None',
+      ),
       findsOneWidget,
     );
     expect(
@@ -163,21 +189,27 @@ void main() {
     );
 
     expect(
-      tester.widget<DropdownButtonFormField<int>>(
-        find.byKey(const Key('gpx-filter-hampel-window')),
-      ).onChanged,
+      tester
+          .widget<DropdownButtonFormField<int>>(
+            find.byKey(const Key('gpx-filter-hampel-window')),
+          )
+          .onChanged,
       isNull,
     );
     expect(
-      tester.widget<DropdownButtonFormField<int>>(
-        find.byKey(const Key('gpx-filter-elevation-window')),
-      ).onChanged,
+      tester
+          .widget<DropdownButtonFormField<int>>(
+            find.byKey(const Key('gpx-filter-elevation-window')),
+          )
+          .onChanged,
       isNull,
     );
     expect(
-      tester.widget<DropdownButtonFormField<int>>(
-        find.byKey(const Key('gpx-filter-position-window')),
-      ).onChanged,
+      tester
+          .widget<DropdownButtonFormField<int>>(
+            find.byKey(const Key('gpx-filter-position-window')),
+          )
+          .onChanged,
       isNull,
     );
   });
@@ -189,4 +221,20 @@ MapState _baseState() {
     zoom: 10,
     basemap: Basemap.tracestrack,
   );
+}
+
+Finder _settingsScrollable() {
+  return find
+      .descendant(
+        of: find.byKey(const Key('settings-scrollable')),
+        matching: find.byType(Scrollable),
+      )
+      .first;
+}
+
+class _PendingGpxFilterSettingsNotifier extends GpxFilterSettingsNotifier {
+  @override
+  Future<GpxFilterConfig> build() {
+    return Completer<GpxFilterConfig>().future;
+  }
 }

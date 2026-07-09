@@ -50,7 +50,8 @@ class MapSearchService {
     String? regionKey,
   }) {
     final trimmedQuery = query.trim();
-    if (trimmedQuery.isEmpty) {
+    if (trimmedQuery.isEmpty ||
+        trimmedQuery.length < MapConstants.searchPopupMinimumQueryLength) {
       return const [];
     }
 

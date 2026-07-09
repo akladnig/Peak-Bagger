@@ -208,96 +208,101 @@ void main() {
     expect(tester.widget<Switch>(switchFinder).value, isFalse);
   });
 
-  testWidgets('uses a scoped onSecondary content theme and keeps export separate', (
-    tester,
-  ) async {
-    final track = GpxTrack(
-      contentHash: 'hash',
-      trackName: 'Test Track',
-      distance2d: 12400,
-      distance3d: 0,
-      ascent: 638,
-      totalTimeMillis: 5400000,
-      visible: true,
-      lowestElevation: 1022,
-      highestElevation: 1377,
-      elevationProfile: '''
+  testWidgets(
+    'uses a scoped onSecondary content theme and keeps export separate',
+    (tester) async {
+      final track = GpxTrack(
+        contentHash: 'hash',
+        trackName: 'Test Track',
+        distance2d: 12400,
+        distance3d: 0,
+        ascent: 638,
+        totalTimeMillis: 5400000,
+        visible: true,
+        lowestElevation: 1022,
+        highestElevation: 1377,
+        elevationProfile: '''
 [
   {"distanceMeters":0,"elevationMeters":100,"timeLocal":"2024-01-15T08:00:00.000"},
   {"distanceMeters":100,"elevationMeters":120,"timeLocal":"2024-01-15T08:10:00.000"}
 ]
 ''',
-    );
+      );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: MyTheme.light,
-        home: Scaffold(
-          body: SizedBox(
-            width: 600,
-            child: MapTrackInfoPanel(
-              track: track,
-              onClose: () {},
-              onExport: () {},
-              onVisibilityChanged: (_) {},
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: MyTheme.light,
+          home: Scaffold(
+            body: SizedBox(
+              width: 600,
+              child: MapTrackInfoPanel(
+                track: track,
+                onClose: () {},
+                onExport: () {},
+                onVisibilityChanged: (_) {},
+              ),
             ),
           ),
         ),
-      ),
-    );
+      );
 
-    final panel = tester.widget<Card>(find.byKey(const Key('track-info-panel')));
-    final contentThemeFinder = find.byKey(
-      const Key('track-info-panel-content-theme'),
-    );
-    final switchWidget = tester.widget<Switch>(
-      find.byKey(const Key('track-info-panel-visibility-switch')),
-    );
-    final closeIcon = tester.widget<Icon>(
-      find.descendant(
-        of: find.byKey(const Key('track-info-panel-close')),
-        matching: find.byIcon(Icons.close),
-      ),
-    );
-    final exportButton = tester.widget<FilledButton>(
-      find.byKey(const Key('track-info-panel-export-button')),
-    );
-    final exportIcon = tester.widget<Icon>(
-      find.descendant(
-        of: find.byKey(const Key('track-info-panel-export-button')),
-        matching: find.byIcon(Icons.download),
-      ),
-    );
+      final panel = tester.widget<Card>(
+        find.byKey(const Key('track-info-panel')),
+      );
+      final contentThemeFinder = find.byKey(
+        const Key('track-info-panel-content-theme'),
+      );
+      final switchWidget = tester.widget<Switch>(
+        find.byKey(const Key('track-info-panel-visibility-switch')),
+      );
+      final closeIcon = tester.widget<Icon>(
+        find.descendant(
+          of: find.byKey(const Key('track-info-panel-close')),
+          matching: find.byIcon(Icons.close),
+        ),
+      );
+      final exportButton = tester.widget<FilledButton>(
+        find.byKey(const Key('track-info-panel-export-button')),
+      );
+      final exportIcon = tester.widget<Icon>(
+        find.descendant(
+          of: find.byKey(const Key('track-info-panel-export-button')),
+          matching: find.byIcon(Icons.download),
+        ),
+      );
 
-    expect(panel.color, MyTheme.light.colorScheme.secondary);
-    expect(contentThemeFinder, findsOneWidget);
+      expect(panel.color, MyTheme.light.colorScheme.surfaceContainer);
+      expect(contentThemeFinder, findsOneWidget);
 
-    final contentTheme = tester.widget<Theme>(contentThemeFinder).data;
-    expect(contentTheme.iconTheme.color, contentTheme.colorScheme.onSecondary);
-    expect(
-      contentTheme.textTheme.titleMedium?.color,
-      contentTheme.colorScheme.onSecondary,
-    );
-    expect(
-      contentTheme.textTheme.bodySmall?.color,
-      contentTheme.colorScheme.onSecondary,
-    );
-    expect(closeIcon.color, isNull);
-    expect(
-      DefaultTextStyle.of(tester.element(find.text('12.4 km / 0 m'))).style.color,
-      contentTheme.colorScheme.onSecondary,
-    );
-    expect(
-      find.descendant(
-        of: contentThemeFinder,
-        matching: find.byKey(const Key('track-info-panel-export-button')),
-      ),
-      findsNothing,
-    );
-    expect(switchWidget.thumbColor, isNull);
-    expect(switchWidget.trackColor, isNull);
-    expect(switchWidget.overlayColor, isNull);
-    expect(exportButton.style, isNull);
-    expect(exportIcon.color, isNull);
-  });
+      final contentTheme = tester.widget<Theme>(contentThemeFinder).data;
+      expect(contentTheme.iconTheme.color, contentTheme.colorScheme.onSurface);
+      expect(
+        contentTheme.textTheme.titleMedium?.color,
+        contentTheme.colorScheme.onSurface,
+      );
+      expect(
+        contentTheme.textTheme.bodySmall?.color,
+        contentTheme.colorScheme.onSurface,
+      );
+      expect(closeIcon.color, isNull);
+      expect(
+        DefaultTextStyle.of(
+          tester.element(find.text('12.4 km / 0 m')),
+        ).style.color,
+        contentTheme.colorScheme.onSurface,
+      );
+      expect(
+        find.descendant(
+          of: contentThemeFinder,
+          matching: find.byKey(const Key('track-info-panel-export-button')),
+        ),
+        findsNothing,
+      );
+      expect(switchWidget.thumbColor, isNull);
+      expect(switchWidget.trackColor, isNull);
+      expect(switchWidget.overlayColor, isNull);
+      expect(exportButton.style, isNull);
+      expect(exportIcon.color, isNull);
+    },
+  );
 }

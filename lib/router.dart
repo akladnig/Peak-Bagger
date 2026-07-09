@@ -87,7 +87,7 @@ void _runShellPreNavigationCleanup(WidgetRef ref) {
     ref.read(mapProvider.notifier).toggleInfoPopup();
   }
   if (ref.read(mapProvider).showPeakSearch) {
-    ref.read(mapProvider.notifier).setPeakSearchVisible(false);
+    ref.read(mapProvider.notifier).closeSearchPopup();
   }
   if (ref.read(mapProvider).showGotoInput) {
     ref.read(mapProvider.notifier).setGotoInputVisible(false);
@@ -364,16 +364,16 @@ class _SharedAppBarTitle extends StatelessWidget {
                   ),
                 ),
               ),
-               Expanded(
-                 child: Padding(
-                   padding: const EdgeInsets.only(left: _laneGap, right: 8),
-                   child: const Align(
-                     alignment: Alignment.centerRight,
-                     child: SizedBox.shrink(),
-                   ),
-                 ),
-               ),
-             ],
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: _laneGap, right: 8),
+                  child: const Align(
+                    alignment: Alignment.centerRight,
+                    child: SizedBox.shrink(),
+                  ),
+                ),
+              ),
+            ],
           );
         }
 
@@ -454,20 +454,7 @@ class _AppBarSearchTrigger extends ConsumerWidget {
         foregroundColor: colorScheme.onSurface,
         side: BorderSide(color: colorScheme.outlineVariant),
       ),
-      onPressed: () {
-        final mapState = ref.read(mapProvider);
-        final notifier = ref.read(mapProvider.notifier);
-        if (mapState.peakInfoPeak != null) {
-          notifier.closePeakInfoPopup();
-        }
-        if (mapState.showInfoPopup) {
-          notifier.toggleInfoPopup();
-        }
-        if (mapState.showGotoInput) {
-          notifier.setGotoInputVisible(false);
-        }
-        notifier.openSearchPopup();
-      },
+      onPressed: () => ref.read(mapProvider.notifier).openSearchPopup(),
       icon: const Icon(Icons.search),
       label: const Text('Search ⌘F'),
     );

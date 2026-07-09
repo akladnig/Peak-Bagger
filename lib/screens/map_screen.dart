@@ -573,7 +573,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
       notifier.toggleInfoPopup();
     }
     if (mapState.showPeakSearch) {
-      notifier.setPeakSearchVisible(false);
+      notifier.closeSearchPopup();
     }
     if (mapState.showGotoInput) {
       notifier.setGotoInputVisible(false);
@@ -2185,7 +2185,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
             if (event is KeyDownEvent &&
                 HardwareKeyboard.instance.isMetaPressed &&
                 key == LogicalKeyboardKey.keyF) {
-              _dismissTransientUi(closeInfoPopup: true, closeGotoInput: true);
               notifier.openSearchPopup();
               return KeyEventResult.handled;
             }
@@ -4141,7 +4140,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
       notifier.closePeakInfoPopup();
     }
     if (closePeakSearch && mapState.showPeakSearch) {
-      notifier.setPeakSearchVisible(false);
+      notifier.closeSearchPopup();
     }
     if (closeGotoInput && mapState.showGotoInput) {
       notifier.setGotoInputVisible(false);

@@ -22,7 +22,6 @@ import 'package:peak_bagger/services/peak_admin_editor.dart';
 import 'package:peak_bagger/services/route_timing_service.dart';
 import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/peak_marker_glyph.dart';
-import 'package:peak_bagger/widgets/peak_search_results_list.dart';
 import 'package:peak_bagger/widgets/elevation_profile_chart.dart';
 
 typedef PeakInfoPopupEditCallback = FutureOr<void> Function();
@@ -1187,10 +1186,7 @@ class _RouteTimingLabeledValueRow extends StatelessWidget {
                     return IconButton(
                       key: infoButtonKey,
                       onPressed: () => onInfoPressed(buttonContext),
-                      icon: const Icon(
-                        Icons.info_outline,
-                        size: 16,
-                      ),
+                      icon: const Icon(Icons.info_outline, size: 16),
                       tooltip: '$label info',
                       visualDensity: VisualDensity.compact,
                     );
@@ -1658,91 +1654,6 @@ String _displayPeakName(Peak peak) {
 
 List<String> normalizeTrackPeakNames(Iterable<Peak> peaks) {
   return normalizeTrackPeaks(peaks).map(_displayPeakName).toList();
-}
-
-class MapPeakSearchPanel extends StatelessWidget {
-  const MapPeakSearchPanel({
-    required this.focusNode,
-    required this.searchResults,
-    required this.searchQuery,
-    required this.onChanged,
-    required this.onSubmitted,
-    required this.onClose,
-    required this.onSelectPeak,
-    required this.mapNameForPeak,
-    super.key,
-  });
-
-  final FocusNode focusNode;
-  final List<Peak> searchResults;
-  final String searchQuery;
-  final ValueChanged<String> onChanged;
-  final ValueChanged<String> onSubmitted;
-  final VoidCallback onClose;
-  final ValueChanged<Peak> onSelectPeak;
-  final String Function(Peak peak) mapNameForPeak;
-
-  @override
-  Widget build(BuildContext context) {
-    final onSurfaceColor = Theme.of(context).colorScheme.onSurface;
-    return Card(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 30 * 8.0,
-                  child: TextField(
-                    key: const Key('peak-search-input'),
-                    focusNode: focusNode,
-                    autofocus: true,
-                    decoration: InputDecoration(
-                      hintText: 'Search peaks',
-                      isDense: true,
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(
-                        Icons.search,
-                        size: 20,
-                        color: onSurfaceColor,
-                      ),
-                    ),
-                    onChanged: onChanged,
-                    onSubmitted: onSubmitted,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  key: const Key('peak-search-close'),
-                  icon: Icon(Icons.close, color: onSurfaceColor),
-                  onPressed: onClose,
-                ),
-              ],
-            ),
-          ),
-          if (searchResults.isNotEmpty)
-            SizedBox(
-              width: 30 * 8.0,
-              child: PeakSearchResultsList(
-                searchResults: searchResults,
-                searchQuery: searchQuery,
-                mapNameForPeak: mapNameForPeak,
-                onSelectPeak: onSelectPeak,
-              ),
-            ),
-          if (searchResults.isEmpty)
-            PeakSearchResultsList(
-              searchResults: searchResults,
-              searchQuery: searchQuery,
-              mapNameForPeak: mapNameForPeak,
-              onSelectPeak: onSelectPeak,
-            ),
-        ],
-      ),
-    );
-  }
 }
 
 class MapGotoPanel extends StatelessWidget {

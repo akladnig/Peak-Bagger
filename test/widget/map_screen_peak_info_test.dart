@@ -885,7 +885,7 @@ void main() {
     expect(state.peakInfo?.listNames, isEmpty);
   });
 
-  testWidgets('opening peak search closes peak popup', (tester) async {
+  testWidgets('opening Search popup closes peak popup', (tester) async {
     await _pumpMap(tester, _mapStateWithPeak());
 
     final region = find.byKey(const Key('map-interaction-region'));
@@ -904,6 +904,7 @@ void main() {
 
     expect(container.read(mapProvider).peakInfoPeak, isNull);
     expect(container.read(mapProvider).showPeakSearch, isTrue);
+    expect(find.byKey(const Key('map-search-input')), findsOneWidget);
   });
 
   testWidgets('peak popup shows MGRS row under map row', (tester) async {
@@ -1618,9 +1619,11 @@ void main() {
     expect(find.byKey(const Key('peak-list-item-Zero')), findsNothing);
     expect(find.byKey(const Key('peak-list-item-Broken')), findsNothing);
 
-    container.read(mapProvider.notifier).updateVisibleBounds(
-      LatLngBounds(const LatLng(-34.5, 147.0), const LatLng(-33.0, 150.5)),
-    );
+    container
+        .read(mapProvider.notifier)
+        .updateVisibleBounds(
+          LatLngBounds(const LatLng(-34.5, 147.0), const LatLng(-33.0, 150.5)),
+        );
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-list-item-Alpha')), findsNothing);

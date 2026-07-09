@@ -474,9 +474,12 @@ void main() {
     expect(highlightedDecoration, isNotNull);
     expect(
       highlightedDecoration!.color,
-      Theme.of(
-        tester.element(find.byKey(const Key('peak-lists-details-pane'))),
-      ).colorScheme.primaryContainer,
+      darken(
+        Theme.of(
+          tester.element(find.byKey(const Key('peak-lists-details-pane'))),
+        ).colorScheme.primaryContainer,
+        0.30,
+      ),
     );
     expect(highlightedDecoration.border, isA<Border>());
 
@@ -840,9 +843,12 @@ void main() {
     expect(rowDecoration, isNotNull);
     expect(
       rowDecoration!.color,
-      Theme.of(
-        tester.element(find.byKey(const Key('peak-lists-details-pane'))),
-      ).colorScheme.primaryContainer,
+      darken(
+        Theme.of(
+          tester.element(find.byKey(const Key('peak-lists-details-pane'))),
+        ).colorScheme.primaryContainer,
+        0.30,
+      ),
     );
     expect(rowDecoration.border, isA<Border>());
     expect(rowCenter.dy, closeTo(cardCenter.dy, 120));
@@ -2344,9 +2350,12 @@ void main() {
       tester,
       filePicker: TestPeakListFilePicker(selectedFilePath: '/tmp/test.csv'),
       repository: PeakListRepository.test(InMemoryPeakListStorage()),
-      importRunner: ({required String listName, required String csvPath}) async {
-        throw const FormatException('row 2 is missing osmId (Monte Amariana)');
-      },
+      importRunner:
+          ({required String listName, required String csvPath}) async {
+            throw const FormatException(
+              'row 2 is missing osmId (Monte Amariana)',
+            );
+          },
     );
 
     await tester.tap(find.byKey(const Key('peak-lists-import-fab')));

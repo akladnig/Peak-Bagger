@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/app.dart';
+import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/map_search_result.dart';
 import 'package:peak_bagger/models/peak.dart';
@@ -21,7 +23,7 @@ import '../harness/test_tasmap_notifier.dart';
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
-  testWidgets('app bar search opens and closes', (tester) async {
+  testWidgets('AppBar Search popup opens and closes', (tester) async {
     await _pumpMapApp(tester, _mapStateWithPeaks());
 
     final container = ProviderScope.containerOf(
@@ -41,26 +43,27 @@ void main() {
     expect(container.read(mapProvider).showPeakSearch, isFalse);
   });
 
-  testWidgets('search opens with default filter region sort and empty query', (
-    tester,
-  ) async {
-    await _pumpMapApp(tester, _mapStateWithPeaks());
+  testWidgets(
+    'Search popup opens with default filter region sort and empty query',
+    (tester) async {
+      await _pumpMapApp(tester, _mapStateWithPeaks());
 
-    final container = ProviderScope.containerOf(
-      tester.element(find.byKey(const Key('map-interaction-region'))),
-    );
-    await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
-    await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('map-interaction-region'))),
+      );
+      await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+      await tester.pumpAndSettle();
 
-    final state = container.read(mapProvider);
-    expect(state.searchPopupEntityFilter, MapSearchEntityFilter.all);
-    expect(state.searchPopupRegionKey, 'tasmania');
-    expect(state.searchPopupSort, MapSearchSort.nameAscending);
-    expect(state.searchPopupGroup, MapSearchGroup.none);
-    expect(state.searchPopupQuery, isEmpty);
-  });
+      final state = container.read(mapProvider);
+      expect(state.searchPopupEntityFilter, MapSearchEntityFilter.all);
+      expect(state.searchPopupRegionKey, 'tasmania');
+      expect(state.searchPopupSort, MapSearchSort.nameAscending);
+      expect(state.searchPopupGroup, MapSearchGroup.none);
+      expect(state.searchPopupQuery, isEmpty);
+    },
+  );
 
-  testWidgets('peak search shows empty state for no matches', (tester) async {
+  testWidgets('Search popup shows empty state for no matches', (tester) async {
     await _pumpMapApp(tester, _mapStateWithPeaks());
 
     final container = ProviderScope.containerOf(
@@ -76,7 +79,41 @@ void main() {
     expect(find.text('No results found'), findsOneWidget);
   });
 
-  testWidgets('selecting a peak search result centers on the peak', (
+  testWidgets(
+    'Search popup keeps empty queries blank, shows helper under threshold, and only shows no-results after a real search',
+    (tester) async {
+      await _pumpMapApp(tester, _mapStateWithPeaks());
+
+      await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('No results found'), findsNothing);
+      expect(
+        find.text(
+          'Type at least ${MapConstants.searchPopupMinimumQueryLength} characters',
+        ),
+        findsNothing,
+      );
+
+      await tester.enterText(find.byKey(const Key('map-search-input')), 'B');
+      await tester.pump();
+
+      expect(
+        find.text(
+          'Type at least ${MapConstants.searchPopupMinimumQueryLength} characters',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('No results found'), findsNothing);
+
+      await tester.enterText(find.byKey(const Key('map-search-input')), 'ZZ');
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(find.text('No results found'), findsOneWidget);
+    },
+  );
+
+  testWidgets('selecting a Search popup peak result centers on the peak', (
     tester,
   ) async {
     await _pumpMapApp(tester, _mapStateWithPeaks());
@@ -103,7 +140,43 @@ void main() {
     expect(state.cameraRequestZoom, isNull);
   });
 
-  testWidgets('peak search result shows height and map name', (tester) async {
+  testWidgets(
+    'Search popup clears stale results immediately when the query shrinks under threshold',
+    (tester) async {
+      await _pumpMapApp(tester, _mapStateWithPeaks());
+
+      await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const Key('map-search-input')),
+        'Bonnet',
+      );
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('map-search-result-peak-6406')),
+        findsOneWidget,
+      );
+
+      await tester.enterText(find.byKey(const Key('map-search-input')), 'B');
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('map-search-result-peak-6406')),
+        findsNothing,
+      );
+      expect(
+        find.text(
+          'Type at least ${MapConstants.searchPopupMinimumQueryLength} characters',
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('Search popup result shows height and map name', (tester) async {
     await _pumpMapApp(tester, _mapStateWithPeaks());
 
     final container = ProviderScope.containerOf(
@@ -128,7 +201,7 @@ void main() {
     );
   });
 
-  testWidgets('peak search result shows a dash for unknown height', (
+  testWidgets('Search popup result shows a dash for unknown height', (
     tester,
   ) async {
     await _pumpMapApp(tester, _mapStateWithUnknownHeightPeak());
@@ -208,6 +281,155 @@ void main() {
     },
   );
 
+  testWidgets(
+    'under-threshold control changes stay visible and the first threshold query applies them immediately',
+    (tester) async {
+      final trackRepository = GpxTrackRepository.test(
+        InMemoryGpxTrackStorage([
+          _trackAt(1, 'Peak Track', const LatLng(-33.8, 149.1)),
+        ]),
+      );
+      final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+      final notifier = TestMapNotifier(
+        _mapStateWithThresholdControlledResults(),
+        gpxTrackRepository: trackRepository,
+        routeRepository: routeRepository,
+      );
+      await _pumpMapAppWithNotifier(tester, notifier);
+
+      await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byKey(const Key('map-search-input')), 'P');
+      await tester.pump();
+
+      final helperText = find.text(
+        'Type at least ${MapConstants.searchPopupMinimumQueryLength} characters',
+      );
+      expect(helperText, findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('map-search-entity-peaks')));
+      await tester.pumpAndSettle();
+      expect(helperText, findsOneWidget);
+
+      await tester.ensureVisible(
+        find.byKey(const Key('map-search-filter-button')),
+      );
+      await tester.tap(find.byKey(const Key('map-search-filter-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('map-search-region-new-south-wales')).last,
+      );
+      await tester.pumpAndSettle();
+      expect(helperText, findsOneWidget);
+
+      await tester.ensureVisible(
+        find.byKey(const Key('map-search-sort-button')),
+      );
+      await tester.tap(find.byKey(const Key('map-search-sort-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('map-search-sort-name-descending')).last,
+      );
+      await tester.pumpAndSettle();
+      expect(helperText, findsOneWidget);
+
+      await tester.ensureVisible(
+        find.byKey(const Key('map-search-group-button')),
+      );
+      await tester.tap(find.byKey(const Key('map-search-group-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('map-search-group-type')).last);
+      await tester.pumpAndSettle();
+      expect(helperText, findsOneWidget);
+
+      await tester.enterText(find.byKey(const Key('map-search-input')), 'Pe');
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('map-search-group-header-peaks')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('map-search-result-track-1')), findsNothing);
+      expect(
+        find.byKey(const Key('map-search-result-peak-8000')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('map-search-result-peak-7000')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('map-search-result-peak-6406')),
+        findsNothing,
+      );
+      expect(
+        tester
+            .getTopLeft(find.byKey(const Key('map-search-result-peak-8000')))
+            .dy,
+        lessThan(
+          tester
+              .getTopLeft(find.byKey(const Key('map-search-result-peak-7000')))
+              .dy,
+        ),
+      );
+    },
+  );
+
+  testWidgets('Search FAB reopens the shared Search popup with default state', (
+    tester,
+  ) async {
+    await _pumpMapApp(tester, _mapStateWithPeaks());
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+
+    await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('map-search-input')), 'Bonnet');
+    await tester.pump(const Duration(milliseconds: 250));
+    container
+        .read(mapProvider.notifier)
+        .setSearchPopupEntityFilter(MapSearchEntityFilter.maps);
+    container.read(mapProvider.notifier).setSearchPopupRegionKey(null);
+    container
+        .read(mapProvider.notifier)
+        .setSearchPopupSort(MapSearchSort.nameDescending);
+    container
+        .read(mapProvider.notifier)
+        .setSearchPopupGroup(MapSearchGroup.type);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('search-peaks-fab')));
+    await tester.pumpAndSettle();
+
+    _expectDefaultSearchPopupState(container);
+  });
+
+  testWidgets('Meta+F opens the shared Search popup with default state', (
+    tester,
+  ) async {
+    await _pumpMapApp(tester, _mapStateWithPeaks());
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+
+    await tester.sendKeyDownEvent(
+      LogicalKeyboardKey.metaLeft,
+      platform: 'macos',
+    );
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyF, platform: 'macos');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyF, platform: 'macos');
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft, platform: 'macos');
+
+    _expectDefaultSearchPopupState(container);
+  });
+
   testWidgets('region menu shows manifest labels and stores canonical key', (
     tester,
   ) async {
@@ -219,7 +441,9 @@ void main() {
     await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.byKey(const Key('map-search-filter-button')));
+    await tester.ensureVisible(
+      find.byKey(const Key('map-search-filter-button')),
+    );
     await tester.tap(find.byKey(const Key('map-search-filter-button')));
     await tester.pumpAndSettle();
 
@@ -229,7 +453,9 @@ void main() {
 
     expect(container.read(mapProvider).searchPopupRegionKey, 'tasmania');
 
-    await tester.ensureVisible(find.byKey(const Key('map-search-filter-button')));
+    await tester.ensureVisible(
+      find.byKey(const Key('map-search-filter-button')),
+    );
     await tester.tap(find.byKey(const Key('map-search-filter-button')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('map-search-region-none')).last);
@@ -247,66 +473,71 @@ void main() {
     expect(find.text('Filter'), findsOneWidget);
   });
 
-  testWidgets('subregion menu options are available before typing and update label', (
-    tester,
-  ) async {
-    await _pumpMapApp(tester, _mapStateWithPeaks());
+  testWidgets(
+    'subregion menu options are available before typing and update label',
+    (tester) async {
+      await _pumpMapApp(tester, _mapStateWithPeaks());
 
-    final container = ProviderScope.containerOf(
-      tester.element(find.byKey(const Key('map-interaction-region'))),
-    );
-    await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
-    await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('map-interaction-region'))),
+      );
+      await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+      await tester.pumpAndSettle();
 
-    expect(find.text('No results found'), findsNothing);
+      expect(find.text('No results found'), findsNothing);
 
-    await tester.ensureVisible(find.byKey(const Key('map-search-filter-button')));
-    await tester.tap(find.byKey(const Key('map-search-filter-button')));
-    await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const Key('map-search-filter-button')),
+      );
+      await tester.tap(find.byKey(const Key('map-search-filter-button')));
+      await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('map-search-region-fvg')), findsWidgets);
-    expect(find.byKey(const Key('map-search-region-veneto')), findsWidgets);
-    expect(
-      find.byKey(const Key('map-search-region-trentino-alto-adige')),
-      findsWidgets,
-    );
-    expect(
-      find.byKey(const Key('map-search-region-emilia-romagna')),
-      findsWidgets,
-    );
-    expect(find.text('Italy North East'), findsWidgets);
+      expect(find.byKey(const Key('map-search-region-fvg')), findsWidgets);
+      expect(find.byKey(const Key('map-search-region-veneto')), findsWidgets);
+      expect(
+        find.byKey(const Key('map-search-region-trentino-alto-adige')),
+        findsWidgets,
+      );
+      expect(
+        find.byKey(const Key('map-search-region-emilia-romagna')),
+        findsWidgets,
+      );
+      expect(find.text('Italy North East'), findsWidgets);
 
-    await tester.tap(find.byKey(const Key('map-search-region-fvg')).last);
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('map-search-region-fvg')).last);
+      await tester.pumpAndSettle();
 
-    expect(container.read(mapProvider).searchPopupRegionKey, 'fvg');
-    expect(find.text('FVG'), findsOneWidget);
-  });
+      expect(container.read(mapProvider).searchPopupRegionKey, 'fvg');
+      expect(find.text('FVG'), findsOneWidget);
+    },
+  );
 
   testWidgets('group menu stores selection and groups by type', (tester) async {
     final trackRepository = GpxTrackRepository.test(
-      InMemoryGpxTrackStorage([_track(1, 'A Track')]),
+      InMemoryGpxTrackStorage([_track(1, 'Alpha Track')]),
     );
     final routeRepository = RouteRepository.test(
-      InMemoryRouteStorage([_route(1, 'A Route')]),
+      InMemoryRouteStorage([_route(1, 'Alpha Route')]),
     );
     final notifier = TestMapNotifier(
       _mapStateForGrouping(),
       gpxTrackRepository: trackRepository,
       routeRepository: routeRepository,
     );
-    await _pumpMapAppWithNotifier(tester, notifier);
+    await _pumpMapAppWithNotifier(tester, notifier, maps: [_alphaMap()]);
 
     final container = ProviderScope.containerOf(
       tester.element(find.byKey(const Key('map-interaction-region'))),
     );
     await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('map-search-input')), 'A');
+    await tester.enterText(find.byKey(const Key('map-search-input')), 'Al');
     await tester.pump(const Duration(milliseconds: 250));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.byKey(const Key('map-search-group-button')));
+    await tester.ensureVisible(
+      find.byKey(const Key('map-search-group-button')),
+    );
     await tester.tap(find.byKey(const Key('map-search-group-button')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('map-search-group-type')).last);
@@ -347,7 +578,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.byKey(const Key('map-search-group-button')));
+    await tester.ensureVisible(
+      find.byKey(const Key('map-search-group-button')),
+    );
     await tester.tap(find.byKey(const Key('map-search-group-button')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('map-search-group-region')).last);
@@ -363,7 +596,9 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.ensureVisible(find.byKey(const Key('map-search-group-button')));
+    await tester.ensureVisible(
+      find.byKey(const Key('map-search-group-button')),
+    );
     await tester.tap(find.byKey(const Key('map-search-group-button')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('map-search-group-none')).last);
@@ -374,10 +609,14 @@ void main() {
   });
 }
 
-Future<void> _pumpMapApp(WidgetTester tester, MapState state) async {
+Future<void> _pumpMapApp(
+  WidgetTester tester,
+  MapState state, {
+  List<Tasmap50k>? maps,
+}) async {
   await tester.binding.setSurfaceSize(const Size(1600, 900));
   final tasmapRepository = await TestTasmapRepository.create(
-    maps: [_resolvedMap()],
+    maps: maps ?? [_resolvedMap()],
   );
 
   await tester.pumpWidget(
@@ -401,11 +640,12 @@ Future<void> _pumpMapApp(WidgetTester tester, MapState state) async {
 
 Future<void> _pumpMapAppWithNotifier(
   WidgetTester tester,
-  MapNotifier notifier,
-) async {
+  MapNotifier notifier, {
+  List<Tasmap50k>? maps,
+}) async {
   await tester.binding.setSurfaceSize(const Size(1600, 900));
   final tasmapRepository = await TestTasmapRepository.create(
-    maps: [_resolvedMap()],
+    maps: maps ?? [_resolvedMap()],
   );
 
   await tester.pumpWidget(
@@ -488,13 +728,63 @@ MapState _mapStateForGrouping() {
     peaks: [
       Peak(
         osmId: 6406,
-        name: 'A Peak',
+        name: 'Alpha Peak',
         latitude: -43.0,
         longitude: 147.0,
         elevation: 410,
         region: 'tasmania',
       ),
     ],
+  );
+}
+
+MapState _mapStateWithThresholdControlledResults() {
+  return MapState(
+    center: const LatLng(-41.5, 146.5),
+    zoom: 15,
+    basemap: Basemap.tracestrack,
+    peaks: [
+      Peak(
+        osmId: 6406,
+        name: 'Peak Tasmania',
+        latitude: -43.0,
+        longitude: 147.0,
+        elevation: 410,
+        region: 'tasmania',
+      ),
+      Peak(
+        osmId: 7000,
+        name: 'Peak Alpha',
+        latitude: -33.7,
+        longitude: 149.0,
+        elevation: 500,
+        region: 'new-south-wales',
+      ),
+      Peak(
+        osmId: 8000,
+        name: 'Peak Zenith',
+        latitude: -33.8,
+        longitude: 149.1,
+        elevation: 510,
+        region: 'new-south-wales',
+      ),
+    ],
+  );
+}
+
+GpxTrack _trackAt(int id, String name, LatLng start) {
+  final segments = [
+    [start, LatLng(start.latitude - 0.001, start.longitude + 0.001)],
+  ];
+  return GpxTrack(
+    gpxTrackId: id,
+    contentHash: '$id',
+    trackName: name,
+    displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson(segments),
+    distance2d: 1200,
+    distance3d: 1230,
+    highestElevation: 500,
+    ascent: 120,
   );
 }
 
@@ -553,6 +843,25 @@ Tasmap50k _resolvedMap() {
   );
 }
 
+Tasmap50k _alphaMap() {
+  final map = _resolvedMap();
+  return Tasmap50k(
+    id: map.id,
+    series: map.series,
+    name: 'Alpha Map',
+    parentSeries: map.parentSeries,
+    mgrs100kIds: map.mgrs100kIds,
+    eastingMin: map.eastingMin,
+    eastingMax: map.eastingMax,
+    northingMin: map.northingMin,
+    northingMax: map.northingMax,
+    p1: map.p1,
+    p2: map.p2,
+    p3: map.p3,
+    p4: map.p4,
+  );
+}
+
 GpxTrack _track(int id, String name) {
   final segments = [
     [const LatLng(-43.0, 147.0), const LatLng(-43.001, 147.001)],
@@ -587,4 +896,15 @@ String _pointString(LatLng point) {
     point.longitude,
     point.latitude,
   ], 5).replaceAll(RegExp(r'[\n\s]'), '').substring(3);
+}
+
+void _expectDefaultSearchPopupState(ProviderContainer container) {
+  final state = container.read(mapProvider);
+  expect(state.showPeakSearch, isTrue);
+  expect(state.searchPopupQuery, isEmpty);
+  expect(state.searchPopupResults, isEmpty);
+  expect(state.searchPopupEntityFilter, MapSearchEntityFilter.all);
+  expect(state.searchPopupRegionKey, 'tasmania');
+  expect(state.searchPopupSort, MapSearchSort.nameAscending);
+  expect(state.searchPopupGroup, MapSearchGroup.none);
 }

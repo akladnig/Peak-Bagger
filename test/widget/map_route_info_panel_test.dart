@@ -740,14 +740,14 @@ void main() {
       ),
     );
 
-    expect(contentTheme.iconTheme.color, contentTheme.colorScheme.onSecondary);
+    expect(contentTheme.iconTheme.color, contentTheme.colorScheme.onSurface);
     expect(
       contentTheme.textTheme.titleMedium?.color,
-      contentTheme.colorScheme.onSecondary,
+      contentTheme.colorScheme.onSurface,
     );
     expect(
       contentTheme.textTheme.bodySmall?.color,
-      contentTheme.colorScheme.onSecondary,
+      contentTheme.colorScheme.onSurface,
     );
     expect(editIcon.color, isNull);
     expect(closeIcon.color, isNull);
@@ -762,15 +762,15 @@ void main() {
           ),
         ),
       ).style.color,
-      contentTheme.colorScheme.onSecondary,
+      contentTheme.colorScheme.onSurface,
     );
     expect(
       tester.widget<Text>(find.text('Walking Speed')).style?.color,
-      contentTheme.colorScheme.onSecondary,
+      contentTheme.colorScheme.onSurface,
     );
     expect(
       DefaultTextStyle.of(tester.element(find.text('km/h'))).style.color,
-      contentTheme.colorScheme.onSecondary,
+      contentTheme.colorScheme.onSurface,
     );
     expect(
       find.descendant(
