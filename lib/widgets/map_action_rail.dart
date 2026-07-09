@@ -45,7 +45,7 @@ class MapActionRail extends ConsumerWidget {
       notifier.closePeakInfoPopup();
     }
     if (closePeakSearch && mapState.showPeakSearch) {
-      notifier.setPeakSearchVisible(false);
+      notifier.closeSearchPopup();
     }
     if (closeGotoInput && mapState.showGotoInput) {
       notifier.setGotoInputVisible(false);
@@ -299,12 +299,7 @@ class MapActionRail extends ConsumerWidget {
                               context,
                             ).colorScheme.surface,
                             onPressed: () {
-                              _dismissTransientUi(
-                                ref,
-                                closeInfoPopup: true,
-                                closeGotoInput: true,
-                              );
-                              ref.read(mapProvider.notifier).togglePeakSearch();
+                              ref.read(mapProvider.notifier).openSearchPopup();
                             },
                             child: Icon(
                               Icons.search,

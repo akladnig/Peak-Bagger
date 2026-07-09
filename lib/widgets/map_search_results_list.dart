@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/constants.dart';
+
 import '../models/map_search_result.dart';
 import '../theme.dart';
 
@@ -21,6 +23,7 @@ class MapSearchResultsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final trimmedQuery = searchQuery.trim();
     if (searchResults.isNotEmpty) {
       final rows = _rowsForResults();
       return ListView.separated(
@@ -58,7 +61,20 @@ class MapSearchResultsList extends StatelessWidget {
       );
     }
 
-    if (searchQuery.isNotEmpty) {
+    if (trimmedQuery.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    if (trimmedQuery.length < MapConstants.searchPopupMinimumQueryLength) {
+      return Padding(
+        padding: const EdgeInsets.all(8),
+        child: Text(
+          'Type at least ${MapConstants.searchPopupMinimumQueryLength} characters',
+        ),
+      );
+    }
+
+    if (trimmedQuery.isNotEmpty) {
       return const Padding(
         padding: EdgeInsets.all(8),
         child: Text('No results found'),

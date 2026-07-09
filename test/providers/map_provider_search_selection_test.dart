@@ -76,7 +76,7 @@ void main() {
     },
   );
 
-  test('updateSearchPopupQuery tracks typed query in generic state', () async {
+  test('updateSearchPopupQuery tracks typed query in popup state', () async {
     final tasmapRepository = await TestTasmapRepository.create();
     final notifier = TestMapNotifier(
       MapState(

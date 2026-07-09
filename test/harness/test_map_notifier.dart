@@ -793,10 +793,6 @@ class TestMapNotifier extends MapNotifier {
           : (regionKey ?? state.searchPopupRegionKey),
       sort: sort ?? state.searchPopupSort,
     );
-    final peakResults = results
-        .where((result) => result.type == MapSearchResultType.peak)
-        .map((result) => result.peak!)
-        .toList(growable: false);
     state = state.copyWith(
       searchPopupQuery: query ?? state.searchPopupQuery,
       searchPopupResults: results,
@@ -807,8 +803,6 @@ class TestMapNotifier extends MapNotifier {
       clearSearchPopupRegionKey: regionKeyChanged && regionKey == null,
       searchPopupSort: sort ?? state.searchPopupSort,
       searchPopupGroup: group ?? state.searchPopupGroup,
-      searchQuery: query ?? state.searchPopupQuery,
-      searchResults: peakResults,
     );
   }
 

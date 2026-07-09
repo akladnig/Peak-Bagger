@@ -65,6 +65,11 @@ void main() {
       ),
       findsOneWidget,
     );
+    await tester.scrollUntilVisible(
+      find.text('Failed to rebuild bagged peak history from stored tracks.'),
+      300,
+      scrollable: find.byType(Scrollable).last,
+    );
     expect(
       find.text('Failed to rebuild bagged peak history from stored tracks.'),
       findsOneWidget,
@@ -99,8 +104,7 @@ void main() {
     );
 
     router.go('/settings');
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('shared-app-bar')), findsOneWidget);
     expect(
@@ -109,6 +113,11 @@ void main() {
         matching: find.text('Settings'),
       ),
       findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
+      find.text('Some files need manual review. See import.log.'),
+      300,
+      scrollable: find.byType(Scrollable).last,
     );
     expect(
       find.text('Some files need manual review. See import.log.'),

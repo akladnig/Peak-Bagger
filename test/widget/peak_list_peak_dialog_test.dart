@@ -21,6 +21,7 @@ import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
+import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/peak_list_peak_dialog.dart';
 
 import '../harness/test_tasmap_repository.dart';
@@ -131,9 +132,12 @@ void main() {
     );
     expect(
       titleInkWell.hoverColor,
-      Theme.of(
-        tester.element(find.byKey(const Key('peak-list-peak-name'))),
-      ).colorScheme.primary.withValues(alpha: 0.08),
+      lighten(
+        Theme.of(
+          tester.element(find.byKey(const Key('peak-list-peak-name'))),
+        ).colorScheme.surfaceContainer,
+        0.08,
+      ),
     );
   });
 

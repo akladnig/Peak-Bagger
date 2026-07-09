@@ -6524,8 +6524,9 @@ class MapNotifier extends Notifier<MapState> {
     final initialRegionKey = _initialSearchPopupRegionKey();
     state = state.copyWith(
       showPeakSearch: true,
-      searchQuery: '',
-      searchResults: const [],
+      clearPeakInfoPopup: true,
+      clearInfoPopup: true,
+      showGotoInput: false,
       searchPopupQuery: '',
       searchPopupResults: const [],
       searchPopupEntityFilter: MapSearchEntityFilter.all,
@@ -6553,8 +6554,6 @@ class MapNotifier extends Notifier<MapState> {
   void closeSearchPopup() {
     state = state.copyWith(
       showPeakSearch: false,
-      searchQuery: '',
-      searchResults: const [],
       searchPopupQuery: '',
       searchPopupResults: const [],
       searchPopupEntityFilter: MapSearchEntityFilter.all,
@@ -6590,16 +6589,7 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void clearSearch() {
-    state = state.copyWith(
-      searchQuery: '',
-      searchResults: [],
-      searchPopupQuery: '',
-      searchPopupResults: const [],
-      searchPopupEntityFilter: MapSearchEntityFilter.all,
-      clearSearchPopupRegionKey: true,
-      searchPopupSort: MapSearchSort.nameAscending,
-      searchPopupGroup: MapSearchGroup.none,
-    );
+    state = state.copyWith(searchQuery: '', searchResults: []);
   }
 
   void _refreshSearchPopupResults({
@@ -6623,10 +6613,6 @@ class MapNotifier extends Notifier<MapState> {
       regionKey: nextRegionKey,
       sort: nextSort,
     );
-    final peakResults = results
-        .where((result) => result.type == MapSearchResultType.peak)
-        .map((result) => result.peak!)
-        .toList(growable: false);
     state = state.copyWith(
       searchPopupQuery: nextQuery,
       searchPopupResults: results,
@@ -6635,8 +6621,6 @@ class MapNotifier extends Notifier<MapState> {
       clearSearchPopupRegionKey: regionKeyChanged && nextRegionKey == null,
       searchPopupSort: nextSort,
       searchPopupGroup: nextGroup,
-      searchQuery: nextQuery,
-      searchResults: peakResults,
     );
   }
 

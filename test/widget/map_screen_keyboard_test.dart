@@ -179,7 +179,7 @@ void main() {
     expect(container.read(mapProvider).peakInfoPeak, isNull);
   });
 
-  testWidgets('closing peak search returns focus to map shortcuts', (
+  testWidgets('closing Search popup returns focus to map shortcuts', (
     tester,
   ) async {
     await _pumpMapApp(
@@ -194,7 +194,7 @@ void main() {
     final container = ProviderScope.containerOf(
       tester.element(find.byKey(const Key('map-interaction-region'))),
     );
-    container.read(mapProvider.notifier).togglePeakSearch();
+    container.read(mapProvider.notifier).openSearchPopup();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
@@ -208,30 +208,47 @@ void main() {
     expect(find.byKey(const Key('goto-map-input')), findsOneWidget);
   });
 
-  testWidgets('cmd+f opens app bar search popup', (tester) async {
-    await _pumpMapApp(
-      tester,
-      MapState(
-        center: const LatLng(-41.5, 146.5),
-        zoom: 15,
-        basemap: Basemap.tracestrack,
-      ),
-    );
+  testWidgets(
+    'cmd+f opens Search popup, focuses it, and preserves shortcut recovery',
+    (tester) async {
+      await _pumpMapApp(
+        tester,
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+        ),
+      );
 
-    await tester.sendKeyDownEvent(
-      LogicalKeyboardKey.metaLeft,
-      platform: 'macos',
-    );
-    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyF, platform: 'macos');
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyF, platform: 'macos');
-    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft, platform: 'macos');
+      await tester.sendKeyDownEvent(
+        LogicalKeyboardKey.metaLeft,
+        platform: 'macos',
+      );
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyF, platform: 'macos');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyF, platform: 'macos');
+      await tester.sendKeyUpEvent(
+        LogicalKeyboardKey.metaLeft,
+        platform: 'macos',
+      );
 
-    expect(find.byKey(const Key('map-search-input')), findsOneWidget);
-  });
+      final searchInput = find.byKey(const Key('map-search-input'));
+      expect(searchInput, findsOneWidget);
+      expect(tester.widget<TextField>(searchInput).focusNode?.hasFocus, isTrue);
 
-  testWidgets('escape closes app bar search popup', (tester) async {
+      await tester.tap(find.byKey(const Key('map-search-close')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyG);
+      await tester.pump();
+
+      expect(find.byKey(const Key('goto-map-input')), findsOneWidget);
+    },
+  );
+
+  testWidgets('escape closes Search popup', (tester) async {
     await _pumpMapApp(
       tester,
       MapState(

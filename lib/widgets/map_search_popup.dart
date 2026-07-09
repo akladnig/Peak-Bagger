@@ -117,7 +117,9 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
   void _handleQueryChanged(String value) {
     _pendingQuery = value;
     _searchDebounceTimer?.cancel();
-    if (value.trim().isEmpty) {
+    final trimmedQuery = value.trim();
+    if (trimmedQuery.isEmpty ||
+        trimmedQuery.length < MapConstants.searchPopupMinimumQueryLength) {
       widget.onChanged(value);
       return;
     }

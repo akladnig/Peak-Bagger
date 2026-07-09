@@ -276,7 +276,7 @@ class GpxTracksRobot {
   Future<void> openSettings() async {
     router.go('/settings');
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
   }
 
   Future<void> recalculateTrackStatistics() async {
@@ -421,6 +421,11 @@ class GpxTracksRobot {
   }
 
   Future<void> openFilterSettings() async {
+    await tester.scrollUntilVisible(
+      filterSettingsTile,
+      300.0,
+      scrollable: _settingsScrollable,
+    );
     await tester.tap(filterSettingsTile);
     await tester.pumpAndSettle();
   }
@@ -429,7 +434,7 @@ class GpxTracksRobot {
     await tester.scrollUntilVisible(
       outlierFilterField,
       200.0,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: _settingsScrollable,
     );
     await tester.tap(outlierFilterField);
     await tester.pumpAndSettle();
@@ -441,7 +446,7 @@ class GpxTracksRobot {
     await tester.scrollUntilVisible(
       elevationSmootherField,
       200.0,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: _settingsScrollable,
     );
     await tester.tap(elevationSmootherField);
     await tester.pumpAndSettle();
@@ -453,7 +458,7 @@ class GpxTracksRobot {
     await tester.scrollUntilVisible(
       positionSmootherField,
       200.0,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: _settingsScrollable,
     );
     await tester.tap(positionSmootherField);
     await tester.pumpAndSettle();
@@ -462,7 +467,11 @@ class GpxTracksRobot {
   }
 
   Future<void> openPeakCorrelationSettings() async {
-    await tester.ensureVisible(peakCorrelationSettingsTile);
+    await tester.scrollUntilVisible(
+      peakCorrelationSettingsTile,
+      300.0,
+      scrollable: _settingsScrollable,
+    );
     await tester.tap(peakCorrelationSettingsTile, warnIfMissed: false);
     await tester.pumpAndSettle();
   }
@@ -471,7 +480,7 @@ class GpxTracksRobot {
     await tester.scrollUntilVisible(
       hampelWindowField,
       200.0,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: _settingsScrollable,
     );
     await tester.tap(hampelWindowField);
     await tester.pumpAndSettle();
@@ -488,6 +497,13 @@ class GpxTracksRobot {
         .setDistanceMeters(value);
     await tester.pumpAndSettle();
   }
+
+  Finder get _settingsScrollable => find
+      .descendant(
+        of: find.byKey(const Key('settings-scrollable')),
+        matching: find.byType(Scrollable),
+      )
+      .first;
 
   int currentHampelWindow(BuildContext context) {
     return ProviderScope.containerOf(

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
+import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/map_search_result.dart';
 import 'package:peak_bagger/models/peak.dart';
@@ -28,6 +29,76 @@ void main() {
       isEmpty,
     );
   });
+
+  test(
+    'under-threshold trimmed popup query returns no results without peak search work',
+    () async {
+      final tasmapRepository = await TestTasmapRepository.create();
+      final service = MapSearchService(
+        peakRepository: PeakRepository.test(_ThrowingPeakStorage()),
+        gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+        routeRepository: RouteRepository.test(InMemoryRouteStorage()),
+        tasmapRepository: tasmapRepository,
+      );
+
+      expect(
+        service.search(
+          query: ' a ',
+          entityFilter: MapSearchEntityFilter.peaks,
+          sort: MapSearchSort.nameAscending,
+        ),
+        isEmpty,
+      );
+      expect(MapConstants.searchPopupMinimumQueryLength, 2);
+    },
+  );
+
+  test(
+    'threshold-meeting popup query applies current entity filter region filter and sort',
+    () async {
+      final service = await _service(
+        peaks: [
+          Peak(
+            osmId: 1,
+            name: 'Alpha Peak',
+            latitude: -33.7,
+            longitude: 149.0,
+            elevation: 500,
+            region: 'new-south-wales',
+          ),
+          Peak(
+            osmId: 2,
+            name: 'Apex Peak',
+            latitude: -33.8,
+            longitude: 149.1,
+            elevation: 510,
+            region: 'new-south-wales',
+          ),
+          _peak(3, 'Tas Peak'),
+        ],
+        tracks: [_trackAt(1, 'Apex Track', const LatLng(-33.8, 149.1))],
+      );
+
+      final results = service.search(
+        query: 'pe',
+        entityFilter: MapSearchEntityFilter.peaks,
+        regionKey: 'new-south-wales',
+        sort: MapSearchSort.nameDescending,
+      );
+
+      expect(results.map((result) => result.type).toSet(), {
+        MapSearchResultType.peak,
+      });
+      expect(results.map((result) => result.title), [
+        'Apex Peak',
+        'Alpha Peak',
+      ]);
+      expect(
+        results.every((result) => result.regionKey == 'new-south-wales'),
+        isTrue,
+      );
+    },
+  );
 
   test('peak search is case-insensitive and capped', () async {
     final service = await _service(
@@ -154,48 +225,64 @@ void main() {
     expect(results.single.regionName, 'FVG');
   });
 
-  test('all mode keeps non-peak results on broader model for subregion filter', () async {
-    final service = await _service(
-      peaks: [
-        Peak(
-          osmId: 1,
-          name: 'Alpha Peak',
-          latitude: 46.4084,
-          longitude: 13.0475,
-          elevation: 1906,
-          region: 'fvg',
-        ),
-        Peak(
-          osmId: 2,
-          name: 'Alpha Veneto Peak',
-          latitude: 45.7332,
-          longitude: 10.8061,
-          elevation: 2218,
-          region: 'veneto',
-        ),
-      ],
-      tracks: [_trackAt(1, 'Alpha Track', const LatLng(46.4084, 13.0475))],
-    );
+  test(
+    'all mode keeps non-peak results on broader model for subregion filter',
+    () async {
+      final service = await _service(
+        peaks: [
+          Peak(
+            osmId: 1,
+            name: 'Alpha Peak',
+            latitude: 46.4084,
+            longitude: 13.0475,
+            elevation: 1906,
+            region: 'fvg',
+          ),
+          Peak(
+            osmId: 2,
+            name: 'Alpha Veneto Peak',
+            latitude: 45.7332,
+            longitude: 10.8061,
+            elevation: 2218,
+            region: 'veneto',
+          ),
+        ],
+        tracks: [_trackAt(1, 'Alpha Track', const LatLng(46.4084, 13.0475))],
+      );
 
-    final results = service.search(
-      query: 'alpha',
-      entityFilter: MapSearchEntityFilter.all,
-      regionKey: 'fvg',
-      sort: MapSearchSort.nameAscending,
-    );
+      final results = service.search(
+        query: 'alpha',
+        entityFilter: MapSearchEntityFilter.all,
+        regionKey: 'fvg',
+        sort: MapSearchSort.nameAscending,
+      );
 
-    expect(results.map((result) => result.type), contains(MapSearchResultType.peak));
-    expect(results.map((result) => result.type), contains(MapSearchResultType.track));
-    expect(results.where((result) => result.type == MapSearchResultType.peak), hasLength(1));
-    expect(
-      results.firstWhere((result) => result.type == MapSearchResultType.peak).title,
-      'Alpha Peak',
-    );
-    expect(
-      results.firstWhere((result) => result.type == MapSearchResultType.track).regionKey,
-      'italy-nord-est',
-    );
-  });
+      expect(
+        results.map((result) => result.type),
+        contains(MapSearchResultType.peak),
+      );
+      expect(
+        results.map((result) => result.type),
+        contains(MapSearchResultType.track),
+      );
+      expect(
+        results.where((result) => result.type == MapSearchResultType.peak),
+        hasLength(1),
+      );
+      expect(
+        results
+            .firstWhere((result) => result.type == MapSearchResultType.peak)
+            .title,
+        'Alpha Peak',
+      );
+      expect(
+        results
+            .firstWhere((result) => result.type == MapSearchResultType.track)
+            .regionKey,
+        'italy-nord-est',
+      );
+    },
+  );
 
   test('broader italy north east filter includes subregion peaks', () async {
     final service = await _service(
@@ -227,7 +314,10 @@ void main() {
     );
 
     expect(results, hasLength(2));
-    expect(results.map((result) => result.title), containsAll(['FVG Peak', 'Legacy North East Peak']));
+    expect(
+      results.map((result) => result.title),
+      containsAll(['FVG Peak', 'Legacy North East Peak']),
+    );
   });
 
   test('descending sort reorders results live', () async {
@@ -376,4 +466,47 @@ String _pointString(LatLng point) {
     point.longitude,
     point.latitude,
   ], 5).replaceAll(RegExp(r'[\n\s]'), '').substring(3);
+}
+
+class _ThrowingPeakStorage implements PeakStorage {
+  @override
+  int get count => 0;
+
+  @override
+  bool get isEmpty => true;
+
+  @override
+  Future<void> addMany(List<Peak> peaks) async {}
+
+  @override
+  Future<void> clearAll() async {}
+
+  @override
+  Future<void> delete(int peakId) async {}
+
+  @override
+  List<Peak> getAll() {
+    throw StateError(
+      'Peak search should not execute for under-threshold popup queries',
+    );
+  }
+
+  @override
+  Peak? getById(int peakId) => null;
+
+  @override
+  List<Peak> getByName(String query) {
+    throw StateError(
+      'Peak search should not execute for under-threshold popup queries',
+    );
+  }
+
+  @override
+  Peak put(Peak peak) => peak;
+
+  @override
+  Future<void> replaceAll(
+    List<Peak> peaks, {
+    void Function()? beforePutManyForTest,
+  }) async {}
 }
