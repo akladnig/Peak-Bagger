@@ -68,7 +68,7 @@ Error flows:
 12. If persisted `*_v2` id payloads are missing, malformed, contain non-integer values, or otherwise cannot be decoded safely, log the issue, reset to first-launch defaults (`allPeaks`, empty remembered set), and overwrite the corrupt payloads on the next successful save.
 13. If persisted or active selection references missing list ids, normalize by removing the missing ids only after a successful repository read confirms those ids are truly absent. If specific-list mode then has no remaining ids, normalize to `none`, not `allPeaks`.
 14. If the peak-list repository read fails, preserve current active and remembered selection ids in memory, keep chip-strip fallback labels available for unresolved ids, and do not perform destructive normalization during that failure window.
-15. If a selected list fails to decode, skip only that list during filtering and continue rendering the rest of the app. Drawers skip malformed lists entirely; filtering and summary logic must not crash because of a single bad payload.
+15. If a selected list's memberships cannot be read or hydrated, skip only that list during filtering and continue rendering the rest of the app. Drawers skip unreadable lists entirely; filtering and summary logic must not crash because of a single bad list.
 16. If the user attempts to leave `All Peaks` with no prior remembered specific-list selection, keep `All Peaks` selected.
 
 **Edge Cases:**
@@ -82,8 +82,8 @@ Error flows:
 22. Specific-list chip ordering always uses rendered chip label, including when one or more chip labels are unresolved and use fallback labels such as `List #<id>`.
 
 **Validation:**
-23. Add unit coverage for the selection reducer/filtering logic and persistence normalization. The tests must cover: `none` semantics, multi-select union, All Peaks exclusivity, specific-list toggles while `All Peaks` is active, remembered-snapshot updates, missing-id cleanup, legacy-key ignore/overwrite behavior, stable persisted id ordering, corrupt `*_v2` payload recovery, repository-failure preservation behavior, and decode-error resilience.
-24. Add widget coverage for the drawer and shell chrome. The tests must cover: no `None` row, leading switches per decodable list, zero-renderable-count rows stay visible, repository-failure drawer message behavior, drawer stays open after toggles, chip strip renders before the theme action, one-chip behavior for `none` and `allPeaks`, and chip truncation/scroll behavior on constrained widths.
+23. Add unit coverage for the selection reducer/filtering logic and persistence normalization. The tests must cover: `none` semantics, multi-select union, All Peaks exclusivity, specific-list toggles while `All Peaks` is active, remembered-snapshot updates, missing-id cleanup, legacy-key ignore/overwrite behavior, stable persisted id ordering, corrupt `*_v2` payload recovery, repository-failure preservation behavior, and unreadable-membership resilience.
+24. Add widget coverage for the drawer and shell chrome. The tests must cover: no `None` row, leading switches per readable list, zero-renderable-count rows stay visible, repository-failure drawer message behavior, drawer stays open after toggles, chip strip renders before the theme action, one-chip behavior for `none` and `allPeaks`, and chip truncation/scroll behavior on constrained widths.
 25. Add robot-driven journey coverage for the critical flow. The robot tests must cover: open drawer, select multiple lists, verify map filtering changes, switch to `All Peaks`, turn `All Peaks` off to restore the prior specific selection, turn all specific lists off to reach `none`, and verify the app bar chip strip stays in sync.
 26. Add or update stable selectors so robot/widget coverage is key-first. Required keys: `Key('peak-lists-drawer')`, `Key('peak-list-selection-all-peaks-row')`, `Key('peak-list-selection-all-peaks-switch')`, `Key('peak-list-selection-switch-<id>')`, `Key('peak-list-selection-row-<id>')`, `Key('peak-list-selection-summary')`, `Key('peak-list-selection-chip-<id>')`, `Key('peak-list-selection-chip-none')`, `Key('peak-list-selection-chip-all-peaks')`, `Key('peak-list-selection-unavailable-message')`, and keep `Key('app-bar-theme-action')`.
 27. Use TDD in vertical slices: one failing test at a time, then the smallest implementation to make it pass, then refactor only after green. Include persistence-ordering coverage so rapid toggle sequences prove last-write-wins behavior.
@@ -93,7 +93,7 @@ Error flows:
 Edge cases:
 - `PeakListSelectionMode.none` is allowed and represents zero active specific-list switches.
 - `All Peaks` is mutually exclusive with specific-list selection.
-- Invalid peak lists remain skipped in the drawer rather than rendered as broken controls, but decodable zero-renderable-count lists remain visible.
+- Invalid peak lists remain skipped in the drawer rather than rendered as broken controls, but readable zero-renderable-count lists remain visible.
 - Chip labels must stay readable without changing the app bar height.
 
 Error scenarios:
@@ -112,7 +112,7 @@ Limits:
 <implementation>
 - Modify `./lib/providers/map_provider.dart` to store `peakListSelectionMode`, `selectedPeakListIds`, and `previousSpecificPeakListIds` as immutable unique `Set<int>` snapshots with copy-on-write updates only. Preserve `none` as the zero-active-lists mode, keep first launch defaulting to `allPeaks`, serialize only the new `*_v2` preference keys in stable numeric order, ignore legacy single-id prefs entirely, recover safely from corrupt `*_v2` payloads, and ensure persistence is last-write-wins through write serialization or debouncing.
 - Modify `./lib/providers/peak_list_selection_provider.dart` to expose the selected-list summary and union filtering used by both the drawer and app bar. Introduce a failure-aware seam so the feature can distinguish repository failure from a successful empty-list result before normalization or drawer-state decisions are made. Chip labels use current `PeakList.name` when available and a deterministic fallback such as `List #<id>` when a selected id is temporarily unresolved.
-- Modify `./lib/widgets/map_peak_lists_drawer.dart` to replace the current tap-to-close single-select rows with switch rows and master `All Peaks` behavior. Show every decodable repository list, keep renderable-count subtitles including `0 renderable peaks`, skip only malformed lists, let all specific-list switches off enter `none`, and show an unavailable-state message with `Key('peak-list-selection-unavailable-message')` plus the `All Peaks` control if the repository read fails.
+- Modify `./lib/widgets/map_peak_lists_drawer.dart` to replace the current tap-to-close single-select rows with switch rows and master `All Peaks` behavior. Show every readable repository list, keep renderable-count subtitles including `0 renderable peaks`, skip only unreadable lists, let all specific-list switches off enter `none`, and show an unavailable-state message with `Key('peak-list-selection-unavailable-message')` plus the `All Peaks` control if the repository read fails.
 - Modify `./lib/router.dart` to render the active read-only chip strip immediately before `Key('app-bar-theme-action')`. The strip always exists and shows mode-specific chips only.
 - Update `./test/providers/map_peak_list_selection_persistence_test.dart` and add focused unit tests for selection normalization and filtering.
 - Add a focused widget test file such as `./test/widget/map_peak_list_selection_test.dart` or extend `./test/widget/map_screen_peak_info_test.dart` for drawer and chip behavior.
@@ -134,7 +134,7 @@ Phase 4: Add robot coverage for the full journey. Verify selecting multiple list
 <validation>
 1. Follow vertical-slice TDD: start with the simplest failing unit test, make it pass, then move to the next slice.
 2. Prefer pure helpers or provider-level seams for selection normalization, persisted-schema encoding/decoding, failure-aware list loading, and summary generation so the unit tests can stay deterministic.
-3. Unit tests must cover the exact selection contract: `none`, multi-select union, master `All Peaks` exclusivity, specific-list toggles while `All Peaks` is active, restore-previous-selection behavior, stale-id cleanup, legacy-key ignore behavior, stable persisted id ordering, last-write-wins persistence ordering, corrupt `*_v2` payload recovery, repository-failure preservation behavior, and decode-error resilience.
+3. Unit tests must cover the exact selection contract: `none`, multi-select union, master `All Peaks` exclusivity, specific-list toggles while `All Peaks` is active, restore-previous-selection behavior, stale-id cleanup, legacy-key ignore behavior, stable persisted id ordering, last-write-wins persistence ordering, corrupt `*_v2` payload recovery, repository-failure preservation behavior, and unreadable-membership resilience.
 4. Widget tests must cover the actual shell UI: drawer switch rendering, drawer persistence while toggling, mode-specific chip-strip placement, special chips for `None` and `All Peaks`, zero-renderable-count rows, repository-failure unavailable messaging, fallback-chip ordering, and constrained-width overflow behavior.
 5. Robot tests must cover the critical user journey with stable keys and a desktop-sized surface.
 6. Required automated coverage outcomes:

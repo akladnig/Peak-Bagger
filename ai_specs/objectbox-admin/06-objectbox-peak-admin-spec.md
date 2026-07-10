@@ -83,14 +83,9 @@ Error flows:
 9. Preserve current browse/search/sort/detail-pane behavior for existing read-only admin flows.
 10. After a successful Peak save, show `showSingleActionDialog` with title `Update Successful` and content text `<name> updated.` using the saved Peak name.
 11. If saving an `osmId` change would conflict with another Peak, show `showSingleActionDialog` with title `Error: cannot change osmId` and content `This osmId is already tied to NameOfPeak, so cannot be over written.` where `NameOfPeak` is the name of the conflicting Peak, and do not count the Peak currently being edited as a conflict.
-12. If an `osmId` change succeeds, update `PeaksBagged.peakId` from the old `osmId` to the new `osmId` and update any Peak List `peakOsmId` references from the old `osmId` to the new `osmId` in the same transaction so dependent records stay in sync.
-    `PeakRepository` may access the ObjectBox `Store` directly to read and rewrite `PeakList` rows for this cascade.
-     Add a `PeakListRewritePort` interface and inject it into `PeakRepository` so repository tests can exercise the cascade path without a live ObjectBox store.
-    `PeakRepository` must accept the port in its constructor, production must provide the Store-backed implementation, and tests must be able to inject a fake port alongside `PeakStorage`.
-    Production wiring for the Store-backed port should live in `./lib/providers/peak_provider.dart`, and the port implementation should be created from `objectboxStore`.
-     Use `PeakRepository(Store store, {required PeakListRewritePort peakListRewritePort})` in production and `PeakRepository.test(PeakStorage storage, {required PeakListRewritePort peakListRewritePort})` in tests.
-     The port must expose `rewriteOsmIdReferences({required int oldOsmId, required int newOsmId})` and return a result containing `rewrittenCount` and `skippedMalformedCount`.
-     For Peak List updates, parse each `PeakList.peakList` JSON payload, rewrite only the matching `peakOsmId` values, preserve item order and `points`, skip malformed payloads unchanged, and append a warning section below the success message in the same success dialog after the save completes.
+12. If an `osmId` change succeeds, update `PeaksBagged.peakId` from the old `osmId` to the new `osmId` in the same transaction so dependent bagged records stay in sync.
+    Peak List memberships must be stored as relational `PeakListItem` rows pointing at the `Peak` entity, so changing `Peak.osmId` must not require rewriting peak-list membership data.
+    `PeakRepository` may access the ObjectBox `Store` directly for the `PeaksBagged` cascade, but no JSON-backed peak-list rewrite path is required once memberships are relational rows.
 13. Preserve row selection by Peak primary key across save refreshes, and after delete keep the current selection if the selected Peak still exists or clear it only when the deleted Peak was the selected row.
 14. When saving a Peak, keep the saved Peak selected after save and refresh the Peak markers on `MapScreen` via `reloadPeakMarkers()`.
 
@@ -103,17 +98,17 @@ Error flows:
 20. Validate the resulting Peak location against `GeoAreas.tasmaniaBounds` after coordinate normalization, and block submit if the location is outside Tasmania.
 21. Show validation errors inline beside the affected field or coordinate section, and recompute them live as the user types.
 22. Keep the edit form open on any save or delete failure, surface the error in the same screen context, and disable the in-flight Peak mutation controls until the request completes.
-23. Block delete when the Peak is still referenced by any `GpxTrack.peaks` relation, any Peak List `peakOsmId` entry, or any `PeaksBagged.peakId` row, and surface a dependency error that names the dependent record types.
+23. Block delete when the Peak is still referenced by any `GpxTrack.peaks` relation, any `PeakListItem` membership row, or any `PeaksBagged.peakId` row, and surface a dependency error that names the dependent record types.
 24. Use a dedicated `PeakDeleteGuard` service for delete dependency checks before calling `PeakRepository.delete`.
 25. `PeakDeleteGuard` returns a structured result containing blocker descriptors with a dependency type and display name, ordered deterministically as `GpxTrack` blockers first, `PeakList` blockers second, and `PeaksBagged` blockers third, so the UI can compose the delete-blocked dialog copy without guessing.
     Use `trackName` for `GpxTrack`, `name` for `PeakList`, and a fixed human label such as `bagged record` for `PeaksBagged`.
 26. In widget tests, override `peakDeleteGuardProvider` with a fake guard so dependency-blocked delete remains deterministic without a live ObjectBox store.
-27. Ignore malformed `PeakList.peakList` JSON payloads when computing delete blockers.
+27. If legacy JSON-backed memberships still exist during migration, ignore unreadable legacy membership data when computing delete blockers rather than failing the delete-check flow.
 28. Validate `name` as required with the exact error message `A peak name is required`.
 29. Validate `osmId` as an integer.
 30. Treat `elevation` as optional; if blank, keep it `null`, and if provided it must parse as an integer.
 31. Allow `area` to be blank or any string.
-32. If any Peak List rewrites are skipped because their payloads are malformed, append the exact warning `1 PeakList has been skipped as it's malformed.` when one PeakList is skipped, or `X PeakLists have been skipped as they're malformed.` when more than one PeakList is skipped.
+32. No post-save Peak List rewrite warning is needed once memberships are relational `PeakListItem` rows; peak-list dependencies remain attached through the `Peak` relation automatically.
 
 **Edge Cases:**
 31. Coordinate contract:

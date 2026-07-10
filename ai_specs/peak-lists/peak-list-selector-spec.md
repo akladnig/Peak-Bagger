@@ -74,10 +74,10 @@ Error flows:
     - Every successful in-app peak-list mutation must increment `peakListRevisionProvider` and call `mapProvider.notifier.reconcileSelectedPeakList()`
     - When mode is `none`: returns `[]`
     - When mode is `allPeaks`: returns `mapState.peaks`
-    - When mode is `specificList`: decodes selected PeakList's `peakList` JSON, extracts `peakOsmId` values, filters `mapState.peaks` to matching IDs
+    - When mode is `specificList`: reads the selected list's related `PeakListItem` membership rows, extracts the related `Peak.osmId` values, and filters `mapState.peaks` to matching IDs
     - `filteredPeaksProvider` must remain pure and must not mutate `mapProvider`
     - If a selected list is missing or corrupt, fallback reconciliation happens in `MapNotifier`, not in provider evaluation
-    - Handles JSON decode errors gracefully (logs warning and returns all peaks until reconciliation has corrected the invalid selection)
+    - Handles membership-read failures gracefully (logs warning and returns all peaks until reconciliation has corrected the invalid selection)
     - When `peakListsProvider` falls back to `[]` because of a repository error while mode is `specificList`, the map also falls back to showing all peaks without mutating the current selection
 19. Add `selectPeakList(PeakListSelectionMode mode, {int? peakListId})` method to MapNotifier
      - Whenever the active peak filter changes, clear peak info popup and hovered peak ID
@@ -88,7 +88,7 @@ Error flows:
     - `test/robot/gpx_tracks/gpx_tracks_robot.dart`: update `showPeaksFab` finder (keep key), rewrite `togglePeaks()` to open drawer and select "All Peaks"
 
 **Error Handling:**
-22. When PeakList JSON decode fails, skip that list in drawer (log warning)
+22. When a PeakList's membership rows cannot be read or hydrated, skip that list in drawer (log warning)
 23. When the selected PeakList is removed by an in-app mutation and is no longer found by ID, fallback immediately to `allPeaks` and persist
 24. When filtered list yields no peaks, show empty map (no error, just no markers)
 25. When SharedPrefs load fails, default to `allPeaks` mode (matches old default behavior)
@@ -108,12 +108,12 @@ Error flows:
 
 <boundaries>
 Edge cases:
-- PeakList with empty peakList JSON: Shows in drawer, selects correctly, renders no peaks
+- PeakList with zero `PeakListItem` rows: Shows in drawer, selects correctly, renders no peaks
 - ObjectBox returns unsorted PeakLists: Sort alphabetically before display
 - Selected list removed by an in-app mutation: Detect immediately, fallback to All Peaks, and persist the correction
 
 Error scenarios:
-- PeakList JSON corruption: Catch FormatException, skip list, log to console
+- PeakList membership read failure: catch, skip list, log to console
 - PeakList references osmId not in Peak table: Filter out silently during render
 - Repository throws: Show drawer with "None" and "All Peaks" only, and log the error
 
@@ -210,6 +210,7 @@ Limits:
       final mode = mapState.peakListSelectionMode;
       final peaks = mapState.peaks;
       final peakLists = ref.watch(peakListsProvider);
+      final repo = ref.watch(peakListRepositoryProvider);
       
       if (mode == PeakListSelectionMode.none) return [];
       if (mode == PeakListSelectionMode.allPeaks) return peaks;
@@ -225,10 +226,10 @@ Limits:
         return peaks;
       }
       final peakList = matchingLists.first;
-      
+
       try {
-        final items = decodePeakListItems(peakList.peakList);
-        final osmIds = items.map((item) => item.peakOsmId).toSet();
+        final items = repo.getPeakListItemsForList(peakList.peakListId);
+        final osmIds = items.map((item) => item.peak.target.osmId).toSet();
         return peaks.where((peak) => osmIds.contains(peak.osmId)).toList();
       } catch (e) {
         // log warning

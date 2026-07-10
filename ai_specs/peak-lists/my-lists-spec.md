@@ -14,7 +14,7 @@ Add a compact `My Lists` dashboard card that helps users review peak-list progre
 - Inspect the existing `_PeakListSummaryRow` logic and mirror its dedupe and climb rules where they overlap.
 - Decide whether to extract a dedicated peak-list summary service or share a small helper boundary with the peak-lists screen.
 - Rename the dashboard slot id to `my-lists` and migrate any saved `top-5-highest` entries to the new id during layout load or sanitation.
-- Confirm malformed or legacy peak-list payloads should be skipped, not crash the dashboard summary.
+- Confirm unreadable legacy memberships or failed membership hydration should be skipped, not crash the dashboard summary.
 </discovery>
 
 <user_flows>
@@ -29,7 +29,7 @@ Alternative flows:
 - Returning user: the dashboard order remains whatever was previously saved; the card content still reflects current repository data.
 - User has fewer than five lists: show only the available rows.
 - User has lists with zero peaks: show `0` for all numeric columns and `0%` climbed.
-- User has malformed stored list payloads: ignore the bad rows and keep rendering the rest.
+- User has unreadable stored list memberships: ignore the bad rows and keep rendering the rest.
 - User has an older saved dashboard order: transparently map `top-5-highest` to `my-lists` and preserve the rest of the order.
 
 Error flows:
@@ -52,7 +52,7 @@ Error flows:
 10. Migrate stored dashboard layouts so existing `top-5-highest` entries become `my-lists` without dropping the rest of the saved order.
 
 **Error Handling:**
-10. Skip malformed or unsupported peak-list payloads instead of crashing the dashboard.
+10. Skip unreadable or unsupported peak-list memberships instead of crashing the dashboard.
 11. Render an empty state when no usable lists are available.
 12. Treat a list with zero peaks as a valid row with zero values, not an error state.
 13. Render the card immediately from derived provider state; if no usable peak lists exist, show the empty state instead of a loading placeholder.
@@ -64,7 +64,7 @@ Error flows:
 16. Keep all headers and values to one line where possible so the 4:3 dashboard tile stays compact.
 
 **Validation:**
-17. Add a pure, deterministic summary service seam so unit tests can cover sorting, dedupe, empty-state behavior, and malformed-data handling without widget plumbing.
+17. Add a pure, deterministic summary service seam so unit tests can cover sorting, dedupe, empty-state behavior, and unreadable-membership handling without widget plumbing.
 18. Add stable keys for the card root, table root, empty state, and each row so widget and robot tests can target them reliably.
 19. Baseline automated coverage must include business logic, widget/UI behavior, and the critical dashboard journey.
 20. Use TDD-style slices for the summary logic first, then the widget, then the dashboard wiring.
@@ -97,7 +97,7 @@ Error flows:
 
 <validation>
 - Follow vertical-slice TDD: one failing test, minimum implementation, then refactor after green.
-- Unit tests must cover empty input, malformed payload skipping, duplicate peak ids, zero-peak lists, and stable top-five ordering.
+- Unit tests must cover empty input, unreadable-membership skipping, duplicate peak ids, zero-peak lists, and stable top-five ordering.
 - Widget tests must cover the visible title, the five table columns, row rendering, empty state, and a narrow/wide dashboard tile sanity check.
 - Dashboard tests must cover the `my-lists` slot while preserving the existing card order and drag behavior.
 - Dashboard tests must cover legacy migration from `top-5-highest` to `my-lists`.
@@ -111,6 +111,6 @@ Error flows:
 - The dashboard shows a `My Lists` card in the `my-lists` slot and migrates existing saved orders.
 - The card displays up to five peak lists sorted by `% Climbed`.
 - The table columns and row values match the expected peak-list summary math.
-- Empty and malformed data fail safely without crashing the dashboard.
+- Empty and unreadable membership data fail safely without crashing the dashboard.
 - Unit, widget, dashboard, and robot tests cover the feature and pass.
 </done_when>

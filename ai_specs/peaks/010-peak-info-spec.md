@@ -51,7 +51,7 @@ Error flows:
 **Error Handling:**
 11. Non-peak hover clears peak hover state but leaves any open peak popup unchanged. Non-peak click does not open a peak popup and continues the existing map selection behavior.
 12. Missing map coverage or missing peak data falls back cleanly to `Unknown`, `—` for unknown height, or no memberships.
-13. Malformed or unsupported peak list payloads are skipped during membership lookup; valid list memberships still display sorted, and the `List(s)` row is omitted when none can be decoded.
+13. Unreadable legacy memberships or unsupported membership data are skipped during membership lookup; valid list memberships still display sorted, and the `List(s)` row is omitted when none can be resolved.
 
 **Edge Cases:**
 14. Touch input has no hover state but still opens the popup on tap.
@@ -74,7 +74,7 @@ Edge cases:
 Error scenarios:
 - Popup would overflow viewport: clamp/flip; never render offscreen.
 - Peak data unavailable or stale: fail closed, no popup.
-- Malformed peak list payload: skip that list for memberships; never crash popup rendering.
+- Unreadable legacy peak-list membership data: skip that list for memberships; never crash popup rendering.
 - Peak lacks complete MGRS fields: derive MGRS from latitude/longitude for map-name lookup before falling back to `Unknown`.
 
 Limits:
@@ -96,7 +96,7 @@ Create or modify:
 - `./lib/services/peak_hover_detector.dart` or equivalent shared helper - deterministic peak hit-testing in screen space
 - `./lib/providers/peak_list_provider.dart` or equivalent shared provider file - move peak-list data/service providers out of `peak_lists_screen.dart`, including `peakListRepositoryProvider`, `peaksBaggedRepositoryProvider`, `peakListImportServiceProvider`, `peakListImportRunnerProvider`, and `peakListDuplicateNameCheckerProvider`
 - `./lib/screens/peak_lists_screen.dart` - consume the shared peak-list providers instead of defining screen-local providers
-- `./lib/services/peak_list_repository.dart` - shared membership lookup for peak list names, skipping malformed list payloads
+- `./lib/services/peak_list_repository.dart` - shared membership lookup for peak list names, skipping unreadable legacy membership data
 - `./test/widget/map_screen_peak_info_test.dart` - widget coverage for hover, click, content, placement
 - `./test/widget/peak_lists_screen_test.dart` - update provider imports/overrides after provider relocation
 - `./test/robot/peaks/peak_info_journey_test.dart` and helper - critical journey coverage

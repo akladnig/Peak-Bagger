@@ -55,7 +55,7 @@ Error flows:
 8. Successful create persists a new empty peak list before opening the peak selector.
 9. After create, the new list becomes the active selected list in the screen.
 10. After create, the existing add-peak selector opens for the new list without changing its behavior.
-11. New peak lists must be initialized with `encodePeakListItems([])` so downstream views can decode the stored payload.
+11. New peak lists must be created with zero `PeakListItem` membership rows so downstream views treat the list as empty without any JSON initialization step.
 12. The create dialog returns the created `peakListId` on success; `PeakListsScreen` owns the post-create selection and add-peak handoff.
 13. If create fails, the dialog shows a failure dialog and keeps the current selection unchanged.
    - The failure dialog remains open until the user dismisses it.

@@ -74,11 +74,10 @@ Error flows:
     - Store `HWC` when the import updates any of `latitude`, `longitude`, `elevation`, `easting`, or `northing` from CSV-derived values.
     - Later `Refresh Peak Data` flows must only overwrite rows whose `sourceOfTruth` is `null`, empty, or `OSM`; rows marked `HWC` are treated as protected CSV-corrected data.
     - During `Refresh Peak Data`, if a protected `HWC` row still uses a synthetic negative `osmId` because the peak was previously missing from OSM, and the refresh data now provides a unique real OSM id for that same peak, update the stored row to use the real non-negative `osmId` without dropping the protected `HWC` data.
-5. Add an ObjectBox entity `PeakList` in `./lib/models/peak_list.dart`.
-    - Fields: `peakListId` primary key, `name`, `peakList`.
-    - `name` is unique and must come from user input.
-    - `peakList` is a JSON string storing an ordered array of objects `{peakOsmId, points}`.
-    - Preserve CSV row order in the stored array.
+5. Add ObjectBox entities for `PeakList` metadata and relational `PeakListItem` membership in `./lib/models/peak_list.dart`.
+    - `PeakList` fields: `peakListId` primary key and unique `name`.
+    - `PeakListItem` fields: primary key, relation to `PeakList`, relation to `Peak`, integer `points`, and integer `position`.
+    - Preserve CSV row order in `PeakListItem.position`.
 6. Add a peak-list import service in `./lib/services/peak_list_import_service.dart`.
     - Public API accepts a list name and an absolute CSV path selected by the user.
     - Add a path helper that resolves the default browse root to an absolute Bushwalking import root, with fallback to the user's home directory.
@@ -88,7 +87,7 @@ Error flows:
 7. Parse CSV with the `csv` package, not ad hoc string splitting.
     - Support quoted commas, UTF-8, and standard CSV escaping.
     - Require columns: Name, Height, Zone, Easting, Northing, Latitude, Longitude, Points.
-    - Treat `Points` as an opaque string copy.
+    - Treat `Points` as an integer value; blank or invalid values must be normalized according to the import rules.
 8. Match each CSV row to at most one `Peak`.
     - Hard match rules: zone equals `gridZoneDesignator`, normalized `mgrs100kId` equals the `Peak.mgrs100kId` field, and normalized UTM/MGRS components compared numerically against the `Peak` fields.
     - Use `./lib/services/peak_mgrs_converter.dart` or a helper there to normalize CSV UTM fields into comparable MGRS components.
@@ -104,7 +103,7 @@ Error flows:
     - If no unique name-confirmed candidate exists above `50m`, skip the row and log a warning.
 9. Persist successful imports, peak corrections, and warnings.
     - Every successful import creates a new list or updates the existing list in place when the name already exists and the user confirms.
-    - Updating an existing list preserves `peakListId` and replaces the stored payload.
+    - Updating an existing list preserves `peakListId` and replaces the stored `PeakListItem` membership rows transactionally.
     - Duplicate-name updates must be transactional: the existing list remains unchanged if parsing, matching, or persistence fails.
     - When a uniquely matched row disagrees with the stored `Peak` on latitude, longitude, elevation, easting, or northing, update the stored `Peak` entity from the CSV-derived values before completing the import only when the stored row has `sourceOfTruth` `null`, empty, or `OSM`.
     - When a uniquely matched row already has `Peak.sourceOfTruth == HWC`, treat the stored `Peak` row as protected CSV-corrected data: create or update the `PeakList` entry, but do not overwrite the stored `Peak` latitude, longitude, elevation, easting, or northing fields.
@@ -112,9 +111,9 @@ Error flows:
     - When no match is found, create a new `Peak` row from the CSV values, persist it before saving the `PeakList`, and set `Peak.sourceOfTruth` to `HWC`.
     - Append timestamped warnings to `import.log` under the resolved Bushwalking import root.
     - If log writing fails, keep the import result and surface the warning in memory.
-10. `PeakList` must be visible in ObjectBox Admin in both schema and data workflows.
-    - The entity must appear in the ObjectBox Admin entity dropdown.
-    - Data mode must render at least `peakListId`, `name`, and a readable preview of `peakList` using the existing `objectBoxAdminPreviewValue()` pattern.
+10. `PeakList` and `PeakListItem` must be visible in ObjectBox Admin in both schema and data workflows.
+    - Both entities must appear in the ObjectBox Admin entity dropdown.
+    - Data mode must render `PeakList` metadata and a readable membership summary derived from related `PeakListItem` rows rather than a raw JSON preview.
 
 **Error Handling:**
 11. If the list name is empty, block the import with `A list name is required`.
@@ -144,7 +143,7 @@ UI boundaries:
 - No edit/delete list management beyond duplicate-name update.
 
 Storage boundaries:
-- Keep `peakList` as a stable JSON schema, not ad hoc text.
+- Keep the relational `PeakList` / `PeakListItem` schema stable and explicit rather than storing memberships as ad hoc JSON text.
 - Do not use `line.split(',')`; quoted commas must parse correctly.
 - Keep `import.log` under the resolved Bushwalking import root to match the existing import convention.
 </boundaries>
@@ -156,7 +155,7 @@ Create or modify these files:
 - `./lib/widgets/peak_list_import_dialog.dart` - dialog UI and duplicate-name warning flow
 - `./lib/services/peak_list_file_picker.dart` - abstraction over `file_picker`
 - `./lib/models/peak.dart` - add persisted `sourceOfTruth` field and any CSV-driven field update support needed by the importer
-- `./lib/models/peak_list.dart` - ObjectBox entity + JSON item DTO
+- `./lib/models/peak_list.dart` - ObjectBox entities for `PeakList` metadata and `PeakListItem` memberships
 - `./lib/services/peak_list_import_service.dart` - CSV parse, match, persist, log
 - `./lib/services/peak_list_repository.dart` - ObjectBox wrapper + in-memory test storage
 - `./lib/services/peak_repository.dart` - add `findByOsmId`/equivalent lookup
@@ -179,7 +178,7 @@ Create or modify these files:
 Patterns to use:
 - Match existing repository/test-double style (`PeakRepository.test`, `InMemoryPeakStorage`).
 - Prefer a focused importer service over embedding CSV logic in screens or providers.
-- Keep the serialized `peakList` schema stable and explicit.
+- Keep the relational peak-list membership schema stable and explicit.
 - Keep form and dialog state local; use Riverpod for service/repository injection only.
 - Treat any new provider file as optional DI wiring, not feature-state ownership.
 - Use keyed dialog controls and a fake file-picker seam so widget and robot tests stay deterministic.

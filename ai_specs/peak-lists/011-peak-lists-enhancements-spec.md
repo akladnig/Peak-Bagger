@@ -55,7 +55,7 @@ Error flows:
    - Unclimbed = Total Peaks - Climbed
    - Percentage = Climbed / Total Peaks
    - mini-map ticked marker uses the same climbed predicate
-4. The `Total Peaks` column must show the count for that summary row's `PeakList` payload, not the currently selected row unless they are the same row. If a legacy unsupported peak list row cannot decode its payload, the summary table must keep the row visible by name, show `-` for derived metric columns (`Total Peaks`, `Climbed`, `Percentage`, `Unclimbed`), and keep the delete action available.
+4. The `Total Peaks` column must show the count for that summary row's related `PeakListItem` membership rows, not the currently selected row unless they are the same row. If a legacy unsupported peak list row has not been migrated to relational memberships yet, the summary table must keep the row visible by name, show `-` for derived metric columns (`Total Peaks`, `Climbed`, `Percentage`, `Unclimbed`), and keep the delete action available.
 5. The actions column must contain a delete icon (`Icons.delete_forever` from Flutter material) for each list row
 6. The top-level layout must start at 40% summary width and 60% details width, with a draggable vertical divider on wide layouts.
 7. The top-level divider must constrain both panes so neither can shrink below a usable minimum width; the spec may treat `280px` as the default minimum pane width on wide layouts, and `160px` on narrow layouts where stacking applies.
@@ -81,7 +81,7 @@ Error flows:
 27. The `Name`, `Points`, and `Height` headers remain required. If a row's `Name` is blank, set it to `Unknown`. If a row's `Points` is blank, normalize it to the integer value `0`. If a row's `Points` value is non-blank but invalid, issue a warning, log it, and normalize it to `0`. If a row's height datum is blank, set it to `0` and log a warning containing the peak name in `import.log`.
 28. The delete confirmation must use `showDangerConfirmDialog` with title `Delete Peak List?`, message `This will permanently delete the <list name>. Do you want to proceed`, cancelKey: `'cancel-delete'`, cancelLabel: `'Cancel'`, confirmKey: `'confirm-delete'`, confirmLabel: `'Delete'`.
 29. Confirmed delete must remove only the `PeakList` record; underlying `Peak` rows must remain untouched, even if that leaves peaks no longer referenced by any list.
-30. Preserve the existing import entry point and its persistence flow; this change only expands the screen and strengthens import handling. Deduplicate peaks on import by resolved `peakOsmId`, keeping the first occurrence in list order when duplicates resolve to the same peak. Update `PeakListItem.points` from `String` to `int` and adjust serialization accordingly. No backward-compatible decode is required for older stored peak lists with string `points` values; those lists are unsupported in this phase and are expected to be deleted and re-imported manually. If such a legacy peak list is encountered, keep the list row visible by name, make the delete action available, and surface a clear error instructing the user to delete and re-import it; metrics and details for that row may fall back to an unsupported-state message instead of decoded values. After a successful import or update, refresh the Peak Lists screen and, once the result dialog closes, select the imported or updated list. The import completion flow must return the imported or updated list identity back to `PeakListsScreen`, for example by carrying the list id or name in the presentation result and completing `PeakListImportDialog` with that result after the result dialog closes.
+30. Preserve the existing import entry point and its persistence flow; this change only expands the screen and strengthens import handling. Deduplicate peaks on import by resolved peak identity, keeping the first occurrence in list order when duplicates resolve to the same peak. Persist memberships as ordered `PeakListItem` rows with integer `points` and stable `position` values rather than encoding a JSON payload. Legacy JSON-backed peak lists that have not been migrated are unsupported in this phase and are expected to be migrated by the schema change or deleted and re-imported manually. If such a legacy peak list is encountered, keep the list row visible by name, make the delete action available, and surface a clear error instructing the user to delete and re-import it; metrics and details for that row may fall back to an unsupported-state message instead of relational values. After a successful import or update, refresh the Peak Lists screen and, once the result dialog closes, select the imported or updated list. The import completion flow must return the imported or updated list identity back to `PeakListsScreen`, for example by carrying the list id or name in the presentation result and completing `PeakListImportDialog` with that result after the result dialog closes.
 
 **Error Handling:**
 31. If neither coordinate pair is complete, skip the row and log a warning instead of guessing.
@@ -122,9 +122,9 @@ Data boundaries:
 - If the provided source coordinate set fails parsing or conversion, skip the row and log the reason; do not silently keep partially repaired data.
 - Deduplicate imported peaks by resolved `peakOsmId`, keeping the first occurrence in list order.
 - Normalize `Points` to an integer value and persist it as an integer on `PeakListItem`.
-- Older stored peak lists with string `points` values are out of scope and are expected to be deleted and re-imported manually.
+- Older JSON-backed peak lists that have not been migrated to relational memberships are out of scope and are expected to be migrated or deleted and re-imported manually.
 - Keep the delete action scoped to `PeakList` records only.
-- Keep `peakList` as the persisted ordered payload already used by the app.
+- Keep `PeakList` as list metadata only and persist ordered memberships as `PeakListItem` rows with stable `position` ordering.
 </boundaries>
 
 <discovery>
@@ -151,7 +151,7 @@ Modify or create these files:
 - `./lib/screens/peak_lists_screen.dart` - split summary/details layout, row selection, divider handling, delete entry point, import entry point retention, and a Riverpod provider for `PeaksBaggedRepository` used by the screen
 - `./lib/widgets/peak_list_import_dialog.dart` - keep the import dialog wiring, surface the updated import result states, and complete with the imported or updated list identity after the result dialog closes
 - `./lib/services/peak_list_import_service.dart` - partial-coordinate repair, missing-height defaulting, warning/log emission, persistence
-- `./lib/models/peak_list.dart` - update `PeakListItem.points` from `String` to `int` and adjust serialization
+- `./lib/models/peak_list.dart` - define `PeakList` metadata plus relational `PeakListItem` memberships, including integer `points` and stable `position`
 - `./lib/services/peak_list_repository.dart` - list lookup, getById, and delete support needed by the screen
 - `./lib/services/peaks_bagged_repository.dart` - for checking if a peak has been climbed
 - `./lib/services/peak_mgrs_converter.dart` - add or reuse helpers for deriving the missing coordinate system
