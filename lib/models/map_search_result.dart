@@ -13,6 +13,13 @@ enum MapSearchSort { nameAscending, nameDescending }
 
 enum MapSearchGroup { none, region, type }
 
+class MapSearchPage {
+  const MapSearchPage({required this.results, required this.isExhausted});
+
+  final List<MapSearchResult> results;
+  final bool isExhausted;
+}
+
 class MapSearchResult {
   const MapSearchResult._({
     required this.type,

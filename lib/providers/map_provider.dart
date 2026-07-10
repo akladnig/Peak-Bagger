@@ -69,6 +69,14 @@ export 'package:peak_bagger/services/region_manifest_catalog.dart';
 const _distance = Distance();
 const _gridCapabilityFallbackDelta = 0.0001;
 
+typedef _SearchPopupCriteria = ({
+  String query,
+  MapSearchEntityFilter entityFilter,
+  String? regionKey,
+  MapSearchSort sort,
+  MapSearchGroup group,
+});
+
 Peak? _peakAtPoint(Iterable<Peak> peaks, LatLng point) {
   for (final peak in peaks) {
     final peakLocation = LatLng(peak.latitude, peak.longitude);
@@ -453,6 +461,9 @@ class MapState {
   final String searchQuery;
   final List<MapSearchResult> searchPopupResults;
   final String searchPopupQuery;
+  final int searchPopupLoadedCount;
+  final bool searchPopupIsLoadingMore;
+  final bool searchPopupIsExhausted;
   final MapSearchEntityFilter searchPopupEntityFilter;
   final String? searchPopupRegionKey;
   final MapSearchSort searchPopupSort;
@@ -553,6 +564,9 @@ class MapState {
     this.searchQuery = '',
     this.searchPopupResults = const [],
     this.searchPopupQuery = '',
+    this.searchPopupLoadedCount = 0,
+    this.searchPopupIsLoadingMore = false,
+    this.searchPopupIsExhausted = true,
     this.searchPopupEntityFilter = MapSearchEntityFilter.all,
     this.searchPopupRegionKey,
     this.searchPopupSort = MapSearchSort.nameAscending,
@@ -769,6 +783,9 @@ class MapState {
     String? searchQuery,
     List<MapSearchResult>? searchPopupResults,
     String? searchPopupQuery,
+    int? searchPopupLoadedCount,
+    bool? searchPopupIsLoadingMore,
+    bool? searchPopupIsExhausted,
     MapSearchEntityFilter? searchPopupEntityFilter,
     String? searchPopupRegionKey,
     bool clearSearchPopupRegionKey = false,
@@ -923,6 +940,12 @@ class MapState {
       searchQuery: searchQuery ?? this.searchQuery,
       searchPopupResults: searchPopupResults ?? this.searchPopupResults,
       searchPopupQuery: searchPopupQuery ?? this.searchPopupQuery,
+      searchPopupLoadedCount:
+          searchPopupLoadedCount ?? this.searchPopupLoadedCount,
+      searchPopupIsLoadingMore:
+          searchPopupIsLoadingMore ?? this.searchPopupIsLoadingMore,
+      searchPopupIsExhausted:
+          searchPopupIsExhausted ?? this.searchPopupIsExhausted,
       searchPopupEntityFilter:
           searchPopupEntityFilter ?? this.searchPopupEntityFilter,
       searchPopupRegionKey: clearSearchPopupRegionKey
@@ -1218,6 +1241,7 @@ class MapNotifier extends Notifier<MapState> {
   bool _showTracksRestoreOverridden = false;
   bool _showRoutesRestoreOverridden = false;
   bool _showTrailsRestoreOverridden = false;
+  int _searchPopupRequestSerial = 0;
 
   TasmapRepository get tasmapRepository =>
       _injectedTasmapRepository ?? _tasmapRepository;
@@ -6521,6 +6545,7 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void openSearchPopup() {
+    _searchPopupRequestSerial += 1;
     final initialRegionKey = _initialSearchPopupRegionKey();
     state = state.copyWith(
       showPeakSearch: true,
@@ -6529,6 +6554,9 @@ class MapNotifier extends Notifier<MapState> {
       showGotoInput: false,
       searchPopupQuery: '',
       searchPopupResults: const [],
+      searchPopupLoadedCount: 0,
+      searchPopupIsLoadingMore: false,
+      searchPopupIsExhausted: true,
       searchPopupEntityFilter: MapSearchEntityFilter.all,
       searchPopupRegionKey: initialRegionKey,
       clearSearchPopupRegionKey: initialRegionKey == null,
@@ -6552,10 +6580,14 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void closeSearchPopup() {
+    _searchPopupRequestSerial += 1;
     state = state.copyWith(
       showPeakSearch: false,
       searchPopupQuery: '',
       searchPopupResults: const [],
+      searchPopupLoadedCount: 0,
+      searchPopupIsLoadingMore: false,
+      searchPopupIsExhausted: true,
       searchPopupEntityFilter: MapSearchEntityFilter.all,
       clearSearchPopupRegionKey: true,
       searchPopupSort: MapSearchSort.nameAscending,
@@ -6607,20 +6639,87 @@ class MapNotifier extends Notifier<MapState> {
         : (regionKey ?? state.searchPopupRegionKey);
     final nextSort = sort ?? state.searchPopupSort;
     final nextGroup = group ?? state.searchPopupGroup;
-    final results = _mapSearchService.search(
+    final criteria = (
       query: nextQuery,
       entityFilter: nextEntityFilter,
       regionKey: nextRegionKey,
       sort: nextSort,
+      group: nextGroup,
+    );
+    _searchPopupRequestSerial += 1;
+    final page = _mapSearchService.searchPage(
+      query: criteria.query,
+      entityFilter: criteria.entityFilter,
+      regionKey: criteria.regionKey,
+      sort: criteria.sort,
+      group: criteria.group,
+      offset: 0,
     );
     state = state.copyWith(
-      searchPopupQuery: nextQuery,
-      searchPopupResults: results,
-      searchPopupEntityFilter: nextEntityFilter,
-      searchPopupRegionKey: nextRegionKey,
-      clearSearchPopupRegionKey: regionKeyChanged && nextRegionKey == null,
-      searchPopupSort: nextSort,
-      searchPopupGroup: nextGroup,
+      searchPopupQuery: criteria.query,
+      searchPopupResults: page.results,
+      searchPopupLoadedCount: page.results.length,
+      searchPopupIsLoadingMore: false,
+      searchPopupIsExhausted: page.isExhausted,
+      searchPopupEntityFilter: criteria.entityFilter,
+      searchPopupRegionKey: criteria.regionKey,
+      clearSearchPopupRegionKey: regionKeyChanged && criteria.regionKey == null,
+      searchPopupSort: criteria.sort,
+      searchPopupGroup: criteria.group,
+    );
+  }
+
+  Future<void> loadMoreSearchPopupResults() async {
+    if (!state.showPeakSearch ||
+        state.searchPopupIsLoadingMore ||
+        state.searchPopupIsExhausted) {
+      return;
+    }
+
+    final criteria = _searchPopupCriteria();
+    final requestSerial = _searchPopupRequestSerial;
+    final offset = state.searchPopupLoadedCount;
+    state = state.copyWith(searchPopupIsLoadingMore: true);
+
+    await Future<void>.delayed(Duration.zero);
+    if (!ref.mounted || requestSerial != _searchPopupRequestSerial) {
+      return;
+    }
+
+    final page = _mapSearchService.searchPage(
+      query: criteria.query,
+      entityFilter: criteria.entityFilter,
+      regionKey: criteria.regionKey,
+      sort: criteria.sort,
+      group: criteria.group,
+      offset: offset,
+    );
+    if (!ref.mounted || requestSerial != _searchPopupRequestSerial) {
+      return;
+    }
+
+    final nextResults = [...state.searchPopupResults, ...page.results];
+    state = state.copyWith(
+      searchPopupResults: nextResults,
+      searchPopupLoadedCount: nextResults.length,
+      searchPopupIsLoadingMore: false,
+      searchPopupIsExhausted: page.isExhausted,
+    );
+  }
+
+  _SearchPopupCriteria _searchPopupCriteria({
+    String? query,
+    MapSearchEntityFilter? entityFilter,
+    String? regionKey,
+    MapSearchSort? sort,
+    MapSearchGroup? group,
+  }) {
+    return (
+      query: query ?? state.searchPopupQuery,
+      entityFilter: entityFilter ?? state.searchPopupEntityFilter,
+      regionKey: regionKey ?? state.searchPopupRegionKey,
+      sort: sort ?? state.searchPopupSort,
+      group: group ?? state.searchPopupGroup,
     );
   }
 

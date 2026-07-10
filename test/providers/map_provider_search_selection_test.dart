@@ -2,6 +2,7 @@ import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/map_search_result.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
@@ -127,6 +128,181 @@ void main() {
     expect(state.showPeakSearch, isTrue);
     expect(state.searchPopupRegionKey, 'tasmania');
   });
+
+  test(
+    'loadMoreSearchPopupResults appends pages suppresses duplicates and stops when exhausted',
+    () async {
+      final tasmapRepository = await TestTasmapRepository.create();
+      final notifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+        ),
+        gpxTrackRepository: GpxTrackRepository.test(
+          InMemoryGpxTrackStorage(
+            List.generate(50, (index) => _track(index + 1, 'Track $index')),
+          ),
+        ),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(() => notifier),
+          tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final mapNotifier = container.read(mapProvider.notifier);
+      mapNotifier.openSearchPopup();
+      mapNotifier.updateSearchPopupQuery('track');
+
+      var state = container.read(mapProvider);
+      expect(state.searchPopupLoadedCount, 20);
+      expect(state.searchPopupResults, hasLength(20));
+      expect(state.searchPopupIsExhausted, isFalse);
+
+      final firstLoad = mapNotifier.loadMoreSearchPopupResults();
+      final secondLoad = mapNotifier.loadMoreSearchPopupResults();
+
+      expect(container.read(mapProvider).searchPopupIsLoadingMore, isTrue);
+
+      await Future.wait([firstLoad, secondLoad]);
+
+      state = container.read(mapProvider);
+      expect(state.searchPopupLoadedCount, 40);
+      expect(state.searchPopupResults, hasLength(40));
+      expect(
+        state.searchPopupResults.map((result) => result.id).toSet(),
+        hasLength(40),
+      );
+      expect(state.searchPopupIsLoadingMore, isFalse);
+      expect(state.searchPopupIsExhausted, isFalse);
+
+      await mapNotifier.loadMoreSearchPopupResults();
+
+      state = container.read(mapProvider);
+      expect(state.searchPopupLoadedCount, 50);
+      expect(state.searchPopupResults, hasLength(50));
+      expect(state.searchPopupIsExhausted, isTrue);
+
+      await mapNotifier.loadMoreSearchPopupResults();
+
+      state = container.read(mapProvider);
+      expect(state.searchPopupLoadedCount, 50);
+      expect(state.searchPopupResults, hasLength(50));
+      expect(state.searchPopupIsExhausted, isTrue);
+    },
+  );
+
+  test(
+    'popup paging resets on query filter region sort group close and reopen',
+    () async {
+      final tasmapRepository = await TestTasmapRepository.create();
+      final notifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+        ),
+        gpxTrackRepository: GpxTrackRepository.test(
+          InMemoryGpxTrackStorage(
+            List.generate(
+              50,
+              (index) => _track(index + 1, 'Alpha Track ${index + 1}'),
+            ),
+          ),
+        ),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(() => notifier),
+          tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final mapNotifier = container.read(mapProvider.notifier);
+      mapNotifier.openSearchPopup();
+      mapNotifier.updateSearchPopupQuery('alpha');
+      await mapNotifier.loadMoreSearchPopupResults();
+
+      var state = container.read(mapProvider);
+      expect(state.searchPopupLoadedCount, 40);
+      expect(state.searchPopupIsExhausted, isFalse);
+
+      mapNotifier.updateSearchPopupQuery('track');
+      state = container.read(mapProvider);
+      expect(state.searchPopupQuery, 'track');
+      expect(state.searchPopupLoadedCount, 20);
+      expect(state.searchPopupResults, hasLength(20));
+      expect(state.searchPopupIsLoadingMore, isFalse);
+      expect(state.searchPopupIsExhausted, isFalse);
+
+      await mapNotifier.loadMoreSearchPopupResults();
+      expect(container.read(mapProvider).searchPopupLoadedCount, 40);
+
+      mapNotifier.setSearchPopupEntityFilter(
+        MapSearchEntityFilter.tracksRoutes,
+      );
+      state = container.read(mapProvider);
+      expect(state.searchPopupEntityFilter, MapSearchEntityFilter.tracksRoutes);
+      expect(state.searchPopupLoadedCount, 20);
+      expect(state.searchPopupIsLoadingMore, isFalse);
+
+      await mapNotifier.loadMoreSearchPopupResults();
+      expect(container.read(mapProvider).searchPopupLoadedCount, 40);
+
+      mapNotifier.setSearchPopupRegionKey('tasmania');
+      state = container.read(mapProvider);
+      expect(state.searchPopupRegionKey, 'tasmania');
+      expect(state.searchPopupLoadedCount, 20);
+      expect(state.searchPopupIsLoadingMore, isFalse);
+
+      await mapNotifier.loadMoreSearchPopupResults();
+      expect(container.read(mapProvider).searchPopupLoadedCount, 40);
+
+      mapNotifier.setSearchPopupSort(MapSearchSort.nameDescending);
+      state = container.read(mapProvider);
+      expect(state.searchPopupSort, MapSearchSort.nameDescending);
+      expect(state.searchPopupLoadedCount, 20);
+      expect(state.searchPopupIsLoadingMore, isFalse);
+
+      await mapNotifier.loadMoreSearchPopupResults();
+      expect(container.read(mapProvider).searchPopupLoadedCount, 40);
+
+      mapNotifier.setSearchPopupGroup(MapSearchGroup.type);
+      state = container.read(mapProvider);
+      expect(state.searchPopupGroup, MapSearchGroup.type);
+      expect(state.searchPopupLoadedCount, 20);
+      expect(state.searchPopupIsLoadingMore, isFalse);
+
+      mapNotifier.closeSearchPopup();
+      state = container.read(mapProvider);
+      expect(state.showPeakSearch, isFalse);
+      expect(state.searchPopupQuery, isEmpty);
+      expect(state.searchPopupResults, isEmpty);
+      expect(state.searchPopupLoadedCount, 0);
+      expect(state.searchPopupIsLoadingMore, isFalse);
+      expect(state.searchPopupIsExhausted, isTrue);
+      expect(state.searchPopupEntityFilter, MapSearchEntityFilter.all);
+      expect(state.searchPopupRegionKey, isNull);
+      expect(state.searchPopupSort, MapSearchSort.nameAscending);
+      expect(state.searchPopupGroup, MapSearchGroup.none);
+
+      mapNotifier.openSearchPopup();
+      state = container.read(mapProvider);
+      expect(state.showPeakSearch, isTrue);
+      expect(state.searchPopupQuery, isEmpty);
+      expect(state.searchPopupResults, isEmpty);
+      expect(state.searchPopupLoadedCount, 0);
+      expect(state.searchPopupIsLoadingMore, isFalse);
+      expect(state.searchPopupIsExhausted, isTrue);
+      expect(state.searchPopupEntityFilter, MapSearchEntityFilter.all);
+      expect(state.searchPopupSort, MapSearchSort.nameAscending);
+      expect(state.searchPopupGroup, MapSearchGroup.none);
+    },
+  );
 }
 
 GpxTrack _track(int id, String name) {

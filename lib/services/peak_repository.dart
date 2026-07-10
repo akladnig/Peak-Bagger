@@ -1,6 +1,12 @@
+import 'dart:math' as math;
+
+import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/map_search_result.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
+import 'package:peak_bagger/services/map_search_region_filter.dart';
+import 'package:peak_bagger/services/region_manifest_catalog.dart';
 import 'package:peak_bagger/services/peak_source.dart';
 
 import '../core/number_formatters.dart';
@@ -14,6 +20,8 @@ abstract class PeakStorage {
   List<Peak> getAll();
 
   List<Peak> getByName(String query);
+
+  List<Peak> getSearchPopupPeakNameCandidates(String query);
 
   bool get isEmpty;
 
@@ -166,6 +174,16 @@ class ObjectBoxPeakStorage implements PeakStorage {
   }
 
   @override
+  List<Peak> getSearchPopupPeakNameCandidates(String query) {
+    final queryBuilder = _peakBox
+        .query(Peak_.name.contains(query, caseSensitive: false))
+        .build();
+    final results = queryBuilder.find();
+    queryBuilder.close();
+    return results;
+  }
+
+  @override
   bool get isEmpty => _peakBox.isEmpty();
 
   @override
@@ -235,6 +253,14 @@ class InMemoryPeakStorage implements PeakStorage {
 
   @override
   List<Peak> getByName(String query) {
+    final lowered = query.toLowerCase();
+    return _peaks
+        .where((peak) => peak.name.toLowerCase().contains(lowered))
+        .toList(growable: false);
+  }
+
+  @override
+  List<Peak> getSearchPopupPeakNameCandidates(String query) {
     final lowered = query.toLowerCase();
     return _peaks
         .where((peak) => peak.name.toLowerCase().contains(lowered))
@@ -339,6 +365,89 @@ class PeakRepository implements PeakSource {
       return nameMatch || elevMatch;
     }).toList();
   }
+
+  List<Peak> searchPopupPeakCandidates({
+    required String query,
+    required MapSearchSort sort,
+    String? regionKey,
+    required int offset,
+    required int limit,
+  }) {
+    if (query.isEmpty || limit <= 0) {
+      return const [];
+    }
+
+    final start = offset < 0 ? 0 : offset;
+    final candidates = <Peak>[];
+    final seenIds = <String>{};
+
+    void addCandidate(Peak peak) {
+      if (!_peakMatchesPopupRegion(peak, regionKey: regionKey)) {
+        return;
+      }
+      final resultId = _popupPeakResultId(peak);
+      if (!seenIds.add(resultId)) {
+        return;
+      }
+      candidates.add(peak);
+    }
+
+    for (final peak in _storage.getSearchPopupPeakNameCandidates(query)) {
+      addCandidate(peak);
+    }
+    if (_queryCouldMatchElevation(query)) {
+      for (final peak in _storage.getAll()) {
+        final elevation = peak.elevation;
+        if (elevation == null || !elevation.toString().contains(query)) {
+          continue;
+        }
+        addCandidate(peak);
+      }
+    }
+
+    candidates.sort(
+      (left, right) => _comparePopupPeakCandidates(left, right, sort),
+    );
+    if (start >= candidates.length) {
+      return const [];
+    }
+    final end = math.min(start + limit, candidates.length);
+    return candidates.sublist(start, end);
+  }
+
+  int _comparePopupPeakCandidates(Peak left, Peak right, MapSearchSort sort) {
+    final titleComparison = _popupPeakNormalizedTitle(
+      left,
+    ).compareTo(_popupPeakNormalizedTitle(right));
+    if (titleComparison != 0) {
+      return sort == MapSearchSort.nameAscending
+          ? titleComparison
+          : -titleComparison;
+    }
+    return _popupPeakResultId(left).compareTo(_popupPeakResultId(right));
+  }
+
+  String _popupPeakNormalizedTitle(Peak peak) => peak.name.trim().toLowerCase();
+
+  String _popupPeakResultId(Peak peak) => '${peak.osmId}';
+
+  bool _peakMatchesPopupRegion(Peak peak, {required String? regionKey}) {
+    if (regionKey == null) {
+      return true;
+    }
+    final resolvedRegionKey =
+        regionManifestCatalog.regionKeyForPoint(
+          LatLng(peak.latitude, peak.longitude),
+        ) ??
+        peak.region;
+    return peakMatchesSearchRegion(
+      storedPeakRegionKey: peak.region,
+      resolvedRegionKey: resolvedRegionKey,
+      filterRegionKey: regionKey,
+    );
+  }
+
+  bool _queryCouldMatchElevation(String query) => RegExp(r'\d').hasMatch(query);
 
   Peak? findByOsmId(int osmId) {
     for (final peak in _storage.getAll()) {

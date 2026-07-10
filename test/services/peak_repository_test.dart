@@ -1,7 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:peak_bagger/models/map_search_result.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
+import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 
 void main() {
@@ -126,6 +130,106 @@ void main() {
 
       expect(repository.nextSyntheticOsmId(), -4);
     });
+
+    test(
+      'searchPopupPeakCandidates merges name and elevation matches then deduplicates',
+      () async {
+        await repository.addPeaks([
+          Peak(
+            osmId: 1,
+            name: '12er',
+            latitude: -43,
+            longitude: 147,
+            elevation: 512,
+          ),
+          Peak(
+            osmId: 2,
+            name: 'Alpha Peak',
+            latitude: -43,
+            longitude: 147.1,
+            elevation: 1200,
+          ),
+          Peak(
+            osmId: 3,
+            name: 'Beta Peak',
+            latitude: -43,
+            longitude: 147.2,
+            elevation: 812,
+          ),
+        ]);
+
+        final results = repository.searchPopupPeakCandidates(
+          query: '12',
+          sort: MapSearchSort.nameAscending,
+          offset: 0,
+          limit: 10,
+        );
+
+        expect(results.map((peak) => peak.osmId), [1, 2, 3]);
+      },
+    );
+
+    test(
+      'searchPopupPeakCandidates applies popup ordering tie-breaks before paging',
+      () async {
+        await repository.addPeaks([
+          Peak(osmId: 2, name: 'Alpha Peak', latitude: -43, longitude: 147),
+          Peak(osmId: 10, name: 'Alpha Peak', latitude: -43, longitude: 148),
+          Peak(osmId: 1, name: 'Alpha Peak', latitude: -43, longitude: 149),
+        ]);
+
+        final results = repository.searchPopupPeakCandidates(
+          query: 'alpha',
+          sort: MapSearchSort.nameDescending,
+          offset: 1,
+          limit: 1,
+        );
+
+        expect(results.single.osmId, 10);
+      },
+    );
+
+    test(
+      'searchPopupPeakCandidates applies popup region filtering before paging',
+      () async {
+        await repository.addPeaks([
+          Peak(
+            osmId: 1,
+            name: 'FVG Peak',
+            latitude: 46.4084,
+            longitude: 13.0475,
+            elevation: 1906,
+            region: 'fvg',
+          ),
+          Peak(
+            osmId: 2,
+            name: 'Veneto Peak',
+            latitude: 45.7332,
+            longitude: 10.8061,
+            elevation: 2218,
+            region: 'veneto',
+          ),
+          Peak(
+            osmId: 3,
+            name: 'Legacy North East Peak',
+            latitude: 46.3,
+            longitude: 12.9,
+            elevation: 1800,
+            region: 'italy-nord-est',
+          ),
+        ]);
+
+        final results = repository.searchPopupPeakCandidates(
+          query: 'peak',
+          sort: MapSearchSort.nameAscending,
+          regionKey: 'fvg',
+          offset: 0,
+          limit: 10,
+        );
+
+        expect(results.map((peak) => peak.name), ['FVG Peak']);
+      },
+    );
 
     test('save persists corrected peak fields', () async {
       final original = Peak(
@@ -266,6 +370,76 @@ void main() {
         expect(peaksBagged.first.peakId, 456);
         expect(peaksBagged.last.peakId, 999);
       },
+    );
+
+    test(
+      'searchPopupPeakCandidates stays deterministic across storage implementations',
+      () async {
+        final peaks = [
+          Peak(
+            osmId: 2,
+            name: 'Alpha Peak',
+            latitude: -33.7,
+            longitude: 149.0,
+            elevation: 1200,
+            region: 'new-south-wales',
+          ),
+          Peak(
+            osmId: 10,
+            name: 'Alpha Peak',
+            latitude: -33.8,
+            longitude: 149.1,
+            elevation: 912,
+            region: 'new-south-wales',
+          ),
+          Peak(
+            osmId: 3,
+            name: 'Zeta Peak',
+            latitude: -43,
+            longitude: 147,
+            elevation: 812,
+          ),
+        ];
+        final tempDir = await Directory.systemTemp.createTemp('peak-popup');
+        addTearDown(() async {
+          if (tempDir.existsSync()) {
+            await tempDir.delete(recursive: true);
+          }
+        });
+        final store = await openStore(directory: tempDir.path);
+        addTearDown(store.close);
+
+        final objectBoxRepository = PeakRepository.test(
+          ObjectBoxPeakStorage(store),
+          peakListRewritePort: _NoopPeakListRewritePort(),
+        );
+        final inMemoryRepository = PeakRepository.test(
+          InMemoryPeakStorage(peaks),
+          peakListRewritePort: _NoopPeakListRewritePort(),
+        );
+        await objectBoxRepository.addPeaks(peaks);
+
+        final objectBoxResults = objectBoxRepository.searchPopupPeakCandidates(
+          query: '12',
+          sort: MapSearchSort.nameAscending,
+          regionKey: 'new-south-wales',
+          offset: 0,
+          limit: 10,
+        );
+        final inMemoryResults = inMemoryRepository.searchPopupPeakCandidates(
+          query: '12',
+          sort: MapSearchSort.nameAscending,
+          regionKey: 'new-south-wales',
+          offset: 0,
+          limit: 10,
+        );
+
+        expect(
+          objectBoxResults.map((peak) => peak.osmId).toList(),
+          inMemoryResults.map((peak) => peak.osmId).toList(),
+        );
+      },
+      skip: 'ObjectBox native library unavailable in flutter test environment',
     );
   });
 }
