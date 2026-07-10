@@ -528,8 +528,8 @@ class _SummaryHeader extends StatelessWidget {
                 ),
                 child: Theme(
                   data: theme.copyWith(
-                    hoverColor: theme.colorScheme.primary.withValues(
-                      alpha: 0.4,
+                    hoverColor: theme.colorScheme.onPrimary.withValues(
+                      alpha: 0.8,
                     ),
                   ),
                   child: PopupMenuButton<SummaryPeriodPreset>(

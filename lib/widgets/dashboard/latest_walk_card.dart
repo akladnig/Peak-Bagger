@@ -189,7 +189,7 @@ class _LatestWalkContent extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: isClickable
-                        ? titleStyle?.copyWith(color: theme.colorScheme.primaryContainer)
+                        ? titleStyle?.copyWith(color: theme.seedColour)
                         : titleStyle,
                   ),
                 ),

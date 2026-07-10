@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:peak_bagger/theme.dart';
 
 import '../core/constants.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
@@ -218,7 +219,7 @@ class ObjectBoxAdminDataRowTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final highlight = selected
-        ? Theme.of(context).colorScheme.primaryContainer
+        ? Theme.of(context).seedColour
         : Colors.transparent;
 
     return Material(
@@ -232,7 +233,7 @@ class ObjectBoxAdminDataRowTile extends StatelessWidget {
               width: primaryColumnWidth,
               child: ColoredBox(
                 color: selected
-                    ? Theme.of(context).colorScheme.primaryContainer
+                    ? Theme.of(context).seedColour
                     : Theme.of(context).colorScheme.surface,
                 child: Text(
                   objectBoxAdminPreviewFieldValue(
