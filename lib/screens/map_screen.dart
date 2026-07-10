@@ -2072,6 +2072,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
           showPeakSearch: state.showPeakSearch,
           searchResults: state.searchPopupResults,
           searchQuery: state.searchPopupQuery,
+          searchIsLoadingMore: state.searchPopupIsLoadingMore,
+          searchIsExhausted: state.searchPopupIsExhausted,
           searchEntityFilter: state.searchPopupEntityFilter,
           searchRegionKey: state.searchPopupRegionKey,
           searchSort: state.searchPopupSort,
@@ -3493,6 +3495,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                       child: MapSearchPopup(
                         focusNode: _searchFocusNode,
                         searchResults: routeChrome.searchResults,
+                        isLoadingMore: routeChrome.searchIsLoadingMore,
+                        isExhausted: routeChrome.searchIsExhausted,
                         searchQuery: routeChrome.searchQuery,
                         entityFilter: routeChrome.searchEntityFilter,
                         selectedRegionKey: routeChrome.searchRegionKey,
@@ -3523,6 +3527,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
                           ref
                               .read(mapProvider.notifier)
                               .setSearchPopupGroup(value);
+                        },
+                        onLoadMore: () {
+                          ref
+                              .read(mapProvider.notifier)
+                              .loadMoreSearchPopupResults();
                         },
                         onClose: () {
                           _searchFocusNode.unfocus();

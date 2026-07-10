@@ -55,6 +55,7 @@ class TestMapNotifier extends MapNotifier {
     this.routeRepository,
     this.routePlanningOutcomes = const [],
     this.routeSaveErrorMessage,
+    this.searchPopupLoadMoreDelay = Duration.zero,
     Set<int> correlatedPeakIds = const {},
   }) : _correlatedPeakIds = correlatedPeakIds,
        _startupBackfillWarningMessage = startupBackfillWarningMessage;
@@ -75,6 +76,7 @@ class TestMapNotifier extends MapNotifier {
   final RouteRepository? routeRepository;
   final List<Object> routePlanningOutcomes;
   final String? routeSaveErrorMessage;
+  final Duration searchPopupLoadMoreDelay;
   final Set<int> _correlatedPeakIds;
   bool _snackbarConsumed = false;
   String? _trackSnackbarMessage;
@@ -840,7 +842,7 @@ class TestMapNotifier extends MapNotifier {
     final offset = state.searchPopupLoadedCount;
     state = state.copyWith(searchPopupIsLoadingMore: true);
 
-    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(searchPopupLoadMoreDelay);
     if (!ref.mounted || requestSerial != _searchPopupRequestSerial) {
       return;
     }

@@ -377,6 +377,123 @@ void main() {
     },
   );
 
+  testWidgets(
+    'scrolling near the bottom appends results and shows inline loading more affordance',
+    (tester) async {
+      final notifier = TestMapNotifier(
+        _mapStateWithPeaks(),
+        gpxTrackRepository: GpxTrackRepository.test(
+          InMemoryGpxTrackStorage(
+            List.generate(25, (index) => _track(index + 1, 'Track $index')),
+          ),
+        ),
+        searchPopupLoadMoreDelay: const Duration(milliseconds: 100),
+      );
+      await _pumpMapAppWithNotifier(tester, notifier);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('map-interaction-region'))),
+      );
+
+      await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('map-search-entity-tracks-routes')),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('map-search-input')),
+        'track',
+      );
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pumpAndSettle();
+
+      expect(container.read(mapProvider).searchPopupLoadedCount, 20);
+      expect(container.read(mapProvider).searchPopupIsLoadingMore, isFalse);
+      expect(container.read(mapProvider).searchPopupIsExhausted, isFalse);
+
+      await tester.drag(
+        find.byKey(const Key('map-search-results-list')),
+        const Offset(0, -2000),
+      );
+      await tester.pump();
+
+      expect(find.byKey(const Key('map-search-loading-more')), findsOneWidget);
+      expect(find.byType(ListTile), findsWidgets);
+      expect(container.read(mapProvider).searchPopupLoadedCount, 20);
+      expect(container.read(mapProvider).searchPopupIsLoadingMore, isTrue);
+
+      await tester.drag(
+        find.byKey(const Key('map-search-results-list')),
+        const Offset(0, -400),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('map-search-loading-more')), findsNothing);
+      expect(container.read(mapProvider).searchPopupLoadedCount, 25);
+      expect(container.read(mapProvider).searchPopupIsLoadingMore, isFalse);
+      expect(container.read(mapProvider).searchPopupIsExhausted, isTrue);
+      expect(
+        find.byKey(const Key('map-search-result-track-25')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'changing popup controls resets the visible list to the first page',
+    (tester) async {
+      final notifier = TestMapNotifier(
+        _mapStateWithPeaks(),
+        gpxTrackRepository: GpxTrackRepository.test(
+          InMemoryGpxTrackStorage(
+            List.generate(25, (index) => _track(index + 1, 'Track $index')),
+          ),
+        ),
+      );
+      await _pumpMapAppWithNotifier(tester, notifier);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('map-interaction-region'))),
+      );
+
+      await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('map-search-entity-tracks-routes')),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('map-search-input')),
+        'track',
+      );
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pumpAndSettle();
+
+      await tester.drag(
+        find.byKey(const Key('map-search-results-list')),
+        const Offset(0, -2000),
+      );
+      await tester.pumpAndSettle();
+
+      expect(container.read(mapProvider).searchPopupLoadedCount, 25);
+
+      await tester.ensureVisible(
+        find.byKey(const Key('map-search-sort-button')),
+      );
+      await tester.tap(find.byKey(const Key('map-search-sort-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('map-search-sort-name-descending')).last,
+      );
+      await tester.pumpAndSettle();
+
+      expect(container.read(mapProvider).searchPopupLoadedCount, 20);
+      expect(container.read(mapProvider).searchPopupIsLoadingMore, isFalse);
+      expect(container.read(mapProvider).searchPopupIsExhausted, isFalse);
+      expect(find.byKey(const Key('map-search-loading-more')), findsNothing);
+    },
+  );
+
   testWidgets('Search FAB reopens the shared Search popup with default state', (
     tester,
   ) async {

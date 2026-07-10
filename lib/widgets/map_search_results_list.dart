@@ -5,59 +5,132 @@ import '../core/constants.dart';
 import '../models/map_search_result.dart';
 import '../theme.dart';
 
-class MapSearchResultsList extends StatelessWidget {
+class MapSearchResultsList extends StatefulWidget {
   const MapSearchResultsList({
     required this.searchResults,
+    required this.isLoadingMore,
+    required this.isExhausted,
     required this.searchQuery,
     required this.sort,
     required this.group,
+    required this.onLoadMore,
     required this.onSelectResult,
     super.key,
   });
 
   final List<MapSearchResult> searchResults;
+  final bool isLoadingMore;
+  final bool isExhausted;
   final String searchQuery;
   final MapSearchSort sort;
   final MapSearchGroup group;
+  final VoidCallback onLoadMore;
   final ValueChanged<MapSearchResult> onSelectResult;
 
   @override
+  State<MapSearchResultsList> createState() => _MapSearchResultsListState();
+}
+
+class _MapSearchResultsListState extends State<MapSearchResultsList> {
+  static const _loadMoreThreshold = 120.0;
+
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+    _maybeLoadMore(notification.metrics);
+    return false;
+  }
+
+  void _maybeLoadMore(ScrollMetrics metrics) {
+    if (widget.isLoadingMore ||
+        widget.isExhausted ||
+        widget.searchResults.isEmpty ||
+        widget.searchQuery.trim().length <
+            MapConstants.searchPopupMinimumQueryLength) {
+      return;
+    }
+    final remaining = metrics.maxScrollExtent - metrics.pixels;
+    if (remaining <= _loadMoreThreshold) {
+      widget.onLoadMore();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final trimmedQuery = searchQuery.trim();
-    if (searchResults.isNotEmpty) {
+    final trimmedQuery = widget.searchQuery.trim();
+    if (widget.searchResults.isNotEmpty) {
       final rows = _rowsForResults();
-      return ListView.separated(
-        shrinkWrap: true,
-        itemCount: rows.length,
-        separatorBuilder: (context, index) => thinDivider,
-        itemBuilder: (context, index) {
-          final row = rows[index];
-          return switch (row) {
-            _MapSearchGroupHeaderRow(:final label) => Padding(
-              key: Key('map-search-group-header-${_headerKeyFor(label)}'),
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: Text(label, style: Theme.of(context).textTheme.titleSmall),
-            ),
-            _MapSearchResultRow(:final result) => ListTile(
-              key: Key('map-search-result-${result.type.name}-${result.id}'),
-              dense: true,
-              leading: Icon(_iconFor(result.type)),
-              title: Row(
-                children: [
-                  Expanded(
-                    child: Text(result.title, overflow: TextOverflow.ellipsis),
-                  ),
-                  if (result.trailingText case final trailingText?) ...[
-                    const SizedBox(width: 8),
-                    Text(trailingText),
+      return NotificationListener<ScrollNotification>(
+        onNotification: _handleScrollNotification,
+        child: ListView.separated(
+          key: const Key('map-search-results-list'),
+          controller: _scrollController,
+          shrinkWrap: true,
+          itemCount: rows.length + (widget.isLoadingMore ? 1 : 0),
+          separatorBuilder: (context, index) => thinDivider,
+          itemBuilder: (context, index) {
+            if (index >= rows.length) {
+              return const Padding(
+                key: Key('map-search-loading-more'),
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    SizedBox(width: 8),
+                    Text('Loading more...'),
                   ],
-                ],
+                ),
+              );
+            }
+
+            final row = rows[index];
+            return switch (row) {
+              _MapSearchGroupHeaderRow(:final label) => Padding(
+                key: Key('map-search-group-header-${_headerKeyFor(label)}'),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
               ),
-              subtitle: Text(result.subtitle),
-              onTap: () => onSelectResult(result),
-            ),
-          };
-        },
+              _MapSearchResultRow(:final result) => ListTile(
+                key: Key('map-search-result-${result.type.name}-${result.id}'),
+                dense: true,
+                leading: Icon(_iconFor(result.type)),
+                title: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        result.title,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (result.trailingText case final trailingText?) ...[
+                      const SizedBox(width: 8),
+                      Text(trailingText),
+                    ],
+                  ],
+                ),
+                subtitle: Text(result.subtitle),
+                onTap: () => widget.onSelectResult(result),
+              ),
+            };
+          },
+        ),
       );
     }
 
@@ -94,14 +167,14 @@ class MapSearchResultsList extends StatelessWidget {
   }
 
   List<_MapSearchRow> _rowsForResults() {
-    if (group == MapSearchGroup.none) {
-      return searchResults
+    if (widget.group == MapSearchGroup.none) {
+      return widget.searchResults
           .map<_MapSearchRow>((result) => _MapSearchResultRow(result))
           .toList(growable: false);
     }
 
     final grouped = <String, List<MapSearchResult>>{};
-    for (final result in searchResults) {
+    for (final result in widget.searchResults) {
       final label = _groupLabelFor(result);
       grouped.putIfAbsent(label, () => []).add(result);
     }
@@ -117,7 +190,7 @@ class MapSearchResultsList extends StatelessWidget {
             right.normalizedTitle,
           );
           if (comparison != 0) {
-            return sort == MapSearchSort.nameAscending
+            return widget.sort == MapSearchSort.nameAscending
                 ? comparison
                 : -comparison;
           }
@@ -129,7 +202,7 @@ class MapSearchResultsList extends StatelessWidget {
   }
 
   String _groupLabelFor(MapSearchResult result) {
-    return switch (group) {
+    return switch (widget.group) {
       MapSearchGroup.none => '',
       MapSearchGroup.region => result.regionName ?? 'Unknown Region',
       MapSearchGroup.type => switch (result.type) {
@@ -146,7 +219,9 @@ class MapSearchResultsList extends StatelessWidget {
     if (comparison == 0) {
       return 0;
     }
-    return sort == MapSearchSort.nameAscending ? comparison : -comparison;
+    return widget.sort == MapSearchSort.nameAscending
+        ? comparison
+        : -comparison;
   }
 
   String _headerKeyFor(String label) {

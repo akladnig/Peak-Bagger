@@ -17,6 +17,8 @@ class MapSearchPopup extends StatefulWidget {
   const MapSearchPopup({
     required this.focusNode,
     required this.searchResults,
+    required this.isLoadingMore,
+    required this.isExhausted,
     required this.searchQuery,
     required this.entityFilter,
     required this.selectedRegionKey,
@@ -28,6 +30,7 @@ class MapSearchPopup extends StatefulWidget {
     required this.onSelectRegionKey,
     required this.onSelectSort,
     required this.onSelectGroup,
+    required this.onLoadMore,
     required this.onClose,
     required this.onSelectResult,
     super.key,
@@ -35,6 +38,8 @@ class MapSearchPopup extends StatefulWidget {
 
   final FocusNode focusNode;
   final List<MapSearchResult> searchResults;
+  final bool isLoadingMore;
+  final bool isExhausted;
   final String searchQuery;
   final MapSearchEntityFilter entityFilter;
   final String? selectedRegionKey;
@@ -46,6 +51,7 @@ class MapSearchPopup extends StatefulWidget {
   final ValueChanged<String?> onSelectRegionKey;
   final ValueChanged<MapSearchSort> onSelectSort;
   final ValueChanged<MapSearchGroup> onSelectGroup;
+  final VoidCallback onLoadMore;
   final VoidCallback onClose;
   final ValueChanged<MapSearchResult> onSelectResult;
 
@@ -378,10 +384,20 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
               const SizedBox(height: PopupUIConstants.headerSpacing),
               Expanded(
                 child: MapSearchResultsList(
+                  key: ValueKey((
+                    widget.searchQuery,
+                    widget.entityFilter,
+                    widget.selectedRegionKey,
+                    widget.sort,
+                    widget.group,
+                  )),
                   searchResults: widget.searchResults,
+                  isLoadingMore: widget.isLoadingMore,
+                  isExhausted: widget.isExhausted,
                   searchQuery: widget.searchQuery,
                   sort: widget.sort,
                   group: widget.group,
+                  onLoadMore: widget.onLoadMore,
                   onSelectResult: widget.onSelectResult,
                 ),
               ),
