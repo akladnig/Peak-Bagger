@@ -113,7 +113,7 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
                   }
                 }
               : null,
-          selectedColor: theme.colorScheme.primaryContainer,
+          selectedColor: theme.seedColour,
           disabledColor: theme.colorScheme.surfaceContainer,
         ),
       ],
