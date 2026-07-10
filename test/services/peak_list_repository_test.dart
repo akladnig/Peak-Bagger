@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
 
 void main() {
   group('PeakListRepository', () {
@@ -140,6 +141,83 @@ void main() {
       );
     });
 
+    test('Tassy Full single add rejects non-Tasmanian peaks', () async {
+      final repository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(name: 'Tassy Full', peakList: '[]')..peakListId = 1,
+        ]),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            Peak(
+              osmId: 11,
+              name: 'Mainland Peak',
+              latitude: -37,
+              longitude: 145,
+              region: 'victoria',
+            ),
+          ]),
+        ),
+      );
+
+      await expectLater(
+        repository.addPeakItem(
+          peakListId: 1,
+          item: const PeakListItem(peakOsmId: 11, points: 9),
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            PeakListRepository.tassyFullTasmaniaOnlyError,
+          ),
+        ),
+      );
+
+      expect(decodePeakListItems(repository.findById(1)!.peakList), isEmpty);
+    });
+
+    test(
+      'Tassy Full batch add fails atomically when any peak is non-Tasmanian',
+      () async {
+        final repository = PeakListRepository.test(
+          InMemoryPeakListStorage([
+            PeakList(name: 'Tassy Full', peakList: '[]')..peakListId = 1,
+          ]),
+          peakRepository: PeakRepository.test(
+            InMemoryPeakStorage([
+              Peak(osmId: 11, name: 'Tas Peak', latitude: -41, longitude: 146),
+              Peak(
+                osmId: 22,
+                name: 'Mainland Peak',
+                latitude: -37,
+                longitude: 145,
+                region: 'victoria',
+              ),
+            ]),
+          ),
+        );
+
+        await expectLater(
+          repository.addPeakItems(
+            peakListId: 1,
+            items: const [
+              PeakListItem(peakOsmId: 11, points: 3),
+              PeakListItem(peakOsmId: 22, points: 7),
+            ],
+          ),
+          throwsA(
+            isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              PeakListRepository.tassyFullTasmaniaOnlyError,
+            ),
+          ),
+        );
+
+        expect(decodePeakListItems(repository.findById(1)!.peakList), isEmpty);
+      },
+    );
+
     test(
       'findPeakListNamesForPeak returns sorted unique memberships',
       () async {
@@ -205,27 +283,26 @@ void main() {
       expect(repository.findByName('Victoria')?.region, 'victoria');
     });
 
-    test('save assigns the default palette colour when colour is zero', () async {
-      final repository = PeakListRepository.test(InMemoryPeakListStorage());
+    test(
+      'save assigns the default palette colour when colour is zero',
+      () async {
+        final repository = PeakListRepository.test(InMemoryPeakListStorage());
 
-      final saved = await repository.save(
-        PeakList(name: 'Abels', peakList: '[]'),
-      );
+        final saved = await repository.save(
+          PeakList(name: 'Abels', peakList: '[]'),
+        );
 
-      expect(saved.peakListId, 1);
-      expect(saved.colour, 0xFF4C8BF5);
-      expect(repository.findById(saved.peakListId)?.colour, 0xFF4C8BF5);
-    });
+        expect(saved.peakListId, 1);
+        expect(saved.colour, 0xFF4C8BF5);
+        expect(repository.findById(saved.peakListId)?.colour, 0xFF4C8BF5);
+      },
+    );
 
     test('save preserves an explicit non-zero colour', () async {
       final repository = PeakListRepository.test(InMemoryPeakListStorage());
 
       final saved = await repository.save(
-        PeakList(
-          name: 'Abels',
-          peakList: '[]',
-          colour: 0xFF123456,
-        ),
+        PeakList(name: 'Abels', peakList: '[]', colour: 0xFF123456),
       );
 
       expect(saved.colour, 0xFF123456);

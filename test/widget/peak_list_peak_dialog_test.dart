@@ -601,6 +601,57 @@ void main() {
     );
   });
 
+  testWidgets('Tassy Full add mode hides non-Tasmanian peaks from search', (
+    tester,
+  ) async {
+    final tasPeak = _buildPeak(
+      osmId: 101,
+      name: 'Tas Peak',
+      latitude: -41,
+      longitude: 146,
+    );
+    final mainlandPeak = _buildPeak(
+      osmId: 202,
+      name: 'Mainland Peak',
+      latitude: -37,
+      longitude: 145,
+      region: 'victoria',
+    );
+
+    await _pumpDialog(
+      tester,
+      dialog: PeakListPeakDialog(
+        mode: PeakListPeakDialogMode.add,
+        peakList: PeakList(name: 'Tassy Full', peakList: '[]')..peakListId = 1,
+        peakListRepository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            PeakList(name: 'Tassy Full', peakList: '[]')..peakListId = 1,
+          ]),
+          peakRepository: PeakRepository.test(
+            InMemoryPeakStorage([tasPeak, mainlandPeak]),
+          ),
+        ),
+        peakItems: const [],
+        ascentRows: const [],
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([tasPeak, mainlandPeak]),
+      ),
+      tasmapRepository: await TestTasmapRepository.create(),
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('peak-list-peak-search-input')),
+      'Peak',
+    );
+    await tester.pump();
+
+    expect(find.byKey(const Key('peak-multi-select-row-101')), findsOneWidget);
+    expect(find.byKey(const Key('peak-multi-select-row-202')), findsNothing);
+    expect(find.text('Mainland Peak'), findsNothing);
+  });
+
   testWidgets('add mode shows existing peaks as checked and saves new ones', (
     tester,
   ) async {
@@ -1057,6 +1108,91 @@ void main() {
   );
 
   testWidgets(
+    'Tassy Full multi-add fails atomically with the exact Tasmania-only message',
+    (tester) async {
+      final listRepository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(peakListId: 1, name: 'Tassy Full', peakList: '[]'),
+        ]),
+      );
+      final tasPeak = _buildPeak(
+        osmId: 101,
+        name: 'Tas Peak',
+        latitude: -41,
+        longitude: 146,
+      );
+      final secondPeak = _buildPeak(
+        osmId: 202,
+        name: 'Second Peak',
+        latitude: -41.2,
+        longitude: 146.2,
+      );
+      final peakRepository = PeakRepository.test(
+        InMemoryPeakStorage([tasPeak, secondPeak]),
+      );
+      final mapNotifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          peakListSelectionMode: PeakListSelectionMode.specificList,
+          selectedPeakListIds: {1},
+        ),
+      );
+
+      await _pumpDialog(
+        tester,
+        dialog: PeakListPeakDialog(
+          mode: PeakListPeakDialogMode.add,
+          peakList: listRepository.getAllPeakLists().single,
+          peakListRepository: PeakListRepository.test(
+            listRepository.storage,
+            peakRepository: peakRepository,
+          ),
+          peakItems: const [],
+          ascentRows: const [],
+        ),
+        peakRepository: peakRepository,
+        tasmapRepository: await TestTasmapRepository.create(),
+        gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+        mapNotifier: mapNotifier,
+        peakListRepository: PeakListRepository.test(
+          listRepository.storage,
+          peakRepository: peakRepository,
+        ),
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(MaterialApp)),
+      );
+
+      await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-101')));
+      await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-202')));
+      await tester.pump();
+
+      await peakRepository.save(secondPeak.copyWith(region: 'victoria'));
+
+      await tester.tap(find.byKey(const Key('peak-list-peak-save')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.text('Peak List Update Failed'), findsOneWidget);
+      expect(
+        find.text('Tassy Full only accepts Tasmanian peaks.'),
+        findsOneWidget,
+      );
+      expect(container.read(peakListRevisionProvider), 0);
+      expect(
+        decodePeakListItems(listRepository.getAllPeakLists().single.peakList),
+        isEmpty,
+      );
+      expect(
+        find.byKey(const Key('peak-list-peak-failure-close')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
     'tapping peak name navigates to map centered on peak at zoom 15',
     (tester) async {
       final peak = _buildPeak(
@@ -1238,6 +1374,7 @@ Peak _buildPeak({
   String easting = '',
   String northing = '',
   double? elevation,
+  String region = Peak.defaultRegion,
 }) {
   return Peak(
     osmId: osmId,
@@ -1245,6 +1382,7 @@ Peak _buildPeak({
     elevation: elevation,
     latitude: latitude,
     longitude: longitude,
+    region: region,
     gridZoneDesignator: gridZoneDesignator,
     mgrs100kId: mgrs100kId,
     easting: easting,

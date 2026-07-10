@@ -280,7 +280,7 @@ void main() {
       find.descendant(
         of: find.byKey(const Key('update-tassy-full-peak-list-tile')),
         matching: find.text(
-          'Updates the Tassy Full Peak List to include peaks from all other peak lists',
+          'Updates the Tassy Full Peak List using Tasmanian peaks from other peak lists',
         ),
       ),
       findsOneWidget,

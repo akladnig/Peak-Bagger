@@ -5,26 +5,31 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
 
 import '../harness/test_peak_notifier.dart';
 
 void main() {
-  testWidgets('update tassy full cancel is a no-op', (tester) async {
+  testWidgets('update tassy full shows updated copy and cancel is a no-op', (
+    tester,
+  ) async {
     _setLargeViewport(tester);
-    final repository = PeakListRepository.test(
-      InMemoryPeakListStorage([
+    final repository = _buildRepository(
+      peakLists: [
         PeakList(
           name: 'Abels',
           peakList: encodePeakListItems([
             const PeakListItem(peakOsmId: 11, points: 2),
           ]),
         )..peakListId = 1,
-      ]),
+      ],
+      peaks: [_peak(11)],
     );
     final mapNotifier = TestPeakNotifier(
       MapState(
@@ -56,10 +61,23 @@ void main() {
       scrollable: settingsScrollable,
     );
 
+    expect(
+      find.text(
+        'Updates the Tassy Full Peak List using Tasmanian peaks from other peak lists',
+      ),
+      findsOneWidget,
+    );
+
     await tester.tap(find.byKey(const Key('update-tassy-full-peak-list-tile')));
     await tester.pump();
 
     expect(find.text('Update Tassy Full Peak List?'), findsOneWidget);
+    expect(
+      find.text(
+        'This will update Tassy Full using Tasmanian peaks from other peak lists and remove non-Tasmanian peaks. Do you wish to proceed?',
+      ),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const Key('update-tassy-full-cancel')));
     await tester.pump();
@@ -72,8 +90,8 @@ void main() {
   testWidgets('update tassy full shows success dialog', (tester) async {
     _setLargeViewport(tester);
     final peakIds = List<int>.generate(1234, (index) => index + 1);
-    final repository = PeakListRepository.test(
-      InMemoryPeakListStorage([
+    final repository = _buildRepository(
+      peakLists: [
         PeakList(
           name: 'Abels',
           peakList: encodePeakListItems([
@@ -81,7 +99,17 @@ void main() {
               PeakListItem(peakOsmId: peakId, points: 1),
           ]),
         )..peakListId = 1,
-      ]),
+        PeakList(
+          name: 'Tassy Full',
+          peakList: encodePeakListItems([
+            const PeakListItem(peakOsmId: 2000, points: 9),
+          ]),
+        )..peakListId = 2,
+      ],
+      peaks: [
+        for (final peakId in peakIds) _peak(peakId),
+        _peak(2000, region: 'new-south-wales'),
+      ],
     );
     final mapNotifier = TestPeakNotifier(
       MapState(
@@ -137,6 +165,10 @@ void main() {
       findsOneWidget,
     );
     expect(
+      find.descendant(of: dialog, matching: find.text('Removed 1 peak')),
+      findsOneWidget,
+    );
+    expect(
       find.byKey(const Key('update-tassy-full-result-close')),
       findsOneWidget,
     );
@@ -150,8 +182,8 @@ void main() {
 
   testWidgets('update tassy full shows failure dialog', (tester) async {
     _setLargeViewport(tester);
-    final repository = PeakListRepository.test(
-      _FailingTassyFullStorage([
+    final repository = _buildRepository(
+      storage: _FailingTassyFullStorage([
         PeakList(
           name: 'Abels',
           peakList: encodePeakListItems([
@@ -159,6 +191,8 @@ void main() {
           ]),
         )..peakListId = 1,
       ]),
+      peakLists: const [],
+      peaks: [_peak(11)],
     );
     final mapNotifier = TestPeakNotifier(
       MapState(
@@ -247,4 +281,25 @@ void _setLargeViewport(WidgetTester tester) {
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+}
+
+PeakListRepository _buildRepository({
+  PeakListStorage? storage,
+  required List<PeakList> peakLists,
+  required List<Peak> peaks,
+}) {
+  return PeakListRepository.test(
+    storage ?? InMemoryPeakListStorage(peakLists),
+    peakRepository: PeakRepository.test(InMemoryPeakStorage(peaks)),
+  );
+}
+
+Peak _peak(int osmId, {String region = Peak.defaultRegion}) {
+  return Peak(
+    osmId: osmId,
+    name: 'Peak $osmId',
+    latitude: -41.5,
+    longitude: 146.5,
+    region: region,
+  );
 }

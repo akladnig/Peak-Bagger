@@ -1,6 +1,7 @@
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/peak_list_colour_resolver.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/tassy_full_peak_list_sync_service.dart';
 
 import '../objectbox.g.dart';
@@ -174,11 +175,21 @@ class InMemoryPeakListStorage implements PeakListStorage {
 }
 
 class PeakListRepository {
-  PeakListRepository(Store store) : _storage = ObjectBoxPeakListStorage(store);
+  static const String tassyFullTasmaniaOnlyError =
+      'Tassy Full only accepts Tasmanian peaks.';
 
-  PeakListRepository.test(PeakListStorage storage) : _storage = storage;
+  PeakListRepository(Store store, {PeakRepository? peakRepository})
+    : _storage = ObjectBoxPeakListStorage(store),
+      _peakRepository = peakRepository;
+
+  PeakListRepository.test(
+    PeakListStorage storage, {
+    PeakRepository? peakRepository,
+  }) : _storage = storage,
+       _peakRepository = peakRepository;
 
   final PeakListStorage _storage;
+  final PeakRepository? _peakRepository;
 
   PeakListStorage get storage => _storage;
 
@@ -215,6 +226,21 @@ class PeakListRepository {
     return _storage.getById(peakListId);
   }
 
+  Peak? findPeakByOsmId(int peakOsmId) {
+    return _peakRepository?.findByOsmId(peakOsmId);
+  }
+
+  Map<int, String?> peakRegionsByOsmId() {
+    final peakRepository = _peakRepository;
+    if (peakRepository == null) {
+      return const {};
+    }
+
+    return {
+      for (final peak in peakRepository.getAllPeaks()) peak.osmId: peak.region,
+    };
+  }
+
   Future<void> delete(int peakListId) {
     return _storage.delete(peakListId);
   }
@@ -223,10 +249,7 @@ class PeakListRepository {
     PeakList peakList, {
     void Function()? beforePutForTest,
   }) async {
-    return saveWithoutSync(
-      peakList,
-      beforePutForTest: beforePutForTest,
-    );
+    return saveWithoutSync(peakList, beforePutForTest: beforePutForTest);
   }
 
   Future<PeakList> saveWithoutSync(
@@ -255,14 +278,26 @@ class PeakListRepository {
     required int peakListId,
     required PeakListItem item,
   }) async {
+    return addPeakItems(peakListId: peakListId, items: [item]);
+  }
+
+  Future<PeakList> addPeakItems({
+    required int peakListId,
+    required List<PeakListItem> items,
+  }) async {
     final peakList = _requireById(peakListId);
-    final items = decodePeakListItems(peakList.peakList);
-    if (items.any((entry) => entry.peakOsmId == item.peakOsmId)) {
-      throw StateError('Peak already exists in list');
-    }
+    final existingItems = decodePeakListItems(peakList.peakList);
+
+    _validateAddedPeakItems(
+      peakList: peakList,
+      existingItems: existingItems,
+      addedItems: items,
+    );
 
     return save(
-      peakList.copyWith(peakList: encodePeakListItems([...items, item])),
+      peakList.copyWith(
+        peakList: encodePeakListItems([...existingItems, ...items]),
+      ),
     );
   }
 
@@ -314,9 +349,38 @@ class PeakListRepository {
     return peakList;
   }
 
+  void _validateAddedPeakItems({
+    required PeakList peakList,
+    required List<PeakListItem> existingItems,
+    required List<PeakListItem> addedItems,
+  }) {
+    final existingPeakIds = existingItems
+        .map((entry) => entry.peakOsmId)
+        .toSet();
+    final addedPeakIds = <int>{};
+
+    for (final item in addedItems) {
+      if (!addedPeakIds.add(item.peakOsmId) ||
+          existingPeakIds.contains(item.peakOsmId)) {
+        throw StateError('Peak already exists in list');
+      }
+    }
+
+    if (peakList.name != TassyFullPeakListSyncService.targetName) {
+      return;
+    }
+
+    for (final item in addedItems) {
+      if (findPeakByOsmId(item.peakOsmId)?.region != Peak.defaultRegion) {
+        throw StateError(tassyFullTasmaniaOnlyError);
+      }
+    }
+  }
+
   PeakList _normalizePeakListForStorage(PeakList peakList) {
     final trimmedRegion = peakList.region.trim();
-    if (trimmedRegion.isEmpty || trimmedRegion.toLowerCase() == Peak.defaultRegion) {
+    if (trimmedRegion.isEmpty ||
+        trimmedRegion.toLowerCase() == Peak.defaultRegion) {
       return peakList.copyWith(region: Peak.defaultRegion);
     }
 
