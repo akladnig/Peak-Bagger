@@ -50,7 +50,10 @@ void main() async {
     objectboxStore,
     peakListRewritePort: peakListRewritePort,
   );
-  final peakListRepo = PeakListRepository(objectboxStore);
+  final peakListRepo = PeakListRepository(
+    objectboxStore,
+    peakRepository: peakRepository,
+  );
   final overpassService = OverpassService();
   final routeGraphRepository = RouteGraphRepository.objectBox(objectboxStore);
   final routeGraphImportService = RouteGraphImportService(routeGraphRepository);
@@ -80,7 +83,9 @@ void main() async {
         objectboxAdminRepositoryProvider.overrideWithValue(
           ObjectBoxAdminRepositoryImpl(store: objectboxStore),
         ),
-        bootstrappedThemePreferencesProvider.overrideWithValue(themePreferences),
+        bootstrappedThemePreferencesProvider.overrideWithValue(
+          themePreferences,
+        ),
       ],
       child: const App(),
     ),

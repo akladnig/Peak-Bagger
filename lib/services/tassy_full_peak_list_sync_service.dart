@@ -1,5 +1,6 @@
 import 'dart:developer' as developer;
 
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 
@@ -7,12 +8,14 @@ class TassyFullPeakListSyncResult {
   const TassyFullPeakListSyncResult({
     required this.addedCount,
     required this.updatedCount,
+    required this.removedCount,
   });
 
   final int addedCount;
   final int updatedCount;
+  final int removedCount;
 
-  bool get hasChanges => addedCount > 0 || updatedCount > 0;
+  bool get hasChanges => addedCount > 0 || updatedCount > 0 || removedCount > 0;
 }
 
 class TassyFullPeakListSyncService {
@@ -23,6 +26,7 @@ class TassyFullPeakListSyncService {
   final PeakListRepository _repository;
 
   Future<TassyFullPeakListSyncResult> refresh() async {
+    final peakRegionsByOsmId = _repository.peakRegionsByOsmId();
     final sourceItemsByPeakOsmId = <int, PeakListItem>{};
 
     for (final peakList in _repository.getAllPeakLists()) {
@@ -36,6 +40,10 @@ class TassyFullPeakListSyncService {
       }
 
       for (final item in items) {
+        if (!_isTasmanianPeak(item.peakOsmId, peakRegionsByOsmId)) {
+          continue;
+        }
+
         final existing = sourceItemsByPeakOsmId[item.peakOsmId];
         if (existing == null || item.points > existing.points) {
           sourceItemsByPeakOsmId[item.peakOsmId] = item;
@@ -43,18 +51,17 @@ class TassyFullPeakListSyncService {
       }
     }
 
-    if (sourceItemsByPeakOsmId.isEmpty) {
-      return const TassyFullPeakListSyncResult(addedCount: 0, updatedCount: 0);
-    }
-
     final existingTarget = _repository.findByName(targetName);
 
     final mergedByPeakOsmId = <int, PeakListItem>{};
-    final existingTargetItems = _decodeTargetItemsOrNull(existingTarget);
-    if (existingTargetItems != null) {
-      for (final item in existingTargetItems) {
+    var removedCount = 0;
+    for (final item in _decodeTargetItemsOrNull(existingTarget) ?? const []) {
+      if (_isTasmanianPeak(item.peakOsmId, peakRegionsByOsmId)) {
         mergedByPeakOsmId[item.peakOsmId] = item;
+        continue;
       }
+
+      removedCount += 1;
     }
 
     var addedCount = 0;
@@ -73,16 +80,18 @@ class TassyFullPeakListSyncService {
       ..sort((left, right) => left.peakOsmId.compareTo(right.peakOsmId));
 
     await _repository.saveWithoutSync(
-      PeakList(
-        name: targetName,
-        peakList: encodePeakListItems(mergedItems),
-      ),
+      PeakList(name: targetName, peakList: encodePeakListItems(mergedItems)),
     );
 
     return TassyFullPeakListSyncResult(
       addedCount: addedCount,
       updatedCount: updatedCount,
+      removedCount: removedCount,
     );
+  }
+
+  bool _isTasmanianPeak(int peakOsmId, Map<int, String?> peakRegionsByOsmId) {
+    return peakRegionsByOsmId[peakOsmId] == Peak.defaultRegion;
   }
 
   List<PeakListItem>? _decodeItemsOrNull(PeakList peakList) {

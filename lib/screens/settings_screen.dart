@@ -236,7 +236,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               leading: const Icon(Icons.sync),
               title: const Text('Update Tassy Full Peak List'),
               subtitle: const Text(
-                'Updates the Tassy Full Peak List to include peaks from all other peak lists',
+                'Updates the Tassy Full Peak List using Tasmanian peaks from other peak lists',
               ),
               trailing: _isRefreshingTassyFull
                   ? const SizedBox(
@@ -1084,7 +1084,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context: context,
       title: 'Update Tassy Full Peak List?',
       message:
-          'This will rebuild Tassy Full from all other peak lists. Do you wish to proceed?',
+          'This will update Tassy Full using Tasmanian peaks from other peak lists and remove non-Tasmanian peaks. Do you wish to proceed?',
       cancelKey: 'update-tassy-full-cancel',
       cancelLabel: 'Cancel',
       confirmKey: 'update-tassy-full-confirm',
@@ -1306,6 +1306,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           Text(
             'Updated ${formatCount(result.updatedCount)} ${_pluralize(result.updatedCount, "peak", "peaks")}',
+          ),
+          Text(
+            'Removed ${formatCount(result.removedCount)} ${_pluralize(result.removedCount, "peak", "peaks")}',
           ),
         ],
       ),

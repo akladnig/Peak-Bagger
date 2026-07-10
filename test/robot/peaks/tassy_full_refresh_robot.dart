@@ -50,7 +50,9 @@ class TassyFullRefreshRobot {
         overrides: [
           mapProvider.overrideWith(() => notifier),
           peakListRepositoryProvider.overrideWithValue(repository),
-          tasmapStateProvider.overrideWith(() => TestTasmapNotifier(tasmapRepository)),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(tasmapRepository),
+          ),
           tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
         ],
         child: const App(),
@@ -81,11 +83,27 @@ class TassyFullRefreshRobot {
 
   void expectUpdateTassyFullConfirmVisible() {
     expect(find.text('Update Tassy Full Peak List?'), findsOneWidget);
+    expect(
+      find.text(
+        'This will update Tassy Full using Tasmanian peaks from other peak lists and remove non-Tasmanian peaks. Do you wish to proceed?',
+      ),
+      findsOneWidget,
+    );
+  }
+
+  void expectUpdateTassyFullSubtitleVisible() {
+    expect(
+      find.text(
+        'Updates the Tassy Full Peak List using Tasmanian peaks from other peak lists',
+      ),
+      findsOneWidget,
+    );
   }
 
   void expectUpdateTassyFullResultVisible({
     required int added,
     required int updated,
+    required int removed,
   }) {
     expect(find.text('Tassy Full Peak List Updated'), findsOneWidget);
     expect(
@@ -98,8 +116,18 @@ class TassyFullRefreshRobot {
     expect(
       find.descendant(
         of: find.byType(AlertDialog),
-        matching:
-            find.text('Updated $updated ${updated == 1 ? 'peak' : 'peaks'}'),
+        matching: find.text(
+          'Updated $updated ${updated == 1 ? 'peak' : 'peaks'}',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text(
+          'Removed $removed ${removed == 1 ? 'peak' : 'peaks'}',
+        ),
       ),
       findsOneWidget,
     );

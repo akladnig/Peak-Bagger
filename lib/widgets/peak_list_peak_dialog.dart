@@ -17,6 +17,7 @@ import '../providers/peak_list_selection_provider.dart';
 import '../providers/tasmap_provider.dart';
 import '../router.dart';
 import '../services/peak_list_repository.dart';
+import '../services/tassy_full_peak_list_sync_service.dart';
 import '../core/widgets/popup_keyboard_dismiss.dart';
 import 'dialog_helpers.dart';
 import 'peak_multi_select_results_list.dart';
@@ -502,7 +503,15 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
 
   List<Peak> _searchResults() {
     final repository = ref.read(peakRepositoryProvider);
-    return _sortedPeaks(repository.searchPeaks(_searchQuery).toList());
+    return _sortedPeaks(
+      repository.searchPeaks(_searchQuery).where((peak) {
+        if (!_isTassyFullPeakList) {
+          return true;
+        }
+
+        return peak.region == Peak.defaultRegion;
+      }).toList(),
+    );
   }
 
   List<Peak> _selectedPeaks() {
@@ -620,6 +629,12 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
       final saveOrder = selectedPeaks
           .where((peak) => _selectedPeakIds.contains(peak.osmId))
           .toList(growable: false);
+
+      if (_isTassyFullPeakList) {
+        await _saveTassyFullAdd(saveOrder);
+        return;
+      }
+
       final failures = <({Peak peak, Object error})>[];
       var successfulAddCount = 0;
 
@@ -674,6 +689,37 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
           _saving = false;
         });
       }
+    }
+  }
+
+  Future<void> _saveTassyFullAdd(List<Peak> saveOrder) async {
+    try {
+      await widget.peakListRepository.addPeakItems(
+        peakListId: widget.peakList.peakListId,
+        items: [
+          for (final peak in saveOrder)
+            PeakListItem(
+              peakOsmId: peak.osmId,
+              points: _selectedPoints[peak.osmId] ?? 1,
+            ),
+        ],
+      );
+      _refreshPeakListSelection();
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(context).pop(
+        PeakListPeakDialogOutcome.selected(
+          saveOrder.map((peak) => peak.osmId).toList(growable: false),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      await _showFailure(_addFailureMessage(error));
     }
   }
 
@@ -780,6 +826,18 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
       return peakIds[index + 1];
     }
     return peakIds[index - 1];
+  }
+
+  bool get _isTassyFullPeakList =>
+      widget.peakList.name == TassyFullPeakListSyncService.targetName;
+
+  String _addFailureMessage(Object error) {
+    if (error is StateError &&
+        error.message == PeakListRepository.tassyFullTasmaniaOnlyError) {
+      return PeakListRepository.tassyFullTasmaniaOnlyError;
+    }
+
+    return error.toString();
   }
 
   void _refreshPeakListSelection() {

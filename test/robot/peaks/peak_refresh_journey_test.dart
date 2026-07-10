@@ -1,9 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
 
 import '../../harness/test_peak_notifier.dart';
 import '../../harness/test_tasmap_repository.dart';
@@ -87,6 +89,7 @@ void main() {
           peakList: encodePeakListItems([
             const PeakListItem(peakOsmId: 11, points: 5),
             const PeakListItem(peakOsmId: 22, points: 4),
+            const PeakListItem(peakOsmId: 44, points: 7),
           ]),
         )..peakListId = 1,
         PeakList(
@@ -100,9 +103,18 @@ void main() {
           peakList: encodePeakListItems([
             const PeakListItem(peakOsmId: 11, points: 1),
             const PeakListItem(peakOsmId: 33, points: 1),
+            const PeakListItem(peakOsmId: 44, points: 1),
           ]),
         )..peakListId = 3,
       ]),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _peak(11),
+          _peak(22),
+          _peak(33),
+          _peak(44, region: 'new-south-wales'),
+        ]),
+      ),
     );
     final robot = TassyFullRefreshRobot(
       tester,
@@ -126,11 +138,12 @@ void main() {
     );
 
     await robot.pumpApp();
+    robot.expectUpdateTassyFullSubtitleVisible();
     await robot.openUpdateTassyFullDialog();
     robot.expectUpdateTassyFullConfirmVisible();
 
     await robot.confirmUpdateTassyFull();
-    robot.expectUpdateTassyFullResultVisible(added: 1, updated: 1);
+    robot.expectUpdateTassyFullResultVisible(added: 1, updated: 1, removed: 1);
     expect(
       robot.notifier.state.peakListSelectionMode,
       PeakListSelectionMode.specificList,
@@ -143,4 +156,14 @@ void main() {
       [(11, 5), (22, 4), (33, 1)],
     );
   });
+}
+
+Peak _peak(int osmId, {String region = Peak.defaultRegion}) {
+  return Peak(
+    osmId: osmId,
+    name: 'Peak $osmId',
+    latitude: -41.5,
+    longitude: 146.5,
+    region: region,
+  );
 }

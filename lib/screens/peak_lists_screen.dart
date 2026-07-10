@@ -433,6 +433,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
   }
 
   void _refreshPeakListSelectionDependencies() {
+    ref.read(peakListRevisionProvider.notifier).increment();
     ref.read(mapProvider.notifier).reconcileSelectedPeakList();
   }
 
@@ -1363,7 +1364,7 @@ class _SummaryRowCardState extends State<_SummaryRowCard> {
 }
 
 BoxDecoration _selectedRowDecoration(BuildContext context) {
-  var rowColour =  Theme.of(context).colorScheme.primaryContainer;
+  var rowColour = Theme.of(context).colorScheme.primaryContainer;
   return BoxDecoration(
     color: darken(rowColour, 0.30),
     border: Border(
