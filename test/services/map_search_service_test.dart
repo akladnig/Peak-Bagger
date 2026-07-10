@@ -1,3 +1,4 @@
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
@@ -11,7 +12,9 @@ import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/map_search_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
+import 'package:peak_bagger/services/csv_importer.dart';
 
 import '../harness/test_tasmap_repository.dart';
 
@@ -20,14 +23,16 @@ void main() {
     final service = await _service();
 
     expect(service.searchPeaks(''), isEmpty);
-    expect(
-      service.search(
-        query: '   ',
-        entityFilter: MapSearchEntityFilter.all,
-        sort: MapSearchSort.nameAscending,
-      ),
-      isEmpty,
+    final page = service.searchPage(
+      query: '   ',
+      entityFilter: MapSearchEntityFilter.all,
+      sort: MapSearchSort.nameAscending,
+      group: MapSearchGroup.none,
+      offset: 0,
     );
+
+    expect(page.results, isEmpty);
+    expect(page.isExhausted, isTrue);
   });
 
   test(
@@ -41,14 +46,15 @@ void main() {
         tasmapRepository: tasmapRepository,
       );
 
-      expect(
-        service.search(
-          query: ' a ',
-          entityFilter: MapSearchEntityFilter.peaks,
-          sort: MapSearchSort.nameAscending,
-        ),
-        isEmpty,
+      final page = service.searchPage(
+        query: ' a ',
+        entityFilter: MapSearchEntityFilter.peaks,
+        sort: MapSearchSort.nameAscending,
+        group: MapSearchGroup.none,
+        offset: 0,
       );
+      expect(page.results, isEmpty);
+      expect(page.isExhausted, isTrue);
       expect(MapConstants.searchPopupMinimumQueryLength, 3);
     },
   );
@@ -79,12 +85,15 @@ void main() {
         tracks: [_trackAt(1, 'Apex Track', const LatLng(-33.8, 149.1))],
       );
 
-      final results = service.search(
+      final page = service.searchPage(
         query: 'pea',
         entityFilter: MapSearchEntityFilter.peaks,
         regionKey: 'new-south-wales',
         sort: MapSearchSort.nameDescending,
+        group: MapSearchGroup.none,
+        offset: 0,
       );
+      final results = page.results;
 
       expect(results.map((result) => result.type).toSet(), {
         MapSearchResultType.peak,
@@ -97,8 +106,213 @@ void main() {
         results.every((result) => result.regionKey == 'new-south-wales'),
         isTrue,
       );
+      expect(page.isExhausted, isTrue);
     },
   );
+
+  test(
+    'popup page returns first page and exhaustion metadata for peaks',
+    () async {
+      final service = await _service(
+        peaks: List.generate(
+          25,
+          (index) =>
+              _peak(index + 1, 'Peak ${index.toString().padLeft(2, '0')}'),
+        ),
+      );
+
+      final firstPage = service.searchPage(
+        query: 'peak',
+        entityFilter: MapSearchEntityFilter.peaks,
+        sort: MapSearchSort.nameAscending,
+        group: MapSearchGroup.none,
+        offset: 0,
+      );
+      final secondPage = service.searchPage(
+        query: 'peak',
+        entityFilter: MapSearchEntityFilter.peaks,
+        sort: MapSearchSort.nameAscending,
+        group: MapSearchGroup.none,
+        offset: 20,
+      );
+      final emptyPage = service.searchPage(
+        query: 'peak',
+        entityFilter: MapSearchEntityFilter.peaks,
+        sort: MapSearchSort.nameAscending,
+        group: MapSearchGroup.none,
+        offset: 40,
+      );
+
+      expect(firstPage.results, hasLength(20));
+      expect(firstPage.results.first.title, 'Peak 00');
+      expect(firstPage.isExhausted, isFalse);
+      expect(secondPage.results, hasLength(5));
+      expect(secondPage.results.first.title, 'Peak 20');
+      expect(secondPage.isExhausted, isTrue);
+      expect(emptyPage.results, isEmpty);
+      expect(emptyPage.isExhausted, isTrue);
+    },
+  );
+
+  test(
+    'all mode preserves one mixed globally sorted list across pages',
+    () async {
+      final service = await _service(
+        peaks: [_peak(1, 'Alpha Peak')],
+        tracks: [_track(1, 'Alpha Track')],
+        routes: [_route(1, 'Alpha Route')],
+        maps: [_resolvedMap()],
+      );
+
+      final firstPage = service.searchPage(
+        query: 'alpha',
+        entityFilter: MapSearchEntityFilter.all,
+        sort: MapSearchSort.nameAscending,
+        group: MapSearchGroup.none,
+        offset: 0,
+        limit: 2,
+      );
+      final secondPage = service.searchPage(
+        query: 'alpha',
+        entityFilter: MapSearchEntityFilter.all,
+        sort: MapSearchSort.nameAscending,
+        group: MapSearchGroup.none,
+        offset: 2,
+        limit: 2,
+      );
+
+      expect(firstPage.results.map((result) => result.title), [
+        'Alpha Map',
+        'Alpha Peak',
+      ]);
+      expect(secondPage.results.map((result) => result.title), [
+        'Alpha Route',
+        'Alpha Track',
+      ]);
+      expect(firstPage.isExhausted, isFalse);
+      expect(secondPage.isExhausted, isTrue);
+    },
+  );
+
+  test('tracks routes and maps also page with exhaustion metadata', () async {
+    final service = await _service(
+      tracks: List.generate(
+        25,
+        (index) =>
+            _track(index + 1, 'Track ${index.toString().padLeft(2, '0')}'),
+      ),
+      maps: List.generate(
+        25,
+        (index) => _resolvedMapNamed(
+          'Map ${index.toString().padLeft(2, '0')}',
+          'TS${(index + 1).toString().padLeft(2, '0')}',
+        ),
+      ),
+    );
+
+    final trackFirstPage = service.searchPage(
+      query: 'track',
+      entityFilter: MapSearchEntityFilter.tracksRoutes,
+      sort: MapSearchSort.nameAscending,
+      group: MapSearchGroup.none,
+      offset: 0,
+    );
+    final trackSecondPage = service.searchPage(
+      query: 'track',
+      entityFilter: MapSearchEntityFilter.tracksRoutes,
+      sort: MapSearchSort.nameAscending,
+      group: MapSearchGroup.none,
+      offset: 20,
+    );
+    final mapFirstPage = service.searchPage(
+      query: 'map',
+      entityFilter: MapSearchEntityFilter.maps,
+      sort: MapSearchSort.nameAscending,
+      group: MapSearchGroup.none,
+      offset: 0,
+    );
+    final mapSecondPage = service.searchPage(
+      query: 'map',
+      entityFilter: MapSearchEntityFilter.maps,
+      sort: MapSearchSort.nameAscending,
+      group: MapSearchGroup.none,
+      offset: 20,
+    );
+
+    expect(trackFirstPage.results, hasLength(20));
+    expect(trackFirstPage.isExhausted, isFalse);
+    expect(trackSecondPage.results, hasLength(5));
+    expect(trackSecondPage.isExhausted, isTrue);
+    expect(mapFirstPage.results, hasLength(20));
+    expect(mapFirstPage.isExhausted, isFalse);
+    expect(mapSecondPage.results, hasLength(5));
+    expect(mapSecondPage.isExhausted, isTrue);
+  });
+
+  test('grouped mode pages from final grouped display order', () async {
+    final service = await _service(
+      peaks: [_peak(1, 'Alpha Peak')],
+      tracks: [_track(1, 'Alpha Track')],
+      routes: [_route(1, 'Alpha Route')],
+      maps: [_resolvedMap()],
+    );
+
+    final firstPage = service.searchPage(
+      query: 'alpha',
+      entityFilter: MapSearchEntityFilter.all,
+      sort: MapSearchSort.nameAscending,
+      group: MapSearchGroup.type,
+      offset: 0,
+      limit: 2,
+    );
+    final secondPage = service.searchPage(
+      query: 'alpha',
+      entityFilter: MapSearchEntityFilter.all,
+      sort: MapSearchSort.nameAscending,
+      group: MapSearchGroup.type,
+      offset: 2,
+      limit: 2,
+    );
+
+    expect(firstPage.results.map((result) => result.type), [
+      MapSearchResultType.map,
+      MapSearchResultType.peak,
+    ]);
+    expect(secondPage.results.map((result) => result.type), [
+      MapSearchResultType.route,
+      MapSearchResultType.track,
+    ]);
+  });
+
+  test('peak enrichment runs only for the requested page window', () async {
+    final tasmapRepository = _CountingTasmapRepository();
+    final service = MapSearchService(
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage(
+          List.generate(
+            30,
+            (index) =>
+                _peak(index + 1, 'Peak ${index.toString().padLeft(2, '0')}'),
+          ),
+        ),
+      ),
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+      routeRepository: RouteRepository.test(InMemoryRouteStorage()),
+      tasmapRepository: tasmapRepository,
+    );
+
+    final page = service.searchPage(
+      query: 'peak',
+      entityFilter: MapSearchEntityFilter.peaks,
+      sort: MapSearchSort.nameAscending,
+      group: MapSearchGroup.none,
+      offset: 10,
+      limit: 5,
+    );
+
+    expect(page.results, hasLength(5));
+    expect(tasmapRepository.findByPointCallCount, 5);
+  });
 
   test('peak search is case-insensitive and capped', () async {
     final service = await _service(
@@ -451,6 +665,10 @@ app_route.Route _route(int id, String name) {
 }
 
 Tasmap50k _resolvedMap() {
+  return _resolvedMapNamed('Alpha Map', 'TS01');
+}
+
+Tasmap50k _resolvedMapNamed(String name, String series) {
   const center = LatLng(-43.0, 147.0);
   final vertices = [
     LatLng(center.latitude + 0.05, center.longitude - 0.05),
@@ -464,8 +682,8 @@ Tasmap50k _resolvedMap() {
       .toSet()
       .join(' ');
   return Tasmap50k(
-    series: 'TS01',
-    name: 'Alpha Map',
+    series: series,
+    name: name,
     parentSeries: 'P1',
     mgrs100kIds: mgrsCodes,
     eastingMin: 0,
@@ -587,4 +805,62 @@ class _PopupOnlyPeakStorage implements PeakStorage {
     List<Peak> peaks, {
     void Function()? beforePutManyForTest,
   }) async {}
+}
+
+class _CountingTasmapRepository implements TasmapRepository {
+  int findByPointCallCount = 0;
+
+  @override
+  int get mapCount => 0;
+
+  @override
+  Future<void> addMaps(List<Tasmap50k> maps) async {}
+
+  @override
+  Future<void> clearAll() async {}
+
+  @override
+  Future<TasmapCsvImportResult> clearAndReloadFromCsv(String csvPath) {
+    throw UnimplementedError();
+  }
+
+  @override
+  List<Tasmap50k> findByMgrs100kId(String mgrsCode) => const [];
+
+  @override
+  Tasmap50k? findByMgrsCodeAndCoordinates(String mgrsString) => null;
+
+  @override
+  List<Tasmap50k> findByName(String name) => const [];
+
+  @override
+  Tasmap50k? findByPoint(LatLng point) {
+    findByPointCallCount += 1;
+    return null;
+  }
+
+  @override
+  List<Tasmap50k> findBySeries(String series) => const [];
+
+  @override
+  List<Tasmap50k> getAllMaps() => const [];
+
+  @override
+  LatLngBounds? getMapBounds(Tasmap50k map) => null;
+
+  @override
+  LatLng? getMapCenter(Tasmap50k map) => null;
+
+  @override
+  List<LatLng> getMapPolygonPoints(Tasmap50k map) => const [];
+
+  @override
+  bool isEmpty() => true;
+
+  @override
+  Future<TasmapCsvImportResult?> loadFromCsvIfEmpty(String csvPath) async =>
+      null;
+
+  @override
+  List<Tasmap50k> searchMaps(String prefix) => const [];
 }

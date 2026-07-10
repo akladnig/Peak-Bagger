@@ -15,7 +15,7 @@ import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 
 class MapSearchService {
-  static const _maxResults = 20;
+  static const popupPageSize = 20;
 
   MapSearchService({
     required PeakRepository peakRepository,
@@ -39,7 +39,7 @@ class MapSearchService {
     }
     return _peakRepository
         .searchPeaks(trimmedQuery)
-        .take(_maxResults)
+        .take(popupPageSize)
         .toList(growable: false);
   }
 
@@ -49,68 +49,94 @@ class MapSearchService {
     required MapSearchSort sort,
     String? regionKey,
   }) {
+    return searchPage(
+      query: query,
+      entityFilter: entityFilter,
+      sort: sort,
+      regionKey: regionKey,
+      group: MapSearchGroup.none,
+      offset: 0,
+      limit: popupPageSize,
+    ).results;
+  }
+
+  MapSearchPage searchPage({
+    required String query,
+    required MapSearchEntityFilter entityFilter,
+    required MapSearchSort sort,
+    required MapSearchGroup group,
+    String? regionKey,
+    required int offset,
+    int limit = popupPageSize,
+  }) {
     final trimmedQuery = query.trim();
     if (trimmedQuery.isEmpty ||
         trimmedQuery.length < MapConstants.searchPopupMinimumQueryLength) {
-      return const [];
+      return const MapSearchPage(results: [], isExhausted: true);
     }
 
-    final results = switch (entityFilter) {
-      MapSearchEntityFilter.all => [
-        ..._peakResults(trimmedQuery, sort: sort, regionKey: regionKey),
-        ..._trackResults(trimmedQuery, regionKey: regionKey),
-        ..._routeResults(trimmedQuery, regionKey: regionKey),
-        ..._mapResults(trimmedQuery, regionKey: regionKey),
-      ],
-      MapSearchEntityFilter.peaks => _peakResults(
+    final pageOffset = offset < 0 ? 0 : offset;
+    if (limit <= 0) {
+      return const MapSearchPage(results: [], isExhausted: true);
+    }
+
+    if (entityFilter == MapSearchEntityFilter.peaks &&
+        group == MapSearchGroup.none) {
+      return _peakPage(
         trimmedQuery,
         sort: sort,
         regionKey: regionKey,
-      ),
-      MapSearchEntityFilter.tracksRoutes => [
-        ..._trackResults(trimmedQuery, regionKey: regionKey),
-        ..._routeResults(trimmedQuery, regionKey: regionKey),
-      ],
-      MapSearchEntityFilter.maps => _mapResults(
-        trimmedQuery,
-        regionKey: regionKey,
-      ),
-      MapSearchEntityFilter.natural ||
-      MapSearchEntityFilter.roads => const <MapSearchResult>[],
-    };
-
-    final sortedResults = List<MapSearchResult>.from(results)
-      ..sort((left, right) {
-        final comparison = left.normalizedTitle.compareTo(
-          right.normalizedTitle,
-        );
-        if (comparison != 0) {
-          return sort == MapSearchSort.nameAscending ? comparison : -comparison;
-        }
-        return left.id.compareTo(right.id);
-      });
-    if (sortedResults.length <= _maxResults) {
-      return sortedResults;
+        offset: pageOffset,
+        limit: limit,
+      );
     }
-    return sortedResults.take(_maxResults).toList(growable: false);
+
+    final entries = _orderedEntries(
+      query: trimmedQuery,
+      entityFilter: entityFilter,
+      regionKey: regionKey,
+      sort: sort,
+      group: group,
+    );
+
+    if (pageOffset >= entries.length) {
+      return const MapSearchPage(results: [], isExhausted: true);
+    }
+
+    final end = (pageOffset + limit).clamp(0, entries.length);
+    final pageEntries = entries.sublist(pageOffset, end);
+    return MapSearchPage(
+      results: pageEntries
+          .map((entry) => entry.toResult(this))
+          .toList(growable: false),
+      isExhausted: end >= entries.length,
+    );
   }
 
-  List<MapSearchResult> _peakResults(
+  MapSearchPage _peakPage(
     String query, {
     required MapSearchSort sort,
     String? regionKey,
+    required int offset,
+    required int limit,
   }) {
-    return _peakRepository
+    final peaks = _peakRepository
         .searchPopupPeakCandidates(
           query: query,
           sort: sort,
           regionKey: regionKey,
-          offset: 0,
-          limit: _maxResults,
+          offset: offset,
+          limit: limit + 1,
         )
-        .map((peak) => _peakResult(peak, regionKey: regionKey))
-        .whereType<MapSearchResult>()
         .toList(growable: false);
+    final pagePeaks = peaks.take(limit);
+    return MapSearchPage(
+      results: pagePeaks
+          .map((peak) => _peakResult(peak, regionKey: regionKey))
+          .whereType<MapSearchResult>()
+          .toList(growable: false),
+      isExhausted: peaks.length <= limit,
+    );
   }
 
   List<MapSearchResult> _trackResults(String query, {String? regionKey}) {
@@ -343,5 +369,210 @@ class MapSearchService {
       return '—';
     }
     return filtered.join(' · ');
+  }
+
+  List<_SearchPageEntry> _orderedEntries({
+    required String query,
+    required MapSearchEntityFilter entityFilter,
+    required String? regionKey,
+    required MapSearchSort sort,
+    required MapSearchGroup group,
+  }) {
+    final entries = switch (entityFilter) {
+      MapSearchEntityFilter.all => <_SearchPageEntry>[
+        ..._allPeakEntries(query, sort: sort, regionKey: regionKey),
+        ..._trackResults(
+          query,
+          regionKey: regionKey,
+        ).map(_SearchPageResultEntry.new),
+        ..._routeResults(
+          query,
+          regionKey: regionKey,
+        ).map(_SearchPageResultEntry.new),
+        ..._mapResults(
+          query,
+          regionKey: regionKey,
+        ).map(_SearchPageResultEntry.new),
+      ],
+      MapSearchEntityFilter.peaks => _allPeakEntries(
+        query,
+        sort: sort,
+        regionKey: regionKey,
+      ),
+      MapSearchEntityFilter.tracksRoutes => <_SearchPageEntry>[
+        ..._trackResults(
+          query,
+          regionKey: regionKey,
+        ).map(_SearchPageResultEntry.new),
+        ..._routeResults(
+          query,
+          regionKey: regionKey,
+        ).map(_SearchPageResultEntry.new),
+      ],
+      MapSearchEntityFilter.maps => _mapResults(
+        query,
+        regionKey: regionKey,
+      ).map(_SearchPageResultEntry.new).toList(growable: false),
+      MapSearchEntityFilter.natural ||
+      MapSearchEntityFilter.roads => const <_SearchPageEntry>[],
+    };
+
+    final ordered = List<_SearchPageEntry>.from(entries)
+      ..sort(
+        (left, right) => _compareEntries(left, right, sort: sort, group: group),
+      );
+    return ordered;
+  }
+
+  List<_SearchPageEntry> _allPeakEntries(
+    String query, {
+    required MapSearchSort sort,
+    required String? regionKey,
+  }) {
+    final entries = <_SearchPageEntry>[];
+    var offset = 0;
+    while (true) {
+      final peaks = _peakRepository.searchPopupPeakCandidates(
+        query: query,
+        sort: sort,
+        regionKey: regionKey,
+        offset: offset,
+        limit: popupPageSize,
+      );
+      if (peaks.isEmpty) {
+        break;
+      }
+      entries.addAll(
+        peaks.map(
+          (peak) => _SearchPagePeakEntry(
+            peak: peak,
+            displayRegionName: _peakDisplayRegionName(peak),
+          ),
+        ),
+      );
+      if (peaks.length < popupPageSize) {
+        break;
+      }
+      offset += peaks.length;
+    }
+    return entries;
+  }
+
+  int _compareEntries(
+    _SearchPageEntry left,
+    _SearchPageEntry right, {
+    required MapSearchSort sort,
+    required MapSearchGroup group,
+  }) {
+    if (group != MapSearchGroup.none) {
+      final labelComparison = _compareLabels(
+        left.groupLabel(group),
+        right.groupLabel(group),
+        sort,
+      );
+      if (labelComparison != 0) {
+        return labelComparison;
+      }
+    }
+
+    final titleComparison = left.normalizedTitle.compareTo(
+      right.normalizedTitle,
+    );
+    if (titleComparison != 0) {
+      return sort == MapSearchSort.nameAscending
+          ? titleComparison
+          : -titleComparison;
+    }
+    return left.id.compareTo(right.id);
+  }
+
+  int _compareLabels(String left, String right, MapSearchSort sort) {
+    final comparison = left.toLowerCase().compareTo(right.toLowerCase());
+    if (comparison == 0) {
+      return 0;
+    }
+    return sort == MapSearchSort.nameAscending ? comparison : -comparison;
+  }
+
+  String _peakDisplayRegionKey(Peak peak) {
+    final anchor = LatLng(peak.latitude, peak.longitude);
+    final regionData = _regionForPoint(anchor, fallbackRegionKey: peak.region);
+    final resolvedRegionKey = regionData?.key ?? peak.region;
+    return isNorthEastSubregionKey(peak.region)
+        ? peak.region!
+        : (resolvedRegionKey ?? '');
+  }
+
+  String _peakDisplayRegionName(Peak peak) {
+    final displayRegionKey = _peakDisplayRegionKey(peak);
+    return mapSearchRegionLabel(displayRegionKey) ?? 'Unknown Region';
+  }
+}
+
+sealed class _SearchPageEntry {
+  const _SearchPageEntry();
+
+  String get id;
+  String get normalizedTitle;
+  String groupLabel(MapSearchGroup group);
+  MapSearchResult toResult(MapSearchService service);
+}
+
+class _SearchPageResultEntry extends _SearchPageEntry {
+  const _SearchPageResultEntry(this.result);
+
+  final MapSearchResult result;
+
+  @override
+  String get id => result.id;
+
+  @override
+  String get normalizedTitle => result.normalizedTitle;
+
+  @override
+  String groupLabel(MapSearchGroup group) {
+    return switch (group) {
+      MapSearchGroup.none => '',
+      MapSearchGroup.region => result.regionName ?? 'Unknown Region',
+      MapSearchGroup.type => switch (result.type) {
+        MapSearchResultType.peak => 'Peaks',
+        MapSearchResultType.track ||
+        MapSearchResultType.route => 'Tracks/Routes',
+        MapSearchResultType.map => 'Maps',
+      },
+    };
+  }
+
+  @override
+  MapSearchResult toResult(MapSearchService service) => result;
+}
+
+class _SearchPagePeakEntry extends _SearchPageEntry {
+  const _SearchPagePeakEntry({
+    required this.peak,
+    required this.displayRegionName,
+  });
+
+  final Peak peak;
+  final String displayRegionName;
+
+  @override
+  String get id => '${peak.osmId}';
+
+  @override
+  String get normalizedTitle => peak.name.trim().toLowerCase();
+
+  @override
+  String groupLabel(MapSearchGroup group) {
+    return switch (group) {
+      MapSearchGroup.none => '',
+      MapSearchGroup.region => displayRegionName,
+      MapSearchGroup.type => 'Peaks',
+    };
+  }
+
+  @override
+  MapSearchResult toResult(MapSearchService service) {
+    return service._peakResult(peak, regionKey: null)!;
   }
 }
