@@ -57,13 +57,14 @@ class MapSearchService {
 
     final results = switch (entityFilter) {
       MapSearchEntityFilter.all => [
-        ..._peakResults(trimmedQuery, regionKey: regionKey),
+        ..._peakResults(trimmedQuery, sort: sort, regionKey: regionKey),
         ..._trackResults(trimmedQuery, regionKey: regionKey),
         ..._routeResults(trimmedQuery, regionKey: regionKey),
         ..._mapResults(trimmedQuery, regionKey: regionKey),
       ],
       MapSearchEntityFilter.peaks => _peakResults(
         trimmedQuery,
+        sort: sort,
         regionKey: regionKey,
       ),
       MapSearchEntityFilter.tracksRoutes => [
@@ -94,9 +95,19 @@ class MapSearchService {
     return sortedResults.take(_maxResults).toList(growable: false);
   }
 
-  List<MapSearchResult> _peakResults(String query, {String? regionKey}) {
+  List<MapSearchResult> _peakResults(
+    String query, {
+    required MapSearchSort sort,
+    String? regionKey,
+  }) {
     return _peakRepository
-        .searchPeaks(query)
+        .searchPopupPeakCandidates(
+          query: query,
+          sort: sort,
+          regionKey: regionKey,
+          offset: 0,
+          limit: _maxResults,
+        )
         .map((peak) => _peakResult(peak, regionKey: regionKey))
         .whereType<MapSearchResult>()
         .toList(growable: false);

@@ -106,7 +106,7 @@ void main() {
       );
       expect(find.text('No results found'), findsNothing);
 
-      await tester.enterText(find.byKey(const Key('map-search-input')), 'ZZ');
+      await tester.enterText(find.byKey(const Key('map-search-input')), 'ZZZ');
       await tester.pump(const Duration(milliseconds: 250));
 
       expect(find.text('No results found'), findsOneWidget);
@@ -343,7 +343,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(helperText, findsOneWidget);
 
-      await tester.enterText(find.byKey(const Key('map-search-input')), 'Pe');
+      await tester.enterText(find.byKey(const Key('map-search-input')), 'Pea');
       await tester.pump(const Duration(milliseconds: 250));
       await tester.pumpAndSettle();
 
@@ -531,7 +531,7 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('map-search-input')), 'Al');
+    await tester.enterText(find.byKey(const Key('map-search-input')), 'Alp');
     await tester.pump(const Duration(milliseconds: 250));
     await tester.pumpAndSettle();
 

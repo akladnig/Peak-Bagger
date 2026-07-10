@@ -49,7 +49,7 @@ void main() {
         ),
         isEmpty,
       );
-      expect(MapConstants.searchPopupMinimumQueryLength, 2);
+      expect(MapConstants.searchPopupMinimumQueryLength, 3);
     },
   );
 
@@ -80,7 +80,7 @@ void main() {
       );
 
       final results = service.search(
-        query: 'pe',
+        query: 'pea',
         entityFilter: MapSearchEntityFilter.peaks,
         regionKey: 'new-south-wales',
         sort: MapSearchSort.nameDescending,
@@ -335,6 +335,24 @@ void main() {
     expect(results.last.title, 'Alpha Peak');
   });
 
+  test('popup peak search uses the popup-specific repository seam', () async {
+    final tasmapRepository = await TestTasmapRepository.create();
+    final service = MapSearchService(
+      peakRepository: PeakRepository.test(_PopupOnlyPeakStorage()),
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+      routeRepository: RouteRepository.test(InMemoryRouteStorage()),
+      tasmapRepository: tasmapRepository,
+    );
+
+    final results = service.search(
+      query: 'alpha',
+      entityFilter: MapSearchEntityFilter.peaks,
+      sort: MapSearchSort.nameAscending,
+    );
+
+    expect(results.map((result) => result.title), ['Alpha Peak']);
+  });
+
   test(
     'type grouping can be derived from result kinds and sorted descending',
     () async {
@@ -499,6 +517,66 @@ class _ThrowingPeakStorage implements PeakStorage {
     throw StateError(
       'Peak search should not execute for under-threshold popup queries',
     );
+  }
+
+  @override
+  List<Peak> getSearchPopupPeakNameCandidates(String query) {
+    throw StateError(
+      'Popup-specific peak search should not execute for under-threshold queries',
+    );
+  }
+
+  @override
+  Peak put(Peak peak) => peak;
+
+  @override
+  Future<void> replaceAll(
+    List<Peak> peaks, {
+    void Function()? beforePutManyForTest,
+  }) async {}
+}
+
+class _PopupOnlyPeakStorage implements PeakStorage {
+  @override
+  int get count => 1;
+
+  @override
+  bool get isEmpty => false;
+
+  @override
+  Future<void> addMany(List<Peak> peaks) async {}
+
+  @override
+  Future<void> clearAll() async {}
+
+  @override
+  Future<void> delete(int peakId) async {}
+
+  @override
+  List<Peak> getAll() {
+    throw StateError('Popup peak search should not scan all peaks for names');
+  }
+
+  @override
+  Peak? getById(int peakId) => null;
+
+  @override
+  List<Peak> getByName(String query) {
+    throw StateError('Popup peak search should not use the generic name seam');
+  }
+
+  @override
+  List<Peak> getSearchPopupPeakNameCandidates(String query) {
+    return [
+      Peak(
+        osmId: 7,
+        name: 'Alpha Peak',
+        latitude: -43,
+        longitude: 147,
+        elevation: 410,
+        region: 'tasmania',
+      ),
+    ];
   }
 
   @override
