@@ -1,9 +1,12 @@
 import 'dart:io';
 
 import 'package:csv/csv.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:path/path.dart' as p;
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/import_path_helpers.dart';
+import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 
@@ -68,16 +71,21 @@ class PeakListCsvExportService {
            outputDirectoryResolver ?? _defaultOutputDirectoryResolver,
        _fileWriter = fileWriter ?? const IoPeakListCsvFileWriter();
 
-  static const List<String> _headers = [
-    'Name',
-    'Alt Name',
-    'Elevation',
-    'Zone',
+  static const List<String> csvHeaders = [
+    'name',
+    'altName',
+    'elevation',
+    'gridZoneDesignator',
     'mgrs100kId',
-    'Easting',
-    'Northing',
+    'easting',
+    'northing',
     'Points',
     'osmId',
+    'country',
+    'region',
+    'county',
+    'range',
+    'sourceOfTruth',
   ];
 
   final PeakListRepository _peakListRepository;
@@ -134,7 +142,7 @@ class PeakListCsvExportService {
         continue;
       }
 
-      final rows = <List<dynamic>>[_headers];
+      final rows = <List<dynamic>>[csvHeaders];
       for (final item in items) {
         final peak = _peakRepository.findByOsmId(item.peakOsmId);
         if (peak == null) {
@@ -145,16 +153,22 @@ class PeakListCsvExportService {
           continue;
         }
 
+        final mgrs = _resolveMgrsComponents(peak);
         rows.add([
           peak.name,
           peak.altName,
           peak.elevation?.toString() ?? '',
-          peak.gridZoneDesignator,
-          peak.mgrs100kId,
-          peak.easting,
-          peak.northing,
+          mgrs.gridZoneDesignator,
+          mgrs.mgrs100kId,
+          mgrs.easting,
+          mgrs.northing,
           item.points,
           peak.osmId,
+          peak.country,
+          peak.region ?? '',
+          peak.county,
+          peak.range,
+          peak.sourceOfTruth,
         ]);
       }
 
@@ -227,6 +241,19 @@ class PeakListCsvExportService {
     }
 
     return prepared;
+  }
+
+  PeakMgrsComponents _resolveMgrsComponents(Peak peak) {
+    final storedForward =
+        '${peak.gridZoneDesignator.trim().toUpperCase()}'
+        '${peak.mgrs100kId.trim().toUpperCase()}'
+        '${peak.easting.trim()}'
+        '${peak.northing.trim()}';
+    try {
+      return PeakMgrsConverter.fromForwardString(storedForward);
+    } on FormatException {
+      return PeakMgrsConverter.fromLatLng(LatLng(peak.latitude, peak.longitude));
+    }
   }
 }
 

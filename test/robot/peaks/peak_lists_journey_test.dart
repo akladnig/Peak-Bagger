@@ -8,6 +8,7 @@ import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
+import 'package:peak_bagger/services/peak_list_csv_export_service.dart';
 import 'package:peak_bagger/services/peak_list_import_service.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
@@ -450,6 +451,113 @@ void main() {
     );
   });
 
+  testWidgets('peak lists journey imports an app-owned export csv', (
+    tester,
+  ) async {
+    final robot = PeakListsRobot(tester);
+    final existingPeak = _buildPeak(
+      osmId: 101,
+      name: 'Old Peak',
+      elevation: 1200,
+      latitude: -41.85916,
+      longitude: 145.97754,
+    ).copyWith(sourceOfTruth: Peak.sourceOfTruthOsm);
+    final peakRepository = PeakRepository.test(InMemoryPeakStorage([existingPeak]));
+    final peakListRepository = PeakListRepository.test(
+      InMemoryPeakListStorage(),
+    );
+    final importService = PeakListImportService(
+      peakRepository: peakRepository,
+      peakListRepository: peakListRepository,
+      csvLoader: (_) async => _appOwnedCsv([
+        _appOwnedCsvRowForPeak(
+          existingPeak.copyWith(
+            name: 'Imported Peak',
+            altName: 'Imported Alt',
+            elevation: 1363,
+            country: 'Australia',
+            county: 'Central Highlands',
+            range: 'Du Cane',
+            region: 'tasmania',
+            sourceOfTruth: Peak.sourceOfTruthHwc,
+          ),
+          points: 3,
+        ),
+        _appOwnedCsvRowForPeak(
+          _buildPeak(
+            osmId: 202,
+            name: 'Created Peak',
+            elevation: 1400,
+            latitude: -41.9000,
+            longitude: 145.9500,
+          ).copyWith(
+            country: 'Australia',
+            county: 'Kentish',
+            range: 'Great Western Tiers',
+            region: 'tasmania',
+            sourceOfTruth: Peak.sourceOfTruthPeakBagger,
+          ),
+          points: 7,
+        ),
+      ]),
+      importRootLoader: () async => '/tmp/Bushwalking',
+      logWriter: (logPath, entries) async {},
+    );
+
+    Future<PeakListImportPresentationResult> importRunner({
+      required String listName,
+      required String csvPath,
+    }) async {
+      final result = await importService.importPeakList(
+        listName: listName,
+        csvPath: csvPath,
+      );
+      await peakListRepository.refreshTassyFullPeakList();
+      ProviderScope.containerOf(tester.element(robot.summaryPane))
+          .read(peakListRevisionProvider.notifier)
+          .increment();
+      return PeakListImportPresentationResult(
+        updated: result.updated,
+        importedCount: result.importedCount,
+        skippedCount: result.skippedCount,
+        warningCount: result.warningEntries.length,
+        warningMessage: result.warningMessage,
+        peakListId: result.peakListId,
+        listName: listName,
+      );
+    }
+
+    await robot.pumpApp(
+      filePicker: TestPeakListFilePicker(selectedFilePath: '/tmp/export.csv'),
+      repository: peakListRepository,
+      peakRepository: peakRepository,
+      importRunner: importRunner,
+      duplicateNameChecker: (name) async => false,
+    );
+
+    await robot.openImportDialog();
+    await robot.chooseFile();
+    await robot.enterName('Round Trip Journey');
+    await robot.submitImport();
+
+    expect(find.text('Peak List Created'), findsOneWidget);
+    expect(find.text('2 Peaks imported'), findsOneWidget);
+    expect(find.text('0 peaks skipped'), findsOneWidget);
+
+    await robot.closeResultDialog();
+
+    expect(tester.widget<Text>(robot.selectedTitle).data, 'Round Trip Journey');
+    expect(peakRepository.findByOsmId(101)?.name, 'Imported Peak');
+    expect(peakRepository.findByOsmId(202)?.name, 'Created Peak');
+    expect(
+      peakListRepository.findByName('Round Trip Journey')?.peakList,
+      encodePeakListItems([
+        const PeakListItem(peakOsmId: 101, points: 3),
+        const PeakListItem(peakOsmId: 202, points: 7),
+      ]),
+    );
+  });
+
   testWidgets('peak lists journey selects and deletes targeted row', (
     tester,
   ) async {
@@ -624,4 +732,42 @@ Peak _buildPeak({
     easting: mgrs.easting,
     northing: mgrs.northing,
   );
+}
+
+String _appOwnedCsv(List<Map<String, String>> rows) {
+  final lines = [
+    PeakListCsvExportService.csvHeaders.join(','),
+    for (final row in rows)
+      PeakListCsvExportService.csvHeaders
+          .map((header) => _csvCell(row[header] ?? ''))
+          .join(','),
+  ];
+  return '${lines.join('\n')}\n';
+}
+
+Map<String, String> _appOwnedCsvRowForPeak(Peak peak, {required int points}) {
+  return {
+    'name': peak.name,
+    'altName': peak.altName,
+    'elevation': peak.elevation?.toString() ?? '',
+    'gridZoneDesignator': peak.gridZoneDesignator,
+    'mgrs100kId': peak.mgrs100kId,
+    'easting': peak.easting,
+    'northing': peak.northing,
+    'Points': '$points',
+    'osmId': '${peak.osmId}',
+    'country': peak.country,
+    'region': peak.region ?? '',
+    'county': peak.county,
+    'range': peak.range,
+    'sourceOfTruth': peak.sourceOfTruth,
+  };
+}
+
+String _csvCell(String value) {
+  if (!value.contains(',') && !value.contains('"') && !value.contains('\n')) {
+    return value;
+  }
+  final escaped = value.replaceAll('"', '""');
+  return '"$escaped"';
 }
