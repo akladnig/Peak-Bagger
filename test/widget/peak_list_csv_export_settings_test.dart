@@ -31,13 +31,22 @@ void main() {
   testWidgets('export peak lists shows loading state and success', (
     tester,
   ) async {
-    Finder tile(String key) => find.byKey(Key(key), skipOffstage: false);
-
     final repository = await TestTasmapRepository.create();
     final completer = Completer<PeakListCsvExportResult>();
     var exportCalls = 0;
-    Future<PeakListCsvExportResult> exportRunner() {
+    Future<PeakListCsvExportResult> exportRunner({
+      PeakListCsvExportProgressCallback? onProgress,
+    }) {
       exportCalls += 1;
+      onProgress?.call(
+        const PeakListCsvExportProgress(
+          completedFileCount: 0,
+          totalFileCount: 1234,
+          currentFileName: 'abels-peak-list.csv',
+          currentFileWrittenRowCount: 0,
+          currentFileTotalRowCount: 12,
+        ),
+      );
       return completer.future;
     }
 
@@ -53,7 +62,9 @@ void main() {
       ProviderScope(
         overrides: [
           mapProvider.overrideWith(() => notifier),
-          peakListCsvExportRunnerProvider.overrideWithValue(exportRunner),
+          peakListCsvExportBackgroundRunnerProvider.overrideWithValue(
+            exportRunner,
+          ),
           tasmapStateProvider.overrideWith(
             () => TestTasmapNotifier(repository),
           ),
@@ -77,18 +88,10 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    await scrollSettingsUntilVisible(
-      tester,
-      find.byKey(const Key('peak-list-export-status')),
-    );
-
     expect(exportCalls, 1);
-    expect(
-      tester.widget<ListTile>(tile('export-peak-lists-tile')).onTap,
-      isNull,
-    );
-    expect(find.byKey(const Key('peak-list-export-status')), findsOneWidget);
-    expect(find.text('Exporting peak lists...'), findsOneWidget);
+    expect(find.text('Export started'), findsOneWidget);
+    expect(find.byKey(const Key('peak-list-export-status')), findsNothing);
+    expect(find.byKey(const Key('background-jobs-entry')), findsOneWidget);
 
     completer.complete(
       const PeakListCsvExportResult(
@@ -99,14 +102,17 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.byKey(const Key('peak-list-export-status')), findsOneWidget);
-    expect(
-      find.text('Exported 1,234 peak lists. Skipped 0 lists.'),
-      findsOneWidget,
+    await tester.tap(find.byKey(const Key('background-jobs-entry')));
+    await tester.pump();
+    expect(find.byKey(const Key('background-jobs-panel')), findsOneWidget);
+    await tester.tap(
+      find.byKey(const Key('background-jobs-expand-background-job-1')),
     );
+    await tester.pump();
+    expect(find.text('Files written: 1,234'), findsOneWidget);
     expect(
-      tester.widget<ListTile>(tile('export-peak-lists-tile')).onTap,
-      isNotNull,
+      find.text('Destination: /Users/adrian/Documents/Bushwalking/Peak_Lists'),
+      findsOneWidget,
     );
   });
 
@@ -126,7 +132,9 @@ void main() {
       ProviderScope(
         overrides: [
           mapProvider.overrideWith(() => notifier),
-          peakListCsvExportRunnerProvider.overrideWithValue(() async {
+          peakListCsvExportBackgroundRunnerProvider.overrideWithValue(({
+            PeakListCsvExportProgressCallback? onProgress,
+          }) async {
             return PeakListCsvExportResult(
               outputDirectoryPath:
                   '/Users/adrian/Documents/Bushwalking/Peak_Lists',
@@ -158,17 +166,15 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    await scrollSettingsUntilVisible(
-      tester,
-      find.byKey(const Key('peak-list-export-status')),
+    await tester.tap(find.byKey(const Key('background-jobs-entry')));
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const Key('background-jobs-expand-background-job-1')),
     );
+    await tester.pump();
 
-    expect(
-      find.text(
-        'Exported 1,234 peak lists. Skipped 1,234 lists. 1,234 warnings. Older files may remain for skipped lists.',
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('Warnings: 1,234'), findsOneWidget);
+    expect(find.text('Skipped lists: 1,234'), findsOneWidget);
   });
 
   testWidgets('export peak lists shows zero-output success state', (
@@ -187,7 +193,9 @@ void main() {
       ProviderScope(
         overrides: [
           mapProvider.overrideWith(() => notifier),
-          peakListCsvExportRunnerProvider.overrideWithValue(() async {
+          peakListCsvExportBackgroundRunnerProvider.overrideWithValue(({
+            PeakListCsvExportProgressCallback? onProgress,
+          }) async {
             return const PeakListCsvExportResult(
               outputDirectoryPath:
                   '/Users/adrian/Documents/Bushwalking/Peak_Lists',
@@ -217,22 +225,19 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    await scrollSettingsUntilVisible(
-      tester,
-      find.byKey(const Key('peak-list-export-status')),
+    await tester.tap(find.byKey(const Key('background-jobs-entry')));
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const Key('background-jobs-expand-background-job-1')),
     );
-
-    expect(
-      find.text('Exported 0 peak lists. Skipped 0 lists.'),
-      findsOneWidget,
-    );
+    await tester.pump();
+    expect(find.text('Files written: 0'), findsOneWidget);
+    expect(find.text('Skipped lists: 0'), findsOneWidget);
   });
 
   testWidgets('export peak lists shows failure with path detail', (
     tester,
   ) async {
-    Finder tile(String key) => find.byKey(Key(key), skipOffstage: false);
-
     final repository = await TestTasmapRepository.create();
     final notifier = TestPeakNotifier(
       MapState(
@@ -246,7 +251,9 @@ void main() {
       ProviderScope(
         overrides: [
           mapProvider.overrideWith(() => notifier),
-          peakListCsvExportRunnerProvider.overrideWithValue(() async {
+          peakListCsvExportBackgroundRunnerProvider.overrideWithValue(({
+            PeakListCsvExportProgressCallback? onProgress,
+          }) async {
             throw const PeakListCsvExportException(
               'Peak_Lists directory does not exist at /tmp/Peak_Lists. Create the folder and retry.',
             );
@@ -274,18 +281,9 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    await scrollSettingsUntilVisible(
-      tester,
-      find.byKey(const Key('peak-list-export-status')),
-    );
-
     expect(find.textContaining('Export failed:'), findsOneWidget);
     expect(find.textContaining('/tmp/Peak_Lists'), findsOneWidget);
     expect(find.textContaining('Create the folder and retry'), findsOneWidget);
-
-    expect(
-      tester.widget<ListTile>(tile('export-peak-lists-tile')).onTap,
-      isNotNull,
-    );
+    expect(find.byKey(const Key('peak-list-export-status')), findsNothing);
   });
 }

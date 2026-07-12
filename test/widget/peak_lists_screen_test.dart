@@ -1821,7 +1821,7 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('peak-list-import-button')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('peak-list-import-result-close')));
+    expect(find.byKey(const Key('peak-list-import-dialog')), findsNothing);
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-lists-row-1')), findsOneWidget);
@@ -1829,6 +1829,76 @@ void main() {
       tester
           .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
           .data,
+      'Abels',
+    );
+  });
+
+  testWidgets('open list action navigates back to the imported list', (
+    tester,
+  ) async {
+    final repository = PeakListRepository.test(InMemoryPeakListStorage());
+    final completer = Completer<PeakListImportPresentationResult>();
+
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(selectedFilePath: '/tmp/test.csv'),
+      repository: repository,
+      importRunner: ({required String listName, required String csvPath}) {
+        return completer.future;
+      },
+    );
+
+    await tester.tap(find.byKey(const Key('peak-lists-import-fab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('peak-list-select-file')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('peak-list-name-field')),
+      'Abels',
+    );
+    await tester.tap(find.byKey(const Key('peak-list-import-button')));
+    await tester.pumpAndSettle();
+
+    router.go('/');
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('app-bar-title')),
+        matching: find.text('Dashboard'),
+      ),
+      findsOneWidget,
+    );
+
+    final saved = await repository.save(PeakList(name: 'Abels', peakList: '[]'));
+    ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shared-app-bar'))),
+    ).read(peakListRevisionProvider.notifier).increment();
+    completer.complete(
+      PeakListImportPresentationResult(
+        updated: false,
+        importedCount: 1,
+        skippedCount: 0,
+        peakListId: saved.peakListId,
+        listName: saved.name,
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Open List'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('app-bar-title')),
+        matching: find.text('My Peak Lists'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<Text>(find.byKey(const Key('peak-lists-selected-title'))).data,
       'Abels',
     );
   });
@@ -2256,7 +2326,7 @@ void main() {
     );
   });
 
-  testWidgets('duplicate name confirm path updates and shows result dialog', (
+  testWidgets('duplicate name confirm path updates through background handoff', (
     tester,
   ) async {
     var importCallCount = 0;
@@ -2298,14 +2368,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(importCallCount, 1);
-    expect(find.text('Peak List Updated'), findsOneWidget);
-    expect(find.text('1,234 Peaks imported'), findsOneWidget);
-    expect(find.text('1,234 peaks skipped'), findsOneWidget);
+    expect(find.byKey(const Key('peak-list-import-dialog')), findsNothing);
+    expect(find.textContaining('Import complete:'), findsOneWidget);
   });
 
-  testWidgets('loading state disables import and failure uses modal pattern', (
-    tester,
-  ) async {
+  testWidgets(
+    'accepted import closes immediately and failure uses background job path',
+    (tester) async {
     final completer = Completer<PeakListImportPresentationResult>();
     await _pumpPeakListsApp(
       tester,
@@ -2327,23 +2396,24 @@ void main() {
     await tester.tap(find.byKey(const Key('peak-list-import-button')));
     await tester.pump();
 
-    final importButton = tester.widget<FilledButton>(
-      find.byKey(const Key('peak-list-import-button')),
-    );
-    expect(importButton.onPressed, isNull);
-    expect(find.byKey(const Key('peak-list-import-progress')), findsOneWidget);
-
     completer.completeError(StateError('boom'));
     await tester.pump();
     await tester.pumpAndSettle();
 
-    expect(find.text('Peak List Import Failed'), findsOneWidget);
-    expect(find.textContaining('boom'), findsOneWidget);
+    expect(find.byKey(const Key('peak-list-import-dialog')), findsNothing);
+    expect(find.byKey(const Key('background-jobs-entry')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('background-jobs-entry')));
+    await tester.pump();
+
+    expect(find.byKey(const Key('background-jobs-panel')), findsOneWidget);
     expect(
-      find.byKey(const Key('peak-list-import-error-close')),
+      find.byKey(const Key('background-jobs-label-background-job-1')),
       findsOneWidget,
     );
-  });
+    expect(find.text('Failed'), findsOneWidget);
+    },
+  );
 
   testWidgets('ranked import failure shows the exact validation message', (
     tester,
@@ -2372,9 +2442,9 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
-    expect(find.text('Peak List Import Failed'), findsOneWidget);
+    expect(find.textContaining('Import failed:'), findsOneWidget);
     expect(
-      find.text('row 2 is missing osmId (Monte Amariana)'),
+      find.textContaining('row 2 is missing osmId (Monte Amariana)'),
       findsOneWidget,
     );
     expect(
@@ -2449,11 +2519,6 @@ void main() {
     await tester.tap(find.byKey(const Key('peak-list-import-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Peak List Created'), findsOneWidget);
-    expect(find.text('2 Peaks imported'), findsOneWidget);
-    expect(find.text('0 peaks skipped'), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('peak-list-import-result-close')));
     await tester.pumpAndSettle();
 
     expect(
@@ -2509,11 +2574,11 @@ void main() {
     await tester.tap(find.byKey(const Key('peak-list-import-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Peak List Import Failed'), findsOneWidget);
-    expect(find.text('CSV is missing required column: Height'), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('peak-list-import-error-close')));
-    await tester.pumpAndSettle();
+    expect(find.textContaining('Import failed:'), findsOneWidget);
+    expect(
+      find.textContaining('CSV is missing required column: Height'),
+      findsOneWidget,
+    );
 
     expect(find.byKey(const Key('peak-list-import-dialog')), findsNothing);
     await tester.tap(find.byKey(const Key('peak-lists-import-fab')));
@@ -2576,7 +2641,7 @@ void main() {
     await tester.tap(find.byKey(const Key('peak-list-import-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Peak List Import Failed'), findsOneWidget);
+    expect(find.textContaining('Import failed:'), findsOneWidget);
     expect(
       find.text('invalid Points "oops" on row 2 (Broken Peak)'),
       findsOneWidget,
@@ -2623,15 +2688,22 @@ Future<void> _pumpPeakListsApp(
               PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
         ),
         peakListFilePickerProvider.overrideWithValue(filePicker),
-        peakListImportRunnerProvider.overrideWithValue(
-          importRunner ??
-              ({required String listName, required String csvPath}) async {
-                return const PeakListImportPresentationResult(
-                  updated: false,
-                  importedCount: 1,
-                  skippedCount: 0,
-                );
-              },
+        peakListImportBackgroundRunnerProvider.overrideWithValue(
+          ({
+            required String listName,
+            required String csvPath,
+            PeakListImportProgressCallback? onProgress,
+          }) async {
+            final runner = importRunner ??
+                ({required String listName, required String csvPath}) async {
+                  return const PeakListImportPresentationResult(
+                    updated: false,
+                    importedCount: 1,
+                    skippedCount: 0,
+                  );
+                };
+            return runner(listName: listName, csvPath: csvPath);
+          },
         ),
         peakListDuplicateNameCheckerProvider.overrideWithValue(
           duplicateNameChecker ?? ((name) async => false),
@@ -2687,15 +2759,22 @@ Future<void> _pumpPeakListsScreen(
               PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
         ),
         peakListFilePickerProvider.overrideWithValue(filePicker),
-        peakListImportRunnerProvider.overrideWithValue(
-          importRunner ??
-              ({required String listName, required String csvPath}) async {
-                return const PeakListImportPresentationResult(
-                  updated: false,
-                  importedCount: 1,
-                  skippedCount: 0,
-                );
-              },
+        peakListImportBackgroundRunnerProvider.overrideWithValue(
+          ({
+            required String listName,
+            required String csvPath,
+            PeakListImportProgressCallback? onProgress,
+          }) async {
+            final runner = importRunner ??
+                ({required String listName, required String csvPath}) async {
+                  return const PeakListImportPresentationResult(
+                    updated: false,
+                    importedCount: 1,
+                    skippedCount: 0,
+                  );
+                };
+            return runner(listName: listName, csvPath: csvPath);
+          },
         ),
         peakListDuplicateNameCheckerProvider.overrideWithValue(
           duplicateNameChecker ?? ((name) async => false),

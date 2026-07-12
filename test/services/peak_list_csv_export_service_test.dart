@@ -274,6 +274,71 @@ void main() {
       },
     );
 
+    test('reports file and row progress during export', () async {
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(
+            name: 'Alpha List',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 100, points: 3),
+              const PeakListItem(peakOsmId: 999, points: 1),
+            ]),
+          )..peakListId = 1,
+          PeakList(
+            name: 'Bravo List',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 200, points: 7),
+            ]),
+          )..peakListId = 2,
+        ]),
+      );
+      final peakRepository = PeakRepository.test(
+        InMemoryPeakStorage([
+          Peak(
+            osmId: 100,
+            name: 'Alpha',
+            latitude: -41,
+            longitude: 146,
+            gridZoneDesignator: '55G',
+            mgrs100kId: 'AA',
+            easting: '00111',
+            northing: '00222',
+          ),
+          Peak(
+            osmId: 200,
+            name: 'Bravo',
+            latitude: -42,
+            longitude: 147,
+            gridZoneDesignator: '55H',
+            mgrs100kId: 'BB',
+            easting: '00333',
+            northing: '00444',
+          ),
+        ]),
+      );
+      final service = PeakListCsvExportService(
+        peakListRepository: peakListRepository,
+        peakRepository: peakRepository,
+        outputDirectoryResolver: () => outputDirectory,
+      );
+      final progressEvents = <PeakListCsvExportProgress>[];
+
+      final result = await service.exportPeakLists(
+        onProgress: progressEvents.add,
+      );
+
+      expect(result.exportedFileCount, 2);
+      expect(progressEvents, isNotEmpty);
+      expect(progressEvents.first.completedFileCount, 0);
+      expect(progressEvents.first.totalFileCount, 2);
+      expect(progressEvents.last.completedFileCount, 2);
+      expect(progressEvents.last.totalFileCount, 2);
+      expect(
+        progressEvents.where((event) => event.currentFileWrittenRowCount == 1),
+        isNotEmpty,
+      );
+    });
+
     test(
       'exports empty lists, skips invalid lists, and records deterministic warnings',
       () async {

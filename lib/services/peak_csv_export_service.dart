@@ -12,6 +12,28 @@ class PeakCsvExportResult {
   final int exportedCount;
 }
 
+typedef PeakCsvExportProgressCallback =
+    void Function(PeakCsvExportProgress progress);
+
+class PeakCsvExportProgress {
+  const PeakCsvExportProgress({
+    required this.writtenCount,
+    required this.totalCount,
+    required this.fileName,
+  });
+
+  final int writtenCount;
+  final int totalCount;
+  final String fileName;
+
+  double? get percent {
+    if (totalCount <= 0) {
+      return null;
+    }
+    return writtenCount / totalCount;
+  }
+}
+
 abstract class PeakCsvFileWriter {
   Future<void> write(String path, String contents);
 }
@@ -56,14 +78,32 @@ class PeakCsvExportService {
   final Directory _outputDirectory;
   final PeakCsvFileWriter _fileWriter;
 
-  Future<PeakCsvExportResult> exportPeaks() async {
+  Future<PeakCsvExportResult> exportPeaks({
+    PeakCsvExportProgressCallback? onProgress,
+  }) async {
     await _outputDirectory.create(recursive: true);
 
     final peaks = List<Peak>.from(_peakRepository.getAllPeaks());
-    final rows = <List<dynamic>>[_headers, ...peaks.map(_toCsvRow)];
+    final rows = <List<dynamic>>[_headers];
+    final outputPath = p.join(_outputDirectory.path, fileName);
+
+    void reportProgress(int writtenCount) {
+      onProgress?.call(
+        PeakCsvExportProgress(
+          writtenCount: writtenCount,
+          totalCount: peaks.length,
+          fileName: p.basename(outputPath),
+        ),
+      );
+    }
+
+    reportProgress(0);
+    for (final peak in peaks) {
+      rows.add(_toCsvRow(peak));
+      reportProgress(rows.length - 1);
+    }
 
     final csvText = const CsvEncoder(lineDelimiter: '\n').convert(rows);
-    final outputPath = p.join(_outputDirectory.path, fileName);
     await _fileWriter.write(outputPath, csvText);
 
     return PeakCsvExportResult(path: outputPath, exportedCount: peaks.length);

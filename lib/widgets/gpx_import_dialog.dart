@@ -5,13 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:xml/xml.dart';
 
-import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/core/widgets/popup_shell.dart';
 import 'package:peak_bagger/services/gpx_file_picker.dart';
 import 'dialog_helpers.dart';
 
 typedef GpxImportRunner =
-    Future<dynamic> Function({
+    Future<bool> Function({
       required bool importAsRoute,
       required Map<String, String> pathToEditedNames,
     });
@@ -451,7 +450,7 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
 
     final rootNavigator = Navigator.of(context, rootNavigator: true);
     try {
-      final result = await widget.onImport(
+      final accepted = await widget.onImport(
         importAsRoute: _importAsRoute,
         pathToEditedNames: pathToEditedNames,
       );
@@ -461,9 +460,9 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
         _isImporting = false;
       });
 
-      await _showResultDialog(rootNavigator.context, result);
-      if (!mounted) return;
-      Navigator.of(context).pop(result);
+      if (accepted) {
+        Navigator.of(context).pop(true);
+      }
     } catch (error) {
       if (!mounted) return;
 
@@ -474,34 +473,6 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
       rootNavigator.pop();
       await _showFailureDialog(rootNavigator.context, error.toString());
     }
-  }
-
-  Future<void> _showResultDialog(BuildContext dialogContext, dynamic result) {
-    return showSingleActionDialog(
-      context: dialogContext,
-      title: 'Import Complete',
-      closeKey: 'gpx-import-result-close',
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${formatCount(result.addedCount)} ${_importAsRoute ? 'route(s)' : 'track(s)'} added',
-            key: const Key('gpx-import-summary'),
-          ),
-          if (result.unchangedCount > 0)
-            Text('${formatCount(result.unchangedCount)} unchanged'),
-          if (result.unsupportedCount > 0)
-            Text('${formatCount(result.unsupportedCount)} unsupported'),
-          if (result.errorCount > 0)
-            Text('${formatCount(result.errorCount)} error(s)'),
-          if (result.warningMessage != null) ...[
-            const SizedBox(height: 12),
-            Text(result.warningMessage!),
-          ],
-        ],
-      ),
-    );
   }
 
   Future<void> _showFailureDialog(BuildContext dialogContext, String error) {

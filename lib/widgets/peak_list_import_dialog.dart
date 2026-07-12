@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:peak_bagger/core/widgets/popup_keyboard_dismiss.dart';
 
-import '../core/number_formatters.dart';
 import '../services/peak_list_file_picker.dart';
 import 'dialog_helpers.dart';
 import 'peak_list_name_field.dart';
@@ -15,13 +14,22 @@ typedef PeakListImportRunner =
       required String csvPath,
     });
 
+typedef PeakListImportStarter = Future<bool> Function({
+  required String listName,
+  required String csvPath,
+});
+
 class PeakListImportPresentationResult {
   const PeakListImportPresentationResult({
     required this.updated,
     required this.importedCount,
     required this.skippedCount,
+    this.matchedCount = 0,
+    this.ambiguousCount = 0,
     this.warningCount = 0,
     this.warningMessage,
+    this.logEntryCount = 0,
+    this.importLogNote,
     this.peakListId,
     this.listName,
   });
@@ -29,8 +37,12 @@ class PeakListImportPresentationResult {
   final bool updated;
   final int importedCount;
   final int skippedCount;
+  final int matchedCount;
+  final int ambiguousCount;
   final int warningCount;
   final String? warningMessage;
+  final int logEntryCount;
+  final String? importLogNote;
   final int? peakListId;
   final String? listName;
 
@@ -46,7 +58,7 @@ class PeakListImportDialog extends StatefulWidget {
   });
 
   final PeakListFilePicker filePicker;
-  final PeakListImportRunner onImport;
+  final PeakListImportStarter onImport;
   final PeakListDuplicateNameChecker duplicateNameChecker;
 
   @override
@@ -197,18 +209,16 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
 
     final rootNavigator = Navigator.of(context, rootNavigator: true);
     try {
-      final result = await widget.onImport(listName: name, csvPath: csvPath);
+      final accepted = await widget.onImport(listName: name, csvPath: csvPath);
       if (!mounted) {
         return;
       }
       setState(() {
         _isImporting = false;
       });
-      await _showResultDialog(rootNavigator.context, result);
-      if (!mounted) {
-        return;
+      if (accepted) {
+        Navigator.of(context).pop(true);
       }
-      Navigator.of(context).pop(result);
     } catch (error) {
       if (!mounted) {
         return;
@@ -234,35 +244,6 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
       cancelLabel: 'Cancel',
       confirmKey: 'peak-list-update-confirm',
       confirmLabel: 'Update',
-    );
-  }
-
-  Future<void> _showResultDialog(
-    BuildContext dialogContext,
-    PeakListImportPresentationResult result,
-  ) {
-    return showSingleActionDialog(
-      context: dialogContext,
-      title: result.title,
-      closeKey: 'peak-list-import-result-close',
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('${formatCount(result.importedCount)} Peaks imported'),
-          Text('${formatCount(result.skippedCount)} peaks skipped'),
-          if (result.warningCount > 0) ...[
-            const SizedBox(height: 12),
-            Text(
-              '${formatCount(result.warningCount)} warnings. See import.log for details.',
-            ),
-          ],
-          if (result.warningMessage != null) ...[
-            const SizedBox(height: 12),
-            Text(result.warningMessage!),
-          ],
-        ],
-      ),
     );
   }
 

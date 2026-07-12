@@ -1,16 +1,21 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:path/path.dart' as p;
 
 import '../core/constants.dart';
 import 'package:peak_bagger/theme.dart';
+import 'package:peak_bagger/providers/background_jobs_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/services/gpx_file_picker.dart';
+import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
 import 'package:peak_bagger/widgets/gpx_import_dialog.dart';
 import 'package:peak_bagger/widgets/left_tooltip_fab.dart';
 import 'package:peak_bagger/widgets/map_rebuild_debug_counters.dart';
@@ -511,29 +516,158 @@ class MapActionRail extends ConsumerWidget {
   Future<void> _showGpxImportDialog(BuildContext context, WidgetRef ref) async {
     final filePicker = ref.read(gpxFilePickerProvider);
 
-    await showDialog<dynamic>(
+    await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return GpxImportDialog(
           filePicker: filePicker,
           importAsRoute: false,
-          onImport:
-              ({
-                required bool importAsRoute,
-                required Map<String, String> pathToEditedNames,
-              }) {
-                final notifier = ref.read(mapProvider.notifier);
-                return importAsRoute
-                    ? notifier.importRouteFiles(
-                        pathToEditedNames: pathToEditedNames,
-                      )
-                    : notifier.importGpxFiles(
-                        pathToEditedNames: pathToEditedNames,
-                      );
-              },
+          onImport: ({
+            required bool importAsRoute,
+            required Map<String, String> pathToEditedNames,
+          }) {
+            return _startBackgroundGpxImport(
+              ref,
+              importAsRoute: importAsRoute,
+              pathToEditedNames: pathToEditedNames,
+            );
+          },
         );
       },
     );
+  }
+
+  Future<bool> _startBackgroundGpxImport(
+    WidgetRef ref, {
+    required bool importAsRoute,
+    required Map<String, String> pathToEditedNames,
+  }) async {
+    final jobsNotifier = ref.read(backgroundJobsProvider.notifier);
+    final startResult = jobsNotifier.startJob(
+      kind: BackgroundJobKind.importGpxFiles,
+      label: 'Import GPX File(s)',
+      progress: BackgroundJobProgress(
+        label: 'Files completed',
+        statusText: '0 / ${pathToEditedNames.length} files',
+        currentFileName: pathToEditedNames.isEmpty
+            ? null
+            : p.basename(pathToEditedNames.keys.first),
+        percent: pathToEditedNames.isEmpty ? null : 0,
+      ),
+    );
+    if (!startResult.isStarted) {
+      return false;
+    }
+
+    final jobId = startResult.job!.id;
+    final openJobsAction = BackgroundJobsSnackBarAction(
+      key: const Key('background-jobs-snackbar-open-jobs'),
+      label: 'Open Jobs',
+      onPressed: jobsNotifier.openPanel,
+    );
+    jobsNotifier.queueSnackBar(
+      message: 'Import started',
+      actions: [openJobsAction],
+    );
+
+    unawaited(
+      _runBackgroundGpxImport(
+        ref,
+        jobId: jobId,
+        importAsRoute: importAsRoute,
+        pathToEditedNames: pathToEditedNames,
+        openJobsAction: openJobsAction,
+      ),
+    );
+
+    return true;
+  }
+
+  Future<void> _runBackgroundGpxImport(
+    WidgetRef ref, {
+    required String jobId,
+    required bool importAsRoute,
+    required Map<String, String> pathToEditedNames,
+    required BackgroundJobsSnackBarAction openJobsAction,
+  }) async {
+    final mapNotifier = ref.read(mapProvider.notifier);
+    final jobsNotifier = ref.read(backgroundJobsProvider.notifier);
+
+    void updateProgress(GpxImportProgress progress) {
+      jobsNotifier.updateRunningJob(
+        jobId: jobId,
+        progress: BackgroundJobProgress(
+          label: 'Files completed',
+          statusText:
+              '${progress.completedCount} / ${progress.totalCount} files',
+          currentFileName: progress.currentFileName,
+          percent: progress.percent,
+        ),
+      );
+    }
+
+    try {
+      final result = importAsRoute
+          ? await mapNotifier.importRouteFiles(
+              pathToEditedNames: pathToEditedNames,
+              onProgress: updateProgress,
+            )
+          : await mapNotifier.importGpxFiles(
+              pathToEditedNames: pathToEditedNames,
+              onProgress: updateProgress,
+            );
+
+      jobsNotifier.completeRunningJob(
+        jobId: jobId,
+        summary: _importResultSummary(result),
+        detailLines: _importResultDetails(result),
+        hasWarnings: result.warningMessage != null,
+      );
+      jobsNotifier.queueSnackBar(
+        message: 'Import complete: ${_importResultSummary(result)}',
+        actions: [openJobsAction],
+      );
+    } catch (error) {
+      jobsNotifier.failRunningJob(
+        jobId: jobId,
+        summary: '$error',
+      );
+      jobsNotifier.queueSnackBar(
+        message: 'Import failed: $error',
+        actions: [openJobsAction],
+      );
+    }
+  }
+
+  String _importResultSummary<TItem extends GpxImportItem>(
+    GpxImportResult<TItem> result,
+  ) {
+    final parts = <String>['${result.addedCount} added'];
+    if (result.unchangedCount > 0) {
+      parts.add('${result.unchangedCount} unchanged');
+    }
+    if (result.unsupportedCount > 0) {
+      parts.add('${result.unsupportedCount} unsupported');
+    }
+    if (result.errorCount > 0) {
+      parts.add('${result.errorCount} errors');
+    }
+    return parts.join(', ');
+  }
+
+  List<String> _importResultDetails<TItem extends GpxImportItem>(
+    GpxImportResult<TItem> result,
+  ) {
+    return <String>[
+      'Added: ${result.addedCount}',
+      'Unchanged: ${result.unchangedCount}',
+      'Unsupported: ${result.unsupportedCount}',
+      'Errors: ${result.errorCount}',
+      ...?switch (result.warningMessage) {
+        null => null,
+        final warning => <String>[warning],
+      },
+    ];
   }
 }
 

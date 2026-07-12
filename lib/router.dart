@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'package:peak_bagger/providers/background_jobs_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/screens/dashboard_screen.dart';
@@ -9,6 +10,7 @@ import 'package:peak_bagger/screens/objectbox_admin_screen.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/screens/peak_lists_screen.dart';
 import 'package:peak_bagger/screens/settings_screen.dart';
+import 'package:peak_bagger/widgets/background_jobs_panel.dart';
 import 'package:peak_bagger/widgets/peak_list_selection_summary.dart';
 import 'package:peak_bagger/widgets/side_menu.dart';
 
@@ -130,6 +132,35 @@ GoRouter createRouter() {
                     ),
                     Consumer(
                       builder: (context, ref, _) {
+                        final snackBarEvent = ref
+                            .read(backgroundJobsProvider.notifier)
+                            .consumeSnackBarEvent();
+                        if (snackBarEvent != null) {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Row(
+                                  children: [
+                                    Expanded(child: Text(snackBarEvent.message)),
+                                    for (final action
+                                        in snackBarEvent.actions)
+                                      TextButton(
+                                        key: action.key,
+                                        onPressed: action.onPressed,
+                                        child: Text(action.label),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          });
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                    Consumer(
+                      builder: (context, ref, _) {
                         final startupWarning = ref
                             .read(mapProvider.notifier)
                             .consumeStartupBackfillWarningMessage();
@@ -248,9 +279,50 @@ GoRouter createRouter() {
                           );
                         },
                       ),
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final backgroundJobsState = ref.watch(
+                          backgroundJobsProvider,
+                        );
+                        if (!backgroundJobsState.isPanelOpen) {
+                          return const SizedBox.shrink();
+                        }
+
+                        return Positioned(
+                          top: 16,
+                          right: 16,
+                          bottom: 16,
+                          child: BackgroundJobsPanel(
+                            jobs: backgroundJobsState.visibleJobs,
+                            onClose: () {
+                              ref
+                                  .read(backgroundJobsProvider.notifier)
+                                  .closePanel();
+                            },
+                            onToggleExpanded: (jobId) {
+                              ref
+                                  .read(backgroundJobsProvider.notifier)
+                                  .toggleJobExpanded(jobId);
+                            },
+                            onDismissJob: (jobId) {
+                              ref
+                                  .read(backgroundJobsProvider.notifier)
+                                  .dismissJob(jobId);
+                            },
+                            onClearFinishedJobs: () {
+                              ref
+                                  .read(backgroundJobsProvider.notifier)
+                                  .clearFinishedJobs();
+                            },
+                          ),
+                        );
+                      },
+                    ),
                   ],
                 );
               }
+
+              final backgroundJobsState = ref.watch(backgroundJobsProvider);
 
               return Scaffold(
                 appBar: AppBar(
@@ -263,6 +335,22 @@ GoRouter createRouter() {
                     showSearch: currentDestination.branchIndex == 1,
                     summary: ref.watch(peakListSelectionSummaryProvider),
                   ),
+                  actions: [
+                    if (backgroundJobsState.hasJobs)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: TextButton.icon(
+                          key: const Key('background-jobs-entry'),
+                          onPressed: () {
+                            ref
+                                .read(backgroundJobsProvider.notifier)
+                                .togglePanel();
+                          },
+                          icon: const Icon(Icons.work_history_outlined),
+                          label: const Text('Background Jobs'),
+                        ),
+                      ),
+                  ],
                 ),
                 body: buildShellBody(),
               );

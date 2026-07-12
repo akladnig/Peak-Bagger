@@ -4,6 +4,10 @@ import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/services/peak_list_csv_export_service.dart';
 
 typedef PeakListCsvExportRunner = Future<PeakListCsvExportResult> Function();
+typedef PeakListCsvExportBackgroundRunner =
+    Future<PeakListCsvExportResult> Function({
+      PeakListCsvExportProgressCallback? onProgress,
+    });
 
 final peakListCsvExportServiceProvider = Provider<PeakListCsvExportService>((
   ref,
@@ -17,6 +21,14 @@ final peakListCsvExportServiceProvider = Provider<PeakListCsvExportService>((
 final peakListCsvExportRunnerProvider = Provider<PeakListCsvExportRunner>((
   ref,
 ) {
+  final backgroundRunner = ref.watch(peakListCsvExportBackgroundRunnerProvider);
+  return () => backgroundRunner();
+});
+
+final peakListCsvExportBackgroundRunnerProvider =
+    Provider<PeakListCsvExportBackgroundRunner>((ref) {
   final service = ref.watch(peakListCsvExportServiceProvider);
-  return service.exportPeakLists;
+  return ({PeakListCsvExportProgressCallback? onProgress}) {
+    return service.exportPeakLists(onProgress: onProgress);
+  };
 });

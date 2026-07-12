@@ -19,6 +19,28 @@ typedef PeakListImportRootLoader = Future<String> Function();
 typedef PeakListLogWriter =
     Future<void> Function(String logPath, List<String> entries);
 
+typedef PeakListImportProgressCallback =
+    void Function(PeakListImportProgress progress);
+
+class PeakListImportProgress {
+  const PeakListImportProgress({
+    required this.processedRows,
+    required this.totalRows,
+    required this.currentFileName,
+  });
+
+  final int processedRows;
+  final int totalRows;
+  final String currentFileName;
+
+  double? get percent {
+    if (totalRows <= 0) {
+      return null;
+    }
+    return processedRows / totalRows;
+  }
+}
+
 class PeakListImportResult {
   const PeakListImportResult({
     required this.peakListId,
@@ -69,6 +91,7 @@ class PeakListImportService {
   Future<PeakListImportResult> importPeakList({
     required String listName,
     required String csvPath,
+    PeakListImportProgressCallback? onProgress,
   }) async {
     final trimmedListName = listName.trim();
     if (trimmedListName.isEmpty) {
@@ -77,11 +100,29 @@ class PeakListImportService {
 
     final existing = _peakListRepository.findByName(trimmedListName);
     final rows = _decodeCsv(await _csvLoader(csvPath));
+    final totalRows = rows.skip(1).where((row) => !_isRowBlank(row)).length;
+    var processedRows = 0;
+
+    void reportProgress() {
+      onProgress?.call(
+        PeakListImportProgress(
+          processedRows: processedRows,
+          totalRows: totalRows,
+          currentFileName: csvPath.split(Platform.pathSeparator).last,
+        ),
+      );
+    }
+
+    reportProgress();
     if (_isAppOwnedExportPeakListCsv(rows.first)) {
       return _importAppOwnedExportPeakList(
         listName: trimmedListName,
         existing: existing,
         rows: rows,
+        onRowProcessed: () {
+          processedRows += 1;
+          reportProgress();
+        },
       );
     }
     if (_isRankedPeakListCsv(rows.first)) {
@@ -90,6 +131,10 @@ class PeakListImportService {
         csvPath: csvPath,
         existing: existing,
         rows: rows,
+        onRowProcessed: () {
+          processedRows += 1;
+          reportProgress();
+        },
       );
     }
 
@@ -98,6 +143,10 @@ class PeakListImportService {
       csvPath: csvPath,
       existing: existing,
       rows: _parseHwcCsv(rows),
+      onRowProcessed: () {
+        processedRows += 1;
+        reportProgress();
+      },
     );
   }
 
@@ -105,6 +154,7 @@ class PeakListImportService {
     required String listName,
     required PeakList? existing,
     required List<List<dynamic>> rows,
+    required void Function() onRowProcessed,
   }) async {
     final headers = rows.first
         .map((value) => _headerValue('$value'))
@@ -133,6 +183,7 @@ class PeakListImportService {
         parsedRow,
         existingPeak,
       );
+      onRowProcessed();
     }
 
     for (final peak in plannedPeaksByOsmId.values) {
@@ -167,6 +218,7 @@ class PeakListImportService {
     required String csvPath,
     required PeakList? existing,
     required List<List<dynamic>> rows,
+    required void Function() onRowProcessed,
   }) async {
     final peaks = List<Peak>.from(_peakRepository.getAllPeaks());
     final items = <PeakListItem>[];
@@ -189,6 +241,7 @@ class PeakListImportService {
         skippedCount += 1;
         warningEntries.add(parseResult.error!);
         logEntries.add(_timestampedLogEntry(csvPath, parseResult.error!));
+        onRowProcessed();
         continue;
       }
 
@@ -210,6 +263,7 @@ class PeakListImportService {
               PeakListItem(peakOsmId: createdPeak.osmId, points: csvRow.points),
             );
           }
+          onRowProcessed();
           continue;
         }
 
@@ -222,6 +276,7 @@ class PeakListImportService {
         skippedCount += 1;
         warningEntries.add(warning);
         logEntries.add(_timestampedLogEntry(csvPath, warning));
+        onRowProcessed();
         continue;
       }
 
@@ -256,6 +311,7 @@ class PeakListImportService {
       if (seenPeakOsmIds.add(peak.osmId)) {
         items.add(PeakListItem(peakOsmId: peak.osmId, points: csvRow.points));
       }
+      onRowProcessed();
     }
 
     for (final correctedPeak in correctedPeaksByOsmId.values) {
@@ -298,6 +354,7 @@ class PeakListImportService {
     required String csvPath,
     required PeakList? existing,
     required List<List<dynamic>> rows,
+    required void Function() onRowProcessed,
   }) async {
     final headers = rows.first
         .map((value) => _rankedHeaderValue('$value'))
@@ -330,6 +387,7 @@ class PeakListImportService {
         peaksByOsmId[rankedRow.osmId]!,
       );
       items.add(PeakListItem(peakOsmId: rankedRow.osmId, points: 1));
+      onRowProcessed();
     }
 
     for (final correctedPeak in correctedPeaksByOsmId.values) {

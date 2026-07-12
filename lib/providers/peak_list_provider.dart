@@ -8,6 +8,13 @@ import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/widgets/peak_list_import_dialog.dart';
 
+typedef PeakListImportBackgroundRunner =
+    Future<PeakListImportPresentationResult> Function({
+      required String listName,
+      required String csvPath,
+      PeakListImportProgressCallback? onProgress,
+    });
+
 final peakListRepositoryProvider = Provider<PeakListRepository>((ref) {
   throw UnimplementedError('peakListRepositoryProvider must be overridden');
 });
@@ -33,11 +40,24 @@ final peakListImportServiceProvider = Provider<PeakListImportService>((ref) {
 });
 
 final peakListImportRunnerProvider = Provider<PeakListImportRunner>((ref) {
-  final service = ref.watch(peakListImportServiceProvider);
+  final backgroundRunner = ref.watch(peakListImportBackgroundRunnerProvider);
   return ({required String listName, required String csvPath}) async {
+    return backgroundRunner(listName: listName, csvPath: csvPath);
+  };
+});
+
+final peakListImportBackgroundRunnerProvider =
+    Provider<PeakListImportBackgroundRunner>((ref) {
+  final service = ref.watch(peakListImportServiceProvider);
+  return ({
+    required String listName,
+    required String csvPath,
+    PeakListImportProgressCallback? onProgress,
+  }) async {
     final result = await service.importPeakList(
       listName: listName,
       csvPath: csvPath,
+      onProgress: onProgress,
     );
     ref.read(peakListRevisionProvider.notifier).increment();
     ref.read(mapProvider.notifier).reconcileSelectedPeakList();
@@ -45,8 +65,14 @@ final peakListImportRunnerProvider = Provider<PeakListImportRunner>((ref) {
       updated: result.updated,
       importedCount: result.importedCount,
       skippedCount: result.skippedCount,
+      matchedCount: result.matchedCount,
+      ambiguousCount: result.ambiguousCount,
       warningCount: result.warningEntries.length,
       warningMessage: result.warningMessage,
+      logEntryCount: result.logEntries.length,
+      importLogNote: result.logEntries.isEmpty
+          ? null
+          : (result.warningMessage ?? 'See import.log for details.'),
       peakListId: result.peakListId,
       listName: listName.trim(),
     );

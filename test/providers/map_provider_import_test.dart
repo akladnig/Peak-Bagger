@@ -23,6 +23,81 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
+  test('import reports deterministic file progress', () async {
+    SharedPreferences.setMockInitialValues({});
+    final homeRoot = Directory(
+      Platform.environment['HOME'] ?? Directory.current.path,
+    );
+    final uniqueSuffix = DateTime.now().microsecondsSinceEpoch;
+    final tmpRoot = Directory('${homeRoot.path}/tmp/peak-bagger-import-test-$uniqueSuffix')
+      ..createSync(recursive: true);
+    addTearDown(() => tmpRoot.deleteSync(recursive: true));
+
+    final bushwalkingRoot = Directory('${tmpRoot.path}/Bushwalking')
+      ..createSync(recursive: true);
+    Directory('${bushwalkingRoot.path}/Tracks/Australia/Tasmania')
+        .createSync(recursive: true);
+
+    debugBushwalkingRootOverride = bushwalkingRoot.path;
+    addTearDown(() {
+      debugBushwalkingRootOverride = null;
+    });
+    GpxImporter.debugTracksFolderOverride = '${bushwalkingRoot.path}/Tracks';
+    GpxImporter.debugTasmaniaFolderOverride =
+        '${bushwalkingRoot.path}/Tracks/Australia/Tasmania';
+    GpxImporter.debugRoutesFolderOverride = '${bushwalkingRoot.path}/Routes';
+    addTearDown(() {
+      GpxImporter.debugTracksFolderOverride = null;
+      GpxImporter.debugTasmaniaFolderOverride = null;
+      GpxImporter.debugRoutesFolderOverride = null;
+    });
+
+    final addedFile = File('${tmpRoot.path}/selected-track-import.gpx')
+      ..writeAsStringSync(_tasmanianTrackGpx);
+    final unsupportedFile = File('${tmpRoot.path}/outside-tasmania.gpx')
+      ..writeAsStringSync(_nonTasmanianTrackGpx);
+
+    final tasmapRepository = await TestTasmapRepository.create();
+    final repository = TestWritableGpxTrackRepository();
+    final container = ProviderContainer(
+      overrides: [
+        mapProvider.overrideWith(
+          () => MapNotifier(
+            peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+            overpassService: OverpassService(),
+            tasmapRepository: tasmapRepository,
+            gpxTrackRepository: repository,
+            peaksBaggedRepository: PeaksBaggedRepository.test(
+              InMemoryPeaksBaggedStorage(),
+            ),
+            migrationMarkerStore: const MigrationMarkerStore(),
+            loadPositionOnBuild: false,
+            loadPeaksOnBuild: false,
+            loadTracksOnBuild: false,
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final progressEvents = <GpxImportProgress>[];
+    await container.read(mapProvider.notifier).importGpxFiles(
+      pathToEditedNames: {
+        addedFile.path: 'Selected Track',
+        unsupportedFile.path: 'Outside Tasmania',
+      },
+      onProgress: progressEvents.add,
+    );
+
+    expect(progressEvents, isNotEmpty);
+    expect(progressEvents.first.completedCount, 0);
+    expect(progressEvents.first.totalCount, 2);
+    expect(progressEvents.first.currentFileName, 'selected-track-import.gpx');
+    expect(progressEvents.last.completedCount, 2);
+    expect(progressEvents.last.totalCount, 2);
+    expect(progressEvents.last.currentFileName, 'selected-track-import.gpx');
+  });
+
   test('import selects the newly added track and bumps focus', () async {
     SharedPreferences.setMockInitialValues({});
     final homeRoot = Directory(

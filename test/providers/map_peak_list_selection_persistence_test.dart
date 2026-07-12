@@ -445,6 +445,7 @@ class _FakeImportService extends PeakListImportService {
   Future<PeakListImportResult> importPeakList({
     required String listName,
     required String csvPath,
+    PeakListImportProgressCallback? onProgress,
   }) async {
     return const PeakListImportResult(
       peakListId: 1,

@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:path/path.dart' as p;
 
 import '../core/constants.dart';
 import '../core/number_formatters.dart';
@@ -11,6 +13,7 @@ import '../models/geo_areas.dart';
 import '../models/peak.dart';
 import '../models/peak_list.dart';
 import '../models/peaks_bagged.dart';
+import '../providers/background_jobs_provider.dart';
 import '../providers/peak_list_provider.dart';
 import '../providers/peak_list_selection_provider.dart';
 import '../providers/map_provider.dart';
@@ -33,6 +36,7 @@ import '../widgets/peak_list_create_dialog.dart';
 import '../widgets/peak_list_import_dialog.dart';
 import '../widgets/peak_list_peak_dialog.dart';
 import '../theme.dart';
+import '../router.dart';
 import 'map_screen_layers.dart';
 import 'map_screen_peak_layer.dart';
 
@@ -71,7 +75,9 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
   @override
   Widget build(BuildContext context) {
     final filePicker = ref.watch(peakListFilePickerProvider);
-    final importRunner = ref.watch(peakListImportRunnerProvider);
+    final PeakListImportBackgroundRunner importRunner = ref.watch(
+      peakListImportBackgroundRunnerProvider,
+    );
     final duplicateNameChecker = ref.watch(
       peakListDuplicateNameCheckerProvider,
     );
@@ -218,13 +224,6 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
         return;
       }
       _sortAscending = !_sortAscending;
-    });
-  }
-
-  void _selectPeakList(int peakListId) {
-    setState(() {
-      _selectedPeakListId = peakListId;
-      _selectedPeakId = null;
     });
   }
 
@@ -779,7 +778,7 @@ class _SummaryPane extends StatelessWidget {
   final ValueChanged<_PeakListSortColumn> onSortSelected;
   final ValueChanged<int> onDeleteRequested;
   final PeakListFilePicker filePicker;
-  final PeakListImportRunner importRunner;
+  final PeakListImportBackgroundRunner importRunner;
   final PeakListDuplicateNameChecker duplicateNameChecker;
   final VoidCallback onCreateRequested;
   final PeakListRepository peakListRepository;
@@ -856,7 +855,7 @@ class _SummaryListCard extends StatelessWidget {
   final ValueChanged<_PeakListSortColumn> onSortSelected;
   final ValueChanged<int> onDeleteRequested;
   final PeakListFilePicker filePicker;
-  final PeakListImportRunner importRunner;
+  final PeakListImportBackgroundRunner importRunner;
   final PeakListDuplicateNameChecker duplicateNameChecker;
   final VoidCallback onCreateRequested;
   final PeakListRepository peakListRepository;
@@ -963,7 +962,7 @@ class _SummaryListCard extends StatelessWidget {
   }
 }
 
-class _SummaryHeaderActions extends StatelessWidget {
+class _SummaryHeaderActions extends ConsumerWidget {
   const _SummaryHeaderActions({
     required this.filePicker,
     required this.importRunner,
@@ -973,13 +972,13 @@ class _SummaryHeaderActions extends StatelessWidget {
   });
 
   final PeakListFilePicker filePicker;
-  final PeakListImportRunner importRunner;
+  final PeakListImportBackgroundRunner importRunner;
   final PeakListDuplicateNameChecker duplicateNameChecker;
   final VoidCallback onCreateRequested;
   final PeakListRepository peakListRepository;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final fabBackground = _fabBackgroundColor(context);
     final fabForeground = _fabForegroundColor(context);
 
@@ -1004,44 +1003,194 @@ class _SummaryHeaderActions extends StatelessWidget {
             heroTag: 'peak-list-import',
             backgroundColor: fabBackground,
             onPressed: () async {
-              final result = await showDialog<PeakListImportPresentationResult>(
+              await showDialog<bool>(
                 context: context,
                 builder: (context) {
                   return PeakListImportDialog(
                     filePicker: filePicker,
-                    onImport: importRunner,
+                    onImport: ({required String listName, required String csvPath}) {
+                      return _startBackgroundImport(
+                        ref,
+                        listName: listName,
+                        csvPath: csvPath,
+                      );
+                    },
                     duplicateNameChecker: duplicateNameChecker,
                   );
                 },
               );
-
-              if (!context.mounted || result == null) {
-                return;
-              }
-
-              final imported = result.peakListId == null
-                  ? null
-                  : peakListRepository.findById(result.peakListId!);
-              final selected =
-                  imported ??
-                  (result.listName == null
-                      ? null
-                      : peakListRepository.findByName(result.listName!));
-              if (selected == null) {
-                return;
-              }
-              final state = context
-                  .findAncestorStateOfType<_PeakListsScreenState>();
-              if (state == null) {
-                return;
-              }
-              state._selectPeakList(selected.peakListId);
             },
             child: Icon(Icons.upload_file, color: fabForeground),
           ),
         ),
       ],
     );
+  }
+
+  Future<bool> _startBackgroundImport(
+    WidgetRef ref, {
+    required String listName,
+    required String csvPath,
+  }) async {
+    final jobsNotifier = ref.read(backgroundJobsProvider.notifier);
+    final startResult = jobsNotifier.startJob(
+      kind: BackgroundJobKind.importPeakList,
+      label: 'Import Peak List',
+      progress: BackgroundJobProgress(
+        label: 'Rows processed',
+        statusText: '0 / 0 rows',
+        currentFileName: p.basename(csvPath),
+      ),
+    );
+    if (!startResult.isStarted) {
+      return false;
+    }
+
+    final openJobsAction = BackgroundJobsSnackBarAction(
+      key: const Key('background-jobs-snackbar-open-jobs'),
+      label: 'Open Jobs',
+      onPressed: jobsNotifier.openPanel,
+    );
+    jobsNotifier.queueSnackBar(
+      message: 'Import started',
+      actions: [openJobsAction],
+    );
+
+    unawaited(
+      _runBackgroundImport(
+        ref,
+        jobId: startResult.job!.id,
+        listName: listName,
+        csvPath: csvPath,
+        openJobsAction: openJobsAction,
+      ),
+    );
+    return true;
+  }
+
+  Future<void> _runBackgroundImport(
+    WidgetRef ref, {
+    required String jobId,
+    required String listName,
+    required String csvPath,
+    required BackgroundJobsSnackBarAction openJobsAction,
+  }) async {
+    final jobsNotifier = ref.read(backgroundJobsProvider.notifier);
+
+    try {
+      final result = await importRunner(
+        listName: listName,
+        csvPath: csvPath,
+        onProgress: (progress) {
+          jobsNotifier.updateRunningJob(
+            jobId: jobId,
+            progress: BackgroundJobProgress(
+              label: 'Rows processed',
+              statusText:
+                  '${progress.processedRows} / ${progress.totalRows} rows',
+              currentFileName: progress.currentFileName,
+              percent: progress.percent,
+            ),
+          );
+        },
+      );
+
+      final resolvedPeakListId = _resolvePeakListId(result);
+      final openListAction = resolvedPeakListId == null
+          ? null
+          : BackgroundJobsSnackBarAction(
+              key: const Key('background-jobs-snackbar-open-list'),
+              label: 'Open List',
+              onPressed: () => _openImportedList(ref, resolvedPeakListId),
+            );
+
+      if (resolvedPeakListId != null && _isPeakListsScreenVisible()) {
+        _openImportedList(ref, resolvedPeakListId);
+      }
+
+      jobsNotifier.completeRunningJob(
+        jobId: jobId,
+        summary: _importSummary(result),
+        detailLines: _importDetailLines(result),
+        hasWarnings: result.warningCount > 0 ||
+            result.ambiguousCount > 0 ||
+            result.importLogNote != null,
+      );
+      jobsNotifier.queueSnackBar(
+        message: 'Import complete: ${_importSummary(result)}',
+        actions: [
+          openJobsAction,
+          ...?switch (openListAction) {
+            null => null,
+            final openListAction => <BackgroundJobsSnackBarAction>[
+                openListAction,
+              ],
+          },
+        ],
+      );
+    } catch (error) {
+      final message = _formatImportError(error);
+      jobsNotifier.failRunningJob(jobId: jobId, summary: message);
+      jobsNotifier.queueSnackBar(
+        message: 'Import failed: $message',
+        actions: [openJobsAction],
+      );
+    }
+  }
+
+  int? _resolvePeakListId(PeakListImportPresentationResult result) {
+    final peakListId = result.peakListId;
+    if (peakListId != null) {
+      return peakListId;
+    }
+    final listName = result.listName;
+    if (listName == null) {
+      return null;
+    }
+    return peakListRepository.findByName(listName)?.peakListId;
+  }
+
+  bool _isPeakListsScreenVisible() {
+    return router.routerDelegate.currentConfiguration.uri.path == '/peaks';
+  }
+
+  void _openImportedList(WidgetRef ref, int peakListId) {
+    ref.read(mapProvider.notifier).selectPeakList(
+      PeakListSelectionMode.specificList,
+      peakListId: peakListId,
+    );
+    router.go('/peaks?selectedPeakListId=$peakListId');
+  }
+
+  String _importSummary(PeakListImportPresentationResult result) {
+    final parts = <String>['${formatCount(result.importedCount)} imported'];
+    if (result.skippedCount > 0) {
+      parts.add('${formatCount(result.skippedCount)} skipped');
+    }
+    if (result.ambiguousCount > 0) {
+      parts.add('${formatCount(result.ambiguousCount)} ambiguous');
+    }
+    return parts.join(', ');
+  }
+
+  List<String> _importDetailLines(PeakListImportPresentationResult result) {
+    return <String>[
+      'Imported: ${result.importedCount}',
+      'Skipped: ${result.skippedCount}',
+      'Ambiguous: ${result.ambiguousCount}',
+      'Warnings: ${result.warningCount}',
+      ...?switch (result.importLogNote) {
+        null => null,
+        final note => <String>[note],
+      },
+    ];
+  }
+
+  String _formatImportError(Object error) {
+    if (error case FormatException(:final message)) {
+      return message;
+    }
+    return error.toString();
   }
 }
 
