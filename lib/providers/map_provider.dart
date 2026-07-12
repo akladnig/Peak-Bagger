@@ -404,6 +404,27 @@ class PendingCameraRequest {
   }
 }
 
+class GpxImportProgress {
+  const GpxImportProgress({
+    required this.completedCount,
+    required this.totalCount,
+    this.currentFileName,
+  });
+
+  final int completedCount;
+  final int totalCount;
+  final String? currentFileName;
+
+  double? get percent {
+    if (totalCount <= 0) {
+      return null;
+    }
+    return completedCount / totalCount;
+  }
+}
+
+typedef GpxImportProgressCallback = void Function(GpxImportProgress progress);
+
 class MapState {
   final LatLng center;
   final double zoom;
@@ -1653,6 +1674,7 @@ class MapNotifier extends Notifier<MapState> {
 
   Future<GpxTrackImportResult> importGpxFiles({
     required Map<String, String> pathToEditedNames,
+    GpxImportProgressCallback? onProgress,
   }) async {
     if (state.isLoadingTracks) {
       throw Exception('Import already in progress');
@@ -1665,11 +1687,29 @@ class MapNotifier extends Notifier<MapState> {
     );
 
     try {
+      final totalCount = pathToEditedNames.length;
+      var completedCount = 0;
+
+      void reportProgress({String? currentFileName}) {
+        onProgress?.call(
+          GpxImportProgress(
+            completedCount: completedCount,
+            totalCount: totalCount,
+            currentFileName: currentFileName,
+          ),
+        );
+      }
+
       final existingTracks = _gpxTrackRepository.getAllTracks();
       final existingContentHashes = existingTracks
           .map((t) => t.contentHash)
           .where((h) => h.isNotEmpty)
           .toSet();
+
+      final orderedPaths = pathToEditedNames.keys.toList(growable: false);
+      if (orderedPaths.isNotEmpty) {
+        reportProgress(currentFileName: p.basename(orderedPaths.first));
+      }
 
       final importer = GpxImporter();
       final plan = await importer.planSelectiveImport(
@@ -1677,6 +1717,11 @@ class MapNotifier extends Notifier<MapState> {
         pathToEditedNames: pathToEditedNames,
         existingContentHashes: existingContentHashes,
       );
+
+      completedCount = plan.unchangedCount + plan.unsupportedCount + plan.errorCount;
+      if (plan.items.isEmpty) {
+        reportProgress();
+      }
 
       // Apply filter config
       final filterConfig = await ref.read(gpxFilterSettingsProvider.future);
@@ -1694,6 +1739,8 @@ class MapNotifier extends Notifier<MapState> {
       // Persist tracks additively
       final addedItems = <GpxTrackImportItem>[];
       for (final item in plan.items) {
+        reportProgress(currentFileName: p.basename(item.sourcePath));
+
         // Apply peak correlation
         try {
           final thresholdMeters = await _peakCorrelationThresholdMeters();
@@ -1715,6 +1762,8 @@ class MapNotifier extends Notifier<MapState> {
         // Persist track
         _gpxTrackRepository.putTrack(item.track);
         addedItems.add(GpxTrackImportItem(track: item.track));
+        completedCount += 1;
+        reportProgress(currentFileName: p.basename(item.sourcePath));
       }
 
       // Move files to managed storage
@@ -1771,6 +1820,7 @@ class MapNotifier extends Notifier<MapState> {
 
   Future<GpxImportResult<GpxRouteImportItem>> importRouteFiles({
     required Map<String, String> pathToEditedNames,
+    GpxImportProgressCallback? onProgress,
   }) async {
     if (state.isLoadingTracks) {
       throw Exception('Import already in progress');
@@ -1790,11 +1840,26 @@ class MapNotifier extends Notifier<MapState> {
       final importer = GpxImporter();
       final addedItems = <GpxRouteImportItem>[];
       var errorCount = 0;
+      final totalCount = pathToEditedNames.length;
+      var completedCount = 0;
+
+      void reportProgress({String? currentFileName}) {
+        onProgress?.call(
+          GpxImportProgress(
+            completedCount: completedCount,
+            totalCount: totalCount,
+            currentFileName: currentFileName,
+          ),
+        );
+      }
 
       for (final entry in pathToEditedNames.entries) {
+        reportProgress(currentFileName: p.basename(entry.key));
         final route = importer.parseRouteFile(entry.key);
         if (route == null) {
           errorCount += 1;
+          completedCount += 1;
+          reportProgress(currentFileName: p.basename(entry.key));
           continue;
         }
 
@@ -1813,6 +1878,8 @@ class MapNotifier extends Notifier<MapState> {
 
         final savedRoute = _routeRepository.saveRoute(route);
         addedItems.add(GpxRouteImportItem(route: savedRoute));
+        completedCount += 1;
+        reportProgress(currentFileName: p.basename(entry.key));
       }
 
       if (addedItems.isNotEmpty) {

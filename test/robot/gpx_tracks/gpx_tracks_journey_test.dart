@@ -1123,6 +1123,7 @@ class _ImportingTestMapNotifier extends TestMapNotifier {
   @override
   Future<GpxTrackImportResult> importGpxFiles({
     required Map<String, String> pathToEditedNames,
+    GpxImportProgressCallback? onProgress,
   }) async {
     importCalled = true;
     if (state.isLoadingTracks) {
@@ -1137,7 +1138,15 @@ class _ImportingTestMapNotifier extends TestMapNotifier {
 
     final importedItems = <GpxTrackImportItem>[];
     try {
+      final totalCount = pathToEditedNames.length;
       for (final entry in pathToEditedNames.entries) {
+        onProgress?.call(
+          GpxImportProgress(
+            completedCount: importedItems.length,
+            totalCount: totalCount,
+            currentFileName: entry.key.split(Platform.pathSeparator).last,
+          ),
+        );
         final path = entry.key;
         final root = resolveBushwalkingRoot();
         final destinationPath =
@@ -1152,6 +1161,13 @@ class _ImportingTestMapNotifier extends TestMapNotifier {
           displayTrackPointsByZoom: '{}',
         );
         importedItems.add(GpxTrackImportItem(track: track));
+        onProgress?.call(
+          GpxImportProgress(
+            completedCount: importedItems.length,
+            totalCount: totalCount,
+            currentFileName: entry.key.split(Platform.pathSeparator).last,
+          ),
+        );
       }
 
       state = state.copyWith(

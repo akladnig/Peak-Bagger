@@ -1,9 +1,12 @@
 import 'dart:io';
 
 import 'package:csv/csv.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:path/path.dart' as p;
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/import_path_helpers.dart';
+import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 
@@ -41,6 +44,32 @@ class PeakListCsvExportException implements Exception {
   String toString() => message;
 }
 
+typedef PeakListCsvExportProgressCallback =
+    void Function(PeakListCsvExportProgress progress);
+
+class PeakListCsvExportProgress {
+  const PeakListCsvExportProgress({
+    required this.completedFileCount,
+    required this.totalFileCount,
+    required this.currentFileName,
+    required this.currentFileWrittenRowCount,
+    required this.currentFileTotalRowCount,
+  });
+
+  final int completedFileCount;
+  final int totalFileCount;
+  final String currentFileName;
+  final int currentFileWrittenRowCount;
+  final int currentFileTotalRowCount;
+
+  double? get currentFilePercent {
+    if (currentFileTotalRowCount <= 0) {
+      return null;
+    }
+    return currentFileWrittenRowCount / currentFileTotalRowCount;
+  }
+}
+
 typedef PeakListCsvOutputDirectoryResolver = Directory Function();
 
 abstract class PeakListCsvFileWriter {
@@ -68,16 +97,21 @@ class PeakListCsvExportService {
            outputDirectoryResolver ?? _defaultOutputDirectoryResolver,
        _fileWriter = fileWriter ?? const IoPeakListCsvFileWriter();
 
-  static const List<String> _headers = [
-    'Name',
-    'Alt Name',
-    'Elevation',
-    'Zone',
+  static const List<String> csvHeaders = [
+    'name',
+    'altName',
+    'elevation',
+    'gridZoneDesignator',
     'mgrs100kId',
-    'Easting',
-    'Northing',
+    'easting',
+    'northing',
     'Points',
     'osmId',
+    'country',
+    'region',
+    'county',
+    'range',
+    'sourceOfTruth',
   ];
 
   final PeakListRepository _peakListRepository;
@@ -85,7 +119,9 @@ class PeakListCsvExportService {
   final PeakListCsvOutputDirectoryResolver _outputDirectoryResolver;
   final PeakListCsvFileWriter _fileWriter;
 
-  Future<PeakListCsvExportResult> exportPeakLists() async {
+  Future<PeakListCsvExportResult> exportPeakLists({
+    PeakListCsvExportProgressCallback? onProgress,
+  }) async {
     final outputDirectory = _outputDirectoryResolver();
     if (!outputDirectory.existsSync()) {
       throw PeakListCsvExportException(
@@ -105,20 +141,50 @@ class PeakListCsvExportService {
       });
 
     final preparedPeakLists = _preparePeakLists(peakLists);
+    final totalFileCount = preparedPeakLists.length;
     var exportedFileCount = 0;
     var skippedRowCount = 0;
     var skippedMalformedListCount = 0;
     var skippedBlankNameListCount = 0;
     var skippedZeroResolvedRowListCount = 0;
     final warningEntries = <String>[];
+    var completedFileCount = 0;
+
+    void reportProgress({
+      required String currentFileName,
+      required int currentFileWrittenRowCount,
+      required int currentFileTotalRowCount,
+    }) {
+      onProgress?.call(
+        PeakListCsvExportProgress(
+          completedFileCount: completedFileCount,
+          totalFileCount: totalFileCount,
+          currentFileName: currentFileName,
+          currentFileWrittenRowCount: currentFileWrittenRowCount,
+          currentFileTotalRowCount: currentFileTotalRowCount,
+        ),
+      );
+    }
 
     for (final preparedPeakList in preparedPeakLists) {
       final peakList = preparedPeakList.peakList;
       final fileName = preparedPeakList.fileName;
+      final currentFileName = fileName ?? peakList.name;
+      reportProgress(
+        currentFileName: currentFileName,
+        currentFileWrittenRowCount: 0,
+        currentFileTotalRowCount: 0,
+      );
       if (fileName == null) {
         skippedBlankNameListCount += 1;
         warningEntries.add(
           'Peak list ${peakList.peakListId} (${peakList.name}): blank normalized filename stem',
+        );
+        completedFileCount += 1;
+        reportProgress(
+          currentFileName: currentFileName,
+          currentFileWrittenRowCount: 0,
+          currentFileTotalRowCount: 0,
         );
         continue;
       }
@@ -131,10 +197,23 @@ class PeakListCsvExportService {
         warningEntries.add(
           'Peak list ${peakList.peakListId} (${peakList.name}): malformed peakList payload',
         );
+        completedFileCount += 1;
+        reportProgress(
+          currentFileName: currentFileName,
+          currentFileWrittenRowCount: 0,
+          currentFileTotalRowCount: 0,
+        );
         continue;
       }
 
-      final rows = <List<dynamic>>[_headers];
+      final rows = <List<dynamic>>[csvHeaders];
+      final totalRowCount = items.length;
+      var writtenRowCount = 0;
+      reportProgress(
+        currentFileName: currentFileName,
+        currentFileWrittenRowCount: 0,
+        currentFileTotalRowCount: totalRowCount,
+      );
       for (final item in items) {
         final peak = _peakRepository.findByOsmId(item.peakOsmId);
         if (peak == null) {
@@ -142,26 +221,49 @@ class PeakListCsvExportService {
           warningEntries.add(
             'Peak list ${peakList.peakListId} (${peakList.name}): missing peak osmId ${item.peakOsmId}',
           );
+          reportProgress(
+            currentFileName: currentFileName,
+            currentFileWrittenRowCount: writtenRowCount,
+            currentFileTotalRowCount: totalRowCount,
+          );
           continue;
         }
 
+        final mgrs = _resolveMgrsComponents(peak);
         rows.add([
           peak.name,
           peak.altName,
           peak.elevation?.toString() ?? '',
-          peak.gridZoneDesignator,
-          peak.mgrs100kId,
-          peak.easting,
-          peak.northing,
+          mgrs.gridZoneDesignator,
+          mgrs.mgrs100kId,
+          mgrs.easting,
+          mgrs.northing,
           item.points,
           peak.osmId,
+          peak.country,
+          peak.region ?? '',
+          peak.county,
+          peak.range,
+          peak.sourceOfTruth,
         ]);
+        writtenRowCount += 1;
+        reportProgress(
+          currentFileName: currentFileName,
+          currentFileWrittenRowCount: writtenRowCount,
+          currentFileTotalRowCount: totalRowCount,
+        );
       }
 
       if (rows.length == 1 && items.isNotEmpty) {
         skippedZeroResolvedRowListCount += 1;
         warningEntries.add(
           'Peak list ${peakList.peakListId} (${peakList.name}): zero resolved peak rows',
+        );
+        completedFileCount += 1;
+        reportProgress(
+          currentFileName: currentFileName,
+          currentFileWrittenRowCount: writtenRowCount,
+          currentFileTotalRowCount: totalRowCount,
         );
         continue;
       }
@@ -176,6 +278,12 @@ class PeakListCsvExportService {
         );
       }
       exportedFileCount += 1;
+      completedFileCount += 1;
+      reportProgress(
+        currentFileName: currentFileName,
+        currentFileWrittenRowCount: writtenRowCount,
+        currentFileTotalRowCount: totalRowCount,
+      );
     }
 
     return PeakListCsvExportResult(
@@ -227,6 +335,19 @@ class PeakListCsvExportService {
     }
 
     return prepared;
+  }
+
+  PeakMgrsComponents _resolveMgrsComponents(Peak peak) {
+    final storedForward =
+        '${peak.gridZoneDesignator.trim().toUpperCase()}'
+        '${peak.mgrs100kId.trim().toUpperCase()}'
+        '${peak.easting.trim()}'
+        '${peak.northing.trim()}';
+    try {
+      return PeakMgrsConverter.fromForwardString(storedForward);
+    } on FormatException {
+      return PeakMgrsConverter.fromLatLng(LatLng(peak.latitude, peak.longitude));
+    }
   }
 }
 

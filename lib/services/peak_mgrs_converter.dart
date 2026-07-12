@@ -72,6 +72,27 @@ class PeakMgrsConverter {
     return LatLng(coords[1], coords[0]);
   }
 
+  static LatLng latLngFromComponents({
+    required String gridZoneDesignator,
+    required String mgrs100kId,
+    required String easting,
+    required String northing,
+  }) {
+    final components = fromForwardString(
+      '${gridZoneDesignator.trim().toUpperCase()}'
+      '${mgrs100kId.trim().toUpperCase()}'
+      '${easting.trim()}'
+      '${northing.trim()}',
+    );
+    final coords = mgrs.Mgrs.toPoint(
+      '${components.gridZoneDesignator}'
+      '${components.mgrs100kId}'
+      '${components.easting}'
+      '${components.northing}',
+    );
+    return LatLng(coords[1], coords[0]);
+  }
+
   static PeakMgrsComponents fromForwardString(String forward) {
     final cleaned = forward.replaceAll(RegExp(r'[\s\n]'), '');
     final match = RegExp(

@@ -3,6 +3,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
+import 'package:peak_bagger/services/peak_list_csv_export_service.dart';
 import 'package:peak_bagger/services/peak_list_import_service.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
@@ -1029,6 +1030,347 @@ void main() {
       );
     });
 
+    test(
+      'app-owned export csv updates by osmId, creates missing peaks, and preserves duplicate row order',
+      () async {
+        final existingPeak = _buildPeak(
+          osmId: 101,
+          name: 'Old Alpha',
+          elevation: 1200,
+          latitude: -41.80,
+          longitude: 146.00,
+        ).copyWith(
+          altName: 'Old Alt',
+          country: 'Old Country',
+          county: 'Old County',
+          range: 'Old Range',
+          region: 'old-region',
+          sourceOfTruth: Peak.sourceOfTruthOsm,
+          verified: true,
+          notes: 'keep notes',
+        );
+        final syntheticPeak = _buildPeak(
+          osmId: -7,
+          name: 'Synthetic Old',
+          elevation: 333,
+          latitude: -42.20,
+          longitude: 146.60,
+        ).copyWith(
+          sourceOfTruth: Peak.sourceOfTruthHwc,
+          difficulty: 'T4',
+        );
+        final missingPeakTemplate = _buildPeak(
+          osmId: 202,
+          name: 'Created Peak',
+          elevation: 1400,
+          latitude: -41.91,
+          longitude: 145.95,
+        ).copyWith(
+          altName: 'Created Alt',
+          country: 'Australia',
+          county: 'Kentish',
+          range: 'Great Western Tiers',
+          region: 'tasmania',
+          sourceOfTruth: Peak.sourceOfTruthPeakBagger,
+        );
+        final updatedSyntheticTemplate = _buildPeak(
+          osmId: -7,
+          name: 'Synthetic Imported',
+          elevation: 777,
+          latitude: -42.201,
+          longitude: 146.601,
+        ).copyWith(
+          altName: 'Synthetic Alt',
+          country: 'Australia',
+          county: 'Huon Valley',
+          range: 'Southwest',
+          region: 'tasmania',
+          sourceOfTruth: Peak.sourceOfTruthHwc,
+        );
+        final peakRepository = PeakRepository.test(
+          InMemoryPeakStorage([existingPeak, syntheticPeak]),
+        );
+        final peakListRepository = PeakListRepository.test(
+          InMemoryPeakListStorage(),
+        );
+        final service = PeakListImportService(
+          peakRepository: peakRepository,
+          peakListRepository: peakListRepository,
+          csvLoader: (_) async => _appOwnedCsv([
+            _appOwnedCsvRowForPeak(
+              existingPeak.copyWith(
+                name: 'Imported Alpha',
+                altName: 'Imported Alt',
+                elevation: 1250,
+                country: 'Australia',
+                county: 'Central Highlands',
+                range: 'Du Cane',
+                region: 'tasmania',
+                sourceOfTruth: Peak.sourceOfTruthHwc,
+              ),
+              points: 7,
+            ),
+            _appOwnedCsvRowForPeak(missingPeakTemplate, points: 2),
+            _appOwnedCsvRowForPeak(
+              existingPeak.copyWith(
+                name: 'Imported Alpha',
+                altName: 'Imported Alt',
+                elevation: 1250,
+                country: 'Australia',
+                county: 'Central Highlands',
+                range: 'Du Cane',
+                region: 'tasmania',
+                sourceOfTruth: Peak.sourceOfTruthHwc,
+              ),
+              points: 5,
+            ),
+            _appOwnedCsvRowForPeak(updatedSyntheticTemplate, points: 9),
+          ]),
+          importRootLoader: () async => '/tmp/Bushwalking',
+          logWriter: (logPath, entries) async {},
+        );
+
+        final result = await service.importPeakList(
+          listName: 'Round Trip Import',
+          csvPath: '/tmp/round-trip.csv',
+        );
+
+        final importedPeak = peakRepository.findByOsmId(101);
+        final createdPeak = peakRepository.findByOsmId(202);
+        final updatedSyntheticPeak = peakRepository.findByOsmId(-7);
+        final importedList = peakListRepository.findByName('Round Trip Import');
+
+        expect(result.updated, isFalse);
+        expect(result.importedCount, 4);
+        expect(result.skippedCount, 0);
+        expect(result.warningEntries, isEmpty);
+        expect(importedPeak?.name, 'Imported Alpha');
+        expect(importedPeak?.altName, 'Imported Alt');
+        expect(importedPeak?.elevation, 1250);
+        expect(importedPeak?.country, 'Australia');
+        expect(importedPeak?.county, 'Central Highlands');
+        expect(importedPeak?.range, 'Du Cane');
+        expect(importedPeak?.region, 'tasmania');
+        expect(importedPeak?.sourceOfTruth, Peak.sourceOfTruthHwc);
+        expect(importedPeak?.verified, isTrue);
+        expect(importedPeak?.notes, 'keep notes');
+        expect(createdPeak, isNotNull);
+        expect(createdPeak?.osmId, 202);
+        expect(createdPeak?.name, 'Created Peak');
+        expect(createdPeak?.altName, 'Created Alt');
+        expect(createdPeak?.country, 'Australia');
+        expect(createdPeak?.county, 'Kentish');
+        expect(createdPeak?.range, 'Great Western Tiers');
+        expect(createdPeak?.region, 'tasmania');
+        expect(createdPeak?.sourceOfTruth, Peak.sourceOfTruthPeakBagger);
+        expect(createdPeak?.difficulty, '');
+        expect(createdPeak?.notes, '');
+        expect(createdPeak?.verified, isFalse);
+        expect(createdPeak?.prominence, isNull);
+        expect(updatedSyntheticPeak?.name, 'Synthetic Imported');
+        expect(updatedSyntheticPeak?.difficulty, 'T4');
+        expect(importedList?.region, Peak.defaultRegion);
+        expect(
+          decodePeakListItems(importedList!.peakList)
+              .map((item) => (item.peakOsmId, item.points))
+              .toList(),
+          [(101, 7), (202, 2), (101, 5), (-7, 9)],
+        );
+      },
+    );
+
+    test('app-owned export import preserves an existing list region', () async {
+      final peak = _buildPeak(
+        osmId: 101,
+        name: 'Mount Achilles',
+        elevation: 1363,
+        latitude: -41.85916,
+        longitude: 145.97754,
+      ).copyWith(region: 'old-peak-region');
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(
+            name: 'Existing Import',
+            region: 'italy-nord-est',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 101, points: 1),
+            ]),
+          )..peakListId = 1,
+        ]),
+      );
+      final service = PeakListImportService(
+        peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+        peakListRepository: peakListRepository,
+        csvLoader: (_) async => _appOwnedCsv([
+          _appOwnedCsvRowForPeak(
+            peak.copyWith(region: 'tasmania', sourceOfTruth: Peak.sourceOfTruthHwc),
+            points: 4,
+          ),
+        ]),
+        importRootLoader: () async => '/tmp/Bushwalking',
+        logWriter: (logPath, entries) async {},
+      );
+
+      final result = await service.importPeakList(
+        listName: 'Existing Import',
+        csvPath: '/tmp/existing-import.csv',
+      );
+
+      expect(result.updated, isTrue);
+      expect(peakListRepository.findByName('Existing Import')?.region, 'italy-nord-est');
+      expect(
+        decodePeakListItems(
+          peakListRepository.findByName('Existing Import')!.peakList,
+        ).map((item) => (item.peakOsmId, item.points)).toList(),
+        [(101, 4)],
+      );
+    });
+
+    test('app-owned export import left pads short grid components', () async {
+      final expectedLatLng = PeakMgrsConverter.latLngFromComponents(
+        gridZoneDesignator: '55G',
+        mgrs100kId: 'EP',
+        easting: '00020',
+        northing: '08881',
+      );
+      final peakRepository = PeakRepository.test(InMemoryPeakStorage());
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+      );
+      final service = PeakListImportService(
+        peakRepository: peakRepository,
+        peakListRepository: peakListRepository,
+        csvLoader: (_) async => _appOwnedCsv([
+          {
+            'name': 'Short Grid Peak',
+            'altName': '',
+            'elevation': '1200',
+            'gridZoneDesignator': '55G',
+            'mgrs100kId': 'EP',
+            'easting': '20',
+            'northing': '8881',
+            'Points': '3',
+            'osmId': '101',
+            'country': 'Australia',
+            'region': 'tasmania',
+            'county': 'Kentish',
+            'range': 'Range',
+            'sourceOfTruth': Peak.sourceOfTruthOsm,
+          },
+        ]),
+        importRootLoader: () async => '/tmp/Bushwalking',
+        logWriter: (logPath, entries) async {},
+      );
+
+      await service.importPeakList(
+        listName: 'Short Grid Import',
+        csvPath: '/tmp/short-grid.csv',
+      );
+
+      final createdPeak = peakRepository.findByOsmId(101);
+      expect(createdPeak?.easting, '00020');
+      expect(createdPeak?.northing, '08881');
+      expect(createdPeak?.latitude, closeTo(expectedLatLng.latitude, 0.000001));
+      expect(
+        createdPeak?.longitude,
+        closeTo(expectedLatLng.longitude, 0.000001),
+      );
+    });
+
+    test('app-owned export import validates the full file before writes', () async {
+      final peak = _buildPeak(
+        osmId: 101,
+        name: 'Original Peak',
+        elevation: 1363,
+        latitude: -41.85916,
+        longitude: 145.97754,
+      ).copyWith(sourceOfTruth: Peak.sourceOfTruthOsm);
+      final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+      );
+      final service = PeakListImportService(
+        peakRepository: peakRepository,
+        peakListRepository: peakListRepository,
+        csvLoader: (_) async => _appOwnedCsv([
+          _appOwnedCsvRowForPeak(
+            peak.copyWith(name: 'Updated Peak', sourceOfTruth: Peak.sourceOfTruthHwc),
+            points: 3,
+          ),
+          {
+            'name': 'Broken Peak',
+            'altName': '',
+            'elevation': '1200',
+            'gridZoneDesignator': '55G',
+            'mgrs100kId': 'EP',
+            'easting': '00000',
+            'northing': '50223',
+            'Points': 'oops',
+            'osmId': '202',
+            'country': 'Australia',
+            'region': 'tasmania',
+            'county': 'Kentish',
+            'range': 'Range',
+            'sourceOfTruth': Peak.sourceOfTruthOsm,
+          },
+        ]),
+        importRootLoader: () async => '/tmp/Bushwalking',
+        logWriter: (logPath, entries) async {},
+      );
+
+      await expectLater(
+        service.importPeakList(
+          listName: 'Atomic Import',
+          csvPath: '/tmp/atomic.csv',
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            'invalid Points "oops" on row 3 (Broken Peak)',
+          ),
+        ),
+      );
+
+      expect(peakRepository.findByOsmId(101)?.name, 'Original Peak');
+      expect(peakRepository.findByOsmId(101)?.sourceOfTruth, Peak.sourceOfTruthOsm);
+      expect(peakRepository.findByOsmId(202), isNull);
+      expect(peakListRepository.getAllPeakLists(), isEmpty);
+    });
+
+    test('old export header is rejected by the new-format importer', () async {
+      final peakRepository = PeakRepository.test(InMemoryPeakStorage());
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+      );
+      final service = PeakListImportService(
+        peakRepository: peakRepository,
+        peakListRepository: peakListRepository,
+        csvLoader: (_) async =>
+            'Name,Alt Name,Elevation,Zone,mgrs100kId,Easting,Northing,Points,osmId\n'
+            'Legacy Peak,,1200,55G,EP,00000,50223,3,101\n',
+        importRootLoader: () async => '/tmp/Bushwalking',
+        logWriter: (logPath, entries) async {},
+      );
+
+      await expectLater(
+        service.importPeakList(
+          listName: 'Legacy Export',
+          csvPath: '/tmp/legacy-export.csv',
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            'CSV is missing required column: Height',
+          ),
+        ),
+      );
+
+      expect(peakRepository.getAllPeaks(), isEmpty);
+      expect(peakListRepository.getAllPeakLists(), isEmpty);
+    });
+
     test('missing headers throw before row import succeeds', () async {
       final service = PeakListImportService(
         peakRepository: PeakRepository.test(InMemoryPeakStorage()),
@@ -1094,4 +1436,42 @@ String _formatCsvUtmComponent(int value) {
     return '${digits.substring(0, 2)} ${digits.substring(2, 4)} ${digits.substring(4)}';
   }
   return digits;
+}
+
+String _appOwnedCsv(List<Map<String, String>> rows) {
+  final lines = [
+    PeakListCsvExportService.csvHeaders.join(','),
+    for (final row in rows)
+      PeakListCsvExportService.csvHeaders
+          .map((header) => _csvCell(row[header] ?? ''))
+          .join(','),
+  ];
+  return '${lines.join('\n')}\n';
+}
+
+Map<String, String> _appOwnedCsvRowForPeak(Peak peak, {required int points}) {
+  return {
+    'name': peak.name,
+    'altName': peak.altName,
+    'elevation': peak.elevation?.toString() ?? '',
+    'gridZoneDesignator': peak.gridZoneDesignator,
+    'mgrs100kId': peak.mgrs100kId,
+    'easting': peak.easting,
+    'northing': peak.northing,
+    'Points': '$points',
+    'osmId': '${peak.osmId}',
+    'country': peak.country,
+    'region': peak.region ?? '',
+    'county': peak.county,
+    'range': peak.range,
+    'sourceOfTruth': peak.sourceOfTruth,
+  };
+}
+
+String _csvCell(String value) {
+  if (!value.contains(',') && !value.contains('"') && !value.contains('\n')) {
+    return value;
+  }
+  final escaped = value.replaceAll('"', '""');
+  return '"$escaped"';
 }

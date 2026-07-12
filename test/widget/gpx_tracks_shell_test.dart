@@ -302,6 +302,7 @@ void main() {
     expect(find.byKey(const Key('app-bar-theme-action')), findsNothing);
     expect(find.byKey(const Key('map-info-fab')), findsOneWidget);
   });
+
 }
 
 Future<void> _pumpApp(WidgetTester tester, TestMapNotifier notifier) async {

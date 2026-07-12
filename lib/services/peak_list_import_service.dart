@@ -8,6 +8,7 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/geo.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
+import 'package:peak_bagger/services/peak_list_csv_export_service.dart';
 import 'package:peak_bagger/services/peak_list_file_picker.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
@@ -17,6 +18,28 @@ typedef PeakListCsvLoader = Future<String> Function(String csvPath);
 typedef PeakListImportRootLoader = Future<String> Function();
 typedef PeakListLogWriter =
     Future<void> Function(String logPath, List<String> entries);
+
+typedef PeakListImportProgressCallback =
+    void Function(PeakListImportProgress progress);
+
+class PeakListImportProgress {
+  const PeakListImportProgress({
+    required this.processedRows,
+    required this.totalRows,
+    required this.currentFileName,
+  });
+
+  final int processedRows;
+  final int totalRows;
+  final String currentFileName;
+
+  double? get percent {
+    if (totalRows <= 0) {
+      return null;
+    }
+    return processedRows / totalRows;
+  }
+}
 
 class PeakListImportResult {
   const PeakListImportResult({
@@ -68,6 +91,7 @@ class PeakListImportService {
   Future<PeakListImportResult> importPeakList({
     required String listName,
     required String csvPath,
+    PeakListImportProgressCallback? onProgress,
   }) async {
     final trimmedListName = listName.trim();
     if (trimmedListName.isEmpty) {
@@ -76,12 +100,41 @@ class PeakListImportService {
 
     final existing = _peakListRepository.findByName(trimmedListName);
     final rows = _decodeCsv(await _csvLoader(csvPath));
+    final totalRows = rows.skip(1).where((row) => !_isRowBlank(row)).length;
+    var processedRows = 0;
+
+    void reportProgress() {
+      onProgress?.call(
+        PeakListImportProgress(
+          processedRows: processedRows,
+          totalRows: totalRows,
+          currentFileName: csvPath.split(Platform.pathSeparator).last,
+        ),
+      );
+    }
+
+    reportProgress();
+    if (_isAppOwnedExportPeakListCsv(rows.first)) {
+      return _importAppOwnedExportPeakList(
+        listName: trimmedListName,
+        existing: existing,
+        rows: rows,
+        onRowProcessed: () {
+          processedRows += 1;
+          reportProgress();
+        },
+      );
+    }
     if (_isRankedPeakListCsv(rows.first)) {
       return _importRankedPeakList(
         listName: trimmedListName,
         csvPath: csvPath,
         existing: existing,
         rows: rows,
+        onRowProcessed: () {
+          processedRows += 1;
+          reportProgress();
+        },
       );
     }
 
@@ -90,6 +143,73 @@ class PeakListImportService {
       csvPath: csvPath,
       existing: existing,
       rows: _parseHwcCsv(rows),
+      onRowProcessed: () {
+        processedRows += 1;
+        reportProgress();
+      },
+    );
+  }
+
+  Future<PeakListImportResult> _importAppOwnedExportPeakList({
+    required String listName,
+    required PeakList? existing,
+    required List<List<dynamic>> rows,
+    required void Function() onRowProcessed,
+  }) async {
+    final headers = rows.first
+        .map((value) => _headerValue('$value'))
+        .toList(growable: false);
+    final peaksByOsmId = {
+      for (final peak in _peakRepository.getAllPeaks()) peak.osmId: peak,
+    };
+    final parsedRows = <_AppOwnedPeakListCsvRow>[];
+    final plannedPeaksByOsmId = <int, Peak>{};
+
+    for (var rowIndex = 1; rowIndex < rows.length; rowIndex++) {
+      final row = rows[rowIndex];
+      if (_isRowBlank(row)) {
+        continue;
+      }
+
+      final parsedRow = _parseAppOwnedExportRow(
+        headers: headers,
+        row: row,
+        rowNumber: rowIndex + 1,
+      );
+      parsedRows.add(parsedRow);
+      final existingPeak = plannedPeaksByOsmId[parsedRow.osmId] ??
+          peaksByOsmId[parsedRow.osmId];
+      plannedPeaksByOsmId[parsedRow.osmId] = _applyAppOwnedExportRow(
+        parsedRow,
+        existingPeak,
+      );
+      onRowProcessed();
+    }
+
+    for (final peak in plannedPeaksByOsmId.values) {
+      await _peakRepository.save(peak);
+    }
+
+    final saved = await _peakListRepository.save(
+      PeakList(
+        name: listName,
+        region: existing?.region ?? Peak.defaultRegion,
+        peakList: encodePeakListItems([
+          for (final row in parsedRows)
+            PeakListItem(peakOsmId: row.osmId, points: row.points),
+        ]),
+      ),
+    );
+
+    return PeakListImportResult(
+      peakListId: saved.peakListId,
+      updated: existing != null,
+      importedCount: parsedRows.length,
+      skippedCount: 0,
+      matchedCount: parsedRows.length,
+      ambiguousCount: 0,
+      warningEntries: const [],
+      logEntries: const [],
     );
   }
 
@@ -98,6 +218,7 @@ class PeakListImportService {
     required String csvPath,
     required PeakList? existing,
     required List<List<dynamic>> rows,
+    required void Function() onRowProcessed,
   }) async {
     final peaks = List<Peak>.from(_peakRepository.getAllPeaks());
     final items = <PeakListItem>[];
@@ -120,6 +241,7 @@ class PeakListImportService {
         skippedCount += 1;
         warningEntries.add(parseResult.error!);
         logEntries.add(_timestampedLogEntry(csvPath, parseResult.error!));
+        onRowProcessed();
         continue;
       }
 
@@ -141,6 +263,7 @@ class PeakListImportService {
               PeakListItem(peakOsmId: createdPeak.osmId, points: csvRow.points),
             );
           }
+          onRowProcessed();
           continue;
         }
 
@@ -153,6 +276,7 @@ class PeakListImportService {
         skippedCount += 1;
         warningEntries.add(warning);
         logEntries.add(_timestampedLogEntry(csvPath, warning));
+        onRowProcessed();
         continue;
       }
 
@@ -187,6 +311,7 @@ class PeakListImportService {
       if (seenPeakOsmIds.add(peak.osmId)) {
         items.add(PeakListItem(peakOsmId: peak.osmId, points: csvRow.points));
       }
+      onRowProcessed();
     }
 
     for (final correctedPeak in correctedPeaksByOsmId.values) {
@@ -229,6 +354,7 @@ class PeakListImportService {
     required String csvPath,
     required PeakList? existing,
     required List<List<dynamic>> rows,
+    required void Function() onRowProcessed,
   }) async {
     final headers = rows.first
         .map((value) => _rankedHeaderValue('$value'))
@@ -261,6 +387,7 @@ class PeakListImportService {
         peaksByOsmId[rankedRow.osmId]!,
       );
       items.add(PeakListItem(peakOsmId: rankedRow.osmId, points: 1));
+      onRowProcessed();
     }
 
     for (final correctedPeak in correctedPeaksByOsmId.values) {
@@ -316,6 +443,22 @@ class PeakListImportService {
     return true;
   }
 
+  bool _isAppOwnedExportPeakListCsv(List<dynamic> headerRow) {
+    final headers = headerRow
+        .map((value) => _headerValue('$value'))
+        .toList(growable: false);
+    if (headers.length != PeakListCsvExportService.csvHeaders.length) {
+      return false;
+    }
+
+    for (var index = 0; index < headers.length; index++) {
+      if (headers[index] != PeakListCsvExportService.csvHeaders[index]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   List<List<dynamic>> _parseHwcCsv(List<List<dynamic>> rows) {
 
     final headers = rows.first
@@ -334,6 +477,80 @@ class PeakListImportService {
 
     rows[0] = headers;
     return rows;
+  }
+
+  _AppOwnedPeakListCsvRow _parseAppOwnedExportRow({
+    required List<String> headers,
+    required List<dynamic> row,
+    required int rowNumber,
+  }) {
+    final data = <String, String>{};
+    for (var index = 0; index < headers.length; index++) {
+      data[headers[index]] = index < row.length ? '${row[index]}'.trim() : '';
+    }
+
+    final name = data['name'] ?? '';
+    final nameLabel = name.isEmpty ? 'Unnamed peak' : name;
+    final rawOsmId = data['osmId'] ?? '';
+    final osmId = int.tryParse(rawOsmId);
+    if (osmId == null) {
+      throw FormatException(
+        'invalid osmId "$rawOsmId" on row $rowNumber ($nameLabel)',
+      );
+    }
+
+    final rawPoints = data['Points'] ?? '';
+    final points = int.tryParse(rawPoints);
+    if (points == null) {
+      throw FormatException(
+        'invalid Points "$rawPoints" on row $rowNumber ($nameLabel)',
+      );
+    }
+
+    final rawElevation = data['elevation'] ?? '';
+    final elevation = rawElevation.isEmpty ? null : double.tryParse(rawElevation);
+    if (rawElevation.isNotEmpty && elevation == null) {
+      throw FormatException(
+        'invalid elevation "$rawElevation" on row $rowNumber ($nameLabel)',
+      );
+    }
+
+    final gridZoneDesignator = data['gridZoneDesignator'] ?? '';
+    final mgrs100kId = data['mgrs100kId'] ?? '';
+    final easting = _normalizeAppOwnedMgrsComponent(data['easting'] ?? '');
+    final northing = _normalizeAppOwnedMgrsComponent(data['northing'] ?? '');
+    try {
+      final latitudeLongitude = PeakMgrsConverter.latLngFromComponents(
+        gridZoneDesignator: gridZoneDesignator,
+        mgrs100kId: mgrs100kId,
+        easting: easting,
+        northing: northing,
+      );
+      final normalizedMgrs = PeakMgrsConverter.fromForwardString(
+        '$gridZoneDesignator$mgrs100kId$easting$northing',
+      );
+      return _AppOwnedPeakListCsvRow(
+        rowNumber: rowNumber,
+        osmId: osmId,
+        name: name,
+        altName: data['altName'] ?? '',
+        elevation: elevation,
+        gridZoneDesignator: normalizedMgrs.gridZoneDesignator,
+        mgrs100kId: normalizedMgrs.mgrs100kId,
+        easting: normalizedMgrs.easting,
+        northing: normalizedMgrs.northing,
+        latitude: latitudeLongitude.latitude,
+        longitude: latitudeLongitude.longitude,
+        points: points,
+        country: data['country'] ?? '',
+        region: data['region'] ?? '',
+        county: data['county'] ?? '',
+        range: data['range'] ?? '',
+        sourceOfTruth: data['sourceOfTruth'] ?? '',
+      );
+    } on FormatException {
+      throw FormatException('invalid grid reference on row $rowNumber ($nameLabel)');
+    }
   }
 
   _RankedPeakListCsvRow _parseRankedRow({
@@ -775,8 +992,62 @@ class PeakListImportService {
     return trimmed;
   }
 
+  String _headerValue(String header) {
+    return header.replaceFirst('\u{FEFF}', '').trim();
+  }
+
+  String _normalizeAppOwnedMgrsComponent(String value) {
+    final trimmed = value.trim();
+    if (!RegExp(r'^\d{1,5}$').hasMatch(trimmed)) {
+      throw const FormatException('Invalid app-owned MGRS component');
+    }
+    return trimmed.padLeft(5, '0');
+  }
+
   String _rankedHeaderValue(String header) {
     return header.replaceFirst('\u{FEFF}', '');
+  }
+
+  Peak _applyAppOwnedExportRow(
+    _AppOwnedPeakListCsvRow row,
+    Peak? existingPeak,
+  ) {
+    if (existingPeak == null) {
+      return Peak(
+        osmId: row.osmId,
+        name: row.name,
+        altName: row.altName,
+        elevation: row.elevation,
+        latitude: row.latitude,
+        longitude: row.longitude,
+        region: row.region,
+        gridZoneDesignator: row.gridZoneDesignator,
+        mgrs100kId: row.mgrs100kId,
+        easting: row.easting,
+        northing: row.northing,
+        country: row.country,
+        county: row.county,
+        range: row.range,
+        sourceOfTruth: row.sourceOfTruth,
+      );
+    }
+
+    return existingPeak.copyWith(
+      name: row.name,
+      altName: row.altName,
+      elevation: row.elevation,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      country: row.country,
+      county: row.county,
+      range: row.range,
+      region: row.region,
+      gridZoneDesignator: row.gridZoneDesignator,
+      mgrs100kId: row.mgrs100kId,
+      easting: row.easting,
+      northing: row.northing,
+      sourceOfTruth: row.sourceOfTruth,
+    );
   }
 
   void _requireHeaders(List<dynamic> headers, List<String> requiredHeaders) {
@@ -993,6 +1264,46 @@ class _RankedPeakListCsvRow {
   final String viaFerrata;
   final String notes;
   final _RankedRegionMapping regionMapping;
+}
+
+class _AppOwnedPeakListCsvRow {
+  const _AppOwnedPeakListCsvRow({
+    required this.rowNumber,
+    required this.osmId,
+    required this.name,
+    required this.altName,
+    required this.elevation,
+    required this.gridZoneDesignator,
+    required this.mgrs100kId,
+    required this.easting,
+    required this.northing,
+    required this.latitude,
+    required this.longitude,
+    required this.points,
+    required this.country,
+    required this.region,
+    required this.county,
+    required this.range,
+    required this.sourceOfTruth,
+  });
+
+  final int rowNumber;
+  final int osmId;
+  final String name;
+  final String altName;
+  final double? elevation;
+  final String gridZoneDesignator;
+  final String mgrs100kId;
+  final String easting;
+  final String northing;
+  final double latitude;
+  final double longitude;
+  final int points;
+  final String country;
+  final String region;
+  final String county;
+  final String range;
+  final String sourceOfTruth;
 }
 
 class _RankedRegionMapping {

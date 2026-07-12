@@ -8,6 +8,7 @@ import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/open_route_service_api_key_provider.dart';
+import 'package:peak_bagger/providers/background_jobs_provider.dart';
 import 'package:peak_bagger/providers/peak_csv_export_provider.dart';
 import 'package:peak_bagger/providers/peak_list_mini_map_cluster_display_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_map_cluster_display_settings_provider.dart';
@@ -24,7 +25,7 @@ import 'package:peak_bagger/screens/map_screen_layers.dart';
 import 'package:peak_bagger/screens/track_speed_analysis_screen.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
-import 'package:peak_bagger/services/peak_list_csv_export_service.dart';
+import 'package:peak_bagger/services/peak_csv_export_service.dart';
 import 'package:peak_bagger/services/route_graph_refresh_service.dart';
 import 'package:peak_bagger/services/tassy_full_peak_list_sync_service.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
@@ -46,8 +47,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final bool _isDownloading = false;
-  bool _isExportingPeaks = false;
-  bool _isExportingPeakLists = false;
   bool _isRefreshingPeaks = false;
   bool _isRefreshingRouteGraph = false;
   bool _isRefreshingTassyFull = false;
@@ -556,13 +555,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               leading: const Icon(Icons.upload),
               title: const Text('Export Peak Data'),
               subtitle: const Text('Export all peaks to CSV'),
-              trailing: _isExportingPeaks
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : null,
               onTap: _isStatusActionBusy ? null : _exportPeakData,
             ),
             ListTile(
@@ -570,13 +562,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               leading: const Icon(Icons.list_alt),
               title: const Text('Export Peak Lists'),
               subtitle: const Text('Export stored peak lists to CSV'),
-              trailing: _isExportingPeakLists
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : null,
               onTap: _isStatusActionBusy ? null : _exportPeakLists,
             ),
             if (_status.isNotEmpty)
@@ -755,9 +740,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return _isRefreshingPeaks ||
         _isRefreshingRouteGraph ||
         _isRefreshingTassyFull ||
-        _isResettingMaps ||
-        _isExportingPeaks ||
-        _isExportingPeakLists;
+        _isResettingMaps;
   }
 
   Future<void> _confirmRefreshPeakData() async {
@@ -952,92 +935,160 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _exportPeakData() async {
-    setState(() {
-      _isExportingPeaks = true;
-    });
-    _setStatus('Exporting peak data...', key: const Key('peak-export-status'));
-
-    try {
-      final result = await ref.read(peakCsvExportRunnerProvider)();
-      if (!mounted) {
-        return;
-      }
-
-      _setStatus(
-        'Exported ${formatCount(result.exportedCount)} peaks to ${result.path}',
-        key: const Key('peak-export-status'),
-      );
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-
-      _setStatus('Export failed: $e', key: const Key('peak-export-status'));
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isExportingPeaks = false;
-        });
-      }
+    final jobsNotifier = ref.read(backgroundJobsProvider.notifier);
+    final startResult = jobsNotifier.startJob(
+      kind: BackgroundJobKind.exportPeakData,
+      label: 'Export Peak Data',
+      progress: BackgroundJobProgress(
+        label: 'Rows written',
+        statusText: '0 / 0 rows',
+        currentFileName: PeakCsvExportService.fileName,
+      ),
+    );
+    if (!startResult.isStarted) {
+      return;
     }
+
+    final openJobsAction = BackgroundJobsSnackBarAction(
+      key: const Key('background-jobs-snackbar-open-jobs'),
+      label: 'Open Jobs',
+      onPressed: jobsNotifier.openPanel,
+    );
+    jobsNotifier.queueSnackBar(
+      message: 'Export started',
+      actions: [openJobsAction],
+    );
+
+    unawaited(
+      _runPeakDataExportJob(
+        jobId: startResult.job!.id,
+        openJobsAction: openJobsAction,
+      ),
+    );
   }
 
   Future<void> _exportPeakLists() async {
-    setState(() {
-      _isExportingPeakLists = true;
-    });
-    _setStatus(
-      'Exporting peak lists...',
-      key: const Key('peak-list-export-status'),
+    final jobsNotifier = ref.read(backgroundJobsProvider.notifier);
+    final startResult = jobsNotifier.startJob(
+      kind: BackgroundJobKind.exportPeakLists,
+      label: 'Export Peak Lists',
+      progress: BackgroundJobProgress(
+        label: 'Files completed',
+        statusText: '0 / 0 files',
+      ),
+    );
+    if (!startResult.isStarted) {
+      return;
+    }
+
+    final openJobsAction = BackgroundJobsSnackBarAction(
+      key: const Key('background-jobs-snackbar-open-jobs'),
+      label: 'Open Jobs',
+      onPressed: jobsNotifier.openPanel,
+    );
+    jobsNotifier.queueSnackBar(
+      message: 'Export started',
+      actions: [openJobsAction],
     );
 
+    unawaited(
+      _runPeakListExportJob(
+        jobId: startResult.job!.id,
+        openJobsAction: openJobsAction,
+      ),
+    );
+  }
+
+  Future<void> _runPeakDataExportJob({
+    required String jobId,
+    required BackgroundJobsSnackBarAction openJobsAction,
+  }) async {
+    final jobsNotifier = ref.read(backgroundJobsProvider.notifier);
     try {
-      final result = await ref.read(peakListCsvExportRunnerProvider)();
-      if (!mounted) {
-        return;
-      }
-
-      _setStatus(
-        _formatPeakListExportStatus(result),
-        key: const Key('peak-list-export-status'),
+      final result = await ref.read(peakCsvExportBackgroundRunnerProvider)(
+        onProgress: (progress) {
+          jobsNotifier.updateRunningJob(
+            jobId: jobId,
+            progress: BackgroundJobProgress(
+              label: 'Rows written',
+              statusText:
+                  '${progress.writtenCount} / ${progress.totalCount} rows',
+              currentFileName: progress.fileName,
+              percent: progress.percent,
+            ),
+          );
+        },
       );
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-
-      _setStatus(
-        'Export failed: $e',
-        key: const Key('peak-list-export-status'),
+      jobsNotifier.completeRunningJob(
+        jobId: jobId,
+        summary: '${formatCount(result.exportedCount)} rows written',
+        detailLines: [
+          'Rows written: ${formatCount(result.exportedCount)}',
+          'Destination: ${result.path}',
+        ],
       );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isExportingPeakLists = false;
-        });
-      }
+      jobsNotifier.queueSnackBar(
+        message: 'Export complete: ${formatCount(result.exportedCount)} rows',
+        actions: [openJobsAction],
+      );
+    } catch (error) {
+      jobsNotifier.failRunningJob(jobId: jobId, summary: '$error');
+      jobsNotifier.queueSnackBar(
+        message: 'Export failed: $error',
+        actions: [openJobsAction],
+      );
     }
   }
 
-  String _formatPeakListExportStatus(PeakListCsvExportResult result) {
-    final parts = <String>[
-      'Exported ${formatCount(result.exportedFileCount)} '
-          '${_pluralize(result.exportedFileCount, 'peak list', 'peak lists')}.',
-      'Skipped ${formatCount(result.skippedListCount)} '
-          '${_pluralize(result.skippedListCount, 'list', 'lists')}.',
-    ];
-
-    final warningCount = result.warningEntries.length;
-    if (warningCount > 0) {
-      parts.add(
-        '${formatCount(warningCount)} ${_pluralize(warningCount, 'warning', 'warnings')}.',
+  Future<void> _runPeakListExportJob({
+    required String jobId,
+    required BackgroundJobsSnackBarAction openJobsAction,
+  }) async {
+    final jobsNotifier = ref.read(backgroundJobsProvider.notifier);
+    try {
+      final result = await ref.read(peakListCsvExportBackgroundRunnerProvider)(
+        onProgress: (progress) {
+          jobsNotifier.updateRunningJob(
+            jobId: jobId,
+            progress: BackgroundJobProgress(
+              label: 'Files completed',
+              statusText:
+                  '${progress.completedFileCount} / ${progress.totalFileCount} files',
+              secondaryStatusText:
+                  '${progress.currentFileWrittenRowCount} / ${progress.currentFileTotalRowCount} rows',
+              currentFileName: progress.currentFileName,
+              percent: progress.currentFilePercent,
+            ),
+          );
+        },
+      );
+      jobsNotifier.completeRunningJob(
+        jobId: jobId,
+        summary:
+            '${formatCount(result.exportedFileCount)} files written, ${formatCount(result.skippedListCount)} skipped',
+        detailLines: [
+          'Files written: ${formatCount(result.exportedFileCount)}',
+          'Skipped lists: ${formatCount(result.skippedListCount)}',
+          'Skipped rows: ${formatCount(result.skippedRowCount)}',
+          'Warnings: ${formatCount(result.warningEntries.length)}',
+          'Destination: ${result.outputDirectoryPath}',
+        ],
+        hasWarnings: result.warningEntries.isNotEmpty ||
+            result.skippedListCount > 0 ||
+            result.skippedRowCount > 0,
+      );
+      jobsNotifier.queueSnackBar(
+        message:
+            'Export complete: ${formatCount(result.exportedFileCount)} files',
+        actions: [openJobsAction],
+      );
+    } catch (error) {
+      jobsNotifier.failRunningJob(jobId: jobId, summary: '$error');
+      jobsNotifier.queueSnackBar(
+        message: 'Export failed: $error',
+        actions: [openJobsAction],
       );
     }
-    if (result.skippedListCount > 0) {
-      parts.add('Older files may remain for skipped lists.');
-    }
-
-    return parts.join(' ');
   }
 
   String _pluralize(int count, String singular, String plural) {

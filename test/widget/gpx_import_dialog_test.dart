@@ -6,20 +6,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/services/gpx_file_picker.dart';
-import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
 import 'package:peak_bagger/widgets/gpx_import_dialog.dart';
 
-Future<GpxTrackImportResult> fakeImportRunner({
+Future<bool> fakeImportRunner({
   required bool importAsRoute,
   required Map<String, String> pathToEditedNames,
 }) async {
-  return const GpxTrackImportResult(
-    items: [],
-    addedCount: 0,
-    unchangedCount: 0,
-    unsupportedCount: 0,
-    errorCount: 0,
-  );
+  return true;
 }
 
 Future<String> fastPrefilledNameResolver(String filePath) async {
@@ -503,23 +496,19 @@ void main() {
       expect(manyFileHeight, greaterThan(oneFileHeight));
     });
 
-    testWidgets('import result dialog formats grouped counts', (tester) async {
+    testWidgets('accepted import closes dialog without completion modal', (
+      tester,
+    ) async {
       final tempDir = Directory.systemTemp.createTempSync('gpx-import-dialog');
       addTearDown(() => tempDir.deleteSync(recursive: true));
       final file = File('${tempDir.path}/track-1.gpx')
         ..writeAsStringSync('<gpx><trk><name>Track 1</name></trk></gpx>');
 
-      Future<GpxTrackImportResult> importRunner({
+      Future<bool> importRunner({
         required bool importAsRoute,
         required Map<String, String> pathToEditedNames,
       }) async {
-        return const GpxTrackImportResult(
-          items: [],
-          addedCount: 1234,
-          unchangedCount: 1234,
-          unsupportedCount: 1234,
-          errorCount: 1234,
-        );
+        return true;
       }
 
       await tester.pumpWidget(
@@ -550,11 +539,62 @@ void main() {
       await tester.tap(find.byKey(const Key('gpx-import-button')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Import Complete'), findsOneWidget);
-      expect(find.text('1,234 track(s) added'), findsOneWidget);
-      expect(find.text('1,234 unchanged'), findsOneWidget);
-      expect(find.text('1,234 unsupported'), findsOneWidget);
-      expect(find.text('1,234 error(s)'), findsOneWidget);
+      expect(find.byKey(const Key('gpx-import-dialog')), findsNothing);
+      expect(find.text('Import Complete'), findsNothing);
+    });
+
+    testWidgets('accepted import can hand off to a snackbar', (tester) async {
+      final tempDir = Directory.systemTemp.createTempSync('gpx-import-dialog');
+      addTearDown(() => tempDir.deleteSync(recursive: true));
+      final file = File('${tempDir.path}/track-1.gpx')
+        ..writeAsStringSync('<gpx><trk><name>Track 1</name></trk></gpx>');
+
+      Future<bool> importRunner({
+        required bool importAsRoute,
+        required Map<String, String> pathToEditedNames,
+      }) async {
+        return true;
+      }
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) {
+                return ElevatedButton(
+                  child: const Text('Open'),
+                  onPressed: () async {
+                    final accepted = await showDialog<bool>(
+                      context: context,
+                      builder: (_) => GpxImportDialog(
+                        filePicker: _FakeSelectedGpxFilePicker([file.path]),
+                        importAsRoute: false,
+                        prefilledNameResolver: fastPrefilledNameResolver,
+                        onImport: importRunner,
+                      ),
+                    );
+                    if (accepted == true && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Import started')),
+                      );
+                    }
+                  },
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('gpx-import-select-files')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('gpx-import-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('gpx-import-dialog')), findsNothing);
+      expect(find.text('Import started'), findsOneWidget);
     });
 
     testWidgets('shows select files button', (tester) async {

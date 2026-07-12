@@ -75,6 +75,15 @@ class GpxTracksRobot {
   Finder get tracksRoutesDrawer =>
       find.byKey(const Key('tracks-routes-drawer'));
   Finder get importFab => find.byKey(const Key('import-tracks-fab'));
+  Finder get importDialog => find.byKey(const Key('gpx-import-dialog'));
+  Finder get backgroundJobsEntry =>
+      find.byKey(const Key('background-jobs-entry'));
+  Finder get backgroundJobsPanel =>
+      find.byKey(const Key('background-jobs-panel'));
+  Finder get backgroundJobsClearFinished =>
+      find.byKey(const Key('background-jobs-clear-finished'));
+  Finder get snackbarOpenJobs =>
+      find.byKey(const Key('background-jobs-snackbar-open-jobs'));
   Finder get infoFab => find.byKey(const Key('map-info-fab'));
   Finder get mapInfoPopup => find.byKey(const Key('map-info-popup'));
   Finder get mapInfoPopupClose => find.byKey(const Key('map-info-popup-close'));
@@ -135,6 +144,16 @@ class GpxTracksRobot {
       find.byKey(const Key('track-info-panel-close'));
   Finder get visibilitySwitch =>
       find.byKey(const Key('track-info-panel-visibility-switch'));
+  Finder backgroundJobRow(int index) =>
+      find.byKey(Key('background-jobs-row-background-job-$index'));
+  Finder backgroundJobStatus(int index) =>
+      find.byKey(Key('background-jobs-status-background-job-$index'));
+  Finder backgroundJobProgress(int index) =>
+      find.byKey(Key('background-jobs-progress-background-job-$index'));
+  Finder backgroundJobDismiss(int index) =>
+      find.byKey(Key('background-jobs-dismiss-background-job-$index'));
+  Finder backgroundJobExpand(int index) =>
+      find.byKey(Key('background-jobs-expand-background-job-$index'));
 
   Future<void> pumpApp() async {
     await tester.binding.setSurfaceSize(surfaceSize);
@@ -399,6 +418,46 @@ class GpxTracksRobot {
     await tester.tap(find.byKey(const Key('nav-peak-lists')));
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pump(const Duration(milliseconds: 500));
+  }
+
+  Future<void> openBackgroundJobsFromSnackbar() async {
+    await tester.tap(snackbarOpenJobs, warnIfMissed: false);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  Future<void> openBackgroundJobsPanel() async {
+    await tester.tap(backgroundJobsEntry, warnIfMissed: false);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  Future<void> expandBackgroundJob(int index) async {
+    await tester.tap(backgroundJobExpand(index), warnIfMissed: false);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  Future<void> dismissBackgroundJob(int index) async {
+    await tester.tap(backgroundJobDismiss(index), warnIfMissed: false);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  Future<void> clearFinishedBackgroundJobs() async {
+    await tester.tap(backgroundJobsClearFinished, warnIfMissed: false);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  void expectBackgroundJobStatus(int index, String text) {
+    expect(backgroundJobStatus(index), findsOneWidget);
+    expect(find.descendant(of: backgroundJobStatus(index), matching: find.text(text)), findsOneWidget);
+  }
+
+  void expectBackgroundJobProgressText(int index, String text) {
+    expect(backgroundJobProgress(index), findsOneWidget);
+    expect(find.descendant(of: backgroundJobProgress(index), matching: find.text(text)), findsOneWidget);
   }
 
   void expectImportDialogVisible() {

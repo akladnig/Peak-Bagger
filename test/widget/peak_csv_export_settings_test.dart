@@ -19,27 +19,27 @@ void main() {
   testWidgets('export peak data shows loading state and success', (
     tester,
   ) async {
-    Finder tile(String key) => find.byKey(Key(key), skipOffstage: false);
     final settingsScrollable = find
         .descendant(
           of: find.byKey(const Key('settings-scrollable')),
           matching: find.byType(Scrollable),
         )
         .first;
-    Future<void> showTile(String key, {required double delta}) async {
-      await tester.scrollUntilVisible(
-        find.byKey(Key(key)),
-        delta,
-        scrollable: settingsScrollable,
-      );
-      await tester.pump();
-    }
 
     final repository = await TestTasmapRepository.create();
     final completer = Completer<PeakCsvExportResult>();
     var exportCalls = 0;
-    Future<PeakCsvExportResult> exportRunner() {
+    Future<PeakCsvExportResult> exportRunner({
+      PeakCsvExportProgressCallback? onProgress,
+    }) {
       exportCalls += 1;
+      onProgress?.call(
+        const PeakCsvExportProgress(
+          writtenCount: 0,
+          totalCount: 1234,
+          fileName: 'peaks.csv',
+        ),
+      );
       return completer.future;
     }
 
@@ -55,7 +55,7 @@ void main() {
       ProviderScope(
         overrides: [
           mapProvider.overrideWith(() => notifier),
-          peakCsvExportRunnerProvider.overrideWithValue(exportRunner),
+          peakCsvExportBackgroundRunnerProvider.overrideWithValue(exportRunner),
           tasmapStateProvider.overrideWith(
             () => TestTasmapNotifier(repository),
           ),
@@ -81,32 +81,10 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('peak-export-status')),
-      200,
-      scrollable: settingsScrollable,
-    );
-    await tester.pump();
-
     expect(exportCalls, 1);
-    expect(
-      tester.widget<ListTile>(tile('export-peak-data-tile')).onTap,
-      isNull,
-    );
-    await showTile('refresh-peak-data-tile', delta: -200);
-    expect(
-      tester.widget<ListTile>(tile('refresh-peak-data-tile')).onTap,
-      isNull,
-    );
-    await showTile('reset-map-data-tile', delta: 200);
-    expect(tester.widget<ListTile>(tile('reset-map-data-tile')).onTap, isNull);
-    await showTile('export-peak-lists-tile', delta: 200);
-    expect(
-      tester.widget<ListTile>(tile('export-peak-lists-tile')).onTap,
-      isNull,
-    );
-    expect(find.byKey(const Key('peak-export-status')), findsOneWidget);
-    expect(find.text('Exporting peak data...'), findsOneWidget);
+    expect(find.text('Export started'), findsOneWidget);
+    expect(find.byKey(const Key('peak-export-status')), findsNothing);
+    expect(find.byKey(const Key('background-jobs-entry')), findsOneWidget);
 
     completer.complete(
       const PeakCsvExportResult(
@@ -117,51 +95,27 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    await showTile('peak-export-status', delta: 200);
-    expect(find.byKey(const Key('peak-export-status')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('background-jobs-entry')));
+    await tester.pump();
+    expect(find.byKey(const Key('background-jobs-panel')), findsOneWidget);
+    await tester.tap(
+      find.byKey(const Key('background-jobs-expand-background-job-1')),
+    );
+    await tester.pump();
+    expect(find.text('Rows written: 1,234'), findsOneWidget);
     expect(
-      find.text(
-        'Exported 1,234 peaks to /Users/adrian/Documents/Bushwalking/Features/peaks.csv',
-      ),
+      find.text('Destination: /Users/adrian/Documents/Bushwalking/Features/peaks.csv'),
       findsOneWidget,
-    );
-    expect(
-      tester.widget<ListTile>(tile('export-peak-data-tile')).onTap,
-      isNotNull,
-    );
-    await showTile('refresh-peak-data-tile', delta: -200);
-    expect(
-      tester.widget<ListTile>(tile('refresh-peak-data-tile')).onTap,
-      isNotNull,
-    );
-    await showTile('reset-map-data-tile', delta: 200);
-    expect(
-      tester.widget<ListTile>(tile('reset-map-data-tile')).onTap,
-      isNotNull,
-    );
-    await showTile('export-peak-lists-tile', delta: 200);
-    expect(
-      tester.widget<ListTile>(tile('export-peak-lists-tile')).onTap,
-      isNotNull,
     );
   });
 
   testWidgets('export peak data shows failure state', (tester) async {
-    Finder tile(String key) => find.byKey(Key(key), skipOffstage: false);
     final settingsScrollable = find
         .descendant(
           of: find.byKey(const Key('settings-scrollable')),
           matching: find.byType(Scrollable),
         )
         .first;
-    Future<void> showTile(String key, {required double delta}) async {
-      await tester.scrollUntilVisible(
-        find.byKey(Key(key)),
-        delta,
-        scrollable: settingsScrollable,
-      );
-      await tester.pump();
-    }
 
     final repository = await TestTasmapRepository.create();
     final notifier = TestPeakNotifier(
@@ -176,7 +130,9 @@ void main() {
       ProviderScope(
         overrides: [
           mapProvider.overrideWith(() => notifier),
-          peakCsvExportRunnerProvider.overrideWithValue(() async {
+          peakCsvExportBackgroundRunnerProvider.overrideWithValue(({
+            PeakCsvExportProgressCallback? onProgress,
+          }) async {
             throw StateError('boom');
           }),
           tasmapStateProvider.overrideWith(
@@ -204,34 +160,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('peak-export-status')),
-      200,
-      scrollable: settingsScrollable,
-    );
-    await tester.pump();
-
-    expect(find.byKey(const Key('peak-export-status')), findsOneWidget);
     expect(find.textContaining('Export failed:'), findsOneWidget);
     expect(find.textContaining('boom'), findsOneWidget);
-    expect(
-      tester.widget<ListTile>(tile('export-peak-data-tile')).onTap,
-      isNotNull,
-    );
-    await showTile('refresh-peak-data-tile', delta: -200);
-    expect(
-      tester.widget<ListTile>(tile('refresh-peak-data-tile')).onTap,
-      isNotNull,
-    );
-    await showTile('reset-map-data-tile', delta: 200);
-    expect(
-      tester.widget<ListTile>(tile('reset-map-data-tile')).onTap,
-      isNotNull,
-    );
-    await showTile('export-peak-lists-tile', delta: 200);
-    expect(
-      tester.widget<ListTile>(tile('export-peak-lists-tile')).onTap,
-      isNotNull,
-    );
+    expect(find.byKey(const Key('peak-export-status')), findsNothing);
   });
 }

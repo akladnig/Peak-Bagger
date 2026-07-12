@@ -19,6 +19,7 @@ import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
+import 'package:peak_bagger/providers/background_jobs_provider.dart';
 import 'package:peak_bagger/providers/theme_provider.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -84,6 +85,9 @@ void main() async {
           ObjectBoxAdminRepositoryImpl(store: objectboxStore),
         ),
         bootstrappedThemePreferencesProvider.overrideWithValue(
+          themePreferences,
+        ),
+        bootstrappedBackgroundJobsPreferencesProvider.overrideWithValue(
           themePreferences,
         ),
       ],

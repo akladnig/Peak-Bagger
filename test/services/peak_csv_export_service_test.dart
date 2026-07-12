@@ -121,5 +121,46 @@ void main() {
         );
       },
     );
+
+    test('reports row progress during export', () async {
+      final repository = PeakRepository.test(
+        InMemoryPeakStorage([
+          Peak(
+            osmId: 1,
+            name: 'Alpha',
+            latitude: -41,
+            longitude: 146,
+            gridZoneDesignator: '55G',
+            mgrs100kId: 'AA',
+            easting: '00111',
+            northing: '00222',
+          ),
+          Peak(
+            osmId: 2,
+            name: 'Bravo',
+            latitude: -42,
+            longitude: 147,
+            gridZoneDesignator: '55H',
+            mgrs100kId: 'BB',
+            easting: '00333',
+            northing: '00444',
+          ),
+        ]),
+      );
+      final service = PeakCsvExportService(
+        peakRepository: repository,
+        outputDirectory: tempDir,
+      );
+      final progressEvents = <PeakCsvExportProgress>[];
+
+      await service.exportPeaks(onProgress: progressEvents.add);
+
+      expect(progressEvents, hasLength(3));
+      expect(progressEvents.first.writtenCount, 0);
+      expect(progressEvents.first.totalCount, 2);
+      expect(progressEvents.first.fileName, 'peaks.csv');
+      expect(progressEvents.last.writtenCount, 2);
+      expect(progressEvents.last.totalCount, 2);
+    });
   });
 }

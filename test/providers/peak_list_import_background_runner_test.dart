@@ -1,0 +1,143 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
+import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/services/peak_list_import_service.dart';
+import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peak_mgrs_converter.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
+
+import '../harness/test_map_notifier.dart';
+
+void main() {
+  test(
+    'background runner exposes row progress and extended presentation fields',
+    () async {
+      final matchingPeak = _buildPeak(
+        osmId: 101,
+        name: 'Mount Achilles',
+        elevation: 1363,
+        latitude: -41.85916,
+        longitude: 145.97754,
+      );
+      final ambiguousPeakA = _buildPeak(
+        osmId: 201,
+        name: 'Mount Ossa',
+        elevation: 1617,
+        latitude: -41.6542,
+        longitude: 146.0312,
+      );
+      final ambiguousPeakB = _buildPeak(
+        osmId: 202,
+        name: 'Mount Ossa South',
+        elevation: 1617,
+        latitude: -41.6542,
+        longitude: 146.0312,
+      );
+      final matchingCoords = _csvCoordinatesFromPeak(matchingPeak);
+      final ambiguousCoords = _csvCoordinatesFromPeak(ambiguousPeakA);
+      final peakRepository = PeakRepository.test(
+        InMemoryPeakStorage([matchingPeak, ambiguousPeakA, ambiguousPeakB]),
+      );
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+      );
+      final service = PeakListImportService(
+        peakRepository: peakRepository,
+        peakListRepository: peakListRepository,
+        csvLoader: (_) async =>
+            'Name,Height,Zone,Easting,Northing,Latitude,Longitude,Points\n'
+            'Wrong Name,1363,${matchingPeak.gridZoneDesignator},${matchingCoords.easting},${matchingCoords.northing},-41.85916,145.97754,3\n'
+            'Missing Peak,800,55G,4 15 135,53 65 355,-41.00000,145.00000,1\n'
+            'Mount Ossa West,1617,${ambiguousPeakA.gridZoneDesignator},${ambiguousCoords.easting},${ambiguousCoords.northing},-41.6542,146.0312,6\n',
+        importRootLoader: () async => '/tmp/Bushwalking',
+        logWriter: (logPath, entries) async {},
+        clock: () => DateTime.utc(2024, 1, 2, 3, 4, 5),
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          peakListRepositoryProvider.overrideWithValue(peakListRepository),
+          peakListImportServiceProvider.overrideWithValue(service),
+          mapProvider.overrideWith(
+            () => TestMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 15,
+                basemap: Basemap.tracestrack,
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final progressEvents = <PeakListImportProgress>[];
+      final runner = container.read(peakListImportBackgroundRunnerProvider);
+      final result = await runner(
+        listName: 'Warnings',
+        csvPath: '/tmp/warnings.csv',
+        onProgress: progressEvents.add,
+      );
+
+      expect(progressEvents, isNotEmpty);
+      expect(progressEvents.first.processedRows, 0);
+      expect(progressEvents.first.totalRows, 3);
+      expect(progressEvents.first.currentFileName, 'warnings.csv');
+      expect(progressEvents.last.processedRows, 3);
+      expect(progressEvents.last.totalRows, 3);
+
+      expect(result.importedCount, 2);
+      expect(result.skippedCount, 1);
+      expect(result.ambiguousCount, 1);
+      expect(result.warningCount, 2);
+      expect(result.logEntryCount, 2);
+      expect(result.importLogNote, 'See import.log for details.');
+    },
+  );
+}
+
+Peak _buildPeak({
+  required int osmId,
+  required String name,
+  required double elevation,
+  required double latitude,
+  required double longitude,
+}) {
+  final mgrs = PeakMgrsConverter.fromLatLng(LatLng(latitude, longitude));
+  return Peak(
+    osmId: osmId,
+    name: name,
+    elevation: elevation,
+    latitude: latitude,
+    longitude: longitude,
+    gridZoneDesignator: mgrs.gridZoneDesignator,
+    mgrs100kId: mgrs.mgrs100kId,
+    easting: mgrs.easting,
+    northing: mgrs.northing,
+  );
+}
+
+({String easting, String northing}) _csvCoordinatesFromPeak(Peak peak) {
+  final utm = mgrs.Mgrs.decode(
+    '${peak.gridZoneDesignator}${peak.mgrs100kId}${peak.easting}${peak.northing}',
+  );
+  return (
+    easting: _formatCsvUtmComponent(utm.easting.truncate()),
+    northing: _formatCsvUtmComponent(utm.northing.truncate()),
+  );
+}
+
+String _formatCsvUtmComponent(int value) {
+  final digits = value.toString();
+  if (digits.length == 6) {
+    return '${digits.substring(0, 1)} ${digits.substring(1, 3)} ${digits.substring(3)}';
+  }
+  if (digits.length == 7) {
+    return '${digits.substring(0, 2)} ${digits.substring(2, 4)} ${digits.substring(4)}';
+  }
+  return digits;
+}

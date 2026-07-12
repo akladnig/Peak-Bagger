@@ -2,8 +2,10 @@ import 'dart:io';
 
 import 'package:csv/csv.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
+import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_list_csv_export_service.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
@@ -52,10 +54,15 @@ void main() {
             elevation: 1234.5,
             latitude: -41,
             longitude: 146,
+            country: 'Australia',
+            region: 'tasmania',
+            county: 'Derwent Valley',
+            range: 'Du Cane',
             gridZoneDesignator: '55G',
             mgrs100kId: 'AA',
-            easting: '111',
-            northing: '222',
+            easting: '00111',
+            northing: '00222',
+            sourceOfTruth: Peak.sourceOfTruthHwc,
           ),
           Peak(
             osmId: 200,
@@ -64,10 +71,15 @@ void main() {
             elevation: null,
             latitude: -42,
             longitude: 147,
+            country: 'Australia',
+            region: 'tasmania',
+            county: 'Central Highlands',
+            range: 'Cradle',
             gridZoneDesignator: '55H',
             mgrs100kId: 'BB',
-            easting: '333',
-            northing: '444',
+            easting: '00333',
+            northing: '00444',
+            sourceOfTruth: Peak.sourceOfTruthOsm,
           ),
           Peak(
             osmId: 300,
@@ -76,10 +88,15 @@ void main() {
             elevation: 999,
             latitude: -43,
             longitude: 148,
+            country: 'Australia',
+            region: 'tasmania',
+            county: 'Kentish',
+            range: 'Great Western Tiers',
             gridZoneDesignator: '55J',
             mgrs100kId: 'CC',
-            easting: '555',
-            northing: '666',
+            easting: '00555',
+            northing: '00666',
+            sourceOfTruth: Peak.sourceOfTruthPeakBagger,
           ),
         ]),
       );
@@ -110,27 +127,25 @@ void main() {
         await zetaFile.readAsString(),
       );
 
-      expect(alphaRows.first.cast<String>(), [
-        'Name',
-        'Alt Name',
-        'Elevation',
-        'Zone',
-        'mgrs100kId',
-        'Easting',
-        'Northing',
-        'Points',
-        'osmId',
-      ]);
+      expect(
+        alphaRows.first.cast<String>(),
+        PeakListCsvExportService.csvHeaders,
+      );
       expect(alphaRows[1].map((value) => '$value').toList(), [
         'Bravo',
         '',
         '',
         '55H',
         'BB',
-        '333',
-        '444',
+        '00333',
+        '00444',
         '7',
         '200',
+        'Australia',
+        'tasmania',
+        'Central Highlands',
+        'Cradle',
+        'OSM',
       ]);
       expect(alphaRows[2].map((value) => '$value').toList(), [
         'Alpha',
@@ -138,10 +153,15 @@ void main() {
         '1234.5',
         '55G',
         'AA',
-        '111',
-        '222',
+        '00111',
+        '00222',
         '3',
         '100',
+        'Australia',
+        'tasmania',
+        'Derwent Valley',
+        'Du Cane',
+        'HWC',
       ]);
       expect(zetaRows[1].map((value) => '$value').toList(), [
         'Zulu',
@@ -149,12 +169,90 @@ void main() {
         '999.0',
         '55J',
         'CC',
-        '555',
-        '666',
+        '00555',
+        '00666',
         '4',
         '300',
+        'Australia',
+        'tasmania',
+        'Kentish',
+        'Great Western Tiers',
+        'peakbagger.com',
       ]);
     });
+
+    test(
+      'derives grid-reference columns from lat lng when stored values are blank or invalid',
+      () async {
+        final blankPeak = Peak(
+          osmId: 100,
+          name: 'Blank Grid Peak',
+          latitude: -41.851,
+          longitude: 146.035,
+          gridZoneDesignator: '',
+          mgrs100kId: '',
+          easting: '',
+          northing: '',
+          sourceOfTruth: Peak.sourceOfTruthHwc,
+        );
+        final invalidPeak = Peak(
+          osmId: 200,
+          name: 'Invalid Grid Peak',
+          latitude: -42.1234,
+          longitude: 147.4567,
+          gridZoneDesignator: 'oops',
+          mgrs100kId: '1',
+          easting: 'abc',
+          northing: '12',
+          sourceOfTruth: Peak.sourceOfTruthOsm,
+        );
+        final blankMgrs = PeakMgrsConverter.fromLatLng(
+          LatLng(blankPeak.latitude, blankPeak.longitude),
+        );
+        final invalidMgrs = PeakMgrsConverter.fromLatLng(
+          LatLng(invalidPeak.latitude, invalidPeak.longitude),
+        );
+
+        final service = PeakListCsvExportService(
+          peakListRepository: PeakListRepository.test(
+            InMemoryPeakListStorage([
+              PeakList(
+                name: 'Derived Grid',
+                peakList: encodePeakListItems([
+                  const PeakListItem(peakOsmId: 100, points: 1),
+                  const PeakListItem(peakOsmId: 200, points: 2),
+                ]),
+              )..peakListId = 1,
+            ]),
+          ),
+          peakRepository: PeakRepository.test(
+            InMemoryPeakStorage([blankPeak, invalidPeak]),
+          ),
+          outputDirectoryResolver: () => outputDirectory,
+        );
+
+        await service.exportPeakLists();
+
+        final rows = const CsvDecoder().convert(
+          await File(
+            '${outputDirectory.path}/derived-grid-peak-list.csv',
+          ).readAsString(),
+        );
+
+        expect(rows[1].map((value) => '$value').toList().sublist(3, 7), [
+          blankMgrs.gridZoneDesignator,
+          blankMgrs.mgrs100kId,
+          blankMgrs.easting,
+          blankMgrs.northing,
+        ]);
+        expect(rows[2].map((value) => '$value').toList().sublist(3, 7), [
+          invalidMgrs.gridZoneDesignator,
+          invalidMgrs.mgrs100kId,
+          invalidMgrs.easting,
+          invalidMgrs.northing,
+        ]);
+      },
+    );
 
     test(
       'succeeds with zero files and zero warnings when no lists exist',
@@ -175,6 +273,71 @@ void main() {
         expect(result.warningEntries, isEmpty);
       },
     );
+
+    test('reports file and row progress during export', () async {
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(
+            name: 'Alpha List',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 100, points: 3),
+              const PeakListItem(peakOsmId: 999, points: 1),
+            ]),
+          )..peakListId = 1,
+          PeakList(
+            name: 'Bravo List',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 200, points: 7),
+            ]),
+          )..peakListId = 2,
+        ]),
+      );
+      final peakRepository = PeakRepository.test(
+        InMemoryPeakStorage([
+          Peak(
+            osmId: 100,
+            name: 'Alpha',
+            latitude: -41,
+            longitude: 146,
+            gridZoneDesignator: '55G',
+            mgrs100kId: 'AA',
+            easting: '00111',
+            northing: '00222',
+          ),
+          Peak(
+            osmId: 200,
+            name: 'Bravo',
+            latitude: -42,
+            longitude: 147,
+            gridZoneDesignator: '55H',
+            mgrs100kId: 'BB',
+            easting: '00333',
+            northing: '00444',
+          ),
+        ]),
+      );
+      final service = PeakListCsvExportService(
+        peakListRepository: peakListRepository,
+        peakRepository: peakRepository,
+        outputDirectoryResolver: () => outputDirectory,
+      );
+      final progressEvents = <PeakListCsvExportProgress>[];
+
+      final result = await service.exportPeakLists(
+        onProgress: progressEvents.add,
+      );
+
+      expect(result.exportedFileCount, 2);
+      expect(progressEvents, isNotEmpty);
+      expect(progressEvents.first.completedFileCount, 0);
+      expect(progressEvents.first.totalFileCount, 2);
+      expect(progressEvents.last.completedFileCount, 2);
+      expect(progressEvents.last.totalFileCount, 2);
+      expect(
+        progressEvents.where((event) => event.currentFileWrittenRowCount == 1),
+        isNotEmpty,
+      );
+    });
 
     test(
       'exports empty lists, skips invalid lists, and records deterministic warnings',
