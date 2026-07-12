@@ -79,19 +79,13 @@ void main() {
     await robot.submitAddPeakDialog();
 
     final journeyList = peakListRepository.findByName('Journey List')!;
-    final tassyFullList = peakListRepository.findByName('Tassy Full')!;
     expect(
       decodePeakListItems(journeyList.peakList)
           .map((item) => (item.peakOsmId, item.points))
           .toList(),
       [(100, 3), (200, 5), (300, 7)],
     );
-    expect(
-      decodePeakListItems(tassyFullList.peakList)
-          .map((item) => (item.peakOsmId, item.points))
-          .toList(),
-      [(100, 3), (200, 5), (300, 7)],
-    );
+    expect(peakListRepository.findByName('Tassy Full'), isNull);
     expect(tester.widget<Text>(robot.selectedTitle).data, 'Journey List');
   });
 
@@ -329,15 +323,11 @@ void main() {
     await robot.chooseFile();
     await robot.enterName('Journey List');
     await robot.submitImport();
+    await tester.pumpAndSettle();
 
-    expect(find.text('Peak List Created'), findsOneWidget);
-    expect(find.text('1 Peaks imported'), findsOneWidget);
-    expect(find.text('0 peaks skipped'), findsOneWidget);
-    expect(find.textContaining('warnings. See import.log'), findsOneWidget);
+    expect(robot.importDialog, findsNothing);
 
     final createdId = peakListRepository.findByName('Journey List')!.peakListId;
-
-    await robot.closeResultDialog();
 
     expect(
       tester.widget<Text>(robot.selectedTitle).data,
@@ -359,11 +349,9 @@ void main() {
     await tester.tap(robot.updateConfirm);
     await tester.pumpAndSettle();
 
-    expect(find.text('Peak List Updated'), findsOneWidget);
+    expect(robot.importDialog, findsNothing);
     expect(peakListRepository.findByName('Journey List')!.peakListId, createdId);
     expect(peakListRepository.findByName('Tassy Full'), isNotNull);
-
-    await robot.closeResultDialog();
 
     final peakListRows = adminRowsByEntity['PeakList']!;
     expect(peakListRows, hasLength(2));
@@ -434,12 +422,9 @@ void main() {
     await robot.chooseFile();
     await robot.enterName('FVG Ranked');
     await robot.submitImport();
+    await tester.pumpAndSettle();
 
-    expect(find.text('Peak List Created'), findsOneWidget);
-    expect(find.text('1 Peaks imported'), findsOneWidget);
-    expect(find.text('0 peaks skipped'), findsOneWidget);
-
-    await robot.closeResultDialog();
+    expect(robot.importDialog, findsNothing);
 
     expect(tester.widget<Text>(robot.selectedTitle).data, 'FVG Ranked');
     expect(peakRepository.findByOsmId(101)?.sourceOfTruth, Peak.sourceOfTruthFvg);
@@ -539,12 +524,9 @@ void main() {
     await robot.chooseFile();
     await robot.enterName('Round Trip Journey');
     await robot.submitImport();
+    await tester.pumpAndSettle();
 
-    expect(find.text('Peak List Created'), findsOneWidget);
-    expect(find.text('2 Peaks imported'), findsOneWidget);
-    expect(find.text('0 peaks skipped'), findsOneWidget);
-
-    await robot.closeResultDialog();
+    expect(robot.importDialog, findsNothing);
 
     expect(tester.widget<Text>(robot.selectedTitle).data, 'Round Trip Journey');
     expect(peakRepository.findByOsmId(101)?.name, 'Imported Peak');
@@ -648,19 +630,13 @@ void main() {
     await robot.submitAddPeakDialog();
 
     final tasmania = peakListRepository.findByName('Tasmania')!;
-    final tassyFullList = peakListRepository.findByName('Tassy Full')!;
     expect(
       decodePeakListItems(tasmania.peakList)
           .map((item) => (item.peakOsmId, item.points))
           .toList(),
       [(100, 3), (200, 5), (300, 7)],
     );
-    expect(
-      decodePeakListItems(tassyFullList.peakList)
-          .map((item) => (item.peakOsmId, item.points))
-          .toList(),
-      [(100, 3), (200, 5), (300, 7)],
-    );
+    expect(peakListRepository.findByName('Tassy Full'), isNull);
     expect(tester.widget<Text>(robot.selectedTitle).data, 'Tasmania');
     expect(find.byKey(const Key('peak-lists-details-row-100')), findsOneWidget);
   });

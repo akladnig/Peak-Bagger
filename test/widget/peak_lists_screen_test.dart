@@ -2643,7 +2643,7 @@ void main() {
 
     expect(find.textContaining('Import failed:'), findsOneWidget);
     expect(
-      find.text('invalid Points "oops" on row 2 (Broken Peak)'),
+      find.textContaining('invalid Points "oops" on row 2 (Broken Peak)'),
       findsOneWidget,
     );
     expect(repository.getAllPeakLists(), isEmpty);

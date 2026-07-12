@@ -120,6 +120,6 @@ class PeakListExportRobot {
 
   void expectBackgroundJobProgressText(int index, String text) {
     expect(backgroundJobProgress(index), findsOneWidget);
-    expect(find.descendant(of: backgroundJobProgress(index), matching: find.text(text)), findsOneWidget);
+    expect(tester.widget<Text>(backgroundJobProgress(index)).data, text);
   }
 }

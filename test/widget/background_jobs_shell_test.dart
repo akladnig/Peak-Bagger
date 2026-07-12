@@ -188,8 +188,12 @@ void main() {
     expect(find.byKey(const Key('background-jobs-panel')), findsNothing);
     expect(find.byKey(const Key('background-jobs-entry')), findsOneWidget);
 
-    tester.widget<SnackBarAction>(find.byType(SnackBarAction)).onPressed();
-    await tester.pump();
+    tester
+        .widget<TextButton>(
+          find.byKey(const Key('background-jobs-snackbar-open-jobs')),
+        )
+        .onPressed!();
+    await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('background-jobs-panel')), findsOneWidget);
     expect(find.text('Import Peak List'), findsOneWidget);
