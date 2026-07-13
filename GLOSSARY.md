@@ -52,9 +52,13 @@ _Avoid_: retry cache, hidden state file
 A Tasmania-only project-managed peak list intended to represent the full Tasmanian set rather than a cross-region super-set.
 _Avoid_: all-lists super-set, non-Tasmanian aggregate
 
-**Italy North East subregion**:
-A finer stored/search region key under the broader `italy-nord-est` umbrella, such as `fvg`, `veneto`, `trentino-alto-adige`, or `emilia-romagna`.
-_Avoid_: treating these as full top-level manifest regions by default
+**Italy administrative region**:
+A stored/search region key for an ISO 3166-2:IT first-level Italian subdivision, such as `fvg`, `veneto`, `trentino-alto-adige`, or `emilia-romagna`.
+_Avoid_: Italy North East subregion, treating `italy-nord-est` or `italy-nord-ovest` as the stored peak region
+
+**Italy aggregate region**:
+An app-owned union region such as `italy-nord-est` or `italy-nord-ovest` that groups multiple Italy administrative regions.
+_Avoid_: Italian administrative region, source-of-truth region
 
 **Search popup**:
 The map screen's `MapSearchPopup` multi-entity search surface, which replaces the older peak-only search experience.
@@ -67,3 +71,7 @@ _Avoid_: screen-local task, blocking import/export
 **Peak ownership ring**:
 The segmented ring drawn around a peak marker or peak cluster to show visible peak-list ownership in map rendering.
 _Avoid_: list ring, ownership halo
+
+**My Ascents**:
+The peak info popup term for the user's recorded climbed tracks associated with a peak.
+_Avoid_: Available Tracks
