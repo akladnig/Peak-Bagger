@@ -1057,6 +1057,49 @@ void main() {
     );
   });
 
+  testWidgets('mini-map cursor becomes click over cluster marker', (
+    tester,
+  ) async {
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Clustered Peaks', [100, 200]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+          _buildPeak(200, 'Beta Peak', -42.00005, 146.00005, elevation: 1100),
+        ]),
+      ),
+      overrides: [
+        peakListMiniMapClusterDisplaySettingsProvider.overrideWith(
+          _StaticPeakListMiniMapClusterDisplayOnNotifier.new,
+        ),
+      ],
+    );
+
+    final cluster = find.byKey(const Key('peak-lists-mini-map-cluster-0'));
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(gesture.removePointer);
+
+    await gesture.addPointer(location: tester.getCenter(cluster));
+    await tester.pump();
+    await gesture.moveTo(tester.getCenter(cluster));
+    await tester.pump();
+
+    expect(
+      tester
+          .widget<MouseRegion>(
+            find.byKey(const Key('peak-lists-mini-map-interaction-region')),
+          )
+          .cursor,
+      SystemMouseCursors.click,
+    );
+  });
+
   testWidgets(
     'peak list mini-map shows individual markers when toggle is off',
     (tester) async {
@@ -1857,6 +1900,95 @@ void main() {
       greaterThan(miniMap.children.indexWhere((child) => child is MarkerLayer)),
     );
   });
+
+  testWidgets(
+    'mini map initial fit uses stored peak-list bounds when peaks are unresolved',
+    (tester) async {
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(
+              1,
+              'FVG 500',
+              [100],
+              minLat: 46.0,
+              maxLat: 46.5,
+              minLng: 12.5,
+              maxLng: 13.5,
+            ),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+      );
+
+      final miniMap = tester.widget<FlutterMap>(
+        find.descendant(
+          of: find.byKey(const Key('peak-lists-mini-map')),
+          matching: find.byType(FlutterMap),
+        ),
+      );
+      final fit = miniMap.options.initialCameraFit! as FitBounds;
+
+      expect(fit.bounds.southWest.latitude, 46.0);
+      expect(fit.bounds.northEast.latitude, 46.5);
+      expect(fit.bounds.southWest.longitude, 12.5);
+      expect(fit.bounds.northEast.longitude, 13.5);
+    },
+  );
+
+  testWidgets(
+    'mini map rebuild switches initial fit to the selected list bounds',
+    (tester) async {
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(
+              1,
+              'Tas Peaks',
+              [100],
+              minLat: -42.5,
+              maxLat: -41.5,
+              minLng: 145.5,
+              maxLng: 146.5,
+            ),
+            _buildPeakList(
+              2,
+              'FVG 500',
+              [200],
+              minLat: 46.0,
+              maxLat: 46.5,
+              minLng: 12.5,
+              maxLng: 13.5,
+            ),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+      );
+
+      await tester.tap(
+        find.byKey(const Key('peak-lists-row-2')),
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+
+      final miniMap = tester.widget<FlutterMap>(
+        find.descendant(
+          of: find.byKey(const Key('peak-lists-mini-map')),
+          matching: find.byType(FlutterMap),
+        ),
+      );
+      final fit = miniMap.options.initialCameraFit! as FitBounds;
+
+      expect(fit.bounds.southWest.latitude, 46.0);
+      expect(fit.bounds.northEast.latitude, 46.5);
+      expect(fit.bounds.southWest.longitude, 12.5);
+      expect(fit.bounds.northEast.longitude, 13.5);
+    },
+  );
 
   testWidgets('details table sorts rows by tapped headers', (tester) async {
     await _pumpPeakListsApp(
@@ -3322,6 +3454,10 @@ PeakList _buildPeakList(
   String name,
   List<int> peakIds, {
   Map<int, int> pointsByPeakId = const {},
+  double? minLat,
+  double? maxLat,
+  double? minLng,
+  double? maxLng,
 }) {
   return PeakList(
     name: name,
@@ -3329,6 +3465,10 @@ PeakList _buildPeakList(
       for (final peakId in peakIds)
         PeakListItem(peakOsmId: peakId, points: pointsByPeakId[peakId] ?? 0),
     ]),
+    minLat: minLat,
+    maxLat: maxLat,
+    minLng: minLng,
+    maxLng: maxLng,
   )..peakListId = id;
 }
 

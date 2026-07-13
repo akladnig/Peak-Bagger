@@ -289,19 +289,19 @@ PeakClusterViewportData buildPeakClusterViewportData({
       continue;
     }
     projected.add(
-        ProjectedPeakCandidate(
-          peak: peak,
-          screenPosition: screenPosition,
-          isTicked: correlatedPeakIds.contains(peak.osmId),
-          untickedColourValue: untickedPeakColours[peak.osmId],
-          activeOwnershipSegments:
-              activeOwnershipSegments[peak.osmId] ??
-              const <PeakOwnershipRingSegment>[],
-          ownershipRingSegments:
-              ownershipRingSegments[peak.osmId] ??
-              const <PeakOwnershipRingSegment>[],
-        ),
-      );
+      ProjectedPeakCandidate(
+        peak: peak,
+        screenPosition: screenPosition,
+        isTicked: correlatedPeakIds.contains(peak.osmId),
+        untickedColourValue: untickedPeakColours[peak.osmId],
+        activeOwnershipSegments:
+            activeOwnershipSegments[peak.osmId] ??
+            const <PeakOwnershipRingSegment>[],
+        ownershipRingSegments:
+            ownershipRingSegments[peak.osmId] ??
+            const <PeakOwnershipRingSegment>[],
+      ),
+    );
   }
 
   return switch (algorithm) {

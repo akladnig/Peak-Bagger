@@ -199,7 +199,10 @@ class BundledDemRouteElevationSampler implements RouteElevationSampler {
       final start = points[index - 1];
       final end = points[index];
       final segmentDistance = _distance.as(LengthUnit.Meter, start, end);
-      final steps = math.max(1, (segmentDistance / _sampleSpacingMetres).ceil());
+      final steps = math.max(
+        1,
+        (segmentDistance / _sampleSpacingMetres).ceil(),
+      );
 
       for (var step = 1; step <= steps; step++) {
         densified.add(_interpolatePoint(start, end, step / steps));
@@ -222,8 +225,9 @@ class BundledDemRouteElevationSampler implements RouteElevationSampler {
       );
     }
 
-    final (uphill: ascent, downhill: descent) =
-        calculateUphillDownhill(elevations);
+    final (uphill: ascent, downhill: descent) = calculateUphillDownhill(
+      elevations,
+    );
     var distance3d = 0.0;
     for (var index = 1; index < sampledPoints.length; index++) {
       final distance2d = _distance.as(
@@ -378,14 +382,16 @@ class GdalDemDataset implements DemDataset {
       return null;
     }
 
-    final sample = _band.readAsFloat64(
-      window: RasterWindow(
-        xOffset: pixelX,
-        yOffset: pixelY,
-        width: 1,
-        height: 1,
-      ),
-    ).first;
+    final sample = _band
+        .readAsFloat64(
+          window: RasterWindow(
+            xOffset: pixelX,
+            yOffset: pixelY,
+            width: 1,
+            height: 1,
+          ),
+        )
+        .first;
 
     if (_noDataValue != null && sample == _noDataValue) {
       return null;

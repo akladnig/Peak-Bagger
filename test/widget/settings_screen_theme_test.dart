@@ -46,17 +46,20 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const Key('theme-colour-palette-tile')), findsOneWidget);
-    expect(find.byKey(const Key('theme-colour-palette-dropdown')), findsNothing);
-    expect(find.byKey(const Key('theme-seed-colour-scroll')), findsOneWidget);
     expect(
-      find.text('Catppuccin'),
+      find.byKey(const Key('theme-colour-palette-dropdown')),
       findsNothing,
     );
+    expect(find.byKey(const Key('theme-seed-colour-scroll')), findsOneWidget);
+    expect(find.text('Catppuccin'), findsNothing);
     expect(find.text('Theme Colours'), findsOneWidget);
     expect(find.text('My Seed Colour'), findsOneWidget);
 
     for (final swatch in themeSeedSwatches) {
-      expect(find.byKey(Key('theme-seed-colour-swatch-${swatch.id}')), findsOneWidget);
+      expect(
+        find.byKey(Key('theme-seed-colour-swatch-${swatch.id}')),
+        findsOneWidget,
+      );
       expect(find.bySemanticsLabel(swatch.label), findsOneWidget);
     }
   });
@@ -180,107 +183,122 @@ void main() {
     );
   });
 
-  testWidgets('theme seed swatch restore shows selected state after preferences load', (tester) async {
-    SharedPreferences.resetStatic();
-    SharedPreferences.setMockInitialValues({'theme_seed_color': 'teal'});
+  testWidgets(
+    'theme seed swatch restore shows selected state after preferences load',
+    (tester) async {
+      SharedPreferences.resetStatic();
+      SharedPreferences.setMockInitialValues({'theme_seed_color': 'teal'});
 
-    final semanticsHandle = tester.ensureSemantics();
+      final semanticsHandle = tester.ensureSemantics();
 
-    await _pumpSettingsScreen(tester);
+      await _pumpSettingsScreen(tester);
 
-    await _scrollToThemeSeedSection(tester);
-    await tester.pumpAndSettle();
+      await _scrollToThemeSeedSection(tester);
+      await tester.pumpAndSettle();
 
-    expect(find.text('Teal'), findsOneWidget);
-    expect(
-      find.byKey(const Key('theme-seed-colour-swatch-selected-indicator-teal')),
-      findsOneWidget,
-    );
-    final semantics = tester.getSemantics(
-      find.byKey(const Key('theme-seed-colour-swatch-teal')),
-    );
-    final semanticsData = semantics.getSemanticsData();
-    expect(
-      semanticsData.label,
-      'Teal',
-    );
-    expect(semanticsData.flagsCollection.isButton, isTrue);
-    expect(semanticsData.flagsCollection.isSelected, ui.Tristate.isTrue);
+      expect(find.text('Teal'), findsOneWidget);
+      expect(
+        find.byKey(
+          const Key('theme-seed-colour-swatch-selected-indicator-teal'),
+        ),
+        findsOneWidget,
+      );
+      final semantics = tester.getSemantics(
+        find.byKey(const Key('theme-seed-colour-swatch-teal')),
+      );
+      final semanticsData = semantics.getSemanticsData();
+      expect(semanticsData.label, 'Teal');
+      expect(semanticsData.flagsCollection.isButton, isTrue);
+      expect(semanticsData.flagsCollection.isSelected, ui.Tristate.isTrue);
 
-    semanticsHandle.dispose();
-  });
+      semanticsHandle.dispose();
+    },
+  );
 
-  testWidgets('tapping a theme seed swatch updates selection and persists across rebuilds', (tester) async {
-    SharedPreferences.resetStatic();
-    SharedPreferences.setMockInitialValues({});
+  testWidgets(
+    'tapping a theme seed swatch updates selection and persists across rebuilds',
+    (tester) async {
+      SharedPreferences.resetStatic();
+      SharedPreferences.setMockInitialValues({});
 
-    await _pumpSettingsScreen(tester);
+      await _pumpSettingsScreen(tester);
 
-    await _scrollToThemeSeedSection(tester);
-    await tester.pumpAndSettle();
+      await _scrollToThemeSeedSection(tester);
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('theme-seed-colour-swatch-pink')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('theme-seed-colour-swatch-pink')));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Pink'), findsOneWidget);
-    expect(
-      find.byKey(const Key('theme-seed-colour-swatch-selected-indicator-pink')),
-      findsOneWidget,
-    );
+      expect(find.text('Pink'), findsOneWidget);
+      expect(
+        find.byKey(
+          const Key('theme-seed-colour-swatch-selected-indicator-pink'),
+        ),
+        findsOneWidget,
+      );
 
-    final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getString('theme_seed_color'), 'pink');
-    expect(
-      ProviderScope.containerOf(
-        tester.element(find.byType(SettingsScreen)),
-      ).read(themeSeedColorProvider).id,
-      'pink',
-    );
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('theme_seed_color'), 'pink');
+      expect(
+        ProviderScope.containerOf(
+          tester.element(find.byType(SettingsScreen)),
+        ).read(themeSeedColorProvider).id,
+        'pink',
+      );
 
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
 
-    await _pumpSettingsScreen(tester);
-    await tester.pumpAndSettle();
+      await _pumpSettingsScreen(tester);
+      await tester.pumpAndSettle();
 
-    await _scrollToThemeSeedSection(tester);
-    await tester.pumpAndSettle();
+      await _scrollToThemeSeedSection(tester);
+      await tester.pumpAndSettle();
 
-    expect(find.text('Pink'), findsOneWidget);
-    expect(
-      find.byKey(const Key('theme-seed-colour-swatch-selected-indicator-pink')),
-      findsOneWidget,
-    );
-  });
+      expect(find.text('Pink'), findsOneWidget);
+      expect(
+        find.byKey(
+          const Key('theme-seed-colour-swatch-selected-indicator-pink'),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
 
-  testWidgets('theme seed swatch row scrolls horizontally on narrow large-text layouts', (tester) async {
-    SharedPreferences.resetStatic();
-    SharedPreferences.setMockInitialValues({});
+  testWidgets(
+    'theme seed swatch row scrolls horizontally on narrow large-text layouts',
+    (tester) async {
+      SharedPreferences.resetStatic();
+      SharedPreferences.setMockInitialValues({});
 
-    await _pumpSettingsScreen(
-      tester,
-      viewportSize: const Size(320, 800),
-      textScaleFactor: 2.0,
-    );
+      await _pumpSettingsScreen(
+        tester,
+        viewportSize: const Size(320, 800),
+        textScaleFactor: 2.0,
+      );
 
-    await _scrollToThemeSeedSection(tester);
-    await tester.pumpAndSettle();
+      await _scrollToThemeSeedSection(tester);
+      await tester.pumpAndSettle();
 
-    final firstSwatchRect = tester.getRect(
-      find.byKey(const Key('theme-seed-colour-swatch-baseColor')),
-    );
-    expect(firstSwatchRect.width, greaterThanOrEqualTo(48));
-    expect(firstSwatchRect.height, greaterThanOrEqualTo(48));
+      final firstSwatchRect = tester.getRect(
+        find.byKey(const Key('theme-seed-colour-swatch-baseColor')),
+      );
+      expect(firstSwatchRect.width, greaterThanOrEqualTo(48));
+      expect(firstSwatchRect.height, greaterThanOrEqualTo(48));
 
-    await tester.dragUntilVisible(
-      find.byKey(const Key('theme-seed-colour-swatch-brightRed')),
-      find.byKey(const Key('theme-seed-colour-scroll')),
-      const Offset(-200, 0),
-    );
-    await tester.pumpAndSettle();
+      await tester.dragUntilVisible(
+        find.byKey(const Key('theme-seed-colour-swatch-brightRed')),
+        find.byKey(const Key('theme-seed-colour-scroll')),
+        const Offset(-200, 0),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('theme-seed-colour-swatch-brightRed')), findsOneWidget);
-  });
+      expect(
+        find.byKey(const Key('theme-seed-colour-swatch-brightRed')),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('theme scheme variant persists across rebuilds', (tester) async {
     SharedPreferences.resetStatic();

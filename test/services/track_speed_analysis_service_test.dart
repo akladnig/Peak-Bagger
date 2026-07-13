@@ -29,10 +29,18 @@ void main() {
             trackName: 'Filtered Track',
             gpxFile: _gpx([
               _point(pathStart, 100, DateTime.utc(2024, 1, 1, 8, 0, 0)),
-              _point(_moveEast(pathStart, 40), 100, DateTime.utc(2024, 1, 1, 8, 1, 0)),
+              _point(
+                _moveEast(pathStart, 40),
+                100,
+                DateTime.utc(2024, 1, 1, 8, 1, 0),
+              ),
             ]),
             filteredTrack: _gpx([
-              _point(const LatLng(-44.1, 146.0), 80, DateTime.utc(2024, 1, 1, 7, 50, 0)),
+              _point(
+                const LatLng(-44.1, 146.0),
+                80,
+                DateTime.utc(2024, 1, 1, 7, 50, 0),
+              ),
               _point(pathStart, 100, DateTime.utc(2024, 1, 1, 8, 0, 0)),
               _point(pathEnd, 130, DateTime.utc(2024, 1, 1, 8, 1, 0)),
               _point(pathEnd, 130, DateTime.utc(2024, 1, 1, 8, 1, 30)),
@@ -43,7 +51,11 @@ void main() {
             trackName: 'Repaired Track',
             gpxFile: _gpx([
               _point(roadStart, 150, DateTime.utc(2024, 1, 1, 9, 0, 0)),
-              _point(_moveEast(roadStart, 40), 140, DateTime.utc(2024, 1, 1, 9, 2, 0)),
+              _point(
+                _moveEast(roadStart, 40),
+                140,
+                DateTime.utc(2024, 1, 1, 9, 2, 0),
+              ),
             ]),
             gpxFileRepaired: _gpx([
               _point(roadStart, 150, DateTime.utc(2024, 1, 1, 9, 0, 0)),
@@ -73,10 +85,18 @@ void main() {
             payloadJson: _payload([
               _node(1, pathStart),
               _node(2, pathEnd),
-              _way(10, [1, 2], {'highway': 'path', 'sac_scale': ' Mountain_Hiking '}),
+              _way(
+                10,
+                [1, 2],
+                {'highway': 'path', 'sac_scale': ' Mountain_Hiking '},
+              ),
               _node(3, roadStart),
               _node(4, roadEnd),
-              _way(11, [3, 4], {'highway': 'service', 'trail_visibility': 'Intermediate'}),
+              _way(
+                11,
+                [3, 4],
+                {'highway': 'service', 'trail_visibility': 'Intermediate'},
+              ),
             ]),
           ),
         ],
@@ -98,23 +118,26 @@ void main() {
 
       final report = service.analyze();
 
-      expect(
-        report.sections.map((section) => section.kind),
-        [
-          TrackSpeedAnalysisSectionKind.trackType,
-          TrackSpeedAnalysisSectionKind.hikingDifficulty,
-          TrackSpeedAnalysisSectionKind.trackTypeAndHikingDifficulty,
-          TrackSpeedAnalysisSectionKind.gradientBand,
-        ],
-      );
+      expect(report.sections.map((section) => section.kind), [
+        TrackSpeedAnalysisSectionKind.trackType,
+        TrackSpeedAnalysisSectionKind.hikingDifficulty,
+        TrackSpeedAnalysisSectionKind.trackTypeAndHikingDifficulty,
+        TrackSpeedAnalysisSectionKind.gradientBand,
+      ]);
 
       final trackTypeRows = report.sections[0].rows;
-      expect(trackTypeRows.map((row) => row.label), ['path', 'road', 'off-track']);
+      expect(trackTypeRows.map((row) => row.label), [
+        'path',
+        'road',
+        'off-track',
+      ]);
       expect(trackTypeRows.map((row) => row.sampleCount), [1, 1, 1]);
 
       final hikingRows = report.sections[1].rows;
       expect(
-        hikingRows.map((row) => (row.hikingDifficultyFamily, row.hikingDifficultyValue)),
+        hikingRows.map(
+          (row) => (row.hikingDifficultyFamily, row.hikingDifficultyValue),
+        ),
         [
           ('sac_scale', 'mountain_hiking'),
           ('trail_visibility', 'intermediate'),
@@ -123,9 +146,15 @@ void main() {
       );
 
       final combinedRows = report.sections[2].rows;
-      expect(combinedRows.map((row) => row.trackType), ['path', 'road', 'off-track']);
+      expect(combinedRows.map((row) => row.trackType), [
+        'path',
+        'road',
+        'off-track',
+      ]);
       expect(
-        combinedRows.map((row) => (row.hikingDifficultyFamily, row.hikingDifficultyValue)),
+        combinedRows.map(
+          (row) => (row.hikingDifficultyFamily, row.hikingDifficultyValue),
+        ),
         [
           ('sac_scale', 'mountain_hiking'),
           ('trail_visibility', 'intermediate'),
@@ -134,10 +163,11 @@ void main() {
       );
 
       final gradientRows = report.sections[3].rows;
-      expect(
-        gradientRows.map((row) => row.label),
-        ['-20% to -10%', '>= +20%', 'gradient unknown'],
-      );
+      expect(gradientRows.map((row) => row.label), [
+        '-20% to -10%',
+        '>= +20%',
+        'gradient unknown',
+      ]);
 
       final expectedPathDistance = const Distance().as(
         LengthUnit.Meter,
@@ -155,68 +185,103 @@ void main() {
         offTrackEnd,
       );
 
-      expect(trackTypeRows[0].medianSpeedKmh, closeTo(expectedPathDistance * 3600 / 60000, 0.001));
-      expect(trackTypeRows[0].totalMovingDistanceMeters, closeTo(expectedPathDistance, 0.001));
+      expect(
+        trackTypeRows[0].medianSpeedKmh,
+        closeTo(expectedPathDistance * 3600 / 60000, 0.001),
+      );
+      expect(
+        trackTypeRows[0].totalMovingDistanceMeters,
+        closeTo(expectedPathDistance, 0.001),
+      );
       expect(trackTypeRows[0].totalMovingTime, const Duration(minutes: 1));
-      expect(trackTypeRows[1].medianSpeedKmh, closeTo(expectedRoadDistance * 3600 / 120000, 0.001));
-      expect(trackTypeRows[1].totalMovingDistanceMeters, closeTo(expectedRoadDistance, 0.001));
+      expect(
+        trackTypeRows[1].medianSpeedKmh,
+        closeTo(expectedRoadDistance * 3600 / 120000, 0.001),
+      );
+      expect(
+        trackTypeRows[1].totalMovingDistanceMeters,
+        closeTo(expectedRoadDistance, 0.001),
+      );
       expect(trackTypeRows[1].totalMovingTime, const Duration(minutes: 2));
-      expect(trackTypeRows[2].medianSpeedKmh, closeTo(expectedOffTrackDistance * 3600 / 100000, 0.001));
-      expect(trackTypeRows[2].totalMovingDistanceMeters, closeTo(expectedOffTrackDistance, 0.001));
-      expect(trackTypeRows[2].totalMovingTime, const Duration(minutes: 1, seconds: 40));
+      expect(
+        trackTypeRows[2].medianSpeedKmh,
+        closeTo(expectedOffTrackDistance * 3600 / 100000, 0.001),
+      );
+      expect(
+        trackTypeRows[2].totalMovingDistanceMeters,
+        closeTo(expectedOffTrackDistance, 0.001),
+      );
+      expect(
+        trackTypeRows[2].totalMovingTime,
+        const Duration(minutes: 1, seconds: 40),
+      );
     },
   );
 
-  test('analyze falls back when filtered track is not usable and groups matched unknown difficulty', () {
-    final stepsStart = const LatLng(-42.5, 146.5);
-    final stepsEnd = _moveEast(stepsStart, 80);
+  test(
+    'analyze falls back when filtered track is not usable and groups matched unknown difficulty',
+    () {
+      final stepsStart = const LatLng(-42.5, 146.5);
+      final stepsEnd = _moveEast(stepsStart, 80);
 
-    final service = _service(
-      tracks: [
-        GpxTrack(
-          contentHash: 'fallback-track',
-          trackName: 'Fallback Track',
-          gpxFile: _gpx([
-            _point(const LatLng(-41.2, 148.2), 50, DateTime.utc(2024, 1, 2, 9, 0, 0)),
-            _point(const LatLng(-41.2, 148.2005), 50, DateTime.utc(2024, 1, 2, 9, 1, 0)),
-          ]),
-          filteredTrack: '<gpx><trk><trkseg><trkpt lat="-42.0" lon="146.0"></trkseg></trk></gpx>',
-          gpxFileRepaired: _gpx([
-            _point(stepsStart, 100, DateTime.utc(2024, 1, 2, 9, 0, 0)),
-            _point(stepsEnd, 100, DateTime.utc(2024, 1, 2, 9, 1, 0)),
-          ]),
-        ),
-      ],
-      chunks: [
-        _chunk(
-          chunkKey: '0_0',
-          payloadJson: _payload([
-            _node(1, stepsStart),
-            _node(2, stepsEnd),
-            _way(12, [1, 2], {'highway': 'steps'}),
-          ]),
-        ),
-      ],
-      wayIndexRows: [
-        _wayIndexRow(
-          chunkKey: '0_0',
-          osmWayId: 12,
-          highway: 'steps',
-          tagsJson: '{"highway":"steps"}',
-        ),
-      ],
-    );
+      final service = _service(
+        tracks: [
+          GpxTrack(
+            contentHash: 'fallback-track',
+            trackName: 'Fallback Track',
+            gpxFile: _gpx([
+              _point(
+                const LatLng(-41.2, 148.2),
+                50,
+                DateTime.utc(2024, 1, 2, 9, 0, 0),
+              ),
+              _point(
+                const LatLng(-41.2, 148.2005),
+                50,
+                DateTime.utc(2024, 1, 2, 9, 1, 0),
+              ),
+            ]),
+            filteredTrack:
+                '<gpx><trk><trkseg><trkpt lat="-42.0" lon="146.0"></trkseg></trk></gpx>',
+            gpxFileRepaired: _gpx([
+              _point(stepsStart, 100, DateTime.utc(2024, 1, 2, 9, 0, 0)),
+              _point(stepsEnd, 100, DateTime.utc(2024, 1, 2, 9, 1, 0)),
+            ]),
+          ),
+        ],
+        chunks: [
+          _chunk(
+            chunkKey: '0_0',
+            payloadJson: _payload([
+              _node(1, stepsStart),
+              _node(2, stepsEnd),
+              _way(12, [1, 2], {'highway': 'steps'}),
+            ]),
+          ),
+        ],
+        wayIndexRows: [
+          _wayIndexRow(
+            chunkKey: '0_0',
+            osmWayId: 12,
+            highway: 'steps',
+            tagsJson: '{"highway":"steps"}',
+          ),
+        ],
+      );
 
-    final report = service.analyze();
+      final report = service.analyze();
 
-    expect(report.sections[0].rows.map((row) => row.label), ['steps']);
-    expect(
-      report.sections[1].rows.map((row) => (row.hikingDifficultyFamily, row.hikingDifficultyValue)),
-      [('unknown', 'unknown')],
-    );
-    expect(report.sections[2].rows.single.trackType, 'steps');
-    expect(report.sections[3].rows.map((row) => row.label), ['-5% to +5%']);
-  });
+      expect(report.sections[0].rows.map((row) => row.label), ['steps']);
+      expect(
+        report.sections[1].rows.map(
+          (row) => (row.hikingDifficultyFamily, row.hikingDifficultyValue),
+        ),
+        [('unknown', 'unknown')],
+      );
+      expect(report.sections[2].rows.single.trackType, 'steps');
+      expect(report.sections[3].rows.map((row) => row.label), ['-5% to +5%']);
+    },
+  );
 
   test('analyzeWithProgress reports per-track progress', () async {
     final service = _service(
@@ -225,8 +290,16 @@ void main() {
           contentHash: 'progress-track',
           trackName: 'Progress Track',
           gpxFile: _gpx([
-            _point(const LatLng(-42.5, 146.5), 100, DateTime.utc(2024, 1, 2, 9, 0, 0)),
-            _point(const LatLng(-42.5, 146.501), 110, DateTime.utc(2024, 1, 2, 9, 1, 0)),
+            _point(
+              const LatLng(-42.5, 146.5),
+              100,
+              DateTime.utc(2024, 1, 2, 9, 0, 0),
+            ),
+            _point(
+              const LatLng(-42.5, 146.501),
+              110,
+              DateTime.utc(2024, 1, 2, 9, 1, 0),
+            ),
           ]),
         ),
       ],
@@ -251,7 +324,9 @@ TrackSpeedAnalysisService _service({
   required List<RouteGraphWayIndex> wayIndexRows,
 }) {
   return TrackSpeedAnalysisService(
-    gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage(tracks)),
+    gpxTrackRepository: GpxTrackRepository.test(
+      InMemoryGpxTrackStorage(tracks),
+    ),
     routeGraphQueryService: RouteGraphQueryService(
       RouteGraphRepository.test(
         InMemoryRouteGraphStorage(
@@ -267,7 +342,10 @@ TrackSpeedAnalysisService _service({
   );
 }
 
-RouteGraphChunk _chunk({required String chunkKey, required String payloadJson}) {
+RouteGraphChunk _chunk({
+  required String chunkKey,
+  required String payloadJson,
+}) {
   return RouteGraphChunk(
     recordKey: '1|$chunkKey',
     chunkKey: chunkKey,
@@ -300,7 +378,12 @@ RouteGraphWayIndex _wayIndexRow({
 }
 
 Map<String, Object?> _node(int id, LatLng point) {
-  return {'type': 'node', 'id': id, 'lat': point.latitude, 'lon': point.longitude};
+  return {
+    'type': 'node',
+    'id': id,
+    'lat': point.latitude,
+    'lon': point.longitude,
+  };
 }
 
 Map<String, Object?> _way(int id, List<int> nodes, Map<String, Object?> tags) {
@@ -308,25 +391,29 @@ Map<String, Object?> _way(int id, List<int> nodes, Map<String, Object?> tags) {
 }
 
 String _payload(List<Map<String, Object?>> elements) {
-  final pieces = elements.map((element) {
-    final entries = element.entries.map((entry) {
-      final value = entry.value;
-      if (value is String) {
-        return '"${entry.key}":"$value"';
-      }
-      if (value is List<int>) {
-        return '"${entry.key}":[${value.join(',')}]';
-      }
-      if (value is Map<String, Object?>) {
-        final tagEntries = value.entries
-            .map((tag) => '"${tag.key}":"${tag.value}"')
+  final pieces = elements
+      .map((element) {
+        final entries = element.entries
+            .map((entry) {
+              final value = entry.value;
+              if (value is String) {
+                return '"${entry.key}":"$value"';
+              }
+              if (value is List<int>) {
+                return '"${entry.key}":[${value.join(',')}]';
+              }
+              if (value is Map<String, Object?>) {
+                final tagEntries = value.entries
+                    .map((tag) => '"${tag.key}":"${tag.value}"')
+                    .join(',');
+                return '"${entry.key}":{$tagEntries}';
+              }
+              return '"${entry.key}":$value';
+            })
             .join(',');
-        return '"${entry.key}":{$tagEntries}';
-      }
-      return '"${entry.key}":$value';
-    }).join(',');
-    return '{$entries}';
-  }).join(',');
+        return '{$entries}';
+      })
+      .join(',');
   return '{"elements":[$pieces]}';
 }
 

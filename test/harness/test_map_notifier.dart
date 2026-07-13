@@ -623,6 +623,49 @@ class TestMapNotifier extends MapNotifier {
   }
 
   @override
+  void requestCameraFitBounds({
+    required LatLngBounds bounds,
+    LatLng? selectedLocation,
+    bool updateSelectedLocation = false,
+    List<Peak>? selectedPeaks,
+    bool updateSelectedPeaks = false,
+    bool persist = true,
+    bool clearGotoMgrs = false,
+    bool clearHoveredPeakId = true,
+    bool clearHoveredTrackId = true,
+  }) {
+    final nextSerial = state.cameraRequestSerial + 1;
+    state = state.copyWith(
+      pendingCameraRequest: PendingCameraRequest(
+        center: LatLng(
+          (bounds.southWest.latitude + bounds.northEast.latitude) / 2,
+          (bounds.southWest.longitude + bounds.northEast.longitude) / 2,
+        ),
+        zoom: state.zoom,
+        serial: nextSerial,
+        bounds: bounds,
+        selectedLocationBehavior: updateSelectedLocation
+            ? (selectedLocation == null
+                  ? PendingCameraSelectionBehavior.clear
+                  : PendingCameraSelectionBehavior.replace)
+            : PendingCameraSelectionBehavior.preserve,
+        selectedLocation: selectedLocation,
+        selectedPeaksBehavior: updateSelectedPeaks
+            ? ((selectedPeaks == null || selectedPeaks.isEmpty)
+                  ? PendingCameraSelectionBehavior.clear
+                  : PendingCameraSelectionBehavior.replace)
+            : PendingCameraSelectionBehavior.preserve,
+        selectedPeaks: selectedPeaks ?? const [],
+        persist: persist,
+        clearGotoMgrs: clearGotoMgrs,
+        clearHoveredPeakId: clearHoveredPeakId,
+        clearHoveredTrackId: clearHoveredTrackId,
+      ),
+      cameraRequestSerial: nextSerial,
+    );
+  }
+
+  @override
   void acceptCameraIntent(PendingCameraRequest request) {
     state = state.copyWith(
       center: request.center,

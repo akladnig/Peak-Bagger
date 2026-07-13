@@ -238,7 +238,8 @@ class SloveniaPeakCorrelationService {
     final bestCandidate = qualifyingCandidates.first;
     if (qualifyingCandidates.length > 1) {
       final runnerUp = qualifyingCandidates[1];
-      final distanceGap = runnerUp.distanceMeters - bestCandidate.distanceMeters;
+      final distanceGap =
+          runnerUp.distanceMeters - bestCandidate.distanceMeters;
       if (distanceGap.abs() <= tieWindowMeters) {
         return const _CorrelationDecision.review('multiple_tied_candidates');
       }

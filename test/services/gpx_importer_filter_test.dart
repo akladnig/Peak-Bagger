@@ -71,19 +71,21 @@ void main() {
     expect(track.getSegmentsForZoom(15).single, hasLength(2));
   });
 
-  test('importTracks keeps filtered output when outlier filtering is disabled', () async {
-    final tempDir = await Directory.systemTemp.createTemp('gpx-import-none');
-    addTearDown(() async {
-      if (tempDir.existsSync()) {
-        await tempDir.delete(recursive: true);
-      }
-    });
+  test(
+    'importTracks keeps filtered output when outlier filtering is disabled',
+    () async {
+      final tempDir = await Directory.systemTemp.createTemp('gpx-import-none');
+      addTearDown(() async {
+        if (tempDir.existsSync()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
 
-    final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-    final tasmaniaDir = Directory('${tracksDir.path}/Australia/Tasmania')
-      ..createSync(recursive: true);
-    final source = File('${tracksDir.path}/none-track.gpx');
-    const rawXml = '''
+      final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
+      final tasmaniaDir = Directory('${tracksDir.path}/Australia/Tasmania')
+        ..createSync(recursive: true);
+      final source = File('${tracksDir.path}/none-track.gpx');
+      const rawXml = '''
 <?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="test">
   <trk>
@@ -105,27 +107,31 @@ void main() {
   </trk>
 </gpx>
 ''';
-    await source.writeAsString(rawXml);
+      await source.writeAsString(rawXml);
 
-    final importer = GpxImporter(
-      tracksFolder: tracksDir.path,
-      tasmaniaFolder: tasmaniaDir.path,
-    );
+      final importer = GpxImporter(
+        tracksFolder: tracksDir.path,
+        tasmaniaFolder: tasmaniaDir.path,
+      );
 
-    final result = await importer.importTracks(
-      includeTasmaniaFolder: false,
-      filterConfig: GpxFilterConfig.defaults.copyWith(
-        outlierFilter: GpxTrackOutlierFilter.none,
-        elevationSmoother: GpxTrackElevationSmoother.none,
-        positionSmoother: GpxTrackPositionSmoother.none,
-      ),
-    );
+      final result = await importer.importTracks(
+        includeTasmaniaFolder: false,
+        filterConfig: GpxFilterConfig.defaults.copyWith(
+          outlierFilter: GpxTrackOutlierFilter.none,
+          elevationSmoother: GpxTrackElevationSmoother.none,
+          positionSmoother: GpxTrackPositionSmoother.none,
+        ),
+      );
 
-    expect(result.importedCount, 1);
-    expect(result.warning, isNull);
-    expect(result.tracks.single.filteredTrack, contains('<ele>1000.00</ele>'));
-    expect(result.tracks.single.getSegmentsForZoom(15), hasLength(1));
-  });
+      expect(result.importedCount, 1);
+      expect(result.warning, isNull);
+      expect(
+        result.tracks.single.filteredTrack,
+        contains('<ele>1000.00</ele>'),
+      );
+      expect(result.tracks.single.getSegmentsForZoom(15), hasLength(1));
+    },
+  );
 
   test('parseRouteFile simplifies imported route geometry', () async {
     final tempDir = await Directory.systemTemp.createTemp('gpx-route-simplify');
@@ -220,8 +226,8 @@ void main() {
       });
 
       final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-    final tasmaniaDir = Directory('${tracksDir.path}/Australia/Tasmania')
-      ..createSync(recursive: true);
+      final tasmaniaDir = Directory('${tracksDir.path}/Australia/Tasmania')
+        ..createSync(recursive: true);
       final source = File('${tracksDir.path}/fallback-track.gpx');
       const rawXml = '''
 <?xml version="1.0" encoding="UTF-8"?>
@@ -271,8 +277,8 @@ void main() {
       });
 
       final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
-    final tasmaniaDir = Directory('${tracksDir.path}/Australia/Tasmania')
-      ..createSync(recursive: true);
+      final tasmaniaDir = Directory('${tracksDir.path}/Australia/Tasmania')
+        ..createSync(recursive: true);
       final source = File('${tracksDir.path}/refresh-track.gpx');
       const rawXml = '''
 <?xml version="1.0" encoding="UTF-8"?>
@@ -331,7 +337,9 @@ void main() {
   );
 
   test('importTracks preserves Acropolis paused and rest targets', () async {
-    final tempDir = await Directory.systemTemp.createTemp('gpx-import-acropolis');
+    final tempDir = await Directory.systemTemp.createTemp(
+      'gpx-import-acropolis',
+    );
     addTearDown(() async {
       if (tempDir.existsSync()) {
         await tempDir.delete(recursive: true);
@@ -373,10 +381,13 @@ void main() {
     final tracksDir = Directory('${tempDir.path}/Tracks')..createSync();
     final tasmaniaDir = Directory('${tracksDir.path}/Australia/Tasmania')
       ..createSync(recursive: true);
-    final source = File('${tracksDir.path}/mt-wellington-loop_(04-03-2025).gpx');
+    final source = File(
+      '${tracksDir.path}/mt-wellington-loop_(04-03-2025).gpx',
+    );
     await source.writeAsString(
-      File('test/fixtures/mt-wellington-loop_(04-03-2025).gpx')
-          .readAsStringSync(),
+      File(
+        'test/fixtures/mt-wellington-loop_(04-03-2025).gpx',
+      ).readAsStringSync(),
     );
 
     final importer = GpxImporter(

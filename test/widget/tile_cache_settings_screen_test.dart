@@ -55,41 +55,56 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const Key('tile-cache-basemap-chip-openstreetmap')),
       200,
-      scrollable: find.descendant(
-        of: find.byKey(const Key('tile-cache-scrollable')),
-        matching: find.byType(Scrollable),
-      ).first,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('tile-cache-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
     await tester.pumpAndSettle();
     expect(
-      tester.widget<FilterChip>(
-        find.byKey(const Key('tile-cache-basemap-chip-openstreetmap')),
-      ).selected,
+      tester
+          .widget<FilterChip>(
+            find.byKey(const Key('tile-cache-basemap-chip-openstreetmap')),
+          )
+          .selected,
       isTrue,
     );
-    await tester.tap(find.byKey(const Key('tile-cache-basemap-chip-tracestrack')));
+    await tester.tap(
+      find.byKey(const Key('tile-cache-basemap-chip-tracestrack')),
+    );
     await tester.pumpAndSettle();
     expect(
-      tester.widget<FilterChip>(
-        find.byKey(const Key('tile-cache-basemap-chip-openstreetmap')),
-      ).selected,
+      tester
+          .widget<FilterChip>(
+            find.byKey(const Key('tile-cache-basemap-chip-openstreetmap')),
+          )
+          .selected,
       isTrue,
     );
     expect(
-      tester.widget<FilterChip>(
-        find.byKey(const Key('tile-cache-basemap-chip-tracestrack')),
-      ).selected,
+      tester
+          .widget<FilterChip>(
+            find.byKey(const Key('tile-cache-basemap-chip-tracestrack')),
+          )
+          .selected,
       isTrue,
     );
     await tester.drag(
-      find.descendant(
-        of: find.byKey(const Key('tile-cache-scrollable')),
-        matching: find.byType(Scrollable),
-      ).first,
+      find
+          .descendant(
+            of: find.byKey(const Key('tile-cache-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
       const Offset(0, -800),
     );
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('tile-cache-selected-map-chip')), findsOneWidget);
+    expect(
+      find.byKey(const Key('tile-cache-selected-map-chip')),
+      findsOneWidget,
+    );
     expect(
       find.descendant(
         of: find.byKey(const Key('tile-cache-selected-map-chip')),
@@ -98,10 +113,12 @@ void main() {
       findsOneWidget,
     );
     await tester.drag(
-      find.descendant(
-        of: find.byKey(const Key('tile-cache-scrollable')),
-        matching: find.byType(Scrollable),
-      ).first,
+      find
+          .descendant(
+            of: find.byKey(const Key('tile-cache-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
       const Offset(0, -800),
     );
     await tester.pumpAndSettle();
@@ -149,10 +166,12 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.drag(
-      find.descendant(
-        of: find.byKey(const Key('tile-cache-scrollable')),
-        matching: find.byType(Scrollable),
-      ).first,
+      find
+          .descendant(
+            of: find.byKey(const Key('tile-cache-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
       const Offset(0, -1200),
     );
     await tester.pumpAndSettle();
@@ -163,7 +182,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('tile-cache-map-suggestion-0')), findsOneWidget);
+    expect(
+      find.byKey(const Key('tile-cache-map-suggestion-0')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const Key('tile-cache-map-suggestion-0')));
     await tester.pumpAndSettle();
@@ -231,10 +253,12 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.drag(
-      find.descendant(
-        of: find.byKey(const Key('tile-cache-scrollable')),
-        matching: find.byType(Scrollable),
-      ).first,
+      find
+          .descendant(
+            of: find.byKey(const Key('tile-cache-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
       const Offset(0, -1200),
     );
     await tester.pumpAndSettle();
@@ -247,7 +271,9 @@ void main() {
     await tester.tap(find.byKey(const Key('tile-cache-map-suggestion-0')));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('tile-cache-basemap-chip-tracestrack')));
+    await tester.tap(
+      find.byKey(const Key('tile-cache-basemap-chip-tracestrack')),
+    );
     await tester.pumpAndSettle();
 
     expect(
@@ -296,10 +322,12 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.drag(
-      find.descendant(
-        of: find.byKey(const Key('tile-cache-scrollable')),
-        matching: find.byType(Scrollable),
-      ).first,
+      find
+          .descendant(
+            of: find.byKey(const Key('tile-cache-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
       const Offset(0, -1200),
     );
     await tester.pumpAndSettle();
@@ -313,10 +341,7 @@ void main() {
     );
 
     await repository.clearAll();
-    await repository.addMaps([
-      _map(name: 'Zulu'),
-      _map(name: 'Beta'),
-    ]);
+    await repository.addMaps([_map(name: 'Zulu'), _map(name: 'Beta')]);
     notifier.bumpRevision();
     await tester.pumpAndSettle();
 

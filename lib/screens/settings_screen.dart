@@ -1104,7 +1104,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           'Warnings: ${formatCount(result.warningEntries.length)}',
           'Destination: ${result.outputDirectoryPath}',
         ],
-        hasWarnings: result.warningEntries.isNotEmpty ||
+        hasWarnings:
+            result.warningEntries.isNotEmpty ||
             result.skippedListCount > 0 ||
             result.skippedRowCount > 0,
       );

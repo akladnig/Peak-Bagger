@@ -64,10 +64,7 @@ class RouteAdminFormState {
 }
 
 class RouteAdminValidationResult {
-  const RouteAdminValidationResult({
-    required this.fieldErrors,
-    this.route,
-  });
+  const RouteAdminValidationResult({required this.fieldErrors, this.route});
 
   final Map<String, String> fieldErrors;
   final Route? route;
@@ -184,7 +181,9 @@ class RouteAdminEditor {
     updated.routeTimingSource = RouteTimingSources.naismith;
     updated.routeTimingProfileJson = encodeRouteTimingProfile(profile);
     updated.routeTimingSegmentKindsJson = buildRouteTimingSegmentKindsJson(
-      segmentCount: updated.gpxRoute.length > 1 ? updated.gpxRoute.length - 1 : 0,
+      segmentCount: updated.gpxRoute.length > 1
+          ? updated.gpxRoute.length - 1
+          : 0,
       kind: RouteTimingSegmentKinds.manualEstimated,
     );
     updated.estimatedTime = profileDurationSeconds(profile) * 1000;

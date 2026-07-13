@@ -81,6 +81,7 @@ class TassyFullPeakListSyncService {
 
     await _repository.saveWithoutSync(
       PeakList(name: targetName, peakList: encodePeakListItems(mergedItems)),
+      recomputeDerivedFields: true,
     );
 
     return TassyFullPeakListSyncResult(

@@ -6,17 +6,26 @@ import 'package:peak_bagger/providers/peak_list_mini_map_cluster_display_setting
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  test('starts with peak list mini-map clusters on when prefs are empty', () async {
-    SharedPreferences.resetStatic();
-    SharedPreferences.setMockInitialValues({});
+  test(
+    'starts with peak list mini-map clusters on when prefs are empty',
+    () async {
+      SharedPreferences.resetStatic();
+      SharedPreferences.setMockInitialValues({});
 
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
 
-    expect(container.read(peakListMiniMapClusterDisplaySettingsProvider), isTrue);
-    await _drainAsync();
-    expect(container.read(peakListMiniMapClusterDisplaySettingsProvider), isTrue);
-  });
+      expect(
+        container.read(peakListMiniMapClusterDisplaySettingsProvider),
+        isTrue,
+      );
+      await _drainAsync();
+      expect(
+        container.read(peakListMiniMapClusterDisplaySettingsProvider),
+        isTrue,
+      );
+    },
+  );
 
   test('sets peak list mini-map clusters off in memory', () async {
     SharedPreferences.resetStatic();
@@ -29,19 +38,23 @@ void main() {
         .read(peakListMiniMapClusterDisplaySettingsProvider.notifier)
         .setShowPeakClusters(false);
 
-    expect(container.read(peakListMiniMapClusterDisplaySettingsProvider), isFalse);
+    expect(
+      container.read(peakListMiniMapClusterDisplaySettingsProvider),
+      isFalse,
+    );
   });
 
   test('keeps in-memory toggle when hydration returns late', () async {
     SharedPreferences.resetStatic();
-    SharedPreferences.setMockInitialValues({peakListMiniMapClusterDisplayKey: true});
+    SharedPreferences.setMockInitialValues({
+      peakListMiniMapClusterDisplayKey: true,
+    });
     final completer = Completer<SharedPreferences>();
 
     final container = ProviderContainer(
       overrides: [
-        peakListMiniMapClusterDisplayPreferencesLoaderProvider.overrideWithValue(
-          () => completer.future,
-        ),
+        peakListMiniMapClusterDisplayPreferencesLoaderProvider
+            .overrideWithValue(() => completer.future),
       ],
     );
     addTearDown(container.dispose);
@@ -51,29 +64,39 @@ void main() {
     );
     final pendingToggle = notifier.setShowPeakClusters(false);
 
-    expect(container.read(peakListMiniMapClusterDisplaySettingsProvider), isFalse);
+    expect(
+      container.read(peakListMiniMapClusterDisplaySettingsProvider),
+      isFalse,
+    );
 
     completer.complete(await SharedPreferences.getInstance());
     await pendingToggle;
     await _drainAsync();
 
-    expect(container.read(peakListMiniMapClusterDisplaySettingsProvider), isFalse);
+    expect(
+      container.read(peakListMiniMapClusterDisplaySettingsProvider),
+      isFalse,
+    );
   });
 
   test('falls back to on when prefs loading fails', () async {
     SharedPreferences.resetStatic();
     final container = ProviderContainer(
       overrides: [
-        peakListMiniMapClusterDisplayPreferencesLoaderProvider.overrideWithValue(
-          () => Future<SharedPreferences>.error(StateError('boom')),
-        ),
+        peakListMiniMapClusterDisplayPreferencesLoaderProvider
+            .overrideWithValue(
+              () => Future<SharedPreferences>.error(StateError('boom')),
+            ),
       ],
     );
     addTearDown(container.dispose);
 
     await _drainAsync();
 
-    expect(container.read(peakListMiniMapClusterDisplaySettingsProvider), isTrue);
+    expect(
+      container.read(peakListMiniMapClusterDisplaySettingsProvider),
+      isTrue,
+    );
   });
 }
 

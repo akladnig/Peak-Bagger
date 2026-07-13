@@ -164,10 +164,10 @@ class LocalFileTripRoutingClient implements TripRoutingClient {
   LocalFileTripRoutingClient({
     RouteGraphStore? routeGraphStore,
     RouteGraphQueryService? routeGraphQueryService,
-  })  : _routeGraphStore =
-            routeGraphStore ??
-            (throw UnimplementedError('routeGraphStore is required')),
-        _injectedRouteGraphQueryService = routeGraphQueryService;
+  }) : _routeGraphStore =
+           routeGraphStore ??
+           (throw UnimplementedError('routeGraphStore is required')),
+       _injectedRouteGraphQueryService = routeGraphQueryService;
 
   final RouteGraphStore _routeGraphStore;
   final RouteGraphQueryService? _injectedRouteGraphQueryService;
@@ -187,8 +187,9 @@ class LocalFileTripRoutingClient implements TripRoutingClient {
   }
 
   RouteGraphRepository? _repositoryForStore(RouteGraphStore store) {
-    final provider =
-        store is RouteGraphRepositoryProvider ? store as RouteGraphRepositoryProvider : null;
+    final provider = store is RouteGraphRepositoryProvider
+        ? store as RouteGraphRepositoryProvider
+        : null;
     return provider?.repository;
   }
 
@@ -251,9 +252,8 @@ class OverpassRoutePlannerFallback implements RoutePlannerFallback {
 }
 
 class TripRoutingRoutePlanner implements RoutePlanner {
-  TripRoutingRoutePlanner({
-    TripRoutingClient? client,
-  }) : _client = client ?? TripRoutingServiceClient();
+  TripRoutingRoutePlanner({TripRoutingClient? client})
+    : _client = client ?? TripRoutingServiceClient();
 
   final TripRoutingClient _client;
 
@@ -300,27 +300,27 @@ class TripRoutingRoutePlanner implements RoutePlanner {
                 endAnchor: endAnchor,
               ),
       trip_routing.AnchoredSegmentStatus.offTrack => RoutePlanningResult(
-          status: RoutePlanningStatus.offTrack,
-          points: const [],
-          distanceMeters: 0,
-          startAnchor: startAnchor,
-          endAnchor: endAnchor,
-        ),
+        status: RoutePlanningStatus.offTrack,
+        points: const [],
+        distanceMeters: 0,
+        startAnchor: startAnchor,
+        endAnchor: endAnchor,
+      ),
       trip_routing.AnchoredSegmentStatus.noPath => RoutePlanningResult(
-          status: RoutePlanningStatus.noPath,
-          points: const [],
-          distanceMeters: 0,
-          startAnchor: startAnchor,
-          endAnchor: endAnchor,
-        ),
+        status: RoutePlanningStatus.noPath,
+        points: const [],
+        distanceMeters: 0,
+        startAnchor: startAnchor,
+        endAnchor: endAnchor,
+      ),
       trip_routing.AnchoredSegmentStatus.failed => RoutePlanningResult(
-          status: RoutePlanningStatus.failed,
-          points: const [],
-          distanceMeters: 0,
-          startAnchor: startAnchor,
-          endAnchor: endAnchor,
-          errorMessage: result.errors.join('\n'),
-        ),
+        status: RoutePlanningStatus.failed,
+        points: const [],
+        distanceMeters: 0,
+        startAnchor: startAnchor,
+        endAnchor: endAnchor,
+        errorMessage: result.errors.join('\n'),
+      ),
     };
   }
 
@@ -409,7 +409,6 @@ class TripRoutingRoutePlanner implements RoutePlanner {
       distanceMeters: result.distanceMeters,
     );
     return segment;
-
   }
 
   PlannedRouteSegment _attachEndpoints({

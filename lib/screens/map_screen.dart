@@ -4300,8 +4300,55 @@ class _MapScreenState extends ConsumerState<MapScreen>
       return;
     }
 
-    _applyAcceptedCameraMove(request!, consumePendingRequest: true);
+    final acceptedRequest = request!;
+    final bounds = acceptedRequest.bounds;
+    if (bounds == null) {
+      _applyAcceptedCameraMove(acceptedRequest, consumePendingRequest: true);
+    } else {
+      _applyPendingCameraBoundsRequest(acceptedRequest, bounds);
+    }
     _markCameraRequestApplied(serial);
+  }
+
+  void _applyPendingCameraBoundsRequest(
+    PendingCameraRequest request,
+    LatLngBounds bounds,
+  ) {
+    if (_boundsCollapseToSinglePoint(bounds)) {
+      _applyAcceptedCameraMove(
+        request.copyWith(
+          center: bounds.southWest,
+          zoom: MapConstants.defaultMapZoom,
+        ),
+        consumePendingRequest: true,
+      );
+      return;
+    }
+
+    try {
+      _applyAcceptedCameraFit(
+        request,
+        () => _mapController.fitCamera(
+          CameraFit.bounds(bounds: bounds, padding: _selectedPathFitPadding()),
+        ),
+        consumePendingRequest: true,
+      );
+    } catch (_) {
+      _applyAcceptedCameraMove(
+        request.copyWith(
+          center: bounds.southWest,
+          zoom: MapConstants.defaultMapZoom,
+        ),
+        consumePendingRequest: true,
+      );
+    }
+  }
+
+  bool _boundsCollapseToSinglePoint(LatLngBounds bounds) {
+    return (bounds.northEast.latitude - bounds.southWest.latitude).abs() <=
+            MapConstants.cameraEpsilon &&
+        (bounds.northEast.longitude - bounds.southWest.longitude).abs() <=
+            MapConstants.cameraEpsilon;
   }
 
   bool _isSameCamera(LatLng center, double zoom) {

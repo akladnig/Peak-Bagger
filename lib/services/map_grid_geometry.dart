@@ -79,8 +79,12 @@ MapMgrsGridGeometry buildMapMgrsGridGeometry({
       final utmCorners = corners.map(_utmFromLatLng).toList(growable: false);
       final minEasting = utmCorners.map((utm) => utm.easting).reduce(math.min);
       final maxEasting = utmCorners.map((utm) => utm.easting).reduce(math.max);
-      final minNorthing = utmCorners.map((utm) => utm.northing).reduce(math.min);
-      final maxNorthing = utmCorners.map((utm) => utm.northing).reduce(math.max);
+      final minNorthing = utmCorners
+          .map((utm) => utm.northing)
+          .reduce(math.min);
+      final maxNorthing = utmCorners
+          .map((utm) => utm.northing)
+          .reduce(math.max);
 
       final startEasting = _alignedStart(minEasting, intervalMeters);
       final endEasting = _alignedEnd(

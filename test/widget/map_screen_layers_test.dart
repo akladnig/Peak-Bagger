@@ -12,12 +12,7 @@ import 'package:peak_bagger/theme.dart';
 void main() {
   test('buildTrailPolylines uses a stable layer key', () {
     final layer = buildTrailPolylines([
-      Polyline(
-        points: const [
-          LatLng(-41.5, 146.5),
-          LatLng(-41.6, 146.6),
-        ],
-      ),
+      Polyline(points: const [LatLng(-41.5, 146.5), LatLng(-41.6, 146.6)]),
     ]);
 
     expect(layer.key, const ValueKey('trail-polyline-layer'));
@@ -70,8 +65,14 @@ void main() {
       (label) => label.side == MapGridLabelSide.top,
     );
 
-    expect(verticalLine.first.latitude, closeTo(bottomLabel.anchor.latitude, 0.001));
-    expect(verticalLine.last.latitude, closeTo(topLabel.anchor.latitude, 0.001));
+    expect(
+      verticalLine.first.latitude,
+      closeTo(bottomLabel.anchor.latitude, 0.001),
+    );
+    expect(
+      verticalLine.last.latitude,
+      closeTo(topLabel.anchor.latitude, 0.001),
+    );
   });
 
   test('buildPolygonAssetLayer uses a stable layer key', () {

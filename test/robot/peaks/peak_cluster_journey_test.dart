@@ -8,7 +8,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'peak_info_robot.dart';
 
 void main() {
-  testWidgets('peak cluster journey expands into individual peaks', (tester) async {
+  testWidgets('peak cluster journey expands into individual peaks', (
+    tester,
+  ) async {
     final robot = PeakInfoRobot(tester);
     addTearDown(robot.dispose);
 

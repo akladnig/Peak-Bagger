@@ -34,6 +34,8 @@ import 'package:peak_bagger/services/map_search_service.dart';
 import 'package:peak_bagger/services/gpx_track_repair_service.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
+import 'package:peak_bagger/services/peak_list_coverage_backfill_service.dart';
+import 'package:peak_bagger/services/peak_list_derived_data.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peak_region_asset_import_service.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
@@ -56,6 +58,7 @@ import 'package:peak_bagger/services/geo.dart';
 import 'package:xml/xml.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/main.dart';
@@ -492,11 +495,38 @@ class RouteDraftControlEndpoint {
 
 enum PendingCameraSelectionBehavior { preserve, replace, clear }
 
+enum PeakListMapNavigationStatus { queued, noMappablePeaks, unavailable }
+
+class PeakListMapNavigationResult {
+  const PeakListMapNavigationResult._({required this.status, this.message});
+
+  const PeakListMapNavigationResult.queued()
+    : this._(status: PeakListMapNavigationStatus.queued);
+
+  const PeakListMapNavigationResult.noMappablePeaks()
+    : this._(
+        status: PeakListMapNavigationStatus.noMappablePeaks,
+        message: 'This list has no mappable peaks.',
+      );
+
+  const PeakListMapNavigationResult.unavailable()
+    : this._(
+        status: PeakListMapNavigationStatus.unavailable,
+        message: 'Peak list is no longer available.',
+      );
+
+  final PeakListMapNavigationStatus status;
+  final String? message;
+
+  bool get shouldNavigate => status == PeakListMapNavigationStatus.queued;
+}
+
 class PendingCameraRequest {
   const PendingCameraRequest({
     required this.center,
     required this.zoom,
     required this.serial,
+    this.bounds,
     this.selectedLocationBehavior = PendingCameraSelectionBehavior.preserve,
     this.selectedLocation,
     this.selectedPeaksBehavior = PendingCameraSelectionBehavior.preserve,
@@ -510,6 +540,7 @@ class PendingCameraRequest {
   final LatLng center;
   final double zoom;
   final int serial;
+  final LatLngBounds? bounds;
   final PendingCameraSelectionBehavior selectedLocationBehavior;
   final LatLng? selectedLocation;
   final PendingCameraSelectionBehavior selectedPeaksBehavior;
@@ -523,6 +554,7 @@ class PendingCameraRequest {
     LatLng? center,
     double? zoom,
     int? serial,
+    LatLngBounds? bounds,
     PendingCameraSelectionBehavior? selectedLocationBehavior,
     LatLng? selectedLocation,
     PendingCameraSelectionBehavior? selectedPeaksBehavior,
@@ -536,6 +568,7 @@ class PendingCameraRequest {
       center: center ?? this.center,
       zoom: zoom ?? this.zoom,
       serial: serial ?? this.serial,
+      bounds: bounds ?? this.bounds,
       selectedLocationBehavior:
           selectedLocationBehavior ?? this.selectedLocationBehavior,
       selectedLocation: selectedLocation ?? this.selectedLocation,
@@ -885,6 +918,8 @@ class MapState {
   LatLng? get cameraRequestCenter => pendingCameraRequest?.center;
 
   double? get cameraRequestZoom => pendingCameraRequest?.zoom;
+
+  LatLngBounds? get cameraRequestBounds => pendingCameraRequest?.bounds;
 
   MapState copyWith({
     LatLng? center,
@@ -1395,6 +1430,7 @@ class MapNotifier extends Notifier<MapState> {
   WaypointsRepository? _waypointsRepository;
   late final MigrationMarkerStore _migrationMarkerStore;
   late final ItemVisibilityBackfillService _itemVisibilityBackfillService;
+  late final PeakListCoverageBackfillService _peakListCoverageBackfillService;
   late final Future<SharedPreferences> Function() _prefsLoader;
   bool _recoverySnackbarShown = false;
   String? _pendingTrackSnackbarMessage;
@@ -1484,6 +1520,10 @@ class MapNotifier extends Notifier<MapState> {
     _itemVisibilityBackfillService = ItemVisibilityBackfillService(
       routeRepository: _routeRepository,
       gpxTrackRepository: _gpxTrackRepository,
+      migrationMarkerStore: _migrationMarkerStore,
+    );
+    _peakListCoverageBackfillService = PeakListCoverageBackfillService(
+      peakListRepository: ref.read(peakListRepositoryProvider),
       migrationMarkerStore: _migrationMarkerStore,
     );
     _prefsLoader = ref.read(mapPreferencesLoaderProvider);
@@ -1586,8 +1626,12 @@ class MapNotifier extends Notifier<MapState> {
         peakRepository: _peakRepository,
       );
       final changed = await _peakRefreshService.backfillStoredPeaks();
+      final peakListChanged = await _backfillPeakListCoverage();
       if (importResult.hasChanges || changed) {
         ref.read(peakRevisionProvider.notifier).increment();
+      }
+      if (peakListChanged) {
+        ref.read(peakListRevisionProvider.notifier).increment();
       }
       state = state.copyWith(
         peaks: _peakRepository.getAllPeaks(),
@@ -1600,6 +1644,16 @@ class MapNotifier extends Notifier<MapState> {
         isLoadingPeaks: false,
         error: 'Failed to load peaks: $e',
       );
+    }
+  }
+
+  Future<bool> _backfillPeakListCoverage() async {
+    try {
+      return await _peakListCoverageBackfillService.backfillStoredPeakLists();
+    } catch (e) {
+      _pendingStartupBackfillWarningMessage =
+          'Failed to refresh peak-list bounds: $e';
+      return false;
     }
   }
 
@@ -2751,12 +2805,118 @@ class MapNotifier extends Notifier<MapState> {
     );
   }
 
+  void requestCameraFitBounds({
+    required LatLngBounds bounds,
+    LatLng? selectedLocation,
+    bool updateSelectedLocation = false,
+    List<Peak>? selectedPeaks,
+    bool updateSelectedPeaks = false,
+    bool persist = true,
+    bool clearGotoMgrs = false,
+    bool clearHoveredPeakId = true,
+    bool clearHoveredTrackId = true,
+  }) {
+    final nextSerial = state.cameraRequestSerial + 1;
+    final center = LatLng(
+      (bounds.southWest.latitude + bounds.northEast.latitude) / 2,
+      (bounds.southWest.longitude + bounds.northEast.longitude) / 2,
+    );
+    state = state.copyWith(
+      pendingCameraRequest: PendingCameraRequest(
+        center: center,
+        zoom: state.zoom,
+        serial: nextSerial,
+        bounds: bounds,
+        selectedLocationBehavior: updateSelectedLocation
+            ? (selectedLocation == null
+                  ? PendingCameraSelectionBehavior.clear
+                  : PendingCameraSelectionBehavior.replace)
+            : PendingCameraSelectionBehavior.preserve,
+        selectedLocation: selectedLocation,
+        selectedPeaksBehavior: updateSelectedPeaks
+            ? ((selectedPeaks == null || selectedPeaks.isEmpty)
+                  ? PendingCameraSelectionBehavior.clear
+                  : PendingCameraSelectionBehavior.replace)
+            : PendingCameraSelectionBehavior.preserve,
+        selectedPeaks: selectedPeaks ?? const [],
+        persist: persist,
+        clearGotoMgrs: clearGotoMgrs,
+        clearHoveredPeakId: clearHoveredPeakId,
+        clearHoveredTrackId: clearHoveredTrackId,
+      ),
+      cameraRequestSerial: nextSerial,
+    );
+  }
+
+  Future<PeakListMapNavigationResult> preparePeakListMapNavigation(
+    int peakListId,
+  ) async {
+    final peakListRepository = ref.read(peakListRepositoryProvider);
+    final peakRepository = ref.read(peakRepositoryProvider);
+    var peakList = peakListRepository.findById(peakListId);
+    if (peakList == null) {
+      return const PeakListMapNavigationResult.unavailable();
+    }
+
+    var bounds = _peakListBoundsOrNull(peakList);
+    if (bounds == null) {
+      late final List<PeakListItem> items;
+      try {
+        items = decodePeakListItems(peakList.peakList);
+      } catch (_) {
+        return const PeakListMapNavigationResult.noMappablePeaks();
+      }
+
+      final derivedData = derivePeakListDerivedData(
+        peakList: peakList,
+        items: items,
+        peakResolver: peakRepository.findByOsmId,
+      );
+      final updatedPeakList = derivedData.applyTo(peakList);
+      bounds = _peakListBoundsOrNull(updatedPeakList);
+      if (!derivedData.matches(peakList)) {
+        peakList = await peakListRepository.save(updatedPeakList);
+        ref.read(peakListRevisionProvider.notifier).increment();
+      } else {
+        peakList = updatedPeakList;
+      }
+    }
+
+    if (bounds == null) {
+      return const PeakListMapNavigationResult.noMappablePeaks();
+    }
+
+    selectPeakList(PeakListSelectionMode.specificList, peakListId: peakListId);
+    requestCameraFitBounds(bounds: bounds);
+    return const PeakListMapNavigationResult.queued();
+  }
+
   void consumeCameraRequest(int serial) {
     if (state.cameraRequestSerial != serial ||
         state.pendingCameraRequest?.serial != serial) {
       return;
     }
     state = state.copyWith(clearPendingCameraRequest: true);
+  }
+
+  LatLngBounds? _peakListBoundsOrNull(PeakList peakList) {
+    final minLat = peakList.minLat;
+    final maxLat = peakList.maxLat;
+    final minLng = peakList.minLng;
+    final maxLng = peakList.maxLng;
+    if (minLat == null || maxLat == null || minLng == null || maxLng == null) {
+      return null;
+    }
+    if (!minLat.isFinite ||
+        !maxLat.isFinite ||
+        !minLng.isFinite ||
+        !maxLng.isFinite ||
+        minLat > maxLat ||
+        minLng > maxLng) {
+      return null;
+    }
+
+    return LatLngBounds(LatLng(minLat, minLng), LatLng(maxLat, maxLng));
   }
 
   void setBasemap(Basemap basemap) {
@@ -4872,6 +5032,8 @@ class MapNotifier extends Notifier<MapState> {
                     peakListAppliesToVisibleRegions(
                       peakList,
                       visibleRegionKeys,
+                      visibleBounds: state.visibleBounds,
+                      peaks: state.peaks,
                     );
               }())
                 peakListId,
@@ -4913,7 +5075,12 @@ class MapNotifier extends Notifier<MapState> {
           if (() {
             final peakList = peakListsById[peakListId];
             return peakList != null &&
-                peakListAppliesToVisibleRegions(peakList, visibleRegionKeys);
+                peakListAppliesToVisibleRegions(
+                  peakList,
+                  visibleRegionKeys,
+                  visibleBounds: state.visibleBounds,
+                  peaks: state.peaks,
+                );
           }())
             peakListId,
       };
@@ -4993,11 +5160,18 @@ class MapNotifier extends Notifier<MapState> {
         peakLists: peakLists,
         selectedPeakListIds: state.selectedPeakListIds,
         visibleRegionKeys: visibleRegionKeys,
+        visibleBounds: bounds,
+        peaks: state.peaks,
       );
       final unreadableVisiblePeakListIds = {
         for (final peakList in peakLists)
           if (state.selectedPeakListIds.contains(peakList.peakListId) &&
-              peakListAppliesToVisibleRegions(peakList, visibleRegionKeys) &&
+              peakListAppliesToVisibleRegions(
+                peakList,
+                visibleRegionKeys,
+                visibleBounds: bounds,
+                peaks: state.peaks,
+              ) &&
               !_isReadablePeakListPayload(peakList))
             peakList.peakListId,
       };

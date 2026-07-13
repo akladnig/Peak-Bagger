@@ -38,7 +38,7 @@ class ObjectBoxGpxTrackStorage implements GpxTrackStorage {
 
 class InMemoryGpxTrackStorage implements GpxTrackStorage {
   InMemoryGpxTrackStorage([List<GpxTrack> tracks = const []])
-      : _tracks = List<GpxTrack>.from(tracks);
+    : _tracks = List<GpxTrack>.from(tracks);
 
   final List<GpxTrack> _tracks;
 
@@ -81,7 +81,8 @@ class InMemoryGpxTrackStorage implements GpxTrackStorage {
 class GpxTrackRepository {
   final GpxTrackStorage _storage;
 
-  GpxTrackRepository(Store store) : _storage = ObjectBoxGpxTrackStorage(store.box<GpxTrack>());
+  GpxTrackRepository(Store store)
+    : _storage = ObjectBoxGpxTrackStorage(store.box<GpxTrack>());
 
   GpxTrackRepository.test(GpxTrackStorage storage) : _storage = storage;
 
@@ -120,7 +121,9 @@ class GpxTrackRepository {
   GpxTrack? findByContentHash(String contentHash) {
     if (_storage case final ObjectBoxGpxTrackStorage storage) {
       final box = storage._box;
-      final query = box.query(GpxTrack_.contentHash.equals(contentHash)).build();
+      final query = box
+          .query(GpxTrack_.contentHash.equals(contentHash))
+          .build();
       final result = query.findFirst();
       query.close();
       return result;

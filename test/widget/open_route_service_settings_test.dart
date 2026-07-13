@@ -32,7 +32,10 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byKey(const Key('open-route-service-api-key-tile')), findsOneWidget);
+    expect(
+      find.byKey(const Key('open-route-service-api-key-tile')),
+      findsOneWidget,
+    );
     expect(find.text('OpenRouteService API Key'), findsOneWidget);
   });
 

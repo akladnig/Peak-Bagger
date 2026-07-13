@@ -119,7 +119,11 @@ ExtraLinesData dashboardChartExtraLinesData({
     extraLinesOnTop: true,
     verticalLines: verticalLines,
     horizontalLines: [
-      HorizontalLine(y: minY, color: dashboardChartAxisColor(), strokeWidth: 1.5),
+      HorizontalLine(
+        y: minY,
+        color: dashboardChartAxisColor(),
+        strokeWidth: 1.5,
+      ),
       HorizontalLine(
         y: maxY,
         color: dashboardChartGuideColor(),

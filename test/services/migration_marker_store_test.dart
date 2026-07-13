@@ -25,5 +25,16 @@ void main() {
 
       expect(await store.isPeaksBaggedBackfillMarked(), isTrue);
     });
+
+    test('marks peak list coverage backfill as complete', () async {
+      SharedPreferences.setMockInitialValues({});
+      const store = MigrationMarkerStore();
+
+      expect(await store.isPeakListCoverageBackfillMarked(), isFalse);
+
+      await store.markPeakListCoverageBackfillComplete();
+
+      expect(await store.isPeakListCoverageBackfillMarked(), isTrue);
+    });
   });
 }

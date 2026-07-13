@@ -18,10 +18,7 @@ class RepairResult {
 }
 
 class GpxTrackRepairService {
-  const GpxTrackRepairService({
-    this.distanceMeters = 50,
-    this.gapSeconds = 60,
-  });
+  const GpxTrackRepairService({this.distanceMeters = 50, this.gapSeconds = 60});
 
   static const _distance = Distance();
 
@@ -73,8 +70,7 @@ class GpxTrackRepairService {
           segments.add(
             _SegmentInfo(
               childIndex: childIndex,
-              firstTimedPoint:
-                  timedPoints.isEmpty ? null : timedPoints.first,
+              firstTimedPoint: timedPoints.isEmpty ? null : timedPoints.first,
               lastTimedPoint: timedPoints.isEmpty ? null : timedPoints.last,
             ),
           );
@@ -95,14 +91,18 @@ class GpxTrackRepairService {
       }
 
       final repairedDocument = document.copy();
-      final repairedTracks = repairedDocument.findAllElements('trk').toList(
-        growable: false,
-      );
+      final repairedTracks = repairedDocument
+          .findAllElements('trk')
+          .toList(growable: false);
 
       var gapCount = 0;
       var interpolatedSegmentCount = 0;
 
-      for (var trackIndex = 0; trackIndex < trackSegments.length; trackIndex++) {
+      for (
+        var trackIndex = 0;
+        trackIndex < trackSegments.length;
+        trackIndex++
+      ) {
         final segments = trackSegments[trackIndex];
         if (segments.length < 2) {
           continue;
@@ -148,7 +148,10 @@ class GpxTrackRepairService {
 
         final trackCopy = repairedTracks[trackIndex];
         for (final insertion in insertions.reversed) {
-          trackCopy.children.insert(insertion.childIndex + 1, insertion.segment);
+          trackCopy.children.insert(
+            insertion.childIndex + 1,
+            insertion.segment,
+          );
         }
       }
 
@@ -261,10 +264,7 @@ class _SegmentInfo {
 }
 
 class _SegmentInsertion {
-  const _SegmentInsertion({
-    required this.childIndex,
-    required this.segment,
-  });
+  const _SegmentInsertion({required this.childIndex, required this.segment});
 
   final int childIndex;
   final XmlElement segment;

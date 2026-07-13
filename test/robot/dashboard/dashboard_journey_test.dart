@@ -137,7 +137,9 @@ void main() {
     );
   });
 
-  testWidgets('dashboard journey opens the selected peak list', (tester) async {
+  testWidgets('dashboard journey routes a selected peak list to map', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({});
 
     final robot = DashboardRobot(tester);
@@ -156,6 +158,7 @@ void main() {
       peaks: [_peak(101, 'Alpha Peak'), _peak(102, 'Beta Peak')],
     );
     addTearDown(container.dispose);
+    final peakListRepository = container.read(peakListRepositoryProvider);
 
     await robot.pumpApp(container: container);
     await robot.openDashboard();
@@ -164,9 +167,48 @@ void main() {
 
     await robot.tapMyListsRow(2);
 
-    expect(robot.peakListsSelectedTitle, findsOneWidget);
-    expect(tester.widget<Text>(robot.peakListsSelectedTitle).data, 'Beta List');
+    expect(find.byKey(const Key('map-interaction-region')), findsOneWidget);
+    expect(container.read(mapProvider).selectedPeakListId, 2);
+    expect(container.read(mapProvider).cameraRequestBounds, isNull);
+    expect(container.read(mapProvider).center.latitude, closeTo(-42.0, 0.001));
+    expect(container.read(mapProvider).center.longitude, closeTo(146.0, 0.001));
+    expect(peakListRepository.findById(2)?.minLat, -42.0);
+    expect(peakListRepository.findById(2)?.maxLat, -42.0);
+    expect(peakListRepository.findById(2)?.minLng, 146.0);
+    expect(peakListRepository.findById(2)?.maxLng, 146.0);
   });
+
+  testWidgets(
+    'dashboard journey keeps user on dashboard when a list has no mappable peaks',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+
+      final robot = DashboardRobot(tester);
+      final container = await _createContainer(
+        notifier: TestMapNotifier(
+          const MapState(
+            center: LatLng(-41.5, 146.5),
+            zoom: 12,
+            basemap: Basemap.tracestrack,
+          ),
+        ),
+        peakLists: [
+          _peakList(2, 'Broken List', [999]),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await robot.pumpApp(container: container);
+      await robot.openDashboard();
+
+      await robot.tapMyListsRow(2);
+
+      expect(robot.board, findsOneWidget);
+      expect(find.byKey(const Key('map-interaction-region')), findsNothing);
+      expect(find.text('This list has no mappable peaks.'), findsOneWidget);
+      expect(container.read(mapProvider).selectedPeakListId, isNull);
+    },
+  );
 
   testWidgets(
     'dashboard journey refreshes latest walk card after track update',

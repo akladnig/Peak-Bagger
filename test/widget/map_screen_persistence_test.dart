@@ -141,7 +141,9 @@ void main() {
     expect(_mgrsReadoutMapName(tester), map.name);
   });
 
-  testWidgets('clearing cursor readout clears cursor point too', (tester) async {
+  testWidgets('clearing cursor readout clears cursor point too', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({});
     final notifier = await _buildCountingNotifier();
     await _pumpApp(tester, notifier);

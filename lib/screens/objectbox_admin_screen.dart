@@ -301,7 +301,8 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     final guard = ref.read(peakDeleteGuardProvider);
     final notifier = ref.read(objectboxAdminProvider.notifier);
     final peak =
-        repository.findById(row.primaryKeyValue as int) ?? peakFromAdminRow(row);
+        repository.findById(row.primaryKeyValue as int) ??
+        peakFromAdminRow(row);
     final confirmed = await showDangerConfirmDialog(
       context: context,
       title: 'Delete Peak?',
@@ -354,7 +355,8 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     final notifier = ref.read(objectboxAdminProvider.notifier);
     final mapNotifier = ref.read(mapProvider.notifier);
     final trackId = row.primaryKeyValue as int;
-    final trackName = repository.findById(trackId)?.trackName ??
+    final trackName =
+        repository.findById(trackId)?.trackName ??
         (row.values['trackName']?.toString().trim().isNotEmpty == true
             ? row.values['trackName']!.toString().trim()
             : 'Track');
@@ -473,7 +475,10 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     }
 
     try {
-      final savedPeakList = await repository.save(validation.peakList!);
+      final savedPeakList = await repository.save(
+        validation.peakList!,
+        recomputeDerivedFields: true,
+      );
       ref.read(peakListRevisionProvider.notifier).increment();
       ref.read(mapProvider.notifier).reconcileSelectedPeakList();
       if (!mounted) {
@@ -518,7 +523,8 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     final repository = ref.read(routeRepositoryProvider);
     final notifier = ref.read(objectboxAdminProvider.notifier);
     final routeId = row.primaryKeyValue as int;
-    final routeName = repository.findById(routeId)?.name ??
+    final routeName =
+        repository.findById(routeId)?.name ??
         (row.values['name']?.toString().trim().isNotEmpty == true
             ? row.values['name']!.toString().trim()
             : 'Route');
@@ -557,7 +563,8 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
 
   Future<void> _deleteWaypoint(ObjectBoxAdminRow row) async {
     final waypointId = row.primaryKeyValue as int;
-    final waypointName = row.values['name']?.toString().trim().isNotEmpty == true
+    final waypointName =
+        row.values['name']?.toString().trim().isNotEmpty == true
         ? row.values['name']!.toString().trim()
         : 'Waypoint';
     final confirmed = await showDangerConfirmDialog(
@@ -585,9 +592,9 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     if (!removed || !mounted) {
       return;
     }
-    await ref.read(objectboxAdminProvider.notifier).refresh(
-      keepSelectedRowPrimaryKey: keepSelectedRowPrimaryKey,
-    );
+    await ref
+        .read(objectboxAdminProvider.notifier)
+        .refresh(keepSelectedRowPrimaryKey: keepSelectedRowPrimaryKey);
   }
 
   void _startCreatingPeak() {
@@ -757,28 +764,28 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
           const SizedBox(width: 16),
           SizedBox(
             width: 320,
-              child: ObjectBoxAdminDetailsPane(
-                row: null,
-                entity: entity,
-                isCreatingPeak: true,
-                peakList: null,
-                route: null,
-                createOsmId: createOsmId,
-                onClose: () {
-                  setState(() {
-                    _isCreatingPeak = false;
-                  });
-                  notifier.clearSelection();
-                },
-                onViewPeakOnMap: _viewPeakOnMainMap,
-                onViewGpxTrackOnMap: _viewGpxTrackOnMainMap,
-                onViewRouteOnMap: _viewRouteOnMainMap,
-                onPeakSubmit: _savePeak,
-                onPeakListSubmit: _savePeakList,
-                onRouteSubmit: _saveRoute,
-              ),
+            child: ObjectBoxAdminDetailsPane(
+              row: null,
+              entity: entity,
+              isCreatingPeak: true,
+              peakList: null,
+              route: null,
+              createOsmId: createOsmId,
+              onClose: () {
+                setState(() {
+                  _isCreatingPeak = false;
+                });
+                notifier.clearSelection();
+              },
+              onViewPeakOnMap: _viewPeakOnMainMap,
+              onViewGpxTrackOnMap: _viewGpxTrackOnMainMap,
+              onViewRouteOnMap: _viewRouteOnMainMap,
+              onPeakSubmit: _savePeak,
+              onPeakListSubmit: _savePeakList,
+              onRouteSubmit: _saveRoute,
             ),
-          ],
+          ),
+        ],
       );
     }
 

@@ -240,10 +240,7 @@ void main() {
       kind: PointerDeviceKind.trackpad,
     );
 
-    await gesture.panZoomUpdate(
-      tester.getCenter(region),
-      scale: 0.6,
-    );
+    await gesture.panZoomUpdate(tester.getCenter(region), scale: 0.6);
     await tester.pump();
 
     expect(_zoomReadoutValue(tester), lessThan(initialState.zoom));
@@ -256,7 +253,9 @@ void main() {
     expect(state.zoom, greaterThanOrEqualTo(1));
   });
 
-  testWidgets('trackpad zoom dismisses info popup during motion', (tester) async {
+  testWidgets('trackpad zoom dismisses info popup during motion', (
+    tester,
+  ) async {
     final initialState = MapState(
       center: const LatLng(-41.5, 146.5),
       zoom: 10,

@@ -123,50 +123,51 @@ void main() {
     expectRouteDraftOverlaysVisible();
   });
 
-  testWidgets('hidden-branch requestCameraMove preserves selected location and peaks', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
-    final notifier = await _buildRealNotifier();
-    await _pumpApp(tester, notifier);
+  testWidgets(
+    'hidden-branch requestCameraMove preserves selected location and peaks',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final notifier = await _buildRealNotifier();
+      await _pumpApp(tester, notifier);
 
-    router.go('/map');
-    await tester.pumpAndSettle();
-    router.go('/');
-    await tester.pumpAndSettle();
+      router.go('/map');
+      await tester.pumpAndSettle();
+      router.go('/');
+      await tester.pumpAndSettle();
 
-    const target = LatLng(-41.6, 146.6);
-    final peak = Peak(
-      osmId: 7001,
-      name: 'Route Entry Peak',
-      latitude: target.latitude,
-      longitude: target.longitude,
-    );
+      const target = LatLng(-41.6, 146.6);
+      final peak = Peak(
+        osmId: 7001,
+        name: 'Route Entry Peak',
+        latitude: target.latitude,
+        longitude: target.longitude,
+      );
 
-    notifier.requestCameraMove(
-      center: target,
-      zoom: MapConstants.defaultZoom,
-      selectedLocation: target,
-      updateSelectedLocation: true,
-      selectedPeaks: [peak],
-      updateSelectedPeaks: true,
-      clearGotoMgrs: true,
-      clearHoveredPeakId: true,
-      clearHoveredTrackId: true,
-    );
-    await tester.pump(const Duration(milliseconds: 100));
+      notifier.requestCameraMove(
+        center: target,
+        zoom: MapConstants.defaultZoom,
+        selectedLocation: target,
+        updateSelectedLocation: true,
+        selectedPeaks: [peak],
+        updateSelectedPeaks: true,
+        clearGotoMgrs: true,
+        clearHoveredPeakId: true,
+        clearHoveredTrackId: true,
+      );
+      await tester.pump(const Duration(milliseconds: 100));
 
-    router.go('/map');
-    await tester.pumpAndSettle();
+      router.go('/map');
+      await tester.pumpAndSettle();
 
-    final state = _container(tester).read(mapProvider);
-    expect(state.cameraRequestCenter, isNull);
-    expect(state.cameraRequestZoom, isNull);
-    expect(state.center.latitude, closeTo(target.latitude, 0.000001));
-    expect(state.center.longitude, closeTo(target.longitude, 0.000001));
-    expect(state.selectedLocation, target);
-    expect(state.selectedPeaks, [peak]);
-  });
+      final state = _container(tester).read(mapProvider);
+      expect(state.cameraRequestCenter, isNull);
+      expect(state.cameraRequestZoom, isNull);
+      expect(state.center.latitude, closeTo(target.latitude, 0.000001));
+      expect(state.center.longitude, closeTo(target.longitude, 0.000001));
+      expect(state.selectedLocation, target);
+      expect(state.selectedPeaks, [peak]);
+    },
+  );
 
   testWidgets('hidden-branch selectMap keeps only the latest focus request', (
     tester,
@@ -197,60 +198,65 @@ void main() {
     expect(state.mapSearchQuery, '');
   });
 
-  testWidgets('cold-start showTrack persists only after final fit and latest track wins', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
-    final firstTrack = _track(
-      10,
-      [const LatLng(-43.3, 147.0), const LatLng(-43.1, 147.2)],
-    );
-    final secondTrack = _track(
-      20,
-      [const LatLng(-41.6, 145.8), const LatLng(-41.4, 146.0)],
-    );
-    final gpxRepository = GpxTrackRepository.test(
-      InMemoryGpxTrackStorage([firstTrack, secondTrack]),
-    );
-    final notifier = await _buildRealNotifier(gpxTrackRepository: gpxRepository);
-    await _pumpApp(tester, notifier, gpxTrackRepository: gpxRepository);
+  testWidgets(
+    'cold-start showTrack persists only after final fit and latest track wins',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final firstTrack = _track(10, [
+        const LatLng(-43.3, 147.0),
+        const LatLng(-43.1, 147.2),
+      ]);
+      final secondTrack = _track(20, [
+        const LatLng(-41.6, 145.8),
+        const LatLng(-41.4, 146.0),
+      ]);
+      final gpxRepository = GpxTrackRepository.test(
+        InMemoryGpxTrackStorage([firstTrack, secondTrack]),
+      );
+      final notifier = await _buildRealNotifier(
+        gpxTrackRepository: gpxRepository,
+      );
+      await _pumpApp(tester, notifier, gpxTrackRepository: gpxRepository);
 
-    notifier.showTrack(10, selectedLocation: const LatLng(-43.0, 147.0));
-    notifier.showTrack(20, selectedLocation: const LatLng(-41.5, 145.9));
-    await tester.pump(const Duration(milliseconds: 100));
+      notifier.showTrack(10, selectedLocation: const LatLng(-43.0, 147.0));
+      notifier.showTrack(20, selectedLocation: const LatLng(-41.5, 145.9));
+      await tester.pump(const Duration(milliseconds: 100));
 
-    final prefsBeforeMap = await SharedPreferences.getInstance();
-    expect(prefsBeforeMap.getDouble('map_position_lat'), isNull);
-    expect(prefsBeforeMap.getDouble('map_position_lng'), isNull);
-    expect(prefsBeforeMap.getDouble('map_zoom'), isNull);
+      final prefsBeforeMap = await SharedPreferences.getInstance();
+      expect(prefsBeforeMap.getDouble('map_position_lat'), isNull);
+      expect(prefsBeforeMap.getDouble('map_position_lng'), isNull);
+      expect(prefsBeforeMap.getDouble('map_zoom'), isNull);
 
-    router.go('/map');
-    await tester.pumpAndSettle();
-    await tester.pump(const Duration(milliseconds: 500));
+      router.go('/map');
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 500));
 
-    final state = _container(tester).read(mapProvider);
-    expect(state.selectedTrackId, 20);
-    expect(state.selectedLocation, const LatLng(-41.5, 145.9));
-    expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
+      final state = _container(tester).read(mapProvider);
+      expect(state.selectedTrackId, 20);
+      expect(state.selectedLocation, const LatLng(-41.5, 145.9));
+      expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
 
-    final prefsAfterMap = await SharedPreferences.getInstance();
-    expect(
-      prefsAfterMap.getDouble('map_position_lat'),
-      closeTo(state.center.latitude, 0.000001),
-    );
-    expect(
-      prefsAfterMap.getDouble('map_position_lng'),
-      closeTo(state.center.longitude, 0.000001),
-    );
-    expect(prefsAfterMap.getDouble('map_zoom'), state.zoom);
-  });
+      final prefsAfterMap = await SharedPreferences.getInstance();
+      expect(
+        prefsAfterMap.getDouble('map_position_lat'),
+        closeTo(state.center.latitude, 0.000001),
+      );
+      expect(
+        prefsAfterMap.getDouble('map_position_lng'),
+        closeTo(state.center.longitude, 0.000001),
+      );
+      expect(prefsAfterMap.getDouble('map_zoom'), state.zoom);
+    },
+  );
 
   testWidgets('cold-start showTrack miss clears selection before map opens', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
     final gpxRepository = GpxTrackRepository.test(InMemoryGpxTrackStorage());
-    final notifier = await _buildRealNotifier(gpxTrackRepository: gpxRepository);
+    final notifier = await _buildRealNotifier(
+      gpxTrackRepository: gpxRepository,
+    );
     await _pumpApp(tester, notifier, gpxTrackRepository: gpxRepository);
 
     notifier.showTrack(999, selectedLocation: const LatLng(-41.5, 145.9));
@@ -273,7 +279,9 @@ void main() {
       zoom: 15,
       basemap: Basemap.tracestrack,
       showTracks: true,
-      tracks: [_track(10, [const LatLng(-41.5, 146.5), const LatLng(-41.6, 146.6)])],
+      tracks: [
+        _track(10, [const LatLng(-41.5, 146.5), const LatLng(-41.6, 146.6)]),
+      ],
       selectedTrackId: 999,
     );
 
@@ -315,7 +323,7 @@ GpxTrack _track(int id, List<LatLng> points) {
   );
 }
 
-  Future<MapNotifier> _buildRealNotifier({
+Future<MapNotifier> _buildRealNotifier({
   TestTasmapRepository? repository,
   GpxTrackRepository? gpxTrackRepository,
 }) async {
@@ -324,8 +332,11 @@ GpxTrack _track(int id, List<LatLng> points) {
     overpassService: OverpassService(),
     tasmapRepository: repository ?? await TestTasmapRepository.create(),
     gpxTrackRepository:
-        gpxTrackRepository ?? GpxTrackRepository.test(InMemoryGpxTrackStorage()),
-    peaksBaggedRepository: PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
+        gpxTrackRepository ??
+        GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+    peaksBaggedRepository: PeaksBaggedRepository.test(
+      InMemoryPeaksBaggedStorage(),
+    ),
     migrationMarkerStore: const MigrationMarkerStore(),
     loadPositionOnBuild: false,
     loadPeaksOnBuild: false,
@@ -421,7 +432,8 @@ class _ReadyRouteGraphStore implements RouteGraphStore {
   Future<void> bootstrapData() async {}
 
   @override
-  Future<trip_routing.TripService> preload() async => trip_routing.TripService();
+  Future<trip_routing.TripService> preload() async =>
+      trip_routing.TripService();
 
   @override
   Future<trip_routing.TripService> reload() async => trip_routing.TripService();

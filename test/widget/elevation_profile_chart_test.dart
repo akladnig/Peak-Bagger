@@ -163,11 +163,7 @@ void main() {
 ]
 ''');
 
-    await _pumpChart(
-      tester,
-      series,
-      onHoverChanged: hoverEvents.add,
-    );
+    await _pumpChart(tester, series, onHoverChanged: hoverEvents.add);
 
     final chart = find.byType(LineChart);
     final chartRect = tester.getRect(chart);
@@ -176,7 +172,9 @@ void main() {
       await gesture.removePointer();
     });
 
-    await gesture.addPointer(location: chartRect.topLeft - const Offset(20, 20));
+    await gesture.addPointer(
+      location: chartRect.topLeft - const Offset(20, 20),
+    );
     await tester.pump();
 
     await gesture.moveTo(
@@ -189,9 +187,7 @@ void main() {
     expect(hoverEvents.last!.sample.segmentIndex, 0);
     expect(hoverEvents.last!.sample.pointIndex, 0);
 
-    await gesture.moveTo(
-      Offset(chartRect.right - 1, chartRect.center.dy),
-    );
+    await gesture.moveTo(Offset(chartRect.right - 1, chartRect.center.dy));
     await tester.pump();
 
     expect(hoverEvents.last, isNotNull);

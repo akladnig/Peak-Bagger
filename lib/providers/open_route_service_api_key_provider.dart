@@ -30,14 +30,18 @@ class OpenRouteServiceApiKeyNotifier extends Notifier<String> {
     _hasUserOverride = true;
     state = value;
     try {
-      final prefs = await ref.read(openRouteServiceApiKeyPreferencesLoaderProvider)();
+      final prefs = await ref.read(
+        openRouteServiceApiKeyPreferencesLoaderProvider,
+      )();
       await prefs.setString(openRouteServiceApiKeyPrefsKey, value);
     } catch (_) {}
   }
 
   Future<void> _hydrate() async {
     try {
-      final prefs = await ref.read(openRouteServiceApiKeyPreferencesLoaderProvider)();
+      final prefs = await ref.read(
+        openRouteServiceApiKeyPreferencesLoaderProvider,
+      )();
       if (_hasUserOverride) {
         return;
       }

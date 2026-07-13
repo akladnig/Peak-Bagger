@@ -142,9 +142,10 @@ GoRouter createRouter() {
                               SnackBar(
                                 content: Row(
                                   children: [
-                                    Expanded(child: Text(snackBarEvent.message)),
-                                    for (final action
-                                        in snackBarEvent.actions)
+                                    Expanded(
+                                      child: Text(snackBarEvent.message),
+                                    ),
+                                    for (final action in snackBarEvent.actions)
                                       TextButton(
                                         key: action.key,
                                         onPressed: action.onPressed,

@@ -6,7 +6,9 @@ final polygonAssetRepositoryProvider = Provider<PolygonAssetRepository>((ref) {
   return PolygonAssetRepository();
 });
 
-final polygonAssetsProvider = FutureProvider<List<MapPolygonAsset>>((ref) async {
+final polygonAssetsProvider = FutureProvider<List<MapPolygonAsset>>((
+  ref,
+) async {
   final repository = ref.read(polygonAssetRepositoryProvider);
   return repository.loadPolygons();
 });

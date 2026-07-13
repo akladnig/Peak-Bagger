@@ -63,7 +63,8 @@ bool peakMatchesSearchRegion({
         isNorthEastSubregionKey(storedPeakRegionKey) ||
         resolvedRegionKey == _italyNorthEastRegionKey;
   }
-  return resolvedRegionKey == filterRegionKey || storedPeakRegionKey == filterRegionKey;
+  return resolvedRegionKey == filterRegionKey ||
+      storedPeakRegionKey == filterRegionKey;
 }
 
 bool nonPeakMatchesSearchRegion({

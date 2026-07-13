@@ -452,12 +452,24 @@ class GpxTracksRobot {
 
   void expectBackgroundJobStatus(int index, String text) {
     expect(backgroundJobStatus(index), findsOneWidget);
-    expect(find.descendant(of: backgroundJobStatus(index), matching: find.text(text)), findsOneWidget);
+    expect(
+      find.descendant(
+        of: backgroundJobStatus(index),
+        matching: find.text(text),
+      ),
+      findsOneWidget,
+    );
   }
 
   void expectBackgroundJobProgressText(int index, String text) {
     expect(backgroundJobProgress(index), findsOneWidget);
-    expect(find.descendant(of: backgroundJobProgress(index), matching: find.text(text)), findsOneWidget);
+    expect(
+      find.descendant(
+        of: backgroundJobProgress(index),
+        matching: find.text(text),
+      ),
+      findsOneWidget,
+    );
   }
 
   void expectImportDialogVisible() {

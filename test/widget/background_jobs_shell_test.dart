@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/app.dart';
@@ -31,33 +32,36 @@ void main() {
     router = createRouter();
   });
 
-  testWidgets('app bar entry appears on every shell destination when jobs exist', (
-    tester,
-  ) async {
-    await _pumpApp(tester);
+  testWidgets(
+    'app bar entry appears on every shell destination when jobs exist',
+    (tester) async {
+      await _pumpApp(tester);
 
-    final container = ProviderScope.containerOf(
-      tester.element(find.byKey(const Key('shared-app-bar'))),
-    );
-    container.read(backgroundJobsProvider.notifier).startJob(
-      kind: BackgroundJobKind.importPeakList,
-      label: 'Import Peak List',
-    );
-    await tester.pump();
-
-    for (final navKey in const [
-      'nav-dashboard',
-      'nav-map',
-      'nav-peak-lists',
-      'nav-objectbox-admin',
-      'nav-settings',
-    ]) {
-      await tester.tap(find.byKey(Key(navKey)));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('shared-app-bar'))),
+      );
+      container
+          .read(backgroundJobsProvider.notifier)
+          .startJob(
+            kind: BackgroundJobKind.importPeakList,
+            label: 'Import Peak List',
+          );
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(find.byKey(const Key('background-jobs-entry')), findsOneWidget);
-    }
-  });
+
+      for (final navKey in const [
+        'nav-dashboard',
+        'nav-map',
+        'nav-peak-lists',
+        'nav-objectbox-admin',
+        'nav-settings',
+      ]) {
+        await tester.tap(find.byKey(Key(navKey)));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(find.byKey(const Key('background-jobs-entry')), findsOneWidget);
+      }
+    },
+  );
 
   testWidgets('panel opens as shell overlay and keeps navigation usable', (
     tester,
@@ -67,16 +71,18 @@ void main() {
     final container = ProviderScope.containerOf(
       tester.element(find.byKey(const Key('shared-app-bar'))),
     );
-    container.read(backgroundJobsProvider.notifier).startJob(
-      kind: BackgroundJobKind.importPeakList,
-      label: 'Import Peak List',
-      progress: BackgroundJobProgress(
-        label: 'Rows processed',
-        statusText: '10 / 100 rows',
-        currentFileName: 'peaks.csv',
-        percent: 0.1,
-      ),
-    );
+    container
+        .read(backgroundJobsProvider.notifier)
+        .startJob(
+          kind: BackgroundJobKind.importPeakList,
+          label: 'Import Peak List',
+          progress: BackgroundJobProgress(
+            label: 'Rows processed',
+            statusText: '10 / 100 rows',
+            currentFileName: 'peaks.csv',
+            percent: 0.1,
+          ),
+        );
     await tester.pump();
 
     await tester.tap(find.byKey(const Key('background-jobs-entry')));
@@ -84,7 +90,10 @@ void main() {
 
     expect(find.byKey(const Key('background-jobs-panel')), findsOneWidget);
     expect(find.text('Import Peak List'), findsOneWidget);
-    expect(find.byKey(const Key('background-jobs-file-background-job-1')), findsOneWidget);
+    expect(
+      find.byKey(const Key('background-jobs-file-background-job-1')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const Key('nav-settings')));
     await tester.pump();
@@ -100,72 +109,74 @@ void main() {
     );
   });
 
-  testWidgets('running job stays first and finished jobs can be dismissed or cleared', (
-    tester,
-  ) async {
-    await _pumpApp(tester);
+  testWidgets(
+    'running job stays first and finished jobs can be dismissed or cleared',
+    (tester) async {
+      await _pumpApp(tester);
 
-    final container = ProviderScope.containerOf(
-      tester.element(find.byKey(const Key('shared-app-bar'))),
-    );
-    final notifier = container.read(backgroundJobsProvider.notifier);
-    final completed = notifier.startJob(
-      kind: BackgroundJobKind.exportPeakData,
-      label: 'Export Peak Data',
-    );
-    notifier.completeRunningJob(
-      jobId: completed.job!.id,
-      summary: 'Exported 42 rows',
-    );
-    final failed = notifier.startJob(
-      kind: BackgroundJobKind.exportPeakLists,
-      label: 'Export Peak Lists',
-    );
-    notifier.failRunningJob(
-      jobId: failed.job!.id,
-      summary: 'Export failed',
-    );
-    notifier.startJob(
-      kind: BackgroundJobKind.importPeakList,
-      label: 'Import Peak List',
-    );
-    await tester.pump();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('shared-app-bar'))),
+      );
+      final notifier = container.read(backgroundJobsProvider.notifier);
+      final completed = notifier.startJob(
+        kind: BackgroundJobKind.exportPeakData,
+        label: 'Export Peak Data',
+      );
+      notifier.completeRunningJob(
+        jobId: completed.job!.id,
+        summary: 'Exported 42 rows',
+      );
+      final failed = notifier.startJob(
+        kind: BackgroundJobKind.exportPeakLists,
+        label: 'Export Peak Lists',
+      );
+      notifier.failRunningJob(jobId: failed.job!.id, summary: 'Export failed');
+      notifier.startJob(
+        kind: BackgroundJobKind.importPeakList,
+        label: 'Import Peak List',
+      );
+      await tester.pump();
 
-    await tester.tap(find.byKey(const Key('background-jobs-entry')));
-    await tester.pump();
+      await tester.tap(find.byKey(const Key('background-jobs-entry')));
+      await tester.pump();
 
-    final runningTop = tester.getTopLeft(
-      find.byKey(const Key('background-jobs-row-background-job-3')),
-    ).dy;
-    final finishedTop = tester.getTopLeft(
-      find.byKey(const Key('background-jobs-row-background-job-2')),
-    ).dy;
-    expect(runningTop, lessThan(finishedTop));
-    expect(
-      find.byKey(const Key('background-jobs-dismiss-background-job-3')),
-      findsNothing,
-    );
+      final runningTop = tester
+          .getTopLeft(
+            find.byKey(const Key('background-jobs-row-background-job-3')),
+          )
+          .dy;
+      final finishedTop = tester
+          .getTopLeft(
+            find.byKey(const Key('background-jobs-row-background-job-2')),
+          )
+          .dy;
+      expect(runningTop, lessThan(finishedTop));
+      expect(
+        find.byKey(const Key('background-jobs-dismiss-background-job-3')),
+        findsNothing,
+      );
 
-    await tester.tap(
-      find.byKey(const Key('background-jobs-dismiss-background-job-2')),
-    );
-    await tester.pump();
-    expect(
-      find.byKey(const Key('background-jobs-row-background-job-2')),
-      findsNothing,
-    );
+      await tester.tap(
+        find.byKey(const Key('background-jobs-dismiss-background-job-2')),
+      );
+      await tester.pump();
+      expect(
+        find.byKey(const Key('background-jobs-row-background-job-2')),
+        findsNothing,
+      );
 
-    await tester.tap(find.byKey(const Key('background-jobs-clear-finished')));
-    await tester.pump();
-    expect(
-      find.byKey(const Key('background-jobs-row-background-job-1')),
-      findsNothing,
-    );
-    expect(
-      find.byKey(const Key('background-jobs-row-background-job-3')),
-      findsOneWidget,
-    );
-  });
+      await tester.tap(find.byKey(const Key('background-jobs-clear-finished')));
+      await tester.pump();
+      expect(
+        find.byKey(const Key('background-jobs-row-background-job-1')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('background-jobs-row-background-job-3')),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('recovery snackbar does not auto-open panel and can open jobs', (
     tester,
@@ -200,10 +211,7 @@ void main() {
   });
 }
 
-Future<void> _pumpApp(
-  WidgetTester tester, {
-  List overrides = const [],
-}) async {
+Future<void> _pumpApp(WidgetTester tester, {List overrides = const []}) async {
   final tasmapRepository = await TestTasmapRepository.create();
 
   await tester.binding.setSurfaceSize(const Size(1280, 900));
@@ -261,6 +269,14 @@ class _NoopPeakListRewritePort implements PeakListRewritePort {
       rewrittenCount: 0,
       skippedMalformedCount: 0,
     );
+  }
+
+  @override
+  int refreshDerivedDataForPeakReferences({
+    required Peak previousPeak,
+    required Peak updatedPeak,
+  }) {
+    return 0;
   }
 }
 

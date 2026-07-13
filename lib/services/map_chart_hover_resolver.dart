@@ -9,7 +9,8 @@ import 'package:peak_bagger/widgets/elevation_profile_chart.dart';
 
 class MapChartHoverResolver {
   const MapChartHoverResolver({GpxTrackGeometryParser? trackGeometryParser})
-      : _trackGeometryParser = trackGeometryParser ?? const GpxTrackGeometryParser();
+    : _trackGeometryParser =
+          trackGeometryParser ?? const GpxTrackGeometryParser();
 
   final GpxTrackGeometryParser _trackGeometryParser;
 
@@ -27,7 +28,9 @@ class MapChartHoverResolver {
     required GpxTrack track,
     required ElevationProfileChartHoverSample hoverSample,
   }) {
-    final xml = track.gpxFileRepaired.isNotEmpty ? track.gpxFileRepaired : track.gpxFile;
+    final xml = track.gpxFileRepaired.isNotEmpty
+        ? track.gpxFileRepaired
+        : track.gpxFile;
     if (xml.isEmpty) {
       return null;
     }
@@ -63,7 +66,9 @@ class MapChartHoverResolver {
     var distanceMeters = 0.0;
     for (var index = 0; index < points.length; index++) {
       final point = points[index];
-      geometry.add(_GeometryPoint(point: point, distanceMeters: distanceMeters));
+      geometry.add(
+        _GeometryPoint(point: point, distanceMeters: distanceMeters),
+      );
       if (index < points.length - 1) {
         distanceMeters += _distance.as(
           LengthUnit.Meter,
@@ -311,7 +316,11 @@ class MapChartHoverResolver {
     return geometry;
   }
 
-  LatLng? _pointAt(List<List<LatLng>> segments, int segmentIndex, int pointIndex) {
+  LatLng? _pointAt(
+    List<List<LatLng>> segments,
+    int segmentIndex,
+    int pointIndex,
+  ) {
     if (segmentIndex < 0 || segmentIndex >= segments.length) {
       return null;
     }
@@ -326,10 +335,7 @@ class MapChartHoverResolver {
 }
 
 class _GeometryPoint {
-  const _GeometryPoint({
-    required this.point,
-    required this.distanceMeters,
-  });
+  const _GeometryPoint({required this.point, required this.distanceMeters});
 
   final LatLng point;
   final double distanceMeters;

@@ -368,7 +368,9 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      final segmentsByPeakId = container.read(peakOwnershipRingSegmentsProvider);
+      final segmentsByPeakId = container.read(
+        peakOwnershipRingSegmentsProvider,
+      );
 
       expect(segmentsByPeakId.keys, [6406]);
       expect(
@@ -447,11 +449,8 @@ void main() {
     () {
       final peakListRepository = PeakListRepository.test(
         InMemoryPeakListStorage([
-          PeakList(
-            name: 'Broken',
-            peakList: '{not-json}',
-            colour: 0xFFD6336C,
-          )..peakListId = 7,
+          PeakList(name: 'Broken', peakList: '{not-json}', colour: 0xFFD6336C)
+            ..peakListId = 7,
         ]),
       );
 

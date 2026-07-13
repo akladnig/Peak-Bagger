@@ -79,10 +79,7 @@ class TrackRouteCorrelationService {
     );
   }
 
-  bool _isPointWithinTrack(
-    LatLng point,
-    List<List<LatLng>> trackSegments,
-  ) {
+  bool _isPointWithinTrack(LatLng point, List<List<LatLng>> trackSegments) {
     final pointLocation = Location(point.latitude, point.longitude);
 
     for (final segment in trackSegments) {
@@ -101,7 +98,10 @@ class TrackRouteCorrelationService {
       }
 
       for (var index = 0; index < segment.length - 1; index++) {
-        final start = Location(segment[index].latitude, segment[index].longitude);
+        final start = Location(
+          segment[index].latitude,
+          segment[index].longitude,
+        );
         final end = Location(
           segment[index + 1].latitude,
           segment[index + 1].longitude,
@@ -117,9 +117,10 @@ class TrackRouteCorrelationService {
   }
 
   double _segmentLengthMetres(LatLng start, LatLng end) {
-    return Location(start.latitude, start.longitude).distance2d(
-          Location(end.latitude, end.longitude),
-        ) ??
+    return Location(
+          start.latitude,
+          start.longitude,
+        ).distance2d(Location(end.latitude, end.longitude)) ??
         0;
   }
 }

@@ -71,7 +71,9 @@ Set<String> visibleRegionKeysForBounds(LatLngBounds? bounds) {
 
   final regionKeys = <String>{};
   for (final region in regionManifestCatalog.regionsForBounds(bounds)) {
-    final normalizedKey = canonicalRegionKey(normalizePeakListRegionKey(region.key));
+    final normalizedKey = canonicalRegionKey(
+      normalizePeakListRegionKey(region.key),
+    );
     if (normalizedKey != null) {
       regionKeys.add(normalizedKey);
     }
@@ -80,7 +82,9 @@ Set<String> visibleRegionKeysForBounds(LatLngBounds? bounds) {
 }
 
 Set<String> visibleRegionKeysForRegionKey(String? regionKey) {
-  final normalizedKey = canonicalRegionKey(normalizePeakListRegionKey(regionKey));
+  final normalizedKey = canonicalRegionKey(
+    normalizePeakListRegionKey(regionKey),
+  );
   if (normalizedKey == null) {
     return const <String>{};
   }
@@ -89,11 +93,22 @@ Set<String> visibleRegionKeysForRegionKey(String? regionKey) {
 
 bool peakListAppliesToVisibleRegions(
   PeakList peakList,
-  Set<String> visibleRegionKeys,
-) {
+  Set<String> visibleRegionKeys, {
+  LatLngBounds? visibleBounds,
+  Iterable<Peak>? peaks,
+}) {
   final normalizedPeakListRegionKey = canonicalRegionKey(
     normalizePeakListRegionKey(peakList.region),
   );
+  if (normalizedPeakListRegionKey == PeakList.mixedRegion) {
+    return _mixedPeakListAppliesToVisibleRegions(
+      peakList,
+      visibleRegionKeys,
+      visibleBounds: visibleBounds,
+      peaks: peaks,
+    );
+  }
+
   return normalizedPeakListRegionKey != null &&
       visibleRegionKeys.contains(normalizedPeakListRegionKey);
 }
@@ -102,13 +117,20 @@ Set<int> renderablePeakListIdsForVisibleRegions({
   required Iterable<PeakList> peakLists,
   required Iterable<int> selectedPeakListIds,
   required Set<String> visibleRegionKeys,
+  LatLngBounds? visibleBounds,
+  Iterable<Peak>? peaks,
 }) {
   final selectedIds = selectedPeakListIds.toSet();
   final validPeakListIds = <int>{};
 
   for (final peakList in peakLists) {
     if (!selectedIds.contains(peakList.peakListId) ||
-        !peakListAppliesToVisibleRegions(peakList, visibleRegionKeys)) {
+        !peakListAppliesToVisibleRegions(
+          peakList,
+          visibleRegionKeys,
+          visibleBounds: visibleBounds,
+          peaks: peaks,
+        )) {
       continue;
     }
 
@@ -141,6 +163,72 @@ bool peakListAppliesToRegion(PeakList peakList, String? currentRegionKey) {
     peakList,
     visibleRegionKeysForRegionKey(currentRegionKey),
   );
+}
+
+bool _mixedPeakListAppliesToVisibleRegions(
+  PeakList peakList,
+  Set<String> visibleRegionKeys, {
+  LatLngBounds? visibleBounds,
+  Iterable<Peak>? peaks,
+}) {
+  if (visibleBounds != null &&
+      _peakListBoundsIntersectVisibleBounds(peakList, visibleBounds)) {
+    return true;
+  }
+
+  if (peaks == null) {
+    return false;
+  }
+
+  late final List<PeakListItem> items;
+  try {
+    items = decodePeakListItems(peakList.peakList);
+  } catch (_) {
+    return false;
+  }
+
+  final peaksByOsmId = {for (final peak in peaks) peak.osmId: peak};
+  for (final item in items) {
+    final peak = peaksByOsmId[item.peakOsmId];
+    if (peak == null) {
+      continue;
+    }
+
+    if (visibleBounds != null &&
+        _isPeakWithinBounds(peak: peak, bounds: visibleBounds)) {
+      return true;
+    }
+
+    final peakRegionKey = canonicalRegionKey(
+      regionManifestCatalog.regionKeyForPoint(
+            LatLng(peak.latitude, peak.longitude),
+          ) ??
+          peak.region,
+    );
+    if (peakRegionKey != null && visibleRegionKeys.contains(peakRegionKey)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool _peakListBoundsIntersectVisibleBounds(
+  PeakList peakList,
+  LatLngBounds visibleBounds,
+) {
+  final minLat = peakList.minLat;
+  final maxLat = peakList.maxLat;
+  final minLng = peakList.minLng;
+  final maxLng = peakList.maxLng;
+  if (minLat == null || maxLat == null || minLng == null || maxLng == null) {
+    return false;
+  }
+
+  return minLat <= visibleBounds.northEast.latitude &&
+      maxLat >= visibleBounds.southWest.latitude &&
+      minLng <= visibleBounds.northEast.longitude &&
+      maxLng >= visibleBounds.southWest.longitude;
 }
 
 String? normalizePeakListRegionKey(String? regionKey) {

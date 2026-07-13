@@ -52,136 +52,139 @@ void main() {
       }
     });
 
-    test(
-      'writes ranked, review, repair, and state artifacts together',
-      () async {
-        final partialPages = <String, String>{
-          'https://www.hribi.net/gorovje/julijske_alpe/1': _fixture(
-            'hribi_range_partial_julian_alps.html',
-          ),
-          'https://www.monti.uno/catena_montuosa/alpi_giulie/1': _fixture(
-            'monti_range_partial_julian_alps.html',
-          ),
-          'https://www.hribi.net/gora/triglav/1/1': _fixture(
-            'hribi_detail_triglav.html',
-          ),
-          'https://www.hribi.net/gora/montaz___jof_di_montasio/1/629': _fixture(
-            'hribi_detail_montaz.html',
-          ),
-          'https://www.hribi.net/gora/skrivnostni_vrh/1/777': _fixture(
-            'hribi_detail_missing_fields_peak.html',
-          ),
-        };
+    test('writes ranked, review, repair, and state artifacts together', () async {
+      final partialPages = <String, String>{
+        'https://www.hribi.net/gorovje/julijske_alpe/1': _fixture(
+          'hribi_range_partial_julian_alps.html',
+        ),
+        'https://www.monti.uno/catena_montuosa/alpi_giulie/1': _fixture(
+          'monti_range_partial_julian_alps.html',
+        ),
+        'https://www.hribi.net/gora/triglav/1/1': _fixture(
+          'hribi_detail_triglav.html',
+        ),
+        'https://www.hribi.net/gora/montaz___jof_di_montasio/1/629': _fixture(
+          'hribi_detail_montaz.html',
+        ),
+        'https://www.hribi.net/gora/skrivnostni_vrh/1/777': _fixture(
+          'hribi_detail_missing_fields_peak.html',
+        ),
+      };
 
-        final service = _service(
-          pageLoader: (uri) async {
-            final url = uri.toString();
-            if (url == 'https://www.hribi.net/gora/pokvarjen_vrh/1/991') {
-              throw HttpException('detail fetch failed');
-            }
-            return partialPages[url]!;
-          },
-          peakSource: InMemoryPeakSource([
-            _peak(
-              id: 1,
-              osmId: 1001,
-              name: 'Triglav',
-              latitude: 46.37832,
-              longitude: 13.83648,
-              prominence: 2048,
-              country: 'Slovenia',
-              county: 'Upper Carniola',
-              range: 'Julian Alps',
-              difficulty: 'T5',
-              viaFerrata: 'B',
-              notes: 'Snow early season',
-            ),
-            _peak(
-              id: 2,
-              osmId: 1002,
-              name: 'Jof di Montasio',
-              altName: 'Montaz Jof di Montasio',
-              latitude: 46.43973,
-              longitude: 13.43612,
-              prominence: 1200,
-              country: 'Italy',
-              county: 'Udine',
-              range: 'Julian Alps',
-            ),
-          ]),
-          rangeConfigurations: const [
-            SloveniaHribiSourceRangeConfig(
-              order: 2,
-              hribiRangeUrl: 'https://www.hribi.net/gorovje/julijske_alpe/1',
-              mountainRangeLabel: 'Julian Alps',
-              hikeRangeUrl: 'https://www.hike.uno/mountain_range/julian_alps/1',
-              montiRangeUrl:
-                  'https://www.monti.uno/catena_montuosa/alpi_giulie/1',
-            ),
-          ],
-          tempDir: tempDir,
-          cacheDir: cacheDir,
-        );
-
-        final result = await service.run();
-
-        expect(result.version, 1);
-        expect(result.createdNewVersion, isTrue);
-        expect(result.rows.map((row) => row.name), [
-          'Triglav',
-          'Montaž / Jôf di Montasio',
-          'Skrivnostni vrh',
-        ]);
-        expect(result.canonicalRows.map((row) => row.name), [
-          'Triglav',
-          'Montaž / Jôf di Montasio',
-        ]);
-        expect(result.reviewRows, hasLength(1));
-        expect(result.reviewRows.single.correlationReason, 'missing_hribi_coordinates');
-        expect(result.reviewRows.single.row.region, 'Slovenia');
-        expect(result.repairEntries, hasLength(3));
-
-        final rankedRows = const CsvDecoder().convert(
-          File(result.csvPath).readAsStringSync(),
-        );
-        final reviewRows = const CsvDecoder().convert(
-          File(result.reviewPath).readAsStringSync(),
-        );
-        final repairRows = const CsvDecoder().convert(
-          File(result.repairPath).readAsStringSync(),
-        );
-        expect(rankedRows.first.cast<String>(), sloveniaRankedPeakListCsvHeader);
-        expect(
-          reviewRows.first.cast<String>(),
-          sloveniaCorrelationReviewCsvHeader,
-        );
-        expect(repairRows.first.cast<String>(), sloveniaHribiSourcePeakListRepairCsvHeader);
-        expect(rankedRows, hasLength(3));
-        expect(reviewRows, hasLength(2));
-        expect(repairRows, hasLength(4));
-        expect(rankedRows[1][8], 'Slovenia');
-        expect(reviewRows[1][8], 'Slovenia');
-        expect(reviewRows[1].last, 'missing_hribi_coordinates');
-
-        final state =
-            jsonDecode(File(result.statePath).readAsStringSync())
-                as Map<String, dynamic>;
-        expect(state['BaseName'], sloveniaRankedPeakListBaseName);
-        expect(state['TieWindowMeters'], 10);
-        expect(state['Artifacts']['ReviewCsv'], endsWith('.review.csv'));
-        expect(state['Correlation']['CanonicalRowCount'], 2);
-        expect(state['Correlation']['ReviewRowCount'], 1);
-        expect(state['Correlation']['ReviewReasonCounts'], {
-          'missing_hribi_coordinates': 1,
-        });
-        expect(
-          result.summaries,
-          contains(
-            'Correlation split with tie window 10m: 2 canonical, 1 review (missing_hribi_coordinates:1)',
+      final service = _service(
+        pageLoader: (uri) async {
+          final url = uri.toString();
+          if (url == 'https://www.hribi.net/gora/pokvarjen_vrh/1/991') {
+            throw HttpException('detail fetch failed');
+          }
+          return partialPages[url]!;
+        },
+        peakSource: InMemoryPeakSource([
+          _peak(
+            id: 1,
+            osmId: 1001,
+            name: 'Triglav',
+            latitude: 46.37832,
+            longitude: 13.83648,
+            prominence: 2048,
+            country: 'Slovenia',
+            county: 'Upper Carniola',
+            range: 'Julian Alps',
+            difficulty: 'T5',
+            viaFerrata: 'B',
+            notes: 'Snow early season',
           ),
-        );
-      },
-    );
+          _peak(
+            id: 2,
+            osmId: 1002,
+            name: 'Jof di Montasio',
+            altName: 'Montaz Jof di Montasio',
+            latitude: 46.43973,
+            longitude: 13.43612,
+            prominence: 1200,
+            country: 'Italy',
+            county: 'Udine',
+            range: 'Julian Alps',
+          ),
+        ]),
+        rangeConfigurations: const [
+          SloveniaHribiSourceRangeConfig(
+            order: 2,
+            hribiRangeUrl: 'https://www.hribi.net/gorovje/julijske_alpe/1',
+            mountainRangeLabel: 'Julian Alps',
+            hikeRangeUrl: 'https://www.hike.uno/mountain_range/julian_alps/1',
+            montiRangeUrl:
+                'https://www.monti.uno/catena_montuosa/alpi_giulie/1',
+          ),
+        ],
+        tempDir: tempDir,
+        cacheDir: cacheDir,
+      );
+
+      final result = await service.run();
+
+      expect(result.version, 1);
+      expect(result.createdNewVersion, isTrue);
+      expect(result.rows.map((row) => row.name), [
+        'Triglav',
+        'Montaž / Jôf di Montasio',
+        'Skrivnostni vrh',
+      ]);
+      expect(result.canonicalRows.map((row) => row.name), [
+        'Triglav',
+        'Montaž / Jôf di Montasio',
+      ]);
+      expect(result.reviewRows, hasLength(1));
+      expect(
+        result.reviewRows.single.correlationReason,
+        'missing_hribi_coordinates',
+      );
+      expect(result.reviewRows.single.row.region, 'Slovenia');
+      expect(result.repairEntries, hasLength(3));
+
+      final rankedRows = const CsvDecoder().convert(
+        File(result.csvPath).readAsStringSync(),
+      );
+      final reviewRows = const CsvDecoder().convert(
+        File(result.reviewPath).readAsStringSync(),
+      );
+      final repairRows = const CsvDecoder().convert(
+        File(result.repairPath).readAsStringSync(),
+      );
+      expect(rankedRows.first.cast<String>(), sloveniaRankedPeakListCsvHeader);
+      expect(
+        reviewRows.first.cast<String>(),
+        sloveniaCorrelationReviewCsvHeader,
+      );
+      expect(
+        repairRows.first.cast<String>(),
+        sloveniaHribiSourcePeakListRepairCsvHeader,
+      );
+      expect(rankedRows, hasLength(3));
+      expect(reviewRows, hasLength(2));
+      expect(repairRows, hasLength(4));
+      expect(rankedRows[1][8], 'Slovenia');
+      expect(reviewRows[1][8], 'Slovenia');
+      expect(reviewRows[1].last, 'missing_hribi_coordinates');
+
+      final state =
+          jsonDecode(File(result.statePath).readAsStringSync())
+              as Map<String, dynamic>;
+      expect(state['BaseName'], sloveniaRankedPeakListBaseName);
+      expect(state['TieWindowMeters'], 10);
+      expect(state['Artifacts']['ReviewCsv'], endsWith('.review.csv'));
+      expect(state['Correlation']['CanonicalRowCount'], 2);
+      expect(state['Correlation']['ReviewRowCount'], 1);
+      expect(state['Correlation']['ReviewReasonCounts'], {
+        'missing_hribi_coordinates': 1,
+      });
+      expect(
+        result.summaries,
+        contains(
+          'Correlation split with tie window 10m: 2 canonical, 1 review (missing_hribi_coordinates:1)',
+        ),
+      );
+    });
 
     test(
       'reuses cache and suppresses versions when visible CSV artifacts do not change',
@@ -237,32 +240,35 @@ void main() {
       },
     );
 
-    test('creates a new version when the correlated CSV contents change', () async {
-      final firstService = _service(
-        pageLoader: (uri) async => fullPages[uri.toString()]!,
-        peakSource: InMemoryPeakSource(),
-        rangeConfigurations: _julianAlpsOnly,
-        tempDir: tempDir,
-        cacheDir: cacheDir,
-      );
-      final firstResult = await firstService.run();
+    test(
+      'creates a new version when the correlated CSV contents change',
+      () async {
+        final firstService = _service(
+          pageLoader: (uri) async => fullPages[uri.toString()]!,
+          peakSource: InMemoryPeakSource(),
+          rangeConfigurations: _julianAlpsOnly,
+          tempDir: tempDir,
+          cacheDir: cacheDir,
+        );
+        final firstResult = await firstService.run();
 
-      final secondService = _service(
-        pageLoader: (uri) async => fullPages[uri.toString()]!,
-        peakSource: InMemoryPeakSource(_fullFixturePeaks),
-        rangeConfigurations: _julianAlpsOnly,
-        tempDir: tempDir,
-        cacheDir: cacheDir,
-      );
-      final secondResult = await secondService.run();
+        final secondService = _service(
+          pageLoader: (uri) async => fullPages[uri.toString()]!,
+          peakSource: InMemoryPeakSource(_fullFixturePeaks),
+          rangeConfigurations: _julianAlpsOnly,
+          tempDir: tempDir,
+          cacheDir: cacheDir,
+        );
+        final secondResult = await secondService.run();
 
-      expect(firstResult.reviewRows, hasLength(2));
-      expect(firstResult.canonicalRows, isEmpty);
-      expect(secondResult.createdNewVersion, isTrue);
-      expect(secondResult.version, 2);
-      expect(secondResult.canonicalRows, hasLength(2));
-      expect(secondResult.reviewRows, isEmpty);
-    });
+        expect(firstResult.reviewRows, hasLength(2));
+        expect(firstResult.canonicalRows, isEmpty);
+        expect(secondResult.createdNewVersion, isTrue);
+        expect(secondResult.version, 2);
+        expect(secondResult.canonicalRows, hasLength(2));
+        expect(secondResult.reviewRows, isEmpty);
+      },
+    );
 
     test('rejects old raw-only snapshots as repair baselines', () async {
       File(

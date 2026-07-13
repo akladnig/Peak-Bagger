@@ -10,81 +10,82 @@ import 'package:peak_bagger/widgets/map_action_rail.dart';
 import '../harness/test_map_notifier.dart';
 
 void main() {
-  testWidgets('grid cycles visibility states without forcing selected map visible', (
-    tester,
-  ) async {
-    final selectedMap = _tasmapMap();
+  testWidgets(
+    'grid cycles visibility states without forcing selected map visible',
+    (tester) async {
+      final selectedMap = _tasmapMap();
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          mapProvider.overrideWith(
-            () => TestMapNotifier(
-              MapState(
-                center: const LatLng(-41.5, 146.5),
-                zoom: 12,
-                basemap: Basemap.tracestrack,
-                selectedMap: selectedMap,
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            mapProvider.overrideWith(
+              () => TestMapNotifier(
+                MapState(
+                  center: const LatLng(-41.5, 146.5),
+                  zoom: 12,
+                  basemap: Basemap.tracestrack,
+                  selectedMap: selectedMap,
+                ),
               ),
             ),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(body: Stack(children: [MapActionRail()])),
           ),
-        ],
-        child: const MaterialApp(
-          home: Scaffold(body: Stack(children: [MapActionRail()])),
         ),
-      ),
-    );
+      );
 
-    await tester.pump();
+      await tester.pump();
 
-    final gridFab = find.byKey(const Key('grid-map-fab'));
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(MapActionRail)),
-    );
-    expect(
-      container.read(mapProvider).gridVisibility,
-      MapGridVisibility.hidden,
-    );
-    expect(_tooltipMessageFor(gridFab, tester), 'Show Map Grid');
+      final gridFab = find.byKey(const Key('grid-map-fab'));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(MapActionRail)),
+      );
+      expect(
+        container.read(mapProvider).gridVisibility,
+        MapGridVisibility.hidden,
+      );
+      expect(_tooltipMessageFor(gridFab, tester), 'Show Map Grid');
 
-    await tester.ensureVisible(gridFab);
-    await tester.pumpAndSettle();
-    await tester.tap(gridFab);
-    await tester.pump();
-    expect(
-      container.read(mapProvider).gridVisibility,
-      MapGridVisibility.mapGridOnly,
-    );
-    expect(
-      container.read(mapProvider).tasmapDisplayMode,
-      TasmapDisplayMode.selectedMap,
-    );
-    expect(_tooltipMessageFor(gridFab, tester), 'Show Map and MGRS Grid');
+      await tester.ensureVisible(gridFab);
+      await tester.pumpAndSettle();
+      await tester.tap(gridFab);
+      await tester.pump();
+      expect(
+        container.read(mapProvider).gridVisibility,
+        MapGridVisibility.mapGridOnly,
+      );
+      expect(
+        container.read(mapProvider).tasmapDisplayMode,
+        TasmapDisplayMode.selectedMap,
+      );
+      expect(_tooltipMessageFor(gridFab, tester), 'Show Map and MGRS Grid');
 
-    await tester.ensureVisible(gridFab);
-    await tester.pumpAndSettle();
-    await tester.tap(gridFab);
-    await tester.pump();
-    expect(
-      container.read(mapProvider).gridVisibility,
-      MapGridVisibility.mapGridAndDistanceGrid,
-    );
-    expect(_tooltipMessageFor(gridFab, tester), 'Hide Grids');
+      await tester.ensureVisible(gridFab);
+      await tester.pumpAndSettle();
+      await tester.tap(gridFab);
+      await tester.pump();
+      expect(
+        container.read(mapProvider).gridVisibility,
+        MapGridVisibility.mapGridAndDistanceGrid,
+      );
+      expect(_tooltipMessageFor(gridFab, tester), 'Hide Grids');
 
-    await tester.ensureVisible(gridFab);
-    await tester.pumpAndSettle();
-    await tester.tap(gridFab);
-    await tester.pump();
-    expect(
-      container.read(mapProvider).gridVisibility,
-      MapGridVisibility.hidden,
-    );
-    expect(
-      container.read(mapProvider).tasmapDisplayMode,
-      TasmapDisplayMode.none,
-    );
-    expect(_tooltipMessageFor(gridFab, tester), 'Show Map Grid');
-  });
+      await tester.ensureVisible(gridFab);
+      await tester.pumpAndSettle();
+      await tester.tap(gridFab);
+      await tester.pump();
+      expect(
+        container.read(mapProvider).gridVisibility,
+        MapGridVisibility.hidden,
+      );
+      expect(
+        container.read(mapProvider).tasmapDisplayMode,
+        TasmapDisplayMode.none,
+      );
+      expect(_tooltipMessageFor(gridFab, tester), 'Show Map Grid');
+    },
+  );
 
   testWidgets('grid uses mgrs-only copy in non sheet-backed viewports', (
     tester,
@@ -121,8 +122,14 @@ void main() {
     await tester.tap(gridFab);
     await tester.pump();
 
-    expect(container.read(mapProvider).gridVisibility, MapGridVisibility.mapGridOnly);
-    expect(container.read(mapProvider).tasmapDisplayMode, TasmapDisplayMode.none);
+    expect(
+      container.read(mapProvider).gridVisibility,
+      MapGridVisibility.mapGridOnly,
+    );
+    expect(
+      container.read(mapProvider).tasmapDisplayMode,
+      TasmapDisplayMode.none,
+    );
     expect(_tooltipMessageFor(gridFab, tester), 'Hide MGRS Grid');
 
     await tester.ensureVisible(gridFab);
@@ -130,7 +137,10 @@ void main() {
     await tester.tap(gridFab);
     await tester.pump();
 
-    expect(container.read(mapProvider).gridVisibility, MapGridVisibility.hidden);
+    expect(
+      container.read(mapProvider).gridVisibility,
+      MapGridVisibility.hidden,
+    );
     expect(_tooltipMessageFor(gridFab, tester), 'Show MGRS Grid');
   });
 }

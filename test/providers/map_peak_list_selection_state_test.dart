@@ -238,6 +238,114 @@ void main() {
       });
     },
   );
+
+  test(
+    'mixed-region list stays selected when cached bounds intersect viewport',
+    () {
+      final repository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(
+            name: 'Mixed Cached',
+            region: PeakList.mixedRegion,
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 6406, points: 1),
+            ]),
+            minLat: -43.2,
+            maxLat: -42.8,
+            minLng: 146.8,
+            maxLng: 147.2,
+          )..peakListId = 7,
+        ]),
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => _InitialStateMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 15,
+                basemap: Basemap.tracestrack,
+                visibleBounds: LatLngBounds(
+                  const LatLng(-43.5, 145.5),
+                  const LatLng(-40.5, 148.5),
+                ),
+                peakListSelectionMode: PeakListSelectionMode.specificList,
+                selectedPeakListIds: {7},
+                previousSpecificPeakListIds: {7},
+              ),
+            ),
+          ),
+          peakListRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.read(mapProvider.notifier).reconcileSelectedPeakList();
+
+      expect(
+        container.read(mapProvider).peakListSelectionMode,
+        PeakListSelectionMode.specificList,
+      );
+      expect(container.read(mapProvider).selectedPeakListIds, {7});
+    },
+  );
+
+  test(
+    'mixed-region list stays selected when member peaks intersect viewport',
+    () {
+      final repository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(
+            name: 'Mixed Members',
+            region: PeakList.mixedRegion,
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 6406, points: 1),
+            ]),
+          )..peakListId = 7,
+        ]),
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => _InitialStateMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 15,
+                basemap: Basemap.tracestrack,
+                visibleBounds: LatLngBounds(
+                  const LatLng(-43.5, 145.5),
+                  const LatLng(-40.5, 148.5),
+                ),
+                peaks: [
+                  Peak(
+                    osmId: 6406,
+                    name: 'Bonnet Hill',
+                    latitude: -43.0,
+                    longitude: 147.0,
+                  ),
+                ],
+                peakListSelectionMode: PeakListSelectionMode.specificList,
+                selectedPeakListIds: {7},
+                previousSpecificPeakListIds: {7},
+              ),
+            ),
+          ),
+          peakListRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.read(mapProvider.notifier).reconcileSelectedPeakList();
+
+      expect(
+        container.read(mapProvider).peakListSelectionMode,
+        PeakListSelectionMode.specificList,
+      );
+      expect(container.read(mapProvider).selectedPeakListIds, {7});
+    },
+  );
 }
 
 class _InitialStateMapNotifier extends MapNotifier {

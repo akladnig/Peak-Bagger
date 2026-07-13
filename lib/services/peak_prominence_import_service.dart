@@ -10,14 +10,11 @@ import 'package:peak_bagger/services/peak_repository.dart';
 
 typedef PeakProminenceCsvReader = Future<String> Function(String path);
 typedef PeakProminenceCsvLineReader = Stream<String> Function(String path);
-typedef PeakProminenceLogWriter = Future<void> Function(
-  String path,
-  String contents,
-);
+typedef PeakProminenceLogWriter =
+    Future<void> Function(String path, String contents);
 typedef PeakProminenceClock = DateTime Function();
-typedef PeakProminenceImportProgressCallback = void Function(
-  PeakProminenceImportProgress progress,
-);
+typedef PeakProminenceImportProgressCallback =
+    void Function(PeakProminenceImportProgress progress);
 
 class PeakProminenceImportProgress {
   const PeakProminenceImportProgress({
@@ -82,7 +79,9 @@ class PeakProminenceImportReport {
 
   int get matchedCount =>
       _matchedCount ??
-      rows.where((row) => row.action == 'matched' || row.action == 'updated').length;
+      rows
+          .where((row) => row.action == 'matched' || row.action == 'updated')
+          .length;
 
   int get updatedCount =>
       _updatedCount ?? rows.where((row) => row.action == 'updated').length;
@@ -96,7 +95,8 @@ class PeakProminenceImportReport {
       rows.where((row) => row.action == 'not-found-in-dataset').length;
 
   int get writeFailureCount =>
-      _writeFailureCount ?? rows.where((row) => row.action == 'write-failure').length;
+      _writeFailureCount ??
+      rows.where((row) => row.action == 'write-failure').length;
 
   Map<String, dynamic> toJson() {
     return {
@@ -138,16 +138,17 @@ class PeakProminenceImportService {
     this._onProgress,
     this._progressInterval = 100000,
   }) : _peakRepository = peakRepository,
-        _csvService = csvService ?? const PeakProminenceCsvService(),
-        _correlationService = correlationService ??
-            const PeakProminenceCorrelationService(),
-        _previewExportService = previewExportService ??
-            PeakProminencePreviewExportService(peakSource: peakRepository),
-        _csvReader = csvReader ?? ((path) => File(path).readAsString()),
-        _logWriter = logWriter ?? _defaultLogWriter,
-        _clock = clock ?? DateTime.now,
-        _savePeak = savePeak ?? peakRepository.saveDetailed,
-        _logPathResolver = logPathResolver ?? _defaultLogPathResolver;
+       _csvService = csvService ?? const PeakProminenceCsvService(),
+       _correlationService =
+           correlationService ?? const PeakProminenceCorrelationService(),
+       _previewExportService =
+           previewExportService ??
+           PeakProminencePreviewExportService(peakSource: peakRepository),
+       _csvReader = csvReader ?? ((path) => File(path).readAsString()),
+       _logWriter = logWriter ?? _defaultLogWriter,
+       _clock = clock ?? DateTime.now,
+       _savePeak = savePeak ?? peakRepository.saveDetailed,
+       _logPathResolver = logPathResolver ?? _defaultLogPathResolver;
 
   final PeakRepository _peakRepository;
   final PeakProminenceCsvService _csvService;
@@ -202,7 +203,10 @@ class PeakProminenceImportService {
         continue;
       }
 
-      final correlation = _correlationService.correlate(row: row, peaks: candidates);
+      final correlation = _correlationService.correlate(
+        row: row,
+        peaks: candidates,
+      );
 
       for (final skippedPeak in correlation.skippedDuplicatePeaks) {
         final skippedDetail =
@@ -393,7 +397,8 @@ class PeakProminenceImportService {
     final directory = p.dirname(basePath);
     final basename = p.basenameWithoutExtension(basePath);
     final extension = p.extension(basePath);
-    final fileName = '$basename-$suffix${extension.isEmpty ? '.log' : extension}';
+    final fileName =
+        '$basename-$suffix${extension.isEmpty ? '.log' : extension}';
     return p.join(directory, fileName);
   }
 
@@ -531,7 +536,10 @@ class _PeakSpatialIndex {
 
     for (var latOffset = -1; latOffset <= 1; latOffset += 1) {
       for (var lonOffset = -1; lonOffset <= 1; lonOffset += 1) {
-        final key = _cellKey(baseLatBucket + latOffset, baseLonBucket + lonOffset);
+        final key = _cellKey(
+          baseLatBucket + latOffset,
+          baseLonBucket + lonOffset,
+        );
         for (final peak in _peaksByCell[key] ?? const <Peak>[]) {
           if (seenPeakIds.add(peak.id)) {
             candidates.add(peak);

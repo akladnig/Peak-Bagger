@@ -5,6 +5,7 @@ import 'package:peak_bagger/models/map_search_result.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
+import 'package:peak_bagger/services/peak_list_derived_data.dart';
 import 'package:peak_bagger/services/map_search_region_filter.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
 import 'package:peak_bagger/services/peak_source.dart';
@@ -72,14 +73,21 @@ abstract class PeakListRewritePort {
     required int oldOsmId,
     required int newOsmId,
   });
+
+  int refreshDerivedDataForPeakReferences({
+    required Peak previousPeak,
+    required Peak updatedPeak,
+  });
 }
 
 class ObjectBoxPeakListRewritePort implements PeakListRewritePort {
   ObjectBoxPeakListRewritePort(Store store)
     : _peakListBox = store.box<PeakList>(),
+      _peakBox = store.box<Peak>(),
       _peaksBaggedBox = store.box<PeaksBagged>();
 
   final Box<PeakList> _peakListBox;
+  final Box<Peak> _peakBox;
   final Box<PeaksBagged> _peaksBaggedBox;
 
   @override
@@ -145,6 +153,45 @@ class ObjectBoxPeakListRewritePort implements PeakListRewritePort {
       rewrittenCount: rewrittenCount,
       skippedMalformedCount: skippedMalformedCount,
     );
+  }
+
+  @override
+  int refreshDerivedDataForPeakReferences({
+    required Peak previousPeak,
+    required Peak updatedPeak,
+  }) {
+    final refreshedOsmIds = {previousPeak.osmId, updatedPeak.osmId};
+    final peaksByOsmId = {
+      for (final peak in _peakBox.getAll()) peak.osmId: peak,
+    };
+    var refreshedCount = 0;
+
+    for (final peakList in _peakListBox.getAll()) {
+      late final List<PeakListItem> items;
+      try {
+        items = decodePeakListItems(peakList.peakList);
+      } catch (_) {
+        continue;
+      }
+
+      if (!items.any((item) => refreshedOsmIds.contains(item.peakOsmId))) {
+        continue;
+      }
+
+      final derivedData = derivePeakListDerivedData(
+        peakList: peakList,
+        items: items,
+        peakResolver: (peakOsmId) => peaksByOsmId[peakOsmId],
+      );
+      if (derivedData.matches(peakList)) {
+        continue;
+      }
+
+      _peakListBox.put(derivedData.applyTo(peakList));
+      refreshedCount += 1;
+    }
+
+    return refreshedCount;
   }
 }
 
@@ -323,11 +370,9 @@ class InMemoryPeakStorage implements PeakStorage {
 }
 
 class PeakRepository implements PeakSource {
-  PeakRepository(
-    Store store, {
-    required this._peakListRewritePort,
-  }) : _storage = ObjectBoxPeakStorage(store),
-       _store = store;
+  PeakRepository(Store store, {required this._peakListRewritePort})
+    : _storage = ObjectBoxPeakStorage(store),
+      _store = store;
 
   PeakRepository.test(
     PeakStorage storage, {
@@ -497,6 +542,12 @@ class PeakRepository implements PeakSource {
           newOsmId: savedPeak.osmId,
         );
       }
+      if (_shouldRefreshPeakListDerivedData(previous, savedPeak)) {
+        _peakListRewritePort.refreshDerivedDataForPeakReferences(
+          previousPeak: previous!,
+          updatedPeak: savedPeak,
+        );
+      }
       return PeakSaveResult(
         peak: savedPeak,
         peakListRewriteResult: rewriteResult,
@@ -509,6 +560,12 @@ class PeakRepository implements PeakSource {
         rewriteResult = _peakListRewritePort.rewriteOsmIdReferences(
           oldOsmId: previous.osmId,
           newOsmId: savedPeak.osmId,
+        );
+      }
+      if (_shouldRefreshPeakListDerivedData(previous, savedPeak)) {
+        _peakListRewritePort.refreshDerivedDataForPeakReferences(
+          previousPeak: previous!,
+          updatedPeak: savedPeak,
         );
       }
     });
@@ -585,6 +642,17 @@ class PeakRepository implements PeakSource {
     await _storage.clearAll();
   }
 
+  bool _shouldRefreshPeakListDerivedData(Peak? previous, Peak updatedPeak) {
+    if (previous == null) {
+      return false;
+    }
+
+    return previous.osmId != updatedPeak.osmId ||
+        previous.latitude != updatedPeak.latitude ||
+        previous.longitude != updatedPeak.longitude ||
+        previous.region != updatedPeak.region;
+  }
+
   bool isEmpty() {
     return _storage.isEmpty;
   }
@@ -600,5 +668,13 @@ class _NoopPeakListRewritePort implements PeakListRewritePort {
       rewrittenCount: 0,
       skippedMalformedCount: 0,
     );
+  }
+
+  @override
+  int refreshDerivedDataForPeakReferences({
+    required Peak previousPeak,
+    required Peak updatedPeak,
+  }) {
+    return 0;
   }
 }

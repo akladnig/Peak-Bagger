@@ -271,14 +271,22 @@ class PeaksBaggedRepository {
 
   static DateTime _dstStartUtc(int year) {
     final sunday = _firstSundayOfMonth(year, DateTime.october);
-    return DateTime.utc(year, DateTime.october, sunday, 2)
-        .subtract(const Duration(hours: 10));
+    return DateTime.utc(
+      year,
+      DateTime.october,
+      sunday,
+      2,
+    ).subtract(const Duration(hours: 10));
   }
 
   static DateTime _dstEndUtc(int year) {
     final sunday = _firstSundayOfMonth(year, DateTime.april);
-    return DateTime.utc(year, DateTime.april, sunday, 3)
-        .subtract(const Duration(hours: 11));
+    return DateTime.utc(
+      year,
+      DateTime.april,
+      sunday,
+      3,
+    ).subtract(const Duration(hours: 11));
   }
 
   static int _firstSundayOfMonth(int year, int month) {

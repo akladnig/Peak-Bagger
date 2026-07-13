@@ -14,220 +14,271 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../harness/test_map_notifier.dart';
 
 void main() {
-  testWidgets('settings tile opens Track Speed Analysis and shows first-load state', (
-    tester,
-  ) async {
-    SharedPreferences.resetStatic();
-    SharedPreferences.setMockInitialValues({});
+  testWidgets(
+    'settings tile opens Track Speed Analysis and shows first-load state',
+    (tester) async {
+      SharedPreferences.resetStatic();
+      SharedPreferences.setMockInitialValues({});
 
-    final completer = Completer<TrackSpeedAnalysisReport>();
-    await _pumpSettingsScreen(
-      tester,
-      runner: _FakeTrackSpeedAnalysisRunner([(_) => completer.future]),
-    );
+      final completer = Completer<TrackSpeedAnalysisReport>();
+      await _pumpSettingsScreen(
+        tester,
+        runner: _FakeTrackSpeedAnalysisRunner([(_) => completer.future]),
+      );
 
-    await _openTrackSpeedAnalysis(tester);
-    await tester.pump();
+      await _openTrackSpeedAnalysis(tester);
+      await tester.pump();
 
-    expect(find.byKey(const Key('track-speed-analysis-screen')), findsOneWidget);
-    expect(find.byKey(const Key('track-speed-analysis-loading')), findsOneWidget);
-    expect(find.text('Analysing tracks...'), findsOneWidget);
-    expect(find.byKey(const Key('track-speed-analysis-progress-text')), findsOneWidget);
-    expect(
-      tester
-          .widget<TextButton>(
-            find.byKey(const Key('track-speed-analysis-refresh-action')),
-          )
-          .onPressed,
-      isNull,
-    );
-  });
+      expect(
+        find.byKey(const Key('track-speed-analysis-screen')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('track-speed-analysis-loading')),
+        findsOneWidget,
+      );
+      expect(find.text('Analysing tracks...'), findsOneWidget);
+      expect(
+        find.byKey(const Key('track-speed-analysis-progress-text')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<TextButton>(
+              find.byKey(const Key('track-speed-analysis-refresh-action')),
+            )
+            .onPressed,
+        isNull,
+      );
+    },
+  );
 
-  testWidgets('screen shows exact empty state copy and keeps actions visible on narrow large text layouts', (
-    tester,
-  ) async {
-    SharedPreferences.resetStatic();
-    SharedPreferences.setMockInitialValues({});
+  testWidgets(
+    'screen shows exact empty state copy and keeps actions visible on narrow large text layouts',
+    (tester) async {
+      SharedPreferences.resetStatic();
+      SharedPreferences.setMockInitialValues({});
 
-    final completer = Completer<TrackSpeedAnalysisReport>();
+      final completer = Completer<TrackSpeedAnalysisReport>();
 
-    await _pumpTrackSpeedAnalysisScreen(
-      tester,
-      runner: _FakeTrackSpeedAnalysisRunner([
-        (_) => completer.future,
-      ]),
-      viewportSize: const Size(360, 780),
-      textScaleFactor: 2.0,
-    );
+      await _pumpTrackSpeedAnalysisScreen(
+        tester,
+        runner: _FakeTrackSpeedAnalysisRunner([(_) => completer.future]),
+        viewportSize: const Size(360, 780),
+        textScaleFactor: 2.0,
+      );
 
-    completer.complete(_emptyReport());
-    await _settleRouteAndMicrotasks(tester);
+      completer.complete(_emptyReport());
+      await _settleRouteAndMicrotasks(tester);
 
-    expect(find.text('No analysis data yet'), findsOneWidget);
-    expect(
-      find.text(
-        'Import timestamped Tasmanian tracks and recalculate track statistics to build walking-speed analysis.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.byKey(const Key('track-speed-analysis-refresh-action')), findsOneWidget);
-  });
+      expect(find.text('No analysis data yet'), findsOneWidget);
+      expect(
+        find.text(
+          'Import timestamped Tasmanian tracks and recalculate track statistics to build walking-speed analysis.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('track-speed-analysis-refresh-action')),
+        findsOneWidget,
+      );
+    },
+  );
 
-  testWidgets('screen shows failure state with retry action and concise error summary', (
-    tester,
-  ) async {
-    SharedPreferences.resetStatic();
-    SharedPreferences.setMockInitialValues({});
+  testWidgets(
+    'screen shows failure state with retry action and concise error summary',
+    (tester) async {
+      SharedPreferences.resetStatic();
+      SharedPreferences.setMockInitialValues({});
 
-    await _pumpSettingsScreen(
-      tester,
-      runner: _FakeTrackSpeedAnalysisRunner([
-        (_) => Future<TrackSpeedAnalysisReport>.error(Exception('Local analysis blew up')),
-      ]),
-    );
+      await _pumpSettingsScreen(
+        tester,
+        runner: _FakeTrackSpeedAnalysisRunner([
+          (_) => Future<TrackSpeedAnalysisReport>.error(
+            Exception('Local analysis blew up'),
+          ),
+        ]),
+      );
 
-    await _openTrackSpeedAnalysis(tester);
-    await _settleRouteAndMicrotasks(tester);
+      await _openTrackSpeedAnalysis(tester);
+      await _settleRouteAndMicrotasks(tester);
 
-    expect(find.byKey(const Key('track-speed-analysis-error-state')), findsOneWidget);
-    expect(find.text('Analysis failed'), findsOneWidget);
-    expect(find.text('Local analysis blew up'), findsOneWidget);
-    expect(find.byKey(const Key('track-speed-analysis-retry-action')), findsOneWidget);
-  });
+      expect(
+        find.byKey(const Key('track-speed-analysis-error-state')),
+        findsOneWidget,
+      );
+      expect(find.text('Analysis failed'), findsOneWidget);
+      expect(find.text('Local analysis blew up'), findsOneWidget);
+      expect(
+        find.byKey(const Key('track-speed-analysis-retry-action')),
+        findsOneWidget,
+      );
+    },
+  );
 
-  testWidgets('retry stays visible but disabled while a failure rerun is active', (
-    tester,
-  ) async {
-    SharedPreferences.resetStatic();
-    SharedPreferences.setMockInitialValues({});
+  testWidgets(
+    'retry stays visible but disabled while a failure rerun is active',
+    (tester) async {
+      SharedPreferences.resetStatic();
+      SharedPreferences.setMockInitialValues({});
 
-    final retryCompleter = Completer<TrackSpeedAnalysisReport>();
-    await _pumpSettingsScreen(
-      tester,
-      runner: _FakeTrackSpeedAnalysisRunner([
-        (_) => Future<TrackSpeedAnalysisReport>.error(Exception('Local analysis blew up')),
-        (_) => retryCompleter.future,
-      ]),
-    );
+      final retryCompleter = Completer<TrackSpeedAnalysisReport>();
+      await _pumpSettingsScreen(
+        tester,
+        runner: _FakeTrackSpeedAnalysisRunner([
+          (_) => Future<TrackSpeedAnalysisReport>.error(
+            Exception('Local analysis blew up'),
+          ),
+          (_) => retryCompleter.future,
+        ]),
+      );
 
-    await _openTrackSpeedAnalysis(tester);
-    await _settleRouteAndMicrotasks(tester);
+      await _openTrackSpeedAnalysis(tester);
+      await _settleRouteAndMicrotasks(tester);
 
-    await tester.tap(find.byKey(const Key('track-speed-analysis-retry-action')));
-    await tester.pump();
+      await tester.tap(
+        find.byKey(const Key('track-speed-analysis-retry-action')),
+      );
+      await tester.pump();
 
-    expect(find.byKey(const Key('track-speed-analysis-error-state')), findsOneWidget);
-    expect(
-      tester
-          .widget<TextButton>(
-            find.byKey(const Key('track-speed-analysis-retry-action')),
-          )
-          .onPressed,
-      isNull,
-    );
-    expect(find.byKey(const Key('track-speed-analysis-refresh-progress')), findsOneWidget);
+      expect(
+        find.byKey(const Key('track-speed-analysis-error-state')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<TextButton>(
+              find.byKey(const Key('track-speed-analysis-retry-action')),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(
+        find.byKey(const Key('track-speed-analysis-refresh-progress')),
+        findsOneWidget,
+      );
 
-    retryCompleter.complete(_sampleReport());
-    await _settleRouteAndMicrotasks(tester);
-  });
+      retryCompleter.complete(_sampleReport());
+      await _settleRouteAndMicrotasks(tester);
+    },
+  );
 
-  testWidgets('screen renders aggregate report sections and filtered-track note', (
-    tester,
-  ) async {
-    SharedPreferences.resetStatic();
-    SharedPreferences.setMockInitialValues({});
+  testWidgets(
+    'screen renders aggregate report sections and filtered-track note',
+    (tester) async {
+      SharedPreferences.resetStatic();
+      SharedPreferences.setMockInitialValues({});
 
-    await _pumpSettingsScreen(
-      tester,
-      runner: _FakeTrackSpeedAnalysisRunner([
+      await _pumpSettingsScreen(
+        tester,
+        runner: _FakeTrackSpeedAnalysisRunner([(_) async => _sampleReport()]),
+      );
+
+      await _openTrackSpeedAnalysis(tester);
+      await _settleRouteAndMicrotasks(tester);
+
+      expect(
+        find.byKey(const Key('track-speed-analysis-section-track-type')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('track-speed-analysis-section-hiking-difficulty')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          const Key(
+            'track-speed-analysis-section-track-type-and-hiking-difficulty',
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('track-speed-analysis-section-gradient-band')),
+        findsOneWidget,
+      );
+      expect(find.text('path'), findsOneWidget);
+      expect(find.text('sac_scale: mountain_hiking'), findsOneWidget);
+      expect(
+        find.textContaining(
+          'Analysis uses the same filtered-track basis as current track statistics when available.',
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'manual refresh keeps prior report visible and disables active-run actions',
+    (tester) async {
+      SharedPreferences.resetStatic();
+      SharedPreferences.setMockInitialValues({});
+
+      final refreshCompleter = Completer<TrackSpeedAnalysisReport>();
+      final runner = _FakeTrackSpeedAnalysisRunner([
         (_) async => _sampleReport(),
-      ]),
-    );
+        (_) => refreshCompleter.future,
+      ]);
+      await _pumpSettingsScreen(tester, runner: runner);
 
-    await _openTrackSpeedAnalysis(tester);
-    await _settleRouteAndMicrotasks(tester);
+      await _openTrackSpeedAnalysis(tester);
+      await _settleRouteAndMicrotasks(tester);
 
-    expect(find.byKey(const Key('track-speed-analysis-section-track-type')), findsOneWidget);
-    expect(
-      find.byKey(const Key('track-speed-analysis-section-hiking-difficulty')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const Key('track-speed-analysis-section-track-type-and-hiking-difficulty')),
-      findsOneWidget,
-    );
-    expect(find.byKey(const Key('track-speed-analysis-section-gradient-band')), findsOneWidget);
-    expect(find.text('path'), findsOneWidget);
-    expect(find.text('sac_scale: mountain_hiking'), findsOneWidget);
-    expect(
-      find.textContaining(
-        'Analysis uses the same filtered-track basis as current track statistics when available.',
-      ),
-      findsOneWidget,
-    );
-  });
+      expect(find.text('path'), findsOneWidget);
 
-  testWidgets('manual refresh keeps prior report visible and disables active-run actions', (
-    tester,
-  ) async {
-    SharedPreferences.resetStatic();
-    SharedPreferences.setMockInitialValues({});
+      await tester.tap(
+        find.byKey(const Key('track-speed-analysis-refresh-action')),
+      );
+      await tester.pump();
 
-    final refreshCompleter = Completer<TrackSpeedAnalysisReport>();
-    final runner = _FakeTrackSpeedAnalysisRunner([
-      (_) async => _sampleReport(),
-      (_) => refreshCompleter.future,
-    ]);
-    await _pumpSettingsScreen(tester, runner: runner);
+      expect(find.text('path'), findsOneWidget);
+      expect(
+        find.byKey(const Key('track-speed-analysis-refresh-progress')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<TextButton>(
+              find.byKey(const Key('track-speed-analysis-refresh-action')),
+            )
+            .onPressed,
+        isNull,
+      );
 
-    await _openTrackSpeedAnalysis(tester);
-    await _settleRouteAndMicrotasks(tester);
+      refreshCompleter.complete(_sampleReport());
+      await tester.pumpAndSettle();
+      expect(runner.callCount, 2);
+    },
+  );
 
-    expect(find.text('path'), findsOneWidget);
+  testWidgets(
+    'leaving the screen during an active run does not update disposed state',
+    (tester) async {
+      SharedPreferences.resetStatic();
+      SharedPreferences.setMockInitialValues({});
 
-    await tester.tap(find.byKey(const Key('track-speed-analysis-refresh-action')));
-    await tester.pump();
+      final completer = Completer<TrackSpeedAnalysisReport>();
+      await _pumpSettingsScreen(
+        tester,
+        runner: _FakeTrackSpeedAnalysisRunner([(_) => completer.future]),
+      );
 
-    expect(find.text('path'), findsOneWidget);
-    expect(find.byKey(const Key('track-speed-analysis-refresh-progress')), findsOneWidget);
-    expect(
-      tester
-          .widget<TextButton>(
-            find.byKey(const Key('track-speed-analysis-refresh-action')),
-          )
-          .onPressed,
-      isNull,
-    );
+      await _openTrackSpeedAnalysis(tester);
+      await tester.pump();
 
-    refreshCompleter.complete(_sampleReport());
-    await tester.pumpAndSettle();
-    expect(runner.callCount, 2);
-  });
+      await tester.tap(find.byTooltip('Back'));
+      await _settleRouteAndMicrotasks(tester);
 
-  testWidgets('leaving the screen during an active run does not update disposed state', (
-    tester,
-  ) async {
-    SharedPreferences.resetStatic();
-    SharedPreferences.setMockInitialValues({});
+      completer.complete(_sampleReport());
+      await tester.pumpAndSettle();
 
-    final completer = Completer<TrackSpeedAnalysisReport>();
-    await _pumpSettingsScreen(
-      tester,
-      runner: _FakeTrackSpeedAnalysisRunner([(_) => completer.future]),
-    );
-
-    await _openTrackSpeedAnalysis(tester);
-    await tester.pump();
-
-    await tester.tap(find.byTooltip('Back'));
-    await _settleRouteAndMicrotasks(tester);
-
-    completer.complete(_sampleReport());
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const Key('track-speed-analysis-screen')), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+      expect(
+        find.byKey(const Key('track-speed-analysis-screen')),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 Future<void> _pumpTrackSpeedAnalysisScreen(
@@ -277,7 +328,9 @@ Future<void> _openTrackSpeedAnalysis(WidgetTester tester) async {
         )
         .first,
   );
-  await tester.ensureVisible(find.byKey(const Key('track-speed-analysis-tile')));
+  await tester.ensureVisible(
+    find.byKey(const Key('track-speed-analysis-tile')),
+  );
   await tester.tap(find.byKey(const Key('track-speed-analysis-tile')));
   await tester.pump();
 }
@@ -415,9 +468,12 @@ TrackSpeedAnalysisReport _sampleReport() {
 class _FakeTrackSpeedAnalysisRunner implements TrackSpeedAnalysisRunner {
   _FakeTrackSpeedAnalysisRunner(this._outcomes);
 
-  final List<Future<TrackSpeedAnalysisReport> Function(
-    void Function(TrackSpeedAnalysisProgress progress)? onProgress,
-  )> _outcomes;
+  final List<
+    Future<TrackSpeedAnalysisReport> Function(
+      void Function(TrackSpeedAnalysisProgress progress)? onProgress,
+    )
+  >
+  _outcomes;
   int callCount = 0;
 
   @override
@@ -429,7 +485,9 @@ class _FakeTrackSpeedAnalysisRunner implements TrackSpeedAnalysisRunner {
     }
     final next = _outcomes[callCount];
     callCount += 1;
-    onProgress?.call(const TrackSpeedAnalysisProgress(processedTracks: 0, totalTracks: 1));
+    onProgress?.call(
+      const TrackSpeedAnalysisProgress(processedTracks: 0, totalTracks: 1),
+    );
     return next(onProgress);
   }
 }

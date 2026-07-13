@@ -82,7 +82,9 @@ void main() {
         findsOneWidget,
       );
       expect(
-        tester.widget<IconButton>(find.byKey(const Key('year-to-date-next-year'))).onPressed,
+        tester
+            .widget<IconButton>(find.byKey(const Key('year-to-date-next-year')))
+            .onPressed,
         isNull,
       );
 
@@ -103,7 +105,9 @@ void main() {
         findsOneWidget,
       );
       expect(
-        tester.widget<IconButton>(find.byKey(const Key('year-to-date-next-year'))).onPressed,
+        tester
+            .widget<IconButton>(find.byKey(const Key('year-to-date-next-year')))
+            .onPressed,
         isNotNull,
       );
 

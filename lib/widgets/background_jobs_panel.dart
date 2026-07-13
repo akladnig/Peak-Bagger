@@ -111,10 +111,7 @@ class _BackgroundJobCard extends StatelessWidget {
                           _BackgroundJobStatusChip(job: job),
                           if (job.hasWarnings) ...[
                             const SizedBox(width: 8),
-                            const Icon(
-                              Icons.warning_amber_rounded,
-                              size: 16,
-                            ),
+                            const Icon(Icons.warning_amber_rounded, size: 16),
                           ],
                         ],
                       ),
@@ -140,10 +137,7 @@ class _BackgroundJobCard extends StatelessWidget {
             ),
             if (progress != null) ...[
               const SizedBox(height: 8),
-              Text(
-                progress.label,
-                style: theme.textTheme.bodySmall,
-              ),
+              Text(progress.label, style: theme.textTheme.bodySmall),
               const SizedBox(height: 2),
               Text(
                 progress.statusText,
@@ -219,9 +213,9 @@ class _BackgroundJobStatusChip extends StatelessWidget {
       ),
       child: Text(
         job.statusLabel,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: colors.foreground,
-        ),
+        style: Theme.of(
+          context,
+        ).textTheme.labelSmall?.copyWith(color: colors.foreground),
       ),
     );
   }

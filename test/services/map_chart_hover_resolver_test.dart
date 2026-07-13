@@ -12,10 +12,7 @@ void main() {
     final route = app_route.Route(
       id: 1,
       name: 'Ridge Walk',
-      gpxRoute: const [
-        LatLng(-41.5, 146.49),
-        LatLng(-41.5, 146.51),
-      ],
+      gpxRoute: const [LatLng(-41.5, 146.49), LatLng(-41.5, 146.51)],
     );
     final totalDistance = const Distance().as(
       LengthUnit.Meter,
@@ -43,7 +40,8 @@ void main() {
     final track = GpxTrack(
       contentHash: 'hash',
       trackName: 'Ridge Walk',
-      gpxFile: '<gpx><trk><trkseg><trkpt lat="-41.1" lon="146.1" /></trkseg></trk></gpx>',
+      gpxFile:
+          '<gpx><trk><trkseg><trkpt lat="-41.1" lon="146.1" /></trkseg></trk></gpx>',
       gpxFileRepaired:
           '<gpx><trk><trkseg><trkpt lat="-41.5" lon="146.5" /><trkpt lat="-41.5" lon="146.7" /></trkseg></trk></gpx>',
     );

@@ -36,9 +36,9 @@ class RouteGraphDriveEtaHitResult {
 
   const RouteGraphDriveEtaHitResult.unavailable([String? message])
     : this._(
-         status: RouteGraphDriveEtaHitStatus.unavailable,
-         message: message ?? 'Route graph data is unavailable.',
-       );
+        status: RouteGraphDriveEtaHitStatus.unavailable,
+        message: message ?? 'Route graph data is unavailable.',
+      );
 
   final RouteGraphDriveEtaHitStatus status;
   final LatLng? snappedPoint;
@@ -111,10 +111,15 @@ class RouteGraphDriveEtaHitService {
           continue;
         }
 
-        if (bestCandidate == null || projection.distance < bestCandidate.distance) {
+        if (bestCandidate == null ||
+            projection.distance < bestCandidate.distance) {
           bestCandidate = _HitCandidate(
             distance: projection.distance,
-            snappedPoint: _interpolateLatLng(startPoint, endPoint, projection.t),
+            snappedPoint: _interpolateLatLng(
+              startPoint,
+              endPoint,
+              projection.t,
+            ),
             way: way,
           );
         }
@@ -137,7 +142,8 @@ class RouteGraphDriveEtaHitService {
     required List<RouteGraphWayIndex> rows,
   }) {
     final generation = rows.first.generation;
-    final visibleChunkKey = chunks.map((chunk) => chunk.recordKey).toList()..sort();
+    final visibleChunkKey = chunks.map((chunk) => chunk.recordKey).toList()
+      ..sort();
     final joinedVisibleChunkKey = visibleChunkKey.join(',');
     if (_cachedGeneration == generation &&
         _cachedVisibleChunkKey == joinedVisibleChunkKey &&
@@ -162,7 +168,9 @@ class RouteGraphDriveEtaHitService {
         if (element is! Map) {
           continue;
         }
-        final typed = Map<String, dynamic>.from(element.cast<String, dynamic>());
+        final typed = Map<String, dynamic>.from(
+          element.cast<String, dynamic>(),
+        );
         if (typed['type'] == 'node') {
           final id = typed['id'];
           final lat = typed['lat'];
@@ -177,7 +185,9 @@ class RouteGraphDriveEtaHitService {
         if (element is! Map) {
           continue;
         }
-        final typed = Map<String, dynamic>.from(element.cast<String, dynamic>());
+        final typed = Map<String, dynamic>.from(
+          element.cast<String, dynamic>(),
+        );
         if (typed['type'] != 'way') {
           continue;
         }

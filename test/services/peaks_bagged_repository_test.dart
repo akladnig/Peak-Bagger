@@ -56,7 +56,12 @@ void main() {
           GpxTrack(gpxTrackId: 9, contentHash: 'hash', trackName: 'Track')
             ..trackDate = DateTime.utc(2024, 1, 15)
             ..peaks.add(
-              Peak(osmId: 33, name: 'Valid Peak', latitude: -42, longitude: 146),
+              Peak(
+                osmId: 33,
+                name: 'Valid Peak',
+                latitude: -42,
+                longitude: 146,
+              ),
             );
 
       final rows = PeaksBaggedRepository.deriveRows([track]);
@@ -102,9 +107,24 @@ void main() {
       final track =
           GpxTrack(gpxTrackId: 7, contentHash: 'hash', trackName: 'Track')
             ..peaks.addAll([
-              Peak(osmId: -1, name: 'Synthetic Peak', latitude: -42, longitude: 146),
-              Peak(osmId: 0, name: 'Invalid Peak', latitude: -42, longitude: 146),
-              Peak(osmId: 33, name: 'Valid Peak', latitude: -42, longitude: 146),
+              Peak(
+                osmId: -1,
+                name: 'Synthetic Peak',
+                latitude: -42,
+                longitude: 146,
+              ),
+              Peak(
+                osmId: 0,
+                name: 'Invalid Peak',
+                latitude: -42,
+                longitude: 146,
+              ),
+              Peak(
+                osmId: 33,
+                name: 'Valid Peak',
+                latitude: -42,
+                longitude: 146,
+              ),
             ]);
 
       final rows = PeaksBaggedRepository.deriveRows([track]);

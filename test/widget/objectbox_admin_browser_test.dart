@@ -103,10 +103,7 @@ void main() {
       find.byKey(const Key('objectbox-admin-route-view-on-map')),
       findsOneWidget,
     );
-    expect(
-      find.byKey(const Key('objectbox-admin-route-edit')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('objectbox-admin-route-edit')), findsOneWidget);
     expect(
       find.byKey(const Key('objectbox-admin-details-close')),
       findsOneWidget,
@@ -180,10 +177,12 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const Key('objectbox-admin-route-visible')),
       200,
-      scrollable: find.descendant(
-        of: find.byKey(const Key('objectbox-admin-route-edit-form')),
-        matching: find.byType(Scrollable),
-      ).first,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('objectbox-admin-route-edit-form')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('objectbox-admin-route-visible')));
@@ -252,7 +251,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(routeRepository.findById(1), isNull);
-    expect(find.byKey(const Key('objectbox-admin-route-delete-1')), findsNothing);
+    expect(
+      find.byKey(const Key('objectbox-admin-route-delete-1')),
+      findsNothing,
+    );
   });
 
   testWidgets('Peak delete refresh keeps other selection intact', (
@@ -310,10 +312,7 @@ void main() {
           'GpxTrack': [
             const ObjectBoxAdminRow(
               primaryKeyValue: 1,
-              values: {
-                'gpxTrackId': 1,
-                'trackName': 'Ridge Walk',
-              },
+              values: {'gpxTrackId': 1, 'trackName': 'Ridge Walk'},
             ),
           ],
         },
@@ -333,10 +332,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Ridge Walk'), findsWidgets);
-    expect(find.byKey(const Key('objectbox-admin-details-close')), findsOneWidget);
+    expect(
+      find.byKey(const Key('objectbox-admin-details-close')),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('PeakList exposes edit without add or delete actions', (tester) async {
+  testWidgets('PeakList exposes edit without add or delete actions', (
+    tester,
+  ) async {
     await _pumpApp(tester, repository: TestObjectBoxAdminRepository());
 
     await tester.tap(find.byKey(const Key('side-menu-objectbox-admin')));
@@ -351,7 +355,10 @@ void main() {
     await tester.tap(find.text('Abels'));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('objectbox-admin-peak-list-edit')), findsOneWidget);
+    expect(
+      find.byKey(const Key('objectbox-admin-peak-list-edit')),
+      findsOneWidget,
+    );
     expect(find.byKey(const Key('objectbox-admin-peak-add')), findsNothing);
     expect(
       find.byKey(const Key('objectbox-admin-peak-delete-1')),
@@ -1090,8 +1097,7 @@ Future<void> _pumpApp(
           repository ?? TestObjectBoxAdminRepository(entities: entities),
         ),
         routeRepositoryProvider.overrideWithValue(
-          routeRepository ??
-              RouteRepository.test(InMemoryRouteStorage()),
+          routeRepository ?? RouteRepository.test(InMemoryRouteStorage()),
         ),
         peakListRepositoryProvider.overrideWithValue(
           peakListRepository ??

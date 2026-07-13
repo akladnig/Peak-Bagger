@@ -79,128 +79,147 @@ void main() {
   }
 
   group('SloveniaPeakCorrelationService', () {
-    test('matches the nearest peak and backfills canonical fields from Peak', () {
-      final result = service([
-        peak(
-          id: 1,
-          osmId: 9001,
-          name: 'Triglav',
-          distanceMeters: 30,
-          elevation: 2864,
-          prominence: 2048,
-          country: 'Slovenia',
-          range: 'Julian Alps',
-          county: 'Upper Carniola',
-          difficulty: 'T5',
-          viaFerrata: 'B',
-          notes: 'Snow early season',
-        ),
-        peak(id: 2, osmId: 9002, name: 'Triglav North', distanceMeters: 45),
-      ]).correlate(
-        rows: [
-          row(
-            altitude: '',
-            country: '',
-            mountainRange: '',
-            popularity: '83',
-          ),
-        ],
-      );
+    test(
+      'matches the nearest peak and backfills canonical fields from Peak',
+      () {
+        final result =
+            service([
+              peak(
+                id: 1,
+                osmId: 9001,
+                name: 'Triglav',
+                distanceMeters: 30,
+                elevation: 2864,
+                prominence: 2048,
+                country: 'Slovenia',
+                range: 'Julian Alps',
+                county: 'Upper Carniola',
+                difficulty: 'T5',
+                viaFerrata: 'B',
+                notes: 'Snow early season',
+              ),
+              peak(
+                id: 2,
+                osmId: 9002,
+                name: 'Triglav North',
+                distanceMeters: 45,
+              ),
+            ]).correlate(
+              rows: [
+                row(
+                  altitude: '',
+                  country: '',
+                  mountainRange: '',
+                  popularity: '83',
+                ),
+              ],
+            );
 
-      expect(result.reviewRows, isEmpty);
-      expect(result.canonicalRows.single.toCsvRow(), [
-        'Triglav',
-        '9001',
-        '4.2',
-        '2864',
-        '2048',
-        '46.37832',
-        '13.83648',
-        'Slovenia',
-        'Slovenia',
-        'Julian Alps',
-        'Upper Carniola',
-        'T5',
-        'B',
-        'Snow early season',
-      ]);
-    });
+        expect(result.reviewRows, isEmpty);
+        expect(result.canonicalRows.single.toCsvRow(), [
+          'Triglav',
+          '9001',
+          '4.2',
+          '2864',
+          '2048',
+          '46.37832',
+          '13.83648',
+          'Slovenia',
+          'Slovenia',
+          'Julian Alps',
+          'Upper Carniola',
+          'T5',
+          'B',
+          'Snow early season',
+        ]);
+      },
+    );
 
-    test('requires normalized exact name confirmation beyond 50m via altName', () {
-      final result = service([
-        peak(
-          id: 1,
-          osmId: 7001,
-          name: 'Montaz',
-          altName: 'Jôf di Montasio',
-          distanceMeters: 80,
-          elevation: 2600,
-          prominence: 900,
-          country: 'Italy',
-          range: 'Stored Range',
-        ),
-      ]).correlate(
-        rows: [
-          row(
-            name: 'Jof di Montasio',
-            altitude: '2753',
-            country: 'Italy, Slovenia',
-            mountainRange: 'Julian Alps',
-            popularity: '95',
-          ),
-        ],
-      );
+    test(
+      'requires normalized exact name confirmation beyond 50m via altName',
+      () {
+        final result =
+            service([
+              peak(
+                id: 1,
+                osmId: 7001,
+                name: 'Montaz',
+                altName: 'Jôf di Montasio',
+                distanceMeters: 80,
+                elevation: 2600,
+                prominence: 900,
+                country: 'Italy',
+                range: 'Stored Range',
+              ),
+            ]).correlate(
+              rows: [
+                row(
+                  name: 'Jof di Montasio',
+                  altitude: '2753',
+                  country: 'Italy, Slovenia',
+                  mountainRange: 'Julian Alps',
+                  popularity: '95',
+                ),
+              ],
+            );
 
-      expect(result.reviewRows, isEmpty);
-      expect(result.canonicalRows.single.toCsvRow(), [
-        'Jof di Montasio',
-        '7001',
-        '4.8',
-        '2753',
-        '900',
-        '46.37832',
-        '13.83648',
-        'Italy, Slovenia',
-        'Slovenia',
-        'Julian Alps',
-        'Stored County',
-        'T4',
-        'A/B',
-        'Stored notes',
-      ]);
-    });
+        expect(result.reviewRows, isEmpty);
+        expect(result.canonicalRows.single.toCsvRow(), [
+          'Jof di Montasio',
+          '7001',
+          '4.8',
+          '2753',
+          '900',
+          '46.37832',
+          '13.83648',
+          'Italy, Slovenia',
+          'Slovenia',
+          'Julian Alps',
+          'Stored County',
+          'T4',
+          'A/B',
+          'Stored notes',
+        ]);
+      },
+    );
 
-    test('falls back to review when the nearest beyond-50m candidate lacks a name match', () {
-      final result = service([
-        peak(
-          id: 1,
-          osmId: 8001,
-          name: 'Batognica',
-          distanceMeters: 80,
-          prominence: 123,
-          county: 'Should stay hidden',
-        ),
-      ]).correlate(rows: [row(name: 'Krn', popularity: '80')]);
+    test(
+      'falls back to review when the nearest beyond-50m candidate lacks a name match',
+      () {
+        final result =
+            service([
+              peak(
+                id: 1,
+                osmId: 8001,
+                name: 'Batognica',
+                distanceMeters: 80,
+                prominence: 123,
+                county: 'Should stay hidden',
+              ),
+            ]).correlate(
+              rows: [row(name: 'Krn', popularity: '80')],
+            );
 
-      expect(result.canonicalRows, isEmpty);
-      expect(result.reviewRows.single.toCsvRow(), [
-        'Krn',
-        '0',
-        '4.0',
-        '2864',
-        '',
-        '46.37832',
-        '13.83648',
-        'Slovenia',
-        'Slovenia',
-        'Julian Alps',
-        '',
-        '',
-        '',
-        '',
-        'name_mismatch_beyond_50m',
-      ]);
-    });
+        expect(result.canonicalRows, isEmpty);
+        expect(result.reviewRows.single.toCsvRow(), [
+          'Krn',
+          '0',
+          '4.0',
+          '2864',
+          '',
+          '46.37832',
+          '13.83648',
+          'Slovenia',
+          'Slovenia',
+          'Julian Alps',
+          '',
+          '',
+          '',
+          '',
+          'name_mismatch_beyond_50m',
+        ]);
+      },
+    );
 
     test('uses tieWindowMeters only for tie handling and supports zero', () {
       final peaks = [
@@ -208,14 +227,12 @@ void main() {
         peak(id: 2, osmId: 8102, name: 'Near 2', distanceMeters: 35),
       ];
 
-      final tiedResult = service(peaks).correlate(
-        rows: [row(name: 'Any Name')],
-        tieWindowMeters: 10,
-      );
-      final untiedResult = service(peaks).correlate(
-        rows: [row(name: 'Any Name')],
-        tieWindowMeters: 0,
-      );
+      final tiedResult = service(
+        peaks,
+      ).correlate(rows: [row(name: 'Any Name')], tieWindowMeters: 10);
+      final untiedResult = service(
+        peaks,
+      ).correlate(rows: [row(name: 'Any Name')], tieWindowMeters: 0);
 
       expect(tiedResult.canonicalRows, isEmpty);
       expect(
@@ -226,24 +243,27 @@ void main() {
       expect(untiedResult.canonicalRows.single.osmId, '8101');
     });
 
-    test('reviews rows when multiple beyond-50m candidates are name confirmed', () {
-      final result = service([
-        peak(id: 1, osmId: 8201, name: 'Triglav', distanceMeters: 70),
-        peak(
-          id: 2,
-          osmId: 8202,
-          name: 'Stored Name',
-          altName: 'Triglav',
-          distanceMeters: 130,
-        ),
-      ]).correlate(rows: [row(name: 'Triglav')]);
+    test(
+      'reviews rows when multiple beyond-50m candidates are name confirmed',
+      () {
+        final result = service([
+          peak(id: 1, osmId: 8201, name: 'Triglav', distanceMeters: 70),
+          peak(
+            id: 2,
+            osmId: 8202,
+            name: 'Stored Name',
+            altName: 'Triglav',
+            distanceMeters: 130,
+          ),
+        ]).correlate(rows: [row(name: 'Triglav')]);
 
-      expect(result.canonicalRows, isEmpty);
-      expect(
-        result.reviewRows.single.correlationReason,
-        'multiple_name_confirmed_candidates',
-      );
-    });
+        expect(result.canonicalRows, isEmpty);
+        expect(
+          result.reviewRows.single.correlationReason,
+          'multiple_name_confirmed_candidates',
+        );
+      },
+    );
 
     test('reviews rows when no candidate is within 150m', () {
       final result = service([
@@ -258,9 +278,12 @@ void main() {
     });
 
     test('reviews rows with missing coordinates', () {
-      final result = service([
-        peak(id: 1, osmId: 8401, name: 'Triglav', distanceMeters: 20),
-      ]).correlate(rows: [row(latitude: '', longitude: '')]);
+      final result =
+          service([
+            peak(id: 1, osmId: 8401, name: 'Triglav', distanceMeters: 20),
+          ]).correlate(
+            rows: [row(latitude: '', longitude: '')],
+          );
 
       expect(result.canonicalRows, isEmpty);
       expect(

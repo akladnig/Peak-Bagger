@@ -14,23 +14,25 @@ void main() {
     test(
       'ranked csv exact header imports by osmId and updates peak metadata',
       () async {
-        final peak = _buildPeak(
-          osmId: 101,
-          name: 'Monte Old',
-          elevation: 900,
-          latitude: 46.2001,
-          longitude: 13.1001,
-        ).copyWith(
-          prominence: 222,
-          country: 'Italy',
-          county: 'Old County',
-          range: 'Old Range',
-          region: 'italy-nord-est',
-          sourceOfTruth: Peak.sourceOfTruthHwc,
-        );
+        final peak =
+            _buildPeak(
+              osmId: 101,
+              name: 'Monte Old',
+              elevation: 900,
+              latitude: 46.2001,
+              longitude: 13.1001,
+            ).copyWith(
+              prominence: 222,
+              country: 'Italy',
+              county: 'Old County',
+              range: 'Old Range',
+              region: 'italy-nord-est',
+              sourceOfTruth: Peak.sourceOfTruthHwc,
+            );
         final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
         final peakListRepository = PeakListRepository.test(
           InMemoryPeakListStorage(),
+          peakRepository: peakRepository,
         );
         final service = PeakListImportService(
           peakRepository: peakRepository,
@@ -71,25 +73,30 @@ void main() {
         expect(storedPeak?.viaFerrata, 'Optional');
         expect(storedPeak?.notes, 'Ridge scramble');
         expect(storedList.name, 'FVG Ranked');
-        expect(storedList.region, 'italy-nord-est');
+        expect(storedList.region, 'fvg');
+        expect(storedList.minLat, 46.4084);
+        expect(storedList.maxLat, 46.4084);
+        expect(storedList.minLng, 13.0475);
+        expect(storedList.maxLng, 13.0475);
         expect(
           storedList.peakList,
           encodePeakListItems([const PeakListItem(peakOsmId: 101, points: 1)]),
-      );
-    },
+        );
+      },
     );
 
     test('ranked csv missing osmId fails atomically', () async {
-      final peak = _buildPeak(
-        osmId: 101,
-        name: 'Monte Amariana',
-        elevation: 1906,
-        latitude: 46.4084,
-        longitude: 13.0475,
-      ).copyWith(
-        region: 'italy-nord-est',
-        sourceOfTruth: Peak.sourceOfTruthHwc,
-      );
+      final peak =
+          _buildPeak(
+            osmId: 101,
+            name: 'Monte Amariana',
+            elevation: 1906,
+            latitude: 46.4084,
+            longitude: 13.0475,
+          ).copyWith(
+            region: 'italy-nord-est',
+            sourceOfTruth: Peak.sourceOfTruthHwc,
+          );
       final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
       final peakListRepository = PeakListRepository.test(
         InMemoryPeakListStorage(),
@@ -118,28 +125,32 @@ void main() {
         ),
       );
 
-      expect(peakRepository.findByOsmId(101)?.sourceOfTruth, Peak.sourceOfTruthHwc);
+      expect(
+        peakRepository.findByOsmId(101)?.sourceOfTruth,
+        Peak.sourceOfTruthHwc,
+      );
       expect(peakListRepository.getAllPeakLists(), isEmpty);
     });
 
     test('ranked csv blank values keep existing stored fields', () async {
-      final peak = _buildPeak(
-        osmId: 101,
-        name: 'Monte Amariana',
-        elevation: 1906,
-        latitude: 46.4084,
-        longitude: 13.0475,
-      ).copyWith(
-        prominence: 544,
-        country: 'Italy',
-        county: 'Udine',
-        range: 'Carnic Alps',
-        rating: 4.2,
-        difficulty: 'EE',
-        viaFerrata: 'Optional',
-        notes: 'Keep me',
-        region: 'italy-nord-est',
-      );
+      final peak =
+          _buildPeak(
+            osmId: 101,
+            name: 'Monte Amariana',
+            elevation: 1906,
+            latitude: 46.4084,
+            longitude: 13.0475,
+          ).copyWith(
+            prominence: 544,
+            country: 'Italy',
+            county: 'Udine',
+            range: 'Carnic Alps',
+            rating: 4.2,
+            difficulty: 'EE',
+            viaFerrata: 'Optional',
+            notes: 'Keep me',
+            region: 'italy-nord-est',
+          );
       final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
       final peakListRepository = PeakListRepository.test(
         InMemoryPeakListStorage(),
@@ -299,7 +310,10 @@ void main() {
         ),
       );
 
-      expect(peakRepository.findByOsmId(101)?.sourceOfTruth, Peak.sourceOfTruthOsm);
+      expect(
+        peakRepository.findByOsmId(101)?.sourceOfTruth,
+        Peak.sourceOfTruthOsm,
+      );
       expect(peakListRepository.getAllPeakLists(), isEmpty);
     });
 
@@ -1033,60 +1047,60 @@ void main() {
     test(
       'app-owned export csv updates by osmId, creates missing peaks, and preserves duplicate row order',
       () async {
-        final existingPeak = _buildPeak(
-          osmId: 101,
-          name: 'Old Alpha',
-          elevation: 1200,
-          latitude: -41.80,
-          longitude: 146.00,
-        ).copyWith(
-          altName: 'Old Alt',
-          country: 'Old Country',
-          county: 'Old County',
-          range: 'Old Range',
-          region: 'old-region',
-          sourceOfTruth: Peak.sourceOfTruthOsm,
-          verified: true,
-          notes: 'keep notes',
-        );
+        final existingPeak =
+            _buildPeak(
+              osmId: 101,
+              name: 'Old Alpha',
+              elevation: 1200,
+              latitude: -41.80,
+              longitude: 146.00,
+            ).copyWith(
+              altName: 'Old Alt',
+              country: 'Old Country',
+              county: 'Old County',
+              range: 'Old Range',
+              region: 'old-region',
+              sourceOfTruth: Peak.sourceOfTruthOsm,
+              verified: true,
+              notes: 'keep notes',
+            );
         final syntheticPeak = _buildPeak(
           osmId: -7,
           name: 'Synthetic Old',
           elevation: 333,
           latitude: -42.20,
           longitude: 146.60,
-        ).copyWith(
-          sourceOfTruth: Peak.sourceOfTruthHwc,
-          difficulty: 'T4',
-        );
-        final missingPeakTemplate = _buildPeak(
-          osmId: 202,
-          name: 'Created Peak',
-          elevation: 1400,
-          latitude: -41.91,
-          longitude: 145.95,
-        ).copyWith(
-          altName: 'Created Alt',
-          country: 'Australia',
-          county: 'Kentish',
-          range: 'Great Western Tiers',
-          region: 'tasmania',
-          sourceOfTruth: Peak.sourceOfTruthPeakBagger,
-        );
-        final updatedSyntheticTemplate = _buildPeak(
-          osmId: -7,
-          name: 'Synthetic Imported',
-          elevation: 777,
-          latitude: -42.201,
-          longitude: 146.601,
-        ).copyWith(
-          altName: 'Synthetic Alt',
-          country: 'Australia',
-          county: 'Huon Valley',
-          range: 'Southwest',
-          region: 'tasmania',
-          sourceOfTruth: Peak.sourceOfTruthHwc,
-        );
+        ).copyWith(sourceOfTruth: Peak.sourceOfTruthHwc, difficulty: 'T4');
+        final missingPeakTemplate =
+            _buildPeak(
+              osmId: 202,
+              name: 'Created Peak',
+              elevation: 1400,
+              latitude: -41.91,
+              longitude: 145.95,
+            ).copyWith(
+              altName: 'Created Alt',
+              country: 'Australia',
+              county: 'Kentish',
+              range: 'Great Western Tiers',
+              region: 'tasmania',
+              sourceOfTruth: Peak.sourceOfTruthPeakBagger,
+            );
+        final updatedSyntheticTemplate =
+            _buildPeak(
+              osmId: -7,
+              name: 'Synthetic Imported',
+              elevation: 777,
+              latitude: -42.201,
+              longitude: 146.601,
+            ).copyWith(
+              altName: 'Synthetic Alt',
+              country: 'Australia',
+              county: 'Huon Valley',
+              range: 'Southwest',
+              region: 'tasmania',
+              sourceOfTruth: Peak.sourceOfTruthHwc,
+            );
         final peakRepository = PeakRepository.test(
           InMemoryPeakStorage([existingPeak, syntheticPeak]),
         );
@@ -1171,9 +1185,9 @@ void main() {
         expect(updatedSyntheticPeak?.difficulty, 'T4');
         expect(importedList?.region, Peak.defaultRegion);
         expect(
-          decodePeakListItems(importedList!.peakList)
-              .map((item) => (item.peakOsmId, item.points))
-              .toList(),
+          decodePeakListItems(
+            importedList!.peakList,
+          ).map((item) => (item.peakOsmId, item.points)).toList(),
           [(101, 7), (202, 2), (101, 5), (-7, 9)],
         );
       },
@@ -1187,6 +1201,7 @@ void main() {
         latitude: -41.85916,
         longitude: 145.97754,
       ).copyWith(region: 'old-peak-region');
+      final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
       final peakListRepository = PeakListRepository.test(
         InMemoryPeakListStorage([
           PeakList(
@@ -1197,13 +1212,17 @@ void main() {
             ]),
           )..peakListId = 1,
         ]),
+        peakRepository: peakRepository,
       );
       final service = PeakListImportService(
-        peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+        peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async => _appOwnedCsv([
           _appOwnedCsvRowForPeak(
-            peak.copyWith(region: 'tasmania', sourceOfTruth: Peak.sourceOfTruthHwc),
+            peak.copyWith(
+              region: 'tasmania',
+              sourceOfTruth: Peak.sourceOfTruthHwc,
+            ),
             points: 4,
           ),
         ]),
@@ -1217,7 +1236,10 @@ void main() {
       );
 
       expect(result.updated, isTrue);
-      expect(peakListRepository.findByName('Existing Import')?.region, 'italy-nord-est');
+      expect(
+        peakListRepository.findByName('Existing Import')?.region,
+        Peak.defaultRegion,
+      );
       expect(
         decodePeakListItems(
           peakListRepository.findByName('Existing Import')!.peakList,
@@ -1277,66 +1299,75 @@ void main() {
       );
     });
 
-    test('app-owned export import validates the full file before writes', () async {
-      final peak = _buildPeak(
-        osmId: 101,
-        name: 'Original Peak',
-        elevation: 1363,
-        latitude: -41.85916,
-        longitude: 145.97754,
-      ).copyWith(sourceOfTruth: Peak.sourceOfTruthOsm);
-      final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage(),
-      );
-      final service = PeakListImportService(
-        peakRepository: peakRepository,
-        peakListRepository: peakListRepository,
-        csvLoader: (_) async => _appOwnedCsv([
-          _appOwnedCsvRowForPeak(
-            peak.copyWith(name: 'Updated Peak', sourceOfTruth: Peak.sourceOfTruthHwc),
-            points: 3,
-          ),
-          {
-            'name': 'Broken Peak',
-            'altName': '',
-            'elevation': '1200',
-            'gridZoneDesignator': '55G',
-            'mgrs100kId': 'EP',
-            'easting': '00000',
-            'northing': '50223',
-            'Points': 'oops',
-            'osmId': '202',
-            'country': 'Australia',
-            'region': 'tasmania',
-            'county': 'Kentish',
-            'range': 'Range',
-            'sourceOfTruth': Peak.sourceOfTruthOsm,
-          },
-        ]),
-        importRootLoader: () async => '/tmp/Bushwalking',
-        logWriter: (logPath, entries) async {},
-      );
+    test(
+      'app-owned export import validates the full file before writes',
+      () async {
+        final peak = _buildPeak(
+          osmId: 101,
+          name: 'Original Peak',
+          elevation: 1363,
+          latitude: -41.85916,
+          longitude: 145.97754,
+        ).copyWith(sourceOfTruth: Peak.sourceOfTruthOsm);
+        final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+        final peakListRepository = PeakListRepository.test(
+          InMemoryPeakListStorage(),
+        );
+        final service = PeakListImportService(
+          peakRepository: peakRepository,
+          peakListRepository: peakListRepository,
+          csvLoader: (_) async => _appOwnedCsv([
+            _appOwnedCsvRowForPeak(
+              peak.copyWith(
+                name: 'Updated Peak',
+                sourceOfTruth: Peak.sourceOfTruthHwc,
+              ),
+              points: 3,
+            ),
+            {
+              'name': 'Broken Peak',
+              'altName': '',
+              'elevation': '1200',
+              'gridZoneDesignator': '55G',
+              'mgrs100kId': 'EP',
+              'easting': '00000',
+              'northing': '50223',
+              'Points': 'oops',
+              'osmId': '202',
+              'country': 'Australia',
+              'region': 'tasmania',
+              'county': 'Kentish',
+              'range': 'Range',
+              'sourceOfTruth': Peak.sourceOfTruthOsm,
+            },
+          ]),
+          importRootLoader: () async => '/tmp/Bushwalking',
+          logWriter: (logPath, entries) async {},
+        );
 
-      await expectLater(
-        service.importPeakList(
-          listName: 'Atomic Import',
-          csvPath: '/tmp/atomic.csv',
-        ),
-        throwsA(
-          isA<FormatException>().having(
-            (error) => error.message,
-            'message',
-            'invalid Points "oops" on row 3 (Broken Peak)',
+        await expectLater(
+          service.importPeakList(
+            listName: 'Atomic Import',
+            csvPath: '/tmp/atomic.csv',
           ),
-        ),
-      );
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              'invalid Points "oops" on row 3 (Broken Peak)',
+            ),
+          ),
+        );
 
-      expect(peakRepository.findByOsmId(101)?.name, 'Original Peak');
-      expect(peakRepository.findByOsmId(101)?.sourceOfTruth, Peak.sourceOfTruthOsm);
-      expect(peakRepository.findByOsmId(202), isNull);
-      expect(peakListRepository.getAllPeakLists(), isEmpty);
-    });
+        expect(peakRepository.findByOsmId(101)?.name, 'Original Peak');
+        expect(
+          peakRepository.findByOsmId(101)?.sourceOfTruth,
+          Peak.sourceOfTruthOsm,
+        );
+        expect(peakRepository.findByOsmId(202), isNull);
+        expect(peakListRepository.getAllPeakLists(), isEmpty);
+      },
+    );
 
     test('old export header is rejected by the new-format importer', () async {
       final peakRepository = PeakRepository.test(InMemoryPeakStorage());

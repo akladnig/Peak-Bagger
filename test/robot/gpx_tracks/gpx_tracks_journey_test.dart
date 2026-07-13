@@ -1021,8 +1021,14 @@ void main() {
     );
     expect(robot.notifier.state.showRoutes, isTrue);
     expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
-    expect(find.byKey(const Key('route-estimated-time-naismith-row')), findsOneWidget);
-    expect(find.byKey(const Key('route-estimated-time-scarf-row')), findsOneWidget);
+    expect(
+      find.byKey(const Key('route-estimated-time-naismith-row')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('route-estimated-time-scarf-row')),
+      findsOneWidget,
+    );
     expect(
       find.descendant(
         of: find.byKey(const Key('route-estimated-time-naismith-row')),

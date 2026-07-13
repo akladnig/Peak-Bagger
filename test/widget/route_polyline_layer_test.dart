@@ -133,11 +133,7 @@ void main() {
       ),
     ];
 
-    final layer = buildRoutePolylines(
-      routes,
-      12,
-      excludedRouteId: 1,
-    );
+    final layer = buildRoutePolylines(routes, 12, excludedRouteId: 1);
 
     expect(layer.polylines, hasLength(1));
     expect(layer.polylines.single.points, routes[1].gpxRoute);

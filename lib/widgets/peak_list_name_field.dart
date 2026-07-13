@@ -22,10 +22,7 @@ class PeakListNameField extends StatelessWidget {
       key: fieldKey,
       controller: controller,
       enabled: enabled,
-      decoration: InputDecoration(
-        labelText: 'List Name',
-        errorText: errorText,
-      ),
+      decoration: InputDecoration(labelText: 'List Name', errorText: errorText),
       onChanged: onChanged,
     );
   }

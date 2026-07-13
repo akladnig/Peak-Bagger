@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart' show kSecondaryMouseButton;
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
@@ -23,44 +24,117 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
-  testWidgets('route-entry camera request is consumed when map becomes available', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
-    final notifier = await _buildRealNotifier();
-    await _pumpApp(tester, notifier);
+  testWidgets(
+    'route-entry camera request is consumed when map becomes available',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final notifier = await _buildRealNotifier();
+      await _pumpApp(tester, notifier);
 
-    router.go('/');
-    await tester.pumpAndSettle();
+      router.go('/');
+      await tester.pumpAndSettle();
 
-    final container = ProviderScope.containerOf(
-      tester.element(find.byKey(const Key('shared-app-bar'))),
-    );
-    final target = const LatLng(-41.6, 146.6);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('shared-app-bar'))),
+      );
+      final target = const LatLng(-41.6, 146.6);
 
-    container.read(mapProvider.notifier).requestCameraMove(
-      center: target,
-      zoom: MapConstants.defaultZoom,
-      selectedLocation: target,
-      updateSelectedLocation: true,
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+      container
+          .read(mapProvider.notifier)
+          .requestCameraMove(
+            center: target,
+            zoom: MapConstants.defaultZoom,
+            selectedLocation: target,
+            updateSelectedLocation: true,
+          );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
-    expect(container.read(mapProvider).cameraRequestCenter, target);
-    expect(container.read(mapProvider).cameraRequestZoom, MapConstants.defaultZoom);
+      expect(container.read(mapProvider).cameraRequestCenter, target);
+      expect(
+        container.read(mapProvider).cameraRequestZoom,
+        MapConstants.defaultZoom,
+      );
 
-    router.go('/map');
-    await tester.pumpAndSettle();
+      router.go('/map');
+      await tester.pumpAndSettle();
 
-    final state = container.read(mapProvider);
-    expect(state.cameraRequestCenter, isNull);
-    expect(state.cameraRequestZoom, isNull);
-    expect(state.center.latitude, closeTo(target.latitude, 0.000001));
-    expect(state.center.longitude, closeTo(target.longitude, 0.000001));
-    expect(state.zoom, MapConstants.defaultZoom);
-    expect(state.selectedLocation, target);
-  });
+      final state = container.read(mapProvider);
+      expect(state.cameraRequestCenter, isNull);
+      expect(state.cameraRequestZoom, isNull);
+      expect(state.center.latitude, closeTo(target.latitude, 0.000001));
+      expect(state.center.longitude, closeTo(target.longitude, 0.000001));
+      expect(state.zoom, MapConstants.defaultZoom);
+      expect(state.selectedLocation, target);
+    },
+  );
+
+  testWidgets(
+    'route-entry bounds camera request is consumed when map becomes available',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final notifier = await _buildRealNotifier();
+      await _pumpApp(tester, notifier);
+
+      router.go('/');
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('shared-app-bar'))),
+      );
+      final bounds = LatLngBounds(
+        const LatLng(-41.7, 146.4),
+        const LatLng(-41.5, 146.8),
+      );
+
+      container
+          .read(mapProvider.notifier)
+          .requestCameraFitBounds(bounds: bounds);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(container.read(mapProvider).cameraRequestBounds, bounds);
+
+      router.go('/map');
+      await tester.pumpAndSettle();
+
+      final state = container.read(mapProvider);
+      expect(state.cameraRequestBounds, isNull);
+      expect(state.center.latitude, inInclusiveRange(-41.7, -41.5));
+      expect(state.center.longitude, inInclusiveRange(146.4, 146.8));
+    },
+  );
+
+  testWidgets(
+    'collapsed bounds camera request falls back to single-point move',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final notifier = await _buildRealNotifier();
+      await _pumpApp(tester, notifier);
+
+      router.go('/');
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('shared-app-bar'))),
+      );
+      const point = LatLng(-41.6, 146.6);
+
+      container
+          .read(mapProvider.notifier)
+          .requestCameraFitBounds(bounds: LatLngBounds(point, point));
+      await tester.pump();
+
+      router.go('/map');
+      await tester.pumpAndSettle();
+
+      final state = container.read(mapProvider);
+      expect(state.cameraRequestBounds, isNull);
+      expect(state.center.latitude, closeTo(point.latitude, 0.000001));
+      expect(state.center.longitude, closeTo(point.longitude, 0.000001));
+      expect(state.zoom, MapConstants.defaultMapZoom);
+    },
+  );
 
   testWidgets('same-camera request is consumed as a no-op', (tester) async {
     SharedPreferences.setMockInitialValues({});
@@ -75,12 +149,14 @@ void main() {
     );
     final state = container.read(mapProvider);
 
-    container.read(mapProvider.notifier).requestCameraMove(
-      center: state.center,
-      zoom: state.zoom,
-      selectedLocation: state.selectedLocation,
-      updateSelectedLocation: true,
-    );
+    container
+        .read(mapProvider.notifier)
+        .requestCameraMove(
+          center: state.center,
+          zoom: state.zoom,
+          selectedLocation: state.selectedLocation,
+          updateSelectedLocation: true,
+        );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
@@ -150,41 +226,42 @@ void main() {
     expect(state.center.longitude, closeTo(target.longitude, 0.000001));
   });
 
-  testWidgets('secondary tap recenters through the direct controller-owned path', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
-    final notifier = await _buildRealNotifier();
-    await _pumpApp(tester, notifier);
+  testWidgets(
+    'secondary tap recenters through the direct controller-owned path',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final notifier = await _buildRealNotifier();
+      await _pumpApp(tester, notifier);
 
-    router.go('/map');
-    await tester.pumpAndSettle();
+      router.go('/map');
+      await tester.pumpAndSettle();
 
-    final container = ProviderScope.containerOf(
-      tester.element(find.byKey(const Key('shared-app-bar'))),
-    );
-    final region = find.byKey(const Key('map-interaction-region'));
-    const target = LatLng(-41.6, 146.6);
-    final serialBefore = container.read(mapProvider).cameraRequestSerial;
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('shared-app-bar'))),
+      );
+      final region = find.byKey(const Key('map-interaction-region'));
+      const target = LatLng(-41.6, 146.6);
+      final serialBefore = container.read(mapProvider).cameraRequestSerial;
 
-    container.read(mapProvider.notifier).setSelectedLocation(target);
-    await tester.pump();
+      container.read(mapProvider.notifier).setSelectedLocation(target);
+      await tester.pump();
 
-    final gesture = await tester.startGesture(
-      tester.getCenter(region),
-      kind: PointerDeviceKind.mouse,
-      buttons: kSecondaryMouseButton,
-    );
-    await gesture.up();
-    await tester.pump();
+      final gesture = await tester.startGesture(
+        tester.getCenter(region),
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await gesture.up();
+      await tester.pump();
 
-    final state = container.read(mapProvider);
-    expect(state.cameraRequestSerial, serialBefore);
-    expect(state.cameraRequestCenter, isNull);
-    expect(state.cameraRequestZoom, isNull);
-    expect(state.center.latitude, closeTo(target.latitude, 0.000001));
-    expect(state.center.longitude, closeTo(target.longitude, 0.000001));
-  });
+      final state = container.read(mapProvider);
+      expect(state.cameraRequestSerial, serialBefore);
+      expect(state.cameraRequestCenter, isNull);
+      expect(state.cameraRequestZoom, isNull);
+      expect(state.center.latitude, closeTo(target.latitude, 0.000001));
+      expect(state.center.longitude, closeTo(target.longitude, 0.000001));
+    },
+  );
 
   testWidgets('visible-map goto uses the direct camera path', (tester) async {
     SharedPreferences.setMockInitialValues({});
@@ -215,47 +292,48 @@ void main() {
     expect(state.cameraRequestZoom, isNull);
   });
 
-  testWidgets('selected-map goto keeps fit-derived zoom without request replay', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
-    final repository = await TestTasmapRepository.create();
-    final notifier = await _buildRealNotifier(repository: repository);
-    await _pumpApp(tester, notifier, repository: repository);
+  testWidgets(
+    'selected-map goto keeps fit-derived zoom without request replay',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final repository = await TestTasmapRepository.create();
+      final notifier = await _buildRealNotifier(repository: repository);
+      await _pumpApp(tester, notifier, repository: repository);
 
-    router.go('/map');
-    await tester.pumpAndSettle();
+      router.go('/map');
+      await tester.pumpAndSettle();
 
-    final container = ProviderScope.containerOf(
-      tester.element(find.byKey(const Key('shared-app-bar'))),
-    );
-    final map = repository.getAllMaps().first;
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('shared-app-bar'))),
+      );
+      final map = repository.getAllMaps().first;
 
-    container.read(mapProvider.notifier).selectMap(map);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+      container.read(mapProvider.notifier).selectMap(map);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
-    final zoomBeforeGoto = container.read(mapProvider).zoom;
-    final serialBefore = container.read(mapProvider).cameraRequestSerial;
+      final zoomBeforeGoto = container.read(mapProvider).zoom;
+      final serialBefore = container.read(mapProvider).cameraRequestSerial;
 
-    container.read(mapProvider.notifier).toggleGotoInput();
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('goto-map-input')),
-      'Adamsons 80000 95000',
-    );
-    await tester.pump();
-    await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pumpAndSettle();
+      container.read(mapProvider.notifier).toggleGotoInput();
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('goto-map-input')),
+        'Adamsons 80000 95000',
+      );
+      await tester.pump();
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
 
-    final state = container.read(mapProvider);
-    expect(state.cameraRequestSerial, serialBefore);
-    expect(state.cameraRequestCenter, isNull);
-    expect(state.cameraRequestZoom, isNull);
-    expect(state.zoom, closeTo(zoomBeforeGoto, 0.000001));
-    expect(state.selectedLocation, isNotNull);
-    expect(state.selectedMap?.name, 'Adamsons');
-  });
+      final state = container.read(mapProvider);
+      expect(state.cameraRequestSerial, serialBefore);
+      expect(state.cameraRequestCenter, isNull);
+      expect(state.cameraRequestZoom, isNull);
+      expect(state.zoom, closeTo(zoomBeforeGoto, 0.000001));
+      expect(state.selectedLocation, isNotNull);
+      expect(state.selectedMap?.name, 'Adamsons');
+    },
+  );
 }
 
 Future<MapNotifier> _buildRealNotifier({
@@ -266,7 +344,9 @@ Future<MapNotifier> _buildRealNotifier({
     overpassService: OverpassService(),
     tasmapRepository: repository ?? await TestTasmapRepository.create(),
     gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
-    peaksBaggedRepository: PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
+    peaksBaggedRepository: PeaksBaggedRepository.test(
+      InMemoryPeaksBaggedStorage(),
+    ),
     migrationMarkerStore: const MigrationMarkerStore(),
     loadPositionOnBuild: false,
     loadPeaksOnBuild: false,

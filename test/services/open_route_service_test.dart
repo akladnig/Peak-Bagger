@@ -36,9 +36,7 @@ void main() {
   test('fails closed when API key is missing', () async {
     final service = HttpOpenRouteService(
       apiKey: '',
-      client: _FakeHttpClient(
-        (request) async => http.Response('{}', 200),
-      ),
+      client: _FakeHttpClient((request) async => http.Response('{}', 200)),
     );
 
     await expectLater(
@@ -53,9 +51,7 @@ void main() {
   test('maps non-200 responses into app-owned failure', () async {
     final service = HttpOpenRouteService(
       apiKey: 'key',
-      client: _FakeHttpClient(
-        (request) async => http.Response('nope', 429),
-      ),
+      client: _FakeHttpClient((request) async => http.Response('nope', 429)),
     );
 
     await expectLater(
@@ -88,12 +84,10 @@ void main() {
     final service = HttpOpenRouteService(
       apiKey: 'key',
       timeout: const Duration(milliseconds: 1),
-      client: _FakeHttpClient(
-        (request) async {
-          await Future<void>.delayed(const Duration(milliseconds: 50));
-          return http.Response('{}', 200);
-        },
-      ),
+      client: _FakeHttpClient((request) async {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        return http.Response('{}', 200);
+      }),
     );
 
     await expectLater(

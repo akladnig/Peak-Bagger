@@ -42,7 +42,8 @@ class DriveEtaRobot {
   }) : _routeRepository =
            routeRepository ?? RouteRepository.test(InMemoryRouteStorage()),
        _gpxTrackRepository =
-           gpxTrackRepository ?? GpxTrackRepository.test(InMemoryGpxTrackStorage());
+           gpxTrackRepository ??
+           GpxTrackRepository.test(InMemoryGpxTrackStorage());
 
   final WidgetTester tester;
   final MapState initialState;
@@ -58,8 +59,10 @@ class DriveEtaRobot {
       find.byKey(const Key('map-interaction-region'));
   Finder get popupRoot => find.byKey(const Key('drive-eta-popup-root'));
   Finder get loadingState => find.byKey(const Key('drive-eta-popup-loading'));
-  Finder get durationRow => find.byKey(const Key('drive-eta-popup-duration-row'));
-  Finder get distanceRow => find.byKey(const Key('drive-eta-popup-distance-row'));
+  Finder get durationRow =>
+      find.byKey(const Key('drive-eta-popup-duration-row'));
+  Finder get distanceRow =>
+      find.byKey(const Key('drive-eta-popup-distance-row'));
 
   Future<void> pumpApp() async {
     await tester.binding.setSurfaceSize(const Size(1600, 900));
@@ -86,7 +89,9 @@ class DriveEtaRobot {
             PeakListRepository.test(InMemoryPeakListStorage()),
           ),
           tasmapRepositoryProvider.overrideWithValue(_tasmapRepository),
-          tasmapStateProvider.overrideWith(() => TestTasmapNotifier(_tasmapRepository)),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(_tasmapRepository),
+          ),
           gpxTrackRepositoryProvider.overrideWithValue(_gpxTrackRepository),
           liveLocationServiceProvider.overrideWithValue(
             const _FakeLiveLocationService(LatLng(-41.6, 146.6)),
@@ -132,7 +137,10 @@ class DriveEtaRobot {
     }
   }
 
-  void completeRoute({required double distanceMeters, required int durationSeconds}) {
+  void completeRoute({
+    required double distanceMeters,
+    required int durationSeconds,
+  }) {
     _summaryCompleter.complete(
       OpenRouteServiceSummary(
         distanceMeters: distanceMeters,
@@ -235,7 +243,8 @@ class _DriveEtaRouteGraphStore
   Future<void> bootstrapData() async {}
 
   @override
-  Future<trip_routing.TripService> preload() async => trip_routing.TripService();
+  Future<trip_routing.TripService> preload() async =>
+      trip_routing.TripService();
 
   @override
   Future<trip_routing.TripService> reload() async => trip_routing.TripService();

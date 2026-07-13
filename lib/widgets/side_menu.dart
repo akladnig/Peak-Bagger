@@ -58,10 +58,7 @@ class SideMenu extends StatelessWidget {
       return child;
     }
 
-    return Container(
-      key: Key(destination.legacyKeyName!),
-      child: child,
-    );
+    return Container(key: Key(destination.legacyKeyName!), child: child);
   }
 }
 

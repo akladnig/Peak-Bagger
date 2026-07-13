@@ -273,17 +273,13 @@ void main() {
       expect(
         tooltipTextWidgets[1].style?.color,
         lighten(
-          MyTheme.light
-              .extension<ChartSeriesTheme>()!
-              .primarySeriesColor,
+          MyTheme.light.extension<ChartSeriesTheme>()!.primarySeriesColor,
         ),
       );
       expect(
         tooltipTextWidgets[2].style?.color,
         lighten(
-          MyTheme.light
-              .extension<ChartSeriesTheme>()!
-              .secondarySeriesColor,
+          MyTheme.light.extension<ChartSeriesTheme>()!.secondarySeriesColor,
         ),
       );
     });

@@ -49,40 +49,41 @@ void main() {
     },
   );
 
-  testWidgets('track speed analysis journey disables retry while rerun is active', (
-    tester,
-  ) async {
-    final retryLoad = Completer<TrackSpeedAnalysisReport>();
-    final robot = TrackSpeedAnalysisRobot(
-      tester,
-      _baseState(),
-      analysisOutcomes: [
-        (_) => Future<TrackSpeedAnalysisReport>.error(
-          Exception('Local analysis blew up'),
-        ),
-        (_) => retryLoad.future,
-      ],
-    );
+  testWidgets(
+    'track speed analysis journey disables retry while rerun is active',
+    (tester) async {
+      final retryLoad = Completer<TrackSpeedAnalysisReport>();
+      final robot = TrackSpeedAnalysisRobot(
+        tester,
+        _baseState(),
+        analysisOutcomes: [
+          (_) => Future<TrackSpeedAnalysisReport>.error(
+            Exception('Local analysis blew up'),
+          ),
+          (_) => retryLoad.future,
+        ],
+      );
 
-    await robot.pumpApp();
-    await robot.openTrackSpeedAnalysis();
-    await robot.waitForSettledUi();
+      await robot.pumpApp();
+      await robot.openTrackSpeedAnalysis();
+      await robot.waitForSettledUi();
 
-    robot.expectErrorVisible('Local analysis blew up');
-    robot.expectRetryEnabled();
+      robot.expectErrorVisible('Local analysis blew up');
+      robot.expectRetryEnabled();
 
-    await robot.tapRetry();
+      await robot.tapRetry();
 
-    robot.expectRetryDisabled();
-    robot.expectRefreshProgressVisible();
+      robot.expectRetryDisabled();
+      robot.expectRefreshProgressVisible();
 
-    retryLoad.complete(_sampleReport());
-    await robot.waitForSettledUi();
+      retryLoad.complete(_sampleReport());
+      await robot.waitForSettledUi();
 
-    robot.expectReportVisible();
-    robot.expectRefreshProgressHidden();
-    expect(robot.runnerCallCount, 2);
-  });
+      robot.expectReportVisible();
+      robot.expectRefreshProgressHidden();
+      expect(robot.runnerCallCount, 2);
+    },
+  );
 }
 
 MapState _baseState() {

@@ -28,14 +28,18 @@ class PeakOwnershipRingSettingsNotifier extends Notifier<bool> {
     _hasUserOverride = true;
     state = value;
     try {
-      final prefs = await ref.read(peakOwnershipRingPreferencesLoaderProvider)();
+      final prefs = await ref.read(
+        peakOwnershipRingPreferencesLoaderProvider,
+      )();
       await prefs.setBool(peakOwnershipRingKey, value);
     } catch (_) {}
   }
 
   Future<void> _hydrate() async {
     try {
-      final prefs = await ref.read(peakOwnershipRingPreferencesLoaderProvider)();
+      final prefs = await ref.read(
+        peakOwnershipRingPreferencesLoaderProvider,
+      )();
       if (_hasUserOverride) {
         return;
       }

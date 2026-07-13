@@ -309,7 +309,9 @@ class GpxImporter {
 
       final simplifiedRoutePoints = _simplifyRoutePoints(routePoints);
       final timingProfile = buildProfileFromTimestamps(
-        simplifiedRoutePoints.map((point) => point.time).toList(growable: false),
+        simplifiedRoutePoints
+            .map((point) => point.time)
+            .toList(growable: false),
       );
       final movingTimeMillis = timingProfile.isEmpty
           ? null
@@ -325,13 +327,11 @@ class GpxImporter {
             .map((point) => point.ele?.round())
             .toList(growable: false),
         routeWaypoints: _extractRouteWaypoints(doc),
-        displayRoutePointsByZoom: TrackDisplayCacheBuilder.buildJson(
-          [
-            simplifiedRoutePoints
-                .map((point) => point.location)
-                .toList(growable: false),
-          ],
-        ),
+        displayRoutePointsByZoom: TrackDisplayCacheBuilder.buildJson([
+          simplifiedRoutePoints
+              .map((point) => point.location)
+              .toList(growable: false),
+        ]),
         estimatedTime: movingTimeMillis,
         routeTimingSource: movingTimeMillis == null
             ? null
@@ -359,8 +359,7 @@ class GpxImporter {
       return null;
     }
 
-    final buffer = StringBuffer()
-      ..write('<gpx><trk><trkseg>');
+    final buffer = StringBuffer()..write('<gpx><trk><trkseg>');
     for (final point in points) {
       final time = point.time;
       if (time == null) {

@@ -67,7 +67,10 @@ void main() {
     final border = decoration.border! as Border;
     expect(border.top.width, RouteUI.strokeWidth);
     expect(border.top.color, isNot(Colors.green));
-    expect(border.top.color, Color.lerp(Colors.green, Colors.black, RouteUI.strokeDarkenAlpha));
+    expect(
+      border.top.color,
+      Color.lerp(Colors.green, Colors.black, RouteUI.strokeDarkenAlpha),
+    );
 
     final label = tester.widget<Text>(
       find.byKey(const Key('route-marker-numbered-label')),

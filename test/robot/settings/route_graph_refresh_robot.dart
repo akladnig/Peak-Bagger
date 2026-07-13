@@ -129,7 +129,8 @@ class ReadyRouteGraphStore implements RouteGraphStore {
   Future<void> bootstrapData() async {}
 
   @override
-  Future<trip_routing.TripService> preload() async => trip_routing.TripService();
+  Future<trip_routing.TripService> preload() async =>
+      trip_routing.TripService();
 
   @override
   Future<trip_routing.TripService> reload() async => trip_routing.TripService();

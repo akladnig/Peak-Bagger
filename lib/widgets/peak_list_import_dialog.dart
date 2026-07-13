@@ -14,10 +14,8 @@ typedef PeakListImportRunner =
       required String csvPath,
     });
 
-typedef PeakListImportStarter = Future<bool> Function({
-  required String listName,
-  required String csvPath,
-});
+typedef PeakListImportStarter =
+    Future<bool> Function({required String listName, required String csvPath});
 
 class PeakListImportPresentationResult {
   const PeakListImportPresentationResult({
@@ -224,7 +222,10 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
         return;
       }
       rootNavigator.pop();
-      await _showFailureDialog(rootNavigator.context, _formatImportError(error));
+      await _showFailureDialog(
+        rootNavigator.context,
+        _formatImportError(error),
+      );
     } finally {
       if (mounted && _isImporting) {
         setState(() {

@@ -13,9 +13,15 @@ void main() {
     final container = ProviderContainer();
     addTearDown(container.dispose);
 
-    expect(container.read(openRouteServiceApiKeyProvider), defaultOpenRouteServiceApiKey);
+    expect(
+      container.read(openRouteServiceApiKeyProvider),
+      defaultOpenRouteServiceApiKey,
+    );
     await _drainAsync();
-    expect(container.read(openRouteServiceApiKeyProvider), defaultOpenRouteServiceApiKey);
+    expect(
+      container.read(openRouteServiceApiKeyProvider),
+      defaultOpenRouteServiceApiKey,
+    );
   });
 
   test('persists updated ORS key in memory', () async {

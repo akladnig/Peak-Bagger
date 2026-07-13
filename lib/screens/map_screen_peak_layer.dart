@@ -159,7 +159,8 @@ class PeakViewportPainter extends CustomPainter {
       final center = candidate.screenPosition;
       if (candidate.ownershipRingSegments.isNotEmpty) {
         final ringRect = Rect.fromCircle(center: center, radius: 11);
-        final sweepAngle = (math.pi * 2) / candidate.ownershipRingSegments.length;
+        final sweepAngle =
+            (math.pi * 2) / candidate.ownershipRingSegments.length;
         var startAngle = -math.pi / 2;
         for (final segment in candidate.ownershipRingSegments) {
           individualRingPaint.color = Color(segment.colourValue);
@@ -233,13 +234,7 @@ class PeakViewportPainter extends CustomPainter {
         final untickedSegments = cluster.untickedOwnershipRingSegments;
         var segmentStartAngle = startAngle;
         if (untickedSegments.isEmpty) {
-          canvas.drawArc(
-            ringRect,
-            startAngle,
-            totalSweep,
-            false,
-            tickedRing,
-          );
+          canvas.drawArc(ringRect, startAngle, totalSweep, false, tickedRing);
         } else {
           final untickedSweep = totalSweep * cluster.untickedFraction;
           final perSegmentSweep = untickedSweep / untickedSegments.length;

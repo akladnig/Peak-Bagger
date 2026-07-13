@@ -58,10 +58,7 @@ void main() {
     });
 
     test('allows overriding decimal places', () {
-      expect(
-        formatCoordinate(-42.1234567, decimalPlaces: 8),
-        '-42.12345670',
-      );
+      expect(formatCoordinate(-42.1234567, decimalPlaces: 8), '-42.12345670');
     });
   });
 

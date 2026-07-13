@@ -52,7 +52,9 @@ void main() {
     await tester.pump();
 
     expect(
-      tester.widget<Switch>(find.byKey(const Key('show-polygons-switch'))).value,
+      tester
+          .widget<Switch>(find.byKey(const Key('show-polygons-switch')))
+          .value,
       isFalse,
     );
 
@@ -60,12 +62,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      tester.widget<Switch>(find.byKey(const Key('show-polygons-switch'))).value,
+      tester
+          .widget<Switch>(find.byKey(const Key('show-polygons-switch')))
+          .value,
       isTrue,
     );
     expect(
-      ProviderScope.containerOf(tester.element(find.byType(SettingsScreen)))
-          .read(showPolygonsSettingsProvider),
+      ProviderScope.containerOf(
+        tester.element(find.byType(SettingsScreen)),
+      ).read(showPolygonsSettingsProvider),
       isTrue,
     );
 
@@ -88,7 +93,9 @@ void main() {
     await tester.pump();
 
     expect(
-      tester.widget<Switch>(find.byKey(const Key('show-polygons-switch'))).value,
+      tester
+          .widget<Switch>(find.byKey(const Key('show-polygons-switch')))
+          .value,
       isTrue,
     );
   });

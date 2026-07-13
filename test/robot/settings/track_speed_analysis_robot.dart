@@ -21,9 +21,12 @@ class TrackSpeedAnalysisRobot {
   TrackSpeedAnalysisRobot(
     this.tester,
     MapState initialState, {
-    required List<Future<TrackSpeedAnalysisReport> Function(
-      void Function(TrackSpeedAnalysisProgress progress)? onProgress,
-    )> analysisOutcomes,
+    required List<
+      Future<TrackSpeedAnalysisReport> Function(
+        void Function(TrackSpeedAnalysisProgress progress)? onProgress,
+      )
+    >
+    analysisOutcomes,
   }) : repositoryFuture = TestTasmapRepository.create(),
        notifier = TestPeakNotifier(initialState),
        _runner = _FakeTrackSpeedAnalysisRunner(analysisOutcomes);
@@ -156,18 +159,25 @@ class TrackSpeedAnalysisRobot {
 
 class _FakeTrackSpeedAnalysisRunner implements TrackSpeedAnalysisRunner {
   _FakeTrackSpeedAnalysisRunner(
-    List<Future<TrackSpeedAnalysisReport> Function(
-      void Function(TrackSpeedAnalysisProgress progress)? onProgress,
-    )> outcomes,
-  ) : _outcomes = List<Future<TrackSpeedAnalysisReport> Function(
-         void Function(TrackSpeedAnalysisProgress progress)? onProgress,
-       )>.from(
-         outcomes,
-       );
+    List<
+      Future<TrackSpeedAnalysisReport> Function(
+        void Function(TrackSpeedAnalysisProgress progress)? onProgress,
+      )
+    >
+    outcomes,
+  ) : _outcomes =
+          List<
+            Future<TrackSpeedAnalysisReport> Function(
+              void Function(TrackSpeedAnalysisProgress progress)? onProgress,
+            )
+          >.from(outcomes);
 
-  final List<Future<TrackSpeedAnalysisReport> Function(
-    void Function(TrackSpeedAnalysisProgress progress)? onProgress,
-  )> _outcomes;
+  final List<
+    Future<TrackSpeedAnalysisReport> Function(
+      void Function(TrackSpeedAnalysisProgress progress)? onProgress,
+    )
+  >
+  _outcomes;
   int callCount = 0;
 
   @override
@@ -182,7 +192,9 @@ class _FakeTrackSpeedAnalysisRunner implements TrackSpeedAnalysisRunner {
 
     final next = _outcomes[callCount];
     callCount += 1;
-    onProgress?.call(const TrackSpeedAnalysisProgress(processedTracks: 0, totalTracks: 1));
+    onProgress?.call(
+      const TrackSpeedAnalysisProgress(processedTracks: 0, totalTracks: 1),
+    );
     return next(onProgress);
   }
 }
@@ -192,7 +204,8 @@ class _ReadyRouteGraphStore implements RouteGraphStore {
   Future<void> bootstrapData() async {}
 
   @override
-  Future<trip_routing.TripService> preload() async => trip_routing.TripService();
+  Future<trip_routing.TripService> preload() async =>
+      trip_routing.TripService();
 
   @override
   Future<trip_routing.TripService> reload() async => trip_routing.TripService();

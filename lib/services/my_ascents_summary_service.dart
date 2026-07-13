@@ -61,10 +61,7 @@ class MyAscentsRow {
 class MyAscentsSummaryService {
   const MyAscentsSummaryService();
 
-  MyAscentsSummary build(
-    MyAscentsDataset dataset, {
-    required bool ascending,
-  }) {
+  MyAscentsSummary build(MyAscentsDataset dataset, {required bool ascending}) {
     if (dataset.isEmpty) {
       return const MyAscentsSummary.empty();
     }
@@ -95,10 +92,7 @@ class MyAscentsSummaryService {
 
       sections[sections.length - 1] = MyAscentsYearSection(
         year: currentSection.year,
-        rows: [
-          ...currentSection.rows,
-          row,
-        ],
+        rows: [...currentSection.rows, row],
       );
       currentSection = sections.last;
     }

@@ -5,11 +5,7 @@ import 'package:peak_bagger/widgets/peak_selected_peaks_list.dart';
 
 void main() {
   testWidgets('renders row keys and default points', (tester) async {
-    await tester.pumpWidget(
-      _Harness(
-        selectedPeaks: [_peak(1, 'Alpha Peak')],
-      ),
-    );
+    await tester.pumpWidget(_Harness(selectedPeaks: [_peak(1, 'Alpha Peak')]));
 
     expect(find.byKey(const Key('peak-selected-row-1')), findsOneWidget);
     expect(find.byKey(const Key('peak-selected-checkbox-1')), findsOneWidget);
@@ -23,12 +19,10 @@ void main() {
     );
   });
 
-  testWidgets('typing points clamps and keeps the row selected', (tester) async {
-    await tester.pumpWidget(
-      _Harness(
-        selectedPeaks: [_peak(1, 'Alpha Peak')],
-      ),
-    );
+  testWidgets('typing points clamps and keeps the row selected', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_Harness(selectedPeaks: [_peak(1, 'Alpha Peak')]));
 
     await tester.enterText(
       find.byKey(const Key('peak-selected-points-1')),
@@ -44,16 +38,20 @@ void main() {
       '10',
     );
     expect(
-      tester.widget<Checkbox>(find.byKey(const Key('peak-selected-checkbox-1'))).value,
+      tester
+          .widget<Checkbox>(find.byKey(const Key('peak-selected-checkbox-1')))
+          .value,
       isTrue,
     );
     expect(
       tester
           .widget<Container>(
-            find.descendant(
-              of: find.byKey(const Key('peak-selected-row-1')),
-              matching: find.byType(Container),
-            ).first,
+            find
+                .descendant(
+                  of: find.byKey(const Key('peak-selected-row-1')),
+                  matching: find.byType(Container),
+                )
+                .first,
           )
           .color,
       Colors.green.withValues(alpha: 0.12),
@@ -61,11 +59,7 @@ void main() {
   });
 
   testWidgets('tapping the checkbox removes the selected row', (tester) async {
-    await tester.pumpWidget(
-      _Harness(
-        selectedPeaks: [_peak(1, 'Alpha Peak')],
-      ),
-    );
+    await tester.pumpWidget(_Harness(selectedPeaks: [_peak(1, 'Alpha Peak')]));
 
     await tester.tap(find.byKey(const Key('peak-selected-checkbox-1')));
     await tester.pumpAndSettle();
@@ -75,9 +69,7 @@ void main() {
 
   testWidgets('unknown height renders as a long dash', (tester) async {
     await tester.pumpWidget(
-      _Harness(
-        selectedPeaks: [_peak(1, 'Alpha Peak', elevation: null)],
-      ),
+      _Harness(selectedPeaks: [_peak(1, 'Alpha Peak', elevation: null)]),
     );
 
     expect(find.text('—'), findsOneWidget);

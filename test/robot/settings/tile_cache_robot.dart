@@ -12,7 +12,7 @@ import '../../harness/test_tasmap_repository.dart';
 
 class TileCacheRobot {
   TileCacheRobot(this.tester, this.repository)
-      : tasmapNotifier = TestTasmapNotifier(repository);
+    : tasmapNotifier = TestTasmapNotifier(repository);
 
   final WidgetTester tester;
   final TestTasmapRepository repository;
@@ -100,10 +100,7 @@ class TileCacheRobot {
 
   void expectSelectedMap(String name) {
     expect(
-      find.descendant(
-        of: tileCacheSelectedMapChip,
-        matching: find.text(name),
-      ),
+      find.descendant(of: tileCacheSelectedMapChip, matching: find.text(name)),
       findsOneWidget,
     );
   }

@@ -39,7 +39,9 @@ class HttpOpenRouteService implements OpenRouteService {
   }) : _client = client ?? http.Client(),
        _endpoint =
            endpoint ??
-           Uri.parse('https://api.openrouteservice.org/v2/directions/driving-car');
+           Uri.parse(
+             'https://api.openrouteservice.org/v2/directions/driving-car',
+           );
 
   final String _apiKey;
   final http.Client _client;
@@ -79,7 +81,9 @@ class HttpOpenRouteService implements OpenRouteService {
         'OpenRouteService request timed out',
       );
     } catch (error) {
-      throw OpenRouteServiceException('OpenRouteService request failed: $error');
+      throw OpenRouteServiceException(
+        'OpenRouteService request failed: $error',
+      );
     }
 
     if (response.statusCode != 200) {
@@ -97,7 +101,9 @@ class HttpOpenRouteService implements OpenRouteService {
 
     final routes = decoded['routes'];
     if (routes is! List || routes.isEmpty) {
-      throw const OpenRouteServiceException('OpenRouteService returned no routes');
+      throw const OpenRouteServiceException(
+        'OpenRouteService returned no routes',
+      );
     }
 
     final firstRoute = routes.first;

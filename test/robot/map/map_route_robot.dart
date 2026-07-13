@@ -43,7 +43,7 @@ class MapRouteRobot {
     RouteRepository? routeRepository,
     this.routeGraphStore,
   }) : routeRepository =
-            routeRepository ?? RouteRepository.test(InMemoryRouteStorage());
+           routeRepository ?? RouteRepository.test(InMemoryRouteStorage());
 
   final WidgetTester tester;
   final MapState initialState;
@@ -61,8 +61,10 @@ class MapRouteRobot {
       find.byKey(const Key('map-interaction-region'));
   Finder get createRouteFab => find.byKey(const Key('create-route-fab'));
   Finder get routeSaveButton => find.byKey(const Key('route-save-button'));
-  Finder get routeToPeakButton => find.byKey(const Key('route-mode-route-to-peak'));
-  Finder get outAndBackButton => find.byKey(const Key('route-mode-out-and-back'));
+  Finder get routeToPeakButton =>
+      find.byKey(const Key('route-mode-route-to-peak'));
+  Finder get outAndBackButton =>
+      find.byKey(const Key('route-mode-out-and-back'));
   Finder get closeLoopButton => find.byKey(const Key('route-mode-close-loop'));
   Finder get undoButton => find.byKey(const Key('route-undo-button'));
   Finder get redoButton => find.byKey(const Key('route-redo-button'));
@@ -107,7 +109,9 @@ class MapRouteRobot {
       tasmapRepository: _tasmapRepository,
       gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
       routeRepository: routeRepository,
-      routeElevationSampler: _QueueRouteElevationSampler(routeElevationOutcomes),
+      routeElevationSampler: _QueueRouteElevationSampler(
+        routeElevationOutcomes,
+      ),
       routePlanner: _QueueRoutePlanner(routePlanningOutcomes),
       peaksBaggedRepository: PeaksBaggedRepository.test(
         InMemoryPeaksBaggedStorage(),
@@ -232,7 +236,10 @@ class MapRouteRobot {
   }
 
   void expectRouteSegmentPreview(int segmentIndex) {
-    expect(find.byKey(Key('route-draft-segment-hover-$segmentIndex')), findsOneWidget);
+    expect(
+      find.byKey(Key('route-draft-segment-hover-$segmentIndex')),
+      findsOneWidget,
+    );
     expect(
       tester.widget<MouseRegion>(mapInteractionRegion).cursor,
       SystemMouseCursors.click,
@@ -444,7 +451,8 @@ class _ReadyRouteGraphStore implements RouteGraphStore {
   Future<void> bootstrapData() async {}
 
   @override
-  Future<trip_routing.TripService> preload() async => trip_routing.TripService();
+  Future<trip_routing.TripService> preload() async =>
+      trip_routing.TripService();
 
   @override
   Future<trip_routing.TripService> reload() async => trip_routing.TripService();
@@ -456,7 +464,8 @@ class _ReadyRouteGraphStore implements RouteGraphStore {
   Future<File> snapshotFile() => throw UnimplementedError();
 }
 
-class TrailRouteGraphStore implements RouteGraphStore, RouteGraphRepositoryProvider {
+class TrailRouteGraphStore
+    implements RouteGraphStore, RouteGraphRepositoryProvider {
   @override
   Future<void> bootstrapData() async {}
 
@@ -477,7 +486,8 @@ class TrailRouteGraphStore implements RouteGraphStore, RouteGraphRepositoryProvi
               maxLat: -41.0,
               maxLon: 147.0,
               elementCount: 3,
-              payloadJson: '{"elements":[{"type":"node","id":1,"lat":-41.5,"lon":146.5},{"type":"node","id":2,"lat":-41.55,"lon":146.55},{"type":"way","id":10,"nodes":[1,2],"tags":{"highway":"path"}}]}',
+              payloadJson:
+                  '{"elements":[{"type":"node","id":1,"lat":-41.5,"lon":146.5},{"type":"node","id":2,"lat":-41.55,"lon":146.55},{"type":"way","id":10,"nodes":[1,2],"tags":{"highway":"path"}}]}',
             ),
           ],
           wayIndexRows: [

@@ -4,11 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/migration_marker_store.dart';
 import 'package:peak_bagger/services/peak_region_asset_import_service.dart';
 import 'package:peak_bagger/services/peak_region_import_marker_store.dart';
+import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
@@ -107,6 +110,88 @@ void main() {
       });
       expect(state.basemap, Basemap.tracestrack);
       expect(state.center, MapConstants.defaultCenter);
+    },
+  );
+
+  test(
+    'startup backfills stored peak-list bounds and mixed classification',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final peakRepository = PeakRepository.test(
+        InMemoryPeakStorage([
+          Peak(
+            id: 7,
+            osmId: 1,
+            name: 'FVG Peak',
+            latitude: 46.4084,
+            longitude: 13.0475,
+            region: 'fvg',
+          ),
+          Peak(
+            id: 8,
+            osmId: 2,
+            name: 'Veneto Peak',
+            latitude: 45.7332,
+            longitude: 10.8061,
+            region: 'veneto',
+          ),
+        ]),
+      );
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(
+            name: 'Italy North East',
+            region: Peak.defaultRegion,
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 1, points: 1),
+              const PeakListItem(peakOsmId: 2, points: 1),
+            ]),
+          )..peakListId = 1,
+        ]),
+        peakRepository: peakRepository,
+      );
+      final notifier = MapNotifier(
+        peakRepository: peakRepository,
+        overpassService: TestPeakOverpassService(),
+        peakRegionAssetImportService: PeakRegionAssetImportService(
+          assetLoader: _assetLoader({
+            PeakRegionAssetImportService.manifestAssetPath: jsonEncode({}),
+          }),
+        ),
+        tasmapRepository: await TestTasmapRepository.create(),
+        gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+        routeRepository: RouteRepository.test(InMemoryRouteStorage()),
+        routeElevationSampler: const NoopRouteElevationSampler(),
+        routePlanner: _NoopRoutePlanner(),
+        peaksBaggedRepository: PeaksBaggedRepository.test(
+          InMemoryPeaksBaggedStorage(),
+        ),
+        migrationMarkerStore: const MigrationMarkerStore(),
+        loadPositionOnBuild: false,
+        loadTracksOnBuild: false,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(() => notifier),
+          peakListRepositoryProvider.overrideWithValue(peakListRepository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.read(mapProvider);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      final updated = peakListRepository.findById(1)!;
+      expect(updated.region, PeakList.mixedRegion);
+      expect(updated.minLat, 45.7332);
+      expect(updated.maxLat, 46.4084);
+      expect(updated.minLng, 10.8061);
+      expect(updated.maxLng, 13.0475);
+      expect(
+        await const MigrationMarkerStore().isPeakListCoverageBackfillMarked(),
+        isTrue,
+      );
     },
   );
 }

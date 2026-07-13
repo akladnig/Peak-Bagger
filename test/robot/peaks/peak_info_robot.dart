@@ -127,12 +127,14 @@ class PeakInfoRobot {
     List overrides = const [],
   }) async {
     final resolvedPeakListRepository =
-        peakListRepository ?? PeakListRepository.test(InMemoryPeakListStorage());
+        peakListRepository ??
+        PeakListRepository.test(InMemoryPeakListStorage());
     final resolvedPeaksBaggedRepository =
         peaksBaggedRepository ??
         PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage());
     final resolvedGpxTrackRepository =
-        gpxTrackRepository ?? GpxTrackRepository.test(InMemoryGpxTrackStorage());
+        gpxTrackRepository ??
+        GpxTrackRepository.test(InMemoryGpxTrackStorage());
     final resolvedTasmapRepository =
         tasmapRepository ?? await TestTasmapRepository.create();
     await tester.pumpWidget(

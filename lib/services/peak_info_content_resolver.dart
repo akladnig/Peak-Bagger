@@ -127,10 +127,7 @@ List<PeakInfoAscentRow> _resolvePeakAscentRows({
         _ResolvedPeakInfoAscentRow(
           gpxId: ascent.gpxId,
           date: ascent.date,
-          trackLabel: _resolveTrackLabel(
-            ascent.gpxId,
-            gpxTrackRepository,
-          ),
+          trackLabel: _resolveTrackLabel(ascent.gpxId, gpxTrackRepository),
         ),
       );
     }
@@ -161,14 +158,14 @@ List<PeakInfoAscentRow> _resolvePeakAscentRows({
   }
 }
 
-String _resolveTrackLabel(
-  int gpxId,
-  GpxTrackRepository gpxTrackRepository,
-) {
+String _resolveTrackLabel(int gpxId, GpxTrackRepository gpxTrackRepository) {
   try {
-    final trackName = gpxTrackRepository.findById(gpxId)?.trackName.trim() ?? '';
+    final trackName =
+        gpxTrackRepository.findById(gpxId)?.trackName.trim() ?? '';
     if (trackName.isNotEmpty) {
-      final cleanedTrackName = trackName.replaceFirst(_trackNameDateSuffix, '').trim();
+      final cleanedTrackName = trackName
+          .replaceFirst(_trackNameDateSuffix, '')
+          .trim();
       if (cleanedTrackName.isNotEmpty) {
         return cleanedTrackName;
       }

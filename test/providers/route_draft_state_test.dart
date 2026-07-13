@@ -1286,7 +1286,11 @@ void main() {
       final state = container.read(mapProvider);
       expect(routePlanner.requests, const [(start: start, end: peakPoint)]);
       expect(state.routeDraftMarkers, const [start, peakPoint]);
-      expect(state.routeDraftCommittedPoints, const [start, trackPoint, peakPoint]);
+      expect(state.routeDraftCommittedPoints, const [
+        start,
+        trackPoint,
+        peakPoint,
+      ]);
       expect(
         state.routeDraftDistanceMeters,
         closeTo(

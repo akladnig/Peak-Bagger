@@ -83,9 +83,7 @@ void main() {
 
   test('dataset bootstrap is cached across requests', () async {
     final assetCache = _FakeDemAssetCache('/tmp/thelist.tif');
-    final datasetOpener = _FakeDemDatasetOpener(
-      _LookupDemDataset((_) => 100),
-    );
+    final datasetOpener = _FakeDemDatasetOpener(_LookupDemDataset((_) => 100));
     final sampler = BundledDemRouteElevationSampler(
       assetCache: assetCache,
       datasetOpener: datasetOpener,

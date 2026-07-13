@@ -37,7 +37,10 @@ void main() {
     expect(document.findAllElements('rtept'), hasLength(3));
     expect(document.findAllElements('time'), isEmpty);
     expect(document.findAllElements('name').first.innerText, 'Route One');
-    expect(document.findAllElements('desc').first.innerText, 'Route description');
+    expect(
+      document.findAllElements('desc').first.innerText,
+      'Route description',
+    );
     expect(result.displaySegments, hasLength(1));
     expect(result.displaySegments.single, hasLength(3));
   });

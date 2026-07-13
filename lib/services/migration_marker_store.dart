@@ -22,6 +22,8 @@ class MigrationMarkerStore {
   static const peaksBaggedBackfillKey = 'peaks_bagged_backfill_v1_complete';
   static const itemVisibilityBackfillKey =
       'item_visibility_backfill_v1_complete';
+  static const peakListCoverageBackfillKey =
+      'peak_list_coverage_backfill_v1_complete';
 
   const MigrationMarkerStore({
     Future<SharedPreferences> Function()? loadPreferences,
@@ -57,6 +59,16 @@ class MigrationMarkerStore {
   Future<void> markItemVisibilityBackfillComplete() async {
     final preferences = await _loadPreferences();
     await preferences.setBool(itemVisibilityBackfillKey, true);
+  }
+
+  Future<bool> isPeakListCoverageBackfillMarked() async {
+    final preferences = await _loadPreferences();
+    return preferences.getBool(peakListCoverageBackfillKey) ?? false;
+  }
+
+  Future<void> markPeakListCoverageBackfillComplete() async {
+    final preferences = await _loadPreferences();
+    await preferences.setBool(peakListCoverageBackfillKey, true);
   }
 
   static TrackStartupDecision decideStartupAction({

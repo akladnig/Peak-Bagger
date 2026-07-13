@@ -798,19 +798,27 @@ void main() {
     expect(row.values['peaks'], ['Peak A (11)', 'Peak B (22)']);
   });
 
-  test('peakListToAdminRow includes previewable payload fields', () {
+  test('peakListToAdminRow includes previewable payload fields and bounds', () {
     final row = peakListToAdminRow(
       PeakList(
         peakListId: 9,
         name: 'Abels',
         peakList:
             '[{"peakOsmId":101,"points":"3"},{"peakOsmId":202,"points":"6"}]',
+        minLat: -42.0,
+        maxLat: -41.0,
+        minLng: 145.0,
+        maxLng: 146.0,
       ),
     );
 
     expect(row.primaryKeyValue, 9);
     expect(row.values['peakListId'], 9);
     expect(row.values['name'], 'Abels');
+    expect(row.values['minLat'], -42.0);
+    expect(row.values['maxLat'], -41.0);
+    expect(row.values['minLng'], 145.0);
+    expect(row.values['maxLng'], 146.0);
     expect(
       objectBoxAdminPreviewValue(row.values['peakList']),
       contains('peakOsmId'),

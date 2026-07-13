@@ -35,7 +35,9 @@ class RouteGraphChunk {
   Map<String, dynamic> decodePayload() {
     final decoded = jsonDecode(payloadJson);
     if (decoded is! Map<String, dynamic>) {
-      throw const FormatException('Route graph chunk payload must be JSON object.');
+      throw const FormatException(
+        'Route graph chunk payload must be JSON object.',
+      );
     }
     return decoded;
   }

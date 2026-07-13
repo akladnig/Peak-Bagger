@@ -78,7 +78,9 @@ class GpxTrackMotionAnalyzer {
   }
 
   List<List<GpxTrackPoint>> extractSegmentsFromDocument(XmlDocument document) {
-    final trackSegments = document.findAllElements('trkseg').toList(growable: false);
+    final trackSegments = document
+        .findAllElements('trkseg')
+        .toList(growable: false);
     if (trackSegments.isNotEmpty) {
       final segments = <List<GpxTrackPoint>>[];
       for (final segment in trackSegments) {
@@ -103,7 +105,9 @@ class GpxTrackMotionAnalyzer {
     return const [];
   }
 
-  GpxTrackTimeStats calculateTimeStatsForSegments(List<List<GpxTrackPoint>> segments) {
+  GpxTrackTimeStats calculateTimeStatsForSegments(
+    List<List<GpxTrackPoint>> segments,
+  ) {
     final parseableSegments = _parseableSegments(segments);
     if (parseableSegments.isEmpty) {
       return const GpxTrackTimeStats(
@@ -125,14 +129,24 @@ class GpxTrackMotionAnalyzer {
     var restingDurationSeconds = 0;
     var pausedDurationSeconds = 0;
 
-    for (var segmentIndex = 0; segmentIndex < parseableSegments.length; segmentIndex++) {
+    for (
+      var segmentIndex = 0;
+      segmentIndex < parseableSegments.length;
+      segmentIndex++
+    ) {
       final segment = parseableSegments[segmentIndex];
       if (segment.length >= 2) {
         final restingLegIndexes = _restingLegIndexes(segment);
-        for (var pointIndex = 0; pointIndex < segment.length - 1; pointIndex++) {
+        for (
+          var pointIndex = 0;
+          pointIndex < segment.length - 1;
+          pointIndex++
+        ) {
           final current = segment[pointIndex];
           final next = segment[pointIndex + 1];
-          final dtSeconds = next.timeUtc!.difference(current.timeUtc!).inSeconds;
+          final dtSeconds = next.timeUtc!
+              .difference(current.timeUtc!)
+              .inSeconds;
           if (dtSeconds <= 0) {
             continue;
           }
@@ -146,7 +160,9 @@ class GpxTrackMotionAnalyzer {
 
       if (segmentIndex < parseableSegments.length - 1) {
         final nextSegment = parseableSegments[segmentIndex + 1];
-        final gapSeconds = nextSegment.first.timeUtc!.difference(segment.last.timeUtc!).inSeconds;
+        final gapSeconds = nextSegment.first.timeUtc!
+            .difference(segment.last.timeUtc!)
+            .inSeconds;
         if (gapSeconds > 0) {
           pausedDurationSeconds += gapSeconds;
         }
@@ -167,7 +183,9 @@ class GpxTrackMotionAnalyzer {
     );
   }
 
-  List<GpxMovingLeg> extractMovingLegsForSegments(List<List<GpxTrackPoint>> segments) {
+  List<GpxMovingLeg> extractMovingLegsForSegments(
+    List<List<GpxTrackPoint>> segments,
+  ) {
     final parseableSegments = _parseableSegments(segments);
     final legs = <GpxMovingLeg>[];
     for (final segment in parseableSegments) {
@@ -220,13 +238,16 @@ class GpxTrackMotionAnalyzer {
     );
   }
 
-  List<List<GpxTrackPoint>> _parseableSegments(List<List<GpxTrackPoint>> segments) {
+  List<List<GpxTrackPoint>> _parseableSegments(
+    List<List<GpxTrackPoint>> segments,
+  ) {
     final parseableSegments = <List<GpxTrackPoint>>[];
     for (final segment in segments) {
-      final parseablePoints = segment
-          .where((point) => point.timeUtc != null)
-          .toList(growable: false)
-        ..sort((a, b) => a.timeUtc!.compareTo(b.timeUtc!));
+      final parseablePoints =
+          segment
+              .where((point) => point.timeUtc != null)
+              .toList(growable: false)
+            ..sort((a, b) => a.timeUtc!.compareTo(b.timeUtc!));
       if (parseablePoints.isNotEmpty) {
         parseableSegments.add(parseablePoints);
       }
@@ -282,7 +303,11 @@ class GpxTrackMotionAnalyzer {
         continue;
       }
 
-      for (var legIndex = clusterStartIndex; legIndex < pointIndex; legIndex++) {
+      for (
+        var legIndex = clusterStartIndex;
+        legIndex < pointIndex;
+        legIndex++
+      ) {
         restingLegIndexes.add(legIndex);
       }
       clusterPoints
@@ -294,9 +319,15 @@ class GpxTrackMotionAnalyzer {
     }
 
     if (clusterActive) {
-      final clusterDurationSeconds = _stationaryMetrics(clusterPoints).durationSeconds;
+      final clusterDurationSeconds = _stationaryMetrics(
+        clusterPoints,
+      ).durationSeconds;
       if (clusterDurationSeconds >= _minimumRestDurationSeconds) {
-        for (var legIndex = clusterStartIndex; legIndex < segment.length - 1; legIndex++) {
+        for (
+          var legIndex = clusterStartIndex;
+          legIndex < segment.length - 1;
+          legIndex++
+        ) {
           restingLegIndexes.add(legIndex);
         }
       }
@@ -399,7 +430,9 @@ class GpxTrackMotionAnalyzer {
       }
 
       final eleText = element.getElement('ele')?.innerText.trim();
-      final rawElevation = eleText == null || eleText.isEmpty ? null : double.tryParse(eleText);
+      final rawElevation = eleText == null || eleText.isEmpty
+          ? null
+          : double.tryParse(eleText);
       final elevation = _normalizeElevation(rawElevation);
 
       final timeText = element.getElement('time')?.innerText.trim();

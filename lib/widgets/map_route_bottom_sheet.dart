@@ -75,10 +75,9 @@ class RouteDraftGraphOverlay extends ConsumerWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = math.max(
-          320.0,
-          math.min(420.0, constraints.maxWidth * 0.35),
-        ).toDouble();
+        final width = math
+            .max(320.0, math.min(420.0, constraints.maxWidth * 0.35))
+            .toDouble();
 
         return Align(
           alignment: Alignment.bottomLeft,
@@ -104,8 +103,9 @@ class RouteDraftGraphOverlay extends ConsumerWidget {
                       routeDraftElevationError: routeDraftElevationError,
                       routeDraftCommittedPoints: routeDraftCommittedPoints,
                       routeDraftPointElevations: routeDraftPointElevations,
-                      onRetry:
-                          ref.read(mapProvider.notifier).retryRouteDraftSegment,
+                      onRetry: ref
+                          .read(mapProvider.notifier)
+                          .retryRouteDraftSegment,
                     ),
                   ),
                 ),
@@ -392,12 +392,12 @@ class _DistanceElevationGroup extends StatelessWidget {
                 elevations: routeDraftPointElevations,
               ),
               isLoading:
-                  routeDraftElevationLoading && routeDraftPointElevations.isEmpty,
+                  routeDraftElevationLoading &&
+                  routeDraftPointElevations.isEmpty,
               errorText: routeDraftElevationError,
             ),
           ),
-        ]
-        else
+        ] else
           Text(
             'Tap a point to start routing',
             style: theme.textTheme.bodyMedium,
@@ -592,7 +592,8 @@ class _RouteEditingGroup extends StatelessWidget {
               ),
               activeColor: routeModeActiveColor,
               selectedColor: routeModeSelectedColor,
-              onPressed: routeDraftPeak == null ||
+              onPressed:
+                  routeDraftPeak == null ||
                       routeDraftMarkers.isEmpty ||
                       isClosedLoop ||
                       isRouting

@@ -537,7 +537,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(4, 5754024077279183606),
     name: 'PeakList',
-    lastPropertyId: const obx_int.IdUid(5, 8650224279841628195),
+    lastPropertyId: const obx_int.IdUid(9, 3950595686781371796),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -569,6 +569,30 @@ final _entities = <obx_int.ModelEntity>[
         id: const obx_int.IdUid(5, 8650224279841628195),
         name: 'colour',
         type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(6, 4215573534759448700),
+        name: 'minLat',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(7, 132309028085780787),
+        name: 'maxLat',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(8, 5155163017449131747),
+        name: 'minLng',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(9, 3950595686781371796),
+        name: 'maxLng',
+        type: 8,
         flags: 0,
       ),
     ],
@@ -1812,12 +1836,16 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final nameOffset = fbb.writeString(object.name);
         final peakListOffset = fbb.writeString(object.peakList);
         final regionOffset = fbb.writeString(object.region);
-        fbb.startTable(6);
+        fbb.startTable(10);
         fbb.addInt64(0, object.peakListId);
         fbb.addOffset(1, nameOffset);
         fbb.addOffset(2, peakListOffset);
         fbb.addOffset(3, regionOffset);
         fbb.addInt64(4, object.colour);
+        fbb.addFloat64(5, object.minLat);
+        fbb.addFloat64(6, object.maxLat);
+        fbb.addFloat64(7, object.minLng);
+        fbb.addFloat64(8, object.maxLng);
         fbb.finish(fbb.endTable());
         return object.peakListId;
       },
@@ -1845,12 +1873,36 @@ obx_int.ModelDefinition getObjectBoxModel() {
           12,
           0,
         );
+        final minLatParam = const fb.Float64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          14,
+        );
+        final maxLatParam = const fb.Float64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          16,
+        );
+        final minLngParam = const fb.Float64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          18,
+        );
+        final maxLngParam = const fb.Float64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          20,
+        );
         final object = PeakList(
           peakListId: peakListIdParam,
           name: nameParam,
           region: regionParam,
           peakList: peakListParam,
           colour: colourParam,
+          minLat: minLatParam,
+          maxLat: maxLatParam,
+          minLng: minLngParam,
+          maxLng: maxLngParam,
         );
 
         return object;
@@ -2992,6 +3044,26 @@ class PeakList_ {
   /// See [PeakList.colour].
   static final colour = obx.QueryIntegerProperty<PeakList>(
     _entities[3].properties[4],
+  );
+
+  /// See [PeakList.minLat].
+  static final minLat = obx.QueryDoubleProperty<PeakList>(
+    _entities[3].properties[5],
+  );
+
+  /// See [PeakList.maxLat].
+  static final maxLat = obx.QueryDoubleProperty<PeakList>(
+    _entities[3].properties[6],
+  );
+
+  /// See [PeakList.minLng].
+  static final minLng = obx.QueryDoubleProperty<PeakList>(
+    _entities[3].properties[7],
+  );
+
+  /// See [PeakList.maxLng].
+  static final maxLng = obx.QueryDoubleProperty<PeakList>(
+    _entities[3].properties[8],
   );
 }
 

@@ -67,7 +67,9 @@ List<PeakLabelPlacement> layoutPeakLabels({
 
   final accepted = <PeakLabelPlacement>[];
   for (final placement in measured) {
-    if (accepted.any((acceptedPlacement) => acceptedPlacement.rect.overlaps(placement.rect))) {
+    if (accepted.any(
+      (acceptedPlacement) => acceptedPlacement.rect.overlaps(placement.rect),
+    )) {
       continue;
     }
     final overlapsMarker = visibleCandidates.any((candidate) {

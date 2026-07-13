@@ -5,44 +5,47 @@ import 'package:peak_bagger/widgets/peak_multi_select_results_list.dart';
 
 void main() {
   testWidgets('renders row keys and checkbox', (tester) async {
-    await tester.pumpWidget(
-      _Harness(
-        searchResults: [_peak(1, 'Alpha Peak')],
-      ),
-    );
+    await tester.pumpWidget(_Harness(searchResults: [_peak(1, 'Alpha Peak')]));
 
     expect(find.byKey(const Key('peak-multi-select-row-1')), findsOneWidget);
-    expect(find.byKey(const Key('peak-multi-select-checkbox-1')), findsOneWidget);
+    expect(
+      find.byKey(const Key('peak-multi-select-checkbox-1')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('tapping a checkbox selects the row', (tester) async {
-    await tester.pumpWidget(
-      _Harness(
-        searchResults: [_peak(1, 'Alpha Peak')],
-      ),
-    );
+    await tester.pumpWidget(_Harness(searchResults: [_peak(1, 'Alpha Peak')]));
 
     await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-1')));
     await tester.pump();
 
     expect(
-      tester.widget<Checkbox>(find.byKey(const Key('peak-multi-select-checkbox-1'))).value,
+      tester
+          .widget<Checkbox>(
+            find.byKey(const Key('peak-multi-select-checkbox-1')),
+          )
+          .value,
       isTrue,
     );
     expect(
       tester
           .widget<Container>(
-            find.descendant(
-              of: find.byKey(const Key('peak-multi-select-row-1')),
-              matching: find.byType(Container),
-            ).first,
+            find
+                .descendant(
+                  of: find.byKey(const Key('peak-multi-select-row-1')),
+                  matching: find.byType(Container),
+                )
+                .first,
           )
           .color,
       Colors.green.withValues(alpha: 0.12),
     );
   });
 
-  testWidgets('read-only selected peaks stay checked and disabled', (tester) async {
+  testWidgets('read-only selected peaks stay checked and disabled', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _Harness(
         searchResults: [_peak(1, 'Alpha Peak')],
@@ -51,20 +54,26 @@ void main() {
     );
 
     expect(
-      tester.widget<Checkbox>(find.byKey(const Key('peak-multi-select-checkbox-1'))).value,
+      tester
+          .widget<Checkbox>(
+            find.byKey(const Key('peak-multi-select-checkbox-1')),
+          )
+          .value,
       isTrue,
     );
     expect(
-      tester.widget<Checkbox>(find.byKey(const Key('peak-multi-select-checkbox-1'))).onChanged,
+      tester
+          .widget<Checkbox>(
+            find.byKey(const Key('peak-multi-select-checkbox-1')),
+          )
+          .onChanged,
       isNull,
     );
   });
 
   testWidgets('unknown height renders as a long dash', (tester) async {
     await tester.pumpWidget(
-      _Harness(
-        searchResults: [_peak(1, 'Alpha Peak', elevation: null)],
-      ),
+      _Harness(searchResults: [_peak(1, 'Alpha Peak', elevation: null)]),
     );
 
     expect(find.text('—'), findsOneWidget);
@@ -80,18 +89,21 @@ void main() {
 
     expect(find.text('Maximum 50 peaks per save'), findsOneWidget);
     expect(
-      tester.widget<Checkbox>(find.byKey(const Key('peak-multi-select-checkbox-51'))).onChanged,
+      tester
+          .widget<Checkbox>(
+            find.byKey(const Key('peak-multi-select-checkbox-51')),
+          )
+          .onChanged,
       isNull,
     );
   });
 
   testWidgets('search results lazily build beyond 100 rows', (tester) async {
-    final peaks = [for (var index = 1; index <= 101; index++) _peak(index, 'Peak ${index.toString().padLeft(3, '0')}')];
-    await tester.pumpWidget(
-      _Harness(
-        searchResults: peaks,
-      ),
-    );
+    final peaks = [
+      for (var index = 1; index <= 101; index++)
+        _peak(index, 'Peak ${index.toString().padLeft(3, '0')}'),
+    ];
+    await tester.pumpWidget(_Harness(searchResults: peaks));
 
     expect(find.text('Showing 100 of 101 results'), findsNothing);
     expect(find.byKey(const Key('peak-multi-select-row-101')), findsNothing);

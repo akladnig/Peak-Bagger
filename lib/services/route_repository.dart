@@ -61,10 +61,7 @@ class InMemoryRouteStorage implements RouteStorage {
     } else if (route.id >= _nextId) {
       _nextId = route.id + 1;
     }
-    _routes = [
-      ..._routes.where((existing) => existing.id != route.id),
-      route,
-    ];
+    _routes = [..._routes.where((existing) => existing.id != route.id), route];
     return route.id;
   }
 

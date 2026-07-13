@@ -5,7 +5,9 @@ import 'package:peak_bagger/services/peak_cluster_engine.dart';
 import 'package:peak_bagger/services/peak_label_layout.dart';
 
 void main() {
-  testWidgets('lower-on-screen labels win collision resolution', (tester) async {
+  testWidgets('lower-on-screen labels win collision resolution', (
+    tester,
+  ) async {
     late BuildContext context;
 
     await tester.pumpWidget(
@@ -47,6 +49,8 @@ void main() {
       ],
     );
 
-    expect(placements.map((placement) => placement.candidate.peak.osmId), [6406]);
+    expect(placements.map((placement) => placement.candidate.peak.osmId), [
+      6406,
+    ]);
   });
 }
