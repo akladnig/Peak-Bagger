@@ -2228,6 +2228,31 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
     });
   }
 
+  void _goToMap() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      router.go('/map');
+    });
+  }
+
+  void _openPeakOnMap(Peak peak) {
+    ref
+        .read(mapProvider.notifier)
+        .requestCameraMove(
+          center: LatLng(peak.latitude, peak.longitude),
+          zoom: MapConstants.defaultZoom,
+        );
+    _goToMap();
+  }
+
+  void _openAscentTrackOnMap(PeakInfoAscentRow row) {
+    if (!_isTrackOpenable(row.gpxId)) {
+      return;
+    }
+
+    ref.read(mapProvider.notifier).showTrack(row.gpxId);
+    _goToMap();
+  }
+
   @override
   void didUpdateWidget(covariant _MiniPeakMap oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -2372,6 +2397,13 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
     }
 
     return null;
+  }
+
+  bool _isTrackOpenable(int gpxId) {
+    if (gpxId <= 0) {
+      return false;
+    }
+    return _readGpxTrackRepository().findById(gpxId) != null;
   }
 
   int? _findNearestPeakId({
@@ -2599,6 +2631,15 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                           child: PeakInfoPopupCard(
                             key: const Key('peak-lists-mini-map-popup'),
                             content: _popupContent!,
+                            onPeakTitleTap: () {
+                              _openPeakOnMap(_popupContent!.peak);
+                            },
+                            onAscentTap: _openAscentTrackOnMap,
+                            interactiveAscentTrackIds: {
+                              for (final ascent in _popupContent!.ascentRows)
+                                if (_isTrackOpenable(ascent.gpxId))
+                                  ascent.gpxId,
+                            },
                             onClose: _clearPopup,
                           ),
                         ),

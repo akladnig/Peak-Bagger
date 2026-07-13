@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
+import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
@@ -29,7 +30,9 @@ import 'package:peak_bagger/services/peak_list_import_service.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/widgets/peak_list_import_dialog.dart';
 import 'package:peak_bagger/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -648,6 +651,220 @@ void main() {
         tester.element(find.byKey(const Key('peak-lists-mini-map'))),
       );
       expect(container.read(mapProvider).selectedLocation, isNull);
+    },
+  );
+
+  testWidgets(
+    'popup peak title navigates to the main map repeatedly without opening the main peak popup',
+    (tester) async {
+      final mapNotifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-42.5, 147.5),
+          zoom: 10,
+          basemap: Basemap.tracestrack,
+          selectedPeaks: [
+            Peak(
+              osmId: 999,
+              name: 'Existing Peak',
+              latitude: -41.2,
+              longitude: 146.2,
+            ),
+          ],
+        ),
+      );
+
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Tas Peaks', [200, 300, 100]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+            _buildPeak(200, 'Beta Peak', -42.1, 146.1, elevation: 1100),
+            _buildPeak(300, 'Gamma Peak', -42.2, 146.2, elevation: 1000),
+          ]),
+        ),
+        peaksBaggedRepository: PeaksBaggedRepository.test(
+          InMemoryPeaksBaggedStorage([
+            PeaksBagged(
+              baggedId: 1,
+              peakId: 100,
+              gpxId: 10,
+              date: DateTime.utc(2024, 3, 2),
+            ),
+            PeaksBagged(
+              baggedId: 2,
+              peakId: 200,
+              gpxId: 11,
+              date: DateTime.utc(2024, 3, 2),
+            ),
+          ]),
+        ),
+        mapNotifier: mapNotifier,
+      );
+
+      await tester.tap(find.byKey(const Key('peak-lists-summary-link-100')));
+      await tester.pumpAndSettle();
+
+      final titleLink = find.byKey(const Key('peak-info-popup-title-link'));
+      expect(titleLink, findsOneWidget);
+      expect(
+        tester.widget<InkWell>(titleLink).mouseCursor,
+        SystemMouseCursors.click,
+      );
+      expect(find.text('Available Tracks'), findsNothing);
+
+      final firstSerial = mapNotifier.state.cameraRequestSerial;
+      await tester.tap(titleLink);
+      await tester.pumpAndSettle();
+
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/map');
+      expect(find.byKey(const Key('peak-info-popup')), findsNothing);
+      expect(mapNotifier.state.cameraRequestSerial, greaterThan(firstSerial));
+      expect(mapNotifier.state.center.latitude, closeTo(-42.0, 0.001));
+      expect(mapNotifier.state.center.longitude, closeTo(146.0, 0.001));
+      expect(mapNotifier.state.zoom, MapConstants.defaultZoom);
+      expect(
+        mapNotifier.state.selectedPeaks.map((peak) => peak.osmId).toList(),
+        [999],
+      );
+
+      final secondSerialBaseline = mapNotifier.state.cameraRequestSerial;
+      router.go('/peaks');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('peak-lists-summary-link-100')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('peak-info-popup-title-link')));
+      await tester.pumpAndSettle();
+
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/map');
+      expect(
+        mapNotifier.state.cameraRequestSerial,
+        greaterThan(secondSerialBaseline),
+      );
+      expect(mapNotifier.state.center.latitude, closeTo(-42.0, 0.001));
+      expect(mapNotifier.state.center.longitude, closeTo(146.0, 0.001));
+    },
+  );
+
+  testWidgets(
+    'popup ascent rows link valid tracks while unresolved rows stay plain text',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1600, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final mapNotifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 10,
+          basemap: Basemap.tracestrack,
+        ),
+      );
+      final gpxTrackRepository = GpxTrackRepository.test(
+        InMemoryGpxTrackStorage([
+          GpxTrack(
+            gpxTrackId: 10,
+            contentHash: 'hash-10',
+            trackName: 'Ridge Walk',
+            gpxFile: '<gpx></gpx>',
+            displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
+              [const LatLng(-42.05, 145.95), const LatLng(-41.95, 146.05)],
+            ]),
+          ),
+        ]),
+      );
+
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Tas Peaks', [100]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+          ]),
+        ),
+        peaksBaggedRepository: PeaksBaggedRepository.test(
+          InMemoryPeaksBaggedStorage([
+            PeaksBagged(
+              baggedId: 1,
+              peakId: 100,
+              gpxId: 10,
+              date: DateTime.utc(2024, 3, 2),
+            ),
+            PeaksBagged(
+              baggedId: 2,
+              peakId: 100,
+              gpxId: 999,
+              date: DateTime.utc(2024, 3, 1),
+            ),
+          ]),
+        ),
+        mapNotifier: mapNotifier,
+        overrides: [
+          gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
+        ],
+      );
+
+      await tester.tap(find.byKey(const Key('peak-lists-summary-link-100')));
+      await tester.pumpAndSettle();
+
+      final ascentLink = find.byKey(
+        const Key('peak-info-popup-ascent-link-10'),
+      );
+      expect(find.text('My Ascents:'), findsOneWidget);
+      expect(find.text('Available Tracks'), findsNothing);
+      expect(ascentLink, findsOneWidget);
+      expect(
+        tester.widget<InkWell>(ascentLink).mouseCursor,
+        SystemMouseCursors.click,
+      );
+      expect(
+        find.byKey(const Key('peak-info-popup-ascent-text-999')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('peak-info-popup-ascent-link-999')),
+        findsNothing,
+      );
+
+      final firstFocusBaseline = mapNotifier.state.selectedTrackFocusSerial;
+      await tester.tap(ascentLink);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/map');
+      expect(mapNotifier.state.selectedTrackId, 10);
+      expect(mapNotifier.state.showTracks, isTrue);
+      expect(
+        mapNotifier.state.selectedTrackFocusSerial,
+        greaterThan(firstFocusBaseline),
+      );
+
+      final secondFocusBaseline = mapNotifier.state.selectedTrackFocusSerial;
+      router.go('/peaks');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('peak-lists-summary-link-100')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('peak-info-popup-ascent-link-10')));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/map');
+      expect(mapNotifier.state.selectedTrackId, 10);
+      expect(
+        mapNotifier.state.selectedTrackFocusSerial,
+        greaterThan(secondFocusBaseline),
+      );
     },
   );
 

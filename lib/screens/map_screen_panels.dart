@@ -2102,6 +2102,9 @@ class PeakInfoPopupCard extends StatefulWidget {
     this.currentMarker,
     this.onEditInAdmin,
     this.onDropMarker,
+    this.onPeakTitleTap,
+    this.onAscentTap,
+    this.interactiveAscentTrackIds = const <int>{},
     super.key,
   });
 
@@ -2112,6 +2115,9 @@ class PeakInfoPopupCard extends StatefulWidget {
   final Waypoints? currentMarker;
   final VoidCallback? onEditInAdmin;
   final VoidCallback? onDropMarker;
+  final VoidCallback? onPeakTitleTap;
+  final ValueChanged<PeakInfoAscentRow>? onAscentTap;
+  final Set<int> interactiveAscentTrackIds;
 
   @override
   State<PeakInfoPopupCard> createState() => _PeakInfoPopupCardState();
@@ -2324,6 +2330,30 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
         ? mgrsParts.join(' ')
         : null;
 
+    final title = !_isEditing && widget.onPeakTitleTap != null
+        ? InkWell(
+            key: const Key('peak-info-popup-title-link'),
+            onTap: _isSaving ? null : widget.onPeakTitleTap,
+            mouseCursor: SystemMouseCursors.click,
+            hoverColor: lighten(theme.colorScheme.surfaceContainer, 0.08),
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Text(
+                peak.name,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: theme.seedColour,
+                ),
+              ),
+            ),
+          )
+        : Text(
+            peak.name,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          );
+
     final headerActions = <Widget>[
       if (_canEdit)
         IconButton(
@@ -2392,10 +2422,7 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
           size: PopupUIConstants.headerIconSize,
           color: onSurfaceColor,
         ),
-        title: Text(
-          peak.name,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-        ),
+        title: title,
         headerActions: headerActions,
         onClose: _isSaving ? null : widget.onClose,
         closeButtonKey: const Key('peak-info-popup-close'),
@@ -2517,12 +2544,14 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
                     child: Text('My Ascents:', style: TextStyle(fontSize: 13)),
                   ),
                   for (final ascent in content.ascentRows)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 12, bottom: 4),
-                      child: Text(
-                        '${ascent.trackLabel} (${ascent.dateText})',
-                        style: const TextStyle(fontSize: 13),
-                      ),
+                    _PeakInfoPopupAscentRow(
+                      row: ascent,
+                      onTap:
+                          widget.interactiveAscentTrackIds.contains(
+                            ascent.gpxId,
+                          )
+                          ? widget.onAscentTap
+                          : null,
                     ),
                 ],
                 if (content.ascentRows.isNotEmpty) const SizedBox(height: 4),
@@ -2768,6 +2797,47 @@ class _PeakInfoLabeledValueRow extends StatelessWidget {
           TextSpan(text: ' '),
           TextSpan(text: value, style: valueStyle),
         ],
+      ),
+    );
+  }
+}
+
+class _PeakInfoPopupAscentRow extends StatelessWidget {
+  const _PeakInfoPopupAscentRow({required this.row, this.onTap});
+
+  final PeakInfoAscentRow row;
+  final ValueChanged<PeakInfoAscentRow>? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final onTap = this.onTap;
+    final label = '${row.trackLabel} (${row.dateText})';
+    if (onTap == null) {
+      return Padding(
+        key: Key('peak-info-popup-ascent-text-${row.gpxId}'),
+        padding: const EdgeInsets.only(left: 12, bottom: 4),
+        child: Text(label, style: const TextStyle(fontSize: 13)),
+      );
+    }
+
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(left: 8, bottom: 4),
+      child: InkWell(
+        key: Key('peak-info-popup-ascent-link-${row.gpxId}'),
+        onTap: () {
+          onTap(row);
+        },
+        mouseCursor: SystemMouseCursors.click,
+        hoverColor: lighten(theme.colorScheme.surfaceContainer, 0.08),
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 13, color: theme.seedColour),
+          ),
+        ),
       ),
     );
   }
