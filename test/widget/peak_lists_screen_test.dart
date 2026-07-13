@@ -1057,6 +1057,49 @@ void main() {
     );
   });
 
+  testWidgets('mini-map cursor becomes click over cluster marker', (
+    tester,
+  ) async {
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Clustered Peaks', [100, 200]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+          _buildPeak(200, 'Beta Peak', -42.00005, 146.00005, elevation: 1100),
+        ]),
+      ),
+      overrides: [
+        peakListMiniMapClusterDisplaySettingsProvider.overrideWith(
+          _StaticPeakListMiniMapClusterDisplayOnNotifier.new,
+        ),
+      ],
+    );
+
+    final cluster = find.byKey(const Key('peak-lists-mini-map-cluster-0'));
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(gesture.removePointer);
+
+    await gesture.addPointer(location: tester.getCenter(cluster));
+    await tester.pump();
+    await gesture.moveTo(tester.getCenter(cluster));
+    await tester.pump();
+
+    expect(
+      tester
+          .widget<MouseRegion>(
+            find.byKey(const Key('peak-lists-mini-map-interaction-region')),
+          )
+          .cursor,
+      SystemMouseCursors.click,
+    );
+  });
+
   testWidgets(
     'peak list mini-map shows individual markers when toggle is off',
     (tester) async {

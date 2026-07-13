@@ -2212,6 +2212,7 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
   final _peakProjectionCache = PeakProjectionCache();
   PeakInfoContent? _popupContent;
   int? _hoveredPeakId;
+  bool _hoveringCluster = false;
   static const _tapThreshold = 24.0;
 
   void showPopupForPeak(int peakId) {
@@ -2332,26 +2333,33 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
         peakListMiniMapClusterDisplaySettingsProvider,
       ),
     );
+    final cluster = hitTestPeakCluster(
+      pointerPosition: localPosition,
+      data: viewportData,
+    );
     final peak = hitTestPeakFromViewportData(
       pointerPosition: localPosition,
       data: viewportData,
     );
 
-    if (peak?.osmId == _hoveredPeakId) {
+    if (peak?.osmId == _hoveredPeakId &&
+        (cluster != null) == _hoveringCluster) {
       return;
     }
 
     setState(() {
       _hoveredPeakId = peak?.osmId;
+      _hoveringCluster = cluster != null;
     });
   }
 
   void _clearHover() {
-    if (_hoveredPeakId == null) {
+    if (_hoveredPeakId == null && !_hoveringCluster) {
       return;
     }
     setState(() {
       _hoveredPeakId = null;
+      _hoveringCluster = false;
     });
   }
 
@@ -2614,7 +2622,8 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                 ),
                 Positioned.fill(
                   child: MouseRegion(
-                    cursor: _hoveredPeakId != null
+                    key: const Key('peak-lists-mini-map-interaction-region'),
+                    cursor: _hoveredPeakId != null || _hoveringCluster
                         ? SystemMouseCursors.click
                         : SystemMouseCursors.basic,
                     onHover: (event) {
