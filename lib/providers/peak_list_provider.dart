@@ -16,7 +16,7 @@ typedef PeakListImportBackgroundRunner =
     });
 
 final peakListRepositoryProvider = Provider<PeakListRepository>((ref) {
-  throw UnimplementedError('peakListRepositoryProvider must be overridden');
+  return PeakListRepository.test(InMemoryPeakListStorage());
 });
 
 final peakListMutationRepositoryProvider = Provider<PeakListRepository>((ref) {

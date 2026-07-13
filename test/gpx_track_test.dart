@@ -2346,10 +2346,9 @@ class _RecordingPeaksBaggedRepository implements PeaksBaggedRepository {
 
 class _FakeMigrationMarkerStore implements MigrationMarkerStore {
   _FakeMigrationMarkerStore({
-    required bool migrationMarked,
-    required bool peaksBaggedBackfillMarked,
-  }) : _migrationMarked = migrationMarked,
-       _peaksBaggedBackfillMarked = peaksBaggedBackfillMarked;
+    required this._migrationMarked,
+    required this._peaksBaggedBackfillMarked,
+  });
 
   bool _migrationMarked;
   bool _peaksBaggedBackfillMarked;

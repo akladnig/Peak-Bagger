@@ -178,15 +178,13 @@ class PeakListRepository {
   static const String tassyFullTasmaniaOnlyError =
       'Tassy Full only accepts Tasmanian peaks.';
 
-  PeakListRepository(Store store, {PeakRepository? peakRepository})
-    : _storage = ObjectBoxPeakListStorage(store),
-      _peakRepository = peakRepository;
+  PeakListRepository(Store store, {this._peakRepository})
+    : _storage = ObjectBoxPeakListStorage(store);
 
   PeakListRepository.test(
     PeakListStorage storage, {
-    PeakRepository? peakRepository,
-  }) : _storage = storage,
-       _peakRepository = peakRepository;
+    this._peakRepository,
+  }) : _storage = storage;
 
   final PeakListStorage _storage;
   final PeakRepository? _peakRepository;

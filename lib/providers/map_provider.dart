@@ -1352,9 +1352,9 @@ class MapNotifier extends Notifier<MapState> {
     WaypointsRepository? waypointsRepository,
     MigrationMarkerStore? migrationMarkerStore,
     PeakRegionAssetImportService? peakRegionAssetImportService,
-    bool loadPositionOnBuild = true,
-    bool loadPeaksOnBuild = true,
-    bool loadTracksOnBuild = true,
+    this._loadPositionOnBuild = true,
+    this._loadPeaksOnBuild = true,
+    this._loadTracksOnBuild = true,
   }) : _injectedPeakRepository = peakRepository,
        _injectedOverpassService = overpassService,
        _injectedTasmapRepository = tasmapRepository,
@@ -1365,10 +1365,7 @@ class MapNotifier extends Notifier<MapState> {
        _injectedPeaksBaggedRepository = peaksBaggedRepository,
        _injectedWaypointsRepository = waypointsRepository,
        _injectedMigrationMarkerStore = migrationMarkerStore,
-       _injectedPeakRegionAssetImportService = peakRegionAssetImportService,
-       _loadPositionOnBuild = loadPositionOnBuild,
-       _loadPeaksOnBuild = loadPeaksOnBuild,
-       _loadTracksOnBuild = loadTracksOnBuild;
+       _injectedPeakRegionAssetImportService = peakRegionAssetImportService;
 
   final PeakRepository? _injectedPeakRepository;
   final OverpassService? _injectedOverpassService;

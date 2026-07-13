@@ -325,10 +325,9 @@ class InMemoryPeakStorage implements PeakStorage {
 class PeakRepository implements PeakSource {
   PeakRepository(
     Store store, {
-    required PeakListRewritePort peakListRewritePort,
+    required this._peakListRewritePort,
   }) : _storage = ObjectBoxPeakStorage(store),
-       _store = store,
-       _peakListRewritePort = peakListRewritePort;
+       _store = store;
 
   PeakRepository.test(
     PeakStorage storage, {

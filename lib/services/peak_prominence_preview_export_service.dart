@@ -33,11 +33,10 @@ class IoPeakProminencePreviewFileWriter
 
 class PeakProminencePreviewExportService {
   PeakProminencePreviewExportService({
-    required PeakSource peakSource,
+    required this._peakSource,
     Directory? outputDirectory,
     PeakProminencePreviewFileWriter? fileWriter,
-  }) : _peakSource = peakSource,
-       _outputDirectory =
+  }) : _outputDirectory =
            outputDirectory ?? Directory(p.join(Directory.current.path, 'tool')),
        _fileWriter = fileWriter ?? const IoPeakProminencePreviewFileWriter();
 

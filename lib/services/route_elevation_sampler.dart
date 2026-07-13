@@ -131,11 +131,10 @@ class BundledDemRouteElevationSampler implements RouteElevationSampler {
     DemSourceConfig? source,
     DemAssetCache? assetCache,
     DemDatasetOpener? datasetOpener,
-    double sampleSpacingMetres = DemConstants.sampleSpacingMetres,
+    this._sampleSpacingMetres = DemConstants.sampleSpacingMetres,
   }) : _source = source ?? DemConstants.selectedConfig,
        _assetCache = assetCache ?? const BundledDemAssetCache(),
-       _datasetOpener = datasetOpener ?? const GdalDemDatasetOpener(),
-       _sampleSpacingMetres = sampleSpacingMetres;
+       _datasetOpener = datasetOpener ?? const GdalDemDatasetOpener();
 
   final DemSourceConfig _source;
   final DemAssetCache _assetCache;

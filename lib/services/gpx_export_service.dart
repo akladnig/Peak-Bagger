@@ -71,18 +71,15 @@ class GpxExportService {
     GpxDirectoryResolver? trackDownloadsDirectoryResolver,
     GpxDirectoryResolver? routeExportsDirectoryResolver,
     GpxExportFileSystem? fileSystem,
-    GpxPointElevationsResolver? routePointElevationsResolver,
-    PeakListLoader? peakListLoader,
-    PeakCorrelationThresholdLoader? peakCorrelationThresholdLoader,
+    this._routePointElevationsResolver,
+    this._peakListLoader,
+    this._peakCorrelationThresholdLoader,
     GpxStorageDestinationResolver? storageDestinationResolver,
   }) : _trackDownloadsDirectoryResolver =
            trackDownloadsDirectoryResolver ?? _defaultTrackDownloadsDirectory,
        _routeExportsDirectoryResolver =
            routeExportsDirectoryResolver ?? _defaultRouteExportsDirectory,
        _fileSystem = fileSystem ?? const IoGpxExportFileSystem(),
-       _routePointElevationsResolver = routePointElevationsResolver,
-       _peakListLoader = peakListLoader,
-       _peakCorrelationThresholdLoader = peakCorrelationThresholdLoader,
        _storageDestinationResolver =
            storageDestinationResolver ?? GpxStorageDestinationResolver();
 

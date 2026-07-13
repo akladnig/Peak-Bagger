@@ -57,8 +57,8 @@ class GpxTrackStatisticsCalculator {
   static const _defaultMaxSpeedWindow = Duration(minutes: 1);
 
   GpxTrackStatisticsCalculator({
-    GpxTrackMotionAnalyzer motionAnalyzer = const GpxTrackMotionAnalyzer(),
-  }) : _motionAnalyzer = motionAnalyzer;
+    this._motionAnalyzer = const GpxTrackMotionAnalyzer(),
+  });
 
   final GpxTrackMotionAnalyzer _motionAnalyzer;
 

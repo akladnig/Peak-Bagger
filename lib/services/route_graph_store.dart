@@ -41,10 +41,9 @@ class RouteGraphStore {
 class ObjectBoxRouteGraphStore extends RouteGraphStore
     implements RouteGraphRepositoryProvider {
   ObjectBoxRouteGraphStore({
-    required RouteGraphRepository repository,
-    required RouteGraphImportService importService,
-  }) : _repository = repository,
-       _importService = importService;
+    required this._repository,
+    required this._importService,
+  });
 
   final RouteGraphRepository _repository;
   final RouteGraphImportService _importService;

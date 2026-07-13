@@ -195,9 +195,7 @@ Future<PeakSource> _defaultPeakSourceLoader() async {
 }
 
 class _OwnedPeakSource implements PeakSource {
-  _OwnedPeakSource({required Store store, required PeakSource delegate})
-    : _store = store,
-      _delegate = delegate;
+  _OwnedPeakSource({required this._store, required this._delegate});
 
   final Store _store;
   final PeakSource _delegate;
