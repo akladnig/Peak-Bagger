@@ -2979,10 +2979,8 @@ class _PeakListSummarySentence extends StatelessWidget {
     }
 
     final defaultStyle = DefaultTextStyle.of(context).style;
-    final linkStyle = defaultStyle.copyWith(
-      color: Theme.of(context).colorScheme.primary,
-      decoration: TextDecoration.underline,
-    );
+    final theme = Theme.of(context);
+    final linkStyle = defaultStyle.copyWith(color: theme.seedColour);
     final infoSentence =
         '${summaryRow.peakList.name} contains ${formatCount(summaryRow.totalPeaks!)} peaks.';
     final metricsSentence =
@@ -3051,9 +3049,12 @@ class _PeakListSummaryLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return InkWell(
       key: Key('peak-lists-summary-link-$peakId'),
       mouseCursor: SystemMouseCursors.click,
+      hoverColor: lighten(theme.colorScheme.surfaceContainer, 0.08),
+      borderRadius: BorderRadius.circular(4),
       onTap: () {
         onTap(peakId);
       },
