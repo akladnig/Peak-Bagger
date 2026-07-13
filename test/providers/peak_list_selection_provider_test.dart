@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_ownership_ring_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
@@ -242,6 +243,206 @@ void main() {
   );
 
   test(
+    'peakMarkerColourAssignmentsProvider uses Tasmania ownership precedence',
+    () {
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(
+            name: 'Poimenas',
+            region: 'tasmania',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 6406, points: 1),
+            ]),
+            colour: 0xFF6347EA,
+          )..peakListId = 1,
+          PeakList(
+            name: 'Abels',
+            region: 'tasmania',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 6406, points: 1),
+            ]),
+            colour: 0xFF4C8BF5,
+          )..peakListId = 9,
+        ]),
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => _TestMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 15,
+                basemap: Basemap.tracestrack,
+                peaks: [
+                  Peak(
+                    osmId: 6406,
+                    name: 'Bonnet Hill',
+                    latitude: -43.0,
+                    longitude: 147.0,
+                    region: 'tasmania',
+                  ),
+                ],
+                peakListSelectionMode: PeakListSelectionMode.specificList,
+                selectedPeakListIds: {1, 9},
+              ),
+            ),
+          ),
+          peakListRepositoryProvider.overrideWithValue(peakListRepository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(container.read(peakMarkerColourAssignmentsProvider), {
+        6406: 0xFF4C8BF5,
+      });
+    },
+  );
+
+  test(
+    'peakOwnershipRingSegmentsProvider skips zero and single-list ownership and orders Tasmania segments from 12 o clock clockwise',
+    () {
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(
+            name: 'HWC Peak Baggers',
+            region: 'tasmania',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 6406, points: 1),
+            ]),
+            colour: 0xFF12B886,
+          )..peakListId = 5,
+          PeakList(
+            name: 'Abels',
+            region: 'tasmania',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 6406, points: 1),
+              const PeakListItem(peakOsmId: 6407, points: 1),
+            ]),
+            colour: 0xFF4C8BF5,
+          )..peakListId = 9,
+        ]),
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => _TestMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 15,
+                basemap: Basemap.tracestrack,
+                peaks: [
+                  Peak(
+                    osmId: 6406,
+                    name: 'Bonnet Hill',
+                    latitude: -43.0,
+                    longitude: 147.0,
+                    region: 'tasmania',
+                  ),
+                  Peak(
+                    osmId: 6407,
+                    name: 'Single Owner',
+                    latitude: -43.1,
+                    longitude: 147.1,
+                    region: 'tasmania',
+                  ),
+                  Peak(
+                    osmId: 6408,
+                    name: 'No Owner',
+                    latitude: -43.2,
+                    longitude: 147.2,
+                    region: 'tasmania',
+                  ),
+                ],
+                peakListSelectionMode: PeakListSelectionMode.specificList,
+                selectedPeakListIds: {5, 9},
+              ),
+            ),
+          ),
+          peakListRepositoryProvider.overrideWithValue(peakListRepository),
+          peakOwnershipRingSettingsProvider.overrideWith(
+            _StaticPeakOwnershipRingSettingsNotifier.new,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final segmentsByPeakId = container.read(peakOwnershipRingSegmentsProvider);
+
+      expect(segmentsByPeakId.keys, [6406]);
+      expect(
+        segmentsByPeakId[6406]!.map((segment) => segment.peakListId).toList(),
+        [9, 5],
+      );
+    },
+  );
+
+  test(
+    'peakOwnershipRingSegmentsProvider orders non-Tasmania segments by lowest peakListId',
+    () {
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(
+            name: 'Bravo',
+            region: 'victoria',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 7000, points: 1),
+            ]),
+            colour: 0xFFE67E22,
+          )..peakListId = 8,
+          PeakList(
+            name: 'Alpha',
+            region: 'victoria',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 7000, points: 1),
+            ]),
+            colour: 0xFF4C8BF5,
+          )..peakListId = 7,
+        ]),
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => _TestMapNotifier(
+              MapState(
+                center: const LatLng(-37.8, 145.0),
+                zoom: 15,
+                basemap: Basemap.tracestrack,
+                peaks: [
+                  Peak(
+                    osmId: 7000,
+                    name: 'Other Peak',
+                    latitude: -37.8,
+                    longitude: 145.0,
+                    region: 'victoria',
+                  ),
+                ],
+                peakListSelectionMode: PeakListSelectionMode.specificList,
+                selectedPeakListIds: {7, 8},
+              ),
+            ),
+          ),
+          peakListRepositoryProvider.overrideWithValue(peakListRepository),
+          peakOwnershipRingSettingsProvider.overrideWith(
+            _StaticPeakOwnershipRingSettingsNotifier.new,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(
+        container
+            .read(peakOwnershipRingSegmentsProvider)[7000]!
+            .map((segment) => segment.peakListId)
+            .toList(),
+        [7, 8],
+      );
+    },
+  );
+
+  test(
     'peakMarkerColourAssignmentsProvider skips malformed selected lists',
     () {
       final peakListRepository = PeakListRepository.test(
@@ -361,4 +562,10 @@ class _ThrowingPeakListStorage extends InMemoryPeakListStorage {
   List<PeakList> getAll() {
     throw StateError('boom');
   }
+}
+
+class _StaticPeakOwnershipRingSettingsNotifier
+    extends PeakOwnershipRingSettingsNotifier {
+  @override
+  bool build() => true;
 }

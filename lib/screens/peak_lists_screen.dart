@@ -2489,6 +2489,8 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                           hoveredPeakId: _hoveredPeakId,
                           popupPeakId: _popupContent?.peak.osmId,
                           viewportData: viewportData,
+                          clusterRingStyle:
+                              PeakClusterRingStyle.proportionalTickedUnticked,
                         ),
                       if (markerPeaks.isNotEmpty)
                         _MiniPeakMapAffordanceLayer(viewportData: viewportData),

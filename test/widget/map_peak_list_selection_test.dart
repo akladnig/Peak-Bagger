@@ -238,7 +238,7 @@ void main() {
     expect(find.byKey(const Key('peak-list-selection-summary')), findsNothing);
   });
 
-  testWidgets('multi-region map views show the union of applicable lists', (
+  testWidgets('map views keep applicable visible lists in the summary', (
     tester,
   ) async {
     await _pumpApp(
@@ -253,6 +253,7 @@ void main() {
         ),
         peakListSelectionMode: PeakListSelectionMode.specificList,
         selectedPeakListIds: {1, 2},
+        previousSpecificPeakListIds: {1, 2},
       ),
       peakListRepository: PeakListRepository.test(
         InMemoryPeakListStorage([
@@ -270,26 +271,98 @@ void main() {
     final container = ProviderScope.containerOf(
       tester.element(find.byKey(const Key('shared-app-bar'))),
     );
-    container.read(mapProvider.notifier).state = container
-        .read(mapProvider.notifier)
-        .state
-        .copyWith(
-          peakListSelectionMode: PeakListSelectionMode.specificList,
-          selectedPeakListIds: {1, 2},
-          previousSpecificPeakListIds: {1, 2},
-        );
-    container
-        .read(mapProvider.notifier)
-        .updateVisibleBounds(
-          LatLngBounds(const LatLng(-44.0, 145.0), const LatLng(-33.0, 149.5)),
-        );
-    await tester.pumpAndSettle();
+    expect(container.read(mapProvider).selectedPeakListIds, contains(1));
 
     expect(
       find.byKey(const Key('peak-list-selection-summary')),
       findsOneWidget,
     );
     expect(find.byKey(const Key('peak-list-app-bar-item-1')), findsOneWidget);
+  });
+
+  testWidgets('map route restores exact visible-region-set app-bar selection', (
+    tester,
+  ) async {
+    await _pumpApp(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        visibleBounds: _tasmaniaBounds,
+        peakListSelectionMode: PeakListSelectionMode.allPeaks,
+      ),
+      peakListRepository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(name: 'Alpha', region: 'tasmania', peakList: '[]')
+            ..peakListId = 1,
+          PeakList(name: 'Bravo', region: 'new-south-wales', peakList: '[]')
+            ..peakListId = 2,
+        ]),
+      ),
+    );
+
+    router.go('/map');
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shared-app-bar'))),
+    );
+
+    await tester.tap(find.byKey(const Key('show-peaks-fab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('peak-list-item-Alpha')));
+    await tester.pumpAndSettle();
+
+    expect(container.read(mapProvider).selectedPeakListIds, {1});
+
+    container
+        .read(mapProvider.notifier)
+        .updateVisibleBounds(
+          LatLngBounds(const LatLng(-34.5, 147.0), const LatLng(-33.0, 150.5)),
+        );
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(mapProvider).peakListSelectionMode,
+      PeakListSelectionMode.allPeaks,
+    );
+    expect(
+      find.byKey(const Key('peak-list-selection-chip-all-peaks')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('show-peaks-fab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('peak-list-item-Bravo')));
+    await tester.pumpAndSettle();
+
+    expect(container.read(mapProvider).selectedPeakListIds, {2});
+
+    container.read(mapProvider.notifier).updateVisibleBounds(_tasmaniaBounds);
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(mapProvider).peakListSelectionMode,
+      PeakListSelectionMode.specificList,
+    );
+    expect(container.read(mapProvider).selectedPeakListIds, {1});
+    expect(find.byKey(const Key('peak-list-app-bar-item-1')), findsOneWidget);
+    expect(find.byKey(const Key('peak-list-app-bar-item-2')), findsNothing);
+
+    container
+        .read(mapProvider.notifier)
+        .updateVisibleBounds(
+          LatLngBounds(const LatLng(-34.5, 147.0), const LatLng(-33.0, 150.5)),
+        );
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(mapProvider).peakListSelectionMode,
+      PeakListSelectionMode.specificList,
+    );
+    expect(container.read(mapProvider).selectedPeakListIds, {2});
+    expect(find.byKey(const Key('peak-list-app-bar-item-1')), findsNothing);
     expect(find.byKey(const Key('peak-list-app-bar-item-2')), findsOneWidget);
   });
 

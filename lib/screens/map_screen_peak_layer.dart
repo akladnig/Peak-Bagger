@@ -7,6 +7,8 @@ import 'package:peak_bagger/services/peak_cluster_engine.dart';
 import 'package:peak_bagger/services/peak_label_layout.dart';
 import 'package:peak_bagger/theme.dart';
 
+enum PeakClusterRingStyle { ownershipHybrid, proportionalTickedUnticked }
+
 class MapScreenPeakLayer extends StatelessWidget {
   const MapScreenPeakLayer({
     required this.zoom,
@@ -14,6 +16,7 @@ class MapScreenPeakLayer extends StatelessWidget {
     required this.hoveredPeakId,
     required this.viewportData,
     required this.popupPeakId,
+    this.clusterRingStyle = PeakClusterRingStyle.ownershipHybrid,
     super.key,
   });
 
@@ -22,6 +25,7 @@ class MapScreenPeakLayer extends StatelessWidget {
   final int? hoveredPeakId;
   final PeakClusterViewportData viewportData;
   final int? popupPeakId;
+  final PeakClusterRingStyle clusterRingStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -64,9 +68,11 @@ class MapScreenPeakLayer extends StatelessWidget {
             Positioned.fill(
               child: IgnorePointer(
                 child: CustomPaint(
-                  painter: _PeakViewportPainter(
+                  key: const Key('peak-marker-paint'),
+                  painter: PeakViewportPainter(
                     individuals: viewportData.individualCandidates,
                     clusters: viewportData.clusters,
+                    clusterRingStyle: clusterRingStyle,
                   ),
                 ),
               ),
@@ -101,19 +107,25 @@ class MapScreenPeakLayer extends StatelessWidget {
   }
 }
 
-class _PeakViewportPainter extends CustomPainter {
-  const _PeakViewportPainter({
+class PeakViewportPainter extends CustomPainter {
+  const PeakViewportPainter({
     required this.individuals,
     required this.clusters,
+    this.clusterRingStyle = PeakClusterRingStyle.ownershipHybrid,
   });
 
   final List<ProjectedPeakCandidate> individuals;
   final List<PeakCluster> clusters;
+  final PeakClusterRingStyle clusterRingStyle;
 
   @override
   void paint(Canvas canvas, Size size) {
     final untickedFill = Paint()..color = untickedColour;
     final tickedFill = Paint()..color = tickedColour;
+    final individualRingPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.butt;
     final debugHullStroke = Paint()
       ..color = polygonColour
       ..style = PaintingStyle.stroke
@@ -129,8 +141,7 @@ class _PeakViewportPainter extends CustomPainter {
         : clusterFillColourPrimary;
     final clusterFill = Paint()
       ..color = clusterFillColor.withValues(alpha: 0.4);
-    final untickedRing = Paint()
-      ..color = untickedColour
+    final clusterOwnershipRingPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = MapConstants.peakClusterRingWidth
       ..strokeCap = StrokeCap.butt;
@@ -146,6 +157,23 @@ class _PeakViewportPainter extends CustomPainter {
 
     for (final candidate in individuals) {
       final center = candidate.screenPosition;
+      if (candidate.ownershipRingSegments.isNotEmpty) {
+        final ringRect = Rect.fromCircle(center: center, radius: 11);
+        final sweepAngle = (math.pi * 2) / candidate.ownershipRingSegments.length;
+        var startAngle = -math.pi / 2;
+        for (final segment in candidate.ownershipRingSegments) {
+          individualRingPaint.color = Color(segment.colourValue);
+          canvas.drawArc(
+            ringRect,
+            startAngle,
+            sweepAngle,
+            false,
+            individualRingPaint,
+          );
+          startAngle += sweepAngle;
+        }
+      }
+
       final path = Path()
         ..moveTo(center.dx, center.dy - 9)
         ..lineTo(center.dx - 7, center.dy + 7)
@@ -184,21 +212,59 @@ class _PeakViewportPainter extends CustomPainter {
         center: cluster.screenPosition,
         radius: radius,
       );
-      final startAngle = -math.pi / 2;
-      canvas.drawArc(
-        ringRect,
-        startAngle,
-        math.pi * 2 * cluster.untickedFraction,
-        false,
-        untickedRing,
-      );
-      canvas.drawArc(
-        ringRect,
-        startAngle + math.pi * 2 * cluster.untickedFraction,
-        math.pi * 2 * cluster.tickedFraction,
-        false,
-        tickedRing,
-      );
+      final totalSweep = math.pi * 2;
+      const startAngle = -math.pi / 2;
+      if (clusterRingStyle == PeakClusterRingStyle.proportionalTickedUnticked) {
+        canvas.drawArc(
+          ringRect,
+          startAngle,
+          totalSweep * cluster.untickedFraction,
+          false,
+          clusterOwnershipRingPaint..color = untickedColour,
+        );
+        canvas.drawArc(
+          ringRect,
+          startAngle + totalSweep * cluster.untickedFraction,
+          totalSweep * cluster.tickedFraction,
+          false,
+          tickedRing,
+        );
+      } else {
+        final untickedSegments = cluster.untickedOwnershipRingSegments;
+        var segmentStartAngle = startAngle;
+        if (untickedSegments.isEmpty) {
+          canvas.drawArc(
+            ringRect,
+            startAngle,
+            totalSweep,
+            false,
+            tickedRing,
+          );
+        } else {
+          final untickedSweep = totalSweep * cluster.untickedFraction;
+          final perSegmentSweep = untickedSweep / untickedSegments.length;
+          for (final segment in untickedSegments) {
+            clusterOwnershipRingPaint.color = Color(segment.colourValue);
+            canvas.drawArc(
+              ringRect,
+              segmentStartAngle,
+              perSegmentSweep,
+              false,
+              clusterOwnershipRingPaint,
+            );
+            segmentStartAngle += perSegmentSweep;
+          }
+          if (cluster.tickedFraction > 0) {
+            canvas.drawArc(
+              ringRect,
+              segmentStartAngle,
+              totalSweep * cluster.tickedFraction,
+              false,
+              tickedRing,
+            );
+          }
+        }
+      }
       canvas.drawCircle(
         cluster.screenPosition,
         innerRingBorderRadius,
@@ -218,9 +284,10 @@ class _PeakViewportPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _PeakViewportPainter oldDelegate) {
+  bool shouldRepaint(covariant PeakViewportPainter oldDelegate) {
     return oldDelegate.individuals != individuals ||
-        oldDelegate.clusters != clusters;
+        oldDelegate.clusters != clusters ||
+        oldDelegate.clusterRingStyle != clusterRingStyle;
   }
 }
 

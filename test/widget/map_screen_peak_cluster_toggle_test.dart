@@ -3,10 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peak_ownership_ring_segment.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/peak_map_cluster_display_settings_provider.dart';
+import 'package:peak_bagger/providers/peak_ownership_ring_settings_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
+import 'package:peak_bagger/screens/map_screen_peak_layer.dart';
+import 'package:peak_bagger/services/peak_list_repository.dart';
 
 import '../harness/test_map_notifier.dart';
 import '../harness/test_tasmap_notifier.dart';
@@ -48,7 +54,12 @@ void main() {
           peakMapClusterDisplaySettingsProvider.overrideWith(
             _StaticPeakMapClusterDisplayNotifier.new,
           ),
-          tasmapStateProvider.overrideWith(() => TestTasmapNotifier(repository)),
+          peakListRepositoryProvider.overrideWithValue(
+            PeakListRepository.test(InMemoryPeakListStorage()),
+          ),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
           tasmapRepositoryProvider.overrideWithValue(repository),
         ],
         child: const MaterialApp(home: MapScreen()),
@@ -97,7 +108,12 @@ void main() {
           peakMapClusterDisplaySettingsProvider.overrideWith(
             _StaticPeakMapClusterDisplayOnNotifier.new,
           ),
-          tasmapStateProvider.overrideWith(() => TestTasmapNotifier(repository)),
+          peakListRepositoryProvider.overrideWithValue(
+            PeakListRepository.test(InMemoryPeakListStorage()),
+          ),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
           tasmapRepositoryProvider.overrideWithValue(repository),
         ],
         child: const MaterialApp(home: MapScreen()),
@@ -109,6 +125,85 @@ void main() {
     expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
     expect(find.byKey(const Key('peak-cluster-layer')), findsOneWidget);
   });
+
+  testWidgets(
+    'cluster ring keeps ownership metadata and count overlay when individual rings are off',
+    (tester) async {
+      final repository = await TestTasmapRepository.create();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            mapProvider.overrideWith(
+              () => TestMapNotifier(
+                MapState(
+                  center: const LatLng(-43.0, 147.0),
+                  zoom: 8,
+                  basemap: Basemap.tracestrack,
+                  peaks: [
+                    Peak(
+                      osmId: 6406,
+                      name: 'Bonnet Hill',
+                      latitude: -43.0,
+                      longitude: 147.0,
+                    ),
+                    Peak(
+                      osmId: 7000,
+                      name: 'Other Peak',
+                      latitude: -43.0,
+                      longitude: 147.0,
+                    ),
+                  ],
+                ),
+                correlatedPeakIds: {7000},
+              ),
+            ),
+            peakMapClusterDisplaySettingsProvider.overrideWith(
+              _StaticPeakMapClusterDisplayOnNotifier.new,
+            ),
+            peakOwnershipRingSettingsProvider.overrideWith(
+              _StaticPeakOwnershipRingOffNotifier.new,
+            ),
+            peakActiveOwnershipSegmentsProvider.overrideWithValue(const {
+              6406: [
+                PeakOwnershipRingSegment(
+                  peakListId: 7,
+                  colourValue: 0xFF4C8BF5,
+                ),
+              ],
+            }),
+            peakListRepositoryProvider.overrideWithValue(
+              PeakListRepository.test(InMemoryPeakListStorage()),
+            ),
+            tasmapStateProvider.overrideWith(
+              () => TestTasmapNotifier(repository),
+            ),
+            tasmapRepositoryProvider.overrideWithValue(repository),
+          ],
+          child: const MaterialApp(home: MapScreen()),
+        ),
+      );
+
+      await tester.pump();
+
+      final painter =
+          tester
+                  .widget<CustomPaint>(
+                    find.byKey(const Key('peak-marker-paint')),
+                  )
+                  .painter!
+              as PeakViewportPainter;
+      expect(painter.clusters, hasLength(1));
+      expect(
+        painter.clusters.single.untickedOwnershipRingSegments.map(
+          (segment) => segment.peakListId,
+        ),
+        [7],
+      );
+      expect(find.byKey(const Key('peak-cluster-layer')), findsOneWidget);
+      expect(find.byKey(const Key('peak-cluster-count-0')), findsOneWidget);
+    },
+  );
 }
 
 class _StaticPeakMapClusterDisplayNotifier
@@ -121,4 +216,10 @@ class _StaticPeakMapClusterDisplayOnNotifier
     extends PeakMapClusterDisplaySettingsNotifier {
   @override
   bool build() => true;
+}
+
+class _StaticPeakOwnershipRingOffNotifier
+    extends PeakOwnershipRingSettingsNotifier {
+  @override
+  bool build() => false;
 }

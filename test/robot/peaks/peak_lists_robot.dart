@@ -10,6 +10,7 @@ import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/screens/peak_lists_screen.dart';
 import 'package:peak_bagger/services/peak_list_file_picker.dart';
+import 'package:peak_bagger/services/peak_list_import_service.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
@@ -115,15 +116,22 @@ class PeakListsRobot {
                 PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
           ),
           peakListFilePickerProvider.overrideWithValue(filePicker),
-          peakListImportRunnerProvider.overrideWithValue(
-            importRunner ??
-                ({required String listName, required String csvPath}) async {
-                  return const PeakListImportPresentationResult(
-                    updated: false,
-                    importedCount: 1,
-                    skippedCount: 0,
-                  );
-                },
+          peakListImportBackgroundRunnerProvider.overrideWithValue(
+            ({
+              required String listName,
+              required String csvPath,
+              PeakListImportProgressCallback? onProgress,
+            }) async {
+              final runner = importRunner ??
+                  ({required String listName, required String csvPath}) async {
+                    return const PeakListImportPresentationResult(
+                      updated: false,
+                      importedCount: 1,
+                      skippedCount: 0,
+                    );
+                  };
+              return runner(listName: listName, csvPath: csvPath);
+            },
           ),
           peakListDuplicateNameCheckerProvider.overrideWithValue(
             duplicateNameChecker ?? ((name) async => false),

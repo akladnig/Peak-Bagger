@@ -9,14 +9,17 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
+import 'package:peak_bagger/models/peak_ownership_ring_segment.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/models/waypoints.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
+import 'package:peak_bagger/screens/map_screen_peak_layer.dart';
 import 'package:peak_bagger/screens/map_screen_panels.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
@@ -217,6 +220,62 @@ void main() {
     );
     expect(nameWidget.maxLines, 2);
     expect(nameWidget.overflow, TextOverflow.ellipsis);
+  });
+
+  testWidgets('main-map markers omit ownership rings for single-list peaks', (
+    tester,
+  ) async {
+    await _pumpMap(
+      tester,
+      _mapStateWithPeak(),
+      overrides: [
+        peakOwnershipRingSegmentsProvider.overrideWithValue(
+          const <int, List<PeakOwnershipRingSegment>>{},
+        ),
+      ],
+    );
+
+    final painter = tester
+        .widget<CustomPaint>(find.byKey(const Key('peak-marker-paint')))
+        .painter! as PeakViewportPainter;
+
+    expect(painter.individuals.single.ownershipRingSegments, isEmpty);
+  });
+
+  testWidgets('main-map markers expose ownership rings for multi-list peaks', (
+    tester,
+  ) async {
+    await _pumpMap(
+      tester,
+      _mapStateWithPeak(),
+      overrides: [
+        peakOwnershipRingSegmentsProvider.overrideWithValue(
+          const {
+            6406: [
+              PeakOwnershipRingSegment(
+                peakListId: 9,
+                colourValue: 0xFF4C8BF5,
+              ),
+              PeakOwnershipRingSegment(
+                peakListId: 2,
+                colourValue: 0xFF6347EA,
+              ),
+            ],
+          },
+        ),
+      ],
+    );
+
+    final painter = tester
+        .widget<CustomPaint>(find.byKey(const Key('peak-marker-paint')))
+        .painter! as PeakViewportPainter;
+
+    expect(
+      painter.individuals.single.ownershipRingSegments
+          .map((segment) => segment.peakListId)
+          .toList(),
+      [9, 2],
+    );
   });
 
   testWidgets('clicking a peak opens peak popup without selecting location', (
