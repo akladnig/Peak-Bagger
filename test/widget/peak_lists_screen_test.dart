@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
+import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
@@ -29,7 +30,9 @@ import 'package:peak_bagger/services/peak_list_import_service.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/widgets/peak_list_import_dialog.dart';
 import 'package:peak_bagger/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -55,6 +58,22 @@ void main() {
     expect(find.byKey(const Key('peak-lists-mini-map')), findsOneWidget);
     expect(find.byKey(const Key('peak-lists-add-list-fab')), findsOneWidget);
     expect(find.byKey(const Key('peak-lists-import-fab')), findsOneWidget);
+    expect(
+      tester
+          .widget<FloatingActionButton>(
+            find.byKey(const Key('peak-lists-add-list-fab')),
+          )
+          .mouseCursor,
+      SystemMouseCursors.click,
+    );
+    expect(
+      tester
+          .widget<FloatingActionButton>(
+            find.byKey(const Key('peak-lists-import-fab')),
+          )
+          .mouseCursor,
+      SystemMouseCursors.click,
+    );
     final summaryHeaderCenter = tester.getCenter(
       find.byKey(const Key('peak-lists-summary-header')),
     );
@@ -268,6 +287,50 @@ void main() {
     );
 
     expect(hoveredText.style?.color, rowTheme.hoveredTextColor);
+  });
+
+  testWidgets('summary and detail sort headers use click cursors', (
+    tester,
+  ) async {
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Tas Peaks', [200, 300, 100]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+          _buildPeak(200, 'Beta Peak', -42.1, 146.1, elevation: 1100),
+          _buildPeak(300, 'Gamma Peak', -42.2, 146.2, elevation: 1000),
+        ]),
+      ),
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage([
+          PeaksBagged(baggedId: 1, peakId: 100, gpxId: 10),
+        ]),
+      ),
+    );
+
+    for (final key in const [
+      'peak-lists-sort-name',
+      'peak-lists-sort-totalPeaks',
+      'peak-lists-sort-climbed',
+      'peak-lists-sort-percentage',
+      'peak-lists-sort-unclimbed',
+      'peak-lists-sort-ascents',
+      'peak-lists-details-sort-name',
+      'peak-lists-details-sort-elevation',
+      'peak-lists-details-sort-ascentDate',
+      'peak-lists-details-sort-ascents',
+    ]) {
+      expect(
+        tester.widget<InkWell>(find.byKey(Key(key))).mouseCursor,
+        SystemMouseCursors.click,
+      );
+    }
   });
 
   testWidgets('bagged revision refreshes peak list counts', (tester) async {
@@ -498,21 +561,15 @@ void main() {
   });
 
   testWidgets(
-    'mini-map drop marker closes popup and shows selected location marker',
+    'mini-map popup omits drop marker and never renders the selected location marker',
     (tester) async {
-      final tasmapRepository = await TestTasmapRepository.create(
-        maps: [
-          Tasmap50k(
-            series: 'TS07',
-            name: 'Test Map',
-            parentSeries: '8211',
-            mgrs100kIds: 'EN',
-            eastingMin: 10000,
-            eastingMax: 20000,
-            northingMin: 60000,
-            northingMax: 70000,
-          ),
-        ],
+      final mapNotifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          selectedLocation: const LatLng(-42.3, 146.3),
+        ),
       );
 
       await _pumpPeakListsApp(
@@ -535,7 +592,12 @@ void main() {
             PeaksBagged(baggedId: 1, peakId: 100, gpxId: 10),
           ]),
         ),
-        tasmapRepository: tasmapRepository,
+        mapNotifier: mapNotifier,
+      );
+
+      expect(
+        find.byKey(const Key('peak-lists-selected-location-marker')),
+        findsNothing,
       );
 
       await tester.tap(
@@ -551,21 +613,317 @@ void main() {
         find.byKey(const Key('peak-lists-selected-location-marker')),
         findsNothing,
       );
+      expect(
+        find.byKey(const Key('peak-info-popup-drop-marker')),
+        findsNothing,
+      );
+    },
+  );
 
-      await tester.tap(find.byKey(const Key('peak-info-popup-drop-marker')));
+  testWidgets(
+    'summary peak links open the exact popup without opening the detail dialog',
+    (tester) async {
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Tas Peaks', [200, 300, 100]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+            _buildPeak(200, 'Beta Peak', -42.1, 146.1, elevation: 1100),
+            _buildPeak(300, 'Gamma Peak', -42.2, 146.2, elevation: 1000),
+          ]),
+        ),
+        peaksBaggedRepository: PeaksBaggedRepository.test(
+          InMemoryPeaksBaggedStorage([
+            PeaksBagged(
+              baggedId: 1,
+              peakId: 100,
+              gpxId: 10,
+              date: DateTime.utc(2024, 3, 2),
+            ),
+            PeaksBagged(
+              baggedId: 2,
+              peakId: 200,
+              gpxId: 11,
+              date: DateTime.utc(2024, 3, 2),
+            ),
+          ]),
+        ),
+      );
+
+      expect(
+        find.byKey(const Key('peak-lists-summary-link-100')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('peak-lists-summary-link-200')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<InkWell>(
+              find.byKey(const Key('peak-lists-summary-link-200')),
+            )
+            .mouseCursor,
+        SystemMouseCursors.click,
+      );
+
+      await tester.tap(find.byKey(const Key('peak-lists-summary-link-200')));
       await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('peak-lists-mini-map-popup')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('peak-lists-mini-map-popup')),
+          matching: find.text('Beta Peak'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('peak-lists-selected-peak-circle-layer')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('peak-list-peak-dialog')), findsNothing);
+      expect(
+        find.byKey(const Key('peak-info-popup-drop-marker')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('peak-lists-selected-location-marker')),
+        findsNothing,
+      );
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+            .data,
+        'Tas Peaks',
+      );
 
       final container = ProviderScope.containerOf(
         tester.element(find.byKey(const Key('peak-lists-mini-map'))),
       );
-      final selectedLocation = container.read(mapProvider).selectedLocation;
-      expect(selectedLocation, isNotNull);
-      expect(selectedLocation!.latitude, closeTo(-42.1, 0.000001));
-      expect(selectedLocation.longitude, closeTo(146.1, 0.000001));
-      expect(find.byKey(const Key('peak-lists-mini-map-popup')), findsNothing);
+      expect(container.read(mapProvider).selectedLocation, isNull);
+    },
+  );
+
+  testWidgets(
+    'popup peak title navigates to the main map repeatedly without opening the main peak popup',
+    (tester) async {
+      final mapNotifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-42.5, 147.5),
+          zoom: 10,
+          basemap: Basemap.tracestrack,
+          selectedPeaks: [
+            Peak(
+              osmId: 999,
+              name: 'Existing Peak',
+              latitude: -41.2,
+              longitude: 146.2,
+            ),
+          ],
+        ),
+      );
+
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Tas Peaks', [200, 300, 100]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+            _buildPeak(200, 'Beta Peak', -42.1, 146.1, elevation: 1100),
+            _buildPeak(300, 'Gamma Peak', -42.2, 146.2, elevation: 1000),
+          ]),
+        ),
+        peaksBaggedRepository: PeaksBaggedRepository.test(
+          InMemoryPeaksBaggedStorage([
+            PeaksBagged(
+              baggedId: 1,
+              peakId: 100,
+              gpxId: 10,
+              date: DateTime.utc(2024, 3, 2),
+            ),
+            PeaksBagged(
+              baggedId: 2,
+              peakId: 200,
+              gpxId: 11,
+              date: DateTime.utc(2024, 3, 2),
+            ),
+          ]),
+        ),
+        mapNotifier: mapNotifier,
+      );
+
+      await tester.tap(find.byKey(const Key('peak-lists-summary-link-100')));
+      await tester.pumpAndSettle();
+
+      final titleLink = find.byKey(const Key('peak-info-popup-title-link'));
+      expect(titleLink, findsOneWidget);
       expect(
-        find.byKey(const Key('peak-lists-selected-location-marker')),
+        tester.widget<InkWell>(titleLink).mouseCursor,
+        SystemMouseCursors.click,
+      );
+      expect(find.text('Available Tracks'), findsNothing);
+
+      final firstSerial = mapNotifier.state.cameraRequestSerial;
+      await tester.tap(titleLink);
+      await tester.pumpAndSettle();
+
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/map');
+      expect(find.byKey(const Key('peak-info-popup')), findsNothing);
+      expect(mapNotifier.state.cameraRequestSerial, greaterThan(firstSerial));
+      expect(mapNotifier.state.center.latitude, closeTo(-42.0, 0.001));
+      expect(mapNotifier.state.center.longitude, closeTo(146.0, 0.001));
+      expect(mapNotifier.state.zoom, MapConstants.defaultZoom);
+      expect(
+        mapNotifier.state.selectedPeaks.map((peak) => peak.osmId).toList(),
+        [999],
+      );
+
+      final secondSerialBaseline = mapNotifier.state.cameraRequestSerial;
+      router.go('/peaks');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('peak-lists-summary-link-100')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('peak-info-popup-title-link')));
+      await tester.pumpAndSettle();
+
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/map');
+      expect(
+        mapNotifier.state.cameraRequestSerial,
+        greaterThan(secondSerialBaseline),
+      );
+      expect(mapNotifier.state.center.latitude, closeTo(-42.0, 0.001));
+      expect(mapNotifier.state.center.longitude, closeTo(146.0, 0.001));
+    },
+  );
+
+  testWidgets(
+    'popup ascent rows link valid tracks while unresolved rows stay plain text',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1600, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final mapNotifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 10,
+          basemap: Basemap.tracestrack,
+        ),
+      );
+      final gpxTrackRepository = GpxTrackRepository.test(
+        InMemoryGpxTrackStorage([
+          GpxTrack(
+            gpxTrackId: 10,
+            contentHash: 'hash-10',
+            trackName: 'Ridge Walk',
+            gpxFile: '<gpx></gpx>',
+            displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
+              [const LatLng(-42.05, 145.95), const LatLng(-41.95, 146.05)],
+            ]),
+          ),
+        ]),
+      );
+
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Tas Peaks', [100]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+          ]),
+        ),
+        peaksBaggedRepository: PeaksBaggedRepository.test(
+          InMemoryPeaksBaggedStorage([
+            PeaksBagged(
+              baggedId: 1,
+              peakId: 100,
+              gpxId: 10,
+              date: DateTime.utc(2024, 3, 2),
+            ),
+            PeaksBagged(
+              baggedId: 2,
+              peakId: 100,
+              gpxId: 999,
+              date: DateTime.utc(2024, 3, 1),
+            ),
+          ]),
+        ),
+        mapNotifier: mapNotifier,
+        overrides: [
+          gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
+        ],
+      );
+
+      await tester.tap(find.byKey(const Key('peak-lists-summary-link-100')));
+      await tester.pumpAndSettle();
+
+      final ascentLink = find.byKey(
+        const Key('peak-info-popup-ascent-link-10'),
+      );
+      expect(find.text('My Ascents:'), findsOneWidget);
+      expect(find.text('Available Tracks'), findsNothing);
+      expect(ascentLink, findsOneWidget);
+      expect(
+        tester.widget<InkWell>(ascentLink).mouseCursor,
+        SystemMouseCursors.click,
+      );
+      expect(
+        find.byKey(const Key('peak-info-popup-ascent-text-999')),
         findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('peak-info-popup-ascent-link-999')),
+        findsNothing,
+      );
+
+      final firstFocusBaseline = mapNotifier.state.selectedTrackFocusSerial;
+      await tester.tap(ascentLink);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/map');
+      expect(mapNotifier.state.selectedTrackId, 10);
+      expect(mapNotifier.state.showTracks, isTrue);
+      expect(
+        mapNotifier.state.selectedTrackFocusSerial,
+        greaterThan(firstFocusBaseline),
+      );
+
+      final secondFocusBaseline = mapNotifier.state.selectedTrackFocusSerial;
+      router.go('/peaks');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('peak-lists-summary-link-100')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('peak-info-popup-ascent-link-10')));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/map');
+      expect(mapNotifier.state.selectedTrackId, 10);
+      expect(
+        mapNotifier.state.selectedTrackFocusSerial,
+        greaterThan(secondFocusBaseline),
       );
     },
   );
@@ -1129,9 +1487,7 @@ void main() {
       tester.widget<Text>(find.byKey(const Key('peak-lists-unclimbed-1'))).data,
       '1',
     );
-    final summaryText = tester
-        .widget<Text>(find.byKey(const Key('peak-lists-summary-sentence')))
-        .data;
+    final summaryText = _summarySentenceText(tester);
     expect(summaryText, contains('Tas Peaks contains 3 peaks.'));
     expect(
       summaryText,
@@ -1444,9 +1800,7 @@ void main() {
       '1,234',
     );
 
-    final summaryText = tester
-        .widget<Text>(find.byKey(const Key('peak-lists-summary-sentence')))
-        .data;
+    final summaryText = _summarySentenceText(tester);
     expect(summaryText, contains('Tas Peaks contains 1,234 peaks.'));
     expect(
       summaryText,
@@ -1880,7 +2234,9 @@ void main() {
       findsOneWidget,
     );
 
-    final saved = await repository.save(PeakList(name: 'Abels', peakList: '[]'));
+    final saved = await repository.save(
+      PeakList(name: 'Abels', peakList: '[]'),
+    );
     ProviderScope.containerOf(
       tester.element(find.byKey(const Key('shared-app-bar'))),
     ).read(peakListRevisionProvider.notifier).increment();
@@ -1909,7 +2265,9 @@ void main() {
       findsOneWidget,
     );
     expect(
-      tester.widget<Text>(find.byKey(const Key('peak-lists-selected-title'))).data,
+      tester
+          .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+          .data,
       'Abels',
     );
   });
@@ -2337,92 +2695,93 @@ void main() {
     );
   });
 
-  testWidgets('duplicate name confirm path updates through background handoff', (
-    tester,
-  ) async {
-    var importCallCount = 0;
-    await _pumpPeakListsApp(
-      tester,
-      filePicker: TestPeakListFilePicker(selectedFilePath: '/tmp/test.csv'),
-      repository: PeakListRepository.test(InMemoryPeakListStorage()),
-      duplicateNameChecker: (name) async => true,
-      importRunner:
-          ({required String listName, required String csvPath}) async {
-            importCallCount += 1;
-            return const PeakListImportPresentationResult(
-              updated: true,
-              importedCount: 1234,
-              skippedCount: 1234,
-            );
-          },
-    );
+  testWidgets(
+    'duplicate name confirm path updates through background handoff',
+    (tester) async {
+      var importCallCount = 0;
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(selectedFilePath: '/tmp/test.csv'),
+        repository: PeakListRepository.test(InMemoryPeakListStorage()),
+        duplicateNameChecker: (name) async => true,
+        importRunner:
+            ({required String listName, required String csvPath}) async {
+              importCallCount += 1;
+              return const PeakListImportPresentationResult(
+                updated: true,
+                importedCount: 1234,
+                skippedCount: 1234,
+              );
+            },
+      );
 
-    await tester.tap(find.byKey(const Key('peak-lists-import-fab')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('peak-list-select-file')));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('peak-list-name-field')),
-      'Abels',
-    );
-    await tester.tap(find.byKey(const Key('peak-list-import-button')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('peak-lists-import-fab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('peak-list-select-file')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('peak-list-name-field')),
+        'Abels',
+      );
+      await tester.tap(find.byKey(const Key('peak-list-import-button')));
+      await tester.pumpAndSettle();
 
-    expect(
-      find.text(
-        'This list already exists - do you want to update the existing list?',
-      ),
-      findsOneWidget,
-    );
+      expect(
+        find.text(
+          'This list already exists - do you want to update the existing list?',
+        ),
+        findsOneWidget,
+      );
 
-    await tester.tap(find.byKey(const Key('peak-list-update-confirm')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('peak-list-update-confirm')));
+      await tester.pumpAndSettle();
 
-    expect(importCallCount, 1);
-    expect(find.byKey(const Key('peak-list-import-dialog')), findsNothing);
-    expect(find.textContaining('Import complete:'), findsOneWidget);
-  });
+      expect(importCallCount, 1);
+      expect(find.byKey(const Key('peak-list-import-dialog')), findsNothing);
+      expect(find.textContaining('Import complete:'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'accepted import closes immediately and failure uses background job path',
     (tester) async {
-    final completer = Completer<PeakListImportPresentationResult>();
-    await _pumpPeakListsApp(
-      tester,
-      filePicker: TestPeakListFilePicker(selectedFilePath: '/tmp/test.csv'),
-      repository: PeakListRepository.test(InMemoryPeakListStorage()),
-      importRunner: ({required String listName, required String csvPath}) {
-        return completer.future;
-      },
-    );
+      final completer = Completer<PeakListImportPresentationResult>();
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(selectedFilePath: '/tmp/test.csv'),
+        repository: PeakListRepository.test(InMemoryPeakListStorage()),
+        importRunner: ({required String listName, required String csvPath}) {
+          return completer.future;
+        },
+      );
 
-    await tester.tap(find.byKey(const Key('peak-lists-import-fab')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('peak-list-select-file')));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('peak-list-name-field')),
-      'Abels',
-    );
-    await tester.tap(find.byKey(const Key('peak-list-import-button')));
-    await tester.pump();
+      await tester.tap(find.byKey(const Key('peak-lists-import-fab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('peak-list-select-file')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('peak-list-name-field')),
+        'Abels',
+      );
+      await tester.tap(find.byKey(const Key('peak-list-import-button')));
+      await tester.pump();
 
-    completer.completeError(StateError('boom'));
-    await tester.pump();
-    await tester.pumpAndSettle();
+      completer.completeError(StateError('boom'));
+      await tester.pump();
+      await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('peak-list-import-dialog')), findsNothing);
-    expect(find.byKey(const Key('background-jobs-entry')), findsOneWidget);
+      expect(find.byKey(const Key('peak-list-import-dialog')), findsNothing);
+      expect(find.byKey(const Key('background-jobs-entry')), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('background-jobs-entry')));
-    await tester.pump();
+      await tester.tap(find.byKey(const Key('background-jobs-entry')));
+      await tester.pump();
 
-    expect(find.byKey(const Key('background-jobs-panel')), findsOneWidget);
-    expect(
-      find.byKey(const Key('background-jobs-label-background-job-1')),
-      findsOneWidget,
-    );
-    expect(find.text('Failed'), findsOneWidget);
+      expect(find.byKey(const Key('background-jobs-panel')), findsOneWidget);
+      expect(
+        find.byKey(const Key('background-jobs-label-background-job-1')),
+        findsOneWidget,
+      );
+      expect(find.text('Failed'), findsOneWidget);
     },
   );
 
@@ -2469,8 +2828,13 @@ void main() {
   ) async {
     final peakRepository = PeakRepository.test(
       InMemoryPeakStorage([
-        _buildPeak(101, 'Old Peak', -41.85916, 145.97754, elevation: 1200)
-            .copyWith(sourceOfTruth: Peak.sourceOfTruthOsm),
+        _buildPeak(
+          101,
+          'Old Peak',
+          -41.85916,
+          145.97754,
+          elevation: 1200,
+        ).copyWith(sourceOfTruth: Peak.sourceOfTruthOsm),
       ]),
     );
     final repository = PeakListRepository.test(InMemoryPeakListStorage());
@@ -2479,26 +2843,36 @@ void main() {
       peakListRepository: repository,
       csvLoader: (_) async => _appOwnedCsv([
         _appOwnedCsvRowForPeak(
-          _buildPeak(101, 'Imported Peak', -41.85916, 145.97754, elevation: 1363)
-              .copyWith(
-                altName: 'Imported Alt',
-                country: 'Australia',
-                county: 'Central Highlands',
-                range: 'Du Cane',
-                region: 'tasmania',
-                sourceOfTruth: Peak.sourceOfTruthHwc,
-              ),
+          _buildPeak(
+            101,
+            'Imported Peak',
+            -41.85916,
+            145.97754,
+            elevation: 1363,
+          ).copyWith(
+            altName: 'Imported Alt',
+            country: 'Australia',
+            county: 'Central Highlands',
+            range: 'Du Cane',
+            region: 'tasmania',
+            sourceOfTruth: Peak.sourceOfTruthHwc,
+          ),
           points: 3,
         ),
         _appOwnedCsvRowForPeak(
-          _buildPeak(202, 'Created Peak', -41.9000, 145.9500, elevation: 1400)
-              .copyWith(
-                country: 'Australia',
-                county: 'Kentish',
-                range: 'Great Western Tiers',
-                region: 'tasmania',
-                sourceOfTruth: Peak.sourceOfTruthPeakBagger,
-              ),
+          _buildPeak(
+            202,
+            'Created Peak',
+            -41.9000,
+            145.9500,
+            elevation: 1400,
+          ).copyWith(
+            country: 'Australia',
+            county: 'Kentish',
+            range: 'Great Western Tiers',
+            region: 'tasmania',
+            sourceOfTruth: Peak.sourceOfTruthPeakBagger,
+          ),
           points: 7,
         ),
       ]),
@@ -2533,13 +2907,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      tester.widget<Text>(find.byKey(const Key('peak-lists-selected-title'))).data,
+      tester
+          .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+          .data,
       'Round Trip Import',
     );
     expect(
-      decodePeakListItems(repository.findByName('Round Trip Import')!.peakList)
-          .map((item) => (item.peakOsmId, item.points))
-          .toList(),
+      decodePeakListItems(
+        repository.findByName('Round Trip Import')!.peakList,
+      ).map((item) => (item.peakOsmId, item.points)).toList(),
       [(101, 3), (202, 7)],
     );
     expect(peakRepository.findByOsmId(101)?.name, 'Imported Peak');
@@ -2699,23 +3075,22 @@ Future<void> _pumpPeakListsApp(
               PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
         ),
         peakListFilePickerProvider.overrideWithValue(filePicker),
-        peakListImportBackgroundRunnerProvider.overrideWithValue(
-          ({
-            required String listName,
-            required String csvPath,
-            PeakListImportProgressCallback? onProgress,
-          }) async {
-            final runner = importRunner ??
-                ({required String listName, required String csvPath}) async {
-                  return const PeakListImportPresentationResult(
-                    updated: false,
-                    importedCount: 1,
-                    skippedCount: 0,
-                  );
-                };
-            return runner(listName: listName, csvPath: csvPath);
-          },
-        ),
+        peakListImportBackgroundRunnerProvider.overrideWithValue(({
+          required String listName,
+          required String csvPath,
+          PeakListImportProgressCallback? onProgress,
+        }) async {
+          final runner =
+              importRunner ??
+              ({required String listName, required String csvPath}) async {
+                return const PeakListImportPresentationResult(
+                  updated: false,
+                  importedCount: 1,
+                  skippedCount: 0,
+                );
+              };
+          return runner(listName: listName, csvPath: csvPath);
+        }),
         peakListDuplicateNameCheckerProvider.overrideWithValue(
           duplicateNameChecker ?? ((name) async => false),
         ),
@@ -2770,23 +3145,22 @@ Future<void> _pumpPeakListsScreen(
               PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
         ),
         peakListFilePickerProvider.overrideWithValue(filePicker),
-        peakListImportBackgroundRunnerProvider.overrideWithValue(
-          ({
-            required String listName,
-            required String csvPath,
-            PeakListImportProgressCallback? onProgress,
-          }) async {
-            final runner = importRunner ??
-                ({required String listName, required String csvPath}) async {
-                  return const PeakListImportPresentationResult(
-                    updated: false,
-                    importedCount: 1,
-                    skippedCount: 0,
-                  );
-                };
-            return runner(listName: listName, csvPath: csvPath);
-          },
-        ),
+        peakListImportBackgroundRunnerProvider.overrideWithValue(({
+          required String listName,
+          required String csvPath,
+          PeakListImportProgressCallback? onProgress,
+        }) async {
+          final runner =
+              importRunner ??
+              ({required String listName, required String csvPath}) async {
+                return const PeakListImportPresentationResult(
+                  updated: false,
+                  importedCount: 1,
+                  skippedCount: 0,
+                );
+              };
+          return runner(listName: listName, csvPath: csvPath);
+        }),
         peakListDuplicateNameCheckerProvider.overrideWithValue(
           duplicateNameChecker ?? ((name) async => false),
         ),
@@ -2806,6 +3180,28 @@ List<PeakList> _buildLists(List<String> names) {
     for (var index = 0; index < names.length; index++)
       PeakList(name: names[index], peakList: '[]')..peakListId = index + 1,
   ];
+}
+
+String _summarySentenceText(WidgetTester tester) {
+  final placeholder = String.fromCharCode(0xFFFC);
+  final summaryFinder = find.byKey(const Key('peak-lists-summary-sentence'));
+  final summary = tester.widget<Text>(summaryFinder);
+  var text = summary.textSpan?.toPlainText() ?? summary.data ?? '';
+  final inlineLinkTexts = tester
+      .widgetList<Text>(
+        find.descendant(
+          of: summaryFinder,
+          matching: find.byWidgetPredicate(
+            (widget) => widget is Text && widget.data != null,
+          ),
+        ),
+      )
+      .map((widget) => widget.data!)
+      .toList(growable: false);
+  for (final inlineLinkText in inlineLinkTexts) {
+    text = text.replaceFirst(placeholder, inlineLinkText);
+  }
+  return text;
 }
 
 PeakListImportRunner _buildImportRunnerForTest({
@@ -2872,7 +3268,9 @@ Peak _peakWithGrid(Peak peak) {
     return peak;
   }
 
-  final mgrs = PeakMgrsConverter.fromLatLng(LatLng(peak.latitude, peak.longitude));
+  final mgrs = PeakMgrsConverter.fromLatLng(
+    LatLng(peak.latitude, peak.longitude),
+  );
   return peak.copyWith(
     gridZoneDesignator: mgrs.gridZoneDesignator,
     mgrs100kId: mgrs.mgrs100kId,

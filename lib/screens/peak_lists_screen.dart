@@ -50,6 +50,7 @@ class PeakListsScreen extends ConsumerStatefulWidget {
 }
 
 class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
+  final _miniPeakMapKey = GlobalKey<_MiniPeakMapState>();
   int? _selectedPeakListId;
   int? _selectedPeakId;
   _PeakListSortColumn _sortColumn = _PeakListSortColumn.percentage;
@@ -123,6 +124,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
                   selectedPeakListId: selectedSummaryRow?.peakList.peakListId,
                   sortColumn: _sortColumn,
                   sortAscending: _sortAscending,
+                  miniPeakMapKey: _miniPeakMapKey,
                   onSelected: (peakListId) {
                     setState(() {
                       _selectedPeakListId = peakListId;
@@ -152,6 +154,12 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
                 child: _DetailsPane(
                   selectedSummaryRow: selectedSummaryRow,
                   selectedPeakId: _selectedPeakId,
+                  onSummaryPeakSelected: (peakId) {
+                    setState(() {
+                      _selectedPeakId = peakId;
+                    });
+                    _miniPeakMapKey.currentState?.showPopupForPeak(peakId);
+                  },
                   onPeakSelected: (peakId) async {
                     setState(() {
                       _selectedPeakId = peakId;
@@ -756,6 +764,7 @@ class _SummaryPane extends StatelessWidget {
     required this.rows,
     required this.selectedPeakListId,
     required this.selectedMapPeak,
+    required this.miniPeakMapKey,
     required this.sortColumn,
     required this.sortAscending,
     required this.onSelected,
@@ -772,6 +781,7 @@ class _SummaryPane extends StatelessWidget {
   final List<_PeakListSummaryRow> rows;
   final int? selectedPeakListId;
   final _MapPeak? selectedMapPeak;
+  final GlobalKey<_MiniPeakMapState> miniPeakMapKey;
   final _PeakListSortColumn sortColumn;
   final bool sortAscending;
   final ValueChanged<int> onSelected;
@@ -822,6 +832,7 @@ class _SummaryPane extends StatelessWidget {
                       orElse: () => rows.first,
                     ),
               selectedMapPeak: selectedMapPeak,
+              miniPeakMapKey: miniPeakMapKey,
               onPeakSelected: onPeakSelected,
             ),
           ),
@@ -991,6 +1002,7 @@ class _SummaryHeaderActions extends ConsumerWidget {
             key: const Key('peak-lists-add-list-fab'),
             heroTag: 'peak-list-create',
             backgroundColor: fabBackground,
+            mouseCursor: SystemMouseCursors.click,
             onPressed: onCreateRequested,
             child: Icon(Icons.add_circle_outline, color: fabForeground),
           ),
@@ -1002,19 +1014,21 @@ class _SummaryHeaderActions extends ConsumerWidget {
             key: const Key('peak-lists-import-fab'),
             heroTag: 'peak-list-import',
             backgroundColor: fabBackground,
+            mouseCursor: SystemMouseCursors.click,
             onPressed: () async {
               await showDialog<bool>(
                 context: context,
                 builder: (context) {
                   return PeakListImportDialog(
                     filePicker: filePicker,
-                    onImport: ({required String listName, required String csvPath}) {
-                      return _startBackgroundImport(
-                        ref,
-                        listName: listName,
-                        csvPath: csvPath,
-                      );
-                    },
+                    onImport:
+                        ({required String listName, required String csvPath}) {
+                          return _startBackgroundImport(
+                            ref,
+                            listName: listName,
+                            csvPath: csvPath,
+                          );
+                        },
                     duplicateNameChecker: duplicateNameChecker,
                   );
                 },
@@ -1112,7 +1126,8 @@ class _SummaryHeaderActions extends ConsumerWidget {
         jobId: jobId,
         summary: _importSummary(result),
         detailLines: _importDetailLines(result),
-        hasWarnings: result.warningCount > 0 ||
+        hasWarnings:
+            result.warningCount > 0 ||
             result.ambiguousCount > 0 ||
             result.importLogNote != null,
       );
@@ -1123,8 +1138,8 @@ class _SummaryHeaderActions extends ConsumerWidget {
           ...?switch (openListAction) {
             null => null,
             final openListAction => <BackgroundJobsSnackBarAction>[
-                openListAction,
-              ],
+              openListAction,
+            ],
           },
         ],
       );
@@ -1155,10 +1170,12 @@ class _SummaryHeaderActions extends ConsumerWidget {
   }
 
   void _openImportedList(WidgetRef ref, int peakListId) {
-    ref.read(mapProvider.notifier).selectPeakList(
-      PeakListSelectionMode.specificList,
-      peakListId: peakListId,
-    );
+    ref
+        .read(mapProvider.notifier)
+        .selectPeakList(
+          PeakListSelectionMode.specificList,
+          peakListId: peakListId,
+        );
     router.go('/peaks?selectedPeakListId=$peakListId');
   }
 
@@ -1315,6 +1332,7 @@ class _SortHeaderCell extends StatelessWidget {
     return InkWell(
       key: Key('peak-lists-sort-${column.name}'),
       onTap: () => onTap(column),
+      mouseCursor: SystemMouseCursors.click,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
@@ -1527,12 +1545,14 @@ class _DetailsPane extends StatelessWidget {
   const _DetailsPane({
     required this.selectedSummaryRow,
     required this.selectedPeakId,
+    required this.onSummaryPeakSelected,
     required this.onPeakSelected,
     required this.onAddPeakRequested,
   });
 
   final _PeakListSummaryRow? selectedSummaryRow;
   final int? selectedPeakId;
+  final ValueChanged<int> onSummaryPeakSelected;
   final Future<void> Function(int) onPeakSelected;
   final Future<void> Function() onAddPeakRequested;
 
@@ -1541,8 +1561,9 @@ class _DetailsPane extends StatelessWidget {
     final fabBackground = _fabBackgroundColor(context);
     final fabForeground = _fabForegroundColor(context);
 
-    final title = selectedSummaryRow?.peakList.name ?? 'Peak List Details';
-    final summaryText = selectedSummaryRow?.buildSummarySentence();
+    final summaryRow = selectedSummaryRow;
+    final title = summaryRow?.peakList.name ?? 'Peak List Details';
+    final summaryText = summaryRow?.buildSummarySentence();
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -1573,10 +1594,9 @@ class _DetailsPane extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (summaryText != null) ...[
-            Text(
-              summaryText,
-              key: const Key('peak-lists-summary-sentence'),
-              softWrap: true,
+            _PeakListSummarySentence(
+              summaryRow: summaryRow!,
+              onPeakSelected: onSummaryPeakSelected,
             ),
             const SizedBox(height: 12),
           ],
@@ -2090,6 +2110,7 @@ class _DetailSortHeaderCell extends StatelessWidget {
     return InkWell(
       key: Key('peak-lists-details-sort-${column.name}'),
       onTap: () => onTap(column),
+      mouseCursor: SystemMouseCursors.click,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
@@ -2132,11 +2153,13 @@ class _MiniPeakMapContainer extends StatelessWidget {
   const _MiniPeakMapContainer({
     required this.selectedSummaryRow,
     required this.selectedMapPeak,
+    required this.miniPeakMapKey,
     required this.onPeakSelected,
   });
 
   final _PeakListSummaryRow? selectedSummaryRow;
   final _MapPeak? selectedMapPeak;
+  final GlobalKey<_MiniPeakMapState> miniPeakMapKey;
   final ValueChanged<int> onPeakSelected;
 
   @override
@@ -2152,6 +2175,7 @@ class _MiniPeakMapContainer extends StatelessWidget {
                 child: AspectRatio(
                   aspectRatio: 4 / 3,
                   child: _MiniPeakMap(
+                    key: miniPeakMapKey,
                     selectedSummaryRow: selectedSummaryRow,
                     selectedMapPeak: selectedMapPeak,
                     onPeakSelected: onPeakSelected,
@@ -2171,6 +2195,7 @@ class _MiniPeakMap extends ConsumerStatefulWidget {
     required this.selectedSummaryRow,
     required this.selectedMapPeak,
     required this.onPeakSelected,
+    super.key,
   });
 
   final _PeakListSummaryRow? selectedSummaryRow;
@@ -2187,6 +2212,50 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
   PeakInfoContent? _popupContent;
   int? _hoveredPeakId;
   static const _tapThreshold = 24.0;
+
+  void showPopupForPeak(int peakId) {
+    final tappedPeak = _peakForId(peakId);
+    if (tappedPeak == null) {
+      _clearPopup();
+      return;
+    }
+
+    final content = resolvePeakInfoContent(
+      peak: tappedPeak,
+      peakListRepository: ref.read(peakListRepositoryProvider),
+      tasmapRepository: ref.read(tasmapRepositoryProvider),
+      peaksBaggedRepository: _readPeaksBaggedRepository(),
+      gpxTrackRepository: _readGpxTrackRepository(),
+    );
+    setState(() {
+      _popupContent = content;
+    });
+  }
+
+  void _goToMap() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      router.go('/map');
+    });
+  }
+
+  void _openPeakOnMap(Peak peak) {
+    ref
+        .read(mapProvider.notifier)
+        .requestCameraMove(
+          center: LatLng(peak.latitude, peak.longitude),
+          zoom: MapConstants.defaultZoom,
+        );
+    _goToMap();
+  }
+
+  void _openAscentTrackOnMap(PeakInfoAscentRow row) {
+    if (!_isTrackOpenable(row.gpxId)) {
+      return;
+    }
+
+    ref.read(mapProvider.notifier).showTrack(row.gpxId);
+    _goToMap();
+  }
 
   @override
   void didUpdateWidget(covariant _MiniPeakMap oldWidget) {
@@ -2256,7 +2325,7 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
     });
   }
 
-  Future<void> _handleMapTap(Offset localPosition) async {
+  void _handleMapTap(Offset localPosition) {
     final summaryRow = widget.selectedSummaryRow;
     if (summaryRow == null || summaryRow.mapPeaks.isEmpty) {
       return;
@@ -2299,32 +2368,8 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
       return;
     }
 
-    Peak? tappedPeak;
-    for (final peak in summaryRow.mapPeaks) {
-      if (peak.peak.osmId == peakId) {
-        tappedPeak = peak.peak;
-        break;
-      }
-    }
-    if (tappedPeak == null) {
-      _clearPopup();
-      return;
-    }
-
     widget.onPeakSelected(peakId);
-    final content = resolvePeakInfoContent(
-      peak: tappedPeak,
-      peakListRepository: ref.read(peakListRepositoryProvider),
-      tasmapRepository: ref.read(tasmapRepositoryProvider),
-      peaksBaggedRepository: _readPeaksBaggedRepository(),
-      gpxTrackRepository: _readGpxTrackRepository(),
-    );
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _popupContent = content;
-    });
+    showPopupForPeak(peakId);
   }
 
   PeaksBaggedRepository _readPeaksBaggedRepository() {
@@ -2341,6 +2386,28 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
     } catch (_) {
       return GpxTrackRepository.test(InMemoryGpxTrackStorage());
     }
+  }
+
+  Peak? _peakForId(int peakId) {
+    final summaryRow = widget.selectedSummaryRow;
+    if (summaryRow == null) {
+      return null;
+    }
+
+    for (final peak in summaryRow.mapPeaks) {
+      if (peak.peak.osmId == peakId) {
+        return peak.peak;
+      }
+    }
+
+    return null;
+  }
+
+  bool _isTrackOpenable(int gpxId) {
+    if (gpxId <= 0) {
+      return false;
+    }
+    return _readGpxTrackRepository().findById(gpxId) != null;
   }
 
   int? _findNearestPeakId({
@@ -2424,9 +2491,6 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
   Widget build(BuildContext context) {
     final markerPeaks =
         widget.selectedSummaryRow?.mapPeaks ?? const <_MapPeak>[];
-    final selectedLocation = ref.watch(
-      mapProvider.select((state) => state.selectedLocation),
-    );
     ref.watch(peakMarkerInfoSettingsProvider);
     final showPeakListMiniMapClusters = ref.watch(
       peakListMiniMapClusterDisplaySettingsProvider,
@@ -2494,24 +2558,6 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                         ),
                       if (markerPeaks.isNotEmpty)
                         _MiniPeakMapAffordanceLayer(viewportData: viewportData),
-                      if (selectedLocation != null)
-                        MarkerLayer(
-                          markers: [
-                            Marker(
-                              key: const Key(
-                                'peak-lists-selected-location-marker',
-                              ),
-                              point: selectedLocation,
-                              width: 40,
-                              height: 40,
-                              child: Icon(
-                                Icons.my_location,
-                                color: Colors.amber,
-                                size: 32,
-                              ),
-                            ),
-                          ],
-                        ),
                       if (widget.selectedMapPeak != null)
                         CircleLayer(
                           key: const Key(
@@ -2589,16 +2635,14 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                           child: PeakInfoPopupCard(
                             key: const Key('peak-lists-mini-map-popup'),
                             content: _popupContent!,
-                            onDropMarker: () {
-                              ref
-                                  .read(mapProvider.notifier)
-                                  .setSelectedLocation(
-                                    LatLng(
-                                      _popupContent!.peak.latitude,
-                                      _popupContent!.peak.longitude,
-                                    ),
-                                  );
-                              _clearPopup();
+                            onPeakTitleTap: () {
+                              _openPeakOnMap(_popupContent!.peak);
+                            },
+                            onAscentTap: _openAscentTrackOnMap,
+                            interactiveAscentTrackIds: {
+                              for (final ascent in _popupContent!.ascentRows)
+                                if (_isTrackOpenable(ascent.gpxId))
+                                  ascent.gpxId,
                             },
                             onClose: _clearPopup,
                           ),
@@ -2707,7 +2751,7 @@ class _PeakListSummaryRow {
     required this.peakRows,
     required this.mapPeaks,
     required this.latestAscentDate,
-    required this.latestAscentPeakNames,
+    required this.latestAscentPeaks,
     this.unsupportedMessage,
   });
 
@@ -2813,8 +2857,9 @@ class _PeakListSummaryRow {
         peakRows: peakRows,
         mapPeaks: mapPeaks,
         latestAscentDate: latestAscentDate,
-        latestAscentPeakNames: [
-          for (final row in latestAscentPeakRows) row.name,
+        latestAscentPeaks: [
+          for (final row in latestAscentPeakRows)
+            _LatestAscentPeak(peakId: row.peakId, name: row.name),
         ],
       );
     } catch (_) {
@@ -2831,7 +2876,7 @@ class _PeakListSummaryRow {
         peakRows: const [],
         mapPeaks: const [],
         latestAscentDate: null,
-        latestAscentPeakNames: const [],
+        latestAscentPeaks: const [],
         unsupportedMessage:
             'This peak list uses an unsupported legacy format. Delete it and re-import the CSV to inspect its peaks and metrics.',
       );
@@ -2850,7 +2895,7 @@ class _PeakListSummaryRow {
   final List<_PeakDetailRow> peakRows;
   final List<_MapPeak> mapPeaks;
   final DateTime? latestAscentDate;
-  final List<String> latestAscentPeakNames;
+  final List<_LatestAscentPeak> latestAscentPeaks;
   final String? unsupportedMessage;
 
   String get totalPeaksLabel => _formattedCountOrDash(totalPeaks);
@@ -2879,12 +2924,14 @@ class _PeakListSummaryRow {
 
     final metricsSentence =
         'Climbed ${formatCount(climbed!)} of ${formatCount(totalPeaks!)} peaks (${formatPercentage(percentageValue * 100, decimalPlaces: 0)}) and earned a total ${formatCount(earnedPoints!)} points out of ${formatCount(totalPoints!)}.';
-    if (latestAscentDate == null || latestAscentPeakNames.isEmpty) {
+    if (latestAscentDate == null || latestAscentPeaks.isEmpty) {
       return '$infoSentence\n\n$metricsSentence';
     }
 
-    final joinedPeakNames = _joinPeakNames(latestAscentPeakNames);
-    final verb = latestAscentPeakNames.length == 1 ? 'is' : 'are';
+    final joinedPeakNames = _joinPeakNames([
+      for (final peak in latestAscentPeaks) peak.name,
+    ]);
+    final verb = latestAscentPeaks.length == 1 ? 'is' : 'are';
     return '$infoSentence\n\n$joinedPeakNames $verb your most recent ascent, climbed on ${_formatDate(latestAscentDate!)}.\n$metricsSentence';
   }
 
@@ -2932,11 +2979,133 @@ class _PeakDetailRow {
   String get ascentCountLabel => ascentCount == 0 ? '' : ascentCount.toString();
 }
 
+class _LatestAscentPeak {
+  const _LatestAscentPeak({required this.peakId, required this.name});
+
+  final int peakId;
+  final String name;
+}
+
 class _MapPeak {
   const _MapPeak({required this.peak, required this.isClimbed});
 
   final Peak peak;
   final bool isClimbed;
+}
+
+class _PeakListSummarySentence extends StatelessWidget {
+  const _PeakListSummarySentence({
+    required this.summaryRow,
+    required this.onPeakSelected,
+  });
+
+  final _PeakListSummaryRow summaryRow;
+  final ValueChanged<int> onPeakSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final summaryText = summaryRow.buildSummarySentence();
+    final latestAscentDate = summaryRow.latestAscentDate;
+    if (summaryText == null) {
+      return const SizedBox.shrink();
+    }
+    if (!summaryRow.isSupported ||
+        latestAscentDate == null ||
+        summaryRow.latestAscentPeaks.isEmpty ||
+        summaryRow.totalPeaks == null ||
+        summaryRow.climbed == null ||
+        summaryRow.totalPoints == null ||
+        summaryRow.earnedPoints == null) {
+      return Text(
+        summaryText,
+        key: const Key('peak-lists-summary-sentence'),
+        softWrap: true,
+      );
+    }
+
+    final defaultStyle = DefaultTextStyle.of(context).style;
+    final theme = Theme.of(context);
+    final linkStyle = defaultStyle.copyWith(color: theme.seedColour);
+    final infoSentence =
+        '${summaryRow.peakList.name} contains ${formatCount(summaryRow.totalPeaks!)} peaks.';
+    final metricsSentence =
+        'Climbed ${formatCount(summaryRow.climbed!)} of ${formatCount(summaryRow.totalPeaks!)} peaks (${formatPercentage(summaryRow.percentageValue * 100, decimalPlaces: 0)}) and earned a total ${formatCount(summaryRow.earnedPoints!)} points out of ${formatCount(summaryRow.totalPoints!)}.';
+    final verb = summaryRow.latestAscentPeaks.length == 1 ? 'is' : 'are';
+
+    return Text.rich(
+      TextSpan(
+        style: defaultStyle,
+        children: [
+          TextSpan(text: '$infoSentence\n\n'),
+          ..._buildLatestAscentSpans(
+            peaks: summaryRow.latestAscentPeaks,
+            linkStyle: linkStyle,
+          ),
+          TextSpan(
+            text:
+                ' $verb your most recent ascent, climbed on ${_formatDate(latestAscentDate)}.\n$metricsSentence',
+          ),
+        ],
+      ),
+      key: const Key('peak-lists-summary-sentence'),
+      softWrap: true,
+    );
+  }
+
+  List<InlineSpan> _buildLatestAscentSpans({
+    required List<_LatestAscentPeak> peaks,
+    required TextStyle linkStyle,
+  }) {
+    final spans = <InlineSpan>[];
+    for (var index = 0; index < peaks.length; index++) {
+      if (index > 0) {
+        spans.add(TextSpan(text: index == peaks.length - 1 ? ' and ' : ', '));
+      }
+      final peak = peaks[index];
+      spans.add(
+        WidgetSpan(
+          alignment: PlaceholderAlignment.baseline,
+          baseline: TextBaseline.alphabetic,
+          child: _PeakListSummaryLink(
+            peakId: peak.peakId,
+            name: peak.name,
+            style: linkStyle,
+            onTap: onPeakSelected,
+          ),
+        ),
+      );
+    }
+    return spans;
+  }
+}
+
+class _PeakListSummaryLink extends StatelessWidget {
+  const _PeakListSummaryLink({
+    required this.peakId,
+    required this.name,
+    required this.style,
+    required this.onTap,
+  });
+
+  final int peakId;
+  final String name;
+  final TextStyle style;
+  final ValueChanged<int> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      key: Key('peak-lists-summary-link-$peakId'),
+      mouseCursor: SystemMouseCursors.click,
+      hoverColor: lighten(theme.colorScheme.surfaceContainer, 0.08),
+      borderRadius: BorderRadius.circular(4),
+      onTap: () {
+        onTap(peakId);
+      },
+      child: Text(name, style: style),
+    );
+  }
 }
 
 String _joinPeakNames(List<String> names) {

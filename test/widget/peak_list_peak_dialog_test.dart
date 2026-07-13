@@ -130,6 +130,7 @@ void main() {
     final titleInkWell = tester.widget<InkWell>(
       find.byKey(const Key('peak-list-peak-name')),
     );
+    expect(titleInkWell.mouseCursor, SystemMouseCursors.click);
     expect(
       titleInkWell.hoverColor,
       lighten(
@@ -138,6 +139,22 @@ void main() {
         ).colorScheme.surfaceContainer,
         0.08,
       ),
+    );
+    expect(
+      _resolvedMouseCursor(
+        tester.widget<TextButton>(
+          find.byKey(const Key('peak-list-peak-map-link')),
+        ),
+      ),
+      SystemMouseCursors.click,
+    );
+    expect(
+      _resolvedMouseCursor(
+        tester.widget<TextButton>(
+          find.byKey(const Key('peak-list-peak-track-10')),
+        ),
+      ),
+      SystemMouseCursors.click,
     );
   });
 
@@ -1326,6 +1343,10 @@ Future<Completer<PeakListPeakDialogOutcome?>> _pumpDialog(
     await tester.pumpAndSettle();
   }
   return completer;
+}
+
+MouseCursor? _resolvedMouseCursor(TextButton button) {
+  return button.style?.mouseCursor?.resolve(const <WidgetState>{});
 }
 
 Tasmap50k _resolvedMap(LatLng center) {

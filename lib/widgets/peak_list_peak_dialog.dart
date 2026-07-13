@@ -163,6 +163,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                                       ? InkWell(
                                           key: const Key('peak-list-peak-name'),
                                           onTap: _navigateToPeakOnMap,
+                                          mouseCursor: SystemMouseCursors.click,
                                           hoverColor: lighten(
                                             theme.colorScheme.surfaceContainer,
                                             0.08,
@@ -365,12 +366,17 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
               ? const Text('Unknown')
               : TextButton(
                   key: const Key('peak-list-peak-map-link'),
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    alignment: Alignment.centerLeft,
-                  ),
+                  style:
+                      TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        alignment: Alignment.centerLeft,
+                      ).copyWith(
+                        mouseCursor: const WidgetStatePropertyAll(
+                          SystemMouseCursors.click,
+                        ),
+                      ),
                   onPressed: () => _openMap(resolvedMap),
                   child: Text(resolvedMap.name),
                 ),
@@ -1049,6 +1055,11 @@ class _HistoryRow extends ConsumerWidget {
                 ? const SizedBox.shrink()
                 : TextButton(
                     key: Key('peak-list-peak-track-${row.gpxId}'),
+                    style: const ButtonStyle(
+                      mouseCursor: WidgetStatePropertyAll(
+                        SystemMouseCursors.click,
+                      ),
+                    ),
                     onPressed: () => onTrackSelected(row),
                     child: Align(
                       alignment: Alignment.centerLeft,
