@@ -703,6 +703,10 @@ ObjectBoxAdminRow peakListToAdminRow(PeakList peakList) {
       'region': peakList.region,
       'peakList': peakList.peakList,
       'colour': peakList.colour,
+      'minLat': peakList.minLat,
+      'maxLat': peakList.maxLat,
+      'minLng': peakList.minLng,
+      'maxLng': peakList.maxLng,
     },
   );
 }

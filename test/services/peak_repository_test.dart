@@ -6,6 +6,7 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/objectbox.g.dart';
+import 'package:peak_bagger/services/peak_list_derived_data.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 
 void main() {
@@ -269,6 +270,57 @@ void main() {
       expect(peak?.sourceOfTruth, Peak.sourceOfTruthHwc);
     });
 
+    test(
+      'saveDetailed refreshes cached peak-list bounds after coordinate edits',
+      () async {
+        final rewritePort = _RecordingPeakListRewritePort(
+          peakLists: [
+            PeakList(
+              name: 'Abels',
+              peakList: encodePeakListItems([
+                const PeakListItem(peakOsmId: 123, points: 2),
+              ]),
+            ),
+          ],
+          peaksBagged: const [],
+          peakStorage: storage,
+        );
+        final detailedRepository = PeakRepository.test(
+          storage,
+          peakListRewritePort: rewritePort,
+        );
+        await detailedRepository.addPeaks([
+          Peak(
+            id: 7,
+            osmId: 123,
+            name: 'Cradle',
+            latitude: -41.0,
+            longitude: 146.0,
+          ),
+        ]);
+        rewritePort.peakLists.single
+          ..minLat = -41.0
+          ..maxLat = -41.0
+          ..minLng = 146.0
+          ..maxLng = 146.0;
+
+        await detailedRepository.saveDetailed(
+          Peak(
+            id: 7,
+            osmId: 123,
+            name: 'Cradle',
+            latitude: -42.0,
+            longitude: 147.0,
+          ),
+        );
+
+        expect(rewritePort.peakLists.single.minLat, -42.0);
+        expect(rewritePort.peakLists.single.maxLat, -42.0);
+        expect(rewritePort.peakLists.single.minLng, 147.0);
+        expect(rewritePort.peakLists.single.maxLng, 147.0);
+      },
+    );
+
     test('backfillRegion sets all stored peaks to tasmania', () async {
       await repository.addPeaks([
         Peak(
@@ -326,20 +378,22 @@ void main() {
           PeaksBagged(baggedId: 1, peakId: 123, gpxId: 7),
           PeaksBagged(baggedId: 2, peakId: 999, gpxId: 8),
         ];
+        final detailedStorage = InMemoryPeakStorage([
+          Peak(
+            id: 7,
+            osmId: 123,
+            name: 'Cradle',
+            latitude: -41,
+            longitude: 146,
+          ),
+        ]);
         final rewritePort = _RecordingPeakListRewritePort(
           peakLists: peakLists,
           peaksBagged: peaksBagged,
+          peakStorage: detailedStorage,
         );
         final detailedRepository = PeakRepository.test(
-          InMemoryPeakStorage([
-            Peak(
-              id: 7,
-              osmId: 123,
-              name: 'Cradle',
-              latitude: -41,
-              longitude: 146,
-            ),
-          ]),
+          detailedStorage,
           peakListRewritePort: rewritePort,
         );
 
@@ -455,16 +509,26 @@ class _NoopPeakListRewritePort implements PeakListRewritePort {
       skippedMalformedCount: 0,
     );
   }
+
+  @override
+  int refreshDerivedDataForPeakReferences({
+    required Peak previousPeak,
+    required Peak updatedPeak,
+  }) {
+    return 0;
+  }
 }
 
 class _RecordingPeakListRewritePort implements PeakListRewritePort {
   _RecordingPeakListRewritePort({
     required this.peakLists,
     required this.peaksBagged,
+    required this.peakStorage,
   });
 
   final List<PeakList> peakLists;
   final List<PeaksBagged> peaksBagged;
+  final InMemoryPeakStorage peakStorage;
 
   @override
   PeakListRewriteResult rewriteOsmIdReferences({
@@ -508,5 +572,40 @@ class _RecordingPeakListRewritePort implements PeakListRewritePort {
       rewrittenCount: rewrittenCount,
       skippedMalformedCount: skippedMalformedCount,
     );
+  }
+
+  @override
+  int refreshDerivedDataForPeakReferences({
+    required Peak previousPeak,
+    required Peak updatedPeak,
+  }) {
+    final peaksByOsmId = {
+      for (final peak in peakStorage.getAll()) peak.osmId: peak,
+    };
+    final refreshedOsmIds = {previousPeak.osmId, updatedPeak.osmId};
+    var refreshedCount = 0;
+
+    for (var index = 0; index < peakLists.length; index++) {
+      final peakList = peakLists[index];
+      late final List<PeakListItem> items;
+      try {
+        items = decodePeakListItems(peakList.peakList);
+      } catch (_) {
+        continue;
+      }
+      if (!items.any((item) => refreshedOsmIds.contains(item.peakOsmId))) {
+        continue;
+      }
+
+      final derivedData = derivePeakListDerivedData(
+        peakList: peakList,
+        items: items,
+        peakResolver: (peakOsmId) => peaksByOsmId[peakOsmId],
+      );
+      peakLists[index] = derivedData.applyTo(peakList);
+      refreshedCount += 1;
+    }
+
+    return refreshedCount;
   }
 }

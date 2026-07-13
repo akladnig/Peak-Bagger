@@ -54,6 +54,7 @@ final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((
     ),
   );
   final peakLists = ref.watch(peakListsProvider);
+  final peaks = ref.watch(mapProvider.select((state) => state.peaks));
   final visibleRegionKeys = visibleRegionKeysForBounds(visibleBounds);
   final hasResolvedVisibleBounds = visibleBounds != null;
   if (hasResolvedVisibleBounds && visibleRegionKeys.isEmpty) {
@@ -80,7 +81,16 @@ final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((
   final visibleSelectedPeakListIds = hasResolvedVisibleBounds
       ? {
           for (final peakListId in selectedPeakListIds)
-            if (visibleRegionKeys.contains(regionKeysById[peakListId]))
+            if (() {
+              final peakList = peakListsById[peakListId];
+              return peakList != null &&
+                  peakListAppliesToVisibleRegions(
+                    peakList,
+                    visibleRegionKeys,
+                    visibleBounds: visibleBounds,
+                    peaks: peaks,
+                  );
+            }())
               peakListId,
         }
       : selectedPeakListIds.toSet();
@@ -148,10 +158,7 @@ final _activePeakListOwnersByPeakIdProvider =
         return const <int, List<_ActivePeakListOwner>>{};
       }
 
-      final (
-        :selectedPeakListIds,
-        :visibleBounds,
-      ) = ref.watch(
+      final (:selectedPeakListIds, :visibleBounds) = ref.watch(
         mapProvider.select(
           (state) => (
             selectedPeakListIds: state.selectedPeakListIds,
@@ -160,6 +167,7 @@ final _activePeakListOwnersByPeakIdProvider =
         ),
       );
       final peakLists = ref.watch(peakListsProvider);
+      final peaks = ref.watch(mapProvider.select((state) => state.peaks));
       final visibleRegionKeys = visibleBounds == null
           ? const <String>{}
           : visibleRegionKeysForBounds(visibleBounds);
@@ -168,6 +176,8 @@ final _activePeakListOwnersByPeakIdProvider =
               peakLists: peakLists,
               selectedPeakListIds: selectedPeakListIds,
               visibleRegionKeys: visibleRegionKeys,
+              visibleBounds: visibleBounds,
+              peaks: peaks,
             )
           : selectedPeakListIds.toSet();
       if (activeSelectedPeakListIds.isEmpty) {
@@ -220,13 +230,14 @@ final peakActiveOwnershipSegmentsProvider =
           continue;
         }
 
-        segmentsByPeakId[entry.key] = List<PeakOwnershipRingSegment>.unmodifiable([
-          for (final owner in orderedOwners)
-            PeakOwnershipRingSegment(
-              peakListId: owner.peakListId,
-              colourValue: owner.colourValue,
-            ),
-        ]);
+        segmentsByPeakId[entry.key] =
+            List<PeakOwnershipRingSegment>.unmodifiable([
+              for (final owner in orderedOwners)
+                PeakOwnershipRingSegment(
+                  peakListId: owner.peakListId,
+                  colourValue: owner.colourValue,
+                ),
+            ]);
       }
 
       return Map<int, List<PeakOwnershipRingSegment>>.unmodifiable(
@@ -236,12 +247,16 @@ final peakActiveOwnershipSegmentsProvider =
 
 final peakOwnershipRingSegmentsProvider =
     Provider<Map<int, List<PeakOwnershipRingSegment>>>((ref) {
-      final showPeakOwnershipRings = ref.watch(peakOwnershipRingSettingsProvider);
+      final showPeakOwnershipRings = ref.watch(
+        peakOwnershipRingSettingsProvider,
+      );
       if (!showPeakOwnershipRings) {
         return const <int, List<PeakOwnershipRingSegment>>{};
       }
 
-      final activeSegmentsByPeakId = ref.watch(peakActiveOwnershipSegmentsProvider);
+      final activeSegmentsByPeakId = ref.watch(
+        peakActiveOwnershipSegmentsProvider,
+      );
       final segmentsByPeakId = <int, List<PeakOwnershipRingSegment>>{};
 
       for (final entry in activeSegmentsByPeakId.entries) {
@@ -422,7 +437,7 @@ int _peakOwnershipPriority({
 }) {
   if (peak == null ||
       canonicalRegionKey(normalizePeakListRegionKey(peak.region)) !=
-      Peak.defaultRegion) {
+          Peak.defaultRegion) {
     return owner.peakListId;
   }
 

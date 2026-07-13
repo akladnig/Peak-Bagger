@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/number_formatters.dart';
+import '../../providers/map_provider.dart';
 import '../../providers/my_lists_summary_provider.dart';
 import '../../services/peak_list_summary_service.dart';
 import '../../router.dart';
@@ -43,13 +44,26 @@ class MyListsCard extends ConsumerWidget {
                       row: row,
                       headerStyle: headerStyle,
                       rowStyle: rowStyle,
-                      onTap: () {
-                        router.goNamed(
-                          'peaks',
-                          queryParameters: {
-                            'selectedPeakListId': '${row.peakList.peakListId}',
-                          },
-                        );
+                      onTap: () async {
+                        final result = await ref
+                            .read(mapProvider.notifier)
+                            .preparePeakListMapNavigation(
+                              row.peakList.peakListId,
+                            );
+                        if (!context.mounted) {
+                          return;
+                        }
+                        if (!result.shouldNavigate) {
+                          final message = result.message;
+                          if (message != null) {
+                            ScaffoldMessenger.of(
+                              context,
+                            ).showSnackBar(SnackBar(content: Text(message)));
+                          }
+                          return;
+                        }
+
+                        router.go('/map');
                       },
                     ),
                 ],

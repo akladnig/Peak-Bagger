@@ -120,6 +120,198 @@ void main() {
       );
     });
 
+    test('copyWith preserves nullable derived bounds by default', () {
+      final peakList = PeakList(
+        peakListId: 1,
+        name: 'Abels',
+        peakList: '[]',
+        minLat: -42.0,
+        maxLat: -41.0,
+        minLng: 145.0,
+        maxLng: 146.0,
+      );
+
+      final copied = peakList.copyWith(name: 'Updated Abels');
+
+      expect(copied.name, 'Updated Abels');
+      expect(copied.minLat, -42.0);
+      expect(copied.maxLat, -41.0);
+      expect(copied.minLng, 145.0);
+      expect(copied.maxLng, 146.0);
+    });
+
+    test(
+      'save preserves derived bounds unless recompute is requested',
+      () async {
+        final peakRepository = PeakRepository.test(
+          InMemoryPeakStorage([
+            Peak(osmId: 11, name: 'Peak 11', latitude: -41.5, longitude: 146.5),
+          ]),
+        );
+        final repository = PeakListRepository.test(
+          InMemoryPeakListStorage(),
+          peakRepository: peakRepository,
+        );
+
+        final preserved = await repository.save(
+          PeakList(
+            name: 'Abels',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 11, points: 2),
+            ]),
+            minLat: 1,
+            maxLat: 2,
+            minLng: 3,
+            maxLng: 4,
+          ),
+        );
+        final recomputed = await repository.save(
+          preserved,
+          recomputeDerivedFields: true,
+        );
+
+        expect(preserved.minLat, 1);
+        expect(preserved.maxLat, 2);
+        expect(preserved.minLng, 3);
+        expect(preserved.maxLng, 4);
+        expect(recomputed.minLat, -41.5);
+        expect(recomputed.maxLat, -41.5);
+        expect(recomputed.minLng, 146.5);
+        expect(recomputed.maxLng, 146.5);
+      },
+    );
+
+    test(
+      'membership changes recompute derived bounds and classification',
+      () async {
+        final peakRepository = PeakRepository.test(
+          InMemoryPeakStorage([
+            Peak(
+              osmId: 11,
+              name: 'FVG Peak',
+              latitude: 46.4084,
+              longitude: 13.0475,
+              region: 'fvg',
+            ),
+            Peak(
+              osmId: 22,
+              name: 'Veneto Peak',
+              latitude: 45.7332,
+              longitude: 10.8061,
+              region: 'veneto',
+            ),
+          ]),
+        );
+        final repository = PeakListRepository.test(
+          InMemoryPeakListStorage([
+            PeakList(
+              name: 'Italy',
+              region: Peak.defaultRegion,
+              peakList: encodePeakListItems([
+                const PeakListItem(peakOsmId: 11, points: 1),
+              ]),
+              minLat: 0,
+              maxLat: 0,
+              minLng: 0,
+              maxLng: 0,
+            )..peakListId = 1,
+          ]),
+          peakRepository: peakRepository,
+        );
+
+        final afterAdd = await repository.addPeakItem(
+          peakListId: 1,
+          item: const PeakListItem(peakOsmId: 22, points: 2),
+        );
+        final afterPointUpdate = await repository.updatePeakItemPoints(
+          peakListId: 1,
+          peakOsmId: 11,
+          points: 7,
+        );
+        final afterRemove = await repository.removePeakItem(
+          peakListId: 1,
+          peakOsmId: 22,
+        );
+
+        expect(afterAdd.region, PeakList.mixedRegion);
+        expect(afterAdd.minLat, 45.7332);
+        expect(afterAdd.maxLat, 46.4084);
+        expect(afterAdd.minLng, 10.8061);
+        expect(afterAdd.maxLng, 13.0475);
+        expect(afterPointUpdate.region, PeakList.mixedRegion);
+        expect(afterPointUpdate.minLat, 45.7332);
+        expect(afterPointUpdate.maxLat, 46.4084);
+        expect(afterPointUpdate.minLng, 10.8061);
+        expect(afterPointUpdate.maxLng, 13.0475);
+        expect(afterRemove.region, 'fvg');
+        expect(afterRemove.minLat, 46.4084);
+        expect(afterRemove.maxLat, 46.4084);
+        expect(afterRemove.minLng, 13.0475);
+        expect(afterRemove.maxLng, 13.0475);
+      },
+    );
+
+    test(
+      'backfillStoredPeakLists updates mixed regions and null bounds',
+      () async {
+        final peakRepository = PeakRepository.test(
+          InMemoryPeakStorage([
+            Peak(
+              osmId: 11,
+              name: 'FVG Peak',
+              latitude: 46.4084,
+              longitude: 13.0475,
+              region: 'fvg',
+            ),
+            Peak(
+              osmId: 22,
+              name: 'Veneto Peak',
+              latitude: 45.7332,
+              longitude: 10.8061,
+              region: 'veneto',
+            ),
+          ]),
+        );
+        final repository = PeakListRepository.test(
+          InMemoryPeakListStorage([
+            PeakList(
+              name: 'Mixed Legacy',
+              peakList: encodePeakListItems([
+                const PeakListItem(peakOsmId: 11, points: 1),
+                const PeakListItem(peakOsmId: 22, points: 1),
+              ]),
+            )..peakListId = 1,
+            PeakList(
+              name: 'Broken Legacy',
+              region: 'veneto',
+              peakList: encodePeakListItems([
+                const PeakListItem(peakOsmId: 999, points: 1),
+              ]),
+              minLat: 1,
+              maxLat: 2,
+              minLng: 3,
+              maxLng: 4,
+            )..peakListId = 2,
+          ]),
+          peakRepository: peakRepository,
+        );
+
+        final changed = await repository.backfillStoredPeakLists();
+
+        expect(changed, isTrue);
+        expect(repository.findById(1)?.region, PeakList.mixedRegion);
+        expect(repository.findById(1)?.minLat, 45.7332);
+        expect(repository.findById(1)?.maxLat, 46.4084);
+        expect(repository.findById(1)?.minLng, 10.8061);
+        expect(repository.findById(1)?.maxLng, 13.0475);
+        expect(repository.findById(2)?.region, 'veneto');
+        expect(repository.findById(2)?.minLat, isNull);
+        expect(repository.findById(2)?.maxLat, isNull);
+        expect(repository.findById(2)?.minLng, isNull);
+        expect(repository.findById(2)?.maxLng, isNull);
+      },
+    );
+
     test('duplicate add is rejected', () async {
       final repository = PeakListRepository.test(
         InMemoryPeakListStorage([

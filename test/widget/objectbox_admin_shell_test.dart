@@ -2058,10 +2058,12 @@ class _MutablePeakListRepository extends PeakListRepository {
   Future<PeakList> save(
     PeakList peakList, {
     void Function()? beforePutForTest,
+    bool recomputeDerivedFields = false,
   }) async {
     final saved = await super.save(
       peakList,
       beforePutForTest: beforePutForTest,
+      recomputeDerivedFields: recomputeDerivedFields,
     );
     final index = _peakLists.indexWhere(
       (entry) => entry.peakListId == saved.peakListId,

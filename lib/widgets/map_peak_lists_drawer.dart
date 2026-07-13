@@ -25,12 +25,16 @@ class MapPeakListsDrawer extends ConsumerWidget {
       :peakListSelectionMode,
       :selectedPeakListIds,
       :pinnedPeakListIdsByRegion,
+      :visibleBounds,
+      :peaks,
     ) = ref.watch(
       mapProvider.select(
         (state) => (
           peakListSelectionMode: state.peakListSelectionMode,
           selectedPeakListIds: state.selectedPeakListIds,
           pinnedPeakListIdsByRegion: state.pinnedPeakListIdsByRegion,
+          visibleBounds: state.visibleBounds,
+          peaks: state.peaks,
         ),
       ),
     );
@@ -44,7 +48,12 @@ class MapPeakListsDrawer extends ConsumerWidget {
     final visiblePeakLists = <({PeakList peakList, int renderableCount})>[];
 
     for (final peakList in peakLists) {
-      if (!peakListAppliesToVisibleRegions(peakList, visibleRegionKeys)) {
+      if (!peakListAppliesToVisibleRegions(
+        peakList,
+        visibleRegionKeys,
+        visibleBounds: visibleBounds,
+        peaks: peaks,
+      )) {
         continue;
       }
 

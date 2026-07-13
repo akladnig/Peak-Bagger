@@ -1,6 +1,7 @@
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/peak_list_colour_resolver.dart';
+import 'package:peak_bagger/services/peak_list_derived_data.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/tassy_full_peak_list_sync_service.dart';
 
@@ -181,10 +182,8 @@ class PeakListRepository {
   PeakListRepository(Store store, {this._peakRepository})
     : _storage = ObjectBoxPeakListStorage(store);
 
-  PeakListRepository.test(
-    PeakListStorage storage, {
-    this._peakRepository,
-  }) : _storage = storage;
+  PeakListRepository.test(PeakListStorage storage, {this._peakRepository})
+    : _storage = storage;
 
   final PeakListStorage _storage;
   final PeakRepository? _peakRepository;
@@ -246,15 +245,23 @@ class PeakListRepository {
   Future<PeakList> save(
     PeakList peakList, {
     void Function()? beforePutForTest,
+    bool recomputeDerivedFields = false,
   }) async {
-    return saveWithoutSync(peakList, beforePutForTest: beforePutForTest);
+    return saveWithoutSync(
+      peakList,
+      beforePutForTest: beforePutForTest,
+      recomputeDerivedFields: recomputeDerivedFields,
+    );
   }
 
   Future<PeakList> saveWithoutSync(
     PeakList peakList, {
     void Function()? beforePutForTest,
+    bool recomputeDerivedFields = false,
   }) async {
-    final normalizedPeakList = _normalizePeakListForStorage(peakList);
+    final normalizedPeakList = recomputeDerivedFields
+        ? _recomputePeakListDerivedData(peakList)
+        : _normalizePeakListForStorage(peakList);
     final existing = _storage.getByName(normalizedPeakList.name);
     if (existing == null) {
       final saved = await _storage.put(normalizedPeakList);
@@ -296,6 +303,7 @@ class PeakListRepository {
       peakList.copyWith(
         peakList: encodePeakListItems([...existingItems, ...items]),
       ),
+      recomputeDerivedFields: true,
     );
   }
 
@@ -336,7 +344,60 @@ class PeakListRepository {
       throw StateError('Peak not found in list');
     }
 
-    return save(peakList.copyWith(peakList: encodePeakListItems(updatedItems)));
+    return save(
+      peakList.copyWith(peakList: encodePeakListItems(updatedItems)),
+      recomputeDerivedFields: true,
+    );
+  }
+
+  Future<bool> backfillStoredPeakLists() async {
+    var changed = false;
+
+    for (final peakList in _storage.getAll()) {
+      final updated = _tryRecomputePeakListDerivedData(peakList);
+      if (updated == null || _peakListDerivedDataMatches(updated, peakList)) {
+        continue;
+      }
+
+      await _storage.put(updated);
+      changed = true;
+    }
+
+    return changed;
+  }
+
+  Future<int> refreshDerivedDataForPeakOsmIds(Iterable<int> peakOsmIds) async {
+    final refreshedOsmIds = peakOsmIds.toSet();
+    if (refreshedOsmIds.isEmpty) {
+      return 0;
+    }
+
+    var changedCount = 0;
+    for (final peakList in _storage.getAll()) {
+      late final List<PeakListItem> items;
+      try {
+        items = decodePeakListItems(peakList.peakList);
+      } catch (_) {
+        continue;
+      }
+
+      if (!items.any((item) => refreshedOsmIds.contains(item.peakOsmId))) {
+        continue;
+      }
+
+      final updated = _recomputePeakListDerivedDataFromItems(
+        _normalizePeakListForStorage(peakList),
+        items,
+      );
+      if (_peakListDerivedDataMatches(updated, peakList)) {
+        continue;
+      }
+
+      await _storage.put(updated);
+      changedCount += 1;
+    }
+
+    return changedCount;
   }
 
   PeakList _requireById(int peakListId) {
@@ -376,13 +437,43 @@ class PeakListRepository {
   }
 
   PeakList _normalizePeakListForStorage(PeakList peakList) {
-    final trimmedRegion = peakList.region.trim();
-    if (trimmedRegion.isEmpty ||
-        trimmedRegion.toLowerCase() == Peak.defaultRegion) {
-      return peakList.copyWith(region: Peak.defaultRegion);
-    }
+    return peakList.copyWith(
+      region: normalizeStoredPeakListRegion(peakList.region),
+    );
+  }
 
-    return peakList;
+  PeakList _recomputePeakListDerivedData(PeakList peakList) {
+    final normalizedPeakList = _normalizePeakListForStorage(peakList);
+    final items = decodePeakListItems(normalizedPeakList.peakList);
+    return _recomputePeakListDerivedDataFromItems(normalizedPeakList, items);
+  }
+
+  PeakList? _tryRecomputePeakListDerivedData(PeakList peakList) {
+    try {
+      return _recomputePeakListDerivedData(peakList);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  PeakList _recomputePeakListDerivedDataFromItems(
+    PeakList peakList,
+    List<PeakListItem> items,
+  ) {
+    final derivedData = derivePeakListDerivedData(
+      peakList: peakList,
+      items: items,
+      peakResolver: findPeakByOsmId,
+    );
+    return derivedData.applyTo(peakList);
+  }
+
+  bool _peakListDerivedDataMatches(PeakList left, PeakList right) {
+    return left.region == right.region &&
+        left.minLat == right.minLat &&
+        left.maxLat == right.maxLat &&
+        left.minLng == right.minLng &&
+        left.maxLng == right.maxLng;
   }
 
   Future<PeakList> _ensureStoredColour(PeakList peakList) async {

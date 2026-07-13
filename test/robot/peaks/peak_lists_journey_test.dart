@@ -80,9 +80,9 @@ void main() {
 
     final journeyList = peakListRepository.findByName('Journey List')!;
     expect(
-      decodePeakListItems(journeyList.peakList)
-          .map((item) => (item.peakOsmId, item.points))
-          .toList(),
+      decodePeakListItems(
+        journeyList.peakList,
+      ).map((item) => (item.peakOsmId, item.points)).toList(),
       [(100, 3), (200, 5), (300, 7)],
     );
     expect(peakListRepository.findByName('Tassy Full'), isNull);
@@ -171,9 +171,9 @@ void main() {
     await peakListRepository.save(
       PeakList(peakListId: 1, name: 'Abels Renamed', peakList: '[]'),
     );
-    ProviderScope.containerOf(tester.element(robot.summaryPane))
-        .read(peakListRevisionProvider.notifier)
-        .increment();
+    ProviderScope.containerOf(
+      tester.element(robot.summaryPane),
+    ).read(peakListRevisionProvider.notifier).increment();
     await tester.pumpAndSettle();
 
     expect(tester.widget<Text>(robot.selectedTitle).data, 'Abels Renamed');
@@ -224,11 +224,12 @@ void main() {
 
     await peaksBaggedRepository.rebuildFromTracks([
       GpxTrack(
-        gpxTrackId: 10,
-        contentHash: 'hash-10',
-        trackName: 'Track 10',
-        trackDate: DateTime.utc(2026, 5, 15),
-      )..peaks.add(
+          gpxTrackId: 10,
+          contentHash: 'hash-10',
+          trackName: 'Track 10',
+          trackDate: DateTime.utc(2026, 5, 15),
+        )
+        ..peaks.add(
           _buildPeak(
             osmId: -1,
             name: 'Tinderbox Hill',
@@ -266,6 +267,7 @@ void main() {
     final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
     final peakListRepository = PeakListRepository.test(
       InMemoryPeakListStorage(),
+      peakRepository: peakRepository,
     );
     final adminRowsByEntity = <String, List<ObjectBoxAdminRow>>{
       'Peak': const [],
@@ -291,9 +293,9 @@ void main() {
         csvPath: csvPath,
       );
       await peakListRepository.refreshTassyFullPeakList();
-      ProviderScope.containerOf(tester.element(robot.summaryPane))
-          .read(peakListRevisionProvider.notifier)
-          .increment();
+      ProviderScope.containerOf(
+        tester.element(robot.summaryPane),
+      ).read(peakListRevisionProvider.notifier).increment();
       adminRowsByEntity['PeakList'] = peakListRepository
           .getAllPeakLists()
           .map(peakListToAdminRow)
@@ -329,10 +331,7 @@ void main() {
 
     final createdId = peakListRepository.findByName('Journey List')!.peakListId;
 
-    expect(
-      tester.widget<Text>(robot.selectedTitle).data,
-      'Journey List',
-    );
+    expect(tester.widget<Text>(robot.selectedTitle).data, 'Journey List');
 
     await robot.openImportDialog();
     await robot.chooseFile();
@@ -350,14 +349,22 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(robot.importDialog, findsNothing);
-    expect(peakListRepository.findByName('Journey List')!.peakListId, createdId);
+    expect(
+      peakListRepository.findByName('Journey List')!.peakListId,
+      createdId,
+    );
     expect(peakListRepository.findByName('Tassy Full'), isNotNull);
 
     final peakListRows = adminRowsByEntity['PeakList']!;
     expect(peakListRows, hasLength(2));
-    expect(peakListRows.map((row) => row.values['name']), containsAll(['Journey List', 'Tassy Full']));
     expect(
-      peakListRows.firstWhere((row) => row.values['name'] == 'Journey List').values['peakList'],
+      peakListRows.map((row) => row.values['name']),
+      containsAll(['Journey List', 'Tassy Full']),
+    );
+    expect(
+      peakListRows
+          .firstWhere((row) => row.values['name'] == 'Journey List')
+          .values['peakList'],
       contains('peakOsmId'),
     );
   });
@@ -396,9 +403,9 @@ void main() {
         csvPath: csvPath,
       );
       await peakListRepository.refreshTassyFullPeakList();
-      ProviderScope.containerOf(tester.element(robot.summaryPane))
-          .read(peakListRevisionProvider.notifier)
-          .increment();
+      ProviderScope.containerOf(
+        tester.element(robot.summaryPane),
+      ).read(peakListRevisionProvider.notifier).increment();
       return PeakListImportPresentationResult(
         updated: result.updated,
         importedCount: result.importedCount,
@@ -427,9 +434,15 @@ void main() {
     expect(robot.importDialog, findsNothing);
 
     expect(tester.widget<Text>(robot.selectedTitle).data, 'FVG Ranked');
-    expect(peakRepository.findByOsmId(101)?.sourceOfTruth, Peak.sourceOfTruthFvg);
+    expect(
+      peakRepository.findByOsmId(101)?.sourceOfTruth,
+      Peak.sourceOfTruthFvg,
+    );
     expect(peakRepository.findByOsmId(101)?.region, 'fvg');
-    expect(peakListRepository.findByName('FVG Ranked')?.region, 'italy-nord-est');
+    expect(
+      peakListRepository.findByName('FVG Ranked')?.region,
+      'italy-nord-est',
+    );
     expect(
       peakListRepository.findByName('FVG Ranked')?.peakList,
       encodePeakListItems([const PeakListItem(peakOsmId: 101, points: 1)]),
@@ -447,7 +460,9 @@ void main() {
       latitude: -41.85916,
       longitude: 145.97754,
     ).copyWith(sourceOfTruth: Peak.sourceOfTruthOsm);
-    final peakRepository = PeakRepository.test(InMemoryPeakStorage([existingPeak]));
+    final peakRepository = PeakRepository.test(
+      InMemoryPeakStorage([existingPeak]),
+    );
     final peakListRepository = PeakListRepository.test(
       InMemoryPeakListStorage(),
     );
@@ -498,9 +513,9 @@ void main() {
         csvPath: csvPath,
       );
       await peakListRepository.refreshTassyFullPeakList();
-      ProviderScope.containerOf(tester.element(robot.summaryPane))
-          .read(peakListRevisionProvider.notifier)
-          .increment();
+      ProviderScope.containerOf(
+        tester.element(robot.summaryPane),
+      ).read(peakListRevisionProvider.notifier).increment();
       return PeakListImportPresentationResult(
         updated: result.updated,
         importedCount: result.importedCount,
@@ -631,9 +646,9 @@ void main() {
 
     final tasmania = peakListRepository.findByName('Tasmania')!;
     expect(
-      decodePeakListItems(tasmania.peakList)
-          .map((item) => (item.peakOsmId, item.points))
-          .toList(),
+      decodePeakListItems(
+        tasmania.peakList,
+      ).map((item) => (item.peakOsmId, item.points)).toList(),
       [(100, 3), (200, 5), (300, 7)],
     );
     expect(peakListRepository.findByName('Tassy Full'), isNull);
@@ -682,10 +697,7 @@ void main() {
     await robot.openPeakDialog(101);
 
     expect(robot.addPeakDialog, findsOneWidget);
-    expect(
-      tester.widget<Text>(robot.peakMemberships).data,
-      'Alpha, Zeta',
-    );
+    expect(tester.widget<Text>(robot.peakMemberships).data, 'Alpha, Zeta');
   });
 }
 

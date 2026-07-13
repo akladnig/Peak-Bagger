@@ -3,8 +3,12 @@ import 'dart:convert';
 import 'package:objectbox/objectbox.dart';
 import 'package:peak_bagger/models/peak.dart';
 
+const _peakListCopyWithUnset = Object();
+
 @Entity()
 class PeakList {
+  static const mixedRegion = 'mixed';
+
   @Id(assignable: true)
   int peakListId;
 
@@ -17,12 +21,21 @@ class PeakList {
 
   int colour;
 
+  double? minLat;
+  double? maxLat;
+  double? minLng;
+  double? maxLng;
+
   PeakList({
     this.peakListId = 0,
     required this.name,
     this.region = Peak.defaultRegion,
     required this.peakList,
     this.colour = 0,
+    this.minLat,
+    this.maxLat,
+    this.minLng,
+    this.maxLng,
   });
 
   PeakList copyWith({
@@ -31,6 +44,10 @@ class PeakList {
     String? region,
     String? peakList,
     int? colour,
+    Object? minLat = _peakListCopyWithUnset,
+    Object? maxLat = _peakListCopyWithUnset,
+    Object? minLng = _peakListCopyWithUnset,
+    Object? maxLng = _peakListCopyWithUnset,
   }) {
     return PeakList(
       peakListId: peakListId ?? this.peakListId,
@@ -38,6 +55,18 @@ class PeakList {
       region: region ?? this.region,
       peakList: peakList ?? this.peakList,
       colour: colour ?? this.colour,
+      minLat: identical(minLat, _peakListCopyWithUnset)
+          ? this.minLat
+          : minLat as double?,
+      maxLat: identical(maxLat, _peakListCopyWithUnset)
+          ? this.maxLat
+          : maxLat as double?,
+      minLng: identical(minLng, _peakListCopyWithUnset)
+          ? this.minLng
+          : minLng as double?,
+      maxLng: identical(maxLng, _peakListCopyWithUnset)
+          ? this.maxLng
+          : maxLng as double?,
     );
   }
 }

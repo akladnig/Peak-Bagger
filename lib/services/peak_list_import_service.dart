@@ -175,8 +175,8 @@ class PeakListImportService {
         rowNumber: rowIndex + 1,
       );
       parsedRows.add(parsedRow);
-      final existingPeak = plannedPeaksByOsmId[parsedRow.osmId] ??
-          peaksByOsmId[parsedRow.osmId];
+      final existingPeak =
+          plannedPeaksByOsmId[parsedRow.osmId] ?? peaksByOsmId[parsedRow.osmId];
       plannedPeaksByOsmId[parsedRow.osmId] = _applyAppOwnedExportRow(
         parsedRow,
         existingPeak,
@@ -197,6 +197,7 @@ class PeakListImportService {
             PeakListItem(peakOsmId: row.osmId, points: row.points),
         ]),
       ),
+      recomputeDerivedFields: true,
     );
 
     return PeakListImportResult(
@@ -318,6 +319,7 @@ class PeakListImportService {
 
     final saved = await _peakListRepository.save(
       PeakList(name: listName, peakList: encodePeakListItems(items)),
+      recomputeDerivedFields: true,
     );
 
     String? warningMessage;
@@ -397,11 +399,13 @@ class PeakListImportService {
     final saved = await _peakListRepository.save(
       PeakList(
         name: listName,
-        region: fileRegionMapping?.peakListRegion ??
+        region:
+            fileRegionMapping?.peakListRegion ??
             existing?.region ??
             Peak.defaultRegion,
         peakList: encodePeakListItems(items),
       ),
+      recomputeDerivedFields: true,
     );
 
     return PeakListImportResult(
@@ -458,7 +462,6 @@ class PeakListImportService {
   }
 
   List<List<dynamic>> _parseHwcCsv(List<List<dynamic>> rows) {
-
     final headers = rows.first
         .map((value) => _normalizeHeader('$value'))
         .toList();
@@ -506,7 +509,9 @@ class PeakListImportService {
     }
 
     final rawElevation = data['elevation'] ?? '';
-    final elevation = rawElevation.isEmpty ? null : double.tryParse(rawElevation);
+    final elevation = rawElevation.isEmpty
+        ? null
+        : double.tryParse(rawElevation);
     if (rawElevation.isNotEmpty && elevation == null) {
       throw FormatException(
         'invalid elevation "$rawElevation" on row $rowNumber ($nameLabel)',
@@ -547,7 +552,9 @@ class PeakListImportService {
         sourceOfTruth: data['sourceOfTruth'] ?? '',
       );
     } on FormatException {
-      throw FormatException('invalid grid reference on row $rowNumber ($nameLabel)');
+      throw FormatException(
+        'invalid grid reference on row $rowNumber ($nameLabel)',
+      );
     }
   }
 
@@ -595,7 +602,11 @@ class PeakListImportService {
       rowNumber: rowNumber,
       osmId: osmId,
       name: name,
-      rating: _parseRankedRating(data['rating'] ?? '', rowNumber: rowNumber, name: name),
+      rating: _parseRankedRating(
+        data['rating'] ?? '',
+        rowNumber: rowNumber,
+        name: name,
+      ),
       elevation: _parseRankedNumber(
         data['elevation'] ?? '',
         fieldName: 'elevation',
@@ -645,7 +656,9 @@ class PeakListImportService {
       return null;
     }
     if (parsed < 0 || parsed > 5) {
-      throw FormatException('invalid rating "$rawValue" on row $rowNumber ($name)');
+      throw FormatException(
+        'invalid rating "$rawValue" on row $rowNumber ($name)',
+      );
     }
     return (parsed * 10).round() / 10;
   }

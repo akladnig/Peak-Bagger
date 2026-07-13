@@ -389,6 +389,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
                     name: listName,
                     peakList: encodePeakListItems(const <PeakListItem>[]),
                   ),
+                  recomputeDerivedFields: true,
                 );
             _refreshPeakListSelectionDependencies();
             return saved.peakListId;
@@ -2269,6 +2270,35 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
         popupPeakId != newPeakId) {
       _popupContent = null;
     }
+    if (oldListId != newListId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _fitCameraToSelectedSummaryRow();
+        }
+      });
+    }
+  }
+
+  void _fitCameraToSelectedSummaryRow({int attempt = 0}) {
+    final summaryRow = widget.selectedSummaryRow;
+    if (summaryRow == null) {
+      return;
+    }
+    if (_mapController.camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      if (attempt < 6) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _fitCameraToSelectedSummaryRow(attempt: attempt + 1);
+          }
+        });
+      }
+      return;
+    }
+
+    _mapController.fitCamera(_resolveInitialCameraFit(summaryRow));
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _clearPopup() {
@@ -2525,9 +2555,12 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                     ),
                     mapController: _mapController,
                     options: MapOptions(
-                      initialCameraFit: _resolveInitialCameraFit(markerPeaks),
+                      initialCameraFit: _resolveInitialCameraFit(
+                        widget.selectedSummaryRow,
+                      ),
                       onMapReady: () {
                         if (mounted) {
+                          _fitCameraToSelectedSummaryRow();
                           setState(() {});
                         }
                       },
@@ -2711,7 +2744,23 @@ class _MiniPeakMapAffordanceLayer extends StatelessWidget {
   }
 }
 
-CameraFit _resolveInitialCameraFit(List<_MapPeak> markerPeaks) {
+CameraFit _resolveInitialCameraFit(_PeakListSummaryRow? summaryRow) {
+  final peakListBounds = _peakListMiniMapBoundsOrNull(summaryRow?.peakList);
+  if (peakListBounds != null) {
+    if (_boundsCollapseToSinglePoint(peakListBounds)) {
+      return CameraFit.coordinates(
+        coordinates: [peakListBounds.southWest],
+        padding: const EdgeInsets.all(24),
+        maxZoom: 11,
+      );
+    }
+    return CameraFit.bounds(
+      bounds: peakListBounds,
+      padding: const EdgeInsets.all(24),
+    );
+  }
+
+  final markerPeaks = summaryRow?.mapPeaks ?? const <_MapPeak>[];
   if (markerPeaks.isEmpty) {
     return CameraFit.bounds(
       bounds: GeoAreas.tasmaniaBounds,
@@ -2735,6 +2784,37 @@ CameraFit _resolveInitialCameraFit(List<_MapPeak> markerPeaks) {
     bounds: LatLngBounds.fromPoints(coordinates),
     padding: const EdgeInsets.all(24),
   );
+}
+
+LatLngBounds? _peakListMiniMapBoundsOrNull(PeakList? peakList) {
+  if (peakList == null) {
+    return null;
+  }
+
+  final minLat = peakList.minLat;
+  final maxLat = peakList.maxLat;
+  final minLng = peakList.minLng;
+  final maxLng = peakList.maxLng;
+  if (minLat == null || maxLat == null || minLng == null || maxLng == null) {
+    return null;
+  }
+  if (!minLat.isFinite ||
+      !maxLat.isFinite ||
+      !minLng.isFinite ||
+      !maxLng.isFinite ||
+      minLat > maxLat ||
+      minLng > maxLng) {
+    return null;
+  }
+
+  return LatLngBounds(LatLng(minLat, minLng), LatLng(maxLat, maxLng));
+}
+
+bool _boundsCollapseToSinglePoint(LatLngBounds bounds) {
+  return (bounds.northEast.latitude - bounds.southWest.latitude).abs() <=
+          MapConstants.cameraEpsilon &&
+      (bounds.northEast.longitude - bounds.southWest.longitude).abs() <=
+          MapConstants.cameraEpsilon;
 }
 
 class _PeakListSummaryRow {
