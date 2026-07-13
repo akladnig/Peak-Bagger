@@ -1002,6 +1002,7 @@ class _SummaryHeaderActions extends ConsumerWidget {
             key: const Key('peak-lists-add-list-fab'),
             heroTag: 'peak-list-create',
             backgroundColor: fabBackground,
+            mouseCursor: SystemMouseCursors.click,
             onPressed: onCreateRequested,
             child: Icon(Icons.add_circle_outline, color: fabForeground),
           ),
@@ -1013,6 +1014,7 @@ class _SummaryHeaderActions extends ConsumerWidget {
             key: const Key('peak-lists-import-fab'),
             heroTag: 'peak-list-import',
             backgroundColor: fabBackground,
+            mouseCursor: SystemMouseCursors.click,
             onPressed: () async {
               await showDialog<bool>(
                 context: context,

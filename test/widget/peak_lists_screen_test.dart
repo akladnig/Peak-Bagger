@@ -58,6 +58,22 @@ void main() {
     expect(find.byKey(const Key('peak-lists-mini-map')), findsOneWidget);
     expect(find.byKey(const Key('peak-lists-add-list-fab')), findsOneWidget);
     expect(find.byKey(const Key('peak-lists-import-fab')), findsOneWidget);
+    expect(
+      tester
+          .widget<FloatingActionButton>(
+            find.byKey(const Key('peak-lists-add-list-fab')),
+          )
+          .mouseCursor,
+      SystemMouseCursors.click,
+    );
+    expect(
+      tester
+          .widget<FloatingActionButton>(
+            find.byKey(const Key('peak-lists-import-fab')),
+          )
+          .mouseCursor,
+      SystemMouseCursors.click,
+    );
     final summaryHeaderCenter = tester.getCenter(
       find.byKey(const Key('peak-lists-summary-header')),
     );
