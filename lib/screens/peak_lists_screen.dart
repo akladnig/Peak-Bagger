@@ -1330,6 +1330,7 @@ class _SortHeaderCell extends StatelessWidget {
     return InkWell(
       key: Key('peak-lists-sort-${column.name}'),
       onTap: () => onTap(column),
+      mouseCursor: SystemMouseCursors.click,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
@@ -2107,6 +2108,7 @@ class _DetailSortHeaderCell extends StatelessWidget {
     return InkWell(
       key: Key('peak-lists-details-sort-${column.name}'),
       onTap: () => onTap(column),
+      mouseCursor: SystemMouseCursors.click,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(

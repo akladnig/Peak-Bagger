@@ -273,6 +273,50 @@ void main() {
     expect(hoveredText.style?.color, rowTheme.hoveredTextColor);
   });
 
+  testWidgets('summary and detail sort headers use click cursors', (
+    tester,
+  ) async {
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Tas Peaks', [200, 300, 100]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+          _buildPeak(200, 'Beta Peak', -42.1, 146.1, elevation: 1100),
+          _buildPeak(300, 'Gamma Peak', -42.2, 146.2, elevation: 1000),
+        ]),
+      ),
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage([
+          PeaksBagged(baggedId: 1, peakId: 100, gpxId: 10),
+        ]),
+      ),
+    );
+
+    for (final key in const [
+      'peak-lists-sort-name',
+      'peak-lists-sort-totalPeaks',
+      'peak-lists-sort-climbed',
+      'peak-lists-sort-percentage',
+      'peak-lists-sort-unclimbed',
+      'peak-lists-sort-ascents',
+      'peak-lists-details-sort-name',
+      'peak-lists-details-sort-elevation',
+      'peak-lists-details-sort-ascentDate',
+      'peak-lists-details-sort-ascents',
+    ]) {
+      expect(
+        tester.widget<InkWell>(find.byKey(Key(key))).mouseCursor,
+        SystemMouseCursors.click,
+      );
+    }
+  });
+
   testWidgets('bagged revision refreshes peak list counts', (tester) async {
     final peaksBaggedRepository = PeaksBaggedRepository.test(
       InMemoryPeaksBaggedStorage([
