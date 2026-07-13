@@ -18,14 +18,11 @@ class MapSearchService {
   static const popupPageSize = 20;
 
   MapSearchService({
-    required PeakRepository peakRepository,
-    required GpxTrackRepository gpxTrackRepository,
-    required RouteRepository routeRepository,
-    required TasmapRepository tasmapRepository,
-  }) : _peakRepository = peakRepository,
-       _gpxTrackRepository = gpxTrackRepository,
-       _routeRepository = routeRepository,
-       _tasmapRepository = tasmapRepository;
+    required this._peakRepository,
+    required this._gpxTrackRepository,
+    required this._routeRepository,
+    required this._tasmapRepository,
+  });
 
   final PeakRepository _peakRepository;
   final GpxTrackRepository _gpxTrackRepository;

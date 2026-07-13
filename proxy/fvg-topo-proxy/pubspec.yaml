@@ -3,7 +3,7 @@ description: XYZ proxy for Friuli Venezia Giulia topo tiles
 publish_to: none
 
 environment:
-  sdk: ^3.7.0
+  sdk: ^3.12.0
 
 dependencies:
   http: ^1.2.2

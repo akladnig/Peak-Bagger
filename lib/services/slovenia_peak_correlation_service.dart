@@ -112,8 +112,7 @@ class SloveniaPeakCorrelationOutput {
 }
 
 class SloveniaPeakCorrelationService {
-  const SloveniaPeakCorrelationService({required PeakSource peakSource})
-    : _peakSource = peakSource;
+  const SloveniaPeakCorrelationService({required this._peakSource});
 
   final PeakSource _peakSource;
 

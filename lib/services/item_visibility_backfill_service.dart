@@ -4,12 +4,10 @@ import 'package:peak_bagger/services/route_repository.dart';
 
 class ItemVisibilityBackfillService {
   ItemVisibilityBackfillService({
-    required RouteRepository routeRepository,
-    required GpxTrackRepository gpxTrackRepository,
-    required MigrationMarkerStore migrationMarkerStore,
-  }) : _routeRepository = routeRepository,
-       _gpxTrackRepository = gpxTrackRepository,
-       _migrationMarkerStore = migrationMarkerStore;
+    required this._routeRepository,
+    required this._gpxTrackRepository,
+    required this._migrationMarkerStore,
+  });
 
   final RouteRepository _routeRepository;
   final GpxTrackRepository _gpxTrackRepository;

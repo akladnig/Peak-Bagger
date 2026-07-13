@@ -203,12 +203,11 @@ class ObjectBoxRouteGraphStorage implements RouteGraphStorage {
 
 class InMemoryRouteGraphStorage implements RouteGraphStorage {
   InMemoryRouteGraphStorage({
-    RouteGraphManifest? manifest,
+    this._manifest,
     List<RouteGraphChunk> chunks = const [],
     List<RouteGraphWayIndex> wayIndexRows = const [],
     List<RouteGraphTrailDisplayChunk> trailDisplayChunks = const [],
-  }) : _manifest = manifest,
-       _chunks = List<RouteGraphChunk>.from(chunks),
+  }) : _chunks = List<RouteGraphChunk>.from(chunks),
        _wayIndexRows = List<RouteGraphWayIndex>.from(wayIndexRows),
        _trailDisplayChunks = List<RouteGraphTrailDisplayChunk>.from(
          trailDisplayChunks,

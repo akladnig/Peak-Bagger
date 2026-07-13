@@ -87,13 +87,11 @@ class IoPeakListCsvFileWriter implements PeakListCsvFileWriter {
 
 class PeakListCsvExportService {
   PeakListCsvExportService({
-    required PeakListRepository peakListRepository,
-    required PeakRepository peakRepository,
+    required this._peakListRepository,
+    required this._peakRepository,
     PeakListCsvOutputDirectoryResolver? outputDirectoryResolver,
     PeakListCsvFileWriter? fileWriter,
-  }) : _peakListRepository = peakListRepository,
-       _peakRepository = peakRepository,
-       _outputDirectoryResolver =
+  }) : _outputDirectoryResolver =
            outputDirectoryResolver ?? _defaultOutputDirectoryResolver,
        _fileWriter = fileWriter ?? const IoPeakListCsvFileWriter();
 

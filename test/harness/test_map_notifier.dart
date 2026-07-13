@@ -56,9 +56,8 @@ class TestMapNotifier extends MapNotifier {
     this.routePlanningOutcomes = const [],
     this.routeSaveErrorMessage,
     this.searchPopupLoadMoreDelay = Duration.zero,
-    Set<int> correlatedPeakIds = const {},
-  }) : _correlatedPeakIds = correlatedPeakIds,
-       _startupBackfillWarningMessage = startupBackfillWarningMessage;
+    this._correlatedPeakIds = const {},
+  }) : _startupBackfillWarningMessage = startupBackfillWarningMessage;
 
   final MapState initialState;
   final String rescanStatus;

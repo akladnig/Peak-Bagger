@@ -70,14 +70,11 @@ class TrackSpeedAnalysisProgress {
 
 class TrackSpeedAnalysisService {
   TrackSpeedAnalysisService({
-    required GpxTrackRepository gpxTrackRepository,
-    required RouteGraphQueryService routeGraphQueryService,
-    GpxTrackMotionAnalyzer motionAnalyzer = const GpxTrackMotionAnalyzer(),
+    required this._gpxTrackRepository,
+    required this._routeGraphQueryService,
+    this._motionAnalyzer = const GpxTrackMotionAnalyzer(),
     GpxImporter? gpxTrackImporter,
-  }) : _gpxTrackRepository = gpxTrackRepository,
-       _routeGraphQueryService = routeGraphQueryService,
-       _motionAnalyzer = motionAnalyzer,
-       _gpxTrackImporter = gpxTrackImporter ?? GpxImporter();
+  }) : _gpxTrackImporter = gpxTrackImporter ?? GpxImporter();
 
   static const _nearestWayToleranceMeters = 20.0;
 

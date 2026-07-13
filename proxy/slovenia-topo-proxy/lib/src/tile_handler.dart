@@ -26,14 +26,11 @@ final _sharedUpstreamSemaphore = AsyncSemaphore(
 
 class SloveniaTopoTileHandler {
   SloveniaTopoTileHandler({
-    required UpstreamWmsClient upstreamClient,
-    int maxZoom = 19,
-    int upstreamAttempts = _defaultUpstreamAttempts,
+    required this._upstreamClient,
+    this._maxZoom = 19,
+    this._upstreamAttempts = _defaultUpstreamAttempts,
     AsyncSemaphore? upstreamSemaphore,
-  }) : _upstreamClient = upstreamClient,
-       _maxZoom = maxZoom,
-       _upstreamAttempts = upstreamAttempts,
-       _upstreamSemaphore = upstreamSemaphore ?? _sharedUpstreamSemaphore;
+  }) : _upstreamSemaphore = upstreamSemaphore ?? _sharedUpstreamSemaphore;
 
   final UpstreamWmsClient _upstreamClient;
   final int _maxZoom;

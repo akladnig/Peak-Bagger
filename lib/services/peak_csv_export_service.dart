@@ -49,11 +49,10 @@ class IoPeakCsvFileWriter implements PeakCsvFileWriter {
 
 class PeakCsvExportService {
   PeakCsvExportService({
-    required PeakRepository peakRepository,
+    required this._peakRepository,
     Directory? outputDirectory,
     PeakCsvFileWriter? fileWriter,
-  }) : _peakRepository = peakRepository,
-       _outputDirectory = outputDirectory ?? Directory(_defaultOutputDirectory),
+  }) : _outputDirectory = outputDirectory ?? Directory(_defaultOutputDirectory),
        _fileWriter = fileWriter ?? const IoPeakCsvFileWriter();
 
   static const String fileName = 'peaks.csv';

@@ -32,16 +32,14 @@ abstract interface class OpenRouteService {
 
 class HttpOpenRouteService implements OpenRouteService {
   HttpOpenRouteService({
-    required String apiKey,
+    required this._apiKey,
     http.Client? client,
     Uri? endpoint,
-    Duration timeout = const Duration(seconds: 15),
-  }) : _apiKey = apiKey,
-       _client = client ?? http.Client(),
+    this._timeout = const Duration(seconds: 15),
+  }) : _client = client ?? http.Client(),
        _endpoint =
            endpoint ??
-           Uri.parse('https://api.openrouteservice.org/v2/directions/driving-car'),
-       _timeout = timeout;
+           Uri.parse('https://api.openrouteservice.org/v2/directions/driving-car');
 
   final String _apiKey;
   final http.Client _client;

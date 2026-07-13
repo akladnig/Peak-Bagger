@@ -65,16 +65,12 @@ class PeakProminenceImportReport {
   const PeakProminenceImportReport({
     required this.csvPath,
     required this.rows,
-    int? matchedCount,
-    int? updatedCount,
-    int? unresolvedCsvRowCount,
-    int? unmatchedPeakCount,
-    int? writeFailureCount,
-  }) : _matchedCount = matchedCount,
-       _updatedCount = updatedCount,
-       _unresolvedCsvRowCount = unresolvedCsvRowCount,
-       _unmatchedPeakCount = unmatchedPeakCount,
-       _writeFailureCount = writeFailureCount;
+    this._matchedCount,
+    this._updatedCount,
+    this._unresolvedCsvRowCount,
+    this._unmatchedPeakCount,
+    this._writeFailureCount,
+  });
 
   final String csvPath;
   final List<PeakProminenceImportRowReport> rows;
@@ -134,13 +130,13 @@ class PeakProminenceImportService {
     PeakProminenceCorrelationService? correlationService,
     PeakProminencePreviewExportService? previewExportService,
     PeakProminenceCsvReader? csvReader,
-    PeakProminenceCsvLineReader? csvLineReader,
+    this._csvLineReader,
     PeakProminenceLogWriter? logWriter,
     PeakProminenceClock? clock,
     Future<PeakSaveResult> Function(Peak peak)? savePeak,
     String Function(String csvPath)? logPathResolver,
-    PeakProminenceImportProgressCallback? onProgress,
-    int progressInterval = 100000,
+    this._onProgress,
+    this._progressInterval = 100000,
   }) : _peakRepository = peakRepository,
         _csvService = csvService ?? const PeakProminenceCsvService(),
         _correlationService = correlationService ??
@@ -148,13 +144,10 @@ class PeakProminenceImportService {
         _previewExportService = previewExportService ??
             PeakProminencePreviewExportService(peakSource: peakRepository),
         _csvReader = csvReader ?? ((path) => File(path).readAsString()),
-        _csvLineReader = csvLineReader,
         _logWriter = logWriter ?? _defaultLogWriter,
         _clock = clock ?? DateTime.now,
         _savePeak = savePeak ?? peakRepository.saveDetailed,
-        _logPathResolver = logPathResolver ?? _defaultLogPathResolver,
-        _onProgress = onProgress,
-        _progressInterval = progressInterval;
+        _logPathResolver = logPathResolver ?? _defaultLogPathResolver;
 
   final PeakRepository _peakRepository;
   final PeakProminenceCsvService _csvService;

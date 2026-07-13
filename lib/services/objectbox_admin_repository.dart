@@ -31,11 +31,10 @@ abstract class ObjectBoxAdminRepository {
 
 class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
   ObjectBoxAdminRepositoryImpl({
-    Store? store,
+    this._store,
     obx_int.ModelDefinition? modelDefinition,
     this.downloadsDirectoryPath,
-  }) : _store = store,
-       _modelDefinition = modelDefinition ?? getObjectBoxModel();
+  }) : _modelDefinition = modelDefinition ?? getObjectBoxModel();
 
   final String? downloadsDirectoryPath;
 

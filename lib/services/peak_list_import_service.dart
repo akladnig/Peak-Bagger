@@ -67,15 +67,13 @@ class PeakListImportResult {
 
 class PeakListImportService {
   PeakListImportService({
-    required PeakRepository peakRepository,
-    required PeakListRepository peakListRepository,
+    required this._peakRepository,
+    required this._peakListRepository,
     PeakListCsvLoader? csvLoader,
     PeakListImportRootLoader? importRootLoader,
     PeakListLogWriter? logWriter,
     DateTime Function()? clock,
-  }) : _peakRepository = peakRepository,
-       _peakListRepository = peakListRepository,
-       _csvLoader = csvLoader ?? _loadCsvFromDisk,
+  }) : _csvLoader = csvLoader ?? _loadCsvFromDisk,
        _importRootLoader =
            importRootLoader ?? PlatformPeakListFilePicker().resolveImportRoot,
        _logWriter = logWriter ?? _appendLogEntries,
