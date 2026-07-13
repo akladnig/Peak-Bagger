@@ -43,11 +43,9 @@ void main() {
       tester,
       repository,
       TestPeakNotifier(_baseState()),
-      _TestRouteGraphRefreshService(
-        () async {
-          throw StateError('boom');
-        },
-      ),
+      _TestRouteGraphRefreshService(() async {
+        throw StateError('boom');
+      }),
     );
 
     await robot.pumpApp();

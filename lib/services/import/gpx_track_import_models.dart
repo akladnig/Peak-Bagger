@@ -42,18 +42,14 @@ abstract class GpxImportItem {
 
 /// A single track in the final import result.
 class GpxTrackImportItem extends GpxImportItem {
-  const GpxTrackImportItem({
-    required this.track,
-  });
+  const GpxTrackImportItem({required this.track});
 
   final GpxTrack track;
 }
 
 /// A single route in the final import result.
 class GpxRouteImportItem extends GpxImportItem {
-  const GpxRouteImportItem({
-    required this.route,
-  });
+  const GpxRouteImportItem({required this.route});
 
   final Route route;
 }

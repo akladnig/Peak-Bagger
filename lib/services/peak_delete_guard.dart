@@ -65,7 +65,9 @@ class PeakDeleteGuard {
     final tracks = _source.loadGpxTracks().toList(growable: false)
       ..sort((a, b) {
         final nameCompare = a.trackName.compareTo(b.trackName);
-        return nameCompare != 0 ? nameCompare : a.gpxTrackId.compareTo(b.gpxTrackId);
+        return nameCompare != 0
+            ? nameCompare
+            : a.gpxTrackId.compareTo(b.gpxTrackId);
       });
 
     return tracks
@@ -83,14 +85,18 @@ class PeakDeleteGuard {
     final peakLists = _source.loadPeakLists().toList(growable: false)
       ..sort((a, b) {
         final nameCompare = a.name.compareTo(b.name);
-        return nameCompare != 0 ? nameCompare : a.peakListId.compareTo(b.peakListId);
+        return nameCompare != 0
+            ? nameCompare
+            : a.peakListId.compareTo(b.peakListId);
       });
 
     final blockers = <PeakDeleteBlocker>[];
     for (final peakList in peakLists) {
       try {
         final items = decodePeakListItems(peakList.peakList);
-        final referencesPeak = items.any((item) => item.peakOsmId == peak.osmId);
+        final referencesPeak = items.any(
+          (item) => item.peakOsmId == peak.osmId,
+        );
         if (referencesPeak) {
           blockers.add(
             PeakDeleteBlocker(

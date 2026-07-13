@@ -156,42 +156,43 @@ void main() {
     expect(r.favouritesPopup, findsNothing);
   });
 
-  testWidgets('favourite name dialog cancels, saves, and dismisses by keyboard', (
-    tester,
-  ) async {
-    final waypointsRepository = WaypointsRepository.test(
-      InMemoryWaypointsStorage(),
-    );
-    final r = DropMarkerRobot(tester);
+  testWidgets(
+    'favourite name dialog cancels, saves, and dismisses by keyboard',
+    (tester) async {
+      final waypointsRepository = WaypointsRepository.test(
+        InMemoryWaypointsStorage(),
+      );
+      final r = DropMarkerRobot(tester);
 
-    await r.pumpMap(
-      initialState: const MapState(
-        center: LatLng(-41.5, 146.5),
-        zoom: 15,
-        basemap: Basemap.tracestrack,
-      ),
-      waypointsRepository: waypointsRepository,
-    );
+      await r.pumpMap(
+        initialState: const MapState(
+          center: LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+        ),
+        waypointsRepository: waypointsRepository,
+      );
 
-    await r.openDropMarkerPopup();
-    await r.openDropFavouriteDialog();
-    expect(r.favouriteNameInput, findsOneWidget);
+      await r.openDropMarkerPopup();
+      await r.openDropFavouriteDialog();
+      expect(r.favouriteNameInput, findsOneWidget);
 
-    await r.cancelFavouriteNameDialog();
-    expect(r.favouriteNameInput, findsNothing);
+      await r.cancelFavouriteNameDialog();
+      expect(r.favouriteNameInput, findsNothing);
 
-    await r.openDropFavouriteDialog();
-    await r.dismissFavouriteNameWithEscape();
-    expect(r.favouriteNameInput, findsNothing);
+      await r.openDropFavouriteDialog();
+      await r.dismissFavouriteNameWithEscape();
+      expect(r.favouriteNameInput, findsNothing);
 
-    await r.openDropFavouriteDialog();
-    await r.dismissFavouriteNameWithCtrlC();
-    expect(r.favouriteNameInput, findsNothing);
+      await r.openDropFavouriteDialog();
+      await r.dismissFavouriteNameWithCtrlC();
+      expect(r.favouriteNameInput, findsNothing);
 
-    await r.openDropFavouriteDialog();
-    await r.saveFavouriteName('South Ridge');
+      await r.openDropFavouriteDialog();
+      await r.saveFavouriteName('South Ridge');
 
-    expect(waypointsRepository.getFavourites(), hasLength(1));
-    expect(waypointsRepository.getFavourites().single.name, 'South Ridge');
-  });
+      expect(waypointsRepository.getFavourites(), hasLength(1));
+      expect(waypointsRepository.getFavourites().single.name, 'South Ridge');
+    },
+  );
 }

@@ -88,10 +88,7 @@ class TrackSpeedAnalysisService {
     final matcher = _RouteGraphNearestWayMatcher.fromQueryService(
       _routeGraphQueryService,
     );
-    final observations = _collectObservations(
-      tracks: tracks,
-      matcher: matcher,
-    );
+    final observations = _collectObservations(tracks: tracks, matcher: matcher);
 
     return _buildReport(observations);
   }
@@ -106,7 +103,10 @@ class TrackSpeedAnalysisService {
     final observations = <_TrackSpeedObservation>[];
 
     onProgress?.call(
-      TrackSpeedAnalysisProgress(processedTracks: 0, totalTracks: tracks.length),
+      TrackSpeedAnalysisProgress(
+        processedTracks: 0,
+        totalTracks: tracks.length,
+      ),
     );
     if (onProgress != null) {
       await Future<void>.delayed(Duration.zero);
@@ -137,7 +137,9 @@ class TrackSpeedAnalysisService {
     final observations = <_TrackSpeedObservation>[];
 
     for (final track in tracks) {
-      observations.addAll(_observationsForTrack(track: track, matcher: matcher));
+      observations.addAll(
+        _observationsForTrack(track: track, matcher: matcher),
+      );
     }
 
     return observations;
@@ -228,7 +230,9 @@ class TrackSpeedAnalysisService {
 
   bool _hasUsableTimedGeometry(List<List<GpxTrackPoint>> segments) {
     for (final segment in segments) {
-      final timedPoints = segment.where((point) => point.timeUtc != null).length;
+      final timedPoints = segment
+          .where((point) => point.timeUtc != null)
+          .length;
       if (timedPoints >= 2) {
         return true;
       }
@@ -257,7 +261,10 @@ class TrackSpeedAnalysisService {
 
   _HikingDifficultyBucket _classifyDifficulty(_MatchedWay? matchedWay) {
     if (matchedWay == null) {
-      return const _HikingDifficultyBucket(family: 'off-track', value: 'off-track');
+      return const _HikingDifficultyBucket(
+        family: 'off-track',
+        value: 'off-track',
+      );
     }
 
     final tags = matchedWay.tags;
@@ -290,7 +297,8 @@ class TrackSpeedAnalysisService {
       return 'gradient unknown';
     }
 
-    final grade = ((endElevation - startElevation) / leg.horizontalDistanceMeters) * 100;
+    final grade =
+        ((endElevation - startElevation) / leg.horizontalDistanceMeters) * 100;
     if (grade <= -20) {
       return '<= -20%';
     }
@@ -312,24 +320,41 @@ class TrackSpeedAnalysisService {
     return '>= +20%';
   }
 
-  TrackSpeedAnalysisSection _buildTrackTypeSection(List<_TrackSpeedObservation> observations) {
+  TrackSpeedAnalysisSection _buildTrackTypeSection(
+    List<_TrackSpeedObservation> observations,
+  ) {
     final grouped = <String, List<_TrackSpeedObservation>>{};
     for (final observation in observations) {
-      (grouped[observation.trackType] ??= <_TrackSpeedObservation>[]).add(observation);
+      (grouped[observation.trackType] ??= <_TrackSpeedObservation>[]).add(
+        observation,
+      );
     }
 
     final keys = grouped.keys.toList(growable: false)
-      ..sort((a, b) => _trackTypeOrder.indexOf(a).compareTo(_trackTypeOrder.indexOf(b)));
+      ..sort(
+        (a, b) =>
+            _trackTypeOrder.indexOf(a).compareTo(_trackTypeOrder.indexOf(b)),
+      );
     return TrackSpeedAnalysisSection(
       kind: TrackSpeedAnalysisSectionKind.trackType,
-      rows: keys.map((key) => _buildMetricsRow(grouped[key]!, label: key, trackType: key)).toList(growable: false),
+      rows: keys
+          .map(
+            (key) =>
+                _buildMetricsRow(grouped[key]!, label: key, trackType: key),
+          )
+          .toList(growable: false),
     );
   }
 
-  TrackSpeedAnalysisSection _buildHikingDifficultySection(List<_TrackSpeedObservation> observations) {
+  TrackSpeedAnalysisSection _buildHikingDifficultySection(
+    List<_TrackSpeedObservation> observations,
+  ) {
     final grouped = <(String, String), List<_TrackSpeedObservation>>{};
     for (final observation in observations) {
-      final key = (observation.hikingDifficultyFamily, observation.hikingDifficultyValue);
+      final key = (
+        observation.hikingDifficultyFamily,
+        observation.hikingDifficultyValue,
+      );
       (grouped[key] ??= <_TrackSpeedObservation>[]).add(observation);
     }
 
@@ -358,7 +383,9 @@ class TrackSpeedAnalysisService {
     );
   }
 
-  TrackSpeedAnalysisSection _buildCombinedSection(List<_TrackSpeedObservation> observations) {
+  TrackSpeedAnalysisSection _buildCombinedSection(
+    List<_TrackSpeedObservation> observations,
+  ) {
     final grouped = <(String, String, String), List<_TrackSpeedObservation>>{};
     for (final observation in observations) {
       final key = (
@@ -371,7 +398,9 @@ class TrackSpeedAnalysisService {
 
     final keys = grouped.keys.toList(growable: false)
       ..sort((a, b) {
-        final trackTypeComparison = _trackTypeOrder.indexOf(a.$1).compareTo(_trackTypeOrder.indexOf(b.$1));
+        final trackTypeComparison = _trackTypeOrder
+            .indexOf(a.$1)
+            .compareTo(_trackTypeOrder.indexOf(b.$1));
         if (trackTypeComparison != 0) {
           return trackTypeComparison;
         }
@@ -399,23 +428,28 @@ class TrackSpeedAnalysisService {
     );
   }
 
-  TrackSpeedAnalysisSection _buildGradientSection(List<_TrackSpeedObservation> observations) {
+  TrackSpeedAnalysisSection _buildGradientSection(
+    List<_TrackSpeedObservation> observations,
+  ) {
     final grouped = <String, List<_TrackSpeedObservation>>{};
     for (final observation in observations) {
-      (grouped[observation.gradientBand] ??= <_TrackSpeedObservation>[]).add(observation);
+      (grouped[observation.gradientBand] ??= <_TrackSpeedObservation>[]).add(
+        observation,
+      );
     }
 
     final keys = grouped.keys.toList(growable: false)
-      ..sort((a, b) => _gradientBandOrder.indexOf(a).compareTo(_gradientBandOrder.indexOf(b)));
+      ..sort(
+        (a, b) => _gradientBandOrder
+            .indexOf(a)
+            .compareTo(_gradientBandOrder.indexOf(b)),
+      );
     return TrackSpeedAnalysisSection(
       kind: TrackSpeedAnalysisSectionKind.gradientBand,
       rows: keys
           .map(
-            (key) => _buildMetricsRow(
-              grouped[key]!,
-              label: key,
-              gradientBand: key,
-            ),
+            (key) =>
+                _buildMetricsRow(grouped[key]!, label: key, gradientBand: key),
           )
           .toList(growable: false),
     );
@@ -429,8 +463,11 @@ class TrackSpeedAnalysisService {
     String? hikingDifficultyValue,
     String? gradientBand,
   }) {
-    final speeds = observations.map((observation) => observation.speedKmh).toList(growable: false)
-      ..sort();
+    final speeds =
+        observations
+            .map((observation) => observation.speedKmh)
+            .toList(growable: false)
+          ..sort();
     final totalDistance = observations.fold<double>(
       0,
       (sum, observation) => sum + observation.movingDistanceMeters,
@@ -526,7 +563,9 @@ class _RouteGraphNearestWayMatcher {
       maxLon: GeoConstants.tasmaniaLngMax,
     );
     final rows = queryService.queryWays(const RouteGraphWayQuery());
-    final rowsByWayId = <int, RouteGraphWayIndex>{for (final row in rows) row.osmWayId: row};
+    final rowsByWayId = <int, RouteGraphWayIndex>{
+      for (final row in rows) row.osmWayId: row,
+    };
     final nodeById = <int, LatLng>{};
     final waysByChunkKey = <String, List<_RouteGraphWayGeometry>>{};
 
@@ -541,7 +580,9 @@ class _RouteGraphNearestWayMatcher {
         if (element is! Map) {
           continue;
         }
-        final typed = Map<String, dynamic>.from(element.cast<String, dynamic>());
+        final typed = Map<String, dynamic>.from(
+          element.cast<String, dynamic>(),
+        );
         if (typed['type'] != 'node') {
           continue;
         }
@@ -565,7 +606,9 @@ class _RouteGraphNearestWayMatcher {
         if (element is! Map) {
           continue;
         }
-        final typed = Map<String, dynamic>.from(element.cast<String, dynamic>());
+        final typed = Map<String, dynamic>.from(
+          element.cast<String, dynamic>(),
+        );
         if (typed['type'] != 'way') {
           continue;
         }
@@ -617,7 +660,10 @@ class _RouteGraphNearestWayMatcher {
     _MatchedWay? bestMatch;
     var bestDistanceMeters = double.infinity;
     for (final chunkGroup in _chunkGroups) {
-      if (!chunkGroup.contains(point, TrackSpeedAnalysisService._nearestWayToleranceMeters)) {
+      if (!chunkGroup.contains(
+        point,
+        TrackSpeedAnalysisService._nearestWayToleranceMeters,
+      )) {
         continue;
       }
       for (final way in chunkGroup.ways) {
@@ -628,7 +674,8 @@ class _RouteGraphNearestWayMatcher {
           continue;
         }
         final distanceMeters = _distanceToWayMeters(point, way.points);
-        if (distanceMeters > TrackSpeedAnalysisService._nearestWayToleranceMeters ||
+        if (distanceMeters >
+                TrackSpeedAnalysisService._nearestWayToleranceMeters ||
             distanceMeters >= bestDistanceMeters) {
           continue;
         }
@@ -653,9 +700,11 @@ class _RouteGraphNearestWayMatcher {
   double _distanceToSegmentMeters(LatLng point, LatLng start, LatLng end) {
     final latitudeRadians = point.latitude * math.pi / 180;
     const metersPerDegreeLatitude = 111320.0;
-    final metersPerDegreeLongitude = metersPerDegreeLatitude * math.cos(latitudeRadians);
+    final metersPerDegreeLongitude =
+        metersPerDegreeLatitude * math.cos(latitudeRadians);
 
-    final startX = (start.longitude - point.longitude) * metersPerDegreeLongitude;
+    final startX =
+        (start.longitude - point.longitude) * metersPerDegreeLongitude;
     final startY = (start.latitude - point.latitude) * metersPerDegreeLatitude;
     final endX = (end.longitude - point.longitude) * metersPerDegreeLongitude;
     final endY = (end.latitude - point.latitude) * metersPerDegreeLatitude;
@@ -741,7 +790,8 @@ class _RouteGraphWayGeometry {
     final latitudeTolerance = toleranceMeters / 111320.0;
     final longitudeTolerance =
         toleranceMeters /
-        (111320.0 * math.max(math.cos(point.latitude * math.pi / 180).abs(), 0.01));
+        (111320.0 *
+            math.max(math.cos(point.latitude * math.pi / 180).abs(), 0.01));
     return point.latitude >= minLat - latitudeTolerance &&
         point.latitude <= maxLat + latitudeTolerance &&
         point.longitude >= minLon - longitudeTolerance &&
@@ -759,7 +809,8 @@ class _RouteGraphChunkWayGroup {
     final latitudeTolerance = toleranceMeters / 111320.0;
     final longitudeTolerance =
         toleranceMeters /
-        (111320.0 * math.max(math.cos(point.latitude * math.pi / 180).abs(), 0.01));
+        (111320.0 *
+            math.max(math.cos(point.latitude * math.pi / 180).abs(), 0.01));
     return point.latitude >= chunk.minLat - latitudeTolerance &&
         point.latitude <= chunk.maxLat + latitudeTolerance &&
         point.longitude >= chunk.minLon - longitudeTolerance &&

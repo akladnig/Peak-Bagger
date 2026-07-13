@@ -25,73 +25,84 @@ void main() {
     expect(resolved?.name, 'Inside Map');
   });
 
-  test('findByPoint rejects a rectangle false-positive outside the polygon', () async {
-    final map = _polygonMap(
-      id: 1,
-      name: 'Triangle Map',
-      series: 'TS01',
-      vertices: const [
-        LatLng(-42.0000, 146.0000),
-        LatLng(-42.0000, 146.0200),
-        LatLng(-42.0200, 146.0000),
-      ],
-    );
-    final repository = await TestTasmapRepository.create(maps: [map]);
+  test(
+    'findByPoint rejects a rectangle false-positive outside the polygon',
+    () async {
+      final map = _polygonMap(
+        id: 1,
+        name: 'Triangle Map',
+        series: 'TS01',
+        vertices: const [
+          LatLng(-42.0000, 146.0000),
+          LatLng(-42.0000, 146.0200),
+          LatLng(-42.0200, 146.0000),
+        ],
+      );
+      final repository = await TestTasmapRepository.create(maps: [map]);
 
-    final resolved = repository.findByPoint(const LatLng(-42.0150, 146.0150));
+      final resolved = repository.findByPoint(const LatLng(-42.0150, 146.0150));
 
-    expect(resolved, isNull);
-  });
+      expect(resolved, isNull);
+    },
+  );
 
-  test('findByPoint uses deterministic ordering when multiple polygons match', () async {
-    final alpha = _polygonMap(
-      id: 2,
-      name: 'Alpha Map',
-      series: 'TS02',
-      vertices: const [
-        LatLng(-42.0000, 146.0000),
-        LatLng(-42.0000, 146.0200),
-        LatLng(-42.0200, 146.0200),
-        LatLng(-42.0100, 146.0000),
-      ],
-    );
-    final beta = _polygonMap(
-      id: 1,
-      name: 'Beta Map',
-      series: 'TS01',
-      vertices: const [
-        LatLng(-42.0000, 146.0000),
-        LatLng(-42.0000, 146.0200),
-        LatLng(-42.0200, 146.0200),
-        LatLng(-42.0100, 146.0000),
-      ],
-    );
-    final repository = await TestTasmapRepository.create(maps: [beta, alpha]);
+  test(
+    'findByPoint uses deterministic ordering when multiple polygons match',
+    () async {
+      final alpha = _polygonMap(
+        id: 2,
+        name: 'Alpha Map',
+        series: 'TS02',
+        vertices: const [
+          LatLng(-42.0000, 146.0000),
+          LatLng(-42.0000, 146.0200),
+          LatLng(-42.0200, 146.0200),
+          LatLng(-42.0100, 146.0000),
+        ],
+      );
+      final beta = _polygonMap(
+        id: 1,
+        name: 'Beta Map',
+        series: 'TS01',
+        vertices: const [
+          LatLng(-42.0000, 146.0000),
+          LatLng(-42.0000, 146.0200),
+          LatLng(-42.0200, 146.0200),
+          LatLng(-42.0100, 146.0000),
+        ],
+      );
+      final repository = await TestTasmapRepository.create(maps: [beta, alpha]);
 
-    final resolved = repository.findByPoint(const LatLng(-42.0050, 146.0050));
+      final resolved = repository.findByPoint(const LatLng(-42.0050, 146.0050));
 
-    expect(resolved?.name, 'Alpha Map');
-  });
+      expect(resolved?.name, 'Alpha Map');
+    },
+  );
 
-  test('findByMgrsCodeAndCoordinates delegates through polygon lookup', () async {
-    final map = _polygonMap(
-      id: 1,
-      name: 'Delegated Map',
-      series: 'TS01',
-      vertices: const [
-        LatLng(-42.0000, 146.0000),
-        LatLng(-42.0000, 146.0100),
-        LatLng(-42.0100, 146.0100),
-        LatLng(-42.0100, 146.0000),
-      ],
-    );
-    final repository = await TestTasmapRepository.create(maps: [map]);
-    final point = const LatLng(-42.0050, 146.0050);
+  test(
+    'findByMgrsCodeAndCoordinates delegates through polygon lookup',
+    () async {
+      final map = _polygonMap(
+        id: 1,
+        name: 'Delegated Map',
+        series: 'TS01',
+        vertices: const [
+          LatLng(-42.0000, 146.0000),
+          LatLng(-42.0000, 146.0100),
+          LatLng(-42.0100, 146.0100),
+          LatLng(-42.0100, 146.0000),
+        ],
+      );
+      final repository = await TestTasmapRepository.create(maps: [map]);
+      final point = const LatLng(-42.0050, 146.0050);
 
-    final resolved = repository.findByMgrsCodeAndCoordinates(_fullMgrs(point));
+      final resolved = repository.findByMgrsCodeAndCoordinates(
+        _fullMgrs(point),
+      );
 
-    expect(resolved?.name, 'Delegated Map');
-  });
+      expect(resolved?.name, 'Delegated Map');
+    },
+  );
 
   test('addMaps invalidates cached lookup geometry', () async {
     final existing = _polygonMap(

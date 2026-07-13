@@ -130,7 +130,10 @@ class BackgroundJobsRobot {
   void expectJobStatus(int index, String text) {
     expect(backgroundJobStatus(index), findsOneWidget);
     expect(
-      find.descendant(of: backgroundJobStatus(index), matching: find.text(text)),
+      find.descendant(
+        of: backgroundJobStatus(index),
+        matching: find.text(text),
+      ),
       findsOneWidget,
     );
   }

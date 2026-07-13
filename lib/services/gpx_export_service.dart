@@ -198,8 +198,11 @@ class GpxExportService {
   }
 
   List<int> _routeTimingProfile(app_route.Route route) {
-    final storedProfile = decodeRouteTimingProfile(route.routeTimingProfileJson);
-    if (storedProfile.length == route.gpxRoute.length && storedProfile.isNotEmpty) {
+    final storedProfile = decodeRouteTimingProfile(
+      route.routeTimingProfileJson,
+    );
+    if (storedProfile.length == route.gpxRoute.length &&
+        storedProfile.isNotEmpty) {
       return storedProfile;
     }
 

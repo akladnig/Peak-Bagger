@@ -380,8 +380,24 @@ void main() {
         InMemoryRouteGraphStorage(
           manifest: _manifest,
           chunks: [
-            _chunk('1|0_0', '0_0', -42.0, 146.0, -41.0, 147.0, payloadJson: _payload),
-            _chunk('1|2_2', '2_2', -35.0, 140.0, -34.0, 141.0, payloadJson: _payload),
+            _chunk(
+              '1|0_0',
+              '0_0',
+              -42.0,
+              146.0,
+              -41.0,
+              147.0,
+              payloadJson: _payload,
+            ),
+            _chunk(
+              '1|2_2',
+              '2_2',
+              -35.0,
+              140.0,
+              -34.0,
+              141.0,
+              payloadJson: _payload,
+            ),
           ],
           wayIndexRows: [
             _wayRow(
@@ -497,72 +513,78 @@ void main() {
     expect(rows, isEmpty);
   });
 
-  test('queryTrailDisplayChunksForBounds returns empty when zoom bucket is missing', () {
-    final service = RouteGraphQueryService(
-      RouteGraphRepository.test(
-        InMemoryRouteGraphStorage(
-          manifest: _manifest,
-          chunks: [_chunk('1|0_0', '0_0', -42.0, 146.0, -41.0, 147.0)],
-          trailDisplayChunks: [
-            _trailDisplayChunk(
-              generation: 1,
-              cacheZoom: 15,
-              chunkKey: '0_0',
-              osmWayId: 10,
-            ),
-          ],
+  test(
+    'queryTrailDisplayChunksForBounds returns empty when zoom bucket is missing',
+    () {
+      final service = RouteGraphQueryService(
+        RouteGraphRepository.test(
+          InMemoryRouteGraphStorage(
+            manifest: _manifest,
+            chunks: [_chunk('1|0_0', '0_0', -42.0, 146.0, -41.0, 147.0)],
+            trailDisplayChunks: [
+              _trailDisplayChunk(
+                generation: 1,
+                cacheZoom: 15,
+                chunkKey: '0_0',
+                osmWayId: 10,
+              ),
+            ],
+          ),
         ),
-      ),
-    );
+      );
 
-    final rows = service.queryTrailDisplayChunksForBounds(
-      minLat: -41.8,
-      minLon: 146.2,
-      maxLat: -41.2,
-      maxLon: 146.8,
-      zoom: 16.0,
-    );
+      final rows = service.queryTrailDisplayChunksForBounds(
+        minLat: -41.8,
+        minLon: 146.2,
+        maxLat: -41.2,
+        maxLon: 146.8,
+        zoom: 16.0,
+      );
 
-    expect(rows, isEmpty);
-  });
+      expect(rows, isEmpty);
+    },
+  );
 
-  test('queryTrailDisplayChunksForBounds returns rows for all visible chunks', () {
-    final service = RouteGraphQueryService(
-      RouteGraphRepository.test(
-        InMemoryRouteGraphStorage(
-          manifest: _manifest,
-          chunks: [
-            _chunk('1|0_0', '0_0', -42.0, 146.0, -41.0, 147.0),
-            _chunk('1|0_1', '0_1', -42.0, 146.0, -41.0, 147.0),
-          ],
-          trailDisplayChunks: [
-            _trailDisplayChunk(
-              generation: 1,
-              cacheZoom: 15,
-              chunkKey: '0_0',
-              osmWayId: 10,
-            ),
-            _trailDisplayChunk(
-              generation: 1,
-              cacheZoom: 15,
-              chunkKey: '0_1',
-              osmWayId: 11,
-            ),
-          ],
+  test(
+    'queryTrailDisplayChunksForBounds returns rows for all visible chunks',
+    () {
+      final service = RouteGraphQueryService(
+        RouteGraphRepository.test(
+          InMemoryRouteGraphStorage(
+            manifest: _manifest,
+            chunks: [
+              _chunk('1|0_0', '0_0', -42.0, 146.0, -41.0, 147.0),
+              _chunk('1|0_1', '0_1', -42.0, 146.0, -41.0, 147.0),
+            ],
+            trailDisplayChunks: [
+              _trailDisplayChunk(
+                generation: 1,
+                cacheZoom: 15,
+                chunkKey: '0_0',
+                osmWayId: 10,
+              ),
+              _trailDisplayChunk(
+                generation: 1,
+                cacheZoom: 15,
+                chunkKey: '0_1',
+                osmWayId: 11,
+              ),
+            ],
+          ),
         ),
-      ),
-    );
+      );
 
-    final rows = service.queryTrailDisplayChunksForBounds(
-      minLat: -41.8,
-      minLon: 146.2,
-      maxLat: -41.2,
-      maxLon: 146.8,
-      zoom: 15.0,
-    );
+      final rows = service.queryTrailDisplayChunksForBounds(
+        minLat: -41.8,
+        minLon: 146.2,
+        maxLat: -41.2,
+        maxLon: 146.8,
+        zoom: 15.0,
+      );
 
-    expect(rows.map((row) => row.chunkKey).toSet(), {'0_0', '0_1'});
-  });
+      expect(rows.map((row) => row.chunkKey).toSet(), {'0_0', '0_1'});
+    },
+  );
 }
 
 final _manifest = RouteGraphManifest(
@@ -658,10 +680,7 @@ RouteGraphTrailDisplayChunk _trailDisplayChunk({
     payloadJson: RouteGraphTrailDisplayChunk.encodeWays([
       RouteGraphTrailDisplayWay(
         osmWayId: osmWayId,
-        points: const [
-          LatLng(-41.5, 146.5),
-          LatLng(-41.6, 146.6),
-        ],
+        points: const [LatLng(-41.5, 146.5), LatLng(-41.6, 146.6)],
       ),
     ]),
   );

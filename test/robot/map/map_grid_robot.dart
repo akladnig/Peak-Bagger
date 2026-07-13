@@ -23,14 +23,17 @@ class MapGridRobot {
 
   Finder get gridMapFab => find.byKey(const Key('grid-map-fab'));
   Finder get zoomReadout => find.byKey(const Key('map-zoom-readout'));
-  Finder get mgrsGridLabelLayer => find.byKey(const Key('mgrs-grid-label-layer'));
+  Finder get mgrsGridLabelLayer =>
+      find.byKey(const Key('mgrs-grid-label-layer'));
 
   Future<void> pumpMap() async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           mapProvider.overrideWith(() => mapNotifier),
-          tasmapStateProvider.overrideWith(() => TestTasmapNotifier(repository)),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
           tasmapRepositoryProvider.overrideWithValue(repository),
         ],
         child: const MaterialApp(home: MapScreen()),

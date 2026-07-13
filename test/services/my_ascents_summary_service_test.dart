@@ -63,9 +63,7 @@ void main() {
           _bagged(2, peakId: 99, date: DateTime.utc(2026, 1, 2)),
           _bagged(3, peakId: 10, date: null),
         ],
-        peaksByOsmId: {
-          10: _peak(10, '', elevation: null),
-        },
+        peaksByOsmId: {10: _peak(10, '', elevation: null)},
       ),
       ascending: false,
     );
@@ -83,10 +81,7 @@ void main() {
           _bagged(1, peakId: 10, date: null),
           _bagged(2, peakId: 20, date: null),
         ],
-        peaksByOsmId: {
-          10: _peak(10, 'Alpha'),
-          20: _peak(20, 'Beta'),
-        },
+        peaksByOsmId: {10: _peak(10, 'Alpha'), 20: _peak(20, 'Beta')},
       ),
       ascending: false,
     );
@@ -108,11 +103,7 @@ PeaksBagged _bagged(
   );
 }
 
-Peak _peak(
-  int osmId,
-  String name, {
-  double? elevation,
-}) {
+Peak _peak(int osmId, String name, {double? elevation}) {
   return Peak(
     osmId: osmId,
     name: name,

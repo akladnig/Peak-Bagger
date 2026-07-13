@@ -29,7 +29,10 @@ final routeAvailabilityProvider = Provider<RouteAvailabilityState>((ref) {
 });
 
 class RouteAvailabilityState {
-  const RouteAvailabilityState._({required this.routes, required this.isAvailable});
+  const RouteAvailabilityState._({
+    required this.routes,
+    required this.isAvailable,
+  });
 
   const RouteAvailabilityState.empty()
     : this._(routes: const [], isAvailable: false);

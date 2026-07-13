@@ -33,31 +33,19 @@ void main() {
     final expectedKmh = distance * 3600 / (5 * 60 * 1000);
 
     expect(
-      calculator.calculateMaxSpeedKmh(
-        gpx,
-        window: const Duration(seconds: 30),
-      ),
+      calculator.calculateMaxSpeedKmh(gpx, window: const Duration(seconds: 30)),
       closeTo(expectedKmh, 0.05),
     );
     expect(
-      calculator.calculateMaxSpeedKmh(
-        gpx,
-        window: const Duration(minutes: 1),
-      ),
+      calculator.calculateMaxSpeedKmh(gpx, window: const Duration(minutes: 1)),
       closeTo(expectedKmh, 0.05),
     );
     expect(
-      calculator.calculateMaxSpeedKmh(
-        gpx,
-        window: const Duration(minutes: 3),
-      ),
+      calculator.calculateMaxSpeedKmh(gpx, window: const Duration(minutes: 3)),
       closeTo(expectedKmh, 0.05),
     );
     expect(
-      calculator.calculateMaxSpeedKmh(
-        gpx,
-        window: const Duration(minutes: 5),
-      ),
+      calculator.calculateMaxSpeedKmh(gpx, window: const Duration(minutes: 5)),
       closeTo(expectedKmh, 0.05),
     );
   });
@@ -66,10 +54,7 @@ void main() {
     final gpx = _shortOrBrokenGpx();
 
     expect(
-      calculator.calculateMaxSpeedKmh(
-        gpx,
-        window: const Duration(minutes: 3),
-      ),
+      calculator.calculateMaxSpeedKmh(gpx, window: const Duration(minutes: 3)),
       isNull,
     );
 

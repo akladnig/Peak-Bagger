@@ -60,15 +60,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('basemaps-drawer')), findsOneWidget);
-    expect(find.byKey(const Key('basemap-option-sloveniaTopo')), findsOneWidget);
+    expect(
+      find.byKey(const Key('basemap-option-sloveniaTopo')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const Key('basemap-option-sloveniaTopo')));
     await tester.pumpAndSettle();
 
-    expect(
-      robot.container().read(mapProvider).basemap,
-      Basemap.sloveniaTopo,
-    );
+    expect(robot.container().read(mapProvider).basemap, Basemap.sloveniaTopo);
     expect(find.byKey(const Key('basemaps-drawer')), findsNothing);
   });
 }

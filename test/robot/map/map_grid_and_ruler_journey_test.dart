@@ -40,23 +40,31 @@ void main() {
     expect(robot.zoomReadout, findsOneWidget);
   });
 
-  testWidgets('grid journey uses mgrs-only cycle outside sheet-backed regions', (
-    tester,
-  ) async {
-    final repository = await TestTasmapRepository.create(maps: []);
-    final robot = MapGridRobot(tester, nonSheetMapGridRobotState(), repository);
+  testWidgets(
+    'grid journey uses mgrs-only cycle outside sheet-backed regions',
+    (tester) async {
+      final repository = await TestTasmapRepository.create(maps: []);
+      final robot = MapGridRobot(
+        tester,
+        nonSheetMapGridRobotState(),
+        repository,
+      );
 
-    await robot.pumpMap();
+      await robot.pumpMap();
 
-    expect(robot.tooltipMessage(), 'Show MGRS Grid');
-    expect(robot.mapNotifier.state.gridVisibility, MapGridVisibility.hidden);
+      expect(robot.tooltipMessage(), 'Show MGRS Grid');
+      expect(robot.mapNotifier.state.gridVisibility, MapGridVisibility.hidden);
 
-    await robot.tapGridFab();
-    expect(robot.tooltipMessage(), 'Hide MGRS Grid');
-    expect(robot.mapNotifier.state.gridVisibility, MapGridVisibility.mapGridOnly);
+      await robot.tapGridFab();
+      expect(robot.tooltipMessage(), 'Hide MGRS Grid');
+      expect(
+        robot.mapNotifier.state.gridVisibility,
+        MapGridVisibility.mapGridOnly,
+      );
 
-    await robot.tapGridFab();
-    expect(robot.tooltipMessage(), 'Show MGRS Grid');
-    expect(robot.mapNotifier.state.gridVisibility, MapGridVisibility.hidden);
-  });
+      await robot.tapGridFab();
+      expect(robot.tooltipMessage(), 'Show MGRS Grid');
+      expect(robot.mapNotifier.state.gridVisibility, MapGridVisibility.hidden);
+    },
+  );
 }

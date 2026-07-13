@@ -31,28 +31,27 @@ class PeakProjectionCache {
       size: camera.nonRotatedSize,
       peakFingerprints: peakFingerprints,
       correlatedPeakIds: correlatedPeakIds.toList(growable: false)..sort(),
-      untickedPeakColours: untickedPeakColours.entries
-          .map((entry) => (entry.key, entry.value))
-          .toList(growable: false)
-        ..sort((left, right) => left.$1.compareTo(right.$1)),
-      activeOwnershipSegments: activeOwnershipSegments.entries
-          .map(
-            (entry) => (
-              entry.key,
-              _ownershipRingSegmentsFingerprint(entry.value),
-            ),
-          )
-          .toList(growable: false)
-        ..sort((left, right) => left.$1.compareTo(right.$1)),
-      ownershipRingSegments: ownershipRingSegments.entries
-          .map(
-            (entry) => (
-              entry.key,
-              _ownershipRingSegmentsFingerprint(entry.value),
-            ),
-          )
-          .toList(growable: false)
-        ..sort((left, right) => left.$1.compareTo(right.$1)),
+      untickedPeakColours:
+          untickedPeakColours.entries
+              .map((entry) => (entry.key, entry.value))
+              .toList(growable: false)
+            ..sort((left, right) => left.$1.compareTo(right.$1)),
+      activeOwnershipSegments:
+          activeOwnershipSegments.entries
+              .map(
+                (entry) =>
+                    (entry.key, _ownershipRingSegmentsFingerprint(entry.value)),
+              )
+              .toList(growable: false)
+            ..sort((left, right) => left.$1.compareTo(right.$1)),
+      ownershipRingSegments:
+          ownershipRingSegments.entries
+              .map(
+                (entry) =>
+                    (entry.key, _ownershipRingSegmentsFingerprint(entry.value)),
+              )
+              .toList(growable: false)
+            ..sort((left, right) => left.$1.compareTo(right.$1)),
       clusteringEnabled: clusteringEnabled,
       algorithm: algorithm,
     );
@@ -105,28 +104,27 @@ class PeakProjectionCache {
     final key = _PeakSuperclusterIndexKey(
       peakFingerprints: peakFingerprints,
       correlatedPeakIds: correlatedPeakIds.toList(growable: false)..sort(),
-      untickedPeakColours: untickedPeakColours.entries
-          .map((entry) => (entry.key, entry.value))
-          .toList(growable: false)
-        ..sort((left, right) => left.$1.compareTo(right.$1)),
-      activeOwnershipSegments: activeOwnershipSegments.entries
-          .map(
-            (entry) => (
-              entry.key,
-              _ownershipRingSegmentsFingerprint(entry.value),
-            ),
-          )
-          .toList(growable: false)
-        ..sort((left, right) => left.$1.compareTo(right.$1)),
-      ownershipRingSegments: ownershipRingSegments.entries
-          .map(
-            (entry) => (
-              entry.key,
-              _ownershipRingSegmentsFingerprint(entry.value),
-            ),
-          )
-          .toList(growable: false)
-        ..sort((left, right) => left.$1.compareTo(right.$1)),
+      untickedPeakColours:
+          untickedPeakColours.entries
+              .map((entry) => (entry.key, entry.value))
+              .toList(growable: false)
+            ..sort((left, right) => left.$1.compareTo(right.$1)),
+      activeOwnershipSegments:
+          activeOwnershipSegments.entries
+              .map(
+                (entry) =>
+                    (entry.key, _ownershipRingSegmentsFingerprint(entry.value)),
+              )
+              .toList(growable: false)
+            ..sort((left, right) => left.$1.compareTo(right.$1)),
+      ownershipRingSegments:
+          ownershipRingSegments.entries
+              .map(
+                (entry) =>
+                    (entry.key, _ownershipRingSegmentsFingerprint(entry.value)),
+              )
+              .toList(growable: false)
+            ..sort((left, right) => left.$1.compareTo(right.$1)),
     );
     if (_superclusterKey != key || _superclusterIndex == null) {
       _superclusterKey = key;
@@ -190,23 +188,26 @@ class _PeakProjectionCacheKey {
             _listEquals(other.peakFingerprints, peakFingerprints) &&
             _listEquals(other.correlatedPeakIds, correlatedPeakIds) &&
             _listEquals(other.untickedPeakColours, untickedPeakColours) &&
-            _listEquals(other.activeOwnershipSegments, activeOwnershipSegments) &&
+            _listEquals(
+              other.activeOwnershipSegments,
+              activeOwnershipSegments,
+            ) &&
             _listEquals(other.ownershipRingSegments, ownershipRingSegments);
   }
 
   @override
   int get hashCode => Object.hash(
     center,
-      zoom,
-      size,
-      clusteringEnabled,
-      algorithm,
-      Object.hashAll(peakFingerprints),
-      Object.hashAll(correlatedPeakIds),
-      Object.hashAll(untickedPeakColours),
-      Object.hashAll(activeOwnershipSegments),
-      Object.hashAll(ownershipRingSegments),
-    );
+    zoom,
+    size,
+    clusteringEnabled,
+    algorithm,
+    Object.hashAll(peakFingerprints),
+    Object.hashAll(correlatedPeakIds),
+    Object.hashAll(untickedPeakColours),
+    Object.hashAll(activeOwnershipSegments),
+    Object.hashAll(ownershipRingSegments),
+  );
 }
 
 class _PeakSuperclusterIndexKey {
@@ -231,19 +232,21 @@ class _PeakSuperclusterIndexKey {
             _listEquals(other.peakFingerprints, peakFingerprints) &&
             _listEquals(other.correlatedPeakIds, correlatedPeakIds) &&
             _listEquals(other.untickedPeakColours, untickedPeakColours) &&
-            _listEquals(other.activeOwnershipSegments, activeOwnershipSegments) &&
+            _listEquals(
+              other.activeOwnershipSegments,
+              activeOwnershipSegments,
+            ) &&
             _listEquals(other.ownershipRingSegments, ownershipRingSegments);
   }
 
   @override
-  int get hashCode =>
-      Object.hash(
-        Object.hashAll(peakFingerprints),
-        Object.hashAll(correlatedPeakIds),
-        Object.hashAll(untickedPeakColours),
-        Object.hashAll(activeOwnershipSegments),
-        Object.hashAll(ownershipRingSegments),
-      );
+  int get hashCode => Object.hash(
+    Object.hashAll(peakFingerprints),
+    Object.hashAll(correlatedPeakIds),
+    Object.hashAll(untickedPeakColours),
+    Object.hashAll(activeOwnershipSegments),
+    Object.hashAll(ownershipRingSegments),
+  );
 }
 
 String _ownershipRingSegmentsFingerprint(

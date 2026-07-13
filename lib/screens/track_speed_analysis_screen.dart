@@ -62,7 +62,9 @@ class _TrackSpeedAnalysisScreenState
             ],
             if (isEmpty)
               _TrackSpeedAnalysisEmptyState(
-                onRefresh: _isRunning ? null : () => _runAnalysis(isRetry: false),
+                onRefresh: _isRunning
+                    ? null
+                    : () => _runAnalysis(isRetry: false),
               )
             else
               _TrackSpeedAnalysisReportView(report: report),
@@ -100,16 +102,18 @@ class _TrackSpeedAnalysisScreenState
     }
 
     try {
-      final report = await ref.read(trackSpeedAnalysisRunnerProvider).analyze(
-        onProgress: (progress) {
-          if (!mounted || _activeRunId != runId) {
-            return;
-          }
-          setState(() {
-            _progress = progress;
-          });
-        },
-      );
+      final report = await ref
+          .read(trackSpeedAnalysisRunnerProvider)
+          .analyze(
+            onProgress: (progress) {
+              if (!mounted || _activeRunId != runId) {
+                return;
+              }
+              setState(() {
+                _progress = progress;
+              });
+            },
+          );
       if (!mounted || _activeRunId != runId) {
         return;
       }

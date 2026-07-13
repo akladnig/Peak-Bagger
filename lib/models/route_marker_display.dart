@@ -39,7 +39,7 @@ class RouteMarkerDisplay {
 
   @override
   bool operator ==(Object other) =>
-          identical(this, other) ||
+      identical(this, other) ||
       other is RouteMarkerDisplay &&
           runtimeType == other.runtimeType &&
           id == other.id &&

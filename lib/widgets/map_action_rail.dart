@@ -522,16 +522,17 @@ class MapActionRail extends ConsumerWidget {
         return GpxImportDialog(
           filePicker: filePicker,
           importAsRoute: false,
-          onImport: ({
-            required bool importAsRoute,
-            required Map<String, String> pathToEditedNames,
-          }) {
-            return _startBackgroundGpxImport(
-              ref,
-              importAsRoute: importAsRoute,
-              pathToEditedNames: pathToEditedNames,
-            );
-          },
+          onImport:
+              ({
+                required bool importAsRoute,
+                required Map<String, String> pathToEditedNames,
+              }) {
+                return _startBackgroundGpxImport(
+                  ref,
+                  importAsRoute: importAsRoute,
+                  pathToEditedNames: pathToEditedNames,
+                );
+              },
         );
       },
     );
@@ -628,10 +629,7 @@ class MapActionRail extends ConsumerWidget {
         actions: [openJobsAction],
       );
     } catch (error) {
-      jobsNotifier.failRunningJob(
-        jobId: jobId,
-        summary: '$error',
-      );
+      jobsNotifier.failRunningJob(jobId: jobId, summary: '$error');
       jobsNotifier.queueSnackBar(
         message: 'Import failed: $error',
         actions: [openJobsAction],

@@ -27,7 +27,9 @@ void main() {
             peakRepository: PeakRepository.test(InMemoryPeakStorage()),
             overpassService: OverpassService(),
             tasmapRepository: tasmapRepository,
-            gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+            gpxTrackRepository: GpxTrackRepository.test(
+              InMemoryGpxTrackStorage(),
+            ),
             peaksBaggedRepository: PeaksBaggedRepository.test(
               InMemoryPeaksBaggedStorage(),
             ),
@@ -135,86 +137,98 @@ void main() {
     expect(trackStorage.saveCount, 1);
   });
 
-  test('first user toggle wins over pending visibility restore for that flag', () async {
-    SharedPreferences.setMockInitialValues({
-      'show_tracks': false,
-      'show_routes': false,
-    });
-    final tasmapRepository = await TestTasmapRepository.create();
-    final prefs = await SharedPreferences.getInstance();
-    final completer = Completer<SharedPreferences>();
-    final container = ProviderContainer(
-      overrides: [
-        mapPreferencesLoaderProvider.overrideWithValue(() => completer.future),
-        mapProvider.overrideWith(
-          () => MapNotifier(
-            peakRepository: PeakRepository.test(InMemoryPeakStorage()),
-            overpassService: OverpassService(),
-            tasmapRepository: tasmapRepository,
-            gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
-            peaksBaggedRepository: PeaksBaggedRepository.test(
-              InMemoryPeaksBaggedStorage(),
-            ),
-            migrationMarkerStore: const MigrationMarkerStore(),
-            loadPositionOnBuild: false,
-            loadPeaksOnBuild: false,
-            loadTracksOnBuild: false,
+  test(
+    'first user toggle wins over pending visibility restore for that flag',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'show_tracks': false,
+        'show_routes': false,
+      });
+      final tasmapRepository = await TestTasmapRepository.create();
+      final prefs = await SharedPreferences.getInstance();
+      final completer = Completer<SharedPreferences>();
+      final container = ProviderContainer(
+        overrides: [
+          mapPreferencesLoaderProvider.overrideWithValue(
+            () => completer.future,
           ),
-        ),
-      ],
-    );
-    addTearDown(container.dispose);
-
-    final notifier = container.read(mapProvider.notifier);
-    await Future<void>.delayed(Duration.zero);
-
-    notifier.setShowRoutes(true);
-    notifier.setShowTrails(true);
-    completer.complete(prefs);
-    await Future<void>.delayed(Duration.zero);
-    await Future<void>.delayed(Duration.zero);
-
-    expect(container.read(mapProvider).showRoutes, isTrue);
-    expect(container.read(mapProvider).showTracks, isFalse);
-    expect(container.read(mapProvider).showTrails, isTrue);
-  });
-
-  test('stored visibility combination restores before later dataset changes', () async {
-    SharedPreferences.setMockInitialValues({
-      'show_tracks': true,
-      'show_routes': true,
-    });
-    final tasmapRepository = await TestTasmapRepository.create();
-    final container = ProviderContainer(
-      overrides: [
-        mapProvider.overrideWith(
-          () => MapNotifier(
-            peakRepository: PeakRepository.test(InMemoryPeakStorage()),
-            overpassService: OverpassService(),
-            tasmapRepository: tasmapRepository,
-            gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
-            peaksBaggedRepository: PeaksBaggedRepository.test(
-              InMemoryPeaksBaggedStorage(),
+          mapProvider.overrideWith(
+            () => MapNotifier(
+              peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+              overpassService: OverpassService(),
+              tasmapRepository: tasmapRepository,
+              gpxTrackRepository: GpxTrackRepository.test(
+                InMemoryGpxTrackStorage(),
+              ),
+              peaksBaggedRepository: PeaksBaggedRepository.test(
+                InMemoryPeaksBaggedStorage(),
+              ),
+              migrationMarkerStore: const MigrationMarkerStore(),
+              loadPositionOnBuild: false,
+              loadPeaksOnBuild: false,
+              loadTracksOnBuild: false,
             ),
-            migrationMarkerStore: const MigrationMarkerStore(),
-            loadPositionOnBuild: false,
-            loadPeaksOnBuild: false,
-            loadTracksOnBuild: false,
           ),
-        ),
-      ],
-    );
-    addTearDown(container.dispose);
+        ],
+      );
+      addTearDown(container.dispose);
 
-    container.read(mapProvider.notifier);
-    await Future<void>.delayed(Duration.zero);
-    await Future<void>.delayed(Duration.zero);
+      final notifier = container.read(mapProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
 
-    final state = container.read(mapProvider);
-    expect(state.showTracks, isTrue);
-    expect(state.showRoutes, isTrue);
-    expect(state.showTrails, isFalse);
-  });
+      notifier.setShowRoutes(true);
+      notifier.setShowTrails(true);
+      completer.complete(prefs);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(container.read(mapProvider).showRoutes, isTrue);
+      expect(container.read(mapProvider).showTracks, isFalse);
+      expect(container.read(mapProvider).showTrails, isTrue);
+    },
+  );
+
+  test(
+    'stored visibility combination restores before later dataset changes',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'show_tracks': true,
+        'show_routes': true,
+      });
+      final tasmapRepository = await TestTasmapRepository.create();
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => MapNotifier(
+              peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+              overpassService: OverpassService(),
+              tasmapRepository: tasmapRepository,
+              gpxTrackRepository: GpxTrackRepository.test(
+                InMemoryGpxTrackStorage(),
+              ),
+              peaksBaggedRepository: PeaksBaggedRepository.test(
+                InMemoryPeaksBaggedStorage(),
+              ),
+              migrationMarkerStore: const MigrationMarkerStore(),
+              loadPositionOnBuild: false,
+              loadPeaksOnBuild: false,
+              loadTracksOnBuild: false,
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.read(mapProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      final state = container.read(mapProvider);
+      expect(state.showTracks, isTrue);
+      expect(state.showRoutes, isTrue);
+      expect(state.showTrails, isFalse);
+    },
+  );
 
   test('turning routes off does not mutate track selection state', () async {
     SharedPreferences.setMockInitialValues({});
@@ -226,7 +240,9 @@ void main() {
             peakRepository: PeakRepository.test(InMemoryPeakStorage()),
             overpassService: OverpassService(),
             tasmapRepository: tasmapRepository,
-            gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+            gpxTrackRepository: GpxTrackRepository.test(
+              InMemoryGpxTrackStorage(),
+            ),
             peaksBaggedRepository: PeaksBaggedRepository.test(
               InMemoryPeaksBaggedStorage(),
             ),
@@ -323,7 +339,7 @@ void main() {
 
 class _CountingRouteStorage implements RouteStorage {
   _CountingRouteStorage([List<Route> routes = const []])
-      : _storage = InMemoryRouteStorage(routes);
+    : _storage = InMemoryRouteStorage(routes);
 
   final InMemoryRouteStorage _storage;
   int saveCount = 0;
@@ -346,7 +362,7 @@ class _CountingRouteStorage implements RouteStorage {
 
 class _CountingGpxTrackStorage implements GpxTrackStorage {
   _CountingGpxTrackStorage([List<GpxTrack> tracks = const []])
-      : _storage = InMemoryGpxTrackStorage(tracks);
+    : _storage = InMemoryGpxTrackStorage(tracks);
 
   final InMemoryGpxTrackStorage _storage;
   int saveCount = 0;

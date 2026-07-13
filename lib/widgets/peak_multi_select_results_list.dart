@@ -127,17 +127,17 @@ class _PeakSearchResultRow extends StatelessWidget {
           ),
           Expanded(
             flex: 3,
-              child: Text(
-                peak.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: readOnlySelected
-                    ? Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      )
-                    : null,
-              ),
+            child: Text(
+              peak.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: readOnlySelected
+                  ? Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    )
+                  : null,
             ),
+          ),
           const SizedBox(width: 8),
           Expanded(
             flex: 1,
@@ -150,11 +150,7 @@ class _PeakSearchResultRow extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             flex: 2,
-            child: Text(
-              mapName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            child: Text(mapName, maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
         ],
       ),

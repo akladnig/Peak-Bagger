@@ -16,7 +16,9 @@ class PeakCsvSource implements PeakSource {
       return PeakCsvSource(const []);
     }
 
-    final header = rows.first.map((cell) => '$cell'.trim()).toList(growable: false);
+    final header = rows.first
+        .map((cell) => '$cell'.trim())
+        .toList(growable: false);
     final columnIndex = <String, int>{
       for (var index = 0; index < header.length; index++) header[index]: index,
     };

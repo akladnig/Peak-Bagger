@@ -235,9 +235,11 @@ void main() {
       ],
     );
 
-    final painter = tester
-        .widget<CustomPaint>(find.byKey(const Key('peak-marker-paint')))
-        .painter! as PeakViewportPainter;
+    final painter =
+        tester
+                .widget<CustomPaint>(find.byKey(const Key('peak-marker-paint')))
+                .painter!
+            as PeakViewportPainter;
 
     expect(painter.individuals.single.ownershipRingSegments, isEmpty);
   });
@@ -249,26 +251,20 @@ void main() {
       tester,
       _mapStateWithPeak(),
       overrides: [
-        peakOwnershipRingSegmentsProvider.overrideWithValue(
-          const {
-            6406: [
-              PeakOwnershipRingSegment(
-                peakListId: 9,
-                colourValue: 0xFF4C8BF5,
-              ),
-              PeakOwnershipRingSegment(
-                peakListId: 2,
-                colourValue: 0xFF6347EA,
-              ),
-            ],
-          },
-        ),
+        peakOwnershipRingSegmentsProvider.overrideWithValue(const {
+          6406: [
+            PeakOwnershipRingSegment(peakListId: 9, colourValue: 0xFF4C8BF5),
+            PeakOwnershipRingSegment(peakListId: 2, colourValue: 0xFF6347EA),
+          ],
+        }),
       ],
     );
 
-    final painter = tester
-        .widget<CustomPaint>(find.byKey(const Key('peak-marker-paint')))
-        .painter! as PeakViewportPainter;
+    final painter =
+        tester
+                .widget<CustomPaint>(find.byKey(const Key('peak-marker-paint')))
+                .painter!
+            as PeakViewportPainter;
 
     expect(
       painter.individuals.single.ownershipRingSegments

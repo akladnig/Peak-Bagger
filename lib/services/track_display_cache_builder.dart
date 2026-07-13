@@ -84,8 +84,7 @@ void _markDisplaySegmentKeep(
       .sin(point.latitude * math.pi / 180.0)
       .clamp(-0.9999, 0.9999);
   final y =
-      (0.5 -
-          math.log((1 + sinLatitude) / (1 - sinLatitude)) / (4 * math.pi)) *
+      (0.5 - math.log((1 + sinLatitude) / (1 - sinLatitude)) / (4 * math.pi)) *
       scale;
   return (x: x, y: y);
 }

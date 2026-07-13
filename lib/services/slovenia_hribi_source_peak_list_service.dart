@@ -700,12 +700,12 @@ class SloveniaHribiSourcePeakListService {
              outputDirectoryResolver ?? _defaultOutputDirectoryResolver,
          cacheDirectoryResolver:
              cacheDirectoryResolver ?? _defaultCacheDirectoryResolver,
-          httpClient: httpClient ?? http.Client(),
-          ownsClient: httpClient == null,
-          peakSource: peakSource ?? InMemoryPeakSource(),
-          pageLoader: pageLoader,
-          onProgress: onProgress,
-        );
+         httpClient: httpClient ?? http.Client(),
+         ownsClient: httpClient == null,
+         peakSource: peakSource ?? InMemoryPeakSource(),
+         pageLoader: pageLoader,
+         onProgress: onProgress,
+       );
 
   SloveniaHribiSourcePeakListService._({
     required this.htmlParser,
@@ -719,7 +719,7 @@ class SloveniaHribiSourcePeakListService {
     SloveniaHribiSourcePageLoader? pageLoader,
     this._onProgress,
   }) : _ownedClient = ownsClient ? httpClient : null,
-        _basePageLoader = pageLoader ?? _buildDefaultPageLoader(httpClient);
+       _basePageLoader = pageLoader ?? _buildDefaultPageLoader(httpClient);
 
   final SloveniaHribiSourcePeakListHtmlParser htmlParser;
   final SloveniaHribiSourcePeakListNormalizer normalizer;

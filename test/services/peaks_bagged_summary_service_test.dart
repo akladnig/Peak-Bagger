@@ -18,22 +18,12 @@ void main() {
         DateTime.utc(2026, 5, 15, 10),
         peakIds: [11, 33],
       );
-      final trackIgnored = _track(
-        30,
-        null,
-        peakIds: [44],
-      );
+      final trackIgnored = _track(30, null, peakIds: [44]);
 
       final series = service.buildSeries([trackLate, trackEarly, trackIgnored]);
 
-      expect(series.totalCountsByTrackId, {
-        10: 2,
-        20: 2,
-      });
-      expect(series.newCountsByTrackId, {
-        10: 2,
-        20: 1,
-      });
+      expect(series.totalCountsByTrackId, {10: 2, 20: 2});
+      expect(series.newCountsByTrackId, {10: 2, 20: 1});
       expect(series.totalValueOf(trackEarly), 2);
       expect(series.newValueOf(trackLate), 1);
       expect(series.totalValueOf(trackIgnored), isNull);
@@ -53,14 +43,8 @@ void main() {
 
       final series = service.buildSeries([trackRight, trackLeft]);
 
-      expect(series.totalCountsByTrackId, {
-        10: 2,
-        20: 2,
-      });
-      expect(series.newCountsByTrackId, {
-        10: 2,
-        20: 1,
-      });
+      expect(series.totalCountsByTrackId, {10: 2, 20: 2});
+      expect(series.newCountsByTrackId, {10: 2, 20: 1});
     });
 
     test('counts negative peak ids as valid peaks', () {
@@ -77,23 +61,13 @@ void main() {
 
       final series = service.buildSeries([trackTwo, trackOne]);
 
-      expect(series.totalCountsByTrackId, {
-        10: 2,
-        20: 2,
-      });
-      expect(series.newCountsByTrackId, {
-        10: 2,
-        20: 1,
-      });
+      expect(series.totalCountsByTrackId, {10: 2, 20: 2});
+      expect(series.newCountsByTrackId, {10: 2, 20: 1});
     });
   });
 }
 
-GpxTrack _track(
-  int id,
-  DateTime? trackDate, {
-  required List<int> peakIds,
-}) {
+GpxTrack _track(int id, DateTime? trackDate, {required List<int> peakIds}) {
   final track = GpxTrack(
     gpxTrackId: id,
     contentHash: 'hash-$id',

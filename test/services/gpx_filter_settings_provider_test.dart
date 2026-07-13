@@ -32,10 +32,7 @@ void main() {
     expect(restored.elevationSmoother, GpxTrackElevationSmoother.none);
     expect(restored.positionSmoother, GpxTrackPositionSmoother.none);
     expect(restored.hampelWindow, GpxFilterConfig.defaults.hampelWindow);
-    expect(
-      restored.elevationWindow,
-      GpxFilterConfig.defaults.elevationWindow,
-    );
+    expect(restored.elevationWindow, GpxFilterConfig.defaults.elevationWindow);
     expect(restored.positionWindow, GpxFilterConfig.defaults.positionWindow);
   });
 }

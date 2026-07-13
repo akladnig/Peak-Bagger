@@ -37,8 +37,10 @@ String formatSpeedKmh(double? value, {int decimalPlaces = 1}) {
   return '${value.toStringAsFixed(decimalPlaces)} km/h';
 }
 
-String formatCoordinate(double value, {int decimalPlaces = GpxConstants.precision}) =>
-    value.toStringAsFixed(decimalPlaces);
+String formatCoordinate(
+  double value, {
+  int decimalPlaces = GpxConstants.precision,
+}) => value.toStringAsFixed(decimalPlaces);
 
 String formatElevation(int value, {bool showUnits = true}) {
   final formatted = value.abs() < 10000

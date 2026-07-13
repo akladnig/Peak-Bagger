@@ -3,19 +3,19 @@ import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/route_planner_provider.dart';
 import 'package:peak_bagger/services/track_speed_analysis_service.dart';
 
-final trackSpeedAnalysisServiceProvider = Provider<TrackSpeedAnalysisService?>(
-  (ref) {
-    final routeGraphQueryService = ref.watch(routeGraphQueryServiceProvider);
-    if (routeGraphQueryService == null) {
-      return null;
-    }
+final trackSpeedAnalysisServiceProvider = Provider<TrackSpeedAnalysisService?>((
+  ref,
+) {
+  final routeGraphQueryService = ref.watch(routeGraphQueryServiceProvider);
+  if (routeGraphQueryService == null) {
+    return null;
+  }
 
-    return TrackSpeedAnalysisService(
-      gpxTrackRepository: ref.watch(gpxTrackRepositoryProvider),
-      routeGraphQueryService: routeGraphQueryService,
-    );
-  },
-);
+  return TrackSpeedAnalysisService(
+    gpxTrackRepository: ref.watch(gpxTrackRepositoryProvider),
+    routeGraphQueryService: routeGraphQueryService,
+  );
+});
 
 final trackSpeedAnalysisRunnerProvider = Provider<TrackSpeedAnalysisRunner>((
   ref,

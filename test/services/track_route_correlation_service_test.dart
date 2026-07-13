@@ -13,14 +13,12 @@ void main() {
         LatLng(0.0001, 0.002),
         LatLng(0.0001, 0.003),
       ],
-      rawTrackGpxXml: _buildTrackGpx(
-        const [
-          LatLng(0.0, 0.0),
-          LatLng(0.0, 0.001),
-          LatLng(0.0, 0.002),
-          LatLng(0.0, 0.003),
-        ],
-      ),
+      rawTrackGpxXml: _buildTrackGpx(const [
+        LatLng(0.0, 0.0),
+        LatLng(0.0, 0.001),
+        LatLng(0.0, 0.002),
+        LatLng(0.0, 0.003),
+      ]),
     );
 
     expect(result.isWalked, isTrue);
@@ -38,14 +36,12 @@ void main() {
         LatLng(0.002, 0.001),
         LatLng(0.003, 0.001),
       ],
-      rawTrackGpxXml: _buildTrackGpx(
-        const [
-          LatLng(0.0, 0.0),
-          LatLng(0.0, 0.001),
-          LatLng(0.0, 0.002),
-          LatLng(0.0, 0.003),
-        ],
-      ),
+      rawTrackGpxXml: _buildTrackGpx(const [
+        LatLng(0.0, 0.0),
+        LatLng(0.0, 0.001),
+        LatLng(0.0, 0.002),
+        LatLng(0.0, 0.003),
+      ]),
     );
 
     expect(result.isWalked, isFalse);
@@ -68,9 +64,9 @@ void main() {
 
     final result = service.correlate(
       routePoints: routePoints,
-      rawTrackGpxXml: _buildTrackGpx(
-        [for (var i = 0; i <= 31; i++) LatLng(0.0, i / 1000)],
-      ),
+      rawTrackGpxXml: _buildTrackGpx([
+        for (var i = 0; i <= 31; i++) LatLng(0.0, i / 1000),
+      ]),
     );
 
     expect(result.matchedCoverage, greaterThan(0.9));

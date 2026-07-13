@@ -30,7 +30,10 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byKey(const Key('show-map-peak-clusters-tile')), findsOneWidget);
+    expect(
+      find.byKey(const Key('show-map-peak-clusters-tile')),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const Key('show-map-peak-clusters-switch')),
       findsOneWidget,
@@ -91,7 +94,9 @@ void main() {
 
     expect(
       tester
-          .widget<Switch>(find.byKey(const Key('show-map-peak-clusters-switch')))
+          .widget<Switch>(
+            find.byKey(const Key('show-map-peak-clusters-switch')),
+          )
           .value,
       isTrue,
     );
@@ -101,13 +106,16 @@ void main() {
 
     expect(
       tester
-          .widget<Switch>(find.byKey(const Key('show-map-peak-clusters-switch')))
+          .widget<Switch>(
+            find.byKey(const Key('show-map-peak-clusters-switch')),
+          )
           .value,
       isFalse,
     );
     expect(
-      ProviderScope.containerOf(tester.element(find.byType(SettingsScreen)))
-          .read(peakMapClusterDisplaySettingsProvider),
+      ProviderScope.containerOf(
+        tester.element(find.byType(SettingsScreen)),
+      ).read(peakMapClusterDisplaySettingsProvider),
       isFalse,
     );
 
@@ -131,7 +139,9 @@ void main() {
 
     expect(
       tester
-          .widget<Switch>(find.byKey(const Key('show-map-peak-clusters-switch')))
+          .widget<Switch>(
+            find.byKey(const Key('show-map-peak-clusters-switch')),
+          )
           .value,
       isFalse,
     );
@@ -207,8 +217,9 @@ void main() {
       isTrue,
     );
     expect(
-      ProviderScope.containerOf(tester.element(find.byType(SettingsScreen)))
-          .read(peakOwnershipRingSettingsProvider),
+      ProviderScope.containerOf(
+        tester.element(find.byType(SettingsScreen)),
+      ).read(peakOwnershipRingSettingsProvider),
       isTrue,
     );
 
@@ -283,8 +294,9 @@ void main() {
       isFalse,
     );
     expect(
-      ProviderScope.containerOf(tester.element(find.byType(SettingsScreen)))
-          .read(peakListMiniMapClusterDisplaySettingsProvider),
+      ProviderScope.containerOf(
+        tester.element(find.byType(SettingsScreen)),
+      ).read(peakListMiniMapClusterDisplaySettingsProvider),
       isFalse,
     );
 

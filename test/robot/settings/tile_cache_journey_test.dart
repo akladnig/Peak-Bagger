@@ -43,19 +43,16 @@ void main() {
 
     await robot.pumpApp(
       tileCacheBuilder: (_) => TileCacheSettingsScreen(
-        downloadStarter: ({
-          required basemap,
-          required region,
-          required skipExistingTiles,
-        }) {
-          capturedBasemaps.add(basemap);
-          capturedRegion = region;
-          expect(skipExistingTiles, isTrue);
-          return (
-            tileEvents: const Stream<TileEvent>.empty(),
-            downloadProgress: const Stream<DownloadProgress>.empty(),
-          );
-        },
+        downloadStarter:
+            ({required basemap, required region, required skipExistingTiles}) {
+              capturedBasemaps.add(basemap);
+              capturedRegion = region;
+              expect(skipExistingTiles, isTrue);
+              return (
+                tileEvents: const Stream<TileEvent>.empty(),
+                downloadProgress: const Stream<DownloadProgress>.empty(),
+              );
+            },
       ),
     );
 
@@ -73,7 +70,10 @@ void main() {
     await robot.tapDownload();
 
     expect(capturedBasemaps, [Basemap.tracestrack, Basemap.openstreetmap]);
-    expect(capturedRegion.originalRegion.outline, repository.getMapPolygonPoints(zulu));
+    expect(
+      capturedRegion.originalRegion.outline,
+      repository.getMapPolygonPoints(zulu),
+    );
   });
 }
 

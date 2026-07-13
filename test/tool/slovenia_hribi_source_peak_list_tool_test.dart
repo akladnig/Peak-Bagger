@@ -86,7 +86,9 @@ void main() {
   );
 
   test('writes correlated artifact paths and counts', () async {
-    final tempDir = await Directory.systemTemp.createTemp('slovenia-ranked-tool');
+    final tempDir = await Directory.systemTemp.createTemp(
+      'slovenia-ranked-tool',
+    );
     addTearDown(() => tempDir.deleteSync(recursive: true));
     final cacheDir = Directory(p.join(tempDir.path, 'cache'));
 
@@ -148,8 +150,7 @@ void main() {
           hribiRangeUrl: 'https://www.hribi.net/gorovje/julijske_alpe/1',
           mountainRangeLabel: 'Julian Alps',
           hikeRangeUrl: 'https://www.hike.uno/mountain_range/julian_alps/1',
-          montiRangeUrl:
-              'https://www.monti.uno/catena_montuosa/alpi_giulie/1',
+          montiRangeUrl: 'https://www.monti.uno/catena_montuosa/alpi_giulie/1',
         ),
       ],
     );
@@ -162,8 +163,16 @@ void main() {
     );
 
     expect(exitCode, 0);
-    expect(stderrLines, contains('Correlation split with tie window 10m: 2 canonical, 0 review (no review rows)'));
-    expect(stdoutLines[0], contains('Wrote Slovenia ranked peak list with 2 rows'));
+    expect(
+      stderrLines,
+      contains(
+        'Correlation split with tie window 10m: 2 canonical, 0 review (no review rows)',
+      ),
+    );
+    expect(
+      stdoutLines[0],
+      contains('Wrote Slovenia ranked peak list with 2 rows'),
+    );
     expect(stdoutLines[0], contains('$sloveniaRankedPeakListBaseName-V2.csv'));
     expect(
       stdoutLines[1],
@@ -230,13 +239,20 @@ void main() {
     );
 
     expect(exitCode, 0);
-    final state = jsonDecode(
-      File(p.join(tempDir.path, '$sloveniaRankedPeakListBaseName-V1.state.json'))
-          .readAsStringSync(),
-    ) as Map<String, dynamic>;
+    final state =
+        jsonDecode(
+              File(
+                p.join(
+                  tempDir.path,
+                  '$sloveniaRankedPeakListBaseName-V1.state.json',
+                ),
+              ).readAsStringSync(),
+            )
+            as Map<String, dynamic>;
     final reviewRows = const CsvDecoder().convert(
-      File(p.join(tempDir.path, '$sloveniaRankedPeakListBaseName-V1.review.csv'))
-          .readAsStringSync(),
+      File(
+        p.join(tempDir.path, '$sloveniaRankedPeakListBaseName-V1.review.csv'),
+      ).readAsStringSync(),
     );
     expect(state['TieWindowMeters'], 10);
     expect(reviewRows, hasLength(2));
@@ -266,12 +282,7 @@ void main() {
     ).move(triglavBase);
 
     final exitCode = await runSloveniaHribiSourcePeakListTool(
-      args: [
-        '--output-dir',
-        tempDir.path,
-        '--tie-window-meters',
-        '0',
-      ],
+      args: ['--output-dir', tempDir.path, '--tie-window-meters', '0'],
       pageLoader: (uri) async => _pages()[uri.toString()]!,
       peakSourceLoader: () async => InMemoryPeakSource([
         Peak(
@@ -304,24 +315,34 @@ void main() {
     );
 
     expect(exitCode, 0);
-    final state = jsonDecode(
-      File(p.join(tempDir.path, '$sloveniaRankedPeakListBaseName-V1.state.json'))
-          .readAsStringSync(),
-    ) as Map<String, dynamic>;
+    final state =
+        jsonDecode(
+              File(
+                p.join(
+                  tempDir.path,
+                  '$sloveniaRankedPeakListBaseName-V1.state.json',
+                ),
+              ).readAsStringSync(),
+            )
+            as Map<String, dynamic>;
     final rankedRows = const CsvDecoder().convert(
-      File(p.join(tempDir.path, '$sloveniaRankedPeakListBaseName-V1.csv'))
-          .readAsStringSync(),
+      File(
+        p.join(tempDir.path, '$sloveniaRankedPeakListBaseName-V1.csv'),
+      ).readAsStringSync(),
     );
     final reviewRows = const CsvDecoder().convert(
-      File(p.join(tempDir.path, '$sloveniaRankedPeakListBaseName-V1.review.csv'))
-          .readAsStringSync(),
+      File(
+        p.join(tempDir.path, '$sloveniaRankedPeakListBaseName-V1.review.csv'),
+      ).readAsStringSync(),
     );
     expect(state['TieWindowMeters'], 0);
     expect(rankedRows, hasLength(3));
     expect(reviewRows, hasLength(1));
     expect(
       stderrLines,
-      contains('Correlation split with tie window 0m: 2 canonical, 0 review (no review rows)'),
+      contains(
+        'Correlation split with tie window 0m: 2 canonical, 0 review (no review rows)',
+      ),
     );
   });
 

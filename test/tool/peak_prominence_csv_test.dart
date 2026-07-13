@@ -74,7 +74,12 @@ void main() {
     expect(exitCode, 0);
     expect(invocations.single, ('custom.csv', true));
     expect(stderrLines, isEmpty);
-    expect(stdoutLines.join('\n'), contains('Preview written to ./tool/peak-prominence-objectbox-preview.csv'));
+    expect(
+      stdoutLines.join('\n'),
+      contains(
+        'Preview written to ./tool/peak-prominence-objectbox-preview.csv',
+      ),
+    );
     expect(stdoutLines.join('\n'), contains('Matched 1, updated 1'));
   });
 

@@ -30,6 +30,8 @@ class RouteGraphRefreshService {
   }
 }
 
-final routeGraphRefreshServiceProvider = Provider<RouteGraphRefreshService>((ref) {
+final routeGraphRefreshServiceProvider = Provider<RouteGraphRefreshService>((
+  ref,
+) {
   return RouteGraphRefreshService(ref.read(routeGraphStoreProvider));
 });

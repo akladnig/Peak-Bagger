@@ -52,32 +52,30 @@ Future<ExportConflictAction> showExportConflictDialog({
     barrierDismissible: false,
     builder: (dialogContext) {
       return PopupKeyboardDismiss(
-        onDismiss: () => Navigator.of(dialogContext).pop(
-          ExportConflictAction.cancel,
-        ),
+        onDismiss: () =>
+            Navigator.of(dialogContext).pop(ExportConflictAction.cancel),
         child: AlertDialog(
           title: Text(title),
           content: Text(message),
           actions: [
             TextButton(
               key: Key(cancelKey),
-              onPressed: () => Navigator.of(dialogContext).pop(
-                ExportConflictAction.cancel,
-              ),
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(ExportConflictAction.cancel),
               child: const Text('Cancel'),
             ),
             OutlinedButton(
               key: Key(newVersionKey),
-              onPressed: () => Navigator.of(dialogContext).pop(
-                ExportConflictAction.newVersion,
-              ),
+              onPressed: () => Navigator.of(
+                dialogContext,
+              ).pop(ExportConflictAction.newVersion),
               child: const Text('New Version'),
             ),
             FilledButton(
               key: Key(overwriteKey),
-              onPressed: () => Navigator.of(dialogContext).pop(
-                ExportConflictAction.overwrite,
-              ),
+              onPressed: () => Navigator.of(
+                dialogContext,
+              ).pop(ExportConflictAction.overwrite),
               child: const Text('Overwrite'),
             ),
           ],

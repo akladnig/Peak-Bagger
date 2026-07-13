@@ -19,7 +19,10 @@ void main() {
 
       expect(first.id, isNonZero);
       expect(second.id, isNonZero);
-      expect(repository.getAll().where((row) => row.type == Waypoints.typeMarker), hasLength(1));
+      expect(
+        repository.getAll().where((row) => row.type == Waypoints.typeMarker),
+        hasLength(1),
+      );
       expect(repository.getCurrentMarker()!.name, 'Second Marker');
       expect(repository.getCurrentMarker()!.latitude, closeTo(-43.0, 1e-9));
       expect(repository.getCurrentMarker()!.longitude, closeTo(147.0, 1e-9));

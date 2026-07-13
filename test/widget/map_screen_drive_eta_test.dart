@@ -35,88 +35,103 @@ import '../harness/test_tasmap_notifier.dart';
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
-  testWidgets('valid qualifying road click shows loading then success ETA popup', (
-    tester,
-  ) async {
-    final tasmapRepository = await TestTasmapRepository.create();
-    final routeGraphStore = _DriveEtaRouteGraphStore();
-    final locationService = _FakeLiveLocationService(
-      const LatLng(-41.6, 146.6),
-    );
-    final routeSummaryCompleter = Completer<OpenRouteServiceSummary>();
-    final openRouteService = _FakeOpenRouteService(routeSummaryCompleter.future);
-    final hitService = _FakeDriveEtaHitService(
-      const RouteGraphDriveEtaHitResult.hit(
-        snappedPoint: LatLng(-41.5, 146.5),
-        matchedWayId: 10,
-        wayName: 'Forestry Road',
-      ),
-    );
-
-    await _pumpMapScreen(
-      tester,
-      mapNotifier: TestMapNotifier(
-        MapState(
-          center: const LatLng(-41.5, 146.5),
-          zoom: 15,
-          basemap: Basemap.tracestrack,
+  testWidgets(
+    'valid qualifying road click shows loading then success ETA popup',
+    (tester) async {
+      final tasmapRepository = await TestTasmapRepository.create();
+      final routeGraphStore = _DriveEtaRouteGraphStore();
+      final locationService = _FakeLiveLocationService(
+        const LatLng(-41.6, 146.6),
+      );
+      final routeSummaryCompleter = Completer<OpenRouteServiceSummary>();
+      final openRouteService = _FakeOpenRouteService(
+        routeSummaryCompleter.future,
+      );
+      final hitService = _FakeDriveEtaHitService(
+        const RouteGraphDriveEtaHitResult.hit(
+          snappedPoint: LatLng(-41.5, 146.5),
+          matchedWayId: 10,
+          wayName: 'Forestry Road',
         ),
-      ),
-      tasmapRepository: tasmapRepository,
-      routeGraphStore: routeGraphStore,
-      locationService: locationService,
-      openRouteService: openRouteService,
-      hitService: hitService,
-    );
+      );
 
-    final region = find.byKey(const Key('map-interaction-region'));
-    final container = ProviderScope.containerOf(tester.element(region));
+      await _pumpMapScreen(
+        tester,
+        mapNotifier: TestMapNotifier(
+          MapState(
+            center: const LatLng(-41.5, 146.5),
+            zoom: 15,
+            basemap: Basemap.tracestrack,
+          ),
+        ),
+        tasmapRepository: tasmapRepository,
+        routeGraphStore: routeGraphStore,
+        locationService: locationService,
+        openRouteService: openRouteService,
+        hitService: hitService,
+      );
 
-    await _mouseClickMapCenter(tester);
+      final region = find.byKey(const Key('map-interaction-region'));
+      final container = ProviderScope.containerOf(tester.element(region));
 
-    expect(container.read(mapProvider).driveEtaPopup, isNotNull);
-    expect(find.byKey(const Key('drive-eta-popup-root')), findsOneWidget);
-    expect(find.byKey(const Key('drive-eta-popup-loading')), findsOneWidget);
-    expect(find.byKey(const Key('drive-eta-popup-duration-row')), findsNothing);
-    expect(find.byKey(const Key('drive-eta-popup-distance-row')), findsNothing);
+      await _mouseClickMapCenter(tester);
 
-    routeSummaryCompleter.complete(
-      const OpenRouteServiceSummary(
-        distanceMeters: 12000,
-        durationSeconds: 3900,
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
+      expect(container.read(mapProvider).driveEtaPopup, isNotNull);
+      expect(find.byKey(const Key('drive-eta-popup-root')), findsOneWidget);
+      expect(find.byKey(const Key('drive-eta-popup-loading')), findsOneWidget);
+      expect(
+        find.byKey(const Key('drive-eta-popup-duration-row')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('drive-eta-popup-distance-row')),
+        findsNothing,
+      );
 
-    expect(find.byKey(const Key('drive-eta-popup-loading')), findsNothing);
-    expect(find.byKey(const Key('drive-eta-popup-duration-row')), findsOneWidget);
-    expect(find.byKey(const Key('drive-eta-popup-distance-row')), findsOneWidget);
-    expect(
-      tester
-          .widget<RichText>(
-            find.descendant(
-              of: find.byKey(const Key('drive-eta-popup-duration-row')),
-              matching: find.byType(RichText),
-            ),
-          )
-          .text
-          .toPlainText(),
-      contains('1h 5m'),
-    );
-    expect(
-      tester
-          .widget<RichText>(
-            find.descendant(
-              of: find.byKey(const Key('drive-eta-popup-distance-row')),
-              matching: find.byType(RichText),
-            ),
-          )
-          .text
-          .toPlainText(),
-      contains('12.0 km'),
-    );
-  });
+      routeSummaryCompleter.complete(
+        const OpenRouteServiceSummary(
+          distanceMeters: 12000,
+          durationSeconds: 3900,
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byKey(const Key('drive-eta-popup-loading')), findsNothing);
+      expect(
+        find.byKey(const Key('drive-eta-popup-duration-row')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('drive-eta-popup-distance-row')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<RichText>(
+              find.descendant(
+                of: find.byKey(const Key('drive-eta-popup-duration-row')),
+                matching: find.byType(RichText),
+              ),
+            )
+            .text
+            .toPlainText(),
+        contains('1h 5m'),
+      );
+      expect(
+        tester
+            .widget<RichText>(
+              find.descendant(
+                of: find.byKey(const Key('drive-eta-popup-distance-row')),
+                matching: find.byType(RichText),
+              ),
+            )
+            .text
+            .toPlainText(),
+        contains('12.0 km'),
+      );
+    },
+  );
 
   testWidgets('Home ETA does not depend on live location service', (
     tester,
@@ -152,17 +167,17 @@ void main() {
 
     expect(find.byKey(const Key('drive-eta-popup-loading')), findsOneWidget);
     routeSummaryCompleter.complete(
-      const OpenRouteServiceSummary(
-        distanceMeters: 1000,
-        durationSeconds: 600,
-      ),
+      const OpenRouteServiceSummary(distanceMeters: 1000, durationSeconds: 600),
     );
     await tester.pump();
     await tester.pump();
 
     expect(find.byKey(const Key('drive-eta-popup-root')), findsOneWidget);
     expect(find.byKey(const Key('drive-eta-popup-error')), findsNothing);
-    expect(find.byKey(const Key('drive-eta-popup-distance-row')), findsOneWidget);
+    expect(
+      find.byKey(const Key('drive-eta-popup-distance-row')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('ORS failure keeps ETA popup anchored with inline error', (
@@ -181,11 +196,11 @@ void main() {
       ),
       tasmapRepository: tasmapRepository,
       routeGraphStore: _DriveEtaRouteGraphStore(),
-      locationService: _FakeLiveLocationService(
-        const LatLng(-41.6, 146.6),
-      ),
+      locationService: _FakeLiveLocationService(const LatLng(-41.6, 146.6)),
       openRouteService: _ThrowingOpenRouteService(
-        const OpenRouteServiceException('OpenRouteService request failed (429)'),
+        const OpenRouteServiceException(
+          'OpenRouteService request failed (429)',
+        ),
       ),
       hitService: _FakeDriveEtaHitService(
         const RouteGraphDriveEtaHitResult.hit(
@@ -200,10 +215,7 @@ void main() {
 
     expect(find.byKey(const Key('drive-eta-popup-root')), findsOneWidget);
     expect(find.byKey(const Key('drive-eta-popup-error')), findsOneWidget);
-    expect(
-      find.text('OpenRouteService request failed (429)'),
-      findsOneWidget,
-    );
+    expect(find.text('OpenRouteService request failed (429)'), findsOneWidget);
   });
 
   testWidgets('missing ORS key renders an inline ETA error', (tester) async {
@@ -220,9 +232,7 @@ void main() {
       ),
       tasmapRepository: tasmapRepository,
       routeGraphStore: _DriveEtaRouteGraphStore(),
-      locationService: _FakeLiveLocationService(
-        const LatLng(-41.6, 146.6),
-      ),
+      locationService: _FakeLiveLocationService(const LatLng(-41.6, 146.6)),
       openRouteService: HttpOpenRouteService(apiKey: ''),
       hitService: _FakeDriveEtaHitService(
         const RouteGraphDriveEtaHitResult.hit(
@@ -239,7 +249,9 @@ void main() {
     expect(find.text('OpenRouteService API key is missing'), findsOneWidget);
   });
 
-  testWidgets('route graph unavailable renders an inline ETA error', (tester) async {
+  testWidgets('route graph unavailable renders an inline ETA error', (
+    tester,
+  ) async {
     final tasmapRepository = await TestTasmapRepository.create();
 
     await _pumpMapScreen(
@@ -262,17 +274,21 @@ void main() {
           ),
         ),
       ),
-      hitService: _FakeDriveEtaHitService(const RouteGraphDriveEtaHitResult.noHit()),
+      hitService: _FakeDriveEtaHitService(
+        const RouteGraphDriveEtaHitResult.noHit(),
+      ),
     );
 
     final region = find.byKey(const Key('map-interaction-region'));
     final container = ProviderScope.containerOf(tester.element(region));
-    container.read(mapProvider.notifier).openDriveEtaPopupError(
-      requestId: 1,
-      anchor: const LatLng(-41.5, 146.5),
-      title: 'Drive ETA',
-      message: 'Route graph unavailable',
-    );
+    container
+        .read(mapProvider.notifier)
+        .openDriveEtaPopupError(
+          requestId: 1,
+          anchor: const LatLng(-41.5, 146.5),
+          title: 'Drive ETA',
+          message: 'Route graph unavailable',
+        );
     await tester.pump();
 
     expect(find.byKey(const Key('drive-eta-popup-error')), findsOneWidget);
@@ -292,41 +308,6 @@ void main() {
       ),
       tasmapRepository: tasmapRepository,
       routeGraphStore: _DriveEtaRouteGraphStore(),
-      locationService: _FakeLiveLocationService(
-        const LatLng(-41.6, 146.6),
-      ),
-      openRouteService: _FakeOpenRouteService(
-        Future.value(
-          const OpenRouteServiceSummary(
-            distanceMeters: 1000,
-            durationSeconds: 600,
-          ),
-        ),
-      ),
-      hitService: _FakeDriveEtaHitService(const RouteGraphDriveEtaHitResult.noHit()),
-    );
-
-    await _mouseClickMapCenter(tester);
-
-    expect(find.byKey(const Key('drive-eta-popup-root')), findsNothing);
-  });
-
-  testWidgets('routable tap shows Home ETA and omits Marker ETA without marker', (
-    tester,
-  ) async {
-    final tasmapRepository = await TestTasmapRepository.create();
-
-    await _pumpMapScreen(
-      tester,
-      mapNotifier: TestMapNotifier(
-        MapState(
-          center: const LatLng(-41.5, 146.5),
-          zoom: 15,
-          basemap: Basemap.tracestrack,
-        ),
-      ),
-      tasmapRepository: tasmapRepository,
-      routeGraphStore: _DriveEtaRouteGraphStore(),
       locationService: _FakeLiveLocationService(const LatLng(-41.6, 146.6)),
       openRouteService: _FakeOpenRouteService(
         Future.value(
@@ -337,19 +318,61 @@ void main() {
         ),
       ),
       hitService: _FakeDriveEtaHitService(
-        const RouteGraphDriveEtaHitResult.hit(
-          snappedPoint: LatLng(-41.5, 146.5),
-          matchedWayId: 10,
-          wayName: 'Forestry Road',
-        ),
+        const RouteGraphDriveEtaHitResult.noHit(),
       ),
     );
 
-    await _openChooserAtMapCenter(tester);
+    await _mouseClickMapCenter(tester);
 
-    expect(find.byKey(const Key('map-tap-action-drive-home')), findsOneWidget);
-    expect(find.byKey(const Key('map-tap-action-drive-marker')), findsNothing);
+    expect(find.byKey(const Key('drive-eta-popup-root')), findsNothing);
   });
+
+  testWidgets(
+    'routable tap shows Home ETA and omits Marker ETA without marker',
+    (tester) async {
+      final tasmapRepository = await TestTasmapRepository.create();
+
+      await _pumpMapScreen(
+        tester,
+        mapNotifier: TestMapNotifier(
+          MapState(
+            center: const LatLng(-41.5, 146.5),
+            zoom: 15,
+            basemap: Basemap.tracestrack,
+          ),
+        ),
+        tasmapRepository: tasmapRepository,
+        routeGraphStore: _DriveEtaRouteGraphStore(),
+        locationService: _FakeLiveLocationService(const LatLng(-41.6, 146.6)),
+        openRouteService: _FakeOpenRouteService(
+          Future.value(
+            const OpenRouteServiceSummary(
+              distanceMeters: 1000,
+              durationSeconds: 600,
+            ),
+          ),
+        ),
+        hitService: _FakeDriveEtaHitService(
+          const RouteGraphDriveEtaHitResult.hit(
+            snappedPoint: LatLng(-41.5, 146.5),
+            matchedWayId: 10,
+            wayName: 'Forestry Road',
+          ),
+        ),
+      );
+
+      await _openChooserAtMapCenter(tester);
+
+      expect(
+        find.byKey(const Key('map-tap-action-drive-home')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('map-tap-action-drive-marker')),
+        findsNothing,
+      );
+    },
+  );
 
   testWidgets('routable tap shows Marker ETA when current marker exists', (
     tester,
@@ -389,7 +412,10 @@ void main() {
     await _openChooserAtMapCenter(tester);
 
     expect(find.byKey(const Key('map-tap-action-drive-home')), findsOneWidget);
-    expect(find.byKey(const Key('map-tap-action-drive-marker')), findsOneWidget);
+    expect(
+      find.byKey(const Key('map-tap-action-drive-marker')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('second valid click suppresses stale first ETA result', (
@@ -410,9 +436,7 @@ void main() {
       ),
       tasmapRepository: tasmapRepository,
       routeGraphStore: _DriveEtaRouteGraphStore(),
-      locationService: _FakeLiveLocationService(
-        const LatLng(-41.6, 146.6),
-      ),
+      locationService: _FakeLiveLocationService(const LatLng(-41.6, 146.6)),
       openRouteService: _QueueOpenRouteService([
         firstSummary.future,
         secondSummary.future,
@@ -430,15 +454,15 @@ void main() {
     await _mouseClickMapCenter(tester);
 
     secondSummary.complete(
-      const OpenRouteServiceSummary(
-        distanceMeters: 2400,
-        durationSeconds: 900,
-      ),
+      const OpenRouteServiceSummary(distanceMeters: 2400, durationSeconds: 900),
     );
     await tester.pump();
     await tester.pump();
 
-    expect(find.byKey(const Key('drive-eta-popup-distance-row')), findsOneWidget);
+    expect(
+      find.byKey(const Key('drive-eta-popup-distance-row')),
+      findsOneWidget,
+    );
     expect(
       tester
           .widget<RichText>(
@@ -489,9 +513,7 @@ void main() {
       ),
       tasmapRepository: tasmapRepository,
       routeGraphStore: _DriveEtaRouteGraphStore(),
-      locationService: _FakeLiveLocationService(
-        const LatLng(-41.6, 146.6),
-      ),
+      locationService: _FakeLiveLocationService(const LatLng(-41.6, 146.6)),
       openRouteService: _FakeOpenRouteService(
         Future.value(
           const OpenRouteServiceSummary(
@@ -539,9 +561,7 @@ void main() {
       ),
       tasmapRepository: tasmapRepository,
       routeGraphStore: _DriveEtaRouteGraphStore(),
-      locationService: _FakeLiveLocationService(
-        const LatLng(-41.6, 146.6),
-      ),
+      locationService: _FakeLiveLocationService(const LatLng(-41.6, 146.6)),
       openRouteService: _FakeOpenRouteService(
         Future.value(
           const OpenRouteServiceSummary(
@@ -550,17 +570,21 @@ void main() {
           ),
         ),
       ),
-      hitService: _FakeDriveEtaHitService(const RouteGraphDriveEtaHitResult.noHit()),
+      hitService: _FakeDriveEtaHitService(
+        const RouteGraphDriveEtaHitResult.noHit(),
+      ),
     );
 
     final region = find.byKey(const Key('map-interaction-region'));
     final container = ProviderScope.containerOf(tester.element(region));
 
-    container.read(mapProvider.notifier).showDriveEtaPopupLoading(
-      requestId: 1,
-      anchor: const LatLng(-41.5, 146.5),
-      title: 'Drive ETA',
-    );
+    container
+        .read(mapProvider.notifier)
+        .showDriveEtaPopupLoading(
+          requestId: 1,
+          anchor: const LatLng(-41.5, 146.5),
+          title: 'Drive ETA',
+        );
     await tester.pump();
     expect(find.byKey(const Key('drive-eta-popup-root')), findsOneWidget);
 
@@ -594,9 +618,7 @@ void main() {
       ),
       tasmapRepository: tasmapRepository,
       routeGraphStore: _DriveEtaRouteGraphStore(),
-      locationService: _FakeLiveLocationService(
-        const LatLng(-41.6, 146.6),
-      ),
+      locationService: _FakeLiveLocationService(const LatLng(-41.6, 146.6)),
       openRouteService: _FakeOpenRouteService(
         Future.value(
           const OpenRouteServiceSummary(
@@ -620,18 +642,22 @@ void main() {
     await tester.pump();
     expect(container.read(mapProvider).peakInfoPeak?.osmId, peak.osmId);
 
-    container.read(mapProvider.notifier).showDriveEtaPopupLoading(
-      requestId: 1,
-      anchor: const LatLng(-41.5, 146.5),
-      title: 'Drive ETA',
-    );
+    container
+        .read(mapProvider.notifier)
+        .showDriveEtaPopupLoading(
+          requestId: 1,
+          anchor: const LatLng(-41.5, 146.5),
+          title: 'Drive ETA',
+        );
     await tester.pump();
 
     expect(container.read(mapProvider).peakInfoPeak, isNull);
     expect(find.byKey(const Key('drive-eta-popup-root')), findsOneWidget);
   });
 
-  testWidgets('unanchorable ETA popup closes on the next frame', (tester) async {
+  testWidgets('unanchorable ETA popup closes on the next frame', (
+    tester,
+  ) async {
     final tasmapRepository = await TestTasmapRepository.create();
 
     await _pumpMapScreen(
@@ -645,9 +671,7 @@ void main() {
       ),
       tasmapRepository: tasmapRepository,
       routeGraphStore: _DriveEtaRouteGraphStore(),
-      locationService: _FakeLiveLocationService(
-        const LatLng(-41.6, 146.6),
-      ),
+      locationService: _FakeLiveLocationService(const LatLng(-41.6, 146.6)),
       openRouteService: _FakeOpenRouteService(
         Future.value(
           const OpenRouteServiceSummary(
@@ -667,11 +691,13 @@ void main() {
 
     final region = find.byKey(const Key('map-interaction-region'));
     final container = ProviderScope.containerOf(tester.element(region));
-    container.read(mapProvider.notifier).showDriveEtaPopupLoading(
-      requestId: 1,
-      anchor: const LatLng(-30.0, 120.0),
-      title: 'Drive ETA',
-    );
+    container
+        .read(mapProvider.notifier)
+        .showDriveEtaPopupLoading(
+          requestId: 1,
+          anchor: const LatLng(-30.0, 120.0),
+          title: 'Drive ETA',
+        );
 
     await tester.pump();
     await tester.pump();
@@ -798,7 +824,8 @@ class _DriveEtaRouteGraphStore
   Future<void> bootstrapData() async {}
 
   @override
-  Future<trip_routing.TripService> preload() async => trip_routing.TripService();
+  Future<trip_routing.TripService> preload() async =>
+      trip_routing.TripService();
 
   @override
   Future<trip_routing.TripService> reload() async => trip_routing.TripService();

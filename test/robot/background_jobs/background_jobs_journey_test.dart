@@ -63,7 +63,9 @@ void main() {
         ProviderScope(
           overrides: [
             mapProvider.overrideWith(() => notifier),
-            routeGraphStoreProvider.overrideWithValue(TestReadyRouteGraphStore()),
+            routeGraphStoreProvider.overrideWithValue(
+              TestReadyRouteGraphStore(),
+            ),
             tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
             gpxFilePickerProvider.overrideWithValue(
               FakeGpxFilePicker(filesToReturn: [importPath]),
@@ -95,7 +97,11 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       await tester.tap(robot.selectFilesButton);
       await tester.pump();
-      for (var i = 0; i < 20 && robot.importSelectedRow.evaluate().isEmpty; i++) {
+      for (
+        var i = 0;
+        i < 20 && robot.importSelectedRow.evaluate().isEmpty;
+        i++
+      ) {
         await tester.pump(const Duration(milliseconds: 50));
       }
       await tester.tap(robot.importButton);
@@ -180,7 +186,9 @@ void main() {
                 ),
               ),
             ),
-            routeGraphStoreProvider.overrideWithValue(TestReadyRouteGraphStore()),
+            routeGraphStoreProvider.overrideWithValue(
+              TestReadyRouteGraphStore(),
+            ),
             tasmapStateProvider.overrideWith(() => tasmapNotifier),
             tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
             peakRepositoryProvider.overrideWithValue(
@@ -238,7 +246,9 @@ void main() {
       await robot.expandJob(1);
       expect(find.text('Rows written: 1,234'), findsOneWidget);
       expect(
-        find.text('Destination: /Users/adrian/Documents/Bushwalking/Features/peaks.csv'),
+        find.text(
+          'Destination: /Users/adrian/Documents/Bushwalking/Features/peaks.csv',
+        ),
         findsOneWidget,
       );
 
@@ -249,10 +259,7 @@ void main() {
 }
 
 class _DeferredImportMapNotifier extends TestMapNotifier {
-  _DeferredImportMapNotifier(
-    super.initialState, {
-    required this.completion,
-  });
+  _DeferredImportMapNotifier(super.initialState, {required this.completion});
 
   final Completer<void> completion;
 

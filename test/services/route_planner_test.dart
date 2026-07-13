@@ -10,103 +10,116 @@ import 'package:peak_bagger/services/route_planner.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
 void main() {
-  test('local file client preloads graph for anchored segment and probe', () async {
-    const start = LatLng(-41.5, 146.5);
-    const end = LatLng(-41.6, 146.6);
-    final service = _FakeTripService(
-      anchoredResult: const trip_routing.AnchoredSegmentResult(
-        status: trip_routing.AnchoredSegmentStatus.routed,
-        route: [start, end],
-        distance: 1234.5,
-        errors: [],
-        startAnchor: trip_routing.EndpointAnchor(
-          point: start,
-          type: trip_routing.EndpointAnchorType.node,
-          nodeId: 1,
+  test(
+    'local file client preloads graph for anchored segment and probe',
+    () async {
+      const start = LatLng(-41.5, 146.5);
+      const end = LatLng(-41.6, 146.6);
+      final service = _FakeTripService(
+        anchoredResult: const trip_routing.AnchoredSegmentResult(
+          status: trip_routing.AnchoredSegmentStatus.routed,
+          route: [start, end],
+          distance: 1234.5,
+          errors: [],
+          startAnchor: trip_routing.EndpointAnchor(
+            point: start,
+            type: trip_routing.EndpointAnchorType.node,
+            nodeId: 1,
+          ),
+          endAnchor: trip_routing.EndpointAnchor(
+            point: end,
+            type: trip_routing.EndpointAnchorType.node,
+            nodeId: 2,
+          ),
         ),
-        endAnchor: trip_routing.EndpointAnchor(
-          point: end,
-          type: trip_routing.EndpointAnchorType.node,
-          nodeId: 2,
+        probeResult: const trip_routing.EndpointProbeResult(
+          isOnTrack: true,
+          anchor: trip_routing.EndpointAnchor(
+            point: end,
+            type: trip_routing.EndpointAnchorType.edgeProjection,
+            originalSegmentId: '100:0',
+          ),
         ),
-      ),
-      probeResult: const trip_routing.EndpointProbeResult(
-        isOnTrack: true,
-        anchor: trip_routing.EndpointAnchor(
-          point: end,
-          type: trip_routing.EndpointAnchorType.edgeProjection,
-          originalSegmentId: '100:0',
-        ),
-      ),
-    );
-    final store = _FakeRouteGraphStore(service);
-    final client = LocalFileTripRoutingClient(routeGraphStore: store);
+      );
+      final store = _FakeRouteGraphStore(service);
+      final client = LocalFileTripRoutingClient(routeGraphStore: store);
 
-    final anchored = await client.findAnchoredSegment(
-      start: start,
-      end: end,
-      maxSnapDistanceMeters: 50,
-    );
-    final probe = await client.probeEndpointAnchor(
-      point: end,
-      maxSnapDistanceMeters: 50,
-    );
+      final anchored = await client.findAnchoredSegment(
+        start: start,
+        end: end,
+        maxSnapDistanceMeters: 50,
+      );
+      final probe = await client.probeEndpointAnchor(
+        point: end,
+        maxSnapDistanceMeters: 50,
+      );
 
-    expect(store.preloadCallCount, 2);
-    expect(service.recordedAnchoredRequests, const [(start: start, end: end, maxSnapDistanceMeters: 50)]);
-    expect(service.recordedProbeRequests, const [(point: end, maxSnapDistanceMeters: 50)]);
-    expect(anchored.status, trip_routing.AnchoredSegmentStatus.routed);
-    expect(probe.isOnTrack, isTrue);
-  });
+      expect(store.preloadCallCount, 2);
+      expect(service.recordedAnchoredRequests, const [
+        (start: start, end: end, maxSnapDistanceMeters: 50),
+      ]);
+      expect(service.recordedProbeRequests, const [
+        (point: end, maxSnapDistanceMeters: 50),
+      ]);
+      expect(anchored.status, trip_routing.AnchoredSegmentStatus.routed);
+      expect(probe.isOnTrack, isTrue);
+    },
+  );
 
-  test('local file client routes from repository-backed chunks without preload', () async {
-    const start = LatLng(-41.5, 146.5);
-    const end = LatLng(-41.6, 146.6);
-    final repository = RouteGraphRepository.test(
-      InMemoryRouteGraphStorage(
-        manifest: RouteGraphManifest(
-          sourceHash: 'hash',
-          schemaVersion: 'route-graph-v1',
-          activeGeneration: 1,
-          importedAt: DateTime.utc(2025),
-          chunkCount: 1,
-          nodeCount: 2,
-          edgeCount: 1,
-          readinessState: RouteGraphManifest.readinessReady,
-        ),
-        chunks: [
-          RouteGraphChunk(
-            recordKey: '1|0_0',
-            chunkKey: '0_0',
-            generation: 1,
-            minLat: -42.0,
-            minLon: 146.0,
-            maxLat: -41.0,
-            maxLon: 147.0,
-            elementCount: 3,
-            payloadJson: '''
+  test(
+    'local file client routes from repository-backed chunks without preload',
+    () async {
+      const start = LatLng(-41.5, 146.5);
+      const end = LatLng(-41.6, 146.6);
+      final repository = RouteGraphRepository.test(
+        InMemoryRouteGraphStorage(
+          manifest: RouteGraphManifest(
+            sourceHash: 'hash',
+            schemaVersion: 'route-graph-v1',
+            activeGeneration: 1,
+            importedAt: DateTime.utc(2025),
+            chunkCount: 1,
+            nodeCount: 2,
+            edgeCount: 1,
+            readinessState: RouteGraphManifest.readinessReady,
+          ),
+          chunks: [
+            RouteGraphChunk(
+              recordKey: '1|0_0',
+              chunkKey: '0_0',
+              generation: 1,
+              minLat: -42.0,
+              minLon: 146.0,
+              maxLat: -41.0,
+              maxLon: 147.0,
+              elementCount: 3,
+              payloadJson: '''
             {"elements":[
               {"type":"node","id":1,"lat":-41.5,"lon":146.5},
               {"type":"node","id":2,"lat":-41.6,"lon":146.6},
               {"type":"way","id":10,"nodes":[1,2],"tags":{"highway":"path"}}
             ]}
             ''',
-          ),
-        ],
-      ),
-    );
-    final store = _FakeRouteGraphStore(_FakeTripService(), repository: repository);
-    final client = LocalFileTripRoutingClient(routeGraphStore: store);
+            ),
+          ],
+        ),
+      );
+      final store = _FakeRouteGraphStore(
+        _FakeTripService(),
+        repository: repository,
+      );
+      final client = LocalFileTripRoutingClient(routeGraphStore: store);
 
-    final anchored = await client.findAnchoredSegment(
-      start: start,
-      end: end,
-      maxSnapDistanceMeters: 50,
-    );
+      final anchored = await client.findAnchoredSegment(
+        start: start,
+        end: end,
+        maxSnapDistanceMeters: 50,
+      );
 
-    expect(store.preloadCallCount, 0);
-    expect(anchored.status, trip_routing.AnchoredSegmentStatus.routed);
-  });
+      expect(store.preloadCallCount, 0);
+      expect(anchored.status, trip_routing.AnchoredSegmentStatus.routed);
+    },
+  );
 
   test('planner maps routed result into app-owned routed result', () async {
     const start = LatLng(-41.5, 146.5);
@@ -217,24 +230,27 @@ void main() {
     expect(result.errorMessage, 'Graph data unavailable');
   });
 
-  test('planner converts malformed routed payload into failed result', () async {
-    const start = LatLng(-41.5, 146.5);
-    const end = LatLng(-41.6, 146.6);
-    final client = _FakeTripRoutingClient(
-      anchoredResult: const trip_routing.AnchoredSegmentResult(
-        status: trip_routing.AnchoredSegmentStatus.routed,
-        route: [start],
-        distance: 0,
-        errors: [],
-      ),
-    );
-    final planner = TripRoutingRoutePlanner(client: client);
+  test(
+    'planner converts malformed routed payload into failed result',
+    () async {
+      const start = LatLng(-41.5, 146.5);
+      const end = LatLng(-41.6, 146.6);
+      final client = _FakeTripRoutingClient(
+        anchoredResult: const trip_routing.AnchoredSegmentResult(
+          status: trip_routing.AnchoredSegmentStatus.routed,
+          route: [start],
+          distance: 0,
+          errors: [],
+        ),
+      );
+      final planner = TripRoutingRoutePlanner(client: client);
 
-    final result = await planner.planSegmentResult(start: start, end: end);
+      final result = await planner.planSegmentResult(start: start, end: end);
 
-    expect(result.status, RoutePlanningStatus.failed);
-    expect(result.errorMessage, 'Routing returned no usable segment.');
-  });
+      expect(result.status, RoutePlanningStatus.failed);
+      expect(result.errorMessage, 'Routing returned no usable segment.');
+    },
+  );
 
   test('planner probes endpoint through app-owned result seam', () async {
     const point = LatLng(-41.6, 146.6);
@@ -257,60 +273,67 @@ void main() {
     expect(result.anchor?.originalSegmentId, '100:0');
   });
 
-  test('legacy planSegment wrapper still throws for non-routed result', () async {
-    const start = LatLng(-41.5, 146.5);
-    const end = LatLng(-41.6, 146.6);
-    final client = _FakeTripRoutingClient(
-      anchoredResult: const trip_routing.AnchoredSegmentResult(
-        status: trip_routing.AnchoredSegmentStatus.noPath,
-        route: [],
-        distance: 0,
-        errors: [],
-      ),
-    );
-    final planner = TripRoutingRoutePlanner(client: client);
+  test(
+    'legacy planSegment wrapper still throws for non-routed result',
+    () async {
+      const start = LatLng(-41.5, 146.5);
+      const end = LatLng(-41.6, 146.6);
+      final client = _FakeTripRoutingClient(
+        anchoredResult: const trip_routing.AnchoredSegmentResult(
+          status: trip_routing.AnchoredSegmentStatus.noPath,
+          route: [],
+          distance: 0,
+          errors: [],
+        ),
+      );
+      final planner = TripRoutingRoutePlanner(client: client);
 
-    await expectLater(
-      () => planner.planSegment(start: start, end: end),
-      throwsA(isA<RoutePlanningException>()),
-    );
-  });
+      await expectLater(
+        () => planner.planSegment(start: start, end: end),
+        throwsA(isA<RoutePlanningException>()),
+      );
+    },
+  );
 
-  test('planner surfaces route graph load failure through client error', () async {
-    const start = LatLng(-41.5, 146.5);
-    const end = LatLng(-41.6, 146.6);
-    final store = _ThrowingRouteGraphStore();
-    final client = LocalFileTripRoutingClient(routeGraphStore: store);
-    final planner = TripRoutingRoutePlanner(client: client);
+  test(
+    'planner surfaces route graph load failure through client error',
+    () async {
+      const start = LatLng(-41.5, 146.5);
+      const end = LatLng(-41.6, 146.6);
+      final store = _ThrowingRouteGraphStore();
+      final client = LocalFileTripRoutingClient(routeGraphStore: store);
+      final planner = TripRoutingRoutePlanner(client: client);
 
-    final result = await planner.planSegmentResult(start: start, end: end);
+      final result = await planner.planSegmentResult(start: start, end: end);
 
-    expect(result.status, RoutePlanningStatus.failed);
-    expect(result.errorMessage, contains('route graph unavailable'));
-  });
+      expect(result.status, RoutePlanningStatus.failed);
+      expect(result.errorMessage, contains('route graph unavailable'));
+    },
+  );
 }
 
 class _FakeTripRoutingClient implements TripRoutingClient {
   _FakeTripRoutingClient({
     trip_routing.AnchoredSegmentResult? anchoredResult,
     trip_routing.EndpointProbeResult? probeResult,
-  }) : anchoredResult = anchoredResult ??
-            const trip_routing.AnchoredSegmentResult(
-              status: trip_routing.AnchoredSegmentStatus.failed,
-              route: [],
-              distance: 0,
-              errors: ['Missing fake anchored result'],
-            ),
-        probeResult = probeResult ??
-            const trip_routing.EndpointProbeResult(
-              isOnTrack: false,
-            );
+  }) : anchoredResult =
+           anchoredResult ??
+           const trip_routing.AnchoredSegmentResult(
+             status: trip_routing.AnchoredSegmentStatus.failed,
+             route: [],
+             distance: 0,
+             errors: ['Missing fake anchored result'],
+           ),
+       probeResult =
+           probeResult ??
+           const trip_routing.EndpointProbeResult(isOnTrack: false);
 
   final trip_routing.AnchoredSegmentResult anchoredResult;
   final trip_routing.EndpointProbeResult probeResult;
   final recordedAnchoredRequests =
       <({LatLng start, LatLng end, double maxSnapDistanceMeters})>[];
-  final recordedProbeRequests = <({LatLng point, double maxSnapDistanceMeters})>[];
+  final recordedProbeRequests =
+      <({LatLng point, double maxSnapDistanceMeters})>[];
 
   @override
   Future<trip_routing.AnchoredSegmentResult> findAnchoredSegment({
@@ -318,13 +341,11 @@ class _FakeTripRoutingClient implements TripRoutingClient {
     required LatLng end,
     required double maxSnapDistanceMeters,
   }) async {
-    recordedAnchoredRequests.add(
-      (
-        start: start,
-        end: end,
-        maxSnapDistanceMeters: maxSnapDistanceMeters,
-      ),
-    );
+    recordedAnchoredRequests.add((
+      start: start,
+      end: end,
+      maxSnapDistanceMeters: maxSnapDistanceMeters,
+    ));
     return anchoredResult;
   }
 
@@ -333,14 +354,16 @@ class _FakeTripRoutingClient implements TripRoutingClient {
     required LatLng point,
     required double maxSnapDistanceMeters,
   }) async {
-    recordedProbeRequests.add(
-      (point: point, maxSnapDistanceMeters: maxSnapDistanceMeters),
-    );
+    recordedProbeRequests.add((
+      point: point,
+      maxSnapDistanceMeters: maxSnapDistanceMeters,
+    ));
     return probeResult;
   }
 }
 
-class _FakeRouteGraphStore implements RouteGraphStore, RouteGraphRepositoryProvider {
+class _FakeRouteGraphStore
+    implements RouteGraphStore, RouteGraphRepositoryProvider {
   @override
   Future<void> bootstrapData() async {}
 
@@ -390,23 +413,24 @@ class _FakeTripService extends trip_routing.TripService {
   _FakeTripService({
     trip_routing.AnchoredSegmentResult? anchoredResult,
     trip_routing.EndpointProbeResult? probeResult,
-  })  : anchoredResult = anchoredResult ??
-            const trip_routing.AnchoredSegmentResult(
-              status: trip_routing.AnchoredSegmentStatus.failed,
-              route: [],
-              distance: 0,
-              errors: ['Missing fake anchored result'],
-            ),
-        probeResult = probeResult ??
-            const trip_routing.EndpointProbeResult(
-              isOnTrack: false,
-            );
+  }) : anchoredResult =
+           anchoredResult ??
+           const trip_routing.AnchoredSegmentResult(
+             status: trip_routing.AnchoredSegmentStatus.failed,
+             route: [],
+             distance: 0,
+             errors: ['Missing fake anchored result'],
+           ),
+       probeResult =
+           probeResult ??
+           const trip_routing.EndpointProbeResult(isOnTrack: false);
 
   final trip_routing.AnchoredSegmentResult anchoredResult;
   final trip_routing.EndpointProbeResult probeResult;
   final recordedAnchoredRequests =
       <({LatLng start, LatLng end, double maxSnapDistanceMeters})>[];
-  final recordedProbeRequests = <({LatLng point, double maxSnapDistanceMeters})>[];
+  final recordedProbeRequests =
+      <({LatLng point, double maxSnapDistanceMeters})>[];
 
   @override
   Future<trip_routing.AnchoredSegmentResult> findAnchoredSegment({
@@ -414,13 +438,11 @@ class _FakeTripService extends trip_routing.TripService {
     required LatLng end,
     required double maxSnapDistanceMeters,
   }) async {
-    recordedAnchoredRequests.add(
-      (
-        start: start,
-        end: end,
-        maxSnapDistanceMeters: maxSnapDistanceMeters,
-      ),
-    );
+    recordedAnchoredRequests.add((
+      start: start,
+      end: end,
+      maxSnapDistanceMeters: maxSnapDistanceMeters,
+    ));
     return anchoredResult;
   }
 
@@ -429,9 +451,10 @@ class _FakeTripService extends trip_routing.TripService {
     required LatLng point,
     required double maxSnapDistanceMeters,
   }) async {
-    recordedProbeRequests.add(
-      (point: point, maxSnapDistanceMeters: maxSnapDistanceMeters),
-    );
+    recordedProbeRequests.add((
+      point: point,
+      maxSnapDistanceMeters: maxSnapDistanceMeters,
+    ));
     return probeResult;
   }
 }

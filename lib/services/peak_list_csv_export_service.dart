@@ -344,7 +344,9 @@ class PeakListCsvExportService {
     try {
       return PeakMgrsConverter.fromForwardString(storedForward);
     } on FormatException {
-      return PeakMgrsConverter.fromLatLng(LatLng(peak.latitude, peak.longitude));
+      return PeakMgrsConverter.fromLatLng(
+        LatLng(peak.latitude, peak.longitude),
+      );
     }
   }
 }

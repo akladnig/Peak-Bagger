@@ -104,7 +104,9 @@ void main() {
     await tester.pump();
     expect(find.text('Rows written: 1,234'), findsOneWidget);
     expect(
-      find.text('Destination: /Users/adrian/Documents/Bushwalking/Features/peaks.csv'),
+      find.text(
+        'Destination: /Users/adrian/Documents/Bushwalking/Features/peaks.csv',
+      ),
       findsOneWidget,
     );
   });

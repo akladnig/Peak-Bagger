@@ -4,7 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/constants.dart';
 
 const peakCorrelationDistanceKey = 'peak_correlation_distance_meters';
-const peakCorrelationDefaultDistanceMeters = PeakCorrelationConstants.defaultDistanceMeters;
+const peakCorrelationDefaultDistanceMeters =
+    PeakCorrelationConstants.defaultDistanceMeters;
 const peakCorrelationDistanceOptions = PeakCorrelationConstants.distanceOptions;
 
 final peakCorrelationSettingsProvider =

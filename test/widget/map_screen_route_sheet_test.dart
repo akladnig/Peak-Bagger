@@ -111,9 +111,7 @@ void main() {
       lowestElevation: 90,
       highestElevation: 130,
     );
-    final routeRepository = RouteRepository.test(
-      InMemoryRouteStorage([route]),
-    );
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage([route]));
     final notifier = TestMapNotifier(
       MapState(
         center: const LatLng(-41.5, 146.5),
@@ -137,10 +135,14 @@ void main() {
     expect(container.read(mapProvider).isRouteDrafting, isTrue);
     expect(container.read(mapProvider).routeDraftName, 'Seed Route');
     expect(find.byKey(const Key('track-info-panel')), findsNothing);
-    expect(find.byKey(const Key('route-controls-overlay-root')), findsOneWidget);
+    expect(
+      find.byKey(const Key('route-controls-overlay-root')),
+      findsOneWidget,
+    );
     expect(find.byKey(const Key('route-name-field')), findsOneWidget);
     expect(
-      tester.widget<TextFormField>(find.byKey(const Key('route-name-field')))
+      tester
+          .widget<TextFormField>(find.byKey(const Key('route-name-field')))
           .controller!
           .text,
       'Seed Route',
@@ -164,9 +166,7 @@ void main() {
       lowestElevation: 90,
       highestElevation: 130,
     );
-    final routeRepository = RouteRepository.test(
-      InMemoryRouteStorage([route]),
-    );
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage([route]));
     final notifier = TestMapNotifier(
       MapState(
         center: const LatLng(-41.5, 146.5),
@@ -200,9 +200,7 @@ void main() {
     expect(find.text('Edited Route'), findsOneWidget);
   });
 
-  testWidgets('edit route cancel restores the original route', (
-    tester,
-  ) async {
+  testWidgets('edit route cancel restores the original route', (tester) async {
     final route = app_route.Route(
       id: 1,
       name: 'Seed Route',
@@ -217,9 +215,7 @@ void main() {
       lowestElevation: 90,
       highestElevation: 130,
     );
-    final routeRepository = RouteRepository.test(
-      InMemoryRouteStorage([route]),
-    );
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage([route]));
     final notifier = TestMapNotifier(
       MapState(
         center: const LatLng(-41.5, 146.5),
@@ -254,9 +250,7 @@ void main() {
     expect(find.byKey(const Key('route-controls-overlay-root')), findsNothing);
   });
 
-  testWidgets('edit route save failure keeps the draft open', (
-    tester,
-  ) async {
+  testWidgets('edit route save failure keeps the draft open', (tester) async {
     final route = app_route.Route(
       id: 1,
       name: 'Seed Route',
@@ -297,7 +291,10 @@ void main() {
     await tester.tap(find.byKey(const Key('route-save-button')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('route-controls-overlay-root')), findsOneWidget);
+    expect(
+      find.byKey(const Key('route-controls-overlay-root')),
+      findsOneWidget,
+    );
     expect(find.textContaining('Failed to save route'), findsOneWidget);
     expect(routeRepository.findById(1)!.name, 'Seed Route');
     expect(_container(tester).read(mapProvider).sourceRouteId, 1);
@@ -684,12 +681,19 @@ void main() {
       );
 
       final container = _container(tester);
-      FilledButton button(Finder keyFinder) => tester.widget<FilledButton>(keyFinder);
+      FilledButton button(Finder keyFinder) =>
+          tester.widget<FilledButton>(keyFinder);
 
       expect(button(outAndBackKey).onPressed, isNull);
-      expect(button(outAndBackKey).style?.shape?.resolve({}), isA<RoundedRectangleBorder>());
+      expect(
+        button(outAndBackKey).style?.shape?.resolve({}),
+        isA<RoundedRectangleBorder>(),
+      );
       expect(button(closeLoopKey).onPressed, isNull);
-      expect(button(closeLoopKey).style?.shape?.resolve({}), isA<RoundedRectangleBorder>());
+      expect(
+        button(closeLoopKey).style?.shape?.resolve({}),
+        isA<RoundedRectangleBorder>(),
+      );
       expect(button(undoKey).onPressed, isNull);
       expect(button(redoKey).onPressed, isNull);
 
@@ -739,13 +743,19 @@ void main() {
               LatLng(-41.55, 146.55),
               LatLng(-41.6, 146.6),
             ],
-      );
+          );
       await tester.pump();
 
       expect(button(outAndBackKey).onPressed, isNotNull);
       expect(button(closeLoopKey).onPressed, isNotNull);
-      expect(button(outAndBackKey).style?.shape?.resolve({}), isA<RoundedRectangleBorder>());
-      expect(button(closeLoopKey).style?.shape?.resolve({}), isA<RoundedRectangleBorder>());
+      expect(
+        button(outAndBackKey).style?.shape?.resolve({}),
+        isA<RoundedRectangleBorder>(),
+      );
+      expect(
+        button(closeLoopKey).style?.shape?.resolve({}),
+        isA<RoundedRectangleBorder>(),
+      );
 
       container.read(mapProvider.notifier).state = container
           .read(mapProvider)
@@ -775,11 +785,7 @@ void main() {
         basemap: Basemap.tracestrack,
       ),
     );
-    await _pumpMap(
-      tester,
-      notifier,
-      surfaceSize: const Size(420, 900),
-    );
+    await _pumpMap(tester, notifier, surfaceSize: const Size(420, 900));
 
     await tester.tap(find.byKey(const Key('create-route-fab')));
     await tester.pumpAndSettle();
@@ -798,9 +804,8 @@ void main() {
   });
 
   testWidgets(
-    'closed route draft disables both route to peak and out and back', (
-      tester,
-    ) async {
+    'closed route draft disables both route to peak and out and back',
+    (tester) async {
       final peak = Peak(
         osmId: 6406,
         name: 'Bonnet Hill',
@@ -975,14 +980,11 @@ void main() {
     await tester.pumpAndSettle();
 
     final state = _container(tester).read(mapProvider);
-    expect(
-      state.routeDraftDisplayMarkers.map((marker) => marker.kind),
-      [
-        RouteMarkerKind.circle,
-        RouteMarkerKind.numbered,
-        RouteMarkerKind.target,
-      ],
-    );
+    expect(state.routeDraftDisplayMarkers.map((marker) => marker.kind), [
+      RouteMarkerKind.circle,
+      RouteMarkerKind.numbered,
+      RouteMarkerKind.target,
+    ]);
     expect(state.routeDraftDisplayMarkers[1].number, 1);
 
     expect(find.byKey(const Key('route-draft-marker-0')), findsOneWidget);
@@ -990,30 +992,36 @@ void main() {
     expect(find.byKey(const Key('route-draft-marker-2')), findsOneWidget);
 
     expect(
-      tester.widget<RouteMarker>(
-        find.descendant(
-          of: find.byKey(const Key('route-draft-marker-0')),
-          matching: find.byType(RouteMarker),
-        ),
-      ).kind,
+      tester
+          .widget<RouteMarker>(
+            find.descendant(
+              of: find.byKey(const Key('route-draft-marker-0')),
+              matching: find.byType(RouteMarker),
+            ),
+          )
+          .kind,
       RouteMarkerKind.circle,
     );
     expect(
-      tester.widget<RouteMarker>(
-        find.descendant(
-          of: find.byKey(const Key('route-draft-marker-1')),
-          matching: find.byType(RouteMarker),
-        ),
-      ).kind,
+      tester
+          .widget<RouteMarker>(
+            find.descendant(
+              of: find.byKey(const Key('route-draft-marker-1')),
+              matching: find.byType(RouteMarker),
+            ),
+          )
+          .kind,
       RouteMarkerKind.numbered,
     );
     expect(
-      tester.widget<RouteMarker>(
-        find.descendant(
-          of: find.byKey(const Key('route-draft-marker-2')),
-          matching: find.byType(RouteMarker),
-        ),
-      ).kind,
+      tester
+          .widget<RouteMarker>(
+            find.descendant(
+              of: find.byKey(const Key('route-draft-marker-2')),
+              matching: find.byType(RouteMarker),
+            ),
+          )
+          .kind,
       RouteMarkerKind.target,
     );
   });
@@ -1119,8 +1127,14 @@ void main() {
     );
 
     final stateAfter = container.read(mapProvider);
-    expect(stateAfter.routeDraftDisplayMarkers, stateBefore.routeDraftDisplayMarkers);
-    expect(stateAfter.routeDraftError, 'Peak Bagger only supports a maximum of 99 route points');
+    expect(
+      stateAfter.routeDraftDisplayMarkers,
+      stateBefore.routeDraftDisplayMarkers,
+    );
+    expect(
+      stateAfter.routeDraftError,
+      'Peak Bagger only supports a maximum of 99 route points',
+    );
   });
 
   testWidgets('blank route name shows inline error and save stays disabled', (

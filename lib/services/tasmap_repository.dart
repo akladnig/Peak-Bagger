@@ -272,7 +272,11 @@ class TasmapRepository {
     final rangeMatches = base
         .where(
           (entry) =>
-              _inRange(mgrsPoint.easting, entry.map.eastingMin, entry.map.eastingMax) &&
+              _inRange(
+                mgrsPoint.easting,
+                entry.map.eastingMin,
+                entry.map.eastingMax,
+              ) &&
               _inRange(
                 mgrsPoint.northing,
                 entry.map.northingMin,
@@ -289,7 +293,8 @@ class TasmapRepository {
       return null;
     }
 
-    final fullMgrs = '${cleaned.substring(0, 5)} ${cleaned.substring(5, 10)} ${cleaned.substring(10)}';
+    final fullMgrs =
+        '${cleaned.substring(0, 5)} ${cleaned.substring(5, 10)} ${cleaned.substring(10)}';
     try {
       final coords = mgrs_dart.Mgrs.toPoint(fullMgrs);
       return LatLng(coords[1], coords[0]);
@@ -300,8 +305,10 @@ class TasmapRepository {
 
   ({String code, int easting, int northing})? _pointToMgrsPoint(LatLng point) {
     try {
-      final cleaned = mgrs_dart.Mgrs.forward([point.longitude, point.latitude], 5)
-          .replaceAll(RegExp(r'[\n\s]'), '');
+      final cleaned = mgrs_dart.Mgrs.forward([
+        point.longitude,
+        point.latitude,
+      ], 5).replaceAll(RegExp(r'[\n\s]'), '');
       if (cleaned.length < 15) {
         return null;
       }

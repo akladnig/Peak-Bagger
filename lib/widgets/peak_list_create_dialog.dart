@@ -4,9 +4,7 @@ import 'package:peak_bagger/core/widgets/popup_keyboard_dismiss.dart';
 import 'dialog_helpers.dart';
 import 'peak_list_name_field.dart';
 
-typedef PeakListCreateRunner = Future<int> Function({
-  required String listName,
-});
+typedef PeakListCreateRunner = Future<int> Function({required String listName});
 
 class PeakListCreateDialog extends StatefulWidget {
   const PeakListCreateDialog({

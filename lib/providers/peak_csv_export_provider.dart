@@ -21,8 +21,8 @@ final peakCsvExportRunnerProvider = Provider<PeakCsvExportRunner>((ref) {
 
 final peakCsvExportBackgroundRunnerProvider =
     Provider<PeakCsvExportBackgroundRunner>((ref) {
-  final service = ref.watch(peakCsvExportServiceProvider);
-  return ({PeakCsvExportProgressCallback? onProgress}) {
-    return service.exportPeaks(onProgress: onProgress);
-  };
-});
+      final service = ref.watch(peakCsvExportServiceProvider);
+      return ({PeakCsvExportProgressCallback? onProgress}) {
+        return service.exportPeaks(onProgress: onProgress);
+      };
+    });

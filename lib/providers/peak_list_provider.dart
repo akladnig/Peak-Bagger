@@ -48,36 +48,36 @@ final peakListImportRunnerProvider = Provider<PeakListImportRunner>((ref) {
 
 final peakListImportBackgroundRunnerProvider =
     Provider<PeakListImportBackgroundRunner>((ref) {
-  final service = ref.watch(peakListImportServiceProvider);
-  return ({
-    required String listName,
-    required String csvPath,
-    PeakListImportProgressCallback? onProgress,
-  }) async {
-    final result = await service.importPeakList(
-      listName: listName,
-      csvPath: csvPath,
-      onProgress: onProgress,
-    );
-    ref.read(peakListRevisionProvider.notifier).increment();
-    ref.read(mapProvider.notifier).reconcileSelectedPeakList();
-    return PeakListImportPresentationResult(
-      updated: result.updated,
-      importedCount: result.importedCount,
-      skippedCount: result.skippedCount,
-      matchedCount: result.matchedCount,
-      ambiguousCount: result.ambiguousCount,
-      warningCount: result.warningEntries.length,
-      warningMessage: result.warningMessage,
-      logEntryCount: result.logEntries.length,
-      importLogNote: result.logEntries.isEmpty
-          ? null
-          : (result.warningMessage ?? 'See import.log for details.'),
-      peakListId: result.peakListId,
-      listName: listName.trim(),
-    );
-  };
-});
+      final service = ref.watch(peakListImportServiceProvider);
+      return ({
+        required String listName,
+        required String csvPath,
+        PeakListImportProgressCallback? onProgress,
+      }) async {
+        final result = await service.importPeakList(
+          listName: listName,
+          csvPath: csvPath,
+          onProgress: onProgress,
+        );
+        ref.read(peakListRevisionProvider.notifier).increment();
+        ref.read(mapProvider.notifier).reconcileSelectedPeakList();
+        return PeakListImportPresentationResult(
+          updated: result.updated,
+          importedCount: result.importedCount,
+          skippedCount: result.skippedCount,
+          matchedCount: result.matchedCount,
+          ambiguousCount: result.ambiguousCount,
+          warningCount: result.warningEntries.length,
+          warningMessage: result.warningMessage,
+          logEntryCount: result.logEntries.length,
+          importLogNote: result.logEntries.isEmpty
+              ? null
+              : (result.warningMessage ?? 'See import.log for details.'),
+          peakListId: result.peakListId,
+          listName: listName.trim(),
+        );
+      };
+    });
 
 final peakListDuplicateNameCheckerProvider =
     Provider<PeakListDuplicateNameChecker>((ref) {

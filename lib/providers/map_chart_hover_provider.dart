@@ -1,10 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
-final mapChartHoverProvider =
-    NotifierProvider<MapChartHoverNotifier, LatLng?>(
-      MapChartHoverNotifier.new,
-    );
+final mapChartHoverProvider = NotifierProvider<MapChartHoverNotifier, LatLng?>(
+  MapChartHoverNotifier.new,
+);
 
 class MapChartHoverNotifier extends Notifier<LatLng?> {
   @override

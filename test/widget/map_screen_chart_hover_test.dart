@@ -19,7 +19,9 @@ import '../harness/test_tasmap_notifier.dart';
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
-  testWidgets('chart hover marker appears and clears on the map', (tester) async {
+  testWidgets('chart hover marker appears and clears on the map', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({
       'show_routes': true,
       'show_tracks': true,

@@ -328,8 +328,8 @@ class GpxTrackStatisticsCalculator {
 
   double? _calculateMaxSpeedKmh(
     List<List<GpxTrackPoint>> segments, {
-      required Duration window,
-    }) {
+    required Duration window,
+  }) {
     final windowMillis = window.inMilliseconds;
     if (windowMillis <= 0) {
       return null;
@@ -353,7 +353,9 @@ class GpxTrackStatisticsCalculator {
     return found ? maxSpeedKmh : null;
   }
 
-  List<List<_TimedDistanceSample>> _buildTimedRuns(List<GpxTrackPoint> segment) {
+  List<List<_TimedDistanceSample>> _buildTimedRuns(
+    List<GpxTrackPoint> segment,
+  ) {
     final runs = <List<_TimedDistanceSample>>[];
     final currentRun = <_TimedDistanceSample>[];
 

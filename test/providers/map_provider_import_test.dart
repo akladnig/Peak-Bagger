@@ -29,14 +29,16 @@ void main() {
       Platform.environment['HOME'] ?? Directory.current.path,
     );
     final uniqueSuffix = DateTime.now().microsecondsSinceEpoch;
-    final tmpRoot = Directory('${homeRoot.path}/tmp/peak-bagger-import-test-$uniqueSuffix')
-      ..createSync(recursive: true);
+    final tmpRoot = Directory(
+      '${homeRoot.path}/tmp/peak-bagger-import-test-$uniqueSuffix',
+    )..createSync(recursive: true);
     addTearDown(() => tmpRoot.deleteSync(recursive: true));
 
     final bushwalkingRoot = Directory('${tmpRoot.path}/Bushwalking')
       ..createSync(recursive: true);
-    Directory('${bushwalkingRoot.path}/Tracks/Australia/Tasmania')
-        .createSync(recursive: true);
+    Directory(
+      '${bushwalkingRoot.path}/Tracks/Australia/Tasmania',
+    ).createSync(recursive: true);
 
     debugBushwalkingRootOverride = bushwalkingRoot.path;
     addTearDown(() {
@@ -81,13 +83,15 @@ void main() {
     addTearDown(container.dispose);
 
     final progressEvents = <GpxImportProgress>[];
-    await container.read(mapProvider.notifier).importGpxFiles(
-      pathToEditedNames: {
-        addedFile.path: 'Selected Track',
-        unsupportedFile.path: 'Outside Tasmania',
-      },
-      onProgress: progressEvents.add,
-    );
+    await container
+        .read(mapProvider.notifier)
+        .importGpxFiles(
+          pathToEditedNames: {
+            addedFile.path: 'Selected Track',
+            unsupportedFile.path: 'Outside Tasmania',
+          },
+          onProgress: progressEvents.add,
+        );
 
     expect(progressEvents, isNotEmpty);
     expect(progressEvents.first.completedCount, 0);
@@ -104,14 +108,16 @@ void main() {
       Platform.environment['HOME'] ?? Directory.current.path,
     );
     final uniqueSuffix = DateTime.now().microsecondsSinceEpoch;
-    final tmpRoot = Directory('${homeRoot.path}/tmp/peak-bagger-import-test-$uniqueSuffix')
-      ..createSync(recursive: true);
+    final tmpRoot = Directory(
+      '${homeRoot.path}/tmp/peak-bagger-import-test-$uniqueSuffix',
+    )..createSync(recursive: true);
     addTearDown(() => tmpRoot.deleteSync(recursive: true));
 
     final bushwalkingRoot = Directory('${tmpRoot.path}/Bushwalking')
       ..createSync(recursive: true);
-    Directory('${bushwalkingRoot.path}/Tracks/Australia/Tasmania')
-        .createSync(recursive: true);
+    Directory(
+      '${bushwalkingRoot.path}/Tracks/Australia/Tasmania',
+    ).createSync(recursive: true);
     final gpxFile = File('${tmpRoot.path}/selected-track-import.gpx')
       ..writeAsStringSync(_tasmanianTrackGpx);
 
@@ -171,10 +177,7 @@ void main() {
     expect(notifier.state.showTracks, isFalse);
     expect(importedTrack.trackName, 'Selected Track');
     expect(notifier.state.selectedTrackId, importedTrack.gpxTrackId);
-    expect(
-      notifier.state.selectedTrackFocusSerial,
-      focusSerialBefore + 1,
-    );
+    expect(notifier.state.selectedTrackFocusSerial, focusSerialBefore + 1);
     expect(peaksBaggedRepository.getAll(), hasLength(1));
     expect(container.read(peaksBaggedRevisionProvider), 1);
   });
@@ -186,14 +189,16 @@ void main() {
       Platform.environment['HOME'] ?? Directory.current.path,
     );
     final uniqueSuffix = DateTime.now().microsecondsSinceEpoch;
-    final tmpRoot = Directory('${homeRoot.path}/tmp/peak-bagger-import-test-$uniqueSuffix')
-      ..createSync(recursive: true);
+    final tmpRoot = Directory(
+      '${homeRoot.path}/tmp/peak-bagger-import-test-$uniqueSuffix',
+    )..createSync(recursive: true);
     addTearDown(() => tmpRoot.deleteSync(recursive: true));
 
     final bushwalkingRoot = Directory('${tmpRoot.path}/Bushwalking')
       ..createSync(recursive: true);
-    Directory('${bushwalkingRoot.path}/Tracks/Australia/Tasmania')
-        .createSync(recursive: true);
+    Directory(
+      '${bushwalkingRoot.path}/Tracks/Australia/Tasmania',
+    ).createSync(recursive: true);
 
     debugBushwalkingRootOverride = bushwalkingRoot.path;
     addTearDown(() {
@@ -256,7 +261,9 @@ void main() {
     final result = await notifier.importGpxFiles(
       pathToEditedNames: {gpxFile.path: 'Outside Tasmania'},
     );
-    final importLog = File('${bushwalkingRoot.path}/import.log').readAsStringSync();
+    final importLog = File(
+      '${bushwalkingRoot.path}/import.log',
+    ).readAsStringSync();
 
     expect(result.addedCount, 0);
     expect(result.unsupportedCount, 1);
@@ -316,16 +323,24 @@ void main() {
     expect(routeRepository.getAllRoutes().single.colour, 0xFFFF0000);
     expect(routeRepository.getAllRoutes().single.estimatedTime, greaterThan(0));
     expect(routeRepository.getAllRoutes().single.routeTimingSource, 'naismith');
-    expect(routeRepository.getAllRoutes().single.routeTimingSegmentKindsJson, isNotNull);
+    expect(
+      routeRepository.getAllRoutes().single.routeTimingSegmentKindsJson,
+      isNotNull,
+    );
     expect(notifier.state.showRoutes, isTrue);
-    expect(notifier.state.selectedRouteId, routeRepository.getAllRoutes().single.id);
+    expect(
+      notifier.state.selectedRouteId,
+      routeRepository.getAllRoutes().single.id,
+    );
     expect(container.read(routeRevisionProvider), 1);
   });
 
   test('timestamped route import preserves calculated timing', () async {
     SharedPreferences.setMockInitialValues({});
 
-    final importDir = Directory.systemTemp.createTempSync('gpx-route-timed-import');
+    final importDir = Directory.systemTemp.createTempSync(
+      'gpx-route-timed-import',
+    );
     addTearDown(() => importDir.deleteSync(recursive: true));
     final gpxFile = File('${importDir.path}/timed-route.gpx')
       ..writeAsStringSync(_timedSelectedRouteGpx);
@@ -361,7 +376,10 @@ void main() {
 
     expect(result.addedCount, 1);
     expect(result.items.single.route.estimatedTime, 10 * 60 * 1000);
-    expect(result.items.single.route.routeTimingSource, RouteTimingSources.verifiedWalk);
+    expect(
+      result.items.single.route.routeTimingSource,
+      RouteTimingSources.verifiedWalk,
+    );
     expect(result.items.single.route.routeTimingProfileJson, '[0,600]');
     expect(
       result.items.single.route.routeTimingSegmentKindsJson,
@@ -371,14 +389,16 @@ void main() {
   });
 
   test('deleteTrack clears bagged summaries for removed tracks', () async {
-    final track = GpxTrack(
-      gpxTrackId: 7,
-      contentHash: 'hash-7',
-      trackName: 'Track 7',
-      gpxFile: '<gpx></gpx>',
-    )..peaks.add(
-        Peak(osmId: 101, name: 'Peak 101', latitude: -42, longitude: 146),
-      );
+    final track =
+        GpxTrack(
+            gpxTrackId: 7,
+            contentHash: 'hash-7',
+            trackName: 'Track 7',
+            gpxFile: '<gpx></gpx>',
+          )
+          ..peaks.add(
+            Peak(osmId: 101, name: 'Peak 101', latitude: -42, longitude: 146),
+          );
     final repository = TestWritableGpxTrackRepository([track]);
     final peaksBaggedRepository = PeaksBaggedRepository.test(
       InMemoryPeaksBaggedStorage([
@@ -432,8 +452,8 @@ void main() {
 
 class TestWritableGpxTrackRepository extends GpxTrackRepository {
   TestWritableGpxTrackRepository([List<GpxTrack> tracks = const []])
-      : _tracks = List<GpxTrack>.from(tracks),
-        super.test(InMemoryGpxTrackStorage());
+    : _tracks = List<GpxTrack>.from(tracks),
+      super.test(InMemoryGpxTrackStorage());
 
   final List<GpxTrack> _tracks;
   int _nextTrackId = 1;
@@ -462,7 +482,10 @@ class TestWritableGpxTrackRepository extends GpxTrackRepository {
   }
 
   @override
-  int replaceTrack({required GpxTrack existing, required GpxTrack replacement}) {
+  int replaceTrack({
+    required GpxTrack existing,
+    required GpxTrack replacement,
+  }) {
     replacement.gpxTrackId = existing.gpxTrackId;
     _tracks
       ..removeWhere((track) => track.gpxTrackId == existing.gpxTrackId)

@@ -70,10 +70,9 @@ class PeakListsRobot {
       find.byKey(Key('peak-selected-checkbox-$peakId'));
   Finder addPointsField(int peakId) =>
       find.byKey(Key('peak-selected-points-$peakId'));
-  Finder miniMapMarker(int peakId, {required bool ticked}) =>
-      find.byKey(
-        Key('peak-lists-mini-map-marker-$peakId-${ticked ? 'ticked' : 'unticked'}'),
-      );
+  Finder miniMapMarker(int peakId, {required bool ticked}) => find.byKey(
+    Key('peak-lists-mini-map-marker-$peakId-${ticked ? 'ticked' : 'unticked'}'),
+  );
   Finder miniMapCluster(int index) =>
       find.byKey(Key('peak-lists-mini-map-cluster-$index'));
   Finder get peakListMiniMapClustersTile =>
@@ -116,23 +115,22 @@ class PeakListsRobot {
                 PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
           ),
           peakListFilePickerProvider.overrideWithValue(filePicker),
-          peakListImportBackgroundRunnerProvider.overrideWithValue(
-            ({
-              required String listName,
-              required String csvPath,
-              PeakListImportProgressCallback? onProgress,
-            }) async {
-              final runner = importRunner ??
-                  ({required String listName, required String csvPath}) async {
-                    return const PeakListImportPresentationResult(
-                      updated: false,
-                      importedCount: 1,
-                      skippedCount: 0,
-                    );
-                  };
-              return runner(listName: listName, csvPath: csvPath);
-            },
-          ),
+          peakListImportBackgroundRunnerProvider.overrideWithValue(({
+            required String listName,
+            required String csvPath,
+            PeakListImportProgressCallback? onProgress,
+          }) async {
+            final runner =
+                importRunner ??
+                ({required String listName, required String csvPath}) async {
+                  return const PeakListImportPresentationResult(
+                    updated: false,
+                    importedCount: 1,
+                    skippedCount: 0,
+                  );
+                };
+            return runner(listName: listName, csvPath: csvPath);
+          }),
           peakListDuplicateNameCheckerProvider.overrideWithValue(
             duplicateNameChecker ?? ((name) async => false),
           ),

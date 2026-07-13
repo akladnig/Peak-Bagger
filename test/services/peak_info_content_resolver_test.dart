@@ -197,9 +197,10 @@ String _pointAt(List<String> points, int index) {
 }
 
 String _pointString(LatLng point) {
-  return mgrs.Mgrs.forward([point.longitude, point.latitude], 5)
-      .replaceAll(RegExp(r'[\n\s]'), '')
-      .substring(3);
+  return mgrs.Mgrs.forward([
+    point.longitude,
+    point.latitude,
+  ], 5).replaceAll(RegExp(r'[\n\s]'), '').substring(3);
 }
 
 class _ThrowingPeaksBaggedStorage implements PeaksBaggedStorage {

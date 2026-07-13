@@ -71,11 +71,7 @@ void main() {
   });
 }
 
-PeakList _peakList(
-  int id,
-  String name,
-  List<int> peakIds,
-) {
+PeakList _peakList(int id, String name, List<int> peakIds) {
   return PeakList(
     peakListId: id,
     name: name,

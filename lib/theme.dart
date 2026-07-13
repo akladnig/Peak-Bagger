@@ -502,7 +502,10 @@ OutlinedButtonThemeData _outlinedButtonTheme(
   );
 }
 
-SearchButtonThemeData _searchButtonTheme(ColorScheme colorScheme, Color seedColor) {
+SearchButtonThemeData _searchButtonTheme(
+  ColorScheme colorScheme,
+  Color seedColor,
+) {
   return SearchButtonThemeData(
     selectedStyle: ButtonStyle(
       padding: const WidgetStatePropertyAll(_searchButtonPadding),
@@ -556,7 +559,9 @@ SearchButtonThemeData _searchButtonTheme(ColorScheme colorScheme, Color seedColo
       }),
       side: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.disabled)) {
-          return BorderSide(color: colorScheme.onSurface.withValues(alpha: 0.38));
+          return BorderSide(
+            color: colorScheme.onSurface.withValues(alpha: 0.38),
+          );
         }
         if (states.contains(WidgetState.hovered)) {
           return BorderSide(color: colorScheme.primary);

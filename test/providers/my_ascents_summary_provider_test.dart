@@ -12,9 +12,7 @@ import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 void main() {
   test('recomputes when peaks or bagged ascents change', () async {
     final peakRepository = PeakRepository.test(
-      InMemoryPeakStorage([
-        _peak(10, 'Alpha', elevation: 1234),
-      ]),
+      InMemoryPeakStorage([_peak(10, 'Alpha', elevation: 1234)]),
     );
     final peaksBaggedRepository = PeaksBaggedRepository.test(
       InMemoryPeaksBaggedStorage([
@@ -34,9 +32,7 @@ void main() {
     expect(source.baggedRows, hasLength(1));
     expect(source.peaksByOsmId[10]?.name, 'Alpha');
 
-    await peakRepository.save(
-      _peak(10, 'Bravo', elevation: 1200),
-    );
+    await peakRepository.save(_peak(10, 'Bravo', elevation: 1200));
     container.read(peakRevisionProvider.notifier).increment();
 
     source = container.read(myAscentsSummaryProvider);
@@ -69,11 +65,7 @@ void main() {
   });
 }
 
-Peak _peak(
-  int osmId,
-  String name, {
-  double? elevation,
-}) {
+Peak _peak(int osmId, String name, {double? elevation}) {
   return Peak(
     osmId: osmId,
     name: name,
