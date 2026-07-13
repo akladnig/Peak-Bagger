@@ -1,19 +1,20 @@
 import 'dart:io';
 
-import 'package:flutter/widgets.dart';
 import 'package:path/path.dart' as p;
-import 'package:peak_bagger/models/peak.dart';
-import 'package:peak_bagger/objectbox.g.dart';
-import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/peak_csv_source.dart';
 import 'package:peak_bagger/services/peak_source.dart';
 import 'package:peak_bagger/services/slovenia_hribi_source_peak_list_service.dart';
 
 typedef SloveniaPeakSourceLoader = Future<PeakSource> Function();
 
+const _defaultPeaksCsvPath =
+    '/Users/adrian/Documents/Bushwalking/Features/peaks.csv';
+
 class _Invocation {
   const _Invocation({
     required this.showHelp,
     required this.outputDirectoryPath,
+    required this.peaksCsvPath,
     required this.repairList,
     required this.refreshCache,
     required this.tieWindowMeters,
@@ -21,13 +22,13 @@ class _Invocation {
 
   final bool showHelp;
   final String outputDirectoryPath;
+  final String peaksCsvPath;
   final bool repairList;
   final bool refreshCache;
   final int tieWindowMeters;
 }
 
 void main(List<String> args) async {
-  WidgetsFlutterBinding.ensureInitialized();
   final exitCode = await runSloveniaHribiSourcePeakListTool(args: args);
   exit(exitCode);
 }
@@ -61,12 +62,9 @@ Future<int> runSloveniaHribiSourcePeakListTool({
     return 0;
   }
 
-  _OwnedPeakSource? ownedPeakSource;
   final resolvedService = service ?? await () async {
-    final peakSource = await (peakSourceLoader ?? _defaultPeakSourceLoader)();
-    if (peakSource is _OwnedPeakSource) {
-      ownedPeakSource = peakSource;
-    }
+    final peakSource = await (peakSourceLoader ??
+        () => _defaultPeakSourceLoader(invocation.peaksCsvPath))();
     return SloveniaHribiSourcePeakListService(
       pageLoader: pageLoader,
       peakSource: peakSource,
@@ -107,14 +105,13 @@ Future<int> runSloveniaHribiSourcePeakListTool({
   } on Object catch (error) {
     stderrLine(error.toString());
     return 1;
-  } finally {
-    ownedPeakSource?.close();
   }
 }
 
 _Invocation _parseInvocation(List<String> args) {
   var showHelp = false;
   var outputDirectoryPath = p.join('.', 'assets', 'peaks');
+  var peaksCsvPath = _defaultPeaksCsvPath;
   var repairList = false;
   var refreshCache = false;
   var tieWindowMeters = 10;
@@ -134,6 +131,17 @@ _Invocation _parseInvocation(List<String> args) {
     }
     if (arg.startsWith('--output-dir=')) {
       outputDirectoryPath = arg.substring('--output-dir='.length);
+      continue;
+    }
+    if (arg == '--peaks-csv') {
+      if (index + 1 >= args.length) {
+        throw ArgumentError('Missing value for --peaks-csv');
+      }
+      peaksCsvPath = args[++index];
+      continue;
+    }
+    if (arg.startsWith('--peaks-csv=')) {
+      peaksCsvPath = arg.substring('--peaks-csv='.length);
       continue;
     }
     if (arg == '--repair-list') {
@@ -167,6 +175,7 @@ _Invocation _parseInvocation(List<String> args) {
   return _Invocation(
     showHelp: showHelp,
     outputDirectoryPath: outputDirectoryPath,
+    peaksCsvPath: peaksCsvPath,
     repairList: repairList,
     refreshCache: refreshCache,
     tieWindowMeters: tieWindowMeters,
@@ -176,34 +185,15 @@ _Invocation _parseInvocation(List<String> args) {
 String _usage() {
   return '''
 Usage:
-  dart run tool/slovenia_hribi_source_peak_list.dart [--repair-list] [--refresh-cache] [--tie-window-meters N] [--output-dir PATH]
+  dart run tool/slovenia_hribi_source_peak_list.dart [--repair-list] [--refresh-cache] [--tie-window-meters N] [--output-dir PATH] [--peaks-csv PATH]
 
 Defaults:
   output-dir: ./assets/peaks
+  peaks-csv: $_defaultPeaksCsvPath
   tie-window-meters: 10
 ''';
 }
 
-Future<PeakSource> _defaultPeakSourceLoader() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  final store = await openStore();
-  final repository = PeakRepository(
-    store,
-    peakListRewritePort: ObjectBoxPeakListRewritePort(store),
-  );
-  return _OwnedPeakSource(store: store, delegate: repository);
-}
-
-class _OwnedPeakSource implements PeakSource {
-  _OwnedPeakSource({required this._store, required this._delegate});
-
-  final Store _store;
-  final PeakSource _delegate;
-
-  @override
-  List<Peak> getAllPeaks() => _delegate.getAllPeaks();
-
-  void close() {
-    _store.close();
-  }
+Future<PeakSource> _defaultPeakSourceLoader(String csvPath) {
+  return PeakCsvSource.load(csvPath);
 }
