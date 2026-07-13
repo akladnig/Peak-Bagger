@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peak_ownership_ring_segment.dart';
 import 'package:supercluster/supercluster.dart';
 
 class ProjectedPeakCandidate {
@@ -13,12 +14,16 @@ class ProjectedPeakCandidate {
     required this.screenPosition,
     required this.isTicked,
     this.untickedColourValue,
+    this.activeOwnershipSegments = const <PeakOwnershipRingSegment>[],
+    this.ownershipRingSegments = const <PeakOwnershipRingSegment>[],
   });
 
   final Peak peak;
   final ui.Offset screenPosition;
   final bool isTicked;
   final int? untickedColourValue;
+  final List<PeakOwnershipRingSegment> activeOwnershipSegments;
+  final List<PeakOwnershipRingSegment> ownershipRingSegments;
 }
 
 class PeakCluster {
@@ -36,6 +41,21 @@ class PeakCluster {
 
   double get untickedFraction =>
       members.isEmpty ? 0 : untickedCount / members.length;
+
+  List<PeakOwnershipRingSegment> get untickedOwnershipRingSegments {
+    final segmentsByPeakListId = <int, PeakOwnershipRingSegment>{};
+    for (final member in members) {
+      if (member.isTicked) {
+        continue;
+      }
+      for (final segment in member.activeOwnershipSegments) {
+        segmentsByPeakListId.putIfAbsent(segment.peakListId, () => segment);
+      }
+    }
+    return List<PeakOwnershipRingSegment>.unmodifiable(
+      segmentsByPeakListId.values,
+    );
+  }
 
   List<LatLng> get points => [
     for (final member in members)
@@ -62,11 +82,15 @@ class PeakSuperclusterPoint {
     required this.peak,
     required this.isTicked,
     this.untickedColourValue,
+    this.activeOwnershipSegments = const <PeakOwnershipRingSegment>[],
+    this.ownershipRingSegments = const <PeakOwnershipRingSegment>[],
   });
 
   final Peak peak;
   final bool isTicked;
   final int? untickedColourValue;
+  final List<PeakOwnershipRingSegment> activeOwnershipSegments;
+  final List<PeakOwnershipRingSegment> ownershipRingSegments;
 }
 
 class PeakSuperclusterIndex {
@@ -116,6 +140,10 @@ PeakSuperclusterIndex buildPeakSuperclusterIndex({
   required List<Peak> peaks,
   required Set<int> correlatedPeakIds,
   Map<int, int> untickedPeakColours = const <int, int>{},
+  Map<int, List<PeakOwnershipRingSegment>> activeOwnershipSegments =
+      const <int, List<PeakOwnershipRingSegment>>{},
+  Map<int, List<PeakOwnershipRingSegment>> ownershipRingSegments =
+      const <int, List<PeakOwnershipRingSegment>>{},
 }) {
   final index = SuperclusterImmutable<PeakSuperclusterPoint>(
     getX: (point) => point.peak.longitude,
@@ -131,6 +159,12 @@ PeakSuperclusterIndex buildPeakSuperclusterIndex({
           peak: peak,
           isTicked: correlatedPeakIds.contains(peak.osmId),
           untickedColourValue: untickedPeakColours[peak.osmId],
+          activeOwnershipSegments:
+              activeOwnershipSegments[peak.osmId] ??
+              const <PeakOwnershipRingSegment>[],
+          ownershipRingSegments:
+              ownershipRingSegments[peak.osmId] ??
+              const <PeakOwnershipRingSegment>[],
         ),
   ]);
   return PeakSuperclusterIndex(index: index);
@@ -219,6 +253,10 @@ PeakClusterViewportData buildPeakClusterViewportData({
   required MapCamera camera,
   required Set<int> correlatedPeakIds,
   Map<int, int> untickedPeakColours = const <int, int>{},
+  Map<int, List<PeakOwnershipRingSegment>> activeOwnershipSegments =
+      const <int, List<PeakOwnershipRingSegment>>{},
+  Map<int, List<PeakOwnershipRingSegment>> ownershipRingSegments =
+      const <int, List<PeakOwnershipRingSegment>>{},
   PeakClusterAlgorithm algorithm = MapConstants.peakClusterAlgorithm,
 }) {
   final size = camera.nonRotatedSize;
@@ -251,13 +289,19 @@ PeakClusterViewportData buildPeakClusterViewportData({
       continue;
     }
     projected.add(
-      ProjectedPeakCandidate(
-        peak: peak,
-        screenPosition: screenPosition,
-        isTicked: correlatedPeakIds.contains(peak.osmId),
-        untickedColourValue: untickedPeakColours[peak.osmId],
-      ),
-    );
+        ProjectedPeakCandidate(
+          peak: peak,
+          screenPosition: screenPosition,
+          isTicked: correlatedPeakIds.contains(peak.osmId),
+          untickedColourValue: untickedPeakColours[peak.osmId],
+          activeOwnershipSegments:
+              activeOwnershipSegments[peak.osmId] ??
+              const <PeakOwnershipRingSegment>[],
+          ownershipRingSegments:
+              ownershipRingSegments[peak.osmId] ??
+              const <PeakOwnershipRingSegment>[],
+        ),
+      );
   }
 
   return switch (algorithm) {
@@ -271,6 +315,8 @@ PeakClusterViewportData buildPeakClusterViewportData({
           peaks: peaks,
           correlatedPeakIds: correlatedPeakIds,
           untickedPeakColours: untickedPeakColours,
+          activeOwnershipSegments: activeOwnershipSegments,
+          ownershipRingSegments: ownershipRingSegments,
         ),
         camera: camera,
       ),
@@ -282,6 +328,10 @@ PeakClusterViewportData buildUnclusteredPeakViewportData({
   required MapCamera camera,
   required Set<int> correlatedPeakIds,
   Map<int, int> untickedPeakColours = const <int, int>{},
+  Map<int, List<PeakOwnershipRingSegment>> activeOwnershipSegments =
+      const <int, List<PeakOwnershipRingSegment>>{},
+  Map<int, List<PeakOwnershipRingSegment>> ownershipRingSegments =
+      const <int, List<PeakOwnershipRingSegment>>{},
 }) {
   final size = camera.nonRotatedSize;
   if (size == MapCamera.kImpossibleSize) {
@@ -318,6 +368,12 @@ PeakClusterViewportData buildUnclusteredPeakViewportData({
       screenPosition: screenPosition,
       isTicked: correlatedPeakIds.contains(peak.osmId),
       untickedColourValue: untickedPeakColours[peak.osmId],
+      activeOwnershipSegments:
+          activeOwnershipSegments[peak.osmId] ??
+          const <PeakOwnershipRingSegment>[],
+      ownershipRingSegments:
+          ownershipRingSegments[peak.osmId] ??
+          const <PeakOwnershipRingSegment>[],
     );
     if (candidate.isTicked) {
       ticked.add(candidate);
@@ -552,6 +608,8 @@ ProjectedPeakCandidate? _projectIndexedPeakPoint(
     screenPosition: screenPosition,
     isTicked: point.isTicked,
     untickedColourValue: point.untickedColourValue,
+    activeOwnershipSegments: point.activeOwnershipSegments,
+    ownershipRingSegments: point.ownershipRingSegments,
   );
 }
 

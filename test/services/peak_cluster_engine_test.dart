@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peak_ownership_ring_segment.dart';
 import 'package:peak_bagger/services/peak_cluster_engine.dart';
 import 'package:peak_bagger/services/peak_projection_cache.dart';
 
@@ -17,6 +18,9 @@ void main() {
       peaks: [closeA, closeB],
       camera: camera,
       correlatedPeakIds: {2},
+      activeOwnershipSegments: const {
+        1: [PeakOwnershipRingSegment(peakListId: 7, colourValue: 0xFF4C8BF5)],
+      },
     );
 
     expect(data.clusters, hasLength(1));
@@ -25,6 +29,53 @@ void main() {
     expect(data.clusters.single.tickedCount, 1);
     expect(data.clusters.single.untickedFraction, 0.5);
     expect(data.clusters.single.tickedFraction, 0.5);
+    expect(
+      data.clusters.single.untickedOwnershipRingSegments
+          .map((segment) => segment.peakListId),
+      [7],
+    );
+  });
+
+  test('cluster unticked ownership ring segments stay equal by selected list', () {
+    final camera = _camera(zoom: 8);
+    final data = buildPeakClusterViewportData(
+      peaks: [closeA, closeB],
+      camera: camera,
+      correlatedPeakIds: const {},
+      activeOwnershipSegments: const {
+        1: [
+          PeakOwnershipRingSegment(peakListId: 7, colourValue: 0xFF4C8BF5),
+          PeakOwnershipRingSegment(peakListId: 8, colourValue: 0xFF12B886),
+        ],
+        2: [PeakOwnershipRingSegment(peakListId: 8, colourValue: 0xFF12B886)],
+      },
+    );
+
+    expect(data.clusters, hasLength(1));
+    expect(data.clusters.single.tickedFraction, 0);
+    expect(data.clusters.single.untickedFraction, 1);
+    expect(
+      data.clusters.single.untickedOwnershipRingSegments
+          .map((segment) => segment.peakListId),
+      [7, 8],
+    );
+  });
+
+  test('cluster ring becomes fully green when no unticked peaks remain', () {
+    final camera = _camera(zoom: 8);
+    final data = buildPeakClusterViewportData(
+      peaks: [closeA, closeB],
+      camera: camera,
+      correlatedPeakIds: const {1, 2},
+      activeOwnershipSegments: const {
+        1: [PeakOwnershipRingSegment(peakListId: 7, colourValue: 0xFF4C8BF5)],
+        2: [PeakOwnershipRingSegment(peakListId: 8, colourValue: 0xFF12B886)],
+      },
+    );
+
+    expect(data.clusters.single.tickedFraction, 1);
+    expect(data.clusters.single.untickedFraction, 0);
+    expect(data.clusters.single.untickedOwnershipRingSegments, isEmpty);
   });
 
   test('close peaks dissolve into individuals at higher zoom', () {
@@ -43,6 +94,48 @@ void main() {
     ]);
     expect(data.individualCandidates.first.untickedColourValue, 0xFF4C8BF5);
     expect(data.individualCandidates.last.untickedColourValue, isNull);
+  });
+
+  test('individual peaks carry ordered ownership ring segments', () {
+    final camera = _camera(zoom: 15);
+    final data = buildPeakClusterViewportData(
+      peaks: [closeA],
+      camera: camera,
+      correlatedPeakIds: const {},
+      untickedPeakColours: const {1: 0xFF4C8BF5},
+      ownershipRingSegments: const {
+        1: [
+          PeakOwnershipRingSegment(peakListId: 7, colourValue: 0xFF4C8BF5),
+          PeakOwnershipRingSegment(peakListId: 8, colourValue: 0xFF12B886),
+        ],
+      },
+    );
+
+    expect(data.clusters, isEmpty);
+    expect(data.individualCandidates.single.untickedColourValue, 0xFF4C8BF5);
+    expect(
+      data.individualCandidates.single.ownershipRingSegments
+          .map((segment) => segment.peakListId),
+      [7, 8],
+    );
+  });
+
+  test('ticked individual peaks stay green while keeping ownership ring data', () {
+    final camera = _camera(zoom: 15);
+    final data = buildPeakClusterViewportData(
+      peaks: [closeA],
+      camera: camera,
+      correlatedPeakIds: const {1},
+      ownershipRingSegments: const {
+        1: [
+          PeakOwnershipRingSegment(peakListId: 7, colourValue: 0xFF4C8BF5),
+          PeakOwnershipRingSegment(peakListId: 8, colourValue: 0xFF12B886),
+        ],
+      },
+    );
+
+    expect(data.individualCandidates.single.isTicked, isTrue);
+    expect(data.individualCandidates.single.ownershipRingSegments, hasLength(2));
   });
 
   test('invalid coordinates are skipped safely', () {
@@ -277,11 +370,47 @@ void main() {
       untickedPeakColours: const {1: 0xFF4C8BF5},
       algorithm: PeakClusterAlgorithm.supercluster,
     );
+    final changedOwnershipRingSegments = cache.getOrBuild(
+      peaks: [closeA, closeB],
+      camera: _camera(zoom: 9),
+      correlatedPeakIds: {2},
+      untickedPeakColours: const {1: 0xFF4C8BF5},
+      ownershipRingSegments: const {
+        1: [
+          PeakOwnershipRingSegment(peakListId: 7, colourValue: 0xFF4C8BF5),
+          PeakOwnershipRingSegment(peakListId: 8, colourValue: 0xFF12B886),
+        ],
+      },
+      algorithm: PeakClusterAlgorithm.supercluster,
+    );
+    final changedActiveOwnershipSegments = cache.getOrBuild(
+      peaks: [closeA, closeB],
+      camera: _camera(zoom: 9),
+      correlatedPeakIds: {2},
+      untickedPeakColours: const {1: 0xFF4C8BF5},
+      activeOwnershipSegments: const {
+        1: [
+          PeakOwnershipRingSegment(peakListId: 7, colourValue: 0xFF4C8BF5),
+        ],
+      },
+      ownershipRingSegments: const {
+        1: [
+          PeakOwnershipRingSegment(peakListId: 7, colourValue: 0xFF4C8BF5),
+          PeakOwnershipRingSegment(peakListId: 8, colourValue: 0xFF12B886),
+        ],
+      },
+      algorithm: PeakClusterAlgorithm.supercluster,
+    );
 
     expect(identical(base, same), isTrue);
     expect(identical(base, changedZoom), isFalse);
     expect(identical(changedCorrelation, changedUntickedColours), isFalse);
     expect(identical(changedCorrelation, changedAlgorithm), isFalse);
+    expect(identical(changedAlgorithm, changedOwnershipRingSegments), isFalse);
+    expect(
+      identical(changedOwnershipRingSegments, changedActiveOwnershipSegments),
+      isFalse,
+    );
     expect(
       changedCorrelation.individualCandidates.any(
             (candidate) => candidate.isTicked,

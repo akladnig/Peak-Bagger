@@ -31,6 +31,7 @@ import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/map_chart_hover_provider.dart';
 import 'package:peak_bagger/providers/peak_map_cluster_display_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
+import 'package:peak_bagger/providers/peak_ownership_ring_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/show_polygons_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
@@ -1049,6 +1050,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
       camera: camera,
       correlatedPeakIds: ref.read(mapProvider.notifier).correlatedPeakIds,
       untickedPeakColours: ref.read(peakMarkerColourAssignmentsProvider),
+      activeOwnershipSegments: ref.read(peakActiveOwnershipSegmentsProvider),
+      ownershipRingSegments: ref.read(peakOwnershipRingSegmentsProvider),
       clusteringEnabled: ref.read(peakMapClusterDisplaySettingsProvider),
     );
   }
@@ -2351,6 +2354,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     final showPeakInfo = ref.watch(
                       peakMarkerInfoSettingsProvider,
                     );
+                    ref.watch(peakOwnershipRingSettingsProvider);
                     final showPolygons = ref.watch(
                       showPolygonsSettingsProvider,
                     );
@@ -2359,6 +2363,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                         : null;
                     final filteredPeaks = ref.watch(filteredPeaksProvider);
                     ref.watch(peakMarkerColourAssignmentsProvider);
+                    ref.watch(peakActiveOwnershipSegmentsProvider);
+                    ref.watch(peakOwnershipRingSegmentsProvider);
                     final routes = ref.watch(routeListProvider);
                     final routeDraftSourceRouteId = ref.watch(
                       mapProvider.select((state) => state.sourceRouteId),

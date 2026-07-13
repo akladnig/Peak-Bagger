@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_mini_map_cluster_display_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_map_cluster_display_settings_provider.dart';
+import 'package:peak_bagger/providers/peak_ownership_ring_settings_provider.dart';
 import 'package:peak_bagger/screens/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -133,6 +134,109 @@ void main() {
           .widget<Switch>(find.byKey(const Key('show-map-peak-clusters-switch')))
           .value,
       isFalse,
+    );
+  });
+
+  testWidgets('settings screen shows peak ownership ring row', (tester) async {
+    SharedPreferences.resetStatic();
+    SharedPreferences.setMockInitialValues({});
+
+    await _pumpSettingsScreen(tester);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('show-peak-ownership-rings-tile')),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('settings-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const Key('show-peak-ownership-rings-tile')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('show-peak-ownership-rings-switch')),
+      findsOneWidget,
+    );
+    expect(find.text('Show Peak Ownership Rings'), findsOneWidget);
+  });
+
+  testWidgets('peak ownership ring toggle persists across rebuilds', (
+    tester,
+  ) async {
+    SharedPreferences.resetStatic();
+    SharedPreferences.setMockInitialValues({});
+
+    await _pumpSettingsScreen(tester);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('show-peak-ownership-rings-tile')),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('settings-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pump();
+
+    expect(
+      tester
+          .widget<Switch>(
+            find.byKey(const Key('show-peak-ownership-rings-switch')),
+          )
+          .value,
+      isFalse,
+    );
+
+    await tester.tap(find.byKey(const Key('show-peak-ownership-rings-tile')));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<Switch>(
+            find.byKey(const Key('show-peak-ownership-rings-switch')),
+          )
+          .value,
+      isTrue,
+    );
+    expect(
+      ProviderScope.containerOf(tester.element(find.byType(SettingsScreen)))
+          .read(peakOwnershipRingSettingsProvider),
+      isTrue,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+
+    await _pumpSettingsScreen(tester);
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('show-peak-ownership-rings-tile')),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('settings-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pump();
+
+    expect(
+      tester
+          .widget<Switch>(
+            find.byKey(const Key('show-peak-ownership-rings-switch')),
+          )
+          .value,
+      isTrue,
     );
   });
 

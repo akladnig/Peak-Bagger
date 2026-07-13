@@ -13,6 +13,7 @@ import 'package:peak_bagger/providers/peak_csv_export_provider.dart';
 import 'package:peak_bagger/providers/peak_list_mini_map_cluster_display_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_map_cluster_display_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
+import 'package:peak_bagger/providers/peak_ownership_ring_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_list_csv_export_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
@@ -80,6 +81,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       peakMapClusterDisplaySettingsProvider,
     );
     final showPeakInfo = ref.watch(peakMarkerInfoSettingsProvider);
+    final showPeakOwnershipRings = ref.watch(peakOwnershipRingSettingsProvider);
     final showPolygons = ref.watch(showPolygonsSettingsProvider);
     final peakCorrelationState = ref.watch(peakCorrelationSettingsProvider);
     final routeGraphReadiness = ref.watch(routeGraphReadinessProvider);
@@ -484,6 +486,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ref
                         .read(peakMapClusterDisplaySettingsProvider.notifier)
                         .setShowPeakClusters(!showMapPeakClusters),
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: ListTile(
+                key: const Key('show-peak-ownership-rings-tile'),
+                leading: const Icon(Icons.donut_large_outlined),
+                title: const Text('Show Peak Ownership Rings'),
+                subtitle: const Text(
+                  'Toggle multi-list ownership rings on main-map peak markers',
+                ),
+                trailing: Switch(
+                  key: const Key('show-peak-ownership-rings-switch'),
+                  value: showPeakOwnershipRings,
+                  onChanged: (value) {
+                    unawaited(
+                      ref
+                          .read(peakOwnershipRingSettingsProvider.notifier)
+                          .setShowPeakOwnershipRings(value),
+                    );
+                  },
+                ),
+                onTap: () {
+                  unawaited(
+                    ref
+                        .read(peakOwnershipRingSettingsProvider.notifier)
+                        .setShowPeakOwnershipRings(!showPeakOwnershipRings),
                   );
                 },
               ),

@@ -21,6 +21,7 @@ import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
+import 'package:peak_bagger/screens/map_screen_peak_layer.dart';
 import 'package:peak_bagger/screens/peak_lists_screen.dart';
 import 'package:peak_bagger/services/peak_list_csv_export_service.dart';
 import 'package:peak_bagger/services/peak_list_file_picker.dart';
@@ -685,6 +686,16 @@ void main() {
     expect(
       find.byKey(const Key('peak-lists-mini-map-cluster-0')),
       findsOneWidget,
+    );
+
+    final painter = tester
+        .widgetList<CustomPaint>(find.byType(CustomPaint))
+        .map((widget) => widget.painter)
+        .whereType<PeakViewportPainter>()
+        .first;
+    expect(
+      painter.clusterRingStyle,
+      PeakClusterRingStyle.proportionalTickedUnticked,
     );
   });
 

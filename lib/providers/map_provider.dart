@@ -4,7 +4,8 @@ import 'dart:developer' as developer;
 import 'dart:io' as io;
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack;
+import 'package:flutter/foundation.dart'
+    show debugPrint, debugPrintStack, listEquals, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gdal_dart/gdal_dart.dart' show GdalException;
 import 'package:path/path.dart' as p;
@@ -215,6 +216,149 @@ Map<String, Set<int>>? _decodePinnedPeakListIdsByRegion(String? payload) {
   return _immutablePinnedPeakListIdsByRegion(idsByRegion);
 }
 
+class _VisibleRegionPeakListSnapshot {
+  const _VisibleRegionPeakListSnapshot({
+    required this.regions,
+    required this.mode,
+    this.ids = const <int>{},
+  });
+
+  final List<String> regions;
+  final PeakListSelectionMode mode;
+  final Set<int> ids;
+
+  Map<String, Object> toJson() {
+    return {
+      'regions': regions,
+      'mode': mode.name,
+      if (mode == PeakListSelectionMode.specificList)
+        'ids': ids.toList(growable: false)..sort(),
+    };
+  }
+
+  _VisibleRegionPeakListSnapshot copyWith({Set<int>? ids}) {
+    return _VisibleRegionPeakListSnapshot(
+      regions: regions,
+      mode: mode,
+      ids: ids ?? this.ids,
+    );
+  }
+}
+
+String _visibleRegionSnapshotKey(Iterable<String> regions) {
+  final sorted = regions.toSet().toList(growable: false)..sort();
+  return convert.jsonEncode(sorted);
+}
+
+Map<String, _VisibleRegionPeakListSnapshot> _encodeVisibleRegionSnapshotMap(
+  Map<String, _VisibleRegionPeakListSnapshot> snapshots,
+) {
+  return Map<String, _VisibleRegionPeakListSnapshot>.unmodifiable(snapshots);
+}
+
+String _encodeVisibleRegionPeakListSnapshots(
+  Map<String, _VisibleRegionPeakListSnapshot> snapshots,
+) {
+  final orderedKeys = snapshots.keys.toList(growable: false)..sort();
+  return convert.jsonEncode([
+    for (final key in orderedKeys) snapshots[key]!.toJson(),
+  ]);
+}
+
+Map<String, _VisibleRegionPeakListSnapshot>
+_decodeVisibleRegionPeakListSnapshots(String? payload) {
+  if (payload == null) {
+    return const <String, _VisibleRegionPeakListSnapshot>{};
+  }
+
+  Object? decoded;
+  try {
+    decoded = convert.jsonDecode(payload);
+  } on FormatException {
+    return const <String, _VisibleRegionPeakListSnapshot>{};
+  }
+  if (decoded is! List) {
+    return const <String, _VisibleRegionPeakListSnapshot>{};
+  }
+
+  final snapshots = <String, _VisibleRegionPeakListSnapshot>{};
+  for (final record in decoded) {
+    final snapshot = _decodeVisibleRegionPeakListSnapshotRecord(record);
+    if (snapshot == null) {
+      continue;
+    }
+    final key = _visibleRegionSnapshotKey(snapshot.regions);
+    if (snapshots.containsKey(key)) {
+      continue;
+    }
+    snapshots[key] = snapshot;
+  }
+
+  return _encodeVisibleRegionSnapshotMap(snapshots);
+}
+
+_VisibleRegionPeakListSnapshot? _decodeVisibleRegionPeakListSnapshotRecord(
+  Object? record,
+) {
+  if (record is! Map<String, dynamic>) {
+    return null;
+  }
+
+  final rawRegions = record['regions'];
+  final rawMode = record['mode'];
+  if (rawRegions is! List || rawMode is! String) {
+    return null;
+  }
+
+  final normalizedRegions = <String>[];
+  final uniqueRegions = <String>{};
+  for (final rawRegion in rawRegions) {
+    if (rawRegion is! String) {
+      return null;
+    }
+    final normalizedRegion = canonicalRegionKey(
+      normalizePeakListRegionKey(rawRegion),
+    );
+    if (normalizedRegion == null || !uniqueRegions.add(normalizedRegion)) {
+      return null;
+    }
+    normalizedRegions.add(normalizedRegion);
+  }
+  if (normalizedRegions.isEmpty) {
+    return null;
+  }
+  normalizedRegions.sort();
+
+  return switch (rawMode) {
+    'none' => _VisibleRegionPeakListSnapshot(
+      regions: List<String>.unmodifiable(normalizedRegions),
+      mode: PeakListSelectionMode.none,
+    ),
+    'specificList' => () {
+      final rawIds = record['ids'];
+      if (rawIds is! List) {
+        return null;
+      }
+      final ids = <int>{};
+      for (final rawId in rawIds) {
+        if (rawId is! int) {
+          return null;
+        }
+        ids.add(rawId);
+      }
+      if (ids.isEmpty) {
+        return null;
+      }
+      return _VisibleRegionPeakListSnapshot(
+        regions: List<String>.unmodifiable(normalizedRegions),
+        mode: PeakListSelectionMode.specificList,
+        ids: _immutablePeakListIds(ids),
+      );
+    }(),
+    _ => null,
+  };
+}
+
 const _latKey = 'map_position_lat';
 const _lngKey = 'map_position_lng';
 const _zoomKey = 'map_zoom';
@@ -222,6 +366,8 @@ const _peakListSelectionModeV2Key = 'peak_list_selection_mode_v2';
 const _peakListSelectedIdsV2Key = 'peak_list_selected_ids_v2';
 const _peakListPreviousSpecificIdsV2Key = 'peak_list_previous_specific_ids_v2';
 const _peakListPinnedIdsByRegionV1Key = 'peak_list_pinned_ids_by_region_v1';
+const _peakListVisibleRegionSnapshotsV1Key =
+    'peak_list_visible_region_snapshots_v1';
 const _legacyPeakListSelectionModeKey = 'peak_list_selection_mode';
 const _legacyPeakListIdKey = 'peak_list_id';
 const _showTracksKey = 'show_tracks';
@@ -1190,6 +1336,9 @@ Set<int> buildCorrelatedPeakIds(Iterable<GpxTrack> tracks) {
 
 class MapNotifier extends Notifier<MapState> {
   Future<void> _peakListSelectionPersistChain = Future<void>.value();
+  Map<String, _VisibleRegionPeakListSnapshot> _visibleRegionSelectionSnapshots =
+      const <String, _VisibleRegionPeakListSnapshot>{};
+  String? _activeVisibleRegionSelectionSnapshotKey;
 
   MapNotifier({
     PeakRepository? peakRepository,
@@ -1263,6 +1412,13 @@ class MapNotifier extends Notifier<MapState> {
   bool _showRoutesRestoreOverridden = false;
   bool _showTrailsRestoreOverridden = false;
   int _searchPopupRequestSerial = 0;
+
+  @visibleForTesting
+  String encodeVisibleRegionSelectionSnapshotsForPersistence() {
+    return _encodeVisibleRegionPeakListSnapshots(
+      _visibleRegionSelectionSnapshots,
+    );
+  }
 
   TasmapRepository get tasmapRepository =>
       _injectedTasmapRepository ?? _tasmapRepository;
@@ -1718,7 +1874,8 @@ class MapNotifier extends Notifier<MapState> {
         existingContentHashes: existingContentHashes,
       );
 
-      completedCount = plan.unchangedCount + plan.unsupportedCount + plan.errorCount;
+      completedCount =
+          plan.unchangedCount + plan.unsupportedCount + plan.errorCount;
       if (plan.items.isEmpty) {
         reportProgress();
       }
@@ -2376,6 +2533,9 @@ class MapNotifier extends Notifier<MapState> {
       final pinnedPeakListIdsByRegion = _decodePinnedPeakListIdsByRegion(
         prefs.getString(_peakListPinnedIdsByRegionV1Key),
       );
+      _visibleRegionSelectionSnapshots = _decodeVisibleRegionPeakListSnapshots(
+        prefs.getString(_peakListVisibleRegionSnapshotsV1Key),
+      );
 
       if (lat != null && lng != null && zoom != null) {
         final location = LatLng(lat, lng);
@@ -2494,6 +2654,10 @@ class MapNotifier extends Notifier<MapState> {
         await prefs.setString(
           _peakListPinnedIdsByRegionV1Key,
           _encodePinnedPeakListIdsByRegion(pinnedPeakListIdsByRegion),
+        );
+        await prefs.setString(
+          _peakListVisibleRegionSnapshotsV1Key,
+          encodeVisibleRegionSelectionSnapshotsForPersistence(),
         );
         await prefs.remove(_legacyPeakListSelectionModeKey);
         await prefs.remove(_legacyPeakListIdKey);
@@ -4653,14 +4817,142 @@ class MapNotifier extends Notifier<MapState> {
       clearPeakInfoPopup: true,
       clearHoveredPeakId: true,
     );
+    _syncVisibleRegionSelectionSnapshotForCurrentState();
     unawaited(persistPeakListSelection());
   }
 
-  void reconcileSelectedPeakList() {
-    if (state.peakListSelectionMode != PeakListSelectionMode.specificList) {
+  Set<String> _currentVisibleRegionKeys() {
+    final bounds = state.visibleBounds;
+    if (bounds == null) {
+      return const <String>{};
+    }
+    return visibleRegionKeysForBounds(bounds);
+  }
+
+  _VisibleRegionPeakListSnapshot? _snapshotForVisibleRegionKeys(
+    Set<String> visibleRegionKeys,
+  ) {
+    return _visibleRegionSelectionSnapshots[_visibleRegionSnapshotKey(
+      visibleRegionKeys,
+    )];
+  }
+
+  void _syncVisibleRegionSelectionSnapshotForCurrentState() {
+    final visibleRegionKeys = _currentVisibleRegionKeys();
+    if (visibleRegionKeys.isEmpty) {
       return;
     }
 
+    final snapshotKey = _visibleRegionSnapshotKey(visibleRegionKeys);
+    final nextSnapshots = <String, _VisibleRegionPeakListSnapshot>{
+      for (final entry in _visibleRegionSelectionSnapshots.entries)
+        entry.key: entry.value,
+    };
+    final orderedRegions = visibleRegionKeys.toList(growable: false)..sort();
+
+    switch (state.peakListSelectionMode) {
+      case PeakListSelectionMode.allPeaks:
+        nextSnapshots.remove(snapshotKey);
+      case PeakListSelectionMode.none:
+        nextSnapshots[snapshotKey] = _VisibleRegionPeakListSnapshot(
+          regions: orderedRegions,
+          mode: PeakListSelectionMode.none,
+        );
+      case PeakListSelectionMode.specificList:
+        var snapshotIds = state.selectedPeakListIds;
+        try {
+          final peakLists = ref
+              .read(peakListRepositoryProvider)
+              .getAllPeakLists();
+          final peakListsById = {
+            for (final peakList in peakLists) peakList.peakListId: peakList,
+          };
+          snapshotIds = _immutablePeakListIds({
+            for (final peakListId in state.selectedPeakListIds)
+              if (() {
+                final peakList = peakListsById[peakListId];
+                return peakList != null &&
+                    peakListAppliesToVisibleRegions(
+                      peakList,
+                      visibleRegionKeys,
+                    );
+              }())
+                peakListId,
+          });
+        } catch (_) {}
+
+        if (snapshotIds.isEmpty) {
+          nextSnapshots.remove(snapshotKey);
+        } else {
+          nextSnapshots[snapshotKey] = _VisibleRegionPeakListSnapshot(
+            regions: orderedRegions,
+            mode: PeakListSelectionMode.specificList,
+            ids: snapshotIds,
+          );
+        }
+    }
+
+    _visibleRegionSelectionSnapshots = _encodeVisibleRegionSnapshotMap(
+      nextSnapshots,
+    );
+  }
+
+  bool _pruneVisibleRegionSelectionSnapshots(List<PeakList> peakLists) {
+    final peakListsById = {
+      for (final peakList in peakLists) peakList.peakListId: peakList,
+    };
+    final nextSnapshots = <String, _VisibleRegionPeakListSnapshot>{};
+
+    for (final entry in _visibleRegionSelectionSnapshots.entries) {
+      final snapshot = entry.value;
+      if (snapshot.mode == PeakListSelectionMode.none) {
+        nextSnapshots[entry.key] = snapshot;
+        continue;
+      }
+
+      final visibleRegionKeys = snapshot.regions.toSet();
+      final prunedIds = <int>{
+        for (final peakListId in snapshot.ids)
+          if (() {
+            final peakList = peakListsById[peakListId];
+            return peakList != null &&
+                peakListAppliesToVisibleRegions(peakList, visibleRegionKeys);
+          }())
+            peakListId,
+      };
+      if (prunedIds.isEmpty) {
+        continue;
+      }
+
+      nextSnapshots[entry.key] = snapshot.copyWith(
+        ids: _immutablePeakListIds(prunedIds),
+      );
+    }
+
+    if (_visibleRegionSelectionSnapshots.length == nextSnapshots.length) {
+      var changed = false;
+      for (final entry in _visibleRegionSelectionSnapshots.entries) {
+        final nextSnapshot = nextSnapshots[entry.key];
+        if (nextSnapshot == null ||
+            nextSnapshot.mode != entry.value.mode ||
+            !_samePeakListIds(nextSnapshot.ids, entry.value.ids) ||
+            !listEquals(nextSnapshot.regions, entry.value.regions)) {
+          changed = true;
+          break;
+        }
+      }
+      if (!changed) {
+        return false;
+      }
+    }
+
+    _visibleRegionSelectionSnapshots = _encodeVisibleRegionSnapshotMap(
+      nextSnapshots,
+    );
+    return true;
+  }
+
+  void reconcileSelectedPeakList({bool regionChanged = false}) {
     final repo = ref.read(peakListRepositoryProvider);
     List<PeakList> peakLists;
     try {
@@ -4677,34 +4969,104 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
-    final validPeakListIds = renderablePeakListIdsForVisibleRegions(
-      peakLists: peakLists,
-      selectedPeakListIds: state.selectedPeakListIds,
-      visibleRegionKeys: visibleRegionKeys,
-    );
-    final unreadableVisiblePeakListIds = {
-      for (final peakList in peakLists)
-        if (state.selectedPeakListIds.contains(peakList.peakListId) &&
-            peakListAppliesToVisibleRegions(peakList, visibleRegionKeys) &&
-            !_isReadablePeakListPayload(peakList))
-          peakList.peakListId,
-    };
-    final nextSelectedPeakListIds = {
-      ...validPeakListIds,
-      ...unreadableVisiblePeakListIds,
-    };
+    final snapshotsChanged = _pruneVisibleRegionSelectionSnapshots(peakLists);
+    final snapshot = _snapshotForVisibleRegionKeys(visibleRegionKeys);
+    if (snapshot == null) {
+      if (regionChanged) {
+        if (state.peakListSelectionMode != PeakListSelectionMode.allPeaks ||
+            state.selectedPeakListIds.isNotEmpty ||
+            state.previousSpecificPeakListIds.isNotEmpty) {
+          _resetToAllPeaks();
+          return;
+        }
+        if (snapshotsChanged) {
+          unawaited(persistPeakListSelection());
+        }
+        return;
+      }
 
-    if (nextSelectedPeakListIds.isEmpty) {
-      _resetToAllPeaks();
+      if (state.peakListSelectionMode != PeakListSelectionMode.specificList) {
+        if (snapshotsChanged) {
+          unawaited(persistPeakListSelection());
+        }
+        return;
+      }
+
+      final validPeakListIds = renderablePeakListIdsForVisibleRegions(
+        peakLists: peakLists,
+        selectedPeakListIds: state.selectedPeakListIds,
+        visibleRegionKeys: visibleRegionKeys,
+      );
+      final unreadableVisiblePeakListIds = {
+        for (final peakList in peakLists)
+          if (state.selectedPeakListIds.contains(peakList.peakListId) &&
+              peakListAppliesToVisibleRegions(peakList, visibleRegionKeys) &&
+              !_isReadablePeakListPayload(peakList))
+            peakList.peakListId,
+      };
+      final nextSelectedPeakListIds = {
+        ...validPeakListIds,
+        ...unreadableVisiblePeakListIds,
+      };
+      if (nextSelectedPeakListIds.isEmpty) {
+        _resetToAllPeaks();
+        return;
+      }
+      if (!_samePeakListIds(
+            nextSelectedPeakListIds,
+            state.selectedPeakListIds,
+          ) ||
+          !_samePeakListIds(
+            nextSelectedPeakListIds,
+            state.previousSpecificPeakListIds,
+          )) {
+        _updatePeakListSelection(
+          mode: PeakListSelectionMode.specificList,
+          selectedPeakListIds: nextSelectedPeakListIds,
+          previousSpecificPeakListIds: nextSelectedPeakListIds,
+        );
+        return;
+      }
+      if (snapshotsChanged) {
+        unawaited(persistPeakListSelection());
+      }
       return;
     }
 
-    if (!_samePeakListIds(nextSelectedPeakListIds, state.selectedPeakListIds)) {
+    if (snapshot.mode == PeakListSelectionMode.none) {
+      if (state.peakListSelectionMode != PeakListSelectionMode.none ||
+          state.selectedPeakListIds.isNotEmpty ||
+          state.previousSpecificPeakListIds.isNotEmpty) {
+        _updatePeakListSelection(
+          mode: PeakListSelectionMode.none,
+          selectedPeakListIds: const <int>{},
+          previousSpecificPeakListIds: const <int>{},
+        );
+        return;
+      }
+      if (snapshotsChanged) {
+        unawaited(persistPeakListSelection());
+      }
+      return;
+    }
+
+    final nextSelectedPeakListIds = snapshot.ids;
+    if (state.peakListSelectionMode != PeakListSelectionMode.specificList ||
+        !_samePeakListIds(nextSelectedPeakListIds, state.selectedPeakListIds) ||
+        !_samePeakListIds(
+          nextSelectedPeakListIds,
+          state.previousSpecificPeakListIds,
+        )) {
       _updatePeakListSelection(
         mode: PeakListSelectionMode.specificList,
         selectedPeakListIds: nextSelectedPeakListIds,
         previousSpecificPeakListIds: nextSelectedPeakListIds,
       );
+      return;
+    }
+
+    if (snapshotsChanged) {
+      unawaited(persistPeakListSelection());
     }
   }
 
@@ -4731,7 +5093,16 @@ class MapNotifier extends Notifier<MapState> {
     }
 
     state = state.copyWith(visibleBounds: bounds);
-    reconcileSelectedPeakList();
+    final visibleRegionKeys = _currentVisibleRegionKeys();
+    if (visibleRegionKeys.isEmpty) {
+      return;
+    }
+    final nextSnapshotKey = _visibleRegionSnapshotKey(visibleRegionKeys);
+    final hasChangedVisibleRegionSet =
+        _activeVisibleRegionSelectionSnapshotKey != null &&
+        _activeVisibleRegionSelectionSnapshotKey != nextSnapshotKey;
+    _activeVisibleRegionSelectionSnapshotKey = nextSnapshotKey;
+    reconcileSelectedPeakList(regionChanged: hasChangedVisibleRegionSet);
   }
 
   bool _sameVisibleBounds(LatLngBounds? left, LatLngBounds? right) {

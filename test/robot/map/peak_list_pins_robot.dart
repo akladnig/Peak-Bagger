@@ -22,7 +22,8 @@ class PeakListPinsRobot {
   late final TestMapNotifier notifier;
 
   Finder get showPeaksFab => find.byKey(const Key('show-peaks-fab'));
-  Finder get summaryRoot => find.byKey(const Key('peak-list-selection-summary'));
+  Finder get summaryRoot =>
+      find.byKey(const Key('peak-list-selection-summary'));
 
   Future<void> pumpApp() async {
     final tasmapRepository = await TestTasmapRepository.create();

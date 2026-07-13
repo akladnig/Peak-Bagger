@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peak_ownership_ring_segment.dart';
 import 'package:peak_bagger/services/peak_cluster_engine.dart';
 
 class PeakProjectionCache {
@@ -16,6 +17,10 @@ class PeakProjectionCache {
     required MapCamera camera,
     required Set<int> correlatedPeakIds,
     required Map<int, int> untickedPeakColours,
+    Map<int, List<PeakOwnershipRingSegment>> activeOwnershipSegments =
+        const <int, List<PeakOwnershipRingSegment>>{},
+    Map<int, List<PeakOwnershipRingSegment>> ownershipRingSegments =
+        const <int, List<PeakOwnershipRingSegment>>{},
     bool clusteringEnabled = true,
     PeakClusterAlgorithm algorithm = MapConstants.peakClusterAlgorithm,
   }) {
@@ -28,6 +33,24 @@ class PeakProjectionCache {
       correlatedPeakIds: correlatedPeakIds.toList(growable: false)..sort(),
       untickedPeakColours: untickedPeakColours.entries
           .map((entry) => (entry.key, entry.value))
+          .toList(growable: false)
+        ..sort((left, right) => left.$1.compareTo(right.$1)),
+      activeOwnershipSegments: activeOwnershipSegments.entries
+          .map(
+            (entry) => (
+              entry.key,
+              _ownershipRingSegmentsFingerprint(entry.value),
+            ),
+          )
+          .toList(growable: false)
+        ..sort((left, right) => left.$1.compareTo(right.$1)),
+      ownershipRingSegments: ownershipRingSegments.entries
+          .map(
+            (entry) => (
+              entry.key,
+              _ownershipRingSegmentsFingerprint(entry.value),
+            ),
+          )
           .toList(growable: false)
         ..sort((left, right) => left.$1.compareTo(right.$1)),
       clusteringEnabled: clusteringEnabled,
@@ -44,12 +67,16 @@ class PeakProjectionCache {
               camera: camera,
               correlatedPeakIds: correlatedPeakIds,
               untickedPeakColours: untickedPeakColours,
+              activeOwnershipSegments: activeOwnershipSegments,
+              ownershipRingSegments: ownershipRingSegments,
             ),
             _ => buildPeakClusterViewportData(
               peaks: peaks,
               camera: camera,
               correlatedPeakIds: correlatedPeakIds,
               untickedPeakColours: untickedPeakColours,
+              activeOwnershipSegments: activeOwnershipSegments,
+              ownershipRingSegments: ownershipRingSegments,
               algorithm: algorithm,
             ),
           }
@@ -58,6 +85,8 @@ class PeakProjectionCache {
             camera: camera,
             correlatedPeakIds: correlatedPeakIds,
             untickedPeakColours: untickedPeakColours,
+            activeOwnershipSegments: activeOwnershipSegments,
+            ownershipRingSegments: ownershipRingSegments,
           );
     _key = key;
     _data = data;
@@ -69,6 +98,8 @@ class PeakProjectionCache {
     required MapCamera camera,
     required Set<int> correlatedPeakIds,
     required Map<int, int> untickedPeakColours,
+    required Map<int, List<PeakOwnershipRingSegment>> activeOwnershipSegments,
+    required Map<int, List<PeakOwnershipRingSegment>> ownershipRingSegments,
   }) {
     final peakFingerprints = _peakRenderFingerprints(peaks);
     final key = _PeakSuperclusterIndexKey(
@@ -78,6 +109,24 @@ class PeakProjectionCache {
           .map((entry) => (entry.key, entry.value))
           .toList(growable: false)
         ..sort((left, right) => left.$1.compareTo(right.$1)),
+      activeOwnershipSegments: activeOwnershipSegments.entries
+          .map(
+            (entry) => (
+              entry.key,
+              _ownershipRingSegmentsFingerprint(entry.value),
+            ),
+          )
+          .toList(growable: false)
+        ..sort((left, right) => left.$1.compareTo(right.$1)),
+      ownershipRingSegments: ownershipRingSegments.entries
+          .map(
+            (entry) => (
+              entry.key,
+              _ownershipRingSegmentsFingerprint(entry.value),
+            ),
+          )
+          .toList(growable: false)
+        ..sort((left, right) => left.$1.compareTo(right.$1)),
     );
     if (_superclusterKey != key || _superclusterIndex == null) {
       _superclusterKey = key;
@@ -85,6 +134,8 @@ class PeakProjectionCache {
         peaks: peaks,
         correlatedPeakIds: correlatedPeakIds,
         untickedPeakColours: untickedPeakColours,
+        activeOwnershipSegments: activeOwnershipSegments,
+        ownershipRingSegments: ownershipRingSegments,
       );
     }
 
@@ -110,6 +161,8 @@ class _PeakProjectionCacheKey {
     required this.peakFingerprints,
     required this.correlatedPeakIds,
     required this.untickedPeakColours,
+    required this.activeOwnershipSegments,
+    required this.ownershipRingSegments,
     required this.clusteringEnabled,
     required this.algorithm,
   });
@@ -120,6 +173,8 @@ class _PeakProjectionCacheKey {
   final List<String> peakFingerprints;
   final List<int> correlatedPeakIds;
   final List<(int, int)> untickedPeakColours;
+  final List<(int, String)> activeOwnershipSegments;
+  final List<(int, String)> ownershipRingSegments;
   final bool clusteringEnabled;
   final PeakClusterAlgorithm algorithm;
 
@@ -134,7 +189,9 @@ class _PeakProjectionCacheKey {
             other.algorithm == algorithm &&
             _listEquals(other.peakFingerprints, peakFingerprints) &&
             _listEquals(other.correlatedPeakIds, correlatedPeakIds) &&
-            _listEquals(other.untickedPeakColours, untickedPeakColours);
+            _listEquals(other.untickedPeakColours, untickedPeakColours) &&
+            _listEquals(other.activeOwnershipSegments, activeOwnershipSegments) &&
+            _listEquals(other.ownershipRingSegments, ownershipRingSegments);
   }
 
   @override
@@ -147,6 +204,8 @@ class _PeakProjectionCacheKey {
       Object.hashAll(peakFingerprints),
       Object.hashAll(correlatedPeakIds),
       Object.hashAll(untickedPeakColours),
+      Object.hashAll(activeOwnershipSegments),
+      Object.hashAll(ownershipRingSegments),
     );
 }
 
@@ -155,11 +214,15 @@ class _PeakSuperclusterIndexKey {
     required this.peakFingerprints,
     required this.correlatedPeakIds,
     required this.untickedPeakColours,
+    required this.activeOwnershipSegments,
+    required this.ownershipRingSegments,
   });
 
   final List<String> peakFingerprints;
   final List<int> correlatedPeakIds;
   final List<(int, int)> untickedPeakColours;
+  final List<(int, String)> activeOwnershipSegments;
+  final List<(int, String)> ownershipRingSegments;
 
   @override
   bool operator ==(Object other) {
@@ -167,7 +230,9 @@ class _PeakSuperclusterIndexKey {
         other is _PeakSuperclusterIndexKey &&
             _listEquals(other.peakFingerprints, peakFingerprints) &&
             _listEquals(other.correlatedPeakIds, correlatedPeakIds) &&
-            _listEquals(other.untickedPeakColours, untickedPeakColours);
+            _listEquals(other.untickedPeakColours, untickedPeakColours) &&
+            _listEquals(other.activeOwnershipSegments, activeOwnershipSegments) &&
+            _listEquals(other.ownershipRingSegments, ownershipRingSegments);
   }
 
   @override
@@ -176,7 +241,17 @@ class _PeakSuperclusterIndexKey {
         Object.hashAll(peakFingerprints),
         Object.hashAll(correlatedPeakIds),
         Object.hashAll(untickedPeakColours),
+        Object.hashAll(activeOwnershipSegments),
+        Object.hashAll(ownershipRingSegments),
       );
+}
+
+String _ownershipRingSegmentsFingerprint(
+  List<PeakOwnershipRingSegment> segments,
+) {
+  return segments
+      .map((segment) => '${segment.peakListId}:${segment.colourValue}')
+      .join(',');
 }
 
 List<String> _peakRenderFingerprints(Iterable<Peak> peaks) {
