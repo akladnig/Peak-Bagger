@@ -57,6 +57,9 @@ class RegionManifestRegionData {
   const RegionManifestRegionData({
     required this.key,
     required this.name,
+    required this.shortName,
+    required this.showInPeakList,
+    this.peakListFilterAliases = const [],
     required this.polygons,
     required this.basemapKeys,
     required this.mapSet,
@@ -64,6 +67,9 @@ class RegionManifestRegionData {
 
   final String key;
   final String name;
+  final String shortName;
+  final bool? showInPeakList;
+  final List<String> peakListFilterAliases;
   final List<List<LatLng>> polygons;
   final List<String> basemapKeys;
   final List<String> mapSet;
@@ -103,6 +109,11 @@ final Map<String, RegionManifestRegionData> _regionByKey = {
   for (final region in regionManifestCatalogData.regions) region.key: region,
 };
 
+final Map<String, String> _peakListFilterRegionKeyByIdentifier = {
+  for (final region in regionManifestCatalogData.regions)
+    for (final alias in region.peakListFilterAliases) alias: region.key,
+};
+
 class RegionManifestCatalog {
   const RegionManifestCatalog._();
 
@@ -122,6 +133,23 @@ class RegionManifestCatalog {
 
   List<RegionManifestRegionData> allRegions() {
     return List.unmodifiable(regionManifestCatalogData.regions);
+  }
+
+  List<RegionManifestRegionData> peakListRegions() {
+    return List.unmodifiable(
+      regionManifestCatalogData.regions.where(
+        (region) => region.showInPeakList == true,
+      ),
+    );
+  }
+
+  String? peakListFilterRegionKey(String? regionKey) {
+    final normalized = _normalizePeakListFilterIdentifier(regionKey);
+    if (normalized == null) {
+      return null;
+    }
+
+    return _peakListFilterRegionKeyByIdentifier[normalized] ?? normalized;
   }
 
   RegionManifestRegionData? regionForPoint(LatLng point) {
@@ -339,5 +367,17 @@ class RegionManifestCatalog {
         bounds.east.isFinite &&
         bounds.south < bounds.north &&
         bounds.west < bounds.east;
+  }
+
+  String? _normalizePeakListFilterIdentifier(String? regionKey) {
+    final trimmed = regionKey?.trim();
+    if (trimmed == null) {
+      return null;
+    }
+    if (trimmed.isEmpty) {
+      return 'tasmania';
+    }
+
+    return trimmed.toLowerCase();
   }
 }

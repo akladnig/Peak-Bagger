@@ -1,6 +1,6 @@
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
-import 'package:peak_bagger/services/peak_list_colour_resolver.dart';
+import 'package:peak_bagger/services/fab_colour_resolver.dart';
 import 'package:peak_bagger/services/peak_list_derived_data.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/tassy_full_peak_list_sync_service.dart';

@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -128,6 +131,101 @@ void main() {
       isEmpty,
     );
     expect(regionManifestCatalog.regionByKey('slovenia')?.mapSet, isEmpty);
+  });
+
+  test('region manifest surfaces peak-list metadata for visible regions', () {
+    expect(regionManifestCatalog.regionByKey('tasmania')?.shortName, 'Tas');
+    expect(
+      regionManifestCatalog.regionByKey('new-south-wales')?.shortName,
+      'NSW',
+    );
+    expect(
+      regionManifestCatalog.regionByKey('italy-nord-est')?.shortName,
+      'Italy NE',
+    );
+    expect(
+      regionManifestCatalog.regionByKey('italy-nord-ovest')?.shortName,
+      'Italy NW',
+    );
+    expect(regionManifestCatalog.regionByKey('italy')?.showInPeakList, isFalse);
+    expect(
+      regionManifestCatalog.regionByKey('croatia')?.showInPeakList,
+      isTrue,
+    );
+    expect(
+      regionManifestCatalog
+          .regionByKey('italy-nord-est')
+          ?.peakListFilterAliases,
+      containsAll(const [
+        'fvg',
+        'friuli-venezia-giulia',
+        'veneto',
+        'trentino-alto-adige',
+        'emilia-romagna',
+      ]),
+    );
+  });
+
+  test(
+    'manifest-backed peak-list filter aliases resolve to canonical keys',
+    () {
+      expect(
+        regionManifestCatalog.peakListFilterRegionKey('fvg'),
+        'italy-nord-est',
+      );
+      expect(
+        regionManifestCatalog.peakListFilterRegionKey('friuli-venezia-giulia'),
+        'italy-nord-est',
+      );
+      expect(
+        regionManifestCatalog.peakListFilterRegionKey('veneto'),
+        'italy-nord-est',
+      );
+      expect(
+        regionManifestCatalog.peakListFilterRegionKey('trentino-alto-adige'),
+        'italy-nord-est',
+      );
+      expect(
+        regionManifestCatalog.peakListFilterRegionKey('emilia-romagna'),
+        'italy-nord-est',
+      );
+    },
+  );
+
+  test('peak-list regions follow the manifest showInPeakList contract', () {
+    final manifest =
+        jsonDecode(File('assets/region_manifest.json').readAsStringSync())
+            as Map<String, dynamic>;
+    final expectedRegionKeys = [
+      for (final entry in manifest.entries)
+        if ((entry.value as Map<String, dynamic>)['showInPeakList'] == 'true')
+          entry.key,
+    ];
+
+    final visibleRegions = regionManifestCatalog.peakListRegions();
+    expect(
+      visibleRegions.map((region) => region.key).toList(growable: false),
+      expectedRegionKeys,
+    );
+    expect(
+      visibleRegions.map((region) => region.shortName).toList(growable: false),
+      const ['Tas', 'NSW', 'Italy NE', 'Italy NW', 'Slovenia', 'Croatia'],
+    );
+    expect(
+      visibleRegions.map((region) => region.name).toList(growable: false),
+      const [
+        'Tasmania',
+        'New South Wales',
+        'Italy North East',
+        'Italy North West',
+        'Slovenia',
+        'Croatia',
+      ],
+    );
+    expect(
+      visibleRegions.map((region) => region.key),
+      isNot(contains('italy')),
+    );
   });
 
   test('mapSet union follows visible bounds', () {

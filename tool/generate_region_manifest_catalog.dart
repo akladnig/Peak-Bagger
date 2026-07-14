@@ -40,6 +40,7 @@ void main(List<String> args) {
 
   final seenBasemapOrder = <String>[];
   final basemapDefinitions = <String, _BasemapDefinition>{};
+  final seenPeakListFilterIdentifiers = <String, String>{};
   final regions = <_RegionDefinition>[];
 
   for (final entry in manifest.entries) {
@@ -105,10 +106,23 @@ void main(List<String> args) {
       }
     }
 
+    final peakListFilterAliases = _readPeakListFilterAliases(
+      regionValue,
+      regionKey,
+    );
+    _registerPeakListFilterIdentifiers(
+      seenPeakListFilterIdentifiers,
+      regionKey: regionKey,
+      peakListFilterAliases: peakListFilterAliases,
+    );
+
     regions.add(
       _RegionDefinition(
         key: regionKey,
         name: _readRegionName(regionValue, regionKey),
+        shortName: _readRegionShortName(regionValue, regionKey),
+        showInPeakList: _readRegionShowInPeakList(regionValue, regionKey),
+        peakListFilterAliases: peakListFilterAliases,
         polygons: polygons,
         basemapKeys: mapKeys,
         mapSet: mapSet,
@@ -177,7 +191,14 @@ void main(List<String> args) {
       ..writeln('    RegionManifestRegionData(')
       ..writeln('      key: ${_stringLiteral(region.key)},')
       ..writeln('      name: ${_stringLiteral(region.name)},')
-      ..writeln('      polygons: [');
+      ..writeln('      shortName: ${_stringLiteral(region.shortName)},')
+      ..writeln('      showInPeakList: ${region.showInPeakList},')
+      ..writeln('      peakListFilterAliases: [');
+    for (final alias in region.peakListFilterAliases) {
+      buffer.writeln('        ${_stringLiteral(alias)},');
+    }
+    buffer.writeln('      ],');
+    buffer.writeln('      polygons: [');
 
     for (final polygon in region.polygons) {
       buffer.writeln('        [');
@@ -239,6 +260,111 @@ String _readRegionName(Map<String, dynamic> regionValue, String regionKey) {
     return regionKey;
   }
   return name;
+}
+
+String _readRegionShortName(
+  Map<String, dynamic> regionValue,
+  String regionKey,
+) {
+  final shortName = regionValue['shortName'];
+  if (shortName == null) {
+    return _readRegionName(regionValue, regionKey);
+  }
+  if (shortName is! String || shortName.trim().isEmpty) {
+    stderr.writeln(
+      'Region $regionKey must define a non-empty string for shortName when present.',
+    );
+    exitCode = 1;
+    return _readRegionName(regionValue, regionKey);
+  }
+  return shortName;
+}
+
+bool? _readRegionShowInPeakList(
+  Map<String, dynamic> regionValue,
+  String regionKey,
+) {
+  final showInPeakList = regionValue['showInPeakList'];
+  if (showInPeakList == null) {
+    return null;
+  }
+  if (showInPeakList is bool) {
+    return showInPeakList;
+  }
+  if (showInPeakList is String) {
+    return switch (showInPeakList.trim().toLowerCase()) {
+      'true' => true,
+      'false' => false,
+      _ => _invalidShowInPeakListValue(regionKey),
+    };
+  }
+
+  return _invalidShowInPeakListValue(regionKey);
+}
+
+bool? _invalidShowInPeakListValue(String regionKey) {
+  stderr.writeln(
+    'Region $regionKey must define showInPeakList as true, false, or omit the field.',
+  );
+  exitCode = 1;
+  return null;
+}
+
+List<String> _readPeakListFilterAliases(
+  Map<String, dynamic> regionValue,
+  String regionKey,
+) {
+  final aliases = _readOptionalStringList(
+    regionValue['peakListFilterAliases'],
+    'peakListFilterAliases',
+    regionKey,
+  );
+
+  return [
+    for (final alias in aliases)
+      _normalizePeakListFilterIdentifier(alias, regionKey),
+  ];
+}
+
+void _registerPeakListFilterIdentifiers(
+  Map<String, String> seenPeakListFilterIdentifiers, {
+  required String regionKey,
+  required List<String> peakListFilterAliases,
+}) {
+  for (final alias in peakListFilterAliases) {
+    _registerPeakListFilterIdentifier(
+      seenPeakListFilterIdentifiers,
+      identifier: alias,
+      ownerRegionKey: regionKey,
+    );
+  }
+}
+
+void _registerPeakListFilterIdentifier(
+  Map<String, String> seenPeakListFilterIdentifiers, {
+  required String identifier,
+  required String ownerRegionKey,
+}) {
+  final previousOwner = seenPeakListFilterIdentifiers[identifier];
+  if (previousOwner != null) {
+    stderr.writeln(
+      'Duplicate peak-list filter alias "$identifier" for $ownerRegionKey and $previousOwner.',
+    );
+    exitCode = 1;
+    return;
+  }
+  seenPeakListFilterIdentifiers[identifier] = ownerRegionKey;
+}
+
+String _normalizePeakListFilterIdentifier(String value, String regionKey) {
+  final normalized = value.trim().toLowerCase();
+  if (normalized.isEmpty) {
+    stderr.writeln(
+      'Region $regionKey must not contain empty peak-list filter aliases.',
+    );
+    exitCode = 1;
+  }
+  return normalized;
 }
 
 String _stringLiteral(String value) =>
@@ -389,6 +515,9 @@ class _RegionDefinition {
   const _RegionDefinition({
     required this.key,
     required this.name,
+    required this.shortName,
+    required this.showInPeakList,
+    required this.peakListFilterAliases,
     required this.polygons,
     required this.basemapKeys,
     required this.mapSet,
@@ -396,6 +525,9 @@ class _RegionDefinition {
 
   final String key;
   final String name;
+  final String shortName;
+  final bool? showInPeakList;
+  final List<String> peakListFilterAliases;
   final List<List<LatLng>> polygons;
   final List<String> basemapKeys;
   final List<String> mapSet;

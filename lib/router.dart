@@ -4,13 +4,16 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:peak_bagger/providers/background_jobs_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_region_filter_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/screens/dashboard_screen.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/screens/peak_lists_screen.dart';
 import 'package:peak_bagger/screens/settings_screen.dart';
+import 'package:peak_bagger/services/fab_colour_resolver.dart';
 import 'package:peak_bagger/widgets/background_jobs_panel.dart';
+import 'package:peak_bagger/widgets/peak_list_control_visual_style.dart';
 import 'package:peak_bagger/widgets/peak_list_selection_summary.dart';
 import 'package:peak_bagger/widgets/side_menu.dart';
 
@@ -433,6 +436,9 @@ class _SharedAppBarTitle extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         if (!showSearch) {
+          if (currentDestination.branchIndex == 2) {
+            return _PeaksAppBarTitle(title: currentDestination.title);
+          }
           return Row(
             children: [
               Expanded(
@@ -526,6 +532,123 @@ class _SharedAppBarTitle extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _PeaksAppBarTitle extends ConsumerWidget {
+  const _PeaksAppBarTitle({required this.title});
+
+  static const _laneGap = 12.0;
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final regions = ref.watch(peakListRegionFilterOptionsProvider);
+    final selectedRegionKeys = ref.watch(peakListRegionFilterProvider);
+
+    return Row(
+      key: const Key('peak-lists-app-bar-content'),
+      children: [
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(
+              left: RouterConstants.wideNavigationWidth,
+              right: _laneGap,
+            ),
+            child: Row(
+              children: [
+                Flexible(
+                  child: KeyedSubtree(
+                    key: const Key('app-bar-title'),
+                    child: Text(title, overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: SingleChildScrollView(
+                      key: const Key('peak-lists-region-fab-scroller'),
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (
+                            var index = 0;
+                            index < regions.length;
+                            index++
+                          ) ...[
+                            _PeakRegionFab(
+                              region: regions[index],
+                              isSelected: selectedRegionKeys.contains(
+                                regions[index].key,
+                              ),
+                              colourValue:
+                                  defaultFABPalette[index %
+                                      defaultFABPalette.length],
+                            ),
+                            if (index < regions.length - 1)
+                              const SizedBox(width: 8),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PeakRegionFab extends ConsumerWidget {
+  const _PeakRegionFab({
+    required this.region,
+    required this.isSelected,
+    required this.colourValue,
+  });
+
+  final RegionManifestRegionData region;
+  final bool isSelected;
+  final int colourValue;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controlStyle = peakListControlVisualStyle(
+      context,
+      isSelected: isSelected,
+      colourValue: colourValue,
+    );
+
+    return Tooltip(
+      message: region.name,
+      child: Semantics(
+        button: true,
+        selected: isSelected,
+        label: region.name,
+        child: ExcludeSemantics(
+          child: OutlinedButton(
+            key: Key('peak-lists-region-fab-${region.key}'),
+            style: controlStyle.buttonStyle,
+            onPressed: () {
+              ref
+                  .read(peakListRegionFilterProvider.notifier)
+                  .toggleRegion(region.key);
+            },
+            child: Text(
+              region.shortName,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: UiConstants.drawerControlFontSize,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

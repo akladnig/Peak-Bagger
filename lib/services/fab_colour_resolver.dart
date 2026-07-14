@@ -1,6 +1,6 @@
 import 'package:peak_bagger/models/peak_list.dart';
 
-const peakListDefaultPalette = <int>[
+const defaultFABPalette = <int>[
   0xFF4C8BF5,
   0xFF12B886,
   0xFF6347EA,
@@ -12,9 +12,9 @@ const peakListDefaultPalette = <int>[
 ];
 
 int defaultPeakListColourForId(int peakListId) {
-  final paletteLength = peakListDefaultPalette.length;
+  final paletteLength = defaultFABPalette.length;
   final index = (peakListId - 1).remainder(paletteLength);
-  return peakListDefaultPalette[index < 0 ? index + paletteLength : index];
+  return defaultFABPalette[index < 0 ? index + paletteLength : index];
 }
 
 int resolvePeakListColour(PeakList peakList) {
