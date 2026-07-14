@@ -151,6 +151,117 @@ void main() {
     expect(robot.selectedPeakCircle, findsOneWidget);
   });
 
+  testWidgets(
+    'peak lists desktop journey replays interactive mini-map history and resets on list change',
+    (tester) async {
+      SharedPreferences.resetStatic();
+      SharedPreferences.setMockInitialValues({});
+
+      final robot = PeakListsRobot(tester);
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(
+            name: 'Tas Peaks',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 100, points: 3),
+              const PeakListItem(peakOsmId: 200, points: 5),
+            ]),
+          )..peakListId = 1,
+          PeakList(
+            name: 'Alps Peaks',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 300, points: 8),
+            ]),
+          )..peakListId = 2,
+        ]),
+      );
+      final peakRepository = PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(
+            osmId: 100,
+            name: 'Alpha Peak',
+            elevation: 1250,
+            latitude: -42.0,
+            longitude: 146.0,
+          ),
+          _buildPeak(
+            osmId: 200,
+            name: 'Beta Peak',
+            elevation: 1300,
+            latitude: -42.1,
+            longitude: 146.1,
+          ),
+          _buildPeak(
+            osmId: 300,
+            name: 'Monte Journey',
+            elevation: 2400,
+            latitude: 46.2,
+            longitude: 13.0,
+          ),
+        ]),
+      );
+
+      await robot.pumpJourneyApp(
+        filePicker: TestPeakListFilePicker(),
+        repository: peakListRepository,
+        peakRepository: peakRepository,
+        surfaceSize: const Size(1600, 900),
+      );
+
+      final initialState = robot.miniMapDebugState();
+
+      await robot.zoomMiniMapWithTrackpad(verticalDelta: 120);
+      final firstZoomState = robot.miniMapDebugState();
+      expect(firstZoomState.zoom, greaterThan(initialState.zoom));
+
+      await robot.zoomMiniMapWithTrackpad(verticalDelta: 120);
+      final secondZoomState = robot.miniMapDebugState();
+      expect(secondZoomState.zoom, greaterThan(firstZoomState.zoom));
+      expect(secondZoomState.center.longitude, firstZoomState.center.longitude);
+
+      await robot.zoomMiniMapWithTrackpad(verticalDelta: 120);
+      final thirdZoomState = robot.miniMapDebugState();
+      expect(thirdZoomState.zoom, greaterThan(secondZoomState.zoom));
+      expect(thirdZoomState.canGoPrevious, isTrue);
+      expect(thirdZoomState.canGoNext, isFalse);
+
+      await robot.replayMiniMapHistoryBack();
+      final rewoundState = robot.miniMapDebugState();
+      expect(rewoundState.zoom, secondZoomState.zoom);
+      expect(rewoundState.center.longitude, secondZoomState.center.longitude);
+      expect(rewoundState.canGoPrevious, isTrue);
+      expect(rewoundState.canGoNext, isTrue);
+
+      await robot.replayMiniMapHistoryForward();
+      final replayedState = robot.miniMapDebugState();
+      expect(replayedState.zoom, thirdZoomState.zoom);
+      expect(replayedState.center.longitude, thirdZoomState.center.longitude);
+      expect(replayedState.canGoPrevious, isTrue);
+      expect(replayedState.canGoNext, isFalse);
+
+      await robot.replayMiniMapHistoryBack();
+      await robot.zoomMiniMapWithTrackpad(verticalDelta: -120);
+      final branchedState = robot.miniMapDebugState();
+      expect(branchedState.zoom, lessThan(rewoundState.zoom));
+      expect(branchedState.center.longitude, rewoundState.center.longitude);
+      expect(branchedState.canGoNext, isFalse);
+
+      await robot.replayMiniMapHistoryForward();
+      final noForwardState = robot.miniMapDebugState();
+      expect(noForwardState.zoom, branchedState.zoom);
+      expect(noForwardState.center.longitude, branchedState.center.longitude);
+      expect(noForwardState.canGoNext, isFalse);
+
+      await robot.selectPeakListRow(2);
+      final resetState = robot.miniMapDebugState();
+      expect(tester.widget<Text>(robot.selectedTitle).data, 'Alps Peaks');
+      expect(resetState.canGoPrevious, isFalse);
+      expect(resetState.canGoNext, isFalse);
+      expect(resetState.center.latitude, greaterThan(40));
+      expect(resetState.center.longitude, lessThan(20));
+    },
+  );
+
   testWidgets('peak lists journey refreshes selected title after rename', (
     tester,
   ) async {
