@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show PointerDeviceKind;
 
+import 'package:flutter/gestures.dart' show PointerScrollEvent;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter/services.dart';
@@ -15,6 +16,7 @@ import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/peak_list_region_filter_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_mini_map_cluster_display_settings_provider.dart';
@@ -42,6 +44,11 @@ import '../harness/test_map_notifier.dart';
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.resetStatic();
+    SharedPreferences.setMockInitialValues({});
+  });
+
   testWidgets('empty state renders copy and shell panes', (tester) async {
     await _pumpPeakListsApp(
       tester,
@@ -132,6 +139,145 @@ void main() {
           )
           .decoration,
       isNotNull,
+    );
+  });
+
+  testWidgets(
+    'region filters default to all manifest-backed regions and hide unsupported legacy-region lists',
+    (tester) async {
+      final fixture = _buildRegionFilterFixture();
+
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: fixture.repository,
+        peakRepository: fixture.peakRepository,
+      );
+
+      for (final regionKey in const [
+        'tasmania',
+        'new-south-wales',
+        'italy-nord-est',
+        'italy-nord-ovest',
+        'slovenia',
+        'croatia',
+      ]) {
+        expect(_regionFilterChip(tester, regionKey).selected, isTrue);
+      }
+
+      for (final label in const [
+        'Tas',
+        'NSW',
+        'Italy NE',
+        'Italy NW',
+        'Slovenia',
+        'Croatia',
+      ]) {
+        expect(find.text(label), findsOneWidget);
+      }
+
+      expect(find.byKey(const Key('peak-lists-row-1')), findsOneWidget);
+      expect(find.byKey(const Key('peak-lists-row-2')), findsOneWidget);
+      expect(find.byKey(const Key('peak-lists-row-3')), findsOneWidget);
+      expect(find.byKey(const Key('peak-lists-row-4')), findsNothing);
+    },
+  );
+
+  testWidgets('region filters restore a saved selection from preferences', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      peakListRegionFilterPreferenceKey: ['new-south-wales'],
+    });
+    final fixture = _buildRegionFilterFixture();
+
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: fixture.repository,
+      peakRepository: fixture.peakRepository,
+    );
+
+    expect(_regionFilterChip(tester, 'tasmania').selected, isFalse);
+    expect(_regionFilterChip(tester, 'new-south-wales').selected, isTrue);
+    expect(find.byKey(const Key('peak-lists-row-1')), findsNothing);
+    expect(find.byKey(const Key('peak-lists-row-2')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-row-3')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-row-4')), findsNothing);
+  });
+
+  testWidgets('region filters toggle independently and keep union semantics', (
+    tester,
+  ) async {
+    final fixture = _buildRegionFilterFixture();
+
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: fixture.repository,
+      peakRepository: fixture.peakRepository,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('peak-lists-region-filter-tasmania')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(_regionFilterChip(tester, 'tasmania').selected, isFalse);
+    expect(_regionFilterChip(tester, 'new-south-wales').selected, isTrue);
+    expect(find.byKey(const Key('peak-lists-row-1')), findsNothing);
+    expect(find.byKey(const Key('peak-lists-row-2')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-row-3')), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const Key('peak-lists-region-filter-tasmania')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(_regionFilterChip(tester, 'tasmania').selected, isTrue);
+    expect(_regionFilterChip(tester, 'new-south-wales').selected, isTrue);
+    expect(find.byKey(const Key('peak-lists-row-1')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-row-2')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-row-3')), findsOneWidget);
+  });
+
+  testWidgets('all-off is a valid persisted region filter state', (
+    tester,
+  ) async {
+    final fixture = _buildRegionFilterFixture();
+
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: fixture.repository,
+      peakRepository: fixture.peakRepository,
+    );
+
+    for (final regionKey in const [
+      'tasmania',
+      'new-south-wales',
+      'italy-nord-est',
+      'italy-nord-ovest',
+      'slovenia',
+      'croatia',
+    ]) {
+      final chipFinder = find.byKey(Key('peak-lists-region-filter-$regionKey'));
+      await tester.ensureVisible(chipFinder);
+      await tester.tap(chipFinder);
+      await tester.pumpAndSettle();
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getStringList(peakListRegionFilterPreferenceKey), isEmpty);
+    expect(find.byKey(const Key('peak-lists-row-1')), findsNothing);
+    expect(find.byKey(const Key('peak-lists-row-2')), findsNothing);
+    expect(find.byKey(const Key('peak-lists-row-3')), findsNothing);
+    expect(find.byKey(const Key('peak-lists-empty-message')), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+          .data,
+      'Peak List Details',
     );
   });
 
@@ -1902,6 +2048,564 @@ void main() {
   });
 
   testWidgets(
+    'screen-level mini-map keyboard zoom and pan shortcuts move only the mini-map',
+    (tester) async {
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Tas Peaks', [100, 200]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+            _buildPeak(200, 'Beta Peak', -42.1, 146.1, elevation: 1100),
+          ]),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final initialState = _miniMapDebugState(tester);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.period);
+      await tester.pump();
+
+      final zoomedState = _miniMapDebugState(tester);
+      expect(zoomedState.zoom, greaterThan(initialState.zoom));
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+            .data,
+        'Tas Peaks',
+      );
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump(const Duration(milliseconds: 64));
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+
+      final pannedRightState = _miniMapDebugState(tester);
+      expect(
+        pannedRightState.center.longitude,
+        greaterThan(zoomedState.center.longitude),
+      );
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyH);
+      await tester.pump(const Duration(milliseconds: 64));
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyH);
+      await tester.pump();
+
+      final pannedLeftState = _miniMapDebugState(tester);
+      expect(
+        pannedLeftState.center.longitude,
+        lessThan(pannedRightState.center.longitude),
+      );
+    },
+  );
+
+  testWidgets(
+    'mini-map shows grab and grabbing cursors and drag-pan commits once on release',
+    (tester) async {
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Tas Peaks', [100, 200]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+            _buildPeak(200, 'Beta Peak', -42.1, 146.1, elevation: 1100),
+          ]),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final initialState = _miniMapDebugState(tester);
+      final region = find.byKey(
+        const Key('peak-lists-mini-map-interaction-region'),
+      );
+      final emptyPoint =
+          tester.getTopLeft(find.byKey(const Key('peak-lists-mini-map'))) +
+          const Offset(16, 16);
+
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(gesture.removePointer);
+      await gesture.addPointer(location: emptyPoint);
+      await tester.pump();
+      await gesture.moveTo(emptyPoint);
+      await tester.pump();
+
+      expect(
+        tester.widget<MouseRegion>(region).cursor,
+        SystemMouseCursors.grab,
+      );
+
+      await gesture.down(emptyPoint);
+      await tester.pump();
+
+      expect(
+        tester.widget<MouseRegion>(region).cursor,
+        SystemMouseCursors.grabbing,
+      );
+
+      await gesture.moveBy(const Offset(30, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+
+      final draggedState = _miniMapDebugState(tester);
+      expect(draggedState.canGoPrevious, isTrue);
+      expect(draggedState.canGoNext, isFalse);
+      expect(
+        draggedState.center.longitude,
+        lessThan(initialState.center.longitude),
+      );
+      expect(find.byKey(const Key('peak-lists-mini-map-popup')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'drag release over a peak does not open a popup or change selection',
+    (tester) async {
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Tas Peaks', [100]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+          ]),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final marker = find.byKey(
+        const Key('peak-lists-mini-map-marker-100-unticked'),
+      );
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(gesture.removePointer);
+      await gesture.addPointer(location: tester.getCenter(marker));
+      await tester.pump();
+      await gesture.down(tester.getCenter(marker));
+      await tester.pump();
+      await gesture.moveBy(const Offset(18, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+
+      expect(find.byKey(const Key('peak-lists-mini-map-popup')), findsNothing);
+      expect(
+        find.byKey(const Key('peak-lists-selected-peak-circle-layer')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
+    'mini-map keyboard shortcuts are suppressed by editable text and dialogs',
+    (tester) async {
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Tas Peaks', [100]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+          ]),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final initialState = _miniMapDebugState(tester);
+
+      await tester.tap(find.byKey(const Key('peak-lists-add-list-fab')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('peak-list-create-dialog')), findsOneWidget);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.period);
+      await tester.pump();
+
+      expect(_miniMapDebugState(tester).zoom, initialState.zoom);
+
+      await tester.tap(find.byKey(const Key('peak-list-create-cancel')));
+      await tester.pumpAndSettle();
+
+      tester
+          .widget<InkResponse>(find.byKey(const Key('peak-lists-delete-1')))
+          .onTap!();
+      await tester.pumpAndSettle();
+      expect(find.text('Delete Peak List?'), findsOneWidget);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump(const Duration(milliseconds: 64));
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+
+      final dialogState = _miniMapDebugState(tester);
+      expect(dialogState.center.latitude, initialState.center.latitude);
+      expect(dialogState.center.longitude, initialState.center.longitude);
+
+      await tester.tap(find.byKey(const Key('cancel-delete')));
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
+    'cmd bracket replays mini-map camera history and silently no-ops at the ends',
+    (tester) async {
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Tas Peaks', [100, 200]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+            _buildPeak(200, 'Beta Peak', -42.1, 146.1, elevation: 1100),
+          ]),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final initialState = _miniMapDebugState(tester);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.period);
+      await tester.pump();
+      final zoomedState = _miniMapDebugState(tester);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump(const Duration(milliseconds: 64));
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      final pannedState = _miniMapDebugState(tester);
+
+      expect(pannedState.canGoPrevious, isTrue);
+      expect(pannedState.canGoNext, isFalse);
+
+      await _sendMetaChord(tester, LogicalKeyboardKey.bracketLeft);
+      final previousState = _miniMapDebugState(tester);
+      expect(previousState.zoom, zoomedState.zoom);
+      expect(previousState.center.longitude, zoomedState.center.longitude);
+      expect(previousState.canGoPrevious, isTrue);
+      expect(previousState.canGoNext, isTrue);
+
+      await _sendMetaChord(tester, LogicalKeyboardKey.bracketLeft);
+      final oldestState = _miniMapDebugState(tester);
+      expect(oldestState.zoom, initialState.zoom);
+      expect(oldestState.center.longitude, initialState.center.longitude);
+      expect(oldestState.canGoPrevious, isFalse);
+      expect(oldestState.canGoNext, isTrue);
+
+      await _sendMetaChord(tester, LogicalKeyboardKey.bracketLeft);
+      final noPreviousState = _miniMapDebugState(tester);
+      expect(noPreviousState.zoom, oldestState.zoom);
+      expect(noPreviousState.center.longitude, oldestState.center.longitude);
+      expect(noPreviousState.canGoPrevious, isFalse);
+      expect(noPreviousState.canGoNext, isTrue);
+
+      await _sendMetaChord(tester, LogicalKeyboardKey.bracketRight);
+      await _sendMetaChord(tester, LogicalKeyboardKey.bracketRight);
+      final newestState = _miniMapDebugState(tester);
+      expect(newestState.zoom, pannedState.zoom);
+      expect(newestState.center.longitude, pannedState.center.longitude);
+      expect(newestState.canGoPrevious, isTrue);
+      expect(newestState.canGoNext, isFalse);
+
+      await _sendMetaChord(tester, LogicalKeyboardKey.bracketRight);
+      final noNextState = _miniMapDebugState(tester);
+      expect(noNextState.zoom, newestState.zoom);
+      expect(noNextState.center.longitude, newestState.center.longitude);
+      expect(noNextState.canGoNext, isFalse);
+    },
+  );
+
+  testWidgets(
+    'new camera changes after moving backward clear forward mini-map history',
+    (tester) async {
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Tas Peaks', [100, 200]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+            _buildPeak(200, 'Beta Peak', -42.1, 146.1, elevation: 1100),
+          ]),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.period);
+      await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump(const Duration(milliseconds: 64));
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+
+      await _sendMetaChord(tester, LogicalKeyboardKey.bracketLeft);
+      final rewoundState = _miniMapDebugState(tester);
+      expect(rewoundState.canGoNext, isTrue);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.minus);
+      await tester.pump();
+
+      final branchedState = _miniMapDebugState(tester);
+      expect(branchedState.canGoNext, isFalse);
+
+      await _sendMetaChord(tester, LogicalKeyboardKey.bracketRight);
+      final noForwardState = _miniMapDebugState(tester);
+      expect(noForwardState.zoom, branchedState.zoom);
+      expect(noForwardState.center.longitude, branchedState.center.longitude);
+      expect(noForwardState.canGoNext, isFalse);
+    },
+  );
+
+  testWidgets(
+    'trackpad horizontal motion is a no-op and vertical zoom commits on pan-zoom end',
+    (tester) async {
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Tas Peaks', [100, 200]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+            _buildPeak(200, 'Beta Peak', -42.1, 146.1, elevation: 1100),
+          ]),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final initialState = _miniMapDebugState(tester);
+      final region = find.byKey(
+        const Key('peak-lists-mini-map-interaction-region'),
+      );
+      final center = tester.getCenter(region);
+
+      var gesture = await tester.startGesture(
+        center,
+        kind: PointerDeviceKind.trackpad,
+      );
+      await gesture.panZoomUpdate(center, pan: const Offset(120, 0));
+      await tester.pump();
+      expect(_miniMapDebugState(tester).zoom, initialState.zoom);
+      await gesture.up();
+      await tester.pump();
+
+      final horizontalState = _miniMapDebugState(tester);
+      expect(horizontalState.zoom, initialState.zoom);
+      expect(horizontalState.center.longitude, initialState.center.longitude);
+      expect(horizontalState.canGoPrevious, isFalse);
+
+      gesture = await tester.startGesture(
+        center,
+        kind: PointerDeviceKind.trackpad,
+      );
+      await gesture.panZoomUpdate(center, pan: const Offset(0, 120));
+      await tester.pump();
+
+      expect(_miniMapDebugState(tester).zoom, initialState.zoom);
+
+      await gesture.up();
+      await tester.pump();
+
+      final committedState = _miniMapDebugState(tester);
+      expect(committedState.zoom, greaterThan(initialState.zoom));
+      expect(committedState.center.latitude, initialState.center.latitude);
+      expect(committedState.center.longitude, initialState.center.longitude);
+      expect(committedState.canGoPrevious, isTrue);
+    },
+  );
+
+  testWidgets('mouse-wheel zoom burst commits once after debounce', (
+    tester,
+  ) async {
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Tas Peaks', [100, 200]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+          _buildPeak(200, 'Beta Peak', -42.1, 146.1, elevation: 1100),
+        ]),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final initialState = _miniMapDebugState(tester);
+    final region = find.byKey(
+      const Key('peak-lists-mini-map-interaction-region'),
+    );
+    final center = tester.getCenter(region);
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(gesture.removePointer);
+    await gesture.addPointer(location: center);
+    await tester.pump();
+
+    await tester.sendEventToBinding(
+      PointerScrollEvent(
+        position: center,
+        scrollDelta: const Offset(0, -20),
+        kind: PointerDeviceKind.mouse,
+      ),
+    );
+    await tester.pump();
+    await tester.sendEventToBinding(
+      PointerScrollEvent(
+        position: center,
+        scrollDelta: const Offset(0, -20),
+        kind: PointerDeviceKind.mouse,
+      ),
+    );
+    await tester.pump();
+
+    expect(_miniMapDebugState(tester).zoom, initialState.zoom);
+    expect(_miniMapDebugState(tester).canGoPrevious, isFalse);
+
+    await tester.pump(MapConstants.cameraSaveDebounce);
+
+    final committedState = _miniMapDebugState(tester);
+    expect(committedState.zoom, greaterThan(initialState.zoom));
+    expect(committedState.canGoPrevious, isTrue);
+
+    await _sendMetaChord(tester, LogicalKeyboardKey.bracketLeft);
+    final rewoundState = _miniMapDebugState(tester);
+    expect(rewoundState.zoom, initialState.zoom);
+    expect(rewoundState.center.longitude, initialState.center.longitude);
+  });
+
+  testWidgets(
+    'cluster expansion commits one mini-map history entry when the camera changes',
+    (tester) async {
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Clustered Peaks', [100, 200]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+            _buildPeak(200, 'Beta Peak', -42.00005, 146.00005, elevation: 1100),
+          ]),
+        ),
+        overrides: [
+          peakListMiniMapClusterDisplaySettingsProvider.overrideWith(
+            _StaticPeakListMiniMapClusterDisplayOnNotifier.new,
+          ),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      final initialState = _miniMapDebugState(tester);
+
+      await tester.tap(
+        find.byKey(const Key('peak-lists-mini-map-cluster-0')),
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+
+      final expandedState = _miniMapDebugState(tester);
+      expect(expandedState.canGoPrevious, isTrue);
+
+      await _sendMetaChord(tester, LogicalKeyboardKey.bracketLeft);
+      final rewoundState = _miniMapDebugState(tester);
+      expect(rewoundState.zoom, initialState.zoom);
+      expect(rewoundState.center.longitude, initialState.center.longitude);
+    },
+  );
+
+  testWidgets(
+    'changing the selected peak list resets mini-map history to the new fitted camera',
+    (tester) async {
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(
+              1,
+              'Tas Peaks',
+              [100],
+              minLat: -42.5,
+              maxLat: -41.5,
+              minLng: 145.5,
+              maxLng: 146.5,
+            ),
+            _buildPeakList(
+              2,
+              'Alps Peaks',
+              [200],
+              minLat: 46.0,
+              maxLat: 46.5,
+              minLng: 12.5,
+              maxLng: 13.5,
+            ),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+            _buildPeak(200, 'Beta Peak', 46.2, 13.0, elevation: 2200),
+          ]),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.period);
+      await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump(const Duration(milliseconds: 64));
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+
+      expect(_miniMapDebugState(tester).canGoPrevious, isTrue);
+
+      tester
+          .widget<InkWell>(find.byKey(const Key('peak-lists-row-2')))
+          .onTap!();
+      await tester.pumpAndSettle();
+
+      final resetState = _miniMapDebugState(tester);
+      expect(resetState.canGoPrevious, isFalse);
+      expect(resetState.canGoNext, isFalse);
+      expect(resetState.center.latitude, greaterThan(40));
+      expect(resetState.center.longitude, lessThan(20));
+    },
+  );
+
+  testWidgets(
     'mini map initial fit uses stored peak-list bounds when peaks are unresolved',
     (tester) async {
       await _pumpPeakListsApp(
@@ -3336,6 +4040,52 @@ String _summarySentenceText(WidgetTester tester) {
   return text;
 }
 
+PeakListMiniMapDebugState _miniMapDebugState(WidgetTester tester) {
+  return tester
+      .widget<PeakListMiniMapDebugProbe>(
+        find.byKey(const Key('peak-lists-mini-map-debug-probe')),
+      )
+      .state;
+}
+
+Future<void> _sendMetaChord(WidgetTester tester, LogicalKeyboardKey key) async {
+  await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft, platform: 'macos');
+  await tester.sendKeyDownEvent(key, platform: 'macos');
+  await tester.pump();
+  await tester.sendKeyUpEvent(key, platform: 'macos');
+  await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft, platform: 'macos');
+  await tester.pump();
+}
+
+FilterChip _regionFilterChip(WidgetTester tester, String regionKey) {
+  return tester.widget<FilterChip>(
+    find.byKey(Key('peak-lists-region-filter-$regionKey')),
+  );
+}
+
+({PeakListRepository repository, PeakRepository peakRepository})
+_buildRegionFilterFixture() {
+  return (
+    repository: PeakListRepository.test(
+      InMemoryPeakListStorage([
+        _buildPeakList(1, 'Tas Only', [100], region: 'tasmania'),
+        _buildPeakList(2, 'NSW Only', [200], region: 'new-south-wales'),
+        _buildPeakList(3, 'Mixed Regions', [
+          100,
+          200,
+        ], region: PeakList.mixedRegion),
+        _buildPeakList(4, 'Legacy Region', [100], region: 'legacy-region'),
+      ]),
+    ),
+    peakRepository: PeakRepository.test(
+      InMemoryPeakStorage([
+        _buildPeak(100, 'Alpha Peak', -42.0, 146.0, region: 'tasmania'),
+        _buildPeak(200, 'Beta Peak', -35.3, 148.9, region: 'new-south-wales'),
+      ]),
+    ),
+  );
+}
+
 PeakListImportRunner _buildImportRunnerForTest({
   required WidgetTester tester,
   required PeakListRepository repository,
@@ -3454,6 +4204,7 @@ PeakList _buildPeakList(
   String name,
   List<int> peakIds, {
   Map<int, int> pointsByPeakId = const {},
+  String region = Peak.defaultRegion,
   double? minLat,
   double? maxLat,
   double? minLng,
@@ -3461,6 +4212,7 @@ PeakList _buildPeakList(
 }) {
   return PeakList(
     name: name,
+    region: region,
     peakList: encodePeakListItems([
       for (final peakId in peakIds)
         PeakListItem(peakOsmId: peakId, points: pointsByPeakId[peakId] ?? 0),
@@ -3478,6 +4230,7 @@ Peak _buildPeak(
   double latitude,
   double longitude, {
   double? elevation,
+  String? region,
 }) {
   return Peak(
     osmId: osmId,
@@ -3485,6 +4238,7 @@ Peak _buildPeak(
     latitude: latitude,
     longitude: longitude,
     elevation: elevation,
+    region: region,
   );
 }
 

@@ -57,6 +57,8 @@ class RegionManifestRegionData {
   const RegionManifestRegionData({
     required this.key,
     required this.name,
+    required this.shortName,
+    required this.showInPeakList,
     required this.polygons,
     required this.basemapKeys,
     required this.mapSet,
@@ -64,6 +66,8 @@ class RegionManifestRegionData {
 
   final String key;
   final String name;
+  final String shortName;
+  final bool? showInPeakList;
   final List<List<LatLng>> polygons;
   final List<String> basemapKeys;
   final List<String> mapSet;
@@ -122,6 +126,14 @@ class RegionManifestCatalog {
 
   List<RegionManifestRegionData> allRegions() {
     return List.unmodifiable(regionManifestCatalogData.regions);
+  }
+
+  List<RegionManifestRegionData> peakListRegions() {
+    return List.unmodifiable(
+      regionManifestCatalogData.regions.where(
+        (region) => region.showInPeakList == true,
+      ),
+    );
   }
 
   RegionManifestRegionData? regionForPoint(LatLng point) {

@@ -109,6 +109,8 @@ void main(List<String> args) {
       _RegionDefinition(
         key: regionKey,
         name: _readRegionName(regionValue, regionKey),
+        shortName: _readRegionShortName(regionValue, regionKey),
+        showInPeakList: _readRegionShowInPeakList(regionValue, regionKey),
         polygons: polygons,
         basemapKeys: mapKeys,
         mapSet: mapSet,
@@ -177,6 +179,8 @@ void main(List<String> args) {
       ..writeln('    RegionManifestRegionData(')
       ..writeln('      key: ${_stringLiteral(region.key)},')
       ..writeln('      name: ${_stringLiteral(region.name)},')
+      ..writeln('      shortName: ${_stringLiteral(region.shortName)},')
+      ..writeln('      showInPeakList: ${region.showInPeakList},')
       ..writeln('      polygons: [');
 
     for (final polygon in region.polygons) {
@@ -239,6 +243,54 @@ String _readRegionName(Map<String, dynamic> regionValue, String regionKey) {
     return regionKey;
   }
   return name;
+}
+
+String _readRegionShortName(
+  Map<String, dynamic> regionValue,
+  String regionKey,
+) {
+  final shortName = regionValue['shortName'];
+  if (shortName == null) {
+    return _readRegionName(regionValue, regionKey);
+  }
+  if (shortName is! String || shortName.trim().isEmpty) {
+    stderr.writeln(
+      'Region $regionKey must define a non-empty string for shortName when present.',
+    );
+    exitCode = 1;
+    return _readRegionName(regionValue, regionKey);
+  }
+  return shortName;
+}
+
+bool? _readRegionShowInPeakList(
+  Map<String, dynamic> regionValue,
+  String regionKey,
+) {
+  final showInPeakList = regionValue['showInPeakList'];
+  if (showInPeakList == null) {
+    return null;
+  }
+  if (showInPeakList is bool) {
+    return showInPeakList;
+  }
+  if (showInPeakList is String) {
+    return switch (showInPeakList.trim().toLowerCase()) {
+      'true' => true,
+      'false' => false,
+      _ => _invalidShowInPeakListValue(regionKey),
+    };
+  }
+
+  return _invalidShowInPeakListValue(regionKey);
+}
+
+bool? _invalidShowInPeakListValue(String regionKey) {
+  stderr.writeln(
+    'Region $regionKey must define showInPeakList as true, false, or omit the field.',
+  );
+  exitCode = 1;
+  return null;
 }
 
 String _stringLiteral(String value) =>
@@ -389,6 +441,8 @@ class _RegionDefinition {
   const _RegionDefinition({
     required this.key,
     required this.name,
+    required this.shortName,
+    required this.showInPeakList,
     required this.polygons,
     required this.basemapKeys,
     required this.mapSet,
@@ -396,6 +450,8 @@ class _RegionDefinition {
 
   final String key;
   final String name;
+  final String shortName;
+  final bool? showInPeakList;
   final List<List<LatLng>> polygons;
   final List<String> basemapKeys;
   final List<String> mapSet;

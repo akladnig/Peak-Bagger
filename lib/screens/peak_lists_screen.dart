@@ -1,7 +1,15 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show PointerDeviceKind;
 
+import 'package:flutter/gestures.dart'
+    show
+        PointerPanZoomEndEvent,
+        PointerPanZoomStartEvent,
+        PointerPanZoomUpdateEvent,
+        PointerScrollEvent;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
@@ -15,6 +23,7 @@ import '../models/peak_list.dart';
 import '../models/peaks_bagged.dart';
 import '../providers/background_jobs_provider.dart';
 import '../providers/peak_list_provider.dart';
+import '../providers/peak_list_region_filter_provider.dart';
 import '../providers/peak_list_selection_provider.dart';
 import '../providers/map_provider.dart';
 import '../providers/peak_list_mini_map_cluster_display_settings_provider.dart';
@@ -26,8 +35,10 @@ import '../services/peak_list_file_picker.dart';
 import '../services/peak_cluster_engine.dart';
 import '../services/peak_hover_detector.dart';
 import '../services/peak_hit_test.dart';
+import '../services/peak_list_visibility.dart';
 import '../services/peak_list_repository.dart';
 import '../services/peak_projection_cache.dart';
+import '../services/map_trackpad_gesture_classifier.dart';
 import '../services/gpx_track_repository.dart';
 import '../services/peaks_bagged_repository.dart';
 import '../widgets/dialog_helpers.dart';
@@ -50,7 +61,8 @@ class PeakListsScreen extends ConsumerStatefulWidget {
 }
 
 class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
-  final _miniPeakMapKey = GlobalKey<_MiniPeakMapState>();
+  GlobalKey<_MiniPeakMapState> _miniPeakMapKey = GlobalKey<_MiniPeakMapState>();
+  final _screenFocusNode = FocusNode(debugLabel: 'peak-lists-screen');
   int? _selectedPeakListId;
   int? _selectedPeakId;
   _PeakListSortColumn _sortColumn = _PeakListSortColumn.percentage;
@@ -59,7 +71,13 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedPeakListId = widget.initialPeakListId;
+    _setSelectedPeakListId(widget.initialPeakListId);
+  }
+
+  @override
+  void dispose() {
+    _screenFocusNode.dispose();
+    super.dispose();
   }
 
   @override
@@ -69,8 +87,17 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
       return;
     }
 
-    _selectedPeakListId = widget.initialPeakListId;
+    _setSelectedPeakListId(widget.initialPeakListId);
     _selectedPeakId = null;
+  }
+
+  void _setSelectedPeakListId(int? peakListId) {
+    if (_selectedPeakListId == peakListId) {
+      _selectedPeakListId = peakListId;
+      return;
+    }
+    _selectedPeakListId = peakListId;
+    _miniPeakMapKey = GlobalKey<_MiniPeakMapState>();
   }
 
   @override
@@ -93,8 +120,19 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
     final ascentCountsByPeakId = peaksBaggedRepository.ascentCountsByPeakId();
     final latestAscentDatesByPeakId = peaksBaggedRepository
         .latestAscentDatesByPeakId();
+    final peakListRegions = ref.watch(peakListRegionFilterOptionsProvider);
+    final selectedRegionKeys = ref.watch(peakListRegionFilterProvider);
     final peakLists = ref.watch(peakListsProvider);
-    final summaryRows = peakLists
+    final filteredPeakLists = peakLists
+        .where(
+          (peakList) => peakListAppliesToVisibleRegions(
+            peakList,
+            selectedRegionKeys,
+            peaks: peaksById.values,
+          ),
+        )
+        .toList(growable: false);
+    final summaryRows = filteredPeakLists
         .map(
           (peakList) => _PeakListSummaryRow.fromPeakList(
             peakList,
@@ -107,92 +145,131 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
     final sortedSummaryRows = _sortSummaryRows(summaryRows);
     final selectedSummaryRow = _resolveSelectedSummaryRow(sortedSummaryRows);
     final selectedMapPeak = _resolveSelectedMapPeak(selectedSummaryRow);
+    final route = ModalRoute.of(context);
 
-    return Scaffold(
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final panes = _resolvePaneWidths(constraints.maxWidth);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      if ((route != null && !route.isCurrent) || _isEditableTextFocused()) {
+        _miniPeakMapKey.currentState?.cancelKeyboardScroll();
+        return;
+      }
+      if (_screenFocusNode.hasFocus) {
+        return;
+      }
+      _screenFocusNode.requestFocus();
+    });
 
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(
-                key: const Key('peak-lists-summary-pane'),
-                width: panes.leftWidth,
-                child: _SummaryPane(
-                  rows: sortedSummaryRows,
-                  selectedPeakListId: selectedSummaryRow?.peakList.peakListId,
-                  sortColumn: _sortColumn,
-                  sortAscending: _sortAscending,
-                  miniPeakMapKey: _miniPeakMapKey,
-                  onSelected: (peakListId) {
-                    setState(() {
-                      _selectedPeakListId = peakListId;
-                    });
-                  },
-                  onSortSelected: _handleSortSelected,
-                  onDeleteRequested: (peakListId) {
-                    _deletePeakList(peakListId, sortedSummaryRows);
-                  },
-                  filePicker: filePicker,
-                  importRunner: importRunner,
-                  duplicateNameChecker: duplicateNameChecker,
-                  onCreateRequested: _handleCreatePeakList,
-                  peakListRepository: peakListRepository,
-                  selectedMapPeak: selectedMapPeak,
-                  onPeakSelected: (peakId) {
-                    setState(() {
-                      _selectedPeakId = peakId;
-                    });
-                  },
+    return Focus(
+      focusNode: _screenFocusNode,
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if ((route != null && !route.isCurrent) || _isEditableTextFocused()) {
+          _miniPeakMapKey.currentState?.cancelKeyboardScroll();
+          return KeyEventResult.ignored;
+        }
+        final miniMapState = _miniPeakMapKey.currentState;
+        if (miniMapState == null) {
+          return KeyEventResult.ignored;
+        }
+        return miniMapState.handleScreenKeyEvent(event);
+      },
+      child: Scaffold(
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final panes = _resolvePaneWidths(constraints.maxWidth);
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  key: const Key('peak-lists-summary-pane'),
+                  width: panes.leftWidth,
+                  child: _SummaryPane(
+                    rows: sortedSummaryRows,
+                    selectedPeakListId: selectedSummaryRow?.peakList.peakListId,
+                    peakListRegions: peakListRegions,
+                    selectedRegionKeys: selectedRegionKeys,
+                    sortColumn: _sortColumn,
+                    sortAscending: _sortAscending,
+                    miniPeakMapKey: _miniPeakMapKey,
+                    onSelected: (peakListId) {
+                      setState(() {
+                        _setSelectedPeakListId(peakListId);
+                      });
+                    },
+                    onSortSelected: _handleSortSelected,
+                    onRegionToggled: (regionKey) {
+                      ref
+                          .read(peakListRegionFilterProvider.notifier)
+                          .toggleRegion(regionKey);
+                    },
+                    onDeleteRequested: (peakListId) {
+                      _deletePeakList(peakListId, sortedSummaryRows);
+                    },
+                    filePicker: filePicker,
+                    importRunner: importRunner,
+                    duplicateNameChecker: duplicateNameChecker,
+                    onCreateRequested: _handleCreatePeakList,
+                    peakListRepository: peakListRepository,
+                    selectedMapPeak: selectedMapPeak,
+                    onPeakSelected: (peakId) {
+                      setState(() {
+                        _selectedPeakId = peakId;
+                      });
+                    },
+                  ),
                 ),
-              ),
-              const VerticalDivider(width: UiConstants.dividerWidth),
-              SizedBox(
-                key: const Key('peak-lists-details-pane'),
-                width: panes.rightWidth,
-                child: _DetailsPane(
-                  selectedSummaryRow: selectedSummaryRow,
-                  selectedPeakId: _selectedPeakId,
-                  onSummaryPeakSelected: (peakId) {
-                    setState(() {
-                      _selectedPeakId = peakId;
-                    });
-                    _miniPeakMapKey.currentState?.showPopupForPeak(peakId);
-                  },
-                  onPeakSelected: (peakId) async {
-                    setState(() {
-                      _selectedPeakId = peakId;
-                    });
-                    final result = await _openPeakDialog(
-                      selectedSummaryRow,
-                      peakId,
-                    );
-                    if (!mounted || result == null) {
-                      return;
-                    }
-                    setState(() {
-                      _selectedPeakId = result.selectedPeakId;
-                    });
-                  },
-                  onAddPeakRequested: () async {
-                    final result = await _openAddPeakDialog(selectedSummaryRow);
-                    if (!mounted || result == null) {
-                      return;
-                    }
-                    final selectedPeakIds = result.selectedPeakIds;
-                    if (selectedPeakIds.isEmpty) {
-                      return;
-                    }
-                    setState(() {
-                      _selectedPeakId = selectedPeakIds.first;
-                    });
-                  },
+                const VerticalDivider(width: UiConstants.dividerWidth),
+                SizedBox(
+                  key: const Key('peak-lists-details-pane'),
+                  width: panes.rightWidth,
+                  child: _DetailsPane(
+                    selectedSummaryRow: selectedSummaryRow,
+                    selectedPeakId: _selectedPeakId,
+                    onSummaryPeakSelected: (peakId) {
+                      setState(() {
+                        _selectedPeakId = peakId;
+                      });
+                      _miniPeakMapKey.currentState?.showPopupForPeak(peakId);
+                    },
+                    onPeakSelected: (peakId) async {
+                      setState(() {
+                        _selectedPeakId = peakId;
+                      });
+                      final result = await _openPeakDialog(
+                        selectedSummaryRow,
+                        peakId,
+                      );
+                      if (!mounted || result == null) {
+                        return;
+                      }
+                      setState(() {
+                        _selectedPeakId = result.selectedPeakId;
+                      });
+                    },
+                    onAddPeakRequested: () async {
+                      final result = await _openAddPeakDialog(
+                        selectedSummaryRow,
+                      );
+                      if (!mounted || result == null) {
+                        return;
+                      }
+                      final selectedPeakIds = result.selectedPeakIds;
+                      if (selectedPeakIds.isEmpty) {
+                        return;
+                      }
+                      setState(() {
+                        _selectedPeakId = selectedPeakIds.first;
+                      });
+                    },
+                  ),
                 ),
-              ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -276,7 +353,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
       return;
     }
     setState(() {
-      _selectedPeakListId = nextSelectedPeakListId;
+      _setSelectedPeakListId(nextSelectedPeakListId);
       if (_selectedPeakListId != peakListId) {
         _selectedPeakId = null;
       }
@@ -408,7 +485,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
     }
 
     setState(() {
-      _selectedPeakListId = createdPeakListId;
+      _setSelectedPeakListId(createdPeakListId);
       _selectedPeakId = null;
     });
 
@@ -548,6 +625,16 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
     }
     return left.isSupported ? -1 : 1;
   }
+}
+
+bool _isEditableTextFocused() {
+  final focusedContext = FocusManager.instance.primaryFocus?.context;
+  if (focusedContext == null) {
+    return false;
+  }
+
+  return focusedContext.widget is EditableText ||
+      focusedContext.findAncestorWidgetOfExactType<EditableText>() != null;
 }
 
 enum _PeakListSortColumn {
@@ -764,11 +851,14 @@ class _SummaryPane extends StatelessWidget {
   const _SummaryPane({
     required this.rows,
     required this.selectedPeakListId,
+    required this.peakListRegions,
+    required this.selectedRegionKeys,
     required this.selectedMapPeak,
     required this.miniPeakMapKey,
     required this.sortColumn,
     required this.sortAscending,
     required this.onSelected,
+    required this.onRegionToggled,
     required this.onSortSelected,
     required this.onDeleteRequested,
     required this.filePicker,
@@ -781,11 +871,14 @@ class _SummaryPane extends StatelessWidget {
 
   final List<_PeakListSummaryRow> rows;
   final int? selectedPeakListId;
+  final List<RegionManifestRegionData> peakListRegions;
+  final Set<String> selectedRegionKeys;
   final _MapPeak? selectedMapPeak;
   final GlobalKey<_MiniPeakMapState> miniPeakMapKey;
   final _PeakListSortColumn sortColumn;
   final bool sortAscending;
   final ValueChanged<int> onSelected;
+  final ValueChanged<String> onRegionToggled;
   final ValueChanged<_PeakListSortColumn> onSortSelected;
   final ValueChanged<int> onDeleteRequested;
   final PeakListFilePicker filePicker;
@@ -802,6 +895,12 @@ class _SummaryPane extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          _PeakListRegionFilterCard(
+            regions: peakListRegions,
+            selectedRegionKeys: selectedRegionKeys,
+            onRegionToggled: onRegionToggled,
+          ),
+          const SizedBox(height: 12),
           Expanded(
             flex: 3,
             child: _SummaryListCard(
@@ -838,6 +937,48 @@ class _SummaryPane extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PeakListRegionFilterCard extends StatelessWidget {
+  const _PeakListRegionFilterCard({
+    required this.regions,
+    required this.selectedRegionKeys,
+    required this.onRegionToggled,
+  });
+
+  final List<RegionManifestRegionData> regions;
+  final Set<String> selectedRegionKeys;
+  final ValueChanged<String> onRegionToggled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      key: const Key('peak-lists-region-filter-card'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: SingleChildScrollView(
+          key: const Key('peak-lists-region-filter-row'),
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final region in regions) ...[
+                Tooltip(
+                  message: region.name,
+                  child: FilterChip(
+                    key: Key('peak-lists-region-filter-${region.key}'),
+                    label: Text(region.shortName),
+                    selected: selectedRegionKeys.contains(region.key),
+                    onSelected: (_) => onRegionToggled(region.key),
+                  ),
+                ),
+                if (region != regions.last) const SizedBox(width: 8),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -2213,7 +2354,269 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
   PeakInfoContent? _popupContent;
   int? _hoveredPeakId;
   bool _hoveringCluster = false;
+  Timer? _scrollTimer;
+  double _scrollDx = 0;
+  double _scrollDy = 0;
+  bool _historyResetPending = true;
+  PeakListMiniMapDebugState? _debugState;
+  List<_MiniPeakMapCameraState> _cameraHistory = const [];
+  int _cameraHistoryIndex = -1;
+  int _cameraFitRequestToken = 0;
+  Timer? _wheelCommitTimer;
+  Offset? _pointerDownPosition;
+  Offset? _lastDragPosition;
+  bool _isPointerDown = false;
+  bool _pointerMovedBeyondClickThreshold = false;
+  LatLng? _trackpadGestureCenter;
+  double? _trackpadGestureZoom;
   static const _tapThreshold = 24.0;
+  static const _clickDragThreshold = 5.0;
+  static const _wheelPixelsPerZoomLevel = 200.0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _fitCameraToSelectedSummaryRow();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollTimer?.cancel();
+    _wheelCommitTimer?.cancel();
+    super.dispose();
+  }
+
+  KeyEventResult handleScreenKeyEvent(KeyEvent event) {
+    final key = event.logicalKey;
+
+    if (key == LogicalKeyboardKey.equal ||
+        key == LogicalKeyboardKey.comma ||
+        key == LogicalKeyboardKey.period ||
+        key == LogicalKeyboardKey.less ||
+        key == LogicalKeyboardKey.add ||
+        key == LogicalKeyboardKey.minus ||
+        key == LogicalKeyboardKey.greater) {
+      if (event is KeyDownEvent) {
+        final currentZoom = _mapController.camera.zoom;
+        final newZoom =
+            (key == LogicalKeyboardKey.equal ||
+                key == LogicalKeyboardKey.period ||
+                key == LogicalKeyboardKey.greater ||
+                key == LogicalKeyboardKey.add)
+            ? currentZoom + 1
+            : currentZoom - 1;
+        _moveCamera(
+          center: _mapController.camera.center,
+          zoom: newZoom,
+          resetHistory: false,
+        );
+      }
+      return KeyEventResult.handled;
+    }
+
+    if (key == LogicalKeyboardKey.keyK || key == LogicalKeyboardKey.arrowUp) {
+      if (event is KeyDownEvent) {
+        _startScrolling(0, -1);
+      } else if (event is KeyUpEvent) {
+        _stopScrolling();
+      }
+      return KeyEventResult.handled;
+    }
+
+    if (key == LogicalKeyboardKey.keyJ || key == LogicalKeyboardKey.arrowDown) {
+      if (event is KeyDownEvent) {
+        _startScrolling(0, 1);
+      } else if (event is KeyUpEvent) {
+        _stopScrolling();
+      }
+      return KeyEventResult.handled;
+    }
+
+    if (key == LogicalKeyboardKey.keyH || key == LogicalKeyboardKey.arrowLeft) {
+      if (event is KeyDownEvent) {
+        _startScrolling(-1, 0);
+      } else if (event is KeyUpEvent) {
+        _stopScrolling();
+      }
+      return KeyEventResult.handled;
+    }
+
+    if (key == LogicalKeyboardKey.keyL ||
+        key == LogicalKeyboardKey.arrowRight) {
+      if (event is KeyDownEvent) {
+        _startScrolling(1, 0);
+      } else if (event is KeyUpEvent) {
+        _stopScrolling();
+      }
+      return KeyEventResult.handled;
+    }
+
+    if (event is KeyDownEvent &&
+        HardwareKeyboard.instance.isMetaPressed &&
+        key == LogicalKeyboardKey.bracketLeft) {
+      _navigateCameraHistory(-1);
+      return KeyEventResult.handled;
+    }
+
+    if (event is KeyDownEvent &&
+        HardwareKeyboard.instance.isMetaPressed &&
+        key == LogicalKeyboardKey.bracketRight) {
+      _navigateCameraHistory(1);
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  void cancelKeyboardScroll() {
+    if (_scrollTimer == null) {
+      return;
+    }
+    _stopScrolling();
+  }
+
+  void _handlePointerDown(Offset localPosition) {
+    _isPointerDown = true;
+    _pointerMovedBeyondClickThreshold = false;
+    _pointerDownPosition = localPosition;
+    _lastDragPosition = localPosition;
+    setState(() {});
+  }
+
+  void _handlePointerMove(Offset localPosition) {
+    if (!_isPointerDown) {
+      return;
+    }
+
+    final pointerDownPosition = _pointerDownPosition;
+    final lastDragPosition = _lastDragPosition;
+    if (pointerDownPosition == null || lastDragPosition == null) {
+      return;
+    }
+
+    if (!_pointerMovedBeyondClickThreshold &&
+        (localPosition - pointerDownPosition).distance > _clickDragThreshold) {
+      _pointerMovedBeyondClickThreshold = true;
+    }
+    if (!_pointerMovedBeyondClickThreshold) {
+      return;
+    }
+
+    _panCameraByDelta(localPosition - lastDragPosition);
+    _lastDragPosition = localPosition;
+  }
+
+  void _handlePointerUp(Offset localPosition) {
+    final treatAsDrag = _pointerMovedBeyondClickThreshold;
+    _resetPointerInteraction();
+    if (treatAsDrag) {
+      _commitCameraFromController(resetHistory: false);
+      return;
+    }
+    _handleMapTap(localPosition);
+  }
+
+  void _handlePointerCancel() {
+    final treatAsDrag = _pointerMovedBeyondClickThreshold;
+    _resetPointerInteraction();
+    if (treatAsDrag) {
+      _commitCameraFromController(resetHistory: false);
+    }
+  }
+
+  void _resetPointerInteraction() {
+    _isPointerDown = false;
+    _pointerMovedBeyondClickThreshold = false;
+    _pointerDownPosition = null;
+    _lastDragPosition = null;
+    setState(() {});
+  }
+
+  void _panCameraByDelta(Offset delta) {
+    final camera = _mapController.camera;
+    if (camera.nonRotatedSize == MapCamera.kImpossibleSize) {
+      return;
+    }
+
+    final centerScreenOffset = Offset(
+      camera.nonRotatedSize.width / 2,
+      camera.nonRotatedSize.height / 2,
+    );
+    final targetCenter = camera.screenOffsetToLatLng(
+      centerScreenOffset - delta,
+    );
+    _mapController.move(targetCenter, camera.zoom);
+    setState(() {});
+  }
+
+  void _handleTrackpadPanZoomStart(PointerPanZoomStartEvent event) {
+    _trackpadGestureCenter = _mapController.camera.center;
+    _trackpadGestureZoom = _mapController.camera.zoom;
+  }
+
+  void _handleTrackpadPanZoomUpdate(PointerPanZoomUpdateEvent event) {
+    final gestureCenter = _trackpadGestureCenter;
+    final gestureZoom = _trackpadGestureZoom;
+    if (gestureCenter == null || gestureZoom == null) {
+      return;
+    }
+
+    final intent = classifyMapTrackpadGesture(
+      pan: event.pan,
+      scale: event.scale,
+    );
+    if (intent.type == MapTrackpadGestureType.none) {
+      _mapController.move(gestureCenter, gestureZoom);
+      setState(() {});
+      return;
+    }
+
+    final targetZoom = (gestureZoom + intent.zoomDelta).clamp(
+      1.0,
+      MapConstants.peakMaxZoom.toDouble(),
+    );
+    _mapController.move(gestureCenter, targetZoom);
+    setState(() {});
+  }
+
+  void _handleTrackpadPanZoomEnd(PointerPanZoomEndEvent event) {
+    _trackpadGestureCenter = null;
+    _trackpadGestureZoom = null;
+    _commitCameraFromController(resetHistory: false);
+  }
+
+  void _handlePointerSignal(PointerScrollEvent event) {
+    if (event.kind != PointerDeviceKind.mouse) {
+      return;
+    }
+
+    final zoomDelta = -event.scrollDelta.dy / _wheelPixelsPerZoomLevel;
+    if (zoomDelta == 0) {
+      return;
+    }
+
+    final currentZoom = _mapController.camera.zoom;
+    final targetZoom = (currentZoom + zoomDelta).clamp(
+      1.0,
+      MapConstants.peakMaxZoom.toDouble(),
+    );
+    if ((targetZoom - currentZoom).abs() <= MapConstants.cameraEpsilon) {
+      return;
+    }
+
+    _mapController.move(_mapController.camera.center, targetZoom);
+    _wheelCommitTimer?.cancel();
+    _wheelCommitTimer = Timer(MapConstants.cameraSaveDebounce, () {
+      if (mounted) {
+        _commitCameraFromController(resetHistory: false);
+      }
+    });
+    setState(() {});
+  }
 
   void showPopupForPeak(int peakId) {
     final tappedPeak = _peakForId(peakId);
@@ -2272,24 +2675,33 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
       _popupContent = null;
     }
     if (oldListId != newListId) {
+      _cameraFitRequestToken += 1;
+      _historyResetPending = true;
+      _cameraHistory = const [];
+      _cameraHistoryIndex = -1;
+      final requestToken = _cameraFitRequestToken;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          _fitCameraToSelectedSummaryRow();
+          _fitCameraToSelectedSummaryRow(requestToken: requestToken);
         }
       });
     }
   }
 
-  void _fitCameraToSelectedSummaryRow({int attempt = 0}) {
-    final summaryRow = widget.selectedSummaryRow;
-    if (summaryRow == null) {
+  void _fitCameraToSelectedSummaryRow({int attempt = 0, int? requestToken}) {
+    final token = requestToken ?? _cameraFitRequestToken;
+    if (token != _cameraFitRequestToken) {
       return;
     }
+    final summaryRow = widget.selectedSummaryRow;
     if (_mapController.camera.nonRotatedSize == MapCamera.kImpossibleSize) {
       if (attempt < 6) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            _fitCameraToSelectedSummaryRow(attempt: attempt + 1);
+            _fitCameraToSelectedSummaryRow(
+              attempt: attempt + 1,
+              requestToken: token,
+            );
           }
         });
       }
@@ -2297,9 +2709,10 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
     }
 
     _mapController.fitCamera(_resolveInitialCameraFit(summaryRow));
-    if (mounted) {
-      setState(() {});
-    }
+    _commitCameraFromController(
+      resetHistory: _historyResetPending,
+      appendToHistory: false,
+    );
   }
 
   void _clearPopup() {
@@ -2501,12 +2914,13 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
 
     final camera = _mapController.camera;
     if (peakClusterNeedsZoomFallback(points)) {
-      _mapController.move(
-        points.first,
-        (camera.zoom + 2).clamp(
+      _moveCamera(
+        center: points.first,
+        zoom: (camera.zoom + 2).clamp(
           MapConstants.peakMinZoom.toDouble(),
           MapConstants.peakMaxZoom.toDouble(),
         ),
+        resetHistory: false,
       );
       return;
     }
@@ -2517,6 +2931,153 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
         padding: const EdgeInsets.all(MapConstants.peakClusterExpandPadding),
       ),
     );
+    _commitCameraFromController(resetHistory: false);
+  }
+
+  void _startScrolling(double dx, double dy) {
+    _scrollDx = dx * UiConstants.scrollSpeed;
+    _scrollDy = dy * UiConstants.scrollSpeed;
+    _scrollTimer?.cancel();
+    _scrollTimer = Timer.periodic(UiConstants.scrollInterval, (_) {
+      if (_scrollDx != 0 || _scrollDy != 0) {
+        _panCamera(_scrollDx, _scrollDy);
+      }
+    });
+  }
+
+  void _stopScrolling() {
+    _scrollTimer?.cancel();
+    _scrollTimer = null;
+    _scrollDx = 0;
+    _scrollDy = 0;
+    _commitCameraFromController(resetHistory: false);
+  }
+
+  void _panCamera(double dx, double dy) {
+    final center = _mapController.camera.center;
+    final newCenter = LatLng(center.latitude + dy, center.longitude + dx);
+    _mapController.move(newCenter, _mapController.camera.zoom);
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _moveCamera({
+    required LatLng center,
+    required double zoom,
+    required bool resetHistory,
+  }) {
+    _mapController.move(center, zoom);
+    _commitCameraFromController(resetHistory: resetHistory);
+  }
+
+  void _navigateCameraHistory(int direction) {
+    final nextIndex = _cameraHistoryIndex + direction;
+    if (nextIndex < 0 || nextIndex >= _cameraHistory.length) {
+      return;
+    }
+
+    final nextCamera = _cameraHistory[nextIndex];
+    _mapController.move(nextCamera.center, nextCamera.zoom);
+    setState(() {
+      _cameraHistoryIndex = nextIndex;
+      _debugState = PeakListMiniMapDebugState(
+        center: nextCamera.center,
+        zoom: nextCamera.zoom,
+        canGoPrevious: nextIndex > 0,
+        canGoNext: nextIndex < _cameraHistory.length - 1,
+      );
+    });
+  }
+
+  void _commitCameraFromController({
+    required bool resetHistory,
+    bool appendToHistory = true,
+  }) {
+    final cameraState = _cameraStateFromController();
+    if (cameraState == null) {
+      return;
+    }
+    if (resetHistory && !_cameraMatchesSelectedSummaryRow(cameraState)) {
+      setState(() {
+        _debugState = PeakListMiniMapDebugState(
+          center: cameraState.center,
+          zoom: cameraState.zoom,
+          canGoPrevious: false,
+          canGoNext: false,
+        );
+      });
+      return;
+    }
+
+    final nextHistory = switch ((resetHistory, _cameraHistory.isEmpty)) {
+      (true, _) || (_, true) => <_MiniPeakMapCameraState>[cameraState],
+      _
+          when _cameraStateEquals(
+            _cameraHistory[_cameraHistoryIndex],
+            cameraState,
+          ) =>
+        [
+          for (var index = 0; index < _cameraHistory.length; index++)
+            index == _cameraHistoryIndex ? cameraState : _cameraHistory[index],
+        ],
+      _ when !appendToHistory => [
+        for (var index = 0; index < _cameraHistory.length; index++)
+          index == _cameraHistoryIndex ? cameraState : _cameraHistory[index],
+      ],
+      _ => <_MiniPeakMapCameraState>[
+        ..._cameraHistory.take(_cameraHistoryIndex + 1),
+        cameraState,
+      ],
+    };
+    final nextIndex = resetHistory || _cameraHistory.isEmpty
+        ? 0
+        : _cameraStateEquals(
+                _cameraHistory[_cameraHistoryIndex],
+                cameraState,
+              ) ||
+              !appendToHistory
+        ? _cameraHistoryIndex
+        : nextHistory.length - 1;
+
+    setState(() {
+      _historyResetPending = false;
+      _cameraHistory = List<_MiniPeakMapCameraState>.unmodifiable(nextHistory);
+      _cameraHistoryIndex = nextIndex;
+      _debugState = PeakListMiniMapDebugState(
+        center: cameraState.center,
+        zoom: cameraState.zoom,
+        canGoPrevious: nextIndex > 0,
+        canGoNext: nextIndex < nextHistory.length - 1,
+      );
+    });
+  }
+
+  _MiniPeakMapCameraState? _cameraStateFromController() {
+    try {
+      final camera = _mapController.camera;
+      return _MiniPeakMapCameraState(center: camera.center, zoom: camera.zoom);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _cameraMatchesSelectedSummaryRow(_MiniPeakMapCameraState cameraState) {
+    final peakListBounds = _peakListMiniMapBoundsOrNull(
+      widget.selectedSummaryRow?.peakList,
+    );
+    if (peakListBounds != null) {
+      return peakListBounds.contains(cameraState.center);
+    }
+
+    final peaks = widget.selectedSummaryRow?.mapPeaks ?? const <_MapPeak>[];
+    if (peaks.isEmpty) {
+      return true;
+    }
+
+    return LatLngBounds.fromPoints([
+      for (final peak in peaks) LatLng(peak.peak.latitude, peak.peak.longitude),
+    ]).contains(cameraState.center);
   }
 
   Offset _screenOffsetForPeak(Peak peak) {
@@ -2569,13 +3130,17 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                       onMapReady: () {
                         if (mounted) {
                           _fitCameraToSelectedSummaryRow();
-                          setState(() {});
                         }
                       },
                       onPositionChanged: (camera, hasGesture) {
-                        if (mounted) {
-                          setState(() {});
+                        if (!mounted) {
+                          return;
                         }
+                        if (_historyResetPending) {
+                          _commitCameraFromController(resetHistory: true);
+                          return;
+                        }
+                        setState(() {});
                       },
                       interactionOptions: const InteractionOptions(
                         flags: InteractiveFlag.none,
@@ -2624,8 +3189,12 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                   child: MouseRegion(
                     key: const Key('peak-lists-mini-map-interaction-region'),
                     cursor: _hoveredPeakId != null || _hoveringCluster
-                        ? SystemMouseCursors.click
-                        : SystemMouseCursors.basic,
+                        ? (_isPointerDown
+                              ? SystemMouseCursors.grabbing
+                              : SystemMouseCursors.click)
+                        : (_isPointerDown
+                              ? SystemMouseCursors.grabbing
+                              : SystemMouseCursors.grab),
                     onHover: (event) {
                       _handleHover(event.localPosition);
                     },
@@ -2634,8 +3203,25 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                     },
                     child: Listener(
                       behavior: HitTestBehavior.translucent,
+                      onPointerDown: (event) {
+                        _handlePointerDown(event.localPosition);
+                      },
+                      onPointerMove: (event) {
+                        _handlePointerMove(event.localPosition);
+                      },
+                      onPointerCancel: (event) {
+                        _handlePointerCancel();
+                      },
+                      onPointerPanZoomStart: _handleTrackpadPanZoomStart,
+                      onPointerPanZoomUpdate: _handleTrackpadPanZoomUpdate,
+                      onPointerPanZoomEnd: _handleTrackpadPanZoomEnd,
+                      onPointerSignal: (event) {
+                        if (event is PointerScrollEvent) {
+                          _handlePointerSignal(event);
+                        }
+                      },
                       onPointerUp: (event) {
-                        _handleMapTap(event.localPosition);
+                        _handlePointerUp(event.localPosition);
                       },
                     ),
                   ),
@@ -2692,6 +3278,17 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                       );
                     },
                   ),
+                PeakListMiniMapDebugProbe(
+                  key: const Key('peak-lists-mini-map-debug-probe'),
+                  state:
+                      _debugState ??
+                      const PeakListMiniMapDebugState(
+                        center: LatLng(0, 0),
+                        zoom: 0,
+                        canGoPrevious: false,
+                        canGoNext: false,
+                      ),
+                ),
               ],
             );
           },
@@ -2699,6 +3296,49 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
       ),
     );
   }
+}
+
+class PeakListMiniMapDebugProbe extends StatelessWidget {
+  const PeakListMiniMapDebugProbe({required this.state, super.key});
+
+  final PeakListMiniMapDebugState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return const Offstage(child: SizedBox.shrink());
+  }
+}
+
+class PeakListMiniMapDebugState {
+  const PeakListMiniMapDebugState({
+    required this.center,
+    required this.zoom,
+    required this.canGoPrevious,
+    required this.canGoNext,
+  });
+
+  final LatLng center;
+  final double zoom;
+  final bool canGoPrevious;
+  final bool canGoNext;
+}
+
+class _MiniPeakMapCameraState {
+  const _MiniPeakMapCameraState({required this.center, required this.zoom});
+
+  final LatLng center;
+  final double zoom;
+}
+
+bool _cameraStateEquals(
+  _MiniPeakMapCameraState left,
+  _MiniPeakMapCameraState right,
+) {
+  return (left.center.latitude - right.center.latitude).abs() <=
+          MapConstants.cameraEpsilon &&
+      (left.center.longitude - right.center.longitude).abs() <=
+          MapConstants.cameraEpsilon &&
+      (left.zoom - right.zoom).abs() <= MapConstants.cameraEpsilon;
 }
 
 class _MiniPeakMapAffordanceLayer extends StatelessWidget {
