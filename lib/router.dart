@@ -600,15 +600,6 @@ class _PeaksAppBarTitle extends ConsumerWidget {
             ),
           ),
         ),
-        const Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(left: _laneGap, right: 8),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: SizedBox.shrink(),
-            ),
-          ),
-        ),
       ],
     );
   }

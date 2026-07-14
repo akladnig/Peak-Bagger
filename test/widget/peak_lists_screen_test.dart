@@ -124,8 +124,12 @@ void main() {
     final firstFabRect = tester.getRect(
       find.byKey(const Key('peak-lists-region-fab-tasmania')),
     );
+    final scrollerRect = tester.getRect(
+      find.byKey(const Key('peak-lists-region-fab-scroller')),
+    );
     expect(firstFabRect.left, greaterThan(titleRect.right));
     expect(firstFabRect.center.dy, closeTo(titleRect.center.dy, 1));
+    expect(scrollerRect.right, greaterThan(appBarRect.center.dx));
 
     for (final (index, regionKey, shortName, fullName) in const [
       (0, 'tasmania', 'Tas', 'Tasmania'),
@@ -243,7 +247,8 @@ void main() {
       expect(find.byKey(const Key('peak-lists-row-1')), findsOneWidget);
       expect(find.byKey(const Key('peak-lists-row-2')), findsOneWidget);
       expect(find.byKey(const Key('peak-lists-row-3')), findsOneWidget);
-      expect(find.byKey(const Key('peak-lists-row-4')), findsNothing);
+      expect(find.byKey(const Key('peak-lists-row-4')), findsOneWidget);
+      expect(find.byKey(const Key('peak-lists-row-5')), findsNothing);
     },
   );
 
@@ -264,8 +269,9 @@ void main() {
 
     expect(find.byKey(const Key('peak-lists-row-1')), findsNothing);
     expect(find.byKey(const Key('peak-lists-row-2')), findsOneWidget);
-    expect(find.byKey(const Key('peak-lists-row-3')), findsOneWidget);
-    expect(find.byKey(const Key('peak-lists-row-4')), findsNothing);
+    expect(find.byKey(const Key('peak-lists-row-3')), findsNothing);
+    expect(find.byKey(const Key('peak-lists-row-4')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-row-5')), findsNothing);
   });
 
   testWidgets('region filters toggle independently and keep union semantics', (
@@ -286,6 +292,7 @@ void main() {
     expect(find.byKey(const Key('peak-lists-row-1')), findsNothing);
     expect(find.byKey(const Key('peak-lists-row-2')), findsOneWidget);
     expect(find.byKey(const Key('peak-lists-row-3')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-row-4')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('peak-lists-region-fab-tasmania')));
     await tester.pumpAndSettle();
@@ -293,6 +300,7 @@ void main() {
     expect(find.byKey(const Key('peak-lists-row-1')), findsOneWidget);
     expect(find.byKey(const Key('peak-lists-row-2')), findsOneWidget);
     expect(find.byKey(const Key('peak-lists-row-3')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-row-4')), findsOneWidget);
   });
 
   testWidgets('all-off is a valid persisted region filter state', (
@@ -326,6 +334,8 @@ void main() {
     expect(find.byKey(const Key('peak-lists-row-1')), findsNothing);
     expect(find.byKey(const Key('peak-lists-row-2')), findsNothing);
     expect(find.byKey(const Key('peak-lists-row-3')), findsNothing);
+    expect(find.byKey(const Key('peak-lists-row-4')), findsNothing);
+    expect(find.byKey(const Key('peak-lists-row-5')), findsNothing);
     expect(find.byKey(const Key('peak-lists-empty-message')), findsOneWidget);
     expect(
       tester
@@ -377,18 +387,16 @@ void main() {
         tester
             .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
             .data,
-        'Mixed Regions',
+        'FVG Only',
       );
+      expect(find.byKey(const Key('peak-lists-details-row-100')), findsNothing);
+      expect(find.byKey(const Key('peak-lists-details-row-200')), findsNothing);
       expect(
-        find.byKey(const Key('peak-lists-details-row-100')),
+        find.byKey(const Key('peak-lists-details-row-300')),
         findsOneWidget,
       );
       expect(
-        find.byKey(const Key('peak-lists-details-row-200')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const Key('peak-lists-mini-map-marker-100-unticked')),
+        find.byKey(const Key('peak-lists-mini-map-marker-300-unticked')),
         findsOneWidget,
       );
 
@@ -401,7 +409,7 @@ void main() {
         tester
             .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
             .data,
-        'Mixed Regions',
+        'FVG Only',
       );
     },
   );
@@ -4155,17 +4163,19 @@ _buildRegionFilterFixture() {
       InMemoryPeakListStorage([
         _buildPeakList(1, 'Tas Only', [100], region: 'tasmania'),
         _buildPeakList(2, 'NSW Only', [200], region: 'new-south-wales'),
-        _buildPeakList(3, 'Mixed Regions', [
+        _buildPeakList(3, 'FVG Only', [300], region: 'fvg'),
+        _buildPeakList(4, 'Mixed Regions', [
           100,
           200,
         ], region: PeakList.mixedRegion),
-        _buildPeakList(4, 'Legacy Region', [100], region: 'legacy-region'),
+        _buildPeakList(5, 'Legacy Region', [100], region: 'legacy-region'),
       ]),
     ),
     peakRepository: PeakRepository.test(
       InMemoryPeakStorage([
         _buildPeak(100, 'Alpha Peak', -42.0, 146.0, region: 'tasmania'),
         _buildPeak(200, 'Beta Peak', -35.3, 148.9, region: 'new-south-wales'),
+        _buildPeak(300, 'Gamma Peak', 46.2, 13.2, region: 'fvg'),
       ]),
     ),
   );

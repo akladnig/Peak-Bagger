@@ -131,6 +131,13 @@
     "name": "Italy North East",
     "shortName": "Italy NE",
     "showInPeakList": "true",
+    "peakListFilterAliases": [
+      "fvg",
+      "friuli-venezia-giulia",
+      "veneto",
+      "trentino-alto-adige",
+      "emilia-romagna"
+    ],
     "fingerprint": "2bbee51c74151c78920dc44178cbd1c9c38c7f631043d95d8118e9bed5a924f8",
     "ISO_3166-1": "IT",
     "ISO_3166-2": [

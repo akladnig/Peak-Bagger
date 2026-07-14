@@ -152,7 +152,45 @@ void main() {
       regionManifestCatalog.regionByKey('croatia')?.showInPeakList,
       isTrue,
     );
+    expect(
+      regionManifestCatalog
+          .regionByKey('italy-nord-est')
+          ?.peakListFilterAliases,
+      containsAll(const [
+        'fvg',
+        'friuli-venezia-giulia',
+        'veneto',
+        'trentino-alto-adige',
+        'emilia-romagna',
+      ]),
+    );
   });
+
+  test(
+    'manifest-backed peak-list filter aliases resolve to canonical keys',
+    () {
+      expect(
+        regionManifestCatalog.peakListFilterRegionKey('fvg'),
+        'italy-nord-est',
+      );
+      expect(
+        regionManifestCatalog.peakListFilterRegionKey('friuli-venezia-giulia'),
+        'italy-nord-est',
+      );
+      expect(
+        regionManifestCatalog.peakListFilterRegionKey('veneto'),
+        'italy-nord-est',
+      );
+      expect(
+        regionManifestCatalog.peakListFilterRegionKey('trentino-alto-adige'),
+        'italy-nord-est',
+      );
+      expect(
+        regionManifestCatalog.peakListFilterRegionKey('emilia-romagna'),
+        'italy-nord-est',
+      );
+    },
+  );
 
   test('peak-list regions follow the manifest showInPeakList contract', () {
     final manifest =

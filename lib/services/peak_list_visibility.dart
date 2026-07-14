@@ -4,10 +4,6 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
 
-const _regionAliases = <String, String>{
-  'friuli-venezia-giulia': 'italy-nord-est',
-};
-
 Set<int> peakIdsForRegion({
   required Iterable<Peak> peaks,
   required LatLng cursorPoint,
@@ -98,7 +94,7 @@ bool peakListAppliesToVisibleRegions(
   Iterable<Peak>? peaks,
 }) {
   final normalizedPeakListRegionKey = canonicalRegionKey(
-    normalizePeakListRegionKey(peakList.region),
+    peakListFilterRegionKey(peakList.region),
   );
   if (normalizedPeakListRegionKey == PeakList.mixedRegion) {
     return _mixedPeakListAppliesToVisibleRegions(
@@ -200,10 +196,12 @@ bool _mixedPeakListAppliesToVisibleRegions(
     }
 
     final peakRegionKey = canonicalRegionKey(
-      regionManifestCatalog.regionKeyForPoint(
-            LatLng(peak.latitude, peak.longitude),
-          ) ??
-          peak.region,
+      peakListFilterRegionKey(
+        regionManifestCatalog.regionKeyForPoint(
+              LatLng(peak.latitude, peak.longitude),
+            ) ??
+            peak.region,
+      ),
     );
     if (peakRegionKey != null && visibleRegionKeys.contains(peakRegionKey)) {
       return true;
@@ -244,12 +242,11 @@ String? normalizePeakListRegionKey(String? regionKey) {
 }
 
 String? canonicalRegionKey(String? regionKey) {
-  final normalized = normalizePeakListRegionKey(regionKey);
-  if (normalized == null) {
-    return null;
-  }
+  return normalizePeakListRegionKey(regionKey);
+}
 
-  return _regionAliases[normalized] ?? normalized;
+String? peakListFilterRegionKey(String? regionKey) {
+  return regionManifestCatalog.peakListFilterRegionKey(regionKey);
 }
 
 bool _isPeakWithinBounds({required Peak peak, required LatLngBounds bounds}) {

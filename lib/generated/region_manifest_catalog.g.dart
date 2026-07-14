@@ -247,6 +247,8 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       name: 'Tasmania',
       shortName: 'Tas',
       showInPeakList: true,
+      peakListFilterAliases: [
+      ],
       polygons: [
         [
           const LatLng(-44.0, 148.8867),
@@ -276,6 +278,8 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       name: 'New South Wales',
       shortName: 'NSW',
       showInPeakList: true,
+      peakListFilterAliases: [
+      ],
       polygons: [
         [
           const LatLng(-37.75984, 158.7979),
@@ -1166,6 +1170,13 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       name: 'Italy North East',
       shortName: 'Italy NE',
       showInPeakList: true,
+      peakListFilterAliases: [
+        'fvg',
+        'friuli-venezia-giulia',
+        'veneto',
+        'trentino-alto-adige',
+        'emilia-romagna',
+      ],
       polygons: [
         [
           const LatLng(44.55021, 13.26463),
@@ -2093,6 +2104,8 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       name: 'Italy North West',
       shortName: 'Italy NW',
       showInPeakList: true,
+      peakListFilterAliases: [
+      ],
       polygons: [
         [
           const LatLng(43.48231, 7.729716),
@@ -2609,6 +2622,8 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       name: 'Italy',
       shortName: 'Italy',
       showInPeakList: false,
+      peakListFilterAliases: [
+      ],
       polygons: [
         [
           const LatLng(44.55021, 13.26463),
@@ -4036,6 +4051,8 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       name: 'Slovenia',
       shortName: 'Slovenia',
       showInPeakList: true,
+      peakListFilterAliases: [
+      ],
       polygons: [
         [
           const LatLng(45.42099, 15.16336),
@@ -4390,6 +4407,8 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       name: 'Croatia',
       shortName: 'Croatia',
       showInPeakList: true,
+      peakListFilterAliases: [
+      ],
       polygons: [
         [
           const LatLng(42.43746, 18.51463),
