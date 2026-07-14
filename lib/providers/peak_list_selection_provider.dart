@@ -7,7 +7,7 @@ import 'package:peak_bagger/models/peak_ownership_ring_segment.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_ownership_ring_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
-import 'package:peak_bagger/services/peak_list_colour_resolver.dart';
+import 'package:peak_bagger/services/fab_colour_resolver.dart';
 import 'package:peak_bagger/services/peak_list_visibility.dart';
 
 const _tasmaniaPeakOwnershipPriority = <String, int>{

@@ -26,6 +26,7 @@ import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/screens/map_screen_peak_layer.dart';
 import 'package:peak_bagger/screens/peak_lists_screen.dart';
+import 'package:peak_bagger/services/fab_colour_resolver.dart';
 import 'package:peak_bagger/services/peak_list_csv_export_service.dart';
 import 'package:peak_bagger/services/peak_list_file_picker.dart';
 import 'package:peak_bagger/services/peak_list_import_service.dart';
@@ -63,16 +64,14 @@ void main() {
     expect(find.byKey(const Key('peak-lists-summary-pane')), findsOneWidget);
     expect(find.byKey(const Key('peak-lists-details-pane')), findsOneWidget);
     expect(find.byKey(const Key('peak-lists-mini-map')), findsOneWidget);
-    expect(find.byKey(const Key('peak-lists-add-list-fab')), findsOneWidget);
-    expect(find.byKey(const Key('peak-lists-import-fab')), findsOneWidget);
+    expect(find.byKey(const Key('shared-app-bar')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-app-bar-content')), findsOneWidget);
     expect(
-      tester
-          .widget<FloatingActionButton>(
-            find.byKey(const Key('peak-lists-add-list-fab')),
-          )
-          .mouseCursor,
-      SystemMouseCursors.click,
+      find.byKey(const Key('peak-lists-region-fab-scroller')),
+      findsOneWidget,
     );
+    expect(find.byKey(const Key('peak-lists-add-list-fab')), findsNothing);
+    expect(find.byKey(const Key('peak-lists-import-fab')), findsOneWidget);
     expect(
       tester
           .widget<FloatingActionButton>(
@@ -83,10 +82,6 @@ void main() {
     );
     final summaryHeaderCenter = tester.getCenter(
       find.byKey(const Key('peak-lists-summary-header')),
-    );
-    expect(
-      tester.getCenter(find.byKey(const Key('peak-lists-add-list-fab'))).dy,
-      closeTo(summaryHeaderCenter.dy + 4, 1),
     );
     expect(
       tester.getCenter(find.byKey(const Key('peak-lists-import-fab'))).dy,
@@ -100,6 +95,72 @@ void main() {
     expect(find.text('Peak Name'), findsOneWidget);
     expect(find.text('Height'), findsOneWidget);
     expect(find.text('Ascent\nDate'), findsOneWidget);
+  });
+
+  testWidgets('peaks app bar renders manifest-backed region fabs', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final semanticsHandle = tester.ensureSemantics();
+
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(InMemoryPeakListStorage()),
+      peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage(),
+      ),
+    );
+
+    final appBarRect = tester.getRect(find.byKey(const Key('shared-app-bar')));
+    expect(appBarRect.height, closeTo(kToolbarHeight, 1));
+
+    final titleRect = tester.getRect(find.byKey(const Key('app-bar-title')));
+    final firstFabRect = tester.getRect(
+      find.byKey(const Key('peak-lists-region-fab-tasmania')),
+    );
+    expect(firstFabRect.left, greaterThan(titleRect.right));
+    expect(firstFabRect.center.dy, closeTo(titleRect.center.dy, 1));
+
+    for (final (index, regionKey, shortName, fullName) in const [
+      (0, 'tasmania', 'Tas', 'Tasmania'),
+      (1, 'new-south-wales', 'NSW', 'New South Wales'),
+      (2, 'italy-nord-est', 'Italy NE', 'Italy North East'),
+      (3, 'italy-nord-ovest', 'Italy NW', 'Italy North West'),
+      (4, 'slovenia', 'Slovenia', 'Slovenia'),
+      (5, 'croatia', 'Croatia', 'Croatia'),
+    ]) {
+      final buttonFinder = find.byKey(Key('peak-lists-region-fab-$regionKey'));
+      expect(buttonFinder, findsOneWidget);
+      expect(find.text(shortName), findsOneWidget);
+      expect(_tooltipMessageFor(tester, regionKey), fullName);
+      final button = tester.widget<OutlinedButton>(buttonFinder);
+      final backgroundColor = button.style?.backgroundColor?.resolve(
+        const <WidgetState>{},
+      );
+      expect(backgroundColor, Color(defaultFABPalette[index]));
+      expect(find.bySemanticsLabel(fullName), findsOneWidget);
+    }
+
+    expect(find.byKey(const Key('peak-lists-add-list-fab')), findsNothing);
+    expect(find.byKey(const Key('peak-lists-import-fab')), findsOneWidget);
+
+    final croatiaFinder = find.byKey(
+      const Key('peak-lists-region-fab-croatia'),
+    );
+    await tester.ensureVisible(croatiaFinder);
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(croatiaFinder).center.dy,
+      closeTo(appBarRect.center.dy, 1),
+    );
+
+    semanticsHandle.dispose();
   });
 
   testWidgets('initialPeakListId opens the selected peak list', (tester) async {
@@ -162,7 +223,10 @@ void main() {
         'slovenia',
         'croatia',
       ]) {
-        expect(_regionFilterChip(tester, regionKey).selected, isTrue);
+        expect(
+          find.byKey(Key('peak-lists-region-fab-$regionKey')),
+          findsOneWidget,
+        );
       }
 
       for (final label in const [
@@ -198,8 +262,6 @@ void main() {
       peakRepository: fixture.peakRepository,
     );
 
-    expect(_regionFilterChip(tester, 'tasmania').selected, isFalse);
-    expect(_regionFilterChip(tester, 'new-south-wales').selected, isTrue);
     expect(find.byKey(const Key('peak-lists-row-1')), findsNothing);
     expect(find.byKey(const Key('peak-lists-row-2')), findsOneWidget);
     expect(find.byKey(const Key('peak-lists-row-3')), findsOneWidget);
@@ -218,24 +280,16 @@ void main() {
       peakRepository: fixture.peakRepository,
     );
 
-    await tester.tap(
-      find.byKey(const Key('peak-lists-region-filter-tasmania')),
-    );
+    await tester.tap(find.byKey(const Key('peak-lists-region-fab-tasmania')));
     await tester.pumpAndSettle();
 
-    expect(_regionFilterChip(tester, 'tasmania').selected, isFalse);
-    expect(_regionFilterChip(tester, 'new-south-wales').selected, isTrue);
     expect(find.byKey(const Key('peak-lists-row-1')), findsNothing);
     expect(find.byKey(const Key('peak-lists-row-2')), findsOneWidget);
     expect(find.byKey(const Key('peak-lists-row-3')), findsOneWidget);
 
-    await tester.tap(
-      find.byKey(const Key('peak-lists-region-filter-tasmania')),
-    );
+    await tester.tap(find.byKey(const Key('peak-lists-region-fab-tasmania')));
     await tester.pumpAndSettle();
 
-    expect(_regionFilterChip(tester, 'tasmania').selected, isTrue);
-    expect(_regionFilterChip(tester, 'new-south-wales').selected, isTrue);
     expect(find.byKey(const Key('peak-lists-row-1')), findsOneWidget);
     expect(find.byKey(const Key('peak-lists-row-2')), findsOneWidget);
     expect(find.byKey(const Key('peak-lists-row-3')), findsOneWidget);
@@ -261,9 +315,9 @@ void main() {
       'slovenia',
       'croatia',
     ]) {
-      final chipFinder = find.byKey(Key('peak-lists-region-filter-$regionKey'));
-      await tester.ensureVisible(chipFinder);
-      await tester.tap(chipFinder);
+      final buttonFinder = find.byKey(Key('peak-lists-region-fab-$regionKey'));
+      await tester.ensureVisible(buttonFinder);
+      await tester.tap(buttonFinder);
       await tester.pumpAndSettle();
     }
 
@@ -2231,16 +2285,16 @@ void main() {
 
       final initialState = _miniMapDebugState(tester);
 
-      await tester.tap(find.byKey(const Key('peak-lists-add-list-fab')));
+      await tester.tap(find.byKey(const Key('peak-lists-import-fab')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('peak-list-create-dialog')), findsOneWidget);
+      expect(find.byKey(const Key('peak-list-import-dialog')), findsOneWidget);
 
       await tester.sendKeyDownEvent(LogicalKeyboardKey.period);
       await tester.pump();
 
       expect(_miniMapDebugState(tester).zoom, initialState.zoom);
 
-      await tester.tap(find.byKey(const Key('peak-list-create-cancel')));
+      await tester.tap(find.byKey(const Key('peak-list-import-cancel')));
       await tester.pumpAndSettle();
 
       tester
@@ -3310,128 +3364,6 @@ void main() {
     expect(find.byKey(const Key('peak-list-import-dialog')), findsNothing);
   });
 
-  testWidgets('create fab opens dialog and cancel closes it', (tester) async {
-    await _pumpPeakListsApp(
-      tester,
-      filePicker: TestPeakListFilePicker(),
-      repository: PeakListRepository.test(InMemoryPeakListStorage()),
-    );
-
-    await tester.tap(find.byKey(const Key('peak-lists-add-list-fab')));
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const Key('peak-list-create-dialog')), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('peak-list-create-cancel')));
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const Key('peak-list-create-dialog')), findsNothing);
-  });
-
-  testWidgets('create dialog validates required and duplicate names', (
-    tester,
-  ) async {
-    await _pumpPeakListsApp(
-      tester,
-      filePicker: TestPeakListFilePicker(),
-      repository: PeakListRepository.test(
-        InMemoryPeakListStorage(_buildLists(['Abels'])),
-      ),
-      duplicateNameChecker: (name) async => name == 'Abels',
-    );
-
-    await tester.tap(find.byKey(const Key('peak-lists-add-list-fab')));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const Key('peak-list-create-button')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('A list name is required'), findsOneWidget);
-
-    await tester.enterText(
-      find.byKey(const Key('peak-list-create-name-field')),
-      'Abels',
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('peak-list-create-button')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('This peak list already exists.'), findsOneWidget);
-  });
-
-  testWidgets('create dialog saves and opens the peak selector', (
-    tester,
-  ) async {
-    final repository = PeakListRepository.test(InMemoryPeakListStorage());
-
-    await _pumpPeakListsApp(
-      tester,
-      filePicker: TestPeakListFilePicker(),
-      repository: repository,
-      peakRepository: PeakRepository.test(
-        InMemoryPeakStorage([_buildPeak(100, 'Alpha Peak', -41.0, 146.0)]),
-      ),
-    );
-
-    await tester.tap(find.byKey(const Key('peak-lists-add-list-fab')));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('peak-list-create-name-field')),
-      '  Fresh List  ',
-    );
-    await tester.tap(find.byKey(const Key('peak-list-create-button')));
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const Key('peak-list-create-dialog')), findsNothing);
-    expect(find.byKey(const Key('peak-list-peak-dialog')), findsOneWidget);
-    expect(
-      tester
-          .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
-          .data,
-      'Fresh List',
-    );
-
-    final saved = repository.getAllPeakLists().single;
-    expect(saved.name, 'Fresh List');
-    expect(saved.peakList, '[]');
-
-    await tester.tap(find.byKey(const Key('peak-list-peak-cancel')));
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const Key('peak-list-peak-dialog')), findsNothing);
-  });
-
-  testWidgets('create dialog failure shows modal and keeps dialog open', (
-    tester,
-  ) async {
-    await _pumpPeakListsApp(
-      tester,
-      filePicker: TestPeakListFilePicker(),
-      repository: PeakListRepository.test(_ThrowingPeakListStorage()),
-    );
-
-    await tester.tap(find.byKey(const Key('peak-lists-add-list-fab')));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('peak-list-create-name-field')),
-      'Broken List',
-    );
-    await tester.tap(find.byKey(const Key('peak-list-create-button')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Peak List Create Failed'), findsOneWidget);
-    expect(find.textContaining('boom'), findsOneWidget);
-    expect(
-      find.byKey(const Key('peak-list-create-error-close')),
-      findsOneWidget,
-    );
-
-    await tester.tap(find.byKey(const Key('peak-list-create-error-close')));
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const Key('peak-list-create-dialog')), findsOneWidget);
-  });
-
   testWidgets('import stays disabled until a file is selected', (tester) async {
     await _pumpPeakListsApp(
       tester,
@@ -4057,10 +3989,16 @@ Future<void> _sendMetaChord(WidgetTester tester, LogicalKeyboardKey key) async {
   await tester.pump();
 }
 
-FilterChip _regionFilterChip(WidgetTester tester, String regionKey) {
-  return tester.widget<FilterChip>(
-    find.byKey(Key('peak-lists-region-filter-$regionKey')),
-  );
+String _tooltipMessageFor(WidgetTester tester, String regionKey) {
+  return tester
+          .widget<Tooltip>(
+            find.ancestor(
+              of: find.byKey(Key('peak-lists-region-fab-$regionKey')),
+              matching: find.byType(Tooltip),
+            ),
+          )
+          .message ??
+      '';
 }
 
 ({PeakListRepository repository, PeakRepository peakRepository})
@@ -4167,36 +4105,6 @@ String _csvCell(String value) {
   }
   final escaped = value.replaceAll('"', '""');
   return '"$escaped"';
-}
-
-class _ThrowingPeakListStorage implements PeakListStorage {
-  @override
-  int get count => 0;
-
-  @override
-  List<PeakList> getAll() => const <PeakList>[];
-
-  @override
-  PeakList? getById(int peakListId) => null;
-
-  @override
-  PeakList? getByName(String name) => null;
-
-  @override
-  Future<void> delete(int peakListId) async {}
-
-  @override
-  Future<PeakList> put(PeakList peakList) async {
-    throw StateError('boom');
-  }
-
-  @override
-  Future<PeakList> replaceByName(
-    PeakList peakList, {
-    void Function()? beforePutForTest,
-  }) async {
-    throw StateError('boom');
-  }
 }
 
 PeakList _buildPeakList(

@@ -21,12 +21,14 @@ import '../../harness/test_peak_list_file_picker.dart';
 import 'peak_lists_robot.dart';
 
 void main() {
-  testWidgets('peak lists journey creates a list and adds peaks', (
+  testWidgets('peak lists journey adds peaks to an existing list', (
     tester,
   ) async {
     final robot = PeakListsRobot(tester);
     final peakListRepository = PeakListRepository.test(
-      InMemoryPeakListStorage(),
+      InMemoryPeakListStorage([
+        PeakList(name: 'Journey List', peakList: '[]')..peakListId = 1,
+      ]),
     );
     final peakRepository = PeakRepository.test(
       InMemoryPeakStorage([
@@ -60,11 +62,9 @@ void main() {
       peakRepository: peakRepository,
     );
 
-    await robot.openCreateDialog();
-    expect(robot.createDialog, findsOneWidget);
+    expect(tester.widget<Text>(robot.selectedTitle).data, 'Journey List');
 
-    await robot.enterCreateName('  Journey List  ');
-    await robot.submitCreate();
+    await robot.openAddPeakDialog();
     await tester.pumpAndSettle();
 
     expect(robot.addPeakDialog, findsOneWidget);

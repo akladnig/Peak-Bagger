@@ -43,7 +43,6 @@ import '../services/gpx_track_repository.dart';
 import '../services/peaks_bagged_repository.dart';
 import '../widgets/dialog_helpers.dart';
 import '../widgets/left_tooltip_fab.dart';
-import '../widgets/peak_list_create_dialog.dart';
 import '../widgets/peak_list_import_dialog.dart';
 import '../widgets/peak_list_peak_dialog.dart';
 import '../theme.dart';
@@ -120,7 +119,6 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
     final ascentCountsByPeakId = peaksBaggedRepository.ascentCountsByPeakId();
     final latestAscentDatesByPeakId = peaksBaggedRepository
         .latestAscentDatesByPeakId();
-    final peakListRegions = ref.watch(peakListRegionFilterOptionsProvider);
     final selectedRegionKeys = ref.watch(peakListRegionFilterProvider);
     final peakLists = ref.watch(peakListsProvider);
     final filteredPeakLists = peakLists
@@ -189,8 +187,6 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
                   child: _SummaryPane(
                     rows: sortedSummaryRows,
                     selectedPeakListId: selectedSummaryRow?.peakList.peakListId,
-                    peakListRegions: peakListRegions,
-                    selectedRegionKeys: selectedRegionKeys,
                     sortColumn: _sortColumn,
                     sortAscending: _sortAscending,
                     miniPeakMapKey: _miniPeakMapKey,
@@ -200,18 +196,12 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
                       });
                     },
                     onSortSelected: _handleSortSelected,
-                    onRegionToggled: (regionKey) {
-                      ref
-                          .read(peakListRegionFilterProvider.notifier)
-                          .toggleRegion(regionKey);
-                    },
                     onDeleteRequested: (peakListId) {
                       _deletePeakList(peakListId, sortedSummaryRows);
                     },
                     filePicker: filePicker,
                     importRunner: importRunner,
                     duplicateNameChecker: duplicateNameChecker,
-                    onCreateRequested: _handleCreatePeakList,
                     peakListRepository: peakListRepository,
                     selectedMapPeak: selectedMapPeak,
                     onPeakSelected: (peakId) {
@@ -448,72 +438,6 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
         );
         return FadeTransition(opacity: fadeAnimation, child: child);
       },
-    );
-  }
-
-  Future<void> _handleCreatePeakList() async {
-    final createdPeakListId = await showDialog<int>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return PeakListCreateDialog(
-          duplicateNameChecker: ref.read(peakListDuplicateNameCheckerProvider),
-          onCreate: ({required String listName}) async {
-            final saved = await ref
-                .read(peakListMutationRepositoryProvider)
-                .save(
-                  PeakList(
-                    name: listName,
-                    peakList: encodePeakListItems(const <PeakListItem>[]),
-                  ),
-                  recomputeDerivedFields: true,
-                );
-            _refreshPeakListSelectionDependencies();
-            return saved.peakListId;
-          },
-        );
-      },
-    );
-
-    if (!mounted || createdPeakListId == null) {
-      return;
-    }
-
-    final createdSummaryRow = _buildSummaryRowForPeakList(createdPeakListId);
-    if (createdSummaryRow == null) {
-      return;
-    }
-
-    setState(() {
-      _setSelectedPeakListId(createdPeakListId);
-      _selectedPeakId = null;
-    });
-
-    final result = await _openAddPeakDialog(createdSummaryRow);
-    if (!mounted || result == null) {
-      return;
-    }
-    setState(() {
-      _selectedPeakId = result.selectedPeakId;
-    });
-  }
-
-  _PeakListSummaryRow? _buildSummaryRowForPeakList(int peakListId) {
-    final peakList = ref.read(peakListRepositoryProvider).findById(peakListId);
-    if (peakList == null) {
-      return null;
-    }
-
-    final peakRepository = ref.read(peakRepositoryProvider);
-    final peaksBaggedRepository = ref.read(peaksBaggedRepositoryProvider);
-    return _PeakListSummaryRow.fromPeakList(
-      peakList,
-      peaksById: {
-        for (final peak in peakRepository.getAllPeaks()) peak.osmId: peak,
-      },
-      ascentCountsByPeakId: peaksBaggedRepository.ascentCountsByPeakId(),
-      latestAscentDatesByPeakId: peaksBaggedRepository
-          .latestAscentDatesByPeakId(),
     );
   }
 
@@ -851,40 +775,32 @@ class _SummaryPane extends StatelessWidget {
   const _SummaryPane({
     required this.rows,
     required this.selectedPeakListId,
-    required this.peakListRegions,
-    required this.selectedRegionKeys,
     required this.selectedMapPeak,
     required this.miniPeakMapKey,
     required this.sortColumn,
     required this.sortAscending,
     required this.onSelected,
-    required this.onRegionToggled,
     required this.onSortSelected,
     required this.onDeleteRequested,
     required this.filePicker,
     required this.importRunner,
     required this.duplicateNameChecker,
-    required this.onCreateRequested,
     required this.peakListRepository,
     required this.onPeakSelected,
   });
 
   final List<_PeakListSummaryRow> rows;
   final int? selectedPeakListId;
-  final List<RegionManifestRegionData> peakListRegions;
-  final Set<String> selectedRegionKeys;
   final _MapPeak? selectedMapPeak;
   final GlobalKey<_MiniPeakMapState> miniPeakMapKey;
   final _PeakListSortColumn sortColumn;
   final bool sortAscending;
   final ValueChanged<int> onSelected;
-  final ValueChanged<String> onRegionToggled;
   final ValueChanged<_PeakListSortColumn> onSortSelected;
   final ValueChanged<int> onDeleteRequested;
   final PeakListFilePicker filePicker;
   final PeakListImportBackgroundRunner importRunner;
   final PeakListDuplicateNameChecker duplicateNameChecker;
-  final VoidCallback onCreateRequested;
   final PeakListRepository peakListRepository;
   final ValueChanged<int> onPeakSelected;
 
@@ -895,12 +811,6 @@ class _SummaryPane extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _PeakListRegionFilterCard(
-            regions: peakListRegions,
-            selectedRegionKeys: selectedRegionKeys,
-            onRegionToggled: onRegionToggled,
-          ),
-          const SizedBox(height: 12),
           Expanded(
             flex: 3,
             child: _SummaryListCard(
@@ -914,7 +824,6 @@ class _SummaryPane extends StatelessWidget {
               filePicker: filePicker,
               importRunner: importRunner,
               duplicateNameChecker: duplicateNameChecker,
-              onCreateRequested: onCreateRequested,
               peakListRepository: peakListRepository,
             ),
           ),
@@ -942,48 +851,6 @@ class _SummaryPane extends StatelessWidget {
   }
 }
 
-class _PeakListRegionFilterCard extends StatelessWidget {
-  const _PeakListRegionFilterCard({
-    required this.regions,
-    required this.selectedRegionKeys,
-    required this.onRegionToggled,
-  });
-
-  final List<RegionManifestRegionData> regions;
-  final Set<String> selectedRegionKeys;
-  final ValueChanged<String> onRegionToggled;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      key: const Key('peak-lists-region-filter-card'),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: SingleChildScrollView(
-          key: const Key('peak-lists-region-filter-row'),
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              for (final region in regions) ...[
-                Tooltip(
-                  message: region.name,
-                  child: FilterChip(
-                    key: Key('peak-lists-region-filter-${region.key}'),
-                    label: Text(region.shortName),
-                    selected: selectedRegionKeys.contains(region.key),
-                    onSelected: (_) => onRegionToggled(region.key),
-                  ),
-                ),
-                if (region != regions.last) const SizedBox(width: 8),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _SummaryListCard extends StatelessWidget {
   const _SummaryListCard({
     required this.rows,
@@ -996,7 +863,6 @@ class _SummaryListCard extends StatelessWidget {
     required this.filePicker,
     required this.importRunner,
     required this.duplicateNameChecker,
-    required this.onCreateRequested,
     required this.peakListRepository,
   });
 
@@ -1010,7 +876,6 @@ class _SummaryListCard extends StatelessWidget {
   final PeakListFilePicker filePicker;
   final PeakListImportBackgroundRunner importRunner;
   final PeakListDuplicateNameChecker duplicateNameChecker;
-  final VoidCallback onCreateRequested;
   final PeakListRepository peakListRepository;
 
   @override
@@ -1098,7 +963,6 @@ class _SummaryListCard extends StatelessWidget {
                             filePicker: filePicker,
                             importRunner: importRunner,
                             duplicateNameChecker: duplicateNameChecker,
-                            onCreateRequested: onCreateRequested,
                             peakListRepository: peakListRepository,
                           ),
                         ),
@@ -1120,14 +984,12 @@ class _SummaryHeaderActions extends ConsumerWidget {
     required this.filePicker,
     required this.importRunner,
     required this.duplicateNameChecker,
-    required this.onCreateRequested,
     required this.peakListRepository,
   });
 
   final PeakListFilePicker filePicker;
   final PeakListImportBackgroundRunner importRunner;
   final PeakListDuplicateNameChecker duplicateNameChecker;
-  final VoidCallback onCreateRequested;
   final PeakListRepository peakListRepository;
 
   @override
@@ -1138,18 +1000,6 @@ class _SummaryHeaderActions extends ConsumerWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        LeftTooltipFab(
-          message: 'Add New Peak List',
-          child: FloatingActionButton.small(
-            key: const Key('peak-lists-add-list-fab'),
-            heroTag: 'peak-list-create',
-            backgroundColor: fabBackground,
-            mouseCursor: SystemMouseCursors.click,
-            onPressed: onCreateRequested,
-            child: Icon(Icons.add_circle_outline, color: fabForeground),
-          ),
-        ),
-        const SizedBox(width: 12),
         LeftTooltipFab(
           message: 'Import Peak List',
           child: FloatingActionButton.small(

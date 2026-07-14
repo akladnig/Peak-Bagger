@@ -18,19 +18,19 @@ Add the permanent `/peaks` `region FAB` row through the shared shell app-bar sea
 
 ## Acceptance criteria
 
-- [ ] On the `/peaks` route, the permanent `region FAB` row renders in the shared app bar lane on the left with the `My Peak Lists` title rather than in the `PeakListsScreen` body.
-- [ ] When the one-line layout fits, the first `region FAB` sits immediately beside the `My Peak Lists` title.
-- [ ] The `/peaks` app bar stays on a single line. When the title plus `region FAB` row do not fit because of width or text scale, the title remains left-aligned and the `region FAB` row stays on the same line with horizontal scrolling rather than wrapping onto a second line.
-- [ ] Every `/peaks` `region FAB` remains reachable and tappable through that horizontal scroll behavior on constrained widths or larger text scales.
-- [ ] The `region FAB`s use the same control visual language as the existing Map screen peak-list app-bar controls and do not show pin or unpin icons.
-- [ ] Visible `/peaks` `region FAB` text uses the exact manifest-backed short labels `Tas`, `NSW`, `Italy NE`, `Italy NW`, `Slovenia`, and `Croatia`.
-- [ ] Tooltip text and accessibility semantics use the full manifest names `Tasmania`, `New South Wales`, `Italy North East`, `Italy North West`, `Slovenia`, and `Croatia` rather than the abbreviated visible labels.
-- [ ] `/peaks` `region FAB` colours use the same accent palette language as the Map screen peak-list controls with a fixed manifest-order mapping: `Tas` -> palette entry 1, `NSW` -> entry 2, `Italy NE` -> entry 3, `Italy NW` -> entry 4, `Slovenia` -> entry 5, and `Croatia` -> entry 6, independent of which lists currently match the filter.
-- [ ] The shared palette utility is renamed to `lib/services/fab_colour_resolver.dart`, `peakListDefaultPalette` is renamed to `defaultFABPalette`, and existing palette consumers continue to resolve colours through the renamed shared seam without changing current colour behavior outside this slice.
-- [ ] `My Peak Lists` no longer shows the `Add New Peak List` action, `peak-lists-add-list-fab` no longer exists on that screen, `Import Peak List` remains available through `peak-lists-import-fab`, and no replacement create control appears elsewhere on `My Peak Lists`.
-- [ ] Stable selectors exist for the `/peaks` shared-app-bar content container, the horizontal `region FAB` scroller, and each `region FAB` toggle so widget coverage can assert layout and state deterministically.
-- [ ] Shell-level widget coverage verifies the left-aligned title-plus-controls layout, single-line fit behavior, constrained-width or larger-text-scale horizontal scrolling on the same line, no wrap onto a second line, exact visible labels, full-name tooltip and semantics contracts, `peak-lists-add-list-fab` removal, `peak-lists-import-fab` retention, and the fixed manifest-order colour mapping.
-- [ ] Testing stays widget-first for this slice. Add robot coverage only if shared app-bar behavior cannot be asserted reliably through existing keyed widgets and semantics.
+- [x] On the `/peaks` route, the permanent `region FAB` row renders in the shared app bar lane on the left with the `My Peak Lists` title rather than in the `PeakListsScreen` body.
+- [x] When the one-line layout fits, the first `region FAB` sits immediately beside the `My Peak Lists` title.
+- [x] The `/peaks` app bar stays on a single line. When the title plus `region FAB` row do not fit because of width or text scale, the title remains left-aligned and the `region FAB` row stays on the same line with horizontal scrolling rather than wrapping onto a second line.
+- [x] Every `/peaks` `region FAB` remains reachable and tappable through that horizontal scroll behavior on constrained widths or larger text scales.
+- [x] The `region FAB`s use the same control visual language as the existing Map screen peak-list app-bar controls and do not show pin or unpin icons.
+- [x] Visible `/peaks` `region FAB` text uses the exact manifest-backed short labels `Tas`, `NSW`, `Italy NE`, `Italy NW`, `Slovenia`, and `Croatia`.
+- [x] Tooltip text and accessibility semantics use the full manifest names `Tasmania`, `New South Wales`, `Italy North East`, `Italy North West`, `Slovenia`, and `Croatia` rather than the abbreviated visible labels.
+- [x] `/peaks` `region FAB` colours use the same accent palette language as the Map screen peak-list controls with a fixed manifest-order mapping: `Tas` -> palette entry 1, `NSW` -> entry 2, `Italy NE` -> entry 3, `Italy NW` -> entry 4, `Slovenia` -> entry 5, and `Croatia` -> entry 6, independent of which lists currently match the filter.
+- [x] The shared palette utility is renamed to `lib/services/fab_colour_resolver.dart`, `peakListDefaultPalette` is renamed to `defaultFABPalette`, and existing palette consumers continue to resolve colours through the renamed shared seam without changing current colour behavior outside this slice.
+- [x] `My Peak Lists` no longer shows the `Add New Peak List` action, `peak-lists-add-list-fab` no longer exists on that screen, `Import Peak List` remains available through `peak-lists-import-fab`, and no replacement create control appears elsewhere on `My Peak Lists`.
+- [x] Stable selectors exist for the `/peaks` shared-app-bar content container, the horizontal `region FAB` scroller, and each `region FAB` toggle so widget coverage can assert layout and state deterministically.
+- [x] Shell-level widget coverage verifies the left-aligned title-plus-controls layout, single-line fit behavior, constrained-width or larger-text-scale horizontal scrolling on the same line, no wrap onto a second line, exact visible labels, full-name tooltip and semantics contracts, `peak-lists-add-list-fab` removal, `peak-lists-import-fab` retention, and the fixed manifest-order colour mapping.
+- [x] Testing stays widget-first for this slice. Add robot coverage only if shared app-bar behavior cannot be asserted reliably through existing keyed widgets and semantics.
 
 ## Covers
 
