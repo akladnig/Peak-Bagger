@@ -335,6 +335,153 @@ void main() {
     );
   });
 
+  testWidgets(
+    'filter handoff selects the first remaining visible list and stays handed off when the hidden list returns',
+    (tester) async {
+      final fixture = _buildRegionFilterFixture();
+
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: fixture.repository,
+        peakRepository: fixture.peakRepository,
+      );
+
+      tester
+          .widget<InkWell>(find.byKey(const Key('peak-lists-row-2')))
+          .onTap!();
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+            .data,
+        'NSW Only',
+      );
+      expect(find.byKey(const Key('peak-lists-details-row-100')), findsNothing);
+      expect(
+        find.byKey(const Key('peak-lists-details-row-200')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('peak-lists-mini-map-marker-100-unticked')),
+        findsNothing,
+      );
+
+      await tester.tap(
+        find.byKey(const Key('peak-lists-region-fab-new-south-wales')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+            .data,
+        'Mixed Regions',
+      );
+      expect(
+        find.byKey(const Key('peak-lists-details-row-100')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('peak-lists-details-row-200')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('peak-lists-mini-map-marker-100-unticked')),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(const Key('peak-lists-region-fab-new-south-wales')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+            .data,
+        'Mixed Regions',
+      );
+    },
+  );
+
+  testWidgets('all-off clears selection, details, and mini-map state', (
+    tester,
+  ) async {
+    final fixture = _buildRegionFilterFixture();
+
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: fixture.repository,
+      peakRepository: fixture.peakRepository,
+    );
+
+    tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-2'))).onTap!();
+    await tester.pumpAndSettle();
+
+    tester
+        .widget<InkWell>(
+          find
+              .descendant(
+                of: find.byKey(const Key('peak-lists-details-row-200')),
+                matching: find.byType(InkWell),
+              )
+              .first,
+        )
+        .onTap!();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('peak-lists-selected-peak-circle-layer')),
+      findsOneWidget,
+    );
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('peak-lists-summary-pane'))),
+    );
+
+    for (final regionKey in const [
+      'tasmania',
+      'new-south-wales',
+      'italy-nord-est',
+      'italy-nord-ovest',
+      'slovenia',
+      'croatia',
+    ]) {
+      await container
+          .read(peakListRegionFilterProvider.notifier)
+          .toggleRegion(regionKey);
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.byKey(const Key('peak-lists-row-1')), findsNothing);
+    expect(find.byKey(const Key('peak-lists-row-2')), findsNothing);
+    expect(find.byKey(const Key('peak-lists-row-3')), findsNothing);
+    expect(find.byKey(const Key('peak-lists-empty-message')), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+          .data,
+      'Peak List Details',
+    );
+    expect(find.byKey(const Key('peak-lists-details-row-100')), findsNothing);
+    expect(find.byKey(const Key('peak-lists-details-row-200')), findsNothing);
+    expect(
+      find.byKey(const Key('peak-lists-mini-map-marker-100-unticked')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const Key('peak-lists-mini-map-marker-200-unticked')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const Key('peak-lists-selected-peak-circle-layer')),
+      findsNothing,
+    );
+  });
+
   testWidgets('summary rows use click cursor and hover theme', (tester) async {
     await _pumpPeakListsScreen(
       tester,
@@ -2647,15 +2794,15 @@ void main() {
       expect(_miniMapDebugState(tester).canGoPrevious, isTrue);
 
       tester
-          .widget<InkWell>(find.byKey(const Key('peak-lists-row-2')))
+          .widget<InkWell>(find.byKey(const Key('peak-lists-row-1')))
           .onTap!();
       await tester.pumpAndSettle();
 
       final resetState = _miniMapDebugState(tester);
       expect(resetState.canGoPrevious, isFalse);
       expect(resetState.canGoNext, isFalse);
-      expect(resetState.center.latitude, greaterThan(40));
-      expect(resetState.center.longitude, lessThan(20));
+      expect(resetState.center.latitude, lessThan(-40));
+      expect(resetState.center.longitude, greaterThan(100));
     },
   );
 

@@ -66,6 +66,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
   int? _selectedPeakId;
   _PeakListSortColumn _sortColumn = _PeakListSortColumn.percentage;
   bool _sortAscending = false;
+  bool _selectionSyncQueued = false;
 
   @override
   void initState() {
@@ -142,6 +143,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
         .toList(growable: false);
     final sortedSummaryRows = _sortSummaryRows(summaryRows);
     final selectedSummaryRow = _resolveSelectedSummaryRow(sortedSummaryRows);
+    _queueSelectionSync(sortedSummaryRows, selectedSummaryRow);
     final selectedMapPeak = _resolveSelectedMapPeak(selectedSummaryRow);
     final route = ModalRoute.of(context);
 
@@ -523,6 +525,36 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
     }
 
     return rows.first;
+  }
+
+  void _queueSelectionSync(
+    List<_PeakListSummaryRow> visibleRows,
+    _PeakListSummaryRow? selectedSummaryRow,
+  ) {
+    final nextSelectedPeakListId = selectedSummaryRow?.peakList.peakListId;
+    final shouldClearPeakSelection =
+        nextSelectedPeakListId != _selectedPeakListId || visibleRows.isEmpty;
+    if (_selectedPeakListId == nextSelectedPeakListId &&
+        (!shouldClearPeakSelection || _selectedPeakId == null)) {
+      return;
+    }
+    if (_selectionSyncQueued) {
+      return;
+    }
+
+    _selectionSyncQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _selectionSyncQueued = false;
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _setSelectedPeakListId(nextSelectedPeakListId);
+        if (shouldClearPeakSelection) {
+          _selectedPeakId = null;
+        }
+      });
+    });
   }
 
   _MapPeak? _resolveSelectedMapPeak(_PeakListSummaryRow? selectedSummaryRow) {

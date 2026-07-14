@@ -252,13 +252,13 @@ void main() {
       expect(noForwardState.center.longitude, branchedState.center.longitude);
       expect(noForwardState.canGoNext, isFalse);
 
-      await robot.selectPeakListRow(2);
+      await robot.selectPeakListRow(1);
       final resetState = robot.miniMapDebugState();
-      expect(tester.widget<Text>(robot.selectedTitle).data, 'Alps Peaks');
+      expect(tester.widget<Text>(robot.selectedTitle).data, 'Tas Peaks');
       expect(resetState.canGoPrevious, isFalse);
       expect(resetState.canGoNext, isFalse);
-      expect(resetState.center.latitude, greaterThan(40));
-      expect(resetState.center.longitude, lessThan(20));
+      expect(resetState.center.latitude, lessThan(-40));
+      expect(resetState.center.longitude, greaterThan(100));
     },
   );
 

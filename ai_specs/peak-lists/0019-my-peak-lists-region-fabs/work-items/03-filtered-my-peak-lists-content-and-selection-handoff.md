@@ -18,15 +18,15 @@ Apply the approved `/peaks` region-filter state to visible `My Peak Lists` conte
 
 ## Acceptance criteria
 
-- [ ] `My Peak Lists` shows the union of all peak lists applicable to the currently selected manifest regions.
-- [ ] A peak list with a canonical manifest region is visible when its region matches any selected region, a `mixed-region peak list` is visible when at least one of its applicable regions is selected, and peak lists whose stored `region` is neither a manifest region nor `mixed` remain hidden in this slice.
-- [ ] If the user turns every `/peaks` `region FAB` off, `My Peak Lists` shows no visible peak lists, keeps the empty state visible, and does not silently restore all regions.
-- [ ] When the current filter removes the currently selected peak list from the visible set, `My Peak Lists` immediately selects the first remaining visible peak list in the current filtered order.
-- [ ] When the current filter leaves no visible peak lists, `My Peak Lists` clears the current selection.
-- [ ] After either selection handoff or selection clearing, the summary pane, `peak list mini-map`, and details pane update immediately to match the new visible selection state.
-- [ ] Filter changes do not leave `PeakListsScreen` in a stale state where the selected row, selected title, mini-map content, or details pane still reflect a now-hidden peak list.
-- [ ] Widget coverage in `test/widget/peak_lists_screen_test.dart` verifies filter-driven selection handoff to the first remaining visible list in filtered order, selection clearing when no visible peak lists remain, and immediate summary-pane, `peak list mini-map`, and details-pane updates that follow the new selection state.
-- [ ] Widget coverage in `test/widget/peak_lists_screen_test.dart` also verifies the all-off empty-state behavior within the full filtered `My Peak Lists` screen flow rather than only through isolated state helpers.
+- [x] `My Peak Lists` shows the union of all peak lists applicable to the currently selected manifest regions.
+- [x] A peak list with a canonical manifest region is visible when its region matches any selected region, a `mixed-region peak list` is visible when at least one of its applicable regions is selected, and peak lists whose stored `region` is neither a manifest region nor `mixed` remain hidden in this slice.
+- [x] If the user turns every `/peaks` `region FAB` off, `My Peak Lists` shows no visible peak lists, keeps the empty state visible, and does not silently restore all regions.
+- [x] When the current filter removes the currently selected peak list from the visible set, `My Peak Lists` immediately selects the first remaining visible peak list in the current filtered order.
+- [x] When the current filter leaves no visible peak lists, `My Peak Lists` clears the current selection.
+- [x] After either selection handoff or selection clearing, the summary pane, `peak list mini-map`, and details pane update immediately to match the new visible selection state.
+- [x] Filter changes do not leave `PeakListsScreen` in a stale state where the selected row, selected title, mini-map content, or details pane still reflect a now-hidden peak list.
+- [x] Widget coverage in `test/widget/peak_lists_screen_test.dart` verifies filter-driven selection handoff to the first remaining visible list in filtered order, selection clearing when no visible peak lists remain, and immediate summary-pane, `peak list mini-map`, and details-pane updates that follow the new selection state.
+- [x] Widget coverage in `test/widget/peak_lists_screen_test.dart` also verifies the all-off empty-state behavior within the full filtered `My Peak Lists` screen flow rather than only through isolated state helpers.
 
 ## Covers
 
