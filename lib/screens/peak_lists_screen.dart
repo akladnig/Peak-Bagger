@@ -883,7 +883,7 @@ class _SummaryPane extends StatelessWidget {
   }
 }
 
-class _SummaryListCard extends StatelessWidget {
+class _SummaryListCard extends StatefulWidget {
   const _SummaryListCard({
     required this.rows,
     required this.selectedPeakListId,
@@ -911,8 +911,15 @@ class _SummaryListCard extends StatelessWidget {
   final PeakListRepository peakListRepository;
 
   @override
+  State<_SummaryListCard> createState() => _SummaryListCardState();
+}
+
+class _SummaryListCardState extends State<_SummaryListCard> {
+  int? _hoveredPeakListId;
+
+  @override
   Widget build(BuildContext context) {
-    final widths = _resolveSummaryTableWidths(context, rows);
+    final widths = _resolveSummaryTableWidths(context, widget.rows);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -939,14 +946,14 @@ class _SummaryListCard extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 _SummaryHeader(
-                                  sortColumn: sortColumn,
-                                  sortAscending: sortAscending,
-                                  onSortSelected: onSortSelected,
+                                  sortColumn: widget.sortColumn,
+                                  sortAscending: widget.sortAscending,
+                                  onSortSelected: widget.onSortSelected,
                                   widths: widths,
                                 ),
                                 const SizedBox(height: headerActionsClearance),
                                 Expanded(
-                                  child: rows.isEmpty
+                                  child: widget.rows.isEmpty
                                       ? const Center(
                                           child: Card(
                                             child: Padding(
@@ -968,15 +975,39 @@ class _SummaryListCard extends StatelessWidget {
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.stretch,
                                             children: [
-                                              for (final row in rows)
+                                              for (final row in widget.rows)
                                                 _SummaryRowCard(
                                                   row: row,
                                                   selectedPeakListId:
-                                                      selectedPeakListId,
+                                                      widget.selectedPeakListId,
                                                   widths: widths,
-                                                  onSelected: onSelected,
+                                                  isHovered:
+                                                      _hoveredPeakListId ==
+                                                      row.peakList.peakListId,
+                                                  onHoverChanged: (value) {
+                                                    final peakListId =
+                                                        row.peakList.peakListId;
+                                                    if (!value &&
+                                                        _hoveredPeakListId !=
+                                                            peakListId) {
+                                                      return;
+                                                    }
+                                                    final nextHoveredPeakListId =
+                                                        value
+                                                        ? peakListId
+                                                        : null;
+                                                    if (_hoveredPeakListId ==
+                                                        nextHoveredPeakListId) {
+                                                      return;
+                                                    }
+                                                    setState(() {
+                                                      _hoveredPeakListId =
+                                                          nextHoveredPeakListId;
+                                                    });
+                                                  },
+                                                  onSelected: widget.onSelected,
                                                   onDeleteRequested:
-                                                      onDeleteRequested,
+                                                      widget.onDeleteRequested,
                                                 ),
                                             ],
                                           ),
@@ -991,10 +1022,10 @@ class _SummaryListCard extends StatelessWidget {
                         top: 0,
                         right: 0,
                         child: _SummaryHeaderActions(
-                          filePicker: filePicker,
-                          importRunner: importRunner,
-                          duplicateNameChecker: duplicateNameChecker,
-                          peakListRepository: peakListRepository,
+                          filePicker: widget.filePicker,
+                          importRunner: widget.importRunner,
+                          duplicateNameChecker: widget.duplicateNameChecker,
+                          peakListRepository: widget.peakListRepository,
                         ),
                       ),
                     ],
@@ -1385,11 +1416,13 @@ class _SortHeaderCell extends StatelessWidget {
   }
 }
 
-class _SummaryRowCard extends StatefulWidget {
+class _SummaryRowCard extends StatelessWidget {
   const _SummaryRowCard({
     required this.row,
     required this.selectedPeakListId,
     required this.widths,
+    required this.isHovered,
+    required this.onHoverChanged,
     required this.onSelected,
     required this.onDeleteRequested,
   });
@@ -1397,15 +1430,10 @@ class _SummaryRowCard extends StatefulWidget {
   final _PeakListSummaryRow row;
   final int? selectedPeakListId;
   final _SummaryTableWidths widths;
+  final bool isHovered;
+  final ValueChanged<bool> onHoverChanged;
   final ValueChanged<int> onSelected;
   final ValueChanged<int> onDeleteRequested;
-
-  @override
-  State<_SummaryRowCard> createState() => _SummaryRowCardState();
-}
-
-class _SummaryRowCardState extends State<_SummaryRowCard> {
-  bool _isHovered = false;
 
   @override
   Widget build(BuildContext context) {
@@ -1415,9 +1443,9 @@ class _SummaryRowCardState extends State<_SummaryRowCard> {
         (theme.brightness == Brightness.dark
             ? RowHoverTheme.dark
             : RowHoverTheme.light);
-    final peakListId = widget.row.peakList.peakListId;
-    final isSelected = peakListId == widget.selectedPeakListId;
-    final isHovered = _isHovered && !isSelected;
+    final peakListId = row.peakList.peakListId;
+    final isSelected = peakListId == selectedPeakListId;
+    final isHovered = this.isHovered && !isSelected;
     final decoration = isSelected
         ? _selectedRowDecoration(context)
         : isHovered
@@ -1432,13 +1460,8 @@ class _SummaryRowCardState extends State<_SummaryRowCard> {
         decoration: decoration,
         child: InkWell(
           key: Key('peak-lists-row-$peakListId'),
-          onTap: () => widget.onSelected(peakListId),
-          onHover: (value) {
-            if (_isHovered == value) {
-              return;
-            }
-            setState(() => _isHovered = value);
-          },
+          onTap: () => onSelected(peakListId),
+          onHover: onHoverChanged,
           mouseCursor: SystemMouseCursors.click,
           hoverColor: Colors.transparent,
           highlightColor: Colors.transparent,
@@ -1448,9 +1471,9 @@ class _SummaryRowCardState extends State<_SummaryRowCard> {
             child: Row(
               children: [
                 SizedBox(
-                  width: widget.widths.list,
+                  width: widths.list,
                   child: Text(
-                    widget.row.peakList.name,
+                    row.peakList.name,
                     maxLines: 1,
                     softWrap: false,
                     overflow: TextOverflow.clip,
@@ -1461,9 +1484,9 @@ class _SummaryRowCardState extends State<_SummaryRowCard> {
                   ),
                 ),
                 SizedBox(
-                  width: widget.widths.totalPeaks,
+                  width: widths.totalPeaks,
                   child: Text(
-                    widget.row.totalPeaksLabel,
+                    row.totalPeaksLabel,
                     key: Key('peak-lists-total-$peakListId'),
                     maxLines: 1,
                     softWrap: false,
@@ -1474,9 +1497,9 @@ class _SummaryRowCardState extends State<_SummaryRowCard> {
                   ),
                 ),
                 SizedBox(
-                  width: widget.widths.climbed,
+                  width: widths.climbed,
                   child: Text(
-                    widget.row.climbedLabel,
+                    row.climbedLabel,
                     key: Key('peak-lists-climbed-$peakListId'),
                     maxLines: 1,
                     softWrap: false,
@@ -1487,9 +1510,9 @@ class _SummaryRowCardState extends State<_SummaryRowCard> {
                   ),
                 ),
                 SizedBox(
-                  width: widget.widths.percentage,
+                  width: widths.percentage,
                   child: Text(
-                    widget.row.percentageLabel,
+                    row.percentageLabel,
                     key: Key('peak-lists-percentage-$peakListId'),
                     maxLines: 1,
                     softWrap: false,
@@ -1500,9 +1523,9 @@ class _SummaryRowCardState extends State<_SummaryRowCard> {
                   ),
                 ),
                 SizedBox(
-                  width: widget.widths.unclimbed,
+                  width: widths.unclimbed,
                   child: Text(
-                    widget.row.unclimbedLabel,
+                    row.unclimbedLabel,
                     key: Key('peak-lists-unclimbed-$peakListId'),
                     maxLines: 1,
                     softWrap: false,
@@ -1513,9 +1536,9 @@ class _SummaryRowCardState extends State<_SummaryRowCard> {
                   ),
                 ),
                 SizedBox(
-                  width: widget.widths.ascents,
+                  width: widths.ascents,
                   child: Text(
-                    widget.row.ascentCountLabel,
+                    row.ascentCountLabel,
                     key: Key('peak-lists-ascents-$peakListId'),
                     maxLines: 1,
                     softWrap: false,
@@ -1526,14 +1549,14 @@ class _SummaryRowCardState extends State<_SummaryRowCard> {
                   ),
                 ),
                 SizedBox(
-                  width: widget.widths.actions,
+                  width: widths.actions,
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Tooltip(
-                      message: 'Delete ${widget.row.peakList.name}',
+                      message: 'Delete ${row.peakList.name}',
                       child: InkResponse(
                         key: Key('peak-lists-delete-$peakListId'),
-                        onTap: () => widget.onDeleteRequested(peakListId),
+                        onTap: () => onDeleteRequested(peakListId),
                         radius: 16,
                         child: const Padding(
                           padding: EdgeInsets.all(4),
@@ -1658,6 +1681,7 @@ class _PeakDetailsTableCard extends StatefulWidget {
 class _PeakDetailsTableCardState extends State<_PeakDetailsTableCard> {
   _PeakDetailSortColumn? _sortColumn = _PeakDetailSortColumn.ascentDate;
   bool _sortAscending = false;
+  int? _hoveredPeakId;
   final _tableScrollKey = GlobalKey();
   final Map<int, GlobalKey> _rowKeys = {};
 
@@ -1672,6 +1696,7 @@ class _PeakDetailsTableCardState extends State<_PeakDetailsTableCard> {
     if (oldPeakListId != newPeakListId) {
       _sortColumn = _PeakDetailSortColumn.ascentDate;
       _sortAscending = false;
+      _hoveredPeakId = null;
       _rowKeys.clear();
     }
   }
@@ -1739,6 +1764,23 @@ class _PeakDetailsTableCardState extends State<_PeakDetailsTableCard> {
                                         row: row,
                                         widths: widths,
                                         selectedPeakId: widget.selectedPeakId,
+                                        isHovered: _hoveredPeakId == row.peakId,
+                                        onHoverChanged: (value) {
+                                          if (!value &&
+                                              _hoveredPeakId != row.peakId) {
+                                            return;
+                                          }
+                                          final nextHoveredPeakId = value
+                                              ? row.peakId
+                                              : null;
+                                          if (_hoveredPeakId ==
+                                              nextHoveredPeakId) {
+                                            return;
+                                          }
+                                          setState(() {
+                                            _hoveredPeakId = nextHoveredPeakId;
+                                          });
+                                        },
                                         onPeakSelected: widget.onPeakSelected,
                                       ),
                                     ),
@@ -1917,26 +1959,23 @@ int _compareNullableDates(DateTime? left, DateTime? right) {
   return left.compareTo(right);
 }
 
-class _PeakDetailsTableRow extends StatefulWidget {
+class _PeakDetailsTableRow extends StatelessWidget {
   const _PeakDetailsTableRow({
     super.key,
     required this.row,
     required this.widths,
     required this.selectedPeakId,
+    required this.isHovered,
+    required this.onHoverChanged,
     required this.onPeakSelected,
   });
 
   final _PeakDetailRow row;
   final _PeakTableWidths widths;
   final int? selectedPeakId;
+  final bool isHovered;
+  final ValueChanged<bool> onHoverChanged;
   final Future<void> Function(int) onPeakSelected;
-
-  @override
-  State<_PeakDetailsTableRow> createState() => _PeakDetailsTableRowState();
-}
-
-class _PeakDetailsTableRowState extends State<_PeakDetailsTableRow> {
-  bool _isHovered = false;
 
   @override
   Widget build(BuildContext context) {
@@ -1946,8 +1985,8 @@ class _PeakDetailsTableRowState extends State<_PeakDetailsTableRow> {
         (theme.brightness == Brightness.dark
             ? RowHoverTheme.dark
             : RowHoverTheme.light);
-    final isSelected = widget.row.peakId == widget.selectedPeakId;
-    final isHovered = _isHovered && !isSelected;
+    final isSelected = row.peakId == selectedPeakId;
+    final isHovered = this.isHovered && !isSelected;
     final decoration = isSelected
         ? _selectedRowDecoration(context)
         : isHovered
@@ -1961,14 +2000,9 @@ class _PeakDetailsTableRowState extends State<_PeakDetailsTableRow> {
       decoration: decoration,
       child: InkWell(
         onTap: () async {
-          await widget.onPeakSelected(widget.row.peakId);
+          await onPeakSelected(row.peakId);
         },
-        onHover: (value) {
-          if (_isHovered == value) {
-            return;
-          }
-          setState(() => _isHovered = value);
-        },
+        onHover: onHoverChanged,
         mouseCursor: SystemMouseCursors.click,
         hoverColor: Colors.transparent,
         highlightColor: Colors.transparent,
@@ -1978,9 +2012,9 @@ class _PeakDetailsTableRowState extends State<_PeakDetailsTableRow> {
           child: Row(
             children: [
               SizedBox(
-                width: widget.widths.peakName,
+                width: widths.peakName,
                 child: Text(
-                  widget.row.name,
+                  row.name,
                   maxLines: 2,
                   softWrap: true,
                   overflow: TextOverflow.clip,
@@ -1989,9 +2023,9 @@ class _PeakDetailsTableRowState extends State<_PeakDetailsTableRow> {
               ),
               const SizedBox(width: 12),
               SizedBox(
-                width: widget.widths.elevation,
+                width: widths.elevation,
                 child: Text(
-                  widget.row.elevationLabel,
+                  row.elevationLabel,
                   maxLines: 1,
                   softWrap: false,
                   overflow: TextOverflow.clip,
@@ -2001,9 +2035,9 @@ class _PeakDetailsTableRowState extends State<_PeakDetailsTableRow> {
               ),
               const SizedBox(width: 12),
               SizedBox(
-                width: widget.widths.ascentDate,
+                width: widths.ascentDate,
                 child: Text(
-                  widget.row.ascentDateLabel,
+                  row.ascentDateLabel,
                   maxLines: 1,
                   softWrap: false,
                   overflow: TextOverflow.clip,
@@ -2013,10 +2047,10 @@ class _PeakDetailsTableRowState extends State<_PeakDetailsTableRow> {
               ),
               const SizedBox(width: 12),
               SizedBox(
-                width: widget.widths.ascents,
+                width: widths.ascents,
                 child: Text(
-                  widget.row.ascentCountLabel,
-                  key: Key('peak-lists-details-ascents-${widget.row.peakId}'),
+                  row.ascentCountLabel,
+                  key: Key('peak-lists-details-ascents-${row.peakId}'),
                   maxLines: 1,
                   softWrap: false,
                   overflow: TextOverflow.clip,
