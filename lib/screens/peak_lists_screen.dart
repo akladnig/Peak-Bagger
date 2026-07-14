@@ -923,6 +923,7 @@ class _SummaryListCard extends StatelessWidget {
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   const headerActionsWidth = 128.0;
+                  const headerActionsClearance = 24.0;
                   return Stack(
                     children: [
                       SingleChildScrollView(
@@ -943,7 +944,7 @@ class _SummaryListCard extends StatelessWidget {
                                   onSortSelected: onSortSelected,
                                   widths: widths,
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: headerActionsClearance),
                                 Expanded(
                                   child: rows.isEmpty
                                       ? const Center(
@@ -989,14 +990,11 @@ class _SummaryListCard extends StatelessWidget {
                       Positioned(
                         top: 0,
                         right: 0,
-                        child: Transform.translate(
-                          offset: const Offset(20, -6),
-                          child: _SummaryHeaderActions(
-                            filePicker: filePicker,
-                            importRunner: importRunner,
-                            duplicateNameChecker: duplicateNameChecker,
-                            peakListRepository: peakListRepository,
-                          ),
+                        child: _SummaryHeaderActions(
+                          filePicker: filePicker,
+                          importRunner: importRunner,
+                          duplicateNameChecker: duplicateNameChecker,
+                          peakListRepository: peakListRepository,
                         ),
                       ),
                     ],
@@ -1026,7 +1024,6 @@ class _SummaryHeaderActions extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final fabBackground = _fabBackgroundColor(context);
     final fabForeground = _fabForegroundColor(context);
 
     return Row(
@@ -1037,7 +1034,12 @@ class _SummaryHeaderActions extends ConsumerWidget {
           child: FloatingActionButton.small(
             key: const Key('peak-lists-import-fab'),
             heroTag: 'peak-list-import',
-            backgroundColor: fabBackground,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            focusElevation: 0,
+            hoverElevation: 0,
+            highlightElevation: 0,
+            disabledElevation: 0,
             mouseCursor: SystemMouseCursors.click,
             onPressed: () async {
               await showDialog<bool>(

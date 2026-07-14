@@ -80,13 +80,28 @@ void main() {
           .mouseCursor,
       SystemMouseCursors.click,
     );
+    expect(
+      tester
+          .widget<FloatingActionButton>(
+            find.byKey(const Key('peak-lists-import-fab')),
+          )
+          .backgroundColor,
+      Colors.transparent,
+    );
     final summaryHeaderCenter = tester.getCenter(
       find.byKey(const Key('peak-lists-summary-header')),
     );
+    final summaryPaneRect = tester.getRect(
+      find.byKey(const Key('peak-lists-summary-pane')),
+    );
+    final importFabRect = tester.getRect(
+      find.byKey(const Key('peak-lists-import-fab')),
+    );
     expect(
       tester.getCenter(find.byKey(const Key('peak-lists-import-fab'))).dy,
-      closeTo(summaryHeaderCenter.dy + 4, 1),
+      closeTo(summaryHeaderCenter.dy + 10, 1),
     );
+    expect(importFabRect.right, lessThanOrEqualTo(summaryPaneRect.right));
     expect(find.byKey(const Key('peak-lists-empty-message')), findsOneWidget);
     expect(
       find.text('No peak lists exist. Import a CSV to get started.'),
