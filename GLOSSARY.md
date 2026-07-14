@@ -52,6 +52,10 @@ _Avoid_: retry cache, hidden state file
 A Tasmania-only project-managed peak list intended to represent the full Tasmanian set rather than a cross-region super-set.
 _Avoid_: all-lists super-set, non-Tasmanian aggregate
 
+**Mixed-region peak list**:
+A `PeakList` whose member peaks span more than one canonical region. Persist `PeakList.region` as `mixed` when referring to this classification.
+_Avoid_: treating `PeakList.region` as the list's geometric coverage
+
 **Italy administrative region**:
 A stored/search region key for an ISO 3166-2:IT first-level Italian subdivision, such as `fvg`, `veneto`, `trentino-alto-adige`, or `emilia-romagna`.
 _Avoid_: Italy North East subregion, treating `italy-nord-est` or `italy-nord-ovest` as the stored peak region
@@ -64,6 +68,10 @@ _Avoid_: Italian administrative region, source-of-truth region
 The map screen's `MapSearchPopup` multi-entity search surface, which replaces the older peak-only search experience.
 _Avoid_: peak search when referring to the popup flow
 
+**Peak list mini-map**:
+The embedded map on `PeakListsScreen` that previews the selected peak list's geography.
+_Avoid_: mini-map when the dashboard latest-walk preview is also in scope
+
 **Background job**:
 App-managed long-running import or export work with shared status that is not tied to the initiating screen.
 _Avoid_: screen-local task, blocking import/export
@@ -71,6 +79,10 @@ _Avoid_: screen-local task, blocking import/export
 **Peak ownership ring**:
 The segmented ring drawn around a peak marker or peak cluster to show visible peak-list ownership in map rendering.
 _Avoid_: list ring, ownership halo
+
+**Region FAB**:
+A permanent peak-list control shown for one manifest region, such as `Tasmania` or `Slovenia`, rather than for an individual peak list.
+_Avoid_: country FAB when the source of truth is a manifest region
 
 **My Ascents**:
 The peak info popup term for the user's recorded climbed tracks associated with a peak.
