@@ -1,4 +1,7 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -40,6 +43,10 @@ class PeakListsRobot {
   Finder get selectedTitle =>
       find.byKey(const Key('peak-lists-selected-title'));
   Finder get miniMap => find.byKey(const Key('peak-lists-mini-map'));
+  Finder get miniMapInteractionRegion =>
+      find.byKey(const Key('peak-lists-mini-map-interaction-region'));
+  Finder get miniMapDebugProbe =>
+      find.byKey(const Key('peak-lists-mini-map-debug-probe'));
   Finder get settingsScrollable => find.byKey(const Key('settings-scrollable'));
   Finder get navPeaks => find.byKey(const Key('nav-peak-lists'));
   Finder get navSettings => find.byKey(const Key('nav-settings'));
@@ -149,8 +156,13 @@ class PeakListsRobot {
     PeakRepository? peakRepository,
     PeaksBaggedRepository? peaksBaggedRepository,
     TestTasmapRepository? tasmapRepository,
+    Size? surfaceSize,
     List overrides = const [],
   }) async {
+    if (surfaceSize != null) {
+      await tester.binding.setSurfaceSize(surfaceSize);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+    }
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -185,6 +197,53 @@ class PeakListsRobot {
     await tester.pump();
     router.go('/peaks');
     await tester.pump();
+    await tester.pumpAndSettle();
+  }
+
+  PeakListMiniMapDebugState miniMapDebugState() {
+    return tester.widget<PeakListMiniMapDebugProbe>(miniMapDebugProbe).state;
+  }
+
+  Future<void> dragMiniMap(Offset delta) async {
+    final start = tester.getTopLeft(miniMap) + const Offset(16, 16);
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(gesture.removePointer);
+    await gesture.addPointer(location: start);
+    await tester.pump();
+    await gesture.moveTo(start);
+    await tester.pump();
+    await gesture.down(start);
+    await tester.pump();
+    await gesture.moveBy(delta);
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+  }
+
+  Future<void> zoomMiniMapWithTrackpad({required double verticalDelta}) async {
+    final center = tester.getCenter(miniMapInteractionRegion);
+    final gesture = await tester.startGesture(
+      center,
+      kind: PointerDeviceKind.trackpad,
+    );
+    await gesture.panZoomUpdate(center, pan: Offset(0, verticalDelta));
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+  }
+
+  Future<void> replayMiniMapHistoryBack() async {
+    await _sendMetaChord(LogicalKeyboardKey.bracketLeft);
+  }
+
+  Future<void> replayMiniMapHistoryForward() async {
+    await _sendMetaChord(LogicalKeyboardKey.bracketRight);
+  }
+
+  Future<void> selectPeakListRow(int peakListId) async {
+    tester
+        .widget<InkWell>(find.byKey(Key('peak-lists-row-$peakListId')))
+        .onTap!();
     await tester.pumpAndSettle();
   }
 
@@ -304,5 +363,17 @@ class PeakListsRobot {
     tester.widget<InkResponse>(deleteButtonFor(peakListId)).onTap!();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  Future<void> _sendMetaChord(LogicalKeyboardKey key) async {
+    await tester.sendKeyDownEvent(
+      LogicalKeyboardKey.metaLeft,
+      platform: 'macos',
+    );
+    await tester.sendKeyDownEvent(key, platform: 'macos');
+    await tester.pump();
+    await tester.sendKeyUpEvent(key, platform: 'macos');
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft, platform: 'macos');
+    await tester.pump();
   }
 }
