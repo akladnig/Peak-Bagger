@@ -68,7 +68,7 @@
   "new-south-wales": {
     "name": "New South Wales",
     "shortName": "NSW",
-    "showInPeakList": "true",
+    "showInPeakList": "false",
     "fingerprint": "dd12e8b1d87d73ef34581d9a92de49c73cf3765ed47e16d359181e3797a27b45",
     "ISO_3166-1": "AU",
     "ISO_3166-2": [
@@ -341,7 +341,7 @@
   "croatia": {
     "name": "Croatia",
     "shortName": "Croatia",
-    "showInPeakList": "true",
+    "showInPeakList": "false",
     "fingerprint": "43f89fd89d4bff1a13a0b3a269bee0157126e79db95b3754c2ddd5b8cac515ac",
     "ISO_3166-1": "HR",
     "ISO_3166-2": [],

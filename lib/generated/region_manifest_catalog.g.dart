@@ -277,7 +277,7 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       key: 'new-south-wales',
       name: 'New South Wales',
       shortName: 'NSW',
-      showInPeakList: true,
+      showInPeakList: false,
       peakListFilterAliases: [
       ],
       polygons: [
@@ -4406,7 +4406,7 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       key: 'croatia',
       name: 'Croatia',
       shortName: 'Croatia',
-      showInPeakList: true,
+      showInPeakList: false,
       peakListFilterAliases: [
       ],
       polygons: [
