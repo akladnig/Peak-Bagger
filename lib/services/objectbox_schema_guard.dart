@@ -43,6 +43,8 @@ class ObjectBoxSchemaGuard {
       'Peak.county:${_hasProperty(peak, 'county')}',
       'Peak.range:${_hasProperty(peak, 'range')}',
       'Peak.rating:${_hasProperty(peak, 'rating')}',
+      'Peak.durationMinutes:${_hasProperty(peak, 'durationMinutes')}',
+      'Peak.durationLabel:${_hasProperty(peak, 'durationLabel')}',
       'Peak.difficulty:${_hasProperty(peak, 'difficulty')}',
       'Peak.viaFerrata:${_hasProperty(peak, 'viaFerrata')}',
       'Peak.notes:${_hasProperty(peak, 'notes')}',

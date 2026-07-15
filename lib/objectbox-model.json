@@ -5,7 +5,7 @@
   "entities": [
     {
       "id": "1:6887978098338940139",
-      "lastPropertyId": "23:1253639641707322738",
+      "lastPropertyId": "25:8003799992120416779",
       "name": "Peak",
       "properties": [
         {
@@ -124,6 +124,16 @@
         {
           "id": "23:1253639641707322738",
           "name": "notes",
+          "type": 9
+        },
+        {
+          "id": "24:3834155968813175098",
+          "name": "durationMinutes",
+          "type": 6
+        },
+        {
+          "id": "25:8003799992120416779",
+          "name": "durationLabel",
           "type": 9
         }
       ],

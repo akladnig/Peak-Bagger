@@ -4,6 +4,7 @@ import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/models/geo_areas.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
+import 'package:peak_bagger/services/peak_metadata_rules.dart';
 
 class PeakAdminFormState {
   const PeakAdminFormState({
@@ -11,6 +12,7 @@ class PeakAdminFormState {
     this.altName = '',
     required this.osmId,
     required this.elevation,
+    this.durationLabel = '',
     required this.latitude,
     required this.longitude,
     required this.region,
@@ -26,6 +28,7 @@ class PeakAdminFormState {
   final String altName;
   final String osmId;
   final String elevation;
+  final String durationLabel;
   final String latitude;
   final String longitude;
   final String region;
@@ -41,6 +44,7 @@ class PeakAdminFormState {
     String? altName,
     String? osmId,
     String? elevation,
+    String? durationLabel,
     String? latitude,
     String? longitude,
     String? region,
@@ -56,6 +60,7 @@ class PeakAdminFormState {
       altName: altName ?? this.altName,
       osmId: osmId ?? this.osmId,
       elevation: elevation ?? this.elevation,
+      durationLabel: durationLabel ?? this.durationLabel,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       region: region ?? this.region,
@@ -125,6 +130,7 @@ class PeakAdminEditor {
       altName: peak.altName,
       osmId: peak.osmId.toString(),
       elevation: _formatOptionalNumber(peak.elevation),
+      durationLabel: peakDurationDisplayLabel(peak),
       latitude: formatCoordinate(peak.latitude),
       longitude: formatCoordinate(peak.longitude),
       region: peak.region ?? Peak.defaultRegion,
@@ -167,6 +173,14 @@ class PeakAdminEditor {
       } else {
         elevation = parsedElevation.toDouble();
       }
+    }
+
+    final durationText = form.durationLabel.trim();
+    ParsedPeakDuration? parsedDuration;
+    try {
+      parsedDuration = parsePeakDuration(durationText);
+    } on FormatException catch (error) {
+      fieldErrors['durationLabel'] = error.message;
     }
 
     final latitudeText = form.latitude.trim();
@@ -293,9 +307,20 @@ class PeakAdminEditor {
     final peak = Peak(
       id: source.id,
       osmId: osmId!,
+      peakbaggerPid: source.peakbaggerPid,
       name: name,
       altName: altName,
       elevation: elevation,
+      prominence: source.prominence,
+      country: source.country,
+      county: source.county,
+      range: source.range,
+      rating: source.rating,
+      durationMinutes: parsedDuration?.durationMinutes,
+      durationLabel: parsedDuration?.durationLabel ?? '',
+      difficulty: source.difficulty,
+      viaFerrata: source.viaFerrata,
+      notes: source.notes,
       latitude: latitude,
       longitude: longitude,
       region: region.isEmpty ? Peak.defaultRegion : region,

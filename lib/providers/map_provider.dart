@@ -42,6 +42,7 @@ import 'package:peak_bagger/services/peak_refresh_result.dart';
 import 'package:peak_bagger/services/peak_refresh_service.dart';
 import 'package:peak_bagger/services/peak_info_content_resolver.dart';
 import 'package:peak_bagger/services/peak_list_visibility.dart';
+import 'package:peak_bagger/services/peak_metadata_rules.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/waypoints_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
@@ -617,6 +618,7 @@ class MapState {
   final String? gotoMgrs;
   final bool showGotoInput;
   final bool showPeakSearch;
+  final bool showPeakMetadataFilters;
   final bool showInfoPopup;
   final String? infoMapName;
   final String? infoMgrs;
@@ -668,6 +670,9 @@ class MapState {
   final String? searchPopupRegionKey;
   final MapSearchSort searchPopupSort;
   final MapSearchGroup searchPopupGroup;
+  final PeakRatingFilterOption peakRatingFilter;
+  final PeakDifficultyFilterOption? peakDifficultyFilter;
+  final PeakDurationFilterOption peakDurationFilter;
   final List<Peak> selectedPeaks;
   final Tasmap50k? selectedMap;
   final TasmapDisplayMode tasmapDisplayMode;
@@ -720,6 +725,7 @@ class MapState {
     this.gotoMgrs,
     this.showGotoInput = false,
     this.showPeakSearch = false,
+    this.showPeakMetadataFilters = false,
     this.showInfoPopup = false,
     this.infoMapName,
     this.infoMgrs,
@@ -771,6 +777,9 @@ class MapState {
     this.searchPopupRegionKey,
     this.searchPopupSort = MapSearchSort.nameAscending,
     this.searchPopupGroup = MapSearchGroup.none,
+    this.peakRatingFilter = PeakRatingFilterOption.any,
+    this.peakDifficultyFilter,
+    this.peakDurationFilter = PeakDurationFilterOption.any,
     this.selectedPeaks = const [],
     this.selectedMap,
     this.tasmapDisplayMode = TasmapDisplayMode.none,
@@ -912,6 +921,22 @@ class MapState {
 
   bool get showPeaks => peakListSelectionMode != PeakListSelectionMode.none;
 
+  int get activePeakMetadataFilterCount {
+    var count = 0;
+    if (peakRatingFilter != PeakRatingFilterOption.any) {
+      count += 1;
+    }
+    if (peakDifficultyFilter != null) {
+      count += 1;
+    }
+    if (peakDurationFilter != PeakDurationFilterOption.any) {
+      count += 1;
+    }
+    return count;
+  }
+
+  bool get hasActivePeakMetadataFilters => activePeakMetadataFilterCount > 0;
+
   int? get selectedPeakListId =>
       selectedPeakListIds.length == 1 ? selectedPeakListIds.first : null;
 
@@ -934,6 +959,7 @@ class MapState {
     String? gotoMgrs,
     bool? showGotoInput,
     bool? showPeakSearch,
+    bool? showPeakMetadataFilters,
     bool? showInfoPopup,
     String? infoMapName,
     String? infoMgrs,
@@ -993,6 +1019,10 @@ class MapState {
     bool clearSearchPopupRegionKey = false,
     MapSearchSort? searchPopupSort,
     MapSearchGroup? searchPopupGroup,
+    PeakRatingFilterOption? peakRatingFilter,
+    PeakDifficultyFilterOption? peakDifficultyFilter,
+    bool clearPeakDifficultyFilter = false,
+    PeakDurationFilterOption? peakDurationFilter,
     List<Peak>? selectedPeaks,
     LatLngBounds? visibleBounds,
     Tasmap50k? selectedMap,
@@ -1066,6 +1096,8 @@ class MapState {
       gotoMgrs: clearGotoMgrs ? null : (gotoMgrs ?? this.gotoMgrs),
       showGotoInput: showGotoInput ?? this.showGotoInput,
       showPeakSearch: showPeakSearch ?? this.showPeakSearch,
+      showPeakMetadataFilters:
+          showPeakMetadataFilters ?? this.showPeakMetadataFilters,
       showInfoPopup: clearInfoPopup
           ? false
           : (showInfoPopup ?? this.showInfoPopup),
@@ -1155,6 +1187,11 @@ class MapState {
           : (searchPopupRegionKey ?? this.searchPopupRegionKey),
       searchPopupSort: searchPopupSort ?? this.searchPopupSort,
       searchPopupGroup: searchPopupGroup ?? this.searchPopupGroup,
+      peakRatingFilter: peakRatingFilter ?? this.peakRatingFilter,
+      peakDifficultyFilter: clearPeakDifficultyFilter
+          ? null
+          : (peakDifficultyFilter ?? this.peakDifficultyFilter),
+      peakDurationFilter: peakDurationFilter ?? this.peakDurationFilter,
       selectedPeaks: selectedPeaks ?? this.selectedPeaks,
       selectedMap: selectedMap ?? this.selectedMap,
       tasmapDisplayMode: tasmapDisplayMode ?? this.tasmapDisplayMode,
@@ -7130,6 +7167,14 @@ class MapNotifier extends Notifier<MapState> {
     openSearchPopup();
   }
 
+  void togglePeakMetadataFilters() {
+    if (state.showPeakMetadataFilters) {
+      closePeakMetadataFilters();
+      return;
+    }
+    openPeakMetadataFilters();
+  }
+
   void toggleTracks() {
     if (state.isLoadingTracks || state.hasTrackRecoveryIssue) {
       return;
@@ -7158,6 +7203,7 @@ class MapNotifier extends Notifier<MapState> {
     final initialRegionKey = _initialSearchPopupRegionKey();
     state = state.copyWith(
       showPeakSearch: true,
+      showPeakMetadataFilters: false,
       clearPeakInfoPopup: true,
       clearInfoPopup: true,
       showGotoInput: false,
@@ -7201,6 +7247,45 @@ class MapNotifier extends Notifier<MapState> {
       clearSearchPopupRegionKey: true,
       searchPopupSort: MapSearchSort.nameAscending,
       searchPopupGroup: MapSearchGroup.none,
+    );
+  }
+
+  void openPeakMetadataFilters() {
+    if (state.showPeakSearch) {
+      closeSearchPopup();
+    }
+    state = state.copyWith(
+      showPeakMetadataFilters: true,
+      clearPeakInfoPopup: true,
+      clearInfoPopup: true,
+      showGotoInput: false,
+    );
+  }
+
+  void closePeakMetadataFilters() {
+    state = state.copyWith(showPeakMetadataFilters: false);
+  }
+
+  void setPeakRatingFilter(PeakRatingFilterOption filter) {
+    state = state.copyWith(peakRatingFilter: filter);
+  }
+
+  void setPeakDifficultyFilter(PeakDifficultyFilterOption? filter) {
+    state = state.copyWith(
+      peakDifficultyFilter: filter,
+      clearPeakDifficultyFilter: filter == null,
+    );
+  }
+
+  void setPeakDurationFilter(PeakDurationFilterOption filter) {
+    state = state.copyWith(peakDurationFilter: filter);
+  }
+
+  void clearPeakMetadataFilters() {
+    state = state.copyWith(
+      peakRatingFilter: PeakRatingFilterOption.any,
+      clearPeakDifficultyFilter: true,
+      peakDurationFilter: PeakDurationFilterOption.any,
     );
   }
 

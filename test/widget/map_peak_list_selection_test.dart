@@ -127,7 +127,7 @@ void main() {
   });
 
   testWidgets(
-    'summary stays to the right of centered search without clipping',
+    'summary stays to the right of left-side search and filter controls without clipping',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1400, 700));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -160,6 +160,9 @@ void main() {
       final searchRect = tester.getRect(
         find.byKey(const Key('app-bar-search-trigger')),
       );
+      final filterRect = tester.getRect(
+        find.byKey(const Key('app-bar-map-filter-trigger')),
+      );
       final summaryRect = tester.getRect(
         find.byKey(const Key('peak-list-selection-summary')),
       );
@@ -167,8 +170,9 @@ void main() {
         find.byKey(const Key('peak-list-app-bar-item-3')),
       );
 
-      expect(searchRect.center.dx, closeTo(appBarRect.center.dx, 1.0));
-      expect(summaryRect.left, greaterThan(searchRect.right));
+      expect(searchRect.center.dx, lessThan(appBarRect.center.dx));
+      expect(filterRect.left, greaterThan(searchRect.right));
+      expect(summaryRect.left, greaterThan(filterRect.right));
       expect(rightChipRect.right, lessThanOrEqualTo(appBarRect.right));
     },
   );

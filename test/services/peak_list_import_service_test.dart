@@ -38,8 +38,8 @@ void main() {
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async =>
-              'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes\n'
-              'Monte Amariana,101,4.35,1906,544,46.4084,13.0475,Italy,Friuli Venezia Giulia,Carnic Alps,Udine,EE,Optional,Ridge scramble\n',
+              'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes,duration\n'
+              'Monte Amariana,101,4.35,1906,544,46.4084,13.0475,Italy,Friuli Venezia Giulia,Carnic Alps,Udine,EE,Optional,Ridge scramble,4-5 hours\n',
           importRootLoader: () async => '/tmp/Bushwalking',
           logWriter: (logPath, entries) async {},
         );
@@ -69,6 +69,8 @@ void main() {
         expect(storedPeak?.region, 'fvg');
         expect(storedPeak?.sourceOfTruth, 'FVG');
         expect(storedPeak?.rating, 4.4);
+        expect(storedPeak?.durationMinutes, 300);
+        expect(storedPeak?.durationLabel, '4-5 hours');
         expect(storedPeak?.difficulty, 'EE');
         expect(storedPeak?.viaFerrata, 'Optional');
         expect(storedPeak?.notes, 'Ridge scramble');
@@ -146,6 +148,8 @@ void main() {
             county: 'Udine',
             range: 'Carnic Alps',
             rating: 4.2,
+            durationMinutes: 300,
+            durationLabel: '4-5 hours',
             difficulty: 'EE',
             viaFerrata: 'Optional',
             notes: 'Keep me',
@@ -176,6 +180,8 @@ void main() {
       expect(storedPeak?.county, 'Udine');
       expect(storedPeak?.range, 'Carnic Alps');
       expect(storedPeak?.rating, 4.2);
+      expect(storedPeak?.durationMinutes, 300);
+      expect(storedPeak?.durationLabel, '4-5 hours');
       expect(storedPeak?.difficulty, 'EE');
       expect(storedPeak?.viaFerrata, 'Optional');
       expect(storedPeak?.notes, 'Keep me');
@@ -314,6 +320,47 @@ void main() {
         peakRepository.findByOsmId(101)?.sourceOfTruth,
         Peak.sourceOfTruthOsm,
       );
+      expect(peakListRepository.getAllPeakLists(), isEmpty);
+    });
+
+    test('ranked csv invalid duration fails atomically', () async {
+      final peak = _buildPeak(
+        osmId: 101,
+        name: 'Monte Amariana',
+        elevation: 1906,
+        latitude: 46.4084,
+        longitude: 13.0475,
+      );
+      final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+      );
+      final service = PeakListImportService(
+        peakRepository: peakRepository,
+        peakListRepository: peakListRepository,
+        csvLoader: (_) async =>
+            'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes,duration\n'
+            'Monte Amariana,101,4.3,1906,544,46.4084,13.0475,Italy,Friuli Venezia Giulia,Carnic Alps,Udine,EE,Optional,Ridge scramble,about 5 hours\n',
+        importRootLoader: () async => '/tmp/Bushwalking',
+        logWriter: (logPath, entries) async {},
+      );
+
+      await expectLater(
+        service.importPeakList(
+          listName: 'FVG Ranked',
+          csvPath: '/tmp/fvg-ranked.csv',
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            'invalid duration "about 5 hours" on row 2 (Monte Amariana)',
+          ),
+        ),
+      );
+
+      expect(peakRepository.findByOsmId(101)?.durationMinutes, isNull);
+      expect(peakRepository.findByOsmId(101)?.durationLabel, '');
       expect(peakListRepository.getAllPeakLists(), isEmpty);
     });
 

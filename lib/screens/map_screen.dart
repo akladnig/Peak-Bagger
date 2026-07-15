@@ -61,6 +61,7 @@ import 'package:peak_bagger/widgets/map_route_bottom_sheet.dart';
 import 'package:peak_bagger/widgets/map_rebuild_debug_counters.dart';
 import 'package:peak_bagger/widgets/map_chart_hover_marker.dart';
 import 'package:peak_bagger/widgets/map_marker.dart';
+import 'package:peak_bagger/widgets/map_metadata_filter_popup.dart';
 import 'package:peak_bagger/widgets/tasmap_polygon_label.dart';
 import 'package:peak_bagger/widgets/map_search_popup.dart';
 import 'package:peak_bagger/widgets/dialog_helpers.dart';
@@ -336,6 +337,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
     }
     if (mapState.showInfoPopup) {
       notifier.toggleInfoPopup();
+      return true;
+    }
+    if (mapState.showPeakMetadataFilters) {
+      notifier.closePeakMetadataFilters();
       return true;
     }
     if (mapState.showPeakSearch) {
@@ -2081,6 +2086,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
           searchRegionKey: state.searchPopupRegionKey,
           searchSort: state.searchPopupSort,
           searchGroup: state.searchPopupGroup,
+          showPeakMetadataFilters: state.showPeakMetadataFilters,
+          peakRatingFilter: state.peakRatingFilter,
+          peakDifficultyFilter: state.peakDifficultyFilter,
+          peakDurationFilter: state.peakDurationFilter,
           showGotoInput: state.showGotoInput,
           mapSuggestions: state.mapSuggestions,
           showInfoPopup: state.showInfoPopup,
@@ -3572,6 +3581,70 @@ class _MapScreenState extends ConsumerState<MapScreen>
                           ref.read(mapProvider.notifier).closeSearchPopup();
                         },
                       ),
+                    ),
+                  ),
+                if (routeChrome.showPeakMetadataFilters)
+                  Positioned.fill(
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              key: const Key('map-metadata-filter-backdrop'),
+                              onTap: () {
+                                ref
+                                    .read(mapProvider.notifier)
+                                    .closePeakMetadataFilters();
+                              },
+                              child: const SizedBox.expand(),
+                            ),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.topLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 16, top: 16),
+                            child: SizedBox(
+                              width: 360,
+                              child: MapMetadataFilterPopup(
+                                ratingFilter: routeChrome.peakRatingFilter,
+                                difficultyFilter:
+                                    routeChrome.peakDifficultyFilter,
+                                durationFilter: routeChrome.peakDurationFilter,
+                                difficultyOptions: ref.watch(
+                                  mapDifficultyFilterOptionsProvider,
+                                ),
+                                onSelectRatingFilter: (value) {
+                                  ref
+                                      .read(mapProvider.notifier)
+                                      .setPeakRatingFilter(value);
+                                },
+                                onSelectDifficultyFilter: (value) {
+                                  ref
+                                      .read(mapProvider.notifier)
+                                      .setPeakDifficultyFilter(value);
+                                },
+                                onSelectDurationFilter: (value) {
+                                  ref
+                                      .read(mapProvider.notifier)
+                                      .setPeakDurationFilter(value);
+                                },
+                                onClearFilters: () {
+                                  ref
+                                      .read(mapProvider.notifier)
+                                      .clearPeakMetadataFilters();
+                                },
+                                onClose: () {
+                                  ref
+                                      .read(mapProvider.notifier)
+                                      .closePeakMetadataFilters();
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 if (routeChrome.showGotoInput)

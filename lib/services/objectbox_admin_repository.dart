@@ -568,6 +568,8 @@ ObjectBoxAdminRow peakToAdminRow(Peak peak) {
       'county': peak.county,
       'range': peak.range,
       'rating': peak.rating,
+      'durationMinutes': peak.durationMinutes,
+      'durationLabel': peak.durationLabel,
       'difficulty': peak.difficulty,
       'viaFerrata': peak.viaFerrata,
       'notes': peak.notes,
@@ -598,6 +600,8 @@ Peak peakFromAdminRow(ObjectBoxAdminRow row) {
     county: '${values['county'] ?? ''}',
     range: '${values['range'] ?? ''}',
     rating: _adminDoubleValue(values['rating']),
+    durationMinutes: _adminIntValue(values['durationMinutes']),
+    durationLabel: '${values['durationLabel'] ?? ''}',
     difficulty: '${values['difficulty'] ?? ''}',
     viaFerrata: '${values['viaFerrata'] ?? ''}',
     notes: '${values['notes'] ?? ''}',
@@ -627,6 +631,8 @@ List<ObjectBoxAdminFieldDescriptor> peakAdminTableFields(
     'county',
     'range',
     'rating',
+    'durationMinutes',
+    'durationLabel',
     'difficulty',
     'viaFerrata',
     'notes',
@@ -656,6 +662,8 @@ List<ObjectBoxAdminFieldDescriptor> peakAdminDetailsFields(
     'county',
     'range',
     'rating',
+    'durationMinutes',
+    'durationLabel',
     'difficulty',
     'viaFerrata',
     'notes',
@@ -692,6 +700,13 @@ double? _adminDoubleValue(Object? value) {
     return value.toDouble();
   }
   return double.tryParse('$value');
+}
+
+int? _adminIntValue(Object? value) {
+  if (value is num) {
+    return value.toInt();
+  }
+  return int.tryParse('$value');
 }
 
 ObjectBoxAdminRow peakListToAdminRow(PeakList peakList) {

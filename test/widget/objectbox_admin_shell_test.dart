@@ -612,6 +612,10 @@ void main() {
       find.byKey(const Key('objectbox-admin-peak-alt-name')),
       'Ossa',
     );
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-duration')),
+      '4-5 hours',
+    );
     await tester.drag(
       find.byKey(const Key('objectbox-admin-peak-edit-form')),
       const Offset(0, -300),
@@ -649,6 +653,14 @@ void main() {
       'New Area',
     );
     expect(mapState.peaks.singleWhere((peak) => peak.id == 1).altName, 'Ossa');
+    expect(
+      mapState.peaks.singleWhere((peak) => peak.id == 1).durationMinutes,
+      300,
+    );
+    expect(
+      mapState.peaks.singleWhere((peak) => peak.id == 1).durationLabel,
+      '4-5 hours',
+    );
     expect(mapState.peaks.singleWhere((peak) => peak.id == 1).verified, isTrue);
     expect(find.text('New Area'), findsWidgets);
   });
@@ -1333,6 +1345,19 @@ void main() {
       findsOneWidget,
     );
     expect(
+      find.byKey(const Key('objectbox-admin-peak-details-durationMinutes')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('objectbox-admin-peak-details-durationLabel')),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('objectbox-admin-peak-details-difficulty')),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(
       find.byKey(const Key('objectbox-admin-peak-details-difficulty')),
       findsOneWidget,
     );
@@ -1879,6 +1904,20 @@ ObjectBoxAdminEntityDescriptor _peakEntity() {
         name: 'rating',
         typeLabel: 'double',
         nullable: true,
+        isPrimaryKey: false,
+        isPrimaryName: false,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'durationMinutes',
+        typeLabel: 'int',
+        nullable: true,
+        isPrimaryKey: false,
+        isPrimaryName: false,
+      ),
+      ObjectBoxAdminFieldDescriptor(
+        name: 'durationLabel',
+        typeLabel: 'String',
+        nullable: false,
         isPrimaryKey: false,
         isPrimaryName: false,
       ),

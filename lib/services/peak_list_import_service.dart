@@ -12,6 +12,7 @@ import 'package:peak_bagger/services/peak_list_csv_export_service.dart';
 import 'package:peak_bagger/services/peak_list_file_picker.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
+import 'package:peak_bagger/services/peak_metadata_rules.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 
 typedef PeakListCsvLoader = Future<String> Function(String csvPath);
@@ -433,12 +434,19 @@ class PeakListImportService {
     final headers = headerRow
         .map((value) => _rankedHeaderValue('$value'))
         .toList(growable: false);
-    if (headers.length != _rankedPeakListHeaders.length) {
+    if (headers.length != _rankedPeakListHeaders.length &&
+        headers.length !=
+            _rankedPeakListHeaders.length +
+                _optionalRankedPeakListHeaders.length) {
       return false;
     }
 
     for (var index = 0; index < headers.length; index++) {
-      if (headers[index] != _rankedPeakListHeaders[index]) {
+      final expectedHeader = index < _rankedPeakListHeaders.length
+          ? _rankedPeakListHeaders[index]
+          : _optionalRankedPeakListHeaders[index -
+                _rankedPeakListHeaders.length];
+      if (headers[index] != expectedHeader) {
         return false;
       }
     }
@@ -637,8 +645,31 @@ class PeakListImportService {
       difficulty: data['difficulty'] ?? '',
       viaFerrata: data['viaFerrata'] ?? '',
       notes: data['notes'] ?? '',
+      duration: _parseRankedDuration(
+        data['duration'] ?? '',
+        rowNumber: rowNumber,
+        name: name,
+      ),
       regionMapping: regionMapping,
     );
+  }
+
+  ParsedPeakDuration? _parseRankedDuration(
+    String rawValue, {
+    required int rowNumber,
+    required String name,
+  }) {
+    if (rawValue.isEmpty) {
+      return null;
+    }
+
+    try {
+      return parsePeakDuration(rawValue);
+    } on FormatException {
+      throw FormatException(
+        'invalid duration "$rawValue" on row $rowNumber ($name)',
+      );
+    }
   }
 
   double? _parseRankedRating(
@@ -696,6 +727,8 @@ class PeakListImportService {
       range: row.range.isEmpty ? peak.range : row.range,
       county: row.county.isEmpty ? peak.county : row.county,
       rating: row.rating ?? peak.rating,
+      durationMinutes: row.duration?.durationMinutes ?? peak.durationMinutes,
+      durationLabel: row.duration?.durationLabel ?? peak.durationLabel,
       difficulty: row.difficulty.isEmpty ? peak.difficulty : row.difficulty,
       viaFerrata: row.viaFerrata.isEmpty ? peak.viaFerrata : row.viaFerrata,
       notes: row.notes.isEmpty ? peak.notes : row.notes,
@@ -1257,6 +1290,7 @@ class _RankedPeakListCsvRow {
     required this.difficulty,
     required this.viaFerrata,
     required this.notes,
+    required this.duration,
     required this.regionMapping,
   });
 
@@ -1274,6 +1308,7 @@ class _RankedPeakListCsvRow {
   final String difficulty;
   final String viaFerrata;
   final String notes;
+  final ParsedPeakDuration? duration;
   final _RankedRegionMapping regionMapping;
 }
 
@@ -1345,6 +1380,8 @@ const _rankedPeakListHeaders = [
   'viaFerrata',
   'notes',
 ];
+
+const _optionalRankedPeakListHeaders = ['duration'];
 
 const _rankedRegionMappings = {
   'Friuli Venezia Giulia': _RankedRegionMapping(
