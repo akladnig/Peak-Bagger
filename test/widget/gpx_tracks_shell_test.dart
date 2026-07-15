@@ -61,9 +61,9 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('app-bar-title')),
-        matching: find.text('Settings'),
+        matching: find.byType(Text),
       ),
-      findsOneWidget,
+      findsNothing,
     );
     await tester.scrollUntilVisible(
       find.text('Failed to rebuild bagged peak history from stored tracks.'),
@@ -110,9 +110,9 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('app-bar-title')),
-        matching: find.text('Settings'),
+        matching: find.byType(Text),
       ),
-      findsOneWidget,
+      findsNothing,
     );
     await tester.scrollUntilVisible(
       find.text('Some files need manual review. See import.log.'),

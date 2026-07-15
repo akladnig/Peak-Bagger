@@ -440,7 +440,7 @@ class _SharedAppBarTitle extends StatelessWidget {
       builder: (context, constraints) {
         if (!showSearch) {
           if (currentDestination.branchIndex == 2) {
-            return _PeaksAppBarTitle(title: currentDestination.title);
+            return const _PeaksAppBarTitle();
           }
           return Row(
             children: [
@@ -453,12 +453,9 @@ class _SharedAppBarTitle extends StatelessWidget {
                   ),
                   child: Align(
                     alignment: Alignment.centerLeft,
-                    child: KeyedSubtree(
+                    child: const KeyedSubtree(
                       key: const Key('app-bar-title'),
-                      child: Text(
-                        currentDestination.title,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      child: SizedBox.shrink(),
                     ),
                   ),
                 ),
@@ -530,11 +527,9 @@ class _SharedAppBarTitle extends StatelessWidget {
 }
 
 class _PeaksAppBarTitle extends ConsumerWidget {
-  const _PeaksAppBarTitle({required this.title});
+  const _PeaksAppBarTitle();
 
   static const _laneGap = 12.0;
-
-  final String title;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -552,10 +547,10 @@ class _PeaksAppBarTitle extends ConsumerWidget {
             ),
             child: Row(
               children: [
-                Flexible(
+                const Flexible(
                   child: KeyedSubtree(
-                    key: const Key('app-bar-title'),
-                    child: Text(title, overflow: TextOverflow.ellipsis),
+                    key: Key('app-bar-title'),
+                    child: SizedBox.shrink(),
                   ),
                 ),
                 const SizedBox(width: 8),

@@ -186,6 +186,28 @@ void main() {
     semanticsHandle.dispose();
   });
 
+  testWidgets('selected peak rows use shared elevation formatting', (
+    tester,
+  ) async {
+    await _pumpPeakListsScreen(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Giants', [100]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Big Peak', -42.0, 146.0, elevation: 12345),
+        ]),
+      ),
+      initialPeakListId: 1,
+    );
+
+    expect(find.text('12,345 m'), findsOneWidget);
+  });
+
   testWidgets('initialPeakListId opens the selected peak list', (tester) async {
     await _pumpPeakListsScreen(
       tester,
@@ -3619,9 +3641,9 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('app-bar-title')),
-        matching: find.text('Dashboard'),
+        matching: find.byType(Text),
       ),
-      findsOneWidget,
+      findsNothing,
     );
 
     final saved = await repository.save(
@@ -3650,9 +3672,9 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('app-bar-title')),
-        matching: find.text('My Peak Lists'),
+        matching: find.byType(Text),
       ),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       tester

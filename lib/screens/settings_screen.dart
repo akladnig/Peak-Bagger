@@ -1871,7 +1871,6 @@ class _TileCacheSettingsScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Map Tile Cache'),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadAllStats),
         ],

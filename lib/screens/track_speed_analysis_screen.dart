@@ -32,7 +32,7 @@ class _TrackSpeedAnalysisScreenState
     final isEmpty = report == null ? false : _isEmptyReport(report);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Track Speed Analysis')),
+      appBar: AppBar(),
       body: ListView(
         key: const Key('track-speed-analysis-screen'),
         padding: const EdgeInsets.all(16),

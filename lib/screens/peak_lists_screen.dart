@@ -3923,7 +3923,7 @@ class _PeakDetailRow {
     if (elevation == null) {
       return '';
     }
-    return formatCompactElevation(elevation!);
+    return formatElevation(elevation!.round());
   }
 
   String get ascentDateLabel {

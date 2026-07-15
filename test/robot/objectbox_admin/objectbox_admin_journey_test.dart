@@ -434,8 +434,8 @@ void main() {
     await robot.viewRouteOnMainMap();
 
     expect(
-      find.descendant(of: robot.appBarTitle, matching: find.text('Map')),
-      findsOneWidget,
+      find.descendant(of: robot.appBarTitle, matching: find.byType(Text)),
+      findsNothing,
     );
     final mapContainer = ProviderScope.containerOf(
       tester.element(find.byKey(const Key('shared-app-bar'))),
@@ -479,8 +479,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.descendant(of: robot.appBarTitle, matching: find.text('Map')),
-      findsOneWidget,
+      find.descendant(of: robot.appBarTitle, matching: find.byType(Text)),
+      findsNothing,
     );
     expect(mapContainer.read(mapProvider).selectedRouteId, isNull);
   });
@@ -643,8 +643,8 @@ void main() {
     await robot.viewPeakOnMainMap();
 
     expect(
-      find.descendant(of: robot.appBarTitle, matching: find.text('Map')),
-      findsOneWidget,
+      find.descendant(of: robot.appBarTitle, matching: find.byType(Text)),
+      findsNothing,
     );
 
     final container = ProviderScope.containerOf(
