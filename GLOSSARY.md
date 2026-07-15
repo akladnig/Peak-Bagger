@@ -24,6 +24,14 @@ _Avoid_: user-entered category, manual label
 The difficulty classification of a walked segment derived from preserved OSM tags, prioritizing tags such as `sac_scale`, `trail_visibility`, `tracktype`, and `surface`.
 _Avoid_: track type when referring to difficulty-specific tagging
 
+**Peak difficulty**:
+The region-specific difficulty grade stored on a `Peak` record and used for peak browsing, sorting, and filtering.
+_Avoid_: hiking difficulty when referring to peak metadata
+
+**Peak duration**:
+The estimated standard out-and-back walking duration stored on a `Peak` for peak browsing, sorting, and filtering.
+_Avoid_: live ETA, ascent-history duration
+
 **Off-track**:
 A moving track segment that does not match any route-graph way closely enough to inherit route-graph metadata.
 _Avoid_: unknown/off-network
