@@ -78,6 +78,8 @@ void main() {
         'county',
         'range',
         'rating',
+        'durationMinutes',
+        'durationLabel',
         'difficulty',
         'viaFerrata',
         'notes',
@@ -466,6 +468,8 @@ void main() {
         verified: true,
         sourceOfTruth: Peak.sourceOfTruthHwc,
         rating: 4.4,
+        durationMinutes: 300,
+        durationLabel: '4-5 hours',
         difficulty: 'EE',
         viaFerrata: 'Optional',
         notes: 'Ridge scramble',
@@ -480,6 +484,8 @@ void main() {
     expect(row.values['county'], '');
     expect(row.values['range'], '');
     expect(row.values['rating'], 4.4);
+    expect(row.values['durationMinutes'], 300);
+    expect(row.values['durationLabel'], '4-5 hours');
     expect(row.values['difficulty'], 'EE');
     expect(row.values['viaFerrata'], 'Optional');
     expect(row.values['notes'], 'Ridge scramble');
@@ -507,6 +513,8 @@ void main() {
           'county': 'Tasmania',
           'range': 'Central Highlands',
           'rating': 4.3,
+          'durationMinutes': 300,
+          'durationLabel': '4-5 hours',
           'difficulty': 'EE',
           'viaFerrata': 'Optional',
           'notes': 'Ridge scramble',
@@ -531,6 +539,8 @@ void main() {
     expect(peak.county, 'Tasmania');
     expect(peak.range, 'Central Highlands');
     expect(peak.rating, 4.3);
+    expect(peak.durationMinutes, 300);
+    expect(peak.durationLabel, '4-5 hours');
     expect(peak.difficulty, 'EE');
     expect(peak.viaFerrata, 'Optional');
     expect(peak.notes, 'Ridge scramble');
@@ -615,6 +625,20 @@ void main() {
           isPrimaryName: false,
         ),
         ObjectBoxAdminFieldDescriptor(
+          name: 'durationMinutes',
+          typeLabel: 'int',
+          nullable: true,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'durationLabel',
+          typeLabel: 'String',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
           name: 'difficulty',
           typeLabel: 'String',
           nullable: false,
@@ -640,7 +664,14 @@ void main() {
 
     expect(
       peakAdminDetailsFields(peakEntity).map((field) => field.name),
-      containsAll(['rating', 'difficulty', 'viaFerrata', 'notes']),
+      containsAll([
+        'rating',
+        'durationMinutes',
+        'durationLabel',
+        'difficulty',
+        'viaFerrata',
+        'notes',
+      ]),
     );
   });
 
@@ -723,6 +754,8 @@ void main() {
       'county',
       'range',
       'rating',
+      'durationMinutes',
+      'durationLabel',
       'difficulty',
       'viaFerrata',
       'notes',
@@ -747,6 +780,8 @@ void main() {
       'county',
       'range',
       'rating',
+      'durationMinutes',
+      'durationLabel',
       'difficulty',
       'viaFerrata',
       'notes',

@@ -15,6 +15,8 @@ void main() {
           name: 'Cradle',
           altName: 'Cradle Mountain',
           elevation: 1545,
+          durationMinutes: 255,
+          durationLabel: '4:15',
           latitude: -41.5,
           longitude: 146.5,
           region: '  Cradle Country  ',
@@ -31,6 +33,7 @@ void main() {
       expect(draft.altName, 'Cradle Mountain');
       expect(draft.osmId, '123');
       expect(draft.elevation, '1545');
+      expect(draft.durationLabel, '4:15');
       expect(draft.latitude, '-41.500000');
       expect(draft.longitude, '146.500000');
       expect(draft.region, '  Cradle Country  ');
@@ -46,6 +49,7 @@ void main() {
           name: 'Cradle',
           osmId: '123',
           elevation: '1545',
+          durationLabel: '4:15',
           latitude: '-41.5',
           longitude: '146.5',
           region: 'Central Highlands',
@@ -69,6 +73,8 @@ void main() {
       expect(result.peak?.osmId, 123);
       expect(result.peak?.name, 'Cradle');
       expect(result.peak?.elevation, 1545);
+      expect(result.peak?.durationMinutes, 255);
+      expect(result.peak?.durationLabel, '4:15');
       expect(result.peak?.latitude, -41.5);
       expect(result.peak?.longitude, 146.5);
       expect(result.peak?.region, 'Central Highlands');
@@ -136,6 +142,59 @@ void main() {
       expect(result.peak?.altName, 'Cradle Mountain');
       expect(result.peak?.verified, isTrue);
       expect(result.peak?.region, Peak.defaultRegion);
+      expect(result.peak?.durationMinutes, isNull);
+      expect(result.peak?.durationLabel, '');
+    });
+
+    test('accepts valid range durations in the dedicated editor', () {
+      final result = PeakAdminEditor.validateAndBuild(
+        source: Peak(name: 'Old', latitude: -41, longitude: 146),
+        form: const PeakAdminFormState(
+          name: 'Cradle',
+          osmId: '123',
+          elevation: '',
+          durationLabel: '4-5 hours',
+          latitude: '-41.5',
+          longitude: '146.5',
+          region: '',
+          gridZoneDesignator: '55G',
+          mgrs100kId: '',
+          easting: '',
+          northing: '',
+          sourceOfTruth: Peak.sourceOfTruthOsm,
+        ),
+      );
+
+      expect(result.isValid, isTrue);
+      expect(result.peak?.durationMinutes, 300);
+      expect(result.peak?.durationLabel, '4-5 hours');
+    });
+
+    test('rejects unsupported duration text clearly', () {
+      final result = PeakAdminEditor.validateAndBuild(
+        source: Peak(name: 'Old', latitude: -41, longitude: 146),
+        form: const PeakAdminFormState(
+          name: 'Cradle',
+          osmId: '123',
+          elevation: '',
+          durationLabel: 'soon',
+          latitude: '-41.5',
+          longitude: '146.5',
+          region: '',
+          gridZoneDesignator: '55G',
+          mgrs100kId: '',
+          easting: '',
+          northing: '',
+          sourceOfTruth: Peak.sourceOfTruthOsm,
+        ),
+      );
+
+      expect(result.isValid, isFalse);
+      expect(
+        result.fieldErrors['durationLabel'],
+        'Invalid peak duration "soon". Expected H:MM, <int>-<int> hour(s), or <int>-<int> day(s).',
+      );
+      expect(result.peak, isNull);
     });
 
     test(

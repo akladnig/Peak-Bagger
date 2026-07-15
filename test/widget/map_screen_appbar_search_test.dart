@@ -20,22 +20,41 @@ import '../harness/test_tasmap_notifier.dart';
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
-  testWidgets('shared app bar shows centered search trigger on map route', (
-    tester,
-  ) async {
-    await _pumpApp(tester, TestMapNotifier(_baseState()));
+  testWidgets(
+    'shared app bar shows left search and filter controls on map route',
+    (tester) async {
+      await _pumpApp(tester, TestMapNotifier(_baseState()));
 
-    final appBarRect = tester.getRect(find.byKey(const Key('shared-app-bar')));
-    final searchRect = tester.getRect(
-      find.byKey(const Key('app-bar-search-trigger')),
-    );
+      final appBarRect = tester.getRect(
+        find.byKey(const Key('shared-app-bar')),
+      );
+      final searchRect = tester.getRect(
+        find.byKey(const Key('app-bar-search-trigger')),
+      );
+      final filterRect = tester.getRect(
+        find.byKey(const Key('app-bar-map-filter-trigger')),
+      );
+      final dividerRect = tester.getRect(
+        find.byKey(const Key('app-bar-map-filter-divider')),
+      );
 
-    expect(find.byKey(const Key('shared-app-bar')), findsOneWidget);
-    expect(find.byKey(const Key('app-bar-title')), findsOneWidget);
-    expect(find.byKey(const Key('app-bar-search-trigger')), findsOneWidget);
-    expect(find.byKey(const Key('app-bar-home')), findsNothing);
-    expect(searchRect.center.dx, closeTo(appBarRect.center.dx, 1.0));
-  });
+      expect(find.byKey(const Key('shared-app-bar')), findsOneWidget);
+      expect(find.byKey(const Key('app-bar-title')), findsOneWidget);
+      expect(find.byKey(const Key('app-bar-search-trigger')), findsOneWidget);
+      expect(
+        find.byKey(const Key('app-bar-map-filter-trigger')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('app-bar-map-filter-divider')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('app-bar-home')), findsNothing);
+      expect(searchRect.center.dx, lessThan(appBarRect.center.dx));
+      expect(filterRect.left, greaterThan(searchRect.right));
+      expect(dividerRect.left, greaterThan(filterRect.right));
+    },
+  );
 
   testWidgets('popup renders peak track route and map results', (tester) async {
     final notifier = TestMapNotifier(

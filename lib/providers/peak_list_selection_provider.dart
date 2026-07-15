@@ -7,6 +7,7 @@ import 'package:peak_bagger/models/peak_ownership_ring_segment.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_ownership_ring_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/services/peak_metadata_rules.dart';
 import 'package:peak_bagger/services/fab_colour_resolver.dart';
 import 'package:peak_bagger/services/peak_list_visibility.dart';
 
@@ -129,6 +130,27 @@ final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((
 });
 
 final filteredPeaksProvider = Provider<List<Peak>>((ref) {
+  final peaks = ref.watch(mapMetadataFilterScopePeaksProvider);
+  final (:ratingFilter, :difficultyFilter, :durationFilter) = ref.watch(
+    mapProvider.select(
+      (state) => (
+        ratingFilter: state.peakRatingFilter,
+        difficultyFilter: state.peakDifficultyFilter,
+        durationFilter: state.peakDurationFilter,
+      ),
+    ),
+  );
+
+  return peaks
+      .where((peak) {
+        return peakMatchesRatingFilter(peak, ratingFilter) &&
+            peakMatchesDifficultyFilter(peak, difficultyFilter) &&
+            peakMatchesDurationFilter(peak, durationFilter);
+      })
+      .toList(growable: false);
+});
+
+final mapMetadataFilterScopePeaksProvider = Provider<List<Peak>>((ref) {
   final peaks = ref.watch(mapProvider.select((state) => state.peaks));
   final peakListSelectionMode = ref.watch(
     mapProvider.select((state) => state.peakListSelectionMode),
@@ -148,6 +170,12 @@ final filteredPeaksProvider = Provider<List<Peak>>((ref) {
     ),
   };
 });
+
+final mapDifficultyFilterOptionsProvider =
+    Provider<List<PeakDifficultyFilterOption>>((ref) {
+      final peaks = ref.watch(mapMetadataFilterScopePeaksProvider);
+      return buildPeakDifficultyFilterOptions(peaks);
+    });
 
 final _activePeakListOwnersByPeakIdProvider =
     Provider<Map<int, List<_ActivePeakListOwner>>>((ref) {

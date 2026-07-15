@@ -107,9 +107,13 @@ void main() {
       find.text('No peak lists exist. Import a CSV to get started.'),
       findsNWidgets(2),
     );
+    expect(find.text('Rating'), findsOneWidget);
     expect(find.text('Peak Name'), findsOneWidget);
     expect(find.text('Height'), findsOneWidget);
     expect(find.text('Ascent\nDate'), findsOneWidget);
+    expect(find.text('Ascents'), findsWidgets);
+    expect(find.text('Difficulty'), findsOneWidget);
+    expect(find.text('Duration'), findsOneWidget);
   });
 
   testWidgets('peaks app bar renders manifest-backed region fabs', (
@@ -691,10 +695,13 @@ void main() {
       'peak-lists-sort-percentage',
       'peak-lists-sort-unclimbed',
       'peak-lists-sort-ascents',
+      'peak-lists-details-sort-rating',
       'peak-lists-details-sort-name',
       'peak-lists-details-sort-elevation',
       'peak-lists-details-sort-ascentDate',
       'peak-lists-details-sort-ascents',
+      'peak-lists-details-sort-difficulty',
+      'peak-lists-details-sort-duration',
     ]) {
       expect(
         tester.widget<InkWell>(find.byKey(Key(key))).mouseCursor,
@@ -3076,6 +3083,329 @@ void main() {
   });
 
   testWidgets(
+    'details table shows exact metadata column order and star or duration displays',
+    (tester) async {
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Metadata List', [100, 200]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(
+              100,
+              'Alpha Peak',
+              -42.0,
+              146.0,
+              elevation: 1200,
+              rating: 3.74,
+              difficulty: 'EE',
+              durationMinutes: 255,
+              region: 'fvg',
+            ),
+            _buildPeak(200, 'Blank Peak', -42.1, 146.1, elevation: 1100),
+          ]),
+        ),
+        peaksBaggedRepository: PeaksBaggedRepository.test(
+          InMemoryPeaksBaggedStorage(),
+        ),
+      );
+
+      final ratingHeaderX = tester
+          .getTopLeft(find.byKey(const Key('peak-lists-details-sort-rating')))
+          .dx;
+      final nameHeaderX = tester
+          .getTopLeft(find.byKey(const Key('peak-lists-details-sort-name')))
+          .dx;
+      final heightHeaderX = tester
+          .getTopLeft(
+            find.byKey(const Key('peak-lists-details-sort-elevation')),
+          )
+          .dx;
+      final ascentHeaderX = tester
+          .getTopLeft(
+            find.byKey(const Key('peak-lists-details-sort-ascentDate')),
+          )
+          .dx;
+      final ascentsHeaderX = tester
+          .getTopLeft(find.byKey(const Key('peak-lists-details-sort-ascents')))
+          .dx;
+      final difficultyHeaderX = tester
+          .getTopLeft(
+            find.byKey(const Key('peak-lists-details-sort-difficulty')),
+          )
+          .dx;
+      final durationHeaderX = tester
+          .getTopLeft(find.byKey(const Key('peak-lists-details-sort-duration')))
+          .dx;
+
+      expect(ratingHeaderX, lessThan(nameHeaderX));
+      expect(nameHeaderX, lessThan(heightHeaderX));
+      expect(heightHeaderX, lessThan(ascentHeaderX));
+      expect(ascentHeaderX, lessThan(ascentsHeaderX));
+      expect(ascentsHeaderX, lessThan(difficultyHeaderX));
+      expect(difficultyHeaderX, lessThan(durationHeaderX));
+
+      final alphaRatingCell = find.byKey(
+        const Key('peak-lists-details-rating-100'),
+      );
+      expect(alphaRatingCell, findsOneWidget);
+      expect(
+        find.descendant(of: alphaRatingCell, matching: find.byIcon(Icons.star)),
+        findsNWidgets(3),
+      );
+      expect(
+        find.descendant(
+          of: alphaRatingCell,
+          matching: find.byIcon(Icons.star_half),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: alphaRatingCell,
+          matching: find.byIcon(Icons.star_border),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('3.74'), findsNothing);
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const Key('peak-lists-details-difficulty-100')),
+            )
+            .data,
+        'EE',
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const Key('peak-lists-details-duration-100')),
+            )
+            .data,
+        '4:15',
+      );
+
+      final blankRatingCell = find.byKey(
+        const Key('peak-lists-details-rating-200'),
+      );
+      expect(blankRatingCell, findsOneWidget);
+      expect(
+        find.descendant(of: blankRatingCell, matching: find.byType(Icon)),
+        findsNothing,
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const Key('peak-lists-details-difficulty-200')),
+            )
+            .data,
+        '',
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const Key('peak-lists-details-duration-200')),
+            )
+            .data,
+        '',
+      );
+    },
+  );
+
+  testWidgets(
+    'details table sorts rating, difficulty, and duration with blank-last metadata rules',
+    (tester) async {
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Metadata Sorts', [10, 20, 30, 40]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(
+              10,
+              'Tas Hard',
+              -42.0,
+              146.0,
+              elevation: 1200,
+              rating: 4.49,
+              difficulty: 'Hard',
+              durationMinutes: 300,
+              durationLabel: '4-5 hours',
+              region: 'tasmania',
+            ),
+            _buildPeak(
+              20,
+              'Tas Easy',
+              -42.1,
+              146.1,
+              elevation: 1100,
+              rating: 4.26,
+              difficulty: 'Easy',
+              durationMinutes: 255,
+              region: 'tasmania',
+            ),
+            _buildPeak(
+              30,
+              'FVG Peak',
+              46.2,
+              13.2,
+              elevation: 2100,
+              rating: 4.9,
+              difficulty: 'T',
+              durationMinutes: 180,
+              region: 'fvg',
+            ),
+            _buildPeak(40, 'Blank Peak', -42.2, 146.2, elevation: 900),
+          ]),
+        ),
+        peaksBaggedRepository: PeaksBaggedRepository.test(
+          InMemoryPeaksBaggedStorage(),
+        ),
+      );
+
+      await tester.ensureVisible(
+        find.byKey(const Key('peak-lists-details-sort-rating')),
+      );
+      await tester.tap(find.byKey(const Key('peak-lists-details-sort-rating')));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .getTopLeft(find.byKey(const Key('peak-lists-details-row-20')))
+            .dy,
+        lessThan(
+          tester
+              .getTopLeft(find.byKey(const Key('peak-lists-details-row-10')))
+              .dy,
+        ),
+      );
+      expect(
+        tester
+            .getTopLeft(find.byKey(const Key('peak-lists-details-row-10')))
+            .dy,
+        lessThan(
+          tester
+              .getTopLeft(find.byKey(const Key('peak-lists-details-row-30')))
+              .dy,
+        ),
+      );
+      expect(
+        tester
+            .getTopLeft(find.byKey(const Key('peak-lists-details-row-30')))
+            .dy,
+        lessThan(
+          tester
+              .getTopLeft(find.byKey(const Key('peak-lists-details-row-40')))
+              .dy,
+        ),
+      );
+
+      await tester.ensureVisible(
+        find.byKey(const Key('peak-lists-details-sort-difficulty')),
+      );
+      await tester.tap(
+        find.byKey(const Key('peak-lists-details-sort-difficulty')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .getTopLeft(find.byKey(const Key('peak-lists-details-row-30')))
+            .dy,
+        lessThan(
+          tester
+              .getTopLeft(find.byKey(const Key('peak-lists-details-row-20')))
+              .dy,
+        ),
+      );
+      expect(
+        tester
+            .getTopLeft(find.byKey(const Key('peak-lists-details-row-20')))
+            .dy,
+        lessThan(
+          tester
+              .getTopLeft(find.byKey(const Key('peak-lists-details-row-10')))
+              .dy,
+        ),
+      );
+      expect(
+        tester
+            .getTopLeft(find.byKey(const Key('peak-lists-details-row-10')))
+            .dy,
+        lessThan(
+          tester
+              .getTopLeft(find.byKey(const Key('peak-lists-details-row-40')))
+              .dy,
+        ),
+      );
+
+      await tester.ensureVisible(
+        find.byKey(const Key('peak-lists-details-sort-duration')),
+      );
+      await tester.tap(
+        find.byKey(const Key('peak-lists-details-sort-duration')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .getTopLeft(find.byKey(const Key('peak-lists-details-row-30')))
+            .dy,
+        lessThan(
+          tester
+              .getTopLeft(find.byKey(const Key('peak-lists-details-row-20')))
+              .dy,
+        ),
+      );
+      expect(
+        tester
+            .getTopLeft(find.byKey(const Key('peak-lists-details-row-20')))
+            .dy,
+        lessThan(
+          tester
+              .getTopLeft(find.byKey(const Key('peak-lists-details-row-10')))
+              .dy,
+        ),
+      );
+      expect(
+        tester
+            .getTopLeft(find.byKey(const Key('peak-lists-details-row-10')))
+            .dy,
+        lessThan(
+          tester
+              .getTopLeft(find.byKey(const Key('peak-lists-details-row-40')))
+              .dy,
+        ),
+      );
+
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const Key('peak-lists-details-duration-20')),
+            )
+            .data,
+        '4:15',
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const Key('peak-lists-details-duration-10')),
+            )
+            .data,
+        '4-5 hours',
+      );
+    },
+  );
+
+  testWidgets(
     'selecting a peak list defaults details to ascent date descending',
     (tester) async {
       await _pumpPeakListsApp(
@@ -4310,6 +4640,10 @@ Peak _buildPeak(
   double latitude,
   double longitude, {
   double? elevation,
+  double? rating,
+  String difficulty = '',
+  int? durationMinutes,
+  String durationLabel = '',
   String? region,
 }) {
   return Peak(
@@ -4318,6 +4652,10 @@ Peak _buildPeak(
     latitude: latitude,
     longitude: longitude,
     elevation: elevation,
+    rating: rating,
+    difficulty: difficulty,
+    durationMinutes: durationMinutes,
+    durationLabel: durationLabel,
     region: region,
   );
 }

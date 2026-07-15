@@ -12,6 +12,7 @@ import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/screens/peak_lists_screen.dart';
 import 'package:peak_bagger/screens/settings_screen.dart';
 import 'package:peak_bagger/services/fab_colour_resolver.dart';
+import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/background_jobs_panel.dart';
 import 'package:peak_bagger/widgets/peak_list_control_visual_style.dart';
 import 'package:peak_bagger/widgets/peak_list_selection_summary.dart';
@@ -93,6 +94,9 @@ void _runShellPreNavigationCleanup(WidgetRef ref) {
   }
   if (ref.read(mapProvider).showPeakSearch) {
     ref.read(mapProvider.notifier).closeSearchPopup();
+  }
+  if (ref.read(mapProvider).showPeakMetadataFilters) {
+    ref.read(mapProvider.notifier).closePeakMetadataFilters();
   }
   if (ref.read(mapProvider).showGotoInput) {
     ref.read(mapProvider.notifier).setGotoInputVisible(false);
@@ -424,7 +428,6 @@ class _SharedAppBarTitle extends StatelessWidget {
     required this.summary,
   });
 
-  static const _centerSearchWidth = 220.0;
   static const _laneGap = 12.0;
 
   final ShellDestination currentDestination;
@@ -442,6 +445,7 @@ class _SharedAppBarTitle extends StatelessWidget {
           return Row(
             children: [
               Expanded(
+                flex: 2,
                 child: Padding(
                   padding: const EdgeInsets.only(
                     left: RouterConstants.wideNavigationWidth,
@@ -460,6 +464,7 @@ class _SharedAppBarTitle extends StatelessWidget {
                 ),
               ),
               Expanded(
+                flex: 1,
                 child: Padding(
                   padding: const EdgeInsets.only(left: _laneGap, right: 8),
                   child: const Align(
@@ -472,60 +477,48 @@ class _SharedAppBarTitle extends StatelessWidget {
           );
         }
 
-        final sideWidth =
-            (constraints.maxWidth - _centerSearchWidth).clamp(
-              0.0,
-              double.infinity,
-            ) /
-            2;
-        final laneWidth = sideWidth > _laneGap
-            ? sideWidth - _laneGap
-            : sideWidth;
-
         return SizedBox(
           height: kToolbarHeight,
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: laneWidth,
-                child: Padding(
-                  padding: const EdgeInsets.only(
-                    left: RouterConstants.wideNavigationWidth,
-                    right: _laneGap,
-                  ),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: KeyedSubtree(
-                      key: const Key('app-bar-title'),
-                      child: Text(
-                        currentDestination.title,
-                        overflow: TextOverflow.ellipsis,
+              Padding(
+                padding: const EdgeInsets.only(
+                  left: RouterConstants.wideNavigationWidth,
+                  right: _laneGap,
+                ),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    key: const Key('map-app-bar-content'),
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const KeyedSubtree(
+                        key: Key('app-bar-title'),
+                        child: SizedBox.shrink(),
                       ),
-                    ),
+                      const _AppBarSearchTrigger(compact: false),
+                      const SizedBox(width: 8),
+                      const _AppBarMapFilterTrigger(),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        key: const Key('app-bar-map-filter-divider'),
+                        height: 24,
+                        child: VerticalDivider(
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                          width: 1,
+                          thickness: 1,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const Center(
-                child: SizedBox(
-                  width: _centerSearchWidth,
-                  child: Center(child: _AppBarSearchTrigger()),
-                ),
-              ),
-              Positioned(
-                right: 0,
-                top: 0,
-                bottom: 0,
-                width: laneWidth,
-                child: Padding(
-                  padding: const EdgeInsets.only(left: _laneGap, right: 8),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: PeakListSelectionSummaryStrip(summary: summary),
-                  ),
+              Padding(
+                padding: const EdgeInsets.only(left: _laneGap, right: 8),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: PeakListSelectionSummaryStrip(summary: summary),
                 ),
               ),
             ],
@@ -654,21 +647,74 @@ class _PeakRegionFab extends ConsumerWidget {
 }
 
 class _AppBarSearchTrigger extends ConsumerWidget {
-  const _AppBarSearchTrigger();
+  const _AppBarSearchTrigger({required this.compact});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
 
+    void onPressed() {
+      ref.read(mapProvider.notifier).openSearchPopup();
+    }
+
+    final buttonStyle = OutlinedButton.styleFrom(
+      foregroundColor: colorScheme.onSurface,
+      side: BorderSide(color: colorScheme.outlineVariant),
+    );
+
+    if (compact) {
+      return OutlinedButton(
+        key: const Key('app-bar-search-trigger'),
+        style: buttonStyle,
+        onPressed: onPressed,
+        child: const Icon(Icons.search),
+      );
+    }
+
     return OutlinedButton.icon(
       key: const Key('app-bar-search-trigger'),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: colorScheme.onSurface,
-        side: BorderSide(color: colorScheme.outlineVariant),
-      ),
-      onPressed: () => ref.read(mapProvider.notifier).openSearchPopup(),
+      style: buttonStyle,
+      onPressed: onPressed,
       icon: const Icon(Icons.search),
       label: const Text('Search ⌘F'),
+    );
+  }
+}
+
+class _AppBarMapFilterTrigger extends ConsumerWidget {
+  const _AppBarMapFilterTrigger();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final filterState = ref.watch(
+      mapProvider.select(
+        (state) => (
+          isSelected: state.hasActivePeakMetadataFilters,
+          count: state.activePeakMetadataFilterCount,
+        ),
+      ),
+    );
+    final theme = Theme.of(context);
+    final searchButtonTheme = theme.extension<SearchButtonThemeData>();
+    final buttonStyle =
+        searchButtonTheme?.styleFor(filterState.isSelected) ??
+        const ButtonStyle();
+    final label = switch (filterState.count) {
+      0 => 'Filter',
+      1 => '1 Filter',
+      2 => '2 Filters',
+      _ => '3 Filters',
+    };
+
+    return OutlinedButton.icon(
+      key: const Key('app-bar-map-filter-trigger'),
+      style: buttonStyle,
+      onPressed: () =>
+          ref.read(mapProvider.notifier).togglePeakMetadataFilters(),
+      icon: const Icon(Icons.filter_list),
+      label: Text(label),
     );
   }
 }

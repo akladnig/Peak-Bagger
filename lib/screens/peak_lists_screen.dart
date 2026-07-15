@@ -36,6 +36,7 @@ import '../services/peak_cluster_engine.dart';
 import '../services/peak_hover_detector.dart';
 import '../services/peak_hit_test.dart';
 import '../services/peak_list_visibility.dart';
+import '../services/peak_metadata_rules.dart';
 import '../services/peak_list_repository.dart';
 import '../services/peak_projection_cache.dart';
 import '../services/map_trackpad_gesture_classifier.dart';
@@ -602,7 +603,15 @@ enum _PeakListSortColumn {
   ascents,
 }
 
-enum _PeakDetailSortColumn { name, elevation, ascentDate, ascents }
+enum _PeakDetailSortColumn {
+  rating,
+  name,
+  elevation,
+  ascentDate,
+  ascents,
+  difficulty,
+  duration,
+}
 
 typedef _SummaryTableWidths = ({
   double list,
@@ -616,10 +625,13 @@ typedef _SummaryTableWidths = ({
 });
 
 typedef _PeakTableWidths = ({
+  double rating,
   double peakName,
   double elevation,
   double ascentDate,
   double ascents,
+  double difficulty,
+  double duration,
   double totalWidth,
 });
 
@@ -741,7 +753,17 @@ _PeakTableWidths _resolvePeakTableWidths(
   const headerLabelGap = UiConstants.headerLabelGap;
   const headerControlWidth = headerIconWidth + headerLabelGap;
   final rows = selectedSummaryRow?.peakRows ?? const <_PeakDetailRow>[];
+  const ratingStarCount = 5;
+  const ratingStarSize = 14.0;
+  const ratingStarGap = 2.0;
 
+  double rating =
+      math.max(
+        _measureTextWidth(context, 'Rating', headerStyle) + headerControlWidth,
+        (ratingStarCount * ratingStarSize) +
+            ((ratingStarCount - 1) * ratingStarGap),
+      ) +
+      horizontalPadding;
   double peakName =
       math.max(
         _measureTextWidth(context, 'Peak Name', headerStyle) +
@@ -768,8 +790,30 @@ _PeakTableWidths _resolvePeakTableWidths(
         0,
       ) +
       horizontalPadding;
+  double difficulty =
+      math.max(
+        _measureTextWidth(context, 'Difficulty', headerStyle) +
+            headerControlWidth,
+        0,
+      ) +
+      horizontalPadding;
+  double duration =
+      math.max(
+        _measureTextWidth(context, 'Duration', headerStyle) +
+            headerControlWidth,
+        0,
+      ) +
+      horizontalPadding;
 
   for (final row in rows) {
+    rating = math.max(
+      rating,
+      row.hasRating
+          ? (ratingStarCount * ratingStarSize) +
+                ((ratingStarCount - 1) * ratingStarGap) +
+                horizontalPadding
+          : horizontalPadding,
+    );
     peakName = math.max(
       peakName,
       _measureTextWidth(context, row.name, cellStyle) + horizontalPadding,
@@ -789,17 +833,40 @@ _PeakTableWidths _resolvePeakTableWidths(
       _measureTextWidth(context, row.ascentCountLabel, cellStyle) +
           horizontalPadding,
     );
+    difficulty = math.max(
+      difficulty,
+      _measureTextWidth(context, row.difficultyLabel, cellStyle) +
+          horizontalPadding,
+    );
+    duration = math.max(
+      duration,
+      _measureTextWidth(context, row.durationDisplayLabel, cellStyle) +
+          horizontalPadding,
+    );
   }
 
   peakName = math.min(peakName, 180.0);
   ascentDate = math.min(ascentDate, 88.0);
+  difficulty = math.min(difficulty, 110.0);
+  duration = math.min(duration, 96.0);
 
   return (
+    rating: rating,
     peakName: peakName,
     elevation: elevation,
     ascentDate: ascentDate,
     ascents: ascents,
-    totalWidth: peakName + elevation + ascentDate + ascents + (columnGap * 3),
+    difficulty: difficulty,
+    duration: duration,
+    totalWidth:
+        rating +
+        peakName +
+        elevation +
+        ascentDate +
+        ascents +
+        difficulty +
+        duration +
+        (columnGap * 6),
   );
 }
 
@@ -1905,10 +1972,59 @@ class _PeakDetailsTableCardState extends State<_PeakDetailsTableCard> {
       return sorted;
     }
 
+    if (_sortColumn == _PeakDetailSortColumn.rating) {
+      final ratedRows = rows.where((row) => row.rating != null).toList();
+      final blankRows = rows.where((row) => row.rating == null).toList();
+      ratedRows.sort((left, right) {
+        final comparison = left.rating!.compareTo(right.rating!);
+        if (comparison != 0) {
+          return _sortAscending ? comparison : -comparison;
+        }
+        return left.peakId.compareTo(right.peakId);
+      });
+      blankRows.sort((left, right) => left.peakId.compareTo(right.peakId));
+      return [...ratedRows, ...blankRows];
+    }
+
+    if (_sortColumn == _PeakDetailSortColumn.duration) {
+      final durationRows = rows
+          .where((row) => row.durationMinutes != null)
+          .toList();
+      final blankRows = rows
+          .where((row) => row.durationMinutes == null)
+          .toList();
+      durationRows.sort((left, right) {
+        final comparison = left.durationMinutes!.compareTo(
+          right.durationMinutes!,
+        );
+        if (comparison != 0) {
+          return _sortAscending ? comparison : -comparison;
+        }
+        return left.peakId.compareTo(right.peakId);
+      });
+      blankRows.sort((left, right) => left.peakId.compareTo(right.peakId));
+      return [...durationRows, ...blankRows];
+    }
+
+    if (_sortColumn == _PeakDetailSortColumn.difficulty) {
+      final difficultyRows = rows.where((row) => row.hasDifficulty).toList();
+      final blankRows = rows.where((row) => !row.hasDifficulty).toList();
+      difficultyRows.sort((left, right) {
+        final comparison = comparePeaksByDifficulty(left.peak!, right.peak!);
+        if (comparison != 0) {
+          return _sortAscending ? comparison : -comparison;
+        }
+        return left.peakId.compareTo(right.peakId);
+      });
+      blankRows.sort((left, right) => left.peakId.compareTo(right.peakId));
+      return [...difficultyRows, ...blankRows];
+    }
+
     final sorted = List<_PeakDetailRow>.from(rows);
     sorted.sort((left, right) {
       final direction = _sortAscending ? 1 : -1;
       final comparison = switch (_sortColumn!) {
+        _PeakDetailSortColumn.rating => left.rating!.compareTo(right.rating!),
         _PeakDetailSortColumn.name => left.name.toLowerCase().compareTo(
           right.name.toLowerCase(),
         ),
@@ -1922,6 +2038,13 @@ class _PeakDetailsTableCardState extends State<_PeakDetailsTableCard> {
         ),
         _PeakDetailSortColumn.ascents => left.ascentCount.compareTo(
           right.ascentCount,
+        ),
+        _PeakDetailSortColumn.difficulty => comparePeaksByDifficulty(
+          left.peak!,
+          right.peak!,
+        ),
+        _PeakDetailSortColumn.duration => left.durationMinutes!.compareTo(
+          right.durationMinutes!,
         ),
       };
       if (comparison != 0) {
@@ -2012,6 +2135,15 @@ class _PeakDetailsTableRow extends StatelessWidget {
           child: Row(
             children: [
               SizedBox(
+                width: widths.rating,
+                child: _PeakRatingCell(
+                  peakId: row.peakId,
+                  rating: row.rating,
+                  textStyle: textStyle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
                 width: widths.peakName,
                 child: Text(
                   row.name,
@@ -2058,6 +2190,31 @@ class _PeakDetailsTableRow extends StatelessWidget {
                   style: textStyle,
                 ),
               ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: widths.difficulty,
+                child: Text(
+                  row.difficultyLabel,
+                  key: Key('peak-lists-details-difficulty-${row.peakId}'),
+                  maxLines: 2,
+                  softWrap: true,
+                  overflow: TextOverflow.clip,
+                  style: textStyle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: widths.duration,
+                child: Text(
+                  row.durationDisplayLabel,
+                  key: Key('peak-lists-details-duration-${row.peakId}'),
+                  maxLines: 2,
+                  softWrap: true,
+                  overflow: TextOverflow.clip,
+                  textAlign: TextAlign.right,
+                  style: textStyle,
+                ),
+              ),
             ],
           ),
         ),
@@ -2086,6 +2243,18 @@ class _PeakDetailsHeaderRow extends StatelessWidget {
     const columnGap = SizedBox(width: UiConstants.columnGap);
     return Row(
       children: [
+        SizedBox(
+          width: widths.rating,
+          child: _DetailSortHeaderCell(
+            label: 'Rating',
+            column: _PeakDetailSortColumn.rating,
+            sortColumn: sortColumn,
+            sortAscending: sortAscending,
+            onTap: onSortSelected,
+            textStyle: textStyle,
+          ),
+        ),
+        columnGap,
         SizedBox(
           width: widths.peakName,
           child: _DetailSortHeaderCell(
@@ -2136,6 +2305,89 @@ class _PeakDetailsHeaderRow extends StatelessWidget {
             textAlign: TextAlign.right,
           ),
         ),
+        columnGap,
+        SizedBox(
+          width: widths.difficulty,
+          child: _DetailSortHeaderCell(
+            label: 'Difficulty',
+            column: _PeakDetailSortColumn.difficulty,
+            sortColumn: sortColumn,
+            sortAscending: sortAscending,
+            onTap: onSortSelected,
+            textStyle: textStyle,
+          ),
+        ),
+        columnGap,
+        SizedBox(
+          width: widths.duration,
+          child: _DetailSortHeaderCell(
+            label: 'Duration',
+            column: _PeakDetailSortColumn.duration,
+            sortColumn: sortColumn,
+            sortAscending: sortAscending,
+            onTap: onSortSelected,
+            textStyle: textStyle,
+            textAlign: TextAlign.right,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PeakRatingCell extends StatelessWidget {
+  const _PeakRatingCell({
+    required this.peakId,
+    required this.rating,
+    required this.textStyle,
+  });
+
+  static const _starSize = 14.0;
+  static const _starSpacing = 2.0;
+
+  final int peakId;
+  final double? rating;
+  final TextStyle? textStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final roundedRating = roundPeakRatingForDisplay(rating);
+    if (roundedRating == null) {
+      return Text(
+        '',
+        key: Key('peak-lists-details-rating-$peakId'),
+        style: textStyle,
+      );
+    }
+
+    const fullStar = Icons.star;
+    const halfStar = Icons.star_half;
+    const emptyStar = Icons.star_border;
+    final fullStarCount = roundedRating.floor();
+    final hasHalfStar = roundedRating - fullStarCount >= 0.5;
+    final filledStarColor = Colors.amber;
+    final emptyStarColor = Theme.of(
+      context,
+    ).colorScheme.onSurface.withValues(alpha: 0.38);
+
+    return Row(
+      key: Key('peak-lists-details-rating-$peakId'),
+      spacing: _starSpacing,
+      children: [
+        for (var index = 0; index < 5; index++)
+          Icon(
+            index < fullStarCount
+                ? fullStar
+                : index == fullStarCount && hasHalfStar
+                ? halfStar
+                : emptyStar,
+            key: Key('peak-lists-details-rating-$peakId-star-$index'),
+            size: _starSize,
+            color:
+                index < fullStarCount || (index == fullStarCount && hasHalfStar)
+                ? filledStarColor
+                : emptyStarColor,
+          ),
       ],
     );
   }
@@ -3428,10 +3680,15 @@ class _PeakListSummaryRow {
             final peak = peaksById[item.peakOsmId];
             return _PeakDetailRow(
               peakId: item.peakOsmId,
+              peak: peak,
               name: peak?.name ?? 'Unknown',
               elevation: peak?.elevation,
+              rating: peak?.rating,
               ascentDate: latestAscentDatesByPeakId[item.peakOsmId],
               ascentCount: ascentCountsByPeakId[item.peakOsmId] ?? 0,
+              difficulty: peak?.difficulty ?? '',
+              durationMinutes: peak?.durationMinutes,
+              durationLabel: peak?.durationLabel ?? '',
               points: item.points,
             );
           })
@@ -3595,19 +3852,48 @@ class _PeakListSummaryRow {
 class _PeakDetailRow {
   const _PeakDetailRow({
     required this.peakId,
+    required this.peak,
     required this.name,
     required this.elevation,
+    required this.rating,
     required this.ascentDate,
     required this.ascentCount,
+    required this.difficulty,
+    required this.durationMinutes,
+    required this.durationLabel,
     required this.points,
   });
 
   final int peakId;
+  final Peak? peak;
   final String name;
   final double? elevation;
+  final double? rating;
   final DateTime? ascentDate;
   final int ascentCount;
+  final String difficulty;
+  final int? durationMinutes;
+  final String durationLabel;
   final int points;
+
+  bool get hasRating => rating != null;
+
+  bool get hasDifficulty => peak != null && difficultyLabel.isNotEmpty;
+
+  String get difficultyLabel => difficulty.trim();
+
+  String get durationDisplayLabel {
+    final peakValue = peak;
+    if (peakValue != null) {
+      return peakDurationDisplayLabel(peakValue);
+    }
+
+    final trimmedLabel = durationLabel.trim();
+    if (trimmedLabel.isNotEmpty) {
+      return trimmedLabel;
+    }
+    return formatPeakDurationMinutes(durationMinutes);
+  }
 
   String get elevationLabel {
     if (elevation == null) {

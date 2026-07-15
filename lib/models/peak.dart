@@ -25,6 +25,8 @@ class Peak {
   String county;
   String range;
   double? rating;
+  int? durationMinutes;
+  String durationLabel;
   String difficulty;
   String viaFerrata;
   String notes;
@@ -50,6 +52,8 @@ class Peak {
     this.county = '',
     this.range = '',
     this.rating,
+    this.durationMinutes,
+    this.durationLabel = '',
     this.difficulty = '',
     this.viaFerrata = '',
     this.notes = '',
@@ -75,6 +79,8 @@ class Peak {
     String? county,
     String? range,
     double? rating,
+    int? durationMinutes,
+    String? durationLabel,
     String? difficulty,
     String? viaFerrata,
     String? notes,
@@ -100,6 +106,8 @@ class Peak {
       county: county ?? this.county,
       range: range ?? this.range,
       rating: rating ?? this.rating,
+      durationMinutes: durationMinutes ?? this.durationMinutes,
+      durationLabel: durationLabel ?? this.durationLabel,
       difficulty: difficulty ?? this.difficulty,
       viaFerrata: viaFerrata ?? this.viaFerrata,
       notes: notes ?? this.notes,

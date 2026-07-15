@@ -32,7 +32,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(1, 6887978098338940139),
     name: 'Peak',
-    lastPropertyId: const obx_int.IdUid(23, 1253639641707322738),
+    lastPropertyId: const obx_int.IdUid(25, 8003799992120416779),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -171,6 +171,18 @@ final _entities = <obx_int.ModelEntity>[
       obx_int.ModelProperty(
         id: const obx_int.IdUid(23, 1253639641707322738),
         name: 'notes',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(24, 3834155968813175098),
+        name: 'durationMinutes',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(25, 8003799992120416779),
+        name: 'durationLabel',
         type: 9,
         flags: 0,
       ),
@@ -1222,7 +1234,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final difficultyOffset = fbb.writeString(object.difficulty);
         final viaFerrataOffset = fbb.writeString(object.viaFerrata);
         final notesOffset = fbb.writeString(object.notes);
-        fbb.startTable(24);
+        final durationLabelOffset = fbb.writeString(object.durationLabel);
+        fbb.startTable(26);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, nameOffset);
         fbb.addFloat64(2, object.elevation);
@@ -1246,6 +1259,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addOffset(20, difficultyOffset);
         fbb.addOffset(21, viaFerrataOffset);
         fbb.addOffset(22, notesOffset);
+        fbb.addInt64(23, object.durationMinutes);
+        fbb.addOffset(24, durationLabelOffset);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -1299,6 +1314,14 @@ obx_int.ModelDefinition getObjectBoxModel() {
           rootOffset,
           42,
         );
+        final durationMinutesParam = const fb.Int64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          50,
+        );
+        final durationLabelParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 52, '');
         final difficultyParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 44, '');
@@ -1356,6 +1379,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
           county: countyParam,
           range: rangeParam,
           rating: ratingParam,
+          durationMinutes: durationMinutesParam,
+          durationLabel: durationLabelParam,
           difficulty: difficultyParam,
           viaFerrata: viaFerrataParam,
           notes: notesParam,
@@ -2730,6 +2755,16 @@ class Peak_ {
   /// See [Peak.notes].
   static final notes = obx.QueryStringProperty<Peak>(
     _entities[0].properties[22],
+  );
+
+  /// See [Peak.durationMinutes].
+  static final durationMinutes = obx.QueryIntegerProperty<Peak>(
+    _entities[0].properties[23],
+  );
+
+  /// See [Peak.durationLabel].
+  static final durationLabel = obx.QueryStringProperty<Peak>(
+    _entities[0].properties[24],
   );
 }
 

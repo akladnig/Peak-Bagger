@@ -12,6 +12,8 @@ void main() {
     expect(peak.country, '');
     expect(peak.county, '');
     expect(peak.range, '');
+    expect(peak.durationMinutes, isNull);
+    expect(peak.durationLabel, '');
   });
 
   test('defaults alternate name and verified metadata', () {
@@ -47,6 +49,8 @@ void main() {
       country: 'Australia',
       county: 'Hobart',
       range: 'Eastern Arthur Range',
+      durationMinutes: 300,
+      durationLabel: '4-5 hours',
     );
 
     final copy = peak.copyWith(name: 'Mount Anne');
@@ -56,6 +60,8 @@ void main() {
     expect(copy.country, 'Australia');
     expect(copy.county, 'Hobart');
     expect(copy.range, 'Eastern Arthur Range');
+    expect(copy.durationMinutes, 300);
+    expect(copy.durationLabel, '4-5 hours');
   });
 
   test('sourceOfTruthPeakBagger uses peakbagger.com', () {

@@ -214,6 +214,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   late final TextEditingController _altNameController;
   late final TextEditingController _osmIdController;
   late final TextEditingController _elevationController;
+  late final TextEditingController _durationController;
   late final TextEditingController _latitudeController;
   late final TextEditingController _longitudeController;
   late final TextEditingController _regionController;
@@ -238,6 +239,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
     _altNameController = TextEditingController();
     _osmIdController = TextEditingController();
     _elevationController = TextEditingController();
+    _durationController = TextEditingController();
     _latitudeController = TextEditingController();
     _longitudeController = TextEditingController();
     _regionController = TextEditingController();
@@ -264,6 +266,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
     _altNameController.dispose();
     _osmIdController.dispose();
     _elevationController.dispose();
+    _durationController.dispose();
     _latitudeController.dispose();
     _longitudeController.dispose();
     _regionController.dispose();
@@ -286,6 +289,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
       _altNameController.clear();
       _osmIdController.text = widget.createOsmId.toString();
       _elevationController.clear();
+      _durationController.clear();
       _latitudeController.clear();
       _longitudeController.clear();
       _regionController.clear();
@@ -305,6 +309,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
       _altNameController.text = form.altName;
       _osmIdController.text = form.osmId;
       _elevationController.text = form.elevation;
+      _durationController.text = form.durationLabel;
       _latitudeController.text = form.latitude;
       _longitudeController.text = form.longitude;
       _regionController.text = form.region;
@@ -352,6 +357,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
       altName: _altNameController.text,
       osmId: _osmIdController.text,
       elevation: _elevationController.text,
+      durationLabel: _durationController.text,
       latitude: _latitudeController.text,
       longitude: _longitudeController.text,
       region: _regionController.text,
@@ -570,6 +576,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
                       altNameController: _altNameController,
                       osmIdController: _osmIdController,
                       elevationController: _elevationController,
+                      durationController: _durationController,
                       latitudeController: _latitudeController,
                       longitudeController: _longitudeController,
                       regionController: _regionController,
@@ -1640,6 +1647,7 @@ class _PeakEditForm extends StatelessWidget {
     required this.altNameController,
     required this.osmIdController,
     required this.elevationController,
+    required this.durationController,
     required this.latitudeController,
     required this.longitudeController,
     required this.regionController,
@@ -1667,6 +1675,7 @@ class _PeakEditForm extends StatelessWidget {
   final TextEditingController altNameController;
   final TextEditingController osmIdController;
   final TextEditingController elevationController;
+  final TextEditingController durationController;
   final TextEditingController latitudeController;
   final TextEditingController longitudeController;
   final TextEditingController regionController;
@@ -1753,6 +1762,18 @@ class _PeakEditForm extends StatelessWidget {
                   errorText: validation.fieldErrors['elevation'],
                 ),
                 keyboardType: TextInputType.number,
+                onChanged: (_) => onChanged(),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                key: const Key('objectbox-admin-peak-duration'),
+                controller: durationController,
+                enabled: !isSaving,
+                decoration: InputDecoration(
+                  labelText: 'Peak duration',
+                  border: const OutlineInputBorder(),
+                  errorText: validation.fieldErrors['durationLabel'],
+                ),
                 onChanged: (_) => onChanged(),
               ),
               const SizedBox(height: 8),
