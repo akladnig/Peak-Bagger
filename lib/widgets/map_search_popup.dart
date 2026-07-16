@@ -459,7 +459,7 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
     }
     for (final region in widget.availableRegions) {
       if (region.key == widget.selectedRegionKey) {
-        return region.name;
+        return region.compactName;
       }
     }
     return 'Filter';

@@ -152,11 +152,9 @@ void main() {
 
     for (final (index, regionKey, shortName, fullName) in const [
       (0, 'tasmania', 'Tas', 'Tasmania'),
-      (1, 'new-south-wales', 'NSW', 'New South Wales'),
-      (2, 'italy-nord-est', 'Italy NE', 'Italy North East'),
-      (3, 'italy-nord-ovest', 'Italy NW', 'Italy North West'),
-      (4, 'slovenia', 'Slovenia', 'Slovenia'),
-      (5, 'croatia', 'Croatia', 'Croatia'),
+      (1, 'italy-nord-est', 'Italy NE', 'Italy North East'),
+      (2, 'italy-nord-ovest', 'Italy NW', 'Italy North West'),
+      (3, 'slovenia', 'Slovenia', 'Slovenia'),
     ]) {
       final buttonFinder = find.byKey(Key('peak-lists-region-fab-$regionKey'));
       expect(buttonFinder, findsOneWidget);
@@ -173,13 +171,13 @@ void main() {
     expect(find.byKey(const Key('peak-lists-add-list-fab')), findsNothing);
     expect(find.byKey(const Key('peak-lists-import-fab')), findsOneWidget);
 
-    final croatiaFinder = find.byKey(
-      const Key('peak-lists-region-fab-croatia'),
+    final sloveniaFinder = find.byKey(
+      const Key('peak-lists-region-fab-slovenia'),
     );
-    await tester.ensureVisible(croatiaFinder);
+    await tester.ensureVisible(sloveniaFinder);
     await tester.pumpAndSettle();
     expect(
-      tester.getRect(croatiaFinder).center.dy,
+      tester.getRect(sloveniaFinder).center.dy,
       closeTo(appBarRect.center.dy, 1),
     );
 
@@ -262,11 +260,9 @@ void main() {
 
       for (final regionKey in const [
         'tasmania',
-        'new-south-wales',
         'italy-nord-est',
         'italy-nord-ovest',
         'slovenia',
-        'croatia',
       ]) {
         expect(
           find.byKey(Key('peak-lists-region-fab-$regionKey')),
@@ -274,19 +270,12 @@ void main() {
         );
       }
 
-      for (final label in const [
-        'Tas',
-        'NSW',
-        'Italy NE',
-        'Italy NW',
-        'Slovenia',
-        'Croatia',
-      ]) {
+      for (final label in const ['Tas', 'Italy NE', 'Italy NW', 'Slovenia']) {
         expect(find.text(label), findsOneWidget);
       }
 
       expect(find.byKey(const Key('peak-lists-row-1')), findsOneWidget);
-      expect(find.byKey(const Key('peak-lists-row-2')), findsOneWidget);
+      expect(find.byKey(const Key('peak-lists-row-2')), findsNothing);
       expect(find.byKey(const Key('peak-lists-row-3')), findsOneWidget);
       expect(find.byKey(const Key('peak-lists-row-4')), findsOneWidget);
       expect(find.byKey(const Key('peak-lists-row-5')), findsNothing);
@@ -297,7 +286,7 @@ void main() {
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({
-      peakListRegionFilterPreferenceKey: ['new-south-wales'],
+      peakListRegionFilterPreferenceKey: ['italy-nord-est'],
     });
     final fixture = _buildRegionFilterFixture();
 
@@ -309,9 +298,9 @@ void main() {
     );
 
     expect(find.byKey(const Key('peak-lists-row-1')), findsNothing);
-    expect(find.byKey(const Key('peak-lists-row-2')), findsOneWidget);
-    expect(find.byKey(const Key('peak-lists-row-3')), findsNothing);
-    expect(find.byKey(const Key('peak-lists-row-4')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-row-2')), findsNothing);
+    expect(find.byKey(const Key('peak-lists-row-3')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-row-4')), findsNothing);
     expect(find.byKey(const Key('peak-lists-row-5')), findsNothing);
   });
 
@@ -331,15 +320,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-lists-row-1')), findsNothing);
-    expect(find.byKey(const Key('peak-lists-row-2')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-row-2')), findsNothing);
     expect(find.byKey(const Key('peak-lists-row-3')), findsOneWidget);
-    expect(find.byKey(const Key('peak-lists-row-4')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-row-4')), findsNothing);
 
     await tester.tap(find.byKey(const Key('peak-lists-region-fab-tasmania')));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-lists-row-1')), findsOneWidget);
-    expect(find.byKey(const Key('peak-lists-row-2')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-row-2')), findsNothing);
     expect(find.byKey(const Key('peak-lists-row-3')), findsOneWidget);
     expect(find.byKey(const Key('peak-lists-row-4')), findsOneWidget);
   });
@@ -358,11 +347,9 @@ void main() {
 
     for (final regionKey in const [
       'tasmania',
-      'new-south-wales',
       'italy-nord-est',
       'italy-nord-ovest',
       'slovenia',
-      'croatia',
     ]) {
       final buttonFinder = find.byKey(Key('peak-lists-region-fab-$regionKey'));
       await tester.ensureVisible(buttonFinder);
@@ -399,7 +386,7 @@ void main() {
       );
 
       tester
-          .widget<InkWell>(find.byKey(const Key('peak-lists-row-2')))
+          .widget<InkWell>(find.byKey(const Key('peak-lists-row-1')))
           .onTap!();
       await tester.pumpAndSettle();
 
@@ -407,21 +394,18 @@ void main() {
         tester
             .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
             .data,
-        'NSW Only',
+        'Tas Only',
       );
-      expect(find.byKey(const Key('peak-lists-details-row-100')), findsNothing);
       expect(
-        find.byKey(const Key('peak-lists-details-row-200')),
+        find.byKey(const Key('peak-lists-details-row-100')),
         findsOneWidget,
       );
       expect(
         find.byKey(const Key('peak-lists-mini-map-marker-100-unticked')),
-        findsNothing,
+        findsOneWidget,
       );
 
-      await tester.tap(
-        find.byKey(const Key('peak-lists-region-fab-new-south-wales')),
-      );
+      await tester.tap(find.byKey(const Key('peak-lists-region-fab-tasmania')));
       await tester.pumpAndSettle();
 
       expect(
@@ -431,7 +415,6 @@ void main() {
         'FVG Only',
       );
       expect(find.byKey(const Key('peak-lists-details-row-100')), findsNothing);
-      expect(find.byKey(const Key('peak-lists-details-row-200')), findsNothing);
       expect(
         find.byKey(const Key('peak-lists-details-row-300')),
         findsOneWidget,
@@ -441,9 +424,7 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(
-        find.byKey(const Key('peak-lists-region-fab-new-south-wales')),
-      );
+      await tester.tap(find.byKey(const Key('peak-lists-region-fab-tasmania')));
       await tester.pumpAndSettle();
 
       expect(
@@ -467,14 +448,14 @@ void main() {
       peakRepository: fixture.peakRepository,
     );
 
-    tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-2'))).onTap!();
+    tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-3'))).onTap!();
     await tester.pumpAndSettle();
 
     tester
         .widget<InkWell>(
           find
               .descendant(
-                of: find.byKey(const Key('peak-lists-details-row-200')),
+                of: find.byKey(const Key('peak-lists-details-row-300')),
                 matching: find.byType(InkWell),
               )
               .first,
@@ -493,11 +474,9 @@ void main() {
 
     for (final regionKey in const [
       'tasmania',
-      'new-south-wales',
       'italy-nord-est',
       'italy-nord-ovest',
       'slovenia',
-      'croatia',
     ]) {
       await container
           .read(peakListRegionFilterProvider.notifier)
@@ -516,13 +495,13 @@ void main() {
       'Peak List Details',
     );
     expect(find.byKey(const Key('peak-lists-details-row-100')), findsNothing);
-    expect(find.byKey(const Key('peak-lists-details-row-200')), findsNothing);
+    expect(find.byKey(const Key('peak-lists-details-row-300')), findsNothing);
     expect(
       find.byKey(const Key('peak-lists-mini-map-marker-100-unticked')),
       findsNothing,
     );
     expect(
-      find.byKey(const Key('peak-lists-mini-map-marker-200-unticked')),
+      find.byKey(const Key('peak-lists-mini-map-marker-300-unticked')),
       findsNothing,
     );
     expect(
