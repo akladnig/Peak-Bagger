@@ -24,12 +24,16 @@ final _northEastSubregionLabelByKey = {
 };
 
 List<MapSearchRegionOption> buildMapSearchRegionOptions() {
-  return [
-    ...regionManifestCatalog.allRegions().map(
-      (region) => MapSearchRegionOption(key: region.key, name: region.name),
-    ),
-    ..._northEastSubregionOptions,
-  ];
+  final optionsByKey = <String, MapSearchRegionOption>{
+    for (final region in regionManifestCatalog.allRegions())
+      region.key: MapSearchRegionOption(key: region.key, name: region.name),
+  };
+
+  for (final option in _northEastSubregionOptions) {
+    optionsByKey[option.key] = option;
+  }
+
+  return optionsByKey.values.toList(growable: false);
 }
 
 bool isNorthEastSubregionKey(String? key) {

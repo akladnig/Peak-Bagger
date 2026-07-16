@@ -1,5 +1,6 @@
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/services/manifest_priority.dart';
 import 'package:peak_bagger/services/polygon_geometry.dart';
 
 part 'package:peak_bagger/generated/region_manifest_catalog.g.dart';
@@ -58,6 +59,7 @@ class RegionManifestRegionData {
     required this.key,
     required this.name,
     required this.shortName,
+    required this.priority,
     required this.showInPeakList,
     this.peakListFilterAliases = const [],
     required this.polygons,
@@ -68,6 +70,7 @@ class RegionManifestRegionData {
   final String key;
   final String name;
   final String shortName;
+  final ManifestPriority priority;
   final bool? showInPeakList;
   final List<String> peakListFilterAliases;
   final List<List<LatLng>> polygons;
@@ -109,6 +112,11 @@ final Map<String, RegionManifestRegionData> _regionByKey = {
   for (final region in regionManifestCatalogData.regions) region.key: region,
 };
 
+final Map<String, RegionManifestRegionData> _regionByDisplayName = {
+  for (final region in regionManifestCatalogData.regions)
+    region.name.trim(): region,
+};
+
 final Map<String, String> _peakListFilterRegionKeyByIdentifier = {
   for (final region in regionManifestCatalogData.regions)
     for (final alias in region.peakListFilterAliases) alias: region.key,
@@ -129,6 +137,19 @@ class RegionManifestCatalog {
 
   RegionManifestRegionData? regionByKey(String key) {
     return _regionByKey[key];
+  }
+
+  RegionManifestRegionData? regionByDisplayName(String? displayName) {
+    final trimmed = displayName?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return null;
+    }
+
+    return _regionByDisplayName[trimmed];
+  }
+
+  String? regionKeyByDisplayName(String? displayName) {
+    return regionByDisplayName(displayName)?.key;
   }
 
   List<RegionManifestRegionData> allRegions() {
@@ -163,6 +184,32 @@ class RegionManifestCatalog {
 
   String? regionKeyForPoint(LatLng point) {
     return regionForPoint(point)?.key;
+  }
+
+  List<RegionManifestRegionData> regionsForPointByPriority(LatLng point) {
+    final matches = <RegionManifestRegionData>[
+      for (final region in regionManifestCatalogData.regions)
+        if (region.containsPoint(point)) region,
+    ];
+    matches.sort(_compareRegionPriorityDescending);
+    return List.unmodifiable(matches);
+  }
+
+  List<RegionManifestRegionData> highestPriorityRegionsForPoint(LatLng point) {
+    final matches = regionsForPointByPriority(point);
+    if (matches.isEmpty) {
+      return const [];
+    }
+
+    final bestPriority = matches.first.priority;
+    return List.unmodifiable(
+      matches.where((region) => region.priority.compareTo(bestPriority) == 0),
+    );
+  }
+
+  RegionManifestRegionData? uniqueHighestPriorityRegionForPoint(LatLng point) {
+    final matches = highestPriorityRegionsForPoint(point);
+    return matches.length == 1 ? matches.single : null;
   }
 
   List<RegionManifestRegionData> regionsForBounds(LatLngBounds bounds) {
@@ -379,5 +426,17 @@ class RegionManifestCatalog {
     }
 
     return trimmed.toLowerCase();
+  }
+
+  int _compareRegionPriorityDescending(
+    RegionManifestRegionData left,
+    RegionManifestRegionData right,
+  ) {
+    final priorityComparison = right.priority.compareTo(left.priority);
+    if (priorityComparison != 0) {
+      return priorityComparison;
+    }
+
+    return left.key.compareTo(right.key);
   }
 }

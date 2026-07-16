@@ -587,7 +587,13 @@ void main() {
       ),
     );
     expect(filterButton.style, isNotNull);
-    expect(find.text('Filter'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('map-search-filter-trigger')),
+        matching: find.text('Filter'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets(

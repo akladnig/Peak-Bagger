@@ -31,6 +31,7 @@ void main() {
               'composite': true,
               'peaks': ['assets/peaks/italy.json'],
             },
+            'fvg': {'seedOnStartup': false},
           }),
           'assets/peaks/tas.json': _overpassAsset([
             _peakNode(
@@ -75,6 +76,41 @@ void main() {
         'new-south-wales': 'nsw-fp',
         'tasmania': 'tas-fp',
       });
+    },
+  );
+
+  test(
+    'seedIfRepositoryEmpty skips manifest-backed regions excluded from startup seeding',
+    () async {
+      final repository = PeakRepository.test(InMemoryPeakStorage());
+      final service = PeakRegionAssetImportService(
+        assetLoader: _assetLoader({
+          PeakRegionAssetImportService.manifestAssetPath: jsonEncode({
+            'tasmania': {
+              'fingerprint': 'tas-fp',
+              'peaks': ['assets/peaks/tas.json'],
+            },
+            'fvg': {'seedOnStartup': false, 'priority': '2.1.1'},
+          }),
+          'assets/peaks/tas.json': _overpassAsset([
+            _peakNode(
+              id: 1,
+              name: 'Cradle',
+              lat: -41.7,
+              lon: 145.9,
+              ele: '1545',
+            ),
+          ]),
+        }),
+      );
+
+      final result = await service.seedIfRepositoryEmpty(
+        peakRepository: repository,
+      );
+
+      expect(result.importedRegions, ['tasmania']);
+      expect(repository.getAllPeaks(), hasLength(1));
+      expect(repository.getAllPeaks().single.region, 'tasmania');
     },
   );
 

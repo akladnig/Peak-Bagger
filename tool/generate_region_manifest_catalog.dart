@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/services/manifest_priority.dart';
 import 'package:peak_bagger/services/polygon_geometry.dart';
 
 const _manifestPath = 'assets/region_manifest.json';
@@ -40,6 +41,7 @@ void main(List<String> args) {
 
   final seenBasemapOrder = <String>[];
   final basemapDefinitions = <String, _BasemapDefinition>{};
+  final seenDisplayNames = <String, String>{};
   final seenPeakListFilterIdentifiers = <String, String>{};
   final regions = <_RegionDefinition>[];
 
@@ -110,6 +112,12 @@ void main(List<String> args) {
       regionValue,
       regionKey,
     );
+    final name = _readRegionName(regionValue, regionKey);
+    _registerDisplayName(
+      seenDisplayNames,
+      displayName: name,
+      regionKey: regionKey,
+    );
     _registerPeakListFilterIdentifiers(
       seenPeakListFilterIdentifiers,
       regionKey: regionKey,
@@ -119,8 +127,9 @@ void main(List<String> args) {
     regions.add(
       _RegionDefinition(
         key: regionKey,
-        name: _readRegionName(regionValue, regionKey),
+        name: name,
         shortName: _readRegionShortName(regionValue, regionKey),
+        priority: _readRegionPriority(regionValue, regionKey),
         showInPeakList: _readRegionShowInPeakList(regionValue, regionKey),
         peakListFilterAliases: peakListFilterAliases,
         polygons: polygons,
@@ -192,6 +201,9 @@ void main(List<String> args) {
       ..writeln('      key: ${_stringLiteral(region.key)},')
       ..writeln('      name: ${_stringLiteral(region.name)},')
       ..writeln('      shortName: ${_stringLiteral(region.shortName)},')
+      ..writeln(
+        '      priority: const ManifestPriority([${region.priority.segments.join(', ')}]),',
+      )
       ..writeln('      showInPeakList: ${region.showInPeakList},')
       ..writeln('      peakListFilterAliases: [');
     for (final alias in region.peakListFilterAliases) {
@@ -260,6 +272,28 @@ String _readRegionName(Map<String, dynamic> regionValue, String regionKey) {
     return regionKey;
   }
   return name;
+}
+
+ManifestPriority _readRegionPriority(
+  Map<String, dynamic> regionValue,
+  String regionKey,
+) {
+  final priority = regionValue['priority'];
+  if (priority is! String) {
+    stderr.writeln(
+      'Region $regionKey must define a non-empty string for priority.',
+    );
+    exitCode = 1;
+    return const ManifestPriority([0]);
+  }
+
+  try {
+    return ManifestPriority.parse(priority, regionKey: regionKey);
+  } on FormatException catch (error) {
+    stderr.writeln(error.message);
+    exitCode = 1;
+    return const ManifestPriority([0]);
+  }
 }
 
 String _readRegionShortName(
@@ -338,6 +372,24 @@ void _registerPeakListFilterIdentifiers(
       ownerRegionKey: regionKey,
     );
   }
+}
+
+void _registerDisplayName(
+  Map<String, String> seenDisplayNames, {
+  required String displayName,
+  required String regionKey,
+}) {
+  final normalized = displayName.trim();
+  final previousOwner = seenDisplayNames[normalized];
+  if (previousOwner != null) {
+    stderr.writeln(
+      'Duplicate manifest display name "$normalized" for $regionKey and $previousOwner.',
+    );
+    exitCode = 1;
+    return;
+  }
+
+  seenDisplayNames[normalized] = regionKey;
 }
 
 void _registerPeakListFilterIdentifier(
@@ -516,6 +568,7 @@ class _RegionDefinition {
     required this.key,
     required this.name,
     required this.shortName,
+    required this.priority,
     required this.showInPeakList,
     required this.peakListFilterAliases,
     required this.polygons,
@@ -526,6 +579,7 @@ class _RegionDefinition {
   final String key;
   final String name;
   final String shortName;
+  final ManifestPriority priority;
   final bool? showInPeakList;
   final List<String> peakListFilterAliases;
   final List<List<LatLng>> polygons;

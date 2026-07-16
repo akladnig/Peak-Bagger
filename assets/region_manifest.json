@@ -1,5 +1,6 @@
 {
   "tasmania": {
+    "priority": "1.1",
     "name": "Tasmania",
     "shortName": "Tas",
     "showInPeakList": "true",
@@ -66,6 +67,7 @@
     ]
   },
   "new-south-wales": {
+    "priority": "1.2",
     "name": "New South Wales",
     "shortName": "NSW",
     "showInPeakList": "false",
@@ -128,6 +130,7 @@
     "mapSet": []
   },
   "italy-nord-est": {
+    "priority": "2.1",
     "name": "Italy North East",
     "shortName": "Italy NE",
     "showInPeakList": "true",
@@ -191,7 +194,67 @@
     ],
     "mapSet": []
   },
+  "fvg": {
+    "priority": "2.1.1",
+    "name": "Friuli Venezia Giulia",
+    "shortName": "FVG",
+    "showInPeakList": "false",
+    "seedOnStartup": false,
+    "ISO_3166-1": "IT",
+    "ISO_3166-2": [
+      "IT-36"
+    ],
+    "poly": [
+      "assets/polygons/friuli-venezia-giulia-mainland.poly",
+      "assets/polygons/friuli-venezia-giulia-islet.poly"
+    ],
+    "maps": [],
+    "mapSet": []
+  },
+  "veneto": {
+    "priority": "2.1.2",
+    "name": "Veneto",
+    "shortName": "Veneto",
+    "showInPeakList": "false",
+    "seedOnStartup": false,
+    "ISO_3166-1": "IT",
+    "ISO_3166-2": [
+      "IT-34"
+    ],
+    "poly": [],
+    "maps": [],
+    "mapSet": []
+  },
+  "trentino-alto-adige": {
+    "priority": "2.1.3",
+    "name": "Trentino Alto Adige",
+    "shortName": "Trentino Alto Adige",
+    "showInPeakList": "false",
+    "seedOnStartup": false,
+    "ISO_3166-1": "IT",
+    "ISO_3166-2": [
+      "IT-32"
+    ],
+    "poly": [],
+    "maps": [],
+    "mapSet": []
+  },
+  "emilia-romagna": {
+    "priority": "2.1.4",
+    "name": "Emilia Romagna",
+    "shortName": "Emilia Romagna",
+    "showInPeakList": "false",
+    "seedOnStartup": false,
+    "ISO_3166-1": "IT",
+    "ISO_3166-2": [
+      "IT-45"
+    ],
+    "poly": [],
+    "maps": [],
+    "mapSet": []
+  },
   "italy-nord-ovest": {
+    "priority": "2.2",
     "name": "Italy North West",
     "shortName": "Italy NW",
     "showInPeakList": "true",
@@ -238,6 +301,7 @@
     "mapSet": []
   },
   "italy": {
+    "priority": "2",
     "name": "Italy",
     "shortName": "Italy",
     "showInPeakList": "false",
@@ -291,6 +355,7 @@
     "mapSet": []
   },
   "slovenia": {
+    "priority": "3",
     "name": "Slovenia",
     "shortName": "Slovenia",
     "showInPeakList": "true",
@@ -339,6 +404,7 @@
     "mapSet": []
   },
   "croatia": {
+    "priority": "4",
     "name": "Croatia",
     "shortName": "Croatia",
     "showInPeakList": "false",
