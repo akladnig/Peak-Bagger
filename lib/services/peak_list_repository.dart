@@ -2,6 +2,7 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/fab_colour_resolver.dart';
 import 'package:peak_bagger/services/peak_list_derived_data.dart';
+import 'package:peak_bagger/services/peak_list_visibility.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/tassy_full_peak_list_sync_service.dart';
 
@@ -234,7 +235,8 @@ class PeakListRepository {
     }
 
     return {
-      for (final peak in peakRepository.getAllPeaks()) peak.osmId: peak.region,
+      for (final peak in peakRepository.getAllPeaks())
+        peak.osmId: canonicalPeakRegionKey(peak),
     };
   }
 
@@ -430,7 +432,8 @@ class PeakListRepository {
     }
 
     for (final item in addedItems) {
-      if (findPeakByOsmId(item.peakOsmId)?.region != Peak.defaultRegion) {
+      final peak = findPeakByOsmId(item.peakOsmId);
+      if (peak == null || canonicalPeakRegionKey(peak) != Peak.defaultRegion) {
         throw StateError(tassyFullTasmaniaOnlyError);
       }
     }

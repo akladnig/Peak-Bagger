@@ -411,6 +411,40 @@ void main() {
     );
 
     test(
+      'Tassy Full add accepts peaks whose Tasmanian coordinates override stale stored region metadata',
+      () async {
+        final repository = PeakListRepository.test(
+          InMemoryPeakListStorage([
+            PeakList(name: 'Tassy Full', peakList: '[]')..peakListId = 1,
+          ]),
+          peakRepository: PeakRepository.test(
+            InMemoryPeakStorage([
+              Peak(
+                osmId: 11,
+                name: 'Stale Region Peak',
+                latitude: -42.291632,
+                longitude: 145.884372,
+                region: 'victoria',
+              ),
+            ]),
+          ),
+        );
+
+        await repository.addPeakItem(
+          peakListId: 1,
+          item: const PeakListItem(peakOsmId: 11, points: 9),
+        );
+
+        expect(
+          decodePeakListItems(
+            repository.findById(1)!.peakList,
+          ).map((item) => (item.peakOsmId, item.points)).toList(),
+          [(11, 9)],
+        );
+      },
+    );
+
+    test(
       'findPeakListNamesForPeak returns sorted unique memberships',
       () async {
         final repository = PeakListRepository.test(

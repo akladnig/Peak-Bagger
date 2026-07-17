@@ -43,7 +43,12 @@ void main() {
             _peak(22),
             _peak(33),
             _peak(44),
-            _peak(55, region: 'new-south-wales'),
+            _peak(
+              55,
+              region: 'new-south-wales',
+              latitude: -33.8688,
+              longitude: 151.2093,
+            ),
           ],
         );
 
@@ -78,7 +83,12 @@ void main() {
           ],
           peaks: [
             _peak(5),
-            _peak(6, region: 'new-south-wales'),
+            _peak(
+              6,
+              region: 'new-south-wales',
+              latitude: -33.8688,
+              longitude: 151.2093,
+            ),
           ],
         );
 
@@ -92,6 +102,51 @@ void main() {
             repository.findByName('Tassy Full')!.peakList,
           ).map((item) => (item.peakOsmId, item.points)).toList(),
           [(5, 1)],
+        );
+      },
+    );
+
+    test(
+      'refresh includes source peaks whose Tasmanian coordinates override stale stored region metadata',
+      () async {
+        final repository = _buildRepository(
+          peakLists: [
+            PeakList(
+              name: 'Abels',
+              peakList: encodePeakListItems([
+                const PeakListItem(peakOsmId: 11, points: 4),
+                const PeakListItem(peakOsmId: 22, points: 9),
+              ]),
+            )..peakListId = 1,
+          ],
+          peaks: [
+            Peak(
+              osmId: 11,
+              name: 'Mount Agamemnon',
+              latitude: -42.291632,
+              longitude: 145.884372,
+              region: 'victoria',
+            ),
+            Peak(
+              osmId: 22,
+              name: 'Mainland Peak',
+              latitude: -37,
+              longitude: 145,
+              region: 'victoria',
+            ),
+          ],
+        );
+
+        final result = await repository.refreshTassyFullPeakList();
+
+        expect(result.addedCount, 1);
+        expect(result.updatedCount, 0);
+        expect(result.removedCount, 0);
+        expect(
+          decodePeakListItems(
+            repository.findByName('Tassy Full')!.peakList,
+          ).map((item) => (item.peakOsmId, item.points)).toList(),
+          [(11, 4)],
         );
       },
     );
@@ -111,7 +166,12 @@ void main() {
           ],
           peaks: [
             _peak(44),
-            _peak(66, region: 'new-south-wales'),
+            _peak(
+              66,
+              region: 'new-south-wales',
+              latitude: -33.8688,
+              longitude: 151.2093,
+            ),
           ],
         );
 
@@ -177,12 +237,17 @@ PeakListRepository _buildRepository({
   );
 }
 
-Peak _peak(int osmId, {String region = Peak.defaultRegion}) {
+Peak _peak(
+  int osmId, {
+  String region = Peak.defaultRegion,
+  double latitude = -41.5,
+  double longitude = 146.5,
+}) {
   return Peak(
     osmId: osmId,
     name: 'Peak $osmId',
-    latitude: -41.5,
-    longitude: 146.5,
+    latitude: latitude,
+    longitude: longitude,
     region: region,
   );
 }

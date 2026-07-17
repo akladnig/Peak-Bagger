@@ -669,6 +669,63 @@ void main() {
     expect(find.text('Mainland Peak'), findsNothing);
   });
 
+  testWidgets(
+    'Tassy Full add mode shows peaks whose Tasmanian coordinates override stale stored region metadata',
+    (tester) async {
+      final staleRegionTasPeak = _buildPeak(
+        osmId: 101,
+        name: 'Mount Agamemnon',
+        latitude: -42.291632,
+        longitude: 145.884372,
+        region: 'victoria',
+      );
+      final mainlandPeak = _buildPeak(
+        osmId: 202,
+        name: 'Mainland Peak',
+        latitude: -37,
+        longitude: 145,
+        region: 'victoria',
+      );
+
+      await _pumpDialog(
+        tester,
+        dialog: PeakListPeakDialog(
+          mode: PeakListPeakDialogMode.add,
+          peakList: PeakList(name: 'Tassy Full', peakList: '[]')
+            ..peakListId = 1,
+          peakListRepository: PeakListRepository.test(
+            InMemoryPeakListStorage([
+              PeakList(name: 'Tassy Full', peakList: '[]')..peakListId = 1,
+            ]),
+            peakRepository: PeakRepository.test(
+              InMemoryPeakStorage([staleRegionTasPeak, mainlandPeak]),
+            ),
+          ),
+          peakItems: const [],
+          ascentRows: const [],
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([staleRegionTasPeak, mainlandPeak]),
+        ),
+        tasmapRepository: await TestTasmapRepository.create(),
+        gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+      );
+
+      await tester.enterText(
+        find.byKey(const Key('peak-list-peak-search-input')),
+        'Agam',
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('peak-multi-select-row-101')),
+        findsOneWidget,
+      );
+      expect(find.text('Mount Agamemnon'), findsOneWidget);
+      expect(find.byKey(const Key('peak-multi-select-row-202')), findsNothing);
+    },
+  );
+
   testWidgets('add mode shows existing peaks as checked and saves new ones', (
     tester,
   ) async {
@@ -1186,7 +1243,9 @@ void main() {
       await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-202')));
       await tester.pump();
 
-      await peakRepository.save(secondPeak.copyWith(region: 'victoria'));
+      await peakRepository.save(
+        secondPeak.copyWith(latitude: -37, longitude: 145, region: 'victoria'),
+      );
 
       await tester.tap(find.byKey(const Key('peak-list-peak-save')));
       await tester.pump();
