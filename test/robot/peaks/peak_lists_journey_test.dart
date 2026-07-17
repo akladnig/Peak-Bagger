@@ -10,6 +10,7 @@ import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 import 'package:peak_bagger/services/peak_list_csv_export_service.dart';
 import 'package:peak_bagger/services/peak_list_import_service.dart';
+import 'package:peak_bagger/services/peak_metadata_rules.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
@@ -843,16 +844,26 @@ Map<String, String> _appOwnedCsvRowForPeak(Peak peak, {required int points}) {
     'name': peak.name,
     'altName': peak.altName,
     'elevation': peak.elevation?.toString() ?? '',
+    'prominence': peak.prominence?.toString() ?? '',
+    'rating': peak.rating?.toStringAsFixed(1) ?? '',
+    'difficulty': peak.difficulty,
+    'duration': peak.durationLabel.trim().isNotEmpty
+        ? peak.durationLabel
+        : formatPeakDurationMinutes(peak.durationMinutes),
+    'viaFerrata': peak.viaFerrata,
     'gridZoneDesignator': peak.gridZoneDesignator,
     'mgrs100kId': peak.mgrs100kId,
     'easting': peak.easting,
     'northing': peak.northing,
-    'Points': '$points',
+    'points': '$points',
     'osmId': '${peak.osmId}',
+    'peakbaggerPid': peak.peakbaggerPid?.toString() ?? '',
     'country': peak.country,
     'region': peak.region ?? '',
     'county': peak.county,
     'range': peak.range,
+    'notes': peak.notes,
+    'verified': peak.verified.toString(),
     'sourceOfTruth': peak.sourceOfTruth,
   };
 }

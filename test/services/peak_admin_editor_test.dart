@@ -170,6 +170,30 @@ void main() {
       expect(result.peak?.durationLabel, '4-5 hours');
     });
 
+    test('accepts exact day durations in the dedicated editor', () {
+      final result = PeakAdminEditor.validateAndBuild(
+        source: Peak(name: 'Old', latitude: -41, longitude: 146),
+        form: const PeakAdminFormState(
+          name: 'Cradle',
+          osmId: '123',
+          elevation: '',
+          durationLabel: '2 days',
+          latitude: '-41.5',
+          longitude: '146.5',
+          region: '',
+          gridZoneDesignator: '55G',
+          mgrs100kId: '',
+          easting: '',
+          northing: '',
+          sourceOfTruth: Peak.sourceOfTruthOsm,
+        ),
+      );
+
+      expect(result.isValid, isTrue);
+      expect(result.peak?.durationMinutes, 2880);
+      expect(result.peak?.durationLabel, '2 days');
+    });
+
     test('rejects unsupported duration text clearly', () {
       final result = PeakAdminEditor.validateAndBuild(
         source: Peak(name: 'Old', latitude: -41, longitude: 146),
@@ -192,7 +216,7 @@ void main() {
       expect(result.isValid, isFalse);
       expect(
         result.fieldErrors['durationLabel'],
-        'Invalid peak duration "soon". Expected H:MM, <int>-<int> hour(s), or <int>-<int> day(s).',
+        'Invalid peak duration "soon". Expected H:MM, <int>-<int> hour(s), <int>-<int> day(s), 1 day, or <int> days.',
       );
       expect(result.peak, isNull);
     });

@@ -7,6 +7,7 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/import_path_helpers.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
+import 'package:peak_bagger/services/peak_metadata_rules.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 
@@ -99,16 +100,24 @@ class PeakListCsvExportService {
     'name',
     'altName',
     'elevation',
+    'prominence',
+    'rating',
+    'difficulty',
+    'duration',
+    'viaFerrata',
     'gridZoneDesignator',
     'mgrs100kId',
     'easting',
     'northing',
-    'Points',
+    'points',
     'osmId',
+    'peakbaggerPid',
     'country',
     'region',
     'county',
     'range',
+    'notes',
+    'verified',
     'sourceOfTruth',
   ];
 
@@ -231,17 +240,25 @@ class PeakListCsvExportService {
         rows.add([
           peak.name,
           peak.altName,
-          peak.elevation?.toString() ?? '',
+          _formatOptionalNumber(peak.elevation),
+          _formatOptionalNumber(peak.prominence),
+          _formatOptionalRating(peak.rating),
+          peak.difficulty,
+          _formatDuration(peak),
+          peak.viaFerrata,
           mgrs.gridZoneDesignator,
           mgrs.mgrs100kId,
           mgrs.easting,
           mgrs.northing,
           item.points,
           peak.osmId,
+          peak.peakbaggerPid?.toString() ?? '',
           peak.country,
           peak.region ?? '',
           peak.county,
           peak.range,
+          peak.notes,
+          peak.verified.toString(),
           peak.sourceOfTruth,
         ]);
         writtenRowCount += 1;
@@ -348,6 +365,22 @@ class PeakListCsvExportService {
         LatLng(peak.latitude, peak.longitude),
       );
     }
+  }
+
+  String _formatDuration(Peak peak) {
+    if (peak.durationLabel.trim().isNotEmpty) {
+      return peak.durationLabel;
+    }
+
+    return formatPeakDurationMinutes(peak.durationMinutes);
+  }
+
+  String _formatOptionalNumber(double? value) {
+    return value?.toString() ?? '';
+  }
+
+  String _formatOptionalRating(double? rating) {
+    return rating == null ? '' : rating.toStringAsFixed(1);
   }
 }
 

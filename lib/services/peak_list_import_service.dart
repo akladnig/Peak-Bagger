@@ -12,6 +12,7 @@ import 'package:peak_bagger/services/peak_list_csv_export_service.dart';
 import 'package:peak_bagger/services/peak_list_file_picker.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
+import 'package:peak_bagger/services/peak_metadata_rules.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
 
@@ -515,23 +516,46 @@ class PeakListImportService {
       );
     }
 
-    final rawPoints = data['Points'] ?? '';
+    final rawPoints = data['points'] ?? '';
     final points = int.tryParse(rawPoints);
     if (points == null) {
       throw FormatException(
-        'invalid Points "$rawPoints" on row $rowNumber ($nameLabel)',
+        'invalid points "$rawPoints" on row $rowNumber ($nameLabel)',
       );
     }
 
-    final rawElevation = data['elevation'] ?? '';
-    final elevation = rawElevation.isEmpty
-        ? null
-        : double.tryParse(rawElevation);
-    if (rawElevation.isNotEmpty && elevation == null) {
-      throw FormatException(
-        'invalid elevation "$rawElevation" on row $rowNumber ($nameLabel)',
-      );
-    }
+    final elevation = _parseAppOwnedNumber(
+      data['elevation'] ?? '',
+      fieldName: 'elevation',
+      rowNumber: rowNumber,
+      name: nameLabel,
+    );
+    final prominence = _parseAppOwnedNumber(
+      data['prominence'] ?? '',
+      fieldName: 'prominence',
+      rowNumber: rowNumber,
+      name: nameLabel,
+    );
+    final rating = _parseAppOwnedRating(
+      data['rating'] ?? '',
+      rowNumber: rowNumber,
+      name: nameLabel,
+    );
+    final duration = _parseAppOwnedDuration(
+      data['duration'] ?? '',
+      rowNumber: rowNumber,
+      name: nameLabel,
+    );
+    final peakbaggerPid = _parseAppOwnedPeakbaggerPid(
+      data['peakbaggerPid'] ?? '',
+      rowNumber: rowNumber,
+      name: nameLabel,
+    );
+    final verified = _parseAppOwnedVerified(
+      data['verified'] ?? '',
+      rowNumber: rowNumber,
+      name: nameLabel,
+    );
 
     final gridZoneDesignator = data['gridZoneDesignator'] ?? '';
     final mgrs100kId = data['mgrs100kId'] ?? '';
@@ -553,6 +577,11 @@ class PeakListImportService {
         name: name,
         altName: data['altName'] ?? '',
         elevation: elevation,
+        prominence: prominence,
+        rating: rating,
+        duration: duration,
+        difficulty: data['difficulty'] ?? '',
+        viaFerrata: data['viaFerrata'] ?? '',
         gridZoneDesignator: normalizedMgrs.gridZoneDesignator,
         mgrs100kId: normalizedMgrs.mgrs100kId,
         easting: normalizedMgrs.easting,
@@ -560,10 +589,13 @@ class PeakListImportService {
         latitude: latitudeLongitude.latitude,
         longitude: latitudeLongitude.longitude,
         points: points,
+        peakbaggerPid: peakbaggerPid,
         country: data['country'] ?? '',
         region: data['region'] ?? '',
         county: data['county'] ?? '',
         range: data['range'] ?? '',
+        notes: data['notes'] ?? '',
+        verified: verified,
         sourceOfTruth: data['sourceOfTruth'] ?? '',
       );
     } on FormatException {
@@ -1033,6 +1065,104 @@ class PeakListImportService {
     return trimmed.padLeft(5, '0');
   }
 
+  ParsedPeakDuration? _parseAppOwnedDuration(
+    String rawValue, {
+    required int rowNumber,
+    required String name,
+  }) {
+    if (rawValue.isEmpty) {
+      return null;
+    }
+
+    try {
+      return parsePeakDuration(rawValue);
+    } on FormatException {
+      throw FormatException(
+        'invalid duration "$rawValue" on row $rowNumber ($name)',
+      );
+    }
+  }
+
+  bool? _parseAppOwnedVerified(
+    String rawValue, {
+    required int rowNumber,
+    required String name,
+  }) {
+    if (rawValue.isEmpty) {
+      return null;
+    }
+    if (rawValue == 'true') {
+      return true;
+    }
+    if (rawValue == 'false') {
+      return false;
+    }
+
+    throw FormatException(
+      'invalid verified "$rawValue" on row $rowNumber ($name)',
+    );
+  }
+
+  int? _parseAppOwnedPeakbaggerPid(
+    String rawValue, {
+    required int rowNumber,
+    required String name,
+  }) {
+    if (rawValue.isEmpty) {
+      return null;
+    }
+
+    final peakbaggerPid = int.tryParse(rawValue);
+    if (peakbaggerPid == null || peakbaggerPid <= 0) {
+      throw FormatException(
+        'invalid peakbaggerPid "$rawValue" on row $rowNumber ($name)',
+      );
+    }
+    return peakbaggerPid;
+  }
+
+  double? _parseAppOwnedNumber(
+    String rawValue, {
+    required String fieldName,
+    required int rowNumber,
+    required String name,
+  }) {
+    if (rawValue.isEmpty) {
+      return null;
+    }
+
+    final parsed = double.tryParse(rawValue);
+    if (parsed != null) {
+      return parsed;
+    }
+
+    throw FormatException(
+      'invalid $fieldName "$rawValue" on row $rowNumber ($name)',
+    );
+  }
+
+  double? _parseAppOwnedRating(
+    String rawValue, {
+    required int rowNumber,
+    required String name,
+  }) {
+    final parsed = _parseAppOwnedNumber(
+      rawValue,
+      fieldName: 'rating',
+      rowNumber: rowNumber,
+      name: name,
+    );
+    if (parsed == null) {
+      return null;
+    }
+    if (parsed < 0 || parsed > 5) {
+      throw FormatException(
+        'invalid rating "$rawValue" on row $rowNumber ($name)',
+      );
+    }
+    return (parsed * 10).round() / 10;
+  }
+
   String _rankedHeaderValue(String header) {
     return header.replaceFirst('\u{FEFF}', '').trim();
   }
@@ -1104,40 +1234,78 @@ class PeakListImportService {
     Peak? existingPeak,
   ) {
     if (existingPeak == null) {
+      if (row.name.isEmpty) {
+        throw FormatException('missing name on row ${row.rowNumber}');
+      }
+      if (row.region.isEmpty && row.country.isEmpty) {
+        throw FormatException(
+          'missing region and country on row ${row.rowNumber} (${row.name})',
+        );
+      }
       return Peak(
         osmId: row.osmId,
         name: row.name,
         altName: row.altName,
         elevation: row.elevation,
+        prominence: row.prominence,
+        rating: row.rating,
+        durationMinutes: row.duration?.durationMinutes,
+        durationLabel: row.duration?.durationLabel ?? '',
+        difficulty: row.difficulty,
+        viaFerrata: row.viaFerrata,
+        notes: row.notes,
         latitude: row.latitude,
         longitude: row.longitude,
-        region: row.region,
+        region: row.region.isEmpty ? row.country : row.region,
         gridZoneDesignator: row.gridZoneDesignator,
         mgrs100kId: row.mgrs100kId,
         easting: row.easting,
         northing: row.northing,
+        peakbaggerPid: row.peakbaggerPid,
         country: row.country,
         county: row.county,
         range: row.range,
-        sourceOfTruth: row.sourceOfTruth,
+        verified: row.verified ?? false,
+        sourceOfTruth: row.sourceOfTruth.isEmpty
+            ? Peak.sourceOfTruthOsm
+            : row.sourceOfTruth,
       );
     }
 
     return existingPeak.copyWith(
-      name: row.name,
-      altName: row.altName,
-      elevation: row.elevation,
+      name: row.name.isEmpty ? existingPeak.name : row.name,
+      altName: row.altName.isEmpty ? existingPeak.altName : row.altName,
+      elevation: row.elevation ?? existingPeak.elevation,
+      prominence: row.prominence ?? existingPeak.prominence,
+      rating: row.rating ?? existingPeak.rating,
+      durationMinutes: row.hasDuration
+          ? row.duration?.durationMinutes
+          : existingPeak.durationMinutes,
+      durationLabel: row.hasDuration
+          ? row.duration?.durationLabel ?? ''
+          : existingPeak.durationLabel,
+      difficulty: row.difficulty.isEmpty
+          ? existingPeak.difficulty
+          : row.difficulty,
+      viaFerrata: row.viaFerrata.isEmpty
+          ? existingPeak.viaFerrata
+          : row.viaFerrata,
+      notes: row.notes.isEmpty ? existingPeak.notes : row.notes,
       latitude: row.latitude,
       longitude: row.longitude,
-      country: row.country,
-      county: row.county,
-      range: row.range,
-      region: row.region,
+      country: row.country.isEmpty ? existingPeak.country : row.country,
+      county: row.county.isEmpty ? existingPeak.county : row.county,
+      range: row.range.isEmpty ? existingPeak.range : row.range,
+      region: row.region.isEmpty ? existingPeak.region : row.region,
       gridZoneDesignator: row.gridZoneDesignator,
       mgrs100kId: row.mgrs100kId,
       easting: row.easting,
       northing: row.northing,
-      sourceOfTruth: row.sourceOfTruth,
+      peakbaggerPid: row.peakbaggerPid ?? existingPeak.peakbaggerPid,
+      verified: row.verified ?? existingPeak.verified,
+      sourceOfTruth: row.sourceOfTruth.isEmpty
+          ? existingPeak.sourceOfTruth
+          : row.sourceOfTruth,
     );
   }
 
@@ -1366,6 +1534,11 @@ class _AppOwnedPeakListCsvRow {
     required this.name,
     required this.altName,
     required this.elevation,
+    required this.prominence,
+    required this.rating,
+    required this.duration,
+    required this.difficulty,
+    required this.viaFerrata,
     required this.gridZoneDesignator,
     required this.mgrs100kId,
     required this.easting,
@@ -1373,10 +1546,13 @@ class _AppOwnedPeakListCsvRow {
     required this.latitude,
     required this.longitude,
     required this.points,
+    required this.peakbaggerPid,
     required this.country,
     required this.region,
     required this.county,
     required this.range,
+    required this.notes,
+    required this.verified,
     required this.sourceOfTruth,
   });
 
@@ -1385,6 +1561,11 @@ class _AppOwnedPeakListCsvRow {
   final String name;
   final String altName;
   final double? elevation;
+  final double? prominence;
+  final double? rating;
+  final ParsedPeakDuration? duration;
+  final String difficulty;
+  final String viaFerrata;
   final String gridZoneDesignator;
   final String mgrs100kId;
   final String easting;
@@ -1392,11 +1573,16 @@ class _AppOwnedPeakListCsvRow {
   final double latitude;
   final double longitude;
   final int points;
+  final int? peakbaggerPid;
   final String country;
   final String region;
   final String county;
   final String range;
+  final String notes;
+  final bool? verified;
   final String sourceOfTruth;
+
+  bool get hasDuration => duration != null;
 }
 
 const _rankedPeakListHeaders = [

@@ -30,6 +30,7 @@ import 'package:peak_bagger/services/fab_colour_resolver.dart';
 import 'package:peak_bagger/services/peak_list_csv_export_service.dart';
 import 'package:peak_bagger/services/peak_list_file_picker.dart';
 import 'package:peak_bagger/services/peak_list_import_service.dart';
+import 'package:peak_bagger/services/peak_metadata_rules.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
@@ -4256,16 +4257,24 @@ void main() {
           'name': 'Broken Peak',
           'altName': '',
           'elevation': '1200',
+          'prominence': '',
+          'rating': '',
+          'difficulty': '',
+          'duration': '',
+          'viaFerrata': '',
           'gridZoneDesignator': '55G',
           'mgrs100kId': 'EP',
           'easting': '00000',
           'northing': '50223',
-          'Points': 'oops',
+          'points': 'oops',
           'osmId': '101',
+          'peakbaggerPid': '',
           'country': 'Australia',
           'region': 'tasmania',
           'county': 'Kentish',
           'range': 'Range',
+          'notes': '',
+          'verified': '',
           'sourceOfTruth': Peak.sourceOfTruthOsm,
         },
       ]),
@@ -4299,7 +4308,7 @@ void main() {
 
     expect(find.textContaining('Import failed:'), findsOneWidget);
     expect(
-      find.textContaining('invalid Points "oops" on row 2 (Broken Peak)'),
+      find.textContaining('invalid points "oops" on row 2 (Broken Peak)'),
       findsOneWidget,
     );
     expect(repository.getAllPeakLists(), isEmpty);
@@ -4569,16 +4578,26 @@ Map<String, String> _appOwnedCsvRowForPeak(Peak source, {required int points}) {
     'name': peak.name,
     'altName': peak.altName,
     'elevation': peak.elevation?.toString() ?? '',
+    'prominence': peak.prominence?.toString() ?? '',
+    'rating': peak.rating?.toStringAsFixed(1) ?? '',
+    'difficulty': peak.difficulty,
+    'duration': peak.durationLabel.trim().isNotEmpty
+        ? peak.durationLabel
+        : formatPeakDurationMinutes(peak.durationMinutes),
+    'viaFerrata': peak.viaFerrata,
     'gridZoneDesignator': peak.gridZoneDesignator,
     'mgrs100kId': peak.mgrs100kId,
     'easting': peak.easting,
     'northing': peak.northing,
-    'Points': '$points',
+    'points': '$points',
     'osmId': '${peak.osmId}',
+    'peakbaggerPid': peak.peakbaggerPid?.toString() ?? '',
     'country': peak.country,
     'region': peak.region ?? '',
     'county': peak.county,
     'range': peak.range,
+    'notes': peak.notes,
+    'verified': peak.verified.toString(),
     'sourceOfTruth': peak.sourceOfTruth,
   };
 }
