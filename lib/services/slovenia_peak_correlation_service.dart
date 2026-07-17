@@ -1,6 +1,8 @@
+import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/geo.dart';
 import 'package:peak_bagger/services/peak_source.dart';
+import 'package:peak_bagger/services/region_manifest_catalog.dart';
 import 'package:peak_bagger/services/slovenia_hribi_source_peak_list_service.dart';
 
 const List<String> sloveniaRankedPeakListCsvHeader = [
@@ -18,6 +20,7 @@ const List<String> sloveniaRankedPeakListCsvHeader = [
   'difficulty',
   'viaFerrata',
   'notes',
+  'sourceOfTruth',
 ];
 
 const List<String> sloveniaCorrelationReviewCsvHeader = [
@@ -32,6 +35,8 @@ const Set<String> sloveniaPeakCorrelationReasonCodes = {
   'multiple_tied_candidates',
   'multiple_name_confirmed_candidates',
   'insufficient_source_data_for_correlation',
+  'no_canonical_region_match',
+  'tied_canonical_region_priorities',
 };
 
 class SloveniaRankedPeakListCsvRow {
@@ -50,6 +55,7 @@ class SloveniaRankedPeakListCsvRow {
     required this.difficulty,
     required this.viaFerrata,
     required this.notes,
+    required this.sourceOfTruth,
   });
 
   final String name;
@@ -66,6 +72,7 @@ class SloveniaRankedPeakListCsvRow {
   final String difficulty;
   final String viaFerrata;
   final String notes;
+  final String sourceOfTruth;
 
   List<String> toCsvRow() {
     return [
@@ -83,6 +90,7 @@ class SloveniaRankedPeakListCsvRow {
       difficulty,
       viaFerrata,
       notes,
+      sourceOfTruth,
     ];
   }
 }
@@ -112,9 +120,13 @@ class SloveniaPeakCorrelationOutput {
 }
 
 class SloveniaPeakCorrelationService {
-  const SloveniaPeakCorrelationService({required this._peakSource});
+  const SloveniaPeakCorrelationService({
+    required this.peakSource,
+    this.canonicalRegionResolver = const SloveniaCanonicalRegionResolver(),
+  });
 
-  final PeakSource _peakSource;
+  final PeakSource peakSource;
+  final SloveniaCanonicalRegionResolver canonicalRegionResolver;
 
   static const int candidateSearchRadiusMeters = 150;
   static const int strongNameThresholdMeters = 50;
@@ -131,7 +143,7 @@ class SloveniaPeakCorrelationService {
       );
     }
 
-    final peaks = List<Peak>.from(_peakSource.getAllPeaks(), growable: false);
+    final peaks = List<Peak>.from(peakSource.getAllPeaks(), growable: false);
     final canonicalRows = <SloveniaRankedPeakListCsvRow>[];
     final reviewRows = <SloveniaCorrelationReviewCsvRow>[];
 
@@ -142,7 +154,22 @@ class SloveniaPeakCorrelationService {
         tieWindowMeters: tieWindowMeters,
       );
       if (decision.matchedPeak case final matchedPeak?) {
-        canonicalRows.add(_buildCanonicalRow(row: row, peak: matchedPeak));
+        final canonicalRowDecision = _buildCanonicalRow(
+          row: row,
+          peak: matchedPeak,
+        );
+        if (canonicalRowDecision.row case final canonicalRow?) {
+          canonicalRows.add(canonicalRow);
+        } else {
+          reviewRows.add(
+            SloveniaCorrelationReviewCsvRow(
+              row: _buildReviewRow(row: row),
+              correlationReason:
+                  canonicalRowDecision.reviewReason ??
+                  'tied_canonical_region_priorities',
+            ),
+          );
+        }
       } else {
         reviewRows.add(
           SloveniaCorrelationReviewCsvRow(
@@ -255,25 +282,40 @@ class SloveniaPeakCorrelationService {
     return _CorrelationDecision.matched(bestCandidate.peak);
   }
 
-  SloveniaRankedPeakListCsvRow _buildCanonicalRow({
+  _CanonicalRowDecision _buildCanonicalRow({
     required SloveniaHribiSourcePeakListRow row,
     required Peak peak,
   }) {
-    return SloveniaRankedPeakListCsvRow(
-      name: row.name,
-      osmId: peak.osmId.toString(),
-      rating: row.rating,
-      elevation: _firstNonBlank(row.altitude, _formatNumber(peak.elevation)),
-      prominence: _formatNumber(peak.prominence),
-      latitude: _firstNonBlank(row.latitude, _formatNumber(peak.latitude)),
-      longitude: _firstNonBlank(row.longitude, _formatNumber(peak.longitude)),
-      country: _firstNonBlank(row.country, peak.country),
-      region: 'Slovenia',
-      range: _firstNonBlank(row.mountainRange, peak.range),
-      county: peak.county,
-      difficulty: peak.difficulty,
-      viaFerrata: peak.viaFerrata,
-      notes: peak.notes,
+    final latitude = double.tryParse(row.latitude) ?? peak.latitude;
+    final longitude = double.tryParse(row.longitude) ?? peak.longitude;
+    final canonicalization = canonicalRegionResolver.resolve(
+      latitude: latitude,
+      longitude: longitude,
+      rawCountry: _firstNonBlank(row.country, peak.country),
+      existingNotes: peak.notes,
+    );
+    if (canonicalization.reviewReason case final reviewReason?) {
+      return _CanonicalRowDecision.review(reviewReason);
+    }
+
+    return _CanonicalRowDecision.success(
+      SloveniaRankedPeakListCsvRow(
+        name: row.name,
+        osmId: peak.osmId.toString(),
+        rating: row.rating,
+        elevation: _firstNonBlank(row.altitude, _formatNumber(peak.elevation)),
+        prominence: _formatNumber(peak.prominence),
+        latitude: _formatNumber(latitude),
+        longitude: _formatNumber(longitude),
+        country: canonicalization.country!,
+        region: canonicalization.region!,
+        range: _firstNonBlank(row.mountainRange, peak.range),
+        county: peak.county,
+        difficulty: peak.difficulty,
+        viaFerrata: peak.viaFerrata,
+        notes: canonicalization.notes!,
+        sourceOfTruth: row.sourceOfTruth,
+      ),
     );
   }
 
@@ -295,8 +337,120 @@ class SloveniaPeakCorrelationService {
       difficulty: '',
       viaFerrata: '',
       notes: '',
+      sourceOfTruth: row.sourceOfTruth,
     );
   }
+}
+
+class SloveniaCanonicalRegionResolver {
+  const SloveniaCanonicalRegionResolver();
+
+  static const _aggregateRegionKeys = {
+    'italy',
+    'italy-nord-est',
+    'italy-nord-ovest',
+  };
+
+  static const _countryNameByRegionKey = {
+    'tasmania': 'Australia',
+    'new-south-wales': 'Australia',
+    'fvg': 'Italy',
+    'veneto': 'Italy',
+    'trentino-alto-adige': 'Italy',
+    'emilia-romagna': 'Italy',
+    'italy': 'Italy',
+    'italy-nord-est': 'Italy',
+    'italy-nord-ovest': 'Italy',
+    'slovenia': 'Slovenia',
+    'croatia': 'Croatia',
+  };
+
+  SloveniaCanonicalRegionResolution resolve({
+    required double latitude,
+    required double longitude,
+    required String rawCountry,
+    required String existingNotes,
+  }) {
+    final point = LatLng(latitude, longitude);
+    final allCandidateRegions = candidateRegionsForPoint(point);
+    if (allCandidateRegions.isEmpty) {
+      return const SloveniaCanonicalRegionResolution.review(
+        'no_canonical_region_match',
+      );
+    }
+    final candidateRegions = highestPriorityCandidateRegions(
+      allCandidateRegions,
+    );
+    if (candidateRegions.length > 1) {
+      return const SloveniaCanonicalRegionResolution.review(
+        'tied_canonical_region_priorities',
+      );
+    }
+
+    final winner = candidateRegions.single;
+    if (_aggregateRegionKeys.contains(winner.key)) {
+      return const SloveniaCanonicalRegionResolution.review(
+        'no_canonical_region_match',
+      );
+    }
+
+    final country = countryNameForRegionKey(winner.key);
+    if (country == null) {
+      return const SloveniaCanonicalRegionResolution.review(
+        'no_canonical_region_match',
+      );
+    }
+
+    final borderCountries = _borderCountries(
+      rawCountry: rawCountry,
+      canonicalCountry: country,
+    );
+    return SloveniaCanonicalRegionResolution.success(
+      country: country,
+      region: winner.name,
+      notes: _appendBorderNote(existingNotes, borderCountries),
+    );
+  }
+
+  List<RegionManifestRegionData> candidateRegionsForPoint(LatLng point) {
+    return regionManifestCatalog.regionsForPointByPriority(point);
+  }
+
+  List<RegionManifestRegionData> highestPriorityCandidateRegions(
+    List<RegionManifestRegionData> candidates,
+  ) {
+    if (candidates.isEmpty) {
+      return const [];
+    }
+
+    final highestPriority = candidates.first.priority;
+    return [
+      for (final region in candidates)
+        if (region.priority.compareTo(highestPriority) == 0) region,
+    ];
+  }
+
+  String? countryNameForRegionKey(String regionKey) {
+    return _countryNameByRegionKey[regionKey];
+  }
+}
+
+class SloveniaCanonicalRegionResolution {
+  const SloveniaCanonicalRegionResolution.success({
+    required this.country,
+    required this.region,
+    required this.notes,
+  }) : reviewReason = null;
+
+  const SloveniaCanonicalRegionResolution.review(this.reviewReason)
+    : country = null,
+      region = null,
+      notes = null;
+
+  final String? country;
+  final String? region;
+  final String? notes;
+  final String? reviewReason;
 }
 
 class _CorrelationDecision {
@@ -320,8 +474,46 @@ class _CorrelationCandidate {
   final bool hasStrongNameConfirmation;
 }
 
+class _CanonicalRowDecision {
+  const _CanonicalRowDecision.success(this.row) : reviewReason = null;
+
+  const _CanonicalRowDecision.review(this.reviewReason) : row = null;
+
+  final SloveniaRankedPeakListCsvRow? row;
+  final String? reviewReason;
+}
+
 String _firstNonBlank(String preferred, String fallback) {
   return preferred.trim().isNotEmpty ? preferred : fallback;
+}
+
+List<String> _borderCountries({
+  required String rawCountry,
+  required String canonicalCountry,
+}) {
+  final seen = <String>{};
+  final countries = <String>[];
+  for (final token in rawCountry.split(',')) {
+    final trimmed = token.trim();
+    if (trimmed.isEmpty || trimmed == canonicalCountry || !seen.add(trimmed)) {
+      continue;
+    }
+    countries.add(trimmed);
+  }
+  return countries;
+}
+
+String _appendBorderNote(String existingNotes, List<String> borderCountries) {
+  if (borderCountries.isEmpty) {
+    return existingNotes;
+  }
+
+  final borderNote = 'Border peak with ${borderCountries.join(', ')}';
+  if (existingNotes.trim().isEmpty) {
+    return borderNote;
+  }
+
+  return '${existingNotes.trim()}; $borderNote';
 }
 
 String _formatNumber(double? value) {

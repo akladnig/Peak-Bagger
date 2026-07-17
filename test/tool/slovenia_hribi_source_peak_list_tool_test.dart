@@ -36,6 +36,55 @@ void main() {
   });
 
   test(
+    'requires --source-of-truth when input rows do not provide it',
+    () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'slovenia-ranked-missing-source',
+      );
+      addTearDown(() => tempDir.deleteSync(recursive: true));
+
+      final exitCode = await runSloveniaHribiSourcePeakListTool(
+        args: ['--output-dir', tempDir.path],
+        pageLoader: (uri) async => _pages()[uri.toString()]!,
+        peakSourceLoader: () async => InMemoryPeakSource([
+          Peak(
+            id: 1,
+            osmId: 1001,
+            name: 'Triglav',
+            latitude: 46.37832,
+            longitude: 13.83648,
+          ),
+        ]),
+        cacheDirectoryResolver: () => Directory(p.join(tempDir.path, 'cache')),
+        rangeConfigurations: _julianAlpsOnly,
+        stdoutWriter: stdoutLines.add,
+        stderrWriter: stderrLines.add,
+      );
+
+      expect(exitCode, 1);
+      expect(
+        stderrLines.single,
+        contains('Missing required --source-of-truth'),
+      );
+    },
+  );
+
+  test('parses and forwards the source-of-truth flag to the service', () async {
+    final service = _CapturingRunService();
+
+    final exitCode = await runSloveniaHribiSourcePeakListTool(
+      args: const ['--source-of-truth', 'hribi', '--tie-window-meters', '0'],
+      service: service,
+      stdoutWriter: stdoutLines.add,
+      stderrWriter: stderrLines.add,
+    );
+
+    expect(exitCode, 0);
+    expect(service.capturedSourceOfTruth, 'hribi');
+    expect(service.capturedTieWindowMeters, 0);
+  });
+
+  test(
     'loads peaks through the injected read-only peak source loader when no service is supplied',
     () async {
       final tempDir = await Directory.systemTemp.createTemp(
@@ -63,7 +112,7 @@ void main() {
       var loaderCallCount = 0;
 
       final exitCode = await runSloveniaHribiSourcePeakListTool(
-        args: ['--output-dir', tempDir.path],
+        args: ['--output-dir', tempDir.path, '--source-of-truth', 'hribi'],
         pageLoader: (uri) async => _pages()[uri.toString()]!,
         peakSourceLoader: () async {
           loaderCallCount += 1;
@@ -156,7 +205,7 @@ void main() {
     );
 
     final exitCode = await runSloveniaHribiSourcePeakListTool(
-      args: ['--output-dir', tempDir.path],
+      args: ['--output-dir', tempDir.path, '--source-of-truth', 'hribi'],
       service: service,
       stdoutWriter: stdoutLines.add,
       stderrWriter: stderrLines.add,
@@ -206,7 +255,7 @@ void main() {
     ).move(triglavBase);
 
     final exitCode = await runSloveniaHribiSourcePeakListTool(
-      args: ['--output-dir', tempDir.path],
+      args: ['--output-dir', tempDir.path, '--source-of-truth', 'hribi'],
       pageLoader: (uri) async => _pages()[uri.toString()]!,
       peakSourceLoader: () async => InMemoryPeakSource([
         Peak(
@@ -282,7 +331,14 @@ void main() {
     ).move(triglavBase);
 
     final exitCode = await runSloveniaHribiSourcePeakListTool(
-      args: ['--output-dir', tempDir.path, '--tie-window-meters', '0'],
+      args: [
+        '--output-dir',
+        tempDir.path,
+        '--source-of-truth',
+        'hribi',
+        '--tie-window-meters',
+        '0',
+      ],
       pageLoader: (uri) async => _pages()[uri.toString()]!,
       peakSourceLoader: () async => InMemoryPeakSource([
         Peak(
@@ -358,6 +414,41 @@ void main() {
     expect(stdoutLines.single, contains('Usage:'));
   });
 
+  test('shell wrapper forwards flags to the tool entrypoint', () async {
+    final tempDir = await Directory.systemTemp.createTemp(
+      'slovenia-ranked-wrapper',
+    );
+    addTearDown(() => tempDir.deleteSync(recursive: true));
+
+    final argsFile = File(p.join(tempDir.path, 'args.txt'));
+    final fakeBinary = File(p.join(tempDir.path, 'fake-binary.sh'))
+      ..writeAsStringSync(
+        '#!/usr/bin/env bash\nset -euo pipefail\nprintf "%s\\n" "\$@" > "${argsFile.path}"\n',
+      );
+    Process.runSync('chmod', ['+x', fakeBinary.path]);
+
+    final scriptPath = p.join(
+      Directory.current.path,
+      'slovenia_hribi_source_peak_list.sh',
+    );
+    final result = await Process.run(
+      '/bin/bash',
+      [scriptPath, '--source-of-truth', 'HRIBI', '--tie-window-meters', '0'],
+      environment: {
+        ...Platform.environment,
+        'PEAK_BAGGER_SLOVENIA_TOOL_BINARY': fakeBinary.path,
+      },
+    );
+
+    expect(result.exitCode, 0);
+    expect(argsFile.readAsLinesSync(), [
+      '--source-of-truth',
+      'HRIBI',
+      '--tie-window-meters',
+      '0',
+    ]);
+  });
+
   test('prints the exact missing repair baseline message', () async {
     final tempDir = await Directory.systemTemp.createTemp(
       'slovenia-ranked-repair-missing',
@@ -427,6 +518,39 @@ class _TrackingPeakSource implements PeakSource {
   List<Peak> getAllPeaks() {
     getAllPeaksCallCount += 1;
     return List<Peak>.unmodifiable(_peaks);
+  }
+}
+
+class _CapturingRunService extends SloveniaHribiSourcePeakListService {
+  _CapturingRunService()
+    : super(pageLoader: (_) async => '', peakSource: InMemoryPeakSource());
+
+  String? capturedSourceOfTruth;
+  int? capturedTieWindowMeters;
+
+  @override
+  Future<SloveniaHribiSourcePeakListRunResult> run({
+    bool repairList = false,
+    bool refreshCache = false,
+    int tieWindowMeters = 10,
+    String? sourceOfTruth,
+  }) async {
+    capturedSourceOfTruth = sourceOfTruth;
+    capturedTieWindowMeters = tieWindowMeters;
+    return const SloveniaHribiSourcePeakListRunResult(
+      rows: [],
+      canonicalRows: [],
+      reviewRows: [],
+      csvPath: '/tmp/slovenia-ranked.csv',
+      reviewPath: '/tmp/slovenia-ranked.review.csv',
+      repairPath: '/tmp/slovenia-ranked.repair.csv',
+      statePath: '/tmp/slovenia-ranked.state.json',
+      repairEntries: [],
+      summaries: [],
+      version: 1,
+      createdNewVersion: true,
+      tieWindowMeters: 10,
+    );
   }
 }
 

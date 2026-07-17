@@ -1,7 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/services/manifest_priority.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/geo.dart';
 import 'package:peak_bagger/services/peak_source.dart';
+import 'package:peak_bagger/services/region_manifest_catalog.dart';
 import 'package:peak_bagger/services/slovenia_hribi_source_peak_list_service.dart';
 import 'package:peak_bagger/services/slovenia_peak_correlation_service.dart';
 
@@ -17,11 +20,13 @@ void main() {
     String country = 'Slovenia',
     String mountainRange = 'Julian Alps',
     String popularity = '100',
+    String sourceOfTruth = 'HRIBI',
   }) {
     return SloveniaHribiSourcePeakListRow(
       name: name,
       altName: '',
       country: country,
+      sourceOfTruth: sourceOfTruth,
       mountainRange: mountainRange,
       altitude: altitude,
       latitude: latitude,
@@ -72,9 +77,14 @@ void main() {
     );
   }
 
-  SloveniaPeakCorrelationService service(List<Peak> peaks) {
+  SloveniaPeakCorrelationService service(
+    List<Peak> peaks, {
+    SloveniaCanonicalRegionResolver canonicalRegionResolver =
+        const SloveniaCanonicalRegionResolver(),
+  }) {
     return SloveniaPeakCorrelationService(
       peakSource: InMemoryPeakSource(peaks),
+      canonicalRegionResolver: canonicalRegionResolver,
     );
   }
 
@@ -131,6 +141,7 @@ void main() {
           'T5',
           'B',
           'Snow early season',
+          'HRIBI',
         ]);
       },
     );
@@ -172,14 +183,56 @@ void main() {
           '900',
           '46.37832',
           '13.83648',
-          'Italy, Slovenia',
+          'Slovenia',
           'Slovenia',
           'Julian Alps',
           'Stored County',
           'T4',
           'A/B',
-          'Stored notes',
+          'Stored notes; Border peak with Italy',
+          'HRIBI',
         ]);
+      },
+    );
+
+    test(
+      'canonicalizes border peaks onto the Italy administrative side when that region wins',
+      () {
+        final resolver = _FakeCanonicalRegionResolver(
+          candidateRegions: const [
+            RegionManifestRegionData(
+              key: 'fvg',
+              name: 'Friuli Venezia Giulia',
+              shortName: 'FVG',
+              priority: ManifestPriority([2, 1, 1]),
+              showInPeakList: false,
+              polygons: [],
+              basemapKeys: [],
+              mapSet: [],
+            ),
+          ],
+        );
+
+        final result =
+            service([
+              peak(
+                id: 1,
+                osmId: 7001,
+                name: 'Montaz',
+                altName: 'Jôf di Montasio',
+                distanceMeters: 30,
+              ),
+            ], canonicalRegionResolver: resolver).correlate(
+              rows: [row(name: 'Jof di Montasio', country: 'Italy, Slovenia')],
+            );
+
+        expect(result.reviewRows, isEmpty);
+        expect(result.canonicalRows.single.country, 'Italy');
+        expect(result.canonicalRows.single.region, 'Friuli Venezia Giulia');
+        expect(
+          result.canonicalRows.single.notes,
+          'Stored notes; Border peak with Slovenia',
+        );
       },
     );
 
@@ -216,6 +269,7 @@ void main() {
           '',
           '',
           '',
+          'HRIBI',
           'name_mismatch_beyond_50m',
         ]);
       },
@@ -316,7 +370,77 @@ void main() {
         'multiple_tied_candidates',
         'multiple_name_confirmed_candidates',
         'insufficient_source_data_for_correlation',
+        'no_canonical_region_match',
+        'tied_canonical_region_priorities',
       });
     });
+
+    test('canonical region resolution uses numeric manifest priorities', () {
+      expect(
+        ManifestPriority.parse('2.10').compareTo(ManifestPriority.parse('2.2')),
+        greaterThan(0),
+      );
+      expect(
+        ManifestPriority.parse(
+          '2.1.1',
+        ).compareTo(ManifestPriority.parse('2.1')),
+        greaterThan(0),
+      );
+      expect(
+        ManifestPriority.parse('2.1').compareTo(ManifestPriority.parse('2')),
+        greaterThan(0),
+      );
+    });
+
+    test(
+      'tied canonical region priorities fall into deterministic review output',
+      () {
+        final resolver = _FakeCanonicalRegionResolver(
+          candidateRegions: const [
+            RegionManifestRegionData(
+              key: 'fvg',
+              name: 'Friuli Venezia Giulia',
+              shortName: 'FVG',
+              priority: ManifestPriority([2, 1, 1]),
+              showInPeakList: false,
+              polygons: [],
+              basemapKeys: [],
+              mapSet: [],
+            ),
+            RegionManifestRegionData(
+              key: 'slovenia',
+              name: 'Slovenia',
+              shortName: 'Slovenia',
+              priority: ManifestPriority([2, 1, 1]),
+              showInPeakList: true,
+              polygons: [],
+              basemapKeys: [],
+              mapSet: [],
+            ),
+          ],
+        );
+
+        final result = service([
+          peak(id: 1, osmId: 9001, name: 'Triglav', distanceMeters: 30),
+        ], canonicalRegionResolver: resolver).correlate(rows: [row()]);
+
+        expect(result.canonicalRows, isEmpty);
+        expect(
+          result.reviewRows.single.correlationReason,
+          'tied_canonical_region_priorities',
+        );
+      },
+    );
   });
+}
+
+class _FakeCanonicalRegionResolver extends SloveniaCanonicalRegionResolver {
+  const _FakeCanonicalRegionResolver({required this.candidateRegions});
+
+  final List<RegionManifestRegionData> candidateRegions;
+
+  @override
+  List<RegionManifestRegionData> candidateRegionsForPoint(LatLng point) {
+    return candidateRegions;
+  }
 }

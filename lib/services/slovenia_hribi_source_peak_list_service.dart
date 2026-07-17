@@ -435,6 +435,7 @@ class SloveniaHribiSourcePeakListRow {
     required this.name,
     required this.altName,
     required this.country,
+    required this.sourceOfTruth,
     required this.mountainRange,
     required this.altitude,
     required this.latitude,
@@ -450,6 +451,7 @@ class SloveniaHribiSourcePeakListRow {
   final String name;
   final String altName;
   final String country;
+  final String sourceOfTruth;
   final String mountainRange;
   final String altitude;
   final String latitude;
@@ -477,6 +479,7 @@ class SloveniaHribiSourcePeakListRow {
       name: json['Name'] as String? ?? '',
       altName: json['AltName'] as String? ?? '',
       country: json['Country'] as String? ?? '',
+      sourceOfTruth: json['SourceOfTruth'] as String? ?? '',
       mountainRange: json['MountainRange'] as String? ?? '',
       altitude: json['Altitude'] as String? ?? '',
       latitude: json['Latitude'] as String? ?? '',
@@ -505,11 +508,31 @@ class SloveniaHribiSourcePeakListRow {
     ];
   }
 
+  SloveniaHribiSourcePeakListRow copyWith({String? sourceOfTruth}) {
+    return SloveniaHribiSourcePeakListRow(
+      name: name,
+      altName: altName,
+      country: country,
+      sourceOfTruth: sourceOfTruth ?? this.sourceOfTruth,
+      mountainRange: mountainRange,
+      altitude: altitude,
+      latitude: latitude,
+      longitude: longitude,
+      popularity: popularity,
+      rangeOrder: rangeOrder,
+      sourceOrder: sourceOrder,
+      rangeUrl: rangeUrl,
+      hribiDetailUrl: hribiDetailUrl,
+      montiDetailUrl: montiDetailUrl,
+    );
+  }
+
   Map<String, Object> toStateJson() {
     return {
       'Name': name,
       'AltName': altName,
       'Country': country,
+      'SourceOfTruth': sourceOfTruth,
       'MountainRange': mountainRange,
       'Altitude': altitude,
       'Latitude': latitude,
@@ -735,6 +758,7 @@ class SloveniaHribiSourcePeakListService {
     bool repairList = false,
     bool refreshCache = false,
     int tieWindowMeters = 10,
+    String? sourceOfTruth,
   }) async {
     try {
       final latestSnapshot = _loadLatestSnapshot(requireRepairFile: repairList);
@@ -750,7 +774,13 @@ class SloveniaHribiSourcePeakListService {
               refreshCache: refreshCache,
             )
           : await _runNormal(refreshCache: refreshCache);
-      final normalizedRows = _sortedRows(artifacts.rows);
+      final resolvedSourceOfTruth = _resolveSourceOfTruth(
+        rows: artifacts.rows,
+        overrideSourceOfTruth: sourceOfTruth,
+      );
+      final normalizedRows = _sortedRows(artifacts.rows)
+          .map((row) => row.copyWith(sourceOfTruth: resolvedSourceOfTruth))
+          .toList(growable: false);
       final correlationOutput = SloveniaPeakCorrelationService(
         peakSource: _peakSource,
       ).correlate(rows: normalizedRows, tieWindowMeters: tieWindowMeters);
@@ -1529,6 +1559,7 @@ class SloveniaHribiSourcePeakListService {
       name: names.name,
       altName: names.altName,
       country: country,
+      sourceOfTruth: '',
       mountainRange: range.mountainRangeLabel,
       altitude: altitude,
       latitude: coordinates.latitude,
@@ -1752,6 +1783,54 @@ class SloveniaHribiSourcePeakListService {
       return montiRangeError;
     }
     return 'Missing monti.uno enrichment entry';
+  }
+
+  String _resolveSourceOfTruth({
+    required List<SloveniaHribiSourcePeakListRow> rows,
+    required String? overrideSourceOfTruth,
+  }) {
+    if (overrideSourceOfTruth != null) {
+      return _normalizeSourceOfTruth(overrideSourceOfTruth);
+    }
+
+    final nonBlankRows = rows
+        .where((row) => row.sourceOfTruth.trim().isNotEmpty)
+        .toList(growable: false);
+    if (nonBlankRows.isEmpty) {
+      throw const SloveniaHribiSourcePeakListException(
+        'Missing required --source-of-truth because input rows do not provide sourceOfTruth.',
+      );
+    }
+    if (nonBlankRows.length != rows.length) {
+      throw const SloveniaHribiSourcePeakListException(
+        'Input rows must provide one non-blank sourceOfTruth value on every row.',
+      );
+    }
+
+    final normalizedValues = {
+      for (final row in rows) _normalizeSourceOfTruth(row.sourceOfTruth),
+    };
+    if (normalizedValues.length != 1) {
+      throw const SloveniaHribiSourcePeakListException(
+        'Input rows must provide the same sourceOfTruth value on every row.',
+      );
+    }
+
+    return normalizedValues.single;
+  }
+
+  String _normalizeSourceOfTruth(String rawValue) {
+    final normalized = rawValue.trim().toUpperCase();
+    if (normalized.isEmpty ||
+        normalized.contains(',') ||
+        !RegExp(r'[A-Z0-9]').hasMatch(normalized) ||
+        !RegExp(r'^[A-Z0-9 ._-]+$').hasMatch(normalized)) {
+      throw SloveniaHribiSourcePeakListException(
+        'Invalid sourceOfTruth "$rawValue". Use one non-blank uppercase provenance value without commas.',
+      );
+    }
+
+    return normalized;
   }
 }
 
