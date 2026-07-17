@@ -40,6 +40,10 @@ _Avoid_: unknown/off-network
 A header-detected peak-list import format produced by region ranking tools such as `tool/rank_fvg_peaks.dart`, where each row identifies an existing peak by `osmId` and can carry shared peak metadata updates plus list membership.
 _Avoid_: FVG format
 
+**App-owned export CSV**:
+A project-generated peak-list CSV produced by the app's export flow and accepted again by the corresponding app-owned import flow for round-trip maintenance.
+_Avoid_: ranked peak list CSV, legacy export format
+
 **Hribi source peak list**:
 A CSV-only raw peak extract built from `hribi.net` range and detail pages, optionally enriched from sibling translated domains such as `monti.uno`, without matching rows to existing app peaks.
 _Avoid_: ranked peak list CSV, import-ready peak list
