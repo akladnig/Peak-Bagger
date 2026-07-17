@@ -164,6 +164,9 @@ class PeakListImportService {
     };
     final parsedRows = <_AppOwnedPeakListCsvRow>[];
     final plannedPeaksByOsmId = <int, Peak>{};
+    var nextSyntheticOsmId = _peakRepository.nextSyntheticOsmId(
+      peaksByOsmId.values,
+    );
 
     for (var rowIndex = 1; rowIndex < rows.length; rowIndex++) {
       final row = rows[rowIndex];
@@ -175,7 +178,11 @@ class PeakListImportService {
         headers: headers,
         row: row,
         rowNumber: rowIndex + 1,
+        nextSyntheticOsmId: nextSyntheticOsmId,
       );
+      if (parsedRow.usedSyntheticOsmId) {
+        nextSyntheticOsmId = parsedRow.osmId - 1;
+      }
       parsedRows.add(parsedRow);
       final existingPeak =
           plannedPeaksByOsmId[parsedRow.osmId] ?? peaksByOsmId[parsedRow.osmId];
@@ -361,16 +368,19 @@ class PeakListImportService {
     final headers = rows.first
         .map((value) => _rankedHeaderValue('$value'))
         .toList(growable: false);
-    final peaksByOsmId = {
+    final existingPeaksByOsmId = {
       for (final peak in _peakRepository.getAllPeaks()) peak.osmId: peak,
     };
     final hasExplicitSourceOfTruth =
         headers.length == _extendedRankedPeakListHeaders.length;
     final items = <PeakListItem>[];
-    final correctedPeaksByOsmId = <int, Peak>{};
+    final plannedPeaksByOsmId = <int, Peak>{};
     final seenOsmIds = <int>{};
     final canonicalPeakRegions = <String>{};
     String? fileSourceOfTruth;
+    var nextSyntheticOsmId = _peakRepository.nextSyntheticOsmId(
+      existingPeaksByOsmId.values,
+    );
 
     for (var rowIndex = 1; rowIndex < rows.length; rowIndex++) {
       final row = rows[rowIndex];
@@ -382,27 +392,32 @@ class PeakListImportService {
         headers: headers,
         row: row,
         rowNumber: rowIndex + 1,
+        nextSyntheticOsmId: nextSyntheticOsmId,
         seenOsmIds: seenOsmIds,
-        peaksByOsmId: peaksByOsmId,
+        peaksByOsmId: existingPeaksByOsmId,
         hasExplicitSourceOfTruth: hasExplicitSourceOfTruth,
       );
+      if (!existingPeaksByOsmId.containsKey(rankedRow.osmId)) {
+        nextSyntheticOsmId = rankedRow.osmId - 1;
+      }
       if (fileSourceOfTruth == null) {
         fileSourceOfTruth = rankedRow.sourceOfTruth;
       } else if (fileSourceOfTruth != rankedRow.sourceOfTruth) {
         throw const FormatException('mixed sourceOfTruth values in one file');
       }
-      correctedPeaksByOsmId[rankedRow.osmId] = _applyRankedRow(
-        rankedRow,
-        peaksByOsmId[rankedRow.osmId]!,
-      );
+      final existingPeak = existingPeaksByOsmId[rankedRow.osmId];
+      plannedPeaksByOsmId[rankedRow.osmId] = existingPeak == null
+          ? _createPeakFromRankedRow(rankedRow)
+          : _applyRankedRow(rankedRow, existingPeak);
       canonicalPeakRegions.add(rankedRow.peakRegion);
       items.add(PeakListItem(peakOsmId: rankedRow.osmId, points: 1));
       onRowProcessed();
     }
 
-    for (final correctedPeak in correctedPeaksByOsmId.values) {
-      if (_peakNeedsSave(peaksByOsmId[correctedPeak.osmId]!, correctedPeak)) {
-        await _peakRepository.save(correctedPeak);
+    for (final plannedPeak in plannedPeaksByOsmId.values) {
+      final existingPeak = existingPeaksByOsmId[plannedPeak.osmId];
+      if (existingPeak == null || _peakNeedsSave(existingPeak, plannedPeak)) {
+        await _peakRepository.save(plannedPeak);
       }
     }
 
@@ -500,6 +515,7 @@ class PeakListImportService {
     required List<String> headers,
     required List<dynamic> row,
     required int rowNumber,
+    required int nextSyntheticOsmId,
   }) {
     final data = <String, String>{};
     for (var index = 0; index < headers.length; index++) {
@@ -509,7 +525,10 @@ class PeakListImportService {
     final name = data['name'] ?? '';
     final nameLabel = name.isEmpty ? 'Unnamed peak' : name;
     final rawOsmId = data['osmId'] ?? '';
-    final osmId = int.tryParse(rawOsmId);
+    final usedSyntheticOsmId = rawOsmId.isEmpty;
+    final osmId = usedSyntheticOsmId
+        ? nextSyntheticOsmId
+        : int.tryParse(rawOsmId);
     if (osmId == null) {
       throw FormatException(
         'invalid osmId "$rawOsmId" on row $rowNumber ($nameLabel)',
@@ -574,6 +593,7 @@ class PeakListImportService {
       return _AppOwnedPeakListCsvRow(
         rowNumber: rowNumber,
         osmId: osmId,
+        usedSyntheticOsmId: usedSyntheticOsmId,
         name: name,
         altName: data['altName'] ?? '',
         elevation: elevation,
@@ -609,6 +629,7 @@ class PeakListImportService {
     required List<String> headers,
     required List<dynamic> row,
     required int rowNumber,
+    required int nextSyntheticOsmId,
     required Set<int> seenOsmIds,
     required Map<int, Peak> peaksByOsmId,
     required bool hasExplicitSourceOfTruth,
@@ -620,12 +641,15 @@ class PeakListImportService {
 
     final name = data['name'] ?? '';
     final rawOsmId = data['osmId'] ?? '';
-    if (rawOsmId.isEmpty) {
-      throw FormatException('row $rowNumber is missing osmId ($name)');
+    final osmId = rawOsmId.isEmpty
+        ? nextSyntheticOsmId
+        : int.tryParse(rawOsmId);
+    if (osmId == null) {
+      throw FormatException(
+        'row $rowNumber references unknown osmId $rawOsmId ($name)',
+      );
     }
-
-    final osmId = int.tryParse(rawOsmId);
-    if (osmId == null || !peaksByOsmId.containsKey(osmId)) {
+    if (rawOsmId.isNotEmpty && !peaksByOsmId.containsKey(osmId)) {
       throw FormatException(
         'row $rowNumber references unknown osmId $rawOsmId ($name)',
       );
@@ -749,6 +773,39 @@ class PeakListImportService {
       difficulty: row.difficulty.isEmpty ? peak.difficulty : row.difficulty,
       viaFerrata: row.viaFerrata.isEmpty ? peak.viaFerrata : row.viaFerrata,
       notes: row.notes.isEmpty ? peak.notes : row.notes,
+      gridZoneDesignator: mgrs.gridZoneDesignator,
+      mgrs100kId: mgrs.mgrs100kId,
+      easting: mgrs.easting,
+      northing: mgrs.northing,
+      sourceOfTruth: row.sourceOfTruth,
+    );
+  }
+
+  Peak _createPeakFromRankedRow(_RankedPeakListCsvRow row) {
+    final latitude = row.latitude;
+    final longitude = row.longitude;
+    if (latitude == null || longitude == null) {
+      throw FormatException(
+        'row ${row.rowNumber} is missing latitude/longitude (${row.name})',
+      );
+    }
+
+    final mgrs = PeakMgrsConverter.fromLatLng(LatLng(latitude, longitude));
+    return Peak(
+      osmId: row.osmId,
+      name: row.name,
+      elevation: row.elevation,
+      prominence: row.prominence,
+      latitude: latitude,
+      longitude: longitude,
+      country: row.country,
+      region: row.peakRegion,
+      range: row.range,
+      county: row.county,
+      rating: row.rating,
+      difficulty: row.difficulty,
+      viaFerrata: row.viaFerrata,
+      notes: row.notes,
       gridZoneDesignator: mgrs.gridZoneDesignator,
       mgrs100kId: mgrs.mgrs100kId,
       easting: mgrs.easting,
@@ -1531,6 +1588,7 @@ class _AppOwnedPeakListCsvRow {
   const _AppOwnedPeakListCsvRow({
     required this.rowNumber,
     required this.osmId,
+    required this.usedSyntheticOsmId,
     required this.name,
     required this.altName,
     required this.elevation,
@@ -1558,6 +1616,7 @@ class _AppOwnedPeakListCsvRow {
 
   final int rowNumber;
   final int osmId;
+  final bool usedSyntheticOsmId;
   final String name;
   final String altName;
   final double? elevation;
