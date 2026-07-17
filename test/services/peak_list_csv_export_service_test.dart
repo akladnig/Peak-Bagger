@@ -27,159 +27,260 @@ void main() {
       }
     });
 
-    test('exports multiple lists with exact headers and row values', () async {
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(
-            name: 'Zeta List',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 300, points: 4),
-            ]),
-          )..peakListId = 2,
-          PeakList(
-            name: 'Alpha List',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 200, points: 7),
-              const PeakListItem(peakOsmId: 100, points: 3),
-            ]),
-          )..peakListId = 1,
-        ]),
-      );
-      final peakRepository = PeakRepository.test(
-        InMemoryPeakStorage([
-          Peak(
-            osmId: 100,
-            name: 'Alpha',
-            altName: 'Alt Alpha',
-            elevation: 1234.5,
-            latitude: -41,
-            longitude: 146,
-            country: 'Australia',
-            region: 'tasmania',
-            county: 'Derwent Valley',
-            range: 'Du Cane',
-            gridZoneDesignator: '55G',
-            mgrs100kId: 'AA',
-            easting: '00111',
-            northing: '00222',
-            sourceOfTruth: Peak.sourceOfTruthHwc,
-          ),
-          Peak(
-            osmId: 200,
-            name: 'Bravo',
-            altName: '',
-            elevation: null,
-            latitude: -42,
-            longitude: 147,
-            country: 'Australia',
-            region: 'tasmania',
-            county: 'Central Highlands',
-            range: 'Cradle',
-            gridZoneDesignator: '55H',
-            mgrs100kId: 'BB',
-            easting: '00333',
-            northing: '00444',
-            sourceOfTruth: Peak.sourceOfTruthOsm,
-          ),
-          Peak(
-            osmId: 300,
-            name: 'Zulu',
-            altName: 'Alt Zulu',
-            elevation: 999,
-            latitude: -43,
-            longitude: 148,
-            country: 'Australia',
-            region: 'tasmania',
-            county: 'Kentish',
-            range: 'Great Western Tiers',
-            gridZoneDesignator: '55J',
-            mgrs100kId: 'CC',
-            easting: '00555',
-            northing: '00666',
-            sourceOfTruth: Peak.sourceOfTruthPeakBagger,
-          ),
-        ]),
-      );
+    test(
+      'exports multiple lists with exact headers and expanded row values',
+      () async {
+        final peakListRepository = PeakListRepository.test(
+          InMemoryPeakListStorage([
+            PeakList(
+              name: 'Zeta List',
+              peakList: encodePeakListItems([
+                const PeakListItem(peakOsmId: 300, points: 4),
+              ]),
+            )..peakListId = 2,
+            PeakList(
+              name: 'Alpha List',
+              peakList: encodePeakListItems([
+                const PeakListItem(peakOsmId: 200, points: 7),
+                const PeakListItem(peakOsmId: 100, points: 3),
+                const PeakListItem(peakOsmId: 200, points: 9),
+              ]),
+            )..peakListId = 1,
+          ]),
+        );
+        final peakRepository = PeakRepository.test(
+          InMemoryPeakStorage([
+            Peak(
+              osmId: 100,
+              name: 'Alpha',
+              altName: 'Alt Alpha',
+              elevation: 1234.5,
+              prominence: 678.9,
+              rating: 4.4,
+              durationLabel: '4-5 hours',
+              difficulty: 'T4',
+              viaFerrata: 'VF-A',
+              notes: 'Granite ridge',
+              latitude: -41,
+              longitude: 146,
+              country: 'Australia',
+              region: 'tasmania',
+              county: 'Derwent Valley',
+              range: 'Du Cane',
+              peakbaggerPid: 9001,
+              gridZoneDesignator: '55G',
+              mgrs100kId: 'AA',
+              easting: '00111',
+              northing: '00222',
+              verified: true,
+              sourceOfTruth: Peak.sourceOfTruthHwc,
+            ),
+            Peak(
+              osmId: 200,
+              name: 'Bravo',
+              altName: '',
+              elevation: null,
+              prominence: null,
+              rating: 4.0,
+              durationMinutes: 255,
+              durationLabel: '',
+              difficulty: 'Easy',
+              viaFerrata: '',
+              notes: '',
+              latitude: -42,
+              longitude: 147,
+              country: 'Australia',
+              region: 'tasmania',
+              county: 'Central Highlands',
+              range: 'Cradle',
+              gridZoneDesignator: '55H',
+              mgrs100kId: 'BB',
+              easting: '00333',
+              northing: '00444',
+              verified: false,
+              sourceOfTruth: Peak.sourceOfTruthOsm,
+            ),
+            Peak(
+              osmId: 300,
+              name: 'Zulu',
+              altName: 'Alt Zulu',
+              elevation: 999,
+              prominence: 321,
+              durationMinutes: 2880,
+              difficulty: 'Hard',
+              viaFerrata: 'VF-B',
+              notes: 'Snow possible',
+              latitude: -43,
+              longitude: 148,
+              country: 'Australia',
+              region: 'tasmania',
+              county: 'Kentish',
+              range: 'Great Western Tiers',
+              peakbaggerPid: 42,
+              gridZoneDesignator: '55J',
+              mgrs100kId: 'CC',
+              easting: '00555',
+              northing: '00666',
+              verified: true,
+              sourceOfTruth: Peak.sourceOfTruthPeakBagger,
+            ),
+          ]),
+        );
 
-      final service = PeakListCsvExportService(
-        peakListRepository: peakListRepository,
-        peakRepository: peakRepository,
-        outputDirectoryResolver: () => outputDirectory,
-      );
+        final service = PeakListCsvExportService(
+          peakListRepository: peakListRepository,
+          peakRepository: peakRepository,
+          outputDirectoryResolver: () => outputDirectory,
+        );
 
-      final result = await service.exportPeakLists();
+        final result = await service.exportPeakLists();
 
-      expect(result.outputDirectoryPath, outputDirectory.path);
-      expect(result.exportedFileCount, 2);
-      expect(result.skippedListCount, 0);
+        expect(result.outputDirectoryPath, outputDirectory.path);
+        expect(result.exportedFileCount, 2);
+        expect(result.skippedListCount, 0);
 
-      final alphaFile = File(
-        '${outputDirectory.path}/alpha-list-peak-list.csv',
-      );
-      final zetaFile = File('${outputDirectory.path}/zeta-list-peak-list.csv');
-      expect(await alphaFile.exists(), isTrue);
-      expect(await zetaFile.exists(), isTrue);
+        final alphaFile = File(
+          '${outputDirectory.path}/alpha-list-peak-list.csv',
+        );
+        final zetaFile = File(
+          '${outputDirectory.path}/zeta-list-peak-list.csv',
+        );
+        expect(await alphaFile.exists(), isTrue);
+        expect(await zetaFile.exists(), isTrue);
 
-      final alphaRows = const CsvDecoder().convert(
-        await alphaFile.readAsString(),
-      );
-      final zetaRows = const CsvDecoder().convert(
-        await zetaFile.readAsString(),
-      );
+        final alphaRows = const CsvDecoder().convert(
+          await alphaFile.readAsString(),
+        );
+        final zetaRows = const CsvDecoder().convert(
+          await zetaFile.readAsString(),
+        );
 
-      expect(
-        alphaRows.first.cast<String>(),
-        PeakListCsvExportService.csvHeaders,
-      );
-      expect(alphaRows[1].map((value) => '$value').toList(), [
-        'Bravo',
-        '',
-        '',
-        '55H',
-        'BB',
-        '00333',
-        '00444',
-        '7',
-        '200',
-        'Australia',
-        'tasmania',
-        'Central Highlands',
-        'Cradle',
-        'OSM',
-      ]);
-      expect(alphaRows[2].map((value) => '$value').toList(), [
-        'Alpha',
-        'Alt Alpha',
-        '1234.5',
-        '55G',
-        'AA',
-        '00111',
-        '00222',
-        '3',
-        '100',
-        'Australia',
-        'tasmania',
-        'Derwent Valley',
-        'Du Cane',
-        'HWC',
-      ]);
-      expect(zetaRows[1].map((value) => '$value').toList(), [
-        'Zulu',
-        'Alt Zulu',
-        '999.0',
-        '55J',
-        'CC',
-        '00555',
-        '00666',
-        '4',
-        '300',
-        'Australia',
-        'tasmania',
-        'Kentish',
-        'Great Western Tiers',
-        'peakbagger.com',
-      ]);
-    });
+        expect(
+          alphaRows.first.cast<String>(),
+          PeakListCsvExportService.csvHeaders,
+        );
+        expect(alphaRows.first.cast<String>(), [
+          'name',
+          'altName',
+          'elevation',
+          'prominence',
+          'rating',
+          'difficulty',
+          'duration',
+          'viaFerrata',
+          'gridZoneDesignator',
+          'mgrs100kId',
+          'easting',
+          'northing',
+          'points',
+          'osmId',
+          'peakbaggerPid',
+          'country',
+          'region',
+          'county',
+          'range',
+          'notes',
+          'verified',
+          'sourceOfTruth',
+        ]);
+        expect(alphaRows[1].map((value) => '$value').toList(), [
+          'Bravo',
+          '',
+          '',
+          '',
+          '4.0',
+          'Easy',
+          '4:15',
+          '',
+          '55H',
+          'BB',
+          '00333',
+          '00444',
+          '7',
+          '200',
+          '',
+          'Australia',
+          'tasmania',
+          'Central Highlands',
+          'Cradle',
+          '',
+          'false',
+          'OSM',
+        ]);
+        expect(alphaRows[2].map((value) => '$value').toList(), [
+          'Alpha',
+          'Alt Alpha',
+          '1234.5',
+          '678.9',
+          '4.4',
+          'T4',
+          '4-5 hours',
+          'VF-A',
+          '55G',
+          'AA',
+          '00111',
+          '00222',
+          '3',
+          '100',
+          '9001',
+          'Australia',
+          'tasmania',
+          'Derwent Valley',
+          'Du Cane',
+          'Granite ridge',
+          'true',
+          'HWC',
+        ]);
+        expect(alphaRows[3].map((value) => '$value').toList(), [
+          'Bravo',
+          '',
+          '',
+          '',
+          '4.0',
+          'Easy',
+          '4:15',
+          '',
+          '55H',
+          'BB',
+          '00333',
+          '00444',
+          '9',
+          '200',
+          '',
+          'Australia',
+          'tasmania',
+          'Central Highlands',
+          'Cradle',
+          '',
+          'false',
+          'OSM',
+        ]);
+        expect(zetaRows[1].map((value) => '$value').toList(), [
+          'Zulu',
+          'Alt Zulu',
+          '999.0',
+          '321.0',
+          '',
+          'Hard',
+          '2 days',
+          'VF-B',
+          '55J',
+          'CC',
+          '00555',
+          '00666',
+          '4',
+          '300',
+          '42',
+          'Australia',
+          'tasmania',
+          'Kentish',
+          'Great Western Tiers',
+          'Snow possible',
+          'true',
+          'peakbagger.com',
+        ]);
+      },
+    );
 
     test(
       'derives grid-reference columns from lat lng when stored values are blank or invalid',
@@ -239,13 +340,13 @@ void main() {
           ).readAsString(),
         );
 
-        expect(rows[1].map((value) => '$value').toList().sublist(3, 7), [
+        expect(rows[1].map((value) => '$value').toList().sublist(8, 12), [
           blankMgrs.gridZoneDesignator,
           blankMgrs.mgrs100kId,
           blankMgrs.easting,
           blankMgrs.northing,
         ]);
-        expect(rows[2].map((value) => '$value').toList().sublist(3, 7), [
+        expect(rows[2].map((value) => '$value').toList().sublist(8, 12), [
           invalidMgrs.gridZoneDesignator,
           invalidMgrs.mgrs100kId,
           invalidMgrs.easting,
@@ -468,8 +569,8 @@ void main() {
           await exportedFile.readAsString(),
         );
         expect(rows, hasLength(3));
-        expect(rows[1][7].toString(), '2');
-        expect(rows[2][7].toString(), '9');
+        expect(rows[1][12].toString(), '2');
+        expect(rows[2][12].toString(), '9');
       },
     );
 

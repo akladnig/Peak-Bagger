@@ -33,10 +33,7 @@ enum PeakDurationFilterOption {
   upTo10Days(thresholdMinutes: 14400, label: '10d'),
   atLeast2Days(thresholdMinutes: 2880, label: '2d+');
 
-  const PeakDurationFilterOption({
-    this.thresholdMinutes,
-    required this.label,
-  });
+  const PeakDurationFilterOption({this.thresholdMinutes, required this.label});
 
   final int? thresholdMinutes;
   final String label;
@@ -99,10 +96,12 @@ ParsedPeakDuration? parsePeakDuration(String rawValue) {
     );
   }
 
-  throw FormatException(
-    'Invalid peak duration "$trimmedValue". Expected H:MM, '
-    '<int>-<int> hour(s), or <int>-<int> day(s).',
-  );
+  final exactDayMatch = _exactDayDurationPattern.firstMatch(trimmedValue);
+  if (exactDayMatch != null) {
+    return _parseExactDayDuration(match: exactDayMatch, rawValue: trimmedValue);
+  }
+
+  throw FormatException(_invalidPeakDurationMessage(trimmedValue));
 }
 
 String formatPeakDurationMinutes(int? durationMinutes) {
@@ -110,7 +109,8 @@ String formatPeakDurationMinutes(int? durationMinutes) {
     return '';
   }
 
-  if (durationMinutes % Duration.minutesPerDay == 0) {
+  if (durationMinutes >= Duration.minutesPerDay &&
+      durationMinutes % Duration.minutesPerDay == 0) {
     final dayCount = durationMinutes ~/ Duration.minutesPerDay;
     final unit = dayCount == 1 ? 'day' : 'days';
     return '$dayCount $unit';
@@ -203,14 +203,16 @@ List<PeakDifficultyFilterOption> buildPeakDifficultyFilterOptions(
   for (final region in regions) {
     final difficulties = difficultiesByRegion[region]!.toList(growable: false)
       ..sort((left, right) {
-        return _compareDifficultyValues(region: region, left: left, right: right);
+        return _compareDifficultyValues(
+          region: region,
+          left: left,
+          right: right,
+        );
       });
     options.addAll(
       difficulties.map(
-        (difficulty) => PeakDifficultyFilterOption(
-          region: region,
-          difficulty: difficulty,
-        ),
+        (difficulty) =>
+            PeakDifficultyFilterOption(region: region, difficulty: difficulty),
       ),
     );
   }
@@ -246,6 +248,24 @@ ParsedPeakDuration _parseDurationRange({
 
   return ParsedPeakDuration(
     durationMinutes: upperBound * minutesPerUnit,
+    durationLabel: rawValue,
+  );
+}
+
+ParsedPeakDuration _parseExactDayDuration({
+  required RegExpMatch match,
+  required String rawValue,
+}) {
+  final dayCount = int.parse(match.group(1)!);
+  final unit = match.group(2)!;
+  final isValidSingular = dayCount == 1 && unit == 'day';
+  final isValidPlural = dayCount > 1 && unit == 'days';
+  if (!isValidSingular && !isValidPlural) {
+    throw FormatException(_invalidPeakDurationMessage(rawValue));
+  }
+
+  return ParsedPeakDuration(
+    durationMinutes: dayCount * Duration.minutesPerDay,
     durationLabel: rawValue,
   );
 }
@@ -320,9 +340,15 @@ String _normalizeRegion(String? region) {
   return region?.trim().toLowerCase() ?? '';
 }
 
+String _invalidPeakDurationMessage(String rawValue) {
+  return 'Invalid peak duration "$rawValue". Expected H:MM, '
+      '<int>-<int> hour(s), <int>-<int> day(s), 1 day, or <int> days.';
+}
+
 final _clockDurationPattern = RegExp(r'^(0|[1-9]\d*):([0-5]\d)$');
 final _hourRangeDurationPattern = RegExp(r'^(\d+)-(\d+) hours?$');
 final _dayRangeDurationPattern = RegExp(r'^(\d+)-(\d+) days?$');
+final _exactDayDurationPattern = RegExp(r'^(\d+) (day|days)$');
 
 final _difficultyLadders = <String, List<String>>{
   'tasmania': ['easy', 'medium', 'hard', 'very hard'],

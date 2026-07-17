@@ -10,6 +10,13 @@ void main() {
       expect(parsePeakDuration('4:15')?.durationLabel, '4:15');
     });
 
+    test('parses exact day values and preserves labels', () {
+      expect(parsePeakDuration('1 day')?.durationMinutes, 1440);
+      expect(parsePeakDuration('1 day')?.durationLabel, '1 day');
+      expect(parsePeakDuration('2 days')?.durationMinutes, 2880);
+      expect(parsePeakDuration('2 days')?.durationLabel, '2 days');
+    });
+
     test('parses hour and day ranges using the upper bound', () {
       expect(parsePeakDuration('4-5 hours')?.durationMinutes, 300);
       expect(parsePeakDuration('1-1 hour')?.durationMinutes, 60);
@@ -25,6 +32,8 @@ void main() {
     test('rejects invalid duration text', () {
       expect(() => parsePeakDuration('04:15'), throwsFormatException);
       expect(() => parsePeakDuration('4 hours'), throwsFormatException);
+      expect(() => parsePeakDuration('2 day'), throwsFormatException);
+      expect(() => parsePeakDuration('1 days'), throwsFormatException);
       expect(() => parsePeakDuration('5-4 hours'), throwsFormatException);
       expect(() => parsePeakDuration('about 2 days'), throwsFormatException);
     });
@@ -33,8 +42,10 @@ void main() {
   group('formatPeakDurationMinutes', () {
     test('formats missing, hour, and day durations', () {
       expect(formatPeakDurationMinutes(null), '');
+      expect(formatPeakDurationMinutes(0), '0:00');
       expect(formatPeakDurationMinutes(15), '0:15');
       expect(formatPeakDurationMinutes(255), '4:15');
+      expect(formatPeakDurationMinutes(1440), '1 day');
       expect(formatPeakDurationMinutes(2880), '2 days');
     });
 
@@ -115,93 +126,105 @@ void main() {
   });
 
   group('peakMatchesDurationFilter', () {
-    test('supports the fixed duration thresholds and excludes missing values', () {
-      final fourHourPeak = Peak(
-        name: 'Four Hour Peak',
-        latitude: -41.5,
-        longitude: 146.5,
-        durationMinutes: 240,
-      );
-      final longPeak = Peak(
-        name: 'Long Peak',
-        latitude: -41.5,
-        longitude: 146.5,
-        durationMinutes: 3000,
-      );
-      final missingPeak = Peak(
-        name: 'Missing Peak',
-        latitude: -41.5,
-        longitude: 146.5,
-      );
+    test(
+      'supports the fixed duration thresholds and excludes missing values',
+      () {
+        final fourHourPeak = Peak(
+          name: 'Four Hour Peak',
+          latitude: -41.5,
+          longitude: 146.5,
+          durationMinutes: 240,
+        );
+        final longPeak = Peak(
+          name: 'Long Peak',
+          latitude: -41.5,
+          longitude: 146.5,
+          durationMinutes: 3000,
+        );
+        final missingPeak = Peak(
+          name: 'Missing Peak',
+          latitude: -41.5,
+          longitude: 146.5,
+        );
 
-      expect(
-        peakMatchesDurationFilter(missingPeak, PeakDurationFilterOption.any),
-        isTrue,
-      );
-      expect(
-        peakMatchesDurationFilter(
-          fourHourPeak,
-          PeakDurationFilterOption.upTo4Hours,
-        ),
-        isTrue,
-      );
-      expect(
-        peakMatchesDurationFilter(longPeak, PeakDurationFilterOption.upTo4Hours),
-        isFalse,
-      );
-      expect(
-        peakMatchesDurationFilter(longPeak, PeakDurationFilterOption.atLeast2Days),
-        isTrue,
-      );
-      expect(
-        peakMatchesDurationFilter(
-          missingPeak,
-          PeakDurationFilterOption.atLeast2Days,
-        ),
-        isFalse,
-      );
-    });
+        expect(
+          peakMatchesDurationFilter(missingPeak, PeakDurationFilterOption.any),
+          isTrue,
+        );
+        expect(
+          peakMatchesDurationFilter(
+            fourHourPeak,
+            PeakDurationFilterOption.upTo4Hours,
+          ),
+          isTrue,
+        );
+        expect(
+          peakMatchesDurationFilter(
+            longPeak,
+            PeakDurationFilterOption.upTo4Hours,
+          ),
+          isFalse,
+        );
+        expect(
+          peakMatchesDurationFilter(
+            longPeak,
+            PeakDurationFilterOption.atLeast2Days,
+          ),
+          isTrue,
+        );
+        expect(
+          peakMatchesDurationFilter(
+            missingPeak,
+            PeakDurationFilterOption.atLeast2Days,
+          ),
+          isFalse,
+        );
+      },
+    );
   });
 
   group('difficulty ordering and filtering', () {
-    test('keeps configured ladders region-aware and falls back alphabetically', () {
-      final tasmaniaPeaks = [
-        Peak(
-          name: 'Hard Peak',
-          latitude: -41.5,
-          longitude: 146.5,
-          region: 'tasmania',
-          difficulty: 'Hard',
-        ),
-        Peak(
-          name: 'Easy Peak',
-          latitude: -41.5,
-          longitude: 146.5,
-          region: 'tasmania',
-          difficulty: 'Easy',
-        ),
-      ]..sort(comparePeaksByDifficulty);
+    test(
+      'keeps configured ladders region-aware and falls back alphabetically',
+      () {
+        final tasmaniaPeaks = [
+          Peak(
+            name: 'Hard Peak',
+            latitude: -41.5,
+            longitude: 146.5,
+            region: 'tasmania',
+            difficulty: 'Hard',
+          ),
+          Peak(
+            name: 'Easy Peak',
+            latitude: -41.5,
+            longitude: 146.5,
+            region: 'tasmania',
+            difficulty: 'Easy',
+          ),
+        ]..sort(comparePeaksByDifficulty);
 
-      final fallbackPeaks = [
-        Peak(
-          name: 'Beta Peak',
-          latitude: -41.5,
-          longitude: 146.5,
-          region: 'andes',
-          difficulty: 'Beta',
-        ),
-        Peak(
-          name: 'Alpha Peak',
-          latitude: -41.5,
-          longitude: 146.5,
-          region: 'andes',
-          difficulty: 'Alpha',
-        ),
-      ]..sort(comparePeaksByDifficulty);
+        final fallbackPeaks = [
+          Peak(
+            name: 'Beta Peak',
+            latitude: -41.5,
+            longitude: 146.5,
+            region: 'andes',
+            difficulty: 'Beta',
+          ),
+          Peak(
+            name: 'Alpha Peak',
+            latitude: -41.5,
+            longitude: 146.5,
+            region: 'andes',
+            difficulty: 'Alpha',
+          ),
+        ]..sort(comparePeaksByDifficulty);
 
-      expect(tasmaniaPeaks.map((peak) => peak.difficulty), ['Easy', 'Hard']);
-      expect(fallbackPeaks.map((peak) => peak.difficulty), ['Alpha', 'Beta']);
-    });
+        expect(tasmaniaPeaks.map((peak) => peak.difficulty), ['Easy', 'Hard']);
+        expect(fallbackPeaks.map((peak) => peak.difficulty), ['Alpha', 'Beta']);
+      },
+    );
 
     test('sorts mixed regions by region, difficulty, then name', () {
       final peaks = [
@@ -246,53 +269,62 @@ void main() {
       );
     });
 
-    test('builds exact region+difficulty filter options and matches one pair', () {
-      final peaks = [
-        Peak(
-          name: 'FVG Peak',
-          latitude: 46.2,
-          longitude: 13.2,
-          region: 'fvg',
-          difficulty: 'EE',
-        ),
-        Peak(
-          name: 'Veneto Peak',
-          latitude: 45.8,
-          longitude: 11.8,
-          region: 'veneto',
-          difficulty: 'EE',
-        ),
-        Peak(
-          name: 'Slovenia Peak',
-          latitude: 46.4,
-          longitude: 14.5,
-          region: 'slovenia',
-          difficulty: 'T4',
-        ),
-        Peak(
-          name: 'Blank Peak',
-          latitude: -41.5,
-          longitude: 146.5,
-          region: 'tasmania',
-        ),
-      ];
+    test(
+      'builds exact region+difficulty filter options and matches one pair',
+      () {
+        final peaks = [
+          Peak(
+            name: 'FVG Peak',
+            latitude: 46.2,
+            longitude: 13.2,
+            region: 'fvg',
+            difficulty: 'EE',
+          ),
+          Peak(
+            name: 'Veneto Peak',
+            latitude: 45.8,
+            longitude: 11.8,
+            region: 'veneto',
+            difficulty: 'EE',
+          ),
+          Peak(
+            name: 'Slovenia Peak',
+            latitude: 46.4,
+            longitude: 14.5,
+            region: 'slovenia',
+            difficulty: 'T4',
+          ),
+          Peak(
+            name: 'Blank Peak',
+            latitude: -41.5,
+            longitude: 146.5,
+            region: 'tasmania',
+          ),
+        ];
 
-      final options = buildPeakDifficultyFilterOptions(peaks);
-      final fvgOption = options.firstWhere(
-        (option) => option.region == 'fvg' && option.difficulty == 'EE',
-      );
+        final options = buildPeakDifficultyFilterOptions(peaks);
+        final fvgOption = options.firstWhere(
+          (option) => option.region == 'fvg' && option.difficulty == 'EE',
+        );
 
-      expect(
-        options,
-        containsAll([
-          const PeakDifficultyFilterOption(region: 'fvg', difficulty: 'EE'),
-          const PeakDifficultyFilterOption(region: 'slovenia', difficulty: 'T4'),
-          const PeakDifficultyFilterOption(region: 'veneto', difficulty: 'EE'),
-        ]),
-      );
-      expect(peakMatchesDifficultyFilter(peaks[0], fvgOption), isTrue);
-      expect(peakMatchesDifficultyFilter(peaks[1], fvgOption), isFalse);
-      expect(peakMatchesDifficultyFilter(peaks[3], fvgOption), isFalse);
-    });
+        expect(
+          options,
+          containsAll([
+            const PeakDifficultyFilterOption(region: 'fvg', difficulty: 'EE'),
+            const PeakDifficultyFilterOption(
+              region: 'slovenia',
+              difficulty: 'T4',
+            ),
+            const PeakDifficultyFilterOption(
+              region: 'veneto',
+              difficulty: 'EE',
+            ),
+          ]),
+        );
+        expect(peakMatchesDifficultyFilter(peaks[0], fvgOption), isTrue);
+        expect(peakMatchesDifficultyFilter(peaks[1], fvgOption), isFalse);
+        expect(peakMatchesDifficultyFilter(peaks[3], fvgOption), isFalse);
+      },
+    );
   });
 }

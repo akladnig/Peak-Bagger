@@ -12,6 +12,7 @@ import 'package:peak_bagger/services/peak_list_csv_export_service.dart';
 import 'package:peak_bagger/services/peak_list_file_picker.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
+import 'package:peak_bagger/services/peak_metadata_rules.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
 
@@ -163,6 +164,9 @@ class PeakListImportService {
     };
     final parsedRows = <_AppOwnedPeakListCsvRow>[];
     final plannedPeaksByOsmId = <int, Peak>{};
+    var nextSyntheticOsmId = _peakRepository.nextSyntheticOsmId(
+      peaksByOsmId.values,
+    );
 
     for (var rowIndex = 1; rowIndex < rows.length; rowIndex++) {
       final row = rows[rowIndex];
@@ -174,7 +178,11 @@ class PeakListImportService {
         headers: headers,
         row: row,
         rowNumber: rowIndex + 1,
+        nextSyntheticOsmId: nextSyntheticOsmId,
       );
+      if (parsedRow.usedSyntheticOsmId) {
+        nextSyntheticOsmId = parsedRow.osmId - 1;
+      }
       parsedRows.add(parsedRow);
       final existingPeak =
           plannedPeaksByOsmId[parsedRow.osmId] ?? peaksByOsmId[parsedRow.osmId];
@@ -360,16 +368,19 @@ class PeakListImportService {
     final headers = rows.first
         .map((value) => _rankedHeaderValue('$value'))
         .toList(growable: false);
-    final peaksByOsmId = {
+    final existingPeaksByOsmId = {
       for (final peak in _peakRepository.getAllPeaks()) peak.osmId: peak,
     };
     final hasExplicitSourceOfTruth =
         headers.length == _extendedRankedPeakListHeaders.length;
     final items = <PeakListItem>[];
-    final correctedPeaksByOsmId = <int, Peak>{};
+    final plannedPeaksByOsmId = <int, Peak>{};
     final seenOsmIds = <int>{};
     final canonicalPeakRegions = <String>{};
     String? fileSourceOfTruth;
+    var nextSyntheticOsmId = _peakRepository.nextSyntheticOsmId(
+      existingPeaksByOsmId.values,
+    );
 
     for (var rowIndex = 1; rowIndex < rows.length; rowIndex++) {
       final row = rows[rowIndex];
@@ -381,27 +392,32 @@ class PeakListImportService {
         headers: headers,
         row: row,
         rowNumber: rowIndex + 1,
+        nextSyntheticOsmId: nextSyntheticOsmId,
         seenOsmIds: seenOsmIds,
-        peaksByOsmId: peaksByOsmId,
+        peaksByOsmId: existingPeaksByOsmId,
         hasExplicitSourceOfTruth: hasExplicitSourceOfTruth,
       );
+      if (!existingPeaksByOsmId.containsKey(rankedRow.osmId)) {
+        nextSyntheticOsmId = rankedRow.osmId - 1;
+      }
       if (fileSourceOfTruth == null) {
         fileSourceOfTruth = rankedRow.sourceOfTruth;
       } else if (fileSourceOfTruth != rankedRow.sourceOfTruth) {
         throw const FormatException('mixed sourceOfTruth values in one file');
       }
-      correctedPeaksByOsmId[rankedRow.osmId] = _applyRankedRow(
-        rankedRow,
-        peaksByOsmId[rankedRow.osmId]!,
-      );
+      final existingPeak = existingPeaksByOsmId[rankedRow.osmId];
+      plannedPeaksByOsmId[rankedRow.osmId] = existingPeak == null
+          ? _createPeakFromRankedRow(rankedRow)
+          : _applyRankedRow(rankedRow, existingPeak);
       canonicalPeakRegions.add(rankedRow.peakRegion);
       items.add(PeakListItem(peakOsmId: rankedRow.osmId, points: 1));
       onRowProcessed();
     }
 
-    for (final correctedPeak in correctedPeaksByOsmId.values) {
-      if (_peakNeedsSave(peaksByOsmId[correctedPeak.osmId]!, correctedPeak)) {
-        await _peakRepository.save(correctedPeak);
+    for (final plannedPeak in plannedPeaksByOsmId.values) {
+      final existingPeak = existingPeaksByOsmId[plannedPeak.osmId];
+      if (existingPeak == null || _peakNeedsSave(existingPeak, plannedPeak)) {
+        await _peakRepository.save(plannedPeak);
       }
     }
 
@@ -499,6 +515,7 @@ class PeakListImportService {
     required List<String> headers,
     required List<dynamic> row,
     required int rowNumber,
+    required int nextSyntheticOsmId,
   }) {
     final data = <String, String>{};
     for (var index = 0; index < headers.length; index++) {
@@ -508,30 +525,56 @@ class PeakListImportService {
     final name = data['name'] ?? '';
     final nameLabel = name.isEmpty ? 'Unnamed peak' : name;
     final rawOsmId = data['osmId'] ?? '';
-    final osmId = int.tryParse(rawOsmId);
+    final usedSyntheticOsmId = rawOsmId.isEmpty;
+    final osmId = usedSyntheticOsmId
+        ? nextSyntheticOsmId
+        : int.tryParse(rawOsmId);
     if (osmId == null) {
       throw FormatException(
         'invalid osmId "$rawOsmId" on row $rowNumber ($nameLabel)',
       );
     }
 
-    final rawPoints = data['Points'] ?? '';
+    final rawPoints = data['points'] ?? '';
     final points = int.tryParse(rawPoints);
     if (points == null) {
       throw FormatException(
-        'invalid Points "$rawPoints" on row $rowNumber ($nameLabel)',
+        'invalid points "$rawPoints" on row $rowNumber ($nameLabel)',
       );
     }
 
-    final rawElevation = data['elevation'] ?? '';
-    final elevation = rawElevation.isEmpty
-        ? null
-        : double.tryParse(rawElevation);
-    if (rawElevation.isNotEmpty && elevation == null) {
-      throw FormatException(
-        'invalid elevation "$rawElevation" on row $rowNumber ($nameLabel)',
-      );
-    }
+    final elevation = _parseAppOwnedNumber(
+      data['elevation'] ?? '',
+      fieldName: 'elevation',
+      rowNumber: rowNumber,
+      name: nameLabel,
+    );
+    final prominence = _parseAppOwnedNumber(
+      data['prominence'] ?? '',
+      fieldName: 'prominence',
+      rowNumber: rowNumber,
+      name: nameLabel,
+    );
+    final rating = _parseAppOwnedRating(
+      data['rating'] ?? '',
+      rowNumber: rowNumber,
+      name: nameLabel,
+    );
+    final duration = _parseAppOwnedDuration(
+      data['duration'] ?? '',
+      rowNumber: rowNumber,
+      name: nameLabel,
+    );
+    final peakbaggerPid = _parseAppOwnedPeakbaggerPid(
+      data['peakbaggerPid'] ?? '',
+      rowNumber: rowNumber,
+      name: nameLabel,
+    );
+    final verified = _parseAppOwnedVerified(
+      data['verified'] ?? '',
+      rowNumber: rowNumber,
+      name: nameLabel,
+    );
 
     final gridZoneDesignator = data['gridZoneDesignator'] ?? '';
     final mgrs100kId = data['mgrs100kId'] ?? '';
@@ -550,9 +593,15 @@ class PeakListImportService {
       return _AppOwnedPeakListCsvRow(
         rowNumber: rowNumber,
         osmId: osmId,
+        usedSyntheticOsmId: usedSyntheticOsmId,
         name: name,
         altName: data['altName'] ?? '',
         elevation: elevation,
+        prominence: prominence,
+        rating: rating,
+        duration: duration,
+        difficulty: data['difficulty'] ?? '',
+        viaFerrata: data['viaFerrata'] ?? '',
         gridZoneDesignator: normalizedMgrs.gridZoneDesignator,
         mgrs100kId: normalizedMgrs.mgrs100kId,
         easting: normalizedMgrs.easting,
@@ -560,10 +609,13 @@ class PeakListImportService {
         latitude: latitudeLongitude.latitude,
         longitude: latitudeLongitude.longitude,
         points: points,
+        peakbaggerPid: peakbaggerPid,
         country: data['country'] ?? '',
         region: data['region'] ?? '',
         county: data['county'] ?? '',
         range: data['range'] ?? '',
+        notes: data['notes'] ?? '',
+        verified: verified,
         sourceOfTruth: data['sourceOfTruth'] ?? '',
       );
     } on FormatException {
@@ -577,6 +629,7 @@ class PeakListImportService {
     required List<String> headers,
     required List<dynamic> row,
     required int rowNumber,
+    required int nextSyntheticOsmId,
     required Set<int> seenOsmIds,
     required Map<int, Peak> peaksByOsmId,
     required bool hasExplicitSourceOfTruth,
@@ -588,12 +641,15 @@ class PeakListImportService {
 
     final name = data['name'] ?? '';
     final rawOsmId = data['osmId'] ?? '';
-    if (rawOsmId.isEmpty) {
-      throw FormatException('row $rowNumber is missing osmId ($name)');
+    final osmId = rawOsmId.isEmpty
+        ? nextSyntheticOsmId
+        : int.tryParse(rawOsmId);
+    if (osmId == null) {
+      throw FormatException(
+        'row $rowNumber references unknown osmId $rawOsmId ($name)',
+      );
     }
-
-    final osmId = int.tryParse(rawOsmId);
-    if (osmId == null || !peaksByOsmId.containsKey(osmId)) {
+    if (rawOsmId.isNotEmpty && !peaksByOsmId.containsKey(osmId)) {
       throw FormatException(
         'row $rowNumber references unknown osmId $rawOsmId ($name)',
       );
@@ -717,6 +773,39 @@ class PeakListImportService {
       difficulty: row.difficulty.isEmpty ? peak.difficulty : row.difficulty,
       viaFerrata: row.viaFerrata.isEmpty ? peak.viaFerrata : row.viaFerrata,
       notes: row.notes.isEmpty ? peak.notes : row.notes,
+      gridZoneDesignator: mgrs.gridZoneDesignator,
+      mgrs100kId: mgrs.mgrs100kId,
+      easting: mgrs.easting,
+      northing: mgrs.northing,
+      sourceOfTruth: row.sourceOfTruth,
+    );
+  }
+
+  Peak _createPeakFromRankedRow(_RankedPeakListCsvRow row) {
+    final latitude = row.latitude;
+    final longitude = row.longitude;
+    if (latitude == null || longitude == null) {
+      throw FormatException(
+        'row ${row.rowNumber} is missing latitude/longitude (${row.name})',
+      );
+    }
+
+    final mgrs = PeakMgrsConverter.fromLatLng(LatLng(latitude, longitude));
+    return Peak(
+      osmId: row.osmId,
+      name: row.name,
+      elevation: row.elevation,
+      prominence: row.prominence,
+      latitude: latitude,
+      longitude: longitude,
+      country: row.country,
+      region: row.peakRegion,
+      range: row.range,
+      county: row.county,
+      rating: row.rating,
+      difficulty: row.difficulty,
+      viaFerrata: row.viaFerrata,
+      notes: row.notes,
       gridZoneDesignator: mgrs.gridZoneDesignator,
       mgrs100kId: mgrs.mgrs100kId,
       easting: mgrs.easting,
@@ -1033,6 +1122,104 @@ class PeakListImportService {
     return trimmed.padLeft(5, '0');
   }
 
+  ParsedPeakDuration? _parseAppOwnedDuration(
+    String rawValue, {
+    required int rowNumber,
+    required String name,
+  }) {
+    if (rawValue.isEmpty) {
+      return null;
+    }
+
+    try {
+      return parsePeakDuration(rawValue);
+    } on FormatException {
+      throw FormatException(
+        'invalid duration "$rawValue" on row $rowNumber ($name)',
+      );
+    }
+  }
+
+  bool? _parseAppOwnedVerified(
+    String rawValue, {
+    required int rowNumber,
+    required String name,
+  }) {
+    if (rawValue.isEmpty) {
+      return null;
+    }
+    if (rawValue == 'true') {
+      return true;
+    }
+    if (rawValue == 'false') {
+      return false;
+    }
+
+    throw FormatException(
+      'invalid verified "$rawValue" on row $rowNumber ($name)',
+    );
+  }
+
+  int? _parseAppOwnedPeakbaggerPid(
+    String rawValue, {
+    required int rowNumber,
+    required String name,
+  }) {
+    if (rawValue.isEmpty) {
+      return null;
+    }
+
+    final peakbaggerPid = int.tryParse(rawValue);
+    if (peakbaggerPid == null || peakbaggerPid <= 0) {
+      throw FormatException(
+        'invalid peakbaggerPid "$rawValue" on row $rowNumber ($name)',
+      );
+    }
+    return peakbaggerPid;
+  }
+
+  double? _parseAppOwnedNumber(
+    String rawValue, {
+    required String fieldName,
+    required int rowNumber,
+    required String name,
+  }) {
+    if (rawValue.isEmpty) {
+      return null;
+    }
+
+    final parsed = double.tryParse(rawValue);
+    if (parsed != null) {
+      return parsed;
+    }
+
+    throw FormatException(
+      'invalid $fieldName "$rawValue" on row $rowNumber ($name)',
+    );
+  }
+
+  double? _parseAppOwnedRating(
+    String rawValue, {
+    required int rowNumber,
+    required String name,
+  }) {
+    final parsed = _parseAppOwnedNumber(
+      rawValue,
+      fieldName: 'rating',
+      rowNumber: rowNumber,
+      name: name,
+    );
+    if (parsed == null) {
+      return null;
+    }
+    if (parsed < 0 || parsed > 5) {
+      throw FormatException(
+        'invalid rating "$rawValue" on row $rowNumber ($name)',
+      );
+    }
+    return (parsed * 10).round() / 10;
+  }
+
   String _rankedHeaderValue(String header) {
     return header.replaceFirst('\u{FEFF}', '').trim();
   }
@@ -1104,40 +1291,78 @@ class PeakListImportService {
     Peak? existingPeak,
   ) {
     if (existingPeak == null) {
+      if (row.name.isEmpty) {
+        throw FormatException('missing name on row ${row.rowNumber}');
+      }
+      if (row.region.isEmpty && row.country.isEmpty) {
+        throw FormatException(
+          'missing region and country on row ${row.rowNumber} (${row.name})',
+        );
+      }
       return Peak(
         osmId: row.osmId,
         name: row.name,
         altName: row.altName,
         elevation: row.elevation,
+        prominence: row.prominence,
+        rating: row.rating,
+        durationMinutes: row.duration?.durationMinutes,
+        durationLabel: row.duration?.durationLabel ?? '',
+        difficulty: row.difficulty,
+        viaFerrata: row.viaFerrata,
+        notes: row.notes,
         latitude: row.latitude,
         longitude: row.longitude,
-        region: row.region,
+        region: row.region.isEmpty ? row.country : row.region,
         gridZoneDesignator: row.gridZoneDesignator,
         mgrs100kId: row.mgrs100kId,
         easting: row.easting,
         northing: row.northing,
+        peakbaggerPid: row.peakbaggerPid,
         country: row.country,
         county: row.county,
         range: row.range,
-        sourceOfTruth: row.sourceOfTruth,
+        verified: row.verified ?? false,
+        sourceOfTruth: row.sourceOfTruth.isEmpty
+            ? Peak.sourceOfTruthOsm
+            : row.sourceOfTruth,
       );
     }
 
     return existingPeak.copyWith(
-      name: row.name,
-      altName: row.altName,
-      elevation: row.elevation,
+      name: row.name.isEmpty ? existingPeak.name : row.name,
+      altName: row.altName.isEmpty ? existingPeak.altName : row.altName,
+      elevation: row.elevation ?? existingPeak.elevation,
+      prominence: row.prominence ?? existingPeak.prominence,
+      rating: row.rating ?? existingPeak.rating,
+      durationMinutes: row.hasDuration
+          ? row.duration?.durationMinutes
+          : existingPeak.durationMinutes,
+      durationLabel: row.hasDuration
+          ? row.duration?.durationLabel ?? ''
+          : existingPeak.durationLabel,
+      difficulty: row.difficulty.isEmpty
+          ? existingPeak.difficulty
+          : row.difficulty,
+      viaFerrata: row.viaFerrata.isEmpty
+          ? existingPeak.viaFerrata
+          : row.viaFerrata,
+      notes: row.notes.isEmpty ? existingPeak.notes : row.notes,
       latitude: row.latitude,
       longitude: row.longitude,
-      country: row.country,
-      county: row.county,
-      range: row.range,
-      region: row.region,
+      country: row.country.isEmpty ? existingPeak.country : row.country,
+      county: row.county.isEmpty ? existingPeak.county : row.county,
+      range: row.range.isEmpty ? existingPeak.range : row.range,
+      region: row.region.isEmpty ? existingPeak.region : row.region,
       gridZoneDesignator: row.gridZoneDesignator,
       mgrs100kId: row.mgrs100kId,
       easting: row.easting,
       northing: row.northing,
-      sourceOfTruth: row.sourceOfTruth,
+      peakbaggerPid: row.peakbaggerPid ?? existingPeak.peakbaggerPid,
+      verified: row.verified ?? existingPeak.verified,
+      sourceOfTruth: row.sourceOfTruth.isEmpty
+          ? existingPeak.sourceOfTruth
+          : row.sourceOfTruth,
     );
   }
 
@@ -1363,9 +1588,15 @@ class _AppOwnedPeakListCsvRow {
   const _AppOwnedPeakListCsvRow({
     required this.rowNumber,
     required this.osmId,
+    required this.usedSyntheticOsmId,
     required this.name,
     required this.altName,
     required this.elevation,
+    required this.prominence,
+    required this.rating,
+    required this.duration,
+    required this.difficulty,
+    required this.viaFerrata,
     required this.gridZoneDesignator,
     required this.mgrs100kId,
     required this.easting,
@@ -1373,18 +1604,27 @@ class _AppOwnedPeakListCsvRow {
     required this.latitude,
     required this.longitude,
     required this.points,
+    required this.peakbaggerPid,
     required this.country,
     required this.region,
     required this.county,
     required this.range,
+    required this.notes,
+    required this.verified,
     required this.sourceOfTruth,
   });
 
   final int rowNumber;
   final int osmId;
+  final bool usedSyntheticOsmId;
   final String name;
   final String altName;
   final double? elevation;
+  final double? prominence;
+  final double? rating;
+  final ParsedPeakDuration? duration;
+  final String difficulty;
+  final String viaFerrata;
   final String gridZoneDesignator;
   final String mgrs100kId;
   final String easting;
@@ -1392,11 +1632,16 @@ class _AppOwnedPeakListCsvRow {
   final double latitude;
   final double longitude;
   final int points;
+  final int? peakbaggerPid;
   final String country;
   final String region;
   final String county;
   final String range;
+  final String notes;
+  final bool? verified;
   final String sourceOfTruth;
+
+  bool get hasDuration => duration != null;
 }
 
 const _rankedPeakListHeaders = [
