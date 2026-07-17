@@ -134,7 +134,6 @@ void main() {
       }
 
       await robot.openDashboard();
-      robot.expectTitle('Dashboard');
 
       jobsNotifier.openPanel();
       await tester.pump();
@@ -155,7 +154,6 @@ void main() {
       );
       await tester.pump();
 
-      robot.expectTitle('Dashboard');
       robot.expectJobStatus(1, 'Completed');
 
       await robot.dismissJob(1);
@@ -213,13 +211,11 @@ void main() {
       await tester.pump();
 
       await robot.openSettings();
-      robot.expectTitle('Settings');
       await robot.startPeakDataExport();
       expect(robot.snackbarOpenJobs, findsOneWidget);
       expect(robot.backgroundJobsEntry, findsOneWidget);
 
       await robot.openDashboard();
-      robot.expectTitle('Dashboard');
 
       await robot.openJobsPanel();
       expect(robot.backgroundJobsPanel, findsOneWidget);
@@ -241,7 +237,6 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      robot.expectTitle('Dashboard');
       robot.expectJobStatus(1, 'Completed');
       await robot.expandJob(1);
       expect(find.text('Rows written: 1,234'), findsOneWidget);

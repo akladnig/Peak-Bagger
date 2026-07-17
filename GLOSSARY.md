@@ -96,6 +96,14 @@ _Avoid_: screen-local task, blocking import/export
 The segmented ring drawn around a peak marker or peak cluster to show visible peak-list ownership in map rendering.
 _Avoid_: list ring, ownership halo
 
+**Peak duplicate resolution**:
+An ObjectBox Admin peak-maintenance workflow that reassigns app-owned references from a duplicate `Peak` to one surviving canonical `Peak` before deleting the duplicate row.
+_Avoid_: plain delete when the peak is being replaced
+
+**Surviving peak**:
+The canonical `Peak` record kept after peak duplicate resolution, after app-owned references are moved off the duplicate record.
+_Avoid_: target row, kept duplicate
+
 **Region FAB**:
 A permanent peak-list control shown for one manifest region, such as `Tasmania` or `Slovenia`, rather than for an individual peak list.
 _Avoid_: country FAB when the source of truth is a manifest region

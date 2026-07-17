@@ -2,9 +2,12 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/map_search_result.dart';
+import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
+import 'package:peak_bagger/models/route.dart';
+import 'package:peak_bagger/models/route_waypoint.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/services/peak_list_derived_data.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
@@ -362,6 +365,314 @@ void main() {
     });
 
     test(
+      'resolveDuplicate rewrites supported references and deletes the duplicate peak',
+      () async {
+        final duplicatePeak = Peak(
+          id: 7,
+          osmId: 123,
+          name: 'Duplicate Peak',
+          latitude: -41,
+          longitude: 146,
+        );
+        final survivingPeak = Peak(
+          id: 8,
+          osmId: 456,
+          name: 'Surviving Peak',
+          latitude: -41.1,
+          longitude: 146.1,
+        );
+        final otherPeak = Peak(
+          id: 9,
+          osmId: 999,
+          name: 'Other Peak',
+          latitude: -42,
+          longitude: 147,
+        );
+        final duplicateTrack =
+            GpxTrack(contentHash: 'track-1', trackName: 'Duplicate Track')
+              ..gpxTrackId = 21
+              ..peaks.addAll([duplicatePeak, otherPeak]);
+        final tracks = [duplicateTrack];
+        final route = Route(
+          id: 31,
+          name: 'Duplicate Route',
+          routeWaypoints: const [
+            RouteWaypoint(
+              latitude: -41,
+              longitude: 146,
+              label: 'Peak stop',
+              sequence: 1,
+              isPeakDerived: true,
+              peakOsmId: 123,
+              peakName: 'Old label',
+            ),
+          ],
+        );
+        final routes = [route];
+        final peakLists = [
+          PeakList(
+            name: 'Repair List',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 123, points: 4),
+              const PeakListItem(peakOsmId: 999, points: 2),
+            ]),
+          ),
+        ];
+        final peaksBagged = [
+          PeaksBagged(baggedId: 1, peakId: 123, gpxId: 21),
+          PeaksBagged(baggedId: 2, peakId: 999, gpxId: 22),
+        ];
+        final rewritePort = InMemoryPeakListRewritePort(
+          peakLists: peakLists,
+          peaksBagged: peaksBagged,
+          tracks: tracks,
+          routes: routes,
+          peakStorage: storage,
+        );
+        final detailedRepository = PeakRepository.test(
+          storage,
+          peakListRewritePort: rewritePort,
+        );
+        await detailedRepository.addPeaks([
+          duplicatePeak,
+          survivingPeak,
+          otherPeak,
+        ]);
+
+        final result = await detailedRepository.resolveDuplicate(
+          duplicatePeak: duplicatePeak,
+          survivingPeak: survivingPeak,
+        );
+
+        expect(result.isSuccess, isTrue);
+        expect(result.survivingPeak?.id, survivingPeak.id);
+        expect(detailedRepository.findById(duplicatePeak.id), isNull);
+        expect(detailedRepository.findById(survivingPeak.id)?.osmId, 456);
+        expect(
+          decodePeakListItems(
+            peakLists.single.peakList,
+          ).map((item) => item.peakOsmId).toList(),
+          [456, 999],
+        );
+        expect(peaksBagged.map((row) => row.peakId).toList(), [456, 999]);
+        expect(tracks.single.peaks.map((peak) => peak.osmId).toList(), [
+          456,
+          999,
+        ]);
+        expect(routes.single.routeWaypoints.single.peakOsmId, 456);
+        expect(routes.single.routeWaypoints.single.peakName, 'Old label');
+      },
+    );
+
+    test(
+      'resolveDuplicate normalizes peak-list, ascent, track, and route collisions',
+      () async {
+        final duplicatePeak = Peak(
+          id: 7,
+          osmId: 123,
+          name: 'Duplicate Peak',
+          latitude: -41,
+          longitude: 146,
+        );
+        final survivingPeak = Peak(
+          id: 8,
+          osmId: 456,
+          name: 'Surviving Peak',
+          latitude: -41.1,
+          longitude: 146.1,
+        );
+        final otherPeak = Peak(
+          id: 9,
+          osmId: 999,
+          name: 'Other Peak',
+          latitude: -42,
+          longitude: 147,
+        );
+        final track = GpxTrack(contentHash: 'track-2', trackName: 'Collision')
+          ..gpxTrackId = 41
+          ..peaks.addAll([duplicatePeak, survivingPeak, otherPeak]);
+        final tracks = [track];
+        final route = Route(
+          id: 51,
+          name: 'Waypoint Collisions',
+          routeWaypoints: const [
+            RouteWaypoint(
+              latitude: -41,
+              longitude: 146,
+              label: 'Shared',
+              sequence: 1,
+              isPeakDerived: true,
+              peakOsmId: 123,
+              peakName: 'Duplicate label',
+            ),
+            RouteWaypoint(
+              latitude: -41,
+              longitude: 146,
+              label: 'Shared',
+              sequence: 1,
+              isPeakDerived: true,
+              peakOsmId: 456,
+              peakName: 'Duplicate label',
+            ),
+            RouteWaypoint(
+              latitude: -41.2,
+              longitude: 146.2,
+              label: 'Distinct',
+              sequence: 2,
+              isPeakDerived: true,
+              peakOsmId: 123,
+              peakName: 'Distinct label',
+            ),
+          ],
+        );
+        final routes = [route];
+        final peakLists = [
+          PeakList(
+            name: 'Collision List',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 123, points: 7),
+              const PeakListItem(peakOsmId: 456, points: 9),
+              const PeakListItem(peakOsmId: 999, points: 2),
+            ]),
+          ),
+        ];
+        final peaksBagged = [
+          PeaksBagged(baggedId: 1, peakId: 123, gpxId: 41),
+          PeaksBagged(baggedId: 2, peakId: 456, gpxId: 41),
+        ];
+        final rewritePort = InMemoryPeakListRewritePort(
+          peakLists: peakLists,
+          peaksBagged: peaksBagged,
+          tracks: tracks,
+          routes: routes,
+          peakStorage: storage,
+        );
+        final detailedRepository = PeakRepository.test(
+          storage,
+          peakListRewritePort: rewritePort,
+        );
+        await detailedRepository.addPeaks([
+          duplicatePeak,
+          survivingPeak,
+          otherPeak,
+        ]);
+
+        final result = await detailedRepository.resolveDuplicate(
+          duplicatePeak: duplicatePeak,
+          survivingPeak: survivingPeak,
+        );
+
+        expect(result.isSuccess, isTrue);
+        expect(
+          decodePeakListItems(
+            peakLists.single.peakList,
+          ).map((item) => (item.peakOsmId, item.points)).toList(),
+          [(456, 7), (999, 2)],
+        );
+        expect(peaksBagged.map((row) => row.baggedId).toList(), [2]);
+        expect(peaksBagged.single.peakId, 456);
+        expect(tracks.single.peaks.map((peak) => peak.osmId).toList(), [
+          456,
+          999,
+        ]);
+        expect(routes.single.routeWaypoints, hasLength(2));
+        expect(
+          routes.single.routeWaypoints
+              .map((waypoint) => waypoint.label)
+              .toList(),
+          ['Shared', 'Distinct'],
+        );
+        expect(
+          routes.single.routeWaypoints
+              .map((waypoint) => waypoint.peakOsmId)
+              .toList(),
+          [456, 456],
+        );
+      },
+    );
+
+    test(
+      'resolveDuplicate rolls back earlier rewrites when a later write fails',
+      () async {
+        final duplicatePeak = Peak(
+          id: 7,
+          osmId: 123,
+          name: 'Duplicate Peak',
+          latitude: -41,
+          longitude: 146,
+        );
+        final survivingPeak = Peak(
+          id: 8,
+          osmId: 456,
+          name: 'Surviving Peak',
+          latitude: -41.1,
+          longitude: 146.1,
+        );
+        final track = GpxTrack(contentHash: 'track-3', trackName: 'Rollback')
+          ..gpxTrackId = 61
+          ..peaks.add(duplicatePeak);
+        final tracks = [track];
+        final route = Route(
+          id: 71,
+          name: 'Rollback Route',
+          routeWaypoints: const [
+            RouteWaypoint(
+              latitude: -41,
+              longitude: 146,
+              label: 'Rollback',
+              sequence: 1,
+              isPeakDerived: true,
+              peakOsmId: 123,
+            ),
+          ],
+        );
+        final routes = [route];
+        final peakLists = [
+          PeakList(
+            name: 'Rollback List',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 123, points: 5),
+            ]),
+          ),
+        ];
+        final peaksBagged = [PeaksBagged(baggedId: 1, peakId: 123, gpxId: 61)];
+        final rewritePort = InMemoryPeakListRewritePort(
+          peakLists: peakLists,
+          peaksBagged: peaksBagged,
+          tracks: tracks,
+          routes: routes,
+          peakStorage: storage,
+          beforeApplyTrackWritesForTest: () {
+            throw StateError('boom');
+          },
+        );
+        final detailedRepository = PeakRepository.test(
+          storage,
+          peakListRewritePort: rewritePort,
+        );
+        await detailedRepository.addPeaks([duplicatePeak, survivingPeak]);
+
+        final result = await detailedRepository.resolveDuplicate(
+          duplicatePeak: duplicatePeak,
+          survivingPeak: survivingPeak,
+        );
+
+        expect(result.isSuccess, isFalse);
+        expect(result.failureMessage, contains('boom'));
+        expect(detailedRepository.findById(duplicatePeak.id), isNotNull);
+        expect(
+          decodePeakListItems(
+            peakLists.single.peakList,
+          ).map((item) => item.peakOsmId).toList(),
+          [123],
+        );
+        expect(peaksBagged.single.peakId, 123);
+        expect(tracks.single.peaks.map((peak) => peak.osmId).toList(), [123]);
+        expect(routes.single.routeWaypoints.single.peakOsmId, 123);
+      },
+    );
+
+    test(
       'saveDetailed rewrites dependent PeakList and PeaksBagged rows',
       () async {
         final peakLists = [
@@ -517,6 +828,13 @@ class _NoopPeakListRewritePort implements PeakListRewritePort {
   }) {
     return 0;
   }
+
+  @override
+  void resolvePeakDuplicate({
+    required Peak duplicatePeak,
+    required Peak survivingPeak,
+    required PeakStorage peakStorage,
+  }) {}
 }
 
 class _RecordingPeakListRewritePort implements PeakListRewritePort {
@@ -607,5 +925,14 @@ class _RecordingPeakListRewritePort implements PeakListRewritePort {
     }
 
     return refreshedCount;
+  }
+
+  @override
+  void resolvePeakDuplicate({
+    required Peak duplicatePeak,
+    required Peak survivingPeak,
+    required PeakStorage peakStorage,
+  }) {
+    throw UnimplementedError();
   }
 }

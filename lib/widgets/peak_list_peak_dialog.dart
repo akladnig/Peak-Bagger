@@ -17,6 +17,7 @@ import '../providers/peak_list_selection_provider.dart';
 import '../providers/tasmap_provider.dart';
 import '../router.dart';
 import '../services/peak_list_repository.dart';
+import '../services/peak_list_visibility.dart';
 import '../services/tassy_full_peak_list_sync_service.dart';
 import '../core/widgets/popup_keyboard_dismiss.dart';
 import 'dialog_helpers.dart';
@@ -515,7 +516,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
           return true;
         }
 
-        return peak.region == Peak.defaultRegion;
+        return canonicalPeakRegionKey(peak) == Peak.defaultRegion;
       }).toList(),
     );
   }
