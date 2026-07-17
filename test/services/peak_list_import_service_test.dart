@@ -12,7 +12,7 @@ import 'package:peak_bagger/services/peak_repository.dart';
 void main() {
   group('PeakListImportService', () {
     test(
-      'ranked csv exact header imports by osmId and updates peak metadata',
+      'ranked csv extended header imports by osmId and updates peak metadata',
       () async {
         final peak =
             _buildPeak(
@@ -38,8 +38,8 @@ void main() {
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async =>
-              'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes,duration\n'
-              'Monte Amariana,101,4.35,1906,544,46.4084,13.0475,Italy,Friuli Venezia Giulia,Carnic Alps,Udine,EE,Optional,Ridge scramble,4-5 hours\n',
+              'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes,sourceOfTruth\n'
+              'Monte Amariana,101,4.35,1906,544,46.4084,13.0475,Italy,Friuli Venezia Giulia,Carnic Alps,Udine,EE,Optional,Ridge scramble, hribi \n',
           importRootLoader: () async => '/tmp/Bushwalking',
           logWriter: (logPath, entries) async {},
         );
@@ -67,10 +67,8 @@ void main() {
         expect(storedPeak?.county, 'Udine');
         expect(storedPeak?.range, 'Carnic Alps');
         expect(storedPeak?.region, 'fvg');
-        expect(storedPeak?.sourceOfTruth, 'FVG');
+        expect(storedPeak?.sourceOfTruth, 'HRIBI');
         expect(storedPeak?.rating, 4.4);
-        expect(storedPeak?.durationMinutes, 300);
-        expect(storedPeak?.durationLabel, '4-5 hours');
         expect(storedPeak?.difficulty, 'EE');
         expect(storedPeak?.viaFerrata, 'Optional');
         expect(storedPeak?.notes, 'Ridge scramble');
@@ -163,8 +161,8 @@ void main() {
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
-            'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes\n'
-            'Monte Amariana,101,,,,,,,Friuli Venezia Giulia,,,,\n',
+            'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes,sourceOfTruth\n'
+            'Monte Amariana,101,,,,,,,Friuli Venezia Giulia,,,,,,fvg\n',
         importRootLoader: () async => '/tmp/Bushwalking',
         logWriter: (logPath, entries) async {},
       );
@@ -189,7 +187,7 @@ void main() {
       expect(storedPeak?.sourceOfTruth, 'FVG');
     });
 
-    test('ranked csv unsupported region fails atomically', () async {
+    test('ranked csv internal region keys fail atomically', () async {
       final peak = _buildPeak(
         osmId: 101,
         name: 'Monte Amariana',
@@ -205,8 +203,8 @@ void main() {
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
-            'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes\n'
-            'Monte Amariana,101,4.3,1906,544,46.4084,13.0475,Italy,Slovenia,Carnic Alps,Udine,EE,Optional,Ridge scramble\n',
+            'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes,sourceOfTruth\n'
+            'Monte Amariana,101,4.3,1906,544,46.4084,13.0475,Italy,slovenia,Carnic Alps,Udine,EE,Optional,Ridge scramble,HRIBI\n',
         importRootLoader: () async => '/tmp/Bushwalking',
         logWriter: (logPath, entries) async {},
       );
@@ -220,7 +218,7 @@ void main() {
           isA<FormatException>().having(
             (error) => error.message,
             'message',
-            'unsupported region "Slovenia" on row 2',
+            'unsupported region "slovenia" on row 2',
           ),
         ),
       );
@@ -229,7 +227,7 @@ void main() {
       expect(peakListRepository.getAllPeakLists(), isEmpty);
     });
 
-    test('ranked csv mixed supported regions fail atomically', () async {
+    test('ranked csv mixed canonical regions import as a mixed peak list', () async {
       final peakA = _buildPeak(
         osmId: 101,
         name: 'Monte Amariana',
@@ -254,30 +252,26 @@ void main() {
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
-            'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes\n'
-            'Monte Amariana,101,4.3,1906,544,46.4084,13.0475,Italy,Friuli Venezia Giulia,Carnic Alps,Udine,EE,Optional,Ridge scramble\n'
-            'Monte Baldo,202,4.1,2218,1800,45.7332,10.8061,Italy,Veneto,Monte Baldo,Verona,EEA,No,Lake view\n',
+            'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes,sourceOfTruth\n'
+            'Monte Amariana,101,4.3,1906,544,46.4084,13.0475,Italy,Friuli Venezia Giulia,Carnic Alps,Udine,EE,Optional,Ridge scramble,HRIBI\n'
+            'Monte Baldo,202,4.1,2218,1800,45.7332,10.8061,Italy,Veneto,Monte Baldo,Verona,EEA,No,Lake view,HRIBI\n',
         importRootLoader: () async => '/tmp/Bushwalking',
         logWriter: (logPath, entries) async {},
       );
 
-      await expectLater(
-        service.importPeakList(
-          listName: 'Italy North East Ranked',
-          csvPath: '/tmp/north-east-ranked.csv',
-        ),
-        throwsA(
-          isA<FormatException>().having(
-            (error) => error.message,
-            'message',
-            'mixed ranked-import regions in one file',
-          ),
-        ),
+      final result = await service.importPeakList(
+        listName: 'Italy North East Ranked',
+        csvPath: '/tmp/north-east-ranked.csv',
       );
 
-      expect(peakRepository.findByOsmId(101)?.region, Peak.defaultRegion);
-      expect(peakRepository.findByOsmId(202)?.region, Peak.defaultRegion);
-      expect(peakListRepository.getAllPeakLists(), isEmpty);
+      expect(result.importedCount, 2);
+      expect(result.skippedCount, 0);
+      expect(peakRepository.findByOsmId(101)?.region, 'fvg');
+      expect(peakRepository.findByOsmId(202)?.region, 'veneto');
+      expect(
+        peakListRepository.findByName('Italy North East Ranked')?.region,
+        PeakList.mixedRegion,
+      );
     });
 
     test('ranked csv invalid rating fails atomically', () async {
@@ -323,7 +317,7 @@ void main() {
       expect(peakListRepository.getAllPeakLists(), isEmpty);
     });
 
-    test('ranked csv invalid duration fails atomically', () async {
+    test('ranked csv invalid sourceOfTruth fails atomically', () async {
       final peak = _buildPeak(
         osmId: 101,
         name: 'Monte Amariana',
@@ -339,8 +333,8 @@ void main() {
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
-            'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes,duration\n'
-            'Monte Amariana,101,4.3,1906,544,46.4084,13.0475,Italy,Friuli Venezia Giulia,Carnic Alps,Udine,EE,Optional,Ridge scramble,about 5 hours\n',
+            'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes,sourceOfTruth\n'
+            'Monte Amariana,101,4.3,1906,544,46.4084,13.0475,Italy,Friuli Venezia Giulia,Carnic Alps,Udine,EE,Optional,Ridge scramble,hribi/slovenia\n',
         importRootLoader: () async => '/tmp/Bushwalking',
         logWriter: (logPath, entries) async {},
       );
@@ -354,15 +348,157 @@ void main() {
           isA<FormatException>().having(
             (error) => error.message,
             'message',
-            'invalid duration "about 5 hours" on row 2 (Monte Amariana)',
+            'invalid sourceOfTruth "hribi/slovenia" on row 2 (Monte Amariana)',
           ),
         ),
       );
 
-      expect(peakRepository.findByOsmId(101)?.durationMinutes, isNull);
-      expect(peakRepository.findByOsmId(101)?.durationLabel, '');
+      expect(
+        peakRepository.findByOsmId(101)?.sourceOfTruth,
+        Peak.sourceOfTruthOsm,
+      );
       expect(peakListRepository.getAllPeakLists(), isEmpty);
     });
+
+    test(
+      'ranked csv legacy header still supports FVG provenance fallback',
+      () async {
+        final peak = _buildPeak(
+          osmId: 101,
+          name: 'Monte Amariana',
+          elevation: 1906,
+          latitude: 46.4084,
+          longitude: 13.0475,
+        );
+        final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+        final peakListRepository = PeakListRepository.test(
+          InMemoryPeakListStorage(),
+        );
+        final service = PeakListImportService(
+          peakRepository: peakRepository,
+          peakListRepository: peakListRepository,
+          csvLoader: (_) async =>
+              'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes\n'
+              'Monte Amariana,101,4.3,1906,544,46.4084,13.0475,Italy,Friuli Venezia Giulia,Carnic Alps,Udine,EE,Optional,Ridge scramble\n',
+          importRootLoader: () async => '/tmp/Bushwalking',
+          logWriter: (logPath, entries) async {},
+        );
+
+        await service.importPeakList(
+          listName: 'Legacy FVG Ranked',
+          csvPath: '/tmp/legacy-fvg-ranked.csv',
+        );
+
+        expect(
+          peakRepository.findByOsmId(101)?.sourceOfTruth,
+          Peak.sourceOfTruthFvg,
+        );
+        expect(peakRepository.findByOsmId(101)?.region, 'fvg');
+      },
+    );
+
+    test('ranked csv legacy header rejects newer manifest-backed regions', () async {
+      final peak = _buildPeak(
+        osmId: 101,
+        name: 'Triglav',
+        elevation: 2864,
+        latitude: 46.3783,
+        longitude: 13.8369,
+      );
+      final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+      );
+      final service = PeakListImportService(
+        peakRepository: peakRepository,
+        peakListRepository: peakListRepository,
+        csvLoader: (_) async =>
+            'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes\n'
+            'Triglav,101,4.9,2864,2048,46.3783,13.8369,Slovenia,Slovenia,Julian Alps,,AA,No,Highest peak\n',
+        importRootLoader: () async => '/tmp/Bushwalking',
+        logWriter: (logPath, entries) async {},
+      );
+
+      await expectLater(
+        service.importPeakList(
+          listName: 'Legacy Slovenia Ranked',
+          csvPath: '/tmp/legacy-slovenia-ranked.csv',
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            'region "Slovenia" on row 2 requires sourceOfTruth in the ranked CSV header',
+          ),
+        ),
+      );
+
+      expect(peakListRepository.getAllPeakLists(), isEmpty);
+      expect(
+        peakRepository.findByOsmId(101)?.sourceOfTruth,
+        Peak.sourceOfTruthOsm,
+      );
+    });
+
+    test(
+      'ranked csv explicit sourceOfTruth must stay consistent across one file',
+      () async {
+        final peakA = _buildPeak(
+          osmId: 101,
+          name: 'Monte Amariana',
+          elevation: 1906,
+          latitude: 46.4084,
+          longitude: 13.0475,
+        );
+        final peakB = _buildPeak(
+          osmId: 202,
+          name: 'Triglav',
+          elevation: 2864,
+          latitude: 46.3783,
+          longitude: 13.8369,
+        );
+        final peakRepository = PeakRepository.test(
+          InMemoryPeakStorage([peakA, peakB]),
+        );
+        final peakListRepository = PeakListRepository.test(
+          InMemoryPeakListStorage(),
+        );
+        final service = PeakListImportService(
+          peakRepository: peakRepository,
+          peakListRepository: peakListRepository,
+          csvLoader: (_) async =>
+              'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes,sourceOfTruth\n'
+              'Monte Amariana,101,4.3,1906,544,46.4084,13.0475,Italy,Friuli Venezia Giulia,Carnic Alps,Udine,EE,Optional,Ridge scramble,hribi\n'
+              'Triglav,202,4.9,2864,2048,46.3783,13.8369,Slovenia,Slovenia,Julian Alps,,AA,No,Highest peak,peakbagger\n',
+          importRootLoader: () async => '/tmp/Bushwalking',
+          logWriter: (logPath, entries) async {},
+        );
+
+        await expectLater(
+          service.importPeakList(
+            listName: 'Mixed Provenance Ranked',
+            csvPath: '/tmp/mixed-provenance-ranked.csv',
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              'mixed sourceOfTruth values in one file',
+            ),
+          ),
+        );
+
+        expect(peakListRepository.getAllPeakLists(), isEmpty);
+        expect(
+          peakRepository.findByOsmId(101)?.sourceOfTruth,
+          Peak.sourceOfTruthOsm,
+        );
+        expect(
+          peakRepository.findByOsmId(202)?.sourceOfTruth,
+          Peak.sourceOfTruthOsm,
+        );
+      },
+    );
 
     test(
       'quoted-comma row parses and imports when hard match rules pass',

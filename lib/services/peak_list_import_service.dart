@@ -12,8 +12,8 @@ import 'package:peak_bagger/services/peak_list_csv_export_service.dart';
 import 'package:peak_bagger/services/peak_list_file_picker.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
-import 'package:peak_bagger/services/peak_metadata_rules.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/region_manifest_catalog.dart';
 
 typedef PeakListCsvLoader = Future<String> Function(String csvPath);
 typedef PeakListImportRootLoader = Future<String> Function();
@@ -363,10 +363,13 @@ class PeakListImportService {
     final peaksByOsmId = {
       for (final peak in _peakRepository.getAllPeaks()) peak.osmId: peak,
     };
+    final hasExplicitSourceOfTruth =
+        headers.length == _extendedRankedPeakListHeaders.length;
     final items = <PeakListItem>[];
     final correctedPeaksByOsmId = <int, Peak>{};
     final seenOsmIds = <int>{};
-    _RankedRegionMapping? fileRegionMapping;
+    final canonicalPeakRegions = <String>{};
+    String? fileSourceOfTruth;
 
     for (var rowIndex = 1; rowIndex < rows.length; rowIndex++) {
       final row = rows[rowIndex];
@@ -380,13 +383,18 @@ class PeakListImportService {
         rowNumber: rowIndex + 1,
         seenOsmIds: seenOsmIds,
         peaksByOsmId: peaksByOsmId,
-        currentMapping: fileRegionMapping,
+        hasExplicitSourceOfTruth: hasExplicitSourceOfTruth,
       );
-      fileRegionMapping ??= rankedRow.regionMapping;
+      if (fileSourceOfTruth == null) {
+        fileSourceOfTruth = rankedRow.sourceOfTruth;
+      } else if (fileSourceOfTruth != rankedRow.sourceOfTruth) {
+        throw const FormatException('mixed sourceOfTruth values in one file');
+      }
       correctedPeaksByOsmId[rankedRow.osmId] = _applyRankedRow(
         rankedRow,
         peaksByOsmId[rankedRow.osmId]!,
       );
+      canonicalPeakRegions.add(rankedRow.peakRegion);
       items.add(PeakListItem(peakOsmId: rankedRow.osmId, points: 1));
       onRowProcessed();
     }
@@ -400,10 +408,11 @@ class PeakListImportService {
     final saved = await _peakListRepository.save(
       PeakList(
         name: listName,
-        region:
-            fileRegionMapping?.peakListRegion ??
-            existing?.region ??
-            Peak.defaultRegion,
+        region: switch (canonicalPeakRegions.length) {
+          0 => existing?.region ?? Peak.defaultRegion,
+          1 => canonicalPeakRegions.single,
+          _ => PeakList.mixedRegion,
+        },
         peakList: encodePeakListItems(items),
       ),
       recomputeDerivedFields: true,
@@ -434,19 +443,17 @@ class PeakListImportService {
     final headers = headerRow
         .map((value) => _rankedHeaderValue('$value'))
         .toList(growable: false);
-    if (headers.length != _rankedPeakListHeaders.length &&
-        headers.length !=
-            _rankedPeakListHeaders.length +
-                _optionalRankedPeakListHeaders.length) {
+    final expectedHeaders = switch (headers.length) {
+      14 => _rankedPeakListHeaders,
+      15 => _extendedRankedPeakListHeaders,
+      _ => null,
+    };
+    if (expectedHeaders == null) {
       return false;
     }
 
     for (var index = 0; index < headers.length; index++) {
-      final expectedHeader = index < _rankedPeakListHeaders.length
-          ? _rankedPeakListHeaders[index]
-          : _optionalRankedPeakListHeaders[index -
-                _rankedPeakListHeaders.length];
-      if (headers[index] != expectedHeader) {
+      if (headers[index] != expectedHeaders[index]) {
         return false;
       }
     }
@@ -572,7 +579,7 @@ class PeakListImportService {
     required int rowNumber,
     required Set<int> seenOsmIds,
     required Map<int, Peak> peaksByOsmId,
-    required _RankedRegionMapping? currentMapping,
+    required bool hasExplicitSourceOfTruth,
   }) {
     final data = <String, String>{};
     for (var index = 0; index < headers.length; index++) {
@@ -596,15 +603,17 @@ class PeakListImportService {
     }
 
     final regionValue = data['region'] ?? '';
-    final regionMapping = _rankedRegionMappings[regionValue];
-    if (regionMapping == null) {
-      throw FormatException(
-        'unsupported region "$regionValue" on row $rowNumber',
-      );
-    }
-    if (currentMapping != null && currentMapping != regionMapping) {
-      throw const FormatException('mixed ranked-import regions in one file');
-    }
+    final peakRegion = _resolveRankedPeakRegion(
+      regionValue,
+      rowNumber: rowNumber,
+    );
+    final sourceOfTruth = hasExplicitSourceOfTruth
+        ? _normalizeRankedSourceOfTruth(
+            data['sourceOfTruth'] ?? '',
+            rowNumber: rowNumber,
+            name: name,
+          )
+        : _legacyRankedSourceOfTruth(regionValue, rowNumber: rowNumber);
 
     return _RankedPeakListCsvRow(
       rowNumber: rowNumber,
@@ -645,31 +654,9 @@ class PeakListImportService {
       difficulty: data['difficulty'] ?? '',
       viaFerrata: data['viaFerrata'] ?? '',
       notes: data['notes'] ?? '',
-      duration: _parseRankedDuration(
-        data['duration'] ?? '',
-        rowNumber: rowNumber,
-        name: name,
-      ),
-      regionMapping: regionMapping,
+      peakRegion: peakRegion,
+      sourceOfTruth: sourceOfTruth,
     );
-  }
-
-  ParsedPeakDuration? _parseRankedDuration(
-    String rawValue, {
-    required int rowNumber,
-    required String name,
-  }) {
-    if (rawValue.isEmpty) {
-      return null;
-    }
-
-    try {
-      return parsePeakDuration(rawValue);
-    } on FormatException {
-      throw FormatException(
-        'invalid duration "$rawValue" on row $rowNumber ($name)',
-      );
-    }
   }
 
   double? _parseRankedRating(
@@ -723,12 +710,10 @@ class PeakListImportService {
       latitude: latitude,
       longitude: longitude,
       country: row.country.isEmpty ? peak.country : row.country,
-      region: row.regionMapping.peakRegion,
+      region: row.peakRegion,
       range: row.range.isEmpty ? peak.range : row.range,
       county: row.county.isEmpty ? peak.county : row.county,
       rating: row.rating ?? peak.rating,
-      durationMinutes: row.duration?.durationMinutes ?? peak.durationMinutes,
-      durationLabel: row.duration?.durationLabel ?? peak.durationLabel,
       difficulty: row.difficulty.isEmpty ? peak.difficulty : row.difficulty,
       viaFerrata: row.viaFerrata.isEmpty ? peak.viaFerrata : row.viaFerrata,
       notes: row.notes.isEmpty ? peak.notes : row.notes,
@@ -736,7 +721,7 @@ class PeakListImportService {
       mgrs100kId: mgrs.mgrs100kId,
       easting: mgrs.easting,
       northing: mgrs.northing,
-      sourceOfTruth: row.regionMapping.sourceOfTruth,
+      sourceOfTruth: row.sourceOfTruth,
     );
   }
 
@@ -1049,7 +1034,69 @@ class PeakListImportService {
   }
 
   String _rankedHeaderValue(String header) {
-    return header.replaceFirst('\u{FEFF}', '');
+    return header.replaceFirst('\u{FEFF}', '').trim();
+  }
+
+  String _resolveRankedPeakRegion(
+    String rawRegionValue, {
+    required int rowNumber,
+  }) {
+    final regionData = regionManifestCatalog.regionByDisplayName(
+      rawRegionValue,
+    );
+    if (regionData == null || _isUnsupportedRankedRegionKey(regionData.key)) {
+      throw FormatException(
+        'unsupported region "$rawRegionValue" on row $rowNumber',
+      );
+    }
+
+    return regionData.key;
+  }
+
+  bool _isUnsupportedRankedRegionKey(String regionKey) {
+    return switch (regionKey) {
+      'italy' || 'italy-nord-est' || 'italy-nord-ovest' => true,
+      _ => false,
+    };
+  }
+
+  String _normalizeRankedSourceOfTruth(
+    String rawValue, {
+    required int rowNumber,
+    required String name,
+  }) {
+    final normalized = rawValue.trim().toUpperCase();
+    if (normalized.isEmpty) {
+      throw FormatException('row $rowNumber is missing sourceOfTruth ($name)');
+    }
+    if (normalized.contains(',')) {
+      throw FormatException(
+        'invalid sourceOfTruth "$rawValue" on row $rowNumber ($name)',
+      );
+    }
+    if (!RegExp(r'[A-Z0-9]').hasMatch(normalized) ||
+        !RegExp(r'^[A-Z0-9 ._-]+$').hasMatch(normalized)) {
+      throw FormatException(
+        'invalid sourceOfTruth "$rawValue" on row $rowNumber ($name)',
+      );
+    }
+
+    return normalized;
+  }
+
+  String _legacyRankedSourceOfTruth(
+    String regionValue, {
+    required int rowNumber,
+  }) {
+    final normalized = regionValue.trim();
+    final sourceOfTruth = _legacyRankedSourceOfTruthByDisplayName[normalized];
+    if (sourceOfTruth != null) {
+      return sourceOfTruth;
+    }
+
+    throw FormatException(
+      'region "$regionValue" on row $rowNumber requires sourceOfTruth in the ranked CSV header',
+    );
   }
 
   Peak _applyAppOwnedExportRow(
@@ -1290,8 +1337,8 @@ class _RankedPeakListCsvRow {
     required this.difficulty,
     required this.viaFerrata,
     required this.notes,
-    required this.duration,
-    required this.regionMapping,
+    required this.peakRegion,
+    required this.sourceOfTruth,
   });
 
   final int rowNumber;
@@ -1308,8 +1355,8 @@ class _RankedPeakListCsvRow {
   final String difficulty;
   final String viaFerrata;
   final String notes;
-  final ParsedPeakDuration? duration;
-  final _RankedRegionMapping regionMapping;
+  final String peakRegion;
+  final String sourceOfTruth;
 }
 
 class _AppOwnedPeakListCsvRow {
@@ -1352,18 +1399,6 @@ class _AppOwnedPeakListCsvRow {
   final String sourceOfTruth;
 }
 
-class _RankedRegionMapping {
-  const _RankedRegionMapping({
-    required this.peakRegion,
-    required this.peakListRegion,
-    required this.sourceOfTruth,
-  });
-
-  final String peakRegion;
-  final String peakListRegion;
-  final String sourceOfTruth;
-}
-
 const _rankedPeakListHeaders = [
   'name',
   'osmId',
@@ -1381,19 +1416,14 @@ const _rankedPeakListHeaders = [
   'notes',
 ];
 
-const _optionalRankedPeakListHeaders = ['duration'];
+const _extendedRankedPeakListHeaders = [
+  ..._rankedPeakListHeaders,
+  'sourceOfTruth',
+];
 
-const _rankedRegionMappings = {
-  'Friuli Venezia Giulia': _RankedRegionMapping(
-    peakRegion: 'fvg',
-    peakListRegion: 'italy-nord-est',
-    sourceOfTruth: Peak.sourceOfTruthFvg,
-  ),
-  'Veneto': _RankedRegionMapping(
-    peakRegion: 'veneto',
-    peakListRegion: 'italy-nord-est',
-    sourceOfTruth: Peak.sourceOfTruthVeneto,
-  ),
+const _legacyRankedSourceOfTruthByDisplayName = {
+  'Friuli Venezia Giulia': Peak.sourceOfTruthFvg,
+  'Veneto': Peak.sourceOfTruthVeneto,
 };
 
 const _candidateThresholdsMeters = [
