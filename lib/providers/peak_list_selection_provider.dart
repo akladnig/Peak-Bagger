@@ -73,12 +73,22 @@ final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((
         normalizePeakListRegionKey(peakList.region),
       ),
   };
-  final visiblePinnedPeakListIds = hasResolvedVisibleBounds
-      ? <int>{
-          for (final regionKey in visibleRegionKeys)
-            ...?pinnedPeakListIdsByRegion[regionKey],
-        }
-      : <int>{for (final ids in pinnedPeakListIdsByRegion.values) ...ids};
+  final visiblePinnedPeakListIds = {
+    for (final peakList in peakLists)
+      if ((!hasResolvedVisibleBounds ||
+              peakListAppliesToVisibleRegions(
+                peakList,
+                visibleRegionKeys,
+                visibleBounds: visibleBounds,
+                peaks: peaks,
+              )) &&
+          peakListIsPinned(
+            peakList: peakList,
+            pinnedPeakListIdsByRegion: pinnedPeakListIdsByRegion,
+            peaks: peaks,
+          ))
+        peakList.peakListId,
+  };
   final visibleSelectedPeakListIds = hasResolvedVisibleBounds
       ? {
           for (final peakListId in selectedPeakListIds)

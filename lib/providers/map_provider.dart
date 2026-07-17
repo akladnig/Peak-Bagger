@@ -4921,10 +4921,11 @@ class MapNotifier extends Notifier<MapState> {
     required String regionKey,
     required int peakListId,
   }) {
-    final normalizedRegionKey = canonicalRegionKey(
-      normalizePeakListRegionKey(regionKey),
+    final pinRegionKeys = _pinRegionKeysForPeakList(
+      regionKey: regionKey,
+      peakListId: peakListId,
     );
-    if (normalizedRegionKey == null) {
+    if (pinRegionKeys.isEmpty) {
       return;
     }
 
@@ -4932,13 +4933,20 @@ class MapNotifier extends Notifier<MapState> {
       for (final entry in state.pinnedPeakListIdsByRegion.entries)
         entry.key: Set<int>.of(entry.value),
     };
-    final pinnedIds = Set<int>.of(
-      nextPinnedPeakListIdsByRegion[normalizedRegionKey] ?? const <int>{},
-    );
-    if (!pinnedIds.add(peakListId)) {
+    var changed = false;
+    for (final pinRegionKey in pinRegionKeys) {
+      final pinnedIds = Set<int>.of(
+        nextPinnedPeakListIdsByRegion[pinRegionKey] ?? const <int>{},
+      );
+      if (!pinnedIds.add(peakListId)) {
+        continue;
+      }
+      nextPinnedPeakListIdsByRegion[pinRegionKey] = pinnedIds;
+      changed = true;
+    }
+    if (!changed) {
       return;
     }
-    nextPinnedPeakListIdsByRegion[normalizedRegionKey] = pinnedIds;
     _updatePinnedPeakListIdsByRegion(nextPinnedPeakListIdsByRegion);
   }
 
@@ -4946,10 +4954,11 @@ class MapNotifier extends Notifier<MapState> {
     required String regionKey,
     required int peakListId,
   }) {
-    final normalizedRegionKey = canonicalRegionKey(
-      normalizePeakListRegionKey(regionKey),
+    final pinRegionKeys = _pinRegionKeysForPeakList(
+      regionKey: regionKey,
+      peakListId: peakListId,
     );
-    if (normalizedRegionKey == null) {
+    if (pinRegionKeys.isEmpty) {
       return;
     }
 
@@ -4957,16 +4966,64 @@ class MapNotifier extends Notifier<MapState> {
       for (final entry in state.pinnedPeakListIdsByRegion.entries)
         entry.key: Set<int>.of(entry.value),
     };
-    final pinnedIds = nextPinnedPeakListIdsByRegion[normalizedRegionKey];
-    if (pinnedIds == null || !pinnedIds.remove(peakListId)) {
+    var changed = false;
+    for (final pinRegionKey in pinRegionKeys) {
+      final pinnedIds = nextPinnedPeakListIdsByRegion[pinRegionKey];
+      if (pinnedIds == null || !pinnedIds.remove(peakListId)) {
+        continue;
+      }
+      if (pinnedIds.isEmpty) {
+        nextPinnedPeakListIdsByRegion.remove(pinRegionKey);
+      } else {
+        nextPinnedPeakListIdsByRegion[pinRegionKey] = pinnedIds;
+      }
+      changed = true;
+    }
+    if (!changed) {
       return;
     }
-    if (pinnedIds.isEmpty) {
-      nextPinnedPeakListIdsByRegion.remove(normalizedRegionKey);
-    } else {
-      nextPinnedPeakListIdsByRegion[normalizedRegionKey] = pinnedIds;
-    }
     _updatePinnedPeakListIdsByRegion(nextPinnedPeakListIdsByRegion);
+  }
+
+  Set<String> _pinRegionKeysForPeakList({
+    required String regionKey,
+    required int peakListId,
+  }) {
+    final normalizedRegionKey = canonicalRegionKey(
+      normalizePeakListRegionKey(regionKey),
+    );
+    PeakList? peakList;
+    try {
+      final peakLists = ref.read(peakListRepositoryProvider).getAllPeakLists();
+      for (final candidate in peakLists) {
+        if (candidate.peakListId == peakListId) {
+          peakList = candidate;
+          break;
+        }
+      }
+    } catch (_) {}
+
+    if (peakList == null) {
+      return normalizedRegionKey == null
+          ? const <String>{}
+          : {normalizedRegionKey};
+    }
+
+    if (peakList.region != PeakList.mixedRegion) {
+      return normalizedRegionKey == null
+          ? const <String>{}
+          : {normalizedRegionKey};
+    }
+
+    final regionKeys = memberRegionKeysForPeakList(
+      peakList: peakList,
+      peaks: state.peaks,
+    );
+    if (regionKeys.isNotEmpty) {
+      return regionKeys;
+    }
+
+    return const <String>{};
   }
 
   void _updatePinnedPeakListIdsByRegion(Map<String, Set<int>> idsByRegion) {

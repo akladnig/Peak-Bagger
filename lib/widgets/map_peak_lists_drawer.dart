@@ -128,15 +128,11 @@ class MapPeakListsDrawer extends ConsumerWidget {
                   ),
                   child: Builder(
                     builder: (context) {
-                      final regionKey = canonicalRegionKey(
-                        normalizePeakListRegionKey(entry.peakList.region),
+                      final isPinned = peakListIsPinned(
+                        peakList: entry.peakList,
+                        pinnedPeakListIdsByRegion: pinnedPeakListIdsByRegion,
+                        peaks: peaks,
                       );
-                      final isPinned =
-                          regionKey != null &&
-                          (pinnedPeakListIdsByRegion[regionKey]?.contains(
-                                entry.peakList.peakListId,
-                              ) ??
-                              false);
                       final controlStyle = peakListControlVisualStyle(
                         context,
                         isSelected:

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
@@ -412,6 +413,85 @@ void main() {
         prefs.getString('peak_list_pinned_ids_by_region_v1'),
         '{"tasmania":[9]}',
       );
+    },
+  );
+
+  test(
+    'pinning and unpinning a mixed list fan out across canonical member regions',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => _InitialStateMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 15,
+                basemap: Basemap.tracestrack,
+                peaks: [
+                  Peak(
+                    osmId: 100,
+                    name: 'Tas Peak',
+                    latitude: -43.0,
+                    longitude: 147.0,
+                    region: 'tasmania',
+                  ),
+                  Peak(
+                    osmId: 200,
+                    name: 'NSW Peak',
+                    latitude: -33.7,
+                    longitude: 149.0,
+                    region: 'new-south-wales',
+                  ),
+                ],
+              ),
+            ),
+          ),
+          peakListRepositoryProvider.overrideWithValue(
+            PeakListRepository.test(
+              InMemoryPeakListStorage([
+                PeakList(
+                  name: 'Mixed',
+                  region: PeakList.mixedRegion,
+                  peakList: encodePeakListItems([
+                    const PeakListItem(peakOsmId: 100, points: 1),
+                    const PeakListItem(peakOsmId: 200, points: 1),
+                  ]),
+                )..peakListId = 9,
+              ]),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container
+          .read(mapProvider.notifier)
+          .pinPeakListForRegion(regionKey: PeakList.mixedRegion, peakListId: 9);
+      await _drainAsync();
+
+      expect(container.read(mapProvider).pinnedPeakListIdsByRegion, {
+        'new-south-wales': {9},
+        'tasmania': {9},
+      });
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getString('peak_list_pinned_ids_by_region_v1'),
+        '{"new-south-wales":[9],"tasmania":[9]}',
+      );
+
+      container
+          .read(mapProvider.notifier)
+          .unpinPeakListForRegion(
+            regionKey: PeakList.mixedRegion,
+            peakListId: 9,
+          );
+      await _drainAsync();
+
+      expect(container.read(mapProvider).pinnedPeakListIdsByRegion, isEmpty);
+      expect(prefs.getString('peak_list_pinned_ids_by_region_v1'), '{}');
     },
   );
 
