@@ -278,6 +278,13 @@ class _NoopPeakListRewritePort implements PeakListRewritePort {
   }) {
     return 0;
   }
+
+  @override
+  void resolvePeakDuplicate({
+    required Peak duplicatePeak,
+    required Peak survivingPeak,
+    required PeakStorage peakStorage,
+  }) {}
 }
 
 class _NoopPeakDeleteGuardSource implements PeakDeleteGuardSource {

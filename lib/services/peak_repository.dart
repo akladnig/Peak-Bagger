@@ -1,10 +1,14 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/map_search_result.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
+import 'package:peak_bagger/models/route.dart';
+import 'package:peak_bagger/models/route_waypoint.dart';
 import 'package:peak_bagger/services/peak_list_derived_data.dart';
 import 'package:peak_bagger/services/map_search_region_filter.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
@@ -68,6 +72,33 @@ class PeakSaveResult {
   String? get warningMessage => peakListRewriteResult?.warningMessage;
 }
 
+class PeakDuplicateResolutionResult {
+  const PeakDuplicateResolutionResult._({
+    required this.survivingPeak,
+    required this.failureMessage,
+  });
+
+  const PeakDuplicateResolutionResult.success({required Peak survivingPeak})
+    : this._(survivingPeak: survivingPeak, failureMessage: null);
+
+  const PeakDuplicateResolutionResult.failure(String failureMessage)
+    : this._(survivingPeak: null, failureMessage: failureMessage);
+
+  final Peak? survivingPeak;
+  final String? failureMessage;
+
+  bool get isSuccess => failureMessage == null;
+}
+
+class PeakDuplicateResolutionException implements Exception {
+  const PeakDuplicateResolutionException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 abstract class PeakListRewritePort {
   PeakListRewriteResult rewriteOsmIdReferences({
     required int oldOsmId,
@@ -78,17 +109,27 @@ abstract class PeakListRewritePort {
     required Peak previousPeak,
     required Peak updatedPeak,
   });
+
+  void resolvePeakDuplicate({
+    required Peak duplicatePeak,
+    required Peak survivingPeak,
+    required PeakStorage peakStorage,
+  });
 }
 
 class ObjectBoxPeakListRewritePort implements PeakListRewritePort {
   ObjectBoxPeakListRewritePort(Store store)
     : _peakListBox = store.box<PeakList>(),
       _peakBox = store.box<Peak>(),
-      _peaksBaggedBox = store.box<PeaksBagged>();
+      _peaksBaggedBox = store.box<PeaksBagged>(),
+      _gpxTrackBox = store.box<GpxTrack>(),
+      _routeBox = store.box<Route>();
 
   final Box<PeakList> _peakListBox;
   final Box<Peak> _peakBox;
   final Box<PeaksBagged> _peaksBaggedBox;
+  final Box<GpxTrack> _gpxTrackBox;
+  final Box<Route> _routeBox;
 
   @override
   PeakListRewriteResult rewriteOsmIdReferences({
@@ -192,6 +233,232 @@ class ObjectBoxPeakListRewritePort implements PeakListRewritePort {
     }
 
     return refreshedCount;
+  }
+
+  @override
+  void resolvePeakDuplicate({
+    required Peak duplicatePeak,
+    required Peak survivingPeak,
+    required PeakStorage peakStorage,
+  }) {
+    final peaksByOsmId = {
+      for (final peak in _peakBox.getAll()) peak.osmId: peak,
+    };
+    final baggedPlan = _buildPeaksBaggedUpdates(
+      _peaksBaggedBox.getAll(),
+      duplicatePeak: duplicatePeak,
+      survivingPeak: survivingPeak,
+    );
+    final trackUpdates = _buildTrackUpdates(
+      tracks: _gpxTrackBox.getAll(),
+      duplicatePeak: duplicatePeak,
+      survivingPeak: survivingPeak,
+    );
+    final routeUpdates = _buildRouteUpdates(
+      routes: _routeBox.getAll(),
+      duplicatePeak: duplicatePeak,
+      survivingPeak: survivingPeak,
+    );
+    final peakListUpdates = _buildPeakListUpdates(
+      peakLists: _peakListBox.getAll(),
+      peaksByOsmId: peaksByOsmId,
+      duplicatePeak: duplicatePeak,
+      survivingPeak: survivingPeak,
+    );
+
+    if (peakListUpdates.isNotEmpty) {
+      _peakListBox.putMany(
+        peakListUpdates.map((update) => update.updated).toList(growable: false),
+      );
+    }
+    if (baggedPlan.removeIds.isNotEmpty) {
+      _peaksBaggedBox.removeMany(baggedPlan.removeIds);
+    }
+    if (baggedPlan.updates.isNotEmpty) {
+      _peaksBaggedBox.putMany(
+        baggedPlan.updates
+            .map((update) => update.updated)
+            .toList(growable: false),
+      );
+    }
+    if (trackUpdates.isNotEmpty) {
+      _gpxTrackBox.putMany(
+        trackUpdates.map((update) => update.updated).toList(growable: false),
+      );
+    }
+    if (routeUpdates.isNotEmpty) {
+      _routeBox.putMany(
+        routeUpdates.map((update) => update.updated).toList(growable: false),
+      );
+    }
+
+    unawaited(peakStorage.delete(duplicatePeak.id));
+  }
+}
+
+class InMemoryPeakListRewritePort implements PeakListRewritePort {
+  InMemoryPeakListRewritePort({
+    required this.peakLists,
+    required this.peaksBagged,
+    required this.tracks,
+    required this.routes,
+    required this.peakStorage,
+    this.beforeApplyTrackWritesForTest,
+  });
+
+  final List<PeakList> peakLists;
+  final List<PeaksBagged> peaksBagged;
+  final List<GpxTrack> tracks;
+  final List<Route> routes;
+  final PeakStorage peakStorage;
+  final void Function()? beforeApplyTrackWritesForTest;
+
+  @override
+  PeakListRewriteResult rewriteOsmIdReferences({
+    required int oldOsmId,
+    required int newOsmId,
+  }) {
+    var rewrittenCount = 0;
+    var skippedMalformedCount = 0;
+
+    for (var index = 0; index < peakLists.length; index++) {
+      final peakList = peakLists[index];
+      try {
+        final items = decodePeakListItems(peakList.peakList);
+        var changed = false;
+        final updatedItems = <PeakListItem>[];
+        for (final item in items) {
+          if (item.peakOsmId == oldOsmId) {
+            updatedItems.add(
+              PeakListItem(peakOsmId: newOsmId, points: item.points),
+            );
+            changed = true;
+          } else {
+            updatedItems.add(item);
+          }
+        }
+        if (changed) {
+          rewrittenCount += 1;
+          peakLists[index] = peakList.copyWith(
+            peakList: encodePeakListItems(updatedItems),
+          );
+        }
+      } catch (_) {
+        skippedMalformedCount += 1;
+      }
+    }
+
+    for (var index = 0; index < peaksBagged.length; index++) {
+      final row = peaksBagged[index];
+      if (row.peakId == oldOsmId) {
+        peaksBagged[index] = PeaksBagged(
+          baggedId: row.baggedId,
+          peakId: newOsmId,
+          gpxId: row.gpxId,
+          date: row.date,
+        );
+      }
+    }
+
+    return PeakListRewriteResult(
+      rewrittenCount: rewrittenCount,
+      skippedMalformedCount: skippedMalformedCount,
+    );
+  }
+
+  @override
+  int refreshDerivedDataForPeakReferences({
+    required Peak previousPeak,
+    required Peak updatedPeak,
+  }) {
+    final peaksByOsmId = {
+      for (final peak in peakStorage.getAll()) peak.osmId: peak,
+    };
+    final refreshedOsmIds = {previousPeak.osmId, updatedPeak.osmId};
+    var refreshedCount = 0;
+
+    for (var index = 0; index < peakLists.length; index++) {
+      final peakList = peakLists[index];
+      late final List<PeakListItem> items;
+      try {
+        items = decodePeakListItems(peakList.peakList);
+      } catch (_) {
+        continue;
+      }
+      if (!items.any((item) => refreshedOsmIds.contains(item.peakOsmId))) {
+        continue;
+      }
+
+      final derivedData = derivePeakListDerivedData(
+        peakList: peakList,
+        items: items,
+        peakResolver: (peakOsmId) => peaksByOsmId[peakOsmId],
+      );
+      peakLists[index] = derivedData.applyTo(peakList);
+      refreshedCount += 1;
+    }
+
+    return refreshedCount;
+  }
+
+  @override
+  void resolvePeakDuplicate({
+    required Peak duplicatePeak,
+    required Peak survivingPeak,
+    required PeakStorage peakStorage,
+  }) {
+    final peaksByOsmId = {
+      for (final peak in this.peakStorage.getAll()) peak.osmId: peak,
+    };
+    final baggedPlan = _buildPeaksBaggedUpdates(
+      peaksBagged,
+      duplicatePeak: duplicatePeak,
+      survivingPeak: survivingPeak,
+    );
+    final trackUpdates = _buildTrackUpdates(
+      tracks: tracks,
+      duplicatePeak: duplicatePeak,
+      survivingPeak: survivingPeak,
+    );
+    final routeUpdates = _buildRouteUpdates(
+      routes: routes,
+      duplicatePeak: duplicatePeak,
+      survivingPeak: survivingPeak,
+    );
+    final peakListUpdates = _buildPeakListUpdates(
+      peakLists: peakLists,
+      peaksByOsmId: peaksByOsmId,
+      duplicatePeak: duplicatePeak,
+      survivingPeak: survivingPeak,
+    );
+
+    final peakListSnapshot = peakLists
+        .map(_clonePeakList)
+        .toList(growable: false);
+    final peaksBaggedSnapshot = peaksBagged
+        .map(_clonePeaksBagged)
+        .toList(growable: false);
+    final trackSnapshot = tracks.map(_cloneTrack).toList(growable: false);
+    final routeSnapshot = routes.map(_cloneRoute).toList(growable: false);
+
+    try {
+      _applyPeakListUpdates(peakLists, peakListUpdates);
+      _applyPeaksBaggedUpdates(
+        peaksBagged,
+        updates: baggedPlan.updates,
+        removeIds: baggedPlan.removeIds,
+      );
+      beforeApplyTrackWritesForTest?.call();
+      _applyTrackUpdates(tracks, trackUpdates);
+      _applyRouteUpdates(routes, routeUpdates);
+      unawaited(peakStorage.delete(duplicatePeak.id));
+    } catch (_) {
+      _restorePeakLists(peakLists, peakListSnapshot);
+      _restorePeaksBagged(peaksBagged, peaksBaggedSnapshot);
+      _restoreTracks(tracks, trackSnapshot);
+      _restoreRoutes(routes, routeSnapshot);
+      rethrow;
+    }
   }
 }
 
@@ -576,6 +843,64 @@ class PeakRepository implements PeakSource {
     );
   }
 
+  Future<PeakDuplicateResolutionResult> resolveDuplicate({
+    required Peak duplicatePeak,
+    required Peak survivingPeak,
+  }) async {
+    final storedDuplicatePeak = _resolveStoredPeakForDuplicateResolution(
+      duplicatePeak,
+    );
+    if (storedDuplicatePeak == null) {
+      return const PeakDuplicateResolutionResult.failure(
+        'Peak duplicate resolution failed: the duplicate peak no longer exists.',
+      );
+    }
+
+    final storedSurvivingPeak = _resolveStoredPeakForDuplicateResolution(
+      survivingPeak,
+    );
+    if (storedSurvivingPeak == null) {
+      return const PeakDuplicateResolutionResult.failure(
+        'Peak duplicate resolution failed: the Surviving peak no longer exists.',
+      );
+    }
+
+    if (storedDuplicatePeak.id == storedSurvivingPeak.id) {
+      return const PeakDuplicateResolutionResult.failure(
+        'Peak duplicate resolution failed: the duplicate peak and Surviving peak must be different records.',
+      );
+    }
+
+    try {
+      final store = _store;
+      if (store == null) {
+        _peakListRewritePort.resolvePeakDuplicate(
+          duplicatePeak: storedDuplicatePeak,
+          survivingPeak: storedSurvivingPeak,
+          peakStorage: _storage,
+        );
+      } else {
+        store.runInTransaction(TxMode.write, () {
+          _peakListRewritePort.resolvePeakDuplicate(
+            duplicatePeak: storedDuplicatePeak,
+            survivingPeak: storedSurvivingPeak,
+            peakStorage: _storage,
+          );
+        });
+      }
+    } on PeakDuplicateResolutionException catch (error) {
+      return PeakDuplicateResolutionResult.failure(error.message);
+    } catch (error) {
+      return PeakDuplicateResolutionResult.failure(
+        'Peak duplicate resolution failed: $error',
+      );
+    }
+
+    return PeakDuplicateResolutionResult.success(
+      survivingPeak: storedSurvivingPeak,
+    );
+  }
+
   Future<void> backfillRegion(String region) async {
     final peaks = _storage.getAll();
     if (peaks.isEmpty || peaks.every((peak) => peak.region == region)) {
@@ -656,6 +981,16 @@ class PeakRepository implements PeakSource {
   bool isEmpty() {
     return _storage.isEmpty;
   }
+
+  Peak? _resolveStoredPeakForDuplicateResolution(Peak peak) {
+    if (peak.id != 0) {
+      return _storage.getById(peak.id);
+    }
+    if (peak.osmId != 0) {
+      return findByOsmId(peak.osmId);
+    }
+    return null;
+  }
 }
 
 class _NoopPeakListRewritePort implements PeakListRewritePort {
@@ -677,4 +1012,327 @@ class _NoopPeakListRewritePort implements PeakListRewritePort {
   }) {
     return 0;
   }
+
+  @override
+  void resolvePeakDuplicate({
+    required Peak duplicatePeak,
+    required Peak survivingPeak,
+    required PeakStorage peakStorage,
+  }) {}
+}
+
+typedef _PeakListUpdate = ({PeakList original, PeakList updated});
+typedef _PeaksBaggedUpdate = ({PeaksBagged original, PeaksBagged updated});
+typedef _TrackUpdate = ({GpxTrack original, GpxTrack updated});
+typedef _RouteUpdate = ({Route original, Route updated});
+
+List<_PeakListUpdate> _buildPeakListUpdates({
+  required List<PeakList> peakLists,
+  required Map<int, Peak> peaksByOsmId,
+  required Peak duplicatePeak,
+  required Peak survivingPeak,
+}) {
+  final updates = <_PeakListUpdate>[];
+
+  for (final peakList in peakLists) {
+    late final List<PeakListItem> items;
+    try {
+      items = decodePeakListItems(peakList.peakList);
+    } catch (_) {
+      throw PeakDuplicateResolutionException(
+        'Peak duplicate resolution failed: PeakList "${peakList.name}" is malformed.',
+      );
+    }
+
+    var changed = false;
+    final normalizedItems = <PeakListItem>[];
+    final seenPeakOsmIds = <int>{};
+
+    for (final item in items) {
+      final mappedPeakOsmId = item.peakOsmId == duplicatePeak.osmId
+          ? survivingPeak.osmId
+          : item.peakOsmId;
+      if (mappedPeakOsmId != item.peakOsmId) {
+        changed = true;
+      }
+      if (!seenPeakOsmIds.add(mappedPeakOsmId)) {
+        changed = true;
+        continue;
+      }
+
+      normalizedItems.add(
+        PeakListItem(peakOsmId: mappedPeakOsmId, points: item.points),
+      );
+    }
+
+    if (!changed) {
+      continue;
+    }
+
+    final normalizedPeakList = peakList.copyWith(
+      peakList: encodePeakListItems(normalizedItems),
+    );
+    final derivedData = derivePeakListDerivedData(
+      peakList: normalizedPeakList,
+      items: normalizedItems,
+      peakResolver: (peakOsmId) => peaksByOsmId[peakOsmId],
+    );
+    updates.add((
+      original: peakList,
+      updated: derivedData.applyTo(normalizedPeakList),
+    ));
+  }
+
+  return updates;
+}
+
+({List<_PeaksBaggedUpdate> updates, List<int> removeIds})
+_buildPeaksBaggedUpdates(
+  List<PeaksBagged> rows, {
+  required Peak duplicatePeak,
+  required Peak survivingPeak,
+}) {
+  final groups = <(int, int), List<PeaksBagged>>{};
+  for (final row in rows) {
+    final mappedPeakId = row.peakId == duplicatePeak.osmId
+        ? survivingPeak.osmId
+        : row.peakId;
+    groups.putIfAbsent((row.gpxId, mappedPeakId), () => []).add(row);
+  }
+
+  final updates = <_PeaksBaggedUpdate>[];
+  final removeIds = <int>[];
+
+  for (final entry in groups.values) {
+    entry.sort((left, right) => left.baggedId.compareTo(right.baggedId));
+    PeaksBagged keeper = entry.first;
+    for (final row in entry) {
+      if (row.peakId == survivingPeak.osmId) {
+        keeper = row;
+        break;
+      }
+    }
+
+    for (final row in entry) {
+      if (!identical(row, keeper)) {
+        removeIds.add(row.baggedId);
+      }
+    }
+
+    if (keeper.peakId == duplicatePeak.osmId) {
+      updates.add((
+        original: keeper,
+        updated: PeaksBagged(
+          baggedId: keeper.baggedId,
+          peakId: survivingPeak.osmId,
+          gpxId: keeper.gpxId,
+          date: keeper.date,
+        ),
+      ));
+    }
+  }
+
+  return (updates: updates, removeIds: removeIds);
+}
+
+List<_TrackUpdate> _buildTrackUpdates({
+  required List<GpxTrack> tracks,
+  required Peak duplicatePeak,
+  required Peak survivingPeak,
+}) {
+  final updates = <_TrackUpdate>[];
+
+  for (final track in tracks) {
+    var changed = false;
+    final updatedPeaks = <Peak>[];
+    final seenPeakIds = <int>{};
+
+    for (final peak in track.peaks) {
+      final mappedPeak = peak.id == duplicatePeak.id ? survivingPeak : peak;
+      if (mappedPeak.id != peak.id) {
+        changed = true;
+      }
+      if (!seenPeakIds.add(mappedPeak.id)) {
+        changed = true;
+        continue;
+      }
+      updatedPeaks.add(mappedPeak);
+    }
+
+    if (!changed) {
+      continue;
+    }
+
+    updates.add((
+      original: track,
+      updated: _cloneTrack(track, peaks: updatedPeaks),
+    ));
+  }
+
+  return updates;
+}
+
+List<_RouteUpdate> _buildRouteUpdates({
+  required List<Route> routes,
+  required Peak duplicatePeak,
+  required Peak survivingPeak,
+}) {
+  final updates = <_RouteUpdate>[];
+
+  for (final route in routes) {
+    var changed = false;
+    final updatedWaypoints = <RouteWaypoint>[];
+    final seenWaypoints = <RouteWaypoint>{};
+
+    for (final waypoint in route.routeWaypoints) {
+      final mappedWaypoint = waypoint.peakOsmId == duplicatePeak.osmId
+          ? RouteWaypoint(
+              latitude: waypoint.latitude,
+              longitude: waypoint.longitude,
+              label: waypoint.label,
+              sequence: waypoint.sequence,
+              isPeakDerived: waypoint.isPeakDerived,
+              peakOsmId: survivingPeak.osmId,
+              peakName: waypoint.peakName,
+            )
+          : waypoint;
+      if (mappedWaypoint != waypoint) {
+        changed = true;
+      }
+      if (!seenWaypoints.add(mappedWaypoint)) {
+        changed = true;
+        continue;
+      }
+      updatedWaypoints.add(mappedWaypoint);
+    }
+
+    if (!changed) {
+      continue;
+    }
+
+    updates.add((
+      original: route,
+      updated: _cloneRoute(route, routeWaypoints: updatedWaypoints),
+    ));
+  }
+
+  return updates;
+}
+
+void _applyPeakListUpdates(
+  List<PeakList> peakLists,
+  List<_PeakListUpdate> updates,
+) {
+  for (final update in updates) {
+    final index = peakLists.indexOf(update.original);
+    if (index != -1) {
+      peakLists[index] = update.updated;
+    }
+  }
+}
+
+void _applyPeaksBaggedUpdates(
+  List<PeaksBagged> peaksBagged, {
+  required List<_PeaksBaggedUpdate> updates,
+  required List<int> removeIds,
+}) {
+  final removeIdSet = removeIds.toSet();
+  peaksBagged.removeWhere((row) => removeIdSet.contains(row.baggedId));
+  for (final update in updates) {
+    final index = peaksBagged.indexOf(update.original);
+    if (index != -1) {
+      peaksBagged[index] = update.updated;
+    }
+  }
+}
+
+void _applyTrackUpdates(List<GpxTrack> tracks, List<_TrackUpdate> updates) {
+  for (final update in updates) {
+    final index = tracks.indexOf(update.original);
+    if (index != -1) {
+      tracks[index] = update.updated;
+    }
+  }
+}
+
+void _applyRouteUpdates(List<Route> routes, List<_RouteUpdate> updates) {
+  for (final update in updates) {
+    final index = routes.indexOf(update.original);
+    if (index != -1) {
+      routes[index] = update.updated;
+    }
+  }
+}
+
+void _restorePeakLists(List<PeakList> target, List<PeakList> snapshot) {
+  target
+    ..clear()
+    ..addAll(snapshot);
+}
+
+void _restorePeaksBagged(List<PeaksBagged> target, List<PeaksBagged> snapshot) {
+  target
+    ..clear()
+    ..addAll(snapshot);
+}
+
+void _restoreTracks(List<GpxTrack> target, List<GpxTrack> snapshot) {
+  target
+    ..clear()
+    ..addAll(snapshot);
+}
+
+void _restoreRoutes(List<Route> target, List<Route> snapshot) {
+  target
+    ..clear()
+    ..addAll(snapshot);
+}
+
+PeakList _clonePeakList(PeakList peakList) {
+  return peakList.copyWith();
+}
+
+PeaksBagged _clonePeaksBagged(PeaksBagged row) {
+  return PeaksBagged(
+    baggedId: row.baggedId,
+    peakId: row.peakId,
+    gpxId: row.gpxId,
+    date: row.date,
+  );
+}
+
+GpxTrack _cloneTrack(GpxTrack track, {List<Peak>? peaks}) {
+  final cloned = GpxTrack.fromMap(track.toMap());
+  cloned.gpxTrackId = track.gpxTrackId;
+  cloned.peaks.addAll(
+    peaks ?? track.peaks.map((peak) => peak.copyWith()..id = peak.id),
+  );
+  return cloned;
+}
+
+Route _cloneRoute(Route route, {List<RouteWaypoint>? routeWaypoints}) {
+  return Route(
+    id: route.id,
+    name: route.name,
+    desc: route.desc,
+    gpxRoute: route.gpxRoute,
+    gpxRouteElevations: route.gpxRouteElevations,
+    routeWaypoints: routeWaypoints ?? route.routeWaypoints,
+    displayRoutePointsByZoom: route.displayRoutePointsByZoom,
+    colour: route.colour,
+    visible: route.visible,
+    distance2d: route.distance2d,
+    distance3d: route.distance3d,
+    ascent: route.ascent,
+    descent: route.descent,
+    startElevation: route.startElevation,
+    endElevation: route.endElevation,
+    lowestElevation: route.lowestElevation,
+    highestElevation: route.highestElevation,
+    estimatedTime: route.estimatedTime,
+    routeTimingSource: route.routeTimingSource,
+    routeTimingProfileJson: route.routeTimingProfileJson,
+    walkingSpeedKmh: route.walkingSpeedKmh,
+    routeTimingSegmentKindsJson: route.routeTimingSegmentKindsJson,
+  );
 }
