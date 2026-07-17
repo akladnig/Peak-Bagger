@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
@@ -667,6 +668,124 @@ void main() {
         ),
         {7, 8},
       );
+    },
+  );
+
+  test(
+    'renderablePeakListIdsForVisibleRegions keeps mixed lists visible through member regions',
+    () {
+      final peakLists = [
+        PeakList(
+          name: 'Mixed',
+          region: PeakList.mixedRegion,
+          peakList: encodePeakListItems([
+            const PeakListItem(peakOsmId: 100, points: 1),
+            const PeakListItem(peakOsmId: 200, points: 1),
+          ]),
+        )..peakListId = 7,
+      ];
+      final peaks = [
+        Peak(
+          osmId: 100,
+          name: 'Tas Peak',
+          latitude: -43.0,
+          longitude: 147.0,
+          region: 'tasmania',
+        ),
+        Peak(
+          osmId: 200,
+          name: 'NSW Peak',
+          latitude: -33.7,
+          longitude: 149.0,
+          region: 'new-south-wales',
+        ),
+      ];
+
+      expect(
+        renderablePeakListIdsForVisibleRegions(
+          peakLists: peakLists,
+          selectedPeakListIds: {7},
+          visibleRegionKeys: {'tasmania'},
+          peaks: peaks,
+        ),
+        {7},
+      );
+      expect(
+        renderablePeakListIdsForVisibleRegions(
+          peakLists: peakLists,
+          selectedPeakListIds: {7},
+          visibleRegionKeys: {'new-south-wales'},
+          peaks: peaks,
+        ),
+        {7},
+      );
+    },
+  );
+
+  test(
+    'summary provider marks a mixed list pinned when any member region pin is active',
+    () {
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(
+            name: 'Mixed',
+            region: PeakList.mixedRegion,
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 100, points: 1),
+              const PeakListItem(peakOsmId: 200, points: 1),
+            ]),
+          )..peakListId = 7,
+        ]),
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => _TestMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 15,
+                basemap: Basemap.tracestrack,
+                visibleBounds: LatLngBounds(
+                  const LatLng(-43.5, 145.5),
+                  const LatLng(-40.5, 148.5),
+                ),
+                peaks: [
+                  Peak(
+                    osmId: 100,
+                    name: 'Tas Peak',
+                    latitude: -43.0,
+                    longitude: 147.0,
+                    region: 'tasmania',
+                  ),
+                  Peak(
+                    osmId: 200,
+                    name: 'NSW Peak',
+                    latitude: -33.7,
+                    longitude: 149.0,
+                    region: 'new-south-wales',
+                  ),
+                ],
+                peakListSelectionMode: PeakListSelectionMode.none,
+                pinnedPeakListIdsByRegion: {
+                  'tasmania': {7},
+                },
+              ),
+            ),
+          ),
+          peakListRepositoryProvider.overrideWithValue(peakListRepository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final summary = container.read(peakListSelectionSummaryProvider);
+      final mixedChip = summary.chips.firstWhere(
+        (chip) => chip.peakListId == 7,
+      );
+
+      expect(summary.chips, hasLength(2));
+      expect(mixedChip.label, 'Mixed');
+      expect(mixedChip.isPinned, isTrue);
     },
   );
 }

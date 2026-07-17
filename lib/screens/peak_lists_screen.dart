@@ -11,6 +11,7 @@ import 'package:flutter/gestures.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:path/path.dart' as p;
@@ -42,6 +43,7 @@ import '../services/peak_projection_cache.dart';
 import '../services/map_trackpad_gesture_classifier.dart';
 import '../services/gpx_track_repository.dart';
 import '../services/peaks_bagged_repository.dart';
+import '../services/tile_cache_service.dart';
 import '../widgets/dialog_helpers.dart';
 import '../widgets/left_tooltip_fab.dart';
 import '../widgets/peak_list_import_dialog.dart';
@@ -3320,7 +3322,13 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                       TileLayer(
                         urlTemplate: mapTileUrl(Basemap.openstreetmap),
                         userAgentPackageName: 'com.peak_bagger.app',
-                        tileProvider: NetworkTileProvider(),
+                        tileProvider: buildPeakListMiniMapTileProvider(
+                          cacheAvailable:
+                              TileCacheService.getStoreForBasemap(
+                                Basemap.openstreetmap,
+                              ) !=
+                              null,
+                        ),
                       ),
                       if (markerPeaks.isNotEmpty)
                         MapScreenPeakLayer(
@@ -3509,6 +3517,22 @@ bool _cameraStateEquals(
       (left.center.longitude - right.center.longitude).abs() <=
           MapConstants.cameraEpsilon &&
       (left.zoom - right.zoom).abs() <= MapConstants.cameraEpsilon;
+}
+
+TileProvider buildPeakListMiniMapTileProvider({required bool cacheAvailable}) {
+  const basemap = Basemap.openstreetmap;
+  final headers = mapTileHeaders(basemap);
+  if (!cacheAvailable) {
+    return NetworkTileProvider(headers: headers);
+  }
+
+  return FMTCTileProvider(
+    stores: {basemap.name: BrowseStoreStrategy.readUpdateCreate},
+    loadingStrategy: BrowseLoadingStrategy.cacheFirst,
+    recordHitsAndMisses: false,
+    headers: headers,
+    urlTransformer: (url) => TileCacheService.transformBrowseUrl(basemap, url),
+  );
 }
 
 class _MiniPeakMapAffordanceLayer extends StatelessWidget {
@@ -3899,7 +3923,7 @@ class _PeakDetailRow {
     if (elevation == null) {
       return '';
     }
-    return formatCompactElevation(elevation!);
+    return formatElevation(elevation!.round());
   }
 
   String get ascentDateLabel {

@@ -23,6 +23,7 @@ void main() {
               'fingerprint': 'stale',
               'peaks': [peakFile.path],
             },
+            'fvg': {'seedOnStartup': false},
           }),
         );
 

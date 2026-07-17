@@ -103,9 +103,9 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('app-bar-title')),
-        matching: find.text('Settings'),
+        matching: find.byType(Text),
       ),
-      findsOneWidget,
+      findsNothing,
     );
   });
 

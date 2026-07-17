@@ -318,7 +318,7 @@ void main() {
       await tester.tap(find.byKey(const Key('map-search-filter-button')));
       await tester.pumpAndSettle();
       await tester.tap(
-        find.byKey(const Key('map-search-region-new-south-wales')).last,
+        find.byKey(const Key('map-search-region-tasmania')).last,
       );
       await tester.pumpAndSettle();
       expect(helperText, findsOneWidget);
@@ -354,25 +354,15 @@ void main() {
       expect(find.byKey(const Key('map-search-result-track-1')), findsNothing);
       expect(
         find.byKey(const Key('map-search-result-peak-8000')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const Key('map-search-result-peak-7000')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const Key('map-search-result-peak-6406')),
         findsNothing,
       );
       expect(
-        tester
-            .getTopLeft(find.byKey(const Key('map-search-result-peak-8000')))
-            .dy,
-        lessThan(
-          tester
-              .getTopLeft(find.byKey(const Key('map-search-result-peak-7000')))
-              .dy,
-        ),
+        find.byKey(const Key('map-search-result-peak-7000')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('map-search-result-peak-6406')),
+        findsOneWidget,
       );
     },
   );
@@ -587,11 +577,17 @@ void main() {
       ),
     );
     expect(filterButton.style, isNotNull);
-    expect(find.text('Filter'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('map-search-filter-trigger')),
+        matching: find.text('Filter'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets(
-    'subregion menu options are available before typing and update label',
+    'region menu options stay manifest-driven and selected labels use compact names',
     (tester) async {
       await _pumpMapApp(tester, _mapStateWithPeaks());
 
@@ -609,23 +605,39 @@ void main() {
       await tester.tap(find.byKey(const Key('map-search-filter-button')));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('map-search-region-fvg')), findsWidgets);
-      expect(find.byKey(const Key('map-search-region-veneto')), findsWidgets);
+      expect(find.byKey(const Key('map-search-region-fvg')), findsNothing);
+      expect(find.byKey(const Key('map-search-region-veneto')), findsNothing);
       expect(
         find.byKey(const Key('map-search-region-trentino-alto-adige')),
-        findsWidgets,
+        findsNothing,
       );
       expect(
         find.byKey(const Key('map-search-region-emilia-romagna')),
+        findsNothing,
+      );
+      expect(find.byKey(const Key('map-search-region-italy')), findsNothing);
+      expect(find.byKey(const Key('map-search-region-tasmania')), findsWidgets);
+      expect(
+        find.byKey(const Key('map-search-region-italy-nord-est')),
         findsWidgets,
       );
+      expect(
+        find.byKey(const Key('map-search-region-italy-nord-ovest')),
+        findsWidgets,
+      );
+      expect(find.byKey(const Key('map-search-region-slovenia')), findsWidgets);
       expect(find.text('Italy North East'), findsWidgets);
 
-      await tester.tap(find.byKey(const Key('map-search-region-fvg')).last);
+      await tester.tap(
+        find.byKey(const Key('map-search-region-italy-nord-est')).last,
+      );
       await tester.pumpAndSettle();
 
-      expect(container.read(mapProvider).searchPopupRegionKey, 'fvg');
-      expect(find.text('FVG'), findsOneWidget);
+      expect(
+        container.read(mapProvider).searchPopupRegionKey,
+        'italy-nord-est',
+      );
+      expect(find.text('Italy NE'), findsOneWidget);
     },
   );
 
@@ -705,11 +717,11 @@ void main() {
 
     expect(container.read(mapProvider).searchPopupGroup, MapSearchGroup.region);
     expect(
-      find.byKey(const Key('map-search-group-header-tasmania')),
+      find.byKey(const Key('map-search-group-header-tas')),
       findsOneWidget,
     );
     expect(
-      find.byKey(const Key('map-search-group-header-new-south-wales')),
+      find.byKey(const Key('map-search-group-header-nsw')),
       findsOneWidget,
     );
 

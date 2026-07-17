@@ -276,8 +276,8 @@ class ObjectBoxAdminRobot {
   void expectAdminShellVisible() {
     expect(appBarTitle, findsOneWidget);
     expect(
-      find.descendant(of: appBarTitle, matching: find.text('ObjectBox Admin')),
-      findsOneWidget,
+      find.descendant(of: appBarTitle, matching: find.byType(Text)),
+      findsNothing,
     );
     expect(entityDropdown, findsOneWidget);
     expect(schemaDataToggle, findsOneWidget);

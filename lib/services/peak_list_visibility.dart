@@ -87,6 +87,76 @@ Set<String> visibleRegionKeysForRegionKey(String? regionKey) {
   return {normalizedKey};
 }
 
+Set<String> memberRegionKeysForPeakList({
+  required PeakList peakList,
+  required Iterable<Peak> peaks,
+}) {
+  late final List<PeakListItem> items;
+  try {
+    items = decodePeakListItems(peakList.peakList);
+  } catch (_) {
+    return const <String>{};
+  }
+
+  final peaksByOsmId = {for (final peak in peaks) peak.osmId: peak};
+  final regionKeys = <String>{};
+  for (final item in items) {
+    final peak = peaksByOsmId[item.peakOsmId];
+    if (peak == null) {
+      continue;
+    }
+
+    final regionKey = canonicalPeakRegionKey(peak);
+    if (regionKey != null) {
+      regionKeys.add(regionKey);
+    }
+  }
+
+  return Set<String>.unmodifiable(regionKeys);
+}
+
+Set<String> visibleMemberRegionKeysForPeakList({
+  required PeakList peakList,
+  required Iterable<Peak> peaks,
+}) {
+  final regionKeys = <String>{};
+  for (final regionKey in memberRegionKeysForPeakList(
+    peakList: peakList,
+    peaks: peaks,
+  )) {
+    regionKeys.add(regionKey);
+    final broaderRegionKey = peakListFilterRegionKey(regionKey);
+    if (broaderRegionKey != null) {
+      regionKeys.add(broaderRegionKey);
+    }
+  }
+
+  return Set<String>.unmodifiable(regionKeys);
+}
+
+bool peakListIsPinned({
+  required PeakList peakList,
+  required Map<String, Set<int>> pinnedPeakListIdsByRegion,
+  required Iterable<Peak> peaks,
+}) {
+  final regionKeys = peakList.region == PeakList.mixedRegion
+      ? memberRegionKeysForPeakList(peakList: peakList, peaks: peaks)
+      : {
+          if (canonicalRegionKey(normalizePeakListRegionKey(peakList.region))
+              case final String regionKey)
+            regionKey,
+        };
+
+  for (final regionKey in regionKeys) {
+    if (pinnedPeakListIdsByRegion[regionKey]?.contains(peakList.peakListId) ==
+        true) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 bool peakListAppliesToVisibleRegions(
   PeakList peakList,
   Set<String> visibleRegionKeys, {
@@ -176,39 +246,11 @@ bool _mixedPeakListAppliesToVisibleRegions(
     return false;
   }
 
-  late final List<PeakListItem> items;
-  try {
-    items = decodePeakListItems(peakList.peakList);
-  } catch (_) {
-    return false;
-  }
-
-  final peaksByOsmId = {for (final peak in peaks) peak.osmId: peak};
-  for (final item in items) {
-    final peak = peaksByOsmId[item.peakOsmId];
-    if (peak == null) {
-      continue;
-    }
-
-    if (visibleBounds != null &&
-        _isPeakWithinBounds(peak: peak, bounds: visibleBounds)) {
-      return true;
-    }
-
-    final peakRegionKey = canonicalRegionKey(
-      peakListFilterRegionKey(
-        regionManifestCatalog.regionKeyForPoint(
-              LatLng(peak.latitude, peak.longitude),
-            ) ??
-            peak.region,
-      ),
-    );
-    if (peakRegionKey != null && visibleRegionKeys.contains(peakRegionKey)) {
-      return true;
-    }
-  }
-
-  return false;
+  final memberRegionKeys = visibleMemberRegionKeysForPeakList(
+    peakList: peakList,
+    peaks: peaks,
+  );
+  return memberRegionKeys.any(visibleRegionKeys.contains);
 }
 
 bool _peakListBoundsIntersectVisibleBounds(
@@ -247,6 +289,15 @@ String? canonicalRegionKey(String? regionKey) {
 
 String? peakListFilterRegionKey(String? regionKey) {
   return regionManifestCatalog.peakListFilterRegionKey(regionKey);
+}
+
+String? canonicalPeakRegionKey(Peak peak) {
+  return canonicalRegionKey(
+    regionManifestCatalog.regionKeyForPoint(
+          LatLng(peak.latitude, peak.longitude),
+        ) ??
+        peak.region,
+  );
 }
 
 bool _isPeakWithinBounds({required Peak peak, required LatLngBounds bounds}) {

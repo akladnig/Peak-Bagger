@@ -193,8 +193,7 @@ class PeakRegionAssetImportService {
       if (value is! Map<String, dynamic>) {
         throw StateError('Region ${entry.key} must be a JSON object.');
       }
-      final composite = value['composite'] == true;
-      if (composite) {
+      if (!_isSeedableRegion(value)) {
         continue;
       }
       final fingerprint = value['fingerprint'];
@@ -220,6 +219,11 @@ class PeakRegionAssetImportService {
       );
     }
     return regions;
+  }
+
+  bool _isSeedableRegion(Map<String, dynamic> regionValue) {
+    return regionValue['composite'] != true &&
+        regionValue['seedOnStartup'] != false;
   }
 
   Future<_RegionAssetLoadResult> _loadRegionPeaks({

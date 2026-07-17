@@ -36,9 +36,9 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('app-bar-title')),
-        matching: find.text('Dashboard'),
+        matching: find.byType(Text),
       ),
-      findsOneWidget,
+      findsNothing,
     );
     expect(find.byKey(const Key('nav-objectbox-admin')), findsOneWidget);
     expect(find.byKey(const Key('side-menu-objectbox-admin')), findsOneWidget);
@@ -50,9 +50,9 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('app-bar-title')),
-        matching: find.text('ObjectBox Admin'),
+        matching: find.byType(Text),
       ),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.byKey(const Key('objectbox-admin-entity-dropdown')),
@@ -231,9 +231,9 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('app-bar-title')),
-        matching: find.text('Map'),
+        matching: find.byType(Text),
       ),
-      findsOneWidget,
+      findsNothing,
     );
 
     final container = ProviderScope.containerOf(
@@ -348,9 +348,9 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('app-bar-title')),
-        matching: find.text('ObjectBox Admin'),
+        matching: find.byType(Text),
       ),
-      findsOneWidget,
+      findsNothing,
     );
 
     final container = ProviderScope.containerOf(
@@ -399,9 +399,9 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('app-bar-title')),
-        matching: find.text('ObjectBox Admin'),
+        matching: find.byType(Text),
       ),
-      findsOneWidget,
+      findsNothing,
     );
 
     await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
@@ -410,9 +410,9 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('app-bar-title')),
-        matching: find.text('ObjectBox Admin'),
+        matching: find.byType(Text),
       ),
-      findsOneWidget,
+      findsNothing,
     );
   });
 
@@ -487,9 +487,9 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('app-bar-title')),
-        matching: find.text('ObjectBox Admin'),
+        matching: find.byType(Text),
       ),
-      findsOneWidget,
+      findsNothing,
     );
 
     await tester.tap(find.byKey(const Key('nav-dashboard')));
@@ -498,9 +498,9 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('app-bar-title')),
-        matching: find.text('Dashboard'),
+        matching: find.byType(Text),
       ),
-      findsOneWidget,
+      findsNothing,
     );
 
     await tester.tap(find.byKey(const Key('nav-dashboard')));
@@ -509,9 +509,9 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('app-bar-title')),
-        matching: find.text('Dashboard'),
+        matching: find.byType(Text),
       ),
-      findsOneWidget,
+      findsNothing,
     );
   });
 
@@ -1441,9 +1441,9 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('app-bar-title')),
-        matching: find.text('Map'),
+        matching: find.byType(Text),
       ),
-      findsOneWidget,
+      findsNothing,
     );
 
     final container = ProviderScope.containerOf(

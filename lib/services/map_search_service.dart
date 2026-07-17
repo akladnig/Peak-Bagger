@@ -176,9 +176,10 @@ class MapSearchService {
       return null;
     }
     final mapName = _mapNameForPoint(anchor);
-    final displayRegionKey = isNorthEastSubregionKey(peak.region)
-        ? peak.region
-        : resolvedRegionKey;
+    final displayRegionKey = _displayRegionKeyForPeak(
+      storedPeakRegionKey: peak.region,
+      resolvedRegionKey: resolvedRegionKey,
+    );
     final displayRegionName = mapSearchRegionLabel(displayRegionKey);
     final subtitle = _joinSummaryParts([mapName, displayRegionName]);
     return MapSearchResult.peak(
@@ -495,14 +496,32 @@ class MapSearchService {
     final anchor = LatLng(peak.latitude, peak.longitude);
     final regionData = _regionForPoint(anchor, fallbackRegionKey: peak.region);
     final resolvedRegionKey = regionData?.key ?? peak.region;
-    return isNorthEastSubregionKey(peak.region)
-        ? peak.region!
-        : (resolvedRegionKey ?? '');
+    return _displayRegionKeyForPeak(
+          storedPeakRegionKey: peak.region,
+          resolvedRegionKey: resolvedRegionKey,
+        ) ??
+        '';
   }
 
   String _peakDisplayRegionName(Peak peak) {
     final displayRegionKey = _peakDisplayRegionKey(peak);
     return mapSearchRegionLabel(displayRegionKey) ?? 'Unknown Region';
+  }
+
+  String? _displayRegionKeyForPeak({
+    required String? storedPeakRegionKey,
+    required String? resolvedRegionKey,
+  }) {
+    if (storedPeakRegionKey != null) {
+      final broaderRegionKey = regionManifestCatalog.peakListFilterRegionKey(
+        storedPeakRegionKey,
+      );
+      if (broaderRegionKey != null && broaderRegionKey != storedPeakRegionKey) {
+        return storedPeakRegionKey;
+      }
+    }
+
+    return resolvedRegionKey;
   }
 }
 

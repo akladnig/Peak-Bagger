@@ -499,8 +499,8 @@ void main() {
       peakRepository: peakRepository,
       peakListRepository: peakListRepository,
       csvLoader: (_) async =>
-          'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes\n'
-          'Monte Amariana,101,4.35,1906,544,46.4084,13.0475,Italy,Friuli Venezia Giulia,Carnic Alps,Udine,EE,Optional,Ridge scramble\n',
+          'name,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes,sourceOfTruth\n'
+          'Monte Amariana,101,4.35,1906,544,46.4084,13.0475,Italy,Friuli Venezia Giulia,Carnic Alps,Udine,EE,Optional,Ridge scramble,hribi\n',
       importRootLoader: () async => '/tmp/Bushwalking',
       logWriter: (logPath, entries) async {},
     );
@@ -545,15 +545,9 @@ void main() {
     expect(robot.importDialog, findsNothing);
 
     expect(tester.widget<Text>(robot.selectedTitle).data, 'FVG Ranked');
-    expect(
-      peakRepository.findByOsmId(101)?.sourceOfTruth,
-      Peak.sourceOfTruthFvg,
-    );
+    expect(peakRepository.findByOsmId(101)?.sourceOfTruth, 'HRIBI');
     expect(peakRepository.findByOsmId(101)?.region, 'fvg');
-    expect(
-      peakListRepository.findByName('FVG Ranked')?.region,
-      'italy-nord-est',
-    );
+    expect(peakListRepository.findByName('FVG Ranked')?.region, 'fvg');
     expect(
       peakListRepository.findByName('FVG Ranked')?.peakList,
       encodePeakListItems([const PeakListItem(peakOsmId: 101, points: 1)]),

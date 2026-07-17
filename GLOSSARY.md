@@ -68,6 +68,10 @@ _Avoid_: treating `PeakList.region` as the list's geometric coverage
 A stored/search region key for an ISO 3166-2:IT first-level Italian subdivision, such as `fvg`, `veneto`, `trentino-alto-adige`, or `emilia-romagna`.
 _Avoid_: Italy North East subregion, treating `italy-nord-est` or `italy-nord-ovest` as the stored peak region
 
+**Manifest priority**:
+A manifest-defined segmented numeric canonicalization path such as `2`, `2.1`, or `2.1.3` that orders overlapping region matches without relying on manifest file order.
+_Avoid_: lexical string sorting, treating missing segments as implicit zeroes, or using JSON entry order as precedence
+
 **Italy aggregate region**:
 An app-owned union region such as `italy-nord-est` or `italy-nord-ovest` that groups multiple Italy administrative regions.
 _Avoid_: Italian administrative region, source-of-truth region

@@ -39,7 +39,7 @@ Future<Map<String, String>> computeSeedableRegionFingerprints({
     if (region is! Map<String, dynamic>) {
       throw StateError('Region ${entry.key} must be a JSON object.');
     }
-    if (region['composite'] == true) {
+    if (!_isSeedableRegion(region)) {
       continue;
     }
     final peakAssets = region['peaks'];
@@ -81,7 +81,7 @@ Future<bool> updateSeedableRegionFingerprints({
     if (region is! Map<String, dynamic>) {
       continue;
     }
-    if (region['composite'] == true) {
+    if (!_isSeedableRegion(region)) {
       continue;
     }
     final nextFingerprint = fingerprints[entry.key];
@@ -126,7 +126,7 @@ Future<List<String>> findStaleSeedableRegionFingerprints({
       staleRegions.add(entry.key);
       continue;
     }
-    if (region['composite'] == true) {
+    if (!_isSeedableRegion(region)) {
       continue;
     }
     if (region['fingerprint'] != fingerprints[entry.key]) {
@@ -147,4 +147,9 @@ Future<List<int>> _readBytes(String path) async {
 
 Future<void> _writeText(String path, String text) async {
   await File(path).writeAsString(text);
+}
+
+bool _isSeedableRegion(Map<String, dynamic> regionValue) {
+  return regionValue['composite'] != true &&
+      regionValue['seedOnStartup'] != false;
 }

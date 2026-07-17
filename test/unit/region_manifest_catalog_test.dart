@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/screens/map_screen_layers.dart';
+import 'package:peak_bagger/services/manifest_priority.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
 
 List<String> _regionBasemapKeys() {
@@ -47,6 +48,72 @@ void main() {
     );
     expect(regionManifestCatalog.regionKeyForPoint(const LatLng(0, 0)), isNull);
   });
+
+  test('exact manifest display-name lookup trims without accepting keys', () {
+    expect(
+      regionManifestCatalog.regionKeyByDisplayName(' Slovenia '),
+      'slovenia',
+    );
+    expect(
+      regionManifestCatalog.regionKeyByDisplayName('Friuli Venezia Giulia'),
+      'fvg',
+    );
+    expect(regionManifestCatalog.regionKeyByDisplayName('slovenia'), isNull);
+    expect(regionManifestCatalog.regionKeyByDisplayName('fvg'), isNull);
+    expect(
+      regionManifestCatalog.regionKeyByDisplayName('italy-nord-est'),
+      isNull,
+    );
+  });
+
+  test(
+    'manifest priority parsing rejects malformed values deterministically',
+    () {
+      for (final value in const ['', '2..1', '2.a', '2.1.3.4']) {
+        expect(() => ManifestPriority.parse(value), throwsFormatException);
+      }
+    },
+  );
+
+  test(
+    'manifest priority comparison is numeric and prefers longer prefixes',
+    () {
+      expect(
+        ManifestPriority.parse('2.10').compareTo(ManifestPriority.parse('2.2')),
+        greaterThan(0),
+      );
+      expect(
+        ManifestPriority.parse('2.1').compareTo(ManifestPriority.parse('2')),
+        greaterThan(0),
+      );
+      expect(
+        ManifestPriority.parse(
+          '2.1.3',
+        ).compareTo(ManifestPriority.parse('2.1')),
+        greaterThan(0),
+      );
+    },
+  );
+
+  test(
+    'priority-ordered point lookup keeps specific FVG ahead of aggregates',
+    () {
+      expect(
+        regionManifestCatalog
+            .regionsForPointByPriority(const LatLng(46.1, 13.2))
+            .take(3)
+            .map((region) => region.key)
+            .toList(growable: false),
+        const ['fvg', 'italy-nord-est', 'italy'],
+      );
+      expect(
+        regionManifestCatalog
+            .uniqueHighestPriorityRegionForPoint(const LatLng(46.1, 13.2))
+            ?.key,
+        'fvg',
+      );
+    },
+  );
 
   test('region basemaps stay ordered and deduped', () {
     expect(
@@ -148,9 +215,23 @@ void main() {
       'Italy NW',
     );
     expect(regionManifestCatalog.regionByKey('italy')?.showInPeakList, isFalse);
+    expect(regionManifestCatalog.regionByKey('fvg')?.shortName, 'FVG');
+    expect(regionManifestCatalog.regionByKey('fvg')?.showInPeakList, isFalse);
+    expect(
+      regionManifestCatalog.regionByKey('veneto')?.showInPeakList,
+      isFalse,
+    );
+    expect(
+      regionManifestCatalog.regionByKey('trentino-alto-adige')?.showInPeakList,
+      isFalse,
+    );
+    expect(
+      regionManifestCatalog.regionByKey('emilia-romagna')?.showInPeakList,
+      isFalse,
+    );
     expect(
       regionManifestCatalog.regionByKey('croatia')?.showInPeakList,
-      isTrue,
+      isFalse,
     );
     expect(
       regionManifestCatalog
@@ -209,18 +290,11 @@ void main() {
     );
     expect(
       visibleRegions.map((region) => region.shortName).toList(growable: false),
-      const ['Tas', 'NSW', 'Italy NE', 'Italy NW', 'Slovenia', 'Croatia'],
+      const ['Tas', 'Italy NE', 'Italy NW', 'Slovenia'],
     );
     expect(
       visibleRegions.map((region) => region.name).toList(growable: false),
-      const [
-        'Tasmania',
-        'New South Wales',
-        'Italy North East',
-        'Italy North West',
-        'Slovenia',
-        'Croatia',
-      ],
+      const ['Tasmania', 'Italy North East', 'Italy North West', 'Slovenia'],
     );
     expect(
       visibleRegions.map((region) => region.key),

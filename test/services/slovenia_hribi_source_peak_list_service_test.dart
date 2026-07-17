@@ -121,7 +121,7 @@ void main() {
         cacheDir: cacheDir,
       );
 
-      final result = await service.run();
+      final result = await service.run(sourceOfTruth: 'hribi');
 
       expect(result.version, 1);
       expect(result.createdNewVersion, isTrue);
@@ -140,6 +140,8 @@ void main() {
         'missing_hribi_coordinates',
       );
       expect(result.reviewRows.single.row.region, 'Slovenia');
+      expect(result.canonicalRows.first.sourceOfTruth, 'HRIBI');
+      expect(result.reviewRows.single.row.sourceOfTruth, 'HRIBI');
       expect(result.repairEntries, hasLength(3));
 
       final rankedRows = const CsvDecoder().convert(
@@ -165,6 +167,8 @@ void main() {
       expect(repairRows, hasLength(4));
       expect(rankedRows[1][8], 'Slovenia');
       expect(reviewRows[1][8], 'Slovenia');
+      expect(rankedRows[1][14], 'HRIBI');
+      expect(reviewRows[1][14], 'HRIBI');
       expect(reviewRows[1].last, 'missing_hribi_coordinates');
 
       final state =
@@ -204,7 +208,7 @@ void main() {
           tempDir: tempDir,
           cacheDir: cacheDir,
         );
-        final firstResult = await firstService.run();
+        final firstResult = await firstService.run(sourceOfTruth: 'hribi');
 
         final secondService = _service(
           pageLoader: loader,
@@ -213,7 +217,7 @@ void main() {
           tempDir: tempDir,
           cacheDir: cacheDir,
         );
-        final secondResult = await secondService.run();
+        final secondResult = await secondService.run(sourceOfTruth: 'hribi');
 
         expect(firstResult.createdNewVersion, isTrue);
         expect(secondResult.createdNewVersion, isFalse);
@@ -250,7 +254,7 @@ void main() {
           tempDir: tempDir,
           cacheDir: cacheDir,
         );
-        final firstResult = await firstService.run();
+        final firstResult = await firstService.run(sourceOfTruth: 'hribi');
 
         final secondService = _service(
           pageLoader: (uri) async => fullPages[uri.toString()]!,
@@ -259,7 +263,7 @@ void main() {
           tempDir: tempDir,
           cacheDir: cacheDir,
         );
-        final secondResult = await secondService.run();
+        final secondResult = await secondService.run(sourceOfTruth: 'hribi');
 
         expect(firstResult.reviewRows, hasLength(2));
         expect(firstResult.canonicalRows, isEmpty);
@@ -290,7 +294,7 @@ void main() {
       );
 
       await expectLater(
-        service.run(repairList: true),
+        service.run(repairList: true, sourceOfTruth: 'hribi'),
         throwsA(
           isA<SloveniaHribiSourcePeakListException>().having(
             (error) => error.message,
@@ -328,7 +332,7 @@ void main() {
         tempDir: tempDir,
         cacheDir: cacheDir,
       );
-      final firstResult = await firstService.run();
+      final firstResult = await firstService.run(sourceOfTruth: 'hribi');
 
       final repairedService = _service(
         pageLoader: (uri) async => fullPages[uri.toString()]!,
@@ -350,7 +354,10 @@ void main() {
         tempDir: tempDir,
         cacheDir: cacheDir,
       );
-      final repairedResult = await repairedService.run(repairList: true);
+      final repairedResult = await repairedService.run(
+        repairList: true,
+        sourceOfTruth: 'hribi',
+      );
 
       expect(firstResult.repairEntries.single.kind, 'range');
       expect(repairedResult.createdNewVersion, isTrue);

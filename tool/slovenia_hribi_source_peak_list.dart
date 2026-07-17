@@ -15,6 +15,7 @@ class _Invocation {
     required this.showHelp,
     required this.outputDirectoryPath,
     required this.peaksCsvPath,
+    required this.sourceOfTruth,
     required this.repairList,
     required this.refreshCache,
     required this.tieWindowMeters,
@@ -23,6 +24,7 @@ class _Invocation {
   final bool showHelp;
   final String outputDirectoryPath;
   final String peaksCsvPath;
+  final String? sourceOfTruth;
   final bool repairList;
   final bool refreshCache;
   final int tieWindowMeters;
@@ -62,25 +64,30 @@ Future<int> runSloveniaHribiSourcePeakListTool({
     return 0;
   }
 
-  final resolvedService = service ?? await () async {
-    final peakSource = await (peakSourceLoader ??
-        () => _defaultPeakSourceLoader(invocation.peaksCsvPath))();
-    return SloveniaHribiSourcePeakListService(
-      pageLoader: pageLoader,
-      peakSource: peakSource,
-      outputDirectoryResolver: () => Directory(invocation.outputDirectoryPath),
-      cacheDirectoryResolver: cacheDirectoryResolver,
-      rangeConfigurations:
-          rangeConfigurations ?? sloveniaHribiSourceRangeConfigurations,
-      onProgress: stdoutLine,
-    );
-  }();
+  final resolvedService =
+      service ??
+      await () async {
+        final peakSource =
+            await (peakSourceLoader ??
+                () => _defaultPeakSourceLoader(invocation.peaksCsvPath))();
+        return SloveniaHribiSourcePeakListService(
+          pageLoader: pageLoader,
+          peakSource: peakSource,
+          outputDirectoryResolver: () =>
+              Directory(invocation.outputDirectoryPath),
+          cacheDirectoryResolver: cacheDirectoryResolver,
+          rangeConfigurations:
+              rangeConfigurations ?? sloveniaHribiSourceRangeConfigurations,
+          onProgress: stdoutLine,
+        );
+      }();
 
   try {
     final result = await resolvedService.run(
       repairList: invocation.repairList,
       refreshCache: invocation.refreshCache,
       tieWindowMeters: invocation.tieWindowMeters,
+      sourceOfTruth: invocation.sourceOfTruth,
     );
     if (!result.createdNewVersion) {
       stdoutLine(
@@ -112,6 +119,7 @@ _Invocation _parseInvocation(List<String> args) {
   var showHelp = false;
   var outputDirectoryPath = p.join('.', 'assets', 'peaks');
   var peaksCsvPath = _defaultPeaksCsvPath;
+  String? sourceOfTruth;
   var repairList = false;
   var refreshCache = false;
   var tieWindowMeters = 10;
@@ -142,6 +150,17 @@ _Invocation _parseInvocation(List<String> args) {
     }
     if (arg.startsWith('--peaks-csv=')) {
       peaksCsvPath = arg.substring('--peaks-csv='.length);
+      continue;
+    }
+    if (arg == '--source-of-truth') {
+      if (index + 1 >= args.length) {
+        throw ArgumentError('Missing value for --source-of-truth');
+      }
+      sourceOfTruth = args[++index];
+      continue;
+    }
+    if (arg.startsWith('--source-of-truth=')) {
+      sourceOfTruth = arg.substring('--source-of-truth='.length);
       continue;
     }
     if (arg == '--repair-list') {
@@ -176,6 +195,7 @@ _Invocation _parseInvocation(List<String> args) {
     showHelp: showHelp,
     outputDirectoryPath: outputDirectoryPath,
     peaksCsvPath: peaksCsvPath,
+    sourceOfTruth: sourceOfTruth,
     repairList: repairList,
     refreshCache: refreshCache,
     tieWindowMeters: tieWindowMeters,
@@ -185,7 +205,7 @@ _Invocation _parseInvocation(List<String> args) {
 String _usage() {
   return '''
 Usage:
-  dart run tool/slovenia_hribi_source_peak_list.dart [--repair-list] [--refresh-cache] [--tie-window-meters N] [--output-dir PATH] [--peaks-csv PATH]
+  dart run tool/slovenia_hribi_source_peak_list.dart [--source-of-truth VALUE] [--repair-list] [--refresh-cache] [--tie-window-meters N] [--output-dir PATH] [--peaks-csv PATH]
 
 Defaults:
   output-dir: ./assets/peaks

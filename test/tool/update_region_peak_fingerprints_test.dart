@@ -24,6 +24,7 @@ void main() {
             'composite': true,
             'peaks': [compositePeakFile.path],
           },
+          'fvg': {'seedOnStartup': false},
         }),
       );
 
@@ -36,5 +37,6 @@ void main() {
     expect(changed, isTrue);
     expect(updatedManifest['tasmania']['fingerprint'], isNot('stale'));
     expect(updatedManifest['italy']['fingerprint'], isNull);
+    expect(updatedManifest['fvg']['fingerprint'], isNull);
   });
 }

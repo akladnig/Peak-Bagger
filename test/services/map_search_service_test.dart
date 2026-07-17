@@ -392,7 +392,7 @@ void main() {
 
       expect(results, hasLength(1));
       expect(results.single.regionKey, 'new-south-wales');
-      expect(results.single.regionName, 'New South Wales');
+      expect(results.single.regionName, 'NSW');
     },
   );
 
