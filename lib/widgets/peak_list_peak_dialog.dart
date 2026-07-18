@@ -661,7 +661,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
       }
 
       if (successfulAddCount > 0) {
-        _refreshPeakListSelection();
+        await _refreshPeakListSelection();
       }
 
       if (!mounted) {
@@ -711,7 +711,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
             ),
         ],
       );
-      _refreshPeakListSelection();
+      await _refreshPeakListSelection();
       if (!mounted) {
         return;
       }
@@ -747,7 +747,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
         peakOsmId: peak.osmId,
         points: _editPoints,
       );
-      _refreshPeakListSelection();
+      await _refreshPeakListSelection();
       if (!mounted) {
         return;
       }
@@ -796,7 +796,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
         peakListId: widget.peakList.peakListId,
         peakOsmId: peak.osmId,
       );
-      _refreshPeakListSelection();
+      await _refreshPeakListSelection();
       if (!mounted) {
         return;
       }
@@ -847,9 +847,9 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
     return error.toString();
   }
 
-  void _refreshPeakListSelection() {
+  Future<void> _refreshPeakListSelection() async {
     ref.read(peakListRevisionProvider.notifier).increment();
-    ref.read(mapProvider.notifier).reconcileSelectedPeakList();
+    await ref.read(mapProvider.notifier).reloadPeakMarkers();
   }
 
   Future<void> _openTrack(PeaksBagged row) async {

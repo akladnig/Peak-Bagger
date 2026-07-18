@@ -454,7 +454,7 @@ class _SharedAppBarTitle extends StatelessWidget {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: const KeyedSubtree(
-                      key: const Key('app-bar-title'),
+                      key: Key('app-bar-title'),
                       child: SizedBox.shrink(),
                     ),
                   ),

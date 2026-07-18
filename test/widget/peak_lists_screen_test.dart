@@ -3840,6 +3840,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(container.read(peakListRevisionProvider), 1);
+      expect(mapNotifier.reloadPeakMarkersCallCount, 1);
       expect(
         container.read(mapProvider).peakListSelectionMode,
         PeakListSelectionMode.specificList,

@@ -15,9 +15,17 @@ class TestPeakNotifier extends MapNotifier {
   final MapState initialState;
   final Future<PeakRefreshResult> Function() _refreshHandler;
   int refreshCallCount = 0;
+  int reloadPeakMarkersCallCount = 0;
 
   @override
   MapState build() => initialState;
+
+  @override
+  Future<void> reloadPeakMarkers() async {
+    reloadPeakMarkersCallCount += 1;
+    state = state.copyWith(isLoadingPeaks: false, clearError: true);
+    reconcileSelectedPeakList();
+  }
 
   @override
   Future<PeakRefreshResult> refreshPeaks({

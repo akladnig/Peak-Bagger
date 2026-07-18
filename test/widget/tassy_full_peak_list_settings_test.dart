@@ -165,7 +165,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.descendant(of: dialog, matching: find.text('Removed 1 peak')),
+      find.descendant(of: dialog, matching: find.text('Removed 0 peaks')),
       findsOneWidget,
     );
     expect(
@@ -176,7 +176,7 @@ void main() {
       decodePeakListItems(
         repository.findByName('Tassy Full')!.peakList,
       ).map((item) => (item.peakOsmId, item.points)).toList(),
-      [for (final peakId in peakIds) (peakId, 1)],
+      [for (final peakId in peakIds) (peakId, 1), (2000, 9)],
     );
   });
 

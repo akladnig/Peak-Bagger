@@ -768,6 +768,12 @@ class _InitialStateMapNotifier extends MapNotifier {
   MapState build() => initialState;
 
   @override
+  Future<void> reloadPeakMarkers() async {
+    state = state.copyWith(isLoadingPeaks: false, clearError: true);
+    reconcileSelectedPeakList();
+  }
+
+  @override
   Future<void> persistPeakListSelection() async {
     final mode = state.peakListSelectionMode;
     final selectedPeakListIds = state.selectedPeakListIds;

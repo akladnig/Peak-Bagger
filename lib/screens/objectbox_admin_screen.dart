@@ -480,7 +480,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
         recomputeDerivedFields: true,
       );
       ref.read(peakListRevisionProvider.notifier).increment();
-      ref.read(mapProvider.notifier).reconcileSelectedPeakList();
+      await ref.read(mapProvider.notifier).reloadPeakMarkers();
       if (!mounted) {
         return null;
       }
