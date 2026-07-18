@@ -8,6 +8,10 @@ const _peakListCopyWithUnset = Object();
 @Entity()
 class PeakList {
   static const mixedRegion = 'mixed';
+  static const membershipStateReady = 'ready';
+  static const membershipStatePendingLegacyMigration =
+      'pendingLegacyMigration';
+  static const membershipStateUnsupportedLegacy = 'unsupportedLegacy';
 
   @Id(assignable: true)
   int peakListId;
@@ -21,6 +25,8 @@ class PeakList {
 
   int colour;
 
+  String membershipState;
+
   double? minLat;
   double? maxLat;
   double? minLng;
@@ -32,6 +38,7 @@ class PeakList {
     this.region = Peak.defaultRegion,
     required this.peakList,
     this.colour = 0,
+    this.membershipState = membershipStateReady,
     this.minLat,
     this.maxLat,
     this.minLng,
@@ -44,6 +51,7 @@ class PeakList {
     String? region,
     String? peakList,
     int? colour,
+    String? membershipState,
     Object? minLat = _peakListCopyWithUnset,
     Object? maxLat = _peakListCopyWithUnset,
     Object? minLng = _peakListCopyWithUnset,
@@ -55,6 +63,7 @@ class PeakList {
       region: region ?? this.region,
       peakList: peakList ?? this.peakList,
       colour: colour ?? this.colour,
+      membershipState: membershipState ?? this.membershipState,
       minLat: identical(minLat, _peakListCopyWithUnset)
           ? this.minLat
           : minLat as double?,
@@ -69,6 +78,15 @@ class PeakList {
           : maxLng as double?,
     );
   }
+
+  bool get isMembershipReady => membershipState == membershipStateReady;
+
+  bool get isUnsupportedLegacy =>
+      membershipState == membershipStateUnsupportedLegacy;
+
+  bool get needsLegacyMembershipMigration =>
+      membershipState.isEmpty ||
+      membershipState == membershipStatePendingLegacyMigration;
 }
 
 class PeakListItem {
@@ -87,6 +105,19 @@ class PeakListItem {
       points: json['points'] as int,
     );
   }
+}
+
+@Entity()
+class PeakListItemEntity {
+  PeakListItemEntity({this.id = 0, required this.points});
+
+  @Id()
+  int id;
+
+  final peakList = ToOne<PeakList>();
+  final peak = ToOne<Peak>();
+
+  int points;
 }
 
 String encodePeakListItems(List<PeakListItem> items) {

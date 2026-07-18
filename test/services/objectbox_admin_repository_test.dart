@@ -32,10 +32,11 @@ void main() {
       'Route',
       'RouteGraphChunk',
       'RouteGraphManifest',
-      'RouteGraphWayIndex',
-      'RouteGraphTrailDisplayChunk',
-      'Waypoints',
-    ]);
+        'RouteGraphWayIndex',
+        'RouteGraphTrailDisplayChunk',
+        'Waypoints',
+        'PeakListItemEntity',
+      ]);
     expect(
       entities.map((entity) => entity.name).toSet().length,
       entities.length,
@@ -138,7 +139,7 @@ void main() {
     expect(entities[3].primaryNameField, 'name');
     expect(
       entities[3].fields.map((field) => field.name),
-      containsAll(['peakListId', 'name', 'peakList']),
+      containsAll(['peakListId', 'name', 'peakList', 'membershipState']),
     );
     expect(entities[4].primaryKeyField, 'baggedId');
     expect(entities[4].primaryNameField, 'gpxId');
@@ -161,10 +162,13 @@ void main() {
         'payloadJson',
       ]),
     );
-    expect(entities.last.primaryKeyField, 'id');
-    expect(entities.last.primaryNameField, 'name');
+    final waypointsEntity = entities.singleWhere(
+      (entity) => entity.name == 'Waypoints',
+    );
+    expect(waypointsEntity.primaryKeyField, 'id');
+    expect(waypointsEntity.primaryNameField, 'name');
     expect(
-      entities.last.fields.map((field) => field.name),
+      waypointsEntity.fields.map((field) => field.name),
       containsAll(['id', 'name', 'type', 'latitude', 'longitude', 'mgrs']),
     );
     expect(entities[6].primaryKeyField, 'id');
@@ -197,8 +201,15 @@ void main() {
     );
     expect(entities[9].primaryKeyField, 'id');
     expect(entities[9].primaryNameField, 'recordKey');
-    expect(entities.last.primaryKeyField, 'id');
-    expect(entities.last.primaryNameField, 'name');
+    final peakListItemEntity = entities.singleWhere(
+      (entity) => entity.name == 'PeakListItemEntity',
+    );
+    expect(peakListItemEntity.primaryKeyField, 'id');
+    expect(peakListItemEntity.primaryNameField, 'id');
+    expect(
+      peakListItemEntity.fields.map((field) => field.name),
+      containsAll(['id', 'peakListId', 'peakId', 'points']),
+    );
   });
 
   test('routeGraphChunkToAdminRow exposes chunk metadata', () {
@@ -845,6 +856,10 @@ void main() {
         minLng: 145.0,
         maxLng: 146.0,
       ),
+      membershipItems: const [
+        PeakListItem(peakOsmId: 101, points: 3),
+        PeakListItem(peakOsmId: 202, points: 6),
+      ],
     );
 
     expect(row.primaryKeyValue, 9);
@@ -855,9 +870,26 @@ void main() {
     expect(row.values['minLng'], 145.0);
     expect(row.values['maxLng'], 146.0);
     expect(
-      objectBoxAdminPreviewValue(row.values['peakList']),
+      objectBoxAdminPreviewValue(row.values['membershipItems']),
       contains('peakOsmId'),
     );
+  });
+
+  test('peakListItemEntityToAdminRow exposes relational membership fields', () {
+    final peakList = PeakList(peakListId: 9, name: 'Abels', peakList: '[]');
+    final peak = Peak(osmId: 101, name: 'Alpha Peak', latitude: -42, longitude: 146);
+    final row = peakListItemEntityToAdminRow(
+      PeakListItemEntity(id: 3, points: 7)
+        ..peakList.target = peakList
+        ..peak.target = peak,
+    );
+
+    expect(row.primaryKeyValue, 3);
+    expect(row.values['peakListId'], 9);
+    expect(row.values['peakId'], 101);
+    expect(row.values['points'], 7);
+    expect(row.values['peakListName'], 'Abels');
+    expect(row.values['peakName'], 'Alpha Peak');
   });
 
   test('peaksBaggedToAdminRow exposes scalar fields', () {

@@ -124,6 +124,9 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
     final latestAscentDatesByPeakId = peaksBaggedRepository
         .latestAscentDatesByPeakId();
     final selectedRegionKeys = ref.watch(peakListRegionFilterProvider);
+    final peakListMembershipReadinessStatus = ref.watch(
+      mapProvider.select((state) => state.peakListMembershipReadinessStatus),
+    );
     final peakLists = ref.watch(peakListsProvider);
     final filteredPeakLists = peakLists
         .where(
@@ -131,6 +134,11 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
             peakList,
             selectedRegionKeys,
             peaks: peaksById.values,
+            itemsLoader: (peakList) {
+              return peakListRepository.getPeakListItemsForList(
+                peakList.peakListId,
+              );
+            },
           ),
         )
         .toList(growable: false);
@@ -138,6 +146,8 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
         .map(
           (peakList) => _PeakListSummaryRow.fromPeakList(
             peakList,
+            peakListRepository: peakListRepository,
+            membershipReadinessStatus: peakListMembershipReadinessStatus,
             peaksById: peaksById,
             ascentCountsByPeakId: ascentCountsByPeakId,
             latestAscentDatesByPeakId: latestAscentDatesByPeakId,
@@ -447,8 +457,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
   }
 
   Future<void> _refreshPeakListSelectionDependencies() async {
-    ref.read(peakListRevisionProvider.notifier).increment();
-    await ref.read(mapProvider.notifier).reloadPeakMarkers();
+    ref.read(peakListMembershipRefreshRunnerProvider)();
   }
 
   List<_PeakListSummaryRow> _sortSummaryRows(List<_PeakListSummaryRow> rows) {
@@ -3680,12 +3689,52 @@ class _PeakListSummaryRow {
 
   factory _PeakListSummaryRow.fromPeakList(
     PeakList peakList, {
+    required PeakListRepository peakListRepository,
+    required PeakListMembershipReadinessStatus membershipReadinessStatus,
     required Map<int, Peak> peaksById,
     required Map<int, int> ascentCountsByPeakId,
     required Map<int, DateTime?> latestAscentDatesByPeakId,
   }) {
+    if (membershipReadinessStatus == PeakListMembershipReadinessStatus.loading) {
+      return _PeakListSummaryRow._(
+        peakList: peakList,
+        isSupported: false,
+        totalPeaks: null,
+        climbed: null,
+        unclimbed: null,
+        ascentCount: 0,
+        totalPoints: null,
+        earnedPoints: null,
+        percentageValue: -1,
+        peakRows: const [],
+        mapPeaks: const [],
+        latestAscentDate: null,
+        latestAscentPeaks: const [],
+        unsupportedMessage:
+            'Peak-list memberships are still loading from startup migration.',
+      );
+    }
+    if (peakList.isUnsupportedLegacy) {
+      return _PeakListSummaryRow._(
+        peakList: peakList,
+        isSupported: false,
+        totalPeaks: null,
+        climbed: null,
+        unclimbed: null,
+        ascentCount: 0,
+        totalPoints: null,
+        earnedPoints: null,
+        percentageValue: -1,
+        peakRows: const [],
+        mapPeaks: const [],
+        latestAscentDate: null,
+        latestAscentPeaks: const [],
+        unsupportedMessage:
+            'This peak list uses an unsupported legacy format. Delete it and re-import the CSV to inspect its peaks and metrics.',
+      );
+    }
     try {
-      final items = decodePeakListItems(peakList.peakList);
+      final items = peakListRepository.getPeakListItemsForList(peakList.peakListId);
       final uniqueItems = <PeakListItem>[];
       final seenPeakIds = <int>{};
       for (final item in items) {

@@ -72,6 +72,7 @@ class PeakListCsvExportProgress {
 }
 
 typedef PeakListCsvOutputDirectoryResolver = Directory Function();
+typedef PeakListCsvExportYieldCallback = Future<void> Function();
 
 abstract class PeakListCsvFileWriter {
   Future<void> write(String path, String contents);
@@ -92,9 +93,11 @@ class PeakListCsvExportService {
     required this._peakRepository,
     PeakListCsvOutputDirectoryResolver? outputDirectoryResolver,
     PeakListCsvFileWriter? fileWriter,
+    PeakListCsvExportYieldCallback? yieldCallback,
   }) : _outputDirectoryResolver =
-           outputDirectoryResolver ?? _defaultOutputDirectoryResolver,
-       _fileWriter = fileWriter ?? const IoPeakListCsvFileWriter();
+            outputDirectoryResolver ?? _defaultOutputDirectoryResolver,
+       _fileWriter = fileWriter ?? const IoPeakListCsvFileWriter(),
+       _yieldCallback = yieldCallback ?? _defaultYieldCallback;
 
   static const List<String> csvHeaders = [
     'name',
@@ -120,11 +123,14 @@ class PeakListCsvExportService {
     'verified',
     'sourceOfTruth',
   ];
+  static const int _progressReportStride = 50;
+  static const int _yieldStride = 250;
 
   final PeakListRepository _peakListRepository;
   final PeakRepository _peakRepository;
   final PeakListCsvOutputDirectoryResolver _outputDirectoryResolver;
   final PeakListCsvFileWriter _fileWriter;
+  final PeakListCsvExportYieldCallback _yieldCallback;
 
   Future<PeakListCsvExportResult> exportPeakLists({
     PeakListCsvExportProgressCallback? onProgress,
@@ -146,6 +152,9 @@ class PeakListCsvExportService {
             ? nameComparison
             : left.peakListId.compareTo(right.peakListId);
       });
+    final peaksByOsmId = {
+      for (final peak in _peakRepository.getAllPeaks()) peak.osmId: peak,
+    };
 
     final preparedPeakLists = _preparePeakLists(peakLists);
     final totalFileCount = preparedPeakLists.length;
@@ -177,6 +186,7 @@ class PeakListCsvExportService {
       final peakList = preparedPeakList.peakList;
       final fileName = preparedPeakList.fileName;
       final currentFileName = fileName ?? peakList.name;
+      await _yieldCallback();
       reportProgress(
         currentFileName: currentFileName,
         currentFileWrittenRowCount: 0,
@@ -196,9 +206,23 @@ class PeakListCsvExportService {
         continue;
       }
 
+      if (!peakList.isMembershipReady) {
+        skippedMalformedListCount += 1;
+        warningEntries.add(
+          'Peak list ${peakList.peakListId} (${peakList.name}): unsupported legacy membership payload',
+        );
+        completedFileCount += 1;
+        reportProgress(
+          currentFileName: currentFileName,
+          currentFileWrittenRowCount: 0,
+          currentFileTotalRowCount: 0,
+        );
+        continue;
+      }
+
       late final List<PeakListItem> items;
       try {
-        items = decodePeakListItems(peakList.peakList);
+        items = _peakListRepository.getPeakListItemsForList(peakList.peakListId);
       } catch (_) {
         skippedMalformedListCount += 1;
         warningEntries.add(
@@ -213,17 +237,38 @@ class PeakListCsvExportService {
         continue;
       }
 
-      final rows = <List<dynamic>>[csvHeaders];
-      final totalRowCount = items.length;
-      var writtenRowCount = 0;
-      reportProgress(
-        currentFileName: currentFileName,
-        currentFileWrittenRowCount: 0,
-        currentFileTotalRowCount: totalRowCount,
-      );
-      for (final item in items) {
-        final peak = _peakRepository.findByOsmId(item.peakOsmId);
-        if (peak == null) {
+      try {
+        final resolvedRows = _resolveSortedExportRows(items, peaksByOsmId);
+        final rows = <List<dynamic>>[csvHeaders];
+        final totalRowCount = items.length;
+        var writtenRowCount = 0;
+        reportProgress(
+          currentFileName: currentFileName,
+          currentFileWrittenRowCount: 0,
+          currentFileTotalRowCount: totalRowCount,
+        );
+        for (final exportRow in resolvedRows) {
+          final peak = exportRow.peak;
+          rows.add(_csvRowForPeak(peak, exportRow.item));
+          writtenRowCount += 1;
+          if (writtenRowCount == totalRowCount ||
+              writtenRowCount == 1 ||
+              writtenRowCount % _progressReportStride == 0) {
+            reportProgress(
+              currentFileName: currentFileName,
+              currentFileWrittenRowCount: writtenRowCount,
+              currentFileTotalRowCount: totalRowCount,
+            );
+          }
+          if (writtenRowCount % _yieldStride == 0) {
+            await _yieldCallback();
+          }
+        }
+
+        for (final item in items) {
+          if (peaksByOsmId[item.peakOsmId] != null) {
+            continue;
+          }
           skippedRowCount += 1;
           warningEntries.add(
             'Peak list ${peakList.peakListId} (${peakList.name}): missing peak osmId ${item.peakOsmId}',
@@ -233,72 +278,41 @@ class PeakListCsvExportService {
             currentFileWrittenRowCount: writtenRowCount,
             currentFileTotalRowCount: totalRowCount,
           );
+        }
+
+        if (rows.length == 1 && items.isNotEmpty) {
+          skippedZeroResolvedRowListCount += 1;
+          warningEntries.add(
+            'Peak list ${peakList.peakListId} (${peakList.name}): zero resolved peak rows',
+          );
+          completedFileCount += 1;
+          reportProgress(
+            currentFileName: currentFileName,
+            currentFileWrittenRowCount: writtenRowCount,
+            currentFileTotalRowCount: totalRowCount,
+          );
           continue;
         }
 
-        final mgrs = _resolveMgrsComponents(peak);
-        rows.add([
-          peak.name,
-          peak.altName,
-          _formatOptionalNumber(peak.elevation),
-          _formatOptionalNumber(peak.prominence),
-          _formatOptionalRating(peak.rating),
-          peak.difficulty,
-          _formatDuration(peak),
-          peak.viaFerrata,
-          mgrs.gridZoneDesignator,
-          mgrs.mgrs100kId,
-          mgrs.easting,
-          mgrs.northing,
-          item.points,
-          peak.osmId,
-          peak.peakbaggerPid?.toString() ?? '',
-          peak.country,
-          peak.region ?? '',
-          peak.county,
-          peak.range,
-          peak.notes,
-          peak.verified.toString(),
-          peak.sourceOfTruth,
-        ]);
-        writtenRowCount += 1;
-        reportProgress(
-          currentFileName: currentFileName,
-          currentFileWrittenRowCount: writtenRowCount,
-          currentFileTotalRowCount: totalRowCount,
-        );
-      }
-
-      if (rows.length == 1 && items.isNotEmpty) {
-        skippedZeroResolvedRowListCount += 1;
-        warningEntries.add(
-          'Peak list ${peakList.peakListId} (${peakList.name}): zero resolved peak rows',
-        );
+        final csvText = const CsvEncoder(lineDelimiter: '\n').convert(rows);
+        final outputPath = p.join(outputDirectory.path, fileName);
+        try {
+          await _fileWriter.write(outputPath, csvText);
+        } catch (error) {
+          throw PeakListCsvExportException(
+            'Could not write CSV file at $outputPath: $error',
+          );
+        }
+        exportedFileCount += 1;
         completedFileCount += 1;
         reportProgress(
           currentFileName: currentFileName,
           currentFileWrittenRowCount: writtenRowCount,
           currentFileTotalRowCount: totalRowCount,
         );
-        continue;
+      } catch (_) {
+        rethrow;
       }
-
-      final csvText = const CsvEncoder(lineDelimiter: '\n').convert(rows);
-      final outputPath = p.join(outputDirectory.path, fileName);
-      try {
-        await _fileWriter.write(outputPath, csvText);
-      } catch (error) {
-        throw PeakListCsvExportException(
-          'Could not write CSV file at $outputPath: $error',
-        );
-      }
-      exportedFileCount += 1;
-      completedFileCount += 1;
-      reportProgress(
-        currentFileName: currentFileName,
-        currentFileWrittenRowCount: writtenRowCount,
-        currentFileTotalRowCount: totalRowCount,
-      );
     }
 
     return PeakListCsvExportResult(
@@ -314,6 +328,10 @@ class PeakListCsvExportService {
 
   static Directory _defaultOutputDirectoryResolver() {
     return Directory(p.join(resolveBushwalkingRoot(), 'Peak_Lists'));
+  }
+
+  static Future<void> _defaultYieldCallback() {
+    return Future<void>.delayed(Duration.zero);
   }
 
   String _normalizeFileStem(String value) {
@@ -382,6 +400,65 @@ class PeakListCsvExportService {
   String _formatOptionalRating(double? rating) {
     return rating == null ? '' : rating.toStringAsFixed(1);
   }
+
+  List<_ResolvedPeakListExportRow> _resolveSortedExportRows(
+    List<PeakListItem> items,
+    Map<int, Peak> peaksByOsmId,
+  ) {
+    final resolvedRows = <_ResolvedPeakListExportRow>[];
+    for (var index = 0; index < items.length; index++) {
+      final item = items[index];
+      final peak = peaksByOsmId[item.peakOsmId];
+      if (peak == null) {
+        continue;
+      }
+      resolvedRows.add((peak: peak, item: item, originalIndex: index));
+    }
+
+    resolvedRows.sort((left, right) {
+      final nameComparison = left.peak.name.toLowerCase().compareTo(
+        right.peak.name.toLowerCase(),
+      );
+      if (nameComparison != 0) {
+        return nameComparison;
+      }
+      final osmIdComparison = left.peak.osmId.compareTo(right.peak.osmId);
+      if (osmIdComparison != 0) {
+        return osmIdComparison;
+      }
+      return left.originalIndex.compareTo(right.originalIndex);
+    });
+
+    return resolvedRows;
+  }
+
+  List<dynamic> _csvRowForPeak(Peak peak, PeakListItem item) {
+    final mgrs = _resolveMgrsComponents(peak);
+    return [
+      peak.name,
+      peak.altName,
+      _formatOptionalNumber(peak.elevation),
+      _formatOptionalNumber(peak.prominence),
+      _formatOptionalRating(peak.rating),
+      peak.difficulty,
+      _formatDuration(peak),
+      peak.viaFerrata,
+      mgrs.gridZoneDesignator,
+      mgrs.mgrs100kId,
+      mgrs.easting,
+      mgrs.northing,
+      item.points,
+      peak.osmId,
+      peak.peakbaggerPid?.toString() ?? '',
+      peak.country,
+      peak.region ?? '',
+      peak.county,
+      peak.range,
+      peak.notes,
+      peak.verified.toString(),
+      peak.sourceOfTruth,
+    ];
+  }
 }
 
 class _PreparedPeakListExport {
@@ -393,3 +470,9 @@ class _PreparedPeakListExport {
   final PeakList peakList;
   final String? fileName;
 }
+
+typedef _ResolvedPeakListExportRow = ({
+  Peak peak,
+  PeakListItem item,
+  int originalIndex,
+});

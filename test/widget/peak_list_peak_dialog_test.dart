@@ -810,9 +810,9 @@ void main() {
     expect(result?.deleted, isFalse);
     expect(result?.selectedPeakIds, [202]);
     expect(
-      decodePeakListItems(
-        listRepository.getAllPeakLists().single.peakList,
-      ).map((item) => (item.peakOsmId, item.points)).toList(),
+      listRepository.getPeakListItemsForList(1)
+          .map((item) => (item.peakOsmId, item.points))
+          .toList(),
       [(101, 4), (202, 10)],
     );
   });
@@ -896,9 +896,9 @@ void main() {
     final result = await completer.future;
     expect(result?.selectedPeakIds, [100, 200, 300]);
     expect(
-      decodePeakListItems(
-        listRepository.getAllPeakLists().single.peakList,
-      ).map((item) => (item.peakOsmId, item.points)).toList(),
+      listRepository.getPeakListItemsForList(1)
+          .map((item) => (item.peakOsmId, item.points))
+          .toList(),
       [(100, 3), (200, 5), (300, 7)],
     );
   });
@@ -1026,13 +1026,11 @@ void main() {
     expect(result?.selectedPeakId, 101);
     expect(result?.deleted, isFalse);
     expect(
-      decodePeakListItems(
-        listRepository.getAllPeakLists().single.peakList,
-      ).single.points,
+      listRepository.getPeakListItemsForList(1).single.points,
       7,
     );
     expect(container.read(peakListRevisionProvider), 1);
-    expect(mapNotifier.reloadPeakMarkersCallCount, 1);
+    expect(mapNotifier.reloadPeakMarkersCallCount, 0);
   });
 
   testWidgets('delete mode removes membership and selects next row', (
@@ -1099,13 +1097,13 @@ void main() {
     expect(result?.deleted, isTrue);
     expect(result?.selectedPeakId, 202);
     expect(
-      decodePeakListItems(
-        listRepository.getAllPeakLists().single.peakList,
-      ).map((item) => item.peakOsmId).toList(),
+      listRepository.getPeakListItemsForList(1)
+          .map((item) => item.peakOsmId)
+          .toList(),
       [202],
     );
     expect(container.read(peakListRevisionProvider), 1);
-    expect(mapNotifier.reloadPeakMarkersCallCount, 1);
+    expect(mapNotifier.reloadPeakMarkersCallCount, 0);
   });
 
   testWidgets(
@@ -1174,11 +1172,11 @@ void main() {
 
       expect(find.textContaining('Failed to add:'), findsOneWidget);
       expect(container.read(peakListRevisionProvider), 1);
-      expect(mapNotifier.reloadPeakMarkersCallCount, 1);
+      expect(mapNotifier.reloadPeakMarkersCallCount, 0);
       expect(
-        decodePeakListItems(
-          listRepository.getAllPeakLists().single.peakList,
-        ).map((item) => item.peakOsmId).toList(),
+        listRepository.getPeakListItemsForList(1)
+            .map((item) => item.peakOsmId)
+            .toList(),
         [101, 202],
       );
     },

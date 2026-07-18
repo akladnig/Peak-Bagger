@@ -58,6 +58,8 @@ void main() {
       expect(robot.backgroundJobsPanel, findsOneWidget);
       robot.expectBackgroundJobStatus(1, 'Running');
       robot.expectBackgroundJobProgressText(1, '0 / 2 files');
+      expect(find.text('1 / 3 rows'), findsOneWidget);
+      expect(find.text('alpha-list-peak-list.csv'), findsOneWidget);
 
       completer.complete(
         const PeakListCsvExportResult(

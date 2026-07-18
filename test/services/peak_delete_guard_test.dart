@@ -75,12 +75,44 @@ void main() {
       expect(result.canDelete, isTrue);
       expect(result.blockers, isEmpty);
     });
+
+    test('uses relational memberships as the delete guard source of truth', () {
+      final peak = Peak(
+        id: 7,
+        osmId: 123,
+        name: 'Cradle',
+        latitude: -41,
+        longitude: 146,
+      );
+      final peakList = PeakList(
+        peakListId: 3,
+        name: 'Relational',
+        peakList: '[]',
+      );
+      final item = PeakListItemEntity(id: 1, points: 4)
+        ..peakList.target = peakList
+        ..peak.target = peak;
+
+      source.peakLists = [peakList];
+      source.peakListItems = [item];
+
+      final result = guard.check(peak);
+
+      expect(result.canDelete, isFalse);
+      expect(
+        result.blockers
+            .map((blocker) => (blocker.dependencyType, blocker.displayName))
+            .toList(),
+        [(PeakDeleteDependencyType.peakList, 'Relational')],
+      );
+    });
   });
 }
 
 class _FakePeakDeleteGuardSource implements PeakDeleteGuardSource {
   List<GpxTrack> gpxTracks = const [];
   List<PeakList> peakLists = const [];
+  List<PeakListItemEntity> peakListItems = const [];
   List<PeaksBagged> peaksBagged = const [];
 
   @override
@@ -88,6 +120,9 @@ class _FakePeakDeleteGuardSource implements PeakDeleteGuardSource {
 
   @override
   List<PeakList> loadPeakLists() => peakLists;
+
+  @override
+  List<PeakListItemEntity> loadPeakListItems() => peakListItems;
 
   @override
   List<PeaksBagged> loadPeaksBagged() => peaksBagged;

@@ -41,10 +41,19 @@ class ObjectBoxAdminDataGrid extends StatelessWidget {
     final tableFields = entity.name == 'Peak'
         ? peakAdminTableFields(entity)
         : entity.fields;
+    if (tableFields.isEmpty) {
+      return const SizedBox.shrink();
+    }
     final otherFields = tableFields
         .where((field) => !field.isPrimaryName)
         .toList(growable: false);
-    final primaryField = tableFields.firstWhere((field) => field.isPrimaryName);
+    final primaryField = tableFields.firstWhere(
+      (field) => field.isPrimaryName,
+      orElse: () => tableFields.firstWhere(
+        (field) => field.isPrimaryKey,
+        orElse: () => tableFields.first,
+      ),
+    );
     final showActionsColumn =
         (entity.name == 'Peak' ||
             entity.name == 'GpxTrack' ||

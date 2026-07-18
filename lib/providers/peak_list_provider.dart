@@ -15,6 +15,8 @@ typedef PeakListImportBackgroundRunner =
       PeakListImportProgressCallback? onProgress,
     });
 
+typedef PeakListMembershipRefreshRunner = void Function();
+
 final peakListRepositoryProvider = Provider<PeakListRepository>((ref) {
   return PeakListRepository.test(InMemoryPeakListStorage());
 });
@@ -76,6 +78,16 @@ final peakListImportBackgroundRunnerProvider =
           peakListId: result.peakListId,
           listName: listName.trim(),
         );
+      };
+    });
+
+final peakListMembershipRefreshRunnerProvider =
+    Provider<PeakListMembershipRefreshRunner>((ref) {
+      return () {
+        ref.read(peakListRevisionProvider.notifier).increment();
+        final mapNotifier = ref.read(mapProvider.notifier);
+        mapNotifier.reconcileSelectedPeakList();
+        mapNotifier.refreshPeakInfoPopupContent();
       };
     });
 

@@ -2135,6 +2135,9 @@ class _PeakListBlockerSource implements PeakDeleteGuardSource {
   List<PeakList> loadPeakLists() => peakLists;
 
   @override
+  List<PeakListItemEntity> loadPeakListItems() => const [];
+
+  @override
   List<PeaksBagged> loadPeaksBagged() => const [];
 }
 
@@ -2144,6 +2147,9 @@ class _NoopPeakDeleteGuardSource implements PeakDeleteGuardSource {
 
   @override
   List<PeakList> loadPeakLists() => const [];
+
+  @override
+  List<PeakListItemEntity> loadPeakListItems() => const [];
 
   @override
   List<PeaksBagged> loadPeaksBagged() => const [];

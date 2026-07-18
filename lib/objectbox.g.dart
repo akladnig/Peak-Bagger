@@ -549,7 +549,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(4, 5754024077279183606),
     name: 'PeakList',
-    lastPropertyId: const obx_int.IdUid(9, 3950595686781371796),
+    lastPropertyId: const obx_int.IdUid(10, 5483333047928218384),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -605,6 +605,12 @@ final _entities = <obx_int.ModelEntity>[
         id: const obx_int.IdUid(9, 3950595686781371796),
         name: 'maxLng',
         type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(10, 5483333047928218384),
+        name: 'membershipState',
+        type: 9,
         flags: 0,
       ),
     ],
@@ -1138,6 +1144,46 @@ final _entities = <obx_int.ModelEntity>[
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
   ),
+  obx_int.ModelEntity(
+    id: const obx_int.IdUid(12, 2969856472041605845),
+    name: 'PeakListItemEntity',
+    lastPropertyId: const obx_int.IdUid(4, 2431484241451791478),
+    flags: 0,
+    properties: <obx_int.ModelProperty>[
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(1, 4732488981440278062),
+        name: 'id',
+        type: 6,
+        flags: 1,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(2, 1189707617641063121),
+        name: 'peakListId',
+        type: 11,
+        flags: 520,
+        indexId: const obx_int.IdUid(22, 547855362445251760),
+        relationField: 'peakList',
+        relationTarget: 'PeakList',
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(3, 2863516118748177982),
+        name: 'peakId',
+        type: 11,
+        flags: 520,
+        indexId: const obx_int.IdUid(23, 4109953239494006552),
+        relationField: 'peak',
+        relationTarget: 'Peak',
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(4, 2431484241451791478),
+        name: 'points',
+        type: 6,
+        flags: 0,
+      ),
+    ],
+    relations: <obx_int.ModelRelation>[],
+    backlinks: <obx_int.ModelBacklink>[],
+  ),
 ];
 
 /// Shortcut for [obx.Store.new] that passes [getObjectBoxModel] and for Flutter
@@ -1183,8 +1229,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
     // Typically, this is done with `dart run build_runner build`.
     generatorVersion: obx_int.GeneratorVersion.v2025_12_16,
     entities: _entities,
-    lastEntityId: const obx_int.IdUid(11, 1109231805334434295),
-    lastIndexId: const obx_int.IdUid(21, 5356499526039797575),
+    lastEntityId: const obx_int.IdUid(12, 2969856472041605845),
+    lastIndexId: const obx_int.IdUid(23, 4109953239494006552),
     lastRelationId: const obx_int.IdUid(1, 8194382659905112901),
     lastSequenceId: const obx_int.IdUid(0, 0),
     retiredEntityUids: const [],
@@ -1861,7 +1907,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final nameOffset = fbb.writeString(object.name);
         final peakListOffset = fbb.writeString(object.peakList);
         final regionOffset = fbb.writeString(object.region);
-        fbb.startTable(10);
+        final membershipStateOffset = fbb.writeString(object.membershipState);
+        fbb.startTable(11);
         fbb.addInt64(0, object.peakListId);
         fbb.addOffset(1, nameOffset);
         fbb.addOffset(2, peakListOffset);
@@ -1871,6 +1918,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addFloat64(6, object.maxLat);
         fbb.addFloat64(7, object.minLng);
         fbb.addFloat64(8, object.maxLng);
+        fbb.addOffset(9, membershipStateOffset);
         fbb.finish(fbb.endTable());
         return object.peakListId;
       },
@@ -1898,6 +1946,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
           12,
           0,
         );
+        final membershipStateParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 22, '');
         final minLatParam = const fb.Float64Reader().vTableGetNullable(
           buffer,
           rootOffset,
@@ -1924,6 +1975,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
           region: regionParam,
           peakList: peakListParam,
           colour: colourParam,
+          membershipState: membershipStateParam,
           minLat: minLatParam,
           maxLat: maxLatParam,
           minLng: minLngParam,
@@ -2639,6 +2691,59 @@ obx_int.ModelDefinition getObjectBoxModel() {
         return object;
       },
     ),
+    PeakListItemEntity: obx_int.EntityDefinition<PeakListItemEntity>(
+      model: _entities[11],
+      toOneRelations: (PeakListItemEntity object) => [
+        object.peakList,
+        object.peak,
+      ],
+      toManyRelations: (PeakListItemEntity object) => {},
+      getId: (PeakListItemEntity object) => object.id,
+      setId: (PeakListItemEntity object, int id) {
+        object.id = id;
+      },
+      objectToFB: (PeakListItemEntity object, fb.Builder fbb) {
+        fbb.startTable(5);
+        fbb.addInt64(0, object.id);
+        fbb.addInt64(1, object.peakList.targetId);
+        fbb.addInt64(2, object.peak.targetId);
+        fbb.addInt64(3, object.points);
+        fbb.finish(fbb.endTable());
+        return object.id;
+      },
+      objectFromFB: (obx.Store store, ByteData fbData) {
+        final buffer = fb.BufferContext(fbData);
+        final rootOffset = buffer.derefObject(0);
+        final idParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          4,
+          0,
+        );
+        final pointsParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          10,
+          0,
+        );
+        final object = PeakListItemEntity(id: idParam, points: pointsParam);
+        object.peakList.targetId = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          6,
+          0,
+        );
+        object.peakList.attach(store);
+        object.peak.targetId = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          8,
+          0,
+        );
+        object.peak.attach(store);
+        return object;
+      },
+    ),
   };
 
   return obx_int.ModelDefinition(model, bindings);
@@ -3100,6 +3205,11 @@ class PeakList_ {
   static final maxLng = obx.QueryDoubleProperty<PeakList>(
     _entities[3].properties[8],
   );
+
+  /// See [PeakList.membershipState].
+  static final membershipState = obx.QueryStringProperty<PeakList>(
+    _entities[3].properties[9],
+  );
 }
 
 /// [PeaksBagged] entity fields to define ObjectBox queries.
@@ -3486,5 +3596,28 @@ class Waypoints_ {
   /// See [Waypoints.mgrs].
   static final mgrs = obx.QueryStringProperty<Waypoints>(
     _entities[10].properties[5],
+  );
+}
+
+/// [PeakListItemEntity] entity fields to define ObjectBox queries.
+class PeakListItemEntity_ {
+  /// See [PeakListItemEntity.id].
+  static final id = obx.QueryIntegerProperty<PeakListItemEntity>(
+    _entities[11].properties[0],
+  );
+
+  /// See [PeakListItemEntity.peakList].
+  static final peakList = obx.QueryRelationToOne<PeakListItemEntity, PeakList>(
+    _entities[11].properties[1],
+  );
+
+  /// See [PeakListItemEntity.peak].
+  static final peak = obx.QueryRelationToOne<PeakListItemEntity, Peak>(
+    _entities[11].properties[2],
+  );
+
+  /// See [PeakListItemEntity.points].
+  static final points = obx.QueryIntegerProperty<PeakListItemEntity>(
+    _entities[11].properties[3],
   );
 }

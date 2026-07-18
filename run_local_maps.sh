@@ -5,6 +5,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$script_dir/local_slovenia_proxy.sh"
 
 defines_file="$script_dir/dart_defines.local.json"
+flutter_log_path="$script_dir/.dart_tool/run_local_maps.log"
 
 started_proxy=0
 
@@ -31,6 +32,8 @@ fi
 
 trap cleanup EXIT INT TERM
 
+mkdir -p "$script_dir/.dart_tool"
+
 if ! proxy_is_ready; then
   start_managed_proxy
   started_proxy=1
@@ -49,5 +52,6 @@ for arg in "${flutter_args[@]}"; do
   printf ' %q' "$arg"
 done
 printf '\n'
+printf 'Flutter log: %s\n' "$flutter_log_path"
 
-flutter "${flutter_args[@]}"
+flutter "${flutter_args[@]}" 2>&1 | tee "$flutter_log_path"

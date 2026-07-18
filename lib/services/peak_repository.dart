@@ -120,12 +120,14 @@ abstract class PeakListRewritePort {
 class ObjectBoxPeakListRewritePort implements PeakListRewritePort {
   ObjectBoxPeakListRewritePort(Store store)
     : _peakListBox = store.box<PeakList>(),
+      _peakListItemBox = store.box<PeakListItemEntity>(),
       _peakBox = store.box<Peak>(),
       _peaksBaggedBox = store.box<PeaksBagged>(),
       _gpxTrackBox = store.box<GpxTrack>(),
       _routeBox = store.box<Route>();
 
   final Box<PeakList> _peakListBox;
+  final Box<PeakListItemEntity> _peakListItemBox;
   final Box<Peak> _peakBox;
   final Box<PeaksBagged> _peaksBaggedBox;
   final Box<GpxTrack> _gpxTrackBox;
@@ -138,6 +140,7 @@ class ObjectBoxPeakListRewritePort implements PeakListRewritePort {
   }) {
     var rewrittenCount = 0;
     var skippedMalformedCount = 0;
+    final peaksByOsmId = {for (final peak in _peakBox.getAll()) peak.osmId: peak};
 
     final peakLists = _peakListBox.getAll().toList(growable: false)
       ..sort((a, b) {
@@ -148,6 +151,36 @@ class ObjectBoxPeakListRewritePort implements PeakListRewritePort {
       });
 
     for (final peakList in peakLists) {
+      if (!peakList.isMembershipReady) {
+        continue;
+      }
+
+      final entityRows = _peakListItemEntitiesForPeakList(peakList.peakListId);
+      if (entityRows.isNotEmpty) {
+        var changed = false;
+        final updatedItems = <PeakListItem>[];
+        for (final item in _peakListItemsFromEntities(entityRows)) {
+          if (item.peakOsmId == oldOsmId) {
+            updatedItems.add(
+              PeakListItem(peakOsmId: newOsmId, points: item.points),
+            );
+            changed = true;
+          } else {
+            updatedItems.add(item);
+          }
+        }
+
+        if (changed) {
+          rewrittenCount += 1;
+          _replacePeakListItemEntities(
+            peakList,
+            updatedItems,
+            peaksByOsmId: peaksByOsmId,
+          );
+        }
+        continue;
+      }
+
       try {
         final items = decodePeakListItems(peakList.peakList);
         var changed = false;
@@ -208,10 +241,8 @@ class ObjectBoxPeakListRewritePort implements PeakListRewritePort {
     var refreshedCount = 0;
 
     for (final peakList in _peakListBox.getAll()) {
-      late final List<PeakListItem> items;
-      try {
-        items = decodePeakListItems(peakList.peakList);
-      } catch (_) {
+      final items = _loadActivePeakListItems(peakList);
+      if (items == null) {
         continue;
       }
 
@@ -260,13 +291,23 @@ class ObjectBoxPeakListRewritePort implements PeakListRewritePort {
       survivingPeak: survivingPeak,
     );
     final peakListUpdates = _buildPeakListUpdates(
-      peakLists: _peakListBox.getAll(),
+      peakListMemberships: _loadPeakListMembershipSnapshots(),
       peaksByOsmId: peaksByOsmId,
       duplicatePeak: duplicatePeak,
       survivingPeak: survivingPeak,
     );
 
     if (peakListUpdates.isNotEmpty) {
+      for (final update in peakListUpdates) {
+        if (!update.usesRelationalSource) {
+          continue;
+        }
+        _replacePeakListItemEntities(
+          update.updated,
+          update.items,
+          peaksByOsmId: peaksByOsmId,
+        );
+      }
       _peakListBox.putMany(
         peakListUpdates.map((update) => update.updated).toList(growable: false),
       );
@@ -294,19 +335,127 @@ class ObjectBoxPeakListRewritePort implements PeakListRewritePort {
 
     unawaited(peakStorage.delete(duplicatePeak.id));
   }
+
+  List<PeakListItemEntity> _peakListItemEntitiesForPeakList(int peakListId) {
+    final rows = _peakListItemBox
+        .getAll()
+        .where((item) => item.peakList.targetId == peakListId)
+        .toList(growable: false);
+    rows.sort((left, right) => left.id.compareTo(right.id));
+    return rows;
+  }
+
+  List<PeakListItem> _peakListItemsFromEntities(List<PeakListItemEntity> rows) {
+    final items = <PeakListItem>[];
+    for (final row in rows) {
+      final peak = row.peak.target;
+      if (peak == null || peak.osmId == 0) {
+        continue;
+      }
+      items.add(PeakListItem(peakOsmId: peak.osmId, points: row.points));
+    }
+    return items;
+  }
+
+  List<PeakListItem>? _loadActivePeakListItems(PeakList peakList) {
+    if (!peakList.isMembershipReady) {
+      return null;
+    }
+
+    final entityRows = _peakListItemEntitiesForPeakList(peakList.peakListId);
+    if (entityRows.isNotEmpty) {
+      return _peakListItemsFromEntities(entityRows);
+    }
+    if (peakList.peakList.trim().isEmpty) {
+      return const <PeakListItem>[];
+    }
+
+    try {
+      return decodePeakListItems(peakList.peakList);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<_PeakListMembershipSnapshot> _loadPeakListMembershipSnapshots() {
+    final snapshots = <_PeakListMembershipSnapshot>[];
+    for (final peakList in _peakListBox.getAll()) {
+      if (!peakList.isMembershipReady) {
+        continue;
+      }
+
+      final entityRows = _peakListItemEntitiesForPeakList(peakList.peakListId);
+      if (entityRows.isNotEmpty) {
+        snapshots.add((
+          peakList: peakList,
+          items: _peakListItemsFromEntities(entityRows),
+          usesRelationalSource: true,
+        ));
+        continue;
+      }
+
+      try {
+        snapshots.add((
+          peakList: peakList,
+          items: decodePeakListItems(peakList.peakList),
+          usesRelationalSource: false,
+        ));
+      } catch (_) {
+        throw PeakDuplicateResolutionException(
+          'Peak duplicate resolution failed: PeakList "${peakList.name}" is malformed.',
+        );
+      }
+    }
+    return snapshots;
+  }
+
+  void _replacePeakListItemEntities(
+    PeakList peakList,
+    List<PeakListItem> items, {
+    required Map<int, Peak> peaksByOsmId,
+  }) {
+    final existingIds = _peakListItemEntitiesForPeakList(peakList.peakListId)
+        .map((item) => item.id)
+        .toList(growable: false);
+    if (existingIds.isNotEmpty) {
+      _peakListItemBox.removeMany(existingIds);
+    }
+
+    if (items.isEmpty) {
+      return;
+    }
+
+    final replacements = <PeakListItemEntity>[];
+    for (final item in items) {
+      final peak = peaksByOsmId[item.peakOsmId];
+      if (peak == null) {
+        continue;
+      }
+      replacements.add(
+        PeakListItemEntity(points: item.points)
+          ..peakList.target = peakList
+          ..peak.target = peak,
+      );
+    }
+    if (replacements.isNotEmpty) {
+      _peakListItemBox.putMany(replacements);
+    }
+  }
 }
 
 class InMemoryPeakListRewritePort implements PeakListRewritePort {
   InMemoryPeakListRewritePort({
     required this.peakLists,
+    List<PeakListItemEntity>? peakListItems,
     required this.peaksBagged,
     required this.tracks,
     required this.routes,
     required this.peakStorage,
     this.beforeApplyTrackWritesForTest,
-  });
+  }) : peakListItems = peakListItems ?? <PeakListItemEntity>[];
 
   final List<PeakList> peakLists;
+  final List<PeakListItemEntity> peakListItems;
   final List<PeaksBagged> peaksBagged;
   final List<GpxTrack> tracks;
   final List<Route> routes;
@@ -320,9 +469,39 @@ class InMemoryPeakListRewritePort implements PeakListRewritePort {
   }) {
     var rewrittenCount = 0;
     var skippedMalformedCount = 0;
+    final peaksByOsmId = {for (final peak in peakStorage.getAll()) peak.osmId: peak};
 
     for (var index = 0; index < peakLists.length; index++) {
       final peakList = peakLists[index];
+      if (!peakList.isMembershipReady) {
+        continue;
+      }
+
+      final relationalRows = _peakListItemEntitiesForPeakList(peakList.peakListId);
+      if (relationalRows.isNotEmpty) {
+        var changed = false;
+        final updatedItems = <PeakListItem>[];
+        for (final item in _peakListItemsFromEntities(relationalRows)) {
+          if (item.peakOsmId == oldOsmId) {
+            updatedItems.add(
+              PeakListItem(peakOsmId: newOsmId, points: item.points),
+            );
+            changed = true;
+          } else {
+            updatedItems.add(item);
+          }
+        }
+        if (changed) {
+          rewrittenCount += 1;
+          _replacePeakListItemEntities(
+            peakList,
+            updatedItems,
+            peaksByOsmId: peaksByOsmId,
+          );
+        }
+        continue;
+      }
+
       try {
         final items = decodePeakListItems(peakList.peakList);
         var changed = false;
@@ -379,10 +558,8 @@ class InMemoryPeakListRewritePort implements PeakListRewritePort {
 
     for (var index = 0; index < peakLists.length; index++) {
       final peakList = peakLists[index];
-      late final List<PeakListItem> items;
-      try {
-        items = decodePeakListItems(peakList.peakList);
-      } catch (_) {
+      final items = _loadActivePeakListItems(peakList);
+      if (items == null) {
         continue;
       }
       if (!items.any((item) => refreshedOsmIds.contains(item.peakOsmId))) {
@@ -426,7 +603,7 @@ class InMemoryPeakListRewritePort implements PeakListRewritePort {
       survivingPeak: survivingPeak,
     );
     final peakListUpdates = _buildPeakListUpdates(
-      peakLists: peakLists,
+      peakListMemberships: _loadPeakListMembershipSnapshots(),
       peaksByOsmId: peaksByOsmId,
       duplicatePeak: duplicatePeak,
       survivingPeak: survivingPeak,
@@ -435,6 +612,9 @@ class InMemoryPeakListRewritePort implements PeakListRewritePort {
     final peakListSnapshot = peakLists
         .map(_clonePeakList)
         .toList(growable: false);
+    final peakListItemSnapshot = peakListItems
+        .map(_clonePeakListItemEntity)
+        .toList(growable: false);
     final peaksBaggedSnapshot = peaksBagged
         .map(_clonePeaksBagged)
         .toList(growable: false);
@@ -442,6 +622,16 @@ class InMemoryPeakListRewritePort implements PeakListRewritePort {
     final routeSnapshot = routes.map(_cloneRoute).toList(growable: false);
 
     try {
+      for (final update in peakListUpdates) {
+        if (!update.usesRelationalSource) {
+          continue;
+        }
+        _replacePeakListItemEntities(
+          update.updated,
+          update.items,
+          peaksByOsmId: peaksByOsmId,
+        );
+      }
       _applyPeakListUpdates(peakLists, peakListUpdates);
       _applyPeaksBaggedUpdates(
         peaksBagged,
@@ -454,10 +644,112 @@ class InMemoryPeakListRewritePort implements PeakListRewritePort {
       unawaited(peakStorage.delete(duplicatePeak.id));
     } catch (_) {
       _restorePeakLists(peakLists, peakListSnapshot);
+      _restorePeakListItems(peakListItems, peakListItemSnapshot);
       _restorePeaksBagged(peaksBagged, peaksBaggedSnapshot);
       _restoreTracks(tracks, trackSnapshot);
       _restoreRoutes(routes, routeSnapshot);
       rethrow;
+    }
+  }
+
+  List<PeakListItemEntity> _peakListItemEntitiesForPeakList(int peakListId) {
+    final rows = peakListItems
+        .where((item) => item.peakList.target?.peakListId == peakListId)
+        .toList(growable: false);
+    rows.sort((left, right) => left.id.compareTo(right.id));
+    return rows;
+  }
+
+  List<PeakListItem> _peakListItemsFromEntities(List<PeakListItemEntity> rows) {
+    final items = <PeakListItem>[];
+    for (final row in rows) {
+      final peak = row.peak.target;
+      if (peak == null || peak.osmId == 0) {
+        continue;
+      }
+      items.add(PeakListItem(peakOsmId: peak.osmId, points: row.points));
+    }
+    return items;
+  }
+
+  List<PeakListItem>? _loadActivePeakListItems(PeakList peakList) {
+    if (!peakList.isMembershipReady) {
+      return null;
+    }
+
+    final relationalRows = _peakListItemEntitiesForPeakList(peakList.peakListId);
+    if (relationalRows.isNotEmpty) {
+      return _peakListItemsFromEntities(relationalRows);
+    }
+    if (peakList.peakList.trim().isEmpty) {
+      return const <PeakListItem>[];
+    }
+
+    try {
+      return decodePeakListItems(peakList.peakList);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<_PeakListMembershipSnapshot> _loadPeakListMembershipSnapshots() {
+    final snapshots = <_PeakListMembershipSnapshot>[];
+    for (final peakList in peakLists) {
+      if (!peakList.isMembershipReady) {
+        continue;
+      }
+
+      final relationalRows = _peakListItemEntitiesForPeakList(peakList.peakListId);
+      if (relationalRows.isNotEmpty) {
+        snapshots.add((
+          peakList: peakList,
+          items: _peakListItemsFromEntities(relationalRows),
+          usesRelationalSource: true,
+        ));
+        continue;
+      }
+
+      try {
+        snapshots.add((
+          peakList: peakList,
+          items: decodePeakListItems(peakList.peakList),
+          usesRelationalSource: false,
+        ));
+      } catch (_) {
+        throw PeakDuplicateResolutionException(
+          'Peak duplicate resolution failed: PeakList "${peakList.name}" is malformed.',
+        );
+      }
+    }
+    return snapshots;
+  }
+
+  void _replacePeakListItemEntities(
+    PeakList peakList,
+    List<PeakListItem> items, {
+    required Map<int, Peak> peaksByOsmId,
+  }) {
+    peakListItems.removeWhere(
+      (item) => item.peakList.target?.peakListId == peakList.peakListId,
+    );
+    if (items.isEmpty) {
+      return;
+    }
+
+    var nextGeneratedId = peakListItems.fold<int>(1, (maxId, item) {
+      final candidate = item.id + 1;
+      return candidate > maxId ? candidate : maxId;
+    });
+    for (final item in items) {
+      final peak = peaksByOsmId[item.peakOsmId];
+      if (peak == null) {
+        continue;
+      }
+      peakListItems.add(
+        PeakListItemEntity(id: nextGeneratedId++, points: item.points)
+          ..peakList.target = peakList
+          ..peak.target = peak,
+      );
     }
   }
 }
@@ -1021,28 +1313,32 @@ class _NoopPeakListRewritePort implements PeakListRewritePort {
   }) {}
 }
 
-typedef _PeakListUpdate = ({PeakList original, PeakList updated});
+typedef _PeakListMembershipSnapshot = ({
+  PeakList peakList,
+  List<PeakListItem> items,
+  bool usesRelationalSource,
+});
+typedef _PeakListUpdate = ({
+  PeakList original,
+  PeakList updated,
+  List<PeakListItem> items,
+  bool usesRelationalSource,
+});
 typedef _PeaksBaggedUpdate = ({PeaksBagged original, PeaksBagged updated});
 typedef _TrackUpdate = ({GpxTrack original, GpxTrack updated});
 typedef _RouteUpdate = ({Route original, Route updated});
 
 List<_PeakListUpdate> _buildPeakListUpdates({
-  required List<PeakList> peakLists,
+  required List<_PeakListMembershipSnapshot> peakListMemberships,
   required Map<int, Peak> peaksByOsmId,
   required Peak duplicatePeak,
   required Peak survivingPeak,
 }) {
   final updates = <_PeakListUpdate>[];
 
-  for (final peakList in peakLists) {
-    late final List<PeakListItem> items;
-    try {
-      items = decodePeakListItems(peakList.peakList);
-    } catch (_) {
-      throw PeakDuplicateResolutionException(
-        'Peak duplicate resolution failed: PeakList "${peakList.name}" is malformed.',
-      );
-    }
+  for (final membership in peakListMemberships) {
+    final peakList = membership.peakList;
+    final items = membership.items;
 
     var changed = false;
     final normalizedItems = <PeakListItem>[];
@@ -1070,7 +1366,9 @@ List<_PeakListUpdate> _buildPeakListUpdates({
     }
 
     final normalizedPeakList = peakList.copyWith(
-      peakList: encodePeakListItems(normalizedItems),
+      peakList: membership.usesRelationalSource
+          ? peakList.peakList
+          : encodePeakListItems(normalizedItems),
     );
     final derivedData = derivePeakListDerivedData(
       peakList: normalizedPeakList,
@@ -1080,6 +1378,8 @@ List<_PeakListUpdate> _buildPeakListUpdates({
     updates.add((
       original: peakList,
       updated: derivedData.applyTo(normalizedPeakList),
+      items: normalizedItems,
+      usesRelationalSource: membership.usesRelationalSource,
     ));
   }
 
@@ -1270,6 +1570,15 @@ void _restorePeakLists(List<PeakList> target, List<PeakList> snapshot) {
     ..addAll(snapshot);
 }
 
+void _restorePeakListItems(
+  List<PeakListItemEntity> target,
+  List<PeakListItemEntity> snapshot,
+) {
+  target
+    ..clear()
+    ..addAll(snapshot);
+}
+
 void _restorePeaksBagged(List<PeaksBagged> target, List<PeaksBagged> snapshot) {
   target
     ..clear()
@@ -1290,6 +1599,12 @@ void _restoreRoutes(List<Route> target, List<Route> snapshot) {
 
 PeakList _clonePeakList(PeakList peakList) {
   return peakList.copyWith();
+}
+
+PeakListItemEntity _clonePeakListItemEntity(PeakListItemEntity item) {
+  return PeakListItemEntity(id: item.id, points: item.points)
+    ..peakList.target = item.peakList.target
+    ..peak.target = item.peak.target;
 }
 
 PeaksBagged _clonePeaksBagged(PeaksBagged row) {

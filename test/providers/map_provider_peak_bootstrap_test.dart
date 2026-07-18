@@ -142,6 +142,7 @@ void main() {
           PeakList(
             name: 'Italy North East',
             region: Peak.defaultRegion,
+            membershipState: PeakList.membershipStatePendingLegacyMigration,
             peakList: encodePeakListItems([
               const PeakListItem(peakOsmId: 1, points: 1),
               const PeakListItem(peakOsmId: 2, points: 1),
@@ -189,8 +190,91 @@ void main() {
       expect(updated.minLng, 10.8061);
       expect(updated.maxLng, 13.0475);
       expect(
-        await const MigrationMarkerStore().isPeakListCoverageBackfillMarked(),
+        container.read(mapProvider).peakListMembershipReadinessStatus,
+        PeakListMembershipReadinessStatus.ready,
+      );
+      expect(
+        await const MigrationMarkerStore().isPeakListMembershipMigrationMarked(),
         isTrue,
+      );
+    },
+  );
+
+  test(
+    'startup marks unreadable legacy peak lists unsupported and surfaces one warning',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final peakRepository = PeakRepository.test(
+        InMemoryPeakStorage([
+          Peak(
+            id: 7,
+            osmId: 1,
+            name: 'Stored Tasmania Peak',
+            latitude: -41.7,
+            longitude: 145.9,
+            region: Peak.defaultRegion,
+          ),
+        ]),
+      );
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(
+            name: 'Broken Legacy',
+            membershipState: PeakList.membershipStatePendingLegacyMigration,
+            peakList: '{oops}',
+          )..peakListId = 1,
+        ]),
+        peakRepository: peakRepository,
+      );
+      final notifier = MapNotifier(
+        peakRepository: peakRepository,
+        overpassService: TestPeakOverpassService(),
+        peakRegionAssetImportService: PeakRegionAssetImportService(
+          assetLoader: _assetLoader({
+            PeakRegionAssetImportService.manifestAssetPath: jsonEncode({}),
+          }),
+        ),
+        tasmapRepository: await TestTasmapRepository.create(),
+        gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+        routeRepository: RouteRepository.test(InMemoryRouteStorage()),
+        routeElevationSampler: const NoopRouteElevationSampler(),
+        routePlanner: _NoopRoutePlanner(),
+        peaksBaggedRepository: PeaksBaggedRepository.test(
+          InMemoryPeaksBaggedStorage(),
+        ),
+        migrationMarkerStore: const MigrationMarkerStore(),
+        loadPositionOnBuild: false,
+        loadTracksOnBuild: false,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(() => notifier),
+          peakListRepositoryProvider.overrideWithValue(peakListRepository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.read(mapProvider);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        peakListRepository.findById(1)?.isUnsupportedLegacy,
+        isTrue,
+      );
+      expect(
+        container.read(mapProvider).peakListMembershipReadinessStatus,
+        PeakListMembershipReadinessStatus.readyWithUnsupportedLegacy,
+      );
+      final warning = container
+          .read(mapProvider.notifier)
+          .consumeStartupBackfillWarningMessage();
+      expect(warning, contains('Some peak lists could not be migrated'));
+      expect(
+        container
+            .read(mapProvider.notifier)
+            .consumeStartupBackfillWarningMessage(),
+        isNull,
       );
     },
   );
