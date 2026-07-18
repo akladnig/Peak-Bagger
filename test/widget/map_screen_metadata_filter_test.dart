@@ -46,6 +46,17 @@ void main() {
         find.byKey(const Key('map-metadata-filter-row-duration')),
         findsOneWidget,
       );
+      final clearButton = tester.widget<FilledButton>(
+        find.byKey(const Key('map-metadata-filter-clear')),
+      );
+      expect(clearButton.onPressed, isNotNull);
+      final popupRect = tester.getRect(
+        find.byKey(const Key('map-metadata-filter-popup')),
+      );
+      final clearRect = tester.getRect(
+        find.byKey(const Key('map-metadata-filter-clear')),
+      );
+      expect(clearRect.center.dx, greaterThan(popupRect.center.dx));
 
       await tester.tap(
         find.byKey(const Key('map-metadata-filter-duration-trigger')),
@@ -193,6 +204,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      expect(
+        find.byKey(const Key('map-metadata-filter-popup')),
+        findsOneWidget,
+      );
       expect(find.text('T (Fvg)'), findsOneWidget);
 
       await tester.tap(
@@ -244,44 +259,52 @@ Future<void> _pumpApp(WidgetTester tester, TestMapNotifier notifier) async {
 }
 
 MapState _baseState() {
+  return _baseStateForPeaks(_defaultPeaks());
+}
+
+MapState _baseStateForPeaks(List<Peak> peaks) {
   return MapState(
     center: const LatLng(-41.5, 146.5),
     zoom: 15,
     basemap: Basemap.tracestrack,
-    peaks: [
-      _peak(
-        100,
-        'Tas Easy',
-        -42.0,
-        146.0,
-        rating: 4.2,
-        difficulty: 'Easy',
-        durationMinutes: 240,
-        region: 'tasmania',
-      ),
-      _peak(
-        200,
-        'FVG T',
-        46.2,
-        13.2,
-        rating: 4.8,
-        difficulty: 'T',
-        durationMinutes: 180,
-        region: 'fvg',
-      ),
-      _peak(
-        300,
-        'Slovenia Long',
-        46.4,
-        14.5,
-        rating: 4.9,
-        difficulty: 'T4',
-        durationMinutes: 3000,
-        region: 'slovenia',
-      ),
-      _peak(400, 'Blank Peak', -42.2, 146.2, region: 'tasmania'),
-    ],
+    peaks: peaks,
   );
+}
+
+List<Peak> _defaultPeaks() {
+  return [
+    _peak(
+      100,
+      'Tas Easy',
+      -42.0,
+      146.0,
+      rating: 4.2,
+      difficulty: 'Easy',
+      durationMinutes: 240,
+      region: 'tasmania',
+    ),
+    _peak(
+      200,
+      'FVG T',
+      46.2,
+      13.2,
+      rating: 4.8,
+      difficulty: 'T',
+      durationMinutes: 180,
+      region: 'fvg',
+    ),
+    _peak(
+      300,
+      'Slovenia Long',
+      46.4,
+      14.5,
+      rating: 4.9,
+      difficulty: 'T4',
+      durationMinutes: 3000,
+      region: 'slovenia',
+    ),
+    _peak(400, 'Blank Peak', -42.2, 146.2, region: 'tasmania'),
+  ];
 }
 
 Peak _peak(

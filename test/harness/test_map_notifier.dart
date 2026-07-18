@@ -84,6 +84,7 @@ class TestMapNotifier extends MapNotifier {
   var _routePlanningOutcomeIndex = 0;
   int _searchPopupRequestSerial = 0;
   int refreshCallCount = 0;
+  int reloadPeakMarkersCallCount = 0;
 
   void setTracks(List<GpxTrack> tracks) {
     state = state.copyWith(
@@ -479,6 +480,7 @@ class TestMapNotifier extends MapNotifier {
 
   @override
   Future<void> reloadPeakMarkers() async {
+    reloadPeakMarkersCallCount += 1;
     final peaks = peakRepository?.getAllPeaks() ?? state.peaks;
     final refreshedPeakInfo = _refreshedPeakInfo(peaks);
     state = state.copyWith(
@@ -488,6 +490,7 @@ class TestMapNotifier extends MapNotifier {
       peakInfo: refreshedPeakInfo,
       clearPeakInfoPopup: state.peakInfo != null && refreshedPeakInfo == null,
     );
+    reconcileSelectedPeakList();
   }
 
   @override

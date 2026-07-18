@@ -162,6 +162,12 @@ class _InitialStateMapNotifier extends MapNotifier {
 
   @override
   MapState build() => initialState;
+
+  @override
+  Future<void> reloadPeakMarkers() async {
+    state = state.copyWith(isLoadingPeaks: false, clearError: true);
+    reconcileSelectedPeakList();
+  }
 }
 
 Peak _peak(int osmId, {String region = Peak.defaultRegion}) {

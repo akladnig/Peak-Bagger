@@ -1191,7 +1191,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       }
 
       ref.read(peakListRevisionProvider.notifier).increment();
-      ref.read(mapProvider.notifier).reconcileSelectedPeakList();
+      await ref.read(mapProvider.notifier).reloadPeakMarkers();
+      if (!mounted) {
+        return;
+      }
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {

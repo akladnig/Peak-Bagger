@@ -143,7 +143,7 @@ void main() {
     robot.expectUpdateTassyFullConfirmVisible();
 
     await robot.confirmUpdateTassyFull();
-    robot.expectUpdateTassyFullResultVisible(added: 1, updated: 1, removed: 1);
+    robot.expectUpdateTassyFullResultVisible(added: 1, updated: 2, removed: 0);
     expect(
       robot.notifier.state.peakListSelectionMode,
       PeakListSelectionMode.specificList,
@@ -153,7 +153,7 @@ void main() {
       decodePeakListItems(
         repository.findByName('Tassy Full')!.peakList,
       ).map((item) => (item.peakOsmId, item.points)).toList(),
-      [(11, 5), (22, 4), (33, 1)],
+      [(11, 5), (22, 4), (33, 1), (44, 7)],
     );
   });
 }

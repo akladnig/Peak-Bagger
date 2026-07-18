@@ -3,10 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/peak_list_import_service.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peak_metadata_rules.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 
@@ -98,6 +101,84 @@ void main() {
       expect(result.importLogNote, 'See import.log for details.');
     },
   );
+
+  test(
+    'background runner reloads map-owned peaks so metadata filters refresh in all peaks mode',
+    () async {
+      final originalPeak = _buildPeak(
+        osmId: 101,
+        name: 'FVG T Peak',
+        elevation: 1000,
+        latitude: 46.2,
+        longitude: 13.2,
+      ).copyWith(rating: 4.8, difficulty: 'T', region: 'fvg');
+      final updatedPeak = originalPeak.copyWith(
+        rating: 4.2,
+        difficulty: 'Easy',
+        region: 'tasmania',
+      );
+      final peakRepository = PeakRepository.test(
+        InMemoryPeakStorage([originalPeak]),
+      );
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+      );
+      final mapNotifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          peaks: [originalPeak],
+          peakListSelectionMode: PeakListSelectionMode.allPeaks,
+          peakDifficultyFilter: const PeakDifficultyFilterOption(
+            region: 'fvg',
+            difficulty: 'T',
+          ),
+        ),
+        peakRepository: peakRepository,
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          peakListRepositoryProvider.overrideWithValue(peakListRepository),
+          peakListImportServiceProvider.overrideWithValue(
+            _ReloadingImportService(
+              peakRepository: peakRepository,
+              peakListRepository: peakListRepository,
+              updatedPeak: updatedPeak,
+            ),
+          ),
+          mapProvider.overrideWith(() => mapNotifier),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(
+        container
+            .read(filteredPeaksProvider)
+            .map((peak) => peak.osmId)
+            .toList(),
+        [101],
+      );
+      expect(container.read(mapDifficultyFilterOptionsProvider), [
+        const PeakDifficultyFilterOption(region: 'fvg', difficulty: 'T'),
+      ]);
+
+      final runner = container.read(peakListImportBackgroundRunnerProvider);
+      await runner(listName: 'Imported Peaks', csvPath: '/tmp/import.csv');
+
+      expect(mapNotifier.reloadPeakMarkersCallCount, 1);
+      expect(container.read(peakListRevisionProvider), 1);
+      expect(container.read(mapProvider).peaks.single.difficulty, 'Easy');
+      expect(container.read(filteredPeaksProvider), isEmpty);
+      expect(container.read(mapDifficultyFilterOptionsProvider), [
+        const PeakDifficultyFilterOption(
+          region: 'tasmania',
+          difficulty: 'Easy',
+        ),
+      ]);
+    },
+  );
 }
 
 Peak _buildPeak({
@@ -140,4 +221,39 @@ String _formatCsvUtmComponent(int value) {
     return '${digits.substring(0, 2)} ${digits.substring(2, 4)} ${digits.substring(4)}';
   }
   return digits;
+}
+
+class _ReloadingImportService extends PeakListImportService {
+  _ReloadingImportService({
+    required this.peakRepository,
+    required this.peakListRepository,
+    required this.updatedPeak,
+  }) : super(
+         peakRepository: peakRepository,
+         peakListRepository: peakListRepository,
+       );
+
+  final PeakRepository peakRepository;
+  final PeakListRepository peakListRepository;
+  final Peak updatedPeak;
+
+  @override
+  Future<PeakListImportResult> importPeakList({
+    required String listName,
+    required String csvPath,
+    PeakListImportProgressCallback? onProgress,
+  }) async {
+    await peakRepository.save(updatedPeak);
+    await peakListRepository.save(PeakList(name: listName, peakList: '[]'));
+    return const PeakListImportResult(
+      peakListId: 1,
+      updated: false,
+      importedCount: 1,
+      skippedCount: 0,
+      matchedCount: 1,
+      ambiguousCount: 0,
+      warningEntries: [],
+      logEntries: [],
+    );
+  }
 }

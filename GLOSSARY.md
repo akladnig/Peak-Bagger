@@ -84,6 +84,10 @@ _Avoid_: Italian administrative region, source-of-truth region
 The map screen's `MapSearchPopup` multi-entity search surface, which replaces the older peak-only search experience.
 _Avoid_: peak search when referring to the popup flow
 
+**Map metadata filter**:
+The `MapScreen` filter control for peak metadata such as rating, difficulty, and duration.
+_Avoid_: peak list filter when referring to metadata dropdowns
+
 **Peak list mini-map**:
 The embedded map on `PeakListsScreen` that previews the selected peak list's geography.
 _Avoid_: mini-map when the dashboard latest-walk preview is also in scope

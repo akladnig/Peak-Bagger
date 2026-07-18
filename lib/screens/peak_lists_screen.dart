@@ -343,7 +343,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
     }
 
     await ref.read(peakListMutationRepositoryProvider).delete(peakListId);
-    _refreshPeakListSelectionDependencies();
+    await _refreshPeakListSelectionDependencies();
     if (!mounted) {
       return;
     }
@@ -446,9 +446,9 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
     );
   }
 
-  void _refreshPeakListSelectionDependencies() {
+  Future<void> _refreshPeakListSelectionDependencies() async {
     ref.read(peakListRevisionProvider.notifier).increment();
-    ref.read(mapProvider.notifier).reconcileSelectedPeakList();
+    await ref.read(mapProvider.notifier).reloadPeakMarkers();
   }
 
   List<_PeakListSummaryRow> _sortSummaryRows(List<_PeakListSummaryRow> rows) {

@@ -30,16 +30,23 @@ Left - Left, h
 Right - Right, l  
 Up - Up, k
 Down - Down, j
+Undo - Cmd+z
+Redo - Cmd+shift+z
+Previous - Navigate to previous state
+Next - Navigate to next state
 
 ## UI
+### Cursor
+
 ### Number and Date Formatting
-- use 
+- use number_formatters.dart
 ### Text Fields
 ### FABs
 ### Icon + Text and Text Buttons
 
 ### Popups
 - Simple popups should use /lib/core/widgets/popup_shell.dart
+- Buttons in simple popups to use FilledButton and right aligned at the bottom.
 - Complex popups should use  shared numeric/style tokens such as border radius, padding, and close icon sizing in `./lib/core/constants.dart` rather than duplicating them inside the shell widget
 ### Dialogues
 ### Icons
@@ -49,6 +56,7 @@ Common Icons to be used are listed below and the default colour is onSurface unl
 - Close: Icons.close
 - Delete, Trash: Icons.delete_forever colour red.
 - Edit: Icons.edit
+- Filter: Icons.filter_list
 - Home: Icons.home 
 - Import: assets/svg/import.svg
 - Info: Icons.info

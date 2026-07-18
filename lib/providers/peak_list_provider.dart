@@ -60,7 +60,7 @@ final peakListImportBackgroundRunnerProvider =
           onProgress: onProgress,
         );
         ref.read(peakListRevisionProvider.notifier).increment();
-        ref.read(mapProvider.notifier).reconcileSelectedPeakList();
+        await ref.read(mapProvider.notifier).reloadPeakMarkers();
         return PeakListImportPresentationResult(
           updated: result.updated,
           importedCount: result.importedCount,

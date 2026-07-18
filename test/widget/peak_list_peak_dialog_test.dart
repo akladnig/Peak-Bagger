@@ -1032,6 +1032,7 @@ void main() {
       7,
     );
     expect(container.read(peakListRevisionProvider), 1);
+    expect(mapNotifier.reloadPeakMarkersCallCount, 1);
   });
 
   testWidgets('delete mode removes membership and selects next row', (
@@ -1104,6 +1105,7 @@ void main() {
       [202],
     );
     expect(container.read(peakListRevisionProvider), 1);
+    expect(mapNotifier.reloadPeakMarkersCallCount, 1);
   });
 
   testWidgets(
@@ -1172,6 +1174,7 @@ void main() {
 
       expect(find.textContaining('Failed to add:'), findsOneWidget);
       expect(container.read(peakListRevisionProvider), 1);
+      expect(mapNotifier.reloadPeakMarkersCallCount, 1);
       expect(
         decodePeakListItems(
           listRepository.getAllPeakLists().single.peakList,

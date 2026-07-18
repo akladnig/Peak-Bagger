@@ -158,8 +158,8 @@ class MapMetadataFilterPopup extends StatelessWidget {
             ),
           ),
           Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
+            alignment: Alignment.centerRight,
+            child: FilledButton(
               key: const Key('map-metadata-filter-clear'),
               onPressed: onClearFilters,
               child: const Text('Clear filters'),

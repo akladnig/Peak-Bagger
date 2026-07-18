@@ -11,6 +11,9 @@ import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_metadata_rules.dart';
 import 'package:peak_bagger/services/peak_list_visibility.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
+
+import '../harness/test_map_notifier.dart';
 
 void main() {
   test(
@@ -36,7 +39,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           mapProvider.overrideWith(
-            () => _TestMapNotifier(
+            () => TestMapNotifier(
               MapState(
                 center: const LatLng(-41.5, 146.5),
                 zoom: 15,
@@ -77,7 +80,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           mapProvider.overrideWith(
-            () => _TestMapNotifier(
+            () => TestMapNotifier(
               MapState(
                 center: const LatLng(-41.5, 146.5),
                 zoom: 15,
@@ -125,7 +128,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           mapProvider.overrideWith(
-            () => _TestMapNotifier(
+            () => TestMapNotifier(
               MapState(
                 center: const LatLng(-41.5, 146.5),
                 zoom: 15,
@@ -184,7 +187,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           mapProvider.overrideWith(
-            () => _TestMapNotifier(
+            () => TestMapNotifier(
               MapState(
                 center: const LatLng(-41.5, 146.5),
                 zoom: 15,
@@ -237,6 +240,81 @@ void main() {
         const PeakDifficultyFilterOption(
           region: 'tasmania',
           difficulty: 'Hard',
+        ),
+      ]);
+    },
+  );
+
+  test(
+    'specific-list metadata filters refresh from current local peaks after reloadPeakMarkers',
+    () async {
+      final originalPeak = Peak(
+        osmId: 6406,
+        name: 'FVG T Peak',
+        latitude: 46.2,
+        longitude: 13.2,
+        difficulty: 'T',
+        region: 'fvg',
+      );
+      final peakRepository = PeakRepository.test(
+        InMemoryPeakStorage([originalPeak]),
+      );
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(
+            name: 'Alpha',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 6406, points: 1),
+            ]),
+          )..peakListId = 7,
+        ]),
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => TestMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 15,
+                basemap: Basemap.tracestrack,
+                peaks: [originalPeak],
+                peakListSelectionMode: PeakListSelectionMode.specificList,
+                selectedPeakListIds: {7},
+                peakDifficultyFilter: const PeakDifficultyFilterOption(
+                  region: 'fvg',
+                  difficulty: 'T',
+                ),
+              ),
+              peakRepository: peakRepository,
+            ),
+          ),
+          peakListRepositoryProvider.overrideWithValue(peakListRepository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(
+        container
+            .read(filteredPeaksProvider)
+            .map((peak) => peak.osmId)
+            .toList(),
+        [6406],
+      );
+      expect(container.read(mapDifficultyFilterOptionsProvider), [
+        const PeakDifficultyFilterOption(region: 'fvg', difficulty: 'T'),
+      ]);
+
+      await peakRepository.save(
+        originalPeak.copyWith(difficulty: 'Easy', region: 'tasmania'),
+      );
+      await container.read(mapProvider.notifier).reloadPeakMarkers();
+
+      expect(container.read(filteredPeaksProvider), isEmpty);
+      expect(container.read(mapDifficultyFilterOptionsProvider), [
+        const PeakDifficultyFilterOption(
+          region: 'tasmania',
+          difficulty: 'Easy',
         ),
       ]);
     },
