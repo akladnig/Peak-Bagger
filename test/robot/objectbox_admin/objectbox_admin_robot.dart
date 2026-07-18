@@ -293,5 +293,8 @@ class _NoopPeakDeleteGuardSource implements PeakDeleteGuardSource {
   List<PeakList> loadPeakLists() => const [];
 
   @override
+  List<PeakListItemEntity> loadPeakListItems() => const [];
+
+  @override
   List<PeaksBagged> loadPeaksBagged() => const [];
 }

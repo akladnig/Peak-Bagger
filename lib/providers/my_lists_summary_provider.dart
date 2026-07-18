@@ -7,12 +7,16 @@ import '../services/peak_list_summary_service.dart';
 
 final myListsSummaryProvider = Provider<List<PeakListSummaryRow>>((ref) {
   final peakLists = ref.watch(peakListsProvider);
+  final peakListRepository = ref.watch(peakListRepositoryProvider);
   ref.watch(mapProvider.select((state) => state.tracks));
   ref.watch(peaksBaggedRevisionProvider);
   final climbedPeakIds = _climbedPeakIds(ref);
   return const PeakListSummaryService().buildRows(
     peakLists: peakLists,
     climbedPeakIds: climbedPeakIds,
+    itemsLoader: (peakList) {
+      return peakListRepository.getPeakListItemsForList(peakList.peakListId);
+    },
   );
 });
 

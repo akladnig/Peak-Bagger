@@ -21,21 +21,24 @@ void main() {
       InMemoryPeakStorage([_peak(11), _peak(22), _peak(99)]),
     );
     final repository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(
-          name: 'Abels',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 11, points: 2),
-          ]),
-        )..peakListId = 1,
-        PeakList(
-          name: 'Tassy Full',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 99, points: 9),
-          ]),
-        )..peakListId = 2,
-      ]),
+      InMemoryPeakListStorage(),
       peakRepository: peakRepository,
+    );
+    final abels = await repository.save(
+      PeakList(
+        name: 'Abels',
+        peakList: encodePeakListItems([
+          const PeakListItem(peakOsmId: 11, points: 2),
+        ]),
+      ),
+    );
+    await repository.save(
+      PeakList(
+        name: 'Tassy Full',
+        peakList: encodePeakListItems([
+          const PeakListItem(peakOsmId: 99, points: 9),
+        ]),
+      ),
     );
 
     final container = ProviderContainer(
@@ -60,7 +63,7 @@ void main() {
       peakListMutationRepositoryProvider,
     );
     await mutationRepository.addPeakItem(
-      peakListId: 1,
+      peakListId: abels.peakListId,
       item: const PeakListItem(peakOsmId: 22, points: 4),
     );
 
@@ -71,9 +74,9 @@ void main() {
     );
     expect(container.read(mapProvider).selectedPeakListId, 999);
     expect(
-      decodePeakListItems(
-        repository.findByName('Abels')!.peakList,
-      ).map((item) => (item.peakOsmId, item.points)).toList(),
+      repository.getPeakListItemsForList(abels.peakListId)
+          .map((item) => (item.peakOsmId, item.points))
+          .toList(),
       [(11, 2), (22, 4)],
     );
     expect(
@@ -153,18 +156,84 @@ void main() {
       );
     },
   );
+
+  test(
+    'membership refresh runner updates selected map peaks without reloading markers',
+    () async {
+      final peakRepository = PeakRepository.test(
+        InMemoryPeakStorage([_peak(11), _peak(22)]),
+      );
+      final repository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+        peakRepository: peakRepository,
+      );
+      final saved = await repository.save(
+        PeakList(
+          name: 'Abels',
+          peakList: encodePeakListItems([
+            const PeakListItem(peakOsmId: 11, points: 2),
+          ]),
+        ),
+      );
+
+      final mapNotifier = _InitialStateMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          peaks: peakRepository.getAllPeaks(),
+          peakListSelectionMode: PeakListSelectionMode.specificList,
+          selectedPeakListIds: {saved.peakListId},
+        ),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(() => mapNotifier),
+          peakRepositoryProvider.overrideWithValue(peakRepository),
+          peakListRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(
+        container.read(filteredPeaksProvider).map((peak) => peak.osmId).toList(),
+        [11],
+      );
+
+      await repository.addPeakItems(
+        peakListId: saved.peakListId,
+        items: const [PeakListItem(peakOsmId: 22, points: 4)],
+      );
+
+      expect(
+        container.read(filteredPeaksProvider).map((peak) => peak.osmId).toList(),
+        [11],
+      );
+
+      container.read(peakListMembershipRefreshRunnerProvider)();
+
+      expect(container.read(peakListRevisionProvider), 1);
+      expect(mapNotifier.reloadPeakMarkersCallCount, 0);
+      expect(
+        container.read(filteredPeaksProvider).map((peak) => peak.osmId).toList(),
+        [11, 22],
+      );
+    },
+  );
 }
 
 class _InitialStateMapNotifier extends MapNotifier {
   _InitialStateMapNotifier(this.initialState);
 
   final MapState initialState;
+  int reloadPeakMarkersCallCount = 0;
 
   @override
   MapState build() => initialState;
 
   @override
   Future<void> reloadPeakMarkers() async {
+    reloadPeakMarkersCallCount += 1;
     state = state.copyWith(isLoadingPeaks: false, clearError: true);
     reconcileSelectedPeakList();
   }

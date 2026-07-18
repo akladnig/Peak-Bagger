@@ -184,30 +184,6 @@ void main() {
           'sourceOfTruth',
         ]);
         expect(alphaRows[1].map((value) => '$value').toList(), [
-          'Bravo',
-          '',
-          '',
-          '',
-          '4.0',
-          'Easy',
-          '4:15',
-          '',
-          '55H',
-          'BB',
-          '00333',
-          '00444',
-          '7',
-          '200',
-          '',
-          'Australia',
-          'tasmania',
-          'Central Highlands',
-          'Cradle',
-          '',
-          'false',
-          'OSM',
-        ]);
-        expect(alphaRows[2].map((value) => '$value').toList(), [
           'Alpha',
           'Alt Alpha',
           '1234.5',
@@ -230,6 +206,30 @@ void main() {
           'Granite ridge',
           'true',
           'HWC',
+        ]);
+        expect(alphaRows[2].map((value) => '$value').toList(), [
+          'Bravo',
+          '',
+          '',
+          '',
+          '4.0',
+          'Easy',
+          '4:15',
+          '',
+          '55H',
+          'BB',
+          '00333',
+          '00444',
+          '7',
+          '200',
+          '',
+          'Australia',
+          'tasmania',
+          'Central Highlands',
+          'Cradle',
+          '',
+          'false',
+          'OSM',
         ]);
         expect(alphaRows[3].map((value) => '$value').toList(), [
           'Bravo',
@@ -439,6 +439,58 @@ void main() {
         isNotEmpty,
       );
     });
+
+    test(
+      'exports from relational memberships even when legacy payload is stale',
+      () async {
+        final peakRepository = PeakRepository.test(
+          InMemoryPeakStorage([
+            Peak(
+              osmId: 100,
+              name: 'Alpha',
+              latitude: -41,
+              longitude: 146,
+              gridZoneDesignator: '55G',
+              mgrs100kId: 'AA',
+              easting: '00111',
+              northing: '00222',
+            ),
+          ]),
+        );
+        final peakList = PeakList(
+          peakListId: 1,
+          name: 'Relational',
+          peakList: '[]',
+        );
+        final itemStorage = InMemoryPeakListItemEntityStorage([
+          PeakListItemEntity(id: 1, points: 3)
+            ..peakList.target = peakList
+            ..peak.target = peakRepository.findByOsmId(100),
+        ]);
+        final peakListRepository = PeakListRepository.test(
+          InMemoryPeakListStorage([peakList]),
+          itemStorage: itemStorage,
+          peakRepository: peakRepository,
+        );
+
+        final service = PeakListCsvExportService(
+          peakListRepository: peakListRepository,
+          peakRepository: peakRepository,
+          outputDirectoryResolver: () => outputDirectory,
+        );
+
+        final result = await service.exportPeakLists();
+
+        expect(result.exportedFileCount, 1);
+        final rows = const CsvDecoder().convert(
+          await File(
+            '${outputDirectory.path}/relational-peak-list.csv',
+          ).readAsString(),
+        );
+        expect(rows[1][0], 'Alpha');
+        expect(rows[1][12].toString(), '3');
+      },
+    );
 
     test(
       'exports empty lists, skips invalid lists, and records deterministic warnings',

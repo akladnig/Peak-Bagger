@@ -120,6 +120,68 @@ void main() {
       );
     });
 
+    test(
+      'relational membership mutations update item rows without rewriting legacy payload',
+      () async {
+        final peakRepository = PeakRepository.test(
+          InMemoryPeakStorage([
+            Peak(osmId: 11, name: 'Peak 11', latitude: -41.5, longitude: 146.5),
+            Peak(osmId: 22, name: 'Peak 22', latitude: -41.6, longitude: 146.6),
+            Peak(osmId: 33, name: 'Peak 33', latitude: -41.7, longitude: 146.7),
+          ]),
+        );
+        final repository = PeakListRepository.test(
+          InMemoryPeakListStorage(),
+          peakRepository: peakRepository,
+        );
+        final initialPayload = encodePeakListItems([
+          const PeakListItem(peakOsmId: 11, points: 2),
+        ]);
+        final saved = await repository.save(
+          PeakList(name: 'Abels', peakList: initialPayload),
+        );
+
+        await repository.addPeakItems(
+          peakListId: saved.peakListId,
+          items: const [
+            PeakListItem(peakOsmId: 22, points: 4),
+            PeakListItem(peakOsmId: 33, points: 6),
+          ],
+        );
+        await repository.updatePeakItemPoints(
+          peakListId: saved.peakListId,
+          peakOsmId: 11,
+          points: 7,
+        );
+        await repository.removePeakItem(
+          peakListId: saved.peakListId,
+          peakOsmId: 22,
+        );
+
+        expect(repository.findById(saved.peakListId)?.peakList, initialPayload);
+        expect(
+          repository
+              .getPeakListItemsForList(saved.peakListId)
+              .map((item) => (item.peakOsmId, item.points))
+              .toList(),
+          [(11, 7), (33, 6)],
+        );
+        expect(repository.findPeakListNamesForPeak(33), ['Abels']);
+
+        await repository.removePeakItem(
+          peakListId: saved.peakListId,
+          peakOsmId: 33,
+        );
+        await repository.removePeakItem(
+          peakListId: saved.peakListId,
+          peakOsmId: 11,
+        );
+
+        expect(repository.findById(saved.peakListId)?.peakList, initialPayload);
+        expect(repository.getPeakListItemsForList(saved.peakListId), isEmpty);
+      },
+    );
+
     test('copyWith preserves nullable derived bounds by default', () {
       final peakList = PeakList(
         peakListId: 1,
@@ -203,33 +265,34 @@ void main() {
           ]),
         );
         final repository = PeakListRepository.test(
-          InMemoryPeakListStorage([
-            PeakList(
-              name: 'Italy',
-              region: Peak.defaultRegion,
-              peakList: encodePeakListItems([
-                const PeakListItem(peakOsmId: 11, points: 1),
-              ]),
-              minLat: 0,
-              maxLat: 0,
-              minLng: 0,
-              maxLng: 0,
-            )..peakListId = 1,
-          ]),
+          InMemoryPeakListStorage(),
           peakRepository: peakRepository,
+        );
+        final saved = await repository.save(
+          PeakList(
+            name: 'Italy',
+            region: Peak.defaultRegion,
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 11, points: 1),
+            ]),
+            minLat: 0,
+            maxLat: 0,
+            minLng: 0,
+            maxLng: 0,
+          ),
         );
 
         final afterAdd = await repository.addPeakItem(
-          peakListId: 1,
+          peakListId: saved.peakListId,
           item: const PeakListItem(peakOsmId: 22, points: 2),
         );
         final afterPointUpdate = await repository.updatePeakItemPoints(
-          peakListId: 1,
+          peakListId: saved.peakListId,
           peakOsmId: 11,
           points: 7,
         );
         final afterRemove = await repository.removePeakItem(
-          peakListId: 1,
+          peakListId: saved.peakListId,
           peakOsmId: 22,
         );
 
@@ -275,35 +338,39 @@ void main() {
         final repository = PeakListRepository.test(
           InMemoryPeakListStorage([
             PeakList(
-              name: 'Mixed Legacy',
-              peakList: encodePeakListItems([
-                const PeakListItem(peakOsmId: 11, points: 1),
-                const PeakListItem(peakOsmId: 22, points: 1),
-              ]),
-            )..peakListId = 1,
-            PeakList(
-              name: 'Broken Legacy',
+              peakListId: 2,
+              name: 'Empty Ready',
               region: 'veneto',
-              peakList: encodePeakListItems([
-                const PeakListItem(peakOsmId: 999, points: 1),
-              ]),
+              peakList: '[]',
               minLat: 1,
               maxLat: 2,
               minLng: 3,
               maxLng: 4,
-            )..peakListId = 2,
+            ),
           ]),
           peakRepository: peakRepository,
+        );
+        final mixedLegacy = await repository.save(
+          PeakList(
+            name: 'Mixed Legacy',
+            peakList: encodePeakListItems([
+              const PeakListItem(peakOsmId: 11, points: 1),
+              const PeakListItem(peakOsmId: 22, points: 1),
+            ]),
+          ),
         );
 
         final changed = await repository.backfillStoredPeakLists();
 
         expect(changed, isTrue);
-        expect(repository.findById(1)?.region, PeakList.mixedRegion);
-        expect(repository.findById(1)?.minLat, 45.7332);
-        expect(repository.findById(1)?.maxLat, 46.4084);
-        expect(repository.findById(1)?.minLng, 10.8061);
-        expect(repository.findById(1)?.maxLng, 13.0475);
+        expect(
+          repository.findById(mixedLegacy.peakListId)?.region,
+          PeakList.mixedRegion,
+        );
+        expect(repository.findById(mixedLegacy.peakListId)?.minLat, 45.7332);
+        expect(repository.findById(mixedLegacy.peakListId)?.maxLat, 46.4084);
+        expect(repository.findById(mixedLegacy.peakListId)?.minLng, 10.8061);
+        expect(repository.findById(mixedLegacy.peakListId)?.maxLng, 13.0475);
         expect(repository.findById(2)?.region, 'veneto');
         expect(repository.findById(2)?.minLat, isNull);
         expect(repository.findById(2)?.maxLat, isNull);
@@ -436,9 +503,9 @@ void main() {
         );
 
         expect(
-          decodePeakListItems(
-            repository.findById(1)!.peakList,
-          ).map((item) => (item.peakOsmId, item.points)).toList(),
+          repository.getPeakListItemsForList(1)
+              .map((item) => (item.peakOsmId, item.points))
+              .toList(),
           [(11, 9)],
         );
       },

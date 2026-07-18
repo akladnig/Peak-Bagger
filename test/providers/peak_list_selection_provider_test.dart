@@ -364,6 +364,7 @@ void main() {
           PeakList(
             name: 'Broken',
             region: 'tasmania',
+            membershipState: PeakList.membershipStateUnsupportedLegacy,
             peakList: '{not-json}',
             colour: 0xFF4C8BF5,
           )..peakListId = 7,
@@ -652,7 +653,12 @@ void main() {
     () {
       final peakListRepository = PeakListRepository.test(
         InMemoryPeakListStorage([
-          PeakList(name: 'Broken', peakList: '{not-json}', colour: 0xFFD6336C)
+          PeakList(
+            name: 'Broken',
+            membershipState: PeakList.membershipStateUnsupportedLegacy,
+            peakList: '{not-json}',
+            colour: 0xFFD6336C,
+          )
             ..peakListId = 7,
         ]),
       );
@@ -712,6 +718,7 @@ void main() {
           ]),
         )..peakListId = 8,
         PeakList(name: 'Broken', region: 'tasmania', peakList: '{not-json}')
+          ..membershipState = PeakList.membershipStateUnsupportedLegacy
           ..peakListId = 9,
       ];
 
@@ -796,6 +803,50 @@ void main() {
           peaks: peaks,
         ),
         {7},
+      );
+    },
+  );
+
+  test(
+    'renderablePeakListIdsForVisibleRegions uses relational memberships when legacy payload is stale',
+    () async {
+      final peakRepository = PeakRepository.test(
+        InMemoryPeakStorage([
+          Peak(
+            osmId: 100,
+            name: 'Tas Peak',
+            latitude: -43.0,
+            longitude: 147.0,
+            region: 'tasmania',
+          ),
+        ]),
+      );
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+        peakRepository: peakRepository,
+      );
+      final saved = await peakListRepository.save(
+        PeakList(
+          name: 'Mixed',
+          region: PeakList.mixedRegion,
+          peakList: encodePeakListItems([
+            const PeakListItem(peakOsmId: 100, points: 1),
+          ]),
+        ),
+      );
+      final stalePeakList = saved.copyWith(peakList: '[]');
+
+      expect(
+        renderablePeakListIdsForVisibleRegions(
+          peakLists: [stalePeakList],
+          selectedPeakListIds: {saved.peakListId},
+          visibleRegionKeys: {'tasmania'},
+          peaks: peakRepository.getAllPeaks(),
+          itemsLoader: (peakList) {
+            return peakListRepository.getPeakListItemsForList(peakList.peakListId);
+          },
+        ),
+        {saved.peakListId},
       );
     },
   );

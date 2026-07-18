@@ -9,6 +9,7 @@ import 'package:peak_bagger/providers/peak_ownership_ring_settings_provider.dart
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/services/peak_metadata_rules.dart';
 import 'package:peak_bagger/services/fab_colour_resolver.dart';
+import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_list_visibility.dart';
 
 const _tasmaniaPeakOwnershipPriority = <String, int>{
@@ -54,6 +55,12 @@ final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((
       ),
     ),
   );
+  final arePeakListMembershipsReady = ref.watch(
+    mapProvider.select((state) => state.arePeakListMembershipsReady),
+  );
+  if (!arePeakListMembershipsReady) {
+    return const PeakListSelectionSummary(chips: []);
+  }
   final peakLists = ref.watch(peakListsProvider);
   final peaks = ref.watch(mapProvider.select((state) => state.peaks));
   final visibleRegionKeys = visibleRegionKeysForBounds(visibleBounds);
@@ -64,6 +71,10 @@ final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((
   final labelsById = {
     for (final peakList in peakLists) peakList.peakListId: peakList.name,
   };
+  final repo = ref.watch(peakListRepositoryProvider);
+  List<PeakListItem> loadItems(PeakList peakList) {
+    return repo.getPeakListItemsForList(peakList.peakListId);
+  }
   final peakListsById = {
     for (final peakList in peakLists) peakList.peakListId: peakList,
   };
@@ -75,18 +86,21 @@ final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((
   };
   final visiblePinnedPeakListIds = {
     for (final peakList in peakLists)
-      if ((!hasResolvedVisibleBounds ||
+      if (peakList.isMembershipReady &&
+          (!hasResolvedVisibleBounds ||
               peakListAppliesToVisibleRegions(
                 peakList,
                 visibleRegionKeys,
                 visibleBounds: visibleBounds,
                 peaks: peaks,
+                itemsLoader: loadItems,
               )) &&
-          peakListIsPinned(
-            peakList: peakList,
-            pinnedPeakListIdsByRegion: pinnedPeakListIdsByRegion,
-            peaks: peaks,
-          ))
+           peakListIsPinned(
+             peakList: peakList,
+             pinnedPeakListIdsByRegion: pinnedPeakListIdsByRegion,
+             peaks: peaks,
+             itemsLoader: loadItems,
+           ))
         peakList.peakListId,
   };
   final visibleSelectedPeakListIds = hasResolvedVisibleBounds
@@ -95,11 +109,13 @@ final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((
             if (() {
               final peakList = peakListsById[peakListId];
               return peakList != null &&
+                  peakList.isMembershipReady &&
                   peakListAppliesToVisibleRegions(
                     peakList,
                     visibleRegionKeys,
                     visibleBounds: visibleBounds,
                     peaks: peaks,
+                    itemsLoader: loadItems,
                   );
             }())
               peakListId,
@@ -161,21 +177,27 @@ final filteredPeaksProvider = Provider<List<Peak>>((ref) {
 });
 
 final mapMetadataFilterScopePeaksProvider = Provider<List<Peak>>((ref) {
+  ref.watch(peakListRevisionProvider);
   final peaks = ref.watch(mapProvider.select((state) => state.peaks));
+  final arePeakListMembershipsReady = ref.watch(
+    mapProvider.select((state) => state.arePeakListMembershipsReady),
+  );
   final peakListSelectionMode = ref.watch(
     mapProvider.select((state) => state.peakListSelectionMode),
   );
   final selectedPeakListIds = ref.watch(
     mapProvider.select((state) => state.selectedPeakListIds),
   );
-  final peakLists = ref.watch(peakListsProvider);
+  final repo = ref.watch(peakListRepositoryProvider);
 
   return switch (peakListSelectionMode) {
     PeakListSelectionMode.none => const [],
     PeakListSelectionMode.allPeaks => peaks,
+    PeakListSelectionMode.specificList when !arePeakListMembershipsReady =>
+      const [],
     PeakListSelectionMode.specificList => _filterSpecificListPeaks(
+      repo: repo,
       peaks: peaks,
-      peakLists: peakLists,
       peakListIds: selectedPeakListIds,
     ),
   };
@@ -189,10 +211,17 @@ final mapDifficultyFilterOptionsProvider =
 
 final _activePeakListOwnersByPeakIdProvider =
     Provider<Map<int, List<_ActivePeakListOwner>>>((ref) {
+      ref.watch(peakListRevisionProvider);
       final peakListSelectionMode = ref.watch(
         mapProvider.select((state) => state.peakListSelectionMode),
       );
       if (peakListSelectionMode != PeakListSelectionMode.specificList) {
+        return const <int, List<_ActivePeakListOwner>>{};
+      }
+      final arePeakListMembershipsReady = ref.watch(
+        mapProvider.select((state) => state.arePeakListMembershipsReady),
+      );
+      if (!arePeakListMembershipsReady) {
         return const <int, List<_ActivePeakListOwner>>{};
       }
 
@@ -204,8 +233,12 @@ final _activePeakListOwnersByPeakIdProvider =
           ),
         ),
       );
+      final repo = ref.watch(peakListRepositoryProvider);
       final peakLists = ref.watch(peakListsProvider);
       final peaks = ref.watch(mapProvider.select((state) => state.peaks));
+      List<PeakListItem> loadItems(PeakList peakList) {
+        return repo.getPeakListItemsForList(peakList.peakListId);
+      }
       final visibleRegionKeys = visibleBounds == null
           ? const <String>{}
           : visibleRegionKeysForBounds(visibleBounds);
@@ -216,6 +249,7 @@ final _activePeakListOwnersByPeakIdProvider =
               visibleRegionKeys: visibleRegionKeys,
               visibleBounds: visibleBounds,
               peaks: peaks,
+              itemsLoader: loadItems,
             )
           : selectedPeakListIds.toSet();
       if (activeSelectedPeakListIds.isEmpty) {
@@ -241,8 +275,17 @@ final _activePeakListOwnersByPeakIdProvider =
           name: peakList.name,
           colourValue: resolvePeakListColour(peakList),
         );
-        for (final item in decodePeakListItems(peakList.peakList)) {
-          ownersByPeakId.putIfAbsent(item.peakOsmId, () => []).add(owner);
+        try {
+          for (final item in repo.getPeakListItemsForList(peakList.peakListId)) {
+            ownersByPeakId.putIfAbsent(item.peakOsmId, () => []).add(owner);
+          }
+        } catch (error, stackTrace) {
+          developer.log(
+            'Failed to load ownership members for ${peakList.peakListId}.',
+            error: error,
+            stackTrace: stackTrace,
+            name: 'peak_list_selection_provider',
+          );
         }
       }
 
@@ -333,8 +376,8 @@ final peakMarkerColourAssignmentsProvider = Provider<Map<int, int>>((ref) {
 });
 
 List<Peak> _filterSpecificListPeaks({
+  required PeakListRepository repo,
   required List<Peak> peaks,
-  required List<PeakList> peakLists,
   required Set<int> peakListIds,
 }) {
   if (peakListIds.isEmpty) {
@@ -343,17 +386,14 @@ List<Peak> _filterSpecificListPeaks({
 
   final selectedPeakOsmIds = <int>{};
   var resolvedListCount = 0;
-  for (final candidate in peakLists) {
-    if (!peakListIds.contains(candidate.peakListId)) {
-      continue;
-    }
-    resolvedListCount += 1;
+  for (final peakListId in peakListIds) {
     try {
-      final items = decodePeakListItems(candidate.peakList);
+      final items = repo.getPeakListItemsForList(peakListId);
       selectedPeakOsmIds.addAll(items.map((item) => item.peakOsmId));
+      resolvedListCount += 1;
     } catch (error, stackTrace) {
       developer.log(
-        'Failed to decode selected peak list ${candidate.peakListId}.',
+        'Failed to load selected peak list $peakListId.',
         error: error,
         stackTrace: stackTrace,
         name: 'peak_list_selection_provider',
@@ -445,12 +485,7 @@ class PeakListSelectionChip {
 }
 
 bool _isReadablePeakList(PeakList peakList) {
-  try {
-    decodePeakListItems(peakList.peakList);
-    return true;
-  } catch (_) {
-    return false;
-  }
+  return peakList.isMembershipReady;
 }
 
 List<_ActivePeakListOwner> _orderedActivePeakListOwners({

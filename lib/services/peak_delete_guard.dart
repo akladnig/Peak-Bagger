@@ -30,6 +30,8 @@ abstract class PeakDeleteGuardSource {
 
   List<PeakList> loadPeakLists();
 
+  List<PeakListItemEntity> loadPeakListItems();
+
   List<PeaksBagged> loadPeaksBagged();
 }
 
@@ -43,6 +45,11 @@ class ObjectBoxPeakDeleteGuardSource implements PeakDeleteGuardSource {
 
   @override
   List<PeakList> loadPeakLists() => _store.box<PeakList>().getAll();
+
+  @override
+  List<PeakListItemEntity> loadPeakListItems() {
+    return _store.box<PeakListItemEntity>().getAll();
+  }
 
   @override
   List<PeaksBagged> loadPeaksBagged() => _store.box<PeaksBagged>().getAll();
@@ -89,27 +96,51 @@ class PeakDeleteGuard {
             ? nameCompare
             : a.peakListId.compareTo(b.peakListId);
       });
+    final peakListItemsByPeakListId = <int, List<PeakListItemEntity>>{};
+    for (final item in _source.loadPeakListItems()) {
+      final peakListId = _peakListIdForItem(item);
+      if (peakListId == 0) {
+        continue;
+      }
+      peakListItemsByPeakListId.putIfAbsent(peakListId, () => []).add(item);
+    }
 
     final blockers = <PeakDeleteBlocker>[];
     for (final peakList in peakLists) {
-      try {
-        final items = decodePeakListItems(peakList.peakList);
-        final referencesPeak = items.any(
-          (item) => item.peakOsmId == peak.osmId,
+      if (!peakList.isMembershipReady) {
+        continue;
+      }
+
+      final relationalItems = peakListItemsByPeakListId[peakList.peakListId];
+      final referencesPeak = relationalItems != null
+          ? relationalItems.any((item) => item.peak.target?.osmId == peak.osmId)
+          : () {
+              try {
+                return decodePeakListItems(
+                  peakList.peakList,
+                ).any((item) => item.peakOsmId == peak.osmId);
+              } catch (_) {
+                return false;
+              }
+            }();
+      if (referencesPeak) {
+        blockers.add(
+          PeakDeleteBlocker(
+            dependencyType: PeakDeleteDependencyType.peakList,
+            displayName: peakList.name,
+          ),
         );
-        if (referencesPeak) {
-          blockers.add(
-            PeakDeleteBlocker(
-              dependencyType: PeakDeleteDependencyType.peakList,
-              displayName: peakList.name,
-            ),
-          );
-        }
-      } catch (_) {
-        // Malformed payloads are ignored when computing delete blockers.
       }
     }
     return blockers;
+  }
+
+  int _peakListIdForItem(PeakListItemEntity item) {
+    try {
+      return item.peakList.targetId;
+    } catch (_) {
+      return item.peakList.target?.peakListId ?? 0;
+    }
   }
 
   List<PeakDeleteBlocker> _peaksBaggedBlockers(Peak peak) {

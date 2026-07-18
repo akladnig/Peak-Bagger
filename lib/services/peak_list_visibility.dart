@@ -4,6 +4,10 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
 
+typedef PeakListVisibilityItemsLoader = List<PeakListItem> Function(
+  PeakList peakList,
+);
+
 Set<int> peakIdsForRegion({
   required Iterable<Peak> peaks,
   required LatLng cursorPoint,
@@ -35,6 +39,7 @@ int renderablePeakCount({
   required LatLngBounds? visibleBounds,
   required PeakList peakList,
   Set<int>? renderablePeakIds,
+  PeakListVisibilityItemsLoader? itemsLoader,
 }) {
   final renderableIds =
       renderablePeakIds ??
@@ -51,7 +56,13 @@ int renderablePeakCount({
                       .map((peak) => peak.osmId)
                       .toSet())
           : peakIdsForRegion(peaks: peaks, cursorPoint: cursorPoint));
-  final items = decodePeakListItems(peakList.peakList);
+  if (!peakList.isMembershipReady) {
+    return 0;
+  }
+  final items = _loadPeakListVisibilityItems(
+    peakList,
+    itemsLoader: itemsLoader,
+  );
 
   return items
       .map((item) => item.peakOsmId)
@@ -90,13 +101,16 @@ Set<String> visibleRegionKeysForRegionKey(String? regionKey) {
 Set<String> memberRegionKeysForPeakList({
   required PeakList peakList,
   required Iterable<Peak> peaks,
+  PeakListVisibilityItemsLoader? itemsLoader,
 }) {
-  late final List<PeakListItem> items;
-  try {
-    items = decodePeakListItems(peakList.peakList);
-  } catch (_) {
+  if (!peakList.isMembershipReady) {
     return const <String>{};
   }
+
+  final items = _loadPeakListVisibilityItems(
+    peakList,
+    itemsLoader: itemsLoader,
+  );
 
   final peaksByOsmId = {for (final peak in peaks) peak.osmId: peak};
   final regionKeys = <String>{};
@@ -118,11 +132,13 @@ Set<String> memberRegionKeysForPeakList({
 Set<String> visibleMemberRegionKeysForPeakList({
   required PeakList peakList,
   required Iterable<Peak> peaks,
+  PeakListVisibilityItemsLoader? itemsLoader,
 }) {
   final regionKeys = <String>{};
   for (final regionKey in memberRegionKeysForPeakList(
     peakList: peakList,
     peaks: peaks,
+    itemsLoader: itemsLoader,
   )) {
     regionKeys.add(regionKey);
     final broaderRegionKey = peakListFilterRegionKey(regionKey);
@@ -138,9 +154,14 @@ bool peakListIsPinned({
   required PeakList peakList,
   required Map<String, Set<int>> pinnedPeakListIdsByRegion,
   required Iterable<Peak> peaks,
+  PeakListVisibilityItemsLoader? itemsLoader,
 }) {
   final regionKeys = peakList.region == PeakList.mixedRegion
-      ? memberRegionKeysForPeakList(peakList: peakList, peaks: peaks)
+      ? memberRegionKeysForPeakList(
+          peakList: peakList,
+          peaks: peaks,
+          itemsLoader: itemsLoader,
+        )
       : {
           if (canonicalRegionKey(normalizePeakListRegionKey(peakList.region))
               case final String regionKey)
@@ -162,6 +183,7 @@ bool peakListAppliesToVisibleRegions(
   Set<String> visibleRegionKeys, {
   LatLngBounds? visibleBounds,
   Iterable<Peak>? peaks,
+  PeakListVisibilityItemsLoader? itemsLoader,
 }) {
   final normalizedPeakListRegionKey = canonicalRegionKey(
     peakListFilterRegionKey(peakList.region),
@@ -172,6 +194,7 @@ bool peakListAppliesToVisibleRegions(
       visibleRegionKeys,
       visibleBounds: visibleBounds,
       peaks: peaks,
+      itemsLoader: itemsLoader,
     );
   }
 
@@ -185,27 +208,23 @@ Set<int> renderablePeakListIdsForVisibleRegions({
   required Set<String> visibleRegionKeys,
   LatLngBounds? visibleBounds,
   Iterable<Peak>? peaks,
+  PeakListVisibilityItemsLoader? itemsLoader,
 }) {
   final selectedIds = selectedPeakListIds.toSet();
   final validPeakListIds = <int>{};
 
   for (final peakList in peakLists) {
     if (!selectedIds.contains(peakList.peakListId) ||
+        !peakList.isMembershipReady ||
         !peakListAppliesToVisibleRegions(
-          peakList,
-          visibleRegionKeys,
-          visibleBounds: visibleBounds,
-          peaks: peaks,
-        )) {
+        peakList,
+        visibleRegionKeys,
+        visibleBounds: visibleBounds,
+        peaks: peaks,
+        itemsLoader: itemsLoader,
+      )) {
       continue;
     }
-
-    try {
-      decodePeakListItems(peakList.peakList);
-    } catch (_) {
-      continue;
-    }
-
     validPeakListIds.add(peakList.peakListId);
   }
 
@@ -216,18 +235,25 @@ Set<int> renderablePeakListIds({
   required Iterable<PeakList> peakLists,
   required Iterable<int> selectedPeakListIds,
   required String? currentRegionKey,
+  PeakListVisibilityItemsLoader? itemsLoader,
 }) {
   return renderablePeakListIdsForVisibleRegions(
     peakLists: peakLists,
     selectedPeakListIds: selectedPeakListIds,
     visibleRegionKeys: visibleRegionKeysForRegionKey(currentRegionKey),
+    itemsLoader: itemsLoader,
   );
 }
 
-bool peakListAppliesToRegion(PeakList peakList, String? currentRegionKey) {
+bool peakListAppliesToRegion(
+  PeakList peakList,
+  String? currentRegionKey, {
+  PeakListVisibilityItemsLoader? itemsLoader,
+}) {
   return peakListAppliesToVisibleRegions(
     peakList,
     visibleRegionKeysForRegionKey(currentRegionKey),
+    itemsLoader: itemsLoader,
   );
 }
 
@@ -236,6 +262,7 @@ bool _mixedPeakListAppliesToVisibleRegions(
   Set<String> visibleRegionKeys, {
   LatLngBounds? visibleBounds,
   Iterable<Peak>? peaks,
+  PeakListVisibilityItemsLoader? itemsLoader,
 }) {
   if (visibleBounds != null &&
       _peakListBoundsIntersectVisibleBounds(peakList, visibleBounds)) {
@@ -249,8 +276,19 @@ bool _mixedPeakListAppliesToVisibleRegions(
   final memberRegionKeys = visibleMemberRegionKeysForPeakList(
     peakList: peakList,
     peaks: peaks,
+    itemsLoader: itemsLoader,
   );
   return memberRegionKeys.any(visibleRegionKeys.contains);
+}
+
+List<PeakListItem> _loadPeakListVisibilityItems(
+  PeakList peakList, {
+  PeakListVisibilityItemsLoader? itemsLoader,
+}) {
+  if (itemsLoader != null) {
+    return itemsLoader(peakList);
+  }
+  return decodePeakListItems(peakList.peakList);
 }
 
 bool _peakListBoundsIntersectVisibleBounds(

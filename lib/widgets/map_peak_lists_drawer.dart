@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/fab_colour_resolver.dart';
 import 'package:peak_bagger/services/peak_list_visibility.dart';
@@ -22,6 +23,7 @@ class MapPeakListsDrawer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final (
+      :arePeakListMembershipsReady,
       :peakListSelectionMode,
       :selectedPeakListIds,
       :pinnedPeakListIdsByRegion,
@@ -30,6 +32,7 @@ class MapPeakListsDrawer extends ConsumerWidget {
     ) = ref.watch(
       mapProvider.select(
         (state) => (
+          arePeakListMembershipsReady: state.arePeakListMembershipsReady,
           peakListSelectionMode: state.peakListSelectionMode,
           selectedPeakListIds: state.selectedPeakListIds,
           pinnedPeakListIdsByRegion: state.pinnedPeakListIdsByRegion,
@@ -38,6 +41,7 @@ class MapPeakListsDrawer extends ConsumerWidget {
         ),
       ),
     );
+    final repo = ref.watch(peakListRepositoryProvider);
     final visibleRegionKeys = ref.watch(
       mapProvider.select(
         (state) => visibleRegionKeysForBounds(state.visibleBounds),
@@ -46,6 +50,9 @@ class MapPeakListsDrawer extends ConsumerWidget {
     final peakListsLoadState = ref.watch(peakListsLoadProvider);
     final peakLists = ref.watch(peakListsProvider);
     final visiblePeakLists = <({PeakList peakList, int renderableCount})>[];
+    List<PeakListItem> loadItems(PeakList peakList) {
+      return repo.getPeakListItemsForList(peakList.peakListId);
+    }
 
     for (final peakList in peakLists) {
       if (!peakListAppliesToVisibleRegions(
@@ -53,16 +60,21 @@ class MapPeakListsDrawer extends ConsumerWidget {
         visibleRegionKeys,
         visibleBounds: visibleBounds,
         peaks: peaks,
+        itemsLoader: loadItems,
       )) {
         continue;
       }
 
+      if (!peakList.isMembershipReady) {
+        continue;
+      }
+      int itemCount;
       try {
-        final itemCount = decodePeakListItems(peakList.peakList).length;
-        visiblePeakLists.add((peakList: peakList, renderableCount: itemCount));
+        itemCount = repo.getPeakListItemsForList(peakList.peakListId).length;
       } catch (_) {
         continue;
       }
+      visiblePeakLists.add((peakList: peakList, renderableCount: itemCount));
     }
     visiblePeakLists.sort(
       (left, right) => left.peakList.name.toLowerCase().compareTo(
@@ -96,7 +108,9 @@ class MapPeakListsDrawer extends ConsumerWidget {
                 label: _allPeaksLabel,
                 isSelected:
                     peakListSelectionMode == PeakListSelectionMode.allPeaks,
-                onPressed: () {
+                onPressed: !arePeakListMembershipsReady
+                    ? null
+                    : () {
                   ref
                       .read(mapProvider.notifier)
                       .setAllPeaksSelected(
@@ -106,7 +120,21 @@ class MapPeakListsDrawer extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 8),
-            if (peakListsLoadState.failed)
+            if (!arePeakListMembershipsReady)
+              const ListTile(
+                key: Key('peak-list-selection-loading-message'),
+                title: Text(
+                  'Peak lists loading',
+                  style: TextStyle(fontSize: UiConstants.drawerControlFontSize),
+                ),
+                subtitle: Text(
+                  'Peak-list memberships will become available after startup migration finishes.',
+                  style: TextStyle(
+                    fontSize: UiConstants.drawerSupportingFontSize,
+                  ),
+                ),
+              )
+            else if (peakListsLoadState.failed)
               const ListTile(
                 key: Key('peak-list-selection-unavailable-message'),
                 title: Text(
@@ -132,6 +160,7 @@ class MapPeakListsDrawer extends ConsumerWidget {
                         peakList: entry.peakList,
                         pinnedPeakListIdsByRegion: pinnedPeakListIdsByRegion,
                         peaks: peaks,
+                        itemsLoader: loadItems,
                       );
                       final controlStyle = peakListControlVisualStyle(
                         context,

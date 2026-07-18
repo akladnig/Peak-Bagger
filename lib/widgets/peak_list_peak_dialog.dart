@@ -13,7 +13,7 @@ import '../models/peaks_bagged.dart';
 import '../models/tasmap50k.dart';
 import '../providers/map_provider.dart';
 import '../providers/peak_provider.dart';
-import '../providers/peak_list_selection_provider.dart';
+import '../providers/peak_list_provider.dart';
 import '../providers/tasmap_provider.dart';
 import '../router.dart';
 import '../services/peak_list_repository.dart';
@@ -643,24 +643,32 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
       }
 
       final failures = <({Peak peak, Object error})>[];
-      var successfulAddCount = 0;
+      final existingPeakIds = widget.peakListRepository
+          .getPeakListItemsForList(widget.peakList.peakListId)
+          .map((item) => item.peakOsmId)
+          .toSet();
+      final addedPeakIds = <int>{};
+      final itemsToAdd = <PeakListItem>[];
 
       for (final peak in saveOrder) {
-        try {
-          await widget.peakListRepository.addPeakItem(
-            peakListId: widget.peakList.peakListId,
-            item: PeakListItem(
-              peakOsmId: peak.osmId,
-              points: _selectedPoints[peak.osmId] ?? 1,
-            ),
-          );
-          successfulAddCount += 1;
-        } catch (error) {
-          failures.add((peak: peak, error: error));
+        if (existingPeakIds.contains(peak.osmId) ||
+            !addedPeakIds.add(peak.osmId)) {
+          failures.add((peak: peak, error: StateError('Peak already exists in list')));
+          continue;
         }
+        itemsToAdd.add(
+          PeakListItem(
+            peakOsmId: peak.osmId,
+            points: _selectedPoints[peak.osmId] ?? 1,
+          ),
+        );
       }
 
-      if (successfulAddCount > 0) {
+      if (itemsToAdd.isNotEmpty) {
+        await widget.peakListRepository.addPeakItems(
+          peakListId: widget.peakList.peakListId,
+          items: itemsToAdd,
+        );
         await _refreshPeakListSelection();
       }
 
@@ -687,9 +695,14 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
 
       Navigator.of(context).pop(
         PeakListPeakDialogOutcome.selected(
-          saveOrder.map((peak) => peak.osmId).toList(growable: false),
+          itemsToAdd.map((item) => item.peakOsmId).toList(growable: false),
         ),
       );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      await _showFailure(error.toString());
     } finally {
       if (mounted) {
         setState(() {
@@ -848,8 +861,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   }
 
   Future<void> _refreshPeakListSelection() async {
-    ref.read(peakListRevisionProvider.notifier).increment();
-    await ref.read(mapProvider.notifier).reloadPeakMarkers();
+    ref.read(peakListMembershipRefreshRunnerProvider)();
   }
 
   Future<void> _openTrack(PeaksBagged row) async {

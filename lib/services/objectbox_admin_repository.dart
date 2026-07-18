@@ -75,6 +75,7 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
       'Tasmap50k' => _loadTasmapRows(store, trimmedQuery, ascending),
       'GpxTrack' => _loadTrackRows(store, trimmedQuery, ascending),
       'PeaksBagged' => _loadPeaksBaggedRows(store, trimmedQuery, ascending),
+      'PeakListItemEntity' => _loadPeakListItemRows(store, trimmedQuery, ascending),
       'Waypoints' => _loadWaypointsRows(store, trimmedQuery, ascending),
       'Route' => _loadRouteRows(store, trimmedQuery, ascending),
       'RouteGraphChunk' => _loadRouteGraphChunkRows(
@@ -186,6 +187,7 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
     return switch (entityName) {
       'Peak' => 'name',
       'PeakList' => 'name',
+      'PeakListItemEntity' => 'id',
       'Tasmap50k' => 'name',
       'GpxTrack' => 'trackName',
       'PeaksBagged' => 'gpxId',
@@ -326,7 +328,19 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
     bool ascending,
   ) {
     final box = store.box<PeakList>();
+    final itemBox = store.box<PeakListItemEntity>();
     final items = box.getAll();
+    final membershipItemsByPeakListId = <int, List<PeakListItem>>{};
+    for (final item in itemBox.getAll()) {
+      final peakListId = item.peakList.targetId;
+      final peak = item.peak.target;
+      if (peakListId == 0 || peak == null || peak.osmId == 0) {
+        continue;
+      }
+      membershipItemsByPeakListId.putIfAbsent(peakListId, () => []).add(
+        PeakListItem(peakOsmId: peak.osmId, points: item.points),
+      );
+    }
     final filtered = query.isEmpty
         ? items
         : items.where((peakList) {
@@ -339,7 +353,38 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
           : b.peakListId.compareTo(a.peakListId),
     );
 
-    return filtered.map(peakListToAdminRow).toList(growable: false);
+    return filtered
+        .map(
+          (peakList) => peakListToAdminRow(
+            peakList,
+            membershipItems: membershipItemsByPeakListId[peakList.peakListId],
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  List<ObjectBoxAdminRow> _loadPeakListItemRows(
+    Store store,
+    String query,
+    bool ascending,
+  ) {
+    final box = store.box<PeakListItemEntity>();
+    final items = box.getAll();
+    final filtered = query.isEmpty
+        ? items
+        : items.where((item) {
+            final peakListName = item.peakList.target?.name.toLowerCase() ?? '';
+            final peakName = item.peak.target?.name.toLowerCase() ?? '';
+            return peakListName.contains(query) ||
+                peakName.contains(query) ||
+                item.id.toString().contains(query);
+          }).toList();
+
+    filtered.sort(
+      (a, b) => ascending ? a.id.compareTo(b.id) : b.id.compareTo(a.id),
+    );
+
+    return filtered.map(peakListItemEntityToAdminRow).toList(growable: false);
   }
 
   List<ObjectBoxAdminRow> _loadTrackRows(
@@ -709,21 +754,51 @@ int? _adminIntValue(Object? value) {
   return int.tryParse('$value');
 }
 
-ObjectBoxAdminRow peakListToAdminRow(PeakList peakList) {
+ObjectBoxAdminRow peakListToAdminRow(
+  PeakList peakList, {
+  List<PeakListItem>? membershipItems,
+}) {
   return ObjectBoxAdminRow(
     primaryKeyValue: peakList.peakListId,
     values: {
       'peakListId': peakList.peakListId,
       'name': peakList.name,
       'region': peakList.region,
+      'membershipItems': [
+        for (final item in membershipItems ?? const <PeakListItem>[])
+          {'peakOsmId': item.peakOsmId, 'points': item.points},
+      ],
       'peakList': peakList.peakList,
       'colour': peakList.colour,
       'minLat': peakList.minLat,
       'maxLat': peakList.maxLat,
       'minLng': peakList.minLng,
       'maxLng': peakList.maxLng,
+      'membershipState': peakList.membershipState,
     },
   );
+}
+
+ObjectBoxAdminRow peakListItemEntityToAdminRow(PeakListItemEntity item) {
+  return ObjectBoxAdminRow(
+    primaryKeyValue: item.id,
+    values: {
+      'id': item.id,
+      'peakListId': _peakListItemPeakListId(item),
+      'peakId': item.peak.target?.osmId,
+      'points': item.points,
+      'peakListName': item.peakList.target?.name,
+      'peakName': item.peak.target?.name,
+    },
+  );
+}
+
+int _peakListItemPeakListId(PeakListItemEntity item) {
+  try {
+    return item.peakList.targetId;
+  } catch (_) {
+    return item.peakList.target?.peakListId ?? 0;
+  }
 }
 
 ObjectBoxAdminRow gpxTrackToAdminRow(GpxTrack track) {

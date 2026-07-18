@@ -89,9 +89,18 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(exportCalls, 1);
+    expect(notifier.reloadPeakMarkersCallCount, 0);
     expect(find.text('Export started'), findsOneWidget);
     expect(find.byKey(const Key('peak-list-export-status')), findsNothing);
     expect(find.byKey(const Key('background-jobs-entry')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('background-jobs-entry')));
+    await tester.pump();
+    expect(find.byKey(const Key('background-jobs-panel')), findsOneWidget);
+    expect(find.text('0 / 1234 files'), findsOneWidget);
+    expect(find.text('0 / 12 rows'), findsOneWidget);
+    expect(find.text('abels-peak-list.csv'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('background-jobs-close')));
+    await tester.pump();
 
     completer.complete(
       const PeakListCsvExportResult(
@@ -109,11 +118,69 @@ void main() {
       find.byKey(const Key('background-jobs-expand-background-job-1')),
     );
     await tester.pump();
+    expect(notifier.reloadPeakMarkersCallCount, 0);
     expect(find.text('Files written: 1,234'), findsOneWidget);
     expect(
       find.text('Destination: /Users/adrian/Documents/Bushwalking/Peak_Lists'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('export peak lists stays disabled while memberships are loading', (
+    tester,
+  ) async {
+    final repository = await TestTasmapRepository.create();
+    var exportCalls = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(
+            () => TestPeakNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 15,
+                basemap: Basemap.tracestrack,
+                peakListMembershipReadinessStatus:
+                    PeakListMembershipReadinessStatus.loading,
+              ),
+            ),
+          ),
+          peakListCsvExportBackgroundRunnerProvider.overrideWithValue(({
+            PeakListCsvExportProgressCallback? onProgress,
+          }) async {
+            exportCalls += 1;
+            return const PeakListCsvExportResult(
+              outputDirectoryPath: '/tmp/Peak_Lists',
+              exportedFileCount: 0,
+            );
+          }),
+          tasmapStateProvider.overrideWith(() => TestTasmapNotifier(repository)),
+          tasmapRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const App(),
+      ),
+    );
+    await tester.pump();
+
+    router.go('/settings');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await scrollSettingsUntilVisible(
+      tester,
+      find.byKey(const Key('export-peak-lists-tile')),
+    );
+
+    expect(
+      find.text('Peak-list memberships are still loading from startup migration'),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('export-peak-lists-tile')));
+    await tester.pump();
+
+    expect(exportCalls, 0);
+    expect(find.text('Export started'), findsNothing);
   });
 
   testWidgets('export peak lists shows warning-bearing success summary', (

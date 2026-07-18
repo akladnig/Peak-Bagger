@@ -691,6 +691,7 @@ class MapState {
   final bool showTracks;
   final bool showRoutes;
   final bool showTrails;
+  final PeakListMembershipReadinessStatus peakListMembershipReadinessStatus;
   final PeakListSelectionMode peakListSelectionMode;
   final Set<int> selectedPeakListIds;
   final Set<int> previousSpecificPeakListIds;
@@ -798,6 +799,8 @@ class MapState {
     this.showTracks = false,
     this.showRoutes = false,
     this.showTrails = false,
+    this.peakListMembershipReadinessStatus =
+        PeakListMembershipReadinessStatus.ready,
     this.peakListSelectionMode = PeakListSelectionMode.allPeaks,
     this.selectedPeakListIds = const <int>{},
     this.previousSpecificPeakListIds = const <int>{},
@@ -921,6 +924,10 @@ class MapState {
 
   bool get showPeaks => peakListSelectionMode != PeakListSelectionMode.none;
 
+  bool get arePeakListMembershipsReady =>
+      peakListMembershipReadinessStatus !=
+      PeakListMembershipReadinessStatus.loading;
+
   int get activePeakMetadataFilterCount {
     var count = 0;
     if (peakRatingFilter != PeakRatingFilterOption.any) {
@@ -1037,6 +1044,7 @@ class MapState {
     bool? showTracks,
     bool? showRoutes,
     bool? showTrails,
+    PeakListMembershipReadinessStatus? peakListMembershipReadinessStatus,
     PeakListSelectionMode? peakListSelectionMode,
     Set<int>? selectedPeakListIds,
     bool clearSelectedPeakListIds = false,
@@ -1227,6 +1235,9 @@ class MapState {
       showTracks: showTracks ?? this.showTracks,
       showRoutes: showRoutes ?? this.showRoutes,
       showTrails: showTrails ?? this.showTrails,
+      peakListMembershipReadinessStatus:
+          peakListMembershipReadinessStatus ??
+          this.peakListMembershipReadinessStatus,
       peakListSelectionMode:
           peakListSelectionMode ?? this.peakListSelectionMode,
       selectedPeakListIds: clearSelectedPeakListIds
@@ -1358,6 +1369,12 @@ final trackAvailabilityProvider = Provider<TrackAvailabilityState>((ref) {
 });
 
 enum TrackAvailabilityStatus { loading, recoveryDisabled, empty, available }
+
+enum PeakListMembershipReadinessStatus {
+  loading,
+  ready,
+  readyWithUnsupportedLegacy,
+}
 
 class TrackAvailabilityState {
   const TrackAvailabilityState._(this.status);
@@ -1572,6 +1589,10 @@ class MapNotifier extends Notifier<MapState> {
       zoom: MapConstants.defaultZoom,
       basemap: Basemap.tracestrack,
       isFirstLaunch: true,
+      peakListMembershipReadinessStatus:
+          _loadPeaksOnBuild
+          ? PeakListMembershipReadinessStatus.loading
+          : PeakListMembershipReadinessStatus.ready,
       selectedLocation: restoredMarkerLocation,
       cursorMgrs: restoredMarkerLocation == null
           ? null
@@ -1663,16 +1684,20 @@ class MapNotifier extends Notifier<MapState> {
         peakRepository: _peakRepository,
       );
       final changed = await _peakRefreshService.backfillStoredPeaks();
-      final peakListChanged = await _backfillPeakListCoverage();
+      final peakListMigration = await _backfillPeakListCoverage();
       if (importResult.hasChanges || changed) {
         ref.read(peakRevisionProvider.notifier).increment();
       }
-      if (peakListChanged) {
+      if (peakListMigration.changed) {
         ref.read(peakListRevisionProvider.notifier).increment();
       }
       state = state.copyWith(
         peaks: _peakRepository.getAllPeaks(),
         isLoadingPeaks: false,
+        peakListMembershipReadinessStatus:
+            peakListMigration.hasUnsupportedPeakLists
+            ? PeakListMembershipReadinessStatus.readyWithUnsupportedLegacy
+            : PeakListMembershipReadinessStatus.ready,
         clearError: true,
       );
       reconcileSelectedPeakList();
@@ -1684,13 +1709,21 @@ class MapNotifier extends Notifier<MapState> {
     }
   }
 
-  Future<bool> _backfillPeakListCoverage() async {
+  Future<PeakListMembershipMigrationResult> _backfillPeakListCoverage() async {
     try {
-      return await _peakListCoverageBackfillService.backfillStoredPeakLists();
+      final result = await _peakListCoverageBackfillService.backfillStoredPeakLists();
+      if (result.hasUnsupportedPeakLists) {
+        _pendingStartupBackfillWarningMessage =
+            'Some peak lists could not be migrated. Delete and re-import the CSV for unsupported lists.';
+      }
+      return result;
     } catch (e) {
       _pendingStartupBackfillWarningMessage =
-          'Failed to refresh peak-list bounds: $e';
-      return false;
+          'Failed to migrate peak-list memberships: $e';
+      return const PeakListMembershipMigrationResult(
+        changed: false,
+        unsupportedPeakListIds: [],
+      );
     }
   }
 
@@ -2897,25 +2930,23 @@ class MapNotifier extends Notifier<MapState> {
 
     var bounds = _peakListBoundsOrNull(peakList);
     if (bounds == null) {
-      late final List<PeakListItem> items;
       try {
-        items = decodePeakListItems(peakList.peakList);
+        final items = peakListRepository.getPeakListItemsForList(peakListId);
+        final derivedData = derivePeakListDerivedData(
+          peakList: peakList,
+          items: items,
+          peakResolver: peakRepository.findByOsmId,
+        );
+        final updatedPeakList = derivedData.applyTo(peakList);
+        bounds = _peakListBoundsOrNull(updatedPeakList);
+        if (!derivedData.matches(peakList)) {
+          peakList = await peakListRepository.save(updatedPeakList);
+          ref.read(peakListRevisionProvider.notifier).increment();
+        } else {
+          peakList = updatedPeakList;
+        }
       } catch (_) {
         return const PeakListMapNavigationResult.noMappablePeaks();
-      }
-
-      final derivedData = derivePeakListDerivedData(
-        peakList: peakList,
-        items: items,
-        peakResolver: peakRepository.findByOsmId,
-      );
-      final updatedPeakList = derivedData.applyTo(peakList);
-      bounds = _peakListBoundsOrNull(updatedPeakList);
-      if (!derivedData.matches(peakList)) {
-        peakList = await peakListRepository.save(updatedPeakList);
-        ref.read(peakListRevisionProvider.notifier).increment();
-      } else {
-        peakList = updatedPeakList;
       }
     }
 
@@ -4841,6 +4872,9 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void selectPeakList(PeakListSelectionMode mode, {int? peakListId}) {
+    if (!state.arePeakListMembershipsReady) {
+      return;
+    }
     if (mode == PeakListSelectionMode.specificList && peakListId == null) {
       return;
     }
@@ -4863,6 +4897,9 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void togglePeakListSelection(int peakListId) {
+    if (!state.arePeakListMembershipsReady) {
+      return;
+    }
     if (state.peakListSelectionMode == PeakListSelectionMode.allPeaks) {
       _updatePeakListSelection(
         mode: PeakListSelectionMode.specificList,
@@ -4893,6 +4930,9 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void setAllPeaksSelected(bool value) {
+    if (!state.arePeakListMembershipsReady) {
+      return;
+    }
     if (!value) {
       if (state.peakListSelectionMode != PeakListSelectionMode.allPeaks ||
           state.previousSpecificPeakListIds.isEmpty) {
@@ -4921,6 +4961,9 @@ class MapNotifier extends Notifier<MapState> {
     required String regionKey,
     required int peakListId,
   }) {
+    if (!state.arePeakListMembershipsReady) {
+      return;
+    }
     final pinRegionKeys = _pinRegionKeysForPeakList(
       regionKey: regionKey,
       peakListId: peakListId,
@@ -4954,6 +4997,9 @@ class MapNotifier extends Notifier<MapState> {
     required String regionKey,
     required int peakListId,
   }) {
+    if (!state.arePeakListMembershipsReady) {
+      return;
+    }
     final pinRegionKeys = _pinRegionKeysForPeakList(
       regionKey: regionKey,
       peakListId: peakListId,
@@ -5009,15 +5055,25 @@ class MapNotifier extends Notifier<MapState> {
           : {normalizedRegionKey};
     }
 
+    if (!peakList.isMembershipReady) {
+      return const <String>{};
+    }
+
     if (peakList.region != PeakList.mixedRegion) {
       return normalizedRegionKey == null
           ? const <String>{}
           : {normalizedRegionKey};
     }
 
+    List<PeakListItem> loadItems(PeakList peakList) {
+      return ref.read(peakListRepositoryProvider).getPeakListItemsForList(
+        peakList.peakListId,
+      );
+    }
     final regionKeys = memberRegionKeysForPeakList(
       peakList: peakList,
       peaks: state.peaks,
+      itemsLoader: loadItems,
     );
     if (regionKeys.isNotEmpty) {
       return regionKeys;
@@ -5112,9 +5168,13 @@ class MapNotifier extends Notifier<MapState> {
       case PeakListSelectionMode.specificList:
         var snapshotIds = state.selectedPeakListIds;
         try {
+          final repo = ref.read(peakListRepositoryProvider);
           final peakLists = ref
               .read(peakListRepositoryProvider)
               .getAllPeakLists();
+          List<PeakListItem> loadItems(PeakList peakList) {
+            return repo.getPeakListItemsForList(peakList.peakListId);
+          }
           final peakListsById = {
             for (final peakList in peakLists) peakList.peakListId: peakList,
           };
@@ -5128,6 +5188,7 @@ class MapNotifier extends Notifier<MapState> {
                       visibleRegionKeys,
                       visibleBounds: state.visibleBounds,
                       peaks: state.peaks,
+                      itemsLoader: loadItems,
                     );
               }())
                 peakListId,
@@ -5151,6 +5212,10 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   bool _pruneVisibleRegionSelectionSnapshots(List<PeakList> peakLists) {
+    final repo = ref.read(peakListRepositoryProvider);
+    List<PeakListItem> loadItems(PeakList peakList) {
+      return repo.getPeakListItemsForList(peakList.peakListId);
+    }
     final peakListsById = {
       for (final peakList in peakLists) peakList.peakListId: peakList,
     };
@@ -5174,6 +5239,7 @@ class MapNotifier extends Notifier<MapState> {
                   visibleRegionKeys,
                   visibleBounds: state.visibleBounds,
                   peaks: state.peaks,
+                  itemsLoader: loadItems,
                 );
           }())
             peakListId,
@@ -5211,12 +5277,54 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void reconcileSelectedPeakList({bool regionChanged = false}) {
+    if (!state.arePeakListMembershipsReady) {
+      return;
+    }
     final repo = ref.read(peakListRepositoryProvider);
+    List<PeakListItem> loadItems(PeakList peakList) {
+      return repo.getPeakListItemsForList(peakList.peakListId);
+    }
     List<PeakList> peakLists;
     try {
       peakLists = repo.getAllPeakLists();
     } catch (_) {
       return;
+    }
+    final unsupportedPeakListIds = {
+      for (final peakList in peakLists)
+        if (!peakList.isMembershipReady) peakList.peakListId,
+    };
+    final nextPinnedPeakListIdsByRegion = <String, Set<int>>{
+      for (final entry in state.pinnedPeakListIdsByRegion.entries)
+        if (entry.value.any((peakListId) => !unsupportedPeakListIds.contains(peakListId)))
+          entry.key: {
+            for (final peakListId in entry.value)
+              if (!unsupportedPeakListIds.contains(peakListId)) peakListId,
+          },
+    };
+    if (!_samePinnedPeakListIdsByRegion(
+      state.pinnedPeakListIdsByRegion,
+      _immutablePinnedPeakListIdsByRegion(nextPinnedPeakListIdsByRegion),
+    )) {
+      _updatePinnedPeakListIdsByRegion(nextPinnedPeakListIdsByRegion);
+    }
+    if (state.peakListSelectionMode == PeakListSelectionMode.specificList) {
+      final nextSelectedPeakListIds = {
+        for (final peakListId in state.selectedPeakListIds)
+          if (!unsupportedPeakListIds.contains(peakListId)) peakListId,
+      };
+      if (!_samePeakListIds(nextSelectedPeakListIds, state.selectedPeakListIds)) {
+        if (nextSelectedPeakListIds.isEmpty) {
+          _resetToAllPeaks();
+        } else {
+          _updatePeakListSelection(
+            mode: PeakListSelectionMode.specificList,
+            selectedPeakListIds: nextSelectedPeakListIds,
+            previousSpecificPeakListIds: nextSelectedPeakListIds,
+          );
+        }
+        return;
+      }
     }
     final bounds = state.visibleBounds;
     if (bounds == null) {
@@ -5256,23 +5364,9 @@ class MapNotifier extends Notifier<MapState> {
         visibleRegionKeys: visibleRegionKeys,
         visibleBounds: bounds,
         peaks: state.peaks,
+        itemsLoader: loadItems,
       );
-      final unreadableVisiblePeakListIds = {
-        for (final peakList in peakLists)
-          if (state.selectedPeakListIds.contains(peakList.peakListId) &&
-              peakListAppliesToVisibleRegions(
-                peakList,
-                visibleRegionKeys,
-                visibleBounds: bounds,
-                peaks: state.peaks,
-              ) &&
-              !_isReadablePeakListPayload(peakList))
-            peakList.peakListId,
-      };
-      final nextSelectedPeakListIds = {
-        ...validPeakListIds,
-        ...unreadableVisiblePeakListIds,
-      };
+      final nextSelectedPeakListIds = validPeakListIds;
       if (nextSelectedPeakListIds.isEmpty) {
         _resetToAllPeaks();
         return;
@@ -5332,15 +5426,6 @@ class MapNotifier extends Notifier<MapState> {
 
     if (snapshotsChanged) {
       unawaited(persistPeakListSelection());
-    }
-  }
-
-  bool _isReadablePeakListPayload(PeakList peakList) {
-    try {
-      decodePeakListItems(peakList.peakList);
-      return true;
-    } catch (_) {
-      return false;
     }
   }
 

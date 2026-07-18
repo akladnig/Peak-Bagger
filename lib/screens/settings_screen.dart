@@ -85,6 +85,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final showPolygons = ref.watch(showPolygonsSettingsProvider);
     final peakCorrelationState = ref.watch(peakCorrelationSettingsProvider);
     final routeGraphReadiness = ref.watch(routeGraphReadinessProvider);
+    final arePeakListMembershipsReady = mapState.arePeakListMembershipsReady;
     final themeMode = ref.watch(themeModeProvider);
     final themeSeedColor = ref.watch(themeSeedColorProvider);
     final themeSchemeVariant = ref.watch(themeSchemeVariantProvider);
@@ -592,8 +593,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               key: const Key('export-peak-lists-tile'),
               leading: const Icon(Icons.list_alt),
               title: const Text('Export Peak Lists'),
-              subtitle: const Text('Export stored peak lists to CSV'),
-              onTap: _isStatusActionBusy ? null : _exportPeakLists,
+              subtitle: Text(
+                arePeakListMembershipsReady
+                    ? 'Export stored peak lists to CSV'
+                    : 'Peak-list memberships are still loading from startup migration',
+              ),
+              onTap: _isStatusActionBusy || !arePeakListMembershipsReady
+                  ? null
+                  : _exportPeakLists,
             ),
             if (_status.isNotEmpty)
               Padding(

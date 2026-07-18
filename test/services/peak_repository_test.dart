@@ -738,6 +738,63 @@ void main() {
     );
 
     test(
+      'saveDetailed rewrites relational peak-list memberships without updating stale legacy payloads',
+      () async {
+        final peakList = PeakList(
+          peakListId: 1,
+          name: 'Relational',
+          peakList: '[]',
+        );
+        final detailedStorage = InMemoryPeakStorage([
+          Peak(
+            id: 7,
+            osmId: 123,
+            name: 'Cradle',
+            latitude: -41,
+            longitude: 146,
+          ),
+        ]);
+        final peakListItems = [
+          PeakListItemEntity(id: 1, points: 2)
+            ..peakList.target = peakList
+            ..peak.target = Peak(
+              id: 7,
+              osmId: 123,
+              name: 'Cradle',
+              latitude: -41,
+              longitude: 146,
+            ),
+        ];
+        final rewritePort = InMemoryPeakListRewritePort(
+          peakLists: [peakList],
+          peakListItems: peakListItems,
+          peaksBagged: [PeaksBagged(baggedId: 1, peakId: 123, gpxId: 7)],
+          tracks: const [],
+          routes: const [],
+          peakStorage: detailedStorage,
+        );
+        final detailedRepository = PeakRepository.test(
+          detailedStorage,
+          peakListRewritePort: rewritePort,
+        );
+
+        final result = await detailedRepository.saveDetailed(
+          Peak(
+            id: 7,
+            osmId: 456,
+            name: 'Cradle',
+            latitude: -41.2,
+            longitude: 146.3,
+          ),
+        );
+
+        expect(result.peak.osmId, 456);
+        expect(peakList.peakList, '[]');
+        expect(peakListItems.single.peak.target?.osmId, 456);
+      },
+    );
+
+    test(
       'searchPopupPeakCandidates stays deterministic across storage implementations',
       () async {
         final peaks = [

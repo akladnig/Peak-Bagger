@@ -440,7 +440,7 @@
     },
     {
       "id": "4:5754024077279183606",
-      "lastPropertyId": "9:3950595686781371796",
+      "lastPropertyId": "10:5483333047928218384",
       "name": "PeakList",
       "properties": [
         {
@@ -490,6 +490,11 @@
           "id": "9:3950595686781371796",
           "name": "maxLng",
           "type": 8
+        },
+        {
+          "id": "10:5483333047928218384",
+          "name": "membershipState",
+          "type": 9
         }
       ],
       "relations": []
@@ -959,10 +964,45 @@
         }
       ],
       "relations": []
+    },
+    {
+      "id": "12:2969856472041605845",
+      "lastPropertyId": "4:2431484241451791478",
+      "name": "PeakListItemEntity",
+      "properties": [
+        {
+          "id": "1:4732488981440278062",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:1189707617641063121",
+          "name": "peakListId",
+          "indexId": "22:547855362445251760",
+          "type": 11,
+          "flags": 520,
+          "relationTarget": "PeakList"
+        },
+        {
+          "id": "3:2863516118748177982",
+          "name": "peakId",
+          "indexId": "23:4109953239494006552",
+          "type": 11,
+          "flags": 520,
+          "relationTarget": "Peak"
+        },
+        {
+          "id": "4:2431484241451791478",
+          "name": "points",
+          "type": 6
+        }
+      ],
+      "relations": []
     }
   ],
-  "lastEntityId": "11:1109231805334434295",
-  "lastIndexId": "21:5356499526039797575",
+  "lastEntityId": "12:2969856472041605845",
+  "lastIndexId": "23:4109953239494006552",
   "lastRelationId": "1:8194382659905112901",
   "lastSequenceId": "0:0",
   "modelVersion": 5,

@@ -92,6 +92,36 @@ void main() {
     );
   });
 
+  testWidgets('map drawer shows loading state while memberships are migrating', (
+    tester,
+  ) async {
+    await _pumpApp(
+      tester,
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        visibleBounds: _tasmaniaBounds,
+        peakListMembershipReadinessStatus:
+            PeakListMembershipReadinessStatus.loading,
+      ),
+      peakListRepository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          PeakList(name: 'Alpha', peakList: '[]')..peakListId = 1,
+        ]),
+      ),
+    );
+
+    router.go('/map');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('show-peaks-fab')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-list-selection-loading-message')), findsOneWidget);
+    expect(find.byKey(const Key('peak-list-item-Alpha')), findsNothing);
+  });
+
   testWidgets('summary remains visible on constrained desktop widths', (
     tester,
   ) async {
@@ -565,7 +595,7 @@ void main() {
   });
 
   testWidgets(
-    'malformed selected lists stay visible in app bar and hide from drawer',
+    'unsupported legacy lists are omitted from map selection surfaces',
     (tester) async {
       await _pumpApp(
         tester,
@@ -583,6 +613,7 @@ void main() {
             PeakList(
               name: 'Broken',
               region: 'tasmania',
+              membershipState: PeakList.membershipStateUnsupportedLegacy,
               peakList: '{not-json}',
               colour: 0xFFD6336C,
             )..peakListId = 3,
@@ -593,14 +624,8 @@ void main() {
       router.go('/map');
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('peak-list-app-bar-item-3')), findsOneWidget);
-      final brokenChip = tester.widget<OutlinedButton>(
-        find.byKey(const Key('peak-list-selection-chip-3')),
-      );
-      expect(
-        _resolvedBackgroundColor(brokenChip.style),
-        isNot(const Color(0xFFD6336C)),
-      );
+      expect(find.byKey(const Key('peak-list-app-bar-item-3')), findsNothing);
+      expect(find.byKey(const Key('peak-list-selection-chip-3')), findsNothing);
 
       await tester.tap(find.byKey(const Key('show-peaks-fab')));
       await tester.pumpAndSettle();

@@ -1,6 +1,10 @@
 import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 
+typedef PeakListSummaryItemsLoader = List<PeakListItem> Function(
+  PeakList peakList,
+);
+
 class PeakListSummaryRow {
   const PeakListSummaryRow({
     required this.peakList,
@@ -48,6 +52,7 @@ class PeakListSummaryService {
   List<PeakListSummaryRow> buildRows({
     required Iterable<PeakList> peakLists,
     required Set<int> climbedPeakIds,
+    PeakListSummaryItemsLoader? itemsLoader,
     int maxRows = 5,
   }) {
     if (maxRows <= 0) {
@@ -57,9 +62,13 @@ class PeakListSummaryService {
     final rows = <PeakListSummaryRow>[];
 
     for (final peakList in peakLists) {
+      if (!peakList.isMembershipReady) {
+        continue;
+      }
       PeakListSummaryRow? row;
       try {
-        final items = decodePeakListItems(peakList.peakList);
+        final items =
+            itemsLoader?.call(peakList) ?? decodePeakListItems(peakList.peakList);
         final uniquePeakIds = <int>{};
         for (final item in items) {
           uniquePeakIds.add(item.peakOsmId);

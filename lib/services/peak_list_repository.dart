@@ -27,6 +27,35 @@ abstract class PeakListStorage {
   });
 }
 
+abstract class PeakListItemEntityStorage {
+  List<PeakListItemEntity> getAll();
+
+  List<PeakListItemEntity> getByPeakListId(int peakListId);
+
+  Future<void> addForPeakList(
+    PeakList peakList,
+    List<PeakListItemEntity> items,
+  );
+
+  Future<bool> updatePointsForPeakListItem({
+    required int peakListId,
+    required int peakOsmId,
+    required int points,
+  });
+
+  Future<bool> deletePeakListItem({
+    required int peakListId,
+    required int peakOsmId,
+  });
+
+  Future<void> replaceForPeakList(
+    PeakList peakList,
+    List<PeakListItemEntity> items,
+  );
+
+  Future<void> deleteForPeakList(int peakListId);
+}
+
 class ObjectBoxPeakListStorage implements PeakListStorage {
   ObjectBoxPeakListStorage(this._store) : _peakListBox = _store.box<PeakList>();
 
@@ -82,6 +111,115 @@ class ObjectBoxPeakListStorage implements PeakListStorage {
       _peakListBox.put(updated);
     });
     return updated;
+  }
+}
+
+class ObjectBoxPeakListItemEntityStorage implements PeakListItemEntityStorage {
+  ObjectBoxPeakListItemEntityStorage(this._store)
+    : _itemBox = _store.box<PeakListItemEntity>();
+
+  final Store _store;
+  final Box<PeakListItemEntity> _itemBox;
+
+  @override
+  List<PeakListItemEntity> getAll() {
+    final items = _itemBox.getAll().toList(growable: false);
+    items.sort((left, right) => left.id.compareTo(right.id));
+    return items;
+  }
+
+  @override
+  List<PeakListItemEntity> getByPeakListId(int peakListId) {
+    final query = _itemBox.query(PeakListItemEntity_.peakList.equals(peakListId)).build();
+    try {
+      final items = query.find().toList(growable: false);
+      items.sort((left, right) => left.id.compareTo(right.id));
+      return items;
+    } finally {
+      query.close();
+    }
+  }
+
+  @override
+  Future<void> addForPeakList(
+    PeakList peakList,
+    List<PeakListItemEntity> items,
+  ) async {
+    if (items.isEmpty) {
+      return;
+    }
+    _store.runInTransaction(TxMode.write, () {
+      _itemBox.putMany(items);
+    });
+  }
+
+  @override
+  Future<bool> updatePointsForPeakListItem({
+    required int peakListId,
+    required int peakOsmId,
+    required int points,
+  }) async {
+    final existing = getByPeakListId(peakListId).where((item) {
+      return item.peak.target?.osmId == peakOsmId;
+    }).toList(growable: false);
+    if (existing.isEmpty) {
+      return false;
+    }
+
+    _store.runInTransaction(TxMode.write, () {
+      for (final item in existing) {
+        item.points = points;
+      }
+      _itemBox.putMany(existing);
+    });
+    return true;
+  }
+
+  @override
+  Future<bool> deletePeakListItem({
+    required int peakListId,
+    required int peakOsmId,
+  }) async {
+    final ids = getByPeakListId(peakListId)
+        .where((item) => item.peak.target?.osmId == peakOsmId)
+        .map((item) => item.id)
+        .toList(growable: false);
+    if (ids.isEmpty) {
+      return false;
+    }
+
+    _store.runInTransaction(TxMode.write, () {
+      _itemBox.removeMany(ids);
+    });
+    return true;
+  }
+
+  @override
+  Future<void> replaceForPeakList(
+    PeakList peakList,
+    List<PeakListItemEntity> items,
+  ) async {
+    _store.runInTransaction(TxMode.write, () {
+      final existingIds = getByPeakListId(peakList.peakListId)
+          .map((item) => item.id)
+          .toList(growable: false);
+      if (existingIds.isNotEmpty) {
+        _itemBox.removeMany(existingIds);
+      }
+      if (items.isNotEmpty) {
+        _itemBox.putMany(items);
+      }
+    });
+  }
+
+  @override
+  Future<void> deleteForPeakList(int peakListId) async {
+    final ids = getByPeakListId(peakListId)
+        .map((item) => item.id)
+        .toList(growable: false);
+    if (ids.isNotEmpty) {
+      _itemBox.removeMany(ids);
+    }
   }
 }
 
@@ -176,18 +314,132 @@ class InMemoryPeakListStorage implements PeakListStorage {
   }
 }
 
+class InMemoryPeakListItemEntityStorage implements PeakListItemEntityStorage {
+  InMemoryPeakListItemEntityStorage([List<PeakListItemEntity> items = const []])
+    : _items = List<PeakListItemEntity>.from(items),
+      _nextId = items.fold<int>(1, (maxId, item) {
+        final candidate = item.id + 1;
+        return candidate > maxId ? candidate : maxId;
+      });
+
+  List<PeakListItemEntity> _items;
+  int _nextId;
+
+  @override
+  List<PeakListItemEntity> getAll() {
+    final items = List<PeakListItemEntity>.from(_items);
+    items.sort((left, right) => left.id.compareTo(right.id));
+    return List<PeakListItemEntity>.unmodifiable(items);
+  }
+
+  @override
+  List<PeakListItemEntity> getByPeakListId(int peakListId) {
+    return getAll()
+        .where((item) => item.peakList.target?.peakListId == peakListId)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<void> addForPeakList(
+    PeakList peakList,
+    List<PeakListItemEntity> items,
+  ) async {
+    if (items.isEmpty) {
+      return;
+    }
+
+    final storedItems = <PeakListItemEntity>[];
+    for (final item in items) {
+      final stored = PeakListItemEntity(id: _nextId++, points: item.points)
+        ..peakList.target = peakList
+        ..peak.target = item.peak.target;
+      storedItems.add(stored);
+    }
+    _items = [..._items, ...storedItems];
+  }
+
+  @override
+  Future<bool> updatePointsForPeakListItem({
+    required int peakListId,
+    required int peakOsmId,
+    required int points,
+  }) async {
+    var updated = false;
+    _items = [
+      for (final item in _items)
+        if (item.peakList.target?.peakListId == peakListId &&
+            item.peak.target?.osmId == peakOsmId)
+          () {
+            updated = true;
+            return PeakListItemEntity(id: item.id, points: points)
+              ..peakList.target = item.peakList.target
+              ..peak.target = item.peak.target;
+          }()
+        else
+          item,
+    ];
+    return updated;
+  }
+
+  @override
+  Future<bool> deletePeakListItem({
+    required int peakListId,
+    required int peakOsmId,
+  }) async {
+    final originalLength = _items.length;
+    _items = _items.where((item) {
+      return item.peakList.target?.peakListId != peakListId ||
+          item.peak.target?.osmId != peakOsmId;
+    }).toList(growable: false);
+    return _items.length != originalLength;
+  }
+
+  @override
+  Future<void> replaceForPeakList(
+    PeakList peakList,
+    List<PeakListItemEntity> items,
+  ) async {
+    _items = _items
+        .where((item) => item.peakList.target?.peakListId != peakList.peakListId)
+        .toList(growable: false);
+    final storedItems = <PeakListItemEntity>[];
+    for (final item in items) {
+      final stored = PeakListItemEntity(id: _nextId++, points: item.points)
+        ..peakList.target = peakList
+        ..peak.target = item.peak.target;
+      storedItems.add(stored);
+    }
+    _items = [..._items, ...storedItems];
+  }
+
+  @override
+  Future<void> deleteForPeakList(int peakListId) async {
+    _items = _items
+        .where((item) => item.peakList.target?.peakListId != peakListId)
+        .toList(growable: false);
+  }
+}
+
 class PeakListRepository {
   static const String tassyFullTasmaniaOnlyError =
       'Tassy Full only accepts Tasmanian peaks.';
 
-  PeakListRepository(Store store, {this._peakRepository})
-    : _storage = ObjectBoxPeakListStorage(store);
+  PeakListRepository(Store store, {this.peakRepository})
+    : _storage = ObjectBoxPeakListStorage(store),
+      _itemStorage = ObjectBoxPeakListItemEntityStorage(store);
 
-  PeakListRepository.test(PeakListStorage storage, {this._peakRepository})
-    : _storage = storage;
+  PeakListRepository.test(
+    PeakListStorage storage, {
+    PeakListItemEntityStorage? itemStorage,
+    this.peakRepository,
+  }) : _storage = storage,
+       _itemStorage = itemStorage ?? InMemoryPeakListItemEntityStorage();
 
   final PeakListStorage _storage;
-  final PeakRepository? _peakRepository;
+  final PeakListItemEntityStorage _itemStorage;
+  final PeakRepository? peakRepository;
+
+  bool get _usesRelationalMembershipStorage => peakRepository != null;
 
   PeakListStorage get storage => _storage;
 
@@ -197,14 +449,20 @@ class PeakListRepository {
     return _storage.getAll();
   }
 
+  List<PeakListItem> getPeakListItemsForList(int peakListId) {
+    final peakList = _requireById(peakListId);
+    return _loadStoredPeakListItems(peakList);
+  }
+
   List<String> findPeakListNamesForPeak(int peakOsmId) {
     final names = <String>{};
 
     for (final peakList in _storage.getAll()) {
-      late final List<PeakListItem> items;
-      try {
-        items = decodePeakListItems(peakList.peakList);
-      } catch (_) {
+      if (!peakList.isMembershipReady) {
+        continue;
+      }
+      final items = _loadStoredPeakListItemsOrNull(peakList);
+      if (items == null) {
         continue;
       }
       if (items.any((item) => item.peakOsmId == peakOsmId)) {
@@ -225,23 +483,24 @@ class PeakListRepository {
   }
 
   Peak? findPeakByOsmId(int peakOsmId) {
-    return _peakRepository?.findByOsmId(peakOsmId);
+    return peakRepository?.findByOsmId(peakOsmId);
   }
 
   Map<int, String?> peakRegionsByOsmId() {
-    final peakRepository = _peakRepository;
-    if (peakRepository == null) {
+    final repository = peakRepository;
+    if (repository == null) {
       return const {};
     }
 
     return {
-      for (final peak in peakRepository.getAllPeaks())
+      for (final peak in repository.getAllPeaks())
         peak.osmId: canonicalPeakRegionKey(peak),
     };
   }
 
-  Future<void> delete(int peakListId) {
-    return _storage.delete(peakListId);
+  Future<void> delete(int peakListId) async {
+    await _itemStorage.deleteForPeakList(peakListId);
+    await _storage.delete(peakListId);
   }
 
   Future<PeakList> save(
@@ -261,16 +520,19 @@ class PeakListRepository {
     void Function()? beforePutForTest,
     bool recomputeDerivedFields = false,
   }) async {
-    final normalizedPeakList = recomputeDerivedFields
-        ? _recomputePeakListDerivedData(peakList)
-        : _normalizePeakListForStorage(peakList);
-    final existing = _storage.getByName(normalizedPeakList.name);
-    if (existing == null) {
-      final saved = await _storage.put(normalizedPeakList);
-      return _ensureStoredColour(saved);
+    final normalizedPeakList = _normalizePeakListForStorage(peakList);
+    final payload = normalizedPeakList.peakList.trim();
+    if (payload.isNotEmpty) {
+      final items = decodePeakListItems(payload);
+      return _savePeakListWithItems(
+        normalizedPeakList,
+        items,
+        beforePutForTest: beforePutForTest,
+        recomputeDerivedFields: recomputeDerivedFields,
+      );
     }
 
-    final saved = await _storage.replaceByName(
+    final saved = await _savePeakListMetadata(
       normalizedPeakList,
       beforePutForTest: beforePutForTest,
     );
@@ -293,7 +555,7 @@ class PeakListRepository {
     required List<PeakListItem> items,
   }) async {
     final peakList = _requireById(peakListId);
-    final existingItems = decodePeakListItems(peakList.peakList);
+    final existingItems = _loadStoredPeakListItems(peakList);
 
     _validateAddedPeakItems(
       peakList: peakList,
@@ -301,12 +563,25 @@ class PeakListRepository {
       addedItems: items,
     );
 
-    return save(
-      peakList.copyWith(
-        peakList: encodePeakListItems([...existingItems, ...items]),
-      ),
+    if (!_usesRelationalMembershipStorage) {
+      return _savePeakListWithItems(
+        peakList,
+        [...existingItems, ...items],
+        recomputeDerivedFields: true,
+      );
+    }
+
+    final savedPeakList = await _savePeakListMembershipMetadata(
+      peakList: peakList,
+      items: [...existingItems, ...items],
       recomputeDerivedFields: true,
     );
+    final storedItems = [
+      for (final item in items)
+        _buildStoredItemEntity(peakList: savedPeakList, item: item),
+    ];
+    await _itemStorage.addForPeakList(savedPeakList, storedItems);
+    return savedPeakList;
   }
 
   Future<PeakList> updatePeakItemPoints({
@@ -315,7 +590,7 @@ class PeakListRepository {
     required int points,
   }) async {
     final peakList = _requireById(peakListId);
-    final items = decodePeakListItems(peakList.peakList);
+    final items = _loadStoredPeakListItems(peakList);
     final updatedItems = [
       for (final item in items)
         if (item.peakOsmId == peakOsmId)
@@ -329,7 +604,19 @@ class PeakListRepository {
       throw StateError('Peak not found in list');
     }
 
-    return save(peakList.copyWith(peakList: encodePeakListItems(updatedItems)));
+    if (!_usesRelationalMembershipStorage) {
+      return _savePeakListWithItems(peakList, updatedItems);
+    }
+
+    final updated = await _itemStorage.updatePointsForPeakListItem(
+      peakListId: peakListId,
+      peakOsmId: peakOsmId,
+      points: points,
+    );
+    if (!updated) {
+      throw StateError('Peak not found in list');
+    }
+    return _ensureStoredColour(peakList);
   }
 
   Future<PeakList> removePeakItem({
@@ -337,7 +624,7 @@ class PeakListRepository {
     required int peakOsmId,
   }) async {
     final peakList = _requireById(peakListId);
-    final items = decodePeakListItems(peakList.peakList);
+    final items = _loadStoredPeakListItems(peakList);
     final updatedItems = items
         .where((item) => item.peakOsmId != peakOsmId)
         .toList(growable: false);
@@ -346,18 +633,63 @@ class PeakListRepository {
       throw StateError('Peak not found in list');
     }
 
-    return save(
-      peakList.copyWith(peakList: encodePeakListItems(updatedItems)),
+    if (!_usesRelationalMembershipStorage) {
+      return _savePeakListWithItems(
+        peakList,
+        updatedItems,
+        recomputeDerivedFields: true,
+      );
+    }
+
+    final deleted = await _itemStorage.deletePeakListItem(
+      peakListId: peakListId,
+      peakOsmId: peakOsmId,
+    );
+    if (!deleted) {
+      throw StateError('Peak not found in list');
+    }
+    return _savePeakListMembershipMetadata(
+      peakList: peakList,
+      items: updatedItems,
       recomputeDerivedFields: true,
     );
+  }
+
+  Future<PeakList> replaceLegacyMembershipWithStoredItems({
+    required int peakListId,
+    required List<PeakListItem> items,
+  }) async {
+    return _savePeakListWithItems(
+      _requireById(peakListId),
+      items,
+      recomputeDerivedFields: true,
+    );
+  }
+
+  Future<PeakList> markUnsupportedLegacyMembership(int peakListId) async {
+    final peakList = _requireById(peakListId).copyWith(
+      membershipState: PeakList.membershipStateUnsupportedLegacy,
+    );
+    await _itemStorage.deleteForPeakList(peakListId);
+    return _savePeakListMetadata(peakList);
   }
 
   Future<bool> backfillStoredPeakLists() async {
     var changed = false;
 
     for (final peakList in _storage.getAll()) {
-      final updated = _tryRecomputePeakListDerivedData(peakList);
-      if (updated == null || _peakListDerivedDataMatches(updated, peakList)) {
+      if (!peakList.isMembershipReady) {
+        continue;
+      }
+      final items = _loadStoredPeakListItemsOrNull(peakList);
+      if (items == null) {
+        continue;
+      }
+      final updated = _recomputePeakListDerivedDataFromItems(
+        _normalizePeakListForStorage(peakList),
+        items,
+      );
+      if (_peakListDerivedDataMatches(updated, peakList)) {
         continue;
       }
 
@@ -376,10 +708,11 @@ class PeakListRepository {
 
     var changedCount = 0;
     for (final peakList in _storage.getAll()) {
-      late final List<PeakListItem> items;
-      try {
-        items = decodePeakListItems(peakList.peakList);
-      } catch (_) {
+      if (!peakList.isMembershipReady) {
+        continue;
+      }
+      final items = _loadStoredPeakListItemsOrNull(peakList);
+      if (items == null) {
         continue;
       }
 
@@ -445,20 +778,6 @@ class PeakListRepository {
     );
   }
 
-  PeakList _recomputePeakListDerivedData(PeakList peakList) {
-    final normalizedPeakList = _normalizePeakListForStorage(peakList);
-    final items = decodePeakListItems(normalizedPeakList.peakList);
-    return _recomputePeakListDerivedDataFromItems(normalizedPeakList, items);
-  }
-
-  PeakList? _tryRecomputePeakListDerivedData(PeakList peakList) {
-    try {
-      return _recomputePeakListDerivedData(peakList);
-    } catch (_) {
-      return null;
-    }
-  }
-
   PeakList _recomputePeakListDerivedDataFromItems(
     PeakList peakList,
     List<PeakListItem> items,
@@ -488,5 +807,130 @@ class PeakListRepository {
       colour: defaultPeakListColourForId(peakList.peakListId),
     );
     return _storage.put(updated);
+  }
+
+  Future<PeakList> _savePeakListMembershipMetadata({
+    required PeakList peakList,
+    required List<PeakListItem> items,
+    required bool recomputeDerivedFields,
+  }) async {
+    var nextPeakList = _normalizePeakListForStorage(
+      peakList.copyWith(membershipState: PeakList.membershipStateReady),
+    );
+    if (recomputeDerivedFields) {
+      nextPeakList = _recomputePeakListDerivedDataFromItems(nextPeakList, items);
+    }
+    final saved = await _savePeakListMetadata(nextPeakList);
+    return _ensureStoredColour(saved);
+  }
+
+  Future<PeakList> _savePeakListMetadata(
+    PeakList peakList, {
+    void Function()? beforePutForTest,
+  }) async {
+    final existing = _storage.getByName(peakList.name);
+    if (existing == null) {
+      return _storage.put(peakList);
+    }
+
+    return _storage.replaceByName(
+      peakList.copyWith(peakListId: existing.peakListId),
+      beforePutForTest: beforePutForTest,
+    );
+  }
+
+  Future<PeakList> _savePeakListWithItems(
+    PeakList peakList,
+    List<PeakListItem> items, {
+    void Function()? beforePutForTest,
+    bool recomputeDerivedFields = false,
+  }) async {
+    _requireResolvedPeaks(items);
+    var nextPeakList = _normalizePeakListForStorage(
+      peakList.copyWith(
+        peakList: encodePeakListItems(items),
+        membershipState: PeakList.membershipStateReady,
+      ),
+    );
+    if (recomputeDerivedFields) {
+      nextPeakList = _recomputePeakListDerivedDataFromItems(nextPeakList, items);
+    }
+    final saved = await _savePeakListMetadata(
+      nextPeakList,
+      beforePutForTest: beforePutForTest,
+    );
+    if (peakRepository == null) {
+      return _ensureStoredColour(saved);
+    }
+    final storedItems = [
+      for (final item in items) _buildStoredItemEntity(peakList: saved, item: item),
+    ];
+    await _itemStorage.replaceForPeakList(saved, storedItems);
+    return _ensureStoredColour(saved);
+  }
+
+  PeakListItemEntity _buildStoredItemEntity({
+    required PeakList peakList,
+    required PeakListItem item,
+  }) {
+    final peak = findPeakByOsmId(item.peakOsmId);
+    if (peak == null) {
+      throw StateError('Peak not found for osmId ${item.peakOsmId}');
+    }
+    return PeakListItemEntity(points: item.points)
+      ..peakList.target = peakList
+      ..peak.target = peak;
+  }
+
+  void _requireResolvedPeaks(List<PeakListItem> items) {
+    if (peakRepository == null) {
+      return;
+    }
+    for (final item in items) {
+      if (findPeakByOsmId(item.peakOsmId) == null) {
+        throw StateError('Peak not found for osmId ${item.peakOsmId}');
+      }
+    }
+  }
+
+  List<PeakListItem> _loadStoredPeakListItems(PeakList peakList) {
+    final items = _loadStoredPeakListItemsOrNull(peakList);
+    if (items == null) {
+      throw StateError('Peak list membership is unavailable.');
+    }
+    return items;
+  }
+
+  List<PeakListItem>? _loadStoredPeakListItemsOrNull(PeakList peakList) {
+    if (!peakList.isMembershipReady) {
+      return null;
+    }
+
+    final entityRows = _itemStorage.getByPeakListId(peakList.peakListId);
+    if (entityRows.isEmpty) {
+      if (_usesRelationalMembershipStorage) {
+        return const <PeakListItem>[];
+      }
+      if (peakList.peakList.trim().isEmpty) {
+        return const <PeakListItem>[];
+      }
+      try {
+        return List<PeakListItem>.unmodifiable(
+          decodePeakListItems(peakList.peakList),
+        );
+      } catch (_) {
+        return null;
+      }
+    }
+
+    final items = <PeakListItem>[];
+    for (final entity in entityRows) {
+      final peak = entity.peak.target;
+      if (peak == null || peak.osmId == 0) {
+        continue;
+      }
+      items.add(PeakListItem(peakOsmId: peak.osmId, points: entity.points));
+    }
+    return List<PeakListItem>.unmodifiable(items);
   }
 }

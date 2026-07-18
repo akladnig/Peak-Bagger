@@ -1109,11 +1109,12 @@ class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
             ),
             const Divider(),
             Expanded(
-              child: _isEditing
-                  ? _PeakListEditForm(
-                      peakList: widget.peakList,
-                      isSaving: _isSaving,
-                      colourController: _colourController,
+                child: _isEditing
+                    ? _PeakListEditForm(
+                        row: widget.row,
+                        peakList: widget.peakList,
+                        isSaving: _isSaving,
+                        colourController: _colourController,
                       submitError: _submitError,
                       validation: _validation,
                       onChanged: _updateValidation,
@@ -1164,6 +1165,7 @@ class _PeakListReadOnlyDetails extends StatelessWidget {
 
 class _PeakListEditForm extends StatelessWidget {
   const _PeakListEditForm({
+    required this.row,
     required this.peakList,
     required this.isSaving,
     required this.colourController,
@@ -1173,6 +1175,7 @@ class _PeakListEditForm extends StatelessWidget {
     required this.onSubmit,
   });
 
+  final ObjectBoxAdminRow? row;
   final PeakList peakList;
   final bool isSaving;
   final TextEditingController colourController;
@@ -1225,7 +1228,18 @@ class _PeakListEditForm extends StatelessWidget {
               const SizedBox(height: 8),
               ListTile(
                 dense: true,
-                title: const Text('peakList'),
+                title: const Text('Membership Items'),
+                subtitle: objectBoxAdminDetailsValue(
+                  entityName: 'PeakList',
+                  fieldName: 'membershipItems',
+                  label: 'membershipItems',
+                  value: row?.values['membershipItems'] ?? const [],
+                ),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                dense: true,
+                title: const Text('Legacy peakList JSON'),
                 subtitle: objectBoxAdminDetailsValue(
                   entityName: 'PeakList',
                   fieldName: 'peakList',
