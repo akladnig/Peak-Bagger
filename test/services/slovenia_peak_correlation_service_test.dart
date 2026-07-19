@@ -128,6 +128,7 @@ void main() {
         expect(result.reviewRows, isEmpty);
         expect(result.canonicalRows.single.toCsvRow(), [
           'Triglav',
+          '',
           '9001',
           '4.2',
           '2864',
@@ -177,6 +178,7 @@ void main() {
         expect(result.reviewRows, isEmpty);
         expect(result.canonicalRows.single.toCsvRow(), [
           'Jof di Montasio',
+          'J\u00f4f di Montasio',
           '7001',
           '4.8',
           '2753',
@@ -256,6 +258,7 @@ void main() {
         expect(result.canonicalRows, isEmpty);
         expect(result.reviewRows.single.toCsvRow(), [
           'Krn',
+          '',
           '0',
           '4.0',
           '2864',

@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/main.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
+import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/peak_list_import_service.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
@@ -48,6 +51,10 @@ final peakListImportRunnerProvider = Provider<PeakListImportRunner>((ref) {
   };
 });
 
+final currentRoutePathProvider = Provider<String?>((ref) {
+  return _currentRoutePath();
+});
+
 final peakListImportBackgroundRunnerProvider =
     Provider<PeakListImportBackgroundRunner>((ref) {
       final service = ref.watch(peakListImportServiceProvider);
@@ -61,8 +68,15 @@ final peakListImportBackgroundRunnerProvider =
           csvPath: csvPath,
           onProgress: onProgress,
         );
+        ref.read(peakRevisionProvider.notifier).increment();
         ref.read(peakListRevisionProvider.notifier).increment();
-        await ref.read(mapProvider.notifier).reloadPeakMarkers();
+        final currentPath = ref.read(currentRoutePathProvider);
+        if (currentPath != '/peaks') {
+          final mapNotifier = ref.read(mapProvider.notifier);
+          unawaited(
+            Future<void>(() => mapNotifier.reloadPeakMarkers()),
+          );
+        }
         return PeakListImportPresentationResult(
           updated: result.updated,
           importedCount: result.importedCount,
@@ -80,6 +94,14 @@ final peakListImportBackgroundRunnerProvider =
         );
       };
     });
+
+String? _currentRoutePath() {
+  try {
+    return router.routerDelegate.currentConfiguration.uri.path;
+  } catch (_) {
+    return null;
+  }
+}
 
 final peakListMembershipRefreshRunnerProvider =
     Provider<PeakListMembershipRefreshRunner>((ref) {

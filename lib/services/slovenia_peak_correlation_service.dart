@@ -7,6 +7,7 @@ import 'package:peak_bagger/services/slovenia_hribi_source_peak_list_service.dar
 
 const List<String> sloveniaRankedPeakListCsvHeader = [
   'name',
+  'altName',
   'osmId',
   'rating',
   'elevation',
@@ -42,6 +43,7 @@ const Set<String> sloveniaPeakCorrelationReasonCodes = {
 class SloveniaRankedPeakListCsvRow {
   const SloveniaRankedPeakListCsvRow({
     required this.name,
+    required this.altName,
     required this.osmId,
     required this.rating,
     required this.elevation,
@@ -59,6 +61,7 @@ class SloveniaRankedPeakListCsvRow {
   });
 
   final String name;
+  final String altName;
   final String osmId;
   final String rating;
   final String elevation;
@@ -77,6 +80,7 @@ class SloveniaRankedPeakListCsvRow {
   List<String> toCsvRow() {
     return [
       name,
+      altName,
       osmId,
       rating,
       elevation,
@@ -301,6 +305,7 @@ class SloveniaPeakCorrelationService {
     return _CanonicalRowDecision.success(
       SloveniaRankedPeakListCsvRow(
         name: row.name,
+        altName: _firstNonBlank(row.altName, peak.altName),
         osmId: peak.osmId.toString(),
         rating: row.rating,
         elevation: _firstNonBlank(row.altitude, _formatNumber(peak.elevation)),
@@ -324,6 +329,7 @@ class SloveniaPeakCorrelationService {
   }) {
     return SloveniaRankedPeakListCsvRow(
       name: row.name,
+      altName: row.altName,
       osmId: '0',
       rating: row.rating,
       elevation: row.altitude,

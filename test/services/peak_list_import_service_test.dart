@@ -13,6 +13,55 @@ import 'package:peak_bagger/services/peak_repository.dart';
 void main() {
   group('PeakListImportService', () {
     test(
+      'ranked csv extended header with altName imports and updates alternate names',
+      () async {
+        final peak =
+            _buildPeak(
+              osmId: 101,
+              name: 'Monte Old',
+              elevation: 900,
+              latitude: 46.2001,
+              longitude: 13.1001,
+            ).copyWith(
+              altName: 'Old Alt',
+              prominence: 222,
+              country: 'Italy',
+              county: 'Old County',
+              range: 'Old Range',
+              region: 'italy-nord-est',
+              sourceOfTruth: Peak.sourceOfTruthHwc,
+            );
+        final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+        final peakListRepository = PeakListRepository.test(
+          InMemoryPeakListStorage(),
+          peakRepository: peakRepository,
+        );
+        final service = PeakListImportService(
+          peakRepository: peakRepository,
+          peakListRepository: peakListRepository,
+          csvLoader: (_) async =>
+              'name,altName,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes,sourceOfTruth\n'
+              'Monte Amariana,Monte A.,101,4.35,1906,544,46.4084,13.0475,Italy,Friuli Venezia Giulia,Carnic Alps,Udine,EE,Optional,Ridge scramble, hribi \n',
+          importRootLoader: () async => '/tmp/Bushwalking',
+          logWriter: (logPath, entries) async {},
+        );
+
+        final result = await service.importPeakList(
+          listName: '  FVG Ranked  ',
+          csvPath: '/tmp/fvg-ranked.csv',
+        );
+
+        final storedPeak = peakRepository.findByOsmId(101);
+
+        expect(result.updated, isFalse);
+        expect(result.importedCount, 1);
+        expect(storedPeak?.name, 'Monte Amariana');
+        expect(storedPeak?.altName, 'Monte A.');
+        expect(storedPeak?.sourceOfTruth, 'HRIBI');
+      },
+    );
+
+    test(
       'ranked csv extended header imports by osmId and updates peak metadata',
       () async {
         final peak =
@@ -196,6 +245,36 @@ void main() {
       expect(storedPeak?.sourceOfTruth, 'FVG');
     });
 
+    test('ranked csv import avoids repeated full peak scans for item resolution', () async {
+      final peak = _buildPeak(
+        osmId: 101,
+        name: 'Monte Amariana',
+        elevation: 1906,
+        latitude: 46.4084,
+        longitude: 13.0475,
+      );
+      final peakStorage = _TrackingPeakStorage([peak]);
+      final peakRepository = PeakRepository.test(peakStorage);
+      final peakListRepository = _emptyPeakListRepository(peakRepository);
+      final service = PeakListImportService(
+        peakRepository: peakRepository,
+        peakListRepository: peakListRepository,
+        csvLoader: (_) async =>
+            'name,altName,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes,sourceOfTruth\n'
+            'Monte Amariana,Monte A.,101,4.35,1906,544,46.4084,13.0475,Italy,Friuli Venezia Giulia,Carnic Alps,Udine,EE,Optional,Ridge scramble,HRIBI\n',
+        importRootLoader: () async => '/tmp/Bushwalking',
+        logWriter: (logPath, entries) async {},
+      );
+
+      await service.importPeakList(
+        listName: 'FVG Ranked',
+        csvPath: '/tmp/fvg-ranked.csv',
+      );
+
+      expect(peakStorage.getByOsmIdCallCount, greaterThan(0));
+      expect(peakStorage.getAllCallCount, lessThanOrEqualTo(2));
+    });
+
     test('ranked csv internal region keys fail atomically', () async {
       final peak = _buildPeak(
         osmId: 101,
@@ -359,6 +438,62 @@ void main() {
         Peak.sourceOfTruthOsm,
       );
       expect(peakListRepository.getAllPeakLists(), isEmpty);
+    });
+
+    test('slovenia review csv tells the user to import the ranked csv', () async {
+      final peakRepository = PeakRepository.test(InMemoryPeakStorage());
+      final peakListRepository = _emptyPeakListRepository(peakRepository);
+      final service = PeakListImportService(
+        peakRepository: peakRepository,
+        peakListRepository: peakListRepository,
+        csvLoader: (_) async =>
+            'name,altName,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes,sourceOfTruth,correlationReason\n'
+            'Triglav,,101,4.9,2864,2048,46.3783,13.8369,Slovenia,Slovenia,Julian Alps,,AA,No,Highest peak,HRIBI,missing_hribi_coordinates\n',
+        importRootLoader: () async => '/tmp/Bushwalking',
+        logWriter: (logPath, entries) async {},
+      );
+
+      await expectLater(
+        service.importPeakList(
+          listName: 'Slovenia Review',
+          csvPath: '/tmp/slovenia-ranked.review.csv',
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            'Unsupported Slovenia review CSV. Import the ranked CSV instead of the .review.csv file.',
+          ),
+        ),
+      );
+    });
+
+    test('slovenia repair csv tells the user to import the ranked csv', () async {
+      final peakRepository = PeakRepository.test(InMemoryPeakStorage());
+      final peakListRepository = _emptyPeakListRepository(peakRepository);
+      final service = PeakListImportService(
+        peakRepository: peakRepository,
+        peakListRepository: peakListRepository,
+        csvLoader: (_) async =>
+            'Kind,RangeUrl,DetailUrl,Name,MissingFields,LastError\n'
+            'detail,https://example.com/range,https://example.com/detail,Triglav,Latitude,\n',
+        importRootLoader: () async => '/tmp/Bushwalking',
+        logWriter: (logPath, entries) async {},
+      );
+
+      await expectLater(
+        service.importPeakList(
+          listName: 'Slovenia Repair',
+          csvPath: '/tmp/slovenia-ranked.repair.csv',
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            'Unsupported Slovenia repair CSV. Import the ranked CSV instead of the .repair.csv file.',
+          ),
+        ),
+      );
     });
 
     test(
@@ -1931,6 +2066,25 @@ List<(int, int)> _storedMemberships(
       .getPeakListItemsForList(peakList.peakListId)
       .map((item) => (item.peakOsmId, item.points))
       .toList();
+}
+
+class _TrackingPeakStorage extends InMemoryPeakStorage {
+  _TrackingPeakStorage([super.peaks]);
+
+  int getAllCallCount = 0;
+  int getByOsmIdCallCount = 0;
+
+  @override
+  List<Peak> getAll() {
+    getAllCallCount += 1;
+    return super.getAll();
+  }
+
+  @override
+  Peak? getByOsmId(int osmId) {
+    getByOsmIdCallCount += 1;
+    return super.getByOsmId(osmId);
+  }
 }
 
 PeakListRepository _peakListRepository({

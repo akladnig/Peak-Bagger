@@ -5,6 +5,7 @@ import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/peak_list_import_service.dart';
@@ -65,6 +66,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           peakListRepositoryProvider.overrideWithValue(peakListRepository),
+          currentRoutePathProvider.overrideWithValue('/peaks'),
           peakListImportServiceProvider.overrideWithValue(service),
           mapProvider.overrideWith(
             () => TestMapNotifier(
@@ -142,6 +144,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           peakListRepositoryProvider.overrideWithValue(peakListRepository),
+          currentRoutePathProvider.overrideWithValue('/map'),
           peakListImportServiceProvider.overrideWithValue(
             _ReloadingImportService(
               peakRepository: peakRepository,
@@ -167,8 +170,10 @@ void main() {
 
       final runner = container.read(peakListImportBackgroundRunnerProvider);
       await runner(listName: 'Imported Peaks', csvPath: '/tmp/import.csv');
+      await Future<void>.delayed(Duration.zero);
 
       expect(mapNotifier.reloadPeakMarkersCallCount, 1);
+      expect(container.read(peakRevisionProvider), 1);
       expect(container.read(peakListRevisionProvider), 1);
       expect(container.read(mapProvider).peaks.single.difficulty, 'Easy');
       expect(container.read(filteredPeaksProvider), isEmpty);
@@ -178,6 +183,64 @@ void main() {
           difficulty: 'Easy',
         ),
       ]);
+    },
+  );
+
+  test(
+    'background runner does not await map reload when map is off-screen',
+    () async {
+      final originalPeak = _buildPeak(
+        osmId: 101,
+        name: 'FVG T Peak',
+        elevation: 1000,
+        latitude: 46.2,
+        longitude: 13.2,
+      ).copyWith(rating: 4.8, difficulty: 'T', region: 'fvg');
+      final updatedPeak = originalPeak.copyWith(
+        rating: 4.2,
+        difficulty: 'Easy',
+        region: 'tasmania',
+      );
+      final peakRepository = PeakRepository.test(
+        InMemoryPeakStorage([originalPeak]),
+      );
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+      );
+      final mapNotifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          peaks: [originalPeak],
+          peakListSelectionMode: PeakListSelectionMode.allPeaks,
+        ),
+        peakRepository: peakRepository,
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          peakListRepositoryProvider.overrideWithValue(peakListRepository),
+          currentRoutePathProvider.overrideWithValue('/peaks'),
+          peakListImportServiceProvider.overrideWithValue(
+            _ReloadingImportService(
+              peakRepository: peakRepository,
+              peakListRepository: peakListRepository,
+              updatedPeak: updatedPeak,
+            ),
+          ),
+          mapProvider.overrideWith(() => mapNotifier),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final runner = container.read(peakListImportBackgroundRunnerProvider);
+      await runner(listName: 'Imported Peaks', csvPath: '/tmp/import.csv');
+      await Future<void>.delayed(Duration.zero);
+
+      expect(mapNotifier.reloadPeakMarkersCallCount, 0);
+      expect(container.read(peakRevisionProvider), 1);
+      expect(container.read(peakListRevisionProvider), 1);
     },
   );
 }
