@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/widgets.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
 
 import '../../harness/test_map_notifier.dart';
 import '../../harness/test_tasmap_repository.dart';
@@ -40,17 +42,13 @@ class PeakListPinsRobot {
         overrides: [
           mapProvider.overrideWith(() => notifier),
           peakListRepositoryProvider.overrideWithValue(
-            PeakListRepository.test(
-              InMemoryPeakListStorage([
-                PeakList(name: 'Alpha', region: 'tasmania', peakList: '[]')
-                  ..peakListId = 1,
-                PeakList(
-                  name: 'Bravo',
-                  region: 'new-south-wales',
-                  peakList: '[]',
-                )..peakListId = 2,
-              ]),
-            ),
+            _peakListRepositoryWithItems([
+              PeakList(name: 'Alpha', region: 'tasmania')..peakListId = 1,
+              PeakList(
+                name: 'Bravo',
+                region: 'new-south-wales',
+              )..peakListId = 2,
+            ]),
           ),
           tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
           tasmapStateProvider.overrideWith(
@@ -124,3 +122,41 @@ final zeroRegionBounds = LatLngBounds(
   const LatLng(-10.0, 10.0),
   const LatLng(-5.0, 15.0),
 );
+
+PeakListRepository _peakListRepositoryWithItems(List<PeakList> peakLists) {
+  final peaks = [
+    for (final peakList in peakLists)
+      switch (peakList.region) {
+        'new-south-wales' => Peak(
+          osmId: peakList.peakListId * 1000,
+          name: '${peakList.name} Peak',
+          latitude: -33.8,
+          longitude: 149.2,
+          region: peakList.region,
+        ),
+        _ => Peak(
+          osmId: peakList.peakListId * 1000,
+          name: '${peakList.name} Peak',
+          latitude: -42.0,
+          longitude: 146.0,
+          region: peakList.region,
+        ),
+      },
+  ];
+  final peaksById = {for (final peak in peaks) peak.osmId: peak};
+  final items = <PeakListItemEntity>[];
+  var itemId = 1;
+  for (final peakList in peakLists) {
+    items.add(
+      PeakListItemEntity(id: itemId++, points: 0)
+        ..peakList.target = peakList
+        ..peak.target = peaksById[peakList.peakListId * 1000]!,
+    );
+  }
+
+  return PeakListRepository.test(
+    InMemoryPeakListStorage(peakLists),
+    peakRepository: PeakRepository.test(InMemoryPeakStorage(peaks)),
+    itemStorage: InMemoryPeakListItemEntityStorage(items),
+  );
+}

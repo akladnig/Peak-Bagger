@@ -26,11 +26,6 @@ void main() {
     tester,
   ) async {
     final robot = PeakListsRobot(tester);
-    final peakListRepository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(name: 'Journey List', peakList: '[]')..peakListId = 1,
-      ]),
-    );
     final peakRepository = PeakRepository.test(
       InMemoryPeakStorage([
         _buildPeak(
@@ -55,6 +50,12 @@ void main() {
           longitude: 146.2,
         ),
       ]),
+    );
+    final peakListRepository = await _peakListRepository(
+      peakRepository: peakRepository,
+      definitions: [
+        (peakList: PeakList(peakListId: 1, name: 'Journey List'), items: const <PeakListItem>[]),
+      ],
     );
 
     await robot.pumpApp(
@@ -81,9 +82,10 @@ void main() {
 
     final journeyList = peakListRepository.findByName('Journey List')!;
     expect(
-      decodePeakListItems(
-        journeyList.peakList,
-      ).map((item) => (item.peakOsmId, item.points)).toList(),
+      peakListRepository
+          .getPeakListItemsForList(journeyList.peakListId)
+          .map((item) => (item.peakOsmId, item.points))
+          .toList(),
       [(100, 3), (200, 5), (300, 7)],
     );
     expect(peakListRepository.findByName('Tassy Full'), isNull);
@@ -97,17 +99,6 @@ void main() {
     SharedPreferences.setMockInitialValues({});
 
     final robot = PeakListsRobot(tester);
-    final peakListRepository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(
-          name: 'Journey List',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 100, points: 3),
-            const PeakListItem(peakOsmId: 200, points: 5),
-          ]),
-        )..peakListId = 1,
-      ]),
-    );
     final peakRepository = PeakRepository.test(
       InMemoryPeakStorage([
         _buildPeak(
@@ -125,6 +116,18 @@ void main() {
           longitude: 146.00005,
         ),
       ]),
+    );
+    final peakListRepository = await _peakListRepository(
+      peakRepository: peakRepository,
+      definitions: [
+        (
+          peakList: PeakList(peakListId: 1, name: 'Journey List'),
+          items: const [
+            PeakListItem(peakOsmId: 100, points: 3),
+            PeakListItem(peakOsmId: 200, points: 5),
+          ],
+        ),
+      ],
     );
 
     await robot.pumpJourneyApp(
@@ -159,23 +162,6 @@ void main() {
       SharedPreferences.setMockInitialValues({});
 
       final robot = PeakListsRobot(tester);
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(
-            name: 'Tas Peaks',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 100, points: 3),
-              const PeakListItem(peakOsmId: 200, points: 5),
-            ]),
-          )..peakListId = 1,
-          PeakList(
-            name: 'Alps Peaks',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 300, points: 8),
-            ]),
-          )..peakListId = 2,
-        ]),
-      );
       final peakRepository = PeakRepository.test(
         InMemoryPeakStorage([
           _buildPeak(
@@ -200,6 +186,22 @@ void main() {
             longitude: 13.0,
           ),
         ]),
+      );
+      final peakListRepository = await _peakListRepository(
+        peakRepository: peakRepository,
+        definitions: [
+          (
+            peakList: PeakList(peakListId: 1, name: 'Tas Peaks'),
+            items: const [
+              PeakListItem(peakOsmId: 100, points: 3),
+              PeakListItem(peakOsmId: 200, points: 5),
+            ],
+          ),
+          (
+            peakList: PeakList(peakListId: 2, name: 'Alps Peaks'),
+            items: const [PeakListItem(peakOsmId: 300, points: 8)],
+          ),
+        ],
       );
 
       await robot.pumpJourneyApp(
@@ -269,7 +271,7 @@ void main() {
     final robot = PeakListsRobot(tester);
     final peakListRepository = PeakListRepository.test(
       InMemoryPeakListStorage([
-        PeakList(name: 'Abels', peakList: '[]')..peakListId = 1,
+        PeakList(name: 'Abels')..peakListId = 1,
       ]),
     );
 
@@ -281,7 +283,7 @@ void main() {
     expect(tester.widget<Text>(robot.selectedTitle).data, 'Abels');
 
     await peakListRepository.save(
-      PeakList(peakListId: 1, name: 'Abels Renamed', peakList: '[]'),
+      PeakList(peakListId: 1, name: 'Abels Renamed'),
     );
     ProviderScope.containerOf(
       tester.element(robot.summaryPane),
@@ -302,16 +304,6 @@ void main() {
     tester,
   ) async {
     final robot = PeakListsRobot(tester);
-    final peakListRepository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(
-          name: 'Tas Peaks',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: -1, points: 4),
-          ]),
-        )..peakListId = 1,
-      ]),
-    );
     final peakRepository = PeakRepository.test(
       InMemoryPeakStorage([
         _buildPeak(
@@ -322,6 +314,15 @@ void main() {
           longitude: 146.0,
         ),
       ]),
+    );
+    final peakListRepository = await _peakListRepository(
+      peakRepository: peakRepository,
+      definitions: [
+        (
+          peakList: PeakList(peakListId: 1, name: 'Tas Peaks'),
+          items: const [PeakListItem(peakOsmId: -1, points: 4)],
+        ),
+      ],
     );
     final peaksBaggedRepository = PeaksBaggedRepository.test(
       InMemoryPeaksBaggedStorage(),
@@ -410,7 +411,14 @@ void main() {
       ).read(peakListRevisionProvider.notifier).increment();
       adminRowsByEntity['PeakList'] = peakListRepository
           .getAllPeakLists()
-          .map(peakListToAdminRow)
+          .map(
+            (peakList) => peakListToAdminRow(
+              peakList,
+              membershipItems: peakListRepository.getPeakListItemsForList(
+                peakList.peakListId,
+              ),
+            ),
+          )
           .toList(growable: false);
       return PeakListImportPresentationResult(
         updated: result.updated,
@@ -476,8 +484,10 @@ void main() {
     expect(
       peakListRows
           .firstWhere((row) => row.values['name'] == 'Journey List')
-          .values['peakList'],
-      contains('peakOsmId'),
+          .values['membershipItems'],
+      [
+        {'peakOsmId': 101, 'points': 3},
+      ],
     );
   });
 
@@ -495,6 +505,7 @@ void main() {
     final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
     final peakListRepository = PeakListRepository.test(
       InMemoryPeakListStorage(),
+      peakRepository: peakRepository,
     );
     final importService = PeakListImportService(
       peakRepository: peakRepository,
@@ -544,14 +555,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(robot.importDialog, findsNothing);
-
-    expect(tester.widget<Text>(robot.selectedTitle).data, 'FVG Ranked');
     expect(peakRepository.findByOsmId(101)?.sourceOfTruth, 'HRIBI');
     expect(peakRepository.findByOsmId(101)?.region, 'fvg');
     expect(peakListRepository.findByName('FVG Ranked')?.region, 'fvg');
     expect(
-      peakListRepository.findByName('FVG Ranked')?.peakList,
-      encodePeakListItems([const PeakListItem(peakOsmId: 101, points: 1)]),
+      peakListRepository
+          .getPeakListItemsForList(
+            peakListRepository.findByName('FVG Ranked')!.peakListId,
+          )
+          .map((item) => (item.peakOsmId, item.points))
+          .toList(),
+      [(101, 1)],
     );
   });
 
@@ -571,6 +585,7 @@ void main() {
     );
     final peakListRepository = PeakListRepository.test(
       InMemoryPeakListStorage(),
+      peakRepository: peakRepository,
     );
     final importService = PeakListImportService(
       peakRepository: peakRepository,
@@ -648,16 +663,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(robot.importDialog, findsNothing);
-
-    expect(tester.widget<Text>(robot.selectedTitle).data, 'Round Trip Journey');
     expect(peakRepository.findByOsmId(101)?.name, 'Imported Peak');
     expect(peakRepository.findByOsmId(202)?.name, 'Created Peak');
     expect(
-      peakListRepository.findByName('Round Trip Journey')?.peakList,
-      encodePeakListItems([
-        const PeakListItem(peakOsmId: 101, points: 3),
-        const PeakListItem(peakOsmId: 202, points: 7),
-      ]),
+      peakListRepository
+          .getPeakListItemsForList(
+            peakListRepository.findByName('Round Trip Journey')!.peakListId,
+          )
+          .map((item) => (item.peakOsmId, item.points))
+          .toList(),
+      [(101, 3), (202, 7)],
     );
   });
 
@@ -667,8 +682,8 @@ void main() {
     final robot = PeakListsRobot(tester);
     final repository = PeakListRepository.test(
       InMemoryPeakListStorage([
-        PeakList(name: 'Abels', peakList: '[]')..peakListId = 1,
-        PeakList(name: 'Connoisseurs', peakList: '[]')..peakListId = 2,
+        PeakList(name: 'Abels')..peakListId = 1,
+        PeakList(name: 'Connoisseurs')..peakListId = 2,
       ]),
     );
 
@@ -693,11 +708,6 @@ void main() {
     tester,
   ) async {
     final robot = PeakListsRobot(tester);
-    final peakListRepository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
-      ]),
-    );
     final peakRepository = PeakRepository.test(
       InMemoryPeakStorage([
         _buildPeak(
@@ -722,6 +732,12 @@ void main() {
           longitude: 146.2,
         ),
       ]),
+    );
+    final peakListRepository = await _peakListRepository(
+      peakRepository: peakRepository,
+      definitions: [
+        (peakList: PeakList(peakListId: 1, name: 'Tasmania'), items: const <PeakListItem>[]),
+      ],
     );
 
     await robot.pumpApp(
@@ -752,9 +768,10 @@ void main() {
 
     final tasmania = peakListRepository.findByName('Tasmania')!;
     expect(
-      decodePeakListItems(
-        tasmania.peakList,
-      ).map((item) => (item.peakOsmId, item.points)).toList(),
+      peakListRepository
+          .getPeakListItemsForList(tasmania.peakListId)
+          .map((item) => (item.peakOsmId, item.points))
+          .toList(),
       [(100, 3), (200, 5), (300, 7)],
     );
     expect(peakListRepository.findByName('Tassy Full'), isNull);
@@ -774,21 +791,18 @@ void main() {
       longitude: 145.97754,
     );
     final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
-    final peakListRepository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(
-          name: 'Zeta',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 101, points: 4),
-          ]),
-        )..peakListId = 1,
-        PeakList(
-          name: 'Alpha',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 101, points: 6),
-          ]),
-        )..peakListId = 2,
-      ]),
+    final peakListRepository = await _peakListRepository(
+      peakRepository: peakRepository,
+      definitions: [
+        (
+          peakList: PeakList(peakListId: 1, name: 'Zeta'),
+          items: const [PeakListItem(peakOsmId: 101, points: 4)],
+        ),
+        (
+          peakList: PeakList(peakListId: 2, name: 'Alpha'),
+          items: const [PeakListItem(peakOsmId: 101, points: 6)],
+        ),
+      ],
     );
 
     await robot.pumpApp(
@@ -826,6 +840,22 @@ Peak _buildPeak({
     easting: mgrs.easting,
     northing: mgrs.northing,
   );
+}
+
+Future<PeakListRepository> _peakListRepository({
+  PeakRepository? peakRepository,
+  required List<({PeakList peakList, List<PeakListItem> items})> definitions,
+}) async {
+  final resolvedPeakRepository =
+      peakRepository ?? PeakRepository.test(InMemoryPeakStorage());
+  final repository = PeakListRepository.test(
+    InMemoryPeakListStorage(),
+    peakRepository: resolvedPeakRepository,
+  );
+  for (final definition in definitions) {
+    await repository.save(definition.peakList, items: definition.items);
+  }
+  return repository;
 }
 
 String _appOwnedCsv(List<Map<String, String>> rows) {

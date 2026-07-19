@@ -126,63 +126,6 @@ void main() {
     );
   });
 
-  testWidgets('export peak lists stays disabled while memberships are loading', (
-    tester,
-  ) async {
-    final repository = await TestTasmapRepository.create();
-    var exportCalls = 0;
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          mapProvider.overrideWith(
-            () => TestPeakNotifier(
-              MapState(
-                center: const LatLng(-41.5, 146.5),
-                zoom: 15,
-                basemap: Basemap.tracestrack,
-                peakListMembershipReadinessStatus:
-                    PeakListMembershipReadinessStatus.loading,
-              ),
-            ),
-          ),
-          peakListCsvExportBackgroundRunnerProvider.overrideWithValue(({
-            PeakListCsvExportProgressCallback? onProgress,
-          }) async {
-            exportCalls += 1;
-            return const PeakListCsvExportResult(
-              outputDirectoryPath: '/tmp/Peak_Lists',
-              exportedFileCount: 0,
-            );
-          }),
-          tasmapStateProvider.overrideWith(() => TestTasmapNotifier(repository)),
-          tasmapRepositoryProvider.overrideWithValue(repository),
-        ],
-        child: const App(),
-      ),
-    );
-    await tester.pump();
-
-    router.go('/settings');
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    await scrollSettingsUntilVisible(
-      tester,
-      find.byKey(const Key('export-peak-lists-tile')),
-    );
-
-    expect(
-      find.text('Peak-list memberships are still loading from startup migration'),
-      findsOneWidget,
-    );
-    await tester.tap(find.byKey(const Key('export-peak-lists-tile')));
-    await tester.pump();
-
-    expect(exportCalls, 0);
-    expect(find.text('Export started'), findsNothing);
-  });
-
   testWidgets('export peak lists shows warning-bearing success summary', (
     tester,
   ) async {

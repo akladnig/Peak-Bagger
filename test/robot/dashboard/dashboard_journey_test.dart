@@ -143,6 +143,14 @@ void main() {
     SharedPreferences.setMockInitialValues({});
 
     final robot = DashboardRobot(tester);
+    final peaks = [_peak(101, 'Alpha Peak'), _peak(102, 'Beta Peak')];
+    final peakListRepository = await _peakListRepository(
+      peaks: peaks,
+      definitions: const [
+        (id: 1, name: 'Alpha List', peakIds: [101]),
+        (id: 2, name: 'Beta List', peakIds: [102]),
+      ],
+    );
     final container = await _createContainer(
       notifier: TestMapNotifier(
         const MapState(
@@ -151,14 +159,10 @@ void main() {
           basemap: Basemap.tracestrack,
         ),
       ),
-      peakLists: [
-        _peakList(1, 'Alpha List', [101]),
-        _peakList(2, 'Beta List', [102]),
-      ],
-      peaks: [_peak(101, 'Alpha Peak'), _peak(102, 'Beta Peak')],
+      peakListRepository: peakListRepository,
+      peaks: peaks,
     );
     addTearDown(container.dispose);
-    final peakListRepository = container.read(peakListRepositoryProvider);
 
     await robot.pumpApp(container: container);
     await robot.openDashboard();
@@ -168,7 +172,7 @@ void main() {
     await robot.tapMyListsRow(2);
 
     expect(find.byKey(const Key('map-interaction-region')), findsOneWidget);
-    expect(container.read(mapProvider).selectedPeakListId, 2);
+    expect(container.read(mapProvider).selectedPeakListIds, {2});
     expect(container.read(mapProvider).cameraRequestBounds, isNull);
     expect(container.read(mapProvider).center.latitude, closeTo(-42.0, 0.001));
     expect(container.read(mapProvider).center.longitude, closeTo(146.0, 0.001));
@@ -183,19 +187,22 @@ void main() {
     (tester) async {
       SharedPreferences.setMockInitialValues({});
 
-      final robot = DashboardRobot(tester);
-      final container = await _createContainer(
-        notifier: TestMapNotifier(
-          const MapState(
+    final robot = DashboardRobot(tester);
+    final peakListRepository = PeakListRepository.test(
+      InMemoryPeakListStorage([
+        PeakList(peakListId: 2, name: 'Broken List'),
+      ]),
+    );
+    final container = await _createContainer(
+      notifier: TestMapNotifier(
+        const MapState(
             center: LatLng(-41.5, 146.5),
             zoom: 12,
             basemap: Basemap.tracestrack,
-          ),
         ),
-        peakLists: [
-          _peakList(2, 'Broken List', [999]),
-        ],
-      );
+      ),
+      peakListRepository: peakListRepository,
+    );
       addTearDown(container.dispose);
 
       await robot.pumpApp(container: container);
@@ -206,7 +213,7 @@ void main() {
       expect(robot.board, findsOneWidget);
       expect(find.byKey(const Key('map-interaction-region')), findsNothing);
       expect(find.text('This list has no mappable peaks.'), findsOneWidget);
-      expect(container.read(mapProvider).selectedPeakListId, isNull);
+      expect(container.read(mapProvider).selectedPeakListIds, isEmpty);
     },
   );
 
@@ -461,18 +468,23 @@ void main() {
         ],
       ),
     );
+    final peaks = [
+      _peak(1, 'Alpha', elevation: 1234),
+      _peak(2, 'Beta', elevation: 1000),
+      _peak(3, 'Gamma', elevation: 900),
+    ];
+    final peakListRepository = await _peakListRepository(
+      peaks: peaks,
+      definitions: const [
+        (id: 1, name: 'Alpha', peakIds: [1, 2]),
+        (id: 2, name: 'Beta', peakIds: [1, 3]),
+      ],
+    );
 
     final container = await _createContainer(
       notifier: notifier,
-      peaks: [
-        _peak(1, 'Alpha', elevation: 1234),
-        _peak(2, 'Beta', elevation: 1000),
-        _peak(3, 'Gamma', elevation: 900),
-      ],
-      peakLists: [
-        _peakList(1, 'Alpha', [1, 2]),
-        _peakList(2, 'Beta', [1, 3]),
-      ],
+      peaks: peaks,
+      peakListRepository: peakListRepository,
     );
     addTearDown(container.dispose);
 
@@ -543,7 +555,7 @@ void main() {
 Future<ProviderContainer> _createContainer({
   required TestMapNotifier notifier,
   List<Peak> peaks = const [],
-  List<PeakList> peakLists = const [],
+  PeakListRepository? peakListRepository,
 }) async {
   final peaksBaggedRepository = PeaksBaggedRepository.test(
     InMemoryPeaksBaggedStorage(),
@@ -559,7 +571,7 @@ Future<ProviderContainer> _createContainer({
         PeakRepository.test(InMemoryPeakStorage(peaks)),
       ),
       peakListRepositoryProvider.overrideWithValue(
-        PeakListRepository.test(InMemoryPeakListStorage(peakLists)),
+        peakListRepository ?? PeakListRepository.test(InMemoryPeakListStorage()),
       ),
       peaksBaggedRepositoryProvider.overrideWithValue(peaksBaggedRepository),
       tasmapRepositoryProvider.overrideWithValue(
@@ -569,16 +581,25 @@ Future<ProviderContainer> _createContainer({
   );
 }
 
-PeakList _peakList(int id, String name, List<int> peakIds) {
-  return PeakList(
-    peakListId: id,
-    name: name,
-    peakList: encodePeakListItems(
-      peakIds
-          .map((peakId) => PeakListItem(peakOsmId: peakId, points: 1))
-          .toList(growable: false),
-    ),
+Future<PeakListRepository> _peakListRepository({
+  required List<Peak> peaks,
+  required List<({int id, String name, List<int> peakIds})> definitions,
+}) async {
+  final peakRepository = PeakRepository.test(InMemoryPeakStorage(peaks));
+  final repository = PeakListRepository.test(
+    InMemoryPeakListStorage(),
+    peakRepository: peakRepository,
   );
+  for (final definition in definitions) {
+    await repository.save(
+      PeakList(peakListId: definition.id, name: definition.name),
+      items: [
+        for (final peakId in definition.peakIds)
+          PeakListItem(peakOsmId: peakId, points: 1),
+      ],
+    );
+  }
+  return repository;
 }
 
 GpxTrack _trackWithPeaks(int id, List<int> peakIds, DateTime startDateTime) {

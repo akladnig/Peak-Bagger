@@ -45,6 +45,8 @@ import '../harness/test_peak_list_file_picker.dart';
 import '../harness/test_map_notifier.dart';
 import '../harness/test_tasmap_repository.dart';
 
+final Expando<List<PeakListItem>> _registeredPeakListItems = Expando<List<PeakListItem>>();
+
 void main() {
   setUp(() {
     SharedPreferences.resetStatic();
@@ -1651,17 +1653,16 @@ void main() {
   testWidgets('add dialog selects the first saved alphabetical peak', (
     tester,
   ) async {
-    final peakListRepository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
-      ]),
-    );
     final peakRepository = PeakRepository.test(
       InMemoryPeakStorage([
         _buildPeak(300, 'Zulu Peak', -41.0, 146.0),
         _buildPeak(100, 'Alpha Peak', -41.1, 146.1),
         _buildPeak(200, 'Mike Peak', -41.2, 146.2),
       ]),
+    );
+    final peakListRepository = _peakListRepository(
+      [PeakList(name: 'Tasmania')..peakListId = 1],
+      peakRepository: peakRepository,
     );
 
     await _pumpPeakListsApp(
@@ -1718,9 +1719,7 @@ void main() {
     expect(selectedRowDecoration, isNotNull);
     expect(selectedRowDecoration!.color, isNotNull);
     expect(
-      decodePeakListItems(
-        peakListRepository.findByName('Tasmania')!.peakList,
-      ).map((item) => (item.peakOsmId, item.points)).toList(),
+      _storedMemberships(peakListRepository, 'Tasmania'),
       [(100, 3), (200, 5), (300, 7)],
     );
   });
@@ -1729,11 +1728,9 @@ void main() {
     await _pumpPeakListsApp(
       tester,
       filePicker: TestPeakListFilePicker(),
-      repository: PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
-        ]),
-      ),
+      repository: _peakListRepository([
+        PeakList(name: 'Tasmania')..peakListId = 1,
+      ]),
       peakRepository: PeakRepository.test(
         InMemoryPeakStorage([
           _buildPeak(100, 'Alpha Peak', -41.1, 146.1),
@@ -1775,17 +1772,16 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
-        ]),
-      );
       final peakRepository = PeakRepository.test(
         InMemoryPeakStorage([
           _buildPeak(300, 'Zulu Peak', -41.0, 146.0),
           _buildPeak(100, 'Alpha Peak', -41.1, 146.1),
           _buildPeak(200, 'Mike Peak', -41.2, 146.2),
         ]),
+      );
+      final peakListRepository = _peakListRepository(
+        [PeakList(name: 'Tasmania')..peakListId = 1],
+        peakRepository: peakRepository,
       );
 
       await _pumpPeakListsApp(
@@ -1829,9 +1825,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        decodePeakListItems(
-          peakListRepository.findByName('Tasmania')!.peakList,
-        ).map((item) => (item.peakOsmId, item.points)).toList(),
+        _storedMemberships(peakListRepository, 'Tasmania'),
         [(100, 3), (200, 5), (300, 7)],
       );
       expect(peakListRepository.findByName('Tassy Full'), isNull);
@@ -1980,13 +1974,11 @@ void main() {
       await _pumpPeakListsApp(
         tester,
         filePicker: TestPeakListFilePicker(),
-        repository: PeakListRepository.test(
+        repository: _UnavailablePeakListRepository(
           InMemoryPeakListStorage([
-            PeakList(
-              name: 'Legacy List',
-              peakList: '[{"peakOsmId":100,"points":"3"}]',
-            )..peakListId = 1,
+            PeakList(name: 'Unavailable List')..peakListId = 1,
           ]),
+          unavailablePeakListIds: const {1},
         ),
         peakRepository: PeakRepository.test(InMemoryPeakStorage()),
         peaksBaggedRepository: PeaksBaggedRepository.test(
@@ -1995,7 +1987,7 @@ void main() {
       );
 
       expect(find.byKey(const Key('peak-lists-row-1')), findsOneWidget);
-      expect(find.text('Legacy List'), findsNWidgets(2));
+      expect(find.text('Unavailable List'), findsNWidgets(2));
       expect(find.byKey(const Key('peak-lists-delete-1')), findsOneWidget);
       expect(find.byKey(const Key('peak-lists-total-1')), findsOneWidget);
       expect(find.text('-'), findsNWidgets(4));
@@ -2005,7 +1997,7 @@ void main() {
       expect(unsupportedMessage, findsOneWidget);
       expect(
         tester.widget<Text>(unsupportedMessage).data,
-        contains('Delete it and re-import the CSV'),
+        contains('membership rows are missing'),
       );
     },
   );
@@ -2016,14 +2008,12 @@ void main() {
       await _pumpPeakListsApp(
         tester,
         filePicker: TestPeakListFilePicker(),
-        repository: PeakListRepository.test(
+        repository: _UnavailablePeakListRepository(
           InMemoryPeakListStorage([
             _buildPeakList(1, 'Bravo', [100]),
-            PeakList(
-              name: 'Legacy List',
-              peakList: '[{"peakOsmId":200,"points":"4"}]',
-            )..peakListId = 2,
+            PeakList(name: 'Unavailable List')..peakListId = 2,
           ]),
+          unavailablePeakListIds: const {2},
         ),
         peakRepository: PeakRepository.test(
           InMemoryPeakStorage([_buildPeak(100, 'Alpha Peak', -42.0, 146.0)]),
@@ -3544,7 +3534,10 @@ void main() {
   testWidgets('import completion selects returned list identity', (
     tester,
   ) async {
-    final repository = PeakListRepository.test(InMemoryPeakListStorage());
+    final repository = PeakListRepository.test(
+      InMemoryPeakListStorage(),
+      peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+    );
 
     await _pumpPeakListsApp(
       tester,
@@ -3553,7 +3546,7 @@ void main() {
       importRunner:
           ({required String listName, required String csvPath}) async {
             final saved = await repository.save(
-              PeakList(name: listName, peakList: '[]'),
+              PeakList(name: listName),
             );
             ProviderScope.containerOf(
               tester.element(find.byKey(const Key('peak-lists-summary-pane'))),
@@ -3593,7 +3586,10 @@ void main() {
   testWidgets('open list action navigates back to the imported list', (
     tester,
   ) async {
-    final repository = PeakListRepository.test(InMemoryPeakListStorage());
+    final repository = PeakListRepository.test(
+      InMemoryPeakListStorage(),
+      peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+    );
     final completer = Completer<PeakListImportPresentationResult>();
 
     await _pumpPeakListsApp(
@@ -3626,9 +3622,7 @@ void main() {
       findsNothing,
     );
 
-    final saved = await repository.save(
-      PeakList(name: 'Abels', peakList: '[]'),
-    );
+    final saved = await repository.save(PeakList(name: 'Abels'));
     ProviderScope.containerOf(
       tester.element(find.byKey(const Key('shared-app-bar'))),
     ).read(peakListRevisionProvider.notifier).increment();
@@ -3669,9 +3663,10 @@ void main() {
   ) async {
     final repository = PeakListRepository.test(
       InMemoryPeakListStorage([
-        PeakList(name: 'Abels', peakList: '[]')..peakListId = 1,
-        PeakList(name: 'Bravo', peakList: '[]')..peakListId = 2,
+        PeakList(name: 'Abels')..peakListId = 1,
+        PeakList(name: 'Bravo')..peakListId = 2,
       ]),
+      peakRepository: PeakRepository.test(InMemoryPeakStorage()),
     );
 
     await _pumpPeakListsApp(
@@ -3691,7 +3686,7 @@ void main() {
     );
 
     await repository.save(
-      PeakList(peakListId: 1, name: 'Abels Renamed', peakList: '[]'),
+      PeakList(peakListId: 1, name: 'Abels Renamed'),
     );
     ProviderScope.containerOf(
       tester.element(find.byKey(const Key('peak-lists-summary-pane'))),
@@ -3843,9 +3838,9 @@ void main() {
       expect(mapNotifier.reloadPeakMarkersCallCount, 0);
       expect(
         container.read(mapProvider).peakListSelectionMode,
-        PeakListSelectionMode.specificList,
+        PeakListSelectionMode.allPeaks,
       );
-      expect(container.read(mapProvider).selectedPeakListId, 2);
+      expect(container.read(mapProvider).selectedPeakListIds, isEmpty);
     },
   );
 
@@ -4108,7 +4103,10 @@ void main() {
         ).copyWith(sourceOfTruth: Peak.sourceOfTruthOsm),
       ]),
     );
-    final repository = PeakListRepository.test(InMemoryPeakListStorage());
+    final repository = PeakListRepository.test(
+      InMemoryPeakListStorage(),
+      peakRepository: peakRepository,
+    );
     final service = PeakListImportService(
       peakRepository: peakRepository,
       peakListRepository: repository,
@@ -4184,9 +4182,7 @@ void main() {
       'Round Trip Import',
     );
     expect(
-      decodePeakListItems(
-        repository.findByName('Round Trip Import')!.peakList,
-      ).map((item) => (item.peakOsmId, item.points)).toList(),
+      _storedMemberships(repository, 'Round Trip Import'),
       [(101, 3), (202, 7)],
     );
     expect(peakRepository.findByOsmId(101)?.name, 'Imported Peak');
@@ -4328,6 +4324,11 @@ Future<void> _pumpPeakListsApp(
   TestMapNotifier? mapNotifier,
   List overrides = const [],
 }) async {
+  final effectivePeakRepository = peakRepository ?? PeakRepository.test(InMemoryPeakStorage());
+  final effectiveRepository = _effectivePeakListRepository(
+    repository,
+    peakRepository: effectivePeakRepository,
+  );
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -4342,10 +4343,8 @@ Future<void> _pumpPeakListsApp(
                 ),
               ),
         ),
-        peakListRepositoryProvider.overrideWithValue(repository),
-        peakRepositoryProvider.overrideWithValue(
-          peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
-        ),
+        peakListRepositoryProvider.overrideWithValue(effectiveRepository),
+        peakRepositoryProvider.overrideWithValue(effectivePeakRepository),
         tasmapRepositoryProvider.overrideWithValue(
           tasmapRepository ?? await TestTasmapRepository.create(),
         ),
@@ -4398,6 +4397,11 @@ Future<void> _pumpPeakListsScreen(
   int? initialPeakListId,
   List overrides = const [],
 }) async {
+  final effectivePeakRepository = peakRepository ?? PeakRepository.test(InMemoryPeakStorage());
+  final effectiveRepository = _effectivePeakListRepository(
+    repository,
+    peakRepository: effectivePeakRepository,
+  );
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -4412,10 +4416,8 @@ Future<void> _pumpPeakListsScreen(
                 ),
               ),
         ),
-        peakListRepositoryProvider.overrideWithValue(repository),
-        peakRepositoryProvider.overrideWithValue(
-          peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
-        ),
+        peakListRepositoryProvider.overrideWithValue(effectiveRepository),
+        peakRepositoryProvider.overrideWithValue(effectivePeakRepository),
         tasmapRepositoryProvider.overrideWithValue(
           tasmapRepository ?? await TestTasmapRepository.create(),
         ),
@@ -4457,8 +4459,65 @@ Future<void> _pumpPeakListsScreen(
 List<PeakList> _buildLists(List<String> names) {
   return [
     for (var index = 0; index < names.length; index++)
-      PeakList(name: names[index], peakList: '[]')..peakListId = index + 1,
+      PeakList(name: names[index])..peakListId = index + 1,
   ];
+}
+
+PeakListRepository _effectivePeakListRepository(
+  PeakListRepository repository, {
+  required PeakRepository peakRepository,
+}) {
+  if (repository.runtimeType != PeakListRepository ||
+      repository.peakRepository != null) {
+    return repository;
+  }
+  return _peakListRepository(
+    repository.getAllPeakLists(),
+    peakRepository: peakRepository,
+  );
+}
+
+PeakListRepository _peakListRepository(
+  List<PeakList> peakLists, {
+  PeakRepository? peakRepository,
+}) {
+  final listsById = {for (final peakList in peakLists) peakList.peakListId: peakList};
+  final repository = peakRepository ?? PeakRepository.test(InMemoryPeakStorage());
+  final items = <PeakListItemEntity>[];
+  var itemId = 1;
+  for (final peakList in peakLists) {
+    for (final item in _registeredPeakListItems[peakList] ?? const <PeakListItem>[]) {
+      items.add(
+        PeakListItemEntity(id: itemId++, points: item.points)
+          ..peakList.target = listsById[peakList.peakListId]!
+          ..peak.target =
+              repository.findByOsmId(item.peakOsmId) ??
+              Peak(
+                osmId: item.peakOsmId,
+                name: 'Peak ${item.peakOsmId}',
+                latitude: -42,
+                longitude: 146,
+              ),
+      );
+    }
+  }
+
+  return PeakListRepository.test(
+    InMemoryPeakListStorage(peakLists),
+    peakRepository: repository,
+    itemStorage: InMemoryPeakListItemEntityStorage(items),
+  );
+}
+
+List<(int, int)> _storedMemberships(
+  PeakListRepository repository,
+  String listName,
+) {
+  final peakList = repository.findByName(listName)!;
+  return repository
+      .getPeakListItemsForList(peakList.peakListId)
+      .map((item) => (item.peakOsmId, item.points))
+      .toList(growable: false);
 }
 
 String _summarySentenceText(WidgetTester tester) {
@@ -4641,18 +4700,19 @@ PeakList _buildPeakList(
   double? minLng,
   double? maxLng,
 }) {
-  return PeakList(
+  final peakList = PeakList(
     name: name,
     region: region,
-    peakList: encodePeakListItems([
-      for (final peakId in peakIds)
-        PeakListItem(peakOsmId: peakId, points: pointsByPeakId[peakId] ?? 0),
-    ]),
     minLat: minLat,
     maxLat: maxLat,
     minLng: minLng,
     maxLng: maxLng,
   )..peakListId = id;
+  _registeredPeakListItems[peakList] = [
+    for (final peakId in peakIds)
+      PeakListItem(peakOsmId: peakId, points: pointsByPeakId[peakId] ?? 0),
+  ];
+  return peakList;
 }
 
 Peak _buildPeak(
@@ -4691,4 +4751,21 @@ class _StaticPeakListMiniMapClusterDisplayOffNotifier
     extends PeakListMiniMapClusterDisplaySettingsNotifier {
   @override
   bool build() => false;
+}
+
+class _UnavailablePeakListRepository extends PeakListRepository {
+  _UnavailablePeakListRepository(
+    super.storage, {
+    required this.unavailablePeakListIds,
+  }) : super.test();
+
+  final Set<int> unavailablePeakListIds;
+
+  @override
+  List<PeakListItem> getPeakListItemsForList(int peakListId) {
+    if (unavailablePeakListIds.contains(peakListId)) {
+      throw StateError('membership rows unavailable');
+    }
+    return super.getPeakListItemsForList(peakListId);
+  }
 }

@@ -7,6 +7,7 @@ import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
 
 void main() {
   test('toggling last specific list off enters none', () {
@@ -125,27 +126,33 @@ void main() {
   });
 
   test(
-    'explicit reconcile follows visible bounds, preserves malformed visible selections, and skips zero-region pruning',
+    'explicit reconcile follows visible bounds, preserves empty visible selections, and skips zero-region pruning',
     () {
-      final repository = PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(
-            name: 'Alpha',
-            region: 'tasmania',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 6406, points: 1),
-            ]),
-          )..peakListId = 7,
-          PeakList(
-            name: 'Zero',
+      final repository = _peakListRepository(
+        peakLists: [
+          PeakList(name: 'Alpha', region: 'tasmania')..peakListId = 7,
+          PeakList(name: 'Zero', region: 'new-south-wales')..peakListId = 8,
+          PeakList(name: 'Empty', region: 'tasmania')..peakListId = 9,
+        ],
+        peaks: [
+          Peak(
+            osmId: 6406,
+            name: 'Bonnet Hill',
+            latitude: -43.0,
+            longitude: 147.0,
+          ),
+          Peak(
+            osmId: 9999,
+            name: 'NSW Peak',
+            latitude: -33.7,
+            longitude: 149.0,
             region: 'new-south-wales',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 9999, points: 1),
-            ]),
-          )..peakListId = 8,
-          PeakList(name: 'Broken', region: 'tasmania', peakList: '{not-json}')
-            ..peakListId = 9,
-        ]),
+          ),
+        ],
+        memberships: const [
+          (peakListId: 7, peakOsmId: 6406, points: 1),
+          (peakListId: 8, peakOsmId: 9999, points: 1),
+        ],
       );
 
       final container = ProviderContainer(
@@ -247,9 +254,6 @@ void main() {
           PeakList(
             name: 'Mixed Cached',
             region: PeakList.mixedRegion,
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 6406, points: 1),
-            ]),
             minLat: -43.2,
             maxLat: -42.8,
             minLng: 146.8,
@@ -294,16 +298,20 @@ void main() {
   test(
     'mixed-region list stays selected when member peaks intersect viewport',
     () {
-      final repository = PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(
-            name: 'Mixed Members',
-            region: PeakList.mixedRegion,
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 6406, points: 1),
-            ]),
-          )..peakListId = 7,
-        ]),
+      final repository = _peakListRepository(
+        peakLists: [
+          PeakList(name: 'Mixed Members', region: PeakList.mixedRegion)
+            ..peakListId = 7,
+        ],
+        peaks: [
+          Peak(
+            osmId: 6406,
+            name: 'Bonnet Hill',
+            latitude: -43.0,
+            longitude: 147.0,
+          ),
+        ],
+        memberships: const [(peakListId: 7, peakOsmId: 6406, points: 1)],
       );
 
       final container = ProviderContainer(
@@ -358,4 +366,36 @@ class _InitialStateMapNotifier extends MapNotifier {
 
   @override
   Future<void> persistPeakListSelection() async {}
+}
+
+PeakListRepository _peakListRepository({
+  required List<PeakList> peakLists,
+  List<Peak> peaks = const [],
+  List<({int peakListId, int peakOsmId, int points})> memberships = const [],
+}) {
+  final peaksByOsmId = {
+    for (final peak in peaks) peak.osmId: peak,
+    for (final membership in memberships)
+      if (!peaks.any((peak) => peak.osmId == membership.peakOsmId))
+        membership.peakOsmId: Peak(
+          osmId: membership.peakOsmId,
+          name: 'Peak ${membership.peakOsmId}',
+          latitude: -42,
+          longitude: 146,
+        ),
+  };
+  final peakListsById = {for (final peakList in peakLists) peakList.peakListId: peakList};
+
+  return PeakListRepository.test(
+    InMemoryPeakListStorage(peakLists),
+    peakRepository: PeakRepository.test(
+      InMemoryPeakStorage(peaksByOsmId.values.toList(growable: false)),
+    ),
+    itemStorage: InMemoryPeakListItemEntityStorage([
+      for (var index = 0; index < memberships.length; index++)
+        PeakListItemEntity(id: index + 1, points: memberships[index].points)
+          ..peakList.target = peakListsById[memberships[index].peakListId]!
+          ..peak.target = peaksByOsmId[memberships[index].peakOsmId]!,
+    ]),
+  );
 }

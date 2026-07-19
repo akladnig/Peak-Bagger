@@ -10,23 +10,26 @@ import 'package:peak_bagger/providers/my_lists_summary_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 
 import '../harness/test_map_notifier.dart';
 
 void main() {
   test('recomputes when peak lists or climb data change', () async {
+    final peakRepository = PeakRepository.test(
+      InMemoryPeakStorage([_peakRecord(1), _peakRecord(2), _peakRecord(3)]),
+    );
     final peakListRepository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(
-          peakListId: 1,
-          name: 'Alpha',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 1, points: 1),
-            const PeakListItem(peakOsmId: 2, points: 1),
-          ]),
-        ),
-      ]),
+      InMemoryPeakListStorage(),
+      peakRepository: peakRepository,
+    );
+    await peakListRepository.save(
+      PeakList(peakListId: 1, name: 'Alpha'),
+      items: const [
+        PeakListItem(peakOsmId: 1, points: 1),
+        PeakListItem(peakOsmId: 2, points: 1),
+      ],
     );
     final peaksBaggedRepository = PeaksBaggedRepository.test(
       InMemoryPeaksBaggedStorage([
@@ -76,15 +79,12 @@ void main() {
     expect(rows.single.percentageLabel, '100%');
 
     await peakListRepository.save(
-      PeakList(
-        peakListId: 1,
-        name: 'Alpha Renamed',
-        peakList: encodePeakListItems([
-          const PeakListItem(peakOsmId: 1, points: 1),
-          const PeakListItem(peakOsmId: 2, points: 1),
-          const PeakListItem(peakOsmId: 3, points: 1),
-        ]),
-      ),
+      PeakList(peakListId: 1, name: 'Alpha Renamed'),
+      items: const [
+        PeakListItem(peakOsmId: 1, points: 1),
+        PeakListItem(peakOsmId: 2, points: 1),
+        PeakListItem(peakOsmId: 3, points: 1),
+      ],
     );
     container.read(peakListRevisionProvider.notifier).increment();
 
@@ -98,17 +98,19 @@ void main() {
   test(
     'recomputes when bagged history changes without track changes',
     () async {
+      final peakRepository = PeakRepository.test(
+        InMemoryPeakStorage([_peakRecord(1), _peakRecord(2)]),
+      );
       final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(
-            peakListId: 1,
-            name: 'Alpha',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 1, points: 1),
-              const PeakListItem(peakOsmId: 2, points: 1),
-            ]),
-          ),
-        ]),
+        InMemoryPeakListStorage(),
+        peakRepository: peakRepository,
+      );
+      await peakListRepository.save(
+        PeakList(peakListId: 1, name: 'Alpha'),
+        items: const [
+          PeakListItem(peakOsmId: 1, points: 1),
+          PeakListItem(peakOsmId: 2, points: 1),
+        ],
       );
       final peaksBaggedRepository = PeaksBaggedRepository.test(
         InMemoryPeaksBaggedStorage([
@@ -205,4 +207,13 @@ GpxTrack _track(int id, {required List<int> peakIds}) {
     ),
   );
   return track;
+}
+
+Peak _peakRecord(int osmId) {
+  return Peak(
+    osmId: osmId,
+    name: 'Peak $osmId',
+    latitude: -42,
+    longitude: 146,
+  );
 }

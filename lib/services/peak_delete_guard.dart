@@ -107,22 +107,11 @@ class PeakDeleteGuard {
 
     final blockers = <PeakDeleteBlocker>[];
     for (final peakList in peakLists) {
-      if (!peakList.isMembershipReady) {
-        continue;
-      }
-
       final relationalItems = peakListItemsByPeakListId[peakList.peakListId];
-      final referencesPeak = relationalItems != null
-          ? relationalItems.any((item) => item.peak.target?.osmId == peak.osmId)
-          : () {
-              try {
-                return decodePeakListItems(
-                  peakList.peakList,
-                ).any((item) => item.peakOsmId == peak.osmId);
-              } catch (_) {
-                return false;
-              }
-            }();
+      final referencesPeak = relationalItems?.any(
+            (item) => item.peak.target?.osmId == peak.osmId,
+          ) ??
+          false;
       if (referencesPeak) {
         blockers.add(
           PeakDeleteBlocker(

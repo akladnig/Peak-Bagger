@@ -6,13 +6,11 @@ import 'package:peak_bagger/services/peak_list_derived_data.dart';
 void main() {
   group('derivePeakListDerivedData', () {
     test('computes multi-point bounds and mixed classification', () {
-      final peakList = PeakList(
-        name: 'Mixed List',
-        peakList: encodePeakListItems([
-          const PeakListItem(peakOsmId: 101, points: 1),
-          const PeakListItem(peakOsmId: 202, points: 1),
-        ]),
-      );
+      final peakList = PeakList(name: 'Mixed List');
+      const items = [
+        PeakListItem(peakOsmId: 101, points: 1),
+        PeakListItem(peakOsmId: 202, points: 1),
+      ];
       final peaksByOsmId = {
         101: Peak(
           osmId: 101,
@@ -32,7 +30,7 @@ void main() {
 
       final derived = derivePeakListDerivedData(
         peakList: peakList,
-        items: decodePeakListItems(peakList.peakList),
+        items: items,
         peakResolver: (peakOsmId) => peaksByOsmId[peakOsmId],
       );
 
@@ -44,17 +42,12 @@ void main() {
     });
 
     test('leaves bounds null when no member peak coordinates resolve', () {
-      final peakList = PeakList(
-        name: 'Broken',
-        region: 'veneto',
-        peakList: encodePeakListItems([
-          const PeakListItem(peakOsmId: 999, points: 1),
-        ]),
-      );
+      final peakList = PeakList(name: 'Broken', region: 'veneto');
+      const items = [PeakListItem(peakOsmId: 999, points: 1)];
 
       final derived = derivePeakListDerivedData(
         peakList: peakList,
-        items: decodePeakListItems(peakList.peakList),
+        items: items,
         peakResolver: (_) => null,
       );
 
@@ -66,12 +59,8 @@ void main() {
     });
 
     test('preserves collapsed single-point bounds', () {
-      final peakList = PeakList(
-        name: 'Single Point',
-        peakList: encodePeakListItems([
-          const PeakListItem(peakOsmId: 101, points: 1),
-        ]),
-      );
+      final peakList = PeakList(name: 'Single Point');
+      const items = [PeakListItem(peakOsmId: 101, points: 1)];
       final peak = Peak(
         osmId: 101,
         name: 'Single Peak',
@@ -81,7 +70,7 @@ void main() {
 
       final derived = derivePeakListDerivedData(
         peakList: peakList,
-        items: decodePeakListItems(peakList.peakList),
+        items: items,
         peakResolver: (_) => peak,
       );
 

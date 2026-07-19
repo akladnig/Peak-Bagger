@@ -1236,17 +1236,6 @@ class _PeakListEditForm extends StatelessWidget {
                   value: row?.values['membershipItems'] ?? const [],
                 ),
               ),
-              const SizedBox(height: 8),
-              ListTile(
-                dense: true,
-                title: const Text('Legacy peakList JSON'),
-                subtitle: objectBoxAdminDetailsValue(
-                  entityName: 'PeakList',
-                  fieldName: 'peakList',
-                  label: 'peakList',
-                  value: peakList.peakList,
-                ),
-              ),
             ],
           ),
         ),

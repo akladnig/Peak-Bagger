@@ -566,12 +566,6 @@ final _entities = <obx_int.ModelEntity>[
         indexId: const obx_int.IdUid(2, 7211080441040466135),
       ),
       obx_int.ModelProperty(
-        id: const obx_int.IdUid(3, 6714151057753537882),
-        name: 'peakList',
-        type: 9,
-        flags: 0,
-      ),
-      obx_int.ModelProperty(
         id: const obx_int.IdUid(4, 1234567890123456789),
         name: 'region',
         type: 9,
@@ -605,12 +599,6 @@ final _entities = <obx_int.ModelEntity>[
         id: const obx_int.IdUid(9, 3950595686781371796),
         name: 'maxLng',
         type: 8,
-        flags: 0,
-      ),
-      obx_int.ModelProperty(
-        id: const obx_int.IdUid(10, 5483333047928218384),
-        name: 'membershipState',
-        type: 9,
         flags: 0,
       ),
     ],
@@ -1245,6 +1233,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
       6317855365936723768,
       4814077432237599816,
       1741998931807441846,
+      6714151057753537882,
+      5483333047928218384,
     ],
     retiredRelationUids: const [],
     modelVersion: 5,
@@ -1905,20 +1895,16 @@ obx_int.ModelDefinition getObjectBoxModel() {
       },
       objectToFB: (PeakList object, fb.Builder fbb) {
         final nameOffset = fbb.writeString(object.name);
-        final peakListOffset = fbb.writeString(object.peakList);
         final regionOffset = fbb.writeString(object.region);
-        final membershipStateOffset = fbb.writeString(object.membershipState);
         fbb.startTable(11);
         fbb.addInt64(0, object.peakListId);
         fbb.addOffset(1, nameOffset);
-        fbb.addOffset(2, peakListOffset);
         fbb.addOffset(3, regionOffset);
         fbb.addInt64(4, object.colour);
         fbb.addFloat64(5, object.minLat);
         fbb.addFloat64(6, object.maxLat);
         fbb.addFloat64(7, object.minLng);
         fbb.addFloat64(8, object.maxLng);
-        fbb.addOffset(9, membershipStateOffset);
         fbb.finish(fbb.endTable());
         return object.peakListId;
       },
@@ -1937,18 +1923,12 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final regionParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 10, '');
-        final peakListParam = const fb.StringReader(
-          asciiOptimization: true,
-        ).vTableGet(buffer, rootOffset, 8, '');
         final colourParam = const fb.Int64Reader().vTableGet(
           buffer,
           rootOffset,
           12,
           0,
         );
-        final membershipStateParam = const fb.StringReader(
-          asciiOptimization: true,
-        ).vTableGet(buffer, rootOffset, 22, '');
         final minLatParam = const fb.Float64Reader().vTableGetNullable(
           buffer,
           rootOffset,
@@ -1973,9 +1953,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
           peakListId: peakListIdParam,
           name: nameParam,
           region: regionParam,
-          peakList: peakListParam,
           colour: colourParam,
-          membershipState: membershipStateParam,
           minLat: minLatParam,
           maxLat: maxLatParam,
           minLng: minLngParam,
@@ -3171,44 +3149,34 @@ class PeakList_ {
     _entities[3].properties[1],
   );
 
-  /// See [PeakList.peakList].
-  static final peakList = obx.QueryStringProperty<PeakList>(
-    _entities[3].properties[2],
-  );
-
   /// See [PeakList.region].
   static final region = obx.QueryStringProperty<PeakList>(
-    _entities[3].properties[3],
+    _entities[3].properties[2],
   );
 
   /// See [PeakList.colour].
   static final colour = obx.QueryIntegerProperty<PeakList>(
-    _entities[3].properties[4],
+    _entities[3].properties[3],
   );
 
   /// See [PeakList.minLat].
   static final minLat = obx.QueryDoubleProperty<PeakList>(
-    _entities[3].properties[5],
+    _entities[3].properties[4],
   );
 
   /// See [PeakList.maxLat].
   static final maxLat = obx.QueryDoubleProperty<PeakList>(
-    _entities[3].properties[6],
+    _entities[3].properties[5],
   );
 
   /// See [PeakList.minLng].
   static final minLng = obx.QueryDoubleProperty<PeakList>(
-    _entities[3].properties[7],
+    _entities[3].properties[6],
   );
 
   /// See [PeakList.maxLng].
   static final maxLng = obx.QueryDoubleProperty<PeakList>(
-    _entities[3].properties[8],
-  );
-
-  /// See [PeakList.membershipState].
-  static final membershipState = obx.QueryStringProperty<PeakList>(
-    _entities[3].properties[9],
+    _entities[3].properties[7],
   );
 }
 

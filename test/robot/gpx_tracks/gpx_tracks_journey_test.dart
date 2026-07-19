@@ -38,6 +38,27 @@ void main() {
   testWidgets('peak drawer keeps legacy Tasmania list visible in Tasmania', (
     tester,
   ) async {
+    final peakListRepository = await _peakListRepository(
+      peaks: [
+        _peak(6406, 'Bonnet Hill', latitude: -43.0, longitude: 147.0),
+        _peak(7000, 'Other Peak', latitude: -37.75984, longitude: 158.7979),
+      ],
+      definitions: [
+        (
+          peakList: PeakList(peakListId: 1, name: 'Alpha', region: ''),
+          items: const [PeakListItem(peakOsmId: 6406, points: 1)],
+        ),
+        (
+          peakList: PeakList(
+            peakListId: 2,
+            name: 'Bravo',
+            region: 'new-south-wales',
+          ),
+          items: const [PeakListItem(peakOsmId: 7000, points: 1)],
+        ),
+        (peakList: PeakList(peakListId: 3, name: 'Broken', region: 'tasmania'), items: const []),
+      ],
+    );
     final robot = GpxTracksRobot(
       tester,
       MapState(
@@ -59,26 +80,7 @@ void main() {
           ),
         ],
       ),
-      peakListRepository: PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(
-            name: 'Alpha',
-            region: '',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 6406, points: 1),
-            ]),
-          )..peakListId = 1,
-          PeakList(
-            name: 'Bravo',
-            region: 'new-south-wales',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 7000, points: 1),
-            ]),
-          )..peakListId = 2,
-          PeakList(name: 'Broken', region: 'tasmania', peakList: '{not-json}')
-            ..peakListId = 3,
-        ]),
-      ),
+      peakListRepository: peakListRepository,
     );
     addTearDown(robot.dispose);
     await robot.pumpApp();
@@ -225,9 +227,15 @@ void main() {
       InMemoryPeaksBaggedStorage(),
     );
     final peakListRepository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        _buildPeakList(1, 'Tas Peaks', [100, 200]),
-      ]),
+      InMemoryPeakListStorage(),
+      peakRepository: peakRepository,
+    );
+    await peakListRepository.save(
+      PeakList(peakListId: 1, name: 'Tas Peaks'),
+      items: const [
+        PeakListItem(peakOsmId: 100, points: 1),
+        PeakListItem(peakOsmId: 200, points: 1),
+      ],
     );
     final notifier = TestMapNotifier(
       MapState(
@@ -711,15 +719,17 @@ void main() {
   testWidgets('peak layer toggles and shows correlated markers', (
     tester,
   ) async {
-    final peakListRepository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(
-          name: 'Alpha',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 6406, points: 1),
-          ]),
-        )..peakListId = 1,
-      ]),
+    final peakListRepository = await _peakListRepository(
+      peaks: [
+        _peak(6406, 'Bonnet Hill', latitude: -43.0, longitude: 147.0),
+        _peak(7000, 'Other Peak', latitude: -42.9, longitude: 147.1),
+      ],
+      definitions: [
+        (
+          peakList: PeakList(peakListId: 1, name: 'Alpha'),
+          items: const [PeakListItem(peakOsmId: 6406, points: 1)],
+        ),
+      ],
     );
 
     final robot = GpxTracksRobot(
@@ -1245,11 +1255,17 @@ Peak _peak(
   );
 }
 
-PeakList _buildPeakList(int id, String name, List<int> peakIds) {
-  return PeakList(
-    name: name,
-    peakList: encodePeakListItems([
-      for (final peakId in peakIds) PeakListItem(peakOsmId: peakId, points: 1),
-    ]),
-  )..peakListId = id;
+Future<PeakListRepository> _peakListRepository({
+  required List<Peak> peaks,
+  required List<({PeakList peakList, List<PeakListItem> items})> definitions,
+}) async {
+  final peakRepository = PeakRepository.test(InMemoryPeakStorage(peaks));
+  final repository = PeakListRepository.test(
+    InMemoryPeakListStorage(),
+    peakRepository: peakRepository,
+  );
+  for (final definition in definitions) {
+    await repository.save(definition.peakList, items: definition.items);
+  }
+  return repository;
 }

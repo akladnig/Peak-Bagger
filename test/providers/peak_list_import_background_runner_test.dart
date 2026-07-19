@@ -47,6 +47,7 @@ void main() {
       );
       final peakListRepository = PeakListRepository.test(
         InMemoryPeakListStorage(),
+        peakRepository: peakRepository,
       );
       final service = PeakListImportService(
         peakRepository: peakRepository,
@@ -244,7 +245,7 @@ class _ReloadingImportService extends PeakListImportService {
     PeakListImportProgressCallback? onProgress,
   }) async {
     await peakRepository.save(updatedPeak);
-    await peakListRepository.save(PeakList(name: listName, peakList: '[]'));
+    await peakListRepository.save(PeakList(name: listName));
     return const PeakListImportResult(
       peakListId: 1,
       updated: false,

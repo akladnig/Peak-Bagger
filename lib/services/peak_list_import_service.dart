@@ -201,11 +201,11 @@ class PeakListImportService {
       PeakList(
         name: listName,
         region: existing?.region ?? Peak.defaultRegion,
-        peakList: encodePeakListItems([
-          for (final row in parsedRows)
-            PeakListItem(peakOsmId: row.osmId, points: row.points),
-        ]),
       ),
+      items: [
+        for (final row in parsedRows)
+          PeakListItem(peakOsmId: row.osmId, points: row.points),
+      ],
       recomputeDerivedFields: true,
     );
 
@@ -327,7 +327,8 @@ class PeakListImportService {
     }
 
     final saved = await _peakListRepository.save(
-      PeakList(name: listName, peakList: encodePeakListItems(items)),
+      PeakList(name: listName),
+      items: items,
       recomputeDerivedFields: true,
     );
 
@@ -429,8 +430,8 @@ class PeakListImportService {
           1 => canonicalPeakRegions.single,
           _ => PeakList.mixedRegion,
         },
-        peakList: encodePeakListItems(items),
       ),
+      items: items,
       recomputeDerivedFields: true,
     );
 

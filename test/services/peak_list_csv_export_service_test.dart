@@ -30,24 +30,20 @@ void main() {
     test(
       'exports multiple lists with exact headers and expanded row values',
       () async {
-        final peakListRepository = PeakListRepository.test(
-          InMemoryPeakListStorage([
-            PeakList(
-              name: 'Zeta List',
-              peakList: encodePeakListItems([
-                const PeakListItem(peakOsmId: 300, points: 4),
-              ]),
-            )..peakListId = 2,
-            PeakList(
-              name: 'Alpha List',
-              peakList: encodePeakListItems([
-                const PeakListItem(peakOsmId: 200, points: 7),
-                const PeakListItem(peakOsmId: 100, points: 3),
-                const PeakListItem(peakOsmId: 200, points: 9),
-              ]),
-            )..peakListId = 1,
-          ]),
-        );
+        final peakListRepository = _peakListRepository([
+          (
+            peakList: PeakList(name: 'Zeta List')..peakListId = 2,
+            items: const [PeakListItem(peakOsmId: 300, points: 4)],
+          ),
+          (
+            peakList: PeakList(name: 'Alpha List')..peakListId = 1,
+            items: const [
+              PeakListItem(peakOsmId: 200, points: 7),
+              PeakListItem(peakOsmId: 100, points: 3),
+              PeakListItem(peakOsmId: 200, points: 9),
+            ],
+          ),
+        ]);
         final peakRepository = PeakRepository.test(
           InMemoryPeakStorage([
             Peak(
@@ -315,17 +311,15 @@ void main() {
         );
 
         final service = PeakListCsvExportService(
-          peakListRepository: PeakListRepository.test(
-            InMemoryPeakListStorage([
-              PeakList(
-                name: 'Derived Grid',
-                peakList: encodePeakListItems([
-                  const PeakListItem(peakOsmId: 100, points: 1),
-                  const PeakListItem(peakOsmId: 200, points: 2),
-                ]),
-              )..peakListId = 1,
-            ]),
-          ),
+          peakListRepository: _peakListRepository([
+            (
+              peakList: PeakList(name: 'Derived Grid')..peakListId = 1,
+              items: const [
+                PeakListItem(peakOsmId: 100, points: 1),
+                PeakListItem(peakOsmId: 200, points: 2),
+              ],
+            ),
+          ]),
           peakRepository: PeakRepository.test(
             InMemoryPeakStorage([blankPeak, invalidPeak]),
           ),
@@ -376,23 +370,19 @@ void main() {
     );
 
     test('reports file and row progress during export', () async {
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(
-            name: 'Alpha List',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 100, points: 3),
-              const PeakListItem(peakOsmId: 999, points: 1),
-            ]),
-          )..peakListId = 1,
-          PeakList(
-            name: 'Bravo List',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 200, points: 7),
-            ]),
-          )..peakListId = 2,
-        ]),
-      );
+      final peakListRepository = _peakListRepository([
+        (
+          peakList: PeakList(name: 'Alpha List')..peakListId = 1,
+          items: const [
+            PeakListItem(peakOsmId: 100, points: 3),
+            PeakListItem(peakOsmId: 999, points: 1),
+          ],
+        ),
+        (
+          peakList: PeakList(name: 'Bravo List')..peakListId = 2,
+          items: const [PeakListItem(peakOsmId: 200, points: 7)],
+        ),
+      ]);
       final peakRepository = PeakRepository.test(
         InMemoryPeakStorage([
           Peak(
@@ -460,7 +450,6 @@ void main() {
         final peakList = PeakList(
           peakListId: 1,
           name: 'Relational',
-          peakList: '[]',
         );
         final itemStorage = InMemoryPeakListItemEntityStorage([
           PeakListItemEntity(id: 1, points: 3)
@@ -495,26 +484,21 @@ void main() {
     test(
       'exports empty lists, skips invalid lists, and records deterministic warnings',
       () async {
-        final peakListRepository = PeakListRepository.test(
-          InMemoryPeakListStorage([
-            PeakList(name: '...', peakList: '[]')..peakListId = 1,
-            PeakList(name: 'Broken', peakList: '{oops')..peakListId = 2,
-            PeakList(name: 'Empty', peakList: '[]')..peakListId = 3,
-            PeakList(
-              name: 'Mixed',
-              peakList: encodePeakListItems([
-                const PeakListItem(peakOsmId: 999, points: 5),
-                const PeakListItem(peakOsmId: 100, points: 7),
-              ]),
-            )..peakListId = 4,
-            PeakList(
-              name: 'Zero',
-              peakList: encodePeakListItems([
-                const PeakListItem(peakOsmId: 888, points: 3),
-              ]),
-            )..peakListId = 5,
-          ]),
-        );
+        final peakListRepository = _peakListRepository([
+          (peakList: PeakList(name: '...')..peakListId = 1, items: const []),
+          (peakList: PeakList(name: 'Empty')..peakListId = 3, items: const []),
+          (
+            peakList: PeakList(name: 'Mixed')..peakListId = 4,
+            items: const [
+              PeakListItem(peakOsmId: 999, points: 5),
+              PeakListItem(peakOsmId: 100, points: 7),
+            ],
+          ),
+          (
+            peakList: PeakList(name: 'Zero')..peakListId = 5,
+            items: const [PeakListItem(peakOsmId: 888, points: 3)],
+          ),
+        ]);
         final peakRepository = PeakRepository.test(
           InMemoryPeakStorage([
             Peak(
@@ -541,12 +525,11 @@ void main() {
         expect(result.exportedFileCount, 2);
         expect(result.skippedRowCount, 2);
         expect(result.skippedBlankNameListCount, 1);
-        expect(result.skippedMalformedListCount, 1);
+        expect(result.skippedMalformedListCount, 0);
         expect(result.skippedZeroResolvedRowListCount, 1);
-        expect(result.skippedListCount, 3);
+        expect(result.skippedListCount, 2);
         expect(result.warningEntries, [
           'Peak list 1 (...): blank normalized filename stem',
-          'Peak list 2 (Broken): malformed peakList payload',
           'Peak list 4 (Mixed): missing peak osmId 999',
           'Peak list 5 (Zero): missing peak osmId 888',
           'Peak list 5 (Zero): zero resolved peak rows',
@@ -573,17 +556,31 @@ void main() {
         final staleFile = File('${outputDirectory.path}/same-peak-list.csv');
         await staleFile.writeAsString('stale-data');
 
+        final skipped = PeakList(name: 'Same')..peakListId = 1;
+        final exported = PeakList(name: 'same')..peakListId = 2;
         final peakListRepository = PeakListRepository.test(
-          InMemoryPeakListStorage([
-            PeakList(name: 'Same', peakList: '{broken')..peakListId = 1,
-            PeakList(
-              name: 'same',
-              peakList: encodePeakListItems([
-                const PeakListItem(peakOsmId: 100, points: 2),
-                const PeakListItem(peakOsmId: 100, points: 9),
-              ]),
-            )..peakListId = 2,
-          ]),
+          InMemoryPeakListStorage([skipped, exported]),
+          itemStorage: _ThrowingPeakListItemEntityStorage(
+            throwForPeakListIds: const {1},
+            items: [
+              PeakListItemEntity(id: 1, points: 2)
+                ..peakList.target = exported
+                ..peak.target = Peak(
+                  osmId: 100,
+                  name: 'Duplicated Peak',
+                  latitude: -41,
+                  longitude: 146,
+                ),
+              PeakListItemEntity(id: 2, points: 9)
+                ..peakList.target = exported
+                ..peak.target = Peak(
+                  osmId: 100,
+                  name: 'Duplicated Peak',
+                  latitude: -41,
+                  longitude: 146,
+                ),
+            ],
+          ),
         );
         final peakRepository = PeakRepository.test(
           InMemoryPeakStorage([
@@ -660,16 +657,12 @@ void main() {
 
     test('file writer failure includes target file path', () async {
       final service = PeakListCsvExportService(
-        peakListRepository: PeakListRepository.test(
-          InMemoryPeakListStorage([
-            PeakList(
-              name: 'Alpha List',
-              peakList: encodePeakListItems([
-                const PeakListItem(peakOsmId: 100, points: 3),
-              ]),
-            )..peakListId = 1,
-          ]),
-        ),
+        peakListRepository: _peakListRepository([
+          (
+            peakList: PeakList(name: 'Alpha List')..peakListId = 1,
+            items: const [PeakListItem(peakOsmId: 100, points: 3)],
+          ),
+        ]),
         peakRepository: PeakRepository.test(
           InMemoryPeakStorage([
             Peak(
@@ -703,18 +696,28 @@ void main() {
     test(
       'all skipped lists still succeed with zero files and warnings',
       () async {
+        final broken = PeakList(name: 'Broken')..peakListId = 2;
+        final zero = PeakList(name: 'Zero')..peakListId = 3;
         final service = PeakListCsvExportService(
           peakListRepository: PeakListRepository.test(
             InMemoryPeakListStorage([
-              PeakList(name: '...', peakList: '[]')..peakListId = 1,
-              PeakList(name: 'Broken', peakList: '{oops')..peakListId = 2,
-              PeakList(
-                name: 'Zero',
-                peakList: encodePeakListItems([
-                  const PeakListItem(peakOsmId: 999, points: 5),
-                ]),
-              )..peakListId = 3,
+              PeakList(name: '...')..peakListId = 1,
+              broken,
+              zero,
             ]),
+            itemStorage: _ThrowingPeakListItemEntityStorage(
+              throwForPeakListIds: const {2},
+              items: [
+                PeakListItemEntity(id: 1, points: 5)
+                  ..peakList.target = zero
+                  ..peak.target = Peak(
+                    osmId: 999,
+                    name: 'Missing Peak',
+                    latitude: -41,
+                    longitude: 146,
+                  ),
+              ],
+            ),
           ),
           peakRepository: PeakRepository.test(InMemoryPeakStorage()),
           outputDirectoryResolver: () => outputDirectory,
@@ -724,6 +727,7 @@ void main() {
 
         expect(result.exportedFileCount, 0);
         expect(result.skippedListCount, 3);
+        expect(result.skippedMalformedListCount, 1);
         expect(result.warningEntries, isNotEmpty);
         expect(outputDirectory.listSync(), isEmpty);
       },
@@ -735,5 +739,50 @@ class _ThrowingPeakListCsvFileWriter implements PeakListCsvFileWriter {
   @override
   Future<void> write(String path, String contents) async {
     throw const FileSystemException('disk full');
+  }
+}
+
+PeakListRepository _peakListRepository(
+  List<({PeakList peakList, List<PeakListItem> items})> definitions,
+) {
+  final peakLists = [for (final definition in definitions) definition.peakList];
+  final peakListsById = {for (final peakList in peakLists) peakList.peakListId: peakList};
+  final items = <PeakListItemEntity>[];
+  var itemId = 1;
+  for (final definition in definitions) {
+    for (final item in definition.items) {
+      items.add(
+        PeakListItemEntity(id: itemId++, points: item.points)
+          ..peakList.target = peakListsById[definition.peakList.peakListId]!
+          ..peak.target = Peak(
+            osmId: item.peakOsmId,
+            name: 'Peak ${item.peakOsmId}',
+            latitude: -42,
+            longitude: 146,
+          ),
+      );
+    }
+  }
+
+  return PeakListRepository.test(
+    InMemoryPeakListStorage(peakLists),
+    itemStorage: InMemoryPeakListItemEntityStorage(items),
+  );
+}
+
+class _ThrowingPeakListItemEntityStorage extends InMemoryPeakListItemEntityStorage {
+  _ThrowingPeakListItemEntityStorage({
+    required this.throwForPeakListIds,
+    List<PeakListItemEntity> items = const [],
+  }) : super(items);
+
+  final Set<int> throwForPeakListIds;
+
+  @override
+  List<PeakListItemEntity> getByPeakListId(int peakListId) {
+    if (throwForPeakListIds.contains(peakListId)) {
+      throw StateError('membership rows unavailable');
+    }
+    return super.getByPeakListId(peakListId);
   }
 }

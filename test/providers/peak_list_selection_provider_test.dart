@@ -19,21 +19,15 @@ void main() {
   test(
     'filteredPeaksProvider returns union of matching peaks for specific lists',
     () {
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(
-            name: 'Alpha',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 6406, points: 1),
-            ]),
-          )..peakListId = 7,
-          PeakList(
-            name: 'Bravo',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 7000, points: 1),
-            ]),
-          )..peakListId = 8,
-        ]),
+      final peakListRepository = _peakListRepository(
+        peakLists: [
+          PeakList(name: 'Alpha')..peakListId = 7,
+          PeakList(name: 'Bravo')..peakListId = 8,
+        ],
+        memberships: const [
+          (peakListId: 7, peakOsmId: 6406, points: 1),
+          (peakListId: 8, peakOsmId: 7000, points: 1),
+        ],
       );
 
       final container = ProviderContainer(
@@ -259,15 +253,10 @@ void main() {
       final peakRepository = PeakRepository.test(
         InMemoryPeakStorage([originalPeak]),
       );
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(
-            name: 'Alpha',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 6406, points: 1),
-            ]),
-          )..peakListId = 7,
-        ]),
+      final peakListRepository = _peakListRepository(
+        peakLists: [PeakList(name: 'Alpha')..peakListId = 7],
+        peaks: [originalPeak],
+        memberships: const [(peakListId: 7, peakOsmId: 6406, points: 1)],
       );
 
       final container = ProviderContainer(
@@ -325,7 +314,7 @@ void main() {
     () {
       final peakListRepository = PeakListRepository.test(
         InMemoryPeakListStorage([
-          PeakList(name: 'Zulu', peakList: '[]')..peakListId = 2,
+          PeakList(name: 'Zulu')..peakListId = 2,
         ]),
       );
 
@@ -357,68 +346,18 @@ void main() {
   );
 
   test(
-    'summary provider keeps malformed selected lists visible with neutral styling',
-    () {
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(
-            name: 'Broken',
-            region: 'tasmania',
-            membershipState: PeakList.membershipStateUnsupportedLegacy,
-            peakList: '{not-json}',
-            colour: 0xFF4C8BF5,
-          )..peakListId = 7,
-        ]),
-      );
-
-      final container = ProviderContainer(
-        overrides: [
-          mapProvider.overrideWith(
-            () => _TestMapNotifier(
-              MapState(
-                center: const LatLng(-41.5, 146.5),
-                zoom: 15,
-                basemap: Basemap.tracestrack,
-                peakListSelectionMode: PeakListSelectionMode.specificList,
-                selectedPeakListIds: {7},
-              ),
-            ),
-          ),
-          peakListRepositoryProvider.overrideWithValue(peakListRepository),
-        ],
-      );
-      addTearDown(container.dispose);
-
-      final summary = container.read(peakListSelectionSummaryProvider);
-
-      expect(summary.chips, hasLength(1));
-      expect(summary.chips.single.label, 'Broken');
-      expect(summary.chips.single.usesNeutralStyle, isTrue);
-      expect(summary.chips.single.colourValue, isNull);
-    },
-  );
-
-  test(
     'peakMarkerColourAssignmentsProvider uses the lowest selected peakListId winner',
     () {
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(
-            name: 'Bravo',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 6406, points: 1),
-            ]),
-            colour: 0xFFE67E22,
-          )..peakListId = 8,
-          PeakList(
-            name: 'Alpha',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 6406, points: 1),
-              const PeakListItem(peakOsmId: 7000, points: 1),
-            ]),
-            colour: 0xFF4C8BF5,
-          )..peakListId = 7,
-        ]),
+      final peakListRepository = _peakListRepository(
+        peakLists: [
+          PeakList(name: 'Bravo', colour: 0xFFE67E22)..peakListId = 8,
+          PeakList(name: 'Alpha', colour: 0xFF4C8BF5)..peakListId = 7,
+        ],
+        memberships: const [
+          (peakListId: 8, peakOsmId: 6406, points: 1),
+          (peakListId: 7, peakOsmId: 6406, points: 1),
+          (peakListId: 7, peakOsmId: 7000, points: 1),
+        ],
       );
 
       final container = ProviderContainer(
@@ -449,25 +388,23 @@ void main() {
   test(
     'peakMarkerColourAssignmentsProvider uses Tasmania ownership precedence',
     () {
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage([
+      final peakListRepository = _peakListRepository(
+        peakLists: [
           PeakList(
             name: 'Poimenas',
             region: 'tasmania',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 6406, points: 1),
-            ]),
             colour: 0xFF6347EA,
           )..peakListId = 1,
           PeakList(
             name: 'Abels',
             region: 'tasmania',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 6406, points: 1),
-            ]),
             colour: 0xFF4C8BF5,
           )..peakListId = 9,
-        ]),
+        ],
+        memberships: const [
+          (peakListId: 1, peakOsmId: 6406, points: 1),
+          (peakListId: 9, peakOsmId: 6406, points: 1),
+        ],
       );
 
       final container = ProviderContainer(
@@ -506,26 +443,24 @@ void main() {
   test(
     'peakOwnershipRingSegmentsProvider skips zero and single-list ownership and orders Tasmania segments from 12 o clock clockwise',
     () {
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage([
+      final peakListRepository = _peakListRepository(
+        peakLists: [
           PeakList(
             name: 'HWC Peak Baggers',
             region: 'tasmania',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 6406, points: 1),
-            ]),
             colour: 0xFF12B886,
           )..peakListId = 5,
           PeakList(
             name: 'Abels',
             region: 'tasmania',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 6406, points: 1),
-              const PeakListItem(peakOsmId: 6407, points: 1),
-            ]),
             colour: 0xFF4C8BF5,
           )..peakListId = 9,
-        ]),
+        ],
+        memberships: const [
+          (peakListId: 5, peakOsmId: 6406, points: 1),
+          (peakListId: 9, peakOsmId: 6406, points: 1),
+          (peakListId: 9, peakOsmId: 6407, points: 1),
+        ],
       );
 
       final container = ProviderContainer(
@@ -587,25 +522,23 @@ void main() {
   test(
     'peakOwnershipRingSegmentsProvider orders non-Tasmania segments by lowest peakListId',
     () {
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage([
+      final peakListRepository = _peakListRepository(
+        peakLists: [
           PeakList(
             name: 'Bravo',
             region: 'victoria',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 7000, points: 1),
-            ]),
             colour: 0xFFE67E22,
           )..peakListId = 8,
           PeakList(
             name: 'Alpha',
             region: 'victoria',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 7000, points: 1),
-            ]),
             colour: 0xFF4C8BF5,
           )..peakListId = 7,
-        ]),
+        ],
+        memberships: const [
+          (peakListId: 8, peakOsmId: 7000, points: 1),
+          (peakListId: 7, peakOsmId: 7000, points: 1),
+        ],
       );
 
       final container = ProviderContainer(
@@ -649,83 +582,19 @@ void main() {
   );
 
   test(
-    'peakMarkerColourAssignmentsProvider skips malformed selected lists',
-    () {
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(
-            name: 'Broken',
-            membershipState: PeakList.membershipStateUnsupportedLegacy,
-            peakList: '{not-json}',
-            colour: 0xFFD6336C,
-          )
-            ..peakListId = 7,
-        ]),
-      );
-
-      final container = ProviderContainer(
-        overrides: [
-          mapProvider.overrideWith(
-            () => _TestMapNotifier(
-              MapState(
-                center: const LatLng(-41.5, 146.5),
-                zoom: 15,
-                basemap: Basemap.tracestrack,
-                peakListSelectionMode: PeakListSelectionMode.specificList,
-                selectedPeakListIds: {7},
-              ),
-            ),
-          ),
-          peakListRepositoryProvider.overrideWithValue(peakListRepository),
-        ],
-      );
-      addTearDown(container.dispose);
-
-      expect(container.read(peakMarkerColourAssignmentsProvider), isEmpty);
-    },
-  );
-
-  test(
     'renderablePeakListIds keeps Tasmania lists with legacy region values',
     () {
       final peakLists = [
-        PeakList(
-          name: 'Alpha',
-          region: 'tasmania',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 6406, points: 1),
-          ]),
-        )..peakListId = 7,
-        PeakList(
-          name: 'Legacy Blank',
-          region: '',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 6407, points: 1),
-          ]),
-        )..peakListId = 10,
-        PeakList(
-          name: 'Legacy Cased',
-          region: 'Tasmania',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 6408, points: 1),
-          ]),
-        )..peakListId = 11,
-        PeakList(
-          name: 'Zero',
-          region: 'victoria',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 9999, points: 1),
-          ]),
-        )..peakListId = 8,
-        PeakList(name: 'Broken', region: 'tasmania', peakList: '{not-json}')
-          ..membershipState = PeakList.membershipStateUnsupportedLegacy
-          ..peakListId = 9,
+        PeakList(name: 'Alpha', region: 'tasmania')..peakListId = 7,
+        PeakList(name: 'Legacy Blank', region: '')..peakListId = 10,
+        PeakList(name: 'Legacy Cased', region: 'Tasmania')..peakListId = 11,
+        PeakList(name: 'Zero', region: 'victoria')..peakListId = 8,
       ];
 
       expect(
         renderablePeakListIds(
           peakLists: peakLists,
-          selectedPeakListIds: {7, 8, 9, 10, 11},
+          selectedPeakListIds: {7, 8, 10, 11},
           currentRegionKey: 'tasmania',
         ),
         {7, 10, 11},
@@ -737,12 +606,9 @@ void main() {
     'renderablePeakListIdsForVisibleRegions unions matching lists across visible regions',
     () {
       final peakLists = [
-        PeakList(name: 'Alpha', region: 'tasmania', peakList: '[]')
-          ..peakListId = 7,
-        PeakList(name: 'Bravo', region: 'new-south-wales', peakList: '[]')
-          ..peakListId = 8,
-        PeakList(name: 'Charlie', region: 'victoria', peakList: '[]')
-          ..peakListId = 9,
+        PeakList(name: 'Alpha', region: 'tasmania')..peakListId = 7,
+        PeakList(name: 'Bravo', region: 'new-south-wales')..peakListId = 8,
+        PeakList(name: 'Charlie', region: 'victoria')..peakListId = 9,
       ];
 
       expect(
@@ -760,15 +626,14 @@ void main() {
     'renderablePeakListIdsForVisibleRegions keeps mixed lists visible through member regions',
     () {
       final peakLists = [
-        PeakList(
-          name: 'Mixed',
-          region: PeakList.mixedRegion,
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 100, points: 1),
-            const PeakListItem(peakOsmId: 200, points: 1),
-          ]),
-        )..peakListId = 7,
+        PeakList(name: 'Mixed', region: PeakList.mixedRegion)..peakListId = 7,
       ];
+      final itemsByPeakListId = {
+        7: const [
+          PeakListItem(peakOsmId: 100, points: 1),
+          PeakListItem(peakOsmId: 200, points: 1),
+        ],
+      };
       final peaks = [
         Peak(
           osmId: 100,
@@ -792,6 +657,7 @@ void main() {
           selectedPeakListIds: {7},
           visibleRegionKeys: {'tasmania'},
           peaks: peaks,
+          itemsLoader: (peakList) => itemsByPeakListId[peakList.peakListId]!,
         ),
         {7},
       );
@@ -801,6 +667,7 @@ void main() {
           selectedPeakListIds: {7},
           visibleRegionKeys: {'new-south-wales'},
           peaks: peaks,
+          itemsLoader: (peakList) => itemsByPeakListId[peakList.peakListId]!,
         ),
         {7},
       );
@@ -826,19 +693,13 @@ void main() {
         peakRepository: peakRepository,
       );
       final saved = await peakListRepository.save(
-        PeakList(
-          name: 'Mixed',
-          region: PeakList.mixedRegion,
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 100, points: 1),
-          ]),
-        ),
+        PeakList(name: 'Mixed', region: PeakList.mixedRegion),
+        items: const [PeakListItem(peakOsmId: 100, points: 1)],
       );
-      final stalePeakList = saved.copyWith(peakList: '[]');
 
       expect(
         renderablePeakListIdsForVisibleRegions(
-          peakLists: [stalePeakList],
+          peakLists: [saved],
           selectedPeakListIds: {saved.peakListId},
           visibleRegionKeys: {'tasmania'},
           peaks: peakRepository.getAllPeaks(),
@@ -854,17 +715,31 @@ void main() {
   test(
     'summary provider marks a mixed list pinned when any member region pin is active',
     () {
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(
-            name: 'Mixed',
-            region: PeakList.mixedRegion,
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 100, points: 1),
-              const PeakListItem(peakOsmId: 200, points: 1),
-            ]),
-          )..peakListId = 7,
-        ]),
+      final peakListRepository = _peakListRepository(
+        peakLists: [
+          PeakList(name: 'Mixed', region: PeakList.mixedRegion)
+            ..peakListId = 7,
+        ],
+        peaks: [
+          Peak(
+            osmId: 100,
+            name: 'Tas Peak',
+            latitude: -43.0,
+            longitude: 147.0,
+            region: 'tasmania',
+          ),
+          Peak(
+            osmId: 200,
+            name: 'NSW Peak',
+            latitude: -33.7,
+            longitude: 149.0,
+            region: 'new-south-wales',
+          ),
+        ],
+        memberships: const [
+          (peakListId: 7, peakOsmId: 100, points: 1),
+          (peakListId: 7, peakOsmId: 200, points: 1),
+        ],
       );
 
       final container = ProviderContainer(
@@ -939,4 +814,36 @@ class _StaticPeakOwnershipRingSettingsNotifier
     extends PeakOwnershipRingSettingsNotifier {
   @override
   bool build() => true;
+}
+
+PeakListRepository _peakListRepository({
+  required List<PeakList> peakLists,
+  List<Peak> peaks = const [],
+  List<({int peakListId, int peakOsmId, int points})> memberships = const [],
+}) {
+  final peaksByOsmId = {
+    for (final peak in peaks) peak.osmId: peak,
+    for (final membership in memberships)
+      if (!peaks.any((peak) => peak.osmId == membership.peakOsmId))
+        membership.peakOsmId: Peak(
+          osmId: membership.peakOsmId,
+          name: 'Peak ${membership.peakOsmId}',
+          latitude: -42,
+          longitude: 146,
+        ),
+  };
+  final peakListsById = {for (final peakList in peakLists) peakList.peakListId: peakList};
+
+  return PeakListRepository.test(
+    InMemoryPeakListStorage(peakLists),
+    peakRepository: PeakRepository.test(
+      InMemoryPeakStorage(peaksByOsmId.values.toList(growable: false)),
+    ),
+    itemStorage: InMemoryPeakListItemEntityStorage([
+      for (var index = 0; index < memberships.length; index++)
+        PeakListItemEntity(id: index + 1, points: memberships[index].points)
+          ..peakList.target = peakListsById[memberships[index].peakListId]!
+          ..peak.target = peaksByOsmId[memberships[index].peakOsmId]!,
+    ]),
+  );
 }

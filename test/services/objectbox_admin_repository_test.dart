@@ -139,7 +139,21 @@ void main() {
     expect(entities[3].primaryNameField, 'name');
     expect(
       entities[3].fields.map((field) => field.name),
-      containsAll(['peakListId', 'name', 'peakList', 'membershipState']),
+      containsAll([
+        'peakListId',
+        'name',
+        'region',
+        'colour',
+        'minLat',
+        'maxLat',
+        'minLng',
+        'maxLng',
+      ]),
+    );
+    expect(entities[3].fields.map((field) => field.name), isNot(contains('peakList')));
+    expect(
+      entities[3].fields.map((field) => field.name),
+      isNot(contains('membershipState')),
     );
     expect(entities[4].primaryKeyField, 'baggedId');
     expect(entities[4].primaryNameField, 'gpxId');
@@ -849,8 +863,6 @@ void main() {
       PeakList(
         peakListId: 9,
         name: 'Abels',
-        peakList:
-            '[{"peakOsmId":101,"points":"3"},{"peakOsmId":202,"points":"6"}]',
         minLat: -42.0,
         maxLat: -41.0,
         minLng: 145.0,
@@ -876,7 +888,7 @@ void main() {
   });
 
   test('peakListItemEntityToAdminRow exposes relational membership fields', () {
-    final peakList = PeakList(peakListId: 9, name: 'Abels', peakList: '[]');
+    final peakList = PeakList(peakListId: 9, name: 'Abels');
     final peak = Peak(osmId: 101, name: 'Alpha Peak', latitude: -42, longitude: 146);
     final row = peakListItemEntityToAdminRow(
       PeakListItemEntity(id: 3, points: 7)

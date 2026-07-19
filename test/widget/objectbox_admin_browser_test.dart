@@ -1107,7 +1107,6 @@ Future<void> _pumpApp(
                     peakListId: 1,
                     name: 'Abels',
                     region: 'tasmania',
-                    peakList: '[{"peakOsmId":101,"points":"3"}]',
                     colour: 0xFF4C8BF5,
                   ),
                 ]),

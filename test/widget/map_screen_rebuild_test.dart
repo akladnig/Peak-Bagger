@@ -191,11 +191,7 @@ void main() {
       latitude: -41.6,
       longitude: 146.6,
     );
-    final peakList = PeakList(
-      peakListId: 42,
-      name: 'Focus List',
-      peakList: '[{"peakOsmId":1,"points":0}]',
-    );
+    final peakList = PeakList(peakListId: 42, name: 'Focus List');
     final notifier = TestMapNotifier(
       MapState(
         center: const LatLng(-41.5, 146.5),
@@ -210,7 +206,14 @@ void main() {
       overrides: [
         mapProvider.overrideWith(() => notifier),
         peakListRepositoryProvider.overrideWithValue(
-          PeakListRepository.test(InMemoryPeakListStorage([peakList])),
+          PeakListRepository.test(
+            InMemoryPeakListStorage([peakList]),
+            itemStorage: InMemoryPeakListItemEntityStorage([
+              PeakListItemEntity(id: 1, points: 0)
+                ..peakList.target = peakList
+                ..peak.target = peakA,
+            ]),
+          ),
         ),
       ],
     );

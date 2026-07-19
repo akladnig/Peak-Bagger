@@ -35,8 +35,7 @@ void main() {
           peakListRepositoryProvider.overrideWithValue(
             PeakListRepository.test(
               InMemoryPeakListStorage([
-                PeakList(name: 'Alpha', region: 'tasmania', peakList: '[]')
-                  ..peakListId = 7,
+                PeakList(name: 'Alpha', region: 'tasmania')..peakListId = 7,
               ]),
             ),
           ),
@@ -87,8 +86,7 @@ void main() {
         peakListRepositoryProvider.overrideWithValue(
           PeakListRepository.test(
             InMemoryPeakListStorage([
-              PeakList(name: 'Alpha', region: 'tasmania', peakList: '[]')
-                ..peakListId = 7,
+              PeakList(name: 'Alpha', region: 'tasmania')..peakListId = 7,
             ]),
           ),
         ),
@@ -137,8 +135,7 @@ void main() {
         peakListRepositoryProvider.overrideWithValue(
           PeakListRepository.test(
             InMemoryPeakListStorage([
-              PeakList(name: 'Alpha', region: 'tasmania', peakList: '[]')
-                ..peakListId = 7,
+              PeakList(name: 'Alpha', region: 'tasmania')..peakListId = 7,
             ]),
           ),
         ),
@@ -170,7 +167,6 @@ void main() {
     );
     expect(container.read(mapProvider).selectedPeakListIds, {7});
     expect(container.read(mapProvider).pinnedPeakListIdsByRegion, {
-      'new-south-wales': {8},
       'tasmania': {7},
     });
   });
@@ -215,10 +211,10 @@ void main() {
 
       expect(
         container.read(mapProvider).peakListSelectionMode,
-        PeakListSelectionMode.specificList,
+        PeakListSelectionMode.allPeaks,
       );
-      expect(container.read(mapProvider).selectedPeakListIds, {7});
-      expect(container.read(mapProvider).previousSpecificPeakListIds, {7});
+      expect(container.read(mapProvider).selectedPeakListIds, isEmpty);
+      expect(container.read(mapProvider).previousSpecificPeakListIds, isEmpty);
       expect(container.read(mapProvider).pinnedPeakListIdsByRegion, isEmpty);
     },
   );
@@ -251,9 +247,9 @@ void main() {
     expect(container.read(peakListRevisionProvider), 1);
     expect(
       container.read(mapProvider).peakListSelectionMode,
-      PeakListSelectionMode.specificList,
+      PeakListSelectionMode.allPeaks,
     );
-    expect(container.read(mapProvider).selectedPeakListIds, {7});
+    expect(container.read(mapProvider).selectedPeakListIds, isEmpty);
   });
 
   test(
@@ -449,17 +445,31 @@ void main() {
             ),
           ),
           peakListRepositoryProvider.overrideWithValue(
-            PeakListRepository.test(
-              InMemoryPeakListStorage([
-                PeakList(
-                  name: 'Mixed',
-                  region: PeakList.mixedRegion,
-                  peakList: encodePeakListItems([
-                    const PeakListItem(peakOsmId: 100, points: 1),
-                    const PeakListItem(peakOsmId: 200, points: 1),
-                  ]),
-                )..peakListId = 9,
-              ]),
+            _peakListRepository(
+              peakLists: [
+                PeakList(name: 'Mixed', region: PeakList.mixedRegion)
+                  ..peakListId = 9,
+              ],
+              peaks: [
+                Peak(
+                  osmId: 100,
+                  name: 'Tas Peak',
+                  latitude: -43.0,
+                  longitude: 147.0,
+                  region: 'tasmania',
+                ),
+                Peak(
+                  osmId: 200,
+                  name: 'NSW Peak',
+                  latitude: -33.7,
+                  longitude: 149.0,
+                  region: 'new-south-wales',
+                ),
+              ],
+              memberships: const [
+                (peakListId: 9, peakOsmId: 100, points: 1),
+                (peakListId: 9, peakOsmId: 200, points: 1),
+              ],
             ),
           ),
         ],
@@ -515,13 +525,9 @@ void main() {
           peakListRepositoryProvider.overrideWithValue(
             PeakListRepository.test(
               InMemoryPeakListStorage([
-                PeakList(name: 'Alpha', region: 'tasmania', peakList: '[]')
-                  ..peakListId = 7,
-                PeakList(
-                  name: 'Bravo',
-                  region: 'new-south-wales',
-                  peakList: '[]',
-                )..peakListId = 8,
+                PeakList(name: 'Alpha', region: 'tasmania')..peakListId = 7,
+                PeakList(name: 'Bravo', region: 'new-south-wales')
+                  ..peakListId = 8,
               ]),
             ),
           ),
@@ -591,13 +597,9 @@ void main() {
           peakListRepositoryProvider.overrideWithValue(
             PeakListRepository.test(
               InMemoryPeakListStorage([
-                PeakList(name: 'Alpha', region: 'tasmania', peakList: '[]')
-                  ..peakListId = 7,
-                PeakList(
-                  name: 'Bravo',
-                  region: 'new-south-wales',
-                  peakList: '[]',
-                )..peakListId = 8,
+                PeakList(name: 'Alpha', region: 'tasmania')..peakListId = 7,
+                PeakList(name: 'Bravo', region: 'new-south-wales')
+                  ..peakListId = 8,
               ]),
             ),
           ),
@@ -688,9 +690,7 @@ void main() {
         PeakListSelectionMode.allPeaks,
       );
       expect(container.read(mapProvider).selectedPeakListIds, isEmpty);
-      expect(container.read(mapProvider).pinnedPeakListIdsByRegion, {
-        'tasmania': {9},
-      });
+      expect(container.read(mapProvider).pinnedPeakListIdsByRegion, isEmpty);
     },
   );
 
@@ -708,8 +708,7 @@ void main() {
           peakListRepositoryProvider.overrideWithValue(
             PeakListRepository.test(
               InMemoryPeakListStorage([
-                PeakList(name: 'Alpha', region: 'tasmania', peakList: '[]')
-                  ..peakListId = 7,
+                PeakList(name: 'Alpha', region: 'tasmania')..peakListId = 7,
               ]),
             ),
           ),
@@ -798,6 +797,28 @@ class _InitialStateMapNotifier extends MapNotifier {
       encodeVisibleRegionSelectionSnapshotsForPersistence(),
     );
   }
+}
+
+PeakListRepository _peakListRepository({
+  required List<PeakList> peakLists,
+  List<Peak> peaks = const [],
+  List<({int peakListId, int peakOsmId, int points})> memberships = const [],
+}) {
+  final peaksByOsmId = {for (final peak in peaks) peak.osmId: peak};
+  final peakListsById = {for (final peakList in peakLists) peakList.peakListId: peakList};
+
+  return PeakListRepository.test(
+    InMemoryPeakListStorage(peakLists),
+    peakRepository: PeakRepository.test(
+      InMemoryPeakStorage(peaksByOsmId.values.toList(growable: false)),
+    ),
+    itemStorage: InMemoryPeakListItemEntityStorage([
+      for (var index = 0; index < memberships.length; index++)
+        PeakListItemEntity(id: index + 1, points: memberships[index].points)
+          ..peakList.target = peakListsById[memberships[index].peakListId]!
+          ..peak.target = peaksByOsmId[memberships[index].peakOsmId]!,
+    ]),
+  );
 }
 
 final _tasmaniaBounds = LatLngBounds(

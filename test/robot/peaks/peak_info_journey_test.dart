@@ -194,15 +194,27 @@ void main() {
     tester,
   ) async {
     final tasmapRepository = await TestTasmapRepository.create();
-    final peakListRepository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(
-          name: ' Abels ',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 6406, points: 1),
-          ]),
-        )..peakListId = 1,
-      ]),
+    final peaks = [
+      Peak(
+        osmId: 6406,
+        name: 'Bonnet Hill',
+        elevation: 1234,
+        latitude: -43.0,
+        longitude: 147.0,
+        gridZoneDesignator: '55G',
+        mgrs100kId: 'DM',
+        easting: '80000',
+        northing: '95000',
+      ),
+    ];
+    final peakListRepository = await _peakListRepository(
+      peaks: peaks,
+      definitions: [
+        (
+          peakList: PeakList(peakListId: 1, name: ' Abels '),
+          items: const [PeakListItem(peakOsmId: 6406, points: 1)],
+        ),
+      ],
     );
     final r = PeakInfoRobot(tester);
     addTearDown(r.dispose);
@@ -212,19 +224,7 @@ void main() {
         center: const LatLng(-43.0, 147.0),
         zoom: 15,
         basemap: Basemap.tracestrack,
-        peaks: [
-          Peak(
-            osmId: 6406,
-            name: 'Bonnet Hill',
-            elevation: 1234,
-            latitude: -43.0,
-            longitude: 147.0,
-            gridZoneDesignator: '55G',
-            mgrs100kId: 'DM',
-            easting: '80000',
-            northing: '95000',
-          ),
-        ],
+        peaks: peaks,
       ),
       peakListRepository: peakListRepository,
       tasmapRepository: tasmapRepository,
@@ -244,21 +244,31 @@ void main() {
     tester,
   ) async {
     final tasmapRepository = await TestTasmapRepository.create();
-    final peakListRepository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(
-          name: 'HWC  ',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 6406, points: 1),
-          ]),
-        )..peakListId = 1,
-        PeakList(
-          name: 'Abels  ',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 6406, points: 2),
-          ]),
-        )..peakListId = 2,
-      ]),
+    final peaks = [
+      Peak(
+        osmId: 6406,
+        name: 'Bonnet Hill',
+        elevation: 1234,
+        latitude: -43.0,
+        longitude: 147.0,
+        gridZoneDesignator: '55G',
+        mgrs100kId: 'DM',
+        easting: '80000',
+        northing: '95000',
+      ),
+    ];
+    final peakListRepository = await _peakListRepository(
+      peaks: peaks,
+      definitions: [
+        (
+          peakList: PeakList(peakListId: 1, name: 'HWC  '),
+          items: const [PeakListItem(peakOsmId: 6406, points: 1)],
+        ),
+        (
+          peakList: PeakList(peakListId: 2, name: 'Abels  '),
+          items: const [PeakListItem(peakOsmId: 6406, points: 2)],
+        ),
+      ],
     );
     final r = PeakInfoRobot(tester);
     addTearDown(r.dispose);
@@ -268,19 +278,7 @@ void main() {
         center: const LatLng(-43.0, 147.0),
         zoom: 15,
         basemap: Basemap.tracestrack,
-        peaks: [
-          Peak(
-            osmId: 6406,
-            name: 'Bonnet Hill',
-            elevation: 1234,
-            latitude: -43.0,
-            longitude: 147.0,
-            gridZoneDesignator: '55G',
-            mgrs100kId: 'DM',
-            easting: '80000',
-            northing: '95000',
-          ),
-        ],
+        peaks: peaks,
       ),
       peakListRepository: peakListRepository,
       tasmapRepository: tasmapRepository,
@@ -426,4 +424,19 @@ void main() {
       r.expectNoPeakPopup();
     },
   );
+}
+
+Future<PeakListRepository> _peakListRepository({
+  required List<Peak> peaks,
+  required List<({PeakList peakList, List<PeakListItem> items})> definitions,
+}) async {
+  final peakRepository = PeakRepository.test(InMemoryPeakStorage(peaks));
+  final repository = PeakListRepository.test(
+    InMemoryPeakListStorage(),
+    peakRepository: peakRepository,
+  );
+  for (final definition in definitions) {
+    await repository.save(definition.peakList, items: definition.items);
+  }
+  return repository;
 }

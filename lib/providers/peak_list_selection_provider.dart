@@ -55,12 +55,6 @@ final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((
       ),
     ),
   );
-  final arePeakListMembershipsReady = ref.watch(
-    mapProvider.select((state) => state.arePeakListMembershipsReady),
-  );
-  if (!arePeakListMembershipsReady) {
-    return const PeakListSelectionSummary(chips: []);
-  }
   final peakLists = ref.watch(peakListsProvider);
   final peaks = ref.watch(mapProvider.select((state) => state.peaks));
   final visibleRegionKeys = visibleRegionKeysForBounds(visibleBounds);
@@ -86,8 +80,7 @@ final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((
   };
   final visiblePinnedPeakListIds = {
     for (final peakList in peakLists)
-      if (peakList.isMembershipReady &&
-          (!hasResolvedVisibleBounds ||
+      if ((!hasResolvedVisibleBounds ||
               peakListAppliesToVisibleRegions(
                 peakList,
                 visibleRegionKeys,
@@ -101,7 +94,7 @@ final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((
              peaks: peaks,
              itemsLoader: loadItems,
            ))
-        peakList.peakListId,
+          peakList.peakListId,
   };
   final visibleSelectedPeakListIds = hasResolvedVisibleBounds
       ? {
@@ -109,7 +102,6 @@ final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((
             if (() {
               final peakList = peakListsById[peakListId];
               return peakList != null &&
-                  peakList.isMembershipReady &&
                   peakListAppliesToVisibleRegions(
                     peakList,
                     visibleRegionKeys,
@@ -179,9 +171,6 @@ final filteredPeaksProvider = Provider<List<Peak>>((ref) {
 final mapMetadataFilterScopePeaksProvider = Provider<List<Peak>>((ref) {
   ref.watch(peakListRevisionProvider);
   final peaks = ref.watch(mapProvider.select((state) => state.peaks));
-  final arePeakListMembershipsReady = ref.watch(
-    mapProvider.select((state) => state.arePeakListMembershipsReady),
-  );
   final peakListSelectionMode = ref.watch(
     mapProvider.select((state) => state.peakListSelectionMode),
   );
@@ -193,8 +182,6 @@ final mapMetadataFilterScopePeaksProvider = Provider<List<Peak>>((ref) {
   return switch (peakListSelectionMode) {
     PeakListSelectionMode.none => const [],
     PeakListSelectionMode.allPeaks => peaks,
-    PeakListSelectionMode.specificList when !arePeakListMembershipsReady =>
-      const [],
     PeakListSelectionMode.specificList => _filterSpecificListPeaks(
       repo: repo,
       peaks: peaks,
@@ -218,13 +205,6 @@ final _activePeakListOwnersByPeakIdProvider =
       if (peakListSelectionMode != PeakListSelectionMode.specificList) {
         return const <int, List<_ActivePeakListOwner>>{};
       }
-      final arePeakListMembershipsReady = ref.watch(
-        mapProvider.select((state) => state.arePeakListMembershipsReady),
-      );
-      if (!arePeakListMembershipsReady) {
-        return const <int, List<_ActivePeakListOwner>>{};
-      }
-
       final (:selectedPeakListIds, :visibleBounds) = ref.watch(
         mapProvider.select(
           (state) => (
@@ -485,7 +465,7 @@ class PeakListSelectionChip {
 }
 
 bool _isReadablePeakList(PeakList peakList) {
-  return peakList.isMembershipReady;
+  return true;
 }
 
 List<_ActivePeakListOwner> _orderedActivePeakListOwners({

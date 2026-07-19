@@ -43,28 +43,22 @@ void main() {
     final tasmapRepository = await TestTasmapRepository.create(
       maps: [_resolvedMap(const LatLng(-41.0, 146.0))],
     );
-    final peakListRepository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(
-          name: 'Zeta',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 101, points: 4),
-          ]),
-        )..peakListId = 1,
-        PeakList(
-          name: 'Alpha',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 101, points: 7),
-          ]),
-        )..peakListId = 2,
-      ]),
-    );
+    final peakListRepository = _peakListRepository([
+      (
+        peakList: PeakList(name: 'Zeta')..peakListId = 1,
+        items: const [PeakListItem(peakOsmId: 101, points: 4)],
+      ),
+      (
+        peakList: PeakList(name: 'Alpha')..peakListId = 2,
+        items: const [PeakListItem(peakOsmId: 101, points: 7)],
+      ),
+    ]);
 
     await _pumpDialog(
       tester,
       dialog: PeakListPeakDialog(
         mode: PeakListPeakDialogMode.view,
-        peakList: PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+        peakList: PeakList(name: 'Tasmania')..peakListId = 1,
         peakListRepository: peakListRepository,
         peakItems: [const PeakListItem(peakOsmId: 101, points: 1234)],
         ascentRows: [
@@ -175,7 +169,7 @@ void main() {
       tester,
       dialog: PeakListPeakDialog(
         mode: PeakListPeakDialogMode.view,
-        peakList: PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+        peakList: PeakList(name: 'Tasmania')..peakListId = 1,
         peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
         peakItems: [const PeakListItem(peakOsmId: 101, points: 4)],
         ascentRows: const [],
@@ -219,7 +213,7 @@ void main() {
       tester,
       dialog: PeakListPeakDialog(
         mode: PeakListPeakDialogMode.view,
-        peakList: PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+        peakList: PeakList(name: 'Tasmania')..peakListId = 1,
         peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
         peakItems: [const PeakListItem(peakOsmId: 101, points: 4)],
         ascentRows: const [],
@@ -286,7 +280,7 @@ void main() {
       tester,
       dialog: PeakListPeakDialog(
         mode: PeakListPeakDialogMode.view,
-        peakList: PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+        peakList: PeakList(name: 'Tasmania')..peakListId = 1,
         peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
         peakItems: [const PeakListItem(peakOsmId: 101, points: 4)],
         ascentRows: const [],
@@ -336,7 +330,7 @@ void main() {
       tester,
       dialog: PeakListPeakDialog(
         mode: PeakListPeakDialogMode.view,
-        peakList: PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+        peakList: PeakList(name: 'Tasmania')..peakListId = 1,
         peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
         peakItems: [const PeakListItem(peakOsmId: 101, points: 4)],
         ascentRows: [
@@ -407,7 +401,7 @@ void main() {
       tester,
       dialog: PeakListPeakDialog(
         mode: PeakListPeakDialogMode.view,
-        peakList: PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+        peakList: PeakList(name: 'Tasmania')..peakListId = 1,
         peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
         peakItems: [const PeakListItem(peakOsmId: 101, points: 4)],
         ascentRows: [
@@ -487,7 +481,7 @@ void main() {
       tester,
       dialog: PeakListPeakDialog(
         mode: PeakListPeakDialogMode.view,
-        peakList: PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+        peakList: PeakList(name: 'Tasmania')..peakListId = 1,
         peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
         peakItems: [const PeakListItem(peakOsmId: 101, points: 4)],
         ascentRows: [
@@ -516,7 +510,7 @@ void main() {
       tester,
       dialog: PeakListPeakDialog(
         mode: PeakListPeakDialogMode.view,
-        peakList: PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+        peakList: PeakList(name: 'Tasmania')..peakListId = 1,
         peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
         peakItems: [const PeakListItem(peakOsmId: 202, points: 4)],
         ascentRows: [
@@ -563,7 +557,7 @@ void main() {
       tester,
       dialog: PeakListPeakDialog(
         mode: PeakListPeakDialogMode.add,
-        peakList: PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+        peakList: PeakList(name: 'Tasmania')..peakListId = 1,
         peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
         peakItems: const [],
         ascentRows: const [],
@@ -639,10 +633,10 @@ void main() {
       tester,
       dialog: PeakListPeakDialog(
         mode: PeakListPeakDialogMode.add,
-        peakList: PeakList(name: 'Tassy Full', peakList: '[]')..peakListId = 1,
+        peakList: PeakList(name: 'Tassy Full')..peakListId = 1,
         peakListRepository: PeakListRepository.test(
           InMemoryPeakListStorage([
-            PeakList(name: 'Tassy Full', peakList: '[]')..peakListId = 1,
+            PeakList(name: 'Tassy Full')..peakListId = 1,
           ]),
           peakRepository: PeakRepository.test(
             InMemoryPeakStorage([tasPeak, mainlandPeak]),
@@ -691,11 +685,10 @@ void main() {
         tester,
         dialog: PeakListPeakDialog(
           mode: PeakListPeakDialogMode.add,
-          peakList: PeakList(name: 'Tassy Full', peakList: '[]')
-            ..peakListId = 1,
+          peakList: PeakList(name: 'Tassy Full')..peakListId = 1,
           peakListRepository: PeakListRepository.test(
             InMemoryPeakListStorage([
-              PeakList(name: 'Tassy Full', peakList: '[]')..peakListId = 1,
+              PeakList(name: 'Tassy Full')..peakListId = 1,
             ]),
             peakRepository: PeakRepository.test(
               InMemoryPeakStorage([staleRegionTasPeak, mainlandPeak]),
@@ -729,17 +722,6 @@ void main() {
   testWidgets('add mode shows existing peaks as checked and saves new ones', (
     tester,
   ) async {
-    final listRepository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(
-          peakListId: 1,
-          name: 'Tasmania',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 101, points: 4),
-          ]),
-        ),
-      ]),
-    );
     final peakA = _buildPeak(
       osmId: 101,
       name: 'Existing Peak',
@@ -751,6 +733,15 @@ void main() {
       name: 'New Peak',
       latitude: -42,
       longitude: 147,
+    );
+    final listRepository = _peakListRepository(
+      [
+        (
+          peakList: PeakList(peakListId: 1, name: 'Tasmania'),
+          items: const [PeakListItem(peakOsmId: 101, points: 4)],
+        ),
+      ],
+      peaks: [peakA, peakB],
     );
 
     final completer = await _pumpDialog(
@@ -804,7 +795,8 @@ void main() {
     await tester.pump();
 
     await tester.tap(find.byKey(const Key('peak-list-peak-save')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     final result = await completer.future;
     expect(result?.deleted, isFalse);
@@ -820,11 +812,6 @@ void main() {
   testWidgets('add mode saves multiple peaks in alphabetical order', (
     tester,
   ) async {
-    final listRepository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
-      ]),
-    );
     final peakZulu = _buildPeak(
       osmId: 300,
       name: 'Zulu Peak',
@@ -842,6 +829,15 @@ void main() {
       name: 'Mike Peak',
       latitude: -41.2,
       longitude: 146.2,
+    );
+    final listRepository = _peakListRepository(
+      [
+        (
+          peakList: PeakList(name: 'Tasmania')..peakListId = 1,
+          items: const [],
+        ),
+      ],
+      peaks: [peakZulu, peakAlpha, peakMike],
     );
 
     final completer = await _pumpDialog(
@@ -891,7 +887,8 @@ void main() {
     await tester.pump();
 
     await tester.tap(find.byKey(const Key('peak-list-peak-save')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     final result = await completer.future;
     expect(result?.selectedPeakIds, [100, 200, 300]);
@@ -906,10 +903,34 @@ void main() {
   testWidgets('add mode splits search and selected panes evenly', (
     tester,
   ) async {
-    final listRepository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
-      ]),
+    final peaks = [
+      _buildPeak(
+        osmId: 300,
+        name: 'Zulu Peak',
+        latitude: -41,
+        longitude: 146,
+      ),
+      _buildPeak(
+        osmId: 100,
+        name: 'Alpha Peak',
+        latitude: -41.1,
+        longitude: 146.1,
+      ),
+      _buildPeak(
+        osmId: 200,
+        name: 'Mike Peak',
+        latitude: -41.2,
+        longitude: 146.2,
+      ),
+    ];
+    final listRepository = _peakListRepository(
+      [
+        (
+          peakList: PeakList(name: 'Tasmania')..peakListId = 1,
+          items: const [],
+        ),
+      ],
+      peaks: peaks,
     );
 
     final completer = await _pumpDialog(
@@ -922,26 +943,7 @@ void main() {
         ascentRows: const [],
       ),
       peakRepository: PeakRepository.test(
-        InMemoryPeakStorage([
-          _buildPeak(
-            osmId: 300,
-            name: 'Zulu Peak',
-            latitude: -41,
-            longitude: 146,
-          ),
-          _buildPeak(
-            osmId: 100,
-            name: 'Alpha Peak',
-            latitude: -41.1,
-            longitude: 146.1,
-          ),
-          _buildPeak(
-            osmId: 200,
-            name: 'Mike Peak',
-            latitude: -41.2,
-            longitude: 146.2,
-          ),
-        ]),
+        InMemoryPeakStorage(peaks),
       ),
       tasmapRepository: await TestTasmapRepository.create(),
       gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
@@ -961,23 +963,19 @@ void main() {
     expect(find.byKey(const Key('peak-selected-row-100')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('peak-list-peak-save')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     expect(await completer.future, isNotNull);
   });
 
   testWidgets('edit mode updates points only', (tester) async {
-    final listRepository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(
-          peakListId: 1,
-          name: 'Tasmania',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 101, points: 4),
-          ]),
-        ),
-      ]),
-    );
+    final listRepository = _peakListRepository([
+      (
+        peakList: PeakList(peakListId: 1, name: 'Tasmania'),
+        items: const [PeakListItem(peakOsmId: 101, points: 4)],
+      ),
+    ]);
     final peak = _buildPeak(
       osmId: 101,
       name: 'Mount Edit',
@@ -1036,18 +1034,15 @@ void main() {
   testWidgets('delete mode removes membership and selects next row', (
     tester,
   ) async {
-    final listRepository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(
-          peakListId: 1,
-          name: 'Tasmania',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 101, points: 4),
-            const PeakListItem(peakOsmId: 202, points: 5),
-          ]),
-        ),
-      ]),
-    );
+    final listRepository = _peakListRepository([
+      (
+        peakList: PeakList(peakListId: 1, name: 'Tasmania'),
+        items: const [
+          PeakListItem(peakOsmId: 101, points: 4),
+          PeakListItem(peakOsmId: 202, points: 5),
+        ],
+      ),
+    ]);
     final peak = _buildPeak(
       osmId: 101,
       name: 'Mount Delete',
@@ -1109,17 +1104,6 @@ void main() {
   testWidgets(
     'partial-success multi-add increments revision once when any add succeeds',
     (tester) async {
-      final listRepository = PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(
-            peakListId: 1,
-            name: 'Tasmania',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 101, points: 4),
-            ]),
-          ),
-        ]),
-      );
       final existingPeak = _buildPeak(
         osmId: 101,
         name: 'Existing Peak',
@@ -1131,6 +1115,15 @@ void main() {
         name: 'New Peak',
         latitude: -42,
         longitude: 147,
+      );
+      final listRepository = _peakListRepository(
+        [
+          (
+            peakList: PeakList(peakListId: 1, name: 'Tasmania'),
+            items: const [PeakListItem(peakOsmId: 101, points: 4)],
+          ),
+        ],
+        peaks: [existingPeak, newPeak],
       );
       final mapNotifier = TestMapNotifier(
         MapState(
@@ -1187,7 +1180,7 @@ void main() {
     (tester) async {
       final listRepository = PeakListRepository.test(
         InMemoryPeakListStorage([
-          PeakList(peakListId: 1, name: 'Tassy Full', peakList: '[]'),
+          PeakList(peakListId: 1, name: 'Tassy Full'),
         ]),
       );
       final tasPeak = _buildPeak(
@@ -1258,10 +1251,7 @@ void main() {
         findsOneWidget,
       );
       expect(container.read(peakListRevisionProvider), 0);
-      expect(
-        decodePeakListItems(listRepository.getAllPeakLists().single.peakList),
-        isEmpty,
-      );
+      expect(listRepository.getPeakListItemsForList(1), isEmpty);
       expect(
         find.byKey(const Key('peak-list-peak-failure-close')),
         findsOneWidget,
@@ -1303,7 +1293,7 @@ void main() {
         tester,
         dialog: PeakListPeakDialog(
           mode: PeakListPeakDialogMode.view,
-          peakList: PeakList(name: 'Tasmania', peakList: '[]')..peakListId = 1,
+          peakList: PeakList(name: 'Tasmania')..peakListId = 1,
           peakListRepository: PeakListRepository.test(
             InMemoryPeakListStorage(),
           ),
@@ -1333,6 +1323,44 @@ void main() {
   );
 }
 
+typedef _PeakListDefinition = ({PeakList peakList, List<PeakListItem> items});
+
+PeakListRepository _peakListRepository(
+  List<_PeakListDefinition> definitions, {
+  List<Peak> peaks = const [],
+}) {
+  final peakLists = [for (final definition in definitions) definition.peakList];
+  final peakListsById = {for (final peakList in peakLists) peakList.peakListId: peakList};
+  final items = <PeakListItemEntity>[];
+  final resolvedPeaks = <int, Peak>{for (final peak in peaks) peak.osmId: peak};
+  var itemId = 1;
+  for (final definition in definitions) {
+    for (final item in definition.items) {
+      final peak = resolvedPeaks[item.peakOsmId] ??
+          Peak(
+            osmId: item.peakOsmId,
+            name: 'Peak ${item.peakOsmId}',
+            latitude: -42,
+            longitude: 146,
+          );
+      resolvedPeaks[peak.osmId] = peak;
+      items.add(
+        PeakListItemEntity(id: itemId++, points: item.points)
+          ..peakList.target = peakListsById[definition.peakList.peakListId]!
+          ..peak.target = peak,
+      );
+    }
+  }
+
+  return PeakListRepository.test(
+    InMemoryPeakListStorage(peakLists),
+    itemStorage: InMemoryPeakListItemEntityStorage(items),
+    peakRepository: PeakRepository.test(
+      InMemoryPeakStorage(resolvedPeaks.values.toList(growable: false)),
+    ),
+  );
+}
+
 Future<Completer<PeakListPeakDialogOutcome?>> _pumpDialog(
   WidgetTester tester, {
   required Widget dialog,
@@ -1344,6 +1372,7 @@ Future<Completer<PeakListPeakDialogOutcome?>> _pumpDialog(
   bool settle = true,
 }) async {
   final completer = Completer<PeakListPeakDialogOutcome?>();
+  var dialogShown = false;
 
   await tester.pumpWidget(
     ProviderScope(
@@ -1367,12 +1396,16 @@ Future<Completer<PeakListPeakDialogOutcome?>> _pumpDialog(
         tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
         gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
       ],
-      child: MaterialApp(
-        home: Builder(
-          builder: (context) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              showGeneralDialog<PeakListPeakDialogOutcome>(
-                context: context,
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) {
+              if (dialogShown) {
+                return const SizedBox.shrink();
+              }
+              dialogShown = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                showGeneralDialog<PeakListPeakDialogOutcome>(
+                  context: context,
                 barrierDismissible: true,
                 barrierLabel: MaterialLocalizations.of(
                   context,
