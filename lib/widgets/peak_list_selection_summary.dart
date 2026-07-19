@@ -90,7 +90,6 @@ class _InteractivePeakListSelectionChip extends ConsumerWidget {
       context,
       isSelected: chip.isSelected,
       colourValue: chip.colourValue,
-      useNeutralStyle: chip.usesNeutralStyle,
     );
 
     return KeyedSubtree(

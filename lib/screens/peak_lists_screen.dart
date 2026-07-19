@@ -459,13 +459,6 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
   List<_PeakListSummaryRow> _sortSummaryRows(List<_PeakListSummaryRow> rows) {
     final sorted = List<_PeakListSummaryRow>.from(rows);
     sorted.sort((left, right) {
-      final unsupportedComparison = _sortColumn == _PeakListSortColumn.name
-          ? 0
-          : _compareSupportedFirst(left, right);
-      if (unsupportedComparison != 0) {
-        return unsupportedComparison;
-      }
-
       if (_sortColumn == _PeakListSortColumn.ascents) {
         final leftBlank = left.ascentCount == 0;
         final rightBlank = right.ascentCount == 0;
@@ -578,16 +571,6 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
     }
 
     return null;
-  }
-
-  int _compareSupportedFirst(
-    _PeakListSummaryRow left,
-    _PeakListSummaryRow right,
-  ) {
-    if (left.isSupported == right.isSupported) {
-      return 0;
-    }
-    return left.isSupported ? -1 : 1;
   }
 }
 
@@ -1779,7 +1762,6 @@ class _PeakDetailsTableCardState extends State<_PeakDetailsTableCard> {
   Widget build(BuildContext context) {
     final rows =
         widget.selectedSummaryRow?.peakRows ?? const <_PeakDetailRow>[];
-    final unsupportedMessage = widget.selectedSummaryRow?.unsupportedMessage;
     final sortedRows = _sortRows(rows);
     final widths = _resolvePeakTableWidths(context, widget.selectedSummaryRow);
 
@@ -1810,14 +1792,6 @@ class _PeakDetailsTableCardState extends State<_PeakDetailsTableCard> {
                         padding: EdgeInsets.only(bottom: 12),
                         child: Text(
                           'No peak lists exist. Import a CSV to get started.',
-                        ),
-                      ),
-                    if (unsupportedMessage != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Text(
-                          unsupportedMessage,
-                          key: const Key('peak-lists-unsupported-message'),
                         ),
                       ),
                     Expanded(
@@ -3668,7 +3642,6 @@ bool _boundsCollapseToSinglePoint(LatLngBounds bounds) {
 class _PeakListSummaryRow {
   const _PeakListSummaryRow._({
     required this.peakList,
-    required this.isSupported,
     required this.totalPeaks,
     required this.climbed,
     required this.unclimbed,
@@ -3680,7 +3653,6 @@ class _PeakListSummaryRow {
     required this.mapPeaks,
     required this.latestAscentDate,
     required this.latestAscentPeaks,
-    this.unsupportedMessage,
   });
 
   factory _PeakListSummaryRow.fromPeakList(
@@ -3690,135 +3662,113 @@ class _PeakListSummaryRow {
     required Map<int, int> ascentCountsByPeakId,
     required Map<int, DateTime?> latestAscentDatesByPeakId,
   }) {
-    try {
-      final items = peakListRepository.getPeakListItemsForList(peakList.peakListId);
-      final uniqueItems = <PeakListItem>[];
-      final seenPeakIds = <int>{};
-      for (final item in items) {
-        if (seenPeakIds.add(item.peakOsmId)) {
-          uniqueItems.add(item);
-        }
+    final items = peakListRepository.getPeakListItemsForList(peakList.peakListId);
+    final uniqueItems = <PeakListItem>[];
+    final seenPeakIds = <int>{};
+    for (final item in items) {
+      if (seenPeakIds.add(item.peakOsmId)) {
+        uniqueItems.add(item);
       }
-
-      final ascentCount = uniqueItems.fold<int>(
-        0,
-        (sum, item) => sum + (ascentCountsByPeakId[item.peakOsmId] ?? 0),
-      );
-
-      final peakRows = uniqueItems
-          .map((item) {
-            final peak = peaksById[item.peakOsmId];
-            return _PeakDetailRow(
-              peakId: item.peakOsmId,
-              peak: peak,
-              name: peak?.name ?? 'Unknown',
-              elevation: peak?.elevation,
-              rating: peak?.rating,
-              ascentDate: latestAscentDatesByPeakId[item.peakOsmId],
-              ascentCount: ascentCountsByPeakId[item.peakOsmId] ?? 0,
-              difficulty: peak?.difficulty ?? '',
-              durationMinutes: peak?.durationMinutes,
-              durationLabel: peak?.durationLabel ?? '',
-              points: item.points,
-            );
-          })
-          .toList(growable: false);
-      final mapPeaks = uniqueItems
-          .map((item) {
-            final peak = peaksById[item.peakOsmId];
-            if (peak == null) {
-              return null;
-            }
-            return _MapPeak(
-              peak: peak,
-              isClimbed: latestAscentDatesByPeakId.containsKey(item.peakOsmId),
-            );
-          })
-          .whereType<_MapPeak>()
-          .toList(growable: false);
-      final climbed = uniqueItems
-          .where(
-            (item) => latestAscentDatesByPeakId.containsKey(item.peakOsmId),
-          )
-          .length;
-      final totalPeaks = uniqueItems.length;
-      final unclimbed = totalPeaks - climbed;
-      final totalPoints = uniqueItems.fold<int>(
-        0,
-        (sum, item) => sum + item.points,
-      );
-      final earnedPoints = uniqueItems
-          .where(
-            (item) => latestAscentDatesByPeakId.containsKey(item.peakOsmId),
-          )
-          .fold<int>(0, (sum, item) => sum + item.points);
-      final percentageValue = totalPeaks == 0
-          ? 0.0
-          : climbed / totalPeaks.toDouble();
-
-      DateTime? latestAscentDate;
-      for (final row in peakRows) {
-        if (row.ascentDate == null) {
-          continue;
-        }
-        final ascentDay = _dateOnly(row.ascentDate!);
-        if (latestAscentDate == null || ascentDay.isAfter(latestAscentDate)) {
-          latestAscentDate = ascentDay;
-        }
-      }
-
-      final latestAscentPeakRows = latestAscentDate == null
-          ? <_PeakDetailRow>[]
-          : (peakRows
-                .where(
-                  (row) =>
-                      row.ascentDate != null &&
-                      _dateOnly(row.ascentDate!) == latestAscentDate,
-                )
-                .toList(growable: false)
-              ..sort((left, right) => left.peakId.compareTo(right.peakId)));
-
-      return _PeakListSummaryRow._(
-        peakList: peakList,
-        isSupported: true,
-        totalPeaks: totalPeaks,
-        climbed: climbed,
-        unclimbed: unclimbed,
-        ascentCount: ascentCount,
-        totalPoints: totalPoints,
-        earnedPoints: earnedPoints,
-        percentageValue: percentageValue,
-        peakRows: peakRows,
-        mapPeaks: mapPeaks,
-        latestAscentDate: latestAscentDate,
-        latestAscentPeaks: [
-          for (final row in latestAscentPeakRows)
-            _LatestAscentPeak(peakId: row.peakId, name: row.name),
-        ],
-      );
-    } catch (_) {
-      return _PeakListSummaryRow._(
-        peakList: peakList,
-        isSupported: false,
-        totalPeaks: null,
-        climbed: null,
-        unclimbed: null,
-        ascentCount: 0,
-        totalPoints: null,
-        earnedPoints: null,
-        percentageValue: -1,
-        peakRows: const [],
-        mapPeaks: const [],
-        latestAscentDate: null,
-        latestAscentPeaks: const [],
-        unsupportedMessage:
-            'This peak list is unavailable. Re-import the CSV if its membership rows are missing.',
-      );
     }
+
+    final ascentCount = uniqueItems.fold<int>(
+      0,
+      (sum, item) => sum + (ascentCountsByPeakId[item.peakOsmId] ?? 0),
+    );
+
+    final peakRows = uniqueItems
+        .map((item) {
+          final peak = peaksById[item.peakOsmId];
+          return _PeakDetailRow(
+            peakId: item.peakOsmId,
+            peak: peak,
+            name: peak?.name ?? 'Unknown',
+            elevation: peak?.elevation,
+            rating: peak?.rating,
+            ascentDate: latestAscentDatesByPeakId[item.peakOsmId],
+            ascentCount: ascentCountsByPeakId[item.peakOsmId] ?? 0,
+            difficulty: peak?.difficulty ?? '',
+            durationMinutes: peak?.durationMinutes,
+            durationLabel: peak?.durationLabel ?? '',
+            points: item.points,
+          );
+        })
+        .toList(growable: false);
+    final mapPeaks = uniqueItems
+        .map((item) {
+          final peak = peaksById[item.peakOsmId];
+          if (peak == null) {
+            return null;
+          }
+          return _MapPeak(
+            peak: peak,
+            isClimbed: latestAscentDatesByPeakId.containsKey(item.peakOsmId),
+          );
+        })
+        .whereType<_MapPeak>()
+        .toList(growable: false);
+    final climbed = uniqueItems
+        .where(
+          (item) => latestAscentDatesByPeakId.containsKey(item.peakOsmId),
+        )
+        .length;
+    final totalPeaks = uniqueItems.length;
+    final unclimbed = totalPeaks - climbed;
+    final totalPoints = uniqueItems.fold<int>(
+      0,
+      (sum, item) => sum + item.points,
+    );
+    final earnedPoints = uniqueItems
+        .where(
+          (item) => latestAscentDatesByPeakId.containsKey(item.peakOsmId),
+        )
+        .fold<int>(0, (sum, item) => sum + item.points);
+    final percentageValue = totalPeaks == 0
+        ? 0.0
+        : climbed / totalPeaks.toDouble();
+
+    DateTime? latestAscentDate;
+    for (final row in peakRows) {
+      if (row.ascentDate == null) {
+        continue;
+      }
+      final ascentDay = _dateOnly(row.ascentDate!);
+      if (latestAscentDate == null || ascentDay.isAfter(latestAscentDate)) {
+        latestAscentDate = ascentDay;
+      }
+    }
+
+    final latestAscentPeakRows = latestAscentDate == null
+        ? <_PeakDetailRow>[]
+        : (peakRows
+              .where(
+                (row) =>
+                    row.ascentDate != null &&
+                    _dateOnly(row.ascentDate!) == latestAscentDate,
+              )
+              .toList(growable: false)
+            ..sort((left, right) => left.peakId.compareTo(right.peakId)));
+
+    return _PeakListSummaryRow._(
+      peakList: peakList,
+      totalPeaks: totalPeaks,
+      climbed: climbed,
+      unclimbed: unclimbed,
+      ascentCount: ascentCount,
+      totalPoints: totalPoints,
+      earnedPoints: earnedPoints,
+      percentageValue: percentageValue,
+      peakRows: peakRows,
+      mapPeaks: mapPeaks,
+      latestAscentDate: latestAscentDate,
+      latestAscentPeaks: [
+        for (final row in latestAscentPeakRows)
+          _LatestAscentPeak(peakId: row.peakId, name: row.name),
+      ],
+    );
   }
 
   final PeakList peakList;
-  final bool isSupported;
   final int? totalPeaks;
   final int? climbed;
   final int? unclimbed;
@@ -3830,27 +3780,21 @@ class _PeakListSummaryRow {
   final List<_MapPeak> mapPeaks;
   final DateTime? latestAscentDate;
   final List<_LatestAscentPeak> latestAscentPeaks;
-  final String? unsupportedMessage;
 
   String get totalPeaksLabel => _formattedCountOrDash(totalPeaks);
   String get climbedLabel => _formattedCountOrDash(climbed);
   String get unclimbedLabel => _formattedCountOrDash(unclimbed);
   String get ascentCountLabel =>
       ascentCount == 0 ? '' : formatCount(ascentCount);
-  String get percentageLabel {
-    if (!isSupported) {
-      return '-';
-    }
-    return formatPercentage(percentageValue * 100, decimalPlaces: 0);
-  }
+  String get percentageLabel =>
+      formatPercentage(percentageValue * 100, decimalPlaces: 0);
 
   String? buildSummarySentence() {
-    if (!isSupported ||
-        totalPeaks == null ||
+    if (totalPeaks == null ||
         climbed == null ||
         earnedPoints == null ||
         totalPoints == null) {
-      return unsupportedMessage;
+      return null;
     }
 
     final infoSentence =
@@ -3972,8 +3916,7 @@ class _PeakListSummarySentence extends StatelessWidget {
     if (summaryText == null) {
       return const SizedBox.shrink();
     }
-    if (!summaryRow.isSupported ||
-        latestAscentDate == null ||
+    if (latestAscentDate == null ||
         summaryRow.latestAscentPeaks.isEmpty ||
         summaryRow.totalPeaks == null ||
         summaryRow.climbed == null ||

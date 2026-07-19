@@ -1969,17 +1969,14 @@ void main() {
   });
 
   testWidgets(
-    'unsupported legacy rows stay visible with dash metrics and details message',
+    'empty rows stay visible without unsupported details message',
     (tester) async {
       await _pumpPeakListsApp(
         tester,
         filePicker: TestPeakListFilePicker(),
-        repository: _UnavailablePeakListRepository(
-          InMemoryPeakListStorage([
-            PeakList(name: 'Unavailable List')..peakListId = 1,
-          ]),
-          unavailablePeakListIds: const {1},
-        ),
+        repository: _peakListRepository([
+          _buildPeakList(1, 'Empty List', []),
+        ]),
         peakRepository: PeakRepository.test(InMemoryPeakStorage()),
         peaksBaggedRepository: PeaksBaggedRepository.test(
           InMemoryPeaksBaggedStorage(),
@@ -1987,34 +1984,24 @@ void main() {
       );
 
       expect(find.byKey(const Key('peak-lists-row-1')), findsOneWidget);
-      expect(find.text('Unavailable List'), findsNWidgets(2));
+      expect(find.text('Empty List'), findsNWidgets(2));
       expect(find.byKey(const Key('peak-lists-delete-1')), findsOneWidget);
       expect(find.byKey(const Key('peak-lists-total-1')), findsOneWidget);
-      expect(find.text('-'), findsNWidgets(4));
-      final unsupportedMessage = find.byKey(
-        const Key('peak-lists-unsupported-message'),
-      );
-      expect(unsupportedMessage, findsOneWidget);
-      expect(
-        tester.widget<Text>(unsupportedMessage).data,
-        contains('membership rows are missing'),
-      );
+      expect(find.text('0'), findsWidgets);
+      expect(find.byKey(const Key('peak-lists-unsupported-message')), findsNothing);
     },
   );
 
   testWidgets(
-    'derived metric sorts keep unsupported rows after supported rows and indicators stay deterministic',
+    'derived metric sorts keep zero-member rows ordered deterministically and indicators stay deterministic',
     (tester) async {
       await _pumpPeakListsApp(
         tester,
         filePicker: TestPeakListFilePicker(),
-        repository: _UnavailablePeakListRepository(
-          InMemoryPeakListStorage([
-            _buildPeakList(1, 'Bravo', [100]),
-            PeakList(name: 'Unavailable List')..peakListId = 2,
-          ]),
-          unavailablePeakListIds: const {2},
-        ),
+        repository: _peakListRepository([
+          _buildPeakList(1, 'Bravo', [100]),
+          _buildPeakList(2, 'Empty List', []),
+        ]),
         peakRepository: PeakRepository.test(
           InMemoryPeakStorage([_buildPeak(100, 'Alpha Peak', -42.0, 146.0)]),
         ),
@@ -2066,10 +2053,10 @@ void main() {
       final bravoTop = tester
           .getTopLeft(find.byKey(const Key('peak-lists-row-1')))
           .dy;
-      final legacyTop = tester
+      final emptyTop = tester
           .getTopLeft(find.byKey(const Key('peak-lists-row-2')))
           .dy;
-      expect(bravoTop, lessThan(legacyTop));
+      expect(emptyTop, lessThan(bravoTop));
     },
   );
 
@@ -4751,21 +4738,4 @@ class _StaticPeakListMiniMapClusterDisplayOffNotifier
     extends PeakListMiniMapClusterDisplaySettingsNotifier {
   @override
   bool build() => false;
-}
-
-class _UnavailablePeakListRepository extends PeakListRepository {
-  _UnavailablePeakListRepository(
-    super.storage, {
-    required this.unavailablePeakListIds,
-  }) : super.test();
-
-  final Set<int> unavailablePeakListIds;
-
-  @override
-  List<PeakListItem> getPeakListItemsForList(int peakListId) {
-    if (unavailablePeakListIds.contains(peakListId)) {
-      throw StateError('membership rows unavailable');
-    }
-    return super.getPeakListItemsForList(peakListId);
-  }
 }

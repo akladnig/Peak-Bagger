@@ -128,18 +128,13 @@ final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((
     for (final peakListId in visibleSpecificPeakListIds)
       () {
         final peakList = peakListsById[peakListId];
-        final usesNeutralStyle =
-            peakList != null && !_isReadablePeakList(peakList);
         return PeakListSelectionChip.list(
           peakListId: peakListId,
           label: labelsById[peakListId] ?? 'List #$peakListId',
           regionKey: regionKeysById[peakListId],
           isSelected: visibleSelectedPeakListIds.contains(peakListId),
           isPinned: visiblePinnedPeakListIds.contains(peakListId),
-          colourValue: usesNeutralStyle || peakList == null
-              ? null
-              : resolvePeakListColour(peakList),
-          usesNeutralStyle: usesNeutralStyle,
+          colourValue: peakList == null ? null : resolvePeakListColour(peakList),
         );
       }(),
   ];
@@ -246,7 +241,7 @@ final _activePeakListOwnersByPeakIdProvider =
             break;
           }
         }
-        if (peakList == null || !_isReadablePeakList(peakList)) {
+        if (peakList == null) {
           continue;
         }
 
@@ -426,7 +421,6 @@ class PeakListSelectionChip {
     this.isSelected = true,
     this.isPinned = false,
     this.colourValue,
-    this.usesNeutralStyle = false,
   });
 
   const PeakListSelectionChip.allPeaks() : this._(label: 'All Peaks');
@@ -440,16 +434,14 @@ class PeakListSelectionChip {
     required bool isSelected,
     required bool isPinned,
     required int? colourValue,
-    required bool usesNeutralStyle,
   }) : this._(
-         label: label,
-         peakListId: peakListId,
-         regionKey: regionKey,
-         isSelected: isSelected,
-         isPinned: isPinned,
-         colourValue: colourValue,
-         usesNeutralStyle: usesNeutralStyle,
-       );
+          label: label,
+          peakListId: peakListId,
+          regionKey: regionKey,
+          isSelected: isSelected,
+          isPinned: isPinned,
+          colourValue: colourValue,
+        );
 
   final String label;
   final int? peakListId;
@@ -457,15 +449,10 @@ class PeakListSelectionChip {
   final bool isSelected;
   final bool isPinned;
   final int? colourValue;
-  final bool usesNeutralStyle;
 
   bool get isAllPeaks => peakListId == null && label == 'All Peaks';
 
   bool get isNone => peakListId == null && label == 'None';
-}
-
-bool _isReadablePeakList(PeakList peakList) {
-  return true;
 }
 
 List<_ActivePeakListOwner> _orderedActivePeakListOwners({
