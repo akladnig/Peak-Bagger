@@ -100,6 +100,10 @@ _Avoid_: style editor, vector basemap, user-custom basemap
 The user-configured Settings value that points `Peak Bagger` at the root HTTP host for project-managed local topo basemap routes.
 _Avoid_: hard-coded localhost, embedded server address
 
+**theLIST 25m DEM**:
+The Tasmania-specific elevation raster source used by this project for DEM-backed workflows when a Tasmania-local source of truth is required.
+_Avoid_: generic Tasmania DEM, OSM elevation data
+
 **Peak list mini-map**:
 The embedded map on `PeakListsScreen` that previews the selected peak list's geography.
 _Avoid_: mini-map when the dashboard latest-walk preview is also in scope
