@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +10,7 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
@@ -33,9 +36,9 @@ void main() {
         },
       ),
       peakListRepository: _peakListRepositoryWithItems([
-          PeakList(name: 'Zulu')..peakListId = 2,
-          PeakList(name: 'Alpha')..peakListId = 1,
-        ]),
+        PeakList(name: 'Zulu')..peakListId = 2,
+        PeakList(name: 'Alpha')..peakListId = 1,
+      ]),
     );
     router.go('/map');
     await tester.pumpAndSettle();
@@ -109,9 +112,9 @@ void main() {
         selectedPeakListIds: {1, 2},
       ),
       peakListRepository: _peakListRepositoryWithItems([
-          PeakList(name: 'Alpha Long List Name')..peakListId = 1,
-          PeakList(name: 'Zulu Long List Name')..peakListId = 2,
-        ]),
+        PeakList(name: 'Alpha Long List Name')..peakListId = 1,
+        PeakList(name: 'Zulu Long List Name')..peakListId = 2,
+      ]),
     );
 
     router.go('/map');
@@ -140,11 +143,10 @@ void main() {
           selectedPeakListIds: {1, 2, 3},
         ),
         peakListRepository: _peakListRepositoryWithItems([
-            PeakList(name: 'Abels')..peakListId = 1,
-            PeakList(name: 'HWC Peak Baggers')..peakListId = 2,
-            PeakList(name: 'Poimena Reserve West Ridge')
-              ..peakListId = 3,
-          ]),
+          PeakList(name: 'Abels')..peakListId = 1,
+          PeakList(name: 'HWC Peak Baggers')..peakListId = 2,
+          PeakList(name: 'Poimena Reserve West Ridge')..peakListId = 3,
+        ]),
       );
       router.go('/map');
       await tester.pumpAndSettle();
@@ -186,8 +188,8 @@ void main() {
         selectedPeakListIds: {1},
       ),
       peakListRepository: _peakListRepositoryWithItems([
-          PeakList(name: 'Alpha')..peakListId = 1,
-        ]),
+        PeakList(name: 'Alpha')..peakListId = 1,
+      ]),
     );
 
     router.go('/settings');
@@ -253,11 +255,9 @@ void main() {
         previousSpecificPeakListIds: {1, 2},
       ),
       peakListRepository: _peakListRepositoryWithItems([
-          PeakList(name: 'Alpha', region: 'tasmania')
-            ..peakListId = 1,
-          PeakList(name: 'Bravo', region: 'new-south-wales')
-            ..peakListId = 2,
-        ]),
+        PeakList(name: 'Alpha', region: 'tasmania')..peakListId = 1,
+        PeakList(name: 'Bravo', region: 'new-south-wales')..peakListId = 2,
+      ]),
     );
 
     router.go('/map');
@@ -288,11 +288,9 @@ void main() {
         peakListSelectionMode: PeakListSelectionMode.allPeaks,
       ),
       peakListRepository: _peakListRepositoryWithItems([
-          PeakList(name: 'Alpha', region: 'tasmania')
-            ..peakListId = 1,
-          PeakList(name: 'Bravo', region: 'new-south-wales')
-            ..peakListId = 2,
-        ]),
+        PeakList(name: 'Alpha', region: 'tasmania')..peakListId = 1,
+        PeakList(name: 'Bravo', region: 'new-south-wales')..peakListId = 2,
+      ]),
     );
 
     router.go('/map');
@@ -374,9 +372,8 @@ void main() {
         previousSpecificPeakListIds: {1},
       ),
       peakListRepository: _peakListRepositoryWithItems([
-          PeakList(name: 'Alpha', region: 'tasmania')
-            ..peakListId = 1,
-        ]),
+        PeakList(name: 'Alpha', region: 'tasmania')..peakListId = 1,
+      ]),
     );
 
     router.go('/map');
@@ -406,9 +403,8 @@ void main() {
         },
       ),
       peakListRepository: _peakListRepositoryWithItems([
-          PeakList(name: 'Alpha', region: 'tasmania')
-            ..peakListId = 1,
-        ]),
+        PeakList(name: 'Alpha', region: 'tasmania')..peakListId = 1,
+      ]),
     );
 
     router.go('/map');
@@ -433,9 +429,8 @@ void main() {
         peakListSelectionMode: PeakListSelectionMode.allPeaks,
       ),
       peakListRepository: _peakListRepositoryWithItems([
-          PeakList(name: 'Alpha', region: 'tasmania')
-            ..peakListId = 1,
-        ]),
+        PeakList(name: 'Alpha', region: 'tasmania')..peakListId = 1,
+      ]),
     );
 
     router.go('/map');
@@ -476,6 +471,86 @@ void main() {
     expect(container.read(mapProvider).selectedPeakListIds, {1});
   });
 
+  testWidgets(
+    'drawer selection updates immediately and stale deferred refreshes are superseded',
+    (tester) async {
+      final scheduler = _ControlledPeakListSelectionRefreshScheduler();
+      await _pumpApp(
+        tester,
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          visibleBounds: _tasmaniaBounds,
+          peakListSelectionMode: PeakListSelectionMode.allPeaks,
+        ),
+        peakListRepository: _peakListRepositoryWithItems([
+          PeakList(name: 'Alpha', region: 'tasmania')..peakListId = 1,
+        ]),
+        refreshScheduler: scheduler.call,
+      );
+
+      router.go('/map');
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('shared-app-bar'))),
+      );
+
+      await tester.tap(find.byKey(const Key('show-peaks-fab')));
+      await tester.pumpAndSettle();
+      await scheduler.runAllPending();
+      await tester.pump();
+
+      await tester.tap(find.byKey(const Key('peak-list-item-Alpha')));
+      await tester.pump();
+
+      expect(
+        container.read(mapProvider).peakListSelectionMode,
+        PeakListSelectionMode.specificList,
+      );
+      expect(container.read(mapProvider).selectedPeakListIds, {1});
+      expect(
+        find.byKey(const Key('peak-list-selection-chip-all-peaks')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('peak-list-selection-chip-1')), findsNothing);
+      expect(scheduler.pendingCount, 1);
+
+      await tester.tap(find.byKey(const Key('peak-list-item-All Peaks')));
+      await tester.pump();
+
+      expect(
+        container.read(mapProvider).peakListSelectionMode,
+        PeakListSelectionMode.allPeaks,
+      );
+      expect(container.read(mapProvider).selectedPeakListIds, isEmpty);
+      expect(scheduler.pendingCount, 2);
+
+      await scheduler.runPendingAt(1);
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('peak-list-selection-chip-all-peaks')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('peak-list-selection-chip-1')), findsNothing);
+
+      await scheduler.runPendingAt(0);
+      await tester.pump();
+
+      expect(
+        container.read(mapProvider).peakListSelectionMode,
+        PeakListSelectionMode.allPeaks,
+      );
+      expect(
+        find.byKey(const Key('peak-list-selection-chip-all-peaks')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('peak-list-selection-chip-1')), findsNothing);
+    },
+  );
+
   testWidgets('app bar chips use selected fill and unselected accent colours', (
     tester,
   ) async {
@@ -494,17 +569,11 @@ void main() {
         },
       ),
       peakListRepository: _peakListRepositoryWithItems([
-          PeakList(
-            name: 'Alpha',
-            region: 'tasmania',
-            colour: 0xFF4C8BF5,
-          )..peakListId = 1,
-          PeakList(
-            name: 'Bravo',
-            region: 'tasmania',
-            colour: 0xFFE67E22,
-          )..peakListId = 2,
-        ]),
+        PeakList(name: 'Alpha', region: 'tasmania', colour: 0xFF4C8BF5)
+          ..peakListId = 1,
+        PeakList(name: 'Bravo', region: 'tasmania', colour: 0xFFE67E22)
+          ..peakListId = 2,
+      ]),
     );
 
     router.go('/map');
@@ -542,7 +611,6 @@ void main() {
       const Color(0xFFE67E22),
     );
   });
-
 }
 
 final _tasmaniaBounds = LatLngBounds(
@@ -554,6 +622,7 @@ Future<void> _pumpApp(
   WidgetTester tester,
   MapState state, {
   PeakListRepository? peakListRepository,
+  PeakListSelectionRefreshScheduler? refreshScheduler,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -563,6 +632,10 @@ Future<void> _pumpApp(
           peakListRepository ??
               PeakListRepository.test(InMemoryPeakListStorage()),
         ),
+        if (refreshScheduler != null)
+          peakListSelectionRefreshSchedulerProvider.overrideWithValue(
+            refreshScheduler,
+          ),
       ],
       child: const App(),
     ),
@@ -577,6 +650,27 @@ Color? _resolvedBackgroundColor(ButtonStyle? style) {
 
 Color? _resolvedSideColor(ButtonStyle? style) {
   return style?.side?.resolve(const <WidgetState>{})?.color;
+}
+
+class _ControlledPeakListSelectionRefreshScheduler {
+  final _pendingTasks = <FutureOr<void> Function()>[];
+
+  int get pendingCount => _pendingTasks.length;
+
+  Future<void> call(FutureOr<void> Function() task) async {
+    _pendingTasks.add(task);
+  }
+
+  Future<void> runPendingAt(int index) async {
+    final task = _pendingTasks.removeAt(index);
+    await task();
+  }
+
+  Future<void> runAllPending() async {
+    while (_pendingTasks.isNotEmpty) {
+      await runPendingAt(0);
+    }
+  }
 }
 
 PeakListRepository _peakListRepositoryWithItems(List<PeakList> peakLists) {

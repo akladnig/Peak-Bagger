@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:ui' show PointerDeviceKind;
+import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -129,6 +130,86 @@ void main() {
     expect(find.byKey(const Key('asset-polygon-layer')), findsOneWidget);
   });
 
+  testWidgets(
+    'continuous drag defers peak-list-derived refresh until motion settles',
+    (tester) async {
+      MapRebuildDebugCounters.reset();
+      final peakA = Peak(
+        osmId: 1,
+        name: 'Peak A',
+        latitude: -41.5,
+        longitude: 146.5,
+        region: 'tasmania',
+      );
+      final peakList = PeakList(
+        peakListId: 42,
+        name: 'Focus List',
+        region: 'tasmania',
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            mapProvider.overrideWith(
+              () => TestMapNotifier(
+                MapState(
+                  center: const LatLng(-41.5, 146.5),
+                  zoom: 12,
+                  basemap: Basemap.tracestrack,
+                  peaks: [peakA],
+                  visibleBounds: _tasmaniaBounds,
+                  peakListSelectionMode: PeakListSelectionMode.specificList,
+                  selectedPeakListIds: {42},
+                ),
+              ),
+            ),
+            peakListRepositoryProvider.overrideWithValue(
+              PeakListRepository.test(
+                InMemoryPeakListStorage([peakList]),
+                itemStorage: InMemoryPeakListItemEntityStorage([
+                  PeakListItemEntity(id: 1, points: 0)
+                    ..peakList.target = peakList
+                    ..peak.target = peakA,
+                ]),
+              ),
+            ),
+          ],
+          child: const App(),
+        ),
+      );
+      await tester.pump();
+      router.go('/map');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
+
+      final initialRefreshes = MapRebuildDebugCounters.peakListDerivedRefreshes;
+      final region = find.byKey(const Key('map-interaction-region'));
+      final gesture = await tester.startGesture(tester.getCenter(region));
+
+      await gesture.moveBy(const Offset(40, 0));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      await gesture.moveBy(const Offset(40, 0));
+      await tester.pump();
+
+      expect(
+        MapRebuildDebugCounters.peakListDerivedRefreshes,
+        initialRefreshes,
+      );
+
+      await gesture.up();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(
+        MapRebuildDebugCounters.peakListDerivedRefreshes,
+        greaterThan(initialRefreshes),
+      );
+    },
+  );
+
   testWidgets('polygon toggle hides and restores the layer', (tester) async {
     MapRebuildDebugCounters.reset();
     final notifier = TestMapNotifier(
@@ -239,6 +320,11 @@ void main() {
     expect(notifications, 1);
   });
 }
+
+final _tasmaniaBounds = LatLngBounds(
+  const LatLng(-43.5, 145.5),
+  const LatLng(-40.5, 148.5),
+);
 
 Future<void> _pumpMapApp(WidgetTester tester, MapState state) async {
   await tester.pumpWidget(

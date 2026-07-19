@@ -15,6 +15,8 @@ import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_metadata_rules.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
+import 'package:peak_bagger/services/slovenia_hribi_source_peak_list_service.dart';
+import 'package:peak_bagger/services/slovenia_peak_correlation_service.dart';
 
 typedef PeakListCsvLoader = Future<String> Function(String csvPath);
 typedef PeakListImportRootLoader = Future<String> Function();
@@ -135,6 +137,16 @@ class PeakListImportService {
           processedRows += 1;
           reportProgress();
         },
+      );
+    }
+    if (_isSloveniaReviewPeakListCsv(rows.first)) {
+      throw const FormatException(
+        'Unsupported Slovenia review CSV. Import the ranked CSV instead of the .review.csv file.',
+      );
+    }
+    if (_isSloveniaRepairPeakListCsv(rows.first)) {
+      throw const FormatException(
+        'Unsupported Slovenia repair CSV. Import the ranked CSV instead of the .repair.csv file.',
       );
     }
 
@@ -372,8 +384,10 @@ class PeakListImportService {
     final existingPeaksByOsmId = {
       for (final peak in _peakRepository.getAllPeaks()) peak.osmId: peak,
     };
-    final hasExplicitSourceOfTruth =
-        headers.length == _extendedRankedPeakListHeaders.length;
+    final rankedHeaderVariant = _rankedHeaderVariant(headers);
+    if (rankedHeaderVariant == null) {
+      throw const FormatException('unsupported ranked peak list header');
+    }
     final items = <PeakListItem>[];
     final plannedPeaksByOsmId = <int, Peak>{};
     final seenOsmIds = <int>{};
@@ -396,7 +410,7 @@ class PeakListImportService {
         nextSyntheticOsmId: nextSyntheticOsmId,
         seenOsmIds: seenOsmIds,
         peaksByOsmId: existingPeaksByOsmId,
-        hasExplicitSourceOfTruth: hasExplicitSourceOfTruth,
+        headerVariant: rankedHeaderVariant,
       );
       if (!existingPeaksByOsmId.containsKey(rankedRow.osmId)) {
         nextSyntheticOsmId = rankedRow.osmId - 1;
@@ -460,17 +474,31 @@ class PeakListImportService {
     final headers = headerRow
         .map((value) => _rankedHeaderValue('$value'))
         .toList(growable: false);
-    final expectedHeaders = switch (headers.length) {
-      14 => _rankedPeakListHeaders,
-      15 => _extendedRankedPeakListHeaders,
-      _ => null,
-    };
-    if (expectedHeaders == null) {
+    return _rankedHeaderVariant(headers) != null;
+  }
+
+  _RankedHeaderVariant? _rankedHeaderVariant(List<String> headers) {
+    if (_headersMatch(headers, _rankedPeakListHeaders)) {
+      return _RankedHeaderVariant.basic;
+    }
+    if (_headersMatch(headers, _rankedPeakListHeadersWithAltName)) {
+      return _RankedHeaderVariant.withAltName;
+    }
+    if (_headersMatch(headers, _extendedRankedPeakListHeaders)) {
+      return _RankedHeaderVariant.withSourceOfTruth;
+    }
+    if (_headersMatch(headers, _extendedRankedPeakListHeadersWithAltName)) {
+      return _RankedHeaderVariant.withAltNameAndSourceOfTruth;
+    }
+    return null;
+  }
+
+  bool _headersMatch(List<String> actualHeaders, List<String> expectedHeaders) {
+    if (actualHeaders.length != expectedHeaders.length) {
       return false;
     }
-
-    for (var index = 0; index < headers.length; index++) {
-      if (headers[index] != expectedHeaders[index]) {
+    for (var index = 0; index < actualHeaders.length; index++) {
+      if (actualHeaders[index] != expectedHeaders[index]) {
         return false;
       }
     }
@@ -491,6 +519,16 @@ class PeakListImportService {
       }
     }
     return true;
+  }
+
+  bool _isSloveniaReviewPeakListCsv(List<dynamic> headerRow) {
+    final headers = headerRow.map((value) => _headerValue('$value')).toList();
+    return _headersMatch(headers, sloveniaCorrelationReviewCsvHeader);
+  }
+
+  bool _isSloveniaRepairPeakListCsv(List<dynamic> headerRow) {
+    final headers = headerRow.map((value) => _headerValue('$value')).toList();
+    return _headersMatch(headers, sloveniaHribiSourcePeakListRepairCsvHeader);
   }
 
   List<List<dynamic>> _parseHwcCsv(List<List<dynamic>> rows) {
@@ -633,7 +671,7 @@ class PeakListImportService {
     required int nextSyntheticOsmId,
     required Set<int> seenOsmIds,
     required Map<int, Peak> peaksByOsmId,
-    required bool hasExplicitSourceOfTruth,
+    required _RankedHeaderVariant headerVariant,
   }) {
     final data = <String, String>{};
     for (var index = 0; index < headers.length; index++) {
@@ -641,6 +679,7 @@ class PeakListImportService {
     }
 
     final name = data['name'] ?? '';
+    final altName = data['altName'] ?? '';
     final rawOsmId = data['osmId'] ?? '';
     final osmId = rawOsmId.isEmpty
         ? nextSyntheticOsmId
@@ -664,7 +703,7 @@ class PeakListImportService {
       regionValue,
       rowNumber: rowNumber,
     );
-    final sourceOfTruth = hasExplicitSourceOfTruth
+    final sourceOfTruth = headerVariant.hasExplicitSourceOfTruth
         ? _normalizeRankedSourceOfTruth(
             data['sourceOfTruth'] ?? '',
             rowNumber: rowNumber,
@@ -676,6 +715,7 @@ class PeakListImportService {
       rowNumber: rowNumber,
       osmId: osmId,
       name: name,
+      altName: altName,
       rating: _parseRankedRating(
         data['rating'] ?? '',
         rowNumber: rowNumber,
@@ -762,6 +802,7 @@ class PeakListImportService {
     final mgrs = PeakMgrsConverter.fromLatLng(LatLng(latitude, longitude));
     return peak.copyWith(
       name: row.name.isEmpty ? peak.name : row.name,
+      altName: row.altName.isEmpty ? peak.altName : row.altName,
       elevation: row.elevation ?? peak.elevation,
       prominence: row.prominence ?? peak.prominence,
       latitude: latitude,
@@ -795,6 +836,7 @@ class PeakListImportService {
     return Peak(
       osmId: row.osmId,
       name: row.name,
+      altName: row.altName,
       elevation: row.elevation,
       prominence: row.prominence,
       latitude: latitude,
@@ -1552,6 +1594,7 @@ class _RankedPeakListCsvRow {
     required this.rowNumber,
     required this.osmId,
     required this.name,
+    required this.altName,
     required this.rating,
     required this.elevation,
     required this.prominence,
@@ -1570,6 +1613,7 @@ class _RankedPeakListCsvRow {
   final int rowNumber;
   final int osmId;
   final String name;
+  final String altName;
   final double? rating;
   final double? elevation;
   final double? prominence;
@@ -1645,6 +1689,19 @@ class _AppOwnedPeakListCsvRow {
   bool get hasDuration => duration != null;
 }
 
+enum _RankedHeaderVariant {
+  basic,
+  withAltName,
+  withSourceOfTruth,
+  withAltNameAndSourceOfTruth;
+
+  bool get hasExplicitSourceOfTruth => switch (this) {
+    _RankedHeaderVariant.basic || _RankedHeaderVariant.withAltName => false,
+    _RankedHeaderVariant.withSourceOfTruth ||
+    _RankedHeaderVariant.withAltNameAndSourceOfTruth => true,
+  };
+}
+
 const _rankedPeakListHeaders = [
   'name',
   'osmId',
@@ -1662,8 +1719,31 @@ const _rankedPeakListHeaders = [
   'notes',
 ];
 
+const _rankedPeakListHeadersWithAltName = [
+  'name',
+  'altName',
+  'osmId',
+  'rating',
+  'elevation',
+  'prominence',
+  'latitude',
+  'longitude',
+  'country',
+  'region',
+  'range',
+  'county',
+  'difficulty',
+  'viaFerrata',
+  'notes',
+];
+
 const _extendedRankedPeakListHeaders = [
   ..._rankedPeakListHeaders,
+  'sourceOfTruth',
+];
+
+const _extendedRankedPeakListHeadersWithAltName = [
+  ..._rankedPeakListHeadersWithAltName,
   'sourceOfTruth',
 ];
 

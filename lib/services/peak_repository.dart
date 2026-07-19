@@ -22,6 +22,8 @@ abstract class PeakStorage {
 
   Peak? getById(int peakId);
 
+  Peak? getByOsmId(int osmId);
+
   List<Peak> getAll();
 
   List<Peak> getByName(String query);
@@ -622,6 +624,16 @@ class ObjectBoxPeakStorage implements PeakStorage {
   Peak? getById(int peakId) => _peakBox.get(peakId);
 
   @override
+  Peak? getByOsmId(int osmId) {
+    final query = _peakBox.query(Peak_.osmId.equals(osmId)).build();
+    try {
+      return query.findFirst();
+    } finally {
+      query.close();
+    }
+  }
+
+  @override
   List<Peak> getAll() => _peakBox.getAll();
 
   @override
@@ -702,6 +714,17 @@ class InMemoryPeakStorage implements PeakStorage {
   Peak? getById(int peakId) {
     for (final peak in _peaks) {
       if (peak.id == peakId) {
+        return peak;
+      }
+    }
+
+    return null;
+  }
+
+  @override
+  Peak? getByOsmId(int osmId) {
+    for (final peak in _peaks) {
+      if (peak.osmId == osmId) {
         return peak;
       }
     }
@@ -908,13 +931,7 @@ class PeakRepository implements PeakSource {
   bool _queryCouldMatchElevation(String query) => RegExp(r'\d').hasMatch(query);
 
   Peak? findByOsmId(int osmId) {
-    for (final peak in _storage.getAll()) {
-      if (peak.osmId == osmId) {
-        return peak;
-      }
-    }
-
-    return null;
+    return _storage.getByOsmId(osmId);
   }
 
   Peak? findById(int peakId) {

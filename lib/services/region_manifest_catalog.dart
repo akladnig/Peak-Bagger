@@ -1,4 +1,4 @@
-import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
+import 'package:flutter_map/src/geo/latlng_bounds.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/services/manifest_priority.dart';
 import 'package:peak_bagger/services/polygon_geometry.dart';

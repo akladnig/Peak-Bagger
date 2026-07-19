@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:flutter_test/flutter_test.dart';
@@ -279,6 +281,11 @@ void main() {
             ),
           ),
           peakListRepositoryProvider.overrideWithValue(peakListRepository),
+          peakListSelectionRefreshSchedulerProvider.overrideWithValue((
+            task,
+          ) async {
+            await task();
+          }),
         ],
       );
       addTearDown(container.dispose);
@@ -310,12 +317,119 @@ void main() {
   );
 
   test(
+    'settled bounds and latest selection win when motion settle overlaps stale refresh work',
+    () async {
+      final scheduler = _ControlledPeakListSelectionRefreshScheduler();
+      final peakListRepository = _peakListRepository(
+        peakLists: [
+          PeakList(name: 'Alpha', region: 'tasmania')..peakListId = 7,
+          PeakList(name: 'Bravo', region: 'new-south-wales')..peakListId = 8,
+        ],
+        peaks: [
+          Peak(
+            osmId: 100,
+            name: 'Tas Peak',
+            latitude: -43.0,
+            longitude: 147.0,
+            region: 'tasmania',
+          ),
+          Peak(
+            osmId: 200,
+            name: 'NSW Peak',
+            latitude: -33.7,
+            longitude: 149.0,
+            region: 'new-south-wales',
+          ),
+        ],
+        memberships: const [
+          (peakListId: 7, peakOsmId: 100, points: 1),
+          (peakListId: 8, peakOsmId: 200, points: 1),
+        ],
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => TestMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 15,
+                basemap: Basemap.tracestrack,
+                visibleBounds: LatLngBounds(
+                  const LatLng(-43.5, 145.5),
+                  const LatLng(-40.5, 148.5),
+                ),
+                peaks: [
+                  Peak(
+                    osmId: 100,
+                    name: 'Tas Peak',
+                    latitude: -43.0,
+                    longitude: 147.0,
+                    region: 'tasmania',
+                  ),
+                  Peak(
+                    osmId: 200,
+                    name: 'NSW Peak',
+                    latitude: -33.7,
+                    longitude: 149.0,
+                    region: 'new-south-wales',
+                  ),
+                ],
+                peakListSelectionMode: PeakListSelectionMode.allPeaks,
+              ),
+            ),
+          ),
+          peakListRepositoryProvider.overrideWithValue(peakListRepository),
+          peakListSelectionRefreshSchedulerProvider.overrideWithValue(
+            scheduler.call,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final sub = container.listen<PeakListSelectionSummary>(
+        peakListSelectionSummaryProvider,
+        (previous, next) {},
+        fireImmediately: true,
+      );
+      addTearDown(sub.close);
+
+      container
+          .read(mapProvider.notifier)
+          .selectPeakList(PeakListSelectionMode.specificList, peakListId: 8);
+      await Future<void>.delayed(Duration.zero);
+      container
+          .read(mapProvider.notifier)
+          .updateVisibleBounds(
+            LatLngBounds(
+              const LatLng(-34.5, 147.0),
+              const LatLng(-33.0, 150.5),
+            ),
+          );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(scheduler.pendingCount, 2);
+
+      await scheduler.runPendingAt(1);
+
+      final settledSummary = container.read(peakListSelectionSummaryProvider);
+      expect(settledSummary.chips.any((chip) => chip.peakListId == 8), isTrue);
+      expect(settledSummary.chips.any((chip) => chip.peakListId == 7), isFalse);
+
+      await scheduler.runPendingAt(0);
+
+      final finalSummary = container.read(peakListSelectionSummaryProvider);
+      expect(container.read(mapProvider).selectedPeakListIds, {8});
+      expect(finalSummary.chips.any((chip) => chip.peakListId == 8), isTrue);
+      expect(finalSummary.chips.any((chip) => chip.peakListId == 7), isFalse);
+    },
+  );
+
+  test(
     'summary provider orders chips by rendered label with fallback labels',
     () {
       final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(name: 'Zulu')..peakListId = 2,
-        ]),
+        InMemoryPeakListStorage([PeakList(name: 'Zulu')..peakListId = 2]),
       );
 
       final container = ProviderContainer(
@@ -390,16 +504,10 @@ void main() {
     () {
       final peakListRepository = _peakListRepository(
         peakLists: [
-          PeakList(
-            name: 'Poimenas',
-            region: 'tasmania',
-            colour: 0xFF6347EA,
-          )..peakListId = 1,
-          PeakList(
-            name: 'Abels',
-            region: 'tasmania',
-            colour: 0xFF4C8BF5,
-          )..peakListId = 9,
+          PeakList(name: 'Poimenas', region: 'tasmania', colour: 0xFF6347EA)
+            ..peakListId = 1,
+          PeakList(name: 'Abels', region: 'tasmania', colour: 0xFF4C8BF5)
+            ..peakListId = 9,
         ],
         memberships: const [
           (peakListId: 1, peakOsmId: 6406, points: 1),
@@ -450,11 +558,8 @@ void main() {
             region: 'tasmania',
             colour: 0xFF12B886,
           )..peakListId = 5,
-          PeakList(
-            name: 'Abels',
-            region: 'tasmania',
-            colour: 0xFF4C8BF5,
-          )..peakListId = 9,
+          PeakList(name: 'Abels', region: 'tasmania', colour: 0xFF4C8BF5)
+            ..peakListId = 9,
         ],
         memberships: const [
           (peakListId: 5, peakOsmId: 6406, points: 1),
@@ -524,16 +629,10 @@ void main() {
     () {
       final peakListRepository = _peakListRepository(
         peakLists: [
-          PeakList(
-            name: 'Bravo',
-            region: 'victoria',
-            colour: 0xFFE67E22,
-          )..peakListId = 8,
-          PeakList(
-            name: 'Alpha',
-            region: 'victoria',
-            colour: 0xFF4C8BF5,
-          )..peakListId = 7,
+          PeakList(name: 'Bravo', region: 'victoria', colour: 0xFFE67E22)
+            ..peakListId = 8,
+          PeakList(name: 'Alpha', region: 'victoria', colour: 0xFF4C8BF5)
+            ..peakListId = 7,
         ],
         memberships: const [
           (peakListId: 8, peakOsmId: 7000, points: 1),
@@ -704,7 +803,9 @@ void main() {
           visibleRegionKeys: {'tasmania'},
           peaks: peakRepository.getAllPeaks(),
           itemsLoader: (peakList) {
-            return peakListRepository.getPeakListItemsForList(peakList.peakListId);
+            return peakListRepository.getPeakListItemsForList(
+              peakList.peakListId,
+            );
           },
         ),
         {saved.peakListId},
@@ -717,8 +818,7 @@ void main() {
     () {
       final peakListRepository = _peakListRepository(
         peakLists: [
-          PeakList(name: 'Mixed', region: PeakList.mixedRegion)
-            ..peakListId = 7,
+          PeakList(name: 'Mixed', region: PeakList.mixedRegion)..peakListId = 7,
         ],
         peaks: [
           Peak(
@@ -816,6 +916,21 @@ class _StaticPeakOwnershipRingSettingsNotifier
   bool build() => true;
 }
 
+class _ControlledPeakListSelectionRefreshScheduler {
+  final _pendingTasks = <FutureOr<void> Function()>[];
+
+  int get pendingCount => _pendingTasks.length;
+
+  Future<void> call(FutureOr<void> Function() task) async {
+    _pendingTasks.add(task);
+  }
+
+  Future<void> runPendingAt(int index) async {
+    final task = _pendingTasks.removeAt(index);
+    await task();
+  }
+}
+
 PeakListRepository _peakListRepository({
   required List<PeakList> peakLists,
   List<Peak> peaks = const [],
@@ -832,7 +947,9 @@ PeakListRepository _peakListRepository({
           longitude: 146,
         ),
   };
-  final peakListsById = {for (final peakList in peakLists) peakList.peakListId: peakList};
+  final peakListsById = {
+    for (final peakList in peakLists) peakList.peakListId: peakList,
+  };
 
   return PeakListRepository.test(
     InMemoryPeakListStorage(peakLists),

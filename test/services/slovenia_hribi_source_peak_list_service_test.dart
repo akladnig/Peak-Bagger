@@ -165,10 +165,12 @@ void main() {
       expect(rankedRows, hasLength(3));
       expect(reviewRows, hasLength(2));
       expect(repairRows, hasLength(4));
-      expect(rankedRows[1][8], 'Slovenia');
-      expect(reviewRows[1][8], 'Slovenia');
-      expect(rankedRows[1][14], 'HRIBI');
-      expect(reviewRows[1][14], 'HRIBI');
+      expect(rankedRows[1][1], 'Tricorno / Triglav');
+      expect(rankedRows[2][1], 'Montaz Jof di Montasio');
+      expect(rankedRows[1][9], 'Slovenia');
+      expect(reviewRows[1][9], 'Slovenia');
+      expect(rankedRows[1][15], 'HRIBI');
+      expect(reviewRows[1][15], 'HRIBI');
       expect(reviewRows[1].last, 'missing_hribi_coordinates');
 
       final state =

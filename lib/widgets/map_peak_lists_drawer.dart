@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
-import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/fab_colour_resolver.dart';
-import 'package:peak_bagger/services/peak_list_visibility.dart';
 
 import '../core/constants.dart';
 import '../core/number_formatters.dart';
@@ -22,63 +19,16 @@ class MapPeakListsDrawer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final (
-      :peakListSelectionMode,
-      :selectedPeakListIds,
-      :pinnedPeakListIdsByRegion,
-      :visibleBounds,
-      :peaks,
-    ) = ref.watch(
+    final (:peakListSelectionMode, :selectedPeakListIds) = ref.watch(
       mapProvider.select(
         (state) => (
           peakListSelectionMode: state.peakListSelectionMode,
           selectedPeakListIds: state.selectedPeakListIds,
-          pinnedPeakListIdsByRegion: state.pinnedPeakListIdsByRegion,
-          visibleBounds: state.visibleBounds,
-          peaks: state.peaks,
         ),
       ),
     );
-    final repo = ref.watch(peakListRepositoryProvider);
-    final visibleRegionKeys = ref.watch(
-      mapProvider.select(
-        (state) => visibleRegionKeysForBounds(state.visibleBounds),
-      ),
-    );
     final peakListsLoadState = ref.watch(peakListsLoadProvider);
-    final peakLists = ref.watch(peakListsProvider);
-    final visiblePeakLists = <({PeakList peakList, int renderableCount})>[];
-    List<PeakListItem> loadItems(PeakList peakList) {
-      return repo.getPeakListItemsForList(peakList.peakListId);
-    }
-
-    for (final peakList in peakLists) {
-      if (!peakListAppliesToVisibleRegions(
-        peakList,
-        visibleRegionKeys,
-        visibleBounds: visibleBounds,
-        peaks: peaks,
-        itemsLoader: loadItems,
-      )) {
-        continue;
-      }
-
-      int itemCount;
-      try {
-        itemCount = repo.getPeakListItemsForList(peakList.peakListId).length;
-      } catch (_) {
-        continue;
-      }
-      if (itemCount == 0) {
-        continue;
-      }
-      visiblePeakLists.add((peakList: peakList, renderableCount: itemCount));
-    }
-    visiblePeakLists.sort(
-      (left, right) => left.peakList.name.toLowerCase().compareTo(
-        right.peakList.name.toLowerCase(),
-      ),
-    );
+    final visiblePeakLists = ref.watch(mapPeakListDrawerEntriesProvider);
 
     return Drawer(
       key: const Key('peak-lists-drawer'),
@@ -138,12 +88,6 @@ class MapPeakListsDrawer extends ConsumerWidget {
                   ),
                   child: Builder(
                     builder: (context) {
-                      final isPinned = peakListIsPinned(
-                        peakList: entry.peakList,
-                        pinnedPeakListIdsByRegion: pinnedPeakListIdsByRegion,
-                        peaks: peaks,
-                        itemsLoader: loadItems,
-                      );
                       final controlStyle = peakListControlVisualStyle(
                         context,
                         isSelected:
@@ -186,7 +130,7 @@ class MapPeakListsDrawer extends ConsumerWidget {
                           ),
                           onPressed: () {
                             final notifier = ref.read(mapProvider.notifier);
-                            if (isPinned) {
+                            if (entry.isPinned) {
                               notifier.unpinPeakListForRegion(
                                 regionKey: entry.peakList.region,
                                 peakListId: entry.peakList.peakListId,
@@ -199,13 +143,13 @@ class MapPeakListsDrawer extends ConsumerWidget {
                             }
                           },
                           icon: SvgPicture.asset(
-                            isPinned
+                            entry.isPinned
                                 ? 'assets/svg/unpin.svg'
                                 : 'assets/svg/pin.svg',
                             width: searchControlIconSize,
                             height: searchControlIconSize,
                             key: Key(
-                              isPinned
+                              entry.isPinned
                                   ? 'peak-list-unpin-icon-${entry.peakList.peakListId}'
                                   : 'peak-list-pin-icon-${entry.peakList.peakListId}',
                             ),

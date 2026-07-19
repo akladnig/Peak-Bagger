@@ -243,6 +243,7 @@ void main() {
 
     final runner = container.read(peakListImportRunnerProvider);
     await runner(listName: 'Alpha', csvPath: '/tmp/alpha.csv');
+    await _drainAsync();
 
     expect(container.read(peakListRevisionProvider), 1);
     expect(
